@@ -12,7 +12,7 @@ import AchievementNotification from "../components/achievements/AchievementNotif
 import { AnimatePresence } from "framer-motion";
 import { awardXP } from "../components/utils/xpSystem";
 import MobileBackButton from "../components/navigation/MobileBackButton";
-import identifyPlantFunction from "@/functions/identifyPlant";
+// import identifyPlantFunction from "@/functions/identifyPlant"; // This line is removed as per the change request
 
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
@@ -270,12 +270,11 @@ export default function Scanner() {
       console.log("✅ Upload erfolgreich:", file_url);
       setImageUrl(file_url);
 
-      console.log(`🌿 Starte Pflanzenerkennung (PlantNet + LLM Hybrid) mit organ: ${organ}...`);
-      console.log("🔧 Debug: Rufe identifyPlantFunction auf...");
+      console.log(`🌿 Starte Pflanzenerkennung mit organ: ${organ}...`);
       
       try {
-        // PLATFORM V2: Direkter Aufruf der importierten Funktion. Funktioniert aktuell nicht.
-        const response = await identifyPlantFunction({ 
+        // PLATFORM V2: Direkter Aufruf der importierten Funktion.
+        const response = await base44.functions.invoke('identifyPlant', { 
           image_url: file_url,
           organ: organ 
         });
