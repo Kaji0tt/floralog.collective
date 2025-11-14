@@ -2,11 +2,13 @@ import React, { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, RotateCcw, Volume2, VolumeX, BookOpen, Sparkles, ChevronLeft, ChevronRight, Search, Trash2, RefreshCw } from "lucide-react";
+import { AlertCircle, RotateCcw, Volume2, VolumeX, BookOpen, Sparkles, ChevronLeft, ChevronRight, Search, Trash2, RefreshCw, Share2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
+import ShareScanDialog from "./ShareScanDialog";
+import { base44 } from "@/api/base44Client";
 
 export default function ScanResults({ 
   plant, 
@@ -23,10 +25,31 @@ export default function ScanResults({
   const [currentResultIndex, setCurrentResultIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isChanging, setIsChanging] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [user, setUser] = useState(null);
+  const [discovery, setDiscovery] = useState(null);
   const navigate = useNavigate();
   const x = useMotionValue(0);
   const constraintsRef = useRef(null);
   const cardRef = useRef(null);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const currentUser = await base44.auth.me();
+      setUser(currentUser);
+    };
+    loadUser();
+  }, []);
+
+  useEffect(() => {
+    const loadDiscovery = async () => {
+      if (!latestDiscoveryId) return;
+      const discoveries = await base44.entities.UserPlantDiscovery.list();
+      const found = discoveries.find(d => d.id === latestDiscoveryId);
+      setDiscovery(found);
+    };
+    loadDiscovery();
+  }, [latestDiscoveryId]);
 
   // Wenn allResults leer ist, aber plant vorhanden ist, nutze plant als einziges Ergebnis
   const results = allResults.length > 0 ? allResults : (plant ? [plant] : []);
@@ -293,6 +316,16 @@ export default function ScanResults({
 
     return (
       <div className="relative">
+        {showShareDialog && user && discovery && currentPlant && (
+          <ShareScanDialog
+            open={showShareDialog}
+            onClose={() => setShowShareDialog(false)}
+            discovery={discovery}
+            plant={currentPlant}
+            user={user}
+          />
+        )}
+
         {/* Navigation für mehrere Ergebnisse */}
         {hasMultipleResults && (
           <div className="mb-4 flex items-center justify-center gap-4">
@@ -525,6 +558,16 @@ export default function ScanResults({
                     <RotateCcw className="w-4 h-4 mr-2" />
                     Neuer Scan
                   </Button>
+                  {latestDiscoveryId && isPrimaryResult && (
+                    <Button
+                      onClick={() => setShowShareDialog(true)}
+                      variant="outline"
+                      className="flex-1 border-2 border-purple-300 hover:bg-purple-50 text-purple-700 font-semibold py-5"
+                    >
+                      <Share2 className="w-4 h-4 mr-2" />
+                      Mit Freund teilen
+                    </Button>
+                  )}
                   <Button
                     onClick={() => navigate(createPageUrl("Collection"))}
                     className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-5"
