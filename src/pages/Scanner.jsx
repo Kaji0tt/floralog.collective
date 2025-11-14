@@ -274,7 +274,7 @@ export default function Scanner() {
       console.log("🔧 Debug: Rufe identifyPlantFunction auf...");
       
       try {
-        // PLATFORM V2: Direkter Aufruf der importierten Funktion
+        // PLATFORM V2: Direkter Aufruf der importierten Funktion. Funktioniert aktuell nicht.
         const response = await identifyPlantFunction({ 
           image_url: file_url,
           organ: organ 
