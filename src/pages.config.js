@@ -27,6 +27,7 @@ import MigrateDiscoveries from './pages/MigrateDiscoveries';
 import FriendAchievements from './pages/FriendAchievements';
 import AdminBlumenList from './pages/AdminBlumenList';
 import FriendFriendsList from './pages/FriendFriendsList';
+import ViewSharedScan from './pages/ViewSharedScan';
 import Layout from './Layout.jsx';
 
 
@@ -60,6 +61,7 @@ export const PAGES = {
     "FriendAchievements": FriendAchievements,
     "AdminBlumenList": AdminBlumenList,
     "FriendFriendsList": FriendFriendsList,
+    "ViewSharedScan": ViewSharedScan,
 }
 
 export const pagesConfig = {
