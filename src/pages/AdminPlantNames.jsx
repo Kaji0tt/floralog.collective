@@ -1,0 +1,208 @@
+import { useState } from "react";
+import { base44 } from "@/api/base44Client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { CheckCircle, Edit, Loader2 } from "lucide-react";
+
+export default function AdminPlantNames() {
+  const queryClient = useQueryClient();
+  const [editingId, setEditingId] = useState(null);
+  const [newName, setNewName] = useState("");
+
+  const { data: plants = [], isLoading } = useQuery({
+    queryKey: ['plants'],
+    queryFn: () => base44.entities.Plant.list(),
+  });
+
+  const { data: genera = [] } = useQuery({
+    queryKey: ['genera'],
+    queryFn: () => base44.entities.PlantGenus.list(),
+  });
+
+  const updatePlantMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.Plant.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plants'] });
+      setEditingId(null);
+      setNewName("");
+    },
+  });
+
+  const autoFixMutation = useMutation({
+    mutationFn: async ({ plantId, genusId }) => {
+      const genus = genera.find(g => g.id === genusId);
+      if (!genus) throw new Error("Gattung nicht gefunden");
+
+      const genusPlants = plants.filter(p => p.genus_id === genusId);
+      
+      // Wenn mehrere Arten in Gattung: nutze Gattungsname
+      // Wenn nur eine Art: nutze Artname (frage LLM)
+      let germanName;
+      
+      if (genusPlants.length > 1) {
+        germanName = genus.genus_name;
+      } else {
+        // Frage LLM nach deutschem Artnamen
+        const plant = plants.find(p => p.id === plantId);
+        const result = await base44.integrations.Core.InvokeLLM({
+          prompt: `Gib mir nur den deutschen Artnamen für: ${plant.scientific_name}. Nur der Name, keine Erklärung!`,
+        });
+        germanName = result.trim();
+      }
+
+      return base44.entities.Plant.update(plantId, {
+        species_name: germanName
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plants'] });
+    },
+  });
+
+  // Erkenne lateinische Namen (vereinfacht: wenn Name mit Großbuchstaben beginnt und Leerzeichen enthält)
+  const needsFixing = (plant) => {
+    const name = plant.species_name || "";
+    // Prüfe ob es wie ein lateinischer Name aussieht (z.B. "Pyracantha coccinea")
+    return name.includes(' ') && /^[A-Z][a-z]+ [a-z]+/.test(name);
+  };
+
+  const plantsNeedingFix = plants.filter(needsFixing);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-12 h-12 animate-spin text-green-600" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4 md:p-8">
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-stone-900 mb-3">
+            Pflanzennamen korrigieren 🔧
+          </h1>
+          <p className="text-lg text-stone-600">
+            {plantsNeedingFix.length} Pflanzen mit lateinischen Namen gefunden
+          </p>
+        </div>
+
+        {plantsNeedingFix.length === 0 ? (
+          <Card className="border-2 border-green-200">
+            <CardContent className="p-8 text-center">
+              <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
+              <h3 className="text-xl font-bold text-stone-900 mb-2">
+                Alle Namen sind korrekt! ✅
+              </h3>
+              <p className="text-stone-600">
+                Keine Pflanzen mit lateinischen Namen gefunden.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {plantsNeedingFix.map((plant) => {
+              const genus = genera.find(g => g.id === plant.genus_id);
+              const isEditing = editingId === plant.id;
+
+              return (
+                <Card key={plant.id} className="border-2 border-orange-200">
+                  <CardHeader className="bg-orange-50">
+                    <CardTitle className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {plant.image_url && (
+                          <img
+                            src={plant.image_url}
+                            alt={plant.species_name}
+                            className="w-16 h-16 object-cover rounded-lg border-2 border-stone-200"
+                          />
+                        )}
+                        <div>
+                          <div className="text-xl font-bold text-stone-900">
+                            {plant.species_name}
+                          </div>
+                          <div className="text-sm text-stone-600 italic">
+                            {plant.scientific_name}
+                          </div>
+                          {genus && (
+                            <Badge className="mt-1 bg-green-600 text-white">
+                              {genus.genus_name}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    {isEditing ? (
+                      <div className="flex gap-3">
+                        <Input
+                          value={newName}
+                          onChange={(e) => setNewName(e.target.value)}
+                          placeholder="Neuer deutscher Name"
+                          className="flex-1"
+                        />
+                        <Button
+                          onClick={() => {
+                            updatePlantMutation.mutate({
+                              id: plant.id,
+                              data: { species_name: newName }
+                            });
+                          }}
+                          disabled={!newName || updatePlantMutation.isPending}
+                        >
+                          Speichern
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setEditingId(null);
+                            setNewName("");
+                          }}
+                        >
+                          Abbrechen
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-3">
+                        <Button
+                          onClick={() => {
+                            setEditingId(plant.id);
+                            setNewName(genus?.genus_name || "");
+                          }}
+                          variant="outline"
+                          className="flex-1"
+                        >
+                          <Edit className="w-4 h-4 mr-2" />
+                          Manuell ändern
+                        </Button>
+                        <Button
+                          onClick={() => autoFixMutation.mutate({
+                            plantId: plant.id,
+                            genusId: plant.genus_id
+                          })}
+                          disabled={autoFixMutation.isPending}
+                          className="flex-1 bg-green-600 hover:bg-green-700"
+                        >
+                          {autoFixMutation.isPending ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            "✨ Auto-Korrektur"
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
