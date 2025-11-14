@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -8,7 +9,7 @@ import QuestCompletionAnimation from "../components/quests/QuestCompletionAnimat
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import { AnimatePresence, motion } from "framer-motion";
-import { Camera, BookOpen, Trophy, Target, Users, ChevronRight, MapPin, Sparkles } from "lucide-react";
+import { Camera, BookOpen, Trophy, Target, Users, ChevronRight, MapPin, Sparkles, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -77,6 +78,16 @@ export default function Home() {
          f.request_sent_to?.toLowerCase() === user.email.toLowerCase()) &&
         f.status === 'accepted'
       );
+    },
+    enabled: !!user?.email
+  });
+
+  const { data: sharedScans = [] } = useQuery({
+    queryKey: ['sharedScans'],
+    queryFn: async () => {
+      if (!user?.email) return [];
+      const scans = await base44.entities.SharedScan.list();
+      return scans.filter(s => s.shared_to === user.email && !s.viewed);
     },
     enabled: !!user?.email
   });
@@ -343,6 +354,37 @@ export default function Home() {
           />
         )}
       </AnimatePresence>
+
+      {/* Geteilte Scans Benachrichtigung */}
+      {sharedScans.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-6xl mx-auto mb-6"
+        >
+          <button
+            onClick={() => {
+              if (sharedScans.length > 0) {
+                navigate(createPageUrl(`ViewSharedScan?id=${sharedScans[0].id}`));
+              }
+            }}
+            className="w-full bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-4 text-white shadow-lg hover:shadow-xl transition-all"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center flex-shrink-0">
+                <Gift className="w-6 h-6 text-purple-600" />
+              </div>
+              <div className="flex-1 text-left">
+                <h3 className="font-bold text-lg">
+                  {sharedScans.length} {sharedScans.length === 1 ? 'Neuer geteilter Scan' : 'Neue geteilte Scans'}!
+                </h3>
+                <p className="text-purple-100 text-sm">Tippe hier, um ihn anzusehen und +25 XP zu erhalten</p>
+              </div>
+              <ChevronRight className="w-6 h-6 flex-shrink-0" />
+            </div>
+          </button>
+        </motion.div>
+      )}
 
       <div className="max-w-6xl mx-auto">
         <div className="md:hidden min-h-[calc(100vh-2rem)] flex flex-col gap-4 pb-4">
