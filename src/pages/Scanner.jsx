@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
@@ -12,7 +11,6 @@ import AchievementNotification from "../components/achievements/AchievementNotif
 import { AnimatePresence } from "framer-motion";
 import { awardXP } from "../components/utils/xpSystem";
 import MobileBackButton from "../components/navigation/MobileBackButton";
-// import identifyPlantFunction from "@/functions/identifyPlant"; // This line is removed as per the change request
 
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
@@ -38,7 +36,6 @@ export default function Scanner() {
     };
     loadUser();
     
-    // Standort automatisch abrufen
     getUserLocation();
   }, []);
 
@@ -165,7 +162,6 @@ export default function Scanner() {
     try {
       await deleteDiscoveryMutation.mutateAsync(discoveryId);
       
-      // Reset zum Scan-Bildschirm
       setMatchedPlant(null);
       setAllScanResults([]);
       setLatestDiscoveryId(null);
@@ -182,15 +178,12 @@ export default function Scanner() {
     try {
       let targetPlantId = newPlant.id;
       
-      // Falls die neue Pflanze noch nicht im PlantDex ist, füge sie hinzu
       if (!targetPlantId || newPlant.notInDex) {
-        // Prüfe ob Gattung existiert
         let genus = genera.find(g => 
           g.genus_name?.toLowerCase() === newPlant.genus_name?.toLowerCase() ||
           g.scientific_genus?.toLowerCase() === newPlant.scientific_genus?.toLowerCase()
         );
 
-        // Erstelle Gattung wenn nicht vorhanden
         if (!genus) {
           const categoryGenera = genera.filter(g => 
             g.category === newPlant.category || 
@@ -213,7 +206,6 @@ export default function Scanner() {
 
         const displayName = newPlant.species_name;
 
-        // Erstelle neue Pflanzenart im globalen PlantDex
         const createdPlant = await createPlantMutation.mutateAsync({
           genus_id: genus.id,
           species_name: displayName,
@@ -227,7 +219,6 @@ export default function Scanner() {
         targetPlantId = createdPlant.id;
       }
 
-      // Update die Discovery mit der neuen Pflanze
       await updateDiscoveryMutation.mutateAsync({
         discoveryId: discoveryId,
         data: {
@@ -236,7 +227,6 @@ export default function Scanner() {
         }
       });
 
-      // Aktualisiere die Anzeige
       const updatedPlant = plants.find(p => p.id === targetPlantId) || newPlant;
       setMatchedPlant({
         ...updatedPlant,
@@ -245,7 +235,6 @@ export default function Scanner() {
         aiData: newPlant
       });
 
-      // Speichere alle Ergebnisse für Swipe-Funktion
       const updatedResults = allScanResults.map((result, index) => 
         index === 0 ? { ...updatedPlant, aiData: result.aiData || result } : result
       );
@@ -273,7 +262,6 @@ export default function Scanner() {
       console.log(`🌿 Starte Pflanzenerkennung mit organ: ${organ}...`);
       
       try {
-        // PLATFORM V2: Direkter Aufruf der importierten Funktion.
         const response = await base44.functions.invoke('identifyPlant', { 
           image_url: file_url,
           organ: organ 
@@ -281,7 +269,6 @@ export default function Scanner() {
         
         console.log("✅ Rohe Response:", response);
         
-        // Response könnte direkt das Resultat sein oder { data: ... } haben
         const result = response.data || response;
         
         console.log("✅ Verarbeitetes Ergebnis:", JSON.stringify(result, null, 2));
@@ -294,7 +281,6 @@ export default function Scanner() {
             return str.toLowerCase().trim().replace(/\s+/g, ' ');
           };
 
-          // Verarbeite alle Ergebnisse
           const processedResults = await Promise.all(
             result.results.map(async (plantData) => {
               const resultSpeciesNorm = normalizeString(plantData.species_name);
@@ -335,7 +321,6 @@ export default function Scanner() {
               } else {
                 console.log("🆕 Nicht in Datenbank:", plantData.species_name);
                 
-                // Prüfe ob nicht-europäisch
                 if (plantData.is_european === false) {
                   return { ...plantData, notInDex: true, is_european: false, inDatabase: false };
                 }
@@ -345,20 +330,24 @@ export default function Scanner() {
             })
           );
 
-          // Speichere alle Ergebnisse für Swipe-Funktion
           setAllScanResults(processedResults);
 
-          // Zeige das erste Ergebnis an und speichere es automatisch wenn es in der Datenbank ist
           const firstResult = processedResults[0];
           
-          if (firstResult.inDatabase) {
-            await handleAutoSave(firstResult, file_url, firstResult.aiData, processedResults);
-          } else if (!firstResult.notInDex || firstResult.is_european !== false) {
-            await handleAutoAddNewPlant(firstResult, file_url, processedResults);
-          } else {
-            // Nicht-europäische Pflanze
+          // KORRIGIERTE LOGIK: Prüfe zuerst ob nicht-europäisch, dann ob in Datenbank
+          if (firstResult.is_european === false) {
+            // Nicht-europäische Pflanze - nur anzeigen, nicht speichern
+            console.log("🌍 Nicht-europäische Pflanze erkannt - nur Anzeige");
             setMatchedPlant(firstResult);
             setScanning(false);
+          } else if (firstResult.inDatabase) {
+            // Pflanze ist in der Datenbank - als UserDiscovery speichern
+            console.log("💾 Pflanze aus Datenbank - speichere Discovery");
+            await handleAutoSave(firstResult, file_url, firstResult.aiData, processedResults);
+          } else {
+            // Neue europäische Pflanze - zum globalen Dex hinzufügen
+            console.log("🆕 Neue Pflanze - füge zum PlantDex hinzu");
+            await handleAutoAddNewPlant(firstResult, file_url, processedResults);
           }
           
         } else {
@@ -371,7 +360,7 @@ export default function Scanner() {
         }
       } catch (funcError) {
         console.error("💥 Fehler beim Funktionsaufruf:", funcError);
-        throw new Error(`Funktion fehlgeschlagen: ${funcError.message}. Möglicherweise ist die Funktion nicht deployed oder hat einen Fehler.`);
+        throw new Error(`Funktion fehlgeschlagen: ${funcError.message}`);
       }
     } catch (error) {
       console.error("💥 HAUPTFEHLER:", error);
@@ -389,20 +378,16 @@ export default function Scanner() {
       locationString = `${userLocation.lat.toFixed(6)}, ${userLocation.lng.toFixed(6)}`;
     }
 
-    // Prüfe ob User diese Pflanze schon mal entdeckt hat
     const alreadyDiscovered = userDiscoveries.some(d => d.plant_id === plant.id);
     
     let xpAwarded = 0;
     
     if (alreadyDiscovered) {
-      // Bereits entdeckt: +5 XP
       xpAwarded = 5;
     } else {
-      // Erste Entdeckung: volle XP basierend auf Rarität
       xpAwarded = getRarityXP(plant.rarity || "Häufig");
     }
 
-    // Erstelle IMMER eine neue UserPlantDiscovery (auch bei bereits entdeckten Pflanzen)
     const newDiscovery = await base44.entities.UserPlantDiscovery.create({
       plant_id: plant.id,
       user: user.email,
@@ -412,23 +397,18 @@ export default function Scanner() {
       image_url: imageUrl
     });
 
-    // Speichere die Discovery ID für spätere Verwendung
     setLatestDiscoveryId(newDiscovery.id);
 
-    // XP vergeben
     await awardXPToUser(xpAwarded);
     
-    // Invalidate queries
     queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
     
-    // Prüfe Achievements
     const newlyUnlocked = await checkAndUnlockAchievements(user);
     if (newlyUnlocked.length > 0) {
       setNewAchievements(newlyUnlocked);
       setCurrentAchievementIndex(0);
     }
     
-    // Zeige Ergebnis an (NICHT automatisch zur Collection navigieren)
     setMatchedPlant({
       ...plant,
       discovered: alreadyDiscovered,
@@ -445,13 +425,11 @@ export default function Scanner() {
     }
 
     try {
-      // Prüfe ob Gattung existiert
       let genus = genera.find(g => 
         g.genus_name?.toLowerCase() === plantData.genus_name?.toLowerCase() ||
         g.scientific_genus?.toLowerCase() === plantData.scientific_genus?.toLowerCase()
       );
 
-      // Erstelle Gattung wenn nicht vorhanden
       if (!genus) {
         const categoryGenera = genera.filter(g => 
           g.category === plantData.category || 
@@ -474,7 +452,6 @@ export default function Scanner() {
 
       const displayName = plantData.species_name;
 
-      // Erstelle neue Pflanzenart im globalen PlantDex
       const newPlant = await createPlantMutation.mutateAsync({
         genus_id: genus.id,
         species_name: displayName,
@@ -485,7 +462,6 @@ export default function Scanner() {
         rarity: plantData.rarity || "Gelegentlich"
       });
 
-      // Erstelle UserPlantDiscovery für diesen User
       const newDiscovery = await base44.entities.UserPlantDiscovery.create({
         plant_id: newPlant.id,
         user: user.email,
@@ -495,23 +471,19 @@ export default function Scanner() {
         image_url: imageUrl
       });
 
-      // Speichere die Discovery ID für spätere Verwendung
       setLatestDiscoveryId(newDiscovery.id);
 
-      // Neue Pflanze zum PlantDex hinzugefügt: +50 XP!
       await awardXPToUser(50);
       
       queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
       queryClient.invalidateQueries({ queryKey: ['plants'] });
       
-      // Prüfe Achievements
       const newlyUnlocked = await checkAndUnlockAchievements(user);
       if (newlyUnlocked.length > 0) {
         setNewAchievements(newlyUnlocked);
         setCurrentAchievementIndex(0);
       }
       
-      // Zeige Ergebnis an (NICHT automatisch zur Collection navigieren)
       setMatchedPlant({
         ...newPlant,
         discovered: false,
@@ -535,7 +507,6 @@ export default function Scanner() {
     <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4 md:p-8">
       <MobileBackButton />
       
-      {/* Achievement Notifications */}
       <AnimatePresence>
         {newAchievements.length > 0 && currentAchievementIndex < newAchievements.length && (
           <AchievementNotification
