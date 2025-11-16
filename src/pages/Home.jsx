@@ -324,6 +324,7 @@ export default function Home() {
       bgColor: "bg-purple-50",
       borderColor: "border-purple-200",
       showProgress: false,
+      notificationCount: sharedScans.length,
       onClick: () => navigate(createPageUrl("Friends"))
     }
   ];
@@ -437,7 +438,7 @@ export default function Home() {
                         e.stopPropagation();
                         stat.onClick();
                       }}
-                      className={`${stat.bgColor} ${stat.borderColor} border-2 rounded-xl p-3 hover:shadow-lg transition-all duration-300 group text-left`}>
+                      className={`${stat.bgColor} ${stat.borderColor} border-2 rounded-xl p-3 hover:shadow-lg transition-all duration-300 group text-left relative`}>
 
                       <div className="flex items-center gap-2 mb-2">
                         <div className={`w-8 h-8 bg-gradient-to-br ${stat.color} rounded-full flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform`}>
@@ -455,6 +456,11 @@ export default function Home() {
                           </div>
                         </div>
                       }
+                      {stat.notificationCount > 0 && (
+                        <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-600 rounded-full flex items-center justify-center shadow-lg">
+                          <span className="text-white font-bold text-xs">{stat.notificationCount}</span>
+                        </div>
+                      )}
                     </button>
                   )}
                 </div>
@@ -568,7 +574,7 @@ export default function Home() {
                     <button
                       key={stat.label}
                       onClick={stat.onClick}
-                      className={`${stat.bgColor} ${stat.borderColor} border-2 rounded-xl p-3 hover:shadow-lg transition-all duration-300 group text-left`}>
+                      className={`${stat.bgColor} ${stat.borderColor} border-2 rounded-xl p-3 hover:shadow-lg transition-all duration-300 group text-left relative`}>
 
                       <div className="flex items-center gap-2 mb-2">
                         <div className={`w-8 h-8 bg-gradient-to-br ${stat.color} rounded-full flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform`}>
@@ -586,6 +592,11 @@ export default function Home() {
                           </div>
                         </div>
                       }
+                      {stat.notificationCount > 0 && (
+                        <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-600 rounded-full flex items-center justify-center shadow-lg">
+                          <span className="text-white font-bold text-xs">{stat.notificationCount}</span>
+                        </div>
+                      )}
                     </button>
                   )}
                 </div>
