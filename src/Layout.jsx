@@ -1,7 +1,8 @@
 
+import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { Camera, BookOpen, Map, Home, Target, Award, User, UserPlus } from "lucide-react"; 
+import { Camera, BookOpen, Map, Home, Users, Heart, Target, Award, User, UserPlus } from "lucide-react"; 
 import {
   Sidebar,
   SidebarContent,
@@ -13,6 +14,8 @@ import {
   SidebarMenuItem,
   SidebarHeader,
   SidebarProvider,
+  SidebarTrigger,
+  SidebarFooter,
 } from "@/components/ui/sidebar";
 
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
