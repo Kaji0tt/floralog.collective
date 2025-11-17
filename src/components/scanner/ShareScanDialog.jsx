@@ -25,10 +25,18 @@ export default function ShareScanDialog({ open, onClose, discovery, plant, user 
     queryFn: async () => {
       if (!user?.email) return [];
       const allFriends = await base44.entities.Friend.list();
-      return allFriends.filter(f => 
-        (f.request_sent_by === user.email || f.request_sent_to === user.email) && 
-        f.status === 'accepted'
-      );
+      
+      // Filtere akzeptierte Freundschaften in beide Richtungen
+      const acceptedFriends = allFriends.filter(f => {
+        const isMyFriend = (f.request_sent_by === user.email || f.request_sent_to === user.email);
+        const isAccepted = f.status === 'accepted';
+        return isMyFriend && isAccepted;
+      });
+
+      console.log('Alle Freunde:', allFriends.length);
+      console.log('Akzeptierte Freundschaften für', user.email, ':', acceptedFriends);
+      
+      return acceptedFriends;
     },
     enabled: !!user?.email && open,
   });
@@ -70,7 +78,7 @@ export default function ShareScanDialog({ open, onClose, discovery, plant, user 
   };
 
   const getFriendProfile = (friendEmail) => {
-    return publicProfiles.find(p => p.user_email === friendEmail);
+    return publicProfiles.find(p => p.user_email?.toLowerCase() === friendEmail?.toLowerCase());
   };
 
   const handleShare = async () => {
@@ -110,7 +118,7 @@ export default function ShareScanDialog({ open, onClose, discovery, plant, user 
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Gift className="w-5 h-5 text-red-600" />
@@ -118,7 +126,7 @@ export default function ShareScanDialog({ open, onClose, discovery, plant, user 
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
           {remainingShares <= 0 ? (
             <Alert className="border-amber-200 bg-amber-50">
               <AlertDescription className="text-amber-900">
@@ -135,54 +143,59 @@ export default function ShareScanDialog({ open, onClose, discovery, plant, user 
                 </span>
               </p>
 
-              <div className="space-y-2 max-h-96 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto space-y-2 pr-2">
                 {friends.length === 0 ? (
                   <p className="text-sm text-stone-500 text-center py-4">
                     Du hast noch keine Freunde. Füge Freunde hinzu, um Pflanzen zu teilen!
                   </p>
                 ) : (
-                  friends.map((friend) => {
-                    const friendEmail = getFriendEmail(friend);
-                    const profile = getFriendProfile(friendEmail);
-                    const isSelected = selectedFriend?.id === friend.id;
+                  <>
+                    <p className="text-xs text-stone-400 mb-2">
+                      {friends.length} Freund{friends.length !== 1 ? 'e' : ''} verfügbar
+                    </p>
+                    {friends.map((friend) => {
+                      const friendEmail = getFriendEmail(friend);
+                      const profile = getFriendProfile(friendEmail);
+                      const isSelected = selectedFriend?.id === friend.id;
 
-                    return (
-                      <button
-                        key={friend.id}
-                        onClick={() => setSelectedFriend(friend)}
-                        className={`w-full flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
-                          isSelected
-                            ? 'border-red-500 bg-red-50'
-                            : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50'
-                        }`}
-                      >
-                        <Avatar className="w-10 h-10">
-                          <AvatarImage src={profile?.avatar_url} />
-                          <AvatarFallback className="bg-green-600 text-white">
-                            {profile?.display_name?.charAt(0).toUpperCase() || '?'}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 text-left">
-                          <p className="font-semibold text-stone-900">
-                            {profile?.display_name || profile?.full_name || friendEmail}
-                          </p>
-                          <p className="text-xs text-stone-500">
-                            Level {profile?.level || 1}
-                          </p>
-                        </div>
-                        {isSelected && (
-                          <Gift className="w-5 h-5 text-red-600" />
-                        )}
-                      </button>
-                    );
-                  })
+                      return (
+                        <button
+                          key={friend.id}
+                          onClick={() => setSelectedFriend(friend)}
+                          className={`w-full flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
+                            isSelected
+                              ? 'border-red-500 bg-red-50'
+                              : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50'
+                          }`}
+                        >
+                          <Avatar className="w-10 h-10">
+                            <AvatarImage src={profile?.avatar_url} />
+                            <AvatarFallback className="bg-green-600 text-white">
+                              {profile?.display_name?.charAt(0).toUpperCase() || profile?.full_name?.charAt(0).toUpperCase() || '?'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 text-left">
+                            <p className="font-semibold text-stone-900">
+                              {profile?.display_name || profile?.full_name || friendEmail}
+                            </p>
+                            <p className="text-xs text-stone-500">
+                              Level {profile?.level || 1}
+                            </p>
+                          </div>
+                          {isSelected && (
+                            <Gift className="w-5 h-5 text-red-600" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </>
                 )}
               </div>
             </>
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="mt-4">
           <Button variant="outline" onClick={onClose}>
             Abbrechen
           </Button>
