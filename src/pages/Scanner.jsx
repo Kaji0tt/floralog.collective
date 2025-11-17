@@ -504,7 +504,7 @@ export default function Scanner() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4 md:p-8 overflow-x-hidden">
       <MobileBackButton />
       
       <AnimatePresence>
@@ -523,7 +523,7 @@ export default function Scanner() {
         )}
       </AnimatePresence>
 
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto w-full">
         <div className="text-center mb-8">
           {gettingLocation && (
             <div className="flex items-center justify-center gap-2 text-sm text-stone-500 mt-2">
@@ -586,21 +586,23 @@ export default function Scanner() {
         )}
 
         {matchedPlant && !scanning && (
-          <ScanResults
-            plant={matchedPlant}
-            imageUrl={imageUrl}
-            onRescan={() => {
-              setMatchedPlant(null);
-              setAllScanResults([]);
-              setLatestDiscoveryId(null);
-              setImageUrl(null);
-            }}
-            userLocation={userLocation}
-            allResults={allScanResults}
-            onDeleteResult={handleDeleteResult}
-            onChangeResult={handleChangeResult}
-            latestDiscoveryId={latestDiscoveryId}
-          />
+          <div className="w-full">
+            <ScanResults
+              plant={matchedPlant}
+              imageUrl={imageUrl}
+              onRescan={() => {
+                setMatchedPlant(null);
+                setAllScanResults([]);
+                setLatestDiscoveryId(null);
+                setImageUrl(null);
+              }}
+              userLocation={userLocation}
+              allResults={allScanResults}
+              onDeleteResult={handleDeleteResult}
+              onChangeResult={handleChangeResult}
+              latestDiscoveryId={latestDiscoveryId}
+            />
+          </div>
         )}
 
         {showCamera && (
