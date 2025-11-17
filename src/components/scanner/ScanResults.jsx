@@ -432,7 +432,8 @@ export default function ScanResults({
                             <Volume2 className="w-5 h-5 text-stone-600" />
                           )}
                         </Button>
-                                            {/* Header Animation */}
+                      </div>
+                        {/* Header Animation */}
                         <AnimatePresence>
                             {isPrimaryResult && (
                                 <motion.div
@@ -450,7 +451,6 @@ export default function ScanResults({
                                 </motion.div>
                             )}
                         </AnimatePresence>
-                      </div>
                     </div>
                   </CardHeader>
 
