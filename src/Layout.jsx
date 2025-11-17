@@ -258,8 +258,8 @@ export default function Layout({ children, currentPageName }) {
         </main>
       </div>
 
-      {/* Notification Manager */}
-      {user && <NotificationManager user={user} />}
+      {/* Notification Manager - nur Banner, kein Button */}
+      {user && currentPageName !== "Profile" && <NotificationManager user={user} />}
     </SidebarProvider>
   );
 }

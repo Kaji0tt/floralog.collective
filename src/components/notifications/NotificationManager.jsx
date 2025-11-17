@@ -4,9 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Bell, BellOff, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
-const VAPID_PUBLIC_KEY = "BNxZZ5ZMKH-qg8ZqJN7XqQF3mG_3Y3a8oKJzL5Y5yKq6b5Z6yJN7X8Z5yKq6b5Z6yJN7X8Z5yKq6b5Z6yJN7X8"; // Placeholder - wird durch echten Key ersetzt
-
-export default function NotificationManager({ user }) {
+export default function NotificationManager({ user, showInProfile = false }) {
   const [permissionState, setPermissionState] = useState("default");
   const [showPrompt, setShowPrompt] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -25,7 +23,7 @@ export default function NotificationManager({ user }) {
 
     if (permission === "granted" && user?.push_subscription) {
       setIsSubscribed(true);
-    } else if (permission === "default" && !localStorage.getItem("notification-prompt-dismissed")) {
+    } else if (permission === "default" && !localStorage.getItem("notification-prompt-dismissed") && !showInProfile) {
       // Zeige Prompt nach 5 Sekunden
       setTimeout(() => setShowPrompt(true), 5000);
     }
@@ -82,13 +80,17 @@ export default function NotificationManager({ user }) {
 
   const subscribeToPush = async () => {
     try {
+      // VAPID Key von Backend holen (würde normalerweise als env variable bereitgestellt)
+      // Für jetzt verwenden wir einen Standardwert - muss später durch echten Key ersetzt werden
+      const vapidPublicKey = "BNxZZ5ZMKH-qg8ZqJN7XqQF3mG_3Y3a8oKJzL5Y5yKq6b5Z6yJN7X8Z5yKq6b5Z6yJN7X8Z5yKq6b5Z6yJN7X8";
+      
       // Service Worker registrieren
       const registration = await registerServiceWorker();
 
       // Push Subscription erstellen
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
       });
 
       // Subscription in Datenbank speichern
@@ -101,7 +103,7 @@ export default function NotificationManager({ user }) {
       alert("🔔 Push-Benachrichtigungen aktiviert! Du wirst nun über Geschenke informiert.");
     } catch (error) {
       console.error("Failed to subscribe to push notifications:", error);
-      alert("Fehler beim Aktivieren der Benachrichtigungen. Bitte versuche es erneut.");
+      alert("Fehler beim Aktivieren der Benachrichtigungen. Stelle sicher, dass dein Browser Push-Benachrichtigungen unterstützt.");
     }
   };
 
@@ -152,9 +154,32 @@ export default function NotificationManager({ user }) {
     return null;
   }
 
+  // Im Profil: Zeige nur Button
+  if (showInProfile) {
+    return (
+      <Button
+        onClick={isSubscribed ? unsubscribeFromPush : requestNotificationPermission}
+        variant="outline"
+        className="w-full"
+      >
+        {isSubscribed ? (
+          <>
+            <BellOff className="w-4 h-4 mr-2" />
+            Benachrichtigungen deaktivieren
+          </>
+        ) : (
+          <>
+            <Bell className="w-4 h-4 mr-2" />
+            Benachrichtigungen aktivieren
+          </>
+        )}
+      </Button>
+    );
+  }
+
+  // Banner-Prompt
   return (
     <>
-      {/* Prompt Banner */}
       {showPrompt && permissionState === "default" && (
         <div className="fixed bottom-20 md:bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-md z-50 animate-in slide-in-from-bottom-5">
           <Card className="border-2 border-green-600 shadow-xl bg-white">
@@ -198,27 +223,6 @@ export default function NotificationManager({ user }) {
             </CardContent>
           </Card>
         </div>
-      )}
-
-      {/* Settings Button - nur in Profile anzeigen */}
-      {permissionState === "granted" && (
-        <Button
-          onClick={isSubscribed ? unsubscribeFromPush : subscribeToPush}
-          variant="outline"
-          className="w-full"
-        >
-          {isSubscribed ? (
-            <>
-              <BellOff className="w-4 h-4 mr-2" />
-              Benachrichtigungen deaktivieren
-            </>
-          ) : (
-            <>
-              <Bell className="w-4 h-4 mr-2" />
-              Benachrichtigungen aktivieren
-            </>
-          )}
-        </Button>
       )}
     </>
   );
