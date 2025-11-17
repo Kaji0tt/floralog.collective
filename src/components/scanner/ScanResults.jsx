@@ -417,46 +417,37 @@ export default function ScanResults({
                 className="w-full"
               >
                 <Card className="border-2 border-green-200 shadow-lg bg-white overflow-hidden">
-                  <CardHeader className="border-b-2 border-green-100 bg-gradient-to-r from-green-50 to-emerald-50">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <Button
-                          onClick={() => speakText(getDescriptionText(currentPlant))}
-                          variant="outline"
-                          size="icon"
-                          className={`border-2 mb-2 ${isSpeaking ? 'border-green-500 bg-green-50' : 'border-stone-300'}`}
+                  <CardHeader className="border-b-2 border-green-100 bg-gradient-to-r from-green-50 to-emerald-50 p-4 md:p-6">
+                    <AnimatePresence>
+                      {isPrimaryResult && (
+                        <motion.div
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0, opacity: 0 }}
+                          transition={{ type: "spring", duration: 0.6 }}
+                          className="flex items-center justify-between gap-4"
                         >
-                          {isSpeaking ? (
-                            <VolumeX className="w-5 h-5 text-green-600" />
-                          ) : (
-                            <Volume2 className="w-5 h-5 text-stone-600" />
-                          )}
-                        </Button>
-                      </div>
-                        {/* Header Animation */}
-                        <AnimatePresence>
-                            {isPrimaryResult && (
-                                <motion.div
-                                initial={{ scale: 0, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                exit={{ scale: 0, opacity: 0 }}
-                                transition={{ type: "spring", duration: 0.6 }}
-                                className="text-center mb-4 px-2"
-                                >
-                                <h2 className="text-lg md:text-2xl font-bold text-stone-900 break-words">
-                                    {isNewToPlantDex ? "Neue Pflanze zum PlantDex hinzugefügt! 🎉" : 
-                                    wasAlreadyDiscovered ? "Pflanze erneut gescannt! ✅" : 
-                                    "Neue Pflanze entdeckt! 🌟"}
-                                </h2>
-                                </motion.div>
+                          <h2 className="text-lg md:text-2xl font-bold text-stone-900 flex-1">
+                            {isNewToPlantDex ? "Neue Pflanze zum PlantDex hinzugefügt! 🎉" : 
+                             wasAlreadyDiscovered ? "Pflanze erneut gescannt! ✅" : 
+                             "Neue Pflanze entdeckt! 🌟"}
+                          </h2>
+                          <button
+                            onClick={() => speakText(getDescriptionText(currentPlant))}
+                            className="flex-shrink-0 hover:scale-110 transition-transform"
+                          >
+                            {isSpeaking ? (
+                              <VolumeX className="w-8 h-8 text-green-600" />
+                            ) : (
+                              <Volume2 className="w-8 h-8 text-stone-600" />
                             )}
-                        </AnimatePresence>
-                    </div>
+                          </button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </CardHeader>
 
                   <CardContent className="p-4 md:p-6 space-y-6">
-
-
                     <div className="grid md:grid-cols-2 gap-6">
                       <div className="space-y-4">
                         {imageUrl && (
