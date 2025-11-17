@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
@@ -95,13 +95,48 @@ export default function Map() {
     queryFn: () => base44.entities.UserPlantDiscovery.list(),
   });
 
-  const { data: friends = [] } = useQuery({
-    queryKey: ['friends'],
+  const { data: friendships = [] } = useQuery({
+    queryKey: ['friendships'],
     queryFn: async () => {
       if (!user?.email) return [];
-      return base44.entities.Friend.filter({ created_by: user.email, status: 'accepted' });
+      const allFriends = await base44.entities.Friend.list();
+      return allFriends.filter(f => 
+        f.status === 'accepted' &&
+        (f.request_sent_by === user.email || f.request_sent_to === user.email)
+      );
     },
     enabled: !!user?.email,
+  });
+
+  const { data: publicProfiles = [] } = useQuery({
+    queryKey: ['publicProfiles'],
+    queryFn: () => base44.entities.PublicProfile.list(),
+    enabled: friendships.length > 0,
+  });
+
+  // Helper: Hole Freund-Email aus Freundschaft
+  const getFriendEmail = (friendship) => {
+    if (!user) return null;
+    return friendship.request_sent_by === user.email 
+      ? friendship.request_sent_to 
+      : friendship.request_sent_by;
+  };
+
+  // Helper: Hole Profil eines Freundes
+  const getFriendProfile = (friendEmail) => {
+    return publicProfiles.find(p => p.user_email?.toLowerCase() === friendEmail?.toLowerCase());
+  };
+
+  // Erstelle Freund-Objekte mit Namen
+  const friends = friendships.map(friendship => {
+    const friendEmail = getFriendEmail(friendship);
+    const profile = getFriendProfile(friendEmail);
+    return {
+      id: friendship.id,
+      email: friendEmail,
+      name: profile?.display_name || profile?.full_name || friendEmail,
+      profile
+    };
   });
 
   // Helper function um Plant-Daten mit Discovery-Daten zu kombinieren
@@ -183,17 +218,17 @@ export default function Map() {
 
   // Freunde - jeder bekommt seine eigene Farbe
   friends.forEach((friend, friendIndex) => {
-    const viewKey = `friend-${friend.friend_email}`;
+    const viewKey = `friend-${friend.email}`;
     if (selectedViews[viewKey]) {
       const color = friendColors[friendIndex % friendColors.length];
-      const friendPlants = getPlantsWithDiscoveries(friend.friend_email)
+      const friendPlants = getPlantsWithDiscoveries(friend.email)
         .filter(p => extractCoordinates(p.discovery_location) !== null)
         .map(p => ({
           ...p,
           coordinates: extractCoordinates(p.discovery_location),
           icon: createFriendIcon(friendIndex),
           source: viewKey,
-          sourceLabel: friend.friend_name,
+          sourceLabel: friend.name,
           colorClass: color.bg
         }));
       allFilteredPlants.push(...friendPlants);
@@ -259,8 +294,8 @@ export default function Map() {
                     <div className="space-y-2">
                       <div className="text-xs font-bold text-stone-500 uppercase tracking-wider px-2">Freunde</div>
                       {friends.map((friend, friendIndex) => {
-                        const viewKey = `friend-${friend.friend_email}`;
-                        const friendPlantCount = getPlantsWithDiscoveries(friend.friend_email).filter(p => extractCoordinates(p.discovery_location)).length;
+                        const viewKey = `friend-${friend.email}`;
+                        const friendPlantCount = getPlantsWithDiscoveries(friend.email).filter(p => extractCoordinates(p.discovery_location)).length;
                         const color = friendColors[friendIndex % friendColors.length];
                         
                         return (
@@ -275,7 +310,7 @@ export default function Map() {
                             />
                             <div className="flex items-center gap-2 flex-1">
                               <div className={`w-3 h-3 ${color.bg} rounded-full`}></div>
-                              <span className="font-semibold text-stone-900">{friend.friend_name}</span>
+                              <span className="font-semibold text-stone-900">{friend.name}</span>
                             </div>
                             {selectedViews[viewKey] && (
                               <Badge variant="outline" className="text-xs">{friendPlantCount}</Badge>
