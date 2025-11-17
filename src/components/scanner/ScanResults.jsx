@@ -311,6 +311,9 @@ export default function ScanResults({
     const isNewToPlantDex = currentPlant.isNewToPlantDex || false;
     const wasAlreadyDiscovered = currentPlant.discovered === true;
     const confidencePercentage = currentPlant.confidence_percentage;
+    
+    // Prüfe ob Ergebnis ändern Button angezeigt werden soll
+    const showChangeResultButton = !isPrimaryResult && confidencePercentage >= 25;
 
     return (
       <div className="relative">
@@ -558,7 +561,7 @@ export default function ScanResults({
                               </>
                             )}
                           </Button>
-                        ) : (
+                        ) : showChangeResultButton ? (
                           <Button
                             onClick={handleChangeResult}
                             disabled={isChanging}
@@ -577,7 +580,7 @@ export default function ScanResults({
                               </>
                             )}
                           </Button>
-                        )}
+                        ) : null}
                       </div>
                     )}
                   </CardContent>
