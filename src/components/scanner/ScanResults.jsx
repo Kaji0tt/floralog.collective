@@ -432,29 +432,30 @@ export default function ScanResults({
                             <Volume2 className="w-5 h-5 text-stone-600" />
                           )}
                         </Button>
+                                            {/* Header Animation */}
+                        <AnimatePresence>
+                            {isPrimaryResult && (
+                                <motion.div
+                                initial={{ scale: 0, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0, opacity: 0 }}
+                                transition={{ type: "spring", duration: 0.6 }}
+                                className="text-center mb-4 px-2"
+                                >
+                                <h2 className="text-lg md:text-2xl font-bold text-stone-900 break-words">
+                                    {isNewToPlantDex ? "Neue Pflanze zum PlantDex hinzugefügt! 🎉" : 
+                                    wasAlreadyDiscovered ? "Pflanze erneut gescannt! ✅" : 
+                                    "Neue Pflanze entdeckt! 🌟"}
+                                </h2>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                       </div>
                     </div>
                   </CardHeader>
 
                   <CardContent className="p-4 md:p-6 space-y-6">
-                    {/* Header Animation */}
-                    <AnimatePresence>
-                      {isPrimaryResult && (
-                        <motion.div
-                          initial={{ scale: 0, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          exit={{ scale: 0, opacity: 0 }}
-                          transition={{ type: "spring", duration: 0.6 }}
-                          className="text-center mb-4 px-2"
-                        >
-                          <h2 className="text-lg md:text-2xl font-bold text-stone-900 break-words">
-                            {isNewToPlantDex ? "Neue Pflanze zum PlantDex hinzugefügt! 🎉" : 
-                             wasAlreadyDiscovered ? "Pflanze erneut gescannt! ✅" : 
-                             "Neue Pflanze entdeckt! 🌟"}
-                          </h2>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+
 
                     <div className="grid md:grid-cols-2 gap-6">
                       <div className="space-y-4">
