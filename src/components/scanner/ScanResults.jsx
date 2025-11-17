@@ -240,14 +240,14 @@ export default function ScanResults({
         <CardHeader className="border-b-2 border-orange-100 bg-gradient-to-r from-orange-50 to-red-50">
           <div className="text-center">
             <AlertCircle className="w-12 h-12 text-orange-600 mx-auto mb-3" />
-            <CardTitle className="text-3xl font-bold text-stone-900 mb-2">
+            <CardTitle className="text-2xl md:text-3xl font-bold text-stone-900 mb-2 px-4">
               Keine mitteleuropäische Pflanze! 🌍
             </CardTitle>
-            <p className="text-orange-700 font-semibold">PlantDex sammelt nur Pflanzen aus Mitteleuropa</p>
+            <p className="text-sm md:text-base text-orange-700 font-semibold px-4">PlantDex sammelt nur Pflanzen aus Mitteleuropa</p>
           </div>
         </CardHeader>
 
-        <CardContent className="p-6 space-y-6">
+        <CardContent className="p-4 md:p-6 space-y-6">
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <img
@@ -259,10 +259,10 @@ export default function ScanResults({
 
             <div className="space-y-4">
               <div>
-                <h3 className="text-2xl font-bold text-stone-900 mb-2">
+                <h3 className="text-xl md:text-2xl font-bold text-stone-900 mb-2 break-words">
                   {currentPlant.species_name}
                 </h3>
-                <p className="text-lg text-stone-600 italic mb-2">
+                <p className="text-base md:text-lg text-stone-600 italic mb-2 break-words">
                   {currentPlant.scientific_name}
                 </p>
               </div>
@@ -284,15 +284,15 @@ export default function ScanResults({
           </div>
 
           <Alert className="border-2 border-orange-200 bg-orange-50">
-            <AlertDescription className="text-base font-semibold text-orange-900 text-center">
+            <AlertDescription className="text-sm md:text-base font-semibold text-orange-900 text-center">
               ⚠️ Diese Pflanze gehört nicht zur mitteleuropäischen Flora und kann daher nicht zum PlantDex hinzugefügt werden.
               <br />
-              <span className="text-sm">PlantDex konzentriert sich auf Pflanzen aus Deutschland, Österreich, Schweiz und angrenzenden Regionen.</span>
+              <span className="text-xs md:text-sm">PlantDex konzentriert sich auf Pflanzen aus Deutschland, Österreich, Schweiz und angrenzenden Regionen.</span>
             </AlertDescription>
           </Alert>
         </CardContent>
 
-        <CardFooter className="flex gap-4 p-6 border-t-2 border-stone-200 bg-stone-50">
+        <CardFooter className="flex gap-4 p-4 md:p-6 border-t-2 border-stone-200 bg-stone-50">
           <Button
             onClick={onRescan}
             className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-5"
@@ -381,7 +381,7 @@ export default function ScanResults({
           {hasMultipleResults && currentResultIndex > 0 && (
             <button
               onClick={() => setCurrentResultIndex(currentResultIndex - 1)}
-              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-16 z-10 w-12 h-12 bg-white border-2 border-stone-300 rounded-full flex items-center justify-center shadow-lg hover:bg-stone-50 transition-all"
+              className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-16 z-10 w-12 h-12 bg-white border-2 border-stone-300 rounded-full items-center justify-center shadow-lg hover:bg-stone-50 transition-all"
             >
               <ChevronLeft className="w-6 h-6 text-stone-600" />
             </button>
@@ -391,7 +391,7 @@ export default function ScanResults({
           {hasMultipleResults && currentResultIndex < results.length - 1 && (
             <button
               onClick={() => setCurrentResultIndex(currentResultIndex + 1)}
-              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-16 z-10 w-12 h-12 bg-white border-2 border-stone-300 rounded-full flex items-center justify-center shadow-lg hover:bg-stone-50 transition-all"
+              className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-16 z-10 w-12 h-12 bg-white border-2 border-stone-300 rounded-full items-center justify-center shadow-lg hover:bg-stone-50 transition-all"
             >
               <ChevronRight className="w-6 h-6 text-stone-600" />
             </button>
@@ -401,7 +401,7 @@ export default function ScanResults({
             <motion.div
               key={currentResultIndex}
               ref={constraintsRef}
-              className="flex-1"
+              className="flex-1 w-full"
             >
               <motion.div
                 ref={cardRef}
@@ -414,8 +414,9 @@ export default function ScanResults({
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0, x: 0 }}
                 transition={{ duration: 0.3 }}
+                className="w-full"
               >
-                <Card className="border-2 border-green-200 shadow-lg bg-white">
+                <Card className="border-2 border-green-200 shadow-lg bg-white overflow-hidden">
                   <CardHeader className="border-b-2 border-green-100 bg-gradient-to-r from-green-50 to-emerald-50">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
@@ -435,7 +436,7 @@ export default function ScanResults({
                     </div>
                   </CardHeader>
 
-                  <CardContent className="p-6 space-y-6">
+                  <CardContent className="p-4 md:p-6 space-y-6">
                     {/* Header Animation */}
                     <AnimatePresence>
                       {isPrimaryResult && (
@@ -444,9 +445,9 @@ export default function ScanResults({
                           animate={{ scale: 1, opacity: 1 }}
                           exit={{ scale: 0, opacity: 0 }}
                           transition={{ type: "spring", duration: 0.6 }}
-                          className="text-center mb-4"
+                          className="text-center mb-4 px-2"
                         >
-                          <h2 className="text-2xl font-bold text-stone-900">
+                          <h2 className="text-lg md:text-2xl font-bold text-stone-900 break-words">
                             {isNewToPlantDex ? "Neue Pflanze zum PlantDex hinzugefügt! 🎉" : 
                              wasAlreadyDiscovered ? "Pflanze erneut gescannt! ✅" : 
                              "Neue Pflanze entdeckt! 🌟"}
@@ -469,16 +470,16 @@ export default function ScanResults({
                       <div className="space-y-4">
                         <div>
                           <div className="flex items-start justify-between gap-2 mb-2">
-                            <h3 className="text-3xl font-bold text-stone-900 flex-1">
+                            <h3 className="text-2xl md:text-3xl font-bold text-stone-900 flex-1 break-words">
                               {currentPlant.species_name}
                             </h3>
                             {confidencePercentage !== null && confidencePercentage !== undefined && (
-                              <span className="text-2xl font-bold text-blue-600 flex-shrink-0">
+                              <span className="text-xl md:text-2xl font-bold text-blue-600 flex-shrink-0">
                                 {confidencePercentage}%
                               </span>
                             )}
                           </div>
-                          <p className="text-xl text-stone-600 italic mb-3">
+                          <p className="text-lg md:text-xl text-stone-600 italic mb-3 break-words">
                             {currentPlant.scientific_name}
                           </p>
                           <Badge className={`${getRarityColor(rarity)} text-white font-bold px-3 py-1 text-sm`}>
@@ -518,9 +519,9 @@ export default function ScanResults({
                     {/* XP Belohnung */}
                     {currentPlant.xpAwarded !== undefined && isPrimaryResult && (
                       <div className="bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl p-4 border-2 border-amber-200">
-                        <div className="flex items-center justify-center gap-3">
+                        <div className="flex items-center justify-center gap-3 flex-wrap">
                           <Sparkles className="w-6 h-6 text-amber-600" />
-                          <p className="text-xl font-bold text-amber-900">
+                          <p className="text-lg md:text-xl font-bold text-amber-900 text-center">
                             +{currentPlant.xpAwarded} XP {isNewToPlantDex ? "für neue PlantDex-Pflanze!" : 
                                                    wasAlreadyDiscovered ? "für erneuten Scan!" : 
                                                    "für Erstentdeckung!"}
@@ -536,7 +537,7 @@ export default function ScanResults({
                         <Button
                           onClick={handleVerifyResult}
                           variant="outline"
-                          className="flex-1 border-2 border-blue-300 hover:bg-blue-50 text-blue-700 font-semibold"
+                          className="flex-1 min-w-[140px] border-2 border-blue-300 hover:bg-blue-50 text-blue-700 font-semibold"
                         >
                           <Search className="w-4 h-4 mr-2" />
                           Überprüfe dieses Ergebnis
@@ -547,7 +548,7 @@ export default function ScanResults({
                             onClick={handleDeleteResult}
                             disabled={isDeleting}
                             variant="outline"
-                            className="flex-1 border-2 border-red-300 hover:bg-red-50 text-red-700 font-semibold"
+                            className="flex-1 min-w-[140px] border-2 border-red-300 hover:bg-red-50 text-red-700 font-semibold"
                           >
                             {isDeleting ? (
                               <>
@@ -566,7 +567,7 @@ export default function ScanResults({
                             onClick={handleChangeResult}
                             disabled={isChanging}
                             variant="outline"
-                            className="flex-1 border-2 border-amber-300 hover:bg-amber-50 text-amber-700 font-semibold"
+                            className="flex-1 min-w-[140px] border-2 border-amber-300 hover:bg-amber-50 text-amber-700 font-semibold"
                           >
                             {isChanging ? (
                               <>
@@ -585,11 +586,11 @@ export default function ScanResults({
                     )}
                   </CardContent>
 
-                  <CardFooter className="flex gap-4 p-6 border-t-2 border-stone-200 bg-stone-50">
+                  <CardFooter className="flex flex-col md:flex-row gap-4 p-4 md:p-6 border-t-2 border-stone-200 bg-stone-50">
                     <Button
                       onClick={onRescan}
                       variant="outline"
-                      className="flex-1 border-2 border-stone-300 hover:bg-stone-100 font-semibold py-5"
+                      className="w-full md:flex-1 border-2 border-stone-300 hover:bg-stone-100 font-semibold py-5"
                     >
                       <RotateCcw className="w-4 h-4 mr-2" />
                       Neuer Scan
@@ -597,7 +598,7 @@ export default function ScanResults({
                     {latestDiscoveryId && isPrimaryResult && (
                       <Button
                         onClick={() => setShowShareDialog(true)}
-                        className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-5"
+                        className="w-full md:flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-5"
                       >
                         <Gift className="w-4 h-4 mr-2" />
                         Pflanze schenken
@@ -605,7 +606,7 @@ export default function ScanResults({
                     )}
                     <Button
                       onClick={() => navigate(createPageUrl("Collection"))}
-                      className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-5"
+                      className="w-full md:flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-5"
                     >
                       <BookOpen className="w-4 h-4 mr-2" />
                       Zur Collection
