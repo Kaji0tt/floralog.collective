@@ -1,5 +1,4 @@
-
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Camera, BookOpen, Map, Home, Users, Heart, Target, Award, User, UserPlus } from "lucide-react"; 
@@ -17,6 +16,8 @@ import {
   SidebarTrigger,
   SidebarFooter,
 } from "@/components/ui/sidebar";
+import { base44 } from "@/api/base44Client";
+import NotificationManager from "./components/notifications/NotificationManager";
 
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
@@ -70,16 +71,23 @@ const socialNavigation = [
     url: createPageUrl("Friends"),
     icon: UserPlus,
   },
-  // Removed "Klasse" item as per instructions
-  // {
-  //   title: "Klasse",
-  //   url: createPageUrl("Classroom"),
-  //   icon: Users,
-  // },
 ];
 
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const currentUser = await base44.auth.me();
+        setUser(currentUser);
+      } catch (error) {
+        console.log("User not authenticated");
+      }
+    };
+    loadUser();
+  }, []);
 
   return (
     <SidebarProvider>
@@ -241,19 +249,17 @@ export default function Layout({ children, currentPageName }) {
               </SidebarGroupContent>
             </SidebarGroup>
           </SidebarContent>
-
-          {/* SidebarFooter entfernt - Spenden/Impressum nur auf Startseite */}
         </Sidebar>
 
         <main className="flex-1 flex flex-col overflow-x-hidden">
-          {/* Mobile Header - entfernt, da nicht mehr benötigt */}
-          {/* The previous header content for mobile was removed as per the instructions */}
-
           <div className="flex-1 overflow-auto overflow-x-hidden">
             {children}
           </div>
         </main>
       </div>
+
+      {/* Notification Manager */}
+      {user && <NotificationManager user={user} />}
     </SidebarProvider>
   );
 }

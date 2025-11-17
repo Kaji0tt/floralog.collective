@@ -91,17 +91,37 @@ export default function ShareScanDialog({ open, onClose, discovery, plant, user 
 
     setIsSharing(true);
     try {
+      const friendEmail = getFriendEmail(selectedFriend);
+      const friendProfile = getFriendProfile(friendEmail);
+      
+      // Pflanze teilen
       await createShareMutation.mutateAsync({
         discovery_id: discovery.id,
         plant_id: plant.id,
         shared_by: user.email,
-        shared_to: getFriendEmail(selectedFriend),
+        shared_to: friendEmail,
         shared_date: new Date().toISOString(),
         image_url: discovery.image_url,
         discovery_location: discovery.discovery_location,
         viewed: false,
         xp_awarded: false
       });
+
+      // Push Notification senden
+      try {
+        await base44.functions.invoke('sendPushNotification', {
+          recipientEmail: friendEmail,
+          title: '🎁 Neue Pflanze geschenkt!',
+          body: `${user.display_name || user.full_name} hat dir "${plant.species_name}" geschenkt!`,
+          data: {
+            type: 'shared_scan',
+            from: user.email
+          }
+        });
+      } catch (notifError) {
+        console.error('Push notification failed:', notifError);
+        // Fehler bei Notification nicht anzeigen - Teilen war erfolgreich
+      }
 
       alert('Pflanze erfolgreich verschenkt! 🎁');
       onClose();
