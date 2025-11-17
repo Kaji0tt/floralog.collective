@@ -28,7 +28,7 @@ import FriendAchievements from './pages/FriendAchievements';
 import AdminBlumenList from './pages/AdminBlumenList';
 import FriendFriendsList from './pages/FriendFriendsList';
 import ViewSharedScan from './pages/ViewSharedScan';
-import Layout from './Layout.jsx';
+import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
@@ -67,5 +67,5 @@ export const PAGES = {
 export const pagesConfig = {
     mainPage: "Home",
     Pages: PAGES,
-    Layout: Layout,
+    Layout: __Layout,
 };

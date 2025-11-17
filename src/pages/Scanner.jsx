@@ -525,12 +525,6 @@ export default function Scanner() {
 
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-4xl md:text-5xl font-bold text-stone-900 mb-3">
-            Entdecke eine Pflanze!
-          </h1>
-          <p className="text-lg text-stone-600">
-            Scanne eine Pflanze und füge sie deinem PlantDex hinzu
-          </p>
           {gettingLocation && (
             <div className="flex items-center justify-center gap-2 text-sm text-stone-500 mt-2">
               <MapPin className="w-4 h-4 animate-pulse" />
