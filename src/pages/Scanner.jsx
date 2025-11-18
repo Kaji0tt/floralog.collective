@@ -333,7 +333,7 @@ export default function Scanner() {
           setAllScanResults(processedResults);
 
           const firstResult = processedResults[0];
-          
+
           // KORRIGIERTE LOGIK: Prüfe zuerst ob nicht-europäisch, dann ob in Datenbank
           if (firstResult.is_european === false) {
             // Nicht-europäische Pflanze - nur anzeigen, nicht speichern
@@ -352,6 +352,10 @@ export default function Scanner() {
           
         } else {
           console.warn("❌ Pflanze nicht erkannt");
+          // Vibration: 1x lang für Fehler
+          if (navigator.vibrate) {
+            navigator.vibrate(500);
+          }
           setMatchedPlant({ 
             identified: false, 
             error: "Die Pflanze konnte nicht identifiziert werden. Versuche ein klareres Foto mit mehr Details (Blätter, Blüten, Stamm)."
@@ -379,9 +383,9 @@ export default function Scanner() {
     }
 
     const alreadyDiscovered = userDiscoveries.some(d => d.plant_id === plant.id);
-    
+
     let xpAwarded = 0;
-    
+
     if (alreadyDiscovered) {
       xpAwarded = 5;
     } else {
@@ -400,15 +404,20 @@ export default function Scanner() {
     setLatestDiscoveryId(newDiscovery.id);
 
     await awardXPToUser(xpAwarded);
-    
+
     queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
-    
+
     const newlyUnlocked = await checkAndUnlockAchievements(user);
     if (newlyUnlocked.length > 0) {
       setNewAchievements(newlyUnlocked);
       setCurrentAchievementIndex(0);
     }
-    
+
+    // Vibration: 1x kurz für erfolgreichen Scan
+    if (navigator.vibrate) {
+      navigator.vibrate(200);
+    }
+
     setMatchedPlant({
       ...plant,
       discovered: alreadyDiscovered,
@@ -474,16 +483,21 @@ export default function Scanner() {
       setLatestDiscoveryId(newDiscovery.id);
 
       await awardXPToUser(50);
-      
+
       queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
       queryClient.invalidateQueries({ queryKey: ['plants'] });
-      
+
       const newlyUnlocked = await checkAndUnlockAchievements(user);
       if (newlyUnlocked.length > 0) {
         setNewAchievements(newlyUnlocked);
         setCurrentAchievementIndex(0);
       }
-      
+
+      // Vibration: 3x kurz für neuen PlantDex-Eintrag
+      if (navigator.vibrate) {
+        navigator.vibrate([200, 100, 200, 100, 200]);
+      }
+
       setMatchedPlant({
         ...newPlant,
         discovered: false,
