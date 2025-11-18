@@ -190,10 +190,10 @@ export default function ScanResults({
   if (isUnidentified) {
     return (
       <Card className="border-2 border-red-200 shadow-lg bg-white">
-        <CardContent className="p-8">
-          <Alert className="border-2 border-red-200 bg-red-50 mb-4">
-            <AlertCircle className="h-5 w-5 text-red-600" />
-            <AlertDescription className="text-base font-semibold text-red-900">
+        <CardContent className="p-4 space-y-3">
+          <Alert className="border border-red-200 bg-red-50">
+            <AlertCircle className="h-4 w-4 text-red-600" />
+            <AlertDescription className="text-sm font-semibold text-red-900">
               Diese Pflanze konnte ich nicht erkennen! 🤔
             </AlertDescription>
           </Alert>
@@ -202,30 +202,29 @@ export default function ScanResults({
             <img
               src={imageUrl}
               alt="Gescanntes Bild"
-              className="w-full h-64 object-cover rounded-lg mb-4 border-2 border-stone-200"
+              className="w-full h-40 object-cover rounded-lg border border-stone-200"
             />
           )}
 
           {plant?.error && (
-            <div className="bg-orange-50 border-2 border-orange-200 rounded-lg p-4 mb-4">
-              <p className="text-sm font-semibold text-orange-900 mb-2">⚠️ Fehlerdetails:</p>
-              <p className="text-sm text-orange-800">{plant.error}</p>
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+              <p className="text-xs font-semibold text-orange-900 mb-1">⚠️ Fehlerdetails:</p>
+              <p className="text-xs text-orange-800">{plant.error}</p>
             </div>
           )}
 
-          <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-4">
-            <p className="font-semibold text-blue-900 mb-2">💡 Tipps für bessere Ergebnisse:</p>
-            <ul className="list-disc ml-6 space-y-1 text-sm text-blue-800">
-              <li>Fotografiere die Pflanze bei Tageslicht</li>
-              <li>Zeige mehrere Details: Blätter, Blüten, Stamm</li>
-              <li>Halte die Kamera ruhig und fokussiert</li>
-              <li>Vermeide starke Schatten oder Gegenlicht</li>
-              <li>Fotografiere charakteristische Merkmale aus der Nähe</li>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p className="text-sm font-semibold text-blue-900 mb-2">💡 Tipps für bessere Ergebnisse:</p>
+            <ul className="list-disc ml-5 space-y-0.5 text-xs text-blue-800">
+              <li>Fotografiere bei Tageslicht</li>
+              <li>Zeige Details: Blätter, Blüten, Stamm</li>
+              <li>Halte die Kamera ruhig</li>
+              <li>Vermeide Schatten/Gegenlicht</li>
             </ul>
           </div>
 
-          <Button onClick={onRescan} className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-5">
-            <RotateCcw className="w-5 h-5 mr-2" />
+          <Button onClick={onRescan} className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3">
+            <RotateCcw className="w-4 h-4 mr-2" />
             Nochmal versuchen
           </Button>
         </CardContent>
