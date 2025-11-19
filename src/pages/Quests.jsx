@@ -217,17 +217,71 @@ export default function Quests() {
     return true;
   };
 
+  // Helper: Check if daily/weekly quest is active today
+  const isTimedQuestActive = (quest) => {
+    if (quest.quest_type === "daily") {
+      // Check if completed today
+      const completedToday = userQuests.find(uq => 
+        uq.quest_id === quest.id && 
+        uq.completed &&
+        uq.completed_date &&
+        new Date(uq.completed_date).toDateString() === new Date().toDateString()
+      );
+      return !completedToday;
+    }
+    
+    if (quest.quest_type === "weekly") {
+      // Check day of week (1=Monday, 7=Sunday)
+      const today = new Date().getDay(); // 0=Sunday, 6=Saturday
+      const dayOfWeek = today === 0 ? 7 : today; // Convert to 1-7
+      
+      if (quest.day_of_week !== dayOfWeek) return false;
+      
+      // Check if completed this week
+      const completedThisWeek = userQuests.find(uq => 
+        uq.quest_id === quest.id && 
+        uq.completed &&
+        uq.completed_date
+      );
+      
+      if (completedThisWeek) {
+        const completedDate = new Date(completedThisWeek.completed_date);
+        const today = new Date();
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - today.getDay() + 1); // Monday
+        weekStart.setHours(0, 0, 0, 0);
+        
+        if (completedDate >= weekStart) return false;
+      }
+      
+      return true;
+    }
+    
+    return true;
+  };
+
   const availableQuests = quests.filter(q => 
+    q.quest_type === "permanent" &&
     isQuestUnlocked(q) &&
     !userQuests.some(uq => uq.quest_id === q.id && uq.completed)
   );
 
+  const dailyQuests = quests.filter(q => 
+    q.quest_type === "daily" && isTimedQuestActive(q)
+  );
+
+  const weeklyQuests = quests.filter(q => 
+    q.quest_type === "weekly" && isTimedQuestActive(q)
+  );
+
   const lockedQuests = quests.filter(q => 
+    q.quest_type === "permanent" &&
     !isQuestUnlocked(q) &&
     !userQuests.some(uq => uq.quest_id === q.id && uq.completed)
   );
 
   const completedQuestList = quests.filter(q =>
+    q.quest_type === "permanent" &&
     userQuests.some(uq => uq.quest_id === q.id && uq.completed)
   );
 
@@ -310,6 +364,159 @@ export default function Quests() {
 
           {/* Aktive Aufgaben */}
           <TabsContent value="active" className="space-y-4">
+            {/* Tägliche Aufgabe */}
+            {dailyQuests.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-lg font-bold text-green-700 mb-3 flex items-center gap-2">
+                  🌱 Tägliche Aufgabe
+                </h3>
+                {dailyQuests.map((quest) => {
+                  const progress = calculateQuestProgress(quest);
+                  const isCompleted = progress >= quest.required_discoveries;
+                  const progressPercentage = (progress / quest.required_discoveries) * 100;
+
+                  return (
+                    <motion.div
+                      key={quest.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                    >
+                      <Card className="border-4 border-green-400 hover:border-green-500 hover:shadow-lg transition-all bg-gradient-to-br from-white to-green-50">
+                        <CardHeader>
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-2">
+                                <Badge className="bg-green-600 text-white font-bold">
+                                  Täglich
+                                </Badge>
+                              </div>
+                              <CardTitle className="text-xl text-stone-900 mb-2">{quest.title}</CardTitle>
+                              <p className="text-stone-600">{quest.description}</p>
+                            </div>
+                            <div className="flex flex-col items-center gap-2 ml-4">
+                              <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center shadow-lg">
+                                <span className="text-white font-bold text-sm">+{quest.xp_reward}</span>
+                              </div>
+                              <span className="text-xs font-semibold text-stone-600">XP</span>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="mb-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-semibold text-stone-700">
+                                {quest.requirement}
+                              </span>
+                              <span className="text-sm font-bold text-green-700">
+                                {progress} / {quest.required_discoveries}
+                              </span>
+                            </div>
+                            <Progress value={progressPercentage} className="h-2 bg-stone-200" />
+                          </div>
+                          
+                          {isCompleted && (
+                            <Button
+                              onClick={() => handleCompleteQuest(quest)}
+                              className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3"
+                              disabled={completeQuestMutation.isPending}
+                            >
+                              {completeQuestMutation.isPending ? (
+                                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                              ) : (
+                                <Trophy className="w-5 h-5 mr-2" />
+                              )}
+                              Aufgabe abschließen!
+                            </Button>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Wöchentliche Aufgabe */}
+            {weeklyQuests.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-lg font-bold text-blue-700 mb-3 flex items-center gap-2">
+                  📅 Wöchentliche Aufgabe
+                </h3>
+                {weeklyQuests.map((quest) => {
+                  const progress = calculateQuestProgress(quest);
+                  const isCompleted = progress >= quest.required_discoveries;
+                  const progressPercentage = (progress / quest.required_discoveries) * 100;
+
+                  return (
+                    <motion.div
+                      key={quest.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                    >
+                      <Card className="border-4 border-blue-400 hover:border-blue-500 hover:shadow-lg transition-all bg-gradient-to-br from-white to-blue-50">
+                        <CardHeader>
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-2">
+                                <Badge className="bg-blue-600 text-white font-bold">
+                                  Wöchentlich
+                                </Badge>
+                              </div>
+                              <CardTitle className="text-xl text-stone-900 mb-2">{quest.title}</CardTitle>
+                              <p className="text-stone-600">{quest.description}</p>
+                            </div>
+                            <div className="flex flex-col items-center gap-2 ml-4">
+                              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg">
+                                <span className="text-white font-bold text-sm">+{quest.xp_reward}</span>
+                              </div>
+                              <span className="text-xs font-semibold text-stone-600">XP</span>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="mb-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-semibold text-stone-700">
+                                {quest.requirement}
+                              </span>
+                              <span className="text-sm font-bold text-blue-700">
+                                {progress} / {quest.required_discoveries}
+                              </span>
+                            </div>
+                            <Progress value={progressPercentage} className="h-2 bg-stone-200" />
+                          </div>
+                          
+                          {isCompleted && (
+                            <Button
+                              onClick={() => handleCompleteQuest(quest)}
+                              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3"
+                              disabled={completeQuestMutation.isPending}
+                            >
+                              {completeQuestMutation.isPending ? (
+                                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                              ) : (
+                                <Trophy className="w-5 h-5 mr-2" />
+                              )}
+                              Aufgabe abschließen!
+                            </Button>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Permanente Aufgaben */}
+            {availableQuests.length > 0 && (
+              <div>
+                <h3 className="text-lg font-bold text-stone-700 mb-3 flex items-center gap-2">
+                  🎯 Permanente Aufgaben
+                </h3>
+              </div>
+            )}
+
             {availableQuests.map((quest, index) => {
               const progress = calculateQuestProgress(quest);
               const isCompleted = progress >= quest.required_discoveries;
@@ -385,7 +592,7 @@ export default function Quests() {
                 </motion.div>
               );
             })}
-            {availableQuests.length === 0 && (
+            {availableQuests.length === 0 && dailyQuests.length === 0 && weeklyQuests.length === 0 && (
               <Card className="border-2 border-stone-200 bg-white">
                 <CardContent className="p-12 text-center">
                   <Target className="w-16 h-16 text-stone-400 mx-auto mb-4" />

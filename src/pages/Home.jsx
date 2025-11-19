@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -262,18 +261,75 @@ export default function Home() {
     }
   };
 
+  // Helper: Check if daily/weekly quest is active today
+  const isTimedQuestActive = (quest) => {
+    if (quest.quest_type === "daily") {
+      const completedToday = userQuests.find(uq => 
+        uq.quest_id === quest.id && 
+        uq.completed &&
+        uq.completed_date &&
+        new Date(uq.completed_date).toDateString() === new Date().toDateString()
+      );
+      return !completedToday;
+    }
+    
+    if (quest.quest_type === "weekly") {
+      const today = new Date().getDay();
+      const dayOfWeek = today === 0 ? 7 : today;
+      
+      if (quest.day_of_week !== dayOfWeek) return false;
+      
+      const completedThisWeek = userQuests.find(uq => 
+        uq.quest_id === quest.id && 
+        uq.completed &&
+        uq.completed_date
+      );
+      
+      if (completedThisWeek) {
+        const completedDate = new Date(completedThisWeek.completed_date);
+        const today = new Date();
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - today.getDay() + 1);
+        weekStart.setHours(0, 0, 0, 0);
+        
+        if (completedDate >= weekStart) return false;
+      }
+      
+      return true;
+    }
+    
+    return true;
+  };
+
   const allActiveQuests = quests.filter((q) =>
+    q.quest_type === "permanent" &&
     (q.unlocked_at_level || 1) <= currentLevel &&
     !userQuests.some((uq) => uq.quest_id === q.id && uq.completed)
   );
 
+  const dailyQuests = quests.filter(q => 
+    q.quest_type === "daily" && isTimedQuestActive(q)
+  ).map((q) => ({
+    ...q,
+    progress: calculateQuestProgress(q),
+    questType: 'daily'
+  }));
+
+  const weeklyQuests = quests.filter(q => 
+    q.quest_type === "weekly" && isTimedQuestActive(q)
+  ).map((q) => ({
+    ...q,
+    progress: calculateQuestProgress(q),
+    questType: 'weekly'
+  }));
+
   const activeQuests = allActiveQuests.map((q) => ({
     ...q,
     progress: calculateQuestProgress(q),
-    type: 'personal'
+    questType: 'permanent'
   })).slice(0, 3);
 
-  const displayQuests = activeQuests;
+  const displayQuests = [...dailyQuests, ...weeklyQuests, ...activeQuests].slice(0, 3);
 
   const statButtons = [
     {
@@ -688,13 +744,27 @@ export default function Home() {
                             className="w-full text-left"
                             disabled={completeQuestMutation.isPending}>
 
-                            <Card className="border-2 border-stone-200 hover:border-green-300 transition-colors">
+                            <Card className={`border-2 hover:shadow-md transition-colors ${
+                              quest.questType === 'daily' ? 'border-green-400 bg-gradient-to-br from-white to-green-50' :
+                              quest.questType === 'weekly' ? 'border-blue-400 bg-gradient-to-br from-white to-blue-50' :
+                              'border-stone-200 hover:border-green-300'
+                            }`}>
                               <CardContent className="p-3">
                                 <div className="flex items-start gap-3">
                                   <div className="flex-1 min-w-0">
                                     <div className="flex flex-wrap items-center gap-2 mb-1">
-                                      {isCompleted &&
+                                      {quest.questType === 'daily' && (
                                         <Badge className="bg-green-600 text-white text-xs">
+                                          🌱 Täglich
+                                        </Badge>
+                                      )}
+                                      {quest.questType === 'weekly' && (
+                                        <Badge className="bg-blue-600 text-white text-xs">
+                                          📅 Wöchentlich
+                                        </Badge>
+                                      )}
+                                      {isCompleted &&
+                                        <Badge className="bg-amber-600 text-white text-xs">
                                           <Sparkles className="w-3 h-3 mr-1" />
                                           Bereit!
                                         </Badge>
@@ -778,13 +848,27 @@ export default function Home() {
                             className="w-full text-left"
                             disabled={completeQuestMutation.isPending}>
 
-                            <Card className="border-2 border-stone-200 shadow-lg bg-white hover:border-green-300 transition-colors">
+                            <Card className={`border-2 shadow-lg transition-colors ${
+                              quest.questType === 'daily' ? 'border-green-400 bg-gradient-to-br from-white to-green-50' :
+                              quest.questType === 'weekly' ? 'border-blue-400 bg-gradient-to-br from-white to-blue-50' :
+                              'border-stone-200 bg-white hover:border-green-300'
+                            }`}>
                               <CardContent className="px-6 py-4">
                                 <div className="flex items-start gap-3">
                                   <div className="flex-1 min-w-0">
                                     <div className="flex flex-wrap items-center gap-2 mb-2">
-                                      {isCompleted &&
+                                      {quest.questType === 'daily' && (
                                         <Badge className="bg-green-600 text-white text-xs">
+                                          🌱 Täglich
+                                        </Badge>
+                                      )}
+                                      {quest.questType === 'weekly' && (
+                                        <Badge className="bg-blue-600 text-white text-xs">
+                                          📅 Wöchentlich
+                                        </Badge>
+                                      )}
+                                      {isCompleted &&
+                                        <Badge className="bg-amber-600 text-white text-xs">
                                           <Sparkles className="w-3 h-3 mr-1" />
                                           Bereit!
                                         </Badge>
