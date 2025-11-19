@@ -9,6 +9,7 @@ import { ArrowLeft, Leaf, CheckCircle2, Lock, Sparkles, Volume2, VolumeX, Chevro
 import { createPageUrl } from "@/utils";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
+import { motion } from "framer-motion";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 
 export default function GenusDetail() {
