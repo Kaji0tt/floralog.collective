@@ -42,18 +42,64 @@ export const getCurrentWeeklyQuest = (weeklyQuests) => {
   return sortedQuests[index];
 };
 
-// Prüft ob User die tägliche Quest heute schon abgeschlossen hat
-export const isDailyQuestCompletedToday = (userDailyQuests, questId) => {
+// Holt oder erstellt die aktive UserDailyQuest für heute
+export const getOrCreateActiveDailyQuest = async (base44, currentDailyQuest, userDailyQuests, userEmail) => {
+  if (!currentDailyQuest) return null;
+  
   const today = getTodayString();
-  return userDailyQuests.some(
-    udq => udq.daily_quest_id === questId && udq.completed_date === today
+  let activeUserQuest = userDailyQuests.find(
+    udq => udq.daily_quest_id === currentDailyQuest.id && udq.active_date === today
   );
+  
+  if (!activeUserQuest) {
+    activeUserQuest = await base44.entities.UserDailyQuest.create({
+      daily_quest_id: currentDailyQuest.id,
+      active_date: today,
+      progress: 0,
+      completed: false,
+      created_by: userEmail
+    });
+  }
+  
+  return activeUserQuest;
 };
 
-// Prüft ob User die wöchentliche Quest diese Woche schon abgeschlossen hat
+// Holt oder erstellt die aktive UserWeeklyQuest für diese Woche
+export const getOrCreateActiveWeeklyQuest = async (base44, currentWeeklyQuest, userWeeklyQuests, userEmail) => {
+  if (!currentWeeklyQuest) return null;
+  
+  const currentWeek = getWeekNumber();
+  let activeUserQuest = userWeeklyQuests.find(
+    uwq => uwq.weekly_quest_id === currentWeeklyQuest.id && uwq.active_week === currentWeek
+  );
+  
+  if (!activeUserQuest) {
+    activeUserQuest = await base44.entities.UserWeeklyQuest.create({
+      weekly_quest_id: currentWeeklyQuest.id,
+      active_week: currentWeek,
+      progress: 0,
+      completed: false,
+      created_by: userEmail
+    });
+  }
+  
+  return activeUserQuest;
+};
+
+// Prüft ob die tägliche Quest heute abgeschlossen wurde
+export const isDailyQuestCompletedToday = (userDailyQuests, questId) => {
+  const today = getTodayString();
+  const todayQuest = userDailyQuests.find(
+    udq => udq.daily_quest_id === questId && udq.active_date === today
+  );
+  return todayQuest?.completed === true;
+};
+
+// Prüft ob die wöchentliche Quest diese Woche abgeschlossen wurde
 export const isWeeklyQuestCompletedThisWeek = (userWeeklyQuests, questId) => {
   const currentWeek = getWeekNumber();
-  return userWeeklyQuests.some(
-    uwq => uwq.weekly_quest_id === questId && uwq.completed_week === currentWeek
+  const weekQuest = userWeeklyQuests.find(
+    uwq => uwq.weekly_quest_id === questId && uwq.active_week === currentWeek
   );
+  return weekQuest?.completed === true;
 };

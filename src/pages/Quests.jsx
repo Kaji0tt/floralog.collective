@@ -18,6 +18,8 @@ import {
   getCurrentWeeklyQuest, 
   isDailyQuestCompletedToday, 
   isWeeklyQuestCompletedThisWeek,
+  getOrCreateActiveDailyQuest,
+  getOrCreateActiveWeeklyQuest,
   getTodayString,
   getWeekNumber
 } from "../components/quests/QuestRotationHelper";
@@ -247,12 +249,14 @@ export default function Quests() {
   };
 
   const handleCompleteDailyQuest = async (quest) => {
-    const progress = calculateQuestProgress(quest);
-    const isCompleted = progress >= quest.required_discoveries;
-    const alreadyCompletedToday = isDailyQuestCompletedToday(userDailyQuests, quest.id);
+    if (!activeDailyUserQuest || activeDailyUserQuest.completed) return;
 
-    if (isCompleted && !alreadyCompletedToday) {
-      await completeDailyQuestMutation.mutateAsync(quest.id);
+    if (isDailyCompleted) {
+      await base44.entities.UserDailyQuest.update(activeDailyUserQuest.id, {
+        completed: true,
+        completed_date: new Date().toISOString()
+      });
+      queryClient.invalidateQueries({ queryKey: ['userDailyQuests'] });
       
       const currentXP = user.xp || 0;
       const { newXP, newLevel, newTitle } = awardXP(currentXP, quest.xp_reward);
@@ -280,12 +284,14 @@ export default function Quests() {
   };
 
   const handleCompleteWeeklyQuest = async (quest) => {
-    const progress = calculateQuestProgress(quest);
-    const isCompleted = progress >= quest.required_discoveries;
-    const alreadyCompletedThisWeek = isWeeklyQuestCompletedThisWeek(userWeeklyQuests, quest.id);
+    if (!activeWeeklyUserQuest || activeWeeklyUserQuest.completed) return;
 
-    if (isCompleted && !alreadyCompletedThisWeek) {
-      await completeWeeklyQuestMutation.mutateAsync(quest.id);
+    if (isWeeklyCompleted) {
+      await base44.entities.UserWeeklyQuest.update(activeWeeklyUserQuest.id, {
+        completed: true,
+        completed_date: new Date().toISOString()
+      });
+      queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
       
       const currentXP = user.xp || 0;
       const { newXP, newLevel, newTitle } = awardXP(currentXP, quest.xp_reward);
@@ -352,14 +358,22 @@ export default function Quests() {
   const currentDailyQuest = getCurrentDailyQuest(dailyQuests);
   const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
 
-  const dailyProgress = currentDailyQuest ? calculateQuestProgress(currentDailyQuest) : 0;
-  const weeklyProgress = currentWeeklyQuest ? calculateQuestProgress(currentWeeklyQuest) : 0;
+  const activeDailyUserQuest = currentDailyQuest 
+    ? userDailyQuests.find(udq => udq.daily_quest_id === currentDailyQuest.id && udq.active_date === getTodayString())
+    : null;
+  
+  const activeWeeklyUserQuest = currentWeeklyQuest 
+    ? userWeeklyQuests.find(uwq => uwq.weekly_quest_id === currentWeeklyQuest.id && uwq.active_week === getWeekNumber())
+    : null;
+
+  const dailyProgress = activeDailyUserQuest?.progress || 0;
+  const weeklyProgress = activeWeeklyUserQuest?.progress || 0;
 
   const isDailyCompleted = currentDailyQuest && currentDailyQuest.required_discoveries > 0 && dailyProgress >= currentDailyQuest.required_discoveries;
   const isWeeklyCompleted = currentWeeklyQuest && currentWeeklyQuest.required_discoveries > 0 && weeklyProgress >= currentWeeklyQuest.required_discoveries;
 
-  const isDailyAlreadyCompletedToday = currentDailyQuest && isDailyQuestCompletedToday(userDailyQuests, currentDailyQuest.id);
-  const isWeeklyAlreadyCompletedThisWeek = currentWeeklyQuest && isWeeklyQuestCompletedThisWeek(userWeeklyQuests, currentWeeklyQuest.id);
+  const isDailyAlreadyCompletedToday = activeDailyUserQuest?.completed === true;
+  const isWeeklyAlreadyCompletedThisWeek = activeWeeklyUserQuest?.completed === true;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4 md:p-8">

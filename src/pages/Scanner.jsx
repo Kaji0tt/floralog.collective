@@ -11,6 +11,14 @@ import AchievementNotification from "../components/achievements/AchievementNotif
 import { AnimatePresence } from "framer-motion";
 import { awardXP } from "../components/utils/xpSystem";
 import MobileBackButton from "../components/navigation/MobileBackButton";
+import { 
+  getCurrentDailyQuest, 
+  getCurrentWeeklyQuest, 
+  getOrCreateActiveDailyQuest, 
+  getOrCreateActiveWeeklyQuest,
+  getTodayString,
+  getWeekNumber
+} from "../components/quests/QuestRotationHelper";
 
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
@@ -71,6 +79,28 @@ export default function Scanner() {
   const { data: userDiscoveries = [] } = useQuery({
     queryKey: ['userDiscoveries'],
     queryFn: () => base44.entities.UserPlantDiscovery.filter({ user: user?.email }),
+    enabled: !!user?.email,
+  });
+
+  const { data: dailyQuests = [] } = useQuery({
+    queryKey: ['dailyQuests'],
+    queryFn: () => base44.entities.DailyQuest.list('quest_number'),
+  });
+
+  const { data: weeklyQuests = [] } = useQuery({
+    queryKey: ['weeklyQuests'],
+    queryFn: () => base44.entities.WeeklyQuest.list('quest_number'),
+  });
+
+  const { data: userDailyQuests = [] } = useQuery({
+    queryKey: ['userDailyQuests'],
+    queryFn: () => base44.entities.UserDailyQuest.filter({ created_by: user?.email }),
+    enabled: !!user?.email,
+  });
+
+  const { data: userWeeklyQuests = [] } = useQuery({
+    queryKey: ['userWeeklyQuests'],
+    queryFn: () => base44.entities.UserWeeklyQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email,
   });
 
@@ -145,6 +175,34 @@ export default function Scanner() {
     } catch (error) {
       console.error("PublicProfile Update Fehler:", error);
     }
+  };
+
+  const updateQuestProgress = async () => {
+    if (!user?.email) return;
+
+    const currentDailyQuest = getCurrentDailyQuest(dailyQuests);
+    const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
+
+    if (currentDailyQuest) {
+      const activeDailyQuest = await getOrCreateActiveDailyQuest(base44, currentDailyQuest, userDailyQuests, user.email);
+      if (activeDailyQuest && !activeDailyQuest.completed) {
+        await base44.entities.UserDailyQuest.update(activeDailyQuest.id, {
+          progress: (activeDailyQuest.progress || 0) + 1
+        });
+      }
+    }
+
+    if (currentWeeklyQuest) {
+      const activeWeeklyQuest = await getOrCreateActiveWeeklyQuest(base44, currentWeeklyQuest, userWeeklyQuests, user.email);
+      if (activeWeeklyQuest && !activeWeeklyQuest.completed) {
+        await base44.entities.UserWeeklyQuest.update(activeWeeklyQuest.id, {
+          progress: (activeWeeklyQuest.progress || 0) + 1
+        });
+      }
+    }
+
+    queryClient.invalidateQueries({ queryKey: ['userDailyQuests'] });
+    queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
   };
 
   const getRarityXP = (rarity) => {
@@ -413,6 +471,8 @@ export default function Scanner() {
       setCurrentAchievementIndex(0);
     }
 
+    await updateQuestProgress();
+
     // Vibration: 1x kurz für erfolgreichen Scan
     if (navigator.vibrate) {
       navigator.vibrate(200);
@@ -492,6 +552,8 @@ export default function Scanner() {
         setNewAchievements(newlyUnlocked);
         setCurrentAchievementIndex(0);
       }
+
+      await updateQuestProgress();
 
       // Vibration: 3x kurz für neuen PlantDex-Eintrag
       if (navigator.vibrate) {
