@@ -135,6 +135,18 @@ export default function Quests() {
   const currentLevel = user.level || 1;
   const currentXP = user.xp || 0;
 
+  // Helfer: Welcher Tag der Woche (0 = Sonntag, 1 = Montag, ...)
+  const getDayOfWeek = () => new Date().getDay();
+  
+  // Helfer: Welche Woche im Jahr
+  const getWeekNumber = () => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 1);
+    const diff = now - start;
+    const oneWeek = 1000 * 60 * 60 * 24 * 7;
+    return Math.floor(diff / oneWeek);
+  };
+
   const discoveredPlants = userDiscoveries.length;
   const discoveredGenera = genera.filter(g => {
     const genusPlants = plants.filter(p => p.genus_id === g.id);
@@ -217,12 +229,36 @@ export default function Quests() {
     return true;
   };
 
-  const availableQuests = quests.filter(q => 
+  // Standard Quests
+  const standardQuests = quests.filter(q => !q.quest_type || q.quest_type === 'standard');
+  
+  // Tägliche Quests
+  const dailyQuests = quests.filter(q => q.quest_type === 'daily');
+  const activeDailyQuest = dailyQuests.find(q => {
+    const dayIndex = getDayOfWeek();
+    return q.rotation_index === dayIndex;
+  });
+
+  // Wöchentliche Quests
+  const weeklyQuests = quests.filter(q => q.quest_type === 'weekly');
+  const activeWeeklyQuest = weeklyQuests.find(q => {
+    const weekIndex = getWeekNumber() % weeklyQuests.length;
+    return q.rotation_index === weekIndex;
+  });
+
+  // Event Quests
+  const eventQuests = quests.filter(q => q.quest_type === 'event');
+
+  // Alle speziellen Quests (täglich, wöchentlich, event)
+  const specialQuests = [activeWeeklyQuest, activeDailyQuest, ...eventQuests].filter(Boolean);
+
+  // Kombiniere Standard + Spezielle Quests für verfügbare
+  const availableQuests = [...specialQuests, ...standardQuests].filter(q => 
     isQuestUnlocked(q) &&
     !userQuests.some(uq => uq.quest_id === q.id && uq.completed)
   );
 
-  const lockedQuests = quests.filter(q => 
+  const lockedQuests = standardQuests.filter(q => 
     !isQuestUnlocked(q) &&
     !userQuests.some(uq => uq.quest_id === q.id && uq.completed)
   );
@@ -314,6 +350,14 @@ export default function Quests() {
               const progress = calculateQuestProgress(quest);
               const isCompleted = progress >= quest.required_discoveries;
               const progressPercentage = (progress / quest.required_discoveries) * 100;
+              
+              const questTypeColors = {
+                daily: 'border-green-400 bg-green-50',
+                weekly: 'border-blue-400 bg-blue-50',
+                event: 'border-purple-400 bg-purple-50',
+                standard: 'border-stone-200 bg-white'
+              };
+              const borderColor = questTypeColors[quest.quest_type || 'standard'];
 
               return (
                 <motion.div
@@ -322,14 +366,31 @@ export default function Quests() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
                 >
-                  <Card className="border-2 border-stone-200 hover:border-green-300 hover:shadow-lg transition-all bg-white">
+                  <Card className={`border-2 ${borderColor} hover:border-green-300 hover:shadow-lg transition-all`}>
                     <CardHeader>
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <Badge className="bg-stone-800 text-white font-bold">
-                              #{quest.quest_number}
-                            </Badge>
+                          <div className="flex items-center gap-3 mb-2 flex-wrap">
+                            {quest.quest_type === 'daily' && (
+                              <Badge className="bg-green-600 text-white font-bold">
+                                📅 Täglich
+                              </Badge>
+                            )}
+                            {quest.quest_type === 'weekly' && (
+                              <Badge className="bg-blue-600 text-white font-bold">
+                                📆 Wöchentlich
+                              </Badge>
+                            )}
+                            {quest.quest_type === 'event' && (
+                              <Badge className="bg-purple-600 text-white font-bold">
+                                ⭐ Event
+                              </Badge>
+                            )}
+                            {(!quest.quest_type || quest.quest_type === 'standard') && (
+                              <Badge className="bg-stone-800 text-white font-bold">
+                                #{quest.quest_number}
+                              </Badge>
+                            )}
                             <Badge className={`${
                               quest.difficulty === "Leicht" ? "bg-green-500" :
                               quest.difficulty === "Mittel" ? "bg-yellow-500" : "bg-red-500"
