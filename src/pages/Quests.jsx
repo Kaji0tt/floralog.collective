@@ -499,14 +499,14 @@ export default function Quests() {
                       </div>
                       <Progress value={(dailyProgress / currentDailyQuest.required_discoveries) * 100} className="h-2 bg-stone-200" />
                       
-                      {currentDailyQuest.target_plant_id && (
+                      {currentDailyQuest.target_species_name && (
                         <p className="text-xs text-amber-700 font-semibold mt-2">
-                          🎯 Spezifische Pflanze erforderlich
+                          🎯 Spezifische Art: {currentDailyQuest.target_species_name}
                         </p>
                       )}
-                      {currentDailyQuest.target_genus_id && !currentDailyQuest.target_plant_id && (
+                      {currentDailyQuest.target_genus_name && !currentDailyQuest.target_species_name && (
                         <p className="text-xs text-amber-700 font-semibold mt-2">
-                          🎯 Spezifische Gattung erforderlich
+                          🎯 Spezifische Gattung: {currentDailyQuest.target_genus_name}
                         </p>
                       )}
                     </div>
@@ -575,14 +575,14 @@ export default function Quests() {
                       </div>
                       <Progress value={(weeklyProgress / currentWeeklyQuest.required_discoveries) * 100} className="h-2 bg-stone-200" />
                       
-                      {currentWeeklyQuest.target_plant_id && (
+                      {currentWeeklyQuest.target_species_name && (
                         <p className="text-xs text-amber-700 font-semibold mt-2">
-                          🎯 Spezifische Pflanze erforderlich
+                          🎯 Spezifische Art: {currentWeeklyQuest.target_species_name}
                         </p>
                       )}
-                      {currentWeeklyQuest.target_genus_id && !currentWeeklyQuest.target_plant_id && (
+                      {currentWeeklyQuest.target_genus_name && !currentWeeklyQuest.target_species_name && (
                         <p className="text-xs text-amber-700 font-semibold mt-2">
-                          🎯 Spezifische Gattung erforderlich
+                          🎯 Spezifische Gattung: {currentWeeklyQuest.target_genus_name}
                         </p>
                       )}
                     </div>

@@ -185,13 +185,14 @@ export default function Scanner() {
 
     // Helper: Prüft ob der Scan für die Quest zählt
     const scanMatchesQuest = (quest) => {
-      // Wenn spezifische Pflanze gefordert: muss exakt diese Pflanze sein
-      if (quest.target_plant_id) {
-        return scannedPlant.id === quest.target_plant_id;
+      // Wenn spezifische Art gefordert: muss exakt diese Art sein
+      if (quest.target_species_name) {
+        return scannedPlant.species_name?.toLowerCase() === quest.target_species_name.toLowerCase();
       }
       // Wenn spezifische Gattung gefordert: muss diese Gattung sein
-      if (quest.target_genus_id) {
-        return scannedPlant.genus_id === quest.target_genus_id;
+      if (quest.target_genus_name) {
+        const genus = genera.find(g => g.id === scannedPlant.genus_id);
+        return genus?.genus_name?.toLowerCase() === quest.target_genus_name.toLowerCase();
       }
       // Sonst: Kategorie-basiert (wie bisher)
       if (quest.category && quest.category !== "Alle") {
