@@ -261,6 +261,13 @@ export default function Home() {
     }
   };
 
+  // Filtere Standard-Quests
+  const standardQuests = quests.filter((q) =>
+    (!q.quest_type || q.quest_type === 'standard') &&
+    (q.unlocked_at_level || 1) <= currentLevel &&
+    !userQuests.some((uq) => uq.quest_id === q.id && uq.completed)
+  );
+
   // Helfer: Welcher Tag der Woche (0 = Sonntag, 1 = Montag, ...)
   const getDayOfWeek = () => new Date().getDay();
   
@@ -273,33 +280,31 @@ export default function Home() {
     return Math.floor(diff / oneWeek);
   };
 
-  // Filtere Standard-Quests
-  const standardQuests = quests.filter((q) =>
-    (!q.quest_type || q.quest_type === 'standard') &&
-    (q.unlocked_at_level || 1) <= currentLevel &&
-    !userQuests.some((uq) => uq.quest_id === q.id && uq.completed)
-  );
-
   // Filtere und wähle aktive tägliche Quest
   const dailyQuests = quests.filter(q => q.quest_type === 'daily');
-  const activeDailyQuest = dailyQuests.find(q => {
+  const activeDailyQuest = dailyQuests.length > 0 ? dailyQuests.find(q => {
     const dayIndex = getDayOfWeek();
     return q.rotation_index === dayIndex && !userQuests.some((uq) => uq.quest_id === q.id && uq.completed);
-  });
+  }) : null;
 
   // Filtere und wähle aktive wöchentliche Quest
   const weeklyQuests = quests.filter(q => q.quest_type === 'weekly');
-  const activeWeeklyQuest = weeklyQuests.find(q => {
+  const activeWeeklyQuest = weeklyQuests.length > 0 ? weeklyQuests.find(q => {
     const weekIndex = getWeekNumber() % weeklyQuests.length;
     return q.rotation_index === weekIndex && !userQuests.some((uq) => uq.quest_id === q.id && uq.completed);
-  });
+  }) : null;
 
-  // Kombiniere für Display: Wöchentlich > Täglich > Standard (Top 3)
-  const displayQuests = [
-    activeWeeklyQuest,
-    activeDailyQuest,
-    ...standardQuests.slice(0, 3)
-  ].filter(Boolean).slice(0, 3).map((q) => ({
+  // Event Quests
+  const eventQuests = quests.filter((q) =>
+    q.quest_type === 'event' &&
+    !userQuests.some((uq) => uq.quest_id === q.id && uq.completed)
+  );
+
+  // Kombiniere für Display: Wöchentlich > Täglich > Event > Standard (Top 3)
+  const specialQuests = [activeWeeklyQuest, activeDailyQuest, ...eventQuests].filter(Boolean);
+  const allActiveQuests = [...specialQuests, ...standardQuests];
+  
+  const displayQuests = allActiveQuests.slice(0, 3).map((q) => ({
     ...q,
     progress: calculateQuestProgress(q)
   }));
