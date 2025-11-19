@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +11,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import QuestCompletionAnimation from "../components/quests/QuestCompletionAnimation";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
-import { awardXP } from "../components/utils/xpSystem"; // Import updated utility functions
+import { awardXP, getTitleForLevel, getXPProgressInLevel } from "../components/utils/xpSystem"; // Import updated utility functions
 import MobileBackButton from "../components/navigation/MobileBackButton";
 
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
@@ -264,15 +263,6 @@ export default function Quests() {
       </AnimatePresence>
 
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl md:text-5xl font-bold text-stone-900 mb-4">
-            Deine Missionen
-          </h1>
-          <p className="text-lg text-stone-600">
-            Erfülle Aufgaben und sammle XP!
-          </p>
-        </div>
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

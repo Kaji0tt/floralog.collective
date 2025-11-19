@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -641,25 +640,6 @@ export default function Friends() {
 
         {/* Desktop View */}
         <div className="hidden md:block">
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <div className="text-center mb-8">
-              <h1 className="text-4xl md:text-5xl font-bold text-stone-900 mb-3">
-                Meine Freunde
-              </h1>
-              <p className="text-lg text-stone-600">
-                {friends.length} {friends.length === 1 ? 'Freund' : 'Freunde'}
-                {pendingRequests.length > 0 && (
-                  <span className="ml-2">
-                    • <Badge className="bg-blue-600">{pendingRequests.length} neue {pendingRequests.length === 1 ? 'Anfrage' : 'Anfragen'}</Badge>
-                  </span>
-                )}
-              </p>
-            </div>
-          </motion.div>
 
           {/* Freundschaftsanfragen Desktop */}
           {pendingRequests.length > 0 && (

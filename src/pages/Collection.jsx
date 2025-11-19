@@ -1,9 +1,9 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Leaf } from "lucide-react";
+import { Loader2, Leaf } from "lucide-react";
 import GenusCard from "../components/collection/GenusCard";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import HintDialog from "../components/collection/HintDialog";
@@ -113,10 +113,6 @@ export default function Collection() {
 
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-4xl md:text-5xl font-bold text-stone-900 mb-4">
-            Pflanzen-Sammlung
-          </h1>
-
           <div className="flex justify-center gap-4 flex-wrap">
             <div className="inline-flex items-center gap-3 bg-white px-6 py-3 rounded-xl shadow-sm border border-stone-200">
               <div className="text-left">
