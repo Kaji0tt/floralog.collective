@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Leaf, CheckCircle2, Lock, Sparkles, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, Leaf, CheckCircle2, Lock, Sparkles, Volume2, VolumeX, ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { createPageUrl } from "@/utils";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -13,12 +13,12 @@ import MobileBackButton from "../components/navigation/MobileBackButton";
 
 export default function GenusDetail() {
   const navigate = useNavigate();
-  // Removed useQueryClient as it's no longer needed after removing updateGenusMutation
+  const queryClient = useQueryClient();
   const urlParams = new URLSearchParams(window.location.search);
   const genusId = urlParams.get('id');
   const friendEmail = urlParams.get('email'); // NEU: Prüfe ob wir im Freundes-Kontext sind
-  // Removed selectedPlantForIcon state as icon selection is no longer needed
   const [speakingPlantId, setSpeakingPlantId] = useState(null);
+  const [imageIndexes, setImageIndexes] = useState({});
 
   const { data: genera = [], isLoading: generaLoading } = useQuery({
     queryKey: ['genera'],
@@ -46,6 +46,23 @@ export default function GenusDetail() {
         return [];
       }
       return discoveries.filter(d => d.user === user.email || d.created_by === user.email);
+    },
+  });
+
+  const setFrontImageMutation = useMutation({
+    mutationFn: async ({ discoveryId, plantId }) => {
+      // Erst alle anderen Discoveries dieser Pflanze auf false setzen
+      const plantDiscoveries = userDiscoveries.filter(d => d.plant_id === plantId);
+      await Promise.all(
+        plantDiscoveries.map(d => 
+          base44.entities.UserPlantDiscovery.update(d.id, { is_front_image: false })
+        )
+      );
+      // Dann das ausgewählte auf true setzen
+      await base44.entities.UserPlantDiscovery.update(discoveryId, { is_front_image: true });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
     },
   });
 
@@ -107,12 +124,20 @@ export default function GenusDetail() {
 
   const genus = genera.find(g => g.id === genusId);
   const genusPlants = plants.filter(p => p.genus_id === genusId).map(plant => {
-    const userDiscovery = userDiscoveries.find(d => d.plant_id === plant.id);
+    const plantDiscoveries = userDiscoveries.filter(d => d.plant_id === plant.id);
+    // Sortiere: Front-Image zuerst, dann nach Datum
+    const sortedDiscoveries = [...plantDiscoveries].sort((a, b) => {
+      if (a.is_front_image && !b.is_front_image) return -1;
+      if (!a.is_front_image && b.is_front_image) return 1;
+      return new Date(b.discovered_date) - new Date(a.discovered_date);
+    });
+    const userDiscovery = sortedDiscoveries[0];
     return {
       ...plant,
-      discovered: !!userDiscovery, // True if userDiscovery exists
-      userDiscovery: userDiscovery, // Store the full discovery object
-      discovery_date: userDiscovery ? userDiscovery.created_at : null // Use created_at from userDiscovery as discovery_date
+      discovered: !!userDiscovery,
+      userDiscovery: userDiscovery,
+      allDiscoveries: sortedDiscoveries,
+      discovery_date: userDiscovery ? userDiscovery.created_at : null
     };
   });
   const discoveredSpecies = genusPlants.filter(p => p.discovered);
@@ -297,12 +322,75 @@ export default function GenusDetail() {
               <CardContent className="p-6">
                 {plant.discovered ? (
                   <div className="space-y-4">
-                    {plant.userDiscovery?.image_url && (
-                      <img
-                        src={plant.userDiscovery.image_url}
-                        alt={plant.species_name}
-                        className="w-full h-48 object-cover rounded-lg shadow-sm border border-stone-200"
-                      />
+                    {plant.allDiscoveries?.length > 0 && (
+                      <div className="relative">
+                        <img
+                          src={plant.allDiscoveries[imageIndexes[plant.id] || 0]?.image_url || plant.userDiscovery.image_url}
+                          alt={plant.species_name}
+                          className="w-full h-48 object-cover rounded-lg shadow-sm border border-stone-200"
+                        />
+                        
+                        {plant.allDiscoveries.length > 1 && (
+                          <>
+                            {/* Navigation Buttons */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const currentIndex = imageIndexes[plant.id] || 0;
+                                const newIndex = currentIndex > 0 ? currentIndex - 1 : plant.allDiscoveries.length - 1;
+                                setImageIndexes(prev => ({ ...prev, [plant.id]: newIndex }));
+                              }}
+                              className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-md transition-all"
+                            >
+                              <ChevronLeft className="w-5 h-5 text-stone-700" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const currentIndex = imageIndexes[plant.id] || 0;
+                                const newIndex = currentIndex < plant.allDiscoveries.length - 1 ? currentIndex + 1 : 0;
+                                setImageIndexes(prev => ({ ...prev, [plant.id]: newIndex }));
+                              }}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-md transition-all"
+                            >
+                              <ChevronRight className="w-5 h-5 text-stone-700" />
+                            </button>
+                            
+                            {/* Counter */}
+                            <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
+                              {(imageIndexes[plant.id] || 0) + 1} / {plant.allDiscoveries.length}
+                            </div>
+                            
+                            {/* Front-Image Button - nur für eigene Discoveries */}
+                            {!friendEmail && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const currentDiscovery = plant.allDiscoveries[imageIndexes[plant.id] || 0];
+                                  setFrontImageMutation.mutate({ 
+                                    discoveryId: currentDiscovery.id, 
+                                    plantId: plant.id 
+                                  });
+                                }}
+                                className={`absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center shadow-md transition-all ${
+                                  plant.allDiscoveries[imageIndexes[plant.id] || 0]?.is_front_image
+                                    ? 'bg-amber-500 hover:bg-amber-600'
+                                    : 'bg-white/80 hover:bg-white'
+                                }`}
+                                title="Als Hauptbild festlegen"
+                              >
+                                <Star 
+                                  className={`w-4 h-4 ${
+                                    plant.allDiscoveries[imageIndexes[plant.id] || 0]?.is_front_image
+                                      ? 'text-white fill-white'
+                                      : 'text-stone-600'
+                                  }`}
+                                />
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
                     )}
                     {plant.description && (
                       <p className="text-stone-700">{plant.description}</p>
