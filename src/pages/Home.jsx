@@ -391,7 +391,7 @@ export default function Home() {
   const xpProgress = getXPProgressInLevel(currentXP, currentLevel);
 
   const calculateQuestProgress = (quest) => {
-    if (!quest.required_discoveries) return 0;
+    if (!quest || !quest.required_discoveries || quest.required_discoveries === 0) return 0;
 
     if (quest.category === "Alle") {
       return Math.min(discoveredGenera, quest.required_discoveries);

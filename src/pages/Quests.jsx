@@ -199,7 +199,7 @@ export default function Quests() {
   const completedQuests = userQuests.filter(uq => uq.completed).length;
 
   const calculateQuestProgress = (quest) => {
-    if (!quest.required_discoveries) return 0;
+    if (!quest || !quest.required_discoveries || quest.required_discoveries === 0) return 0;
     
     if (quest.category === "Alle") {
       return Math.min(discoveredGenera, quest.required_discoveries);
@@ -355,8 +355,8 @@ export default function Quests() {
   const dailyProgress = currentDailyQuest ? calculateQuestProgress(currentDailyQuest) : 0;
   const weeklyProgress = currentWeeklyQuest ? calculateQuestProgress(currentWeeklyQuest) : 0;
 
-  const isDailyCompleted = currentDailyQuest && dailyProgress >= currentDailyQuest.required_discoveries;
-  const isWeeklyCompleted = currentWeeklyQuest && weeklyProgress >= currentWeeklyQuest.required_discoveries;
+  const isDailyCompleted = currentDailyQuest && currentDailyQuest.required_discoveries > 0 && dailyProgress >= currentDailyQuest.required_discoveries;
+  const isWeeklyCompleted = currentWeeklyQuest && currentWeeklyQuest.required_discoveries > 0 && weeklyProgress >= currentWeeklyQuest.required_discoveries;
 
   const isDailyAlreadyCompletedToday = currentDailyQuest && isDailyQuestCompletedToday(userDailyQuests, currentDailyQuest.id);
   const isWeeklyAlreadyCompletedThisWeek = currentWeeklyQuest && isWeeklyQuestCompletedThisWeek(userWeeklyQuests, currentWeeklyQuest.id);
