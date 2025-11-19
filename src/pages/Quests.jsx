@@ -249,10 +249,10 @@ export default function Quests() {
   // Event Quests
   const eventQuests = quests.filter(q => q.quest_type === 'event');
 
-  // Alle speziellen Quests (täglich, wöchentlich, event)
-  const specialQuests = [activeWeeklyQuest, activeDailyQuest, ...eventQuests].filter(Boolean);
+  // Alle speziellen Quests (täglich, wöchentlich, event) - Priorität: Daily > Weekly > Event
+  const specialQuests = [activeDailyQuest, activeWeeklyQuest, ...eventQuests].filter(Boolean);
 
-  // Kombiniere Standard + Spezielle Quests für verfügbare
+  // Kombiniere Spezielle + Standard Quests für verfügbare (Spezielle zuerst!)
   const availableQuests = [...specialQuests, ...standardQuests].filter(q => 
     isQuestUnlocked(q) &&
     !userQuests.some(uq => uq.quest_id === q.id && uq.completed)

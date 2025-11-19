@@ -300,8 +300,8 @@ export default function Home() {
     !userQuests.some((uq) => uq.quest_id === q.id && uq.completed)
   );
 
-  // Kombiniere für Display: Wöchentlich > Täglich > Event > Standard (Top 3)
-  const specialQuests = [activeWeeklyQuest, activeDailyQuest, ...eventQuests].filter(Boolean);
+  // Kombiniere für Display: Täglich > Wöchentlich > Event > Standard (Top 3)
+  const specialQuests = [activeDailyQuest, activeWeeklyQuest, ...eventQuests].filter(Boolean);
   const allActiveQuests = [...specialQuests, ...standardQuests];
   
   const displayQuests = allActiveQuests.slice(0, 3).map((q) => ({
