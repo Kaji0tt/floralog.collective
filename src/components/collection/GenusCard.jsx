@@ -1,4 +1,4 @@
-
+import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, TreeDeciduous, Flower2, Leaf, HelpCircle } from "lucide-react";
@@ -15,6 +15,7 @@ const categoryIcons = {
 export default function GenusCard({ genus, onShowHint, userDiscoveries = [], plants = [], friendEmail }) {
   const navigate = useNavigate();
   const discovered = genus.discovered;
+  const [isFlipped, setIsFlipped] = React.useState(false);
   const CategoryIcon = categoryIcons[genus.category] || TreeDeciduous;
 
   // Hole das erste Bild dieser Gattung aus den UserDiscoveries
@@ -30,7 +31,18 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
         ? createPageUrl(`GenusDetail?id=${genus.id}&email=${friendEmail}`)
         : createPageUrl(`GenusDetail?id=${genus.id}`);
       navigate(url);
-    } else if (onShowHint) {
+    } else {
+      // Kachel umdrehen und Gattungsname zeigen
+      setIsFlipped(true);
+      setTimeout(() => {
+        setIsFlipped(false);
+      }, 3000);
+    }
+  };
+
+  const handleHelpClick = (e) => {
+    e.stopPropagation();
+    if (onShowHint) {
       onShowHint(genus);
     }
   };
@@ -39,16 +51,23 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
     <motion.div
       whileHover={{ scale: discovered ? 1.05 : 1.02 }}
       whileTap={{ scale: 0.95 }}
+      style={{ perspective: 1000 }}
     >
-      <Card
-        className={`cursor-pointer overflow-hidden border-2 shadow-sm transition-all duration-300 ${
-          discovered 
-            ? 'border-green-300 hover:shadow-lg bg-white' 
-            : 'border-stone-200 opacity-60 hover:opacity-75 hover:border-stone-300 bg-stone-50'
-        }`}
-        onClick={handleClick}
+      <motion.div
+        animate={{ rotateY: isFlipped ? 180 : 0 }}
+        transition={{ duration: 0.6 }}
+        style={{ transformStyle: "preserve-3d" }}
       >
-        <CardContent className="p-4">
+        <Card
+          className={`cursor-pointer overflow-hidden border-2 shadow-sm transition-all duration-300 ${
+            discovered 
+              ? 'border-green-300 hover:shadow-lg bg-white' 
+              : 'border-stone-200 opacity-60 hover:opacity-75 hover:border-stone-300 bg-stone-50'
+          }`}
+          onClick={handleClick}
+          style={{ backfaceVisibility: "hidden" }}
+        >
+          <CardContent className="p-4">
           {/* Dex Number Badge */}
           <div className="flex justify-between items-start mb-3">
             <Badge className="bg-stone-800 text-white font-bold text-sm px-2 py-1">
@@ -74,11 +93,22 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
               />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center">
-                <CategoryIcon className="w-16 h-16 text-stone-300" strokeWidth={1.5} />
-                {!discovered && (
-                  <div className="absolute bottom-2 right-2 bg-stone-400 rounded-full p-1">
-                    <HelpCircle className="w-4 h-4 text-white" />
+                {isFlipped ? (
+                  <div className="text-center px-2" style={{ transform: "rotateY(180deg)" }}>
+                    <p className="text-xl font-bold text-stone-700">{genus.genus_name}</p>
                   </div>
+                ) : (
+                  <>
+                    <CategoryIcon className="w-16 h-16 text-stone-300" strokeWidth={1.5} />
+                    {!discovered && (
+                      <div 
+                        className="absolute bottom-2 right-2 bg-stone-400 rounded-full p-1 hover:bg-stone-500 transition-colors"
+                        onClick={handleHelpClick}
+                      >
+                        <HelpCircle className="w-4 h-4 text-white" />
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -106,6 +136,7 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
           </Badge>
         </CardContent>
       </Card>
+      </motion.div>
     </motion.div>
   );
 }

@@ -1,51 +1,24 @@
-
-import { useState } from "react";
+import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Lightbulb, Volume2, VolumeX, MapPin, Calendar } from "lucide-react";
+import { Lightbulb, Volume2, VolumeX, Search } from "lucide-react";
 
 export default function HintDialog({ genus, isOpen, onClose }) {
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   if (!genus) return null;
 
-  const getCategoryHints = () => {
-    switch(genus.category) {
-      case "Bäume":
-        return [
-          { icon: Calendar, text: "Bäume sind das ganze Jahr über zu finden" },
-          { icon: MapPin, text: "Suche in Parks, Wäldern und an Straßenrändern" }
-        ];
-      case "Sträucher":
-        return [
-          { icon: Calendar, text: "Blütezeit je nach Art unterschiedlich" },
-          { icon: MapPin, text: "Häufig in Gärten, Parks und Hecken" }
-        ];
-      case "Blumen":
-        return [
-          { icon: Calendar, text: "Hauptsächlich im Frühling und Sommer" },
-          { icon: MapPin, text: "Auf Wiesen, an Wegrändern und in Gärten" }
-        ];
-      default:
-        return [];
-    }
+  const handleSearchPlant = () => {
+    const searchQuery = encodeURIComponent(`Wo finde ich ${genus.genus_name}`);
+    window.open(`https://www.google.com/search?q=${searchQuery}`, '_blank');
   };
 
   const getHintText = () => {
-    let text = `Hinweise für diese Pflanze. `;
+    let text = `Hinweise für ${genus.genus_name}. `;
     
     if (genus.description) {
-      text += genus.description + ". ";
-    }
-    
-    // Kategorie-spezifische Hinweise
-    const categoryHints = getCategoryHints();
-    if (categoryHints.length > 0) {
-      text += "So findest du diese Pflanze: ";
-      categoryHints.forEach((hint, index) => {
-        text += hint.text + ". ";
-      });
+      text += genus.description;
     }
     
     return text;
@@ -121,55 +94,41 @@ export default function HintDialog({ genus, isOpen, onClose }) {
 
         <div className="space-y-4">
           {/* Gattung Info */}
-          <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-4 border-2 border-amber-200">
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-5 border-2 border-amber-200">
             <div className="flex items-center gap-3 mb-3">
               <div className="text-4xl">{getCategoryIcon()}</div>
               <div>
-                <h3 className="font-bold text-xl text-stone-900">{genus.name}</h3>
-                <Badge className="bg-stone-700 text-white mt-1">
+                <h3 className="font-bold text-2xl text-stone-900">{genus.genus_name}</h3>
+                <p className="text-sm italic text-stone-600">{genus.scientific_genus}</p>
+                <Badge className="bg-stone-700 text-white mt-2">
                   {genus.category}
                 </Badge>
               </div>
             </div>
             {genus.description && (
-              <p className="text-sm text-stone-700 leading-relaxed">
+              <p className="text-sm text-stone-700 leading-relaxed mt-3">
                 {genus.description}
               </p>
             )}
           </div>
 
-          {/* Kategorie-spezifische Hinweise */}
-          <div className="space-y-3">
-            <h4 className="font-bold text-stone-900 flex items-center gap-2">
-              <Lightbulb className="w-4 h-4 text-amber-500" />
-              So findest du diese Pflanze:
-            </h4>
-            {getCategoryHints().map((hint, index) => (
-              <div key={index} className="flex items-start gap-3 bg-blue-50 rounded-lg p-3 border border-blue-200">
-                <hint.icon className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-stone-700">{hint.text}</p>
-              </div>
-            ))}
-          </div>
-
           {/* Familie Info */}
           {genus.family && (
-            <div className="bg-purple-50 rounded-lg p-3 border border-purple-200">
+            <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
               <p className="text-sm font-semibold text-purple-900">
                 🔬 Familie: {genus.family}
               </p>
             </div>
           )}
 
-          {/* Call to Action */}
-          <div className="bg-green-50 rounded-xl p-4 border-2 border-green-200 text-center">
-            <p className="font-semibold text-green-900 mb-2">
-              📸 Bereit zum Scannen?
-            </p>
-            <p className="text-sm text-stone-700">
-              Gehe raus und scanne die Pflanze, wenn du sie gefunden hast!
-            </p>
-          </div>
+          {/* Google Suche Button */}
+          <Button
+            onClick={handleSearchPlant}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-6 text-base"
+          >
+            <Search className="w-5 h-5 mr-2" />
+            Pflanze nachschlagen
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
