@@ -84,17 +84,28 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
           </div>
 
           {/* Image */}
-          <motion.div 
-            className="relative aspect-square rounded-lg overflow-hidden mb-3 bg-gradient-to-br from-stone-100 to-stone-200"
-            style={{ perspective: 1000 }}
-          >
-            {discovered && genusImage ? (
-              <img
-                src={genusImage}
-                alt={genus.genus_name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
+          <div className="relative mb-3">
+            {/* Stack Effect - nur bei mehreren Discoveries */}
+            {discovered && plants.filter(p => p.genus_id === genus.id).some(p => 
+              userDiscoveries.filter(d => d.plant_id === p.id).length > 1
+            ) && (
+              <>
+                <div className="absolute inset-0 bg-stone-300 rounded-lg transform translate-x-1 translate-y-1 opacity-40" />
+                <div className="absolute inset-0 bg-stone-200 rounded-lg transform translate-x-0.5 translate-y-0.5 opacity-60" />
+              </>
+            )}
+            
+            <motion.div 
+              className="relative aspect-square rounded-lg overflow-hidden bg-gradient-to-br from-stone-100 to-stone-200 z-10"
+              style={{ perspective: 1000 }}
+            >
+              {discovered && genusImage ? (
+                <img
+                  src={genusImage}
+                  alt={genus.genus_name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
               <motion.div 
                 className="absolute inset-0 flex items-center justify-center"
                 animate={{ rotateY: isFlipped ? 180 : 0 }}
@@ -118,7 +129,8 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
                 </motion.div>
               </motion.div>
             )}
-          </motion.div>
+            </motion.div>
+          </div>
 
           {/* Name */}
           <h3 className={`text-base font-bold mb-1 ${discovered ? 'text-stone-900' : 'text-stone-500'}`}>
