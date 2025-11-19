@@ -69,9 +69,16 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
               {genus.category === "Blumen" && "🌸"}
               #{String(genus.category_dex_number).padStart(3, '0')}
             </Badge>
-            {discovered && (
+            {discovered ? (
               <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
                 <CheckCircle className="w-5 h-5 text-white" />
+              </div>
+            ) : (
+              <div 
+                className="w-6 h-6 bg-stone-400 rounded-full flex items-center justify-center hover:bg-stone-500 transition-colors cursor-pointer"
+                onClick={handleHelpClick}
+              >
+                <HelpCircle className="w-4 h-4 text-white" />
               </div>
             )}
           </div>
@@ -99,14 +106,6 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
                   style={{ backfaceVisibility: "hidden" }}
                 >
                   <CategoryIcon className="w-16 h-16 text-stone-300" strokeWidth={1.5} />
-                  {!discovered && (
-                    <div 
-                      className="absolute bottom-2 right-2 bg-stone-400 rounded-full p-1 hover:bg-stone-500 transition-colors"
-                      onClick={handleHelpClick}
-                    >
-                      <HelpCircle className="w-4 h-4 text-white" />
-                    </div>
-                  )}
                 </motion.div>
                 <motion.div
                   className="absolute inset-0 flex items-center justify-center text-center px-2"
