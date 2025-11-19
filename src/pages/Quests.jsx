@@ -498,6 +498,17 @@ export default function Quests() {
                         </span>
                       </div>
                       <Progress value={(dailyProgress / currentDailyQuest.required_discoveries) * 100} className="h-2 bg-stone-200" />
+                      
+                      {currentDailyQuest.target_plant_id && (
+                        <p className="text-xs text-amber-700 font-semibold mt-2">
+                          🎯 Spezifische Pflanze erforderlich
+                        </p>
+                      )}
+                      {currentDailyQuest.target_genus_id && !currentDailyQuest.target_plant_id && (
+                        <p className="text-xs text-amber-700 font-semibold mt-2">
+                          🎯 Spezifische Gattung erforderlich
+                        </p>
+                      )}
                     </div>
                     
                     {isDailyCompleted && !isDailyAlreadyCompletedToday && (
@@ -563,6 +574,17 @@ export default function Quests() {
                         </span>
                       </div>
                       <Progress value={(weeklyProgress / currentWeeklyQuest.required_discoveries) * 100} className="h-2 bg-stone-200" />
+                      
+                      {currentWeeklyQuest.target_plant_id && (
+                        <p className="text-xs text-amber-700 font-semibold mt-2">
+                          🎯 Spezifische Pflanze erforderlich
+                        </p>
+                      )}
+                      {currentWeeklyQuest.target_genus_id && !currentWeeklyQuest.target_plant_id && (
+                        <p className="text-xs text-amber-700 font-semibold mt-2">
+                          🎯 Spezifische Gattung erforderlich
+                        </p>
+                      )}
                     </div>
                     
                     {isWeeklyCompleted && !isWeeklyAlreadyCompletedThisWeek && (

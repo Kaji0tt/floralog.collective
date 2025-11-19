@@ -177,15 +177,34 @@ export default function Scanner() {
     }
   };
 
-  const updateQuestProgress = async () => {
-    if (!user?.email) return;
+  const updateQuestProgress = async (scannedPlant) => {
+    if (!user?.email || !scannedPlant) return;
 
     const currentDailyQuest = getCurrentDailyQuest(dailyQuests);
     const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
 
+    // Helper: Prüft ob der Scan für die Quest zählt
+    const scanMatchesQuest = (quest) => {
+      // Wenn spezifische Pflanze gefordert: muss exakt diese Pflanze sein
+      if (quest.target_plant_id) {
+        return scannedPlant.id === quest.target_plant_id;
+      }
+      // Wenn spezifische Gattung gefordert: muss diese Gattung sein
+      if (quest.target_genus_id) {
+        return scannedPlant.genus_id === quest.target_genus_id;
+      }
+      // Sonst: Kategorie-basiert (wie bisher)
+      if (quest.category && quest.category !== "Alle") {
+        const genus = genera.find(g => g.id === scannedPlant.genus_id);
+        return genus?.category === quest.category;
+      }
+      // Alle Kategorien
+      return true;
+    };
+
     if (currentDailyQuest) {
       const activeDailyQuest = await getOrCreateActiveDailyQuest(base44, currentDailyQuest, userDailyQuests, user.email);
-      if (activeDailyQuest && !activeDailyQuest.completed) {
+      if (activeDailyQuest && !activeDailyQuest.completed && scanMatchesQuest(currentDailyQuest)) {
         await base44.entities.UserDailyQuest.update(activeDailyQuest.id, {
           progress: (activeDailyQuest.progress || 0) + 1
         });
@@ -194,7 +213,7 @@ export default function Scanner() {
 
     if (currentWeeklyQuest) {
       const activeWeeklyQuest = await getOrCreateActiveWeeklyQuest(base44, currentWeeklyQuest, userWeeklyQuests, user.email);
-      if (activeWeeklyQuest && !activeWeeklyQuest.completed) {
+      if (activeWeeklyQuest && !activeWeeklyQuest.completed && scanMatchesQuest(currentWeeklyQuest)) {
         await base44.entities.UserWeeklyQuest.update(activeWeeklyQuest.id, {
           progress: (activeWeeklyQuest.progress || 0) + 1
         });
@@ -471,7 +490,7 @@ export default function Scanner() {
       setCurrentAchievementIndex(0);
     }
 
-    await updateQuestProgress();
+    await updateQuestProgress(plant);
 
     // Vibration: 1x kurz für erfolgreichen Scan
     if (navigator.vibrate) {
@@ -553,7 +572,7 @@ export default function Scanner() {
         setCurrentAchievementIndex(0);
       }
 
-      await updateQuestProgress();
+      await updateQuestProgress(newPlant);
 
       // Vibration: 3x kurz für neuen PlantDex-Eintrag
       if (navigator.vibrate) {
