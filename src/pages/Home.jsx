@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -261,53 +262,18 @@ export default function Home() {
     }
   };
 
-  // Filtere Standard-Quests
-  const standardQuests = quests.filter((q) =>
-    (!q.quest_type || q.quest_type === 'standard') &&
+  const allActiveQuests = quests.filter((q) =>
     (q.unlocked_at_level || 1) <= currentLevel &&
     !userQuests.some((uq) => uq.quest_id === q.id && uq.completed)
   );
 
-  // Helfer: Welcher Tag der Woche (0 = Sonntag, 1 = Montag, ...)
-  const getDayOfWeek = () => new Date().getDay();
-  
-  // Helfer: Welche Woche im Jahr
-  const getWeekNumber = () => {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), 0, 1);
-    const diff = now - start;
-    const oneWeek = 1000 * 60 * 60 * 24 * 7;
-    return Math.floor(diff / oneWeek);
-  };
-
-  // Filtere und wähle aktive tägliche Quest (alle daily quests sind immer aktiv)
-  const dailyQuests = quests.filter(q => 
-    q.quest_type === 'daily' && 
-    !userQuests.some((uq) => uq.quest_id === q.id && uq.completed)
-  );
-  const activeDailyQuest = dailyQuests.length > 0 ? dailyQuests[0] : null;
-
-  // Filtere und wähle aktive wöchentliche Quest (basierend auf day_of_week)
-  const weeklyQuests = quests.filter(q => q.quest_type === 'weekly');
-  const activeWeeklyQuest = weeklyQuests.length > 0 ? weeklyQuests.find(q => {
-    const dayIndex = getDayOfWeek();
-    return q.day_of_week === dayIndex && !userQuests.some((uq) => uq.quest_id === q.id && uq.completed);
-  }) : null;
-
-  // Event Quests
-  const eventQuests = quests.filter((q) =>
-    q.quest_type === 'event' &&
-    !userQuests.some((uq) => uq.quest_id === q.id && uq.completed)
-  );
-
-  // Kombiniere für Display: Täglich > Wöchentlich > Event > Standard (Top 3)
-  const specialQuests = [activeDailyQuest, activeWeeklyQuest, ...eventQuests].filter(Boolean);
-  const allActiveQuests = [...specialQuests, ...standardQuests];
-  
-  const displayQuests = allActiveQuests.slice(0, 3).map((q) => ({
+  const activeQuests = allActiveQuests.map((q) => ({
     ...q,
-    progress: calculateQuestProgress(q)
-  }));
+    progress: calculateQuestProgress(q),
+    type: 'personal'
+  })).slice(0, 3);
+
+  const displayQuests = activeQuests;
 
   const statButtons = [
     {
@@ -709,14 +675,6 @@ export default function Home() {
                     {displayQuests.map((quest, index) => {
                       const progressPercentage = quest.progress / quest.required_discoveries * 100;
                       const isCompleted = quest.progress >= quest.required_discoveries;
-                      
-                      const questTypeColors = {
-                        daily: 'border-green-400 bg-green-50',
-                        weekly: 'border-blue-400 bg-blue-50',
-                        event: 'border-purple-400 bg-purple-50',
-                        standard: 'border-stone-200'
-                      };
-                      const borderColor = questTypeColors[quest.quest_type || 'standard'];
 
                       return (
                         <motion.div
@@ -730,28 +688,13 @@ export default function Home() {
                             className="w-full text-left"
                             disabled={completeQuestMutation.isPending}>
 
-                            <Card className={`border-2 ${borderColor} hover:border-green-300 transition-colors`}>
+                            <Card className="border-2 border-stone-200 hover:border-green-300 transition-colors">
                               <CardContent className="p-3">
                                 <div className="flex items-start gap-3">
                                   <div className="flex-1 min-w-0">
                                     <div className="flex flex-wrap items-center gap-2 mb-1">
-                                      {quest.quest_type === 'daily' && (
-                                        <Badge className="bg-green-600 text-white text-xs font-bold">
-                                          📅 Täglich
-                                        </Badge>
-                                      )}
-                                      {quest.quest_type === 'weekly' && (
-                                        <Badge className="bg-blue-600 text-white text-xs font-bold">
-                                          📆 Wöchentlich
-                                        </Badge>
-                                      )}
-                                      {quest.quest_type === 'event' && (
-                                        <Badge className="bg-purple-600 text-white text-xs font-bold">
-                                          ⭐ Event
-                                        </Badge>
-                                      )}
                                       {isCompleted &&
-                                        <Badge className="bg-amber-600 text-white text-xs">
+                                        <Badge className="bg-green-600 text-white text-xs">
                                           <Sparkles className="w-3 h-3 mr-1" />
                                           Bereit!
                                         </Badge>
@@ -821,14 +764,6 @@ export default function Home() {
                     {displayQuests.map((quest, index) => {
                       const progressPercentage = quest.progress / quest.required_discoveries * 100;
                       const isCompleted = quest.progress >= quest.required_discoveries;
-                      
-                      const questTypeColors = {
-                        daily: 'border-green-400 bg-green-50',
-                        weekly: 'border-blue-400 bg-blue-50',
-                        event: 'border-purple-400 bg-purple-50',
-                        standard: 'border-stone-200 bg-white'
-                      };
-                      const borderColor = questTypeColors[quest.quest_type || 'standard'];
 
                       return (
                         <motion.div
@@ -843,28 +778,13 @@ export default function Home() {
                             className="w-full text-left"
                             disabled={completeQuestMutation.isPending}>
 
-                            <Card className={`border-2 ${borderColor} shadow-lg hover:border-green-300 transition-colors`}>
+                            <Card className="border-2 border-stone-200 shadow-lg bg-white hover:border-green-300 transition-colors">
                               <CardContent className="px-6 py-4">
                                 <div className="flex items-start gap-3">
                                   <div className="flex-1 min-w-0">
                                     <div className="flex flex-wrap items-center gap-2 mb-2">
-                                      {quest.quest_type === 'daily' && (
-                                        <Badge className="bg-green-600 text-white text-xs font-bold">
-                                          📅 Täglich
-                                        </Badge>
-                                      )}
-                                      {quest.quest_type === 'weekly' && (
-                                        <Badge className="bg-blue-600 text-white text-xs font-bold">
-                                          📆 Wöchentlich
-                                        </Badge>
-                                      )}
-                                      {quest.quest_type === 'event' && (
-                                        <Badge className="bg-purple-600 text-white text-xs font-bold">
-                                          ⭐ Event
-                                        </Badge>
-                                      )}
                                       {isCompleted &&
-                                        <Badge className="bg-amber-600 text-white text-xs">
+                                        <Badge className="bg-green-600 text-white text-xs">
                                           <Sparkles className="w-3 h-3 mr-1" />
                                           Bereit!
                                         </Badge>
