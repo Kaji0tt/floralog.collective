@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Leaf, CheckCircle2, Lock, Sparkles, Volume2, VolumeX, ChevronLeft, ChevronRight, Star } from "lucide-react";
+import { ArrowLeft, Leaf, CheckCircle2, Lock, Sparkles, Volume2, VolumeX, ChevronLeft, ChevronRight, Star, HelpCircle } from "lucide-react";
 import { createPageUrl } from "@/utils";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -19,6 +19,7 @@ export default function GenusDetail() {
   const friendEmail = urlParams.get('email'); // NEU: Prüfe ob wir im Freundes-Kontext sind
   const [speakingPlantId, setSpeakingPlantId] = useState(null);
   const [imageIndexes, setImageIndexes] = useState({});
+  const [flippedPlants, setFlippedPlants] = useState({});
 
   const { data: genera = [], isLoading: generaLoading } = useQuery({
     queryKey: ['genera'],
@@ -416,11 +417,55 @@ export default function GenusDetail() {
                     )}
                   </div>
                 ) : (
-                  <div className="text-center py-8">
-                    <Leaf className="w-12 h-12 text-stone-300 mx-auto mb-3" />
-                    <p className="text-stone-500 font-semibold">
-                      {friendEmail ? "Noch nicht entdeckt" : "Scanne diese Art, um sie freizuschalten!"}
-                    </p>
+                  <div 
+                    className="relative aspect-square rounded-lg overflow-hidden bg-gradient-to-br from-stone-100 to-stone-200 cursor-pointer"
+                    style={{ perspective: 1000 }}
+                    onClick={() => {
+                      setFlippedPlants(prev => ({ ...prev, [plant.id]: true }));
+                      setTimeout(() => {
+                        setFlippedPlants(prev => ({ ...prev, [plant.id]: false }));
+                      }, 3000);
+                    }}
+                  >
+                    <motion.div 
+                      className="absolute inset-0 flex items-center justify-center"
+                      animate={{ rotateY: flippedPlants[plant.id] ? 180 : 0 }}
+                      transition={{ duration: 0.6 }}
+                      style={{ transformStyle: "preserve-3d" }}
+                    >
+                      <motion.div
+                        className="absolute inset-0 flex flex-col items-center justify-center"
+                        style={{ backfaceVisibility: "hidden" }}
+                      >
+                        <Leaf className="w-16 h-16 text-stone-300 mb-3" strokeWidth={1.5} />
+                        <p className="text-stone-500 font-semibold px-4 text-center text-sm">
+                          {friendEmail ? "Noch nicht entdeckt" : "Klicke für Hinweis"}
+                        </p>
+                      </motion.div>
+                      <motion.div
+                        className="absolute inset-0 flex flex-col items-center justify-center text-center px-4"
+                        style={{ 
+                          backfaceVisibility: "hidden",
+                          transform: "rotateY(180deg)"
+                        }}
+                      >
+                        <p className="text-lg font-bold text-stone-700 mb-2">{plant.species_name}</p>
+                        <p className="text-sm italic text-stone-600">{plant.scientific_name}</p>
+                      </motion.div>
+                    </motion.div>
+                    
+                    {!friendEmail && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(`https://www.google.com/search?q=Wo+finde+ich+${encodeURIComponent(plant.species_name)}`, '_blank');
+                        }}
+                        className="absolute top-2 right-2 w-7 h-7 bg-stone-400 rounded-full flex items-center justify-center hover:bg-stone-500 transition-colors z-20"
+                        title="Wo finde ich diese Pflanze?"
+                      >
+                        <HelpCircle className="w-4 h-4 text-white" />
+                      </button>
+                    )}
                   </div>
                 )}
               </CardContent>
