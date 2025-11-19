@@ -232,18 +232,15 @@ export default function Quests() {
   // Standard Quests
   const standardQuests = quests.filter(q => !q.quest_type || q.quest_type === 'standard');
   
-  // Tägliche Quests
+  // Tägliche Quests (alle daily quests sind immer aktiv)
   const dailyQuests = quests.filter(q => q.quest_type === 'daily');
-  const activeDailyQuest = dailyQuests.find(q => {
-    const dayIndex = getDayOfWeek();
-    return q.rotation_index === dayIndex;
-  });
+  const activeDailyQuest = dailyQuests.length > 0 ? dailyQuests[0] : null;
 
-  // Wöchentliche Quests
+  // Wöchentliche Quests (basierend auf day_of_week)
   const weeklyQuests = quests.filter(q => q.quest_type === 'weekly');
   const activeWeeklyQuest = weeklyQuests.find(q => {
-    const weekIndex = getWeekNumber() % weeklyQuests.length;
-    return q.rotation_index === weekIndex;
+    const dayIndex = getDayOfWeek();
+    return q.day_of_week === dayIndex;
   });
 
   // Event Quests

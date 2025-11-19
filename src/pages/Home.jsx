@@ -280,18 +280,18 @@ export default function Home() {
     return Math.floor(diff / oneWeek);
   };
 
-  // Filtere und wähle aktive tägliche Quest
-  const dailyQuests = quests.filter(q => q.quest_type === 'daily');
-  const activeDailyQuest = dailyQuests.length > 0 ? dailyQuests.find(q => {
-    const dayIndex = getDayOfWeek();
-    return q.rotation_index === dayIndex && !userQuests.some((uq) => uq.quest_id === q.id && uq.completed);
-  }) : null;
+  // Filtere und wähle aktive tägliche Quest (alle daily quests sind immer aktiv)
+  const dailyQuests = quests.filter(q => 
+    q.quest_type === 'daily' && 
+    !userQuests.some((uq) => uq.quest_id === q.id && uq.completed)
+  );
+  const activeDailyQuest = dailyQuests.length > 0 ? dailyQuests[0] : null;
 
-  // Filtere und wähle aktive wöchentliche Quest
+  // Filtere und wähle aktive wöchentliche Quest (basierend auf day_of_week)
   const weeklyQuests = quests.filter(q => q.quest_type === 'weekly');
   const activeWeeklyQuest = weeklyQuests.length > 0 ? weeklyQuests.find(q => {
-    const weekIndex = getWeekNumber() % weeklyQuests.length;
-    return q.rotation_index === weekIndex && !userQuests.some((uq) => uq.quest_id === q.id && uq.completed);
+    const dayIndex = getDayOfWeek();
+    return q.day_of_week === dayIndex && !userQuests.some((uq) => uq.quest_id === q.id && uq.completed);
   }) : null;
 
   // Event Quests
