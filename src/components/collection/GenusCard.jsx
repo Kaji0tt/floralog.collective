@@ -18,11 +18,13 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
   const [isFlipped, setIsFlipped] = React.useState(false);
   const CategoryIcon = categoryIcons[genus.category] || TreeDeciduous;
 
-  // Hole das erste Bild dieser Gattung aus den UserDiscoveries
-  const genusImage = userDiscoveries.find(d => {
+  // Hole das Gattungsbild: Front-Image bevorzugt, sonst neuestes
+  const genusDiscoveries = userDiscoveries.filter(d => {
     const plant = plants.find(p => p.id === d.plant_id);
     return plant && plant.genus_id === genus.id && d.image_url;
-  })?.image_url;
+  });
+  const genusImage = genusDiscoveries.find(d => d.is_front_image)?.image_url || 
+                     genusDiscoveries.sort((a, b) => new Date(b.discovered_date) - new Date(a.discovered_date))[0]?.image_url;
 
   const handleClick = () => {
     if (discovered) {
