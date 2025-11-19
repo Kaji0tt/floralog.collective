@@ -11,8 +11,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import QuestCompletionAnimation from "../components/quests/QuestCompletionAnimation";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
-import { awardXP, getTitleForLevel, getXPProgressInLevel } from "../components/utils/xpSystem"; // Import updated utility functions
+import { awardXP, getTitleForLevel, getXPProgressInLevel } from "../components/utils/xpSystem";
 import MobileBackButton from "../components/navigation/MobileBackButton";
+import { 
+  getCurrentDailyQuest, 
+  getCurrentWeeklyQuest, 
+  isDailyQuestCompletedToday, 
+  isWeeklyQuestCompletedThisWeek,
+  getTodayString,
+  getWeekNumber
+} from "../components/quests/QuestRotationHelper";
 
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
@@ -58,6 +66,28 @@ export default function Quests() {
     enabled: !!user?.email,
   });
 
+  const { data: dailyQuests = [] } = useQuery({
+    queryKey: ['dailyQuests'],
+    queryFn: () => base44.entities.DailyQuest.list('quest_number'),
+  });
+
+  const { data: weeklyQuests = [] } = useQuery({
+    queryKey: ['weeklyQuests'],
+    queryFn: () => base44.entities.WeeklyQuest.list('quest_number'),
+  });
+
+  const { data: userDailyQuests = [] } = useQuery({
+    queryKey: ['userDailyQuests'],
+    queryFn: () => base44.entities.UserDailyQuest.filter({ created_by: user?.email }),
+    enabled: !!user?.email,
+  });
+
+  const { data: userWeeklyQuests = [] } = useQuery({
+    queryKey: ['userWeeklyQuests'],
+    queryFn: () => base44.entities.UserWeeklyQuest.filter({ created_by: user?.email }),
+    enabled: !!user?.email,
+  });
+
   useEffect(() => {
     const loadUser = async () => {
       const currentUser = await base44.auth.me();
@@ -95,6 +125,32 @@ export default function Quests() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userQuests'] });
+    },
+  });
+
+  const completeDailyQuestMutation = useMutation({
+    mutationFn: async (questId) => {
+      return base44.entities.UserDailyQuest.create({
+        daily_quest_id: questId,
+        completed_date: getTodayString(),
+        created_by: user?.email
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userDailyQuests'] });
+    },
+  });
+
+  const completeWeeklyQuestMutation = useMutation({
+    mutationFn: async (questId) => {
+      return base44.entities.UserWeeklyQuest.create({
+        weekly_quest_id: questId,
+        completed_week: getWeekNumber(),
+        created_by: user?.email
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
     },
   });
 
@@ -172,17 +228,79 @@ export default function Quests() {
       setShowCompletionAnimation(true);
 
       setTimeout(async () => {
-        // Update user's XP/Level/Title
         await updateUserMutation.mutateAsync({
           xp: newXP,
           level: newLevel,
           title: newTitle
         });
         
-        // Fetch the freshest user data after updates, for PublicProfile and Achievements
         const freshUser = await base44.auth.me();
+        await updatePublicProfile(freshUser);
+
+        const newlyUnlocked = await checkAndUnlockAchievements(freshUser);
+        if (newlyUnlocked.length > 0) {
+          setNewAchievements(newlyUnlocked);
+          setCurrentAchievementIndex(0);
+        }
+      }, 500);
+    }
+  };
+
+  const handleCompleteDailyQuest = async (quest) => {
+    const progress = calculateQuestProgress(quest);
+    const isCompleted = progress >= quest.required_discoveries;
+    const alreadyCompletedToday = isDailyQuestCompletedToday(userDailyQuests, quest.id);
+
+    if (isCompleted && !alreadyCompletedToday) {
+      await completeDailyQuestMutation.mutateAsync(quest.id);
+      
+      const currentXP = user.xp || 0;
+      const { newXP, newLevel, newTitle } = awardXP(currentXP, quest.xp_reward);
+
+      setCompletedQuestXP(quest.xp_reward);
+      setShowCompletionAnimation(true);
+
+      setTimeout(async () => {
+        await updateUserMutation.mutateAsync({
+          xp: newXP,
+          level: newLevel,
+          title: newTitle
+        });
         
-        // Update PublicProfile
+        const freshUser = await base44.auth.me();
+        await updatePublicProfile(freshUser);
+
+        const newlyUnlocked = await checkAndUnlockAchievements(freshUser);
+        if (newlyUnlocked.length > 0) {
+          setNewAchievements(newlyUnlocked);
+          setCurrentAchievementIndex(0);
+        }
+      }, 500);
+    }
+  };
+
+  const handleCompleteWeeklyQuest = async (quest) => {
+    const progress = calculateQuestProgress(quest);
+    const isCompleted = progress >= quest.required_discoveries;
+    const alreadyCompletedThisWeek = isWeeklyQuestCompletedThisWeek(userWeeklyQuests, quest.id);
+
+    if (isCompleted && !alreadyCompletedThisWeek) {
+      await completeWeeklyQuestMutation.mutateAsync(quest.id);
+      
+      const currentXP = user.xp || 0;
+      const { newXP, newLevel, newTitle } = awardXP(currentXP, quest.xp_reward);
+
+      setCompletedQuestXP(quest.xp_reward);
+      setShowCompletionAnimation(true);
+
+      setTimeout(async () => {
+        await updateUserMutation.mutateAsync({
+          xp: newXP,
+          level: newLevel,
+          title: newTitle
+        });
+        
+        const freshUser = await base44.auth.me();
         await updatePublicProfile(freshUser);
 
         const newlyUnlocked = await checkAndUnlockAchievements(freshUser);
@@ -230,6 +348,18 @@ export default function Quests() {
   const completedQuestList = quests.filter(q =>
     userQuests.some(uq => uq.quest_id === q.id && uq.completed)
   );
+
+  const currentDailyQuest = getCurrentDailyQuest(dailyQuests);
+  const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
+
+  const dailyProgress = currentDailyQuest ? calculateQuestProgress(currentDailyQuest) : 0;
+  const weeklyProgress = currentWeeklyQuest ? calculateQuestProgress(currentWeeklyQuest) : 0;
+
+  const isDailyCompleted = currentDailyQuest && dailyProgress >= currentDailyQuest.required_discoveries;
+  const isWeeklyCompleted = currentWeeklyQuest && weeklyProgress >= currentWeeklyQuest.required_discoveries;
+
+  const isDailyAlreadyCompletedToday = currentDailyQuest && isDailyQuestCompletedToday(userDailyQuests, currentDailyQuest.id);
+  const isWeeklyAlreadyCompletedThisWeek = currentWeeklyQuest && isWeeklyQuestCompletedThisWeek(userWeeklyQuests, currentWeeklyQuest.id);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4 md:p-8">
@@ -310,6 +440,136 @@ export default function Quests() {
 
           {/* Aktive Aufgaben */}
           <TabsContent value="active" className="space-y-4">
+            {/* Tägliche Quest */}
+            {currentDailyQuest && (
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <Card className={`border-2 ${isDailyAlreadyCompletedToday ? 'border-green-400 bg-green-50' : 'border-emerald-400'} hover:shadow-lg transition-all bg-white`}>
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <Badge className="bg-emerald-600 text-white font-bold">
+                            📅 Täglich
+                          </Badge>
+                          {isDailyAlreadyCompletedToday && (
+                            <Badge className="bg-green-600 text-white">
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              Heute erledigt
+                            </Badge>
+                          )}
+                        </div>
+                        <CardTitle className="text-xl text-stone-900 mb-2">{currentDailyQuest.title}</CardTitle>
+                        <p className="text-stone-600">{currentDailyQuest.description}</p>
+                      </div>
+                      <div className="flex flex-col items-center gap-2 ml-4">
+                        <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg">
+                          <span className="text-white font-bold text-sm">+{currentDailyQuest.xp_reward}</span>
+                        </div>
+                        <span className="text-xs font-semibold text-stone-600">XP</span>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-semibold text-stone-700">
+                          {currentDailyQuest.requirement}
+                        </span>
+                        <span className="text-sm font-bold text-emerald-700">
+                          {dailyProgress} / {currentDailyQuest.required_discoveries}
+                        </span>
+                      </div>
+                      <Progress value={(dailyProgress / currentDailyQuest.required_discoveries) * 100} className="h-2 bg-stone-200" />
+                    </div>
+                    
+                    {isDailyCompleted && !isDailyAlreadyCompletedToday && (
+                      <Button
+                        onClick={() => handleCompleteDailyQuest(currentDailyQuest)}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3"
+                        disabled={completeDailyQuestMutation.isPending}
+                      >
+                        {completeDailyQuestMutation.isPending ? (
+                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        ) : (
+                          <Trophy className="w-5 h-5 mr-2" />
+                        )}
+                        Tägliche Aufgabe abschließen!
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            {/* Wöchentliche Quest */}
+            {currentWeeklyQuest && (
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, delay: 0.1 }}
+              >
+                <Card className={`border-2 ${isWeeklyAlreadyCompletedThisWeek ? 'border-green-400 bg-green-50' : 'border-blue-400'} hover:shadow-lg transition-all bg-white`}>
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <Badge className="bg-blue-600 text-white font-bold">
+                            📆 Wöchentlich
+                          </Badge>
+                          {isWeeklyAlreadyCompletedThisWeek && (
+                            <Badge className="bg-green-600 text-white">
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              Diese Woche erledigt
+                            </Badge>
+                          )}
+                        </div>
+                        <CardTitle className="text-xl text-stone-900 mb-2">{currentWeeklyQuest.title}</CardTitle>
+                        <p className="text-stone-600">{currentWeeklyQuest.description}</p>
+                      </div>
+                      <div className="flex flex-col items-center gap-2 ml-4">
+                        <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg">
+                          <span className="text-white font-bold text-sm">+{currentWeeklyQuest.xp_reward}</span>
+                        </div>
+                        <span className="text-xs font-semibold text-stone-600">XP</span>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-semibold text-stone-700">
+                          {currentWeeklyQuest.requirement}
+                        </span>
+                        <span className="text-sm font-bold text-blue-700">
+                          {weeklyProgress} / {currentWeeklyQuest.required_discoveries}
+                        </span>
+                      </div>
+                      <Progress value={(weeklyProgress / currentWeeklyQuest.required_discoveries) * 100} className="h-2 bg-stone-200" />
+                    </div>
+                    
+                    {isWeeklyCompleted && !isWeeklyAlreadyCompletedThisWeek && (
+                      <Button
+                        onClick={() => handleCompleteWeeklyQuest(currentWeeklyQuest)}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3"
+                        disabled={completeWeeklyQuestMutation.isPending}
+                      >
+                        {completeWeeklyQuestMutation.isPending ? (
+                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        ) : (
+                          <Trophy className="w-5 h-5 mr-2" />
+                        )}
+                        Wöchentliche Aufgabe abschließen!
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
             {availableQuests.map((quest, index) => {
               const progress = calculateQuestProgress(quest);
               const isCompleted = progress >= quest.required_discoveries;
