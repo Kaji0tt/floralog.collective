@@ -144,11 +144,13 @@ export default function GenusDetail() {
 
   // Removed myGenusImages calculation as it was only for the icon selection dialog
 
-  // Hole das erste Bild dieser Gattung aus den UserDiscoveries, das ein Bild hat
-  const genusIconUrl = userDiscoveries.find(d => {
+  // Hole das Gattungsbild: Front-Image bevorzugt, sonst neuestes
+  const genusDiscoveries = userDiscoveries.filter(d => {
     const plant = plants.find(p => p.id === d.plant_id);
     return plant && plant.genus_id === genusId && d.image_url;
-  })?.image_url;
+  });
+  const genusIconUrl = genusDiscoveries.find(d => d.is_front_image)?.image_url || 
+                       genusDiscoveries.sort((a, b) => new Date(b.discovered_date) - new Date(a.discovered_date))[0]?.image_url;
 
   if (generaLoading || plantsLoading || discoveriesLoading) {
     return (
