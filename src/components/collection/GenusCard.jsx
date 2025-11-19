@@ -51,23 +51,16 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
     <motion.div
       whileHover={{ scale: discovered ? 1.05 : 1.02 }}
       whileTap={{ scale: 0.95 }}
-      style={{ perspective: 1000 }}
     >
-      <motion.div
-        animate={{ rotateY: isFlipped ? 180 : 0 }}
-        transition={{ duration: 0.6 }}
-        style={{ transformStyle: "preserve-3d" }}
+      <Card
+        className={`cursor-pointer overflow-hidden border-2 shadow-sm transition-all duration-300 ${
+          discovered 
+            ? 'border-green-300 hover:shadow-lg bg-white' 
+            : 'border-stone-200 opacity-60 hover:opacity-75 hover:border-stone-300 bg-stone-50'
+        }`}
+        onClick={handleClick}
       >
-        <Card
-          className={`cursor-pointer overflow-hidden border-2 shadow-sm transition-all duration-300 ${
-            discovered 
-              ? 'border-green-300 hover:shadow-lg bg-white' 
-              : 'border-stone-200 opacity-60 hover:opacity-75 hover:border-stone-300 bg-stone-50'
-          }`}
-          onClick={handleClick}
-          style={{ backfaceVisibility: "hidden" }}
-        >
-          <CardContent className="p-4">
+        <CardContent className="p-4">
           {/* Dex Number Badge */}
           <div className="flex justify-between items-start mb-3">
             <Badge className="bg-stone-800 text-white font-bold text-sm px-2 py-1">
@@ -84,7 +77,10 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
           </div>
 
           {/* Image */}
-          <div className="relative aspect-square rounded-lg overflow-hidden mb-3 bg-gradient-to-br from-stone-100 to-stone-200">
+          <motion.div 
+            className="relative aspect-square rounded-lg overflow-hidden mb-3 bg-gradient-to-br from-stone-100 to-stone-200"
+            style={{ perspective: 1000 }}
+          >
             {discovered && genusImage ? (
               <img
                 src={genusImage}
@@ -92,27 +88,38 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="absolute inset-0 flex items-center justify-center">
-                {isFlipped ? (
-                  <div className="text-center px-2" style={{ transform: "rotateY(180deg)" }}>
-                    <p className="text-xl font-bold text-stone-700">{genus.genus_name}</p>
-                  </div>
-                ) : (
-                  <>
-                    <CategoryIcon className="w-16 h-16 text-stone-300" strokeWidth={1.5} />
-                    {!discovered && (
-                      <div 
-                        className="absolute bottom-2 right-2 bg-stone-400 rounded-full p-1 hover:bg-stone-500 transition-colors"
-                        onClick={handleHelpClick}
-                      >
-                        <HelpCircle className="w-4 h-4 text-white" />
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
+              <motion.div 
+                className="absolute inset-0 flex items-center justify-center"
+                animate={{ rotateY: isFlipped ? 180 : 0 }}
+                transition={{ duration: 0.6 }}
+                style={{ transformStyle: "preserve-3d" }}
+              >
+                <motion.div
+                  className="absolute inset-0 flex items-center justify-center"
+                  style={{ backfaceVisibility: "hidden" }}
+                >
+                  <CategoryIcon className="w-16 h-16 text-stone-300" strokeWidth={1.5} />
+                  {!discovered && (
+                    <div 
+                      className="absolute bottom-2 right-2 bg-stone-400 rounded-full p-1 hover:bg-stone-500 transition-colors"
+                      onClick={handleHelpClick}
+                    >
+                      <HelpCircle className="w-4 h-4 text-white" />
+                    </div>
+                  )}
+                </motion.div>
+                <motion.div
+                  className="absolute inset-0 flex items-center justify-center text-center px-2"
+                  style={{ 
+                    backfaceVisibility: "hidden",
+                    transform: "rotateY(180deg)"
+                  }}
+                >
+                  <p className="text-xl font-bold text-stone-700">{genus.genus_name}</p>
+                </motion.div>
+              </motion.div>
             )}
-          </div>
+          </motion.div>
 
           {/* Name */}
           <h3 className={`text-base font-bold mb-1 ${discovered ? 'text-stone-900' : 'text-stone-500'}`}>
@@ -136,7 +143,6 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
           </Badge>
         </CardContent>
       </Card>
-      </motion.div>
     </motion.div>
   );
 }
