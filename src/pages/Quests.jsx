@@ -358,6 +358,7 @@ export default function Quests() {
   const currentDailyQuest = getCurrentDailyQuest(dailyQuests);
   const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
 
+  // Finde UserQuest-Eintrag, falls vorhanden, ansonsten null
   const activeDailyUserQuest = currentDailyQuest 
     ? userDailyQuests.find(udq => udq.daily_quest_id === currentDailyQuest.id && udq.active_date === getTodayString())
     : null;

@@ -439,6 +439,7 @@ export default function Home() {
   const currentDailyQuest = getCurrentDailyQuest(dailyQuests);
   const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
 
+  // Finde UserQuest-Eintrag, falls vorhanden, ansonsten null
   const activeDailyUserQuest = currentDailyQuest 
     ? userDailyQuests.find(udq => udq.daily_quest_id === currentDailyQuest.id && udq.active_date === getTodayString())
     : null;
@@ -449,6 +450,7 @@ export default function Home() {
 
   const displayQuests = [];
 
+  // Tägliche Quest: Immer anzeigen wenn vorhanden, mit Progress 0 falls noch kein Eintrag
   if (currentDailyQuest) {
     const progress = activeDailyUserQuest?.progress || 0;
     const alreadyCompletedToday = activeDailyUserQuest?.completed === true;
@@ -460,6 +462,7 @@ export default function Home() {
     });
   }
 
+  // Wöchentliche Quest: Immer anzeigen wenn vorhanden, mit Progress 0 falls noch kein Eintrag
   if (currentWeeklyQuest) {
     const progress = activeWeeklyUserQuest?.progress || 0;
     const alreadyCompletedThisWeek = activeWeeklyUserQuest?.completed === true;
