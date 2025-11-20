@@ -446,16 +446,24 @@ export default function Home() {
   useEffect(() => {
     const initializeQuests = async () => {
       if (user?.email && currentDailyQuest && dailyQuests.length > 0) {
-        const activeDaily = await getOrCreateActiveDailyQuest(base44, currentDailyQuest, userDailyQuests, user.email);
-        setActiveDailyUserQuest(activeDaily);
+        try {
+          const activeDaily = await getOrCreateActiveDailyQuest(base44, currentDailyQuest, userDailyQuests, user.email);
+          setActiveDailyUserQuest(activeDaily);
+        } catch (error) {
+          console.error("Error initializing daily quest:", error);
+        }
       }
       if (user?.email && currentWeeklyQuest && weeklyQuests.length > 0) {
-        const activeWeekly = await getOrCreateActiveWeeklyQuest(base44, currentWeeklyQuest, userWeeklyQuests, user.email);
-        setActiveWeeklyUserQuest(activeWeekly);
+        try {
+          const activeWeekly = await getOrCreateActiveWeeklyQuest(base44, currentWeeklyQuest, userWeeklyQuests, user.email);
+          setActiveWeeklyUserQuest(activeWeekly);
+        } catch (error) {
+          console.error("Error initializing weekly quest:", error);
+        }
       }
     };
     initializeQuests();
-  }, [user?.email, currentDailyQuest?.id, currentWeeklyQuest?.id, userDailyQuests.length, userWeeklyQuests.length]);
+  }, [user?.email, currentDailyQuest?.id, currentWeeklyQuest?.id]);
 
   const displayQuests = [];
 
