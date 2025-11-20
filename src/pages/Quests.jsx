@@ -358,31 +358,36 @@ export default function Quests() {
   const currentDailyQuest = getCurrentDailyQuest(dailyQuests);
   const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
 
-  const [activeDailyUserQuest, setActiveDailyUserQuest] = useState(null);
-  const [activeWeeklyUserQuest, setActiveWeeklyUserQuest] = useState(null);
+  const activeDailyUserQuest = currentDailyQuest 
+    ? userDailyQuests.find(udq => udq.daily_quest_id === currentDailyQuest.id && udq.active_date === getTodayString())
+    : null;
+  
+  const activeWeeklyUserQuest = currentWeeklyQuest 
+    ? userWeeklyQuests.find(uwq => uwq.weekly_quest_id === currentWeeklyQuest.id && uwq.active_week === getWeekNumber())
+    : null;
 
   // Auto-create daily/weekly quests on load
   useEffect(() => {
     const initializeQuests = async () => {
-      if (user?.email && currentDailyQuest && dailyQuests.length > 0) {
+      if (user?.email && currentDailyQuest && dailyQuests.length > 0 && !activeDailyUserQuest) {
         try {
-          const activeDaily = await getOrCreateActiveDailyQuest(base44, currentDailyQuest, userDailyQuests, user.email);
-          setActiveDailyUserQuest(activeDaily);
+          await getOrCreateActiveDailyQuest(base44, currentDailyQuest, userDailyQuests, user.email);
+          queryClient.invalidateQueries({ queryKey: ['userDailyQuests'] });
         } catch (error) {
           console.error("Error initializing daily quest:", error);
         }
       }
-      if (user?.email && currentWeeklyQuest && weeklyQuests.length > 0) {
+      if (user?.email && currentWeeklyQuest && weeklyQuests.length > 0 && !activeWeeklyUserQuest) {
         try {
-          const activeWeekly = await getOrCreateActiveWeeklyQuest(base44, currentWeeklyQuest, userWeeklyQuests, user.email);
-          setActiveWeeklyUserQuest(activeWeekly);
+          await getOrCreateActiveWeeklyQuest(base44, currentWeeklyQuest, userWeeklyQuests, user.email);
+          queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
         } catch (error) {
           console.error("Error initializing weekly quest:", error);
         }
       }
     };
     initializeQuests();
-  }, [user?.email, currentDailyQuest?.id, currentWeeklyQuest?.id]);
+  }, [user?.email, currentDailyQuest?.id, currentWeeklyQuest?.id, activeDailyUserQuest, activeWeeklyUserQuest]);
 
   const dailyProgress = activeDailyUserQuest?.progress || 0;
   const weeklyProgress = activeWeeklyUserQuest?.progress || 0;
