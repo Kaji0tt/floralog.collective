@@ -34,6 +34,8 @@ export default function Quests() {
   const [newAchievements, setNewAchievements] = useState([]);
   const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
   const [activeTab, setActiveTab] = useState("active");
+  const [activeDailyUserQuest, setActiveDailyUserQuest] = useState(null);
+  const [activeWeeklyUserQuest, setActiveWeeklyUserQuest] = useState(null);
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
@@ -357,9 +359,6 @@ export default function Quests() {
 
   const currentDailyQuest = getCurrentDailyQuest(dailyQuests);
   const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
-
-  const [activeDailyUserQuest, setActiveDailyUserQuest] = useState(null);
-  const [activeWeeklyUserQuest, setActiveWeeklyUserQuest] = useState(null);
 
   useEffect(() => {
     const initQuests = async () => {
