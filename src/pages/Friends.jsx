@@ -548,7 +548,7 @@ export default function Friends() {
                 </p>
               </div>
             ) : (
-              <div className="grid gap-3 max-w-2xl mx-auto pb-24">
+              <div className="grid gap-3 pb-24">
                 {friends.map((friend, index) => {
                   const friendData = getFriendData(friend);
                   if (!friendData) return null;
