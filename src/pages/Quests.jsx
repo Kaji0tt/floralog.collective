@@ -358,13 +358,23 @@ export default function Quests() {
   const currentDailyQuest = getCurrentDailyQuest(dailyQuests);
   const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
 
-  const activeDailyUserQuest = currentDailyQuest 
-    ? userDailyQuests.find(udq => udq.daily_quest_id === currentDailyQuest.id && udq.active_date === getTodayString())
-    : null;
-  
-  const activeWeeklyUserQuest = currentWeeklyQuest 
-    ? userWeeklyQuests.find(uwq => uwq.weekly_quest_id === currentWeeklyQuest.id && uwq.active_week === getWeekNumber())
-    : null;
+  const [activeDailyUserQuest, setActiveDailyUserQuest] = useState(null);
+  const [activeWeeklyUserQuest, setActiveWeeklyUserQuest] = useState(null);
+
+  // Auto-create daily/weekly quests on load
+  useEffect(() => {
+    const initializeQuests = async () => {
+      if (user?.email && currentDailyQuest && dailyQuests.length > 0) {
+        const activeDaily = await getOrCreateActiveDailyQuest(base44, currentDailyQuest, userDailyQuests, user.email);
+        setActiveDailyUserQuest(activeDaily);
+      }
+      if (user?.email && currentWeeklyQuest && weeklyQuests.length > 0) {
+        const activeWeekly = await getOrCreateActiveWeeklyQuest(base44, currentWeeklyQuest, userWeeklyQuests, user.email);
+        setActiveWeeklyUserQuest(activeWeekly);
+      }
+    };
+    initializeQuests();
+  }, [user?.email, currentDailyQuest?.id, currentWeeklyQuest?.id, userDailyQuests.length, userWeeklyQuests.length]);
 
   const dailyProgress = activeDailyUserQuest?.progress || 0;
   const weeklyProgress = activeWeeklyUserQuest?.progress || 0;
