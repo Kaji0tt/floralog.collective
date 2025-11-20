@@ -34,8 +34,6 @@ export default function Quests() {
   const [newAchievements, setNewAchievements] = useState([]);
   const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
   const [activeTab, setActiveTab] = useState("active");
-  const [activeDailyUserQuest, setActiveDailyUserQuest] = useState(null);
-  const [activeWeeklyUserQuest, setActiveWeeklyUserQuest] = useState(null);
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
@@ -360,23 +358,13 @@ export default function Quests() {
   const currentDailyQuest = getCurrentDailyQuest(dailyQuests);
   const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
 
-  useEffect(() => {
-    const initQuests = async () => {
-      if (!user?.email) return;
-      
-      if (currentDailyQuest) {
-        const activeDaily = await getOrCreateActiveDailyQuest(base44, currentDailyQuest, userDailyQuests, user.email);
-        setActiveDailyUserQuest(activeDaily);
-      }
-      
-      if (currentWeeklyQuest) {
-        const activeWeekly = await getOrCreateActiveWeeklyQuest(base44, currentWeeklyQuest, userWeeklyQuests, user.email);
-        setActiveWeeklyUserQuest(activeWeekly);
-      }
-    };
-    
-    initQuests();
-  }, [user?.email, currentDailyQuest?.id, currentWeeklyQuest?.id, userDailyQuests.length, userWeeklyQuests.length]);
+  const activeDailyUserQuest = currentDailyQuest 
+    ? userDailyQuests.find(udq => udq.daily_quest_id === currentDailyQuest.id && udq.active_date === getTodayString())
+    : null;
+  
+  const activeWeeklyUserQuest = currentWeeklyQuest 
+    ? userWeeklyQuests.find(uwq => uwq.weekly_quest_id === currentWeeklyQuest.id && uwq.active_week === getWeekNumber())
+    : null;
 
   const dailyProgress = activeDailyUserQuest?.progress || 0;
   const weeklyProgress = activeWeeklyUserQuest?.progress || 0;
