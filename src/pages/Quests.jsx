@@ -369,7 +369,13 @@ export default function Quests() {
   // Auto-create daily/weekly quests on load
   useEffect(() => {
     const initializeQuests = async () => {
-      if (user?.email && currentDailyQuest && dailyQuests.length > 0 && !activeDailyUserQuest) {
+      const today = getTodayString();
+      const currentWeek = getWeekNumber();
+      
+      const existingDaily = userDailyQuests.find(udq => udq.daily_quest_id === currentDailyQuest?.id && udq.active_date === today);
+      const existingWeekly = userWeeklyQuests.find(uwq => uwq.weekly_quest_id === currentWeeklyQuest?.id && uwq.active_week === currentWeek);
+      
+      if (user?.email && currentDailyQuest && !existingDaily) {
         try {
           await getOrCreateActiveDailyQuest(base44, currentDailyQuest, userDailyQuests, user.email);
           queryClient.invalidateQueries({ queryKey: ['userDailyQuests'] });
@@ -377,7 +383,7 @@ export default function Quests() {
           console.error("Error initializing daily quest:", error);
         }
       }
-      if (user?.email && currentWeeklyQuest && weeklyQuests.length > 0 && !activeWeeklyUserQuest) {
+      if (user?.email && currentWeeklyQuest && !existingWeekly) {
         try {
           await getOrCreateActiveWeeklyQuest(base44, currentWeeklyQuest, userWeeklyQuests, user.email);
           queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
@@ -387,7 +393,7 @@ export default function Quests() {
       }
     };
     initializeQuests();
-  }, [user?.email, currentDailyQuest?.id, currentWeeklyQuest?.id, activeDailyUserQuest, activeWeeklyUserQuest]);
+  }, [user?.email, currentDailyQuest?.id, currentWeeklyQuest?.id, userDailyQuests.length, userWeeklyQuests.length]);
 
   const dailyProgress = activeDailyUserQuest?.progress || 0;
   const weeklyProgress = activeWeeklyUserQuest?.progress || 0;
