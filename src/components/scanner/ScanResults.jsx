@@ -342,21 +342,7 @@ export default function ScanResults({
 
         }
 
-        {/* Indikator-Dots über dem Card */}
-        {hasMultipleResults &&
-        <div className="flex justify-center mb-3">
-            <div className="flex gap-1.5 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-md">
-              {results.map((_, index) =>
-            <div
-              key={index}
-              className={`h-2 rounded-full transition-all ${
-              index === currentResultIndex ? 'bg-green-600 w-6' : 'bg-stone-300 w-2'}`
-              } />
 
-            )}
-            </div>
-          </div>
-        }
 
         <div className="relative flex items-center gap-4 overflow-visible">
           <motion.div
@@ -503,8 +489,23 @@ export default function ScanResults({
                         }
                       </>
                       }
-                    </div>
-                  </div>
+                      </div>
+
+                      {/* Indikator-Dots unterhalb des Bildes */}
+                      {hasMultipleResults &&
+                      <div className="flex justify-center mt-4">
+                      <div className="flex gap-1.5 bg-stone-100 px-3 py-1.5 rounded-full border-2 border-stone-300">
+                        {results.map((_, index) =>
+                        <div
+                          key={index}
+                          className={`h-2 rounded-full transition-all ${
+                          index === currentResultIndex ? 'bg-green-600 w-6' : 'bg-stone-300 w-2'}`
+                          } />
+                        )}
+                      </div>
+                      </div>
+                      }
+                      </div>
 
                   {/* Informations-Container - direkt unter dem Hauptcontainer */}
                   <div className="space-y-3">
