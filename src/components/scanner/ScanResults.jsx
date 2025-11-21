@@ -359,16 +359,7 @@ export default function ScanResults({
             </motion.button>
           )}
 
-          {/* Rechter Pfeil - auf Höhe des Bildes, unter den Icon-Buttons */}
-          {hasMultipleResults && currentResultIndex < results.length - 1 && (
-            <motion.button
-              onClick={() => setCurrentResultIndex(currentResultIndex + 1)}
-              className="absolute right-2 top-[50%] -translate-y-1/2 z-10 w-12 h-12 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
-              style={{ x: rightArrowX }}
-            >
-              <ChevronRight className="w-6 h-6 text-green-600" />
-            </motion.button>
-          )}
+
 
           <motion.div
             key={currentResultIndex}
@@ -441,8 +432,8 @@ export default function ScanResults({
                                 <X className="w-5 h-5 text-red-600" />
                               </motion.button>
 
-                              {/* Rechts: Überprüfen und Schenken */}
-                              <div className="flex flex-col gap-2">
+                              {/* Rechts: Überprüfen, Schenken und Navigations-Pfeil */}
+                              <div className="flex flex-col gap-2 absolute -right-1 top-3">
                                 <motion.button
                                   onClick={handleVerifyResult}
                                   className="w-11 h-11 bg-blue-600 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-all"
@@ -460,6 +451,19 @@ export default function ScanResults({
                                 >
                                   <Gift className="w-5 h-5 text-white" />
                                 </motion.button>
+
+                                {/* Rechter Navigations-Pfeil */}
+                                {hasMultipleResults && currentResultIndex < results.length - 1 && (
+                                  <motion.button
+                                    onClick={() => setCurrentResultIndex(currentResultIndex + 1)}
+                                    className="w-11 h-11 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    style={{ x: rightArrowX }}
+                                  >
+                                    <ChevronRight className="w-5 h-5 text-green-600" />
+                                  </motion.button>
+                                )}
                               </div>
                             </div>
                           )}
