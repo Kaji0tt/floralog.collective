@@ -379,10 +379,10 @@ export default function ScanResults({
               style={{ x, scale, opacity }}
               className="w-full overflow-visible">
 
-              <Card className="border-2 border-green-200 shadow-lg bg-white overflow-hidden">
-                <CardHeader className="border-b-2 border-green-100 bg-gradient-to-r from-green-50 to-emerald-50 p-4 md:p-6">
+              <Card className="shadow-2xl bg-gradient-to-br from-stone-100 to-stone-50 overflow-hidden border-none">
+                <CardHeader className="border-b-2 border-stone-300 bg-gradient-to-r from-green-600 to-emerald-600 p-4 md:p-6">
                   <div className="flex items-center justify-between gap-4">
-                    <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-stone-900 flex-1 truncate">
+                    <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-white flex-1 truncate">
                       {isPrimaryResult ?
                       isNewToPlantDex ? "Neue Pflanze zum PlantDex hinzugefügt! 🎉" :
                       wasAlreadyDiscovered ? "Pflanze erneut gescannt! ✅" :
@@ -391,7 +391,7 @@ export default function ScanResults({
                       `Alternative ${currentResultIndex}`
                       }
                       {confidencePercentage &&
-                      <span className="text-base md:text-lg ml-2 text-blue-600">
+                      <span className="text-base md:text-lg ml-2 text-green-100">
                           ({confidencePercentage}%)
                         </span>
                       }
@@ -401,17 +401,17 @@ export default function ScanResults({
                       className="flex-shrink-0 hover:scale-110 transition-transform">
 
                       {isSpeaking ?
-                      <VolumeX className="w-8 h-8 text-green-600" /> :
+                      <VolumeX className="w-8 h-8 text-white" /> :
 
-                      <Volume2 className="w-8 h-8 text-stone-600" />
+                      <Volume2 className="w-8 h-8 text-white" />
                       }
                     </button>
                   </div>
                 </CardHeader>
 
-                <CardContent className="p-4 md:p-6 space-y-6">
+                <CardContent className="p-4 md:p-6 space-y-3">
                   {/* Container mit Rarität-Border für Titel und Bild */}
-                  <div className={`relative border-4 ${getRarityBorderColor(rarity)} rounded-2xl p-4 shadow-lg`}>
+                  <div className={`relative border-4 ${getRarityBorderColor(rarity)} rounded-2xl p-4 shadow-xl bg-white`}>
                     {/* Namen und Rarität über dem Bild */}
                     <div className="flex items-start justify-between gap-4 mb-4">
                       <div className="flex-1">
@@ -506,49 +506,56 @@ export default function ScanResults({
                     </div>
                   </div>
 
-                        <div className="grid md:grid-cols-2 gap-6 mt-6">
-                        <div></div>
-                        <div className="space-y-4">
+                  {/* Informations-Container - direkt unter dem Hauptcontainer */}
+                  <div className="space-y-3">
                       {(currentPlant.description || currentPlant.aiData?.description) &&
-                      <div className="bg-stone-50 rounded-xl p-4 border border-stone-200">
-                          <h4 className="font-bold text-stone-900 mb-2">📖 Beschreibung</h4>
-                          <p className="text-stone-700 leading-relaxed">
+                      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border-2 border-blue-200 shadow-md">
+                          <h4 className="font-bold text-blue-900 mb-2 flex items-center gap-2">
+                            <span className="text-xl">📖</span>
+                            <span>Beschreibung</span>
+                          </h4>
+                          <p className="text-stone-800 leading-relaxed">
                             {currentPlant.description || currentPlant.aiData?.description}
                           </p>
                         </div>
                       }
 
                       {(currentPlant.identification_features || currentPlant.aiData?.identification_features) &&
-                      <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
-                          <h4 className="font-bold text-blue-900 mb-2">🔍 Erkennungsmerkmale</h4>
-                          <p className="text-stone-700 leading-relaxed">
+                      <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border-2 border-purple-200 shadow-md">
+                          <h4 className="font-bold text-purple-900 mb-2 flex items-center gap-2">
+                            <span className="text-xl">🔍</span>
+                            <span>Erkennungsmerkmale</span>
+                          </h4>
+                          <p className="text-stone-800 leading-relaxed">
                             {currentPlant.identification_features || currentPlant.aiData?.identification_features}
                           </p>
                         </div>
                       }
 
                       {(currentPlant.fun_fact || currentPlant.aiData?.fun_fact) &&
-                      <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
-                          <h4 className="font-bold text-amber-900 mb-2">💡 Wusstest du?</h4>
-                          <p className="text-stone-700 leading-relaxed">
+                      <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 border-2 border-amber-300 shadow-md">
+                          <h4 className="font-bold text-amber-900 mb-2 flex items-center gap-2">
+                            <span className="text-xl">💡</span>
+                            <span>Wusstest du?</span>
+                          </h4>
+                          <p className="text-stone-800 leading-relaxed">
                             {currentPlant.fun_fact || currentPlant.aiData?.fun_fact}
                           </p>
                         </div>
                       }
-                    </div>
-                  </div>
+                      </div>
 
                   {/* XP Belohnung */}
                   {currentPlant.xpAwarded !== undefined && isPrimaryResult &&
-                  <div className="bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl p-4 border-2 border-amber-200">
+                  <div className="bg-gradient-to-r from-amber-400 to-yellow-400 rounded-xl p-4 border-2 border-amber-500 shadow-lg">
                       <div className="flex items-center justify-center gap-3 flex-wrap">
-                        <Sparkles className="w-6 h-6 text-amber-600" />
-                        <p className="text-lg md:text-xl font-bold text-amber-900 text-center">
+                        <Sparkles className="w-6 h-6 text-white animate-pulse" />
+                        <p className="text-lg md:text-xl font-bold text-white text-center">
                           +{currentPlant.xpAwarded} XP {isNewToPlantDex ? "für neue PlantDex-Pflanze!" :
                         wasAlreadyDiscovered ? "für erneuten Scan!" :
                         "für Erstentdeckung!"}
                         </p>
-                        <Sparkles className="w-6 h-6 text-amber-600" />
+                        <Sparkles className="w-6 h-6 text-white animate-pulse" />
                       </div>
                     </div>
                   }
@@ -577,7 +584,7 @@ export default function ScanResults({
                   }
                 </CardContent>
 
-                <CardFooter className="p-4 border-t border-stone-200 bg-stone-50">
+                <CardFooter className="p-4 border-t-2 border-stone-300 bg-gradient-to-r from-stone-100 to-stone-50">
                   <Button
                     onClick={() => navigate(createPageUrl("Collection"))}
                     className="w-full bg-green-600 hover:bg-green-700 text-white">
