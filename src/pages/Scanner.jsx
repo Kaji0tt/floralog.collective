@@ -462,7 +462,16 @@ export default function Scanner() {
 
     // Lade aktuelle Discoveries direkt von der DB, nicht vom Cache
     const currentDiscoveries = await base44.entities.UserPlantDiscovery.filter({ user: user.email });
+
+    console.log("🔍 Überprüfe ob bereits entdeckt:");
+    console.log("  plant.id:", plant.id);
+    console.log("  plant.species_name:", plant.species_name);
+    console.log("  Anzahl currentDiscoveries:", currentDiscoveries.length);
+    console.log("  Plant IDs in Discoveries:", currentDiscoveries.map(d => d.plant_id));
+
     const alreadyDiscovered = currentDiscoveries.some((d) => d.plant_id === plant.id);
+
+    console.log("  ✅ alreadyDiscovered:", alreadyDiscovered);
 
     let xpAwarded = 0;
 
