@@ -441,26 +441,8 @@ export default function ScanResults({
                           </motion.button>
                         </div>
 
-                        {/* Rechts: Suchen und Schenken Buttons */}
-                        <div className="absolute -top-5 -right-5 flex flex-col gap-2 z-20">
-                          <motion.button
-                            onClick={handleVerifyResult}
-                            className="w-11 h-11 bg-blue-600 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-all"
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.95 }}>
-                            <Search className="w-5 h-5 text-white" />
-                          </motion.button>
-
-                          <motion.button
-                            onClick={() => setShowShareDialog(true)}
-                            className="w-11 h-11 bg-red-600 rounded-full flex items-center justify-center shadow-lg hover:bg-red-700 transition-all"
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.95 }}>
-                            <Gift className="w-5 h-5 text-white" />
-                          </motion.button>
-                        </div>
-                      </>
-                    }
+                        </>
+                        }
 
                     {/* Bild mit Navigation */}
                     <div className="relative">
@@ -474,42 +456,64 @@ export default function ScanResults({
                         }
                         </div>
 
-                      {/* Indikator-Dots mit Pfeilen unterhalb des Bildes */}
-                      {hasMultipleResults &&
+                      {/* Navigation mit Lupe und Geschenk unterhalb des Bildes */}
+                      {latestDiscoveryId &&
                       <div className="flex justify-center items-center gap-3 mt-4">
-                        {/* Linker Pfeil */}
+                        {/* Lupe (Search) */}
                         <motion.button
-                          onClick={() => currentResultIndex > 0 && setCurrentResultIndex(currentResultIndex - 1)}
-                          disabled={currentResultIndex === 0}
-                          className={`flex items-center justify-center transition-all ${
-                            currentResultIndex === 0 ? 'opacity-20 cursor-not-allowed' : 'opacity-50 hover:opacity-80'
-                          }`}
-                          whileHover={currentResultIndex > 0 ? { scale: 1.2 } : {}}
-                          whileTap={currentResultIndex > 0 ? { scale: 0.9 } : {}}>
-                          <ChevronLeft className="w-8 h-8 text-gray-600" />
+                          onClick={handleVerifyResult}
+                          className="w-11 h-11 bg-blue-600 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-all"
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.95 }}>
+                          <Search className="w-5 h-5 text-white" />
                         </motion.button>
 
-                        {/* Dots */}
-                        <div className="flex gap-1.5 bg-stone-100 px-3 py-1.5 rounded-full border-2 border-stone-300">
-                          {results.map((_, index) =>
-                          <div
-                            key={index}
-                            className={`h-2 rounded-full transition-all ${
-                            index === currentResultIndex ? 'bg-green-600 w-6' : 'bg-stone-300 w-2'}`
-                            } />
-                          )}
-                        </div>
+                        {hasMultipleResults && (
+                          <>
+                            {/* Linker Pfeil */}
+                            <motion.button
+                              onClick={() => currentResultIndex > 0 && setCurrentResultIndex(currentResultIndex - 1)}
+                              disabled={currentResultIndex === 0}
+                              className={`flex items-center justify-center transition-all ${
+                                currentResultIndex === 0 ? 'opacity-20 cursor-not-allowed' : 'opacity-50 hover:opacity-80'
+                              }`}
+                              whileHover={currentResultIndex > 0 ? { scale: 1.2 } : {}}
+                              whileTap={currentResultIndex > 0 ? { scale: 0.9 } : {}}>
+                              <ChevronLeft className="w-8 h-8 text-gray-600" />
+                            </motion.button>
 
-                        {/* Rechter Pfeil */}
+                            {/* Dots */}
+                            <div className="flex gap-1.5 bg-stone-100 px-3 py-1.5 rounded-full border-2 border-stone-300">
+                              {results.map((_, index) =>
+                              <div
+                                key={index}
+                                className={`h-2 rounded-full transition-all ${
+                                index === currentResultIndex ? 'bg-green-600 w-6' : 'bg-stone-300 w-2'}`
+                                } />
+                              )}
+                            </div>
+
+                            {/* Rechter Pfeil */}
+                            <motion.button
+                              onClick={() => currentResultIndex < results.length - 1 && setCurrentResultIndex(currentResultIndex + 1)}
+                              disabled={currentResultIndex === results.length - 1}
+                              className={`flex items-center justify-center transition-all ${
+                                currentResultIndex === results.length - 1 ? 'opacity-20 cursor-not-allowed' : 'opacity-50 hover:opacity-80'
+                              }`}
+                              whileHover={currentResultIndex < results.length - 1 ? { scale: 1.2 } : {}}
+                              whileTap={currentResultIndex < results.length - 1 ? { scale: 0.9 } : {}}>
+                              <ChevronRight className="w-8 h-8 text-gray-600" />
+                            </motion.button>
+                          </>
+                        )}
+
+                        {/* Geschenk (Gift) */}
                         <motion.button
-                          onClick={() => currentResultIndex < results.length - 1 && setCurrentResultIndex(currentResultIndex + 1)}
-                          disabled={currentResultIndex === results.length - 1}
-                          className={`flex items-center justify-center transition-all ${
-                            currentResultIndex === results.length - 1 ? 'opacity-20 cursor-not-allowed' : 'opacity-50 hover:opacity-80'
-                          }`}
-                          whileHover={currentResultIndex < results.length - 1 ? { scale: 1.2 } : {}}
-                          whileTap={currentResultIndex < results.length - 1 ? { scale: 0.9 } : {}}>
-                          <ChevronRight className="w-8 h-8 text-gray-600" />
+                          onClick={() => setShowShareDialog(true)}
+                          className="w-11 h-11 bg-red-600 rounded-full flex items-center justify-center shadow-lg hover:bg-red-700 transition-all"
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.95 }}>
+                          <Gift className="w-5 h-5 text-white" />
                         </motion.button>
                       </div>
                       }
