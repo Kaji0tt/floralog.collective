@@ -42,6 +42,11 @@ export default function ScanResults({
     loadUser();
   }, []);
 
+  // Reset x-Position bei Index-Wechsel
+  useEffect(() => {
+    x.set(0);
+  }, [currentResultIndex, x]);
+
   useEffect(() => {
     const loadDiscovery = async () => {
       if (!latestDiscoveryId) return;
