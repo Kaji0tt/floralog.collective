@@ -464,7 +464,7 @@ export default function ScanResults({
                         <img
                           src={imageUrl}
                           alt={currentPlant.species_name}
-                          className={`w-full aspect-square object-cover rounded-xl shadow-md border-4 ${getRarityBorderColor(rarity)}`} />
+                          className="w-full aspect-square object-cover rounded-xl shadow-inner" />
 
                         {/* Navigations-Pfeile Container - nach den interaktiven Buttons */}
                         {hasMultipleResults &&
