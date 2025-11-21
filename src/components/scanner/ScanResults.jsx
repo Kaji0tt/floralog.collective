@@ -348,10 +348,10 @@ export default function ScanResults({
           {hasMultipleResults && currentResultIndex > 0 && (
             <motion.button
               onClick={() => setCurrentResultIndex(currentResultIndex - 1)}
-              className="absolute left-2 md:left-0 top-[200px] md:top-[250px] -translate-y-1/2 z-[5] w-12 h-12 md:w-14 md:h-14 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
+              className="absolute left-2 top-[50%] -translate-y-1/2 z-10 w-12 h-12 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
               style={{ x: useTransform(x, [0, 100], [0, -10]) }}
             >
-              <ChevronLeft className="w-6 h-6 md:w-7 md:h-7 text-green-600" />
+              <ChevronLeft className="w-6 h-6 text-green-600" />
             </motion.button>
           )}
 
@@ -359,10 +359,10 @@ export default function ScanResults({
           {hasMultipleResults && currentResultIndex < results.length - 1 && (
             <motion.button
               onClick={() => setCurrentResultIndex(currentResultIndex + 1)}
-              className="absolute right-2 md:right-0 top-[200px] md:top-[250px] -translate-y-1/2 z-[5] w-12 h-12 md:w-14 md:h-14 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
+              className="absolute right-2 top-[50%] -translate-y-1/2 z-10 w-12 h-12 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
               style={{ x: useTransform(x, [0, -100], [0, 10]) }}
             >
-              <ChevronRight className="w-6 h-6 md:w-7 md:h-7 text-green-600" />
+              <ChevronRight className="w-6 h-6 text-green-600" />
             </motion.button>
           )}
 
@@ -425,7 +425,7 @@ export default function ScanResults({
                           
                           {/* Icon-Buttons über dem Bild */}
                           {latestDiscoveryId && isPrimaryResult && (
-                            <div className="absolute top-3 left-3 right-3 flex justify-between z-10">
+                            <div className="absolute top-3 left-3 right-3 flex justify-between z-20">
                               {/* Links: Löschen */}
                               <motion.button
                                 onClick={handleDeleteResult}
