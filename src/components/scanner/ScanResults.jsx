@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertCircle, RotateCcw, Volume2, VolumeX, BookOpen, Sparkles, ChevronLeft, ChevronRight, Search, X, RefreshCw, Gift } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useNavigate } from "react-router-dom";
@@ -408,9 +409,25 @@ export default function ScanResults({
                         </p>
                       </div>
                       <div className="flex-shrink-0">
-                        <Badge className="bg-white border-2 border-black text-black font-bold px-3 py-1.5 text-lg shadow-lg">
-                          {getRaritySymbol(rarity)}
-                        </Badge>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="text-black font-bold text-2xl cursor-pointer">
+                                {getRaritySymbol(rarity)}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent className="bg-white border-2 border-stone-200 shadow-lg p-3">
+                              <div className="space-y-1 text-sm">
+                                <div className="font-bold text-stone-900 mb-2">Raritäten:</div>
+                                <div className="flex items-center gap-2"><span className="text-xl">●</span> Häufig</div>
+                                <div className="flex items-center gap-2"><span className="text-xl">▲</span> Gelegentlich</div>
+                                <div className="flex items-center gap-2"><span className="text-xl">★</span> Selten</div>
+                                <div className="flex items-center gap-2"><span className="text-xl">★★</span> Sehr Selten</div>
+                                <div className="flex items-center gap-2"><span className="text-xl">★★★</span> Extrem Selten</div>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </div>
                     </div>
 
