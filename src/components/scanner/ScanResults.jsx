@@ -370,7 +370,11 @@ export default function ScanResults({
               ref={cardRef}
               drag={hasMultipleResults ? "x" : false}
               dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.7}
+              dragElastic={
+                currentResultIndex === 0 || currentResultIndex === results.length - 1 
+                  ? 0.15 
+                  : 0.7
+              }
               onDragEnd={handleDragEnd}
               style={{ x, scale, opacity }}
               className="w-full overflow-visible">
