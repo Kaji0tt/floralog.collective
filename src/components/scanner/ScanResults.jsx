@@ -207,8 +207,6 @@ export default function ScanResults({
       case "Häufig":return "●";
       case "Gelegentlich":return "▲";
       case "Selten":return "★";
-      case "Sehr Selten":return "★★";
-      case "Extrem Selten":return "★★★";
       default:return "●";
     }
   };
@@ -417,13 +415,11 @@ export default function ScanResults({
                               </div>
                             </TooltipTrigger>
                             <TooltipContent className="bg-white border-2 border-stone-200 shadow-lg p-3">
-                              <div className="space-y-1 text-sm">
-                                <div className="font-bold text-stone-900 mb-2">Raritäten:</div>
+                              <div className="space-y-1 text-sm text-stone-900">
+                                <div className="font-bold mb-2">Raritäten:</div>
                                 <div className="flex items-center gap-2"><span className="text-xl">●</span> Häufig</div>
                                 <div className="flex items-center gap-2"><span className="text-xl">▲</span> Gelegentlich</div>
                                 <div className="flex items-center gap-2"><span className="text-xl">★</span> Selten</div>
-                                <div className="flex items-center gap-2"><span className="text-xl">★★</span> Sehr Selten</div>
-                                <div className="flex items-center gap-2"><span className="text-xl">★★★</span> Extrem Selten</div>
                               </div>
                             </TooltipContent>
                           </Tooltip>
