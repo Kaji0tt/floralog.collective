@@ -425,19 +425,18 @@ export default function ScanResults({
 
                     {/* Icon-Buttons über dem Container */}
                     {latestDiscoveryId &&
-                      <div className="absolute -top-5 -left-5 -right-5 flex justify-between z-20">
-                        {/* Links: Löschen */}
-                        <motion.button
-                          onClick={handleDeleteResult}
-                          disabled={isDeleting}
-                          className="w-11 h-11 bg-white/95 backdrop-blur-sm border-2 border-red-400 rounded-full flex items-center justify-center shadow-lg hover:bg-red-50 transition-all"
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.95 }}>
-                          <X className="w-5 h-5 text-red-600" />
-                        </motion.button>
+                      <div className="absolute -top-5 -left-5 -right-5 flex justify-start z-20">
+                        {/* Links: Alle Buttons */}
+                        <div className="flex flex-col gap-2">
+                          <motion.button
+                            onClick={handleDeleteResult}
+                            disabled={isDeleting}
+                            className="w-11 h-11 bg-white/95 backdrop-blur-sm border-2 border-red-400 rounded-full flex items-center justify-center shadow-lg hover:bg-red-50 transition-all"
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.95 }}>
+                            <X className="w-5 h-5 text-red-600" />
+                          </motion.button>
 
-                        {/* Rechts: Überprüfen, Schenken */}
-                        <div className="flex flex-col gap-2 mt-20">
                           <motion.button
                             onClick={handleVerifyResult}
                             className="w-11 h-11 bg-blue-600 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-all"
