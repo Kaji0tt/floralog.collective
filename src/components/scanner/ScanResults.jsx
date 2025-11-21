@@ -597,16 +597,7 @@ export default function ScanResults({
                   }
                 </CardContent>
 
-                <CardFooter className="p-4 border-t-2 border-stone-300 bg-gradient-to-r from-stone-100 to-stone-50">
-                  <Button
-                    onClick={() => navigate(createPageUrl("Collection"))}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white">
-
-                    <BookOpen className="w-4 h-4 mr-1" />
-                    Zur Collection
-                  </Button>
-                </CardFooter>
-              </Card>
+                </Card>
             </motion.div>
           </motion.div>
         </div>
