@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, RotateCcw, Volume2, VolumeX, BookOpen, Sparkles, ChevronLeft, ChevronRight, Search, X, RefreshCw, Heart } from "lucide-react";
+import { AlertCircle, RotateCcw, Volume2, VolumeX, BookOpen, Sparkles, ChevronLeft, ChevronRight, Search, X, RefreshCw, Gift } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -347,76 +347,61 @@ export default function ScanResults({
         )}
 
         <div className="relative flex items-center gap-4">
-          {/* Linker Pfeil - auf Höhe des Bildes, bewegt sich mit Drag */}
+          {/* Linker Pfeil - bewegt sich stark mit Drag */}
           {hasMultipleResults && currentResultIndex > 0 && (
             <motion.button
               onClick={() => {
                 setDirection(-1);
                 setCurrentResultIndex(currentResultIndex - 1);
               }}
-              className="absolute left-2 md:left-0 top-[200px] md:top-[250px] -translate-y-1/2 z-20 w-12 h-12 md:w-14 md:h-14 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
+              className="absolute left-2 md:left-0 top-[290px] md:top-[340px] -translate-y-1/2 z-20 w-12 h-12 md:w-14 md:h-14 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50"
               style={{ 
-                x: useTransform(x, [0, 200], [0, 20])
-              }}
-              animate={{
-                x: [-2, 2, -2],
-              }}
-              transition={{
-                duration: 1.5,
-                repeat: Infinity,
-                ease: "easeInOut"
+                x: useTransform(x, [0, 300], [0, -250])
               }}
             >
               <ChevronLeft className="w-6 h-6 md:w-7 md:h-7 text-green-600" />
             </motion.button>
           )}
 
-          {/* Rechter Pfeil - auf Höhe des Bildes, bewegt sich mit Drag */}
+          {/* Rechter Pfeil - bewegt sich stark mit Drag */}
           {hasMultipleResults && currentResultIndex < results.length - 1 && (
             <motion.button
               onClick={() => {
                 setDirection(1);
                 setCurrentResultIndex(currentResultIndex + 1);
               }}
-              className="absolute right-2 md:right-0 top-[200px] md:top-[250px] -translate-y-1/2 z-20 w-12 h-12 md:w-14 md:h-14 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
+              className="absolute right-2 md:right-0 top-[290px] md:top-[340px] -translate-y-1/2 z-20 w-12 h-12 md:w-14 md:h-14 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50"
               style={{ 
-                x: useTransform(x, [-200, 0], [-20, 0])
-              }}
-              animate={{
-                x: [2, -2, 2],
-              }}
-              transition={{
-                duration: 1.5,
-                repeat: Infinity,
-                ease: "easeInOut"
+                x: useTransform(x, [-300, 0], [250, 0])
               }}
             >
               <ChevronRight className="w-6 h-6 md:w-7 md:h-7 text-green-600" />
             </motion.button>
           )}
 
-          <motion.div
-            key={currentResultIndex}
-            ref={constraintsRef}
-            className="flex-1 w-full"
-            initial={{ 
-              x: direction === 1 ? 300 : direction === -1 ? -300 : 0,
-              opacity: 0 
-            }}
-            animate={{ 
-              x: 0,
-              opacity: 1 
-            }}
-            exit={{ 
-              x: direction === 1 ? -300 : 300,
-              opacity: 0 
-            }}
-            transition={{
-              type: "spring",
-              stiffness: 300,
-              damping: 30
-            }}
-          >
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={currentResultIndex}
+              ref={constraintsRef}
+              className="flex-1 w-full"
+              initial={{ 
+                x: direction === 1 ? 300 : direction === -1 ? -300 : 0,
+                opacity: 0 
+              }}
+              animate={{ 
+                x: 0,
+                opacity: 1 
+              }}
+              exit={{ 
+                x: direction === 1 ? -300 : 300,
+                opacity: 0 
+              }}
+              transition={{
+                type: "spring",
+                stiffness: 300,
+                damping: 30
+              }}
+            >
             <motion.div
               ref={cardRef}
               drag={hasMultipleResults ? "x" : false}
@@ -475,20 +460,20 @@ export default function ScanResults({
                       <div className="flex flex-col gap-2 pointer-events-auto">
                         <motion.button
                           onClick={handleVerifyResult}
-                          className="w-11 h-11 md:w-12 md:h-12 bg-white border-2 border-blue-400 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-50 transition-all"
+                          className="w-11 h-11 md:w-12 md:h-12 bg-blue-600 border-2 border-blue-400 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-all"
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.95 }}
                         >
-                          <Search className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
+                          <Search className="w-5 h-5 md:w-6 md:h-6 text-white" />
                         </motion.button>
 
                         <motion.button
                           onClick={() => setShowShareDialog(true)}
-                          className="w-11 h-11 md:w-12 md:h-12 bg-white border-2 border-red-400 rounded-full flex items-center justify-center shadow-lg hover:bg-red-50 transition-all"
+                          className="w-11 h-11 md:w-12 md:h-12 bg-red-600 border-2 border-red-400 rounded-full flex items-center justify-center shadow-lg hover:bg-red-700 transition-all"
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.95 }}
                         >
-                          <Heart className="w-5 h-5 md:w-6 md:h-6 text-red-600" />
+                          <Gift className="w-5 h-5 md:w-6 md:h-6 text-white" />
                         </motion.button>
                       </div>
                     </div>
@@ -598,6 +583,7 @@ export default function ScanResults({
               </Card>
             </motion.div>
           </motion.div>
+          </AnimatePresence>
         </div>
       </div>
     );
