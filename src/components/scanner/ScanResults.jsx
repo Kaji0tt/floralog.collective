@@ -423,21 +423,19 @@ export default function ScanResults({
                             <motion.button
                               onClick={handleDeleteResult}
                               disabled={isDeleting}
-                              className="bg-red-600 text-white font-bold px-4 py-1.5 text-sm shadow-lg rounded-md hover:bg-red-700 transition-all flex items-center gap-2"
+                              className="bg-red-600 text-white font-bold p-2 shadow-lg rounded-md hover:bg-red-700 transition-all"
                               whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}>
-                              <X className="w-4 h-4" />
-                              Löschen
+                              <X className="w-5 h-5" />
                             </motion.button>
                           ) : (
                             <motion.button
                               onClick={handleChangeResult}
                               disabled={isChanging}
-                              className="bg-orange-600 text-white font-bold px-4 py-1.5 text-sm shadow-lg rounded-md hover:bg-orange-700 transition-all flex items-center gap-2"
+                              className="bg-orange-600 text-white font-bold p-2 shadow-lg rounded-md hover:bg-orange-700 transition-all"
                               whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}>
-                              <RefreshCw className="w-4 h-4" />
-                              Setzen
+                              <RefreshCw className="w-5 h-5" />
                             </motion.button>
                           )}
                         </div>
