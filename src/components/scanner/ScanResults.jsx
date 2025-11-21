@@ -376,7 +376,11 @@ export default function ScanResults({
               className="w-full overflow-visible">
 
               <Card className="shadow-2xl bg-gradient-to-br from-stone-100 to-stone-50 overflow-hidden border-none">
-                <CardHeader className="border-b-2 border-stone-300 bg-gradient-to-r from-green-600 to-emerald-600 p-4 md:p-6">
+                <CardHeader className={`border-b-2 p-4 md:p-6 ${
+                  isPrimaryResult && isNewToPlantDex
+                    ? "bg-gradient-to-r from-blue-600 to-indigo-600 border-blue-500"
+                    : "bg-gradient-to-r from-green-600 to-emerald-600 border-stone-300"
+                }`}>
                   <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-white text-center">
                     {isPrimaryResult ?
                     isNewToPlantDex ? "Neue Pflanze zum PlantDex hinzugefügt! 🎉" :
@@ -384,11 +388,6 @@ export default function ScanResults({
                     "Neue Pflanze entdeckt! 🌟" :
 
                     `Alternative ${currentResultIndex}`
-                    }
-                    {confidencePercentage &&
-                    <span className="text-base md:text-lg ml-2 text-green-100">
-                        ({confidencePercentage}%)
-                      </span>
                     }
                   </h2>
                 </CardHeader>
@@ -401,6 +400,11 @@ export default function ScanResults({
                       <div className="flex-1 min-w-0">
                         <h3 className="text-2xl md:text-3xl font-bold text-stone-900 break-words">
                           {currentPlant.species_name}
+                          {confidencePercentage &&
+                            <span className="text-lg md:text-xl ml-2 text-stone-400">
+                              ({confidencePercentage}%)
+                            </span>
+                          }
                         </h3>
                         <p className="text-lg md:text-xl text-stone-600 italic mt-1 break-words">
                           {currentPlant.scientific_name}
