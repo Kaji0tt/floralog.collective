@@ -201,14 +201,14 @@ export default function ScanResults({
     }
   };
 
-  const getRarityStars = (rarity) => {
+  const getRaritySymbol = (rarity) => {
     switch (rarity) {
-      case "Häufig":return "⭐";
-      case "Gelegentlich":return "⭐⭐";
-      case "Selten":return "⭐⭐⭐";
-      case "Sehr Selten":return "⭐⭐⭐⭐";
-      case "Extrem Selten":return "⭐⭐⭐⭐⭐";
-      default:return "⭐";
+      case "Häufig":return "●";
+      case "Gelegentlich":return "▲";
+      case "Selten":return "★";
+      case "Sehr Selten":return "★★";
+      case "Extrem Selten":return "★★★";
+      default:return "●";
     }
   };
 
@@ -408,8 +408,8 @@ export default function ScanResults({
                         </p>
                       </div>
                       <div className="flex-shrink-0">
-                        <Badge className={`${getRarityColor(rarity)} text-white font-bold px-4 py-1.5 text-sm shadow-lg`}>
-                          {getRarityStars(rarity)} {rarity}
+                        <Badge className="bg-white border-2 border-black text-black font-bold px-3 py-1.5 text-lg shadow-lg">
+                          {getRaritySymbol(rarity)}
                         </Badge>
                       </div>
                     </div>
