@@ -442,7 +442,7 @@ export default function ScanResults({
 
                       {/* Lupe, Lautsprecher, Geschenk und Löschen unterhalb des Bildes */}
                       {latestDiscoveryId &&
-                      <div className="flex justify-center items-center gap-3 mt-4">
+                      <div className="flex justify-evenly items-center mt-4">
                         {/* Lupe (Search) */}
                         <motion.button
                           onClick={handleVerifyResult}
