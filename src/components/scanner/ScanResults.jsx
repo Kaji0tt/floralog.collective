@@ -437,7 +437,7 @@ export default function ScanResults({
                         </motion.button>
 
                         {/* Rechts: Überprüfen, Schenken */}
-                        <div className="flex flex-col gap-2">
+                        <div className="flex flex-col gap-2 mt-20">
                           <motion.button
                             onClick={handleVerifyResult}
                             className="w-11 h-11 bg-blue-600 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-all"
