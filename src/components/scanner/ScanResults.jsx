@@ -376,30 +376,21 @@ export default function ScanResults({
               className="w-full overflow-visible">
 
               <Card className="shadow-2xl bg-gradient-to-br from-stone-100 to-stone-50 overflow-hidden border-none">
-                <CardHeader className={`border-b-2 p-3 md:p-4 ${
-                  isPrimaryResult && wasAlreadyDiscovered 
-                    ? "bg-gradient-to-r from-amber-400 to-yellow-400 border-amber-500" 
-                    : isPrimaryResult && isNewToPlantDex
-                    ? "bg-gradient-to-r from-purple-600 to-pink-600 border-purple-500"
-                    : "bg-gradient-to-r from-green-600 to-emerald-600 border-stone-300"
-                }`}>
-                  <div className="flex items-center justify-center gap-2">
-                    {isPrimaryResult && (wasAlreadyDiscovered || isNewToPlantDex) && (
-                      <Sparkles className="w-5 h-5 text-white animate-pulse" />
-                    )}
-                    <h2 className="text-sm sm:text-base md:text-lg font-bold text-white text-center whitespace-nowrap">
-                      {isPrimaryResult ?
-                      isNewToPlantDex ? `Neue Pflanze zum PlantDex! 🎉 +${currentPlant.xpAwarded} XP` :
-                      wasAlreadyDiscovered ? `Erneut gescannt! +${currentPlant.xpAwarded} XP` :
-                      "Neue Pflanze entdeckt! 🌟" :
+                <CardHeader className="border-b-2 border-stone-300 bg-gradient-to-r from-green-600 to-emerald-600 p-4 md:p-6">
+                  <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-white text-center">
+                    {isPrimaryResult ?
+                    isNewToPlantDex ? "Neue Pflanze zum PlantDex hinzugefügt! 🎉" :
+                    wasAlreadyDiscovered ? "Pflanze erneut gescannt! ✅" :
+                    "Neue Pflanze entdeckt! 🌟" :
 
-                      `Alternative ${currentResultIndex}`
-                      }
-                    </h2>
-                    {isPrimaryResult && (wasAlreadyDiscovered || isNewToPlantDex) && (
-                      <Sparkles className="w-5 h-5 text-white animate-pulse" />
-                    )}
-                  </div>
+                    `Alternative ${currentResultIndex}`
+                    }
+                    {confidencePercentage &&
+                    <span className="text-base md:text-lg ml-2 text-green-100">
+                        ({confidencePercentage}%)
+                      </span>
+                    }
+                  </h2>
                 </CardHeader>
 
                 <CardContent className="p-4 md:p-6 space-y-3 bg-gradient-to-br from-green-50/40 via-emerald-50/30 to-teal-50/20">
@@ -410,11 +401,6 @@ export default function ScanResults({
                       <div className="flex-1 min-w-0">
                         <h3 className="text-2xl md:text-3xl font-bold text-stone-900 break-words">
                           {currentPlant.species_name}
-                          {confidencePercentage &&
-                            <span className="text-lg md:text-xl ml-2 text-stone-300">
-                              ({confidencePercentage}%)
-                            </span>
-                          }
                         </h3>
                         <p className="text-lg md:text-xl text-stone-600 italic mt-1 break-words">
                           {currentPlant.scientific_name}
@@ -591,7 +577,20 @@ export default function ScanResults({
                       }
                       </div>
 
-
+                  {/* XP Belohnung */}
+                  {currentPlant.xpAwarded !== undefined && isPrimaryResult &&
+                  <div className="bg-gradient-to-r from-amber-400 to-yellow-400 rounded-xl p-4 border-2 border-amber-500 shadow-lg">
+                      <div className="flex items-center justify-center gap-3 flex-wrap">
+                        <Sparkles className="w-6 h-6 text-white animate-pulse" />
+                        <p className="text-lg md:text-xl font-bold text-white text-center">
+                          +{currentPlant.xpAwarded} XP {isNewToPlantDex ? "für neue PlantDex-Pflanze!" :
+                        wasAlreadyDiscovered ? "für erneuten Scan!" :
+                        "für Erstentdeckung!"}
+                        </p>
+                        <Sparkles className="w-6 h-6 text-white animate-pulse" />
+                      </div>
+                    </div>
+                  }
 
                   {/* Alternative Ergebnisse: Button zum Ändern */}
                   {latestDiscoveryId && !isPrimaryResult && showChangeResultButton &&
