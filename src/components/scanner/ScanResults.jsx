@@ -397,21 +397,21 @@ export default function ScanResults({
                 <CardContent className="p-4 md:p-6 space-y-3">
                   {/* Container mit Rarität-Border für Titel und Bild */}
                   <div className={`relative border-2 ${getRarityBorderColor(rarity)} rounded-2xl p-4 shadow-xl ${getRarityBackgroundColor(rarity)}`}>
-                    {/* Rarität Badge rechts oben */}
-                    <div className="absolute -top-3 -right-3 z-20">
-                      <Badge className={`${getRarityColor(rarity)} text-white font-bold px-4 py-1.5 text-sm shadow-lg`}>
-                        {getRarityStars(rarity)} {rarity}
-                      </Badge>
-                    </div>
-
-                    {/* Namen über dem Bild - zentriert */}
-                    <div className="mb-4 text-center">
-                      <h3 className="text-2xl md:text-3xl font-bold text-stone-900 break-words">
-                        {currentPlant.species_name}
-                      </h3>
-                      <p className="text-lg md:text-xl text-stone-600 italic mt-1 break-words">
-                        {currentPlant.scientific_name}
-                      </p>
+                    {/* Namen linksbündig mit Rarität Badge rechts */}
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-2xl md:text-3xl font-bold text-stone-900 break-words">
+                          {currentPlant.species_name}
+                        </h3>
+                        <p className="text-lg md:text-xl text-stone-600 italic mt-1 break-words">
+                          {currentPlant.scientific_name}
+                        </p>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <Badge className={`${getRarityColor(rarity)} text-white font-bold px-4 py-1.5 text-sm shadow-lg`}>
+                          {getRarityStars(rarity)} {rarity}
+                        </Badge>
+                      </div>
                     </div>
 
                     {/* Icon-Buttons über dem Container */}
