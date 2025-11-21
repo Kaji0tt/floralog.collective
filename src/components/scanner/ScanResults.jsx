@@ -359,11 +359,11 @@ export default function ScanResults({
             </motion.button>
           )}
 
-          {/* Rechter Pfeil - auf Höhe des Bildes, unter den Icon-Buttons */}
+          {/* Rechter Pfeil - direkt nach den Icon-Buttons */}
           {hasMultipleResults && currentResultIndex < results.length - 1 && (
             <motion.button
               onClick={() => setCurrentResultIndex(currentResultIndex + 1)}
-              className="absolute right-2 top-[50%] -translate-y-1/2 z-10 w-12 h-12 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
+              className="absolute right-16 top-[50%] -translate-y-1/2 z-10 w-12 h-12 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
               style={{ x: rightArrowX }}
             >
               <ChevronRight className="w-6 h-6 text-green-600" />
@@ -427,39 +427,44 @@ export default function ScanResults({
                             className="w-full aspect-square object-cover rounded-xl shadow-md border-2 border-green-300"
                           />
                           
-                          {/* Icon-Buttons über dem Bild */}
-                          {latestDiscoveryId && isPrimaryResult && (
-                            <div className="absolute top-3 left-3 right-3 flex justify-between z-20">
+                          {/* Icon-Buttons auf Bildmitte */}
+                          {latestDiscoveryId && (
+                            <div className="absolute top-[50%] -translate-y-1/2 left-3 right-3 flex justify-between items-center z-20 pointer-events-none">
                               {/* Links: Löschen */}
-                              <motion.button
-                                onClick={handleDeleteResult}
-                                disabled={isDeleting}
-                                className="w-11 h-11 bg-white/95 backdrop-blur-sm border-2 border-red-400 rounded-full flex items-center justify-center shadow-lg hover:bg-red-50 transition-all"
-                                whileHover={{ scale: 1.1 }}
-                                whileTap={{ scale: 0.95 }}
-                              >
-                                <X className="w-5 h-5 text-red-600" />
-                              </motion.button>
+                              {isPrimaryResult && (
+                                <motion.button
+                                  onClick={handleDeleteResult}
+                                  disabled={isDeleting}
+                                  className="w-11 h-11 bg-white/95 backdrop-blur-sm border-2 border-red-400 rounded-full flex items-center justify-center shadow-lg hover:bg-red-50 transition-all pointer-events-auto"
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.95 }}
+                                >
+                                  <X className="w-5 h-5 text-red-600" />
+                                </motion.button>
+                              )}
+                              {!isPrimaryResult && <div className="w-11" />}
 
-                              {/* Rechts: Überprüfen und Schenken */}
-                              <div className="flex flex-col gap-2">
+                              {/* Rechts: Überprüfen, Schenken */}
+                              <div className="flex gap-2 items-center">
                                 <motion.button
                                   onClick={handleVerifyResult}
-                                  className="w-11 h-11 bg-blue-600 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-all"
+                                  className="w-11 h-11 bg-blue-600 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-all pointer-events-auto"
                                   whileHover={{ scale: 1.1 }}
                                   whileTap={{ scale: 0.95 }}
                                 >
                                   <Search className="w-5 h-5 text-white" />
                                 </motion.button>
 
-                                <motion.button
-                                  onClick={() => setShowShareDialog(true)}
-                                  className="w-11 h-11 bg-red-600 rounded-full flex items-center justify-center shadow-lg hover:bg-red-700 transition-all"
-                                  whileHover={{ scale: 1.1 }}
-                                  whileTap={{ scale: 0.95 }}
-                                >
-                                  <Gift className="w-5 h-5 text-white" />
-                                </motion.button>
+                                {isPrimaryResult && (
+                                  <motion.button
+                                    onClick={() => setShowShareDialog(true)}
+                                    className="w-11 h-11 bg-red-600 rounded-full flex items-center justify-center shadow-lg hover:bg-red-700 transition-all pointer-events-auto"
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.95 }}
+                                  >
+                                    <Gift className="w-5 h-5 text-white" />
+                                  </motion.button>
+                                )}
                               </div>
                             </div>
                           )}
