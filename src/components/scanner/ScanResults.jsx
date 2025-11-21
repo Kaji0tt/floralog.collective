@@ -380,7 +380,7 @@ export default function ScanResults({
               <Card className="border-2 border-green-200 shadow-lg bg-white overflow-hidden">
                 <CardHeader className="border-b-2 border-green-100 bg-gradient-to-r from-green-50 to-emerald-50 p-4 md:p-6">
                   <div className="flex items-center justify-between gap-4">
-                    <h2 className="text-lg md:text-2xl font-bold text-stone-900 flex-1">
+                    <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-stone-900 flex-1 truncate">
                       {isPrimaryResult ?
                       isNewToPlantDex ? "Neue Pflanze zum PlantDex hinzugefügt! 🎉" :
                       wasAlreadyDiscovered ? "Pflanze erneut gescannt! ✅" :
