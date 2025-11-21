@@ -472,7 +472,7 @@ export default function ScanResults({
                             <motion.button
                               onClick={() => currentResultIndex > 0 && setCurrentResultIndex(currentResultIndex - 1)}
                               disabled={currentResultIndex === 0}
-                              className={`absolute left-0 top-[50%] -translate-y-1/2 w-14 h-14 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg transition-all z-10 ${
+                              className={`absolute -left-7 top-[50%] -translate-y-1/2 w-14 h-14 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg transition-all z-10 ${
                                 currentResultIndex === 0 ? 'opacity-0 cursor-not-allowed' : 'hover:bg-green-50 opacity-100'
                               }`}
                               whileHover={currentResultIndex > 0 ? { scale: 1.1 } : {}}
@@ -486,7 +486,7 @@ export default function ScanResults({
                             <motion.button
                               onClick={() => currentResultIndex < results.length - 1 && setCurrentResultIndex(currentResultIndex + 1)}
                               disabled={currentResultIndex === results.length - 1}
-                              className={`absolute right-0 top-[50%] -translate-y-1/2 w-14 h-14 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg transition-all z-10 ${
+                              className={`absolute -right-7 top-[50%] -translate-y-1/2 w-14 h-14 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg transition-all z-10 ${
                                 currentResultIndex === results.length - 1 ? 'opacity-0 cursor-not-allowed' : 'hover:bg-green-50 opacity-100'
                               }`}
                               whileHover={currentResultIndex < results.length - 1 ? { scale: 1.1 } : {}}
