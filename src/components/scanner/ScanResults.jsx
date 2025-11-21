@@ -478,28 +478,28 @@ export default function ScanResults({
                             <motion.button
                               onClick={() => currentResultIndex > 0 && setCurrentResultIndex(currentResultIndex - 1)}
                               disabled={currentResultIndex === 0}
-                              className={`absolute -left-7 top-[50%] -translate-y-1/2 w-14 h-14 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg transition-all z-10 ${
-                                currentResultIndex === 0 ? 'opacity-0 cursor-not-allowed' : 'hover:bg-green-50 opacity-100'
+                              className={`absolute -left-10 top-[50%] -translate-y-1/2 -z-10 flex items-center justify-center transition-all ${
+                                currentResultIndex === 0 ? 'opacity-0 cursor-not-allowed' : 'opacity-40 hover:opacity-60'
                               }`}
                               whileHover={currentResultIndex > 0 ? { scale: 1.1 } : {}}
                               whileTap={currentResultIndex > 0 ? { scale: 0.95 } : {}}
                               style={{ x: leftArrowX }}>
 
-                                <ChevronLeft className="w-6 h-6 text-green-600" />
+                                <ChevronLeft className="w-20 h-20 text-gray-600" />
                               </motion.button>
 
                             {/* Rechter Pfeil */}
                             <motion.button
                               onClick={() => currentResultIndex < results.length - 1 && setCurrentResultIndex(currentResultIndex + 1)}
                               disabled={currentResultIndex === results.length - 1}
-                              className={`absolute -right-7 top-[50%] -translate-y-1/2 w-14 h-14 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg transition-all z-10 ${
-                                currentResultIndex === results.length - 1 ? 'opacity-0 cursor-not-allowed' : 'hover:bg-green-50 opacity-100'
+                              className={`absolute -right-10 top-[50%] -translate-y-1/2 -z-10 flex items-center justify-center transition-all ${
+                                currentResultIndex === results.length - 1 ? 'opacity-0 cursor-not-allowed' : 'opacity-40 hover:opacity-60'
                               }`}
                               whileHover={currentResultIndex < results.length - 1 ? { scale: 1.1 } : {}}
                               whileTap={currentResultIndex < results.length - 1 ? { scale: 0.95 } : {}}
                               style={{ x: rightArrowX }}>
 
-                                <ChevronRight className="w-6 h-6 text-green-600" />
+                                <ChevronRight className="w-20 h-20 text-gray-600" />
                           </motion.button>
                         </>
                         }
