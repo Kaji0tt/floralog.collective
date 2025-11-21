@@ -192,12 +192,12 @@ export default function ScanResults({
 
   const getRarityBackgroundColor = (rarity) => {
     switch (rarity) {
-      case "Häufig":return "bg-gradient-to-br from-zinc-200 via-zinc-100 to-stone-50";
-      case "Gelegentlich":return "bg-gradient-to-br from-green-100 via-emerald-50 to-teal-50";
-      case "Selten":return "bg-gradient-to-br from-purple-100 via-violet-50 to-indigo-50";
-      case "Sehr Selten":return "bg-gradient-to-br from-orange-100 via-amber-50 to-yellow-50";
-      case "Extrem Selten":return "bg-gradient-to-br from-red-100 via-rose-50 to-pink-50";
-      default:return "bg-gradient-to-br from-zinc-200 via-zinc-100 to-stone-50";
+      case "Häufig":return "bg-gradient-to-br from-zinc-300 via-zinc-200 to-stone-100";
+      case "Gelegentlich":return "bg-gradient-to-br from-green-200 via-emerald-100 to-teal-100";
+      case "Selten":return "bg-gradient-to-br from-purple-200 via-violet-100 to-indigo-100";
+      case "Sehr Selten":return "bg-gradient-to-br from-orange-200 via-amber-100 to-yellow-100";
+      case "Extrem Selten":return "bg-gradient-to-br from-red-200 via-rose-100 to-pink-100";
+      default:return "bg-gradient-to-br from-zinc-300 via-zinc-200 to-stone-100";
     }
   };
 
