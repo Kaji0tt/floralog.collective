@@ -426,9 +426,9 @@ export default function ScanResults({
 
                     {/* Icon-Buttons über dem Container */}
                     {latestDiscoveryId &&
-                      <div className="absolute -top-5 -left-5 -right-5 flex justify-start z-20">
-                        {/* Links: Alle Buttons */}
-                        <div className="flex flex-col gap-2">
+                      <>
+                        {/* Links: Delete Button */}
+                        <div className="absolute -top-5 -left-5 flex justify-start z-20">
                           <motion.button
                             onClick={handleDeleteResult}
                             disabled={isDeleting}
@@ -437,10 +437,13 @@ export default function ScanResults({
                             whileTap={{ scale: 0.95 }}>
                             <X className="w-5 h-5 text-red-600" />
                           </motion.button>
+                        </div>
 
+                        {/* Rechts: Suchen und Schenken Buttons */}
+                        <div className="absolute -top-5 -right-5 flex flex-col gap-2 z-20">
                           <motion.button
                             onClick={handleVerifyResult}
-                            className="w-11 h-11 bg-blue-600 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-all mt-16"
+                            className="w-11 h-11 bg-blue-600 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-all"
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.95 }}>
                             <Search className="w-5 h-5 text-white" />
@@ -454,7 +457,7 @@ export default function ScanResults({
                             <Gift className="w-5 h-5 text-white" />
                           </motion.button>
                         </div>
-                      </div>
+                      </>
                     }
 
                     {/* Bild mit Navigation */}
