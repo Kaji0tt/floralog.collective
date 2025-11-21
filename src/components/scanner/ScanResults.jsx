@@ -320,7 +320,7 @@ export default function ScanResults({
     const showChangeResultButton = !isPrimaryResult && confidencePercentage >= 25;
 
     return (
-      <div className="relative -top-10">
+      <div className="relative">
         {showShareDialog && user && discovery && currentPlant &&
         <ShareScanDialog
           open={showShareDialog}
@@ -359,16 +359,7 @@ export default function ScanResults({
             </motion.button>
           }
 
-          {/* Rechter Pfeil - auf Höhe des Bildes, unter den Icon-Buttons */}
-          {hasMultipleResults && currentResultIndex < results.length - 1 &&
-          <motion.button
-            onClick={() => setCurrentResultIndex(currentResultIndex + 1)}
-            className="absolute right-2 top-[50%] -translate-y-1/2 z-10 w-12 h-12 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
-            style={{ x: rightArrowX }}>
 
-              <ChevronRight className="w-6 h-6 text-green-600" />
-            </motion.button>
-          }
 
           <motion.div
             key={currentResultIndex}
@@ -389,7 +380,7 @@ export default function ScanResults({
               <Card className="border-2 border-green-200 shadow-lg bg-white overflow-hidden">
                 <CardHeader className="border-b-2 border-green-100 bg-gradient-to-r from-green-50 to-emerald-50 p-4 md:p-6">
                   <div className="flex items-center justify-between gap-4">
-                    <h2 className="text-lg md:text-2xl font-bold text-stone-900 flex-1">
+                    <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-stone-900 flex-1 truncate">
                       {isPrimaryResult ?
                       isNewToPlantDex ? "Neue Pflanze zum PlantDex hinzugefügt! 🎉" :
                       wasAlreadyDiscovered ? "Pflanze erneut gescannt! ✅" :
@@ -441,7 +432,7 @@ export default function ScanResults({
                                 <X className="w-5 h-5 text-red-600" />
                               </motion.button>
 
-                              {/* Rechts: Überprüfen und Schenken */}
+                              {/* Rechts: Überprüfen, Schenken und Navigations-Pfeil */}
                               <div className="flex flex-col gap-2">
                                 <motion.button
                               onClick={handleVerifyResult}
@@ -460,6 +451,19 @@ export default function ScanResults({
 
                                   <Gift className="w-5 h-5 text-white" />
                                 </motion.button>
+
+                                {/* Rechter Navigations-Pfeil */}
+                                {hasMultipleResults && currentResultIndex < results.length - 1 && (
+                                  <motion.button
+                                    onClick={() => setCurrentResultIndex(currentResultIndex + 1)}
+                                    className="w-11 h-11 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    style={{ x: rightArrowX }}
+                                  >
+                                    <ChevronRight className="w-5 h-5 text-green-600" />
+                                  </motion.button>
+                                )}
                               </div>
                             </div>
                         }
