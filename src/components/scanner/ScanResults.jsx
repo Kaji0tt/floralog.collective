@@ -32,6 +32,7 @@ export default function ScanResults({
   const x = useMotionValue(0);
   const constraintsRef = useRef(null);
   const cardRef = useRef(null);
+  const [direction, setDirection] = useState(0);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -65,8 +66,10 @@ export default function ScanResults({
     const threshold = 100;
     
     if (info.offset.x > threshold && currentResultIndex > 0) {
+      setDirection(-1);
       setCurrentResultIndex(currentResultIndex - 1);
     } else if (info.offset.x < -threshold && currentResultIndex < results.length - 1) {
+      setDirection(1);
       setCurrentResultIndex(currentResultIndex + 1);
     }
   };
@@ -344,11 +347,17 @@ export default function ScanResults({
         )}
 
         <div className="relative flex items-center gap-4">
-          {/* Linker Pfeil - auf Höhe des Bildes */}
+          {/* Linker Pfeil - auf Höhe des Bildes, bewegt sich mit Drag */}
           {hasMultipleResults && currentResultIndex > 0 && (
             <motion.button
-              onClick={() => setCurrentResultIndex(currentResultIndex - 1)}
+              onClick={() => {
+                setDirection(-1);
+                setCurrentResultIndex(currentResultIndex - 1);
+              }}
               className="absolute left-2 md:left-0 top-[200px] md:top-[250px] -translate-y-1/2 z-20 w-12 h-12 md:w-14 md:h-14 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
+              style={{ 
+                x: useTransform(x, [0, 200], [0, 20])
+              }}
               animate={{
                 x: [-2, 2, -2],
               }}
@@ -362,11 +371,17 @@ export default function ScanResults({
             </motion.button>
           )}
 
-          {/* Rechter Pfeil - auf Höhe des Bildes */}
+          {/* Rechter Pfeil - auf Höhe des Bildes, bewegt sich mit Drag */}
           {hasMultipleResults && currentResultIndex < results.length - 1 && (
             <motion.button
-              onClick={() => setCurrentResultIndex(currentResultIndex + 1)}
+              onClick={() => {
+                setDirection(1);
+                setCurrentResultIndex(currentResultIndex + 1);
+              }}
               className="absolute right-2 md:right-0 top-[200px] md:top-[250px] -translate-y-1/2 z-20 w-12 h-12 md:w-14 md:h-14 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
+              style={{ 
+                x: useTransform(x, [-200, 0], [-20, 0])
+              }}
               animate={{
                 x: [2, -2, 2],
               }}
@@ -384,8 +399,23 @@ export default function ScanResults({
             key={currentResultIndex}
             ref={constraintsRef}
             className="flex-1 w-full"
-            initial={{ opacity: 1 }}
-            animate={{ opacity: 1 }}
+            initial={{ 
+              x: direction === 1 ? 300 : direction === -1 ? -300 : 0,
+              opacity: 0 
+            }}
+            animate={{ 
+              x: 0,
+              opacity: 1 
+            }}
+            exit={{ 
+              x: direction === 1 ? -300 : 300,
+              opacity: 0 
+            }}
+            transition={{
+              type: "spring",
+              stiffness: 300,
+              damping: 30
+            }}
           >
             <motion.div
               ref={cardRef}
@@ -427,53 +457,51 @@ export default function ScanResults({
                 </CardHeader>
 
                 <CardContent className="p-4 md:p-6 space-y-6">
+                  {/* Icon-Buttons außerhalb der Card - im gleichen Design wie Pfeile */}
+                  {latestDiscoveryId && isPrimaryResult && (
+                    <div className="absolute top-[150px] md:top-[200px] left-0 right-0 flex justify-between px-2 md:px-0 z-20 pointer-events-none">
+                      {/* Links: Löschen */}
+                      <motion.button
+                        onClick={handleDeleteResult}
+                        disabled={isDeleting}
+                        className="w-11 h-11 md:w-12 md:h-12 bg-white border-2 border-red-400 rounded-full flex items-center justify-center shadow-lg hover:bg-red-50 transition-all pointer-events-auto"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        <X className="w-5 h-5 md:w-6 md:h-6 text-red-600" />
+                      </motion.button>
+
+                      {/* Rechts: Überprüfen und Schenken */}
+                      <div className="flex flex-col gap-2 pointer-events-auto">
+                        <motion.button
+                          onClick={handleVerifyResult}
+                          className="w-11 h-11 md:w-12 md:h-12 bg-white border-2 border-blue-400 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-50 transition-all"
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.95 }}
+                        >
+                          <Search className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
+                        </motion.button>
+
+                        <motion.button
+                          onClick={() => setShowShareDialog(true)}
+                          className="w-11 h-11 md:w-12 md:h-12 bg-white border-2 border-red-400 rounded-full flex items-center justify-center shadow-lg hover:bg-red-50 transition-all"
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.95 }}
+                        >
+                          <Heart className="w-5 h-5 md:w-6 md:h-6 text-red-600" />
+                        </motion.button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid md:grid-cols-2 gap-6">
-                    <div className="relative space-y-4">
+                    <div className="space-y-4">
                       {imageUrl && (
-                        <>
-                          <img
-                            src={imageUrl}
-                            alt={currentPlant.species_name}
-                            className="w-full aspect-square object-cover rounded-xl shadow-md border-2 border-green-300"
-                          />
-                          
-                          {/* Icon-Buttons über dem Bild */}
-                          {latestDiscoveryId && isPrimaryResult && (
-                            <div className="absolute top-3 left-3 right-3 flex justify-between z-10">
-                              {/* Links: Löschen */}
-                              <motion.button
-                                onClick={handleDeleteResult}
-                                disabled={isDeleting}
-                                className="w-11 h-11 bg-white/95 backdrop-blur-sm border-2 border-red-400 rounded-full flex items-center justify-center shadow-lg hover:bg-red-50 transition-all"
-                                whileHover={{ scale: 1.1 }}
-                                whileTap={{ scale: 0.95 }}
-                              >
-                                <X className="w-5 h-5 text-red-600" />
-                              </motion.button>
-
-                              {/* Rechts: Überprüfen und Schenken */}
-                              <div className="flex flex-col gap-2">
-                                <motion.button
-                                  onClick={handleVerifyResult}
-                                  className="w-11 h-11 bg-white/95 backdrop-blur-sm border-2 border-blue-400 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-50 transition-all"
-                                  whileHover={{ scale: 1.1 }}
-                                  whileTap={{ scale: 0.95 }}
-                                >
-                                  <Search className="w-5 h-5 text-blue-600" />
-                                </motion.button>
-
-                                <motion.button
-                                  onClick={() => setShowShareDialog(true)}
-                                  className="w-11 h-11 bg-white/95 backdrop-blur-sm border-2 border-red-400 rounded-full flex items-center justify-center shadow-lg hover:bg-red-50 transition-all"
-                                  whileHover={{ scale: 1.1 }}
-                                  whileTap={{ scale: 0.95 }}
-                                >
-                                  <Heart className="w-5 h-5 text-red-600" />
-                                </motion.button>
-                              </div>
-                            </div>
-                          )}
-                        </>
+                        <img
+                          src={imageUrl}
+                          alt={currentPlant.species_name}
+                          className="w-full aspect-square object-cover rounded-xl shadow-md border-2 border-green-300"
+                        />
                       )}
                     </div>
 
