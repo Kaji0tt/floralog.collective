@@ -425,7 +425,7 @@ export default function ScanResults({
 
                     {/* Icon-Buttons über dem Container */}
                     {latestDiscoveryId &&
-                      <div className="absolute -top-5 left-0 right-0 flex justify-between z-20">
+                      <div className="absolute -top-5 -left-5 -right-5 flex justify-between z-20">
                         {/* Links: Löschen */}
                         <motion.button
                           onClick={handleDeleteResult}
