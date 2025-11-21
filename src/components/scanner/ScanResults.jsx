@@ -489,7 +489,47 @@ export default function ScanResults({
                         </motion.button>
                       </div>
                       }
+                  </div>
+
+                  {/* Navigation unterhalb der Rarität-Kachel */}
+                  {hasMultipleResults && latestDiscoveryId && (
+                    <div className="flex justify-center items-center gap-3 mt-4">
+                      {/* Linker Pfeil */}
+                      <motion.button
+                        onClick={() => currentResultIndex > 0 && setCurrentResultIndex(currentResultIndex - 1)}
+                        disabled={currentResultIndex === 0}
+                        className={`flex items-center justify-center transition-all ${
+                          currentResultIndex === 0 ? 'opacity-20 cursor-not-allowed' : 'opacity-50 hover:opacity-80'
+                        }`}
+                        whileHover={currentResultIndex > 0 ? { scale: 1.2 } : {}}
+                        whileTap={currentResultIndex > 0 ? { scale: 0.9 } : {}}>
+                        <ChevronLeft className="w-8 h-8 text-gray-600" />
+                      </motion.button>
+
+                      {/* Dots */}
+                      <div className="flex gap-1.5 bg-stone-100 px-3 py-1.5 rounded-full border-2 border-stone-300">
+                        {results.map((_, index) =>
+                          <div
+                            key={index}
+                            className={`h-2 rounded-full transition-all ${
+                              index === currentResultIndex ? 'bg-green-600 w-6' : 'bg-stone-300 w-2'
+                            }`} />
+                        )}
                       </div>
+
+                      {/* Rechter Pfeil */}
+                      <motion.button
+                        onClick={() => currentResultIndex < results.length - 1 && setCurrentResultIndex(currentResultIndex + 1)}
+                        disabled={currentResultIndex === results.length - 1}
+                        className={`flex items-center justify-center transition-all ${
+                          currentResultIndex === results.length - 1 ? 'opacity-20 cursor-not-allowed' : 'opacity-50 hover:opacity-80'
+                        }`}
+                        whileHover={currentResultIndex < results.length - 1 ? { scale: 1.2 } : {}}
+                        whileTap={currentResultIndex < results.length - 1 ? { scale: 0.9 } : {}}>
+                        <ChevronRight className="w-8 h-8 text-gray-600" />
+                      </motion.button>
+                    </div>
+                  )}
 
                   {/* Informations-Container - direkt unter dem Hauptcontainer */}
                   <div className="space-y-3">
