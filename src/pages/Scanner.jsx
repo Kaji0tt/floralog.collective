@@ -11,14 +11,14 @@ import AchievementNotification from "../components/achievements/AchievementNotif
 import { AnimatePresence } from "framer-motion";
 import { awardXP } from "../components/utils/xpSystem";
 import MobileBackButton from "../components/navigation/MobileBackButton";
-import { 
-  getCurrentDailyQuest, 
-  getCurrentWeeklyQuest, 
-  getOrCreateActiveDailyQuest, 
+import {
+  getCurrentDailyQuest,
+  getCurrentWeeklyQuest,
+  getOrCreateActiveDailyQuest,
   getOrCreateActiveWeeklyQuest,
   getTodayString,
-  getWeekNumber
-} from "../components/quests/QuestRotationHelper";
+  getWeekNumber } from
+"../components/quests/QuestRotationHelper";
 
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
@@ -43,7 +43,7 @@ export default function Scanner() {
       setUser(currentUser);
     };
     loadUser();
-    
+
     getUserLocation();
   }, []);
 
@@ -68,84 +68,84 @@ export default function Scanner() {
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => base44.entities.Plant.list(),
+    queryFn: () => base44.entities.Plant.list()
   });
 
   const { data: genera = [] } = useQuery({
     queryKey: ['genera'],
-    queryFn: () => base44.entities.PlantGenus.list(),
+    queryFn: () => base44.entities.PlantGenus.list()
   });
 
   const { data: userDiscoveries = [] } = useQuery({
     queryKey: ['userDiscoveries'],
     queryFn: () => base44.entities.UserPlantDiscovery.filter({ user: user?.email }),
-    enabled: !!user?.email,
+    enabled: !!user?.email
   });
 
   const { data: dailyQuests = [] } = useQuery({
     queryKey: ['dailyQuests'],
-    queryFn: () => base44.entities.DailyQuest.list('quest_number'),
+    queryFn: () => base44.entities.DailyQuest.list('quest_number')
   });
 
   const { data: weeklyQuests = [] } = useQuery({
     queryKey: ['weeklyQuests'],
-    queryFn: () => base44.entities.WeeklyQuest.list('quest_number'),
+    queryFn: () => base44.entities.WeeklyQuest.list('quest_number')
   });
 
   const { data: userDailyQuests = [] } = useQuery({
     queryKey: ['userDailyQuests'],
     queryFn: () => base44.entities.UserDailyQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
+    enabled: !!user?.email
   });
 
   const { data: userWeeklyQuests = [] } = useQuery({
     queryKey: ['userWeeklyQuests'],
     queryFn: () => base44.entities.UserWeeklyQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
+    enabled: !!user?.email
   });
 
   const updatePlantMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Plant.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['plants'] });
-    },
+    }
   });
 
   const createPlantMutation = useMutation({
     mutationFn: (data) => base44.entities.Plant.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['plants'] });
-    },
+    }
   });
 
   const createGenusMutation = useMutation({
     mutationFn: (data) => base44.entities.PlantGenus.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['genera'] });
-    },
+    }
   });
 
   const deleteDiscoveryMutation = useMutation({
     mutationFn: (discoveryId) => base44.entities.UserPlantDiscovery.delete(discoveryId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
-    },
+    }
   });
 
   const updateDiscoveryMutation = useMutation({
     mutationFn: ({ discoveryId, data }) => base44.entities.UserPlantDiscovery.update(discoveryId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
-    },
+    }
   });
 
   const awardXPToUser = async (amount) => {
     if (!user) return;
     const currentXP = user.xp || 0;
     const result = awardXP(currentXP, amount);
-    
+
     await base44.auth.updateMe(result);
-    
+
     const freshUser = await base44.auth.me();
     setUser(freshUser);
     await updatePublicProfile(freshUser);
@@ -154,7 +154,7 @@ export default function Scanner() {
   const updatePublicProfile = async (userData) => {
     try {
       const profiles = await base44.entities.PublicProfile.list();
-      const existingProfile = profiles.find(p => p.user_email?.toLowerCase() === userData.email?.toLowerCase());
+      const existingProfile = profiles.find((p) => p.user_email?.toLowerCase() === userData.email?.toLowerCase());
 
       const profileData = {
         user_email: userData.email,
@@ -191,12 +191,12 @@ export default function Scanner() {
       }
       // Wenn spezifische Gattung gefordert: muss diese Gattung sein
       if (quest.target_genus_name) {
-        const genus = genera.find(g => g.id === scannedPlant.genus_id);
+        const genus = genera.find((g) => g.id === scannedPlant.genus_id);
         return genus?.genus_name?.toLowerCase() === quest.target_genus_name.toLowerCase();
       }
       // Sonst: Kategorie-basiert (wie bisher)
       if (quest.category && quest.category !== "Alle") {
-        const genus = genera.find(g => g.id === scannedPlant.genus_id);
+        const genus = genera.find((g) => g.id === scannedPlant.genus_id);
         return genus?.category === quest.category;
       }
       // Alle Kategorien
@@ -226,25 +226,25 @@ export default function Scanner() {
   };
 
   const getRarityXP = (rarity) => {
-    switch(rarity) {
-      case "Häufig": return 20;
-      case "Gelegentlich": return 35;
-      case "Selten": return 50;
-      case "Sehr Selten": return 75;
-      case "Extrem Selten": return 100;
-      default: return 20;
+    switch (rarity) {
+      case "Häufig":return 20;
+      case "Gelegentlich":return 35;
+      case "Selten":return 50;
+      case "Sehr Selten":return 75;
+      case "Extrem Selten":return 100;
+      default:return 20;
     }
   };
 
   const handleDeleteResult = async (discoveryId) => {
     try {
       await deleteDiscoveryMutation.mutateAsync(discoveryId);
-      
+
       setMatchedPlant(null);
       setAllScanResults([]);
       setLatestDiscoveryId(null);
       setImageUrl(null);
-      
+
       alert("Die Entdeckung wurde erfolgreich gelöscht.");
     } catch (error) {
       console.error("Fehler beim Löschen:", error);
@@ -255,23 +255,23 @@ export default function Scanner() {
   const handleChangeResult = async (discoveryId, newPlant, currentImageUrl) => {
     try {
       let targetPlantId = newPlant.id;
-      
+
       if (!targetPlantId || newPlant.notInDex) {
-        let genus = genera.find(g => 
-          g.genus_name?.toLowerCase() === newPlant.genus_name?.toLowerCase() ||
-          g.scientific_genus?.toLowerCase() === newPlant.scientific_genus?.toLowerCase()
+        let genus = genera.find((g) =>
+        g.genus_name?.toLowerCase() === newPlant.genus_name?.toLowerCase() ||
+        g.scientific_genus?.toLowerCase() === newPlant.scientific_genus?.toLowerCase()
         );
 
         if (!genus) {
-          const categoryGenera = genera.filter(g => 
-            g.category === newPlant.category || 
-            (newPlant.category === "Blumen" && g.category === "Blumen & Kräuter")
+          const categoryGenera = genera.filter((g) =>
+          g.category === newPlant.category ||
+          newPlant.category === "Blumen" && g.category === "Blumen & Kräuter"
           );
-          const existingNumbers = categoryGenera
-            .map(g => g.category_dex_number)
-            .filter(n => n !== null && n !== undefined);
+          const existingNumbers = categoryGenera.
+          map((g) => g.category_dex_number).
+          filter((n) => n !== null && n !== undefined);
           const highestCategoryDexNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 0;
-          
+
           genus = await createGenusMutation.mutateAsync({
             category_dex_number: highestCategoryDexNumber + 1,
             genus_name: newPlant.genus_name,
@@ -293,7 +293,7 @@ export default function Scanner() {
           fun_fact: newPlant.fun_fact,
           rarity: newPlant.rarity || "Gelegentlich"
         });
-        
+
         targetPlantId = createdPlant.id;
       }
 
@@ -305,7 +305,7 @@ export default function Scanner() {
         }
       });
 
-      const updatedPlant = plants.find(p => p.id === targetPlantId) || newPlant;
+      const updatedPlant = plants.find((p) => p.id === targetPlantId) || newPlant;
       setMatchedPlant({
         ...updatedPlant,
         discovered: false,
@@ -313,8 +313,8 @@ export default function Scanner() {
         aiData: newPlant
       });
 
-      const updatedResults = allScanResults.map((result, index) => 
-        index === 0 ? { ...updatedPlant, aiData: result.aiData || result } : result
+      const updatedResults = allScanResults.map((result, index) =>
+      index === 0 ? { ...updatedPlant, aiData: result.aiData || result } : result
       );
       setAllScanResults(updatedResults);
 
@@ -330,7 +330,7 @@ export default function Scanner() {
     setMatchedPlant(null);
     setAllScanResults([]);
     setLatestDiscoveryId(null);
-    
+
     try {
       console.log("📤 Starte Upload...");
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
@@ -338,22 +338,22 @@ export default function Scanner() {
       setImageUrl(file_url);
 
       console.log(`🌿 Starte Pflanzenerkennung mit organ: ${organ}...`);
-      
+
       try {
-        const response = await base44.functions.invoke('identifyPlant', { 
+        const response = await base44.functions.invoke('identifyPlant', {
           image_url: file_url,
-          organ: organ 
+          organ: organ
         });
-        
+
         console.log("✅ Rohe Response:", response);
-        
+
         const result = response.data || response;
-        
+
         console.log("✅ Verarbeitetes Ergebnis:", JSON.stringify(result, null, 2));
 
         if (result && result.identified && result.results && result.results.length > 0) {
           console.log(`🌿 ${result.results.length} Pflanze(n) erkannt`);
-          
+
           const normalizeString = (str) => {
             if (!str) return "";
             return str.toLowerCase().trim().replace(/\s+/g, ' ');
@@ -365,29 +365,29 @@ export default function Scanner() {
               const resultScientificNorm = normalizeString(plantData.scientific_name);
               const resultGenusNorm = normalizeString(plantData.genus_name);
 
-              let match = plants.find(p => {
+              let match = plants.find((p) => {
                 const plantSpeciesNorm = normalizeString(p.species_name);
                 const plantScientificNorm = normalizeString(p.scientific_name);
                 return plantSpeciesNorm === resultSpeciesNorm || plantScientificNorm === resultScientificNorm;
               });
 
               if (!match) {
-                const genus = genera.find(g => 
-                  normalizeString(g.genus_name) === resultGenusNorm ||
-                  normalizeString(g.scientific_genus) === normalizeString(plantData.scientific_genus)
+                const genus = genera.find((g) =>
+                normalizeString(g.genus_name) === resultGenusNorm ||
+                normalizeString(g.scientific_genus) === normalizeString(plantData.scientific_genus)
                 );
 
                 if (genus) {
-                  const genusPlants = plants.filter(p => p.genus_id === genus.id);
-                  match = genusPlants.find(p => {
+                  const genusPlants = plants.filter((p) => p.genus_id === genus.id);
+                  match = genusPlants.find((p) => {
                     const plantWords = normalizeString(p.species_name).split(' ');
                     const resultWords = resultSpeciesNorm.split(' ');
                     const scientificWords = normalizeString(p.scientific_name).split(' ');
                     const resultScientificWords = normalizeString(resultScientificNorm).split(' ');
-                    
-                    const commonWords = plantWords.filter(w => resultWords.includes(w)).length;
-                    const commonScientific = scientificWords.filter(w => resultScientificWords.includes(w)).length;
-                    
+
+                    const commonWords = plantWords.filter((w) => resultWords.includes(w)).length;
+                    const commonScientific = scientificWords.filter((w) => resultScientificWords.includes(w)).length;
+
                     return commonWords >= 2 || commonScientific >= 2;
                   });
                 }
@@ -398,11 +398,11 @@ export default function Scanner() {
                 return { ...match, aiData: plantData, inDatabase: true };
               } else {
                 console.log("🆕 Nicht in Datenbank:", plantData.species_name);
-                
+
                 if (plantData.is_european === false) {
                   return { ...plantData, notInDex: true, is_european: false, inDatabase: false };
                 }
-                
+
                 return { ...plantData, notInDex: true, inDatabase: false };
               }
             })
@@ -427,15 +427,15 @@ export default function Scanner() {
             console.log("🆕 Neue Pflanze - füge zum PlantDex hinzu");
             await handleAutoAddNewPlant(firstResult, file_url, processedResults);
           }
-          
+
         } else {
           console.warn("❌ Pflanze nicht erkannt");
           // Vibration: 1x lang für Fehler
           if (navigator.vibrate) {
             navigator.vibrate(500);
           }
-          setMatchedPlant({ 
-            identified: false, 
+          setMatchedPlant({
+            identified: false,
             error: "Die Pflanze konnte nicht identifiziert werden. Versuche ein klareres Foto mit mehr Details (Blätter, Blüten, Stamm)."
           });
           setScanning(false);
@@ -446,8 +446,8 @@ export default function Scanner() {
       }
     } catch (error) {
       console.error("💥 HAUPTFEHLER:", error);
-      setMatchedPlant({ 
-        identified: false, 
+      setMatchedPlant({
+        identified: false,
         error: `Fehler: ${error.message}`
       });
       setScanning(false);
@@ -460,7 +460,7 @@ export default function Scanner() {
       locationString = `${userLocation.lat.toFixed(6)}, ${userLocation.lng.toFixed(6)}`;
     }
 
-    const alreadyDiscovered = userDiscoveries.some(d => d.plant_id === plant.id);
+    const alreadyDiscovered = userDiscoveries.some((d) => d.plant_id === plant.id);
 
     let xpAwarded = 0;
 
@@ -514,21 +514,21 @@ export default function Scanner() {
     }
 
     try {
-      let genus = genera.find(g => 
-        g.genus_name?.toLowerCase() === plantData.genus_name?.toLowerCase() ||
-        g.scientific_genus?.toLowerCase() === plantData.scientific_genus?.toLowerCase()
+      let genus = genera.find((g) =>
+      g.genus_name?.toLowerCase() === plantData.genus_name?.toLowerCase() ||
+      g.scientific_genus?.toLowerCase() === plantData.scientific_genus?.toLowerCase()
       );
 
       if (!genus) {
-        const categoryGenera = genera.filter(g => 
-          g.category === plantData.category || 
-          (plantData.category === "Blumen" && g.category === "Blumen & Kräuter")
+        const categoryGenera = genera.filter((g) =>
+        g.category === plantData.category ||
+        plantData.category === "Blumen" && g.category === "Blumen & Kräuter"
         );
-        const existingNumbers = categoryGenera
-          .map(g => g.category_dex_number)
-          .filter(n => n !== null && n !== undefined);
+        const existingNumbers = categoryGenera.
+        map((g) => g.category_dex_number).
+        filter((n) => n !== null && n !== undefined);
         const highestCategoryDexNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 0;
-        
+
         genus = await createGenusMutation.mutateAsync({
           category_dex_number: highestCategoryDexNumber + 1,
           genus_name: plantData.genus_name,
@@ -600,37 +600,37 @@ export default function Scanner() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4 md:p-8 overflow-x-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 overflow-x-hidden">
       <MobileBackButton />
       
       <AnimatePresence>
-        {newAchievements.length > 0 && currentAchievementIndex < newAchievements.length && (
-          <AchievementNotification
-            achievement={newAchievements[currentAchievementIndex]}
-            onComplete={() => {
-              if (currentAchievementIndex < newAchievements.length - 1) {
-                setCurrentAchievementIndex(currentAchievementIndex + 1);
-              } else {
-                setNewAchievements([]);
-                setCurrentAchievementIndex(0);
-              }
-            }}
-          />
-        )}
+        {newAchievements.length > 0 && currentAchievementIndex < newAchievements.length &&
+        <AchievementNotification
+          achievement={newAchievements[currentAchievementIndex]}
+          onComplete={() => {
+            if (currentAchievementIndex < newAchievements.length - 1) {
+              setCurrentAchievementIndex(currentAchievementIndex + 1);
+            } else {
+              setNewAchievements([]);
+              setCurrentAchievementIndex(0);
+            }
+          }} />
+
+        }
       </AnimatePresence>
 
       <div className="max-w-4xl mx-auto w-full">
         <div className="text-center mb-8">
-          {gettingLocation && (
-            <div className="flex items-center justify-center gap-2 text-sm text-stone-500 mt-2">
+          {gettingLocation &&
+          <div className="flex items-center justify-center gap-2 text-sm text-stone-500 mt-2">
               <MapPin className="w-4 h-4 animate-pulse" />
               <span>Standort wird ermittelt...</span>
             </div>
-          )}
+          }
         </div>
 
-        {!scanning && !matchedPlant && !showCamera && (
-          <Card className="border-2 border-stone-200 shadow-lg bg-white">
+        {!scanning && !matchedPlant && !showCamera &&
+        <Card className="border-2 border-stone-200 shadow-lg bg-white">
             <CardHeader>
               <CardTitle className="text-center text-2xl font-bold text-stone-900 flex items-center justify-center gap-2">
                 <Camera className="w-7 h-7 text-green-600" />
@@ -639,9 +639,9 @@ export default function Scanner() {
             </CardHeader>
             <CardContent className="p-6">
               <button
-                onClick={() => setShowCamera(true)}
-                className="w-full group relative overflow-hidden rounded-xl bg-gradient-to-br from-green-600 to-green-700 p-8 text-white shadow-md hover:shadow-xl transition-all duration-300"
-              >
+              onClick={() => setShowCamera(true)}
+              className="w-full group relative overflow-hidden rounded-xl bg-gradient-to-br from-green-600 to-green-700 p-8 text-white shadow-md hover:shadow-xl transition-all duration-300">
+
                 <div className="flex flex-col items-center">
                   <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                     <Camera className="w-10 h-10 text-green-600" />
@@ -655,18 +655,18 @@ export default function Scanner() {
                 <p className="text-center font-semibold text-stone-700">
                   💡 Tipp: Achte darauf, dass die Pflanze gut zu sehen ist!
                 </p>
-                {userLocation && (
-                  <p className="text-center text-sm text-stone-600 mt-2">
+                {userLocation &&
+              <p className="text-center text-sm text-stone-600 mt-2">
                     📍 Dein Standort wird automatisch gespeichert
                   </p>
-                )}
+              }
               </div>
             </CardContent>
           </Card>
-        )}
+        }
 
-        {scanning && (
-          <Card className="border-2 border-stone-200 shadow-lg bg-white">
+        {scanning &&
+        <Card className="border-2 border-stone-200 shadow-lg bg-white">
             <CardContent className="p-12">
               <div className="flex flex-col items-center">
                 <Loader2 className="w-16 h-16 text-green-600 animate-spin mb-4" />
@@ -679,35 +679,35 @@ export default function Scanner() {
               </div>
             </CardContent>
           </Card>
-        )}
+        }
 
-        {matchedPlant && !scanning && (
-          <div className="w-full">
+        {matchedPlant && !scanning &&
+        <div className="w-full">
             <ScanResults
-              plant={matchedPlant}
-              imageUrl={imageUrl}
-              onRescan={() => {
-                setMatchedPlant(null);
-                setAllScanResults([]);
-                setLatestDiscoveryId(null);
-                setImageUrl(null);
-              }}
-              userLocation={userLocation}
-              allResults={allScanResults}
-              onDeleteResult={handleDeleteResult}
-              onChangeResult={handleChangeResult}
-              latestDiscoveryId={latestDiscoveryId}
-            />
-          </div>
-        )}
+            plant={matchedPlant}
+            imageUrl={imageUrl}
+            onRescan={() => {
+              setMatchedPlant(null);
+              setAllScanResults([]);
+              setLatestDiscoveryId(null);
+              setImageUrl(null);
+            }}
+            userLocation={userLocation}
+            allResults={allScanResults}
+            onDeleteResult={handleDeleteResult}
+            onChangeResult={handleChangeResult}
+            latestDiscoveryId={latestDiscoveryId} />
 
-        {showCamera && (
-          <CameraCapture
-            onCapture={handleCameraCapture}
-            onClose={() => setShowCamera(false)}
-          />
-        )}
+          </div>
+        }
+
+        {showCamera &&
+        <CameraCapture
+          onCapture={handleCameraCapture}
+          onClose={() => setShowCamera(false)} />
+
+        }
       </div>
-    </div>
-  );
+    </div>);
+
 }
