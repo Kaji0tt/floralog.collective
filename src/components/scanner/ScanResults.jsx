@@ -429,7 +429,7 @@ export default function ScanResults({
                           
                           {/* Icon-Buttons über dem Bild */}
                           {latestDiscoveryId && isPrimaryResult && (
-                            <div className="absolute top-3 left-3 right-3 flex justify-between z-20">
+                            <div className="absolute top-3 -left-1 -right-1 flex justify-between z-20">
                               {/* Links: Löschen */}
                               <motion.button
                                 onClick={handleDeleteResult}
