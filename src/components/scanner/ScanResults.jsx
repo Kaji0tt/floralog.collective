@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, RotateCcw, Volume2, VolumeX, BookOpen, Sparkles, ChevronLeft, ChevronRight, Search, Trash2, RefreshCw, Gift } from "lucide-react";
+import { AlertCircle, RotateCcw, Volume2, VolumeX, BookOpen, Sparkles, ChevronLeft, ChevronRight, Search, X, RefreshCw, Heart } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -79,10 +79,11 @@ export default function ScanResults({
   const handleDeleteResult = async () => {
     if (!latestDiscoveryId) return;
     
-    if (confirm(`Möchtest du diese Entdeckung wirklich löschen?\n\n"${currentPlant.species_name}" wird aus deiner Sammlung entfernt.`)) {
+    if (confirm(`Möchtest du diesen Scan wirklich löschen und neu scannen?\n\n"${currentPlant.species_name}" wird aus deiner Sammlung entfernt.`)) {
       setIsDeleting(true);
       try {
         await onDeleteResult(latestDiscoveryId);
+        onRescan();
       } finally {
         setIsDeleting(false);
       }
@@ -326,6 +327,22 @@ export default function ScanResults({
           />
         )}
 
+        {/* Indikator-Dots über dem Card */}
+        {hasMultipleResults && (
+          <div className="flex justify-center mb-3">
+            <div className="flex gap-1.5 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-md">
+              {results.map((_, index) => (
+                <div
+                  key={index}
+                  className={`h-2 rounded-full transition-all ${
+                    index === currentResultIndex ? 'bg-green-600 w-6' : 'bg-stone-300 w-2'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="relative flex items-center gap-4">
           {/* Linker Pfeil - auf Höhe des Bildes */}
           {hasMultipleResults && currentResultIndex > 0 && (
@@ -361,20 +378,6 @@ export default function ScanResults({
             >
               <ChevronRight className="w-6 h-6 md:w-7 md:h-7 text-green-600" />
             </motion.button>
-          )}
-
-          {/* Indikator-Dots oben in der Card */}
-          {hasMultipleResults && (
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex gap-1.5 bg-white/80 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-sm">
-              {results.map((_, index) => (
-                <div
-                  key={index}
-                  className={`h-2 rounded-full transition-all ${
-                    index === currentResultIndex ? 'bg-green-600 w-6' : 'bg-stone-300 w-2'
-                  }`}
-                />
-              ))}
-            </div>
           )}
 
           <motion.div
@@ -425,13 +428,52 @@ export default function ScanResults({
 
                 <CardContent className="p-4 md:p-6 space-y-6">
                   <div className="grid md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
+                    <div className="relative space-y-4">
                       {imageUrl && (
-                        <img
-                          src={imageUrl}
-                          alt={currentPlant.species_name}
-                          className="w-full aspect-square object-cover rounded-xl shadow-md border-2 border-green-300"
-                        />
+                        <>
+                          <img
+                            src={imageUrl}
+                            alt={currentPlant.species_name}
+                            className="w-full aspect-square object-cover rounded-xl shadow-md border-2 border-green-300"
+                          />
+                          
+                          {/* Icon-Buttons über dem Bild */}
+                          {latestDiscoveryId && isPrimaryResult && (
+                            <div className="absolute top-3 left-3 right-3 flex justify-between z-10">
+                              {/* Links: Löschen */}
+                              <motion.button
+                                onClick={handleDeleteResult}
+                                disabled={isDeleting}
+                                className="w-11 h-11 bg-white/95 backdrop-blur-sm border-2 border-red-400 rounded-full flex items-center justify-center shadow-lg hover:bg-red-50 transition-all"
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.95 }}
+                              >
+                                <X className="w-5 h-5 text-red-600" />
+                              </motion.button>
+
+                              {/* Rechts: Überprüfen und Schenken */}
+                              <div className="flex flex-col gap-2">
+                                <motion.button
+                                  onClick={handleVerifyResult}
+                                  className="w-11 h-11 bg-white/95 backdrop-blur-sm border-2 border-blue-400 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-50 transition-all"
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.95 }}
+                                >
+                                  <Search className="w-5 h-5 text-blue-600" />
+                                </motion.button>
+
+                                <motion.button
+                                  onClick={() => setShowShareDialog(true)}
+                                  className="w-11 h-11 bg-white/95 backdrop-blur-sm border-2 border-red-400 rounded-full flex items-center justify-center shadow-lg hover:bg-red-50 transition-all"
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.95 }}
+                                >
+                                  <Heart className="w-5 h-5 text-red-600" />
+                                </motion.button>
+                              </div>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
 
@@ -492,41 +534,7 @@ export default function ScanResults({
                     </div>
                   )}
 
-                  {/* Kompakte Action-Buttons */}
-                  {latestDiscoveryId && isPrimaryResult && (
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={handleVerifyResult}
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 border border-blue-200 hover:bg-blue-50 text-blue-700"
-                      >
-                        <Search className="w-4 h-4 mr-1" />
-                        Überprüfen
-                      </Button>
-                      
-                      <Button
-                        onClick={handleDeleteResult}
-                        disabled={isDeleting}
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 border border-red-200 hover:bg-red-50 text-red-700"
-                      >
-                        {isDeleting ? (
-                          <>
-                            <RotateCcw className="w-4 h-4 mr-1 animate-spin" />
-                            Löschen...
-                          </>
-                        ) : (
-                          <>
-                            <Trash2 className="w-4 h-4 mr-1" />
-                            Löschen
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  )}
-
+                  {/* Alternative Ergebnisse: Button zum Ändern */}
                   {latestDiscoveryId && !isPrimaryResult && showChangeResultButton && (
                     <Button
                       onClick={handleChangeResult}
@@ -550,34 +558,14 @@ export default function ScanResults({
                   )}
                 </CardContent>
 
-                <CardFooter className="flex flex-col gap-2 p-4 border-t border-stone-200 bg-stone-50">
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={onRescan}
-                      variant="outline"
-                      className="flex-1 border border-stone-300 hover:bg-stone-100"
-                    >
-                      <RotateCcw className="w-4 h-4 mr-1" />
-                      Neuer Scan
-                    </Button>
-                    <Button
-                      onClick={() => navigate(createPageUrl("Collection"))}
-                      className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                    >
-                      <BookOpen className="w-4 h-4 mr-1" />
-                      Zur Collection
-                    </Button>
-                  </div>
-                  {latestDiscoveryId && isPrimaryResult && (
-                    <Button
-                      onClick={() => setShowShareDialog(true)}
-                      variant="outline"
-                      className="w-full border border-red-300 hover:bg-red-50 text-red-600"
-                    >
-                      <Gift className="w-4 h-4 mr-1" />
-                      Pflanze schenken
-                    </Button>
-                  )}
+                <CardFooter className="p-4 border-t border-stone-200 bg-stone-50">
+                  <Button
+                    onClick={() => navigate(createPageUrl("Collection"))}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <BookOpen className="w-4 h-4 mr-1" />
+                    Zur Collection
+                  </Button>
                 </CardFooter>
               </Card>
             </motion.div>
