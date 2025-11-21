@@ -348,6 +348,19 @@ export default function ScanResults({
         }
 
         <div className="relative flex items-center gap-4 overflow-visible">
+          {/* Linker Pfeil - auf Höhe des Bildes, unter den Icon-Buttons */}
+          {hasMultipleResults && currentResultIndex > 0 &&
+          <motion.button
+            onClick={() => setCurrentResultIndex(currentResultIndex - 1)}
+            className="absolute left-2 top-[50%] -translate-y-1/2 z-10 w-12 h-12 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
+            style={{ x: leftArrowX }}>
+
+              <ChevronLeft className="w-6 h-6 text-green-600" />
+            </motion.button>
+          }
+
+
+
           <motion.div
             key={currentResultIndex}
             ref={constraintsRef}
@@ -438,41 +451,21 @@ export default function ScanResults({
 
                                   <Gift className="w-5 h-5 text-white" />
                                 </motion.button>
+
+                                {/* Rechter Navigations-Pfeil */}
+                                {hasMultipleResults && currentResultIndex < results.length - 1 &&
+                            <motion.button
+                              onClick={() => setCurrentResultIndex(currentResultIndex + 1)}
+                              className="w-11 h-11 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.95 }}
+                              style={{ x: rightArrowX }}>
+
+                                    <ChevronRight className="w-5 h-5 text-green-600" />
+                                  </motion.button>
+                            }
                               </div>
                             </div>
-                        }
-                        
-                        {/* Navigations-Pfeile Container - volle Breite */}
-                        {hasMultipleResults &&
-                        <div className="absolute -top-5 left-0 right-0 flex justify-between items-center pointer-events-none z-30 px-2">
-                            {/* Linker Pfeil */}
-                            {currentResultIndex > 0 ? (
-                              <motion.button
-                                onClick={() => setCurrentResultIndex(currentResultIndex - 1)}
-                                className="w-12 h-12 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all pointer-events-auto"
-                                style={{ x: leftArrowX }}
-                                whileHover={{ scale: 1.1 }}
-                                whileTap={{ scale: 0.95 }}>
-                                <ChevronLeft className="w-6 h-6 text-green-600" />
-                              </motion.button>
-                            ) : (
-                              <div className="w-12 h-12" />
-                            )}
-                            
-                            {/* Rechter Pfeil */}
-                            {currentResultIndex < results.length - 1 ? (
-                              <motion.button
-                                onClick={() => setCurrentResultIndex(currentResultIndex + 1)}
-                                className="w-12 h-12 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all pointer-events-auto"
-                                style={{ x: rightArrowX }}
-                                whileHover={{ scale: 1.1 }}
-                                whileTap={{ scale: 0.95 }}>
-                                <ChevronRight className="w-6 h-6 text-green-600" />
-                              </motion.button>
-                            ) : (
-                              <div className="w-12 h-12" />
-                            )}
-                          </div>
                         }
                         </>
                       }
