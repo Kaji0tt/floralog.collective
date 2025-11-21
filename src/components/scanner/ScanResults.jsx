@@ -30,9 +30,6 @@ export default function ScanResults({
   const [discovery, setDiscovery] = useState(null);
   const navigate = useNavigate();
   const x = useMotionValue(0);
-  const constraintsRef = useRef(null);
-  const cardRef = useRef(null);
-  const [direction, setDirection] = useState(0);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -41,11 +38,6 @@ export default function ScanResults({
     };
     loadUser();
   }, []);
-
-  // Reset x-Position bei Index-Wechsel
-  useEffect(() => {
-    x.set(0);
-  }, [currentResultIndex, x]);
 
   useEffect(() => {
     const loadDiscovery = async () => {
@@ -71,11 +63,11 @@ export default function ScanResults({
     const threshold = 100;
     
     if (info.offset.x > threshold && currentResultIndex > 0) {
-      setDirection(-1);
-      setCurrentResultIndex(currentResultIndex - 1);
+      setCurrentResultIndex(prev => prev - 1);
+      x.set(0); // Reset position
     } else if (info.offset.x < -threshold && currentResultIndex < results.length - 1) {
-      setDirection(1);
-      setCurrentResultIndex(currentResultIndex + 1);
+      setCurrentResultIndex(prev => prev + 1);
+      x.set(0); // Reset position
     }
   };
 
@@ -356,8 +348,8 @@ export default function ScanResults({
           {hasMultipleResults && currentResultIndex > 0 && (
             <motion.button
               onClick={() => {
-                setDirection(-1);
-                setCurrentResultIndex(currentResultIndex - 1);
+                setCurrentResultIndex(prev => prev - 1);
+                x.set(0);
               }}
               className="absolute left-2 md:left-0 top-[290px] md:top-[340px] -translate-y-1/2 z-20 w-12 h-12 md:w-14 md:h-14 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50"
               style={{ 
@@ -372,8 +364,8 @@ export default function ScanResults({
           {hasMultipleResults && currentResultIndex < results.length - 1 && (
             <motion.button
               onClick={() => {
-                setDirection(1);
-                setCurrentResultIndex(currentResultIndex + 1);
+                setCurrentResultIndex(prev => prev + 1);
+                x.set(0);
               }}
               className="absolute right-2 md:right-0 top-[290px] md:top-[340px] -translate-y-1/2 z-20 w-12 h-12 md:w-14 md:h-14 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50"
               style={{ 
@@ -384,34 +376,14 @@ export default function ScanResults({
             </motion.button>
           )}
 
-          <div className="flex-1 w-full" ref={constraintsRef}>
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={currentResultIndex}
-                drag={hasMultipleResults ? "x" : false}
-                dragConstraints={{ left: 0, right: 0 }}
-                dragElastic={0.7}
-                onDragEnd={handleDragEnd}
-                style={{ x, rotate, opacity }}
-                className="w-full"
-                initial={{ 
-                  x: direction === 1 ? 300 : direction === -1 ? -300 : 0,
-                  opacity: 0 
-                }}
-                animate={{ 
-                  x: 0,
-                  opacity: 1 
-                }}
-                exit={{ 
-                  x: direction === 1 ? -300 : 300,
-                  opacity: 0 
-                }}
-                transition={{
-                  type: "spring",
-                  stiffness: 300,
-                  damping: 30
-                }}
-              >
+          <motion.div
+            className="flex-1 w-full"
+            drag={hasMultipleResults ? "x" : false}
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.7}
+            onDragEnd={handleDragEnd}
+            style={{ x, rotate, opacity }}
+          >
               <Card className="border-2 border-green-200 shadow-lg bg-white overflow-hidden">
                 <CardHeader className="border-b-2 border-green-100 bg-gradient-to-r from-green-50 to-emerald-50 p-4 md:p-6">
                   <div className="flex items-center justify-between gap-4">
@@ -582,9 +554,7 @@ export default function ScanResults({
                   </Button>
                 </CardFooter>
               </Card>
-              </motion.div>
-            </AnimatePresence>
-          </div>
+          </motion.div>
         </div>
       </div>
     );
