@@ -62,7 +62,7 @@ export default function ScanResults({
   const hasMultipleResults = results.length > 1;
   const isPrimaryResult = currentResultIndex === 0;
 
-  const rotate = useTransform(x, [-200, 200], [-15, 15]);
+  const scale = useTransform(x, [-200, -100, 0, 100, 200], [0.85, 0.95, 1, 0.95, 0.85]);
   const opacity = useTransform(x, [-200, -100, 0, 100, 200], [0.5, 1, 1, 1, 0.5]);
 
   const handleDragEnd = (event, info) => {
@@ -374,7 +374,7 @@ export default function ScanResults({
               dragConstraints={{ left: 0, right: 0 }}
               dragElastic={0.7}
               onDragEnd={handleDragEnd}
-              style={{ x, rotate, opacity }}
+              style={{ x, scale, opacity }}
               className="w-full overflow-visible">
 
               <Card className="border-2 border-green-200 shadow-lg bg-white overflow-hidden">
@@ -419,7 +419,7 @@ export default function ScanResults({
 
                           
                           {/* Icon-Buttons über dem Bild */}
-                          {latestDiscoveryId && isPrimaryResult &&
+                          {latestDiscoveryId &&
                         <div className="absolute -top-5 -left-2 -right-2 flex justify-between z-20">
                               {/* Links: Löschen */}
                               <motion.button
