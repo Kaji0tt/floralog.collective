@@ -445,7 +445,7 @@ export default function ScanResults({
                         
                         {/* Navigations-Pfeile Container - nach den interaktiven Buttons */}
                         {hasMultipleResults &&
-                        <div className="absolute inset-x-0 top-[50%] -translate-y-1/2 flex justify-between px-2 pointer-events-none z-10">
+                        <div className="absolute inset-x-0 top-[50%] -translate-y-1/2 flex justify-between -mx-2 pointer-events-none z-10">
                             {/* Linker Pfeil */}
                             <motion.button
                               onClick={() => currentResultIndex > 0 && setCurrentResultIndex(currentResultIndex - 1)}
