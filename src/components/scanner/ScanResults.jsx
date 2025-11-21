@@ -393,29 +393,27 @@ export default function ScanResults({
                         </span>
                       }
                     </h2>
-                    <button
-                      onClick={() => speakText(getDescriptionText(currentPlant))}
-                      className="flex-shrink-0 hover:scale-110 transition-transform">
+                    <div className="flex items-center gap-3">
+                      <Badge className={`${getRarityColor(rarity)} text-white font-bold px-4 py-1.5 text-sm shadow-lg`}>
+                        {getRarityStars(rarity)} {rarity}
+                      </Badge>
+                      <button
+                        onClick={() => speakText(getDescriptionText(currentPlant))}
+                        className="flex-shrink-0 hover:scale-110 transition-transform">
 
-                      {isSpeaking ?
-                      <VolumeX className="w-8 h-8 text-white" /> :
+                        {isSpeaking ?
+                        <VolumeX className="w-8 h-8 text-white" /> :
 
-                      <Volume2 className="w-8 h-8 text-white" />
-                      }
-                    </button>
+                        <Volume2 className="w-8 h-8 text-white" />
+                        }
+                      </button>
+                    </div>
                   </div>
                 </CardHeader>
 
                 <CardContent className="p-4 md:p-6 space-y-3">
                   {/* Container mit Rarität-Border für Titel und Bild */}
                   <div className={`relative border-4 ${getRarityBorderColor(rarity)} rounded-2xl p-4 shadow-xl ${getRarityBackgroundColor(rarity)}`}>
-                    {/* Rarität Badge auf oberer Kante */}
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-20">
-                      <Badge className={`${getRarityColor(rarity)} text-white font-bold px-4 py-1.5 text-sm shadow-lg`}>
-                        {getRarityStars(rarity)} {rarity}
-                      </Badge>
-                    </div>
-
                     {/* Namen über dem Bild */}
                     <div className="mb-4">
                       <h3 className="text-2xl md:text-3xl font-bold text-stone-900 break-words">
