@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, RotateCcw, Volume2, VolumeX, BookOpen, Sparkles, ChevronLeft, ChevronRight, Search, X, RefreshCw, Heart } from "lucide-react";
+import { AlertCircle, RotateCcw, Volume2, VolumeX, BookOpen, Sparkles, ChevronLeft, ChevronRight, Search, X, RefreshCw, Gift } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -344,37 +344,23 @@ export default function ScanResults({
         )}
 
         <div className="relative flex items-center gap-4">
-          {/* Linker Pfeil - auf Höhe des Bildes */}
+          {/* Linker Pfeil - auf Höhe des Bildes, unter den Icon-Buttons */}
           {hasMultipleResults && currentResultIndex > 0 && (
             <motion.button
               onClick={() => setCurrentResultIndex(currentResultIndex - 1)}
-              className="absolute left-2 md:left-0 top-[200px] md:top-[250px] -translate-y-1/2 z-20 w-12 h-12 md:w-14 md:h-14 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
-              animate={{
-                x: [-2, 2, -2],
-              }}
-              transition={{
-                duration: 1.5,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
+              className="absolute left-2 md:left-0 top-[200px] md:top-[250px] -translate-y-1/2 z-[5] w-12 h-12 md:w-14 md:h-14 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
+              style={{ x: useTransform(x, [0, 100], [0, -10]) }}
             >
               <ChevronLeft className="w-6 h-6 md:w-7 md:h-7 text-green-600" />
             </motion.button>
           )}
 
-          {/* Rechter Pfeil - auf Höhe des Bildes */}
+          {/* Rechter Pfeil - auf Höhe des Bildes, unter den Icon-Buttons */}
           {hasMultipleResults && currentResultIndex < results.length - 1 && (
             <motion.button
               onClick={() => setCurrentResultIndex(currentResultIndex + 1)}
-              className="absolute right-2 md:right-0 top-[200px] md:top-[250px] -translate-y-1/2 z-20 w-12 h-12 md:w-14 md:h-14 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
-              animate={{
-                x: [2, -2, 2],
-              }}
-              transition={{
-                duration: 1.5,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
+              className="absolute right-2 md:right-0 top-[200px] md:top-[250px] -translate-y-1/2 z-[5] w-12 h-12 md:w-14 md:h-14 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
+              style={{ x: useTransform(x, [0, -100], [0, 10]) }}
             >
               <ChevronRight className="w-6 h-6 md:w-7 md:h-7 text-green-600" />
             </motion.button>
@@ -455,20 +441,20 @@ export default function ScanResults({
                               <div className="flex flex-col gap-2">
                                 <motion.button
                                   onClick={handleVerifyResult}
-                                  className="w-11 h-11 bg-white/95 backdrop-blur-sm border-2 border-blue-400 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-50 transition-all"
+                                  className="w-11 h-11 bg-blue-600 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-all"
                                   whileHover={{ scale: 1.1 }}
                                   whileTap={{ scale: 0.95 }}
                                 >
-                                  <Search className="w-5 h-5 text-blue-600" />
+                                  <Search className="w-5 h-5 text-white" />
                                 </motion.button>
 
                                 <motion.button
                                   onClick={() => setShowShareDialog(true)}
-                                  className="w-11 h-11 bg-white/95 backdrop-blur-sm border-2 border-red-400 rounded-full flex items-center justify-center shadow-lg hover:bg-red-50 transition-all"
+                                  className="w-11 h-11 bg-red-600 rounded-full flex items-center justify-center shadow-lg hover:bg-red-700 transition-all"
                                   whileHover={{ scale: 1.1 }}
                                   whileTap={{ scale: 0.95 }}
                                 >
-                                  <Heart className="w-5 h-5 text-red-600" />
+                                  <Gift className="w-5 h-5 text-white" />
                                 </motion.button>
                               </div>
                             </div>
