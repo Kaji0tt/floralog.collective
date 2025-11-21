@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/sidebar";
 import { base44 } from "@/api/base44Client";
 import NotificationManager from "./components/notifications/NotificationManager";
-import FloatingHomeButton from "./components/navigation/FloatingHomeButton";
 
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
@@ -261,9 +260,6 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Notification Manager - nur Banner, kein Button */}
       {user && currentPageName !== "Profile" && <NotificationManager user={user} />}
-
-      {/* Floating Home Button */}
-      <FloatingHomeButton />
-      </SidebarProvider>
-      );
-      }
+    </SidebarProvider>
+  );
+}
