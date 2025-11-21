@@ -179,6 +179,17 @@ export default function ScanResults({
     }
   };
 
+  const getRarityBorderColor = (rarity) => {
+    switch (rarity) {
+      case "Häufig":return "border-gray-500";
+      case "Gelegentlich":return "border-green-500";
+      case "Selten":return "border-purple-500";
+      case "Sehr Selten":return "border-orange-500";
+      case "Extrem Selten":return "border-red-500";
+      default:return "border-gray-500";
+    }
+  };
+
   const getRarityStars = (rarity) => {
     switch (rarity) {
       case "Häufig":return "⭐";
@@ -395,101 +406,106 @@ export default function ScanResults({
                 </CardHeader>
 
                 <CardContent className="p-4 md:p-6 space-y-6">
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div className="relative space-y-4">
-                      {imageUrl &&
-                      <>
-                          <img
-                          src={imageUrl}
-                          alt={currentPlant.species_name}
-                          className="w-full aspect-square object-cover rounded-xl shadow-md border-2 border-green-300" />
-
-                          
-                          {/* Icon-Buttons über dem Bild */}
-                          {latestDiscoveryId &&
-                        <div className="absolute -top-5 -left-2 -right-2 flex justify-between z-20">
-                              {/* Links: Löschen */}
-                              <motion.button
-                            onClick={handleDeleteResult}
-                            disabled={isDeleting}
-                            className="w-11 h-11 bg-white/95 backdrop-blur-sm border-2 border-red-400 rounded-full flex items-center justify-center shadow-lg hover:bg-red-50 transition-all"
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.95 }}>
-
-                                <X className="w-5 h-5 text-red-600" />
-                              </motion.button>
-
-                              {/* Rechts: Überprüfen, Schenken und Navigations-Pfeil */}
-                              <div className="flex flex-col gap-2">
-                                <motion.button
-                              onClick={handleVerifyResult}
-                              className="w-11 h-11 bg-blue-600 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-all"
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.95 }}>
-
-                                  <Search className="w-5 h-5 text-white" />
-                                </motion.button>
-
-                                <motion.button
-                              onClick={() => setShowShareDialog(true)}
-                              className="w-11 h-11 bg-red-600 rounded-full flex items-center justify-center shadow-lg hover:bg-red-700 transition-all"
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.95 }}>
-
-                                  <Gift className="w-5 h-5 text-white" />
-                                </motion.button>
-
-                              </div>
-                            </div>
-                        }
-                        
-                        {/* Navigations-Pfeile Container - nach den interaktiven Buttons */}
-                        {hasMultipleResults &&
-                        <div className="absolute inset-x-0 top-[50%] -translate-y-1/2 flex justify-between px-2 pointer-events-none z-10">
-                            {/* Linker Pfeil */}
-                            {currentResultIndex > 0 &&
-                            <motion.button
-                              onClick={() => setCurrentResultIndex(currentResultIndex - 1)}
-                              className="w-11 h-11 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all pointer-events-auto"
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.95 }}
-                              style={{ x: leftArrowX }}>
-
-                                <ChevronLeft className="w-5 h-5 text-green-600" />
-                              </motion.button>
-                            }
-                            
-                            {/* Rechter Pfeil */}
-                            {currentResultIndex < results.length - 1 &&
-                            <motion.button
-                              onClick={() => setCurrentResultIndex(currentResultIndex + 1)}
-                              className="w-11 h-11 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all pointer-events-auto"
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.95 }}
-                              style={{ x: rightArrowX }}>
-
-                                <ChevronRight className="w-5 h-5 text-green-600" />
-                              </motion.button>
-                            }
-                          </div>
-                        }
-                        </>
-                      }
-                    </div>
-
-                    <div className="space-y-4">
-                      <div>
-                        <h3 className="text-2xl md:text-3xl font-bold text-stone-900 mb-2 break-words">
+                  {/* Container mit Rarität-Border für Titel und Bild */}
+                  <div className={`relative border-4 ${getRarityBorderColor(rarity)} rounded-2xl p-4 shadow-lg`}>
+                    {/* Namen und Rarität über dem Bild */}
+                    <div className="flex items-start justify-between gap-4 mb-4">
+                      <div className="flex-1">
+                        <h3 className="text-2xl md:text-3xl font-bold text-stone-900 break-words">
                           {currentPlant.species_name}
                         </h3>
-                        <p className="text-lg md:text-xl text-stone-600 italic mb-3 break-words">
+                        <p className="text-lg md:text-xl text-stone-600 italic mt-1 break-words">
                           {currentPlant.scientific_name}
                         </p>
-                        <Badge className={`${getRarityColor(rarity)} text-white font-bold px-3 py-1 text-sm`}>
-                          {getRarityStars(rarity)} {rarity}
-                        </Badge>
                       </div>
+                      <Badge className={`${getRarityColor(rarity)} text-white font-bold px-3 py-1 text-sm flex-shrink-0`}>
+                        {getRarityStars(rarity)} {rarity}
+                      </Badge>
+                    </div>
 
+                    {/* Icon-Buttons über dem Container */}
+                    {latestDiscoveryId &&
+                      <div className="absolute -top-5 left-0 right-0 flex justify-between z-20">
+                        {/* Links: Löschen */}
+                        <motion.button
+                          onClick={handleDeleteResult}
+                          disabled={isDeleting}
+                          className="w-11 h-11 bg-white/95 backdrop-blur-sm border-2 border-red-400 rounded-full flex items-center justify-center shadow-lg hover:bg-red-50 transition-all"
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.95 }}>
+                          <X className="w-5 h-5 text-red-600" />
+                        </motion.button>
+
+                        {/* Rechts: Überprüfen, Schenken */}
+                        <div className="flex flex-col gap-2">
+                          <motion.button
+                            onClick={handleVerifyResult}
+                            className="w-11 h-11 bg-blue-600 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-all"
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.95 }}>
+                            <Search className="w-5 h-5 text-white" />
+                          </motion.button>
+
+                          <motion.button
+                            onClick={() => setShowShareDialog(true)}
+                            className="w-11 h-11 bg-red-600 rounded-full flex items-center justify-center shadow-lg hover:bg-red-700 transition-all"
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.95 }}>
+                            <Gift className="w-5 h-5 text-white" />
+                          </motion.button>
+                        </div>
+                      </div>
+                    }
+
+                    {/* Bild mit Navigation */}
+                    <div className="relative">
+                      {imageUrl &&
+                      <>
+                        <img
+                          src={imageUrl}
+                          alt={currentPlant.species_name}
+                          className={`w-full aspect-square object-cover rounded-xl shadow-md border-4 ${getRarityBorderColor(rarity)}`} />
+
+                        {/* Navigations-Pfeile Container - nach den interaktiven Buttons */}
+                        {hasMultipleResults &&
+                        <div className="absolute inset-x-0 top-[50%] -translate-y-1/2 flex justify-between -mx-2 pointer-events-none z-10">
+                            {/* Linker Pfeil */}
+                            <motion.button
+                              onClick={() => currentResultIndex > 0 && setCurrentResultIndex(currentResultIndex - 1)}
+                              disabled={currentResultIndex === 0}
+                              className={`w-14 h-14 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg transition-all pointer-events-auto ${
+                                currentResultIndex === 0 ? 'opacity-0 cursor-not-allowed' : 'hover:bg-green-50 opacity-100'
+                              }`}
+                              whileHover={currentResultIndex > 0 ? { scale: 1.1 } : {}}
+                              whileTap={currentResultIndex > 0 ? { scale: 0.95 } : {}}
+                              style={{ x: leftArrowX }}>
+
+                                <ChevronLeft className="w-6 h-6 text-green-600" />
+                              </motion.button>
+                            
+                            {/* Rechter Pfeil */}
+                            <motion.button
+                              onClick={() => currentResultIndex < results.length - 1 && setCurrentResultIndex(currentResultIndex + 1)}
+                              disabled={currentResultIndex === results.length - 1}
+                              className={`w-14 h-14 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg transition-all pointer-events-auto ${
+                                currentResultIndex === results.length - 1 ? 'opacity-0 cursor-not-allowed' : 'hover:bg-green-50 opacity-100'
+                              }`}
+                              whileHover={currentResultIndex < results.length - 1 ? { scale: 1.1 } : {}}
+                              whileTap={currentResultIndex < results.length - 1 ? { scale: 0.95 } : {}}
+                              style={{ x: rightArrowX }}>
+
+                                <ChevronRight className="w-6 h-6 text-green-600" />
+                          </motion.button>
+                        </div>
+                        }
+                      </>
+                      }
+                    </div>
+                  </div>
+
+                        <div className="grid md:grid-cols-2 gap-6 mt-6">
+                        <div></div>
+                        <div className="space-y-4">
                       {(currentPlant.description || currentPlant.aiData?.description) &&
                       <div className="bg-stone-50 rounded-xl p-4 border border-stone-200">
                           <h4 className="font-bold text-stone-900 mb-2">📖 Beschreibung</h4>
