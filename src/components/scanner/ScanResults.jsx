@@ -407,7 +407,7 @@ export default function ScanResults({
 
                 <CardContent className="p-4 md:p-6 space-y-6">
                   {/* Container mit Rarität-Border für Titel und Bild */}
-                  <div className={`border-4 ${getRarityBorderColor(rarity)} rounded-2xl p-4 shadow-lg`}>
+                  <div className={`relative border-4 ${getRarityBorderColor(rarity)} rounded-2xl p-4 shadow-lg`}>
                     {/* Namen und Rarität über dem Bild */}
                     <div className="flex items-start justify-between gap-4 mb-4">
                       <div className="flex-1">
@@ -423,19 +423,9 @@ export default function ScanResults({
                       </Badge>
                     </div>
 
-                    {/* Bild mit Icon-Buttons und Navigation */}
-                    <div className="relative">
-                      {imageUrl &&
-                      <>
-                          <img
-                          src={imageUrl}
-                          alt={currentPlant.species_name}
-                          className={`w-full aspect-square object-cover rounded-xl shadow-md border-4 ${getRarityBorderColor(rarity)}`} />
-
-                          
-                          {/* Icon-Buttons über dem Bild */}
-                          {latestDiscoveryId &&
-                        <div className="absolute -top-5 left-0 right-0 flex justify-between z-20">
+                    {/* Icon-Buttons über dem Container */}
+                    {latestDiscoveryId &&
+                      <div className="absolute -top-5 left-0 right-0 flex justify-between z-20">
                               {/* Links: Löschen */}
                               <motion.button
                             onClick={handleDeleteResult}
@@ -468,11 +458,21 @@ export default function ScanResults({
                                 </motion.button>
 
                               </div>
-                            </div>
-                        }
-                        
-                        {/* Navigations-Pfeile Container - nach den interaktiven Buttons */}
-                        {hasMultipleResults &&
+                              </div>
+                              </div>
+                              }
+
+                              {/* Bild mit Navigation */}
+                              <div className="relative">
+                              {imageUrl &&
+                              <>
+                              <img
+                              src={imageUrl}
+                              alt={currentPlant.species_name}
+                              className={`w-full aspect-square object-cover rounded-xl shadow-md border-4 ${getRarityBorderColor(rarity)}`} />
+
+                              {/* Navigations-Pfeile Container - nach den interaktiven Buttons */}
+                              {hasMultipleResults &&
                         <div className="absolute inset-x-0 top-[50%] -translate-y-1/2 flex justify-between -mx-2 pointer-events-none z-10">
                             {/* Linker Pfeil */}
                             <motion.button
@@ -501,12 +501,12 @@ export default function ScanResults({
 
                                 <ChevronRight className="w-6 h-6 text-green-600" />
                               </motion.button>
-                          </div>
-                        }
-                        </>
-                        }
-                        </div>
-                        </div>
+                              </div>
+                              }
+                              </>
+                              }
+                              </div>
+                              </div>
 
                         <div className="grid md:grid-cols-2 gap-6 mt-6">
                         <div></div>
