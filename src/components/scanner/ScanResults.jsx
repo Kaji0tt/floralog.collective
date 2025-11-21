@@ -439,7 +439,7 @@ export default function ScanResults({
 
                           <motion.button
                             onClick={handleVerifyResult}
-                            className="w-11 h-11 bg-blue-600 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-all"
+                            className="w-11 h-11 bg-blue-600 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-all mt-24"
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.95 }}>
                             <Search className="w-5 h-5 text-white" />
