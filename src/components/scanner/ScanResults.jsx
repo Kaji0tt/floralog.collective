@@ -326,74 +326,55 @@ export default function ScanResults({
           />
         )}
 
-        {/* Navigation für mehrere Ergebnisse */}
-        {hasMultipleResults && (
-          <div className="mb-4 flex items-center justify-center gap-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentResultIndex(Math.max(0, currentResultIndex - 1))}
-              disabled={currentResultIndex === 0}
-              className="border-2"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-            
-            <div className="text-center">
-              <p className="text-sm font-semibold text-stone-600">
-                Ergebnis {currentResultIndex + 1} von {results.length}
-              </p>
-              <div className="flex gap-1 mt-1">
-                {results.map((_, index) => (
-                  <div
-                    key={index}
-                    className={`w-2 h-2 rounded-full transition-all ${
-                      index === currentResultIndex ? 'bg-green-600 w-4' : 'bg-stone-300'
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentResultIndex(Math.min(results.length - 1, currentResultIndex + 1))}
-              disabled={currentResultIndex === results.length - 1}
-              className="border-2"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
-        )}
-
-        {hasMultipleResults && (
-          <div className="mb-4 text-center">
-            <p className="text-xs text-stone-500">
-              💡 Wische nach links/rechts für weitere Ergebnisse
-            </p>
-          </div>
-        )}
-
         <div className="relative flex items-center gap-4">
-          {/* Linker Pfeil */}
+          {/* Linker Pfeil - auf Höhe des Bildes */}
           {hasMultipleResults && currentResultIndex > 0 && (
-            <button
+            <motion.button
               onClick={() => setCurrentResultIndex(currentResultIndex - 1)}
-              className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-16 z-10 w-12 h-12 bg-white border-2 border-stone-300 rounded-full items-center justify-center shadow-lg hover:bg-stone-50 transition-all"
+              className="absolute left-2 md:left-0 top-[200px] md:top-[250px] -translate-y-1/2 z-20 w-12 h-12 md:w-14 md:h-14 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
+              animate={{
+                x: [-2, 2, -2],
+              }}
+              transition={{
+                duration: 1.5,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
             >
-              <ChevronLeft className="w-6 h-6 text-stone-600" />
-            </button>
+              <ChevronLeft className="w-6 h-6 md:w-7 md:h-7 text-green-600" />
+            </motion.button>
           )}
 
-          {/* Rechter Pfeil */}
+          {/* Rechter Pfeil - auf Höhe des Bildes */}
           {hasMultipleResults && currentResultIndex < results.length - 1 && (
-            <button
+            <motion.button
               onClick={() => setCurrentResultIndex(currentResultIndex + 1)}
-              className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-16 z-10 w-12 h-12 bg-white border-2 border-stone-300 rounded-full items-center justify-center shadow-lg hover:bg-stone-50 transition-all"
+              className="absolute right-2 md:right-0 top-[200px] md:top-[250px] -translate-y-1/2 z-20 w-12 h-12 md:w-14 md:h-14 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
+              animate={{
+                x: [2, -2, 2],
+              }}
+              transition={{
+                duration: 1.5,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
             >
-              <ChevronRight className="w-6 h-6 text-stone-600" />
-            </button>
+              <ChevronRight className="w-6 h-6 md:w-7 md:h-7 text-green-600" />
+            </motion.button>
+          )}
+
+          {/* Indikator-Dots oben in der Card */}
+          {hasMultipleResults && (
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex gap-1.5 bg-white/80 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-sm">
+              {results.map((_, index) => (
+                <div
+                  key={index}
+                  className={`h-2 rounded-full transition-all ${
+                    index === currentResultIndex ? 'bg-green-600 w-6' : 'bg-stone-300 w-2'
+                  }`}
+                />
+              ))}
+            </div>
           )}
 
           <motion.div
@@ -511,86 +492,92 @@ export default function ScanResults({
                     </div>
                   )}
 
-                  {/* Verifizierungs- und Korrektur-Buttons */}
-                  {latestDiscoveryId && (
-                    <div className="flex gap-3 flex-wrap">
+                  {/* Kompakte Action-Buttons */}
+                  {latestDiscoveryId && isPrimaryResult && (
+                    <div className="flex gap-2">
                       <Button
                         onClick={handleVerifyResult}
                         variant="outline"
-                        className="flex-1 min-w-[140px] border-2 border-blue-300 hover:bg-blue-50 text-blue-700 font-semibold"
+                        size="sm"
+                        className="flex-1 border border-blue-200 hover:bg-blue-50 text-blue-700"
                       >
-                        <Search className="w-4 h-4 mr-2" />
-                        Überprüfe dieses Ergebnis
+                        <Search className="w-4 h-4 mr-1" />
+                        Überprüfen
                       </Button>
                       
-                      {isPrimaryResult ? (
-                        <Button
-                          onClick={handleDeleteResult}
-                          disabled={isDeleting}
-                          variant="outline"
-                          className="flex-1 min-w-[140px] border-2 border-red-300 hover:bg-red-50 text-red-700 font-semibold"
-                        >
-                          {isDeleting ? (
-                            <>
-                              <RotateCcw className="w-4 h-4 mr-2 animate-spin" />
-                              Wird gelöscht...
-                            </>
-                          ) : (
-                            <>
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Falsches Ergebnis
-                            </>
-                          )}
-                        </Button>
-                      ) : showChangeResultButton ? (
-                        <Button
-                          onClick={handleChangeResult}
-                          disabled={isChanging}
-                          variant="outline"
-                          className="flex-1 min-w-[140px] border-2 border-amber-300 hover:bg-amber-50 text-amber-700 font-semibold"
-                        >
-                          {isChanging ? (
-                            <>
-                              <RotateCcw className="w-4 h-4 mr-2 animate-spin" />
-                              Wird geändert...
-                            </>
-                          ) : (
-                            <>
-                              <RefreshCw className="w-4 h-4 mr-2" />
-                              Ergebnis ändern
-                            </>
-                          )}
-                        </Button>
-                      ) : null}
+                      <Button
+                        onClick={handleDeleteResult}
+                        disabled={isDeleting}
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 border border-red-200 hover:bg-red-50 text-red-700"
+                      >
+                        {isDeleting ? (
+                          <>
+                            <RotateCcw className="w-4 h-4 mr-1 animate-spin" />
+                            Löschen...
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Löschen
+                          </>
+                        )}
+                      </Button>
                     </div>
+                  )}
+
+                  {latestDiscoveryId && !isPrimaryResult && showChangeResultButton && (
+                    <Button
+                      onClick={handleChangeResult}
+                      disabled={isChanging}
+                      variant="outline"
+                      size="sm"
+                      className="w-full border border-amber-200 hover:bg-amber-50 text-amber-700"
+                    >
+                      {isChanging ? (
+                        <>
+                          <RotateCcw className="w-4 h-4 mr-1 animate-spin" />
+                          Wird geändert...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-1" />
+                          Als Ergebnis verwenden
+                        </>
+                      )}
+                    </Button>
                   )}
                 </CardContent>
 
-                <CardFooter className="flex flex-col md:flex-row gap-4 p-4 md:p-6 border-t-2 border-stone-200 bg-stone-50">
-                  <Button
-                    onClick={onRescan}
-                    variant="outline"
-                    className="w-full md:flex-1 border-2 border-stone-300 hover:bg-stone-100 font-semibold py-5"
-                  >
-                    <RotateCcw className="w-4 h-4 mr-2" />
-                    Neuer Scan
-                  </Button>
+                <CardFooter className="flex flex-col gap-2 p-4 border-t border-stone-200 bg-stone-50">
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={onRescan}
+                      variant="outline"
+                      className="flex-1 border border-stone-300 hover:bg-stone-100"
+                    >
+                      <RotateCcw className="w-4 h-4 mr-1" />
+                      Neuer Scan
+                    </Button>
+                    <Button
+                      onClick={() => navigate(createPageUrl("Collection"))}
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      <BookOpen className="w-4 h-4 mr-1" />
+                      Zur Collection
+                    </Button>
+                  </div>
                   {latestDiscoveryId && isPrimaryResult && (
                     <Button
                       onClick={() => setShowShareDialog(true)}
-                      className="w-full md:flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-5"
+                      variant="outline"
+                      className="w-full border border-red-300 hover:bg-red-50 text-red-600"
                     >
-                      <Gift className="w-4 h-4 mr-2" />
+                      <Gift className="w-4 h-4 mr-1" />
                       Pflanze schenken
                     </Button>
                   )}
-                  <Button
-                    onClick={() => navigate(createPageUrl("Collection"))}
-                    className="w-full md:flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-5"
-                  >
-                    <BookOpen className="w-4 h-4 mr-2" />
-                    Zur Collection
-                  </Button>
                 </CardFooter>
               </Card>
             </motion.div>
