@@ -415,20 +415,8 @@ export default function ScanResults({
                     </div>
 
                     {/* Icon-Buttons über dem Container */}
-                    {latestDiscoveryId &&
-                      <>
-                        {/* Links: Delete/Set Button */}
+                    {latestDiscoveryId && !isPrimaryResult &&
                         <div className="absolute -top-3 -left-3 z-20">
-                          {isPrimaryResult ? (
-                            <motion.button
-                              onClick={handleDeleteResult}
-                              disabled={isDeleting}
-                              className="bg-red-600 text-white font-bold p-2 shadow-lg rounded-md hover:bg-red-700 transition-all"
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}>
-                              <X className="w-5 h-5" />
-                            </motion.button>
-                          ) : (
                             <motion.button
                               onClick={handleChangeResult}
                               disabled={isChanging}
@@ -437,10 +425,7 @@ export default function ScanResults({
                               whileTap={{ scale: 0.95 }}>
                               <RefreshCw className="w-5 h-5" />
                             </motion.button>
-                          )}
                         </div>
-
-                        </>
                         }
 
                     {/* Bild mit Navigation */}
@@ -455,7 +440,7 @@ export default function ScanResults({
                         }
                         </div>
 
-                      {/* Lupe, Lautsprecher und Geschenk unterhalb des Bildes */}
+                      {/* Lupe, Lautsprecher, Geschenk und Löschen unterhalb des Bildes */}
                       {latestDiscoveryId &&
                       <div className="flex justify-center items-center gap-3 mt-4">
                         {/* Lupe (Search) */}
@@ -487,6 +472,18 @@ export default function ScanResults({
                           whileTap={{ scale: 0.95 }}>
                           <Gift className="w-5 h-5 text-white" />
                         </motion.button>
+
+                        {/* Löschen (X) - nur bei isPrimaryResult */}
+                        {isPrimaryResult && (
+                          <motion.button
+                            onClick={handleDeleteResult}
+                            disabled={isDeleting}
+                            className="w-11 h-11 bg-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-100 transition-all border-2 border-stone-200"
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.95 }}>
+                            <X className="w-5 h-5 text-red-600" />
+                          </motion.button>
+                        )}
                       </div>
                       }
                   </div>
