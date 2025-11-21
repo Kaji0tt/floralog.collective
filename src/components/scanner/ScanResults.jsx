@@ -429,16 +429,29 @@ export default function ScanResults({
                     {/* Icon-Buttons über dem Container */}
                     {latestDiscoveryId &&
                       <>
-                        {/* Links: Delete Button */}
-                        <div className="absolute -top-5 -left-5 flex justify-start z-20">
-                          <motion.button
-                            onClick={handleDeleteResult}
-                            disabled={isDeleting}
-                            className="w-11 h-11 bg-white/95 backdrop-blur-sm border-2 border-red-400 rounded-full flex items-center justify-center shadow-lg hover:bg-red-50 transition-all"
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.95 }}>
-                            <X className="w-5 h-5 text-red-600" />
-                          </motion.button>
+                        {/* Links: Delete/Set Button */}
+                        <div className="absolute -top-3 -left-3 z-20">
+                          {isPrimaryResult ? (
+                            <motion.button
+                              onClick={handleDeleteResult}
+                              disabled={isDeleting}
+                              className="bg-red-600 text-white font-bold px-4 py-1.5 text-sm shadow-lg rounded-md hover:bg-red-700 transition-all flex items-center gap-2"
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}>
+                              <X className="w-4 h-4" />
+                              Löschen
+                            </motion.button>
+                          ) : (
+                            <motion.button
+                              onClick={handleChangeResult}
+                              disabled={isChanging}
+                              className="bg-orange-600 text-white font-bold px-4 py-1.5 text-sm shadow-lg rounded-md hover:bg-orange-700 transition-all flex items-center gap-2"
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}>
+                              <RefreshCw className="w-4 h-4" />
+                              Setzen
+                            </motion.button>
+                          )}
                         </div>
 
                         </>
