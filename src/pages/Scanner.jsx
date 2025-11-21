@@ -515,6 +515,12 @@ export default function Scanner() {
       xpAwarded: xpAwarded,
       aiData: aiData
     });
+
+    // Aktualisiere auch allScanResults mit discovered-Status
+    setAllScanResults(prevResults => prevResults.map((result, index) => 
+      index === 0 ? { ...result, discovered: alreadyDiscovered, xpAwarded } : result
+    ));
+
     setScanning(false);
   };
 
