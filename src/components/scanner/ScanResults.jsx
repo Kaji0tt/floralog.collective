@@ -348,19 +348,6 @@ export default function ScanResults({
         }
 
         <div className="relative flex items-center gap-4 overflow-visible">
-          {/* Linker Pfeil - auf Höhe des Bildes, unter den Icon-Buttons */}
-          {hasMultipleResults && currentResultIndex > 0 &&
-          <motion.button
-            onClick={() => setCurrentResultIndex(currentResultIndex - 1)}
-            className="absolute left-2 top-[50%] -translate-y-1/2 z-10 w-12 h-12 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
-            style={{ x: leftArrowX }}>
-
-              <ChevronLeft className="w-6 h-6 text-green-600" />
-            </motion.button>
-          }
-
-
-
           <motion.div
             key={currentResultIndex}
             ref={constraintsRef}
@@ -452,20 +439,39 @@ export default function ScanResults({
                                   <Gift className="w-5 h-5 text-white" />
                                 </motion.button>
 
-                                {/* Rechter Navigations-Pfeil */}
-                                {hasMultipleResults && currentResultIndex < results.length - 1 &&
+                              </div>
+                            </div>
+                        }
+                        
+                        {/* Navigations-Pfeile Container - nach den interaktiven Buttons */}
+                        {hasMultipleResults &&
+                        <div className="absolute inset-x-0 top-[50%] -translate-y-1/2 flex justify-between px-2 pointer-events-none z-10">
+                            {/* Linker Pfeil */}
+                            {currentResultIndex > 0 &&
+                            <motion.button
+                              onClick={() => setCurrentResultIndex(currentResultIndex - 1)}
+                              className="w-11 h-11 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all pointer-events-auto"
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.95 }}
+                              style={{ x: leftArrowX }}>
+
+                                <ChevronLeft className="w-5 h-5 text-green-600" />
+                              </motion.button>
+                            }
+                            
+                            {/* Rechter Pfeil */}
+                            {currentResultIndex < results.length - 1 &&
                             <motion.button
                               onClick={() => setCurrentResultIndex(currentResultIndex + 1)}
-                              className="w-11 h-11 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
+                              className="w-11 h-11 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all pointer-events-auto"
                               whileHover={{ scale: 1.1 }}
                               whileTap={{ scale: 0.95 }}
                               style={{ x: rightArrowX }}>
 
-                                    <ChevronRight className="w-5 h-5 text-green-600" />
-                                  </motion.button>
+                                <ChevronRight className="w-5 h-5 text-green-600" />
+                              </motion.button>
                             }
-                              </div>
-                            </div>
+                          </div>
                         }
                         </>
                       }
