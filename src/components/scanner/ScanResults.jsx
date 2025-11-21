@@ -410,8 +410,8 @@ export default function ScanResults({
                   {/* Container mit Rarität-Border für Titel und Bild */}
                   <div className={`relative border-4 ${getRarityBorderColor(rarity)} rounded-2xl p-4 shadow-xl ${getRarityBackgroundColor(rarity)}`}>
                     {/* Rarität Badge auf oberer Kante */}
-                    <div className="absolute -top-3 left-4 right-4 z-20">
-                      <Badge className={`${getRarityColor(rarity)} text-white font-bold px-4 py-1.5 text-sm shadow-lg w-full text-center`}>
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-20">
+                      <Badge className={`${getRarityColor(rarity)} text-white font-bold px-4 py-1.5 text-sm shadow-lg`}>
                         {getRarityStars(rarity)} {rarity}
                       </Badge>
                     </div>
