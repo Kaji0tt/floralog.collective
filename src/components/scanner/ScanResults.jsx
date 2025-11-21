@@ -378,32 +378,20 @@ export default function ScanResults({
 
               <Card className="shadow-2xl bg-gradient-to-br from-stone-100 to-stone-50 overflow-hidden border-none">
                 <CardHeader className="border-b-2 border-stone-300 bg-gradient-to-r from-green-600 to-emerald-600 p-4 md:p-6">
-                  <div className="flex items-center justify-between gap-4">
-                    <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-white flex-1 truncate">
-                      {isPrimaryResult ?
-                      isNewToPlantDex ? "Neue Pflanze zum PlantDex hinzugefügt! 🎉" :
-                      wasAlreadyDiscovered ? "Pflanze erneut gescannt! ✅" :
-                      "Neue Pflanze entdeckt! 🌟" :
+                  <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-white text-center">
+                    {isPrimaryResult ?
+                    isNewToPlantDex ? "Neue Pflanze zum PlantDex hinzugefügt! 🎉" :
+                    wasAlreadyDiscovered ? "Pflanze erneut gescannt! ✅" :
+                    "Neue Pflanze entdeckt! 🌟" :
 
-                      `Alternative ${currentResultIndex}`
-                      }
-                      {confidencePercentage &&
-                      <span className="text-base md:text-lg ml-2 text-green-100">
-                          ({confidencePercentage}%)
-                        </span>
-                      }
-                    </h2>
-                    <button
-                      onClick={() => speakText(getDescriptionText(currentPlant))}
-                      className="flex-shrink-0 hover:scale-110 transition-transform">
-
-                      {isSpeaking ?
-                      <VolumeX className="w-8 h-8 text-white" /> :
-
-                      <Volume2 className="w-8 h-8 text-white" />
-                      }
-                    </button>
-                  </div>
+                    `Alternative ${currentResultIndex}`
+                    }
+                    {confidencePercentage &&
+                    <span className="text-base md:text-lg ml-2 text-green-100">
+                        ({confidencePercentage}%)
+                      </span>
+                    }
+                  </h2>
                 </CardHeader>
 
                 <CardContent className="p-4 md:p-6 space-y-3">
@@ -416,11 +404,21 @@ export default function ScanResults({
                       </Badge>
                     </div>
 
-                    {/* Namen über dem Bild */}
-                    <div className="mb-4">
-                      <h3 className="text-2xl md:text-3xl font-bold text-stone-900 break-words">
-                        {currentPlant.species_name}
-                      </h3>
+                    {/* Namen über dem Bild - zentriert */}
+                    <div className="mb-4 text-center">
+                      <div className="flex items-center justify-center gap-3">
+                        <h3 className="text-2xl md:text-3xl font-bold text-stone-900 break-words">
+                          {currentPlant.species_name}
+                        </h3>
+                        <button
+                          onClick={() => speakText(getDescriptionText(currentPlant))}
+                          className="flex-shrink-0 hover:scale-110 transition-transform">
+                          {isSpeaking ?
+                            <VolumeX className="w-7 h-7 text-stone-700" /> :
+                            <Volume2 className="w-7 h-7 text-stone-700" />
+                          }
+                        </button>
+                      </div>
                       <p className="text-lg md:text-xl text-stone-600 italic mt-1 break-words">
                         {currentPlant.scientific_name}
                       </p>
