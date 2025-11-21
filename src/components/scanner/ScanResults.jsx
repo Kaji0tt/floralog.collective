@@ -379,38 +379,34 @@ export default function ScanResults({
             </motion.button>
           )}
 
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={currentResultIndex}
-              ref={constraintsRef}
-              className="flex-1 w-full"
-              initial={{ 
-                x: direction === 1 ? 300 : direction === -1 ? -300 : 0,
-                opacity: 0 
-              }}
-              animate={{ 
-                x: 0,
-                opacity: 1 
-              }}
-              exit={{ 
-                x: direction === 1 ? -300 : 300,
-                opacity: 0 
-              }}
-              transition={{
-                type: "spring",
-                stiffness: 300,
-                damping: 30
-              }}
-            >
-            <motion.div
-              ref={cardRef}
-              drag={hasMultipleResults ? "x" : false}
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.7}
-              onDragEnd={handleDragEnd}
-              style={{ x, rotate, opacity }}
-              className="w-full"
-            >
+          <div className="flex-1 w-full" ref={constraintsRef}>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={currentResultIndex}
+                drag={hasMultipleResults ? "x" : false}
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.7}
+                onDragEnd={handleDragEnd}
+                style={{ x, rotate, opacity }}
+                className="w-full"
+                initial={{ 
+                  x: direction === 1 ? 300 : direction === -1 ? -300 : 0,
+                  opacity: 0 
+                }}
+                animate={{ 
+                  x: 0,
+                  opacity: 1 
+                }}
+                exit={{ 
+                  x: direction === 1 ? -300 : 300,
+                  opacity: 0 
+                }}
+                transition={{
+                  type: "spring",
+                  stiffness: 300,
+                  damping: 30
+                }}
+              >
               <Card className="border-2 border-green-200 shadow-lg bg-white overflow-hidden">
                 <CardHeader className="border-b-2 border-green-100 bg-gradient-to-r from-green-50 to-emerald-50 p-4 md:p-6">
                   <div className="flex items-center justify-between gap-4">
@@ -581,9 +577,9 @@ export default function ScanResults({
                   </Button>
                 </CardFooter>
               </Card>
-            </motion.div>
-          </motion.div>
-          </AnimatePresence>
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
       </div>
     );
