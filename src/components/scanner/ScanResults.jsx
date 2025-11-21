@@ -372,7 +372,7 @@ export default function ScanResults({
               dragConstraints={{ left: 0, right: 0 }}
               dragElastic={
                 currentResultIndex === 0 || currentResultIndex === results.length - 1 
-                  ? 0.15 
+                  ? 0.05 
                   : 0.7
               }
               onDragEnd={handleDragEnd}
