@@ -33,9 +33,9 @@ export default function ScanResults({
   const constraintsRef = useRef(null);
   const cardRef = useRef(null);
 
-  // Transform für Pfeile-Animation bei Swipe
-  const leftArrowX = useTransform(x, [0, 100], [0, -10]);
-  const rightArrowX = useTransform(x, [0, -100], [0, 10]);
+  // Transform für Pfeile-Animation bei Swipe - verstärkte Responsiveness
+  const leftArrowX = useTransform(x, [0, 100], [0, -25]);
+  const rightArrowX = useTransform(x, [0, -100], [0, 25]);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -347,7 +347,7 @@ export default function ScanResults({
           </div>
         }
 
-        <div className="relative flex items-center gap-4">
+        <div className="relative flex items-center gap-4 overflow-visible">
           {/* Linker Pfeil - auf Höhe des Bildes, unter den Icon-Buttons */}
           {hasMultipleResults && currentResultIndex > 0 &&
           <motion.button
@@ -364,7 +364,7 @@ export default function ScanResults({
           <motion.div
             key={currentResultIndex}
             ref={constraintsRef}
-            className="flex-1 w-full"
+            className="flex-1 w-full overflow-visible"
             initial={{ opacity: 1 }}
             animate={{ opacity: 1 }}>
 
@@ -375,7 +375,7 @@ export default function ScanResults({
               dragElastic={0.7}
               onDragEnd={handleDragEnd}
               style={{ x, rotate, opacity }}
-              className="w-full">
+              className="w-full overflow-visible">
 
               <Card className="border-2 border-green-200 shadow-lg bg-white overflow-hidden">
                 <CardHeader className="border-b-2 border-green-100 bg-gradient-to-r from-green-50 to-emerald-50 p-4 md:p-6">
