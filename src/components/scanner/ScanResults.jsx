@@ -10,12 +10,12 @@ import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-mo
 import ShareScanDialog from "./ShareScanDialog";
 import { base44 } from "@/api/base44Client";
 
-export default function ScanResults({ 
-  plant, 
-  imageUrl, 
-  onRescan, 
-  isSaving, 
-  userLocation, 
+export default function ScanResults({
+  plant,
+  imageUrl,
+  onRescan,
+  isSaving,
+  userLocation,
   allResults = [],
   onDeleteResult,
   onChangeResult,
@@ -32,7 +32,7 @@ export default function ScanResults({
   const x = useMotionValue(0);
   const constraintsRef = useRef(null);
   const cardRef = useRef(null);
-  
+
   // Transform für Pfeile-Animation bei Swipe
   const leftArrowX = useTransform(x, [0, 100], [0, -10]);
   const rightArrowX = useTransform(x, [0, -100], [0, 10]);
@@ -49,14 +49,14 @@ export default function ScanResults({
     const loadDiscovery = async () => {
       if (!latestDiscoveryId) return;
       const discoveries = await base44.entities.UserPlantDiscovery.list();
-      const found = discoveries.find(d => d.id === latestDiscoveryId);
+      const found = discoveries.find((d) => d.id === latestDiscoveryId);
       setDiscovery(found);
     };
     loadDiscovery();
   }, [latestDiscoveryId]);
 
   // Wenn allResults leer ist, aber plant vorhanden ist, nutze plant als einziges Ergebnis
-  const results = allResults.length > 0 ? allResults : (plant ? [plant] : []);
+  const results = allResults.length > 0 ? allResults : plant ? [plant] : [];
   const currentPlant = results[currentResultIndex] || plant;
 
   const hasMultipleResults = results.length > 1;
@@ -67,7 +67,7 @@ export default function ScanResults({
 
   const handleDragEnd = (event, info) => {
     const threshold = 100;
-    
+
     if (info.offset.x > threshold && currentResultIndex > 0) {
       setCurrentResultIndex(currentResultIndex - 1);
     } else if (info.offset.x < -threshold && currentResultIndex < results.length - 1) {
@@ -82,7 +82,7 @@ export default function ScanResults({
 
   const handleDeleteResult = async () => {
     if (!latestDiscoveryId) return;
-    
+
     if (confirm(`Möchtest du diesen Scan wirklich löschen und neu scannen?\n\n"${currentPlant.species_name}" wird aus deiner Sammlung entfernt.`)) {
       setIsDeleting(true);
       try {
@@ -96,7 +96,7 @@ export default function ScanResults({
 
   const handleChangeResult = async () => {
     if (!latestDiscoveryId || !currentPlant) return;
-    
+
     if (confirm(`Möchtest du die Entdeckung wirklich auf "${currentPlant.species_name}" ändern?`)) {
       setIsChanging(true);
       try {
@@ -110,7 +110,7 @@ export default function ScanResults({
   const speakText = (text) => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      
+
       if (isSpeaking) {
         setIsSpeaking(false);
         return;
@@ -120,28 +120,28 @@ export default function ScanResults({
       utterance.lang = 'de-DE';
       utterance.rate = 1.2;
       utterance.pitch = 1;
-      
+
       const voices = window.speechSynthesis.getVoices();
-      
+
       let selectedVoice = null;
 
-      selectedVoice = voices.find(voice => 
-        voice.lang.startsWith('de') && 
-        (voice.name.toLowerCase().includes('male') || voice.name.toLowerCase().includes('männlich') || voice.name.toLowerCase().includes('martin') || voice.name.toLowerCase().includes('stefan'))
+      selectedVoice = voices.find((voice) =>
+      voice.lang.startsWith('de') && (
+      voice.name.toLowerCase().includes('male') || voice.name.toLowerCase().includes('männlich') || voice.name.toLowerCase().includes('martin') || voice.name.toLowerCase().includes('stefan'))
       );
-      
+
       if (!selectedVoice) {
-        selectedVoice = voices.find(voice => voice.lang.startsWith('de'));
+        selectedVoice = voices.find((voice) => voice.lang.startsWith('de'));
       }
 
       if (selectedVoice) {
         utterance.voice = selectedVoice;
       }
-      
+
       utterance.onstart = () => setIsSpeaking(true);
       utterance.onend = () => setIsSpeaking(false);
       utterance.onerror = () => setIsSpeaking(false);
-      
+
       window.speechSynthesis.speak(utterance);
     } else {
       alert("Dein Browser unterstützt leider keine Sprachausgabe.");
@@ -150,47 +150,47 @@ export default function ScanResults({
 
   const getDescriptionText = (plantData = currentPlant) => {
     if (!plantData) return "";
-    
+
     let text = `${plantData.species_name}. `;
-    
+
     if (plantData.description) {
       text += plantData.description + ". ";
     }
-    
+
     if (plantData.identification_features || plantData.aiData?.identification_features) {
       text += "Erkennungsmerkmale: " + (plantData.identification_features || plantData.aiData?.identification_features) + ". ";
     }
-    
+
     if (plantData.fun_fact || plantData.aiData?.fun_fact) {
       text += "Wusstest du? " + (plantData.fun_fact || plantData.aiData?.fun_fact);
     }
-    
+
     return text;
   };
 
   const getRarityColor = (rarity) => {
-    switch(rarity) {
-      case "Häufig": return "bg-gray-500";
-      case "Gelegentlich": return "bg-green-500";
-      case "Selten": return "bg-purple-500";
-      case "Sehr Selten": return "bg-orange-500";
-      case "Extrem Selten": return "bg-red-500";
-      default: return "bg-gray-500";
+    switch (rarity) {
+      case "Häufig":return "bg-gray-500";
+      case "Gelegentlich":return "bg-green-500";
+      case "Selten":return "bg-purple-500";
+      case "Sehr Selten":return "bg-orange-500";
+      case "Extrem Selten":return "bg-red-500";
+      default:return "bg-gray-500";
     }
   };
 
   const getRarityStars = (rarity) => {
-    switch(rarity) {
-      case "Häufig": return "⭐";
-      case "Gelegentlich": return "⭐⭐";
-      case "Selten": return "⭐⭐⭐";
-      case "Sehr Selten": return "⭐⭐⭐⭐";
-      case "Extrem Selten": return "⭐⭐⭐⭐⭐";
-      default: return "⭐";
+    switch (rarity) {
+      case "Häufig":return "⭐";
+      case "Gelegentlich":return "⭐⭐";
+      case "Selten":return "⭐⭐⭐";
+      case "Sehr Selten":return "⭐⭐⭐⭐";
+      case "Extrem Selten":return "⭐⭐⭐⭐⭐";
+      default:return "⭐";
     }
   };
 
-  const isUnidentified = plant?.notInDex === undefined && (plant?.identified === false || (!plant?.species_name && !plant?.aiData));
+  const isUnidentified = plant?.notInDex === undefined && (plant?.identified === false || !plant?.species_name && !plant?.aiData);
 
   if (isUnidentified) {
     return (
@@ -203,20 +203,20 @@ export default function ScanResults({
             </AlertDescription>
           </Alert>
 
-          {imageUrl && (
-            <img
-              src={imageUrl}
-              alt="Gescanntes Bild"
-              className="w-full h-40 object-cover rounded-lg border border-stone-200"
-            />
-          )}
+          {imageUrl &&
+          <img
+            src={imageUrl}
+            alt="Gescanntes Bild"
+            className="w-full h-40 object-cover rounded-lg border border-stone-200" />
 
-          {plant?.error && (
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+          }
+
+          {plant?.error &&
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
               <p className="text-xs font-semibold text-orange-900 mb-1">⚠️ Fehlerdetails:</p>
               <p className="text-xs text-orange-800">{plant.error}</p>
             </div>
-          )}
+          }
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <p className="text-sm font-semibold text-blue-900 mb-2">💡 Tipps für bessere Ergebnisse:</p>
@@ -233,8 +233,8 @@ export default function ScanResults({
             Nochmal versuchen
           </Button>
         </CardContent>
-      </Card>
-    );
+      </Card>);
+
   }
 
   // Nicht-europäische Pflanzen - nur separate UI wenn es das erste Ergebnis ist
@@ -257,8 +257,8 @@ export default function ScanResults({
               <img
                 src={imageUrl}
                 alt={currentPlant.species_name}
-                className="w-full aspect-square object-cover rounded-xl shadow-md border-2 border-orange-300"
-              />
+                className="w-full aspect-square object-cover rounded-xl shadow-md border-2 border-orange-300" />
+
             </div>
 
             <div className="space-y-4">
@@ -271,19 +271,19 @@ export default function ScanResults({
                 </p>
               </div>
 
-              {currentPlant.description && (
-                <div className="bg-stone-50 rounded-xl p-4 border border-stone-200">
+              {currentPlant.description &&
+              <div className="bg-stone-50 rounded-xl p-4 border border-stone-200">
                   <h4 className="font-bold text-stone-900 mb-2">📖 Beschreibung</h4>
                   <p className="text-stone-700 leading-relaxed">{currentPlant.description}</p>
                 </div>
-              )}
+              }
 
-              {currentPlant.fun_fact && (
-                <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+              {currentPlant.fun_fact &&
+              <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
                   <h4 className="font-bold text-blue-900 mb-2">💡 Wusstest du?</h4>
                   <p className="text-stone-700 leading-relaxed">{currentPlant.fun_fact}</p>
                 </div>
-              )}
+              }
             </div>
           </div>
 
@@ -299,14 +299,14 @@ export default function ScanResults({
         <CardFooter className="flex gap-4 p-4 md:p-6 border-t-2 border-stone-200 bg-stone-50">
           <Button
             onClick={onRescan}
-            className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-5"
-          >
+            className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-5">
+
             <RotateCcw className="w-4 h-4 mr-2" />
             Andere Pflanze scannen
           </Button>
         </CardFooter>
-      </Card>
-    );
+      </Card>);
+
   }
 
   // Erfolgreich gescannte Pflanze (neu oder bereits entdeckt)
@@ -315,68 +315,68 @@ export default function ScanResults({
     const isNewToPlantDex = currentPlant.isNewToPlantDex || false;
     const wasAlreadyDiscovered = currentPlant.discovered === true;
     const confidencePercentage = currentPlant.confidence_percentage || currentPlant.aiData?.confidence_percentage;
-    
+
     // Prüfe ob Ergebnis ändern Button angezeigt werden soll
     const showChangeResultButton = !isPrimaryResult && confidencePercentage >= 25;
 
     return (
       <div className="relative">
-        {showShareDialog && user && discovery && currentPlant && (
-          <ShareScanDialog
-            open={showShareDialog}
-            onClose={() => setShowShareDialog(false)}
-            discovery={discovery}
-            plant={currentPlant}
-            user={user}
-          />
-        )}
+        {showShareDialog && user && discovery && currentPlant &&
+        <ShareScanDialog
+          open={showShareDialog}
+          onClose={() => setShowShareDialog(false)}
+          discovery={discovery}
+          plant={currentPlant}
+          user={user} />
+
+        }
 
         {/* Indikator-Dots über dem Card */}
-        {hasMultipleResults && (
-          <div className="flex justify-center mb-3">
+        {hasMultipleResults &&
+        <div className="flex justify-center mb-3">
             <div className="flex gap-1.5 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-md">
-              {results.map((_, index) => (
-                <div
-                  key={index}
-                  className={`h-2 rounded-full transition-all ${
-                    index === currentResultIndex ? 'bg-green-600 w-6' : 'bg-stone-300 w-2'
-                  }`}
-                />
-              ))}
+              {results.map((_, index) =>
+            <div
+              key={index}
+              className={`h-2 rounded-full transition-all ${
+              index === currentResultIndex ? 'bg-green-600 w-6' : 'bg-stone-300 w-2'}`
+              } />
+
+            )}
             </div>
           </div>
-        )}
+        }
 
         <div className="relative flex items-center gap-4">
           {/* Linker Pfeil - auf Höhe des Bildes, unter den Icon-Buttons */}
-          {hasMultipleResults && currentResultIndex > 0 && (
-            <motion.button
-              onClick={() => setCurrentResultIndex(currentResultIndex - 1)}
-              className="absolute left-2 top-[50%] -translate-y-1/2 z-10 w-12 h-12 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
-              style={{ x: leftArrowX }}
-            >
+          {hasMultipleResults && currentResultIndex > 0 &&
+          <motion.button
+            onClick={() => setCurrentResultIndex(currentResultIndex - 1)}
+            className="absolute left-2 top-[50%] -translate-y-1/2 z-10 w-12 h-12 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
+            style={{ x: leftArrowX }}>
+
               <ChevronLeft className="w-6 h-6 text-green-600" />
             </motion.button>
-          )}
+          }
 
           {/* Rechter Pfeil - auf Höhe des Bildes, unter den Icon-Buttons */}
-          {hasMultipleResults && currentResultIndex < results.length - 1 && (
-            <motion.button
-              onClick={() => setCurrentResultIndex(currentResultIndex + 1)}
-              className="absolute right-2 top-[50%] -translate-y-1/2 z-10 w-12 h-12 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
-              style={{ x: rightArrowX }}
-            >
+          {hasMultipleResults && currentResultIndex < results.length - 1 &&
+          <motion.button
+            onClick={() => setCurrentResultIndex(currentResultIndex + 1)}
+            className="absolute right-2 top-[50%] -translate-y-1/2 z-10 w-12 h-12 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
+            style={{ x: rightArrowX }}>
+
               <ChevronRight className="w-6 h-6 text-green-600" />
             </motion.button>
-          )}
+          }
 
           <motion.div
             key={currentResultIndex}
             ref={constraintsRef}
             className="flex-1 w-full"
             initial={{ opacity: 1 }}
-            animate={{ opacity: 1 }}
-          >
+            animate={{ opacity: 1 }}>
+
             <motion.div
               ref={cardRef}
               drag={hasMultipleResults ? "x" : false}
@@ -384,34 +384,34 @@ export default function ScanResults({
               dragElastic={0.7}
               onDragEnd={handleDragEnd}
               style={{ x, rotate, opacity }}
-              className="w-full"
-            >
+              className="w-full">
+
               <Card className="border-2 border-green-200 shadow-lg bg-white overflow-hidden">
                 <CardHeader className="border-b-2 border-green-100 bg-gradient-to-r from-green-50 to-emerald-50 p-4 md:p-6">
                   <div className="flex items-center justify-between gap-4">
                     <h2 className="text-lg md:text-2xl font-bold text-stone-900 flex-1">
-                      {isPrimaryResult ? (
-                        isNewToPlantDex ? "Neue Pflanze zum PlantDex hinzugefügt! 🎉" : 
-                        wasAlreadyDiscovered ? "Pflanze erneut gescannt! ✅" : 
-                        "Neue Pflanze entdeckt! 🌟"
-                      ) : (
-                        `Alternative ${currentResultIndex}`
-                      )}
-                      {confidencePercentage && (
-                        <span className="text-base md:text-lg ml-2 text-blue-600">
+                      {isPrimaryResult ?
+                      isNewToPlantDex ? "Neue Pflanze zum PlantDex hinzugefügt! 🎉" :
+                      wasAlreadyDiscovered ? "Pflanze erneut gescannt! ✅" :
+                      "Neue Pflanze entdeckt! 🌟" :
+
+                      `Alternative ${currentResultIndex}`
+                      }
+                      {confidencePercentage &&
+                      <span className="text-base md:text-lg ml-2 text-blue-600">
                           ({confidencePercentage}%)
                         </span>
-                      )}
+                      }
                     </h2>
                     <button
                       onClick={() => speakText(getDescriptionText(currentPlant))}
-                      className="flex-shrink-0 hover:scale-110 transition-transform"
-                    >
-                      {isSpeaking ? (
-                        <VolumeX className="w-8 h-8 text-green-600" />
-                      ) : (
-                        <Volume2 className="w-8 h-8 text-stone-600" />
-                      )}
+                      className="flex-shrink-0 hover:scale-110 transition-transform">
+
+                      {isSpeaking ?
+                      <VolumeX className="w-8 h-8 text-green-600" /> :
+
+                      <Volume2 className="w-8 h-8 text-stone-600" />
+                      }
                     </button>
                   </div>
                 </CardHeader>
@@ -419,52 +419,52 @@ export default function ScanResults({
                 <CardContent className="p-4 md:p-6 space-y-6">
                   <div className="grid md:grid-cols-2 gap-6">
                     <div className="relative space-y-4">
-                      {imageUrl && (
-                        <>
+                      {imageUrl &&
+                      <>
                           <img
-                            src={imageUrl}
-                            alt={currentPlant.species_name}
-                            className="w-full aspect-square object-cover rounded-xl shadow-md border-2 border-green-300"
-                          />
+                          src={imageUrl}
+                          alt={currentPlant.species_name}
+                          className="w-full aspect-square object-cover rounded-xl shadow-md border-2 border-green-300" />
+
                           
                           {/* Icon-Buttons über dem Bild */}
-                          {latestDiscoveryId && isPrimaryResult && (
-                            <div className="absolute -top-1 -left-1 -right-1 flex justify-between z-20">
+                          {latestDiscoveryId && isPrimaryResult &&
+                        <div className="absolute -top-5 -left-2 -right-2 flex justify-between z-20">
                               {/* Links: Löschen */}
                               <motion.button
-                                onClick={handleDeleteResult}
-                                disabled={isDeleting}
-                                className="w-11 h-11 bg-white/95 backdrop-blur-sm border-2 border-red-400 rounded-full flex items-center justify-center shadow-lg hover:bg-red-50 transition-all"
-                                whileHover={{ scale: 1.1 }}
-                                whileTap={{ scale: 0.95 }}
-                              >
+                            onClick={handleDeleteResult}
+                            disabled={isDeleting}
+                            className="w-11 h-11 bg-white/95 backdrop-blur-sm border-2 border-red-400 rounded-full flex items-center justify-center shadow-lg hover:bg-red-50 transition-all"
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.95 }}>
+
                                 <X className="w-5 h-5 text-red-600" />
                               </motion.button>
 
                               {/* Rechts: Überprüfen und Schenken */}
                               <div className="flex flex-col gap-2">
                                 <motion.button
-                                  onClick={handleVerifyResult}
-                                  className="w-11 h-11 bg-blue-600 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-all"
-                                  whileHover={{ scale: 1.1 }}
-                                  whileTap={{ scale: 0.95 }}
-                                >
+                              onClick={handleVerifyResult}
+                              className="w-11 h-11 bg-blue-600 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-all"
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.95 }}>
+
                                   <Search className="w-5 h-5 text-white" />
                                 </motion.button>
 
                                 <motion.button
-                                  onClick={() => setShowShareDialog(true)}
-                                  className="w-11 h-11 bg-red-600 rounded-full flex items-center justify-center shadow-lg hover:bg-red-700 transition-all"
-                                  whileHover={{ scale: 1.1 }}
-                                  whileTap={{ scale: 0.95 }}
-                                >
+                              onClick={() => setShowShareDialog(true)}
+                              className="w-11 h-11 bg-red-600 rounded-full flex items-center justify-center shadow-lg hover:bg-red-700 transition-all"
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.95 }}>
+
                                   <Gift className="w-5 h-5 text-white" />
                                 </motion.button>
                               </div>
                             </div>
-                          )}
+                        }
                         </>
-                      )}
+                      }
                     </div>
 
                     <div className="space-y-4">
@@ -480,79 +480,79 @@ export default function ScanResults({
                         </Badge>
                       </div>
 
-                      {(currentPlant.description || currentPlant.aiData?.description) && (
-                        <div className="bg-stone-50 rounded-xl p-4 border border-stone-200">
+                      {(currentPlant.description || currentPlant.aiData?.description) &&
+                      <div className="bg-stone-50 rounded-xl p-4 border border-stone-200">
                           <h4 className="font-bold text-stone-900 mb-2">📖 Beschreibung</h4>
                           <p className="text-stone-700 leading-relaxed">
                             {currentPlant.description || currentPlant.aiData?.description}
                           </p>
                         </div>
-                      )}
+                      }
 
-                      {(currentPlant.identification_features || currentPlant.aiData?.identification_features) && (
-                        <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                      {(currentPlant.identification_features || currentPlant.aiData?.identification_features) &&
+                      <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
                           <h4 className="font-bold text-blue-900 mb-2">🔍 Erkennungsmerkmale</h4>
                           <p className="text-stone-700 leading-relaxed">
                             {currentPlant.identification_features || currentPlant.aiData?.identification_features}
                           </p>
                         </div>
-                      )}
+                      }
 
-                      {(currentPlant.fun_fact || currentPlant.aiData?.fun_fact) && (
-                        <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
+                      {(currentPlant.fun_fact || currentPlant.aiData?.fun_fact) &&
+                      <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
                           <h4 className="font-bold text-amber-900 mb-2">💡 Wusstest du?</h4>
                           <p className="text-stone-700 leading-relaxed">
                             {currentPlant.fun_fact || currentPlant.aiData?.fun_fact}
                           </p>
                         </div>
-                      )}
+                      }
                     </div>
                   </div>
 
                   {/* XP Belohnung */}
-                  {currentPlant.xpAwarded !== undefined && isPrimaryResult && (
-                    <div className="bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl p-4 border-2 border-amber-200">
+                  {currentPlant.xpAwarded !== undefined && isPrimaryResult &&
+                  <div className="bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl p-4 border-2 border-amber-200">
                       <div className="flex items-center justify-center gap-3 flex-wrap">
                         <Sparkles className="w-6 h-6 text-amber-600" />
                         <p className="text-lg md:text-xl font-bold text-amber-900 text-center">
-                          +{currentPlant.xpAwarded} XP {isNewToPlantDex ? "für neue PlantDex-Pflanze!" : 
-                                                 wasAlreadyDiscovered ? "für erneuten Scan!" : 
-                                                 "für Erstentdeckung!"}
+                          +{currentPlant.xpAwarded} XP {isNewToPlantDex ? "für neue PlantDex-Pflanze!" :
+                        wasAlreadyDiscovered ? "für erneuten Scan!" :
+                        "für Erstentdeckung!"}
                         </p>
                         <Sparkles className="w-6 h-6 text-amber-600" />
                       </div>
                     </div>
-                  )}
+                  }
 
                   {/* Alternative Ergebnisse: Button zum Ändern */}
-                  {latestDiscoveryId && !isPrimaryResult && showChangeResultButton && (
-                    <Button
-                      onClick={handleChangeResult}
-                      disabled={isChanging}
-                      variant="outline"
-                      size="sm"
-                      className="w-full border border-amber-200 hover:bg-amber-50 text-amber-700"
-                    >
-                      {isChanging ? (
-                        <>
+                  {latestDiscoveryId && !isPrimaryResult && showChangeResultButton &&
+                  <Button
+                    onClick={handleChangeResult}
+                    disabled={isChanging}
+                    variant="outline"
+                    size="sm"
+                    className="w-full border border-amber-200 hover:bg-amber-50 text-amber-700">
+
+                      {isChanging ?
+                    <>
                           <RotateCcw className="w-4 h-4 mr-1 animate-spin" />
                           Wird geändert...
-                        </>
-                      ) : (
-                        <>
+                        </> :
+
+                    <>
                           <RefreshCw className="w-4 h-4 mr-1" />
                           Als Ergebnis verwenden
                         </>
-                      )}
+                    }
                     </Button>
-                  )}
+                  }
                 </CardContent>
 
                 <CardFooter className="p-4 border-t border-stone-200 bg-stone-50">
                   <Button
                     onClick={() => navigate(createPageUrl("Collection"))}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white"
-                  >
+                    className="w-full bg-green-600 hover:bg-green-700 text-white">
+
                     <BookOpen className="w-4 h-4 mr-1" />
                     Zur Collection
                   </Button>
@@ -561,8 +561,8 @@ export default function ScanResults({
             </motion.div>
           </motion.div>
         </div>
-      </div>
-    );
+      </div>);
+
   }
 
   return null;
