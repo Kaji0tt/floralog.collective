@@ -414,19 +414,7 @@ export default function ScanResults({
                       </div>
                     </div>
 
-                    {/* Icon-Buttons über dem Container */}
-                    {latestDiscoveryId && !isPrimaryResult &&
-                        <div className="absolute -top-3 -left-3 z-20">
-                            <motion.button
-                              onClick={handleChangeResult}
-                              disabled={isChanging}
-                              className="bg-orange-600 text-white font-bold p-2 shadow-lg rounded-md hover:bg-orange-700 transition-all"
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}>
-                              <RefreshCw className="w-5 h-5" />
-                            </motion.button>
-                        </div>
-                        }
+
 
                     {/* Bild mit Navigation */}
                     <div className="relative">
@@ -473,8 +461,8 @@ export default function ScanResults({
                           <Gift className="w-5 h-5 text-white" />
                         </motion.button>
 
-                        {/* Löschen (X) - nur bei isPrimaryResult */}
-                        {isPrimaryResult && (
+                        {/* Löschen (X) oder Ändern Button */}
+                        {isPrimaryResult ? (
                           <motion.button
                             onClick={handleDeleteResult}
                             disabled={isDeleting}
@@ -482,6 +470,15 @@ export default function ScanResults({
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.95 }}>
                             <X className="w-5 h-5 text-red-600" />
+                          </motion.button>
+                        ) : (
+                          <motion.button
+                            onClick={handleChangeResult}
+                            disabled={isChanging}
+                            className="w-11 h-11 bg-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-100 transition-all border-2 border-orange-200"
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.95 }}>
+                            <RefreshCw className="w-5 h-5 text-orange-600" />
                           </motion.button>
                         )}
                       </div>
