@@ -190,6 +190,17 @@ export default function ScanResults({
     }
   };
 
+  const getRarityBackground = (rarity) => {
+    switch (rarity) {
+      case "Häufig":return "bg-gray-50";
+      case "Gelegentlich":return "bg-green-50";
+      case "Selten":return "bg-purple-50";
+      case "Sehr Selten":return "bg-orange-50";
+      case "Extrem Selten":return "bg-red-50";
+      default:return "bg-gray-50";
+    }
+  };
+
   const getRarityStars = (rarity) => {
     switch (rarity) {
       case "Häufig":return "⭐";
@@ -397,7 +408,7 @@ export default function ScanResults({
 
                 <CardContent className="p-4 md:p-6 space-y-3">
                   {/* Container mit Rarität-Border für Titel und Bild */}
-                  <div className={`relative border-4 ${getRarityBorderColor(rarity)} rounded-2xl p-4 shadow-xl bg-white`}>
+                  <div className={`relative border-4 ${getRarityBorderColor(rarity)} ${getRarityBackground(rarity)} rounded-2xl p-4 shadow-xl`}>
                     {/* Namen und Rarität über dem Bild */}
                     <div className="flex items-start justify-between gap-4 mb-4">
                       <div className="flex-1">
