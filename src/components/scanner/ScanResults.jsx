@@ -470,55 +470,47 @@ export default function ScanResults({
                           src={imageUrl}
                           alt={currentPlant.species_name}
                           className={`w-full aspect-square object-cover rounded-xl shadow-[inset_0_0_30px_rgba(0,0,0,0.4)] border-2 ${getRarityBorderColor(rarity)}`} />
-
-                        {/* Navigations-Pfeile Container - nach den interaktiven Buttons */}
-                        {hasMultipleResults &&
-                        <>
-                            {/* Linker Pfeil */}
-                            <motion.button
-                              onClick={() => currentResultIndex > 0 && setCurrentResultIndex(currentResultIndex - 1)}
-                              disabled={currentResultIndex === 0}
-                              className={`absolute -left-16 top-[50%] -translate-y-1/2 -z-10 flex items-center justify-center transition-all ${
-                                currentResultIndex === 0 ? 'opacity-0 cursor-not-allowed' : 'opacity-40 hover:opacity-60'
-                              }`}
-                              whileHover={currentResultIndex > 0 ? { scale: 1.1 } : {}}
-                              whileTap={currentResultIndex > 0 ? { scale: 0.95 } : {}}
-                              style={{ x: leftArrowX }}>
-
-                                <ChevronLeft className="w-20 h-20 text-gray-600" />
-                              </motion.button>
-
-                            {/* Rechter Pfeil */}
-                            <motion.button
-                              onClick={() => currentResultIndex < results.length - 1 && setCurrentResultIndex(currentResultIndex + 1)}
-                              disabled={currentResultIndex === results.length - 1}
-                              className={`absolute -right-16 top-[50%] -translate-y-1/2 -z-10 flex items-center justify-center transition-all ${
-                                currentResultIndex === results.length - 1 ? 'opacity-0 cursor-not-allowed' : 'opacity-40 hover:opacity-60'
-                              }`}
-                              whileHover={currentResultIndex < results.length - 1 ? { scale: 1.1 } : {}}
-                              whileTap={currentResultIndex < results.length - 1 ? { scale: 0.95 } : {}}
-                              style={{ x: rightArrowX }}>
-
-                                <ChevronRight className="w-20 h-20 text-gray-600" />
-                          </motion.button>
                         </>
                         }
-                      </>
-                      }
-                      </div>
+                        </div>
 
-                      {/* Indikator-Dots unterhalb des Bildes */}
+                      {/* Indikator-Dots mit Pfeilen unterhalb des Bildes */}
                       {hasMultipleResults &&
-                      <div className="flex justify-center mt-4">
-                      <div className="flex gap-1.5 bg-stone-100 px-3 py-1.5 rounded-full border-2 border-stone-300">
-                        {results.map((_, index) =>
-                        <div
-                          key={index}
-                          className={`h-2 rounded-full transition-all ${
-                          index === currentResultIndex ? 'bg-green-600 w-6' : 'bg-stone-300 w-2'}`
-                          } />
-                        )}
-                      </div>
+                      <div className="flex justify-center items-center gap-3 mt-4">
+                        {/* Linker Pfeil */}
+                        <motion.button
+                          onClick={() => currentResultIndex > 0 && setCurrentResultIndex(currentResultIndex - 1)}
+                          disabled={currentResultIndex === 0}
+                          className={`flex items-center justify-center transition-all ${
+                            currentResultIndex === 0 ? 'opacity-20 cursor-not-allowed' : 'opacity-50 hover:opacity-80'
+                          }`}
+                          whileHover={currentResultIndex > 0 ? { scale: 1.2 } : {}}
+                          whileTap={currentResultIndex > 0 ? { scale: 0.9 } : {}}>
+                          <ChevronLeft className="w-8 h-8 text-gray-600" />
+                        </motion.button>
+
+                        {/* Dots */}
+                        <div className="flex gap-1.5 bg-stone-100 px-3 py-1.5 rounded-full border-2 border-stone-300">
+                          {results.map((_, index) =>
+                          <div
+                            key={index}
+                            className={`h-2 rounded-full transition-all ${
+                            index === currentResultIndex ? 'bg-green-600 w-6' : 'bg-stone-300 w-2'}`
+                            } />
+                          )}
+                        </div>
+
+                        {/* Rechter Pfeil */}
+                        <motion.button
+                          onClick={() => currentResultIndex < results.length - 1 && setCurrentResultIndex(currentResultIndex + 1)}
+                          disabled={currentResultIndex === results.length - 1}
+                          className={`flex items-center justify-center transition-all ${
+                            currentResultIndex === results.length - 1 ? 'opacity-20 cursor-not-allowed' : 'opacity-50 hover:opacity-80'
+                          }`}
+                          whileHover={currentResultIndex < results.length - 1 ? { scale: 1.2 } : {}}
+                          whileTap={currentResultIndex < results.length - 1 ? { scale: 0.9 } : {}}>
+                          <ChevronRight className="w-8 h-8 text-gray-600" />
+                        </motion.button>
                       </div>
                       }
                       </div>
