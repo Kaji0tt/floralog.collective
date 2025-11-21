@@ -460,7 +460,9 @@ export default function Scanner() {
       locationString = `${userLocation.lat.toFixed(6)}, ${userLocation.lng.toFixed(6)}`;
     }
 
-    const alreadyDiscovered = userDiscoveries.some((d) => d.plant_id === plant.id);
+    // Lade aktuelle Discoveries direkt von der DB, nicht vom Cache
+    const currentDiscoveries = await base44.entities.UserPlantDiscovery.filter({ user: user.email });
+    const alreadyDiscovered = currentDiscoveries.some((d) => d.plant_id === plant.id);
 
     let xpAwarded = 0;
 
