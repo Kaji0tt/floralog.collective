@@ -395,6 +395,21 @@ export default function ScanResults({
                 </CardHeader>
 
                 <CardContent className="p-4 md:p-6 space-y-6">
+                  {/* Namen und Rarität über dem Bild */}
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <h3 className="text-2xl md:text-3xl font-bold text-stone-900 break-words">
+                        {currentPlant.species_name}
+                      </h3>
+                      <p className="text-lg md:text-xl text-stone-600 italic mt-1 break-words">
+                        {currentPlant.scientific_name}
+                      </p>
+                    </div>
+                    <Badge className={`${getRarityColor(rarity)} text-white font-bold px-3 py-1 text-sm flex-shrink-0`}>
+                      {getRarityStars(rarity)} {rarity}
+                    </Badge>
+                  </div>
+
                   <div className="grid md:grid-cols-2 gap-6">
                     <div className="relative space-y-4">
                       {imageUrl &&
@@ -480,18 +495,6 @@ export default function ScanResults({
                     </div>
 
                     <div className="space-y-4">
-                      <div>
-                        <h3 className="text-2xl md:text-3xl font-bold text-stone-900 mb-2 break-words">
-                          {currentPlant.species_name}
-                        </h3>
-                        <p className="text-lg md:text-xl text-stone-600 italic mb-3 break-words">
-                          {currentPlant.scientific_name}
-                        </p>
-                        <Badge className={`${getRarityColor(rarity)} text-white font-bold px-3 py-1 text-sm`}>
-                          {getRarityStars(rarity)} {rarity}
-                        </Badge>
-                      </div>
-
                       {(currentPlant.description || currentPlant.aiData?.description) &&
                       <div className="bg-stone-50 rounded-xl p-4 border border-stone-200">
                           <h4 className="font-bold text-stone-900 mb-2">📖 Beschreibung</h4>
