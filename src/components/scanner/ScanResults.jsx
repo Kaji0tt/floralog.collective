@@ -32,6 +32,10 @@ export default function ScanResults({
   const x = useMotionValue(0);
   const constraintsRef = useRef(null);
   const cardRef = useRef(null);
+  
+  // Transform für Pfeile-Animation bei Swipe
+  const leftArrowX = useTransform(x, [0, 100], [0, -10]);
+  const rightArrowX = useTransform(x, [0, -100], [0, 10]);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -349,7 +353,7 @@ export default function ScanResults({
             <motion.button
               onClick={() => setCurrentResultIndex(currentResultIndex - 1)}
               className="absolute left-2 top-[50%] -translate-y-1/2 z-10 w-12 h-12 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
-              style={{ x: useTransform(x, [0, 100], [0, -10]) }}
+              style={{ x: leftArrowX }}
             >
               <ChevronLeft className="w-6 h-6 text-green-600" />
             </motion.button>
@@ -360,7 +364,7 @@ export default function ScanResults({
             <motion.button
               onClick={() => setCurrentResultIndex(currentResultIndex + 1)}
               className="absolute right-2 top-[50%] -translate-y-1/2 z-10 w-12 h-12 bg-white border-2 border-green-400 rounded-full flex items-center justify-center shadow-lg hover:bg-green-50 transition-all"
-              style={{ x: useTransform(x, [0, -100], [0, 10]) }}
+              style={{ x: rightArrowX }}
             >
               <ChevronRight className="w-6 h-6 text-green-600" />
             </motion.button>
