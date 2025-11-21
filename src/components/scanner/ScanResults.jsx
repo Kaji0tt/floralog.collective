@@ -478,7 +478,7 @@ export default function ScanResults({
                             <motion.button
                               onClick={() => currentResultIndex > 0 && setCurrentResultIndex(currentResultIndex - 1)}
                               disabled={currentResultIndex === 0}
-                              className={`absolute -left-10 top-[50%] -translate-y-1/2 -z-10 flex items-center justify-center transition-all ${
+                              className={`absolute -left-16 top-[50%] -translate-y-1/2 -z-10 flex items-center justify-center transition-all ${
                                 currentResultIndex === 0 ? 'opacity-0 cursor-not-allowed' : 'opacity-40 hover:opacity-60'
                               }`}
                               whileHover={currentResultIndex > 0 ? { scale: 1.1 } : {}}
@@ -492,7 +492,7 @@ export default function ScanResults({
                             <motion.button
                               onClick={() => currentResultIndex < results.length - 1 && setCurrentResultIndex(currentResultIndex + 1)}
                               disabled={currentResultIndex === results.length - 1}
-                              className={`absolute -right-10 top-[50%] -translate-y-1/2 -z-10 flex items-center justify-center transition-all ${
+                              className={`absolute -right-16 top-[50%] -translate-y-1/2 -z-10 flex items-center justify-center transition-all ${
                                 currentResultIndex === results.length - 1 ? 'opacity-0 cursor-not-allowed' : 'opacity-40 hover:opacity-60'
                               }`}
                               whileHover={currentResultIndex < results.length - 1 ? { scale: 1.1 } : {}}
