@@ -348,7 +348,7 @@ export default function ScanResults({
         )}
 
         <div className="relative flex items-center gap-4">
-          {/* Linker Pfeil */}
+          {/* Linker Pfeil - auf Höhe des Bildes, unter den Icon-Buttons */}
           {hasMultipleResults && currentResultIndex > 0 && (
             <motion.button
               onClick={() => setCurrentResultIndex(currentResultIndex - 1)}
@@ -359,31 +359,7 @@ export default function ScanResults({
             </motion.button>
           )}
 
-          {/* Linker Button: Suche/Verify */}
-          {latestDiscoveryId && (
-            <motion.button
-              onClick={handleVerifyResult}
-              className="absolute left-[-20px] top-[50%] -translate-y-1/2 z-10 w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-all"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Search className="w-5 h-5 text-white" />
-            </motion.button>
-          )}
-
-          {/* Rechts: Geschenk-Button */}
-          {latestDiscoveryId && (
-            <motion.button
-              onClick={() => setShowShareDialog(true)}
-              className="absolute right-[68px] top-[50%] -translate-y-1/2 z-10 w-12 h-12 bg-red-600 rounded-full flex items-center justify-center shadow-lg hover:bg-red-700 transition-all"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Gift className="w-5 h-5 text-white" />
-            </motion.button>
-          )}
-
-          {/* Rechter Navigationspfeil */}
+          {/* Rechter Pfeil - auf Höhe des Bildes, unter den Icon-Buttons */}
           {hasMultipleResults && currentResultIndex < results.length - 1 && (
             <motion.button
               onClick={() => setCurrentResultIndex(currentResultIndex + 1)}
@@ -391,19 +367,6 @@ export default function ScanResults({
               style={{ x: rightArrowX }}
             >
               <ChevronRight className="w-6 h-6 text-green-600" />
-            </motion.button>
-          )}
-
-          {/* Rechts außen: Löschen-Button */}
-          {latestDiscoveryId && (
-            <motion.button
-              onClick={handleDeleteResult}
-              disabled={isDeleting}
-              className="absolute right-[-20px] top-[50%] -translate-y-1/2 z-10 w-12 h-12 bg-red-600 rounded-full flex items-center justify-center shadow-lg hover:bg-red-700 transition-all disabled:opacity-50"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <X className="w-5 h-5 text-white" />
             </motion.button>
           )}
 
@@ -457,11 +420,50 @@ export default function ScanResults({
                   <div className="grid md:grid-cols-2 gap-6">
                     <div className="relative space-y-4">
                       {imageUrl && (
-                        <img
-                          src={imageUrl}
-                          alt={currentPlant.species_name}
-                          className="w-full aspect-square object-cover rounded-xl shadow-md border-2 border-green-300"
-                        />
+                        <>
+                          <img
+                            src={imageUrl}
+                            alt={currentPlant.species_name}
+                            className="w-full aspect-square object-cover rounded-xl shadow-md border-2 border-green-300"
+                          />
+                          
+                          {/* Icon-Buttons über dem Bild */}
+                          {latestDiscoveryId && isPrimaryResult && (
+                            <div className="absolute top-3 left-3 right-3 flex justify-between z-20">
+                              {/* Links: Löschen */}
+                              <motion.button
+                                onClick={handleDeleteResult}
+                                disabled={isDeleting}
+                                className="w-11 h-11 bg-white/95 backdrop-blur-sm border-2 border-red-400 rounded-full flex items-center justify-center shadow-lg hover:bg-red-50 transition-all"
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.95 }}
+                              >
+                                <X className="w-5 h-5 text-red-600" />
+                              </motion.button>
+
+                              {/* Rechts: Überprüfen und Schenken */}
+                              <div className="flex flex-col gap-2">
+                                <motion.button
+                                  onClick={handleVerifyResult}
+                                  className="w-11 h-11 bg-blue-600 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-all"
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.95 }}
+                                >
+                                  <Search className="w-5 h-5 text-white" />
+                                </motion.button>
+
+                                <motion.button
+                                  onClick={() => setShowShareDialog(true)}
+                                  className="w-11 h-11 bg-red-600 rounded-full flex items-center justify-center shadow-lg hover:bg-red-700 transition-all"
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.95 }}
+                                >
+                                  <Gift className="w-5 h-5 text-white" />
+                                </motion.button>
+                              </div>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
 
