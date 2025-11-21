@@ -406,19 +406,9 @@ export default function ScanResults({
 
                     {/* Namen über dem Bild - zentriert */}
                     <div className="mb-4 text-center">
-                      <div className="flex items-center justify-center gap-3">
-                        <h3 className="text-2xl md:text-3xl font-bold text-stone-900 break-words">
-                          {currentPlant.species_name}
-                        </h3>
-                        <button
-                          onClick={() => speakText(getDescriptionText(currentPlant))}
-                          className="flex-shrink-0 hover:scale-110 transition-transform">
-                          {isSpeaking ?
-                            <VolumeX className="w-7 h-7 text-stone-700" /> :
-                            <Volume2 className="w-7 h-7 text-stone-700" />
-                          }
-                        </button>
-                      </div>
+                      <h3 className="text-2xl md:text-3xl font-bold text-stone-900 break-words">
+                        {currentPlant.species_name}
+                      </h3>
                       <p className="text-lg md:text-xl text-stone-600 italic mt-1 break-words">
                         {currentPlant.scientific_name}
                       </p>
@@ -467,7 +457,7 @@ export default function ScanResults({
                         }
                         </div>
 
-                      {/* Navigation mit Lupe und Geschenk unterhalb des Bildes */}
+                      {/* Navigation mit Lupe, Lautsprecher und Geschenk unterhalb des Bildes */}
                       {latestDiscoveryId &&
                       <div className="flex justify-center items-center gap-3 mt-4">
                         {/* Lupe (Search) */}
@@ -477,6 +467,18 @@ export default function ScanResults({
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.95 }}>
                           <Search className="w-5 h-5 text-white" />
+                        </motion.button>
+
+                        {/* Lautsprecher */}
+                        <motion.button
+                          onClick={() => speakText(getDescriptionText(currentPlant))}
+                          className="w-11 h-11 bg-purple-600 rounded-full flex items-center justify-center shadow-lg hover:bg-purple-700 transition-all"
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.95 }}>
+                          {isSpeaking ?
+                            <VolumeX className="w-5 h-5 text-white" /> :
+                            <Volume2 className="w-5 h-5 text-white" />
+                          }
                         </motion.button>
 
                         {hasMultipleResults && (
