@@ -396,7 +396,7 @@ export default function ScanResults({
 
                 <CardContent className="p-4 md:p-6 space-y-3">
                   {/* Container mit Rarität-Border für Titel und Bild */}
-                  <div className={`relative rounded-2xl p-4 shadow-xl ${getRarityBackgroundColor(rarity)}`}>
+                  <div className={`relative rounded-2xl p-4 ${getRarityBackgroundColor(rarity)}`} style={{ boxShadow: '8px 8px 24px rgba(0, 0, 0, 0.15)' }}>
                     {/* Namen linksbündig mit Rarität Badge rechts */}
                     <div className="mb-4 flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
