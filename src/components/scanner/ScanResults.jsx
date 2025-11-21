@@ -409,6 +409,13 @@ export default function ScanResults({
                 <CardContent className="p-4 md:p-6 space-y-3">
                   {/* Container mit Rarität-Border für Titel und Bild */}
                   <div className={`relative border-4 ${getRarityBorderColor(rarity)} rounded-2xl p-4 shadow-xl ${getRarityBackgroundColor(rarity)}`}>
+                    {/* Rarität Badge auf oberer Kante */}
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-20">
+                      <Badge className={`${getRarityColor(rarity)} text-white font-bold px-4 py-1.5 text-sm shadow-lg`}>
+                        {getRarityStars(rarity)} {rarity}
+                      </Badge>
+                    </div>
+
                     {/* Namen über dem Bild */}
                     <div className="mb-4">
                       <h3 className="text-2xl md:text-3xl font-bold text-stone-900 break-words">
@@ -463,13 +470,6 @@ export default function ScanResults({
                           src={imageUrl}
                           alt={currentPlant.species_name}
                           className={`w-full aspect-square object-cover rounded-xl shadow-[inset_0_0_30px_rgba(0,0,0,0.4)] border-2 ${getRarityBorderColor(rarity)}`} />
-
-                        {/* Rarität Badge als Untertitel */}
-                        <div className="flex justify-center -mt-4 relative z-10">
-                          <Badge className={`${getRarityColor(rarity)} text-white font-bold px-4 py-1.5 text-sm shadow-lg`}>
-                            {getRarityStars(rarity)} {rarity}
-                          </Badge>
-                        </div>
 
                         {/* Navigations-Pfeile Container - nach den interaktiven Buttons */}
                         {hasMultipleResults &&
