@@ -135,7 +135,7 @@ KRITISCH - Namensgebung:
                             });
 
                             return {
-                                species_name: llmEnrichment.species_name,
+                                species_name: germanName || llmEnrichment.species_name,
                                 genus_name: llmEnrichment.genus_name,
                                 scientific_name: species.scientificNameWithoutAuthor,
                                 scientific_genus: llmEnrichment.scientific_genus,
