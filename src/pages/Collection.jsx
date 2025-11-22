@@ -53,9 +53,9 @@ export default function Collection() {
   }).sort((a, b) => {
     if (a.category !== b.category) {
       const categoryOrder = { "Bäume": 1, "Sträucher": 2, "Blumen": 3 };
-      return categoryOrder[a.category] - categoryOrder[b.category];
+      return (categoryOrder[a.category] || 999) - (categoryOrder[b.category] || 999);
     }
-    return (a.category_dex_number || 0) - (b.category_dex_number || 0);
+    return (a.category_dex_number || 999999) - (b.category_dex_number || 999999);
   });
 
   const categories = ["Alle", "Bäume", "Sträucher", "Blumen"];
