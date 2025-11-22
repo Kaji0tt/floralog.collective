@@ -43,6 +43,12 @@ Deno.serve(async (req) => {
             if (!plantnetResponse.ok) {
                 const errorText = await plantnetResponse.text();
                 console.warn("⚠️ PlantNet API Fehler:", errorText);
+                
+                // Prüfe ob es ein Rate-Limit-Fehler ist (429 oder spezifische Meldung)
+                if (plantnetResponse.status === 429 || errorText.toLowerCase().includes('limit') || errorText.toLowerCase().includes('quota')) {
+                    throw new Error('PLANTNET_RATE_LIMIT');
+                }
+                
                 throw new Error(`PlantNet API Error: ${plantnetResponse.status}`);
             }
 
@@ -51,15 +57,13 @@ Deno.serve(async (req) => {
 
             // Prüfe ob PlantNet ein Ergebnis gefunden hat
             if (plantnetData.results && plantnetData.results.length > 0) {
-                const topResult = plantnetData.results[0];
-                const topScore = topResult.score;
-
-                // Nur wenn Score > 0.3 (30%) akzeptieren wir das Ergebnis
-                if (topScore > 0.3) {
-                    // Sammle alle Ergebnisse mit Score > 5%
-                    const allValidResults = plantnetData.results
-                        .filter(result => result.score > 0.05)
-                        .slice(0, 5); // Max 5 Ergebnisse
+                // PlantNet IMMER verwenden wenn Ergebnisse vorhanden sind
+                // Sammle alle Ergebnisse mit Score > 5%
+                const allValidResults = plantnetData.results
+                    .filter(result => result.score > 0.05)
+                    .slice(0, 5); // Max 5 Ergebnisse
+                
+                if (allValidResults.length > 0) {
                     
                     console.log(`📊 ${allValidResults.length} Ergebnisse mit Score > 5% gefunden`);
                     
@@ -159,11 +163,21 @@ KRITISCH - Namensgebung:
                 }
             }
             
-            console.log("⚠️ PlantNet Score zu niedrig oder keine Ergebnisse, verwende LLM Fallback...");
-            throw new Error("PlantNet Score zu niedrig");
+            console.log("⚠️ PlantNet keine Ergebnisse gefunden");
+            throw new Error("PlantNet keine Ergebnisse");
 
         } catch (plantnetError) {
             console.warn("⚠️ PlantNet fehlgeschlagen:", plantnetError.message);
+            
+            // Bei Rate-Limit: Spezieller Error zurückgeben (kein LLM Fallback!)
+            if (plantnetError.message === 'PLANTNET_RATE_LIMIT') {
+                return Response.json({
+                    identified: false,
+                    error_type: 'PLANTNET_RATE_LIMIT',
+                    error: 'PlantNet hat die maximale Anzahl an Scans erreicht oder ist nicht erreichbar.'
+                }, { status: 503 });
+            }
+            
             console.log("🤖 Fallback zu LLM...");
 
             // Fallback: LLM mit Bild

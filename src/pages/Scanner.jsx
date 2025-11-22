@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Camera, Loader2, MapPin } from "lucide-react";
+import { Camera, Loader2, MapPin, AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import ScanResults from "../components/scanner/ScanResults";
 import CameraCapture from "../components/scanner/CameraCapture";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
@@ -34,6 +35,8 @@ export default function Scanner() {
   const [gettingLocation, setGettingLocation] = useState(false);
   const [newAchievements, setNewAchievements] = useState([]);
   const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
+  const [showRateLimitDialog, setShowRateLimitDialog] = useState(false);
+  const [pendingImageData, setPendingImageData] = useState(null);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -348,6 +351,16 @@ export default function Scanner() {
         console.log("✅ Rohe Response:", response);
 
         const result = response.data || response;
+        
+        // Prüfe auf Rate-Limit-Fehler
+        if (result.error_type === 'PLANTNET_RATE_LIMIT') {
+          console.warn("⚠️ PlantNet Rate-Limit erreicht");
+          // Speichere Bild-Daten für späteren LLM-Versuch
+          setPendingImageData({ file_url, organ });
+          setShowRateLimitDialog(true);
+          setScanning(false);
+          return;
+        }
 
         console.log("✅ Verarbeitetes Ergebnis:", JSON.stringify(result, null, 2));
 
@@ -616,9 +629,133 @@ export default function Scanner() {
     identifyPlant(file, organ);
   };
 
+  const handleLLMFallback = async () => {
+    setShowRateLimitDialog(false);
+    if (!pendingImageData) return;
+    
+    setScanning(true);
+    
+    try {
+      // Rufe LLM-Fallback direkt auf
+      const response = await base44.integrations.Core.InvokeLLM({
+        prompt: `Du bist ein präziser Botaniker und Pflanzenexperte.
+
+Analysiere dieses Foto sehr sorgfältig und identifiziere die Pflanze NUR wenn du dir SICHER bist.
+
+WICHTIGE REGELN:
+- Setze "identified" nur auf TRUE wenn du die Pflanze mit hoher Sicherheit erkennst
+- Achte genau auf: Blattform, Blütenform, Farbe, Wuchsform, Stängelstruktur
+- Bei Unsicherheit: setze "identified" auf FALSE
+- Lieber keine Antwort als eine falsche!
+- WICHTIG: Prüfe ob die Pflanze in Mitteleuropa heimisch oder häufig vorkommt
+- Setze "is_european" auf false für tropische, asiatische, amerikanische oder andere nicht-europäische Pflanzen
+
+Falls du die Pflanze SICHER erkennst, gib an:
+1. Deutschen Artnamen (präzise, z.B. "Gewöhnliche Sonnenblume")
+2. Gattungsname (z.B. "Sonnenblume")
+3. Wissenschaftlicher Artname (z.B. "Helianthus annuus")
+4. Wissenschaftlicher Gattungsname (z.B. "Helianthus")
+5. Kategorie: "Bäume", "Sträucher" oder "Blumen"
+6. Pflanzenfamilie (z.B. "Korbblütler")
+7. Beschreibung (2-3 Sätze)
+8. Haupterkennungsmerkmale
+9. Interessanter Fakt
+10. is_european: true/false
+11. rarity: "Häufig", "Gelegentlich", "Selten", "Sehr Selten", oder "Extrem Selten"`,
+        file_urls: [pendingImageData.file_url],
+        response_json_schema: {
+          type: "object",
+          properties: {
+            identified: { type: "boolean" },
+            species_name: { type: "string" },
+            genus_name: { type: "string" },
+            scientific_name: { type: "string" },
+            scientific_genus: { type: "string" },
+            category: { type: "string", enum: ["Bäume", "Sträucher", "Blumen"] },
+            family: { type: "string" },
+            description: { type: "string" },
+            identification_features: { type: "string" },
+            fun_fact: { type: "string" },
+            is_european: { type: "boolean" },
+            rarity: { type: "string", enum: ["Häufig", "Gelegentlich", "Selten", "Sehr Selten", "Extrem Selten"] }
+          },
+          required: ["identified"]
+        }
+      });
+      
+      if (response.identified) {
+        const plantData = {
+          ...response,
+          notInDex: true,
+          inDatabase: false
+        };
+        
+        setAllScanResults([plantData]);
+        
+        if (response.is_european === false) {
+          setMatchedPlant(plantData);
+          setScanning(false);
+        } else {
+          await handleAutoAddNewPlant(plantData, pendingImageData.file_url, [plantData]);
+        }
+      } else {
+        setMatchedPlant({
+          identified: false,
+          error: "Die Pflanze konnte nicht identifiziert werden."
+        });
+        setScanning(false);
+      }
+      
+      setPendingImageData(null);
+    } catch (error) {
+      console.error("LLM-Fallback Fehler:", error);
+      setMatchedPlant({
+        identified: false,
+        error: `Fehler: ${error.message}`
+      });
+      setScanning(false);
+      setPendingImageData(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 md:p-8 overflow-x-hidden">
       <MobileBackButton />
+      
+      {/* Rate-Limit Dialog */}
+      <Dialog open={showRateLimitDialog} onOpenChange={setShowRateLimitDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-orange-600">
+              <AlertTriangle className="w-6 h-6" />
+              PlantNet nicht verfügbar
+            </DialogTitle>
+            <DialogDescription className="text-base pt-4">
+              Achtung: PlantNet hat die maximale Anzahl an Scans erreicht oder ist nicht erreichbar. 
+              Soll stattdessen die KI von Base44 zur Erkennung verwendet werden? Diese ist deutlich unzuverlässiger.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowRateLimitDialog(false);
+                setPendingImageData(null);
+                setMatchedPlant(null);
+                setImageUrl(null);
+              }}
+            >
+              Abbrechen
+            </Button>
+            <Button 
+              onClick={handleLLMFallback}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              Scannen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       <AnimatePresence>
         {newAchievements.length > 0 && currentAchievementIndex < newAchievements.length &&
