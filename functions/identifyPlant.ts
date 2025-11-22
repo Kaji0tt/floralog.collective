@@ -69,10 +69,14 @@ Deno.serve(async (req) => {
                             const species = result.species;
                             const score = result.score;
                             
-                            console.log(`🔍 Übersetze ${species.scientificNameWithoutAuthor} (${(score * 100).toFixed(1)}%)...`);
+                            // Hole deutschen Namen von PlantNet
+                            const germanName = species.commonNames?.find(name => name.toLowerCase().includes('de'))?.split('(')[0]?.trim() || null;
+                            
+                            console.log(`🔍 PlantNet deutscher Name: ${germanName || 'nicht gefunden'} für ${species.scientificNameWithoutAuthor} (${(score * 100).toFixed(1)}%)...`);
                             
                             const llmEnrichment = await base44.asServiceRole.integrations.Core.InvokeLLM({
                                 prompt: `Die Pflanze wurde als "${species.scientificNameWithoutAuthor}" identifiziert.
+${germanName ? `PlantNet deutscher Name: "${germanName}"` : ''}
 
 WICHTIG: Prüfe zuerst, ob diese Pflanze in Mitteleuopa (Deutschland, Österreich, Schweiz, Polen, Tschechien, etc.) heimisch oder häufig vorkommt!
 
@@ -84,40 +88,31 @@ Falls die Pflanze in Mitteleuopa vorkommt:
 - Setze "is_european" auf true
 
 KRITISCH - Namensgebung:
-1. **genus_name** = DEUTSCHER Gattungsname im SINGULAR
-   - Beispiele: "Pappel", "Weide", "Oregano", "Thymian", "Minze"
-   - NIEMALS lateinisch (FALSCH: "Origanum", "Thymus", "Mentha")
+1. **species_name** = NUTZE DEN DEUTSCHEN NAMEN VON PLANTNET falls vorhanden: "${germanName || ''}"
+   - Falls PlantNet-Name existiert, nutze diesen EXAKT
+   - Ansonsten: Deutscher Artname im SINGULAR mit Bindestrich (z.B. "Silber-Pappel")
+
+2. **genus_name** = DEUTSCHER Gattungsname im SINGULAR
+   - Beispiele: "Pappel", "Weide", "Oregano", "Thymian", "Minze", "Aster"
+   - NIEMALS lateinisch (FALSCH: "Origanum", "Thymus", "Mentha", "Tripolium")
    - NIEMALS Plural (FALSCH: "Pappeln", "Weiden")
 
-2. **scientific_genus** = LATEINISCHER Gattungsname
-   - Beispiele: "Populus", "Salix", "Origanum", "Thymus", "Mentha"
-   - Immer die wissenschaftliche Bezeichnung!
+3. **scientific_genus** = LATEINISCHER Gattungsname
+   - Extrahiere aus "${species.scientificNameWithoutAuthor}"
+   - Das erste Wort ist die Gattung!
 
-3. **species_name** = DEUTSCHER Artname im SINGULAR mit Bindestrich
-   - Beispiele: "Silber-Pappel", "Echter Oregano", "Gewöhnlicher Thymian"
-   - NIEMALS Plural (FALSCH: "Pappeln", "Oreganos")
-
-4. **scientific_name** = VOLLSTÄNDIGER lateinischer Name
-   - Beispiele: "Populus alba", "Origanum vulgare", "Thymus vulgaris"
-
-5. Kategorie: "Bäume", "Sträucher" oder "Blumen"
-6. Deutsche Pflanzenfamilie (z.B. "Lippenblütler", "Weidengewächse", "Korbblütler")
-7. Kurze Beschreibung (2-3 Sätze)
-8. Haupterkennungsmerkmale
-9. Interessanter Fakt für Kinder
-10. is_european: true/false (ob die Pflanze in Mitteleuopa vorkommt)
-11. rarity: Wie häufig kommt die Pflanze in Mitteleuopa vor?
+4. Kategorie: "Bäume", "Sträucher" oder "Blumen"
+5. Deutsche Pflanzenfamilie (z.B. "Lippenblütler", "Weidengewächse", "Korbblütler")
+6. Kurze Beschreibung (2-3 Sätze)
+7. Haupterkennungsmerkmale
+8. Interessanter Fakt für Kinder
+9. is_european: true/false (ob die Pflanze in Mitteleuopa vorkommt)
+10. rarity: Wie häufig kommt die Pflanze in Mitteleuopa vor?
    - "Häufig": Überall zu finden (z.B. Löwenzahn, Brennnessel, Rotbuche)
    - "Gelegentlich": Regelmäßig anzutreffen, aber nicht überall (z.b. Eiche, Feuerdorn, Oregano)
    - "Selten": Nur in bestimmten Regionen (z.B. Edelweiß, seltene Orchideen)
    - "Sehr Selten": Sehr selten in freier Natur
-   - "Extrem Selten": Sehr selten, oft vom Aussterben bedroht
-
-BEISPIELE für korrekte Gattungsnamen:
-✅ genus_name: "Oregano" + scientific_genus: "Origanum"
-✅ genus_name: "Thymian" + scientific_genus: "Thymus"
-✅ genus_name: "Minze" + scientific_genus: "Mentha"
-✅ genus_name: "Pappel" + scientific_genus: "Populus"`,
+   - "Extrem Selten": Sehr selten, oft vom Aussterben bedroht`,
                                 response_json_schema: {
                                     type: "object",
                                     properties: {
