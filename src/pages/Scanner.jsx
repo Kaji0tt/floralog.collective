@@ -266,17 +266,19 @@ export default function Scanner() {
         );
 
         if (!genus) {
-          const categoryGenera = genera.filter((g) =>
+          // Lade frische Genera-Daten direkt von der DB
+          const allGenera = await base44.entities.PlantGenus.list();
+          
+          const categoryGenera = allGenera.filter((g) =>
           g.category === newPlant.category ||
           newPlant.category === "Blumen" && g.category === "Blumen & Kräuter"
           );
-          const existingNumbers = categoryGenera.
-          map((g) => g.category_dex_number).
-          filter((n) => n !== null && n !== undefined);
-          const highestCategoryDexNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 0;
+          
+          // Berechne die nächste Nummer: Anzahl aller Gattungen in dieser Kategorie + 1
+          const nextCategoryDexNumber = categoryGenera.length + 1;
 
           genus = await createGenusMutation.mutateAsync({
-            category_dex_number: highestCategoryDexNumber + 1,
+            category_dex_number: nextCategoryDexNumber,
             genus_name: newPlant.genus_name,
             scientific_genus: newPlant.scientific_genus,
             category: newPlant.category,
@@ -550,17 +552,19 @@ export default function Scanner() {
       );
 
       if (!genus) {
-        const categoryGenera = genera.filter((g) =>
+        // Lade frische Genera-Daten direkt von der DB
+        const allGenera = await base44.entities.PlantGenus.list();
+        
+        const categoryGenera = allGenera.filter((g) =>
         g.category === plantData.category ||
         plantData.category === "Blumen" && g.category === "Blumen & Kräuter"
         );
-        const existingNumbers = categoryGenera.
-        map((g) => g.category_dex_number).
-        filter((n) => n !== null && n !== undefined);
-        const highestCategoryDexNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 0;
+        
+        // Berechne die nächste Nummer: Anzahl aller Gattungen in dieser Kategorie + 1
+        const nextCategoryDexNumber = categoryGenera.length + 1;
 
         genus = await createGenusMutation.mutateAsync({
-          category_dex_number: highestCategoryDexNumber + 1,
+          category_dex_number: nextCategoryDexNumber,
           genus_name: plantData.genus_name,
           scientific_genus: plantData.scientific_genus,
           category: plantData.category,
