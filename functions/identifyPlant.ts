@@ -76,11 +76,13 @@ Deno.serve(async (req) => {
                             // Hole deutschen Namen von PlantNet
                             const germanName = species.commonNames?.find(name => name.toLowerCase().includes('de'))?.split('(')[0]?.trim() || null;
                             
-                            console.log(`🔍 PlantNet deutscher Name: ${germanName || 'nicht gefunden'} für ${species.scientificNameWithoutAuthor} (${(score * 100).toFixed(1)}%)...`);
+                            // Verwende PlantNet-Namen oder "Weitere Arten dieser Gattung"
+                            const finalSpeciesName = germanName || "Weitere Arten dieser Gattung";
+                            
+                            console.log(`🔍 Verwende: "${finalSpeciesName}" für ${species.scientificNameWithoutAuthor} (${(score * 100).toFixed(1)}%)`);
                             
                             const llmEnrichment = await base44.asServiceRole.integrations.Core.InvokeLLM({
                                 prompt: `Die Pflanze wurde als "${species.scientificNameWithoutAuthor}" identifiziert.
-${germanName ? `PlantNet deutscher Name: "${germanName}"` : ''}
 
 WICHTIG: Prüfe zuerst, ob diese Pflanze in Mitteleuopa (Deutschland, Österreich, Schweiz, Polen, Tschechien, etc.) heimisch oder häufig vorkommt!
 
@@ -91,27 +93,24 @@ Falls die Pflanze NICHT in Mitteleuopa vorkommt (z.B. tropische Pflanzen, asiati
 Falls die Pflanze in Mitteleuopa vorkommt:
 - Setze "is_european" auf true
 
-KRITISCH - Namensgebung:
-1. **species_name** = NUTZE DEN DEUTSCHEN NAMEN VON PLANTNET falls vorhanden: "${germanName || ''}"
-   - Falls PlantNet-Name existiert, nutze diesen EXAKT
-   - Ansonsten: Deutscher Artname im SINGULAR mit Bindestrich (z.B. "Silber-Pappel")
+Gib folgende Informationen an:
 
-2. **genus_name** = DEUTSCHER Gattungsname im SINGULAR
+1. **genus_name** = DEUTSCHER Gattungsname im SINGULAR
    - Beispiele: "Pappel", "Weide", "Oregano", "Thymian", "Minze", "Aster"
    - NIEMALS lateinisch (FALSCH: "Origanum", "Thymus", "Mentha", "Tripolium")
    - NIEMALS Plural (FALSCH: "Pappeln", "Weiden")
 
-3. **scientific_genus** = LATEINISCHER Gattungsname
+2. **scientific_genus** = LATEINISCHER Gattungsname
    - Extrahiere aus "${species.scientificNameWithoutAuthor}"
    - Das erste Wort ist die Gattung!
 
-4. Kategorie: "Bäume", "Sträucher" oder "Blumen"
-5. Deutsche Pflanzenfamilie (z.B. "Lippenblütler", "Weidengewächse", "Korbblütler")
-6. Kurze Beschreibung (2-3 Sätze)
-7. Haupterkennungsmerkmale
-8. Interessanter Fakt für Kinder
-9. is_european: true/false (ob die Pflanze in Mitteleuopa vorkommt)
-10. rarity: Wie häufig kommt die Pflanze in Mitteleuopa vor?
+3. Kategorie: "Bäume", "Sträucher" oder "Blumen"
+4. Deutsche Pflanzenfamilie (z.B. "Lippenblütler", "Weidengewächse", "Korbblütler")
+5. Kurze Beschreibung (2-3 Sätze)
+6. Haupterkennungsmerkmale
+7. Interessanter Fakt für Kinder
+8. is_european: true/false (ob die Pflanze in Mitteleuopa vorkommt)
+9. rarity: Wie häufig kommt die Pflanze in Mitteleuopa vor?
    - "Häufig": Überall zu finden (z.B. Löwenzahn, Brennnessel, Rotbuche)
    - "Gelegentlich": Regelmäßig anzutreffen, aber nicht überall (z.b. Eiche, Feuerdorn, Oregano)
    - "Selten": Nur in bestimmten Regionen (z.B. Edelweiß, seltene Orchideen)
@@ -120,7 +119,6 @@ KRITISCH - Namensgebung:
                                 response_json_schema: {
                                     type: "object",
                                     properties: {
-                                        species_name: { type: "string" },
                                         genus_name: { type: "string" },
                                         scientific_genus: { type: "string" },
                                         category: { type: "string", enum: ["Bäume", "Sträucher", "Blumen"] },
@@ -135,7 +133,7 @@ KRITISCH - Namensgebung:
                             });
 
                             return {
-                                species_name: llmEnrichment.species_name,
+                                species_name: finalSpeciesName,
                                 genus_name: llmEnrichment.genus_name,
                                 scientific_name: species.scientificNameWithoutAuthor,
                                 scientific_genus: llmEnrichment.scientific_genus,
