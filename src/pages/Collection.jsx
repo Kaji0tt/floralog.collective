@@ -39,25 +39,7 @@ export default function Collection() {
 
   const isLoading = generaLoading || plantsLoading || discoveriesLoading;
 
-  const generaWithNumbers = genera.map((genus, index) => {
-    if (!genus.category_dex_number) {
-      const categoryGenera = genera.filter(g =>
-        g.category === genus.category &&
-        g.category_dex_number &&
-        g.id !== genus.id
-      );
-      const highestNumber = Math.max(0, ...categoryGenera.map(g => g.category_dex_number));
-      const tempNumber = highestNumber + index + 1;
-
-      return {
-        ...genus,
-        category_dex_number: tempNumber
-      };
-    }
-    return genus;
-  });
-
-  const generaWithDiscovery = generaWithNumbers.map(genus => {
+  const generaWithDiscovery = genera.map(genus => {
     const genusPlants = plants.filter(p => p.genus_id === genus.id);
     const discoveredSpecies = genusPlants.filter(p =>
       userDiscoveries.some(d => d.plant_id === p.id)
