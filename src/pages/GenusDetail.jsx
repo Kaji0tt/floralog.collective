@@ -125,26 +125,23 @@ export default function GenusDetail() {
   };
 
   const genus = genera.find(g => g.id === genusId);
-  const genusPlants = plants
-    .filter(p => p.genus_id === genusId)
-    .sort((a, b) => a.species_name.localeCompare(b.species_name, 'de')) // Alphabetisch sortieren
-    .map(plant => {
-      const plantDiscoveries = userDiscoveries.filter(d => d.plant_id === plant.id);
-      // Sortiere: Front-Image zuerst, dann nach Datum
-      const sortedDiscoveries = [...plantDiscoveries].sort((a, b) => {
-        if (a.is_front_image && !b.is_front_image) return -1;
-        if (!a.is_front_image && b.is_front_image) return 1;
-        return new Date(b.discovered_date) - new Date(a.discovered_date);
-      });
-      const userDiscovery = sortedDiscoveries[0];
-      return {
-        ...plant,
-        discovered: !!userDiscovery,
-        userDiscovery: userDiscovery,
-        allDiscoveries: sortedDiscoveries,
-        discovery_date: userDiscovery ? userDiscovery.created_at : null
-      };
+  const genusPlants = plants.filter(p => p.genus_id === genusId).map(plant => {
+    const plantDiscoveries = userDiscoveries.filter(d => d.plant_id === plant.id);
+    // Sortiere: Front-Image zuerst, dann nach Datum
+    const sortedDiscoveries = [...plantDiscoveries].sort((a, b) => {
+      if (a.is_front_image && !b.is_front_image) return -1;
+      if (!a.is_front_image && b.is_front_image) return 1;
+      return new Date(b.discovered_date) - new Date(a.discovered_date);
     });
+    const userDiscovery = sortedDiscoveries[0];
+    return {
+      ...plant,
+      discovered: !!userDiscovery,
+      userDiscovery: userDiscovery,
+      allDiscoveries: sortedDiscoveries,
+      discovery_date: userDiscovery ? userDiscovery.created_at : null
+    };
+  });
   const discoveredSpecies = genusPlants.filter(p => p.discovered);
 
   // Removed myGenusImages calculation as it was only for the icon selection dialog
