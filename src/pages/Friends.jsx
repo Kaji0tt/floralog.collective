@@ -602,6 +602,9 @@ export default function Friends() {
                                         </span>
                                       </>
                                     )}
+                                    <span className="text-stone-400 flex-shrink-0">
+                                      · {formatDistanceToNow(new Date(friendData.lastActivity.date), { addSuffix: false, locale: de })}
+                                    </span>
                                   </div>
                                 )}
                               </div>
