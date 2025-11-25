@@ -372,7 +372,7 @@ export default function Friends() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4 md:p-8 overflow-x-hidden">
       <MobileBackButton />
 
       <AnimatePresence>
