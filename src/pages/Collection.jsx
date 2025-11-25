@@ -112,9 +112,9 @@ export default function Collection() {
           </div>
         </div>
 
-        <div className="flex justify-center mb-8">
-          <Tabs value={activeCategory} onValueChange={setActiveCategory}>
-            <TabsList className="bg-white border border-stone-200 p-1 h-auto shadow-sm">
+        <div className="flex justify-center mb-8 px-2">
+          <Tabs value={activeCategory} onValueChange={setActiveCategory} className="w-full max-w-md">
+            <TabsList className="bg-white border border-stone-200 p-1 h-auto shadow-sm w-full grid grid-cols-4">
               {categories.map(category => {
                 const categoryGenera = category === "Alle"
                   ? generaWithDiscovery
@@ -125,11 +125,11 @@ export default function Collection() {
                   <TabsTrigger
                     key={category}
                     value={category}
-                    className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold px-6 py-2"
+                    className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold px-2 md:px-4 py-2 text-xs md:text-sm"
                   >
-                    <div className="flex flex-col items-center gap-1">
-                      <span>{category}</span>
-                      <Badge variant="secondary" className="bg-stone-100 text-xs font-semibold">
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span className="truncate">{category}</span>
+                      <Badge variant="secondary" className="bg-stone-100 text-[10px] md:text-xs font-semibold px-1">
                         {discovered}/{categoryGenera.length}
                       </Badge>
                     </div>
