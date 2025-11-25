@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ShieldX } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,22 @@ export default function AdminQuestCreator() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("quest");
   const [editingQuest, setEditingQuest] = useState(null);
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const currentUser = await base44.auth.me();
+        setUser(currentUser);
+      } catch (error) {
+        console.log("User not authenticated");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadUser();
+  }, []);
   
   // Form States
   const [formData, setFormData] = useState({
@@ -198,12 +215,25 @@ export default function AdminQuestCreator() {
     return Math.max(...current.map(q => q.quest_number || 0)) + 1;
   };
 
-  const isLoading = questsLoading || dailyLoading || weeklyLoading;
+  const dataLoading = questsLoading || dailyLoading || weeklyLoading;
 
-  if (isLoading) {
+  if (isLoading || dataLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50">
         <img src={LOGO_URL} alt="PlantDex Logo" className="w-16 h-16 animate-pulse" />
+      </div>
+    );
+  }
+
+  // Admin-Check
+  if (!user || user.role !== "admin") {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-red-50">
+        <div className="text-center p-8">
+          <ShieldX className="w-20 h-20 text-red-400 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-stone-900 mb-2">Zugriff verweigert</h1>
+          <p className="text-stone-600">Diese Seite ist nur für Administratoren zugänglich.</p>
+        </div>
       </div>
     );
   }
