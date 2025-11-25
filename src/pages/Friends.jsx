@@ -560,12 +560,12 @@ export default function Friends() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
                     >
-                      <Card className="border-2 border-stone-200 hover:border-green-300 hover:shadow-md transition-all bg-white group">
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between gap-3">
+                      <Card className="border-2 border-stone-200 hover:border-green-300 hover:shadow-md transition-all bg-white group overflow-hidden">
+                        <CardContent className="p-3">
+                          <div className="flex items-start justify-between gap-2">
                             <button
                               onClick={() => navigate(createPageUrl(`FriendProfile?email=${friendData.email}`))}
-                              className="flex items-start gap-3 flex-1 text-left min-w-0"
+                              className="flex items-start gap-2 flex-1 text-left min-w-0 overflow-hidden"
                             >
                               <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden flex-shrink-0">
                                 {friendData.avatar_url ? (
