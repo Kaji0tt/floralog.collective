@@ -589,7 +589,7 @@ export default function Friends() {
                                     {friendData.lastActivity.type === 'discovery' && friendData.lastActivity.plant && (
                                       <>
                                         <Leaf className="w-3 h-3 text-green-600 flex-shrink-0" />
-                                        <span className="truncate">
+                                        <span className="truncate flex-1 min-w-0">
                                           {friendData.lastActivity.plant.species_name}
                                         </span>
                                       </>
@@ -597,12 +597,12 @@ export default function Friends() {
                                     {friendData.lastActivity.type === 'achievement' && friendData.lastActivity.achievement && (
                                       <>
                                         <Trophy className="w-3 h-3 text-amber-600 flex-shrink-0" />
-                                        <span className="truncate">
+                                        <span className="truncate flex-1 min-w-0">
                                           {friendData.lastActivity.achievement.title}
                                         </span>
                                       </>
                                     )}
-                                    <span className="text-stone-400 flex-shrink-0">
+                                    <span className="text-stone-400 flex-shrink-0 ml-auto whitespace-nowrap">
                                       · {formatDistanceToNow(new Date(friendData.lastActivity.date), { addSuffix: false, locale: de })}
                                     </span>
                                   </div>
