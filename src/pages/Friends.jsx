@@ -391,7 +391,7 @@ export default function Friends() {
         )}
       </AnimatePresence>
 
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto w-full overflow-hidden">
         {/* Mobile View */}
         <div className="md:hidden">
           {/* Sticky Header mit Freundschaftsanfrage */}
