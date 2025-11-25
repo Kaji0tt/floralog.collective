@@ -221,55 +221,51 @@ export default function GenusDetail() {
           {backLabel}
         </Button>
 
-        {/* Header Card */}
-        <Card className="mb-8 border-2 border-amber-200 shadow-lg bg-white">
-          <CardHeader className="border-b-2 border-amber-100 bg-gradient-to-r from-amber-50 to-orange-50">
-            <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+        {/* Header Card - Kompakt */}
+        <Card className="mb-6 border-2 border-amber-200 shadow-md bg-white">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-4">
+              {/* Bild links */}
               <div className="flex-shrink-0">
-                <Badge className="bg-stone-800 text-white font-bold text-xl px-4 py-2 mb-4">
-                  {genus.category === "Bäume" && "🌳"}
-                  {genus.category === "Sträucher" && "🌿"}
-                  {genus.category === "Blumen & Kräuter" && "🌸"}
-                  #{String(genus.category_dex_number).padStart(3, '0')}
-                </Badge>
-                {/* Changed to dynamically load icon from user discoveries */}
-                {genusIconUrl && (
+                {genusIconUrl ? (
                   <img
                     src={genusIconUrl}
                     alt={genus.genus_name}
-                    className="w-32 h-32 object-cover rounded-xl shadow-md border-2 border-stone-200"
+                    className="w-20 h-20 object-cover rounded-xl shadow-sm border-2 border-stone-200"
                   />
+                ) : (
+                  <div className="w-20 h-20 bg-gradient-to-br from-stone-100 to-stone-200 rounded-xl flex items-center justify-center border-2 border-stone-200">
+                    <Leaf className="w-10 h-10 text-stone-400" />
+                  </div>
                 )}
               </div>
-              <div className="flex-1">
-                <h1 className="text-4xl md:text-5xl font-bold text-stone-900 mb-2">
+              
+              {/* Info rechts */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge className="bg-stone-800 text-white font-bold text-xs px-2 py-0.5">
+                    {genus.category === "Bäume" && "🌳"}
+                    {genus.category === "Sträucher" && "🌿"}
+                    {genus.category === "Blumen & Kräuter" && "🌸"}
+                    #{String(genus.category_dex_number).padStart(3, '0')}
+                  </Badge>
+                  <Badge className="bg-green-600 text-white text-xs px-2 py-0.5">
+                    {discoveredSpecies.length}/{genusPlants.length}
+                  </Badge>
+                </div>
+                <h1 className="text-xl md:text-2xl font-bold text-stone-900 truncate">
                   {genus.genus_name}
                 </h1>
-                <p className="text-2xl text-stone-600 italic mb-4">
+                <p className="text-sm text-stone-600 italic truncate">
                   {genus.scientific_genus}
                 </p>
-                <div className="flex flex-wrap gap-2 mb-4">
-                  <Badge className="bg-green-600 text-white font-semibold px-3 py-1">
-                    {genus.category}
-                  </Badge>
-                  <Badge className="bg-stone-700 text-white font-semibold px-3 py-1">
-                    {genus.family}
-                  </Badge>
-                </div>
-                <div className="inline-flex items-center gap-2 bg-white px-5 py-2 rounded-full shadow-sm border border-stone-200">
-                  <Sparkles className="w-5 h-5 text-amber-500" />
-                  <span className="font-bold text-base text-stone-900">
-                    {discoveredSpecies.length} / {genusPlants.length} Arten entdeckt
-                  </span>
-                </div>
               </div>
             </div>
-          </CardHeader>
-          {genus.description && (
-            <CardContent className="p-6">
-              <p className="text-lg text-stone-700 leading-relaxed">{genus.description}</p>
-            </CardContent>
-          )}
+            
+            {genus.description && (
+              <p className="text-sm text-stone-600 mt-3 line-clamp-2">{genus.description}</p>
+            )}
+          </CardContent>
         </Card>
 
         {/* Icon Selection Dialog and related button are removed */}

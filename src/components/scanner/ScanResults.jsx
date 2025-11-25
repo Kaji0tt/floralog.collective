@@ -258,76 +258,69 @@ export default function ScanResults({
 
   }
 
-  // Nicht-europäische Pflanzen - nur separate UI wenn es das erste Ergebnis ist
+  // Nicht-europäische Pflanzen - kompaktes Design
   if (currentPlant?.notInDex && currentPlant?.is_european === false && isPrimaryResult) {
     return (
-      <Card className="border-2 border-orange-200 shadow-lg bg-white">
-        <CardHeader className="border-b-2 border-orange-100 bg-gradient-to-r from-orange-50 to-red-50">
-          <div className="text-center">
-            <AlertCircle className="w-12 h-12 text-orange-600 mx-auto mb-3" />
-            <CardTitle className="text-2xl md:text-3xl font-bold text-stone-900 mb-2 px-4">
-              Keine mitteleuropäische Pflanze! 🌍
-            </CardTitle>
-            <p className="text-sm md:text-base text-orange-700 font-semibold px-4">PlantDex sammelt nur Pflanzen aus Mitteleuropa</p>
-          </div>
-        </CardHeader>
-
-        <CardContent className="p-4 md:p-6 space-y-6">
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <img
-                src={imageUrl}
-                alt={currentPlant.species_name}
-                className="w-full aspect-square object-cover rounded-xl shadow-md border-2 border-orange-300" />
-
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-xl md:text-2xl font-bold text-stone-900 mb-2 break-words">
-                  {currentPlant.species_name}
-                </h3>
-                <p className="text-base md:text-lg text-stone-600 italic mb-2 break-words">
-                  {currentPlant.scientific_name}
-                </p>
-              </div>
-
-              {currentPlant.description &&
-              <div className="bg-stone-50 rounded-xl p-4 border border-stone-200">
-                  <h4 className="font-bold text-stone-900 mb-2">📖 Beschreibung</h4>
-                  <p className="text-stone-700 leading-relaxed">{currentPlant.description}</p>
-                </div>
-              }
-
-              {currentPlant.fun_fact &&
-              <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
-                  <h4 className="font-bold text-blue-900 mb-2">💡 Wusstest du?</h4>
-                  <p className="text-stone-700 leading-relaxed">{currentPlant.fun_fact}</p>
-                </div>
-              }
+      <Card className="border-2 border-orange-200 shadow-md bg-white overflow-hidden">
+        <CardContent className="p-4 space-y-4">
+          {/* Header kompakt */}
+          <div className="flex items-center gap-3 bg-gradient-to-r from-orange-50 to-red-50 -mx-4 -mt-4 p-3 border-b border-orange-200">
+            <AlertCircle className="w-8 h-8 text-orange-600 flex-shrink-0" />
+            <div>
+              <h2 className="text-lg font-bold text-stone-900">Keine mitteleuropäische Pflanze! 🌍</h2>
+              <p className="text-xs text-orange-700">PlantDex sammelt nur Pflanzen aus Mitteleuropa</p>
             </div>
           </div>
 
-          <Alert className="border-2 border-orange-200 bg-orange-50">
-            <AlertDescription className="text-sm md:text-base font-semibold text-orange-900 text-center">
-              ⚠️ Diese Pflanze gehört nicht zur mitteleuropäischen Flora und kann daher nicht zum PlantDex hinzugefügt werden.
-              <br />
-              <span className="text-xs md:text-sm">PlantDex konzentriert sich auf Pflanzen aus Deutschland, Österreich, Schweiz und angrenzenden Regionen.</span>
-            </AlertDescription>
-          </Alert>
-        </CardContent>
+          {/* Bild und Info nebeneinander */}
+          <div className="flex gap-4">
+            <img
+              src={imageUrl}
+              alt={currentPlant.species_name}
+              className="w-24 h-24 object-cover rounded-xl shadow-sm border-2 border-orange-300 flex-shrink-0"
+            />
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-bold text-stone-900 truncate">
+                {currentPlant.species_name}
+              </h3>
+              <p className="text-sm text-stone-600 italic truncate">
+                {currentPlant.scientific_name}
+              </p>
+            </div>
+          </div>
 
-        <CardFooter className="flex gap-4 p-4 md:p-6 border-t-2 border-stone-200 bg-stone-50">
+          {/* Beschreibung kompakt */}
+          {currentPlant.description && (
+            <div className="bg-stone-50 rounded-lg p-3 border border-stone-200">
+              <p className="text-sm text-stone-700 line-clamp-3">{currentPlant.description}</p>
+            </div>
+          )}
+
+          {currentPlant.fun_fact && (
+            <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+              <p className="text-xs font-semibold text-blue-900 mb-1">💡 Wusstest du?</p>
+              <p className="text-sm text-stone-700 line-clamp-2">{currentPlant.fun_fact}</p>
+            </div>
+          )}
+
+          {/* Hinweis */}
+          <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
+            <p className="text-xs text-orange-800 text-center">
+              ⚠️ Diese Pflanze kann nicht zum PlantDex hinzugefügt werden.
+            </p>
+          </div>
+
+          {/* Button */}
           <Button
             onClick={onRescan}
-            className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-5">
-
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold"
+          >
             <RotateCcw className="w-4 h-4 mr-2" />
             Andere Pflanze scannen
           </Button>
-        </CardFooter>
-      </Card>);
-
+        </CardContent>
+      </Card>
+    );
   }
 
   // Erfolgreich gescannte Pflanze (neu oder bereits entdeckt)
