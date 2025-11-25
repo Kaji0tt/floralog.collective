@@ -57,13 +57,13 @@ const createFriendIcon = (colorIndex) => {
   });
 };
 
-function MapController({ center }) {
+function MapController({ center, zoom }) {
   const map = useMap();
   useEffect(() => {
     if (center) {
-      map.setView(center, 13);
+      map.setView(center, zoom || 13);
     }
-  }, [center, map]);
+  }, [center, zoom, map]);
   return null;
 }
 
@@ -76,6 +76,21 @@ export default function Map() {
   const [selectedViews, setSelectedViews] = useState({
     mine: true, // Standardmäßig eigene Pflanzen anzeigen
   });
+  const [targetLocation, setTargetLocation] = useState(null);
+
+  // URL-Parameter für Zielkoordinaten auslesen
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const lat = urlParams.get('lat');
+    const lng = urlParams.get('lng');
+    if (lat && lng) {
+      const parsedLat = parseFloat(lat);
+      const parsedLng = parseFloat(lng);
+      if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+        setTargetLocation([parsedLat, parsedLng]);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -236,7 +251,7 @@ export default function Map() {
   });
 
   const defaultCenter = [50.1109, 8.6821];
-  const mapCenter = userLocation || (allFilteredPlants.length > 0 ? allFilteredPlants[0].coordinates : defaultCenter);
+  const mapCenter = targetLocation || userLocation || (allFilteredPlants.length > 0 ? allFilteredPlants[0].coordinates : defaultCenter);
 
   // Zähle aktivierte Views
   const activeViewCount = Object.values(selectedViews).filter(v => v).length;
@@ -374,7 +389,7 @@ export default function Map() {
               style={{ height: '100%', width: '100%' }}
               className="z-0"
             >
-              <MapController center={userLocation} />
+              <MapController center={targetLocation || userLocation} zoom={targetLocation ? 15 : 13} />
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
