@@ -562,69 +562,73 @@ export default function Friends() {
                     >
                       <Card className="border-2 border-stone-200 hover:border-green-300 hover:shadow-md transition-all bg-white group overflow-hidden">
                         <CardContent className="p-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <button
-                              onClick={() => navigate(createPageUrl(`FriendProfile?email=${friendData.email}`))}
-                              className="flex items-start gap-2 flex-1 text-left min-w-0 overflow-hidden"
-                            >
-                              <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-base shadow-md overflow-hidden flex-shrink-0">
-                                {friendData.avatar_url ? (
-                                  <img src={friendData.avatar_url} alt={friendData.name} className="w-full h-full object-cover" />
-                                ) : (
-                                  friendData.name?.[0]?.toUpperCase() || friendData.email?.[0]?.toUpperCase()
-                                )}
-                              </div>
-                              <div className="flex-1 min-w-0 overflow-hidden">
-                                <div className="font-bold text-stone-900 group-hover:text-green-600 transition-colors truncate text-sm">
+                          <button
+                            onClick={() => navigate(createPageUrl(`FriendProfile?email=${friendData.email}`))}
+                            className="flex items-start gap-2 w-full text-left"
+                          >
+                            <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-base shadow-md overflow-hidden flex-shrink-0">
+                              {friendData.avatar_url ? (
+                                <img src={friendData.avatar_url} alt={friendData.name} className="w-full h-full object-cover" />
+                              ) : (
+                                friendData.name?.[0]?.toUpperCase() || friendData.email?.[0]?.toUpperCase()
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              {/* Obere Zeile: Name + Icons */}
+                              <div className="flex items-center justify-between gap-1">
+                                <div className="font-bold text-stone-900 group-hover:text-green-600 transition-colors truncate text-sm flex-1 min-w-0">
                                   {friendData.name}
                                 </div>
-                                <div className="text-xs text-stone-600 flex items-center">
-                                  <Star className="w-3 h-3 mr-1 text-amber-500 flex-shrink-0" />
-                                  <span className="truncate">Lv.{friendData.level}</span>
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                  <ChevronRight className="w-4 h-4 text-stone-400" />
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (confirm(`Möchtest du ${friendData.name} wirklich entfernen?`)) {
+                                        removeFriendMutation.mutate(friend);
+                                      }
+                                    }}
+                                    disabled={removeFriendMutation.isPending}
+                                    className="text-red-600 hover:bg-red-50 w-6 h-6 p-0"
+                                  >
+                                    <UserMinus className="w-3 h-3" />
+                                  </Button>
                                 </div>
-
-                                {/* Letzte Aktivität */}
-                                {friendData.lastActivity && (
-                                  <div className="text-xs text-stone-500 flex items-center gap-1 mt-0.5 overflow-hidden">
-                                    {friendData.lastActivity.type === 'discovery' && friendData.lastActivity.plant && (
-                                      <>
-                                        <Leaf className="w-3 h-3 text-green-600 flex-shrink-0" />
-                                        <span className="truncate flex-1 min-w-0">
-                                          {friendData.lastActivity.plant.species_name}
-                                        </span>
-                                      </>
-                                    )}
-                                    {friendData.lastActivity.type === 'achievement' && friendData.lastActivity.achievement && (
-                                      <>
-                                        <Trophy className="w-3 h-3 text-amber-600 flex-shrink-0" />
-                                        <span className="truncate flex-1 min-w-0">
-                                          {friendData.lastActivity.achievement.title}
-                                        </span>
-                                      </>
-                                    )}
-                                    <span className="text-stone-400 flex-shrink-0 ml-auto whitespace-nowrap">
-                                      · {formatDistanceToNow(new Date(friendData.lastActivity.date), { addSuffix: false, locale: de })}
-                                    </span>
-                                  </div>
-                                )}
                               </div>
-                              <ChevronRight className="w-4 h-4 text-stone-400 flex-shrink-0" />
-                            </button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (confirm(`Möchtest du ${friendData.name} wirklich entfernen?`)) {
-                                  removeFriendMutation.mutate(friend);
-                                }
-                              }}
-                              disabled={removeFriendMutation.isPending}
-                              className="text-red-600 hover:bg-red-50 flex-shrink-0 w-8 h-8"
-                            >
-                              <UserMinus className="w-4 h-4" />
-                            </Button>
-                          </div>
+                              {/* Level */}
+                              <div className="text-xs text-stone-600 flex items-center">
+                                <Star className="w-3 h-3 mr-1 text-amber-500 flex-shrink-0" />
+                                <span>Lv.{friendData.level}</span>
+                              </div>
+
+                              {/* Letzte Aktivität */}
+                              {friendData.lastActivity && (
+                                <div className="text-xs text-stone-500 flex items-center gap-1 mt-0.5">
+                                  {friendData.lastActivity.type === 'discovery' && friendData.lastActivity.plant && (
+                                    <>
+                                      <Leaf className="w-3 h-3 text-green-600 flex-shrink-0" />
+                                      <span className="truncate flex-1 min-w-0">
+                                        {friendData.lastActivity.plant.species_name}
+                                      </span>
+                                    </>
+                                  )}
+                                  {friendData.lastActivity.type === 'achievement' && friendData.lastActivity.achievement && (
+                                    <>
+                                      <Trophy className="w-3 h-3 text-amber-600 flex-shrink-0" />
+                                      <span className="truncate flex-1 min-w-0">
+                                        {friendData.lastActivity.achievement.title}
+                                      </span>
+                                    </>
+                                  )}
+                                  <span className="text-stone-400 flex-shrink-0 whitespace-nowrap">
+                                    · {formatDistanceToNow(new Date(friendData.lastActivity.date), { addSuffix: false, locale: de })}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </button>
                         </CardContent>
                       </Card>
                     </motion.div>
