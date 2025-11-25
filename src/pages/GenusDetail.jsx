@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Leaf, CheckCircle2, Lock, Sparkles, Volume2, VolumeX, ChevronLeft, ChevronRight, Star, HelpCircle } from "lucide-react";
+import { ArrowLeft, Leaf, CheckCircle2, Lock, Sparkles, Volume2, VolumeX, ChevronLeft, ChevronRight, Star, HelpCircle, MapPin, X } from "lucide-react";
 import { createPageUrl } from "@/utils";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -22,6 +22,7 @@ export default function GenusDetail() {
   const [imageIndexes, setImageIndexes] = useState({});
   const [flippedPlants, setFlippedPlants] = useState({});
   const [enlargedImage, setEnlargedImage] = useState(null);
+  const [expandedPlant, setExpandedPlant] = useState(null);
 
   const { data: genera = [], isLoading: generaLoading } = useQuery({
     queryKey: ['genera'],
@@ -289,14 +290,15 @@ export default function GenusDetail() {
 
         {/* Icon Selection Dialog and related button are removed */}
 
-        {/* Species Cards - Kompakt */}
+        {/* Species Cards - Kompakt, klickbar für Vollansicht */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {genusPlants.map((plant) => (
             <Card
               key={plant.id}
+              onClick={() => plant.discovered && setExpandedPlant(plant)}
               className={`border shadow-sm transition-all duration-300 overflow-hidden ${
                 plant.discovered 
-                  ? 'border-green-200 hover:shadow-md bg-white' 
+                  ? 'border-green-200 hover:shadow-md bg-white cursor-pointer' 
                   : 'border-stone-200 bg-stone-50'
               }`}
             >
@@ -313,47 +315,9 @@ export default function GenusDetail() {
                             className="w-20 h-20 object-cover rounded-lg shadow-sm border border-stone-200"
                           />
                           {plant.allDiscoveries.length > 1 && (
-                            <>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const currentIndex = imageIndexes[plant.id] || 0;
-                                  const newIndex = currentIndex > 0 ? currentIndex - 1 : plant.allDiscoveries.length - 1;
-                                  setImageIndexes(prev => ({ ...prev, [plant.id]: newIndex }));
-                                }}
-                                className="absolute left-0 top-1/2 -translate-y-1/2 w-6 h-6 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow transition-all"
-                              >
-                                <ChevronLeft className="w-4 h-4 text-stone-700" />
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const currentIndex = imageIndexes[plant.id] || 0;
-                                  const newIndex = currentIndex < plant.allDiscoveries.length - 1 ? currentIndex + 1 : 0;
-                                  setImageIndexes(prev => ({ ...prev, [plant.id]: newIndex }));
-                                }}
-                                className="absolute right-0 top-1/2 -translate-y-1/2 w-6 h-6 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow transition-all"
-                              >
-                                <ChevronRight className="w-4 h-4 text-stone-700" />
-                              </button>
-                              <div className="absolute bottom-1 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded-full">
-                                {(imageIndexes[plant.id] || 0) + 1}/{plant.allDiscoveries.length}
-                              </div>
-                              {!friendEmail && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    const currentDiscovery = plant.allDiscoveries[imageIndexes[plant.id] || 0];
-                                    setFrontImageMutation.mutate({ discoveryId: currentDiscovery.id, plantId: plant.id });
-                                  }}
-                                  className={`absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center shadow transition-all ${
-                                    plant.allDiscoveries[imageIndexes[plant.id] || 0]?.is_front_image ? 'bg-amber-500' : 'bg-white/80'
-                                  }`}
-                                >
-                                  <Star className={`w-3 h-3 ${plant.allDiscoveries[imageIndexes[plant.id] || 0]?.is_front_image ? 'text-white fill-white' : 'text-stone-600'}`} />
-                                </button>
-                              )}
-                            </>
+                            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded-full">
+                              {plant.allDiscoveries.length}x
+                            </div>
                           )}
                         </div>
                       )}
@@ -363,22 +327,19 @@ export default function GenusDetail() {
                             <h3 className="text-base font-bold text-stone-900 truncate">{plant.species_name}</h3>
                             <p className="text-xs text-stone-600 italic truncate">{plant.scientific_name}</p>
                           </div>
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            <Button
-                              onClick={() => speakPlantDescription(plant)}
-                              variant="ghost"
-                              size="icon"
-                              className="w-7 h-7"
-                            >
-                              {speakingPlantId === plant.id ? <VolumeX className="w-4 h-4 text-green-600" /> : <Volume2 className="w-4 h-4 text-stone-500" />}
-                            </Button>
-                            <CheckCircle2 className="w-5 h-5 text-green-600" />
-                          </div>
+                          <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
                         </div>
                         {plant.rarity && (
                           <Badge className={`mt-1 ${getRarityColor(plant.rarity)} text-white text-xs px-1.5 py-0`}>
                             {getRarityStars(plant.rarity)}
                           </Badge>
+                        )}
+                        {/* Fundort anzeigen */}
+                        {plant.userDiscovery?.discovery_location && (
+                          <div className="flex items-center gap-1 mt-1 text-xs text-stone-500">
+                            <MapPin className="w-3 h-3" />
+                            <span className="truncate">{plant.userDiscovery.discovery_location}</span>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -387,21 +348,12 @@ export default function GenusDetail() {
                     {plant.description && (
                       <p className="text-xs text-stone-600 line-clamp-2">{plant.description}</p>
                     )}
-                    {plant.identification_features && (
-                      <div className="bg-blue-50 border border-blue-100 rounded-lg p-2">
-                        <p className="text-xs text-stone-700 line-clamp-2">🔍 {plant.identification_features}</p>
-                      </div>
-                    )}
-                    {plant.fun_fact && (
-                      <div className="bg-amber-50 border border-amber-100 rounded-lg p-2">
-                        <p className="text-xs text-stone-700 line-clamp-2">💡 {plant.fun_fact}</p>
-                      </div>
-                    )}
                   </div>
                 ) : (
                   <div 
                     className="relative h-32 rounded-lg overflow-hidden bg-gradient-to-br from-stone-100 to-stone-200 cursor-pointer flex items-center justify-center"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setFlippedPlants(prev => ({ ...prev, [plant.id]: true }));
                       setTimeout(() => setFlippedPlants(prev => ({ ...prev, [plant.id]: false })), 3000);
                     }}
@@ -434,6 +386,146 @@ export default function GenusDetail() {
             </Card>
           ))}
         </div>
+
+        {/* Erweiterte Pflanzen-Ansicht Modal */}
+        {expandedPlant && (
+          <div 
+            className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+            onClick={() => setExpandedPlant(null)}
+          >
+            <div 
+              className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Großes Bild */}
+              {expandedPlant.allDiscoveries?.length > 0 && (
+                <div className="relative">
+                  <img
+                    src={expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.image_url || expandedPlant.userDiscovery?.image_url}
+                    alt={expandedPlant.species_name}
+                    className="w-full aspect-square object-cover rounded-t-2xl"
+                  />
+                  {/* Schließen Button */}
+                  <button
+                    onClick={() => setExpandedPlant(null)}
+                    className="absolute top-3 right-3 w-10 h-10 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center transition-colors"
+                  >
+                    <X className="w-6 h-6 text-white" />
+                  </button>
+                  
+                  {/* Bild-Navigation */}
+                  {expandedPlant.allDiscoveries.length > 1 && (
+                    <>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const currentIndex = imageIndexes[expandedPlant.id] || 0;
+                          const newIndex = currentIndex > 0 ? currentIndex - 1 : expandedPlant.allDiscoveries.length - 1;
+                          setImageIndexes(prev => ({ ...prev, [expandedPlant.id]: newIndex }));
+                        }}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-lg"
+                      >
+                        <ChevronLeft className="w-6 h-6 text-stone-700" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const currentIndex = imageIndexes[expandedPlant.id] || 0;
+                          const newIndex = currentIndex < expandedPlant.allDiscoveries.length - 1 ? currentIndex + 1 : 0;
+                          setImageIndexes(prev => ({ ...prev, [expandedPlant.id]: newIndex }));
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-lg"
+                      >
+                        <ChevronRight className="w-6 h-6 text-stone-700" />
+                      </button>
+                      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white text-sm px-3 py-1 rounded-full">
+                        {(imageIndexes[expandedPlant.id] || 0) + 1} / {expandedPlant.allDiscoveries.length}
+                      </div>
+                      {/* Front-Image Button */}
+                      {!friendEmail && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const currentDiscovery = expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0];
+                            setFrontImageMutation.mutate({ discoveryId: currentDiscovery.id, plantId: expandedPlant.id });
+                          }}
+                          className={`absolute top-3 left-3 w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all ${
+                            expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_front_image 
+                              ? 'bg-amber-500 hover:bg-amber-600' 
+                              : 'bg-white/80 hover:bg-white'
+                          }`}
+                          title="Als Hauptbild festlegen"
+                        >
+                          <Star className={`w-5 h-5 ${
+                            expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_front_image 
+                              ? 'text-white fill-white' 
+                              : 'text-stone-600'
+                          }`} />
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+              
+              {/* Info-Bereich */}
+              <div className="p-4 space-y-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold text-stone-900">{expandedPlant.species_name}</h2>
+                    <p className="text-sm text-stone-600 italic">{expandedPlant.scientific_name}</p>
+                  </div>
+                  <Button
+                    onClick={() => speakPlantDescription(expandedPlant)}
+                    variant="outline"
+                    size="icon"
+                    className="flex-shrink-0"
+                  >
+                    {speakingPlantId === expandedPlant.id ? <VolumeX className="w-5 h-5 text-green-600" /> : <Volume2 className="w-5 h-5 text-stone-600" />}
+                  </Button>
+                </div>
+                
+                {expandedPlant.rarity && (
+                  <Badge className={`${getRarityColor(expandedPlant.rarity)} text-white`}>
+                    {getRarityStars(expandedPlant.rarity)} {expandedPlant.rarity}
+                  </Badge>
+                )}
+                
+                {/* Fundort */}
+                {expandedPlant.allDiscoveries?.[imageIndexes[expandedPlant.id] || 0]?.discovery_location && (
+                  <div className="flex items-center gap-2 text-sm text-stone-600 bg-stone-50 rounded-lg p-2">
+                    <MapPin className="w-4 h-4 text-green-600" />
+                    <span>{expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0].discovery_location}</span>
+                  </div>
+                )}
+                
+                {expandedPlant.description && (
+                  <p className="text-sm text-stone-700">{expandedPlant.description}</p>
+                )}
+                
+                {expandedPlant.identification_features && (
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
+                    <p className="text-xs font-semibold text-blue-900 mb-1">🔍 Erkennungsmerkmale</p>
+                    <p className="text-sm text-stone-700">{expandedPlant.identification_features}</p>
+                  </div>
+                )}
+                
+                {expandedPlant.fun_fact && (
+                  <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+                    <p className="text-xs font-semibold text-amber-900 mb-1">💡 Wusstest du?</p>
+                    <p className="text-sm text-stone-700">{expandedPlant.fun_fact}</p>
+                  </div>
+                )}
+                
+                {expandedPlant.discovery_date && (
+                  <p className="text-xs text-stone-500">
+                    Entdeckt am: {format(new Date(expandedPlant.discovery_date), "d. MMMM yyyy", { locale: de })}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
