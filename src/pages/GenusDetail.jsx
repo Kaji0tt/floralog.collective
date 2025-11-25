@@ -26,40 +26,6 @@ export default function GenusDetail() {
   const [expandedPlant, setExpandedPlant] = useState(null);
   const [locationNames, setLocationNames] = useState({});
 
-  // Koordinaten zu Ortsnamen umwandeln
-  const getLocationName = async (coords, discoveryId) => {
-    if (!coords || locationNames[discoveryId]) return;
-    
-    // Prüfe ob es Koordinaten sind (Format: "lat, lng")
-    const coordMatch = coords.match(/^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/);
-    if (!coordMatch) {
-      // Ist bereits ein Name
-      setLocationNames(prev => ({ ...prev, [discoveryId]: coords }));
-      return;
-    }
-    
-    const [, lat, lng] = coordMatch;
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=10`
-      );
-      const data = await response.json();
-      const name = data.address?.city || data.address?.town || data.address?.village || data.address?.municipality || coords;
-      setLocationNames(prev => ({ ...prev, [discoveryId]: name }));
-    } catch {
-      setLocationNames(prev => ({ ...prev, [discoveryId]: coords }));
-    }
-  };
-
-  // Lade Ortsnamen für alle Discoveries
-  React.useEffect(() => {
-    userDiscoveries.forEach(d => {
-      if (d.discovery_location) {
-        getLocationName(d.discovery_location, d.id);
-      }
-    });
-  }, [userDiscoveries]);
-
   const { data: genera = [], isLoading: generaLoading } = useQuery({
     queryKey: ['genera'],
     queryFn: () => base44.entities.PlantGenus.list(),
