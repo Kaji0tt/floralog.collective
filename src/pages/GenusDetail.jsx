@@ -21,6 +21,7 @@ export default function GenusDetail() {
   const [speakingPlantId, setSpeakingPlantId] = useState(null);
   const [imageIndexes, setImageIndexes] = useState({});
   const [flippedPlants, setFlippedPlants] = useState({});
+  const [enlargedImage, setEnlargedImage] = useState(null);
 
   const { data: genera = [], isLoading: generaLoading } = useQuery({
     queryKey: ['genera'],
@@ -221,28 +222,29 @@ export default function GenusDetail() {
           {backLabel}
         </Button>
 
-        {/* Header Card - Kompakt */}
-        <Card className="mb-6 border-2 border-amber-200 shadow-md bg-white">
+        {/* Header Card */}
+        <Card className="mb-6 border-2 border-amber-200 shadow-md bg-white overflow-hidden">
           <CardContent className="p-4">
-            <div className="flex items-center gap-4">
-              {/* Bild links */}
+            <div className="flex gap-4">
+              {/* Bild links - größer und klickbar */}
               <div className="flex-shrink-0">
                 {genusIconUrl ? (
                   <img
                     src={genusIconUrl}
                     alt={genus.genus_name}
-                    className="w-20 h-20 object-cover rounded-xl shadow-sm border-2 border-stone-200"
+                    onClick={() => setEnlargedImage(genusIconUrl)}
+                    className="w-28 h-28 md:w-32 md:h-32 object-cover rounded-xl shadow-md border-2 border-stone-200 cursor-pointer hover:opacity-90 transition-opacity"
                   />
                 ) : (
-                  <div className="w-20 h-20 bg-gradient-to-br from-stone-100 to-stone-200 rounded-xl flex items-center justify-center border-2 border-stone-200">
-                    <Leaf className="w-10 h-10 text-stone-400" />
+                  <div className="w-28 h-28 md:w-32 md:h-32 bg-gradient-to-br from-stone-100 to-stone-200 rounded-xl flex items-center justify-center border-2 border-stone-200">
+                    <Leaf className="w-12 h-12 text-stone-400" />
                   </div>
                 )}
               </div>
               
               {/* Info rechts */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <Badge className="bg-stone-800 text-white font-bold text-xs px-2 py-0.5">
                     {genus.category === "Bäume" && "🌳"}
                     {genus.category === "Sträucher" && "🌿"}
@@ -253,20 +255,37 @@ export default function GenusDetail() {
                     {discoveredSpecies.length}/{genusPlants.length}
                   </Badge>
                 </div>
-                <h1 className="text-xl md:text-2xl font-bold text-stone-900 truncate">
+                <h1 className="text-xl md:text-2xl font-bold text-stone-900">
                   {genus.genus_name}
                 </h1>
-                <p className="text-sm text-stone-600 italic truncate">
+                <p className="text-sm text-stone-600 italic mb-2">
                   {genus.scientific_genus}
                 </p>
+                {genus.family && (
+                  <Badge variant="outline" className="text-xs">{genus.family}</Badge>
+                )}
               </div>
             </div>
             
             {genus.description && (
-              <p className="text-sm text-stone-600 mt-3 line-clamp-2">{genus.description}</p>
+              <p className="text-sm text-stone-600 mt-3">{genus.description}</p>
             )}
           </CardContent>
         </Card>
+
+        {/* Bild-Vollansicht Modal */}
+        {enlargedImage && (
+          <div 
+            className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+            onClick={() => setEnlargedImage(null)}
+          >
+            <img 
+              src={enlargedImage} 
+              alt="Vergrößerte Ansicht"
+              className="max-w-full max-h-full object-contain rounded-lg"
+            />
+          </div>
+        )}
 
         {/* Icon Selection Dialog and related button are removed */}
 
