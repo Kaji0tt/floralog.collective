@@ -259,7 +259,9 @@ export default function Map() {
 
   return (
     <div className="h-screen flex flex-col">
-      <MobileBackButton />
+      <div className="z-[1001]">
+        <MobileBackButton />
+      </div>
       
       {/* Header mit Filter-Button */}
       <div className="bg-white border-b-2 border-stone-200 shadow-md z-50">
