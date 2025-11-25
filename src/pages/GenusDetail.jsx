@@ -270,7 +270,7 @@ export default function GenusDetail() {
 
         {/* Icon Selection Dialog and related button are removed */}
 
-        {/* Species Cards - Kompakt */}
+        {/* Species Cards - Bild-fokussiert */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {genusPlants.map((plant) => (
             <Card
@@ -281,107 +281,107 @@ export default function GenusDetail() {
                   : 'border-stone-200 bg-stone-50'
               }`}
             >
-              <CardContent className="p-3">
+              <CardContent className="p-0">
                 {plant.discovered ? (
-                  <div className="space-y-3">
-                    {/* Header mit Bild */}
-                    <div className="flex gap-3">
-                      {plant.allDiscoveries?.length > 0 && (
-                        <div className="relative flex-shrink-0">
-                          <img
-                            src={plant.allDiscoveries[imageIndexes[plant.id] || 0]?.image_url || plant.userDiscovery.image_url}
-                            alt={plant.species_name}
-                            className="w-20 h-20 object-cover rounded-lg shadow-sm border border-stone-200"
-                          />
-                          {plant.allDiscoveries.length > 1 && (
-                            <>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const currentIndex = imageIndexes[plant.id] || 0;
-                                  const newIndex = currentIndex > 0 ? currentIndex - 1 : plant.allDiscoveries.length - 1;
-                                  setImageIndexes(prev => ({ ...prev, [plant.id]: newIndex }));
-                                }}
-                                className="absolute left-0 top-1/2 -translate-y-1/2 w-6 h-6 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow transition-all"
-                              >
-                                <ChevronLeft className="w-4 h-4 text-stone-700" />
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const currentIndex = imageIndexes[plant.id] || 0;
-                                  const newIndex = currentIndex < plant.allDiscoveries.length - 1 ? currentIndex + 1 : 0;
-                                  setImageIndexes(prev => ({ ...prev, [plant.id]: newIndex }));
-                                }}
-                                className="absolute right-0 top-1/2 -translate-y-1/2 w-6 h-6 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow transition-all"
-                              >
-                                <ChevronRight className="w-4 h-4 text-stone-700" />
-                              </button>
-                              <div className="absolute bottom-1 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded-full">
-                                {(imageIndexes[plant.id] || 0) + 1}/{plant.allDiscoveries.length}
-                              </div>
-                              {!friendEmail && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    const currentDiscovery = plant.allDiscoveries[imageIndexes[plant.id] || 0];
-                                    setFrontImageMutation.mutate({ discoveryId: currentDiscovery.id, plantId: plant.id });
-                                  }}
-                                  className={`absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center shadow transition-all ${
-                                    plant.allDiscoveries[imageIndexes[plant.id] || 0]?.is_front_image ? 'bg-amber-500' : 'bg-white/80'
-                                  }`}
-                                >
-                                  <Star className={`w-3 h-3 ${plant.allDiscoveries[imageIndexes[plant.id] || 0]?.is_front_image ? 'text-white fill-white' : 'text-stone-600'}`} />
-                                </button>
-                              )}
-                            </>
+                  <div>
+                    {/* Großes Bild oben */}
+                    {plant.allDiscoveries?.length > 0 && (
+                      <div className="relative">
+                        <img
+                          src={plant.allDiscoveries[imageIndexes[plant.id] || 0]?.image_url || plant.userDiscovery.image_url}
+                          alt={plant.species_name}
+                          className="w-full aspect-square object-cover"
+                        />
+                        {/* Overlay mit Name */}
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+                          <div className="flex items-end justify-between">
+                            <div>
+                              <h3 className="text-base font-bold text-white">{plant.species_name}</h3>
+                              <p className="text-xs text-white/80 italic">{plant.scientific_name}</p>
+                            </div>
+                            {plant.rarity && (
+                              <Badge className={`${getRarityColor(plant.rarity)} text-white text-xs px-1.5 py-0`}>
+                                {getRarityStars(plant.rarity)}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        {/* Navigation */}
+                        {plant.allDiscoveries.length > 1 && (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const currentIndex = imageIndexes[plant.id] || 0;
+                                const newIndex = currentIndex > 0 ? currentIndex - 1 : plant.allDiscoveries.length - 1;
+                                setImageIndexes(prev => ({ ...prev, [plant.id]: newIndex }));
+                              }}
+                              className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow transition-all"
+                            >
+                              <ChevronLeft className="w-5 h-5 text-stone-700" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const currentIndex = imageIndexes[plant.id] || 0;
+                                const newIndex = currentIndex < plant.allDiscoveries.length - 1 ? currentIndex + 1 : 0;
+                                setImageIndexes(prev => ({ ...prev, [plant.id]: newIndex }));
+                              }}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow transition-all"
+                            >
+                              <ChevronRight className="w-5 h-5 text-stone-700" />
+                            </button>
+                            <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
+                              {(imageIndexes[plant.id] || 0) + 1}/{plant.allDiscoveries.length}
+                            </div>
+                          </>
+                        )}
+                        {/* Buttons oben rechts */}
+                        <div className="absolute top-2 right-2 flex gap-1">
+                          {!friendEmail && plant.allDiscoveries.length > 1 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const currentDiscovery = plant.allDiscoveries[imageIndexes[plant.id] || 0];
+                                setFrontImageMutation.mutate({ discoveryId: currentDiscovery.id, plantId: plant.id });
+                              }}
+                              className={`w-8 h-8 rounded-full flex items-center justify-center shadow transition-all ${
+                                plant.allDiscoveries[imageIndexes[plant.id] || 0]?.is_front_image ? 'bg-amber-500' : 'bg-white/90'
+                              }`}
+                            >
+                              <Star className={`w-4 h-4 ${plant.allDiscoveries[imageIndexes[plant.id] || 0]?.is_front_image ? 'text-white fill-white' : 'text-stone-600'}`} />
+                            </button>
                           )}
+                          <button
+                            onClick={() => speakPlantDescription(plant)}
+                            className="w-8 h-8 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow transition-all"
+                          >
+                            {speakingPlantId === plant.id ? <VolumeX className="w-4 h-4 text-green-600" /> : <Volume2 className="w-4 h-4 text-stone-600" />}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Info kompakt darunter */}
+                    <div className="p-3 space-y-2">
+                      {plant.description && (
+                        <p className="text-xs text-stone-600">{plant.description}</p>
+                      )}
+                      {plant.identification_features && (
+                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-2">
+                          <p className="text-xs text-stone-700">🔍 {plant.identification_features}</p>
                         </div>
                       )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <h3 className="text-base font-bold text-stone-900 truncate">{plant.species_name}</h3>
-                            <p className="text-xs text-stone-600 italic truncate">{plant.scientific_name}</p>
-                          </div>
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            <Button
-                              onClick={() => speakPlantDescription(plant)}
-                              variant="ghost"
-                              size="icon"
-                              className="w-7 h-7"
-                            >
-                              {speakingPlantId === plant.id ? <VolumeX className="w-4 h-4 text-green-600" /> : <Volume2 className="w-4 h-4 text-stone-500" />}
-                            </Button>
-                            <CheckCircle2 className="w-5 h-5 text-green-600" />
-                          </div>
+                      {plant.fun_fact && (
+                        <div className="bg-amber-50 border border-amber-100 rounded-lg p-2">
+                          <p className="text-xs text-stone-700">💡 {plant.fun_fact}</p>
                         </div>
-                        {plant.rarity && (
-                          <Badge className={`mt-1 ${getRarityColor(plant.rarity)} text-white text-xs px-1.5 py-0`}>
-                            {getRarityStars(plant.rarity)}
-                          </Badge>
-                        )}
-                      </div>
+                      )}
                     </div>
-                    
-                    {/* Info Boxes kompakt */}
-                    {plant.description && (
-                      <p className="text-xs text-stone-600 line-clamp-2">{plant.description}</p>
-                    )}
-                    {plant.identification_features && (
-                      <div className="bg-blue-50 border border-blue-100 rounded-lg p-2">
-                        <p className="text-xs text-stone-700 line-clamp-2">🔍 {plant.identification_features}</p>
-                      </div>
-                    )}
-                    {plant.fun_fact && (
-                      <div className="bg-amber-50 border border-amber-100 rounded-lg p-2">
-                        <p className="text-xs text-stone-700 line-clamp-2">💡 {plant.fun_fact}</p>
-                      </div>
-                    )}
                   </div>
                 ) : (
                   <div 
-                    className="relative h-32 rounded-lg overflow-hidden bg-gradient-to-br from-stone-100 to-stone-200 cursor-pointer flex items-center justify-center"
+                    className="relative aspect-square bg-gradient-to-br from-stone-100 to-stone-200 cursor-pointer flex items-center justify-center"
                     onClick={() => {
                       setFlippedPlants(prev => ({ ...prev, [plant.id]: true }));
                       setTimeout(() => setFlippedPlants(prev => ({ ...prev, [plant.id]: false })), 3000);
@@ -389,13 +389,13 @@ export default function GenusDetail() {
                   >
                     {!flippedPlants[plant.id] ? (
                       <div className="text-center">
-                        <Leaf className="w-10 h-10 text-stone-300 mx-auto mb-2" />
-                        <p className="text-xs text-stone-500">{friendEmail ? "Noch nicht entdeckt" : "Tippen für Hinweis"}</p>
+                        <Leaf className="w-16 h-16 text-stone-300 mx-auto mb-2" />
+                        <p className="text-sm text-stone-500 font-medium">{friendEmail ? "Noch nicht entdeckt" : "Tippen für Hinweis"}</p>
                       </div>
                     ) : (
-                      <div className="text-center px-3">
-                        <p className="text-sm font-bold text-stone-700">{plant.species_name}</p>
-                        <p className="text-xs italic text-stone-600">{plant.scientific_name}</p>
+                      <div className="text-center px-4">
+                        <p className="text-lg font-bold text-stone-700">{plant.species_name}</p>
+                        <p className="text-sm italic text-stone-600">{plant.scientific_name}</p>
                       </div>
                     )}
                     {!friendEmail && (
@@ -404,9 +404,9 @@ export default function GenusDetail() {
                           e.stopPropagation();
                           window.open(`https://www.google.com/search?q=Wo+finde+ich+${encodeURIComponent(plant.species_name)}`, '_blank');
                         }}
-                        className="absolute top-2 right-2 w-6 h-6 bg-stone-400 rounded-full flex items-center justify-center hover:bg-stone-500 z-10"
+                        className="absolute top-2 right-2 w-8 h-8 bg-stone-400 rounded-full flex items-center justify-center hover:bg-stone-500 z-10"
                       >
-                        <HelpCircle className="w-3 h-3 text-white" />
+                        <HelpCircle className="w-4 h-4 text-white" />
                       </button>
                     )}
                   </div>
