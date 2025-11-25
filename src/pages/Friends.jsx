@@ -608,7 +608,7 @@ export default function Friends() {
                               <ChevronRight className="w-4 h-4 text-stone-400 flex-shrink-0" />
                             </button>
                             <Button
-                              size="sm"
+                              size="icon"
                               variant="ghost"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -617,7 +617,7 @@ export default function Friends() {
                                 }
                               }}
                               disabled={removeFriendMutation.isPending}
-                              className="text-red-600 hover:bg-red-50 flex-shrink-0"
+                              className="text-red-600 hover:bg-red-50 flex-shrink-0 w-8 h-8"
                             >
                               <UserMinus className="w-4 h-4" />
                             </Button>
