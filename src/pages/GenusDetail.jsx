@@ -5,7 +5,8 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Leaf, CheckCircle2, Lock, Sparkles, Volume2, VolumeX, ChevronLeft, ChevronRight, Star, HelpCircle, MapPin, X } from "lucide-react";
+import { ArrowLeft, Leaf, CheckCircle2, Lock, Sparkles, Volume2, VolumeX, ChevronLeft, ChevronRight, Star, HelpCircle, MapPin, X, ExternalLink } from "lucide-react";
+import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -23,6 +24,41 @@ export default function GenusDetail() {
   const [flippedPlants, setFlippedPlants] = useState({});
   const [enlargedImage, setEnlargedImage] = useState(null);
   const [expandedPlant, setExpandedPlant] = useState(null);
+  const [locationNames, setLocationNames] = useState({});
+
+  // Koordinaten zu Ortsnamen umwandeln
+  const getLocationName = async (coords, discoveryId) => {
+    if (!coords || locationNames[discoveryId]) return;
+    
+    // Prüfe ob es Koordinaten sind (Format: "lat, lng")
+    const coordMatch = coords.match(/^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/);
+    if (!coordMatch) {
+      // Ist bereits ein Name
+      setLocationNames(prev => ({ ...prev, [discoveryId]: coords }));
+      return;
+    }
+    
+    const [, lat, lng] = coordMatch;
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=10`
+      );
+      const data = await response.json();
+      const name = data.address?.city || data.address?.town || data.address?.village || data.address?.municipality || coords;
+      setLocationNames(prev => ({ ...prev, [discoveryId]: name }));
+    } catch {
+      setLocationNames(prev => ({ ...prev, [discoveryId]: coords }));
+    }
+  };
+
+  // Lade Ortsnamen für alle Discoveries
+  React.useEffect(() => {
+    userDiscoveries.forEach(d => {
+      if (d.discovery_location) {
+        getLocationName(d.discovery_location, d.id);
+      }
+    });
+  }, [userDiscoveries]);
 
   const { data: genera = [], isLoading: generaLoading } = useQuery({
     queryKey: ['genera'],
@@ -334,12 +370,16 @@ export default function GenusDetail() {
                             {getRarityStars(plant.rarity)}
                           </Badge>
                         )}
-                        {/* Fundort anzeigen */}
+                        {/* Fundort anzeigen - klickbar zur Karte */}
                         {plant.userDiscovery?.discovery_location && (
-                          <div className="flex items-center gap-1 mt-1 text-xs text-stone-500">
+                          <Link
+                            to={createPageUrl(`Map?lat=${plant.userDiscovery.discovery_location.split(',')[0]?.trim()}&lng=${plant.userDiscovery.discovery_location.split(',')[1]?.trim()}`)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex items-center gap-1 mt-1 text-xs text-green-600 hover:text-green-700"
+                          >
                             <MapPin className="w-3 h-3" />
-                            <span className="truncate">{plant.userDiscovery.discovery_location}</span>
-                          </div>
+                            <span className="truncate">{locationNames[plant.userDiscovery.id] || plant.userDiscovery.discovery_location}</span>
+                          </Link>
                         )}
                       </div>
                     </div>
@@ -491,13 +531,22 @@ export default function GenusDetail() {
                   </Badge>
                 )}
                 
-                {/* Fundort */}
-                {expandedPlant.allDiscoveries?.[imageIndexes[expandedPlant.id] || 0]?.discovery_location && (
-                  <div className="flex items-center gap-2 text-sm text-stone-600 bg-stone-50 rounded-lg p-2">
-                    <MapPin className="w-4 h-4 text-green-600" />
-                    <span>{expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0].discovery_location}</span>
-                  </div>
-                )}
+                {/* Fundort - klickbar zur Karte */}
+                {expandedPlant.allDiscoveries?.[imageIndexes[expandedPlant.id] || 0]?.discovery_location && (() => {
+                  const currentDiscovery = expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0];
+                  const coords = currentDiscovery.discovery_location;
+                  const [lat, lng] = coords.split(',').map(s => s.trim());
+                  return (
+                    <Link
+                      to={createPageUrl(`Map?lat=${lat}&lng=${lng}`)}
+                      className="flex items-center gap-2 text-sm text-green-600 hover:text-green-700 bg-green-50 rounded-lg p-2 border border-green-100"
+                    >
+                      <MapPin className="w-4 h-4" />
+                      <span>{locationNames[currentDiscovery.id] || coords}</span>
+                      <ExternalLink className="w-3 h-3 ml-auto" />
+                    </Link>
+                  );
+                })()}
                 
                 {expandedPlant.description && (
                   <p className="text-sm text-stone-700">{expandedPlant.description}</p>
