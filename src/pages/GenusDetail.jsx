@@ -270,197 +270,143 @@ export default function GenusDetail() {
 
         {/* Icon Selection Dialog and related button are removed */}
 
-        {/* Species Cards */}
-        <div className="grid md:grid-cols-2 gap-6">
+        {/* Species Cards - Kompakt */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {genusPlants.map((plant) => (
             <Card
               key={plant.id}
-              className={`border-2 shadow-md transition-all duration-300 ${
+              className={`border shadow-sm transition-all duration-300 overflow-hidden ${
                 plant.discovered 
-                  ? 'border-green-300 hover:shadow-lg bg-white' 
+                  ? 'border-green-200 hover:shadow-md bg-white' 
                   : 'border-stone-200 bg-stone-50'
               }`}
             >
-              <CardHeader className={`border-b-2 ${plant.discovered ? 'border-green-100 bg-green-50' : 'border-stone-200 bg-stone-100'}`}>
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <h3 className={`text-xl font-bold ${plant.discovered ? 'text-stone-900' : 'text-stone-500'}`}>
-                      {plant.discovered ? plant.species_name : '???'}
-                    </h3>
-                    <p className={`text-sm italic ${plant.discovered ? 'text-stone-600' : 'text-stone-400'}`}>
-                      {plant.discovered ? plant.scientific_name : 'Noch nicht entdeckt'}
-                    </p>
-                    {plant.discovered && plant.rarity && (
-                      <Badge className={`mt-2 ${getRarityColor(plant.rarity)} text-white font-bold text-xs`}>
-                        {getRarityStars(plant.rarity)} {plant.rarity}
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {plant.discovered && (
-                      <Button
-                        onClick={() => speakPlantDescription(plant)}
-                        variant="outline"
-                        size="icon"
-                        className={`border-2 ${speakingPlantId === plant.id ? 'border-green-500 bg-green-50' : 'border-stone-300'}`}
-                      >
-                        {speakingPlantId === plant.id ? (
-                          <VolumeX className="w-5 h-5 text-green-600" />
-                        ) : (
-                          <Volume2 className="w-5 h-5 text-stone-600" />
-                        )}
-                      </Button>
-                    )}
-                    {plant.discovered ? (
-                      <CheckCircle2 className="w-8 h-8 text-green-600 flex-shrink-0" />
-                    ) : (
-                      <Leaf className="w-8 h-8 text-stone-400 flex-shrink-0" />
-                    )}
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
+              <CardContent className="p-3">
                 {plant.discovered ? (
-                  <div className="space-y-4">
-                    {plant.allDiscoveries?.length > 0 && (
-                      <div className="relative">
-                        <img
-                          src={plant.allDiscoveries[imageIndexes[plant.id] || 0]?.image_url || plant.userDiscovery.image_url}
-                          alt={plant.species_name}
-                          className="w-full h-48 object-cover rounded-lg shadow-sm border border-stone-200"
-                        />
-                        
-                        {plant.allDiscoveries.length > 1 && (
-                          <>
-                            {/* Navigation Buttons */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const currentIndex = imageIndexes[plant.id] || 0;
-                                const newIndex = currentIndex > 0 ? currentIndex - 1 : plant.allDiscoveries.length - 1;
-                                setImageIndexes(prev => ({ ...prev, [plant.id]: newIndex }));
-                              }}
-                              className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-md transition-all"
-                            >
-                              <ChevronLeft className="w-5 h-5 text-stone-700" />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const currentIndex = imageIndexes[plant.id] || 0;
-                                const newIndex = currentIndex < plant.allDiscoveries.length - 1 ? currentIndex + 1 : 0;
-                                setImageIndexes(prev => ({ ...prev, [plant.id]: newIndex }));
-                              }}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-md transition-all"
-                            >
-                              <ChevronRight className="w-5 h-5 text-stone-700" />
-                            </button>
-                            
-                            {/* Counter */}
-                            <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
-                              {(imageIndexes[plant.id] || 0) + 1} / {plant.allDiscoveries.length}
-                            </div>
-                            
-                            {/* Front-Image Button - nur für eigene Discoveries */}
-                            {!friendEmail && (
+                  <div className="space-y-3">
+                    {/* Header mit Bild */}
+                    <div className="flex gap-3">
+                      {plant.allDiscoveries?.length > 0 && (
+                        <div className="relative flex-shrink-0">
+                          <img
+                            src={plant.allDiscoveries[imageIndexes[plant.id] || 0]?.image_url || plant.userDiscovery.image_url}
+                            alt={plant.species_name}
+                            className="w-20 h-20 object-cover rounded-lg shadow-sm border border-stone-200"
+                          />
+                          {plant.allDiscoveries.length > 1 && (
+                            <>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  const currentDiscovery = plant.allDiscoveries[imageIndexes[plant.id] || 0];
-                                  setFrontImageMutation.mutate({ 
-                                    discoveryId: currentDiscovery.id, 
-                                    plantId: plant.id 
-                                  });
+                                  const currentIndex = imageIndexes[plant.id] || 0;
+                                  const newIndex = currentIndex > 0 ? currentIndex - 1 : plant.allDiscoveries.length - 1;
+                                  setImageIndexes(prev => ({ ...prev, [plant.id]: newIndex }));
                                 }}
-                                className={`absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center shadow-md transition-all ${
-                                  plant.allDiscoveries[imageIndexes[plant.id] || 0]?.is_front_image
-                                    ? 'bg-amber-500 hover:bg-amber-600'
-                                    : 'bg-white/80 hover:bg-white'
-                                }`}
-                                title="Als Hauptbild festlegen"
+                                className="absolute left-0 top-1/2 -translate-y-1/2 w-6 h-6 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow transition-all"
                               >
-                                <Star 
-                                  className={`w-4 h-4 ${
-                                    plant.allDiscoveries[imageIndexes[plant.id] || 0]?.is_front_image
-                                      ? 'text-white fill-white'
-                                      : 'text-stone-600'
-                                  }`}
-                                />
+                                <ChevronLeft className="w-4 h-4 text-stone-700" />
                               </button>
-                            )}
-                          </>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const currentIndex = imageIndexes[plant.id] || 0;
+                                  const newIndex = currentIndex < plant.allDiscoveries.length - 1 ? currentIndex + 1 : 0;
+                                  setImageIndexes(prev => ({ ...prev, [plant.id]: newIndex }));
+                                }}
+                                className="absolute right-0 top-1/2 -translate-y-1/2 w-6 h-6 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow transition-all"
+                              >
+                                <ChevronRight className="w-4 h-4 text-stone-700" />
+                              </button>
+                              <div className="absolute bottom-1 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded-full">
+                                {(imageIndexes[plant.id] || 0) + 1}/{plant.allDiscoveries.length}
+                              </div>
+                              {!friendEmail && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const currentDiscovery = plant.allDiscoveries[imageIndexes[plant.id] || 0];
+                                    setFrontImageMutation.mutate({ discoveryId: currentDiscovery.id, plantId: plant.id });
+                                  }}
+                                  className={`absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center shadow transition-all ${
+                                    plant.allDiscoveries[imageIndexes[plant.id] || 0]?.is_front_image ? 'bg-amber-500' : 'bg-white/80'
+                                  }`}
+                                >
+                                  <Star className={`w-3 h-3 ${plant.allDiscoveries[imageIndexes[plant.id] || 0]?.is_front_image ? 'text-white fill-white' : 'text-stone-600'}`} />
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <h3 className="text-base font-bold text-stone-900 truncate">{plant.species_name}</h3>
+                            <p className="text-xs text-stone-600 italic truncate">{plant.scientific_name}</p>
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <Button
+                              onClick={() => speakPlantDescription(plant)}
+                              variant="ghost"
+                              size="icon"
+                              className="w-7 h-7"
+                            >
+                              {speakingPlantId === plant.id ? <VolumeX className="w-4 h-4 text-green-600" /> : <Volume2 className="w-4 h-4 text-stone-500" />}
+                            </Button>
+                            <CheckCircle2 className="w-5 h-5 text-green-600" />
+                          </div>
+                        </div>
+                        {plant.rarity && (
+                          <Badge className={`mt-1 ${getRarityColor(plant.rarity)} text-white text-xs px-1.5 py-0`}>
+                            {getRarityStars(plant.rarity)}
+                          </Badge>
                         )}
                       </div>
-                    )}
+                    </div>
+                    
+                    {/* Info Boxes kompakt */}
                     {plant.description && (
-                      <p className="text-stone-700">{plant.description}</p>
+                      <p className="text-xs text-stone-600 line-clamp-2">{plant.description}</p>
                     )}
                     {plant.identification_features && (
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                        <p className="text-sm font-semibold text-blue-900 mb-1">🔍 Erkennungsmerkmale:</p>
-                        <p className="text-sm text-stone-700">{plant.identification_features}</p>
+                      <div className="bg-blue-50 border border-blue-100 rounded-lg p-2">
+                        <p className="text-xs text-stone-700 line-clamp-2">🔍 {plant.identification_features}</p>
                       </div>
                     )}
                     {plant.fun_fact && (
-                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                        <p className="text-sm font-semibold text-amber-900 mb-1">💡 Wusstest du?</p>
-                        <p className="text-sm text-stone-700">{plant.fun_fact}</p>
+                      <div className="bg-amber-50 border border-amber-100 rounded-lg p-2">
+                        <p className="text-xs text-stone-700 line-clamp-2">💡 {plant.fun_fact}</p>
                       </div>
-                    )}
-                    {plant.discovery_date && (
-                      <p className="text-sm text-stone-500">
-                        Entdeckt am: {format(new Date(plant.discovery_date), "d. MMMM yyyy", { locale: de })}
-                      </p>
                     )}
                   </div>
                 ) : (
                   <div 
-                    className="relative aspect-square rounded-lg overflow-hidden bg-gradient-to-br from-stone-100 to-stone-200 cursor-pointer"
-                    style={{ perspective: 1000 }}
+                    className="relative h-32 rounded-lg overflow-hidden bg-gradient-to-br from-stone-100 to-stone-200 cursor-pointer flex items-center justify-center"
                     onClick={() => {
                       setFlippedPlants(prev => ({ ...prev, [plant.id]: true }));
-                      setTimeout(() => {
-                        setFlippedPlants(prev => ({ ...prev, [plant.id]: false }));
-                      }, 3000);
+                      setTimeout(() => setFlippedPlants(prev => ({ ...prev, [plant.id]: false })), 3000);
                     }}
                   >
-                    <motion.div 
-                      className="absolute inset-0 flex items-center justify-center"
-                      animate={{ rotateY: flippedPlants[plant.id] ? 180 : 0 }}
-                      transition={{ duration: 0.6 }}
-                      style={{ transformStyle: "preserve-3d" }}
-                    >
-                      <motion.div
-                        className="absolute inset-0 flex flex-col items-center justify-center"
-                        style={{ backfaceVisibility: "hidden" }}
-                      >
-                        <Leaf className="w-16 h-16 text-stone-300 mb-3" strokeWidth={1.5} />
-                        <p className="text-stone-500 font-semibold px-4 text-center text-sm">
-                          {friendEmail ? "Noch nicht entdeckt" : "Klicke für Hinweis"}
-                        </p>
-                      </motion.div>
-                      <motion.div
-                        className="absolute inset-0 flex flex-col items-center justify-center text-center px-4"
-                        style={{ 
-                          backfaceVisibility: "hidden",
-                          transform: "rotateY(180deg)"
-                        }}
-                      >
-                        <p className="text-lg font-bold text-stone-700 mb-2">{plant.species_name}</p>
-                        <p className="text-sm italic text-stone-600">{plant.scientific_name}</p>
-                      </motion.div>
-                    </motion.div>
-                    
+                    {!flippedPlants[plant.id] ? (
+                      <div className="text-center">
+                        <Leaf className="w-10 h-10 text-stone-300 mx-auto mb-2" />
+                        <p className="text-xs text-stone-500">{friendEmail ? "Noch nicht entdeckt" : "Tippen für Hinweis"}</p>
+                      </div>
+                    ) : (
+                      <div className="text-center px-3">
+                        <p className="text-sm font-bold text-stone-700">{plant.species_name}</p>
+                        <p className="text-xs italic text-stone-600">{plant.scientific_name}</p>
+                      </div>
+                    )}
                     {!friendEmail && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           window.open(`https://www.google.com/search?q=Wo+finde+ich+${encodeURIComponent(plant.species_name)}`, '_blank');
                         }}
-                        className="absolute top-2 right-2 w-7 h-7 bg-stone-400 rounded-full flex items-center justify-center hover:bg-stone-500 transition-colors z-20"
-                        title="Wo finde ich diese Pflanze?"
+                        className="absolute top-2 right-2 w-6 h-6 bg-stone-400 rounded-full flex items-center justify-center hover:bg-stone-500 z-10"
                       >
-                        <HelpCircle className="w-4 h-4 text-white" />
+                        <HelpCircle className="w-3 h-3 text-white" />
                       </button>
                     )}
                   </div>
