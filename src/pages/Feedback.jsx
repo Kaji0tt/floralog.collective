@@ -1,11 +1,10 @@
-
-import { useState } from "react";
+import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageSquare, Send, CheckCircle, Loader2, AlertCircle } from "lucide-react";
+import { MessageSquare, Send, CheckCircle, Loader2, AlertCircle, Wrench } from "lucide-react";
 import { motion } from "framer-motion";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 
@@ -97,6 +96,33 @@ ${message}
                     <li>✓ Fehlerberichte</li>
                     <li>✓ Neue Feature-Ideen</li>
                     <li>✓ Allgemeines Feedback zur Bedienung</li>
+                  </ul>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* In Bearbeitung Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15, duration: 0.6 }}
+          className="mb-6"
+        >
+          <Card className="border-2 border-amber-200 bg-amber-50">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-3">
+                <Wrench className="w-6 h-6 text-amber-600 flex-shrink-0 mt-1" />
+                <div>
+                  <h3 className="font-bold text-lg text-stone-900 mb-2">
+                    Aktuell in Bearbeitung 🛠️
+                  </h3>
+                  <ul className="space-y-1 text-sm text-stone-700">
+                    <li>🗺️ Tägliche Quests mit geografischen Zonen (Sümpfe, Strand, Gebirge, ...)</li>
+                    <li>📅 Mehr wöchentliche Quests</li>
+                    <li>👥 Mehr Möglichkeiten zur Interaktion mit Freunden</li>
+                    <li>🏠 Möglichkeit "Gruppen" zu erstellen</li>
                   </ul>
                 </div>
               </div>
