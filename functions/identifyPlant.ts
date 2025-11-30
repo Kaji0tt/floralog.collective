@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
                 throw new Error("PlantNet API Key nicht gesetzt");
             }
 
-            const plantnetUrl = `https://my-api.plantnet.org/v2/identify/all?api-key=${plantnetApiKey}`;
+            const plantnetUrl = `https://my-api.plantnet.org/v2/identify/all?api-key=${plantnetApiKey}&lang=de`;
             
             const formData = new FormData();
             
@@ -73,16 +73,20 @@ Deno.serve(async (req) => {
                             const species = result.species;
                             const score = result.score;
                             
-                            // Hole deutschen Namen von PlantNet
-                            const germanName = species.commonNames?.find(name => name.toLowerCase().includes('de'))?.split('(')[0]?.trim() || null;
+                            // commonNames sind jetzt auf Deutsch (durch lang=de Parameter)
+                            // Nimm den ersten commonName falls vorhanden
+                            const germanName = species.commonNames && species.commonNames.length > 0 
+                                ? species.commonNames[0] 
+                                : null;
                             
-                            // Verwende PlantNet-Namen oder "Weitere Arten dieser Gattung"
-                            const finalSpeciesName = germanName || "Weitere Arten dieser Gattung";
+                            // Verwende PlantNet-Namen oder null (wird später vom LLM übersetzt)
+                            const finalSpeciesName = germanName;
                             
-                            console.log(`🔍 Verwende: "${finalSpeciesName}" für ${species.scientificNameWithoutAuthor} (${(score * 100).toFixed(1)}%)`);
+                            console.log(`🔍 PlantNet Name: "${finalSpeciesName || 'nicht vorhanden'}" für ${species.scientificNameWithoutAuthor} (${(score * 100).toFixed(1)}%)`);
                             
                             const llmEnrichment = await base44.asServiceRole.integrations.Core.InvokeLLM({
                                 prompt: `Die Pflanze wurde als "${species.scientificNameWithoutAuthor}" identifiziert.
+${finalSpeciesName ? `PlantNet gibt als deutschen Namen: "${finalSpeciesName}" an.` : 'PlantNet hat keinen deutschen Namen geliefert.'}
 
 WICHTIG: Prüfe zuerst, ob diese Pflanze in Mitteleuopa (Deutschland, Österreich, Schweiz, Polen, Tschechien, etc.) heimisch oder häufig vorkommt!
 
@@ -95,22 +99,28 @@ Falls die Pflanze in Mitteleuopa vorkommt:
 
 Gib folgende Informationen an:
 
-1. **genus_name** = DEUTSCHER Gattungsname im SINGULAR
-   - Beispiele: "Pappel", "Weide", "Oregano", "Thymian", "Minze", "Aster"
-   - NIEMALS lateinisch (FALSCH: "Origanum", "Thymus", "Mentha", "Tripolium")
-   - NIEMALS Plural (FALSCH: "Pappeln", "Weiden")
+1. **species_name** = DEUTSCHER Artname
+   - Falls PlantNet einen deutschen Namen geliefert hat, verwende diesen
+   - Ansonsten: Übersetze den wissenschaftlichen Namen ins Deutsche
+   - Beispiele: "Gewöhnliche Brombeere", "Gemeine Fichte", "Frauenmantel"
+   - WICHTIG: Muss zur Art "${species.scientificNameWithoutAuthor}" passen!
 
-2. **scientific_genus** = LATEINISCHER Gattungsname
+2. **genus_name** = DEUTSCHER Gattungsname im SINGULAR
+   - Beispiele: "Brombeere", "Fichte", "Frauenmantel", "Weide", "Oregano"
+   - NIEMALS lateinisch (FALSCH: "Rubus", "Picea", "Alchemilla")
+   - NIEMALS Plural (FALSCH: "Brombeeren", "Fichten")
+
+3. **scientific_genus** = LATEINISCHER Gattungsname
    - Extrahiere aus "${species.scientificNameWithoutAuthor}"
    - Das erste Wort ist die Gattung!
 
-3. Kategorie: "Bäume", "Sträucher" oder "Blumen"
-4. Deutsche Pflanzenfamilie (z.B. "Lippenblütler", "Weidengewächse", "Korbblütler")
-5. Kurze Beschreibung (2-3 Sätze)
-6. Haupterkennungsmerkmale
-7. Interessanter Fakt für Kinder
-8. is_european: true/false (ob die Pflanze in Mitteleuopa vorkommt)
-9. rarity: Wie häufig kommt die Pflanze in Mitteleuopa vor?
+4. Kategorie: "Bäume", "Sträucher" oder "Blumen"
+5. Deutsche Pflanzenfamilie (z.B. "Lippenblütler", "Weidengewächse", "Korbblütler")
+6. Kurze Beschreibung (2-3 Sätze)
+7. Haupterkennungsmerkmale
+8. Interessanter Fakt für Kinder
+9. is_european: true/false (ob die Pflanze in Mitteleuopa vorkommt)
+10. rarity: Wie häufig kommt die Pflanze in Mitteleuopa vor?
    - "Häufig": Überall zu finden (z.B. Löwenzahn, Brennnessel, Rotbuche)
    - "Gelegentlich": Regelmäßig anzutreffen, aber nicht überall (z.b. Eiche, Feuerdorn, Oregano)
    - "Selten": Nur in bestimmten Regionen (z.B. Edelweiß, seltene Orchideen)
@@ -119,6 +129,7 @@ Gib folgende Informationen an:
                                 response_json_schema: {
                                     type: "object",
                                     properties: {
+                                        species_name: { type: "string" },
                                         genus_name: { type: "string" },
                                         scientific_genus: { type: "string" },
                                         category: { type: "string", enum: ["Bäume", "Sträucher", "Blumen"] },
@@ -132,8 +143,11 @@ Gib folgende Informationen an:
                                 }
                             });
 
+                            // Verwende LLM-übersetzten Namen, oder PlantNet-Namen als Fallback
+                            const translatedSpeciesName = llmEnrichment.species_name || finalSpeciesName || species.scientificNameWithoutAuthor;
+                            
                             return {
-                                species_name: finalSpeciesName,
+                                species_name: translatedSpeciesName,
                                 genus_name: llmEnrichment.genus_name,
                                 scientific_name: species.scientificNameWithoutAuthor,
                                 scientific_genus: llmEnrichment.scientific_genus,
