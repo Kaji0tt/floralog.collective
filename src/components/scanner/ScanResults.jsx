@@ -369,22 +369,6 @@ export default function ScanResults({
               className="w-full overflow-visible">
 
               <Card className="shadow-2xl bg-gradient-to-br from-stone-100 to-stone-50 overflow-hidden border-none">
-                <CardHeader className={`border-b-2 p-4 md:p-6 ${
-                  isPrimaryResult && isNewToPlantDex
-                    ? "bg-gradient-to-r from-blue-600 to-indigo-600 border-blue-500"
-                    : "bg-gradient-to-r from-green-600 to-emerald-600 border-stone-300"
-                }`}>
-                  <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-white text-center">
-                    {isPrimaryResult ?
-                    isNewToPlantDex ? "Neue Pflanze zum PlantDex hinzugefügt! 🎉" :
-                    wasAlreadyDiscovered ? "Pflanze erneut gescannt! ✅" :
-                    "Neue Pflanze entdeckt! 🌟" :
-
-                    `Alternative ${currentResultIndex}`
-                    }
-                  </h2>
-                </CardHeader>
-
                 <CardContent className="p-4 md:p-6 space-y-3 bg-gradient-to-br from-green-50/40 via-emerald-50/30 to-teal-50/20">
                   {/* Container mit Rarität-Border für Titel und Bild */}
                   <div className={`relative rounded-2xl p-4 ${getRarityBackgroundColor(rarity)}`} style={{ boxShadow: '8px 8px 24px rgba(0, 0, 0, 0.15)' }}>
