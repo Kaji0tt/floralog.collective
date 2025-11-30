@@ -176,12 +176,16 @@ Gib folgende Informationen an:
             }
             
             console.log("⚠️ PlantNet keine Ergebnisse gefunden");
-            throw new Error("PlantNet keine Ergebnisse");
+            
+            return Response.json({
+                identified: false,
+                error: 'PlantNet konnte die Pflanze nicht identifizieren.'
+            });
 
         } catch (plantnetError) {
             console.warn("⚠️ PlantNet fehlgeschlagen:", plantnetError.message);
             
-            // Bei Rate-Limit: Spezieller Error zurückgeben (kein LLM Fallback!)
+            // Bei Rate-Limit: Spezieller Error zurückgeben
             if (plantnetError.message === 'PLANTNET_RATE_LIMIT') {
                 return Response.json({
                     identified: false,
@@ -190,71 +194,10 @@ Gib folgende Informationen an:
                 }, { status: 503 });
             }
             
-            console.log("🤖 Fallback zu LLM...");
-
-            // Fallback: LLM mit Bild
-            const llmResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
-                prompt: `Du bist ein präziser Botaniker und Pflanzenexperte.
-
-Analysiere dieses Foto sehr sorgfältig und identifiziere die Pflanze NUR wenn du dir SICHER bist.
-
-WICHTIGE REGELN:
-- Setze "identified" nur auf TRUE wenn du die Pflanze mit hoher Sicherheit erkennst
-- Achte genau auf: Blattform, Blütenform, Farbe, Wuchsform, Stängelstruktur
-- Bei Unsicherheit: setze "identified" auf FALSE
-- Lieber keine Antwort als eine falsche!
-- WICHTIG: Prüfe ob die Pflanze in Mitteleuopa (Deutschland, Österreich, Schweiz, Polen, Tschechien, etc.) heimisch oder häufig vorkommt
-- Setze "is_european" auf false für tropische, asiatische, amerikanische oder andere nicht-europäische Pflanzen
-
-Falls du die Pflanze SICHER erkennst, gib an:
-1. Deutschen Artnamen (präzise, z.B. "Gewöhnliche Sonnenblume", "Trauer-Weide", nicht nur "Sonnenblume")
-2. Gattungsname (z.B. "Sonnenblume", "Weide")
-3. Wissenschaftlicher Artname (z.B. "Helianthus annuus", "Salix babylonica")
-4. Wissenschaftlicher Gattungsname (z.B. "Helianthus", "Salix")
-5. Kategorie: "Bäume", "Sträucher" oder "Blumen"
-6. Pflanzenfamilie (z.B. "Korbblütler", "Weidengewächse")
-7. Beschreibung (2-3 Sätze)
-8. Haupterkennungsmerkmale
-9. Interessanter Fakt
-10. is_european: true/false (ob die Pflanze in Mitteleuopa vorkommt)
-11. rarity: Wie häufig kommt die Pflanze in Mitteleuopa vor?
-    - "Häufig": Überall zu finden
-    - "Gelegentlich": Regelmäßig anzutreffen
-    - "Selten": Nur in bestimmten Regionen
-    - "Sehr Selten": Sehr selten
-    - "Extrem Selten": Sehr selten, oft vom Aussterben bedroht
-
-Sei ehrlich: Falls du unsicher bist, setze "identified" auf false!`,
-                file_urls: [image_url],
-                response_json_schema: {
-                    type: "object",
-                    properties: {
-                        identified: { type: "boolean" },
-                        confidence: { type: "string" },
-                        species_name: { type: "string" },
-                        genus_name: { type: "string" },
-                        scientific_name: { type: "string" },
-                        scientific_genus: { type: "string" },
-                        category: { type: "string", enum: ["Bäume", "Sträucher", "Blumen"] },
-                        family: { type: "string" },
-                        description: { type: "string" },
-                        identification_features: { type: "string" },
-                        fun_fact: { type: "string" },
-                        is_european: { type: "boolean" },
-                        rarity: { type: "string", enum: ["Häufig", "Gelegentlich", "Selten", "Sehr Selten", "Extrem Selten"] }
-                    },
-                    required: ["identified"]
-                }
-            });
-
+            // Kein LLM-Fallback mehr - nur PlantNet
             return Response.json({
-                identified: llmResult.identified,
-                source: "llm",
-                results: llmResult.identified ? [{
-                    ...llmResult,
-                    confidence_percentage: null
-                }] : [],
-                primary_result: llmResult.identified ? llmResult : null
+                identified: false,
+                error: `PlantNet Fehler: ${plantnetError.message}`
             });
         }
 
