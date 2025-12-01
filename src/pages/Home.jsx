@@ -1085,7 +1085,7 @@ export default function Home() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5, duration: 0.6 }}
-          className="flex justify-center gap-6 pt-6 pb-2">
+          className="flex justify-center flex-wrap gap-6 pt-6 pb-2">
 
           <button
             onClick={() => navigate(createPageUrl("Donate"))}
@@ -1104,6 +1104,12 @@ export default function Home() {
             className="flex items-center gap-2 text-stone-600 hover:text-stone-900 transition-colors font-medium text-sm">
 
             <span>Impressum</span>
+          </button>
+          <button
+            onClick={() => navigate(createPageUrl("ScanResultsPreview"))}
+            className="flex items-center gap-2 text-stone-600 hover:text-orange-600 transition-colors font-medium text-sm">
+
+            <span>🧪 Preview</span>
           </button>
         </motion.div>
       </div>
