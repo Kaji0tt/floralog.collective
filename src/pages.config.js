@@ -29,6 +29,7 @@ import AdminBlumenList from './pages/AdminBlumenList';
 import FriendFriendsList from './pages/FriendFriendsList';
 import ViewSharedScan from './pages/ViewSharedScan';
 import AdminQuestCreator from './pages/AdminQuestCreator';
+import ScanResultsPreview from './pages/ScanResultsPreview';
 import __Layout from './Layout.jsx';
 
 
@@ -64,6 +65,7 @@ export const PAGES = {
     "FriendFriendsList": FriendFriendsList,
     "ViewSharedScan": ViewSharedScan,
     "AdminQuestCreator": AdminQuestCreator,
+    "ScanResultsPreview": ScanResultsPreview,
 }
 
 export const pagesConfig = {
