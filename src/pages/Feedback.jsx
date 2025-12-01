@@ -4,7 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageSquare, Send, CheckCircle, Loader2, AlertCircle, Wrench } from "lucide-react";
+import { MessageSquare, Send, CheckCircle, Loader2, AlertCircle, Wrench, Eye } from "lucide-react";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 
@@ -124,6 +126,36 @@ ${message}
                     <li>👥 Mehr Möglichkeiten zur Interaktion mit Freunden</li>
                     <li>🏠 Möglichkeit "Gruppen" zu erstellen</li>
                   </ul>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Design Preview Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.17, duration: 0.6 }}
+          className="mb-6"
+        >
+          <Card className="border-2 border-purple-200 bg-purple-50">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-3">
+                <Eye className="w-6 h-6 text-purple-600 flex-shrink-0 mt-1" />
+                <div className="flex-1">
+                  <h3 className="font-bold text-lg text-stone-900 mb-2">
+                    Design-Vorschau 🎨
+                  </h3>
+                  <p className="text-sm text-stone-700 mb-3">
+                    Teste das Scan-Ergebnis-Design ohne echte Scans durchführen zu müssen.
+                  </p>
+                  <Link to={createPageUrl("ScanResultsPreview")}>
+                    <Button variant="outline" className="border-purple-300 hover:bg-purple-100">
+                      <Eye className="w-4 h-4 mr-2" />
+                      Scan-Ergebnis Preview öffnen
+                    </Button>
+                  </Link>
                 </div>
               </div>
             </CardContent>
