@@ -43,6 +43,7 @@ export default function Scanner() {
   const [pendingScanData, setPendingScanData] = useState(null); // Temporäre Scan-Daten vor Bestätigung
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [isSavingPlant, setIsSavingPlant] = useState(false);
+  const [currentResultIndex, setCurrentResultIndex] = useState(0); // Aktuell ausgewähltes Ergebnis
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -746,12 +747,17 @@ Falls du die Pflanze SICHER erkennst, gib an:
     setShowConfirmDialog(false);
     
     try {
-      if (pendingScanData.isInDatabase) {
-        await handleAutoSave(pendingScanData.plant, pendingScanData.imageUrl, pendingScanData.plant.aiData, pendingScanData.allResults);
+      // Wähle das aktuell ausgewählte Ergebnis
+      const selectedPlant = pendingScanData.allResults[currentResultIndex] || pendingScanData.plant;
+      const isInDatabase = selectedPlant.inDatabase;
+      
+      if (isInDatabase) {
+        await handleAutoSave(selectedPlant, pendingScanData.imageUrl, selectedPlant.aiData || selectedPlant, pendingScanData.allResults);
       } else {
-        await handleAutoAddNewPlant(pendingScanData.plant, pendingScanData.imageUrl, pendingScanData.allResults);
+        await handleAutoAddNewPlant(selectedPlant, pendingScanData.imageUrl, pendingScanData.allResults);
       }
       setPendingScanData(null);
+      setCurrentResultIndex(0);
       // Nach erfolgreichem Speichern zur Startseite navigieren
       navigate(createPageUrl("Home"));
     } catch (error) {
@@ -770,14 +776,22 @@ Falls du die Pflanze SICHER erkennst, gib an:
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 md:p-8 overflow-x-hidden">
-      {/* Grüner Haken Button - nur wenn pendingScanData vorhanden */}
+      {/* Grüner Haken / Ändern Button - nur wenn pendingScanData vorhanden */}
       {pendingScanData && !isSavingPlant && (
         <div className="md:hidden fixed bottom-4 left-4 z-50">
           <Button
             onClick={() => setShowConfirmDialog(true)}
-            className="w-16 h-16 bg-green-600 hover:bg-green-700 shadow-lg border-2 border-white text-white rounded-full"
+            className={`w-16 h-16 shadow-lg border-2 border-white text-white rounded-full ${
+              currentResultIndex === 0 
+                ? "bg-green-600 hover:bg-green-700" 
+                : "bg-orange-600 hover:bg-orange-700"
+            }`}
           >
-            <Check className="w-8 h-8" />
+            {currentResultIndex === 0 ? (
+              <Check className="w-8 h-8" />
+            ) : (
+              <RefreshCw className="w-8 h-8" />
+            )}
           </Button>
         </div>
       )}
@@ -791,7 +805,7 @@ Falls du die Pflanze SICHER erkennst, gib an:
               Pflanze hinzufügen?
             </DialogTitle>
             <DialogDescription className="text-base pt-4">
-              Möchtest du <strong>{pendingScanData?.plant?.species_name}</strong> zu deiner Sammlung hinzufügen?
+              Möchtest du <strong>{pendingScanData?.allResults?.[currentResultIndex]?.species_name || pendingScanData?.plant?.species_name}</strong> zu deiner Sammlung hinzufügen?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
@@ -935,7 +949,9 @@ Falls du die Pflanze SICHER erkennst, gib an:
               setLatestDiscoveryId(null);
               setImageUrl(null);
               setPendingScanData(null);
+              setCurrentResultIndex(0);
             }}
+            onResultIndexChange={setCurrentResultIndex}
             userLocation={userLocation}
             allResults={allScanResults}
             onDeleteResult={handleDeleteResult}

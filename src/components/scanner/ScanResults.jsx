@@ -21,7 +21,8 @@ export default function ScanResults({
   onDeleteResult,
   onChangeResult,
   latestDiscoveryId,
-  isPendingConfirmation = false
+  isPendingConfirmation = false,
+  onResultIndexChange
 }) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [currentResultIndex, setCurrentResultIndex] = useState(0);
@@ -71,10 +72,19 @@ export default function ScanResults({
     const threshold = 100;
 
     if (info.offset.x > threshold && currentResultIndex > 0) {
-      setCurrentResultIndex(currentResultIndex - 1);
+      const newIndex = currentResultIndex - 1;
+      setCurrentResultIndex(newIndex);
+      if (onResultIndexChange) onResultIndexChange(newIndex);
     } else if (info.offset.x < -threshold && currentResultIndex < results.length - 1) {
-      setCurrentResultIndex(currentResultIndex + 1);
+      const newIndex = currentResultIndex + 1;
+      setCurrentResultIndex(newIndex);
+      if (onResultIndexChange) onResultIndexChange(newIndex);
     }
+  };
+
+  const handleResultIndexChange = (newIndex) => {
+    setCurrentResultIndex(newIndex);
+    if (onResultIndexChange) onResultIndexChange(newIndex);
   };
 
   const handleVerifyResult = () => {
@@ -456,28 +466,6 @@ export default function ScanResults({
                           <Gift className="w-5 h-5 text-white" />
                         </motion.button>
 
-                        {/* Löschen (X) oder Ändern Button - nur wenn bereits gespeichert */}
-                        {!isPendingConfirmation && (
-                          isPrimaryResult ? (
-                            <motion.button
-                              onClick={handleDeleteResult}
-                              disabled={isDeleting}
-                              className="w-11 h-11 bg-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-100 transition-all border-2 border-stone-200"
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.95 }}>
-                              <X className="w-5 h-5 text-red-600" />
-                            </motion.button>
-                          ) : (
-                            <motion.button
-                              onClick={handleChangeResult}
-                              disabled={isChanging}
-                              className="w-11 h-11 bg-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-100 transition-all border-2 border-orange-200"
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.95 }}>
-                              <RefreshCw className="w-5 h-5 text-orange-600" />
-                            </motion.button>
-                          )
-                        )}
                       </div>
                       }
                   </div>
@@ -487,7 +475,7 @@ export default function ScanResults({
                     <div className="flex justify-center items-center gap-3 mt-4">
                       {/* Linker Pfeil */}
                       <motion.button
-                        onClick={() => currentResultIndex > 0 && setCurrentResultIndex(currentResultIndex - 1)}
+                        onClick={() => currentResultIndex > 0 && handleResultIndexChange(currentResultIndex - 1)}
                         disabled={currentResultIndex === 0}
                         className={`flex items-center justify-center transition-all ${
                           currentResultIndex === 0 ? 'opacity-20 cursor-not-allowed' : 'opacity-50 hover:opacity-80'
@@ -510,7 +498,7 @@ export default function ScanResults({
 
                       {/* Rechter Pfeil */}
                       <motion.button
-                        onClick={() => currentResultIndex < results.length - 1 && setCurrentResultIndex(currentResultIndex + 1)}
+                        onClick={() => currentResultIndex < results.length - 1 && handleResultIndexChange(currentResultIndex + 1)}
                         disabled={currentResultIndex === results.length - 1}
                         className={`flex items-center justify-center transition-all ${
                           currentResultIndex === results.length - 1 ? 'opacity-20 cursor-not-allowed' : 'opacity-50 hover:opacity-80'
