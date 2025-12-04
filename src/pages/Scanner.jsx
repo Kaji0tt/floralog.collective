@@ -935,12 +935,14 @@ Falls du die Pflanze SICHER erkennst, gib an:
               setAllScanResults([]);
               setLatestDiscoveryId(null);
               setImageUrl(null);
+              setPendingScanData(null);
             }}
             userLocation={userLocation}
             allResults={allScanResults}
             onDeleteResult={handleDeleteResult}
             onChangeResult={handleChangeResult}
-            latestDiscoveryId={latestDiscoveryId} />
+            latestDiscoveryId={latestDiscoveryId}
+            isPendingConfirmation={!!pendingScanData} />
 
           </div>
         }
