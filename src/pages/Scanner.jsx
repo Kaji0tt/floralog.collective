@@ -13,7 +13,7 @@ import AchievementNotification from "../components/achievements/AchievementNotif
 import { AnimatePresence } from "framer-motion";
 import { awardXP } from "../components/utils/xpSystem";
 import MobileBackButton from "../components/navigation/MobileBackButton";
-import { Check } from "lucide-react";
+import { Check, RefreshCw } from "lucide-react";
 import { createPageUrl } from "@/utils";
 import {
   getCurrentDailyQuest,
