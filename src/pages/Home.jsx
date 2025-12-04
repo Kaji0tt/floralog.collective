@@ -1105,12 +1105,6 @@ export default function Home() {
 
             <span>Impressum</span>
           </button>
-          <button
-            onClick={() => navigate(createPageUrl("ScanResultsPreview"))}
-            className="flex items-center gap-2 text-stone-600 hover:text-orange-600 transition-colors font-medium text-sm">
-
-            <span>🧪 Preview</span>
-          </button>
         </motion.div>
       </div>
     </div>
