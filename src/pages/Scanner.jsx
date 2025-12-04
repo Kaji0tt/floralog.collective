@@ -740,8 +740,77 @@ Falls du die Pflanze SICHER erkennst, gib an:
   };
 
   return (
+  const handleConfirmSave = async () => {
+    if (!pendingScanData) return;
+    
+    setIsSavingPlant(true);
+    setShowConfirmDialog(false);
+    
+    try {
+      if (pendingScanData.isInDatabase) {
+        await handleAutoSave(pendingScanData.plant, pendingScanData.imageUrl, pendingScanData.plant.aiData, pendingScanData.allResults);
+      } else {
+        await handleAutoAddNewPlant(pendingScanData.plant, pendingScanData.imageUrl, pendingScanData.allResults);
+      }
+      setPendingScanData(null);
+      // Nach erfolgreichem Speichern zur Startseite navigieren
+      navigate(createPageUrl("Home"));
+    } catch (error) {
+      console.error("Fehler beim Speichern:", error);
+      setIsSavingPlant(false);
+    }
+  };
+
+  const handleCancelSave = () => {
+    setShowConfirmDialog(false);
+    setPendingScanData(null);
+    setMatchedPlant(null);
+    setAllScanResults([]);
+    setImageUrl(null);
+  };
+
+  return (
     <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 md:p-8 overflow-x-hidden">
-      <MobileBackButton />
+      {/* Grüner Haken Button - nur wenn pendingScanData vorhanden */}
+      {pendingScanData && !isSavingPlant && (
+        <div className="md:hidden fixed bottom-4 left-4 z-50">
+          <Button
+            onClick={() => setShowConfirmDialog(true)}
+            className="w-16 h-16 bg-green-600 hover:bg-green-700 shadow-lg border-2 border-white text-white rounded-full"
+          >
+            <Check className="w-8 h-8" />
+          </Button>
+        </div>
+      )}
+      
+      {/* Bestätigungs-Dialog */}
+      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-600">
+              <Check className="w-6 h-6" />
+              Pflanze hinzufügen?
+            </DialogTitle>
+            <DialogDescription className="text-base pt-4">
+              Möchtest du <strong>{pendingScanData?.plant?.species_name}</strong> zu deiner Sammlung hinzufügen?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button 
+              variant="outline" 
+              onClick={handleCancelSave}
+            >
+              Nein
+            </Button>
+            <Button 
+              onClick={handleConfirmSave}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              Ja
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       {/* Rate-Limit Dialog */}
       <Dialog open={showRateLimitDialog} onOpenChange={setShowRateLimitDialog}>
