@@ -13,6 +13,8 @@ import AchievementNotification from "../components/achievements/AchievementNotif
 import { AnimatePresence } from "framer-motion";
 import { awardXP } from "../components/utils/xpSystem";
 import MobileBackButton from "../components/navigation/MobileBackButton";
+import { Check } from "lucide-react";
+import { createPageUrl } from "@/utils";
 import {
   getCurrentDailyQuest,
   getCurrentWeeklyQuest,
@@ -38,6 +40,9 @@ export default function Scanner() {
   const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
   const [showRateLimitDialog, setShowRateLimitDialog] = useState(false);
   const [pendingImageData, setPendingImageData] = useState(null);
+  const [pendingScanData, setPendingScanData] = useState(null); // Temporäre Scan-Daten vor Bestätigung
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [isSavingPlant, setIsSavingPlant] = useState(false);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -434,14 +439,17 @@ export default function Scanner() {
             console.log("🌍 Nicht-europäische Pflanze erkannt - nur Anzeige");
             setMatchedPlant(firstResult);
             setScanning(false);
-          } else if (firstResult.inDatabase) {
-            // Pflanze ist in der Datenbank - als UserDiscovery speichern
-            console.log("💾 Pflanze aus Datenbank - speichere Discovery");
-            await handleAutoSave(firstResult, file_url, firstResult.aiData, processedResults);
           } else {
-            // Neue europäische Pflanze - zum globalen Dex hinzufügen
-            console.log("🆕 Neue Pflanze - füge zum PlantDex hinzu");
-            await handleAutoAddNewPlant(firstResult, file_url, processedResults);
+            // Europäische Pflanze erkannt - temporär speichern, aber noch nicht in DB
+            console.log("🌿 Pflanze erkannt - warte auf Bestätigung");
+            setPendingScanData({
+              plant: firstResult,
+              imageUrl: file_url,
+              allResults: processedResults,
+              isInDatabase: firstResult.inDatabase
+            });
+            setMatchedPlant(firstResult);
+            setScanning(false);
           }
 
         } else {
@@ -701,7 +709,15 @@ Falls du die Pflanze SICHER erkennst, gib an:
           setMatchedPlant(plantData);
           setScanning(false);
         } else {
-          await handleAutoAddNewPlant(plantData, pendingImageData.file_url, [plantData]);
+          // Temporär speichern, warte auf Bestätigung
+          setPendingScanData({
+            plant: plantData,
+            imageUrl: pendingImageData.file_url,
+            allResults: [plantData],
+            isInDatabase: false
+          });
+          setMatchedPlant(plantData);
+          setScanning(false);
         }
       } else {
         setMatchedPlant({
