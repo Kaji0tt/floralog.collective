@@ -739,7 +739,6 @@ Falls du die Pflanze SICHER erkennst, gib an:
     }
   };
 
-  return (
   const handleConfirmSave = async () => {
     if (!pendingScanData) return;
     
