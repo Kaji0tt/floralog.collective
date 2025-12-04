@@ -20,7 +20,8 @@ export default function ScanResults({
   allResults = [],
   onDeleteResult,
   onChangeResult,
-  latestDiscoveryId
+  latestDiscoveryId,
+  isPendingConfirmation = false
 }) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [currentResultIndex, setCurrentResultIndex] = useState(0);
@@ -423,7 +424,7 @@ export default function ScanResults({
                         </div>
 
                       {/* Lupe, Lautsprecher, Geschenk und Löschen unterhalb des Bildes */}
-                      {latestDiscoveryId &&
+                      {latestDiscoveryId && !isPendingConfirmation &&
                       <div className="flex justify-evenly items-center mt-4">
                         {/* Lupe (Search) */}
                         <motion.button
@@ -480,7 +481,7 @@ export default function ScanResults({
                   </div>
 
                   {/* Navigation unterhalb der Rarität-Kachel */}
-                  {hasMultipleResults && latestDiscoveryId && (
+                  {hasMultipleResults && latestDiscoveryId && !isPendingConfirmation && (
                     <div className="flex justify-center items-center gap-3 mt-4">
                       {/* Linker Pfeil */}
                       <motion.button
@@ -559,7 +560,7 @@ export default function ScanResults({
                       </div>
 
                   {/* XP Belohnung */}
-                  {currentPlant.xpAwarded !== undefined && isPrimaryResult &&
+                  {currentPlant.xpAwarded !== undefined && isPrimaryResult && !isPendingConfirmation &&
                   <div className="bg-gradient-to-r from-amber-400 to-yellow-400 rounded-xl p-4 border-2 border-amber-500 shadow-lg">
                       <div className="flex items-center justify-center gap-3 flex-wrap">
                         <Sparkles className="w-6 h-6 text-white animate-pulse" />
@@ -574,7 +575,7 @@ export default function ScanResults({
                   }
 
                   {/* Alternative Ergebnisse: Button zum Ändern */}
-                  {latestDiscoveryId && !isPrimaryResult && showChangeResultButton &&
+                  {latestDiscoveryId && !isPrimaryResult && showChangeResultButton && !isPendingConfirmation &&
                   <Button
                     onClick={handleChangeResult}
                     disabled={isChanging}
