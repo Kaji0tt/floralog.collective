@@ -466,6 +466,15 @@ export default function ScanResults({
                           <Gift className="w-5 h-5 text-white" />
                         </motion.button>
 
+                        {/* Erneut Scannen */}
+                        <motion.button
+                          onClick={onRescan}
+                          className="w-11 h-11 bg-stone-600 rounded-full flex items-center justify-center shadow-lg hover:bg-stone-700 transition-all"
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.95 }}>
+                          <RotateCcw className="w-5 h-5 text-white" />
+                        </motion.button>
+
                       </div>
                       }
                   </div>
