@@ -64,6 +64,7 @@ const DEMO_IMAGE = "https://images.unsplash.com/photo-1597848212624-a19eb35e2651
 
 export default function ScanResultsPreview() {
   const [selectedDemo, setSelectedDemo] = useState("haeufig");
+  const [isPendingMode, setIsPendingMode] = useState(true);
   const [imageUrl] = useState(DEMO_IMAGE);
 
   const currentPlant = DEMO_PLANTS[selectedDemo];
@@ -75,6 +76,9 @@ export default function ScanResultsPreview() {
     { ...DEMO_PLANTS.selten, confidence_percentage: 23 }
   ] : [currentPlant];
 
+  // Bestimme ob latestDiscoveryId gesetzt sein soll (nur wenn NICHT im Pending-Modus)
+  const showDiscoveryFeatures = !isPendingMode && selectedDemo !== "unerkannt" && selectedDemo !== "nichtEuropaeisch";
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4 md:p-8">
       <MobileBackButton />
@@ -83,20 +87,45 @@ export default function ScanResultsPreview() {
         {/* Controls */}
         <Card className="mb-6 border-2 border-orange-200 bg-orange-50">
           <CardContent className="p-4">
-            <div className="flex items-center gap-4 flex-wrap">
-              <span className="font-bold text-orange-800">🧪 Preview-Modus:</span>
-              <Select value={selectedDemo} onValueChange={setSelectedDemo}>
-                <SelectTrigger className="w-48 bg-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="haeufig">Häufig (+ Alternativen)</SelectItem>
-                  <SelectItem value="gelegentlich">Gelegentlich (Neu im Dex)</SelectItem>
-                  <SelectItem value="selten">Selten (Bereits entdeckt)</SelectItem>
-                  <SelectItem value="nichtEuropaeisch">Nicht-europäisch</SelectItem>
-                  <SelectItem value="unerkannt">Nicht erkannt</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-4 flex-wrap">
+                <span className="font-bold text-orange-800">🧪 Preview-Modus:</span>
+                <Select value={selectedDemo} onValueChange={setSelectedDemo}>
+                  <SelectTrigger className="w-48 bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="haeufig">Häufig (+ Alternativen)</SelectItem>
+                    <SelectItem value="gelegentlich">Gelegentlich (Neu im Dex)</SelectItem>
+                    <SelectItem value="selten">Selten (Bereits entdeckt)</SelectItem>
+                    <SelectItem value="nichtEuropaeisch">Nicht-europäisch</SelectItem>
+                    <SelectItem value="unerkannt">Nicht erkannt</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant={isPendingMode ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setIsPendingMode(true)}
+                  className={isPendingMode ? "bg-green-600 hover:bg-green-700" : ""}
+                >
+                  ✓ Pending (vor Bestätigung)
+                </Button>
+                <Button
+                  variant={!isPendingMode ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setIsPendingMode(false)}
+                  className={!isPendingMode ? "bg-blue-600 hover:bg-blue-700" : ""}
+                >
+                  💾 Gespeichert (nach Bestätigung)
+                </Button>
+              </div>
+              <p className="text-xs text-orange-700">
+                {isPendingMode 
+                  ? "Im Pending-Modus wird der grüne Haken-Button unten links angezeigt (nur mobil sichtbar)."
+                  : "Im gespeicherten Modus werden die Action-Buttons unter dem Bild angezeigt."}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -110,7 +139,8 @@ export default function ScanResultsPreview() {
           allResults={allResults}
           onDeleteResult={() => alert("Löschen geklickt")}
           onChangeResult={() => alert("Ändern geklickt")}
-          latestDiscoveryId={selectedDemo !== "unerkannt" && selectedDemo !== "nichtEuropaeisch" ? "demo-discovery-id" : null}
+          latestDiscoveryId={showDiscoveryFeatures ? "demo-discovery-id" : null}
+          isPendingConfirmation={isPendingMode && selectedDemo !== "unerkannt" && selectedDemo !== "nichtEuropaeisch"}
         />
       </div>
     </div>
