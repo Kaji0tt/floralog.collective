@@ -1,4 +1,4 @@
-
+import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, ExternalLink } from "lucide-react";
@@ -10,6 +10,17 @@ import { motion } from "framer-motion";
 
 export default function PlantCard({ plant }) {
   const navigate = useNavigate();
+
+  const getRarityBorderColor = (rarity) => {
+    switch (rarity) {
+      case "Häufig": return "border-gray-400 hover:border-gray-500";
+      case "Gelegentlich": return "border-green-500 hover:border-green-600";
+      case "Selten": return "border-purple-500 hover:border-purple-600";
+      case "Sehr Selten": return "border-orange-500 hover:border-orange-600";
+      case "Extrem Selten": return "border-red-500 hover:border-red-600";
+      default: return "border-gray-400 hover:border-gray-500";
+    }
+  };
 
   return (
     <motion.div
