@@ -76,7 +76,7 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
       <Card
         className={`cursor-pointer overflow-hidden border-2 shadow-sm transition-all duration-300 ${
           discovered 
-            ? 'border-green-300 hover:shadow-lg bg-white' 
+            ? `${getBorderColor()} hover:shadow-lg bg-white` 
             : 'border-stone-200 opacity-60 hover:opacity-75 hover:border-stone-300 bg-stone-50'
         }`}
         onClick={handleClick}
