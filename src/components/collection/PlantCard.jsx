@@ -1,4 +1,4 @@
-import React from "react";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, ExternalLink } from "lucide-react";
@@ -11,17 +11,6 @@ import { motion } from "framer-motion";
 export default function PlantCard({ plant }) {
   const navigate = useNavigate();
 
-  const getRarityBorderColor = (rarity) => {
-    switch (rarity) {
-      case "Häufig": return "border-gray-400 hover:border-gray-500";
-      case "Gelegentlich": return "border-green-500 hover:border-green-600";
-      case "Selten": return "border-purple-500 hover:border-purple-600";
-      case "Sehr Selten": return "border-orange-500 hover:border-orange-600";
-      case "Extrem Selten": return "border-red-500 hover:border-red-600";
-      default: return "border-gray-400 hover:border-gray-500";
-    }
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -30,7 +19,7 @@ export default function PlantCard({ plant }) {
       transition={{ duration: 0.3 }}
     >
       <Card
-        className={`group cursor-pointer overflow-hidden border-2 hover:shadow-2xl transition-all duration-300 ${getRarityBorderColor(plant.rarity)}`}
+        className="group cursor-pointer overflow-hidden border-2 border-gray-100 hover:border-green-300 hover:shadow-2xl transition-all duration-300"
         onClick={() => navigate(createPageUrl(`PlantDetail?id=${plant.id}`))}
       >
         <div className="relative aspect-square overflow-hidden">
