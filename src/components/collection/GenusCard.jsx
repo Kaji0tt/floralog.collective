@@ -26,6 +26,25 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
   const genusImage = genusDiscoveries.find(d => d.is_front_image)?.image_url || 
                      genusDiscoveries.sort((a, b) => new Date(b.discovered_date) - new Date(a.discovered_date))[0]?.image_url;
 
+  // Ermittle höchste Rarität der entdeckten Pflanzen dieser Gattung
+  const rarityOrder = { "Häufig": 0, "Gelegentlich": 1, "Selten": 2, "Sehr Selten": 3, "Extrem Selten": 4 };
+  const discoveredPlants = plants.filter(p => 
+    p.genus_id === genus.id && userDiscoveries.some(d => d.plant_id === p.id)
+  );
+  const highestRarity = discoveredPlants.reduce((max, plant) => {
+    const plantRarity = rarityOrder[plant.rarity] || 0;
+    return plantRarity > max ? plantRarity : max;
+  }, 0);
+
+  // Bestimme Rahmenfarbe basierend auf höchster Rarität
+  const getBorderColor = () => {
+    if (!discovered) return 'border-stone-200';
+    if (highestRarity >= 3) return 'border-purple-400'; // Sehr Selten oder höher
+    if (highestRarity === 2) return 'border-blue-400'; // Selten
+    if (highestRarity === 1) return 'border-green-400'; // Gelegentlich
+    return 'border-gray-400'; // Häufig
+  };
+
   const handleClick = () => {
     if (discovered) {
       // Wenn friendEmail vorhanden, füge es zur URL hinzu
