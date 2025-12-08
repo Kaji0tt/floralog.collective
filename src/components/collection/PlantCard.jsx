@@ -30,7 +30,7 @@ export default function PlantCard({ plant }) {
       transition={{ duration: 0.3 }}
     >
       <Card
-        className="group cursor-pointer overflow-hidden border-2 border-gray-100 hover:border-green-300 hover:shadow-2xl transition-all duration-300"
+        className={`group cursor-pointer overflow-hidden border-2 hover:shadow-2xl transition-all duration-300 ${getRarityBorderColor(plant.rarity)}`}
         onClick={() => navigate(createPageUrl(`PlantDetail?id=${plant.id}`))}
       >
         <div className="relative aspect-square overflow-hidden">
