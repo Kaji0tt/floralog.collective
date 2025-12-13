@@ -13,7 +13,7 @@ import AchievementNotification from "../components/achievements/AchievementNotif
 import { AnimatePresence } from "framer-motion";
 import { awardXP } from "../components/utils/xpSystem";
 import MobileBackButton from "../components/navigation/MobileBackButton";
-import ConfirmButton from "../components/scanner/ConfirmButton";
+import { Check, RefreshCw } from "lucide-react";
 import { createPageUrl } from "@/utils";
 import {
   getCurrentDailyQuest,
@@ -778,10 +778,22 @@ Falls du die Pflanze SICHER erkennst, gib an:
     <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 md:p-8 overflow-x-hidden">
       {/* Grüner Haken / Ändern Button - nur wenn pendingScanData vorhanden */}
       {pendingScanData && !isSavingPlant && (
-        <ConfirmButton
-          currentResultIndex={currentResultIndex}
-          onClick={() => setShowConfirmDialog(true)}
-        />
+        <div className="md:hidden fixed bottom-4 left-4 z-50">
+          <Button
+            onClick={() => setShowConfirmDialog(true)}
+            className={`w-16 h-16 shadow-lg border-2 border-white text-white rounded-full ${
+              currentResultIndex === 0 
+                ? "bg-green-600 hover:bg-green-700" 
+                : "bg-orange-600 hover:bg-orange-700"
+            }`}
+          >
+            {currentResultIndex === 0 ? (
+              <Check className="w-8 h-8" />
+            ) : (
+              <RefreshCw className="w-8 h-8" />
+            )}
+          </Button>
+        </div>
       )}
       
       {/* Bestätigungs-Dialog */}
