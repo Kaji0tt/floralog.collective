@@ -420,15 +420,15 @@ export default function Profile() {
                   </div>
                 </div>
 
-                {/* Name, Titel und XP Balken */}
-                <div className="flex-1 w-full">
+                {/* Name, Titel und XP Balken - Fusioniert */}
+                <div className="flex-1 w-full bg-white/40 backdrop-blur-md rounded-xl p-5 border-2 border-white/30 shadow-lg">
                   {isEditingName ? (
                     <div className="mb-3">
                       <div className="flex items-center gap-2">
                         <Input
                           value={editedName}
                           onChange={(e) => setEditedName(e.target.value)}
-                          className="text-2xl font-bold border-2 border-green-300 bg-white/80 backdrop-blur-sm"
+                          className="text-2xl font-bold border-2 border-green-300 bg-white/60 backdrop-blur-sm"
                           placeholder="Dein Name"
                           maxLength={50}
                           onKeyDown={(e) => {
@@ -450,36 +450,36 @@ export default function Profile() {
                           disabled={updateUserMutation.isPending}
                           size="icon"
                           variant="outline"
-                          className="flex-shrink-0 bg-white/80 backdrop-blur-sm"
+                          className="flex-shrink-0 bg-white/60 backdrop-blur-sm"
                         >
                           <X className="w-5 h-5" />
                         </Button>
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 mb-3">
-                      <h1 className="text-3xl md:text-4xl font-bold text-stone-900 px-4 py-2 bg-white/70 backdrop-blur-md rounded-xl border-2 border-white/50 shadow-lg" key={getDisplayName()}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <h1 className="text-3xl md:text-4xl font-bold text-stone-900" key={getDisplayName()}>
                         {getDisplayName()}
                       </h1>
                       <Button
                         onClick={() => setIsEditingName(true)}
                         size="icon"
                         variant="ghost"
-                        className="text-stone-700 hover:text-stone-900 bg-white/50 backdrop-blur-sm hover:bg-white/70"
+                        className="text-stone-700 hover:text-stone-900 hover:bg-white/30"
                       >
                         <Edit2 className="w-5 h-5" />
                       </Button>
                     </div>
                   )}
 
-                  <div className="inline-block mb-3">
-                    <Badge className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-2 text-base font-semibold border-2 border-white/40 shadow-lg backdrop-blur-sm">
+                  <div className="mb-3">
+                    <span className="text-base font-semibold text-stone-700">
                       {user.selected_title || user.title || getTitleForLevel(currentLevel)}
-                    </Badge>
+                    </span>
                   </div>
 
                   {/* XP Progress Bar */}
-                  <div className="bg-white/70 backdrop-blur-md rounded-xl p-4 border-2 border-white/50 shadow-lg">
+                  <div>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-bold text-stone-800">Level {currentLevel}</span>
                       <span className="text-sm font-bold text-stone-800">{xpProgress.current} / {xpProgress.needed} XP</span>
