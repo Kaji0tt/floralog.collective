@@ -1,12 +1,11 @@
-
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { getXPProgressInLevel } from "../components/utils/xpSystem";
 import MobileBackButton from "../components/navigation/MobileBackButton"; // Added import
-import { BookOpen, Trophy, Target, Users, Star, ArrowLeft } from "lucide-react";
+import { Camera, BookOpen, Trophy, Target, Leaf, Users, ChevronRight, Star, ArrowLeft, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -171,7 +170,9 @@ export default function FriendProfile() {
   
   const totalGenera = genera.length;
   const discoveredGenera = genera.filter(g => {
-    const genusPlants = friendPlants.filter(p => p.genus_id === g.id);
+    const genusPlants = friendPlants.filter(p => 
+      p.genus_category === g.category && p.genus_number === g.category_dex_number
+    );
     return genusPlants.length > 0;
   }).length;
   const progressPercentage = totalGenera > 0 ? (discoveredGenera / totalGenera) * 100 : 0;
@@ -197,7 +198,9 @@ export default function FriendProfile() {
     } else {
       const categoryGenera = genera.filter(g => g.category === quest.category);
       const discoveredInCategory = categoryGenera.filter(g => {
-        const genusPlants = friendPlants.filter(p => p.genus_id === g.id);
+        const genusPlants = friendPlants.filter(p => 
+          p.genus_category === g.category && p.genus_number === g.category_dex_number
+        );
         return genusPlants.length > 0;
       }).length;
       return Math.min(discoveredInCategory, quest.required_discoveries);
@@ -362,7 +365,9 @@ export default function FriendProfile() {
                 <div className="grid grid-cols-3 gap-2 md:gap-3">
                   {Object.entries(categoryStats).map(([category, categoryGenera]) => {
                     const discovered = categoryGenera.filter(g => {
-                      const genusPlants = friendPlants.filter(p => p.genus_id === g.id);
+                      const genusPlants = friendPlants.filter(p => 
+                        p.genus_category === g.category && p.genus_number === g.category_dex_number
+                      );
                       return genusPlants.length > 0;
                     }).length;
                     const icon = category === "Bäume" ? "🌳" : category === "Sträucher" ? "🌿" : "🌸";

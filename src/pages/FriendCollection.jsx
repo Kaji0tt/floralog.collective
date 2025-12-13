@@ -1,10 +1,9 @@
-
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Leaf } from "lucide-react";
+import { Loader2, Leaf } from "lucide-react";
 import GenusCard from "../components/collection/GenusCard";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -88,12 +87,17 @@ export default function FriendCollection() {
   });
 
   const generaWithDiscovery = generaWithNumbers.map(genus => {
-    const genusPlants = friendPlants.filter(p => p.genus_id === genus.id);
+    const genusPlants = friendPlants.filter(p => 
+      p.genus_category === genus.category && p.genus_number === genus.category_dex_number
+    );
+    const allGenusPlants = plants.filter(p => 
+      p.genus_category === genus.category && p.genus_number === genus.category_dex_number
+    );
     return {
       ...genus,
       discovered: genusPlants.length > 0,
       discoveredCount: genusPlants.length,
-      totalSpecies: plants.filter(p => p.genus_id === genus.id).length
+      totalSpecies: allGenusPlants.length
     };
   }).sort((a, b) => {
     if (a.category !== b.category) {
