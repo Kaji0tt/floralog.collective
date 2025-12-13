@@ -384,19 +384,20 @@ export default function Profile() {
                   <Image className="w-5 h-5 text-stone-700" />
                 </button>
               )}
-              <div className="flex flex-col items-center text-center mb-6">
-                <div className="relative group mb-4">
-                  <div className="w-32 h-32 bg-gradient-to-br from-green-600 to-emerald-600 rounded-full flex items-center justify-center shadow-2xl overflow-hidden ring-4 ring-white">
+              <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
+                {/* Profilbild mit Level Badge */}
+                <div className="relative group flex-shrink-0">
+                  <div className="w-28 h-28 bg-gradient-to-br from-green-600 to-emerald-600 rounded-2xl flex items-center justify-center shadow-2xl overflow-hidden ring-4 ring-white/50 backdrop-blur-sm">
                     {user.avatar_url ? (
                       <img src={user.avatar_url} alt="Profil" className="w-full h-full object-cover" />
                     ) : (
-                      <img src={LOGO_URL} alt="PlantDex" className="w-16 h-16 object-contain" />
+                      <img src={LOGO_URL} alt="PlantDex" className="w-14 h-14 object-contain" />
                     )}
                   </div>
                   
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    className="absolute inset-0 bg-black/50 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                     disabled={uploadingImage}
                     aria-label="Profilbild hochladen"
                   >
@@ -414,72 +415,83 @@ export default function Profile() {
                     className="hidden"
                   />
                   
-                  <div className="absolute -bottom-2 -right-2 w-14 h-14 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center shadow-xl border-4 border-white ring-2 ring-stone-900/20">
-                    <span className="text-white font-bold text-xl">{currentLevel}</span>
+                  <div className="absolute -top-2 -right-2 px-3 py-1 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center shadow-xl backdrop-blur-sm border-2 border-white/80">
+                    <span className="text-white font-bold text-sm">LV {currentLevel}</span>
                   </div>
                 </div>
 
-                {isEditingName ? (
-                  <div className="w-full max-w-md mb-2">
-                    <div className="flex items-center gap-2">
-                      <Input
-                        value={editedName}
-                        onChange={(e) => setEditedName(e.target.value)}
-                        className="text-center text-2xl font-bold border-2 border-green-300"
-                        placeholder="Dein Name"
-                        maxLength={50}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleSaveName();
-                          if (e.key === 'Escape') handleCancelEdit();
-                        }}
-                        autoFocus
-                      />
+                {/* Name, Titel und XP Balken */}
+                <div className="flex-1 w-full">
+                  {isEditingName ? (
+                    <div className="mb-3">
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={editedName}
+                          onChange={(e) => setEditedName(e.target.value)}
+                          className="text-2xl font-bold border-2 border-green-300 bg-white/80 backdrop-blur-sm"
+                          placeholder="Dein Name"
+                          maxLength={50}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveName();
+                            if (e.key === 'Escape') handleCancelEdit();
+                          }}
+                          autoFocus
+                        />
+                        <Button
+                          onClick={handleSaveName}
+                          disabled={updateUserMutation.isPending || !editedName.trim()}
+                          size="icon"
+                          className="bg-green-600 hover:bg-green-700 flex-shrink-0"
+                        >
+                          <CheckCircle className="w-5 h-5" />
+                        </Button>
+                        <Button
+                          onClick={handleCancelEdit}
+                          disabled={updateUserMutation.isPending}
+                          size="icon"
+                          variant="outline"
+                          className="flex-shrink-0 bg-white/80 backdrop-blur-sm"
+                        >
+                          <X className="w-5 h-5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 mb-3">
+                      <h1 className="text-3xl md:text-4xl font-bold text-stone-900 px-4 py-2 bg-white/70 backdrop-blur-md rounded-xl border-2 border-white/50 shadow-lg" key={getDisplayName()}>
+                        {getDisplayName()}
+                      </h1>
                       <Button
-                        onClick={handleSaveName}
-                        disabled={updateUserMutation.isPending || !editedName.trim()}
+                        onClick={() => setIsEditingName(true)}
                         size="icon"
-                        className="bg-green-600 hover:bg-green-700 flex-shrink-0"
+                        variant="ghost"
+                        className="text-stone-700 hover:text-stone-900 bg-white/50 backdrop-blur-sm hover:bg-white/70"
                       >
-                        <CheckCircle className="w-5 h-5" />
-                      </Button>
-                      <Button
-                        onClick={handleCancelEdit}
-                        disabled={updateUserMutation.isPending}
-                        size="icon"
-                        variant="outline"
-                        className="flex-shrink-0"
-                      >
-                        <X className="w-5 h-5" />
+                        <Edit2 className="w-5 h-5" />
                       </Button>
                     </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 mb-2">
-                    <h1 className="text-3xl md:text-4xl font-bold text-stone-900 px-3 py-1 bg-white/80 backdrop-blur-sm rounded-lg border-2 border-stone-900/10" key={getDisplayName()}>
-                      {getDisplayName()}
-                    </h1>
-                    <Button
-                      onClick={() => setIsEditingName(true)}
-                      size="icon"
-                      variant="ghost"
-                      className="text-stone-500 hover:text-stone-700"
-                    >
-                      <Edit2 className="w-5 h-5" />
-                    </Button>
-                  </div>
-                )}
+                  )}
 
-                <Badge className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-2 text-base font-semibold border-2 border-white/30 shadow-lg">
-                  {user.selected_title || user.title || getTitleForLevel(currentLevel)}
-                </Badge>
-              </div>
+                  <div className="inline-block mb-3">
+                    <Badge className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-2 text-base font-semibold border-2 border-white/40 shadow-lg backdrop-blur-sm">
+                      {user.selected_title || user.title || getTitleForLevel(currentLevel)}
+                    </Badge>
+                  </div>
 
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-bold text-stone-700">Level {currentLevel}</span>
-                  <span className="text-sm font-bold text-stone-700">{xpProgress.current} / {xpProgress.needed} XP</span>
+                  {/* XP Progress Bar */}
+                  <div className="bg-white/70 backdrop-blur-md rounded-xl p-4 border-2 border-white/50 shadow-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-bold text-stone-800">Level {currentLevel}</span>
+                      <span className="text-sm font-bold text-stone-800">{xpProgress.current} / {xpProgress.needed} XP</span>
+                    </div>
+                    <div className="relative h-3 bg-stone-300/50 rounded-full overflow-hidden">
+                      <div 
+                        className="absolute inset-y-0 left-0 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all duration-500"
+                        style={{ width: `${xpProgress.percentage}%` }}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <Progress value={xpProgress.percentage} className="h-3 bg-stone-200" />
               </div>
 
               <div className="grid grid-cols-4 gap-3">
