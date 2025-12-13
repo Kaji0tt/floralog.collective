@@ -3,7 +3,8 @@ import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Leaf } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Loader2, Leaf, Search } from "lucide-react";
 import GenusCard from "../components/collection/GenusCard";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import HintDialog from "../components/collection/HintDialog";
@@ -14,6 +15,7 @@ export default function Collection() {
   const [activeCategory, setActiveCategory] = useState("Alle");
   const [selectedGenus, setSelectedGenus] = useState(null);
   const [showHintDialog, setShowHintDialog] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: genera = [], isLoading: generaLoading } = useQuery({
     queryKey: ['genera'],
@@ -62,9 +64,14 @@ export default function Collection() {
 
   const categories = ["Alle", "Bäume", "Sträucher", "Blumen"];
 
-  const filteredGenera = activeCategory === "Alle"
-    ? generaWithDiscovery
-    : generaWithDiscovery.filter(g => g.category === activeCategory);
+  const filteredGenera = generaWithDiscovery
+    .filter(g => activeCategory === "Alle" || g.category === activeCategory)
+    .filter(g => {
+      if (!searchQuery.trim()) return true;
+      const query = searchQuery.toLowerCase();
+      return g.genus_name?.toLowerCase().includes(query) ||
+             g.scientific_genus?.toLowerCase().includes(query);
+    });
 
   const discoveredCount = filteredGenera.filter(g => g.discovered).length;
   const totalCount = filteredGenera.length;
@@ -111,6 +118,19 @@ export default function Collection() {
                 <div className="text-sm font-medium text-stone-600">Arten</div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div className="flex justify-center mb-6 px-2">
+          <div className="relative w-full max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
+            <Input
+              type="text"
+              placeholder="Gattung suchen..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 bg-white border-stone-200 shadow-sm"
+            />
           </div>
         </div>
 
