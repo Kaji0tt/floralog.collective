@@ -371,7 +371,7 @@ export default function Profile() {
             <CardContent 
               className="p-6 md:p-8 relative"
               style={user?.background_image_url ? {
-                backgroundImage: `linear-gradient(rgba(255,255,255,0.5), rgba(255,255,255,0.5)), url(${user.background_image_url})`,
+                backgroundImage: `linear-gradient(rgba(0,0,0,0.2), rgba(0,0,0,0.2)), url(${user.background_image_url})`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center'
               } : {}}
@@ -414,7 +414,7 @@ export default function Profile() {
                     className="hidden"
                   />
                   
-                  <div className="absolute -bottom-2 -right-2 w-14 h-14 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center shadow-xl border-4 border-white">
+                  <div className="absolute -bottom-2 -right-2 w-14 h-14 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center shadow-xl border-4 border-white ring-2 ring-stone-900/20">
                     <span className="text-white font-bold text-xl">{currentLevel}</span>
                   </div>
                 </div>
@@ -455,7 +455,7 @@ export default function Profile() {
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 mb-2">
-                    <h1 className="text-3xl md:text-4xl font-bold text-stone-900" key={getDisplayName()}>
+                    <h1 className="text-3xl md:text-4xl font-bold text-stone-900 px-3 py-1 bg-white/80 backdrop-blur-sm rounded-lg border-2 border-stone-900/10" key={getDisplayName()}>
                       {getDisplayName()}
                     </h1>
                     <Button
@@ -469,7 +469,7 @@ export default function Profile() {
                   </div>
                 )}
 
-                <Badge className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-2 text-base font-semibold">
+                <Badge className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-2 text-base font-semibold border-2 border-white/30 shadow-lg">
                   {user.selected_title || user.title || getTitleForLevel(currentLevel)}
                 </Badge>
               </div>
