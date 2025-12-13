@@ -21,7 +21,7 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
   // Hole das Gattungsbild: Front-Image bevorzugt, sonst neuestes
   const genusDiscoveries = userDiscoveries.filter(d => {
     const plant = plants.find(p => p.id === d.plant_id);
-    return plant && plant.genus_id === genus.id && d.image_url;
+    return plant && plant.genus_category === genus.category && plant.genus_number === genus.category_dex_number && d.image_url;
   });
   const genusImage = genusDiscoveries.find(d => d.is_front_image)?.image_url || 
                      genusDiscoveries.sort((a, b) => new Date(b.discovered_date) - new Date(a.discovered_date))[0]?.image_url;
@@ -29,7 +29,7 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
   // Ermittle höchste Rarität der entdeckten Pflanzen dieser Gattung
   const rarityOrder = { "Häufig": 0, "Gelegentlich": 1, "Selten": 2, "Sehr Selten": 3, "Extrem Selten": 4 };
   const discoveredPlants = plants.filter(p => 
-    p.genus_id === genus.id && userDiscoveries.some(d => d.plant_id === p.id)
+    p.genus_category === genus.category && p.genus_number === genus.category_dex_number && userDiscoveries.some(d => d.plant_id === p.id)
   );
   const highestRarity = discoveredPlants.reduce((max, plant) => {
     const plantRarity = rarityOrder[plant.rarity] || 0;
@@ -107,7 +107,7 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
           {/* Image */}
           <div className="relative mb-3">
             {/* Stack Effect - nur bei mehreren Discoveries */}
-            {discovered && plants.filter(p => p.genus_id === genus.id).some(p => 
+            {discovered && plants.filter(p => p.genus_category === genus.category && p.genus_number === genus.category_dex_number).some(p => 
               userDiscoveries.filter(d => d.plant_id === p.id).length > 1
             ) && (
               <>
