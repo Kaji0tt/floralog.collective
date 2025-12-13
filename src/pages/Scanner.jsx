@@ -10,7 +10,7 @@ import ScanResults from "../components/scanner/ScanResults";
 import CameraCapture from "../components/scanner/CameraCapture";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { awardXP } from "../components/utils/xpSystem";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import { Check, RefreshCw } from "lucide-react";
