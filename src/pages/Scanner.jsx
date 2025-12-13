@@ -26,6 +26,50 @@ import {
 
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
+// Bestätigungs-Button Komponente (draggable wie MobileBackButton)
+function ConfirmButton({ onConfirm, isPrimaryResult }) {
+  const [position, setPosition] = useState(() => {
+    const saved = localStorage.getItem('mobileButtonPosition');
+    return saved ? JSON.parse(saved) : { x: 0, y: 0 };
+  });
+
+  const handleDragEnd = (event, info) => {
+    const newPosition = {
+      x: position.x + info.offset.x,
+      y: position.y + info.offset.y
+    };
+    setPosition(newPosition);
+    localStorage.setItem('mobileButtonPosition', JSON.stringify(newPosition));
+  };
+
+  return (
+    <motion.div
+      className="md:hidden fixed bottom-4 left-4 z-50"
+      drag
+      dragMomentum={false}
+      dragElastic={0}
+      onDragEnd={handleDragEnd}
+      animate={position}
+      style={{ x: position.x, y: position.y }}
+    >
+      <Button
+        onClick={onConfirm}
+        className={`w-16 h-16 shadow-lg border-2 border-white text-white rounded-full cursor-move ${
+          isPrimaryResult 
+            ? "bg-green-600 hover:bg-green-700" 
+            : "bg-orange-600 hover:bg-orange-700"
+        }`}
+      >
+        {isPrimaryResult ? (
+          <Check className="w-8 h-8" />
+        ) : (
+          <RefreshCw className="w-8 h-8" />
+        )}
+      </Button>
+    </motion.div>
+  );
+}
+
 export default function Scanner() {
   const [scanning, setScanning] = useState(false);
   const [matchedPlant, setMatchedPlant] = useState(null);
