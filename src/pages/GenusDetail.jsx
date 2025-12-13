@@ -163,7 +163,10 @@ export default function GenusDetail() {
   };
 
   const genus = genera.find(g => g.id === genusId);
-  const genusPlants = plants.filter(p => p.genus_id === genusId).map(plant => {
+  const selectedGenus = genus;
+  const genusPlants = plants.filter(p => 
+    selectedGenus && p.genus_category === selectedGenus.category && p.genus_number === selectedGenus.category_dex_number
+  ).map(plant => {
     const plantDiscoveries = userDiscoveries.filter(d => d.plant_id === plant.id);
     // Sortiere: Front-Image zuerst, dann nach Datum
     const sortedDiscoveries = [...plantDiscoveries].sort((a, b) => {
@@ -187,7 +190,10 @@ export default function GenusDetail() {
   // Hole das Gattungsbild: Front-Image bevorzugt, sonst neuestes
   const genusDiscoveries = userDiscoveries.filter(d => {
     const plant = plants.find(p => p.id === d.plant_id);
-    return plant && plant.genus_id === genusId && d.image_url;
+    return plant && selectedGenus && 
+           plant.genus_category === selectedGenus.category && 
+           plant.genus_number === selectedGenus.category_dex_number && 
+           d.image_url;
   });
   const genusIconUrl = genusDiscoveries.find(d => d.is_front_image)?.image_url || 
                        genusDiscoveries.sort((a, b) => new Date(b.discovered_date) - new Date(a.discovered_date))[0]?.image_url;
