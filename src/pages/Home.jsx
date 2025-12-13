@@ -392,7 +392,9 @@ export default function Home() {
 
   const totalGenera = genera.length;
   const discoveredGenera = genera.filter((g) => {
-    const genusPlants = plants.filter((p) => p.genus_id === g.id);
+    const genusPlants = plants.filter((p) => 
+      p.genus_category === g.category && p.genus_number === g.category_dex_number
+    );
     return genusPlants.some((p) => userDiscoveries.some((d) => d.plant_id === p.id));
   }).length;
   const progressPercentage = totalGenera > 0 ? discoveredGenera / totalGenera * 100 : 0;
