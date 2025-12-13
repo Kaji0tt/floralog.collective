@@ -934,7 +934,7 @@ export default function Home() {
                                       }
                                     </div>
                                     <h4 className="font-bold text-base text-stone-900 mb-1 truncate">{quest.title}</h4>
-                                    <p className="text-xs text-stone-600 mb-2 line-clamp-2">{quest.description}</p>
+                                    <p className="text-xs text-stone-600 mb-2">{quest.description}</p>
                                     <div>
                                       <div className="flex items-center justify-between mb-1">
                                         <span className="text-xs font-semibold text-stone-700 truncate">
@@ -1052,7 +1052,7 @@ export default function Home() {
                                       }
                                     </div>
                                     <h4 className="font-bold text-base text-stone-900 mb-2">{quest.title}</h4>
-                                    <p className="text-sm text-stone-600 mb-3">{quest.description}</p>
+                                    <p className="text-sm text-stone-600 mb-3 break-words">{quest.description}</p>
                                     <div>
                                       <div className="flex items-center justify-between mb-2">
                                         <span className="text-sm font-semibold text-stone-700">
