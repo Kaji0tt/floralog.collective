@@ -1,12 +1,12 @@
-
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, BookOpen, Target, Users, Camera, Loader2, LogOut, Mail, Key, AlertCircle, Edit2, CheckCircle, X, RotateCcw, Star } from "lucide-react"; // Added Star icon
+import { Trophy, BookOpen, Target, Users, Camera, Loader2, LogOut, Mail, Key, AlertCircle, Edit2, CheckCircle, X, RotateCcw, Star, Image } from "lucide-react"; // Added Star icon
 import { motion, AnimatePresence } from "framer-motion";
+import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -16,6 +16,7 @@ import { getXPProgressInLevel } from "../components/utils/xpSystem";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
@@ -30,6 +31,7 @@ export default function Profile() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showBackgroundSelector, setShowBackgroundSelector] = useState(false);
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
@@ -217,6 +219,16 @@ export default function Profile() {
     setIsEditingName(false);
   };
 
+  const handleSetBackground = async (imageUrl) => {
+    await updateUserMutation.mutateAsync({ background_image_url: imageUrl });
+    setShowBackgroundSelector(false);
+  };
+
+  const handleRemoveBackground = async () => {
+    await updateUserMutation.mutateAsync({ background_image_url: null });
+    setShowBackgroundSelector(false);
+  };
+
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50">
@@ -314,13 +326,64 @@ export default function Profile() {
       </AnimatePresence>
 
       <div className="max-w-4xl mx-auto">
+        {/* Background Selector Dialog */}
+        <Dialog open={showBackgroundSelector} onOpenChange={setShowBackgroundSelector}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Hintergrund auswählen</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Button
+                variant="outline"
+                onClick={handleRemoveBackground}
+                className="w-full"
+              >
+                Hintergrund entfernen
+              </Button>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {userDiscoveries
+                  .filter(d => d.image_url)
+                  .map((discovery) => (
+                    <button
+                      key={discovery.id}
+                      onClick={() => handleSetBackground(discovery.image_url)}
+                      className="relative aspect-square rounded-lg overflow-hidden border-2 border-stone-200 hover:border-green-500 transition-colors group"
+                    >
+                      <img
+                        src={discovery.image_url}
+                        alt="Scan"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                    </button>
+                  ))}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
           <Card className="mb-6 border-2 border-green-200 shadow-xl bg-white overflow-hidden">
-            <CardContent className="p-6 md:p-8">
+            <CardContent 
+              className="p-6 md:p-8 relative"
+              style={user?.background_image_url ? {
+                backgroundImage: `linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.85)), url(${user.background_image_url})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center'
+              } : {}}
+            >
+              {user?.role === 'admin' && (
+                <button
+                  onClick={() => setShowBackgroundSelector(true)}
+                  className="absolute top-4 right-4 w-10 h-10 bg-stone-200/80 hover:bg-stone-300/80 backdrop-blur-sm rounded-full flex items-center justify-center transition-colors z-10"
+                >
+                  <Image className="w-5 h-5 text-stone-700" />
+                </button>
+              )}
               <div className="flex flex-col items-center text-center mb-6">
                 <div className="relative group mb-4">
                   <div className="w-32 h-32 bg-gradient-to-br from-green-600 to-emerald-600 rounded-full flex items-center justify-center shadow-2xl overflow-hidden ring-4 ring-white">
