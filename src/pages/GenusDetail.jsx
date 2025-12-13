@@ -505,7 +505,7 @@ export default function GenusDetail() {
                       <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white text-sm px-3 py-1 rounded-full">
                         {(imageIndexes[expandedPlant.id] || 0) + 1} / {expandedPlant.allDiscoveries.length}
                       </div>
-                      {/* Front-Image Button */}
+                      {/* Front-Image Button - unten links */}
                       {!friendEmail && (
                         <>
                           <button
@@ -514,10 +514,10 @@ export default function GenusDetail() {
                               const currentDiscovery = expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0];
                               setFrontImageMutation.mutate({ discoveryId: currentDiscovery.id, plantId: expandedPlant.id });
                             }}
-                            className={`absolute top-3 left-3 w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all ${
+                            className={`absolute bottom-3 left-3 w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all backdrop-blur-sm ${
                               expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_front_image 
-                                ? 'bg-amber-500 hover:bg-amber-600' 
-                                : 'bg-white/80 hover:bg-white'
+                                ? 'bg-amber-500/80 hover:bg-amber-600/80' 
+                                : 'bg-white/60 hover:bg-white/80'
                             }`}
                             title="Als Hauptbild festlegen"
                           >
@@ -533,7 +533,7 @@ export default function GenusDetail() {
                               const currentDiscovery = expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0];
                               setDeleteConfirmDiscoveryId(currentDiscovery.id);
                             }}
-                            className="absolute top-3 left-16 w-10 h-10 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center shadow-lg transition-all"
+                            className="absolute bottom-3 right-3 w-10 h-10 bg-red-500/60 hover:bg-red-600/80 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg transition-all"
                             title="Scan löschen"
                           >
                             <Trash2 className="w-5 h-5 text-white" />
