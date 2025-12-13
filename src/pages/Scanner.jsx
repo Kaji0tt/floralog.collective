@@ -319,12 +319,12 @@ export default function Scanner() {
         if (!genus) {
           // Lade frische Genera-Daten direkt von der DB
           const allGenera = await base44.entities.PlantGenus.list();
-          
+
           const categoryGenera = allGenera.filter((g) =>
           g.category === newPlant.category ||
           newPlant.category === "Blumen" && g.category === "Blumen & Kräuter"
           );
-          
+
           // Berechne die nächste Nummer: Anzahl aller Gattungen in dieser Kategorie + 1
           const nextCategoryDexNumber = categoryGenera.length + 1;
 
@@ -341,7 +341,8 @@ export default function Scanner() {
         const displayName = newPlant.species_name;
 
         const createdPlant = await createPlantMutation.mutateAsync({
-          genus_id: genus.id,
+          genus_category: genus.category,
+          genus_number: genus.category_dex_number,
           species_name: displayName,
           scientific_name: newPlant.scientific_name,
           description: newPlant.description,
@@ -608,12 +609,12 @@ export default function Scanner() {
       if (!genus) {
         // Lade frische Genera-Daten direkt von der DB
         const allGenera = await base44.entities.PlantGenus.list();
-        
+
         const categoryGenera = allGenera.filter((g) =>
         g.category === plantData.category ||
         plantData.category === "Blumen" && g.category === "Blumen & Kräuter"
         );
-        
+
         // Berechne die nächste Nummer: Anzahl aller Gattungen in dieser Kategorie + 1
         const nextCategoryDexNumber = categoryGenera.length + 1;
 
@@ -630,7 +631,8 @@ export default function Scanner() {
       const displayName = plantData.species_name;
 
       const newPlant = await createPlantMutation.mutateAsync({
-        genus_id: genus.id,
+        genus_category: genus.category,
+        genus_number: genus.category_dex_number,
         species_name: displayName,
         scientific_name: plantData.scientific_name,
         description: plantData.description,

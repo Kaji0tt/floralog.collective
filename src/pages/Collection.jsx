@@ -40,7 +40,9 @@ export default function Collection() {
   const isLoading = generaLoading || plantsLoading || discoveriesLoading;
 
   const generaWithDiscovery = genera.map(genus => {
-    const genusPlants = plants.filter(p => p.genus_id === genus.id);
+    const genusPlants = plants.filter(p => 
+      p.genus_category === genus.category && p.genus_number === genus.category_dex_number
+    );
     const discoveredSpecies = genusPlants.filter(p =>
       userDiscoveries.some(d => d.plant_id === p.id)
     );

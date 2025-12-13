@@ -418,7 +418,9 @@ export default function Home() {
     } else {
       const categoryGenera = genera.filter((g) => g.category === quest.category);
       const discoveredInCategory = categoryGenera.filter((g) => {
-        const genusPlants = plants.filter((p) => p.genus_id === g.id);
+        const genusPlants = plants.filter((p) => 
+          p.genus_category === g.category && p.genus_number === g.category_dex_number
+        );
         return genusPlants.some((p) => userDiscoveries.some((d) => d.plant_id === p.id));
       }).length;
       return Math.min(discoveredInCategory, quest.required_discoveries);
