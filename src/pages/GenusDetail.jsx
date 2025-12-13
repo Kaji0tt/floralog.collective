@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Leaf, CheckCircle2, Lock, Sparkles, Volume2, VolumeX, ChevronLeft, ChevronRight, Star, HelpCircle, MapPin, X, ExternalLink } from "lucide-react";
+import { ArrowLeft, Leaf, CheckCircle2, Lock, Sparkles, Volume2, VolumeX, ChevronLeft, ChevronRight, Star, HelpCircle, MapPin, X, ExternalLink, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { format } from "date-fns";
@@ -25,6 +25,7 @@ export default function GenusDetail() {
   const [enlargedImage, setEnlargedImage] = useState(null);
   const [expandedPlant, setExpandedPlant] = useState(null);
   const [locationNames, setLocationNames] = useState({});
+  const [deleteConfirmDiscoveryId, setDeleteConfirmDiscoveryId] = useState(null);
 
   const { data: genera = [], isLoading: generaLoading } = useQuery({
     queryKey: ['genera'],
@@ -103,6 +104,23 @@ export default function GenusDetail() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
+    },
+  });
+
+  const deleteDiscoveryMutation = useMutation({
+    mutationFn: async (discoveryId) => {
+      await base44.entities.UserPlantDiscovery.delete(discoveryId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
+      setDeleteConfirmDiscoveryId(null);
+      // Wenn das expandedPlant keine Discoveries mehr hat, schließe das Modal
+      if (expandedPlant) {
+        const remainingDiscoveries = expandedPlant.allDiscoveries.filter(d => d.id !== deleteConfirmDiscoveryId);
+        if (remainingDiscoveries.length === 0) {
+          setExpandedPlant(null);
+        }
+      }
     },
   });
 
@@ -489,25 +507,38 @@ export default function GenusDetail() {
                       </div>
                       {/* Front-Image Button */}
                       {!friendEmail && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const currentDiscovery = expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0];
-                            setFrontImageMutation.mutate({ discoveryId: currentDiscovery.id, plantId: expandedPlant.id });
-                          }}
-                          className={`absolute top-3 left-3 w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all ${
-                            expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_front_image 
-                              ? 'bg-amber-500 hover:bg-amber-600' 
-                              : 'bg-white/80 hover:bg-white'
-                          }`}
-                          title="Als Hauptbild festlegen"
-                        >
-                          <Star className={`w-5 h-5 ${
-                            expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_front_image 
-                              ? 'text-white fill-white' 
-                              : 'text-stone-600'
-                          }`} />
-                        </button>
+                        <>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const currentDiscovery = expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0];
+                              setFrontImageMutation.mutate({ discoveryId: currentDiscovery.id, plantId: expandedPlant.id });
+                            }}
+                            className={`absolute top-3 left-3 w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all ${
+                              expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_front_image 
+                                ? 'bg-amber-500 hover:bg-amber-600' 
+                                : 'bg-white/80 hover:bg-white'
+                            }`}
+                            title="Als Hauptbild festlegen"
+                          >
+                            <Star className={`w-5 h-5 ${
+                              expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_front_image 
+                                ? 'text-white fill-white' 
+                                : 'text-stone-600'
+                            }`} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const currentDiscovery = expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0];
+                              setDeleteConfirmDiscoveryId(currentDiscovery.id);
+                            }}
+                            className="absolute top-3 left-16 w-10 h-10 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center shadow-lg transition-all"
+                            title="Scan löschen"
+                          >
+                            <Trash2 className="w-5 h-5 text-white" />
+                          </button>
+                        </>
                       )}
                     </>
                   )}
@@ -577,6 +608,45 @@ export default function GenusDetail() {
                     Entdeckt am: {format(new Date(expandedPlant.discovery_date), "d. MMMM yyyy", { locale: de })}
                   </p>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Lösch-Bestätigungs-Dialog */}
+        {deleteConfirmDiscoveryId && (
+          <div 
+            className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+            onClick={() => setDeleteConfirmDiscoveryId(null)}
+          >
+            <div 
+              className="bg-white rounded-2xl max-w-md w-full p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Trash2 className="w-8 h-8 text-red-600" />
+                </div>
+                <h3 className="text-xl font-bold text-stone-900 mb-2">Scan löschen?</h3>
+                <p className="text-sm text-stone-600">
+                  Möchtest du diesen Scan wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setDeleteConfirmDiscoveryId(null)}
+                  className="flex-1"
+                >
+                  Abbrechen
+                </Button>
+                <Button
+                  onClick={() => deleteDiscoveryMutation.mutate(deleteConfirmDiscoveryId)}
+                  disabled={deleteDiscoveryMutation.isPending}
+                  className="flex-1 bg-red-600 hover:bg-red-700"
+                >
+                  {deleteDiscoveryMutation.isPending ? 'Wird gelöscht...' : 'Löschen'}
+                </Button>
               </div>
             </div>
           </div>
