@@ -70,6 +70,15 @@ export default function Collection() {
     .filter(g => {
       if (discoveryFilter === "Entdeckt") return g.discovered;
       if (discoveryFilter === "Nicht entdeckt") return !g.discovered;
+      if (["Häufig", "Gelegentlich", "Selten", "Sehr Selten", "Extrem Selten"].includes(discoveryFilter)) {
+        const genusPlants = plants.filter(p => 
+          p.genus_category === g.category && p.genus_number === g.category_dex_number
+        );
+        return genusPlants.some(p => 
+          p.rarity === discoveryFilter && 
+          userDiscoveries.some(d => d.plant_id === p.id)
+        );
+      }
       return true;
     })
     .filter(g => {
@@ -126,38 +135,45 @@ export default function Collection() {
             </div>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-3">
-            <Select value={activeCategory} onValueChange={setActiveCategory}>
-              <SelectTrigger className="bg-white">
-                <SelectValue placeholder="Kategorie" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map(category => {
-                  const categoryGenera = category === "Alle"
-                    ? generaWithDiscovery
-                    : generaWithDiscovery.filter(g => g.category === category);
-                  const discovered = categoryGenera.filter(g => g.discovered).length;
-                  return (
-                    <SelectItem key={category} value={category}>
-                      {category} ({discovered}/{categoryGenera.length})
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="flex gap-3 flex-1">
+              <Select value={activeCategory} onValueChange={setActiveCategory}>
+                <SelectTrigger className="bg-white flex-1">
+                  <SelectValue placeholder="Kategorie" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map(category => {
+                    const categoryGenera = category === "Alle"
+                      ? generaWithDiscovery
+                      : generaWithDiscovery.filter(g => g.category === category);
+                    const discovered = categoryGenera.filter(g => g.discovered).length;
+                    return (
+                      <SelectItem key={category} value={category}>
+                        {category} ({discovered}/{categoryGenera.length})
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
 
-            <Select value={discoveryFilter} onValueChange={setDiscoveryFilter}>
-              <SelectTrigger className="bg-white">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Alle">Alle</SelectItem>
-                <SelectItem value="Entdeckt">Entdeckt</SelectItem>
-                <SelectItem value="Nicht entdeckt">Nicht entdeckt</SelectItem>
-              </SelectContent>
-            </Select>
+              <Select value={discoveryFilter} onValueChange={setDiscoveryFilter}>
+                <SelectTrigger className="bg-white flex-1">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Alle">Alle</SelectItem>
+                  <SelectItem value="Entdeckt">Entdeckt</SelectItem>
+                  <SelectItem value="Nicht entdeckt">Nicht entdeckt</SelectItem>
+                  <SelectItem value="Häufig">Häufig</SelectItem>
+                  <SelectItem value="Gelegentlich">Gelegentlich</SelectItem>
+                  <SelectItem value="Selten">Selten</SelectItem>
+                  <SelectItem value="Sehr Selten">Sehr Selten</SelectItem>
+                  <SelectItem value="Extrem Selten">Extrem Selten</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-            <div className="relative">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
               <Input
                 type="text"
