@@ -29,6 +29,7 @@ import AdminBlumenList from './pages/AdminBlumenList';
 import FriendFriendsList from './pages/FriendFriendsList';
 import ViewSharedScan from './pages/ViewSharedScan';
 import AdminQuestCreator from './pages/AdminQuestCreator';
+import MigratePlantGenus from './pages/MigratePlantGenus';
 import __Layout from './Layout.jsx';
 
 
@@ -64,6 +65,7 @@ export const PAGES = {
     "FriendFriendsList": FriendFriendsList,
     "ViewSharedScan": ViewSharedScan,
     "AdminQuestCreator": AdminQuestCreator,
+    "MigratePlantGenus": MigratePlantGenus,
 }
 
 export const pagesConfig = {
