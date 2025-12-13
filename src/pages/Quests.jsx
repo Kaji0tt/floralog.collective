@@ -492,7 +492,7 @@ export default function Quests() {
                         <span className="text-sm font-semibold text-stone-700">
                           {currentDailyQuest.requirement}
                         </span>
-                        <span className="text-sm font-bold text-emerald-700">
+                        <span className="text-sm font-bold text-emerald-700 whitespace-nowrap">
                           {dailyProgress} / {currentDailyQuest.required_discoveries}
                         </span>
                       </div>
@@ -566,7 +566,7 @@ export default function Quests() {
                         <span className="text-sm font-semibold text-stone-700">
                           {currentWeeklyQuest.requirement}
                         </span>
-                        <span className="text-sm font-bold text-blue-700">
+                        <span className="text-sm font-bold text-blue-700 whitespace-nowrap">
                           {weeklyProgress} / {currentWeeklyQuest.required_discoveries}
                         </span>
                       </div>
@@ -650,7 +650,7 @@ export default function Quests() {
                           <span className="text-sm font-semibold text-stone-700">
                             {quest.requirement}
                           </span>
-                          <span className="text-sm font-bold text-green-700">
+                          <span className="text-sm font-bold text-green-700 whitespace-nowrap">
                             {progress} / {quest.required_discoveries}
                           </span>
                         </div>
