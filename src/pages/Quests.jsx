@@ -463,30 +463,28 @@ export default function Quests() {
                 transition={{ duration: 0.3 }}
               >
                 <Card className={`border-2 ${isDailyAlreadyCompletedToday ? 'border-green-400 bg-green-50' : 'border-emerald-400'} hover:shadow-lg transition-all bg-white`}>
-                  <CardHeader>
-                    <div className="flex gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3 mb-2">
-                          <Badge className="bg-emerald-600 text-white font-bold">
-                            📅 Täglich
-                          </Badge>
-                          {isDailyAlreadyCompletedToday && (
-                            <Badge className="bg-green-600 text-white">
-                              <CheckCircle2 className="w-3 h-3 mr-1" />
-                              Heute erledigt
-                            </Badge>
-                          )}
-                        </div>
-                        <CardTitle className="text-xl text-stone-900 mb-2">{currentDailyQuest.title}</CardTitle>
-                        <p className="text-stone-600">{currentDailyQuest.description}</p>
-                      </div>
-                      <div className="flex-shrink-0">
-                        <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex flex-col items-center justify-center shadow-lg">
-                          <span className="text-white font-bold text-base">+{currentDailyQuest.xp_reward}</span>
-                          <span className="text-white text-[10px] font-semibold">XP</span>
-                        </div>
+                  <CardHeader className="relative">
+                    <div className="absolute top-4 right-4">
+                      <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex flex-col items-center justify-center shadow-lg">
+                        <span className="text-white font-bold text-sm">+{currentDailyQuest.xp_reward}</span>
+                        <span className="text-white text-[9px] font-semibold">XP</span>
                       </div>
                     </div>
+                    <div className="pr-20">
+                      <div className="flex items-center gap-3 mb-2">
+                        <Badge className="bg-emerald-600 text-white font-bold">
+                          📅 Täglich
+                        </Badge>
+                        {isDailyAlreadyCompletedToday && (
+                          <Badge className="bg-green-600 text-white">
+                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                            Heute erledigt
+                          </Badge>
+                        )}
+                      </div>
+                      <CardTitle className="text-xl text-stone-900 mb-2">{currentDailyQuest.title}</CardTitle>
+                    </div>
+                    <p className="text-stone-600">{currentDailyQuest.description}</p>
                   </CardHeader>
                   <CardContent>
                     <div className="mb-3">
@@ -539,30 +537,28 @@ export default function Quests() {
                 transition={{ duration: 0.3, delay: 0.1 }}
               >
                 <Card className={`border-2 ${isWeeklyAlreadyCompletedThisWeek ? 'border-green-400 bg-green-50' : 'border-blue-400'} hover:shadow-lg transition-all bg-white`}>
-                  <CardHeader>
-                    <div className="flex gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3 mb-2">
-                          <Badge className="bg-blue-600 text-white font-bold">
-                            📆 Wöchentlich
-                          </Badge>
-                          {isWeeklyAlreadyCompletedThisWeek && (
-                            <Badge className="bg-green-600 text-white">
-                              <CheckCircle2 className="w-3 h-3 mr-1" />
-                              Diese Woche erledigt
-                            </Badge>
-                          )}
-                        </div>
-                        <CardTitle className="text-xl text-stone-900 mb-2">{currentWeeklyQuest.title}</CardTitle>
-                        <p className="text-stone-600">{currentWeeklyQuest.description}</p>
-                      </div>
-                      <div className="flex-shrink-0">
-                        <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex flex-col items-center justify-center shadow-lg">
-                          <span className="text-white font-bold text-base">+{currentWeeklyQuest.xp_reward}</span>
-                          <span className="text-white text-[10px] font-semibold">XP</span>
-                        </div>
+                  <CardHeader className="relative">
+                    <div className="absolute top-4 right-4">
+                      <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex flex-col items-center justify-center shadow-lg">
+                        <span className="text-white font-bold text-sm">+{currentWeeklyQuest.xp_reward}</span>
+                        <span className="text-white text-[9px] font-semibold">XP</span>
                       </div>
                     </div>
+                    <div className="pr-20">
+                      <div className="flex items-center gap-3 mb-2">
+                        <Badge className="bg-blue-600 text-white font-bold">
+                          📆 Wöchentlich
+                        </Badge>
+                        {isWeeklyAlreadyCompletedThisWeek && (
+                          <Badge className="bg-green-600 text-white">
+                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                            Diese Woche erledigt
+                          </Badge>
+                        )}
+                      </div>
+                      <CardTitle className="text-xl text-stone-900 mb-2">{currentWeeklyQuest.title}</CardTitle>
+                    </div>
+                    <p className="text-stone-600">{currentWeeklyQuest.description}</p>
                   </CardHeader>
                   <CardContent>
                     <div className="mb-3">
@@ -620,35 +616,33 @@ export default function Quests() {
                   transition={{ delay: index * 0.05 }}
                 >
                   <Card className="border-2 border-stone-200 hover:border-green-300 hover:shadow-lg transition-all bg-white">
-                    <CardHeader>
-                      <div className="flex gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-3 mb-2">
-                            <Badge className="bg-stone-800 text-white font-bold">
-                              #{quest.quest_number}
-                            </Badge>
-                            <Badge className={`${
-                              quest.difficulty === "Leicht" ? "bg-green-500" :
-                              quest.difficulty === "Mittel" ? "bg-yellow-500" : "bg-red-500"
-                            } text-white font-semibold`}>
-                              {quest.difficulty}
-                            </Badge>
-                            {quest.category !== "Alle" && (
-                              <Badge variant="outline" className="border-2 border-stone-300 font-semibold">
-                                {quest.category}
-                              </Badge>
-                            )}
-                          </div>
-                          <CardTitle className="text-xl text-stone-900 mb-2">{quest.title}</CardTitle>
-                          <p className="text-stone-600">{quest.description}</p>
-                        </div>
-                        <div className="flex-shrink-0">
-                          <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-amber-600 rounded-full flex flex-col items-center justify-center shadow-lg">
-                            <span className="text-white font-bold text-base">+{quest.xp_reward}</span>
-                            <span className="text-white text-[10px] font-semibold">XP</span>
-                          </div>
+                    <CardHeader className="relative">
+                      <div className="absolute top-4 right-4">
+                        <div className="w-14 h-14 bg-gradient-to-br from-amber-500 to-amber-600 rounded-full flex flex-col items-center justify-center shadow-lg">
+                          <span className="text-white font-bold text-sm">+{quest.xp_reward}</span>
+                          <span className="text-white text-[9px] font-semibold">XP</span>
                         </div>
                       </div>
+                      <div className="pr-20">
+                        <div className="flex items-center gap-3 mb-2">
+                          <Badge className="bg-stone-800 text-white font-bold">
+                            #{quest.quest_number}
+                          </Badge>
+                          <Badge className={`${
+                            quest.difficulty === "Leicht" ? "bg-green-500" :
+                            quest.difficulty === "Mittel" ? "bg-yellow-500" : "bg-red-500"
+                          } text-white font-semibold`}>
+                            {quest.difficulty}
+                          </Badge>
+                          {quest.category !== "Alle" && (
+                            <Badge variant="outline" className="border-2 border-stone-300 font-semibold">
+                              {quest.category}
+                            </Badge>
+                          )}
+                        </div>
+                        <CardTitle className="text-xl text-stone-900 mb-2">{quest.title}</CardTitle>
+                      </div>
+                      <p className="text-stone-600">{quest.description}</p>
                     </CardHeader>
                     <CardContent>
                       <div className="mb-3">
