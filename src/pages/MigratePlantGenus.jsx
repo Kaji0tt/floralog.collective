@@ -11,6 +11,8 @@ export default function MigratePlantGenus() {
   const [errors, setErrors] = useState([]);
   const [migrated, setMigrated] = useState(0);
 
+  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
   const migrateData = async () => {
     setStatus("running");
     setProgress("Lade Daten...");
@@ -54,6 +56,8 @@ export default function MigratePlantGenus() {
           migratedCount++;
           setMigrated(migratedCount);
           setProgress(`${i + 1}/${plants.length} - Migriert: "${plant.species_name}" → ${genus.category} #${genus.category_dex_number}`);
+          
+          await sleep(100);
         } catch (err) {
           errorList.push(`Plant "${plant.species_name}" - Fehler beim Update: ${err.message}`);
         }
