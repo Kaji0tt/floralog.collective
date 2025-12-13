@@ -371,7 +371,7 @@ export default function Profile() {
             <CardContent 
               className="p-6 md:p-8 relative"
               style={user?.background_image_url ? {
-                backgroundImage: `linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.85)), url(${user.background_image_url})`,
+                backgroundImage: `linear-gradient(rgba(255,255,255,0.5), rgba(255,255,255,0.5)), url(${user.background_image_url})`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center'
               } : {}}
@@ -492,7 +492,7 @@ export default function Profile() {
                     transition={{ delay: 0.1 + index * 0.05 }}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className={`${stat.bgColor} ${stat.borderColor} border-2 rounded-xl p-3 md:p-4 hover:shadow-lg transition-all duration-300 group`}
+                    className={`bg-white/60 backdrop-blur-md ${stat.borderColor} border-2 rounded-xl p-3 md:p-4 hover:shadow-lg transition-all duration-300 group`}
                   >
                     <div className="flex flex-col items-center gap-2">
                       <div className={`w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br ${stat.color} rounded-full flex items-center justify-center shadow-md group-hover:scale-110 transition-transform`}>
