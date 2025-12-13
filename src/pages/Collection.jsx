@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Loader2, Leaf, Search } from "lucide-react";
@@ -13,6 +13,7 @@ const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
 export default function Collection() {
   const [activeCategory, setActiveCategory] = useState("Alle");
+  const [discoveryFilter, setDiscoveryFilter] = useState("Alle");
   const [selectedGenus, setSelectedGenus] = useState(null);
   const [showHintDialog, setShowHintDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -67,6 +68,11 @@ export default function Collection() {
   const filteredGenera = generaWithDiscovery
     .filter(g => activeCategory === "Alle" || g.category === activeCategory)
     .filter(g => {
+      if (discoveryFilter === "Entdeckt") return g.discovered;
+      if (discoveryFilter === "Nicht entdeckt") return !g.discovered;
+      return true;
+    })
+    .filter(g => {
       if (!searchQuery.trim()) return true;
       const query = searchQuery.toLowerCase();
       return g.genus_name?.toLowerCase().includes(query) ||
@@ -103,63 +109,65 @@ export default function Collection() {
       />
 
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-8">
-          <div className="flex justify-center gap-4 flex-wrap">
-            <div className="inline-flex items-center gap-3 bg-white px-6 py-3 rounded-xl shadow-sm border border-stone-200">
-              <div className="text-left">
-                <div className="text-2xl font-bold text-green-700">{discoveredCount} / {totalCount}</div>
-                <div className="text-sm font-medium text-stone-600">Gattungen</div>
+        <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-4 mb-6 max-w-4xl mx-auto">
+          <div className="flex items-center justify-between gap-6 mb-4">
+            <div className="flex items-center gap-3">
+              <div className="text-center">
+                <div className="text-xl font-bold text-green-700">{discoveredCount} / {totalCount}</div>
+                <div className="text-xs font-medium text-stone-600">Gattungen</div>
               </div>
             </div>
-
-            <div className="inline-flex items-center gap-3 bg-white px-6 py-3 rounded-xl shadow-sm border border-amber-200">
-              <div className="text-left">
-                <div className="text-2xl font-bold text-amber-700">{discoveredSpecies} / {totalSpecies}</div>
-                <div className="text-sm font-medium text-stone-600">Arten</div>
+            <div className="h-8 w-px bg-stone-200"></div>
+            <div className="flex items-center gap-3">
+              <div className="text-center">
+                <div className="text-xl font-bold text-amber-700">{discoveredSpecies} / {totalSpecies}</div>
+                <div className="text-xs font-medium text-stone-600">Arten</div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="flex justify-center mb-6 px-2">
-          <div className="relative w-full max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
-            <Input
-              type="text"
-              placeholder="Gattung suchen..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-white border-stone-200 shadow-sm"
-            />
+          <div className="grid md:grid-cols-3 gap-3">
+            <Select value={activeCategory} onValueChange={setActiveCategory}>
+              <SelectTrigger className="bg-white">
+                <SelectValue placeholder="Kategorie" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map(category => {
+                  const categoryGenera = category === "Alle"
+                    ? generaWithDiscovery
+                    : generaWithDiscovery.filter(g => g.category === category);
+                  const discovered = categoryGenera.filter(g => g.discovered).length;
+                  return (
+                    <SelectItem key={category} value={category}>
+                      {category} ({discovered}/{categoryGenera.length})
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+
+            <Select value={discoveryFilter} onValueChange={setDiscoveryFilter}>
+              <SelectTrigger className="bg-white">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Alle">Alle</SelectItem>
+                <SelectItem value="Entdeckt">Entdeckt</SelectItem>
+                <SelectItem value="Nicht entdeckt">Nicht entdeckt</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+              <Input
+                type="text"
+                placeholder="Suchen..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 bg-white"
+              />
+            </div>
           </div>
-        </div>
-
-        <div className="flex justify-center mb-8 px-2">
-          <Tabs value={activeCategory} onValueChange={setActiveCategory} className="w-full max-w-md">
-            <TabsList className="bg-white border border-stone-200 p-1 h-auto shadow-sm w-full grid grid-cols-4">
-              {categories.map(category => {
-                const categoryGenera = category === "Alle"
-                  ? generaWithDiscovery
-                  : generaWithDiscovery.filter(g => g.category === category);
-                const discovered = categoryGenera.filter(g => g.discovered).length;
-
-                return (
-                  <TabsTrigger
-                    key={category}
-                    value={category}
-                    className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold px-2 md:px-4 py-2 text-xs md:text-sm"
-                  >
-                    <div className="flex flex-col items-center gap-0.5">
-                      <span className="truncate">{category}</span>
-                      <Badge variant="secondary" className="bg-stone-100 text-[10px] md:text-xs font-semibold px-1">
-                        {discovered}/{categoryGenera.length}
-                      </Badge>
-                    </div>
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-          </Tabs>
         </div>
 
         {filteredGenera.length === 0 ? (
