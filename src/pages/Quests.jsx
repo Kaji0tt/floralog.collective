@@ -465,7 +465,7 @@ export default function Quests() {
                 <Card className={`border-2 ${isDailyAlreadyCompletedToday ? 'border-green-400 bg-green-50' : 'border-emerald-400'} hover:shadow-lg transition-all bg-white`}>
                   <CardHeader>
                     <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
                           <Badge className="bg-emerald-600 text-white font-bold">
                             📅 Täglich
@@ -478,13 +478,13 @@ export default function Quests() {
                           )}
                         </div>
                         <CardTitle className="text-xl text-stone-900 mb-2">{currentDailyQuest.title}</CardTitle>
-                        <div className="flex items-start justify-between gap-4">
-                          <p className="text-stone-600 flex-1">{currentDailyQuest.description}</p>
-                          <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                            <span className="text-2xl font-bold text-emerald-600">+{currentDailyQuest.xp_reward}</span>
-                            <span className="text-xs font-semibold text-stone-500">XP</span>
-                          </div>
+                        <p className="text-stone-600">{currentDailyQuest.description}</p>
+                      </div>
+                      <div className="flex flex-col items-center gap-2 ml-4">
+                        <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg">
+                          <span className="text-white font-bold text-sm">+{currentDailyQuest.xp_reward}</span>
                         </div>
+                        <span className="text-xs font-semibold text-stone-600">XP</span>
                       </div>
                     </div>
                   </CardHeader>
@@ -541,7 +541,7 @@ export default function Quests() {
                 <Card className={`border-2 ${isWeeklyAlreadyCompletedThisWeek ? 'border-green-400 bg-green-50' : 'border-blue-400'} hover:shadow-lg transition-all bg-white`}>
                   <CardHeader>
                     <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
                           <Badge className="bg-blue-600 text-white font-bold">
                             📆 Wöchentlich
@@ -554,13 +554,13 @@ export default function Quests() {
                           )}
                         </div>
                         <CardTitle className="text-xl text-stone-900 mb-2">{currentWeeklyQuest.title}</CardTitle>
-                        <div className="flex items-start justify-between gap-4">
-                          <p className="text-stone-600 flex-1">{currentWeeklyQuest.description}</p>
-                          <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                            <span className="text-2xl font-bold text-blue-600">+{currentWeeklyQuest.xp_reward}</span>
-                            <span className="text-xs font-semibold text-stone-500">XP</span>
-                          </div>
+                        <p className="text-stone-600">{currentWeeklyQuest.description}</p>
+                      </div>
+                      <div className="flex flex-col items-center gap-2 ml-4">
+                        <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg">
+                          <span className="text-white font-bold text-sm">+{currentWeeklyQuest.xp_reward}</span>
                         </div>
+                        <span className="text-xs font-semibold text-stone-600">XP</span>
                       </div>
                     </div>
                   </CardHeader>
@@ -622,7 +622,7 @@ export default function Quests() {
                   <Card className="border-2 border-stone-200 hover:border-green-300 hover:shadow-lg transition-all bg-white">
                     <CardHeader>
                       <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
                             <Badge className="bg-stone-800 text-white font-bold">
                               #{quest.quest_number}
@@ -640,13 +640,13 @@ export default function Quests() {
                             )}
                           </div>
                           <CardTitle className="text-xl text-stone-900 mb-2">{quest.title}</CardTitle>
-                          <div className="flex items-start justify-between gap-4">
-                            <p className="text-stone-600 flex-1">{quest.description}</p>
-                            <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                              <span className="text-2xl font-bold text-amber-600">+{quest.xp_reward}</span>
-                              <span className="text-xs font-semibold text-stone-500">XP</span>
-                            </div>
+                          <p className="text-stone-600">{quest.description}</p>
+                        </div>
+                        <div className="flex flex-col items-center gap-2 ml-4">
+                          <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-amber-600 rounded-full flex items-center justify-center shadow-lg">
+                            <span className="text-white font-bold text-sm">+{quest.xp_reward}</span>
                           </div>
+                          <span className="text-xs font-semibold text-stone-600">XP</span>
                         </div>
                       </div>
                     </CardHeader>
