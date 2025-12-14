@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, BookOpen, Target, Users, Camera, Loader2, LogOut, Mail, Key, AlertCircle, Edit2, CheckCircle, X, RotateCcw, Star, Image as ImageIcon } from "lucide-react"; // Added Star icon
+import { Trophy, BookOpen, Target, Users, Camera, Loader2, LogOut, Mail, Key, AlertCircle, Edit2, CheckCircle, X, RotateCcw, Star, Image as ImageIcon, Map, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
@@ -656,6 +656,46 @@ export default function Profile() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.5 }}
+        >
+          <Card 
+            className="mb-6 shadow-lg bg-white/80 backdrop-blur-md cursor-pointer hover:shadow-xl transition-all duration-300"
+            style={{
+              borderWidth: '2px',
+              borderStyle: 'solid',
+              borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
+            }}
+            onClick={() => navigate(createPageUrl("Map"))}
+          >
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div 
+                  className="w-16 h-16 rounded-full flex items-center justify-center shadow-md"
+                  style={{
+                    background: averageColor 
+                      ? `linear-gradient(135deg, var(--profile-bg-color) 0%, var(--profile-bg-color-dark) 100%)`
+                      : 'linear-gradient(135deg, rgb(34, 197, 94), rgb(22, 163, 74))'
+                  }}
+                >
+                  <Map className="w-8 h-8 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-stone-900 mb-1">
+                    Deine Karte
+                  </h3>
+                  <p className="text-sm text-stone-600">
+                    Entdecke deine Scans auf der Karte
+                  </p>
+                </div>
+                <ChevronRight className="w-6 h-6 text-stone-400" />
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, duration: 0.5 }}
         >
           <Card className="border-2 border-stone-200 shadow-lg bg-white">
             <CardHeader className="border-b border-stone-200">
