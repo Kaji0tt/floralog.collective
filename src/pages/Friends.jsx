@@ -479,7 +479,7 @@ export default function Friends() {
             transition={{ duration: 0.5 }}
             className="sticky top-0 z-40 bg-gradient-to-br from-stone-50 to-green-50 pb-4"
           >
-            <Card className="border-2 border-green-200 shadow-lg bg-white">
+            <Card className="border-2 border-green-200 shadow-lg bg-white/80 backdrop-blur-md">
               <CardContent className="p-4">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-4">
@@ -554,7 +554,7 @@ export default function Friends() {
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: index * 0.1 }}
                         >
-                          <Card className="border-2 border-stone-200 bg-white">
+                          <Card className="border-2 border-stone-200 bg-white/80 backdrop-blur-sm">
                             <CardContent className="p-4">
                               <div className="flex items-center justify-between flex-wrap gap-3">
                                 <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -749,7 +749,7 @@ export default function Friends() {
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: index * 0.1 }}
                         >
-                          <Card className="border-2 border-stone-200 bg-white">
+                          <Card className="border-2 border-stone-200 bg-white/80 backdrop-blur-sm">
                             <CardContent className="p-4">
                               <div className="flex items-center justify-between flex-wrap gap-3">
                                 <div className="flex items-center gap-3 flex-1 min-w-0">
