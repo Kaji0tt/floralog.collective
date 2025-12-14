@@ -121,7 +121,7 @@ export default function Layout({ children, currentPageName }) {
           scrollbar-width: none;
         }
       `}</style>
-      <div className="min-h-screen flex w-full bg-stone-50 overflow-x-hidden">
+      <div className="min-h-screen flex w-full overflow-x-hidden">
         {/* Sidebar - nur auf Desktop sichtbar */}
         <Sidebar className="border-r border-stone-200 bg-white hidden md:flex">
           <SidebarHeader className="border-b border-stone-200 p-6">

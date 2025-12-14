@@ -121,7 +121,6 @@ export default function Profile() {
       setUser(freshUser);
       setEditedName(freshUser.display_name || freshUser.full_name);
       setIsEditingName(false);
-      setRefreshKey(prev => prev + 1);
       
       queryClient.invalidateQueries({ queryKey: ['user'] });
       queryClient.invalidateQueries({ queryKey: ['userAchievements'] });
