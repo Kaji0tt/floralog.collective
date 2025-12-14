@@ -196,7 +196,7 @@ export default function FriendCollection() {
   if (isLoading || !friendUser) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50">
-        <img src={LOGO_URL} alt="PlantDex Logo" className="w-16 h-16 animate-pulse" />
+        <Leaf className="w-12 h-12 text-green-600 animate-spin" />
       </div>
     );
   }
