@@ -131,7 +131,7 @@ export default function Friends() {
   const { data: allDiscoveries = [] } = useQuery({
     queryKey: ['allDiscoveries'],
     queryFn: async () => {
-      const discoveries = await base44.entities.UserPlantDiscovery.list('-created_date', 1000);
+      const discoveries = await base44.entities.UserPlantDiscovery.list('-created_date', 999);
       console.log("📊 Geladene Discoveries:", discoveries.length);
       return discoveries;
     },
@@ -147,7 +147,7 @@ export default function Friends() {
   const { data: allUserAchievements = [] } = useQuery({
     queryKey: ['allUserAchievements'],
     queryFn: async () => {
-      const achievements = await base44.entities.UserAchievement.list('-created_date', 1000);
+      const achievements = await base44.entities.UserAchievement.list('-created_date', 999);
       console.log("📊 Geladene UserAchievements:", achievements.length);
       return achievements;
     },

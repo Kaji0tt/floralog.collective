@@ -190,7 +190,7 @@ export default function FriendProfile() {
   const { data: friendDiscoveries = [] } = useQuery({
     queryKey: ['friendDiscoveries', friendEmail],
     queryFn: async () => {
-      const discoveries = await base44.entities.UserPlantDiscovery.list('-created_date', 500);
+      const discoveries = await base44.entities.UserPlantDiscovery.list('-created_date', 999);
       // Nutze das neue "user" Feld (mit Fallback auf created_by für alte Einträge)
       return discoveries.filter(d => d.user === friendEmail || d.created_by === friendEmail);
     },

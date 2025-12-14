@@ -185,7 +185,7 @@ export default function Map() {
 
   const { data: allDiscoveries = [] } = useQuery({
     queryKey: ['allDiscoveries'],
-    queryFn: () => base44.entities.UserPlantDiscovery.list('-created_date', 500),
+    queryFn: () => base44.entities.UserPlantDiscovery.list('-created_date', 999),
     staleTime: 30000, // 30 Sekunden Cache
   });
 
