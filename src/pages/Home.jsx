@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Trophy, BookOpen, Target, Users, Camera, Loader2, Image as ImageIcon, Map as MapIcon, Heart } from "lucide-react";
+import { Trophy, BookOpen, Target, Users, Camera, Loader2, Image as ImageIcon, Map as MapIcon, Heart, Leaf } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { motion, AnimatePresence } from "framer-motion";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";

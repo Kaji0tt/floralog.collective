@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { getXPProgressInLevel } from "../components/utils/xpSystem";
 import MobileBackButton from "../components/navigation/MobileBackButton"; // Added import
-import { Camera, BookOpen, Trophy, Target, Leaf, Users, ChevronRight, Star, ArrowLeft, Lock, Map as MapIcon, Heart, UserPlus, Clock } from "lucide-react";
+import { Camera, BookOpen, Trophy, Target, Users, ChevronRight, Star, ArrowLeft, Lock, Map as MapIcon, Heart, UserPlus, Clock, Leaf } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
