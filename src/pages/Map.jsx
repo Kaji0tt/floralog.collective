@@ -97,15 +97,15 @@ export default function Map() {
   const [userLocation, setUserLocation] = useState(null);
   const [selectedPlant, setSelectedPlant] = useState(null);
   const [gettingLocation, setGettingLocation] = useState(false);
-  const [selectedViews, setSelectedViews] = useState({
-    mine: true, // Standardmäßig eigene Pflanzen anzeigen
-  });
+  const [selectedViews, setSelectedViews] = useState({});
   const [targetLocation, setTargetLocation] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
 
-  // URL-Parameter für Zielkoordinaten auslesen
+  // URL-Parameter für Freund-Email und Zielkoordinaten auslesen
+  const urlParams = new URLSearchParams(window.location.search);
+  const friendEmailParam = urlParams.get('email');
+
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
     const lat = urlParams.get('lat');
     const lng = urlParams.get('lng');
     if (lat && lng) {
@@ -225,6 +225,18 @@ export default function Map() {
       profile
     };
   });
+
+  // Setze initial View basierend auf friendEmailParam
+  useEffect(() => {
+    if (friendEmailParam && friends.length > 0) {
+      const friend = friends.find(f => f.email === friendEmailParam);
+      if (friend) {
+        setSelectedViews({ [`friend-${friend.email}`]: true });
+      }
+    } else if (!friendEmailParam && Object.keys(selectedViews).length === 0) {
+      setSelectedViews({ mine: true });
+    }
+  }, [friendEmailParam, friends.length]);
 
   // Helper function um Plant-Daten mit Discovery-Daten zu kombinieren
   const getPlantsWithDiscoveries = (userEmail) => {

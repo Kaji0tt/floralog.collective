@@ -469,7 +469,7 @@ export default function FriendProfile() {
             className="mt-6"
           >
             <button
-              onClick={() => navigate(createPageUrl("Map"))}
+              onClick={() => navigate(createPageUrl(`Map?email=${friendEmail}`))}
               className="w-full bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-3 group"
             >
               <Map className="w-6 h-6 group-hover:scale-110 transition-transform" />
