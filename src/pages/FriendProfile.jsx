@@ -502,11 +502,45 @@ export default function FriendProfile() {
                         <div className="text-xs font-semibold text-stone-600 hidden sm:block">{stat.label}</div>
                       </div>
                     </motion.button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+                    ))}
+                    </div>
+
+                    {/* Zur Karte Button - innerhalb der Profilkarte */}
+                    {isFriend && (
+                    <div className="mt-4">
+                    <div 
+                      className="bg-white/60 backdrop-blur-md rounded-xl p-4 shadow-md"
+                      style={{
+                        borderWidth: '2px',
+                        borderStyle: 'solid',
+                        borderColor: averageColor ? 'var(--friend-border-color)' : 'rgb(187, 247, 208)'
+                      }}
+                    >
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(createPageUrl("Map"));
+                        }}
+                        className="flex items-center justify-center gap-2 hover:opacity-80 transition-opacity w-full"
+                      >
+                        <div 
+                          className="w-10 h-10 rounded-full flex items-center justify-center shadow-md"
+                          style={{
+                            background: averageColor 
+                              ? `linear-gradient(135deg, var(--friend-bg-color) 0%, var(--friend-bg-color-dark) 100%)`
+                              : 'linear-gradient(135deg, rgb(34, 197, 94), rgb(22, 163, 74))'
+                          }}
+                        >
+                          <Map className="w-5 h-5 text-white" />
+                        </div>
+                        <span className="font-semibold text-stone-900">Zur Karte</span>
+                      </button>
+                    </div>
+                    </div>
+                    )}
+                    </CardContent>
+                    </Card>
+                    </motion.div>
 
           {/* Karten Button / Freund hinzufügen */}
           <motion.div

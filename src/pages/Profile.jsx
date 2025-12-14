@@ -707,6 +707,60 @@ export default function Profile() {
                   </motion.button>
                 ))}
               </div>
+
+              {/* Scannen/Karte Container - innerhalb der Profilkarte */}
+              <div className="mt-4">
+                <div 
+                  className="bg-white/60 backdrop-blur-md rounded-xl p-4 shadow-md"
+                  style={{
+                    borderWidth: '2px',
+                    borderStyle: 'solid',
+                    borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
+                  }}
+                >
+                  <div className="flex items-center justify-around gap-4">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(createPageUrl("Scanner"));
+                      }}
+                      className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                    >
+                      <div 
+                        className="w-10 h-10 rounded-full flex items-center justify-center shadow-md"
+                        style={{
+                          background: averageColor 
+                            ? `linear-gradient(135deg, var(--profile-bg-color) 0%, var(--profile-bg-color-dark) 100%)`
+                            : 'linear-gradient(135deg, rgb(34, 197, 94), rgb(22, 163, 74))'
+                        }}
+                      >
+                        <Camera className="w-5 h-5 text-white" />
+                      </div>
+                      <span className="font-semibold text-stone-900">Scannen</span>
+                    </button>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(createPageUrl("Map"));
+                      }}
+                      className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                    >
+                      <div 
+                        className="w-10 h-10 rounded-full flex items-center justify-center shadow-md"
+                        style={{
+                          background: averageColor 
+                            ? `linear-gradient(135deg, var(--profile-bg-color) 0%, var(--profile-bg-color-dark) 100%)`
+                            : 'linear-gradient(135deg, rgb(34, 197, 94), rgb(22, 163, 74))'
+                        }}
+                      >
+                        <Map className="w-5 h-5 text-white" />
+                      </div>
+                      <span className="font-semibold text-stone-900">Karte</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </motion.div>
