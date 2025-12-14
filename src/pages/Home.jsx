@@ -520,28 +520,6 @@ export default function Home() {
                 background: `linear-gradient(135deg, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 0.6)')} 0%, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 1)')} 100%)`
               } : {}}
             >
-              {user?.role === 'admin' || user?.donor ? (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowBackgroundSelector(true);
-                  }}
-                  className="absolute top-4 right-4 w-10 h-10 bg-stone-200/80 hover:bg-stone-300/80 backdrop-blur-sm rounded-full flex items-center justify-center transition-colors z-10"
-                >
-                  <ImageIcon className="w-5 h-5 text-stone-700" />
-                </button>
-              ) : (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowColorPicker(true);
-                  }}
-                  className="absolute top-4 right-4 w-10 h-10 bg-stone-200/80 hover:bg-stone-300/80 backdrop-blur-sm rounded-full flex items-center justify-center transition-colors z-10"
-                >
-                  <ImageIcon className="w-5 h-5 text-stone-700" />
-                </button>
-              )}
-
               <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
                 <div className="relative group flex-shrink-0">
                   <div className="w-28 h-28 bg-gradient-to-br from-green-600 to-emerald-600 rounded-2xl flex items-center justify-center shadow-2xl overflow-hidden ring-4 ring-white/50 backdrop-blur-sm">
