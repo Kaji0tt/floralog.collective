@@ -174,11 +174,13 @@ export default function Map() {
   const { data: plants = [], isLoading } = useQuery({
     queryKey: ['plants'],
     queryFn: () => base44.entities.Plant.list('-discovery_date'),
+    staleTime: 60000, // 1 Minute Cache
   });
 
   const { data: genera = [] } = useQuery({
     queryKey: ['genera'],
     queryFn: () => base44.entities.PlantGenus.list(),
+    staleTime: 300000, // 5 Minuten Cache
   });
 
   const { data: allDiscoveries = [] } = useQuery({
