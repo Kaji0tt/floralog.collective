@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, Star, ChevronRight, ArrowLeft } from "lucide-react";
+import { Users, Star, ChevronRight, ArrowLeft, Leaf } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -120,7 +120,7 @@ export default function FriendFriendsList() {
   if (!friendUser) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50">
-        <img src={LOGO_URL} alt="PlantDex Logo" className="w-16 h-16 animate-pulse" />
+        <Leaf className="w-12 h-12 text-green-600 animate-spin" />
       </div>
     );
   }
