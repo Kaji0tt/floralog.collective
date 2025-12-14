@@ -68,6 +68,7 @@ export default function Quests() {
   const [newAchievements, setNewAchievements] = useState([]);
   const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
   const [activeTab, setActiveTab] = useState("active");
+  const [averageColor, setAverageColor] = useState(null);
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
@@ -422,8 +423,35 @@ export default function Quests() {
   const isDailyAlreadyCompletedToday = activeDailyUserQuest?.completed === true;
   const isWeeklyAlreadyCompletedThisWeek = activeWeeklyUserQuest?.completed === true;
 
+  const getLighterColor = (rgbString) => {
+    if (!rgbString) return null;
+    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!match) return rgbString;
+    const r = Math.min(255, Math.floor(parseInt(match[1]) * 1.4));
+    const g = Math.min(255, Math.floor(parseInt(match[2]) * 1.4));
+    const b = Math.min(255, Math.floor(parseInt(match[3]) * 1.4));
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+
+  const getDarkerColor = (rgbString) => {
+    if (!rgbString) return null;
+    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!match) return rgbString;
+    const r = Math.floor(parseInt(match[1]) * 0.6);
+    const g = Math.floor(parseInt(match[2]) * 0.6);
+    const b = Math.floor(parseInt(match[3]) * 0.6);
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4 md:p-8">
+    <div 
+      className="min-h-screen p-4 md:p-8"
+      style={{
+        background: averageColor 
+          ? `linear-gradient(135deg, ${getLighterColor(averageColor)} 0%, ${averageColor} 50%, ${getDarkerColor(averageColor)} 100%)`
+          : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
+      }}
+    >
       <MobileBackButton />
       
       {/* Quest Completion Animation */}

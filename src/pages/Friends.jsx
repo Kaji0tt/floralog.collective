@@ -58,6 +58,7 @@ export default function Friends() {
   const [friendEmail, setFriendEmail] = useState("");
   const [newAchievements, setNewAchievements] = useState([]);
   const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
+  const [averageColor, setAverageColor] = useState(null);
 
   useEffect(() => {
     const loadUser = async () => {

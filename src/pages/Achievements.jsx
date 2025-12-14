@@ -54,6 +54,7 @@ export default function Achievements() {
   const [user, setUser] = useState(null);
   const [showTitleDialog, setShowTitleDialog] = useState(false);
   const [selectedAchievement, setSelectedAchievement] = useState(null);
+  const [averageColor, setAverageColor] = useState(null);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -147,7 +148,14 @@ export default function Achievements() {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4 md:p-8">
+    <div 
+      className="min-h-screen p-4 md:p-8"
+      style={{
+        background: averageColor 
+          ? `linear-gradient(135deg, ${getLighterColor(averageColor)} 0%, ${averageColor} 50%, ${getDarkerColor(averageColor)} 100%)`
+          : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
+      }}
+    >
       <MobileBackButton />
       
       <div className="max-w-6xl mx-auto">
