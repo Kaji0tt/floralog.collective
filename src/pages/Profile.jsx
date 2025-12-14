@@ -379,14 +379,20 @@ export default function Profile() {
   console.log("🔄 Rendering Profile with averageColor:", averageColor);
 
   return (
-    <div 
-      className="min-h-screen min-w-full p-4 md:p-8 fixed inset-0 overflow-auto" 
-      style={{
-        background: averageColor 
-          ? `linear-gradient(135deg, ${averageColor} 0%, ${averageColor}dd 50%, ${averageColor}bb 100%)`
-          : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
-      }}
-    >
+    <>
+      <style>{`
+        :root {
+          --profile-bg-color: ${averageColor || 'rgb(250, 250, 249)'};
+        }
+      `}</style>
+      <div 
+        className="min-h-screen min-w-full p-4 md:p-8 fixed inset-0 overflow-auto" 
+        style={{
+          background: averageColor 
+            ? `linear-gradient(135deg, var(--profile-bg-color) 0%, ${averageColor}dd 50%, ${averageColor}bb 100%)`
+            : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
+        }}
+      >
       <MobileBackButton />
       
       <AnimatePresence>
@@ -727,6 +733,7 @@ export default function Profile() {
           </Card>
         </motion.div>
       </div>
-    </div>
-  );
-}
+      </div>
+      </>
+      );
+      }
