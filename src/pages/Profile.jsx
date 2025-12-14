@@ -378,18 +378,28 @@ export default function Profile() {
 
   console.log("🔄 Rendering Profile with averageColor:", averageColor);
 
+  // Konvertiere RGB zu RGBA mit Opazität
+  const getRgbaFromRgb = (rgbString, opacity) => {
+    if (!rgbString) return null;
+    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!match) return rgbString;
+    return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${opacity})`;
+  };
+
   return (
     <>
       <style>{`
         :root {
           --profile-bg-color: ${averageColor || 'rgb(250, 250, 249)'};
+          --profile-bg-color-mid: ${averageColor ? getRgbaFromRgb(averageColor, 0.87) : 'rgb(236, 253, 245)'};
+          --profile-bg-color-end: ${averageColor ? getRgbaFromRgb(averageColor, 0.73) : 'rgb(220, 252, 231)'};
         }
       `}</style>
       <div 
         className="min-h-screen min-w-full p-4 md:p-8 fixed inset-0 overflow-auto" 
         style={{
           background: averageColor 
-            ? `linear-gradient(135deg, var(--profile-bg-color) 0%, ${averageColor}dd 50%, ${averageColor}bb 100%)`
+            ? `linear-gradient(135deg, var(--profile-bg-color) 0%, var(--profile-bg-color-mid) 50%, var(--profile-bg-color-end) 100%)`
             : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
         }}
       >
