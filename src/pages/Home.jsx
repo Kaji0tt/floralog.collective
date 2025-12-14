@@ -517,7 +517,7 @@ export default function Home() {
                 background: `linear-gradient(135deg, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 0.6)')} 0%, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 1)')} 100%)`
               } : {}}
             >
-              {user?.role === 'admin' ? (
+              {user?.role === 'admin' || user?.donor ? (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
