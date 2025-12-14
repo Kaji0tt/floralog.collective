@@ -19,12 +19,42 @@ export default function FriendCollection() {
   const [searchQuery, setSearchQuery] = useState("");
   const [friendUser, setFriendUser] = useState(null);
   const [copiedMessage, setCopiedMessage] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isNotFriend, setIsNotFriend] = useState(false);
   
   const urlParams = new URLSearchParams(window.location.search);
   const friendEmail = urlParams.get('email');
 
   useEffect(() => {
+    const loadCurrentUser = async () => {
+      const user = await base44.auth.me();
+      setCurrentUser(user);
+    };
+    loadCurrentUser();
+  }, []);
+
+  useEffect(() => {
     const loadFriendUser = async () => {
+      if (!friendEmail || !currentUser?.email) return;
+      
+      // Prüfe Freundschaftsstatus
+      const allFriends = await base44.entities.Friend.list();
+      const currentEmailLower = currentUser.email.toLowerCase();
+      const friendEmailLower = friendEmail.toLowerCase();
+      
+      const friendship = allFriends.find(f =>
+        ((f.request_sent_by?.toLowerCase() === currentEmailLower && 
+          f.request_sent_to?.toLowerCase() === friendEmailLower) ||
+         (f.request_sent_by?.toLowerCase() === friendEmailLower && 
+          f.request_sent_to?.toLowerCase() === currentEmailLower)) &&
+        f.status === 'accepted'
+      );
+      
+      if (!friendship) {
+        setIsNotFriend(true);
+        return;
+      }
+      
       // Versuche PublicProfile zu laden
       const profiles = await base44.entities.PublicProfile.list();
       const profile = profiles.find(p => p.user_email?.toLowerCase() === friendEmail?.toLowerCase());
@@ -44,7 +74,7 @@ export default function FriendCollection() {
     if (friendEmail) {
       loadFriendUser();
     }
-  }, [friendEmail]);
+  }, [friendEmail, currentUser?.email]);
 
   const { data: genera = [], isLoading: generaLoading } = useQuery({
     queryKey: ['genera'],
@@ -140,6 +170,28 @@ export default function FriendCollection() {
   
   const totalDiscoveredGenera = generaWithDiscovery.filter(g => g.discovered).length;
   const totalGeneraCount = generaWithDiscovery.length;
+
+  if (isNotFriend) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md text-center border-2 border-red-200">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Leaf className="w-8 h-8 text-red-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-stone-900 mb-2">Zugriff verweigert</h2>
+          <p className="text-stone-600 mb-6">
+            Du musst mit dieser Person befreundet sein, um ihre Sammlung zu sehen.
+          </p>
+          <button
+            onClick={() => navigate(createPageUrl("Friends"))}
+            className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold shadow-md transition-all"
+          >
+            Zurück zu Freunden
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading || !friendUser) {
     return (
