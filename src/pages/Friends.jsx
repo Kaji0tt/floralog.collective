@@ -31,7 +31,7 @@ const getAverageColor = (imageUrl) => {
         ctx.drawImage(img, 0, 0, size, size);
         const imageData = ctx.getImageData(0, 0, size, size);
         const data = imageData.data;
-        let r = 0, g = 0, b = 0, count = 0;
+        let r = 0,g = 0,b = 0,count = 0;
         for (let i = 0; i < data.length; i += 16) {
           r += data[i];
           g += data[i + 1];
@@ -70,7 +70,7 @@ export default function Friends() {
 
   useEffect(() => {
     if (user?.background_image_url) {
-      getAverageColor(user.background_image_url).then(color => {
+      getAverageColor(user.background_image_url).then((color) => {
         if (color) setAverageColor(color);
       });
     } else if (user?.background_color) {
@@ -85,7 +85,7 @@ export default function Friends() {
     queryKey: ['allFriendRecords'],
     queryFn: () => base44.entities.Friend.list(),
     enabled: !!user?.email,
-    staleTime: 10000, // 10 Sekunden Cache
+    staleTime: 10000 // 10 Sekunden Cache
   });
 
   // Akzeptierte Freundschaften (wo ich ENTWEDER Sender ODER Empfänger bin)
@@ -93,13 +93,13 @@ export default function Friends() {
     queryKey: ['friends', user?.email],
     queryFn: async () => {
       if (!user?.email) return [];
-      return allFriendRecords.filter(f =>
-        (f.request_sent_by?.toLowerCase() === user.email.toLowerCase() ||
-         f.request_sent_to?.toLowerCase() === user.email.toLowerCase()) &&
-        f.status === 'accepted'
+      return allFriendRecords.filter((f) =>
+      (f.request_sent_by?.toLowerCase() === user.email.toLowerCase() ||
+      f.request_sent_to?.toLowerCase() === user.email.toLowerCase()) &&
+      f.status === 'accepted'
       );
     },
-    enabled: !!user?.email && allFriendRecords.length > 0,
+    enabled: !!user?.email && allFriendRecords.length > 0
   });
 
   // Eingehende Anfragen (wo ICH Empfänger bin)
@@ -107,24 +107,24 @@ export default function Friends() {
     queryKey: ['pendingRequests', user?.email],
     queryFn: async () => {
       if (!user?.email) return [];
-      return allFriendRecords.filter(f =>
-        f.request_sent_to?.toLowerCase() === user.email.toLowerCase() &&
-        f.status === 'pending'
+      return allFriendRecords.filter((f) =>
+      f.request_sent_to?.toLowerCase() === user.email.toLowerCase() &&
+      f.status === 'pending'
       );
     },
-    enabled: !!user?.email && allFriendRecords.length > 0,
+    enabled: !!user?.email && allFriendRecords.length > 0
   });
 
   const { data: allUsers = [] } = useQuery({
     queryKey: ['allUsers'],
     queryFn: () => base44.entities.User.list(),
-    staleTime: 60000, // 1 Minute Cache
+    staleTime: 60000 // 1 Minute Cache
   });
 
   const { data: allPublicProfiles = [] } = useQuery({
     queryKey: ['allPublicProfiles'],
     queryFn: () => base44.entities.PublicProfile.list(),
-    staleTime: 30000, // 30 Sekunden Cache
+    staleTime: 30000 // 30 Sekunden Cache
   });
 
   // Lade alle Discoveries - mit höherem Limit
@@ -134,13 +134,13 @@ export default function Friends() {
       const discoveries = await base44.entities.UserPlantDiscovery.list('-created_date', 999);
       console.log("📊 Geladene Discoveries:", discoveries.length);
       return discoveries;
-    },
+    }
   });
 
   // Lade alle Plants
   const { data: allPlants = [] } = useQuery({
     queryKey: ['allPlants'],
-    queryFn: () => base44.entities.Plant.list(),
+    queryFn: () => base44.entities.Plant.list()
   });
 
   // Lade alle Achievements - mit höherem Limit
@@ -150,13 +150,13 @@ export default function Friends() {
       const achievements = await base44.entities.UserAchievement.list('-created_date', 999);
       console.log("📊 Geladene UserAchievements:", achievements.length);
       return achievements;
-    },
+    }
   });
 
   // Lade Achievement Definitionen
   const { data: achievements = [] } = useQuery({
     queryKey: ['achievements'],
-    queryFn: () => base44.entities.Achievement.list(),
+    queryFn: () => base44.entities.Achievement.list()
   });
 
   const sendFriendRequestMutation = useMutation({
@@ -174,9 +174,9 @@ export default function Friends() {
       }
 
       // Prüfe ob bereits eine Freundschaft existiert (in BEIDE Richtungen!)
-      const existingFriendship = allFriendRecords.find(f =>
-        (f.request_sent_by?.toLowerCase() === myEmail && f.request_sent_to?.toLowerCase() === friendEmailLower) ||
-        (f.request_sent_by?.toLowerCase() === friendEmailLower && f.request_sent_to?.toLowerCase() === myEmail)
+      const existingFriendship = allFriendRecords.find((f) =>
+      f.request_sent_by?.toLowerCase() === myEmail && f.request_sent_to?.toLowerCase() === friendEmailLower ||
+      f.request_sent_by?.toLowerCase() === friendEmailLower && f.request_sent_to?.toLowerCase() === myEmail
       );
 
       if (existingFriendship) {
@@ -204,7 +204,7 @@ export default function Friends() {
     },
     onError: (error) => {
       alert(error.message);
-    },
+    }
   });
 
   const acceptFriendRequestMutation = useMutation({
@@ -231,7 +231,7 @@ export default function Friends() {
     },
     onError: (error) => {
       alert(`Fehler beim Annehmen der Anfrage: ${error.message}`);
-    },
+    }
   });
 
   const rejectFriendRequestMutation = useMutation({
@@ -244,7 +244,7 @@ export default function Friends() {
     },
     onError: (error) => {
       alert(`Fehler beim Ablehnen der Anfrage: ${error.message}`);
-    },
+    }
   });
 
   const removeFriendMutation = useMutation({
@@ -257,7 +257,7 @@ export default function Friends() {
     },
     onError: (error) => {
       alert(`Fehler beim Entfernen des Freundes: ${error.message}`);
-    },
+    }
   });
 
   const handleSendRequest = async () => {
@@ -291,9 +291,9 @@ export default function Friends() {
       await sendFriendRequestMutation.mutateAsync(trimmedEmail);
       alert(`Freundschaftsanfrage an ${trimmedEmail} gesendet! ✅`);
     } catch (error) {
+
       // Error already shown by mutation
-    }
-  };
+    }};
 
   const createPageUrl = (path) => {
     if (path.startsWith('/')) {
@@ -313,7 +313,7 @@ export default function Friends() {
     console.log("🔍 Suche Aktivitäten für:", friendEmailLower);
 
     // Letzte Discovery - prüfe sowohl user als auch created_by
-    const friendDiscoveries = allDiscoveries.filter(d => {
+    const friendDiscoveries = allDiscoveries.filter((d) => {
       const userMatch = d.user?.toLowerCase() === friendEmailLower;
       const createdByMatch = d.created_by?.toLowerCase() === friendEmailLower;
       return userMatch || createdByMatch;
@@ -321,20 +321,20 @@ export default function Friends() {
 
     console.log(`📦 ${friendDiscoveries.length} Discoveries gefunden für ${friendEmailLower}`);
 
-    const lastDiscovery = friendDiscoveries.length > 0 
-      ? friendDiscoveries.sort((a, b) => new Date(b.created_date) - new Date(a.created_date))[0]
-      : null;
+    const lastDiscovery = friendDiscoveries.length > 0 ?
+    friendDiscoveries.sort((a, b) => new Date(b.created_date) - new Date(a.created_date))[0] :
+    null;
 
     // Letztes Achievement
-    const friendAchievements = allUserAchievements.filter(a => 
-      a.created_by?.toLowerCase() === friendEmailLower
+    const friendAchievements = allUserAchievements.filter((a) =>
+    a.created_by?.toLowerCase() === friendEmailLower
     );
 
     console.log(`🏆 ${friendAchievements.length} Achievements gefunden für ${friendEmailLower}`);
 
-    const lastAchievement = friendAchievements.length > 0
-      ? friendAchievements.sort((a, b) => new Date(b.created_date) - new Date(a.created_date))[0]
-      : null;
+    const lastAchievement = friendAchievements.length > 0 ?
+    friendAchievements.sort((a, b) => new Date(b.created_date) - new Date(a.created_date))[0] :
+    null;
 
     // Vergleiche welches neuer ist
     let activity = null;
@@ -342,11 +342,11 @@ export default function Friends() {
     if (lastDiscovery && lastAchievement) {
       const discoveryDate = new Date(lastDiscovery.created_date);
       const achievementDate = new Date(lastAchievement.created_date);
-      
+
       console.log("📅 Discovery:", discoveryDate, "Achievement:", achievementDate);
-      
+
       if (discoveryDate > achievementDate) {
-        const plant = allPlants.find(p => p.id === lastDiscovery.plant_id);
+        const plant = allPlants.find((p) => p.id === lastDiscovery.plant_id);
         activity = {
           type: 'discovery',
           plant: plant,
@@ -354,7 +354,7 @@ export default function Friends() {
         };
         console.log("✅ Neueste Aktivität: Discovery -", plant?.species_name);
       } else {
-        const achievement = achievements.find(a => a.id === lastAchievement.achievement_id);
+        const achievement = achievements.find((a) => a.id === lastAchievement.achievement_id);
         activity = {
           type: 'achievement',
           achievement: achievement,
@@ -363,7 +363,7 @@ export default function Friends() {
         console.log("✅ Neueste Aktivität: Achievement -", achievement?.title);
       }
     } else if (lastDiscovery) {
-      const plant = allPlants.find(p => p.id === lastDiscovery.plant_id);
+      const plant = allPlants.find((p) => p.id === lastDiscovery.plant_id);
       activity = {
         type: 'discovery',
         plant: plant,
@@ -371,7 +371,7 @@ export default function Friends() {
       };
       console.log("✅ Neueste Aktivität: Discovery -", plant?.species_name);
     } else if (lastAchievement) {
-      const achievement = achievements.find(a => a.id === lastAchievement.achievement_id);
+      const achievement = achievements.find((a) => a.id === lastAchievement.achievement_id);
       activity = {
         type: 'achievement',
         achievement: achievement,
@@ -410,15 +410,15 @@ export default function Friends() {
     if (!user || !user.email) return null;
 
     // Bestimme die Email des anderen
-    const friendEmail = friendEntry.request_sent_by?.toLowerCase() === user.email.toLowerCase()
-      ? friendEntry.request_sent_to
-      : friendEntry.request_sent_by;
-    
+    const friendEmail = friendEntry.request_sent_by?.toLowerCase() === user.email.toLowerCase() ?
+    friendEntry.request_sent_to :
+    friendEntry.request_sent_by;
+
     // Suche PublicProfile (jeder kann das sehen!)
-    const friendProfile = allPublicProfiles.find(p => p.user_email?.toLowerCase() === friendEmail?.toLowerCase());
+    const friendProfile = allPublicProfiles.find((p) => p.user_email?.toLowerCase() === friendEmail?.toLowerCase());
 
     // Fallback auf allUsers (klappt nur wenn in der Liste)
-    const friendUser = allUsers.find(u => u.email?.toLowerCase() === friendEmail?.toLowerCase());
+    const friendUser = allUsers.find((u) => u.email?.toLowerCase() === friendEmail?.toLowerCase());
 
     // Hole letzte Aktivität
     const lastActivity = getLastActivity(friendEmail);
@@ -438,35 +438,35 @@ export default function Friends() {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50">
         <img src={LOGO_URL} alt="PlantDex Logo" className="w-16 h-16 animate-pulse" />
-      </div>
-    );
+      </div>);
+
   }
 
   return (
-    <div 
+    <div
       className="min-h-screen p-4 md:p-8 overflow-x-hidden"
       style={{
-        background: averageColor 
-          ? `linear-gradient(135deg, ${getLighterColor(averageColor)} 0%, ${averageColor} 50%, ${getDarkerColor(averageColor)} 100%)`
-          : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
-      }}
-    >
+        background: averageColor ?
+        `linear-gradient(135deg, ${getLighterColor(averageColor)} 0%, ${averageColor} 50%, ${getDarkerColor(averageColor)} 100%)` :
+        'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
+      }}>
+
       <MobileBackButton />
 
       <AnimatePresence>
-        {newAchievements.length > 0 && currentAchievementIndex < newAchievements.length && (
-          <AchievementNotification
-            achievement={newAchievements[currentAchievementIndex]}
-            onComplete={() => {
-              if (currentAchievementIndex < newAchievements.length - 1) {
-                setCurrentAchievementIndex(currentAchievementIndex + 1);
-              } else {
-                setNewAchievements([]);
-                setCurrentAchievementIndex(0);
-              }
-            }}
-          />
-        )}
+        {newAchievements.length > 0 && currentAchievementIndex < newAchievements.length &&
+        <AchievementNotification
+          achievement={newAchievements[currentAchievementIndex]}
+          onComplete={() => {
+            if (currentAchievementIndex < newAchievements.length - 1) {
+              setCurrentAchievementIndex(currentAchievementIndex + 1);
+            } else {
+              setNewAchievements([]);
+              setCurrentAchievementIndex(0);
+            }
+          }} />
+
+        }
       </AnimatePresence>
 
       <div className="max-w-4xl mx-auto w-full overflow-hidden">
@@ -476,10 +476,10 @@ export default function Friends() {
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="sticky top-0 z-40 bg-gradient-to-br from-stone-50 to-green-50 pb-4"
-          >
-            <Card className="border-2 border-green-200 bg-white/80 backdrop-blur-md">
+            transition={{ duration: 0.5 }} className="bg-transparent pb-4 sticky top-0 z-40 from-stone-50 to-green-50">
+
+
+            <Card className="border-2 border-green-200 shadow-lg bg-white">
               <CardContent className="p-4">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-4">
@@ -491,11 +491,11 @@ export default function Friends() {
                       <Badge className="bg-green-600 text-white">
                         {friends.length} {friends.length === 1 ? 'Freund' : 'Freunde'}
                       </Badge>
-                      {pendingRequests.length > 0 && (
-                        <Badge className="bg-amber-600 text-white">
+                      {pendingRequests.length > 0 &&
+                      <Badge className="bg-amber-600 text-white">
                           {pendingRequests.length} {pendingRequests.length === 1 ? 'Anfrage' : 'Anfragen'}
                         </Badge>
-                      )}
+                      }
                     </div>
                   </div>
                 </div>
@@ -507,19 +507,19 @@ export default function Friends() {
                     value={friendEmail}
                     onChange={(e) => setFriendEmail(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSendRequest()}
-                    className="border-2 border-stone-200 flex-1"
-                  />
+                    className="border-2 border-stone-200 flex-1" />
+
                   <Button
                     onClick={handleSendRequest}
                     disabled={!friendEmail || sendFriendRequestMutation.isPending}
                     className="bg-green-600 hover:bg-green-700 flex-shrink-0"
-                    size="icon"
-                  >
-                    {sendFriendRequestMutation.isPending ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <UserPlus className="w-5 h-5" />
-                    )}
+                    size="icon">
+
+                    {sendFriendRequestMutation.isPending ?
+                    <Loader2 className="w-5 h-5 animate-spin" /> :
+
+                    <UserPlus className="w-5 h-5" />
+                    }
                   </Button>
                 </div>
               </CardContent>
@@ -527,13 +527,13 @@ export default function Friends() {
           </motion.div>
 
           {/* Freundschaftsanfragen */}
-          {pendingRequests.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="mb-6 mt-4"
-            >
+          {pendingRequests.length > 0 &&
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="mb-6 mt-4">
+
               <Card className="border-2 border-amber-200 shadow-lg bg-white">
                 <CardHeader className="border-b border-amber-100 bg-amber-50 p-4">
                   <CardTitle className="flex items-center gap-2 text-lg">
@@ -544,26 +544,26 @@ export default function Friends() {
                 <CardContent className="p-4">
                   <div className="space-y-3">
                     {pendingRequests.map((request, index) => {
-                      const requesterData = getFriendData(request);
-                      if (!requesterData) return null;
+                    const requesterData = getFriendData(request);
+                    if (!requesterData) return null;
 
-                      return (
-                        <motion.div
-                          key={request.id}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.1 }}
-                        >
-                          <Card className="border-2 border-stone-200 bg-white/80 backdrop-blur-sm">
+                    return (
+                      <motion.div
+                        key={request.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.1 }}>
+
+                          <Card className="border-2 border-stone-200 bg-white">
                             <CardContent className="p-4">
                               <div className="flex items-center justify-between flex-wrap gap-3">
                                 <div className="flex items-center gap-3 flex-1 min-w-0">
                                   <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden flex-shrink-0">
-                                    {requesterData?.avatar_url ? (
-                                      <img src={requesterData.avatar_url} alt={requesterData.name} className="w-full h-full object-cover" />
-                                    ) : (
-                                      requesterData.name?.[0]?.toUpperCase() || '?'
-                                    )}
+                                    {requesterData?.avatar_url ?
+                                  <img src={requesterData.avatar_url} alt={requesterData.name} className="w-full h-full object-cover" /> :
+
+                                  requesterData.name?.[0]?.toUpperCase() || '?'
+                                  }
                                   </div>
                                   <div className="min-w-0">
                                     <div className="font-bold text-stone-900 truncate">{requesterData.name}</div>
@@ -572,21 +572,21 @@ export default function Friends() {
                                 </div>
                                 <div className="flex gap-2 flex-shrink-0">
                                   <Button
-                                    size="sm"
-                                    onClick={() => acceptFriendRequestMutation.mutate(request)}
-                                    disabled={acceptFriendRequestMutation.isPending}
-                                    className="bg-green-600 hover:bg-green-700"
-                                  >
+                                  size="sm"
+                                  onClick={() => acceptFriendRequestMutation.mutate(request)}
+                                  disabled={acceptFriendRequestMutation.isPending}
+                                  className="bg-green-600 hover:bg-green-700">
+
                                     <Check className="w-4 h-4 mr-1" />
                                     Annehmen
                                   </Button>
                                   <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => rejectFriendRequestMutation.mutate(request)}
-                                    disabled={rejectFriendRequestMutation.isPending}
-                                    className="border-2 border-red-300 text-red-600 hover:bg-red-50"
-                                  >
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => rejectFriendRequestMutation.mutate(request)}
+                                  disabled={rejectFriendRequestMutation.isPending}
+                                  className="border-2 border-red-300 text-red-600 hover:bg-red-50">
+
                                     <X className="w-4 h-4 mr-1" />
                                     Ablehnen
                                   </Button>
@@ -594,14 +594,14 @@ export default function Friends() {
                               </div>
                             </CardContent>
                           </Card>
-                        </motion.div>
-                      );
-                    })}
+                        </motion.div>);
+
+                  })}
                   </div>
                 </CardContent>
               </Card>
             </motion.div>
-          )}
+          }
 
           {/* Freundesliste */}
           <motion.div
@@ -613,10 +613,10 @@ export default function Friends() {
               WebkitOverflowScrolling: 'touch',
               maxHeight: 'calc(100vh - 200px)',
               minHeight: '60vh'
-            }}
-          >
-            {friends.length === 0 ? (
-              <div className="text-center py-12">
+            }}>
+
+            {friends.length === 0 ?
+            <div className="text-center py-12">
                 <Users className="w-16 h-16 text-stone-300 mx-auto mb-4" />
                 <p className="text-stone-600 text-lg font-semibold mb-2">
                   Noch keine Freunde
@@ -624,32 +624,32 @@ export default function Friends() {
                 <p className="text-stone-500">
                   Füge Freunde hinzu, um ihre Sammlungen zu sehen!
                 </p>
-              </div>
-            ) : (
-              <div className="grid gap-3 pb-24">
-                {friends.map((friend, index) => {
-                  const friendData = getFriendData(friend);
-                  if (!friendData) return null;
+              </div> :
 
-                  return (
-                    <motion.div
-                      key={friend.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                    >
-                      <Card className="border-2 border-stone-200 hover:border-green-300 hover:shadow-md transition-all bg-white/80 backdrop-blur-sm group overflow-hidden">
+            <div className="grid gap-3 pb-24">
+                {friends.map((friend, index) => {
+                const friendData = getFriendData(friend);
+                if (!friendData) return null;
+
+                return (
+                  <motion.div
+                    key={friend.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.05 }}>
+
+                      <Card className="border-2 border-stone-200 hover:border-green-300 hover:shadow-md transition-all bg-white group overflow-hidden">
                         <CardContent className="p-3">
                           <button
-                            onClick={() => navigate(createPageUrl(`FriendProfile?email=${friendData.email}`))}
-                            className="flex items-start gap-2 w-full text-left"
-                          >
+                          onClick={() => navigate(createPageUrl(`FriendProfile?email=${friendData.email}`))}
+                          className="flex items-start gap-2 w-full text-left">
+
                             <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-base shadow-md overflow-hidden flex-shrink-0">
-                              {friendData.avatar_url ? (
-                                <img src={friendData.avatar_url} alt={friendData.name} className="w-full h-full object-cover" />
-                              ) : (
-                                friendData.name?.[0]?.toUpperCase() || friendData.email?.[0]?.toUpperCase()
-                              )}
+                              {friendData.avatar_url ?
+                            <img src={friendData.avatar_url} alt={friendData.name} className="w-full h-full object-cover" /> :
+
+                            friendData.name?.[0]?.toUpperCase() || friendData.email?.[0]?.toUpperCase()
+                            }
                             </div>
                             <div className="flex-1 min-w-0">
                               {/* Obere Zeile: Name + Icons */}
@@ -660,17 +660,17 @@ export default function Friends() {
                                 <div className="flex items-center gap-1 flex-shrink-0">
                                   <ChevronRight className="w-4 h-4 text-stone-400" />
                                   <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (confirm(`Möchtest du ${friendData.name} wirklich entfernen?`)) {
-                                        removeFriendMutation.mutate(friend);
-                                      }
-                                    }}
-                                    disabled={removeFriendMutation.isPending}
-                                    className="text-red-600 hover:bg-red-50 w-6 h-6 p-0"
-                                  >
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (confirm(`Möchtest du ${friendData.name} wirklich entfernen?`)) {
+                                      removeFriendMutation.mutate(friend);
+                                    }
+                                  }}
+                                  disabled={removeFriendMutation.isPending}
+                                  className="text-red-600 hover:bg-red-50 w-6 h-6 p-0">
+
                                     <UserMinus className="w-3 h-3" />
                                   </Button>
                                 </div>
@@ -682,38 +682,38 @@ export default function Friends() {
                               </div>
 
                               {/* Letzte Aktivität */}
-                              {friendData.lastActivity && (
-                                <div className="text-xs text-stone-500 flex items-center gap-1 mt-0.5">
-                                  {friendData.lastActivity.type === 'discovery' && friendData.lastActivity.plant && (
-                                    <>
+                              {friendData.lastActivity &&
+                            <div className="text-xs text-stone-500 flex items-center gap-1 mt-0.5">
+                                  {friendData.lastActivity.type === 'discovery' && friendData.lastActivity.plant &&
+                              <>
                                       <Leaf className="w-3 h-3 text-green-600 flex-shrink-0" />
                                       <span className="truncate flex-1 min-w-0">
                                         {friendData.lastActivity.plant.species_name}
                                       </span>
                                     </>
-                                  )}
-                                  {friendData.lastActivity.type === 'achievement' && friendData.lastActivity.achievement && (
-                                    <>
+                              }
+                                  {friendData.lastActivity.type === 'achievement' && friendData.lastActivity.achievement &&
+                              <>
                                       <Trophy className="w-3 h-3 text-amber-600 flex-shrink-0" />
                                       <span className="truncate flex-1 min-w-0">
                                         {friendData.lastActivity.achievement.title}
                                       </span>
                                     </>
-                                  )}
+                              }
                                   <span className="text-stone-400 flex-shrink-0 whitespace-nowrap">
                                     · {formatDistanceToNow(new Date(friendData.lastActivity.date), { addSuffix: false, locale: de })}
                                   </span>
                                 </div>
-                              )}
+                            }
                             </div>
                           </button>
                         </CardContent>
                       </Card>
-                    </motion.div>
-                  );
-                })}
+                    </motion.div>);
+
+              })}
               </div>
-            )}
+            }
           </motion.div>
         </div>
 
@@ -721,13 +721,13 @@ export default function Friends() {
         <div className="hidden md:block">
 
           {/* Freundschaftsanfragen Desktop */}
-          {pendingRequests.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="mb-6"
-            >
+          {pendingRequests.length > 0 &&
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="mb-6">
+
               <Card className="border-2 border-amber-200 shadow-lg bg-white">
                 <CardHeader className="border-b border-amber-100 bg-amber-50">
                   <CardTitle className="flex items-center gap-2 text-xl">
@@ -739,26 +739,26 @@ export default function Friends() {
                 <CardContent className="p-4">
                   <div className="space-y-3">
                     {pendingRequests.map((request, index) => {
-                      const requesterData = getFriendData(request);
-                      if (!requesterData) return null;
+                    const requesterData = getFriendData(request);
+                    if (!requesterData) return null;
 
-                      return (
-                        <motion.div
-                          key={request.id}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.1 }}
-                        >
-                          <Card className="border-2 border-stone-200 bg-white/80 backdrop-blur-sm">
+                    return (
+                      <motion.div
+                        key={request.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.1 }}>
+
+                          <Card className="border-2 border-stone-200 bg-white">
                             <CardContent className="p-4">
                               <div className="flex items-center justify-between flex-wrap gap-3">
                                 <div className="flex items-center gap-3 flex-1 min-w-0">
                                   <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden flex-shrink-0">
-                                    {requesterData?.avatar_url ? (
-                                      <img src={requesterData.avatar_url} alt={requesterData.name} className="w-full h-full object-cover" />
-                                    ) : (
-                                      requesterData.name?.[0]?.toUpperCase() || '?'
-                                    )}
+                                    {requesterData?.avatar_url ?
+                                  <img src={requesterData.avatar_url} alt={requesterData.name} className="w-full h-full object-cover" /> :
+
+                                  requesterData.name?.[0]?.toUpperCase() || '?'
+                                  }
                                   </div>
                                   <div className="min-w-0">
                                     <div className="font-bold text-stone-900 truncate">{requesterData.name}</div>
@@ -767,21 +767,21 @@ export default function Friends() {
                                 </div>
                                 <div className="flex gap-2 flex-shrink-0">
                                   <Button
-                                    size="sm"
-                                    onClick={() => acceptFriendRequestMutation.mutate(request)}
-                                    disabled={acceptFriendRequestMutation.isPending}
-                                    className="bg-green-600 hover:bg-green-700"
-                                  >
+                                  size="sm"
+                                  onClick={() => acceptFriendRequestMutation.mutate(request)}
+                                  disabled={acceptFriendRequestMutation.isPending}
+                                  className="bg-green-600 hover:bg-green-700">
+
                                     <Check className="w-4 h-4 mr-1" />
                                     Annehmen
                                   </Button>
                                   <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => rejectFriendRequestMutation.mutate(request)}
-                                    disabled={rejectFriendRequestMutation.isPending}
-                                    className="border-2 border-red-300 text-red-600 hover:bg-red-50"
-                                  >
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => rejectFriendRequestMutation.mutate(request)}
+                                  disabled={rejectFriendRequestMutation.isPending}
+                                  className="border-2 border-red-300 text-red-600 hover:bg-red-50">
+
                                     <X className="w-4 h-4 mr-1" />
                                     Ablehnen
                                   </Button>
@@ -789,22 +789,22 @@ export default function Friends() {
                               </div>
                             </CardContent>
                           </Card>
-                        </motion.div>
-                      );
-                    })}
+                        </motion.div>);
+
+                  })}
                   </div>
                 </CardContent>
               </Card>
             </motion.div>
-          )}
+          }
 
           {/* Freund hinzufügen Desktop */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: 0.5 }}
-            className="mb-8"
-          >
+            className="mb-8">
+
             <Card className="border-2 border-stone-200 shadow-lg bg-white">
               <CardContent className="p-6">
                 <div className="flex flex-col md:flex-row gap-4 items-end">
@@ -818,25 +818,25 @@ export default function Friends() {
                       value={friendEmail}
                       onChange={(e) => setFriendEmail(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && handleSendRequest()}
-                      className="border-2 border-stone-200"
-                    />
+                      className="border-2 border-stone-200" />
+
                   </div>
                   <Button
                     onClick={handleSendRequest}
                     disabled={!friendEmail || sendFriendRequestMutation.isPending}
-                    className="bg-green-600 hover:bg-green-700 px-8 w-full md:w-auto"
-                  >
-                    {sendFriendRequestMutation.isPending ? (
-                      <>
+                    className="bg-green-600 hover:bg-green-700 px-8 w-full md:w-auto">
+
+                    {sendFriendRequestMutation.isPending ?
+                    <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         Wird gesendet...
-                      </>
-                    ) : (
-                      <>
+                      </> :
+
+                    <>
                         <UserPlus className="w-4 h-4 mr-2" />
                         Anfrage senden
                       </>
-                    )}
+                    }
                   </Button>
                 </div>
               </CardContent>
@@ -847,21 +847,21 @@ export default function Friends() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-          >
+            transition={{ delay: 0.3, duration: 0.5 }}>
+
             <Card className="border-2 border-stone-200 shadow-lg bg-white">
               <CardHeader className="border-b border-stone-200">
                 <CardTitle className="flex items-center gap-2 text-xl">
                   <Users className="w-6 h-6 text-green-600" />
                   Deine Freunde
-                  {friends.length > 0 && (
-                    <Badge className="bg-green-600 text-white ml-2">{friends.length}</Badge>
-                  )}
+                  {friends.length > 0 &&
+                  <Badge className="bg-green-600 text-white ml-2">{friends.length}</Badge>
+                  }
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-4">
-                {friends.length === 0 ? (
-                  <div className="text-center py-12">
+                {friends.length === 0 ?
+                <div className="text-center py-12">
                     <Users className="w-16 h-16 text-stone-300 mx-auto mb-4" />
                     <p className="text-stone-600 text-lg font-semibold mb-2">
                       Noch keine Freunde
@@ -869,33 +869,33 @@ export default function Friends() {
                     <p className="text-stone-500">
                       Füge Freunde hinzu, um ihre Sammlungen zu sehen!
                     </p>
-                  </div>
-                ) : (
-                  <div className="grid gap-3">
-                    {friends.map((friend, index) => {
-                      const friendData = getFriendData(friend);
-                      if (!friendData) return null;
+                  </div> :
 
-                      return (
-                        <motion.div
-                          key={friend.id}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.05 }}
-                        >
-                          <Card className="border-2 border-stone-200 hover:border-green-300 hover:shadow-md transition-all bg-white/80 backdrop-blur-sm group">
+                <div className="grid gap-3">
+                    {friends.map((friend, index) => {
+                    const friendData = getFriendData(friend);
+                    if (!friendData) return null;
+
+                    return (
+                      <motion.div
+                        key={friend.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.05 }}>
+
+                          <Card className="border-2 border-stone-200 hover:border-green-300 hover:shadow-md transition-all bg-white group">
                             <CardContent className="p-4">
                               <div className="flex items-start justify-between gap-3">
                                 <button
-                                  onClick={() => navigate(createPageUrl(`FriendProfile?email=${friendData.email}`))}
-                                  className="flex items-start gap-3 flex-1 text-left min-w-0"
-                                >
+                                onClick={() => navigate(createPageUrl(`FriendProfile?email=${friendData.email}`))}
+                                className="flex items-start gap-3 flex-1 text-left min-w-0">
+
                                   <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-md overflow-hidden flex-shrink-0">
-                                    {friendData.avatar_url ? (
-                                      <img src={friendData.avatar_url} alt={friendData.name} className="w-full h-full object-cover" />
-                                    ) : (
-                                      friendData.name?.[0]?.toUpperCase() || friendData.email?.[0]?.toUpperCase()
-                                    )}
+                                    {friendData.avatar_url ?
+                                  <img src={friendData.avatar_url} alt={friendData.name} className="w-full h-full object-cover" /> :
+
+                                  friendData.name?.[0]?.toUpperCase() || friendData.email?.[0]?.toUpperCase()
+                                  }
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <div className="font-bold text-lg text-stone-900 group-hover:text-green-600 transition-colors truncate">
@@ -907,62 +907,62 @@ export default function Friends() {
                                     </div>
 
                                     {/* Letzte Aktivität Desktop */}
-                                    {friendData.lastActivity && (
-                                      <div className="text-sm text-stone-500 flex items-start gap-2 bg-stone-50 rounded-lg p-2">
+                                    {friendData.lastActivity &&
+                                  <div className="text-sm text-stone-500 flex items-start gap-2 bg-stone-50 rounded-lg p-2">
                                         <Clock className="w-4 h-4 mt-0.5 flex-shrink-0" />
                                         <div className="flex-1 min-w-0">
-                                          {friendData.lastActivity.type === 'discovery' && friendData.lastActivity.plant && (
-                                            <div className="flex items-center gap-2">
+                                          {friendData.lastActivity.type === 'discovery' && friendData.lastActivity.plant &&
+                                      <div className="flex items-center gap-2">
                                               <Leaf className="w-4 h-4 text-green-600 flex-shrink-0" />
                                               <span className="truncate font-medium">
                                                 {friendData.lastActivity.plant.species_name}
                                               </span>
                                             </div>
-                                          )}
-                                          {friendData.lastActivity.type === 'achievement' && friendData.lastActivity.achievement && (
-                                            <div className="flex items-center gap-2">
+                                      }
+                                          {friendData.lastActivity.type === 'achievement' && friendData.lastActivity.achievement &&
+                                      <div className="flex items-center gap-2">
                                               <Trophy className="w-4 h-4 text-amber-600 flex-shrink-0" />
                                               <span className="truncate font-medium">
                                                 {friendData.lastActivity.achievement.title}
                                               </span>
                                             </div>
-                                          )}
+                                      }
                                           <span className="text-stone-400 text-xs">
                                             {formatDistanceToNow(new Date(friendData.lastActivity.date), { addSuffix: true, locale: de })}
                                           </span>
                                         </div>
                                       </div>
-                                    )}
+                                  }
                                   </div>
                                   <ChevronRight className="w-6 h-6 text-stone-400 group-hover:text-green-600 group-hover:translate-x-1 transition-all flex-shrink-0 mt-1" />
                                 </button>
                                 <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (confirm(`Möchtest du ${friendData.name} wirklich entfernen?`)) {
-                                      removeFriendMutation.mutate(friend);
-                                    }
-                                  }}
-                                  disabled={removeFriendMutation.isPending}
-                                  className="text-red-600 hover:bg-red-50 flex-shrink-0"
-                                >
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (confirm(`Möchtest du ${friendData.name} wirklich entfernen?`)) {
+                                    removeFriendMutation.mutate(friend);
+                                  }
+                                }}
+                                disabled={removeFriendMutation.isPending}
+                                className="text-red-600 hover:bg-red-50 flex-shrink-0">
+
                                   <UserMinus className="w-4 h-4" />
                                 </Button>
                               </div>
                             </CardContent>
                           </Card>
-                        </motion.div>
-                      );
-                    })}
+                        </motion.div>);
+
+                  })}
                   </div>
-                )}
+                }
               </CardContent>
             </Card>
           </motion.div>
         </div>
       </div>
-    </div>
-  );
+    </div>);
+
 }
