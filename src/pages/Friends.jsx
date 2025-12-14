@@ -479,7 +479,7 @@ export default function Friends() {
             transition={{ duration: 0.5 }}
             className="sticky top-0 z-40 bg-gradient-to-br from-stone-50 to-green-50 pb-4"
           >
-            <Card className="border-2 border-green-200 shadow-lg bg-white/80 backdrop-blur-md">
+            <Card className="border-2 border-green-200 bg-white/80 backdrop-blur-md">
               <CardContent className="p-4">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-4">
@@ -638,7 +638,7 @@ export default function Friends() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
                     >
-                      <Card className="border-2 border-stone-200 hover:border-green-300 hover:shadow-md transition-all bg-white group overflow-hidden">
+                      <Card className="border-2 border-stone-200 hover:border-green-300 hover:shadow-md transition-all bg-white/80 backdrop-blur-sm group overflow-hidden">
                         <CardContent className="p-3">
                           <button
                             onClick={() => navigate(createPageUrl(`FriendProfile?email=${friendData.email}`))}
@@ -883,7 +883,7 @@ export default function Friends() {
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: index * 0.05 }}
                         >
-                          <Card className="border-2 border-stone-200 hover:border-green-300 hover:shadow-md transition-all bg-white group">
+                          <Card className="border-2 border-stone-200 hover:border-green-300 hover:shadow-md transition-all bg-white/80 backdrop-blur-sm group">
                             <CardContent className="p-4">
                               <div className="flex items-start justify-between gap-3">
                                 <button

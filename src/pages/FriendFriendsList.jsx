@@ -98,7 +98,7 @@ export default function FriendFriendsList() {
   if (isNotFriend) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md text-center border-2 border-red-200">
+        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl p-8 max-w-md text-center border-2 border-red-200">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Users className="w-8 h-8 text-red-600" />
           </div>
@@ -162,7 +162,7 @@ export default function FriendFriendsList() {
         <Button
           variant="ghost"
           onClick={() => navigate(createPageUrl(`FriendProfile?email=${friendEmail}`))}
-          className="mb-6 bg-white hover:bg-stone-50 text-stone-900 font-semibold shadow-sm border border-stone-200 hidden md:inline-flex"
+          className="mb-6 bg-white/80 backdrop-blur-md hover:bg-white/90 text-stone-900 font-semibold border border-stone-200 hidden md:inline-flex"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Zurück zum Profil
@@ -227,7 +227,7 @@ export default function FriendFriendsList() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
                 >
-                  <Card className={`border-2 ${isCurrentUser ? 'border-green-300 bg-green-50' : 'border-stone-200'} hover:border-purple-300 hover:shadow-md transition-all bg-white group`}>
+                  <Card className={`border-2 ${isCurrentUser ? 'border-green-300 bg-green-50/80' : 'border-stone-200 bg-white/80'} backdrop-blur-sm hover:border-purple-300 hover:shadow-md transition-all group`}>
                     <CardContent className="p-4">
                       <button
                         onClick={() => handleFriendClick(friendData)}
