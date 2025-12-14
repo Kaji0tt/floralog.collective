@@ -14,10 +14,45 @@ import { motion } from "framer-motion";
 
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
+const getAverageColor = (imageUrl) => {
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const size = 50;
+        canvas.width = size;
+        canvas.height = size;
+        ctx.drawImage(img, 0, 0, size, size);
+        const imageData = ctx.getImageData(0, 0, size, size);
+        const data = imageData.data;
+        let r = 0, g = 0, b = 0, count = 0;
+        for (let i = 0; i < data.length; i += 16) {
+          r += data[i];
+          g += data[i + 1];
+          b += data[i + 2];
+          count++;
+        }
+        r = Math.floor(r / count);
+        g = Math.floor(g / count);
+        b = Math.floor(b / count);
+        resolve(`rgb(${r}, ${g}, ${b})`);
+      } catch (error) {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = imageUrl;
+  });
+};
+
 export default function FriendProfile() {
   const navigate = useNavigate();
   const [friendUser, setFriendUser] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const [averageColor, setAverageColor] = useState(null);
   
   const urlParams = new URLSearchParams(window.location.search);
   const friendEmail = urlParams.get('email');
@@ -157,6 +192,18 @@ export default function FriendProfile() {
     enabled: !!friendEmail,
   });
 
+  useEffect(() => {
+    if (friendUser?.background_image_url) {
+      getAverageColor(friendUser.background_image_url).then(color => {
+        if (color) setAverageColor(color);
+      });
+    } else if (friendUser?.background_color) {
+      setAverageColor(friendUser.background_color);
+    } else {
+      setAverageColor(null);
+    }
+  }, [friendUser?.background_image_url, friendUser?.background_color]);
+
   if (!friendUser || !currentUser) { // Updated loading condition
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50">
@@ -273,9 +320,53 @@ export default function FriendProfile() {
     }
   ];
 
+  const getLighterColor = (rgbString) => {
+    if (!rgbString) return null;
+    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!match) return rgbString;
+    const r = Math.min(255, Math.floor(parseInt(match[1]) * 1.4));
+    const g = Math.min(255, Math.floor(parseInt(match[2]) * 1.4));
+    const b = Math.min(255, Math.floor(parseInt(match[3]) * 1.4));
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+
+  const getDarkerColor = (rgbString) => {
+    if (!rgbString) return null;
+    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!match) return rgbString;
+    const r = Math.floor(parseInt(match[1]) * 0.6);
+    const g = Math.floor(parseInt(match[2]) * 0.6);
+    const b = Math.floor(parseInt(match[3]) * 0.6);
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+
+  const getRgbaFromRgb = (rgbString, opacity) => {
+    if (!rgbString) return null;
+    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!match) return rgbString;
+    return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${opacity})`;
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4 md:p-8">
-      <MobileBackButton backUrl={createPageUrl("Friends")} />
+    <>
+      <style>{`
+        :root {
+          --friend-bg-color: ${averageColor || 'rgb(250, 250, 249)'};
+          --friend-bg-color-light: ${averageColor ? getLighterColor(averageColor) : 'rgb(255, 255, 255)'};
+          --friend-bg-color-mid: ${averageColor ? averageColor : 'rgb(236, 253, 245)'};
+          --friend-bg-color-dark: ${averageColor ? getDarkerColor(averageColor) : 'rgb(220, 252, 231)'};
+          --friend-border-color: ${averageColor ? getRgbaFromRgb(averageColor, 0.4) : 'rgb(134, 239, 172)'};
+        }
+      `}</style>
+      <div 
+        className="h-screen min-w-full p-4 md:p-8 fixed inset-0 overflow-auto"
+        style={{
+          background: averageColor 
+            ? `linear-gradient(135deg, var(--friend-bg-color-light) 0%, var(--friend-bg-color-mid) 50%, var(--friend-bg-color-dark) 100%)`
+            : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
+        }}
+      >
+        <MobileBackButton backUrl={createPageUrl("Friends")} />
       
       <div className="max-w-6xl mx-auto">
         {/* Back Button - nur Desktop */}
@@ -296,72 +387,109 @@ export default function FriendProfile() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <Card className="border-2 border-green-200 shadow-lg bg-white overflow-hidden">
-              <div className="bg-gradient-to-r from-green-600 to-emerald-600 p-4 md:p-6">
+            <Card 
+              className="shadow-xl bg-white overflow-hidden"
+              style={{
+                borderWidth: '2px',
+                borderStyle: 'solid',
+                borderColor: averageColor ? 'var(--friend-border-color)' : 'rgb(187, 247, 208)'
+              }}
+            >
+              <CardContent 
+                className="p-6 md:p-8 relative"
+                style={friendUser?.background_image_url ? {
+                  backgroundImage: `linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(0,0,0,0.4) 100%), url(${friendUser.background_image_url})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center'
+                } : friendUser?.background_color ? {
+                  background: `linear-gradient(135deg, ${friendUser.background_color.replace('rgb', 'rgba').replace(')', ', 0.6)')} 0%, ${friendUser.background_color.replace('rgb', 'rgba').replace(')', ', 1)')} 100%)`
+                } : {}}
+              >
                 <div className="flex items-center gap-3 md:gap-4 mb-4">
                   <div className="relative flex-shrink-0">
-                    <div className="w-16 h-16 md:w-20 md:h-20 bg-white rounded-full flex items-center justify-center shadow-lg overflow-hidden">
+                    <div className="w-24 h-24 md:w-28 md:h-28 bg-gradient-to-br from-green-600 to-emerald-600 rounded-2xl flex items-center justify-center shadow-2xl overflow-hidden ring-4 ring-white/50 backdrop-blur-sm">
                       {friendUser.avatar_url ? (
                         <img src={friendUser.avatar_url} alt="Profil" className="w-full h-full object-cover" />
                       ) : (
                         <img src={LOGO_URL} alt="PlantDex" className="w-8 h-8 md:w-12 md:h-12 object-contain" />
                       )}
                     </div>
-                    <div className="absolute -bottom-1 -right-1 w-7 h-7 md:w-8 md:h-8 bg-amber-500 rounded-full flex items-center justify-center shadow-md border-2 border-white">
-                      <span className="text-white font-bold text-xs md:text-sm">{currentLevel}</span>
+                    <div className="absolute -top-2 -right-2 px-3 py-1 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center shadow-xl backdrop-blur-sm border-2 border-white/80">
+                      <span className="text-white font-bold text-sm">LV {currentLevel}</span>
                     </div>
                   </div>
-                  <div className="flex-1 text-white min-w-0">
-                    <h2 className="text-lg md:text-2xl font-bold mb-1 truncate">{friendUser.display_name || friendUser.full_name}</h2>
-                    <p className="text-green-100 text-sm md:text-base font-semibold truncate">
-                      {friendUser.selected_title || friendUser.title || "Pflanzen-Anfänger"}
-                    </p>
+
+                  <div className="flex-1 w-full bg-white/40 backdrop-blur-md rounded-xl p-5 border-2 border-white/30 shadow-lg">
+                    <div className="mb-2">
+                      <h1 className="text-2xl md:text-3xl font-bold text-stone-900">
+                        {friendUser.display_name || friendUser.full_name}
+                      </h1>
+                    </div>
+
+                    <div className="mb-3">
+                      <span className="text-base font-semibold text-stone-700">
+                        {friendUser.selected_title || friendUser.title || "Pflanzen-Anfänger"}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Level Progress */}
-                <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs md:text-sm font-semibold text-white">Level {currentLevel}</span>
-                    <span className="text-xs md:text-sm font-semibold text-white">{xpProgress.current} / {xpProgress.needed} XP</span>
-                  </div>
-                  <Progress value={xpProgress.percentage} className="h-2 bg-white/30" />
-                </div>
-              </div>
-
-              <CardContent className="p-4 md:p-6">
                 {/* Stats */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <div className="grid grid-cols-4 gap-3 mb-4">
                   {statButtons.map((stat, index) => (
-                    <button
+                    <motion.button
                       key={stat.label}
-                      onClick={stat.onClick}
-                      disabled={!stat.onClick} // Disable if onClick is null
-                      className={`${stat.bgColor} ${stat.borderColor} border-2 rounded-xl p-3 md:p-4 hover:shadow-lg transition-all duration-300 group text-left ${
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (stat.onClick) stat.onClick();
+                      }}
+                      disabled={!stat.onClick}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 + index * 0.05 }}
+                      whileHover={{ scale: stat.onClick ? 1.05 : 1 }}
+                      whileTap={{ scale: stat.onClick ? 0.95 : 1 }}
+                      className={`bg-white/60 backdrop-blur-md rounded-xl p-3 md:p-4 hover:shadow-lg transition-all duration-300 group ${
                         !stat.onClick ? 'opacity-60 cursor-not-allowed' : ''
                       }`}
+                      style={{
+                        borderWidth: '2px',
+                        borderStyle: 'solid',
+                        borderColor: averageColor ? 'var(--friend-border-color)' : stat.borderColor.replace('border-', '').replace('-200', '')
+                      }}
                     >
-                      <div className="flex flex-col md:flex-row items-start md:items-center gap-2">
-                        <div className={`w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br ${stat.color} rounded-full flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform flex-shrink-0`}>
-                          <stat.icon className="w-4 h-4 md:w-5 md:h-5 text-white" />
+                      <div className="flex flex-col items-center gap-2">
+                        <div className={`w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br ${stat.color} rounded-full flex items-center justify-center shadow-md group-hover:scale-110 transition-transform`}>
+                          <stat.icon className="w-5 h-5 md:w-6 md:h-6 text-white" />
                         </div>
-                        <div className="flex-1">
-                          <div className={`text-xl md:text-2xl font-bold ${stat.textColor}`}>{stat.value}</div>
-                          <div className="text-xs font-semibold text-stone-600">{stat.label}</div>
-                        </div>
+                        <div className="text-2xl md:text-3xl font-bold text-stone-700">{stat.value}</div>
+                        <div className="text-xs font-semibold text-stone-600 hidden sm:block">{stat.label}</div>
                       </div>
-                      {stat.showProgress && (
-                        <div className={`${stat.progressBg} rounded px-2 py-1 mt-2`}>
-                          <div className={`text-xs font-semibold ${stat.progressText}`}>
-                            {stat.progressPercentage}% komplett
-                          </div>
-                        </div>
-                      )}
-                    </button>
+                    </motion.button>
                   ))}
                 </div>
 
-                {/* Kategorie-Stats */}
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* PlantDex Button removed, category stats removed */}
+
+          {/* 2. Kategorie-Stats als eigene Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+          >
+            <Card 
+              className="shadow-lg bg-white/80 backdrop-blur-md"
+              style={{
+                borderWidth: '2px',
+                borderStyle: 'solid',
+                borderColor: averageColor ? 'var(--friend-border-color)' : 'rgb(187, 247, 208)'
+              }}
+            >
+              <CardContent className="p-4">
                 <div className="grid grid-cols-3 gap-2 md:gap-3">
                   {Object.entries(categoryStats).map(([category, categoryGenera]) => {
                     const discovered = categoryGenera.filter(g => {
@@ -382,28 +510,6 @@ export default function FriendProfile() {
                 </div>
               </CardContent>
             </Card>
-          </motion.div>
-
-          {/* 2. PlantDex Button */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.6 }}
-          >
-            <button
-              onClick={() => navigate(createPageUrl(`FriendCollection?email=${friendEmail}`))}
-              className="w-full group relative overflow-hidden rounded-xl bg-gradient-to-br from-green-600 to-green-700 p-6 md:p-8 text-white shadow-lg hover:shadow-2xl transition-all duration-300"
-            >
-              <div className="flex items-center justify-center gap-3 md:gap-4">
-                <div className="w-14 h-14 md:w-16 md:h-16 bg-white rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                  <BookOpen className="w-7 h-7 md:w-8 md:h-8 text-green-600" />
-                </div>
-                <div className="text-left">
-                  <h3 className="text-xl md:text-2xl font-bold mb-1">PlantDex ansehen</h3>
-                  <p className="text-green-100 text-sm md:text-base">Sammlung erkunden 🌿</p>
-                </div>
-              </div>
-            </button>
           </motion.div>
 
           {/* 3. Aufgaben */}
@@ -490,6 +596,7 @@ export default function FriendProfile() {
           </motion.div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
