@@ -176,6 +176,11 @@ export default function Map() {
     queryFn: () => base44.entities.Plant.list('-discovery_date'),
   });
 
+  const { data: genera = [] } = useQuery({
+    queryKey: ['genera'],
+    queryFn: () => base44.entities.PlantGenus.list(),
+  });
+
   const { data: allDiscoveries = [] } = useQuery({
     queryKey: ['allDiscoveries'],
     queryFn: () => base44.entities.UserPlantDiscovery.list(),
