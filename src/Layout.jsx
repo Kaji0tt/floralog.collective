@@ -251,8 +251,8 @@ export default function Layout({ children, currentPageName }) {
           </SidebarContent>
         </Sidebar>
 
-        <main className="flex-1 flex flex-col overflow-x-hidden">
-          <div className="flex-1 overflow-auto overflow-x-hidden">
+        <main className="flex-1 flex flex-col overflow-x-hidden bg-transparent">
+          <div className="flex-1 overflow-auto overflow-x-hidden bg-transparent">
             {children}
           </div>
         </main>
