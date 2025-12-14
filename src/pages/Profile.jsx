@@ -421,7 +421,7 @@ export default function Profile() {
                 </div>
 
                 {/* Name, Titel und XP Balken - Fusioniert */}
-                <div className={`flex-1 w-full bg-gradient-to-br ${getRarityColorForLevel(currentLevel)} backdrop-blur-md rounded-xl p-5 border-2 border-white/30 shadow-lg`}>
+                <div className="flex-1 w-full bg-white/40 backdrop-blur-md rounded-xl p-5 border-2 border-white/30 shadow-lg">
                   {isEditingName ? (
                     <div className="mb-3">
                       <div className="flex items-center gap-2">
