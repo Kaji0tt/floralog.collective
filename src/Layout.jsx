@@ -100,16 +100,9 @@ export default function Layout({ children, currentPageName }) {
           --amber: #D97706;
           --cream: #FAFAF9;
         }
-        
+
         body {
           overflow-x: hidden;
-        }
-
-        /* Hide sidebar on mobile */
-        @media (max-width: 768px) {
-          [data-sidebar="sidebar"] {
-            display: none !important;
-          }
         }
 
         /* Hide scrollbar for snap scroll */
@@ -122,8 +115,8 @@ export default function Layout({ children, currentPageName }) {
         }
       `}</style>
       <div className="min-h-screen flex w-full overflow-x-hidden">
-        {/* Sidebar - nur auf Desktop sichtbar */}
-        <Sidebar className="border-r border-stone-200 bg-white hidden md:flex">
+        {/* Sidebar komplett versteckt */}
+        <Sidebar className="border-r border-stone-200 bg-white hidden">
           <SidebarHeader className="border-b border-stone-200 p-6">
             <Link to={createPageUrl("Home")} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
               <div className="w-12 h-12 flex items-center justify-center bg-white rounded-lg">
