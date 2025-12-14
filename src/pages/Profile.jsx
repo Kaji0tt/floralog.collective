@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Trophy, BookOpen, Target, Users, Camera, Loader2, LogOut, Mail, Key, AlertCircle, RotateCcw, Star, Image as ImageIcon, Edit2, CheckCircle, X, Heart } from "lucide-react";
+import { Trophy, BookOpen, Target, Users, Camera, Loader2, LogOut, Mail, Key, AlertCircle, RotateCcw, Star, Image as ImageIcon, Edit2, CheckCircle, X, Heart, Map as MapIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { motion, AnimatePresence } from "framer-motion";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
@@ -754,7 +754,7 @@ export default function Profile() {
                             : 'linear-gradient(135deg, rgb(34, 197, 94), rgb(22, 163, 74))'
                         }}
                       >
-                        <Map className="w-5 h-5 text-white" />
+                        <MapIcon className="w-5 h-5 text-white" />
                       </div>
                       <span className="font-semibold text-stone-900">Karte</span>
                     </button>

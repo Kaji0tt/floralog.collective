@@ -531,7 +531,7 @@ export default function FriendProfile() {
                               : 'linear-gradient(135deg, rgb(34, 197, 94), rgb(22, 163, 74))'
                           }}
                         >
-                          <Map className="w-5 h-5 text-white" />
+                          <MapIcon className="w-5 h-5 text-white" />
                         </div>
                         <span className="font-semibold text-stone-900">Zur Karte</span>
                       </button>
