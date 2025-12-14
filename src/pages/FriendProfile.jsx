@@ -382,7 +382,15 @@ export default function FriendProfile() {
 
                   <div className="flex-1 w-full bg-white/40 backdrop-blur-md rounded-xl p-5 border-2 border-white/30 shadow-lg">
                     <div className="mb-2">
-                      <h1 className="text-3xl md:text-4xl font-bold text-stone-900" key={friendUser.display_name || friendUser.full_name}>
+                      <h1 
+                        className="font-bold text-stone-900 break-words" 
+                        style={{
+                          fontSize: (friendUser.display_name || friendUser.full_name || '').length > 20 
+                            ? 'clamp(1.5rem, 4vw, 2rem)' 
+                            : 'clamp(1.875rem, 5vw, 2.25rem)'
+                        }}
+                        key={friendUser.display_name || friendUser.full_name}
+                      >
                         {friendUser.display_name || friendUser.full_name}
                       </h1>
                     </div>
@@ -451,6 +459,22 @@ export default function FriendProfile() {
                 </div>
               </CardContent>
             </Card>
+          </motion.div>
+
+          {/* Karten Button */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+            className="mt-6"
+          >
+            <button
+              onClick={() => navigate(createPageUrl("Map"))}
+              className="w-full bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-3 group"
+            >
+              <Map className="w-6 h-6 group-hover:scale-110 transition-transform" />
+              <span className="text-lg font-bold">Zur Karte</span>
+            </button>
           </motion.div>
         </div>
       </div>
