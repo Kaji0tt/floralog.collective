@@ -57,13 +57,15 @@ const createFriendIcon = (colorIndex) => {
   });
 };
 
-function MapController({ center, zoom }) {
+function MapController({ center, zoom, bounds }) {
   const map = useMap();
   useEffect(() => {
-    if (center) {
+    if (bounds && bounds.length > 0) {
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+    } else if (center) {
       map.setView(center, zoom || 13);
     }
-  }, [center, zoom, map]);
+  }, [center, zoom, bounds, map]);
   return null;
 }
 
@@ -253,6 +255,28 @@ export default function Map() {
   const defaultCenter = [50.1109, 8.6821];
   const mapCenter = targetLocation || userLocation || (allFilteredPlants.length > 0 ? allFilteredPlants[0].coordinates : defaultCenter);
 
+  // Berechne Bounding Box für alle gefilterten Pflanzen
+  const calculateBounds = () => {
+    if (allFilteredPlants.length === 0) return null;
+    
+    let minLat = allFilteredPlants[0].coordinates[0];
+    let maxLat = allFilteredPlants[0].coordinates[0];
+    let minLng = allFilteredPlants[0].coordinates[1];
+    let maxLng = allFilteredPlants[0].coordinates[1];
+    
+    allFilteredPlants.forEach(plant => {
+      const [lat, lng] = plant.coordinates;
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+      if (lng < minLng) minLng = lng;
+      if (lng > maxLng) maxLng = lng;
+    });
+    
+    return [[minLat, minLng], [maxLat, maxLng]];
+  };
+
+  const bounds = calculateBounds();
+
   // Zähle aktivierte Views
   const activeViewCount = Object.values(selectedViews).filter(v => v).length;
   const totalPlantCount = allFilteredPlants.length;
@@ -391,7 +415,11 @@ export default function Map() {
               style={{ height: '100%', width: '100%' }}
               className="z-0"
             >
-              <MapController center={targetLocation || userLocation} zoom={targetLocation ? 15 : 13} />
+              <MapController 
+                center={targetLocation || userLocation} 
+                zoom={targetLocation ? 15 : 13}
+                bounds={!targetLocation && !userLocation ? bounds : null}
+              />
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
