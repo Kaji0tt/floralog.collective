@@ -759,16 +759,31 @@ export default function Home() {
           <div className="flex justify-center gap-6 text-sm">
             <button
               onClick={() => navigate(createPageUrl("Donate"))}
-              className="text-stone-700 hover:text-green-600 transition-colors font-medium px-2 py-1 rounded bg-white/30 backdrop-blur-sm hover:bg-white/50"
-              style={{ textShadow: '0 1px 2px rgba(0,0,0,0.1)' }}
+              className="hover:opacity-80 transition-all font-medium px-2 py-1 rounded backdrop-blur-sm"
+              style={{ 
+                color: averageColor ? getLighterColor(getLighterColor(averageColor)) : 'rgb(120, 113, 108)',
+                backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                textShadow: '0 1px 3px rgba(0,0,0,0.3)'
+              }}
             >
               Spenden
             </button>
-            <span className="text-stone-500">•</span>
+            <span 
+              className="opacity-60"
+              style={{ 
+                color: averageColor ? getLighterColor(averageColor) : 'rgb(120, 113, 108)'
+              }}
+            >
+              •
+            </span>
             <button
               onClick={() => navigate(createPageUrl("Impressum"))}
-              className="text-stone-700 hover:text-green-600 transition-colors font-medium px-2 py-1 rounded bg-white/30 backdrop-blur-sm hover:bg-white/50"
-              style={{ textShadow: '0 1px 2px rgba(0,0,0,0.1)' }}
+              className="hover:opacity-80 transition-all font-medium px-2 py-1 rounded backdrop-blur-sm"
+              style={{ 
+                color: averageColor ? getLighterColor(getLighterColor(averageColor)) : 'rgb(120, 113, 108)',
+                backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                textShadow: '0 1px 3px rgba(0,0,0,0.3)'
+              }}
             >
               Impressum
             </button>
