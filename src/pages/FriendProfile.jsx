@@ -477,16 +477,16 @@ export default function FriendProfile() {
                       key={stat.label}
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (stat.onClick) stat.onClick();
+                        if (stat.onClick && isFriend) stat.onClick();
                       }}
-                      disabled={!stat.onClick}
+                      disabled={!stat.onClick || !isFriend}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.1 + index * 0.05 }}
-                      whileHover={{ scale: stat.onClick ? 1.05 : 1 }}
-                      whileTap={{ scale: stat.onClick ? 0.95 : 1 }}
+                      whileHover={{ scale: (stat.onClick && isFriend) ? 1.05 : 1 }}
+                      whileTap={{ scale: (stat.onClick && isFriend) ? 0.95 : 1 }}
                       className={`bg-white/60 backdrop-blur-md rounded-xl p-3 md:p-4 hover:shadow-lg transition-all duration-300 group ${
-                        !stat.onClick ? 'opacity-60 cursor-not-allowed' : ''
+                        (!stat.onClick || !isFriend) ? 'opacity-60 cursor-not-allowed' : ''
                       }`}
                       style={{
                         borderWidth: '2px',
