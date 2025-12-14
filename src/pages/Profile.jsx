@@ -232,7 +232,7 @@ export default function Profile() {
 
   const getAverageColor = (imageUrl) => {
     return new Promise((resolve) => {
-      const img = new Image();
+      const img = new window.Image();
       img.crossOrigin = "anonymous";
       
       img.onload = () => {
@@ -261,25 +261,34 @@ export default function Profile() {
           g = Math.floor(g / count);
           b = Math.floor(b / count);
           
-          resolve(`rgb(${r}, ${g}, ${b})`);
+          const color = `rgb(${r}, ${g}, ${b})`;
+          console.log("✅ Color calculated successfully:", color);
+          resolve(color);
         } catch (error) {
+          console.error("❌ Error calculating color:", error);
           resolve(null);
         }
       };
       
-      img.onerror = () => resolve(null);
+      img.onerror = (error) => {
+        console.error("❌ Error loading image:", error);
+        resolve(null);
+      };
       img.src = imageUrl;
     });
   };
 
   useEffect(() => {
+    console.log("🎨 Checking background image:", user?.background_image_url);
     if (user?.background_image_url) {
       getAverageColor(user.background_image_url).then(color => {
+        console.log("🌈 Calculated color:", color);
         if (color) {
           setAverageColor(color);
         }
       });
     } else {
+      console.log("❌ No background image");
       setAverageColor(null);
     }
   }, [user?.background_image_url]);
@@ -360,13 +369,16 @@ export default function Profile() {
   // Hilfsfunktion für Anzeigename
   const getDisplayName = () => user.display_name || user.full_name;
 
+  console.log("🔄 Rendering Profile with averageColor:", averageColor);
+
   return (
     <div 
       className="min-h-screen min-w-full p-4 md:p-8 fixed inset-0 overflow-auto" 
-      style={averageColor 
-        ? { background: `linear-gradient(135deg, ${averageColor} 0%, ${averageColor}dd 50%, ${averageColor}bb 100%)` }
-        : { background: 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))' }
-      }
+      style={{
+        background: averageColor 
+          ? `linear-gradient(135deg, ${averageColor} 0%, ${averageColor}dd 50%, ${averageColor}bb 100%)`
+          : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
+      }}
     >
       <MobileBackButton />
       
