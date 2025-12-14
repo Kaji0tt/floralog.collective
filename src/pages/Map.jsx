@@ -183,7 +183,8 @@ export default function Map() {
 
   const { data: allDiscoveries = [] } = useQuery({
     queryKey: ['allDiscoveries'],
-    queryFn: () => base44.entities.UserPlantDiscovery.list(),
+    queryFn: () => base44.entities.UserPlantDiscovery.list('-created_date', 500),
+    staleTime: 30000, // 30 Sekunden Cache
   });
 
   const { data: friendships = [] } = useQuery({
@@ -191,24 +192,29 @@ export default function Map() {
     queryFn: async () => {
       if (!user?.email) return [];
       const allFriends = await base44.entities.Friend.list();
+      const userEmailLower = user.email.toLowerCase();
       return allFriends.filter(f => 
         f.status === 'accepted' &&
-        (f.request_sent_by === user.email || f.request_sent_to === user.email)
+        (f.request_sent_by?.toLowerCase() === userEmailLower || 
+         f.request_sent_to?.toLowerCase() === userEmailLower)
       );
     },
     enabled: !!user?.email,
+    staleTime: 10000, // 10 Sekunden Cache
   });
 
   const { data: publicProfiles = [] } = useQuery({
     queryKey: ['publicProfiles'],
     queryFn: () => base44.entities.PublicProfile.list(),
     enabled: friendships.length > 0,
+    staleTime: 30000, // 30 Sekunden Cache
   });
 
   // Helper: Hole Freund-Email aus Freundschaft
   const getFriendEmail = (friendship) => {
     if (!user) return null;
-    return friendship.request_sent_by === user.email 
+    const userEmailLower = user.email.toLowerCase();
+    return friendship.request_sent_by?.toLowerCase() === userEmailLower 
       ? friendship.request_sent_to 
       : friendship.request_sent_by;
   };
@@ -244,8 +250,11 @@ export default function Map() {
 
   // Helper function um Plant-Daten mit Discovery-Daten zu kombinieren
   const getPlantsWithDiscoveries = (userEmail) => {
+    if (!userEmail) return [];
+    
+    const userEmailLower = userEmail.toLowerCase();
     const userDiscoveries = allDiscoveries.filter(d => 
-      d.user === userEmail || d.created_by === userEmail
+      d.user?.toLowerCase() === userEmailLower || d.created_by?.toLowerCase() === userEmailLower
     );
 
     return userDiscoveries
