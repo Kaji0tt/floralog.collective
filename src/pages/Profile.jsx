@@ -445,7 +445,7 @@ export default function Profile() {
         )}
       </AnimatePresence>
 
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto h-screen flex flex-col overflow-hidden">
         {/* Background Selector Dialog */}
         <Dialog open={showBackgroundSelector} onOpenChange={setShowBackgroundSelector}>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
@@ -486,9 +486,10 @@ export default function Profile() {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
+          className="flex-shrink-0"
         >
           <Card 
-            className="mb-6 shadow-xl bg-white overflow-hidden"
+            className="mb-4 shadow-xl bg-white overflow-hidden"
             style={{
               borderWidth: '2px',
               borderStyle: 'solid',
@@ -710,6 +711,7 @@ export default function Profile() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
+          className="flex-shrink-0 mt-4"
         >
           <Card className="border-2 border-stone-200 shadow-lg bg-white">
             <CardHeader className="border-b border-stone-200">
