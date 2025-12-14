@@ -420,7 +420,7 @@ export default function Profile() {
         }
       `}</style>
       <div 
-        className="min-h-screen min-w-full p-4 md:p-8 fixed inset-0 overflow-auto" 
+        className="h-screen min-w-full p-4 md:p-8 fixed inset-0 md:overflow-auto overflow-hidden" 
         style={{
           background: averageColor 
             ? `linear-gradient(135deg, var(--profile-bg-color-light) 0%, var(--profile-bg-color-mid) 50%, var(--profile-bg-color-dark) 100%)`
@@ -668,23 +668,6 @@ export default function Profile() {
             <CardContent className="p-4">
               <div className="flex items-center justify-around gap-4">
                 <button
-                  onClick={() => navigate(createPageUrl("Map"))}
-                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-                >
-                  <div 
-                    className="w-10 h-10 rounded-full flex items-center justify-center shadow-md"
-                    style={{
-                      background: averageColor 
-                        ? `linear-gradient(135deg, var(--profile-bg-color) 0%, var(--profile-bg-color-dark) 100%)`
-                        : 'linear-gradient(135deg, rgb(34, 197, 94), rgb(22, 163, 74))'
-                    }}
-                  >
-                    <Map className="w-5 h-5 text-white" />
-                  </div>
-                  <span className="font-semibold text-stone-900">Karte</span>
-                </button>
-
-                <button
                   onClick={() => navigate(createPageUrl("Scanner"))}
                   className="flex items-center gap-2 hover:opacity-80 transition-opacity"
                 >
@@ -699,6 +682,23 @@ export default function Profile() {
                     <Camera className="w-5 h-5 text-white" />
                   </div>
                   <span className="font-semibold text-stone-900">Scannen</span>
+                </button>
+
+                <button
+                  onClick={() => navigate(createPageUrl("Map"))}
+                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                >
+                  <div 
+                    className="w-10 h-10 rounded-full flex items-center justify-center shadow-md"
+                    style={{
+                      background: averageColor 
+                        ? `linear-gradient(135deg, var(--profile-bg-color) 0%, var(--profile-bg-color-dark) 100%)`
+                        : 'linear-gradient(135deg, rgb(34, 197, 94), rgb(22, 163, 74))'
+                    }}
+                  >
+                    <Map className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="font-semibold text-stone-900">Karte</span>
                 </button>
               </div>
             </CardContent>
