@@ -604,16 +604,24 @@ export default function Friends() {
           }
 
           {/* Freundesliste */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-            className="mt-4 overflow-y-auto overscroll-y-contain"
-            style={{
-              WebkitOverflowScrolling: 'touch',
-              maxHeight: 'calc(100vh - 200px)',
-              minHeight: '60vh'
-            }}>
+          <div className="relative mt-4">
+            {/* Gradient Overlay oben */}
+            <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-white/80 to-transparent pointer-events-none z-10" style={{
+              background: averageColor 
+                ? `linear-gradient(to bottom, ${averageColor}, transparent)`
+                : 'linear-gradient(to bottom, rgb(250, 250, 249), transparent)'
+            }}></div>
+            
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
+              className="overflow-y-auto overscroll-y-contain"
+              style={{
+                WebkitOverflowScrolling: 'touch',
+                maxHeight: 'calc(100vh - 200px)',
+                minHeight: '60vh'
+              }}>
 
             {friends.length === 0 ?
             <div className="text-center py-12">
@@ -714,7 +722,8 @@ export default function Friends() {
               })}
               </div>
             }
-          </motion.div>
+            </motion.div>
+          </div>
         </div>
 
         {/* Desktop View */}
