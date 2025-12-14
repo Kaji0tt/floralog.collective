@@ -176,10 +176,11 @@ export default function FriendProfile() {
       if (!friendEmail) return [];
       const allFriends = await base44.entities.Friend.list();
       
-      // Freunde in beide Richtungen
+      // Freunde in beide Richtungen - nutze die richtigen Felder
       return allFriends.filter(f => 
-        (f.created_by === friendEmail || f.friend_email === friendEmail) && 
-        f.status === 'accepted'
+        ((f.request_sent_by?.toLowerCase() === friendEmail.toLowerCase() || 
+          f.request_sent_to?.toLowerCase() === friendEmail.toLowerCase()) && 
+        f.status === 'accepted')
       );
     },
     enabled: !!friendEmail,
