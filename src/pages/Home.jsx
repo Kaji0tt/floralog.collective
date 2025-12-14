@@ -29,6 +29,7 @@ export default function Home() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState("");
   const [showBackgroundSelector, setShowBackgroundSelector] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
   const [averageColor, setAverageColor] = useState(null);
 
   const { data: plants = [] } = useQuery({
@@ -207,6 +208,18 @@ export default function Home() {
     setAverageColor(null);
   };
 
+  const handleSetColor = async (color) => {
+    await updateUserMutation.mutateAsync({ background_color: color });
+    setShowColorPicker(false);
+    setAverageColor(color);
+  };
+
+  const handleRemoveColor = async () => {
+    await updateUserMutation.mutateAsync({ background_color: null });
+    setShowColorPicker(false);
+    setAverageColor(null);
+  };
+
   const getAverageColor = (imageUrl) => {
     return new Promise((resolve) => {
       const img = new window.Image();
@@ -256,10 +269,12 @@ export default function Home() {
           setAverageColor(color);
         }
       });
+    } else if (user?.background_color) {
+      setAverageColor(user.background_color);
     } else {
       setAverageColor(null);
     }
-  }, [user?.background_image_url]);
+  }, [user?.background_image_url, user?.background_color]);
 
   if (!user) {
     return (
@@ -432,6 +447,46 @@ export default function Home() {
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
                     </button>
                   ))}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showColorPicker} onOpenChange={setShowColorPicker}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Hintergrundfarbe auswählen</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Button
+                variant="outline"
+                onClick={handleRemoveColor}
+                className="w-full"
+              >
+                Farbe entfernen
+              </Button>
+              <div className="grid grid-cols-4 gap-3">
+                {[
+                  'rgb(59, 130, 246)', // Blue
+                  'rgb(16, 185, 129)', // Green
+                  'rgb(245, 158, 11)', // Amber
+                  'rgb(239, 68, 68)', // Red
+                  'rgb(168, 85, 247)', // Purple
+                  'rgb(236, 72, 153)', // Pink
+                  'rgb(20, 184, 166)', // Teal
+                  'rgb(251, 146, 60)', // Orange
+                  'rgb(34, 197, 94)', // Lime
+                  'rgb(99, 102, 241)', // Indigo
+                  'rgb(217, 70, 239)', // Fuchsia
+                  'rgb(6, 182, 212)', // Cyan
+                ].map((color) => (
+                  <button
+                    key={color}
+                    onClick={() => handleSetColor(color)}
+                    className="aspect-square rounded-lg border-2 border-stone-200 hover:border-stone-400 transition-colors hover:scale-110"
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
               </div>
             </div>
           </DialogContent>

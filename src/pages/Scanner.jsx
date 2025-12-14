@@ -1032,9 +1032,11 @@ Falls du die Pflanze SICHER erkennst, gib an:
           }}
         >
             <CardContent className="p-6 md:p-8" style={user?.background_image_url ? {
-              backgroundImage: `linear-gradient(rgba(0,0,0,0.2), rgba(0,0,0,0.2)), url(${user.background_image_url})`,
+              backgroundImage: `linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(0,0,0,0.4) 100%), url(${user.background_image_url})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center'
+            } : user?.background_color ? {
+              background: `linear-gradient(135deg, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 0.6)')} 0%, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 1)')} 100%)`
             } : {}}>
               <button
               onClick={() => setShowCamera(true)}
@@ -1123,9 +1125,11 @@ Falls du die Pflanze SICHER erkennst, gib an:
           }}
         >
             <CardContent className="p-12" style={user?.background_image_url ? {
-              backgroundImage: `linear-gradient(rgba(0,0,0,0.2), rgba(0,0,0,0.2)), url(${user.background_image_url})`,
+              backgroundImage: `linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(0,0,0,0.4) 100%), url(${user.background_image_url})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center'
+            } : user?.background_color ? {
+              background: `linear-gradient(135deg, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 0.6)')} 0%, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 1)')} 100%)`
             } : {}}>
               <div className="flex flex-col items-center bg-white/60 backdrop-blur-md rounded-xl p-8 border-2" style={{
                 borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
