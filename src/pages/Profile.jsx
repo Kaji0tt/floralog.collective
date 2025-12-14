@@ -234,40 +234,61 @@ export default function Profile() {
   const getAverageColor = (imageUrl) => {
     return new Promise((resolve) => {
       const img = new Image();
-      img.crossOrigin = "Anonymous";
+      img.crossOrigin = "anonymous";
+      
       img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-        
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        let r = 0, g = 0, b = 0;
-        
-        for (let i = 0; i < data.length; i += 4) {
-          r += data[i];
-          g += data[i + 1];
-          b += data[i + 2];
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          // Kleinere Größe für schnellere Berechnung
+          const size = 50;
+          canvas.width = size;
+          canvas.height = size;
+          
+          ctx.drawImage(img, 0, 0, size, size);
+          const imageData = ctx.getImageData(0, 0, size, size);
+          const data = imageData.data;
+          
+          let r = 0, g = 0, b = 0, count = 0;
+          
+          // Sample nur einen Teil der Pixel für bessere Performance
+          for (let i = 0; i < data.length; i += 16) {
+            r += data[i];
+            g += data[i + 1];
+            b += data[i + 2];
+            count++;
+          }
+          
+          r = Math.floor(r / count);
+          g = Math.floor(g / count);
+          b = Math.floor(b / count);
+          
+          console.log('Durchschnittsfarbe berechnet:', `rgb(${r}, ${g}, ${b})`);
+          resolve(`rgb(${r}, ${g}, ${b})`);
+        } catch (error) {
+          console.error('Fehler beim Berechnen der Farbe:', error);
+          resolve(null);
         }
-        
-        const pixelCount = data.length / 4;
-        r = Math.floor(r / pixelCount);
-        g = Math.floor(g / pixelCount);
-        b = Math.floor(b / pixelCount);
-        
-        resolve(`rgb(${r}, ${g}, ${b})`);
       };
-      img.onerror = () => resolve(null);
+      
+      img.onerror = (error) => {
+        console.error('Fehler beim Laden des Bildes:', error);
+        resolve(null);
+      };
+      
       img.src = imageUrl;
     });
   };
 
   useEffect(() => {
     if (user?.background_image_url) {
+      console.log('Berechne Farbe für:', user.background_image_url);
       getAverageColor(user.background_image_url).then(color => {
-        setAverageColor(color);
+        if (color) {
+          console.log('Setze Hintergrundfarbe:', color);
+          setAverageColor(color);
+        }
       });
     } else {
       setAverageColor(null);
