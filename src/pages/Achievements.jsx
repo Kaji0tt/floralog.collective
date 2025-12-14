@@ -185,7 +185,7 @@ export default function Achievements() {
           transition={{ duration: 0.5 }}
         >
           <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-3 bg-white px-6 py-3 rounded-xl shadow-sm border border-stone-200">
+            <div className="inline-flex items-center gap-3 bg-white/80 backdrop-blur-md px-6 py-3 rounded-xl shadow-sm border border-stone-200">
               <Trophy className="w-6 h-6 text-amber-600" />
               <div className="text-left">
                 <div className="text-2xl font-bold text-amber-600">{unlockedCount} / {achievements.length}</div>
@@ -218,8 +218,8 @@ export default function Achievements() {
               >
                 <Card className={`border-2 shadow-md transition-all duration-300 ${
                   isUnlocked 
-                    ? 'border-amber-300 bg-gradient-to-br from-white to-amber-50 hover:shadow-xl' 
-                    : 'border-stone-200 bg-stone-50 opacity-60'
+                    ? 'border-amber-300 bg-gradient-to-br from-white/90 to-amber-50/90 backdrop-blur-md hover:shadow-xl' 
+                    : 'border-stone-200 bg-stone-50/80 backdrop-blur-sm opacity-60'
                 }`}>
                   <CardHeader>
                     <div className="flex items-start justify-between">
@@ -305,7 +305,7 @@ export default function Achievements() {
         </div>
 
         {sortedAchievements.length === 0 && (
-          <Card className="border-2 border-stone-200 bg-white">
+          <Card className="border-2 border-stone-200 bg-white/80 backdrop-blur-md">
             <CardContent className="p-12 text-center">
               <Trophy className="w-16 h-16 text-stone-400 mx-auto mb-4" />
               <h3 className="text-xl font-bold text-stone-900 mb-2">

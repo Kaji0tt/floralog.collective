@@ -485,7 +485,7 @@ export default function Quests() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 bg-white border border-stone-200 p-1 mb-6">
+          <TabsList className="grid w-full grid-cols-3 bg-white/80 backdrop-blur-md border border-stone-200 p-1 mb-6">
             <TabsTrigger value="overview" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold">
               Übersicht
             </TabsTrigger>
@@ -499,7 +499,7 @@ export default function Quests() {
 
           {/* Übersicht */}
           <TabsContent value="overview" className="space-y-4">
-            <Card className="border-2 border-stone-200 bg-white">
+            <Card className="border-2 border-stone-200 bg-white/80 backdrop-blur-md">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Target className="w-6 h-6 text-green-600" />
@@ -536,7 +536,7 @@ export default function Quests() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.3 }}
               >
-                <Card className={`border-2 ${isDailyAlreadyCompletedToday ? 'border-green-400 bg-green-50' : 'border-emerald-400'} hover:shadow-lg transition-all bg-white`}>
+                <Card className={`border-2 ${isDailyAlreadyCompletedToday ? 'border-green-400 bg-green-50/80 backdrop-blur-md' : 'border-emerald-400 bg-white/80 backdrop-blur-md'} hover:shadow-lg transition-all`}>
                   <CardHeader className="relative">
                     <div className="absolute top-4 right-4">
                       <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex flex-col items-center justify-center shadow-lg">
@@ -610,7 +610,7 @@ export default function Quests() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.3, delay: 0.1 }}
               >
-                <Card className={`border-2 ${isWeeklyAlreadyCompletedThisWeek ? 'border-green-400 bg-green-50' : 'border-blue-400'} hover:shadow-lg transition-all bg-white`}>
+                <Card className={`border-2 ${isWeeklyAlreadyCompletedThisWeek ? 'border-green-400 bg-green-50/80 backdrop-blur-md' : 'border-blue-400 bg-white/80 backdrop-blur-md'} hover:shadow-lg transition-all`}>
                   <CardHeader className="relative">
                     <div className="absolute top-4 right-4">
                       <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex flex-col items-center justify-center shadow-lg">
@@ -689,7 +689,7 @@ export default function Quests() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
                 >
-                  <Card className="border-2 border-stone-200 hover:border-green-300 hover:shadow-lg transition-all bg-white">
+                  <Card className="border-2 border-stone-200 hover:border-green-300 hover:shadow-lg transition-all bg-white/80 backdrop-blur-md">
                     <CardHeader className="relative">
                       <div className="absolute top-4 right-4">
                         <div className="w-14 h-14 bg-gradient-to-br from-amber-500 to-amber-600 rounded-full flex flex-col items-center justify-center shadow-lg">
@@ -751,7 +751,7 @@ export default function Quests() {
               );
             })}
             {availableQuests.length === 0 && (
-              <Card className="border-2 border-stone-200 bg-white">
+              <Card className="border-2 border-stone-200 bg-white/80 backdrop-blur-md">
                 <CardContent className="p-12 text-center">
                   <Target className="w-16 h-16 text-stone-400 mx-auto mb-4" />
                   <h3 className="text-xl font-bold text-stone-900 mb-2">
@@ -770,7 +770,7 @@ export default function Quests() {
           {/* Abgeschlossene Aufgaben */}
           <TabsContent value="completed" className="space-y-4">
             {completedQuestList.length === 0 ? (
-              <Card className="border-2 border-stone-200 bg-white">
+              <Card className="border-2 border-stone-200 bg-white/80 backdrop-blur-md">
                 <CardContent className="p-12 text-center">
                   <Award className="w-16 h-16 text-stone-400 mx-auto mb-4" />
                   <h3 className="text-xl font-bold text-stone-900 mb-2">
@@ -789,7 +789,7 @@ export default function Quests() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
                 >
-                  <Card className="border-2 border-green-300 bg-green-50">
+                  <Card className="border-2 border-green-300 bg-green-50/80 backdrop-blur-md">
                     <CardHeader>
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -816,7 +816,7 @@ export default function Quests() {
           {/* Gesperrte Aufgaben - This tab is still rendered but not directly navigatable from the main tabs menu */}
           <TabsContent value="locked" className="space-y-4">
             {lockedQuests.length === 0 ? (
-              <Card className="border-2 border-stone-200 bg-white">
+              <Card className="border-2 border-stone-200 bg-white/80 backdrop-blur-md">
                 <CardContent className="p-12 text-center">
                   <Lock className="w-16 h-16 text-stone-400 mx-auto mb-4" />
                   <h3 className="text-xl font-bold text-stone-900 mb-2">
@@ -835,7 +835,7 @@ export default function Quests() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
                 >
-                  <Card className="border-2 border-stone-200 bg-stone-50 opacity-60">
+                  <Card className="border-2 border-stone-200 bg-stone-50/80 backdrop-blur-sm opacity-60">
                     <CardHeader>
                       <div className="flex items-start justify-between">
                         <div className="flex-1">

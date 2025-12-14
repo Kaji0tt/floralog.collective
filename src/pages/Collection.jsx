@@ -202,7 +202,7 @@ export default function Collection() {
       />
 
       <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-4 mb-6 max-w-4xl mx-auto">
+        <div className="bg-white/80 backdrop-blur-md rounded-xl shadow-sm border border-stone-200 p-4 mb-6 max-w-4xl mx-auto">
           <div className="flex items-center justify-between gap-6 mb-4">
             <div className="flex items-center gap-3">
               <div className="text-center">
@@ -272,7 +272,7 @@ export default function Collection() {
 
         {filteredGenera.length === 0 ? (
           <div className="text-center py-20">
-            <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-stone-200">
+            <div className="w-24 h-24 bg-white/80 backdrop-blur-md rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-stone-200">
               <Leaf className="w-12 h-12 text-stone-400" />
             </div>
             <h3 className="text-2xl font-bold text-stone-900 mb-2">
