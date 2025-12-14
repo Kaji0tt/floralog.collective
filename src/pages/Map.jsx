@@ -555,21 +555,17 @@ export default function Map() {
                       <Button
                         size="sm"
                         onClick={() => {
-                          // Finde die Gattung basierend auf genus_category und genus_number
-                          const { data: genera = [] } = base44.entities.PlantGenus.list();
-                          genera.then(genusData => {
-                            const genus = genusData.find(g => 
-                              g.category === plant.genus_category && 
-                              g.category_dex_number === plant.genus_number
-                            );
-                            if (genus) {
-                              const email = plant.source === 'mine' ? '' : plant.created_by;
-                              const url = email 
-                                ? `GenusDetail?id=${genus.id}&email=${email}`
-                                : `GenusDetail?id=${genus.id}`;
-                              navigate(createPageUrl(url));
-                            }
-                          });
+                          const genus = genera.find(g => 
+                            g.category === plant.genus_category && 
+                            g.category_dex_number === plant.genus_number
+                          );
+                          if (genus) {
+                            const email = plant.source === 'mine' ? '' : plant.created_by;
+                            const url = email 
+                              ? `GenusDetail?id=${genus.id}&email=${email}`
+                              : `GenusDetail?id=${genus.id}`;
+                            navigate(createPageUrl(url));
+                          }
                         }}
                         className="w-full bg-green-600 hover:bg-green-700"
                       >
