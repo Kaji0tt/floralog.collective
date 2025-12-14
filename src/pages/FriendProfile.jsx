@@ -449,10 +449,10 @@ export default function FriendProfile() {
                     </motion.button>
                   ))}
                 </div>
-
-
+              </CardContent>
+            </Card>
+          </motion.div>
         </div>
-      </div>
       </div>
     </>
   );
