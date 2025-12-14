@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, BookOpen, Target, Users, Camera, Loader2, LogOut, Mail, Key, AlertCircle, Edit2, CheckCircle, X, RotateCcw, Star, Image } from "lucide-react"; // Added Star icon
+import { Trophy, BookOpen, Target, Users, Camera, Loader2, LogOut, Mail, Key, AlertCircle, Edit2, CheckCircle, X, RotateCcw, Star, Image as ImageIcon } from "lucide-react"; // Added Star icon
 import { motion, AnimatePresence } from "framer-motion";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
@@ -444,7 +444,7 @@ export default function Profile() {
                   onClick={() => setShowBackgroundSelector(true)}
                   className="absolute top-4 right-4 w-10 h-10 bg-stone-200/80 hover:bg-stone-300/80 backdrop-blur-sm rounded-full flex items-center justify-center transition-colors z-10"
                 >
-                  <Image className="w-5 h-5 text-stone-700" />
+                  <ImageIcon className="w-5 h-5 text-stone-700" />
                 </button>
               )}
               <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
