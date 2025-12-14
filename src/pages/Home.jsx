@@ -392,7 +392,7 @@ export default function Home() {
         }
       `}</style>
       <div 
-        className="h-screen min-w-full p-4 md:p-8 fixed inset-0 overflow-auto" 
+        className="h-screen min-w-full p-4 md:p-8 fixed inset-0 overflow-hidden flex flex-col" 
         style={{
           background: averageColor 
             ? `linear-gradient(135deg, var(--profile-bg-color-light) 0%, var(--profile-bg-color-mid) 50%, var(--profile-bg-color-dark) 100%)`
@@ -416,7 +416,7 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto flex flex-col flex-1 min-h-0">
         <Dialog open={showBackgroundSelector} onOpenChange={setShowBackgroundSelector}>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
@@ -496,9 +496,10 @@ export default function Home() {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
+          className="flex-shrink-0"
         >
           <Card 
-            className="mb-6 shadow-xl bg-white overflow-hidden cursor-pointer hover:shadow-2xl transition-shadow"
+            className="mb-4 shadow-xl bg-white overflow-hidden cursor-pointer hover:shadow-2xl transition-shadow"
             style={{
               borderWidth: '2px',
               borderStyle: 'solid',
@@ -701,9 +702,10 @@ export default function Home() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.5 }}
+          className="flex-1 flex items-center justify-center"
         >
           <Card 
-            className="mb-6 shadow-lg bg-white/80 backdrop-blur-md"
+            className="shadow-lg bg-white/80 backdrop-blur-md w-full"
             style={{
               borderWidth: '2px',
               borderStyle: 'solid',
@@ -754,12 +756,12 @@ export default function Home() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          className="mt-6 pb-6"
+          className="flex-shrink-0 pb-4"
         >
           <div className="flex justify-center gap-6 text-sm">
             <button
               onClick={() => navigate(createPageUrl("Donate"))}
-              className="hover:opacity-80 transition-all font-medium px-2 py-1"
+              className="hover:opacity-60 transition-all font-medium px-2 py-1 opacity-50"
               style={{ 
                 color: averageColor ? getLighterColor(getLighterColor(averageColor)) : 'rgb(120, 113, 108)',
                 textShadow: '0 1px 3px rgba(0,0,0,0.3)'
@@ -768,7 +770,7 @@ export default function Home() {
               Spenden
             </button>
             <span 
-              className="opacity-60"
+              className="opacity-40"
               style={{ 
                 color: averageColor ? getLighterColor(averageColor) : 'rgb(120, 113, 108)'
               }}
@@ -777,7 +779,7 @@ export default function Home() {
             </span>
             <button
               onClick={() => navigate(createPageUrl("Impressum"))}
-              className="hover:opacity-80 transition-all font-medium px-2 py-1"
+              className="hover:opacity-60 transition-all font-medium px-2 py-1 opacity-50"
               style={{ 
                 color: averageColor ? getLighterColor(getLighterColor(averageColor)) : 'rgb(120, 113, 108)',
                 textShadow: '0 1px 3px rgba(0,0,0,0.3)'
