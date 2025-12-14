@@ -371,15 +371,18 @@ export default function Profile() {
   // Hilfsfunktion für Anzeigename
   const getDisplayName = () => user.display_name || user.full_name;
 
+  const mainBackgroundStyle = averageColor 
+    ? { background: `linear-gradient(135deg, ${averageColor} 0%, ${averageColor}dd 50%, ${averageColor}bb 100%)` }
+    : { background: 'linear-gradient(135deg, rgb(250, 250, 249) 0%, rgb(236, 253, 245) 100%)' };
+
+  console.log('Aktueller averageColor State:', averageColor);
+  console.log('Style wird angewendet:', mainBackgroundStyle);
+
   return (
     <div 
       className="min-h-screen p-4 md:p-8" 
-      style={averageColor ? {
-        background: `linear-gradient(135deg, ${averageColor} 0%, ${averageColor}dd 50%, ${averageColor}bb 100%)`
-      } : {
-        background: 'linear-gradient(135deg, rgb(250, 250, 249) 0%, rgb(236, 253, 245) 100%)'
-      }}
-      key={refreshKey}
+      style={mainBackgroundStyle}
+      key={`${refreshKey}-${averageColor}`}
     >
       <MobileBackButton />
       
