@@ -104,7 +104,7 @@ export default function Profile() {
       }
     };
     loadUser();
-  }, [refreshKey]);
+  }, []);
 
   const updateUserMutation = useMutation({
     mutationFn: (data) => base44.auth.updateMe(data),
@@ -118,6 +118,7 @@ export default function Profile() {
       console.log("👤 Frischer User:", freshUser);
       console.log("📝 Neuer Display Name:", freshUser.display_name);
       
+      // Wichtig: Nur setUser ohne refreshKey zu ändern
       setUser(freshUser);
       setEditedName(freshUser.display_name || freshUser.full_name);
       setIsEditingName(false);
