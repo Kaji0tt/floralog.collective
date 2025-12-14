@@ -645,7 +645,8 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-4 gap-3">
+              {/* Mobile: 4 Stat Buttons */}
+              <div className="grid grid-cols-4 gap-3 md:hidden">
                 {statButtons.map((stat, index) => (
                   <motion.button
                     key={stat.label}
@@ -658,7 +659,7 @@ export default function Home() {
                     transition={{ delay: 0.1 + index * 0.05 }}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="bg-white/60 backdrop-blur-md rounded-xl p-3 md:p-4 hover:shadow-lg transition-all duration-300 group"
+                    className="bg-white/60 backdrop-blur-md rounded-xl p-3 hover:shadow-lg transition-all duration-300 group"
                     style={{
                       borderWidth: '2px',
                       borderStyle: 'solid',
@@ -666,11 +667,110 @@ export default function Home() {
                     }}
                   >
                     <div className="flex flex-col items-center gap-2">
-                      <div className={`w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br ${stat.color} rounded-full flex items-center justify-center shadow-md group-hover:scale-110 transition-transform`}>
-                        <stat.icon className="w-5 h-5 md:w-6 md:h-6 text-white" />
+                      <div className={`w-10 h-10 bg-gradient-to-br ${stat.color} rounded-full flex items-center justify-center shadow-md group-hover:scale-110 transition-transform`}>
+                        <stat.icon className="w-5 h-5 text-white" />
                       </div>
-                      <div className="text-2xl md:text-3xl font-bold text-stone-700">{stat.value}</div>
+                      <div className="text-2xl font-bold text-stone-700">{stat.value}</div>
                       <div className="text-xs font-semibold text-stone-600 hidden sm:block">{stat.label}</div>
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
+
+              {/* Desktop: Scannen/Karte zuerst, dann 4 Stat Buttons */}
+              <div className="hidden md:grid md:grid-cols-6 gap-3">
+                {/* Scannen Button */}
+                <motion.button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(createPageUrl("Scanner"));
+                  }}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="bg-white/60 backdrop-blur-md rounded-xl p-4 hover:shadow-lg transition-all duration-300 group"
+                  style={{
+                    borderWidth: '2px',
+                    borderStyle: 'solid',
+                    borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
+                  }}
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    <div 
+                      className="w-12 h-12 rounded-full flex items-center justify-center shadow-md group-hover:scale-110 transition-transform"
+                      style={{
+                        background: averageColor 
+                          ? `linear-gradient(135deg, var(--profile-bg-color) 0%, var(--profile-bg-color-dark) 100%)`
+                          : 'linear-gradient(135deg, rgb(34, 197, 94), rgb(22, 163, 74))'
+                      }}
+                    >
+                      <Camera className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="text-xs font-semibold text-stone-600">Scannen</div>
+                  </div>
+                </motion.button>
+
+                {/* Karte Button */}
+                <motion.button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(createPageUrl("Map"));
+                  }}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.15 }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="bg-white/60 backdrop-blur-md rounded-xl p-4 hover:shadow-lg transition-all duration-300 group"
+                  style={{
+                    borderWidth: '2px',
+                    borderStyle: 'solid',
+                    borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
+                  }}
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    <div 
+                      className="w-12 h-12 rounded-full flex items-center justify-center shadow-md group-hover:scale-110 transition-transform"
+                      style={{
+                        background: averageColor 
+                          ? `linear-gradient(135deg, var(--profile-bg-color) 0%, var(--profile-bg-color-dark) 100%)`
+                          : 'linear-gradient(135deg, rgb(34, 197, 94), rgb(22, 163, 74))'
+                      }}
+                    >
+                      <Map className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="text-xs font-semibold text-stone-600">Karte</div>
+                  </div>
+                </motion.button>
+
+                {/* 4 Stat Buttons */}
+                {statButtons.map((stat, index) => (
+                  <motion.button
+                    key={stat.label}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      stat.onClick();
+                    }}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 + index * 0.05 }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="bg-white/60 backdrop-blur-md rounded-xl p-4 hover:shadow-lg transition-all duration-300 group"
+                    style={{
+                      borderWidth: '2px',
+                      borderStyle: 'solid',
+                      borderColor: averageColor ? 'var(--profile-border-color)' : stat.borderColor.replace('border-', '').replace('-200', '')
+                    }}
+                  >
+                    <div className="flex flex-col items-center gap-2">
+                      <div className={`w-12 h-12 bg-gradient-to-br ${stat.color} rounded-full flex items-center justify-center shadow-md group-hover:scale-110 transition-transform`}>
+                        <stat.icon className="w-6 h-6 text-white" />
+                      </div>
+                      <div className="text-3xl font-bold text-stone-700">{stat.value}</div>
+                      <div className="text-xs font-semibold text-stone-600">{stat.label}</div>
                     </div>
                   </motion.button>
                 ))}
@@ -679,11 +779,12 @@ export default function Home() {
           </Card>
         </motion.div>
 
+        {/* Mobile: Scannen/Karte Button */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.5 }}
-          className="flex-1 flex items-center justify-center"
+          className="flex-1 flex items-center justify-center md:hidden"
         >
           <Card 
             className="shadow-lg bg-white/80 backdrop-blur-md w-full"
@@ -733,6 +834,7 @@ export default function Home() {
           </Card>
         </motion.div>
 
+        {/* Desktop: Spenden/Impressum Buttons */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
