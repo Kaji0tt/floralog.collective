@@ -361,17 +361,15 @@ export default function Profile() {
   // Hilfsfunktion für Anzeigename
   const getDisplayName = () => user.display_name || user.full_name;
 
-  const backgroundStyle = averageColor 
-    ? `linear-gradient(135deg, ${averageColor} 0%, ${averageColor}dd 50%, ${averageColor}bb 100%)`
-    : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))';
-
   return (
     <div 
       className="min-h-screen p-4 md:p-8" 
-      style={{ background: backgroundStyle }}
-      key={`${refreshKey}-${averageColor || 'default'}`}
+      style={averageColor 
+        ? { background: `linear-gradient(135deg, ${averageColor} 0%, ${averageColor}dd 50%, ${averageColor}bb 100%)` }
+        : { background: 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))' }
+      }
+      key={refreshKey}
     >
-      
       <MobileBackButton />
       
       <AnimatePresence>
