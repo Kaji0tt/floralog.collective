@@ -749,6 +749,29 @@ export default function Home() {
             </CardContent>
           </Card>
         </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, duration: 0.5 }}
+          className="mt-6 pb-6"
+        >
+          <div className="flex justify-center gap-6 text-sm text-stone-600">
+            <button
+              onClick={() => navigate(createPageUrl("Donate"))}
+              className="hover:text-green-600 transition-colors font-medium"
+            >
+              Spenden
+            </button>
+            <span className="text-stone-400">•</span>
+            <button
+              onClick={() => navigate(createPageUrl("Impressum"))}
+              className="hover:text-green-600 transition-colors font-medium"
+            >
+              Impressum
+            </button>
+          </div>
+        </motion.div>
       </div>
       </div>
     </>
