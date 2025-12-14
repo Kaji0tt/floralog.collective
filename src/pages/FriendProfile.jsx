@@ -5,11 +5,12 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { getXPProgressInLevel } from "../components/utils/xpSystem";
 import MobileBackButton from "../components/navigation/MobileBackButton"; // Added import
-import { Camera, BookOpen, Trophy, Target, Leaf, Users, ChevronRight, Star, ArrowLeft, Lock } from "lucide-react";
+import { Camera, BookOpen, Trophy, Target, Leaf, Users, ChevronRight, Star, ArrowLeft, Lock, Map, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { motion } from "framer-motion";
 
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
@@ -192,6 +193,10 @@ export default function FriendProfile() {
     enabled: !!friendEmail,
   });
 
+  const favoritePlant = friendUser?.favorite_plant_id 
+    ? plants.find(p => p.id === friendUser.favorite_plant_id)
+    : null;
+
   useEffect(() => {
     if (friendUser?.background_image_url) {
       getAverageColor(friendUser.background_image_url).then(color => {
@@ -212,60 +217,21 @@ export default function FriendProfile() {
     );
   }
 
-  const friendPlantIds = friendDiscoveries.map(d => d.plant_id);
-  const friendPlants = plants.filter(p => friendPlantIds.includes(p.id));
-  
-  const totalGenera = genera.length;
-  const discoveredGenera = genera.filter(g => {
-    const genusPlants = friendPlants.filter(p => 
-      p.genus_category === g.category && p.genus_number === g.category_dex_number
-    );
-    return genusPlants.length > 0;
-  }).length;
-  const progressPercentage = totalGenera > 0 ? (discoveredGenera / totalGenera) * 100 : 0;
-
-  const totalAchievements = achievements.length;
-  const achievementProgressPercentage = totalAchievements > 0 ? (userAchievements.length / totalAchievements) * 100 : 0;
-
-  const categoryStats = {
-    "Bäume": genera.filter(g => g.category === "Bäume"),
-    "Sträucher": genera.filter(g => g.category === "Sträucher"),
-    "Blumen": genera.filter(g => g.category === "Blumen")
-  };
-
   const currentLevel = friendUser.level || 1;
   const currentXP = friendUser.xp || 0;
   const xpProgress = getXPProgressInLevel(currentXP, currentLevel);
 
-  const calculateQuestProgress = (quest) => {
-    if (!quest.required_discoveries) return 0;
-    
-    if (quest.category === "Alle") {
-      return Math.min(discoveredGenera, quest.required_discoveries);
-    } else {
-      const categoryGenera = genera.filter(g => g.category === quest.category);
-      const discoveredInCategory = categoryGenera.filter(g => {
-        const genusPlants = friendPlants.filter(p => 
-          p.genus_category === g.category && p.genus_number === g.category_dex_number
-        );
-        return genusPlants.length > 0;
-      }).length;
-      return Math.min(discoveredInCategory, quest.required_discoveries);
-    }
-  };
+  const discoveredGenera = genera.filter(g => {
+    const genusPlants = plants.filter(p => 
+      p.genus_category === g.category && p.genus_number === g.category_dex_number
+    );
+    return genusPlants.some(p => friendDiscoveries.some(d => d.plant_id === p.id));
+  }).length;
 
-  const allActiveQuests = quests.filter(q => 
+  const availableQuests = quests.filter(q => 
     (q.unlocked_at_level || 1) <= currentLevel &&
     !userQuests.some(uq => uq.quest_id === q.id && uq.completed)
-  );
-
-  const activeQuquests = allActiveQuests.map(q => ({
-    ...q,
-    progress: calculateQuestProgress(q),
-    type: 'personal'
-  })).slice(0, 3);
-
-  const displayQuests = activeQuquests;
+  ).length;
 
   const statButtons = [
     {
@@ -276,10 +242,6 @@ export default function FriendProfile() {
       textColor: "text-green-700",
       bgColor: "bg-green-50",
       borderColor: "border-green-200",
-      progressBg: "bg-green-100",
-      progressText: "text-green-800",
-      progressPercentage: Math.round(progressPercentage),
-      showProgress: true,
       onClick: () => navigate(createPageUrl(`FriendCollection?email=${friendEmail}`))
     },
     {
@@ -290,22 +252,17 @@ export default function FriendProfile() {
       textColor: "text-amber-700",
       bgColor: "bg-amber-50",
       borderColor: "border-amber-200",
-      progressBg: "bg-amber-100",
-      progressText: "text-amber-800",
-      progressPercentage: Math.round(achievementProgressPercentage),
-      showProgress: true,
       onClick: () => navigate(createPageUrl(`FriendAchievements?email=${friendEmail}`))
     },
     {
       icon: Target,
       label: "Aufgaben",
-      value: allActiveQuests.length,
+      value: availableQuests,
       color: "from-blue-500 to-blue-600",
       textColor: "text-blue-700",
       bgColor: "bg-blue-50",
       borderColor: "border-blue-200",
-      showProgress: false,
-      onClick: null // No navigation for quests directly
+      onClick: null
     },
     {
       icon: Users,
@@ -315,7 +272,6 @@ export default function FriendProfile() {
       textColor: "text-purple-700",
       bgColor: "bg-purple-50",
       borderColor: "border-purple-200",
-      showProgress: false,
       onClick: () => navigate(createPageUrl(`FriendFriendsList?email=${friendEmail}`))
     }
   ];
@@ -368,20 +324,7 @@ export default function FriendProfile() {
       >
         <MobileBackButton backUrl={createPageUrl("Friends")} />
       
-      <div className="max-w-6xl mx-auto">
-        {/* Back Button - nur Desktop */}
-        <Button
-          variant="ghost"
-          onClick={() => navigate(createPageUrl("Friends"))}
-          className="mb-6 bg-white hover:bg-stone-50 text-stone-900 font-semibold shadow-sm border border-stone-200 hidden md:inline-flex"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Zurück zu Freunden
-        </Button>
-
-        {/* Desktop & Mobile: Einheitliches Layout */}
-        <div className="space-y-6">
-          {/* 1. Profilübersicht */}
+        <div className="max-w-4xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -405,23 +348,41 @@ export default function FriendProfile() {
                   background: `linear-gradient(135deg, ${friendUser.background_color.replace('rgb', 'rgba').replace(')', ', 0.6)')} 0%, ${friendUser.background_color.replace('rgb', 'rgba').replace(')', ', 1)')} 100%)`
                 } : {}}
               >
-                <div className="flex items-center gap-3 md:gap-4 mb-4">
-                  <div className="relative flex-shrink-0">
-                    <div className="w-24 h-24 md:w-28 md:h-28 bg-gradient-to-br from-green-600 to-emerald-600 rounded-2xl flex items-center justify-center shadow-2xl overflow-hidden ring-4 ring-white/50 backdrop-blur-sm">
+                <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
+                  <div className="relative group flex-shrink-0">
+                    <div className="w-28 h-28 bg-gradient-to-br from-green-600 to-emerald-600 rounded-2xl flex items-center justify-center shadow-2xl overflow-hidden ring-4 ring-white/50 backdrop-blur-sm">
                       {friendUser.avatar_url ? (
                         <img src={friendUser.avatar_url} alt="Profil" className="w-full h-full object-cover" />
                       ) : (
-                        <img src={LOGO_URL} alt="PlantDex" className="w-8 h-8 md:w-12 md:h-12 object-contain" />
+                        <img src={LOGO_URL} alt="PlantDex" className="w-14 h-14 object-contain" />
                       )}
                     </div>
-                    <div className="absolute -top-2 -right-2 px-3 py-1 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center shadow-xl backdrop-blur-sm border-2 border-white/80">
-                      <span className="text-white font-bold text-sm">LV {currentLevel}</span>
-                    </div>
+                    
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button 
+                          onClick={(e) => e.stopPropagation()}
+                          className="absolute -top-2 -right-2 px-3 py-1 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center shadow-xl backdrop-blur-sm border-2 border-white/80 hover:scale-110 transition-transform cursor-pointer"
+                        >
+                          <span className="text-white font-bold text-sm">LV {currentLevel}</span>
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-64 bg-white">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-bold text-stone-800">Level {currentLevel}</span>
+                            <span className="text-sm font-bold text-stone-800">{xpProgress.current} / {xpProgress.needed} XP</span>
+                          </div>
+                          <Progress value={xpProgress.percentage} className="h-2" />
+                          <p className="text-xs text-stone-600">{xpProgress.percentage.toFixed(1)}% bis Level {currentLevel + 1}</p>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
 
                   <div className="flex-1 w-full bg-white/40 backdrop-blur-md rounded-xl p-5 border-2 border-white/30 shadow-lg">
                     <div className="mb-2">
-                      <h1 className="text-2xl md:text-3xl font-bold text-stone-900">
+                      <h1 className="text-3xl md:text-4xl font-bold text-stone-900" key={friendUser.display_name || friendUser.full_name}>
                         {friendUser.display_name || friendUser.full_name}
                       </h1>
                     </div>
@@ -431,10 +392,30 @@ export default function FriendProfile() {
                         {friendUser.selected_title || friendUser.title || "Pflanzen-Anfänger"}
                       </span>
                     </div>
+
+                    {favoritePlant && (() => {
+                      const genus = genera.find(g => 
+                        g.category === favoritePlant.genus_category && 
+                        g.category_dex_number === favoritePlant.genus_number
+                      );
+                      return genus ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(createPageUrl(`GenusDetail?id=${genus.id}`));
+                          }}
+                          className="mt-3 flex items-center gap-2 p-2 bg-white/40 rounded-lg border border-white/30 hover:bg-white/60 transition-colors w-full"
+                        >
+                          <Heart className="w-4 h-4 text-red-500 fill-red-500" />
+                          <div className="flex-1 text-left">
+                            <p className="text-sm font-bold text-stone-900">{favoritePlant.species_name}</p>
+                            <p className="text-xs italic text-stone-600">{favoritePlant.scientific_name}</p>
+                          </div>
+                        </button>
+                      ) : null;
+                    })()}
                   </div>
                 </div>
-
-                {/* Stats */}
                 <div className="grid grid-cols-4 gap-3 mb-4">
                   {statButtons.map((stat, index) => (
                     <motion.button
@@ -469,131 +450,7 @@ export default function FriendProfile() {
                   ))}
                 </div>
 
-              </CardContent>
-            </Card>
-          </motion.div>
 
-          {/* PlantDex Button removed, category stats removed */}
-
-          {/* 2. Kategorie-Stats als eigene Card */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.5 }}
-          >
-            <Card 
-              className="shadow-lg bg-white/80 backdrop-blur-md"
-              style={{
-                borderWidth: '2px',
-                borderStyle: 'solid',
-                borderColor: averageColor ? 'var(--friend-border-color)' : 'rgb(187, 247, 208)'
-              }}
-            >
-              <CardContent className="p-4">
-                <div className="grid grid-cols-3 gap-2 md:gap-3">
-                  {Object.entries(categoryStats).map(([category, categoryGenera]) => {
-                    const discovered = categoryGenera.filter(g => {
-                      const genusPlants = friendPlants.filter(p => 
-                        p.genus_category === g.category && p.genus_number === g.category_dex_number
-                      );
-                      return genusPlants.length > 0;
-                    }).length;
-                    const icon = category === "Bäume" ? "🌳" : category === "Sträucher" ? "🌿" : "🌸";
-                    return (
-                      <div key={category} className="bg-stone-50 rounded-lg p-2 md:p-3 border border-stone-200 text-center">
-                        <div className="text-lg md:text-2xl mb-1">{icon}</div>
-                        <div className="text-base md:text-lg font-bold text-green-700">{discovered}/{categoryGenera.length}</div>
-                        <div className="text-xs font-semibold text-stone-600 truncate">{category}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {/* 3. Aufgaben */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.6 }}
-          >
-            <Card className="border-2 border-stone-200 shadow-lg bg-white">
-              <CardHeader className="border-b border-stone-200 p-4">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
-                    <Target className="w-5 h-5 text-green-600" />
-                    Aktuelle Aufgaben
-                  </CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="p-4">
-                {displayQuests.length === 0 ? (
-                  <div className="text-center py-6 text-stone-500">
-                    <Target className="w-10 h-10 mx-auto mb-2 text-stone-400" />
-                    <p className="text-sm">Keine aktiven Aufgaben</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {displayQuests.map((quest, index) => {
-                      const progressPercentage = (quest.progress / quest.required_discoveries) * 100;
-                      const isCompleted = quest.progress >= quest.required_discoveries;
-
-                      return (
-                        <motion.div
-                          key={quest.id}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.1 }}
-                        >
-                          <Card className="border-2 border-stone-200">
-                            <CardContent className="p-3">
-                              <div className="flex items-start gap-3">
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex flex-wrap items-center gap-2 mb-1">
-                                    {quest.category !== "Alle" && (
-                                      <Badge variant="outline" className="border-stone-300 text-xs">
-                                        {quest.category}
-                                      </Badge>
-                                    )}
-                                    {isCompleted && (
-                                      <Badge className="bg-green-600 text-white text-xs">
-                                        <Star className="w-3 h-3 mr-1" />
-                                        Bereit!
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  <h4 className="font-bold text-sm md:text-base text-stone-900 mb-1 truncate">{quest.title}</h4>
-                                  <p className="text-xs text-stone-600 mb-2 line-clamp-2">{quest.description}</p>
-                                  <div>
-                                    <div className="flex items-center justify-between mb-1">
-                                      <span className="text-xs font-semibold text-stone-700 truncate">
-                                        {quest.requirement}
-                                      </span>
-                                      <span className="text-xs font-bold text-green-700 ml-2">
-                                        {quest.progress} / {quest.required_discoveries}
-                                      </span>
-                                    </div>
-                                    <Progress value={progressPercentage} className="h-1.5 bg-stone-200" />
-                                  </div>
-                                </div>
-                                <div className="text-center flex-shrink-0">
-                                  <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-amber-500 to-amber-600 rounded-full flex items-center justify-center shadow-md">
-                                    <span className="text-white font-bold text-xs">+{quest.xp_reward}</span>
-                                  </div>
-                                  <span className="text-[10px] text-stone-600 font-semibold mt-1 block">XP</span>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
         </div>
       </div>
       </div>
