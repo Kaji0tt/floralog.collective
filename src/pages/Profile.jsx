@@ -138,7 +138,10 @@ export default function Profile() {
         xp: userData.xp || 0,
         title: userData.title,
         selected_title: userData.selected_title,
-        avatar_url: userData.avatar_url
+        avatar_url: userData.avatar_url,
+        background_image_url: userData.background_image_url,
+        background_color: userData.background_color,
+        favorite_plant_id: userData.favorite_plant_id
       };
 
       if (existingProfile) {
@@ -155,7 +158,7 @@ export default function Profile() {
     if (user && user.email) {
       updatePublicProfile(user);
     }
-  }, [user?.level, user?.xp, user?.display_name, user?.avatar_url, user?.selected_title, user?.email]);
+  }, [user?.level, user?.xp, user?.display_name, user?.avatar_url, user?.selected_title, user?.email, user?.background_image_url, user?.background_color, user?.favorite_plant_id]);
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
