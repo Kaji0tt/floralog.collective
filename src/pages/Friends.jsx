@@ -479,7 +479,9 @@ export default function Friends() {
             transition={{ duration: 0.5 }} className="bg-transparent pb-4 sticky top-0 z-40 from-stone-50 to-green-50">
 
 
-            <Card className="border-2 border-green-200 shadow-lg bg-white">
+            <Card className="shadow-lg bg-white rounded-b-none border-2 border-b-0" style={{
+              borderColor: averageColor ? getDarkerColor(averageColor) : 'rgb(187, 247, 208)'
+            }}>
               <CardContent className="p-4">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-4">
@@ -604,7 +606,7 @@ export default function Friends() {
           }
 
           {/* Freundesliste */}
-          <div className="relative mt-4">
+          <div className="relative">
             {/* Gradient Overlay oben */}
             <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-white/80 to-transparent pointer-events-none z-10" style={{
               background: averageColor 
@@ -616,11 +618,12 @@ export default function Friends() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3, duration: 0.5 }}
-              className="overflow-y-auto overscroll-y-contain"
+              className="overflow-y-auto overscroll-y-contain rounded-t-none border-2 border-t-0 bg-white/95 backdrop-blur-sm p-4"
               style={{
                 WebkitOverflowScrolling: 'touch',
                 maxHeight: 'calc(100vh - 200px)',
-                minHeight: '60vh'
+                minHeight: '60vh',
+                borderColor: averageColor ? getDarkerColor(averageColor) : 'rgb(187, 247, 208)'
               }}>
 
             {friends.length === 0 ?
