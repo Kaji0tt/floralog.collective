@@ -412,7 +412,7 @@ export default function FriendProfile() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(createPageUrl(`GenusDetail?id=${genus.id}`));
+                            navigate(createPageUrl(`GenusDetail?id=${genus.id}&email=${friendEmail}`));
                           }}
                           className="mt-3 flex items-center gap-2 p-2 bg-white/40 rounded-lg border border-white/30 hover:bg-white/60 transition-colors w-full"
                         >
