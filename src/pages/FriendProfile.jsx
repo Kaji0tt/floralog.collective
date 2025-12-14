@@ -505,79 +505,80 @@ export default function FriendProfile() {
                     ))}
                     </div>
 
-                    {/* Zur Karte Button - innerhalb der Profilkarte */}
-                    {isFriend && (
+                    {/* Action Button - innerhalb der Profilkarte */}
                     <div className="mt-4">
-                    <div 
-                      className="bg-white/60 backdrop-blur-md rounded-xl p-4 shadow-md"
-                      style={{
-                        borderWidth: '2px',
-                        borderStyle: 'solid',
-                        borderColor: averageColor ? 'var(--friend-border-color)' : 'rgb(187, 247, 208)'
-                      }}
-                    >
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(createPageUrl("Map"));
+                      <div 
+                        className="bg-white/60 backdrop-blur-md rounded-xl p-4 shadow-md"
+                        style={{
+                          borderWidth: '2px',
+                          borderStyle: 'solid',
+                          borderColor: averageColor ? 'var(--friend-border-color)' : 'rgb(187, 247, 208)'
                         }}
-                        className="flex items-center justify-center gap-2 hover:opacity-80 transition-opacity w-full"
                       >
-                        <div 
-                          className="w-10 h-10 rounded-full flex items-center justify-center shadow-md"
-                          style={{
-                            background: averageColor 
-                              ? `linear-gradient(135deg, var(--friend-bg-color) 0%, var(--friend-bg-color-dark) 100%)`
-                              : 'linear-gradient(135deg, rgb(34, 197, 94), rgb(22, 163, 74))'
-                          }}
-                        >
-                          <MapIcon className="w-5 h-5 text-white" />
-                        </div>
-                        <span className="font-semibold text-stone-900">Zur Karte</span>
-                      </button>
+                        {isFriend ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(createPageUrl("Map"));
+                            }}
+                            className="flex items-center justify-center gap-2 hover:opacity-80 transition-opacity w-full"
+                          >
+                            <div 
+                              className="w-10 h-10 rounded-full flex items-center justify-center shadow-md"
+                              style={{
+                                background: averageColor 
+                                  ? `linear-gradient(135deg, var(--friend-bg-color) 0%, var(--friend-bg-color-dark) 100%)`
+                                  : 'linear-gradient(135deg, rgb(34, 197, 94), rgb(22, 163, 74))'
+                              }}
+                            >
+                              <MapIcon className="w-5 h-5 text-white" />
+                            </div>
+                            <span className="font-semibold text-stone-900">Zur Karte</span>
+                          </button>
+                        ) : hasPendingRequest ? (
+                          <button
+                            disabled
+                            className="flex items-center justify-center gap-2 opacity-60 cursor-not-allowed w-full"
+                          >
+                            <div 
+                              className="w-10 h-10 rounded-full flex items-center justify-center shadow-md"
+                              style={{
+                                background: 'linear-gradient(135deg, rgb(156, 163, 175), rgb(107, 114, 128))'
+                              }}
+                            >
+                              <Clock className="w-5 h-5 text-white" />
+                            </div>
+                            <span className="font-semibold text-stone-900">Anfrage gesendet</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              sendFriendRequestMutation.mutate();
+                            }}
+                            disabled={sendFriendRequestMutation.isPending}
+                            className="flex items-center justify-center gap-2 hover:opacity-80 transition-opacity w-full disabled:opacity-50"
+                          >
+                            <div 
+                              className="w-10 h-10 rounded-full flex items-center justify-center shadow-md"
+                              style={{
+                                background: 'linear-gradient(135deg, rgb(34, 197, 94), rgb(22, 163, 74))'
+                              }}
+                            >
+                              <UserPlus className="w-5 h-5 text-white" />
+                            </div>
+                            <span className="font-semibold text-stone-900">
+                              {sendFriendRequestMutation.isPending ? 'Wird gesendet...' : 'Freund hinzufügen'}
+                            </span>
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    </div>
-                    )}
                     </CardContent>
                     </Card>
                     </motion.div>
 
-          {/* Karten Button / Freund hinzufügen */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.5 }}
-            className="mt-6"
-          >
-            {isFriend ? (
-              <button
-                onClick={() => navigate(createPageUrl(`Map?email=${friendEmail}`))}
-                className="w-full bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-3 group"
-              >
-                <MapIcon className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                <span className="text-lg font-bold">Zur Karte</span>
-              </button>
-            ) : hasPendingRequest ? (
-              <button
-                disabled
-                className="w-full bg-gradient-to-br from-gray-400 to-gray-500 text-white rounded-xl p-4 shadow-lg cursor-not-allowed flex items-center justify-center gap-3"
-              >
-                <Users className="w-6 h-6" />
-                <span className="text-lg font-bold">Anfrage gesendet</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => sendFriendRequestMutation.mutate()}
-                disabled={sendFriendRequestMutation.isPending}
-                className="w-full bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-3 group disabled:opacity-50"
-              >
-                <Users className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                <span className="text-lg font-bold">
-                  {sendFriendRequestMutation.isPending ? 'Wird gesendet...' : 'Freund hinzufügen'}
-                </span>
-              </button>
-            )}
-          </motion.div>
+
         </div>
       </div>
     </>
