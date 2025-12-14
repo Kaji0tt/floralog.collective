@@ -269,7 +269,9 @@ export default function Home() {
   const xpProgress = getXPProgressInLevel(currentXP, currentLevel);
 
   const discoveredGenera = genera.filter(g => {
-    const genusPlants = plants.filter(p => p.genus_id === g.id);
+    const genusPlants = plants.filter(p => 
+      p.genus_category === g.category && p.genus_number === g.category_dex_number
+    );
     return genusPlants.some(p => userDiscoveries.some(d => d.plant_id === p.id));
   }).length;
 
