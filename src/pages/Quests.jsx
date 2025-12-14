@@ -26,6 +26,40 @@ import {
 
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
+const getAverageColor = (imageUrl) => {
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const size = 50;
+        canvas.width = size;
+        canvas.height = size;
+        ctx.drawImage(img, 0, 0, size, size);
+        const imageData = ctx.getImageData(0, 0, size, size);
+        const data = imageData.data;
+        let r = 0, g = 0, b = 0, count = 0;
+        for (let i = 0; i < data.length; i += 16) {
+          r += data[i];
+          g += data[i + 1];
+          b += data[i + 2];
+          count++;
+        }
+        r = Math.floor(r / count);
+        g = Math.floor(g / count);
+        b = Math.floor(b / count);
+        resolve(`rgb(${r}, ${g}, ${b})`);
+      } catch (error) {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = imageUrl;
+  });
+};
+
 export default function Quests() {
   const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
@@ -97,6 +131,18 @@ export default function Quests() {
     };
     loadUser();
   }, []);
+
+  useEffect(() => {
+    if (user?.background_image_url) {
+      getAverageColor(user.background_image_url).then(color => {
+        if (color) setAverageColor(color);
+      });
+    } else if (user?.background_color) {
+      setAverageColor(user.background_color);
+    } else {
+      setAverageColor(null);
+    }
+  }, [user?.background_image_url, user?.background_color]);
 
   const updateUserMutation = useMutation({
     mutationFn: (data) => base44.auth.updateMe(data),
