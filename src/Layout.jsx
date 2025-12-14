@@ -1,77 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { Camera, BookOpen, Map, Home, Users, Heart, Target, Award, User, UserPlus } from "lucide-react"; 
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarHeader,
-  SidebarProvider,
-  SidebarTrigger,
-  SidebarFooter,
-} from "@/components/ui/sidebar";
 import { base44 } from "@/api/base44Client";
 import NotificationManager from "./components/notifications/NotificationManager";
 
-const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
-const mainNavigation = [
-  {
-    title: "Start",
-    url: createPageUrl("Home"),
-    icon: Home,
-  },
-  {
-    title: "Scannen",
-    url: createPageUrl("Scanner"),
-    icon: Camera,
-  },
-];
-
-const collectionNavigation = [
-  {
-    title: "Dex",
-    url: createPageUrl("Collection"),
-    icon: BookOpen,
-  },
-  {
-    title: "Karte",
-    url: createPageUrl("Map"),
-    icon: Map,
-  },
-];
-
-const progressNavigation = [
-  {
-    title: "Profil",
-    url: createPageUrl("Profile"),
-    icon: User,
-  },
-  {
-    title: "Aufgaben",
-    url: createPageUrl("Quests"),
-    icon: Target,
-  },
-  {
-    title: "Erfolge",
-    url: createPageUrl("Achievements"),
-    icon: Award,
-  },
-];
-
-const socialNavigation = [
-  {
-    title: "Freunde",
-    url: createPageUrl("Friends"),
-    icon: UserPlus,
-  },
-];
 
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
@@ -90,17 +23,8 @@ export default function Layout({ children, currentPageName }) {
   }, []);
 
   return (
-    <SidebarProvider>
+    <>
       <style>{`
-        :root {
-          --forest-green: #2D5016;
-          --sage-green: #4A7C2E;
-          --moss-green: #6B8E3D;
-          --leaf-green: #7FA650;
-          --amber: #D97706;
-          --cream: #FAFAF9;
-        }
-
         body {
           overflow-x: hidden;
         }
@@ -114,136 +38,7 @@ export default function Layout({ children, currentPageName }) {
           scrollbar-width: none;
         }
       `}</style>
-      <div className="min-h-screen flex w-full overflow-x-hidden">
-        {/* Sidebar komplett versteckt */}
-        <Sidebar className="border-r border-stone-200 bg-white hidden">
-          <SidebarHeader className="border-b border-stone-200 p-6">
-            <Link to={createPageUrl("Home")} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-              <div className="w-12 h-12 flex items-center justify-center bg-white rounded-lg">
-                <img src={LOGO_URL} alt="PlantDex Logo" className="w-10 h-10 object-contain" />
-              </div>
-              <div>
-                <h2 className="font-bold text-xl text-stone-900">PlantDex</h2>
-                <p className="text-xs text-stone-500">Mitteleuropäische Flora</p>
-              </div>
-            </Link>
-          </SidebarHeader>
-          
-          <SidebarContent className="p-3">
-            {/* Haupt-Navigation */}
-            <SidebarGroup>
-              <SidebarGroupLabel className="text-xs font-bold text-stone-500 uppercase tracking-wider px-4 mb-2">
-                Hauptmenü
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {mainNavigation.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton 
-                        asChild 
-                        className={`hover:bg-green-50 transition-colors rounded-lg mb-1 ${
-                          location.pathname === item.url 
-                            ? 'bg-green-600 text-white hover:bg-green-700' 
-                            : 'text-stone-700'
-                        }`}
-                      >
-                        <Link to={item.url} className="flex items-center gap-3 px-4 py-3">
-                          <item.icon className="w-5 h-5" />
-                          <span className="font-semibold">{item.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-
-            {/* Sammlung */}
-            <SidebarGroup>
-              <SidebarGroupLabel className="text-xs font-bold text-stone-500 uppercase tracking-wider px-4 mb-2 mt-4">
-                Sammlung
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {collectionNavigation.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton 
-                        asChild 
-                        className={`hover:bg-green-50 transition-colors rounded-lg mb-1 ${
-                          location.pathname === item.url 
-                            ? 'bg-green-600 text-white hover:bg-green-700' 
-                            : 'text-stone-700'
-                        }`}
-                      >
-                        <Link to={item.url} className="flex items-center gap-3 px-4 py-3">
-                          <item.icon className="w-5 h-5" />
-                          <span className="font-semibold">{item.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-
-            {/* Fortschritt */}
-            <SidebarGroup>
-              <SidebarGroupLabel className="text-xs font-bold text-stone-500 uppercase tracking-wider px-4 mb-2 mt-4">
-                Fortschritt
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {progressNavigation.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton 
-                        asChild 
-                        className={`hover:bg-green-50 transition-colors rounded-lg mb-1 ${
-                          location.pathname === item.url 
-                            ? 'bg-green-600 text-white hover:bg-green-700' 
-                            : 'text-stone-700'
-                        }`}
-                      >
-                        <Link to={item.url} className="flex items-center gap-3 px-4 py-3">
-                          <item.icon className="w-5 h-5" />
-                          <span className="font-semibold">{item.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-
-            {/* Soziales */}
-            <SidebarGroup>
-              <SidebarGroupLabel className="text-xs font-bold text-stone-500 uppercase tracking-wider px-4 mb-2 mt-4">
-                Soziales
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {socialNavigation.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton 
-                        asChild 
-                        className={`hover:bg-green-50 transition-colors rounded-lg mb-1 ${
-                          location.pathname === item.url 
-                            ? 'bg-green-600 text-white hover:bg-green-700' 
-                            : 'text-stone-700'
-                        }`}
-                      >
-                        <Link to={item.url} className="flex items-center gap-3 px-4 py-3">
-                          <item.icon className="w-5 h-5" />
-                          <span className="font-semibold">{item.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </SidebarContent>
-        </Sidebar>
-
+      <div className="min-h-screen w-full overflow-x-hidden">
         <main className="flex-1 flex flex-col overflow-x-hidden bg-transparent">
           <div className="flex-1 overflow-auto overflow-x-hidden bg-transparent">
             {children}
@@ -253,6 +48,6 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Notification Manager - nur Banner, kein Button */}
       {user && currentPageName !== "Profile" && <NotificationManager user={user} />}
-    </SidebarProvider>
+    </>
   );
 }
