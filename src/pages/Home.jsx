@@ -675,15 +675,108 @@ export default function Home() {
                   </motion.button>
                 ))}
               </div>
+
+              {/* Scannen/Karte Container - Desktop only, inside profile card */}
+              <div className="hidden md:block mt-4">
+                <div 
+                  className="bg-white/60 backdrop-blur-md rounded-xl p-4 shadow-md"
+                  style={{
+                    borderWidth: '2px',
+                    borderStyle: 'solid',
+                    borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
+                  }}
+                >
+                  <div className="flex items-center justify-around gap-4">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(createPageUrl("Scanner"));
+                      }}
+                      className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                    >
+                      <div 
+                        className="w-10 h-10 rounded-full flex items-center justify-center shadow-md"
+                        style={{
+                          background: averageColor 
+                            ? `linear-gradient(135deg, var(--profile-bg-color) 0%, var(--profile-bg-color-dark) 100%)`
+                            : 'linear-gradient(135deg, rgb(34, 197, 94), rgb(22, 163, 74))'
+                        }}
+                      >
+                        <Camera className="w-5 h-5 text-white" />
+                      </div>
+                      <span className="font-semibold text-stone-900">Scannen</span>
+                    </button>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(createPageUrl("Map"));
+                      }}
+                      className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                    >
+                      <div 
+                        className="w-10 h-10 rounded-full flex items-center justify-center shadow-md"
+                        style={{
+                          background: averageColor 
+                            ? `linear-gradient(135deg, var(--profile-bg-color) 0%, var(--profile-bg-color-dark) 100%)`
+                            : 'linear-gradient(135deg, rgb(34, 197, 94), rgb(22, 163, 74))'
+                        }}
+                      >
+                        <Map className="w-5 h-5 text-white" />
+                      </div>
+                      <span className="font-semibold text-stone-900">Karte</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Spenden/Impressum Links - Desktop only, inside profile card */}
+              <div className="hidden md:flex justify-center gap-6 text-sm mt-4">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(createPageUrl("Donate"));
+                  }}
+                  className="hover:opacity-60 transition-all font-medium px-2 py-1 opacity-50"
+                  style={{ 
+                    color: averageColor ? getLighterColor(getLighterColor(averageColor)) : 'rgb(120, 113, 108)',
+                    textShadow: '0 1px 3px rgba(0,0,0,0.3)'
+                  }}
+                >
+                  Spenden
+                </button>
+                <span 
+                  className="opacity-40"
+                  style={{ 
+                    color: averageColor ? getLighterColor(averageColor) : 'rgb(120, 113, 108)'
+                  }}
+                >
+                  •
+                </span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(createPageUrl("Impressum"));
+                  }}
+                  className="hover:opacity-60 transition-all font-medium px-2 py-1 opacity-50"
+                  style={{ 
+                    color: averageColor ? getLighterColor(getLighterColor(averageColor)) : 'rgb(120, 113, 108)',
+                    textShadow: '0 1px 3px rgba(0,0,0,0.3)'
+                  }}
+                >
+                  Impressum
+                </button>
+              </div>
             </CardContent>
           </Card>
         </motion.div>
 
+        {/* Mobile Scannen/Karte Container */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.5 }}
-          className="flex-1 flex items-center justify-center"
+          className="flex-1 flex items-center justify-center md:hidden"
         >
           <Card 
             className="shadow-lg bg-white/80 backdrop-blur-md w-full"
@@ -733,11 +826,12 @@ export default function Home() {
           </Card>
         </motion.div>
 
+        {/* Mobile Spenden/Impressum Links */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          className="flex-shrink-0 pb-4"
+          className="flex-shrink-0 pb-4 md:hidden"
         >
           <div className="flex justify-center gap-6 text-sm">
             <button
