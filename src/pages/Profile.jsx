@@ -3,7 +3,8 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Trophy, BookOpen, Target, Users, Camera, Loader2, LogOut, Mail, Key, AlertCircle, RotateCcw, Star, Image as ImageIcon, Edit2, CheckCircle, X } from "lucide-react";
+import { Trophy, BookOpen, Target, Users, Camera, Loader2, LogOut, Mail, Key, AlertCircle, RotateCcw, Star, Image as ImageIcon, Edit2, CheckCircle, X, Heart } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { motion, AnimatePresence } from "framer-motion";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
@@ -47,6 +48,10 @@ export default function Profile() {
     queryFn: () => base44.entities.UserPlantDiscovery.filter({ created_by: user?.email }),
     enabled: !!user?.email,
   });
+
+  const favoritePlant = user?.favorite_plant_id 
+    ? plants.find(p => p.id === user.favorite_plant_id)
+    : null;
 
   const { data: quests = [] } = useQuery({
     queryKey: ['quests'],
@@ -499,9 +504,23 @@ export default function Profile() {
                     className="hidden"
                   />
                   
-                  <div className="absolute -top-2 -right-2 px-3 py-1 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center shadow-xl backdrop-blur-sm border-2 border-white/80">
-                    <span className="text-white font-bold text-sm">LV {currentLevel}</span>
-                  </div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className="absolute -top-2 -right-2 px-3 py-1 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center shadow-xl backdrop-blur-sm border-2 border-white/80 hover:scale-110 transition-transform cursor-pointer">
+                        <span className="text-white font-bold text-sm">LV {currentLevel}</span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 bg-white">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-bold text-stone-800">Level {currentLevel}</span>
+                          <span className="text-sm font-bold text-stone-800">{xpProgress.current} / {xpProgress.needed} XP</span>
+                        </div>
+                        <Progress value={xpProgress.percentage} className="h-2" />
+                        <p className="text-xs text-stone-600">{xpProgress.percentage.toFixed(1)}% bis Level {currentLevel + 1}</p>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 <div className="flex-1 w-full bg-white/40 backdrop-blur-md rounded-xl p-5 border-2 border-white/30 shadow-lg">
@@ -559,20 +578,18 @@ export default function Profile() {
                     <span className="text-base font-semibold text-stone-700">
                       {user.selected_title || user.title || getTitleForLevel(currentLevel)}
                     </span>
-                  </div>
+                    </div>
 
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-bold text-stone-800">Level {currentLevel}</span>
-                      <span className="text-sm font-bold text-stone-800">{xpProgress.current} / {xpProgress.needed} XP</span>
+                    {favoritePlant && (
+                    <div className="mt-3 flex items-center gap-2 p-2 bg-white/40 rounded-lg border border-white/30">
+                      <Heart className="w-4 h-4 text-red-500 fill-red-500" />
+                      <div className="flex-1">
+                        <p className="text-xs text-stone-600 font-medium">Lieblingspflanze</p>
+                        <p className="text-sm font-bold text-stone-900">{favoritePlant.species_name}</p>
+                        <p className="text-xs italic text-stone-600">{favoritePlant.scientific_name}</p>
+                      </div>
                     </div>
-                    <div className="relative h-3 bg-stone-300/50 rounded-full overflow-hidden">
-                      <div 
-                        className="absolute inset-y-0 left-0 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all duration-500"
-                        style={{ width: `${xpProgress.percentage}%` }}
-                      />
-                    </div>
-                  </div>
+                    )}
                 </div>
               </div>
 
