@@ -362,15 +362,23 @@ export default function Profile() {
   const getDisplayName = () => user.display_name || user.full_name;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4 md:p-8 relative" key={refreshKey}>
-      {/* Hintergrund-Layer unter dem Inhalt */}
+    <>
+      {/* Hintergrund-Layer */}
       <div 
-        className="fixed inset-0 -z-10 transition-all duration-500"
+        className="fixed inset-0 transition-all duration-500"
         style={averageColor 
-          ? { background: `linear-gradient(135deg, ${averageColor} 0%, ${averageColor}dd 50%, ${averageColor}bb 100%)` }
-          : { background: 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))' }
+          ? { 
+              background: `linear-gradient(135deg, ${averageColor} 0%, ${averageColor}dd 50%, ${averageColor}bb 100%)`,
+              zIndex: 0
+            }
+          : { 
+              background: 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))',
+              zIndex: 0
+            }
         }
       />
+      
+      <div className="min-h-screen p-4 md:p-8 relative" style={{ zIndex: 1 }} key={refreshKey}>
       
       <MobileBackButton />
       
@@ -713,5 +721,6 @@ export default function Profile() {
         </motion.div>
       </div>
     </div>
+    </>
   );
 }
