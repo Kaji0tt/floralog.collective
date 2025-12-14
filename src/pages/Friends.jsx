@@ -212,7 +212,8 @@ export default function Friends() {
       });
     },
     onSuccess: async (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['allFriendRecords'] });
+      await queryClient.invalidateQueries({ queryKey: ['allFriendRecords'] });
+      await queryClient.refetchQueries({ queryKey: ['allFriendRecords'] });
 
       // Zeige Success-Message
       const requesterEmail = variables.request_sent_by;
