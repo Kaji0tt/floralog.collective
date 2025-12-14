@@ -506,7 +506,10 @@ export default function Profile() {
                   
                   <Popover>
                     <PopoverTrigger asChild>
-                      <button className="absolute -top-2 -right-2 px-3 py-1 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center shadow-xl backdrop-blur-sm border-2 border-white/80 hover:scale-110 transition-transform cursor-pointer">
+                      <button 
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute -top-2 -right-2 px-3 py-1 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center shadow-xl backdrop-blur-sm border-2 border-white/80 hover:scale-110 transition-transform cursor-pointer"
+                      >
                         <span className="text-white font-bold text-sm">LV {currentLevel}</span>
                       </button>
                     </PopoverTrigger>
@@ -581,14 +584,13 @@ export default function Profile() {
                     </div>
 
                     {favoritePlant && (
-                    <div className="mt-3 flex items-center gap-2 p-2 bg-white/40 rounded-lg border border-white/30">
-                      <Heart className="w-4 h-4 text-red-500 fill-red-500" />
-                      <div className="flex-1">
-                        <p className="text-xs text-stone-600 font-medium">Lieblingspflanze</p>
-                        <p className="text-sm font-bold text-stone-900">{favoritePlant.species_name}</p>
-                        <p className="text-xs italic text-stone-600">{favoritePlant.scientific_name}</p>
+                      <div className="mt-3 flex items-center gap-2 p-2 bg-white/40 rounded-lg border border-white/30">
+                        <Heart className="w-4 h-4 text-red-500 fill-red-500" />
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-stone-900">{favoritePlant.species_name}</p>
+                          <p className="text-xs italic text-stone-600">{favoritePlant.scientific_name}</p>
+                        </div>
                       </div>
-                    </div>
                     )}
                 </div>
               </div>
