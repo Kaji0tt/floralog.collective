@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, BookOpen, Target, Users, Camera, Loader2, LogOut, Mail, Key, AlertCircle, Edit2, CheckCircle, X, RotateCcw, Star, Image as ImageIcon } from "lucide-react"; // Added Star icon
+import { Trophy, BookOpen, Target, Users, Camera, Loader2, LogOut, Mail, Key, AlertCircle, Edit2, CheckCircle, X, RotateCcw, Star, Image } from "lucide-react"; // Added Star icon
 import { motion, AnimatePresence } from "framer-motion";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
@@ -32,7 +32,6 @@ export default function Profile() {
   const [editedName, setEditedName] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
   const [showBackgroundSelector, setShowBackgroundSelector] = useState(false);
-  const [averageColor, setAverageColor] = useState(null);
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
@@ -228,72 +227,7 @@ export default function Profile() {
   const handleRemoveBackground = async () => {
     await updateUserMutation.mutateAsync({ background_image_url: null });
     setShowBackgroundSelector(false);
-    setAverageColor(null);
   };
-
-  const getAverageColor = (imageUrl) => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      
-      img.onload = () => {
-        try {
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          
-          // Kleinere Größe für schnellere Berechnung
-          const size = 50;
-          canvas.width = size;
-          canvas.height = size;
-          
-          ctx.drawImage(img, 0, 0, size, size);
-          const imageData = ctx.getImageData(0, 0, size, size);
-          const data = imageData.data;
-          
-          let r = 0, g = 0, b = 0, count = 0;
-          
-          // Sample nur einen Teil der Pixel für bessere Performance
-          for (let i = 0; i < data.length; i += 16) {
-            r += data[i];
-            g += data[i + 1];
-            b += data[i + 2];
-            count++;
-          }
-          
-          r = Math.floor(r / count);
-          g = Math.floor(g / count);
-          b = Math.floor(b / count);
-          
-          console.log('Durchschnittsfarbe berechnet:', `rgb(${r}, ${g}, ${b})`);
-          resolve(`rgb(${r}, ${g}, ${b})`);
-        } catch (error) {
-          console.error('Fehler beim Berechnen der Farbe:', error);
-          resolve(null);
-        }
-      };
-      
-      img.onerror = (error) => {
-        console.error('Fehler beim Laden des Bildes:', error);
-        resolve(null);
-      };
-      
-      img.src = imageUrl;
-    });
-  };
-
-  useEffect(() => {
-    if (user?.background_image_url) {
-      console.log('Berechne Farbe für:', user.background_image_url);
-      getAverageColor(user.background_image_url).then(color => {
-        if (color) {
-          console.log('Setze Hintergrundfarbe:', color);
-          setAverageColor(color);
-        }
-      });
-    } else {
-      setAverageColor(null);
-    }
-  }, [user?.background_image_url]);
 
   if (!user) {
     return (
@@ -371,19 +305,8 @@ export default function Profile() {
   // Hilfsfunktion für Anzeigename
   const getDisplayName = () => user.display_name || user.full_name;
 
-  const mainBackgroundStyle = averageColor 
-    ? { background: `linear-gradient(135deg, ${averageColor} 0%, ${averageColor}dd 50%, ${averageColor}bb 100%)` }
-    : { background: 'linear-gradient(135deg, rgb(250, 250, 249) 0%, rgb(236, 253, 245) 100%)' };
-
-  console.log('Aktueller averageColor State:', averageColor);
-  console.log('Style wird angewendet:', mainBackgroundStyle);
-
   return (
-    <div 
-      className="min-h-screen p-4 md:p-8" 
-      style={mainBackgroundStyle}
-      key={`${refreshKey}-${averageColor}`}
-    >
+    <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4 md:p-8" key={refreshKey}>
       <MobileBackButton />
       
       <AnimatePresence>
@@ -458,7 +381,7 @@ export default function Profile() {
                   onClick={() => setShowBackgroundSelector(true)}
                   className="absolute top-4 right-4 w-10 h-10 bg-stone-200/80 hover:bg-stone-300/80 backdrop-blur-sm rounded-full flex items-center justify-center transition-colors z-10"
                 >
-                  <ImageIcon className="w-5 h-5 text-stone-700" />
+                  <Image className="w-5 h-5 text-stone-700" />
                 </button>
               )}
               <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
