@@ -509,11 +509,34 @@ export default function Home() {
             <CardContent 
               className="p-6 md:p-8 relative"
               style={user?.background_image_url ? {
-                backgroundImage: `linear-gradient(rgba(0,0,0,0.2), rgba(0,0,0,0.2)), url(${user.background_image_url})`,
+                backgroundImage: `linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(0,0,0,0.4) 100%), url(${user.background_image_url})`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center'
+              } : user?.background_color ? {
+                background: `linear-gradient(135deg, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 0.6)')} 0%, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 1)')} 100%)`
               } : {}}
             >
+              {user?.role === 'admin' ? (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowBackgroundSelector(true);
+                  }}
+                  className="absolute top-4 right-4 w-10 h-10 bg-stone-200/80 hover:bg-stone-300/80 backdrop-blur-sm rounded-full flex items-center justify-center transition-colors z-10"
+                >
+                  <ImageIcon className="w-5 h-5 text-stone-700" />
+                </button>
+              ) : (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowColorPicker(true);
+                  }}
+                  className="absolute top-4 right-4 w-10 h-10 bg-stone-200/80 hover:bg-stone-300/80 backdrop-blur-sm rounded-full flex items-center justify-center transition-colors z-10"
+                >
+                  <ImageIcon className="w-5 h-5 text-stone-700" />
+                </button>
+              )}
 
               <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
                 <div className="relative group flex-shrink-0">
