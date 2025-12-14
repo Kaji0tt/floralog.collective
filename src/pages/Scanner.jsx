@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Camera, Loader2, MapPin, AlertTriangle, ArrowLeft } from "lucide-react";
+import { Camera, Loader2, MapPin, AlertTriangle, Home } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import ScanResults from "../components/scanner/ScanResults";
@@ -1015,32 +1015,41 @@ Falls du die Pflanze SICHER erkennst, gib an:
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="mb-6"
         >
-          <Button
-            onClick={() => navigate(createPageUrl("Home"))}
-            variant="ghost"
-            className="bg-white hover:bg-stone-50 text-stone-900 font-semibold shadow-sm border-2"
-            style={{
-              borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
-            }}
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Zurück
-          </Button>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
+        <Card 
+          className="mb-6 shadow-xl bg-white overflow-hidden"
+          style={{
+            borderWidth: '2px',
+            borderStyle: 'solid',
+            borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
+          }}
         >
-          {gettingLocation && (
-            <div className="flex items-center justify-center gap-2 text-sm text-stone-600 mb-4">
-              <MapPin className="w-4 h-4 animate-pulse" />
-              <span>Standort wird ermittelt...</span>
+          <CardContent className="p-6 md:p-8 relative" style={user?.background_image_url ? {
+            backgroundImage: `linear-gradient(rgba(0,0,0,0.2), rgba(0,0,0,0.2)), url(${user.background_image_url})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center'
+          } : {}}>
+            <div className="flex items-center justify-center">
+              <Button
+                onClick={() => navigate(createPageUrl("Home"))}
+                className="bg-white/60 backdrop-blur-md hover:bg-white/80 text-stone-900 font-semibold shadow-lg border-2"
+                style={{
+                  borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
+                }}
+              >
+                <Home className="w-5 h-5 mr-2" />
+                Home
+              </Button>
             </div>
-          )}
+            
+            {gettingLocation && (
+              <div className="flex items-center justify-center gap-2 text-sm text-stone-600 mt-4 bg-white/40 backdrop-blur-md rounded-lg p-3 border border-white/30">
+                <MapPin className="w-4 h-4 animate-pulse" />
+                <span>Standort wird ermittelt...</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {!scanning && !matchedPlant && !showCamera &&
         <Card 
@@ -1051,21 +1060,28 @@ Falls du die Pflanze SICHER erkennst, gib an:
             borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
           }}
         >
-            <CardContent className="p-6 md:p-8">
+            <CardContent className="p-6 md:p-8" style={user?.background_image_url ? {
+              backgroundImage: `linear-gradient(rgba(0,0,0,0.2), rgba(0,0,0,0.2)), url(${user.background_image_url})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center'
+            } : {}}>
               <button
               onClick={() => setShowCamera(true)}
-              className="w-full group relative overflow-hidden rounded-xl bg-gradient-to-br from-green-600 to-green-700 p-8 text-white shadow-md hover:shadow-xl transition-all duration-300">
+              className="w-full group relative overflow-hidden rounded-xl bg-white/60 backdrop-blur-md border-2 p-8 hover:bg-white/80 shadow-lg hover:shadow-xl transition-all duration-300"
+              style={{
+                borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
+              }}>
 
                 <div className="flex flex-col items-center">
-                  <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                    <Camera className="w-10 h-10 text-green-600" />
+                  <div className="w-20 h-20 bg-gradient-to-br from-green-600 to-green-700 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                    <Camera className="w-10 h-10 text-white" />
                   </div>
-                  <h3 className="text-2xl font-bold mb-2">Foto aufnehmen</h3>
-                  <p className="text-green-100 text-base">Mit der Kamera scannen</p>
+                  <h3 className="text-2xl font-bold mb-2 text-stone-900">Foto aufnehmen</h3>
+                  <p className="text-stone-600 text-base">Mit der Kamera scannen</p>
                 </div>
               </button>
 
-              <div className="mt-6 p-4 bg-green-50 rounded-xl border border-green-200">
+              <div className="mt-6 p-4 bg-white/40 backdrop-blur-md rounded-xl border border-white/30">
                 <p className="text-center font-semibold text-stone-700">
                   💡 Tipp: Achte darauf, dass die Pflanze gut zu sehen ist!
                 </p>
@@ -1081,10 +1097,6 @@ Falls du die Pflanze SICHER erkennst, gib an:
         </motion.div>
 
         {scanning &&
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
         <Card 
           className="shadow-xl bg-white overflow-hidden"
           style={{
@@ -1093,8 +1105,14 @@ Falls du die Pflanze SICHER erkennst, gib an:
             borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
           }}
         >
-            <CardContent className="p-12">
-              <div className="flex flex-col items-center">
+            <CardContent className="p-12" style={user?.background_image_url ? {
+              backgroundImage: `linear-gradient(rgba(0,0,0,0.2), rgba(0,0,0,0.2)), url(${user.background_image_url})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center'
+            } : {}}>
+              <div className="flex flex-col items-center bg-white/60 backdrop-blur-md rounded-xl p-8 border-2" style={{
+                borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
+              }}>
                 <Loader2 className="w-16 h-16 text-green-600 animate-spin mb-4" />
                 <h3 className="text-2xl font-bold text-stone-900 mb-2">
                   Pflanze wird analysiert...
@@ -1105,7 +1123,6 @@ Falls du die Pflanze SICHER erkennst, gib an:
               </div>
             </CardContent>
           </Card>
-        </motion.div>
         }
 
         {matchedPlant && !scanning &&
