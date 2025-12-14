@@ -386,20 +386,44 @@ export default function Profile() {
     return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${opacity})`;
   };
 
+  // Berechne hellere Farbe für oben links
+  const getLighterColor = (rgbString) => {
+    if (!rgbString) return null;
+    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!match) return rgbString;
+    const r = Math.min(255, Math.floor(parseInt(match[1]) * 1.4));
+    const g = Math.min(255, Math.floor(parseInt(match[2]) * 1.4));
+    const b = Math.min(255, Math.floor(parseInt(match[3]) * 1.4));
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+
+  // Berechne dunklere Farbe für unten rechts
+  const getDarkerColor = (rgbString) => {
+    if (!rgbString) return null;
+    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!match) return rgbString;
+    const r = Math.floor(parseInt(match[1]) * 0.6);
+    const g = Math.floor(parseInt(match[2]) * 0.6);
+    const b = Math.floor(parseInt(match[3]) * 0.6);
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+
   return (
     <>
       <style>{`
         :root {
           --profile-bg-color: ${averageColor || 'rgb(250, 250, 249)'};
-          --profile-bg-color-mid: ${averageColor ? getRgbaFromRgb(averageColor, 0.87) : 'rgb(236, 253, 245)'};
-          --profile-bg-color-end: ${averageColor ? getRgbaFromRgb(averageColor, 0.73) : 'rgb(220, 252, 231)'};
+          --profile-bg-color-light: ${averageColor ? getLighterColor(averageColor) : 'rgb(255, 255, 255)'};
+          --profile-bg-color-mid: ${averageColor ? averageColor : 'rgb(236, 253, 245)'};
+          --profile-bg-color-dark: ${averageColor ? getDarkerColor(averageColor) : 'rgb(220, 252, 231)'};
+          --profile-border-color: ${averageColor ? getRgbaFromRgb(averageColor, 0.4) : 'rgb(134, 239, 172)'};
         }
       `}</style>
       <div 
         className="min-h-screen min-w-full p-4 md:p-8 fixed inset-0 overflow-auto" 
         style={{
           background: averageColor 
-            ? `linear-gradient(135deg, var(--profile-bg-color) 0%, var(--profile-bg-color-mid) 50%, var(--profile-bg-color-end) 100%)`
+            ? `linear-gradient(135deg, var(--profile-bg-color-light) 0%, var(--profile-bg-color-mid) 50%, var(--profile-bg-color-dark) 100%)`
             : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
         }}
       >
@@ -463,7 +487,14 @@ export default function Profile() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <Card className="mb-6 border-2 border-green-200 shadow-xl bg-white overflow-hidden">
+          <Card 
+            className="mb-6 shadow-xl bg-white overflow-hidden"
+            style={{
+              borderWidth: '2px',
+              borderStyle: 'solid',
+              borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
+            }}
+          >
             <CardContent 
               className="p-6 md:p-8 relative"
               style={user?.background_image_url ? {
@@ -600,7 +631,12 @@ export default function Profile() {
                     transition={{ delay: 0.1 + index * 0.05 }}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className={`bg-white/60 backdrop-blur-md ${stat.borderColor} border-2 rounded-xl p-3 md:p-4 hover:shadow-lg transition-all duration-300 group`}
+                    className="bg-white/60 backdrop-blur-md rounded-xl p-3 md:p-4 hover:shadow-lg transition-all duration-300 group"
+                    style={{
+                      borderWidth: '2px',
+                      borderStyle: 'solid',
+                      borderColor: averageColor ? 'var(--profile-border-color)' : stat.borderColor.replace('border-', '').replace('-200', '')
+                    }}
                   >
                     <div className="flex flex-col items-center gap-2">
                       <div className={`w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br ${stat.color} rounded-full flex items-center justify-center shadow-md group-hover:scale-110 transition-transform`}>
