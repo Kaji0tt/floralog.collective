@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Camera, Loader2, MapPin, AlertTriangle } from "lucide-react";
+import { Camera, Loader2, MapPin, AlertTriangle, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import ScanResults from "../components/scanner/ScanResults";
@@ -820,8 +820,108 @@ Falls du die Pflanze SICHER erkennst, gib an:
     setImageUrl(null);
   };
 
+  const [averageColor, setAverageColor] = useState(null);
+
+  useEffect(() => {
+    if (user?.background_image_url) {
+      getAverageColor(user.background_image_url).then(color => {
+        if (color) {
+          setAverageColor(color);
+        }
+      });
+    } else {
+      setAverageColor(null);
+    }
+  }, [user?.background_image_url]);
+
+  const getAverageColor = (imageUrl) => {
+    return new Promise((resolve) => {
+      const img = new window.Image();
+      img.crossOrigin = "anonymous";
+      
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          const size = 50;
+          canvas.width = size;
+          canvas.height = size;
+          
+          ctx.drawImage(img, 0, 0, size, size);
+          const imageData = ctx.getImageData(0, 0, size, size);
+          const data = imageData.data;
+          
+          let r = 0, g = 0, b = 0, count = 0;
+          
+          for (let i = 0; i < data.length; i += 16) {
+            r += data[i];
+            g += data[i + 1];
+            b += data[i + 2];
+            count++;
+          }
+          
+          r = Math.floor(r / count);
+          g = Math.floor(g / count);
+          b = Math.floor(b / count);
+          
+          resolve(`rgb(${r}, ${g}, ${b})`);
+        } catch (error) {
+          resolve(null);
+        }
+      };
+      
+      img.onerror = () => resolve(null);
+      img.src = imageUrl;
+    });
+  };
+
+  const getRgbaFromRgb = (rgbString, opacity) => {
+    if (!rgbString) return null;
+    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!match) return rgbString;
+    return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${opacity})`;
+  };
+
+  const getLighterColor = (rgbString) => {
+    if (!rgbString) return null;
+    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!match) return rgbString;
+    const r = Math.min(255, Math.floor(parseInt(match[1]) * 1.4));
+    const g = Math.min(255, Math.floor(parseInt(match[2]) * 1.4));
+    const b = Math.min(255, Math.floor(parseInt(match[3]) * 1.4));
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+
+  const getDarkerColor = (rgbString) => {
+    if (!rgbString) return null;
+    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!match) return rgbString;
+    const r = Math.floor(parseInt(match[1]) * 0.6);
+    const g = Math.floor(parseInt(match[2]) * 0.6);
+    const b = Math.floor(parseInt(match[3]) * 0.6);
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 md:p-8 overflow-x-hidden">
+    <>
+      <style>{`
+        :root {
+          --profile-bg-color: ${averageColor || 'rgb(250, 250, 249)'};
+          --profile-bg-color-light: ${averageColor ? getLighterColor(averageColor) : 'rgb(255, 255, 255)'};
+          --profile-bg-color-mid: ${averageColor ? averageColor : 'rgb(236, 253, 245)'};
+          --profile-bg-color-dark: ${averageColor ? getDarkerColor(averageColor) : 'rgb(220, 252, 231)'};
+          --profile-border-color: ${averageColor ? getRgbaFromRgb(averageColor, 0.4) : 'rgb(134, 239, 172)'};
+        }
+      `}</style>
+      <div 
+        className="h-screen min-w-full p-4 md:p-8 fixed inset-0 overflow-auto" 
+        style={{
+          background: averageColor 
+            ? `linear-gradient(135deg, var(--profile-bg-color-light) 0%, var(--profile-bg-color-mid) 50%, var(--profile-bg-color-dark) 100%)`
+            : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
+        }}
+      >
       {/* Grüner Haken / Ändern Button - nur wenn pendingScanData vorhanden */}
       {pendingScanData && !isSavingPlant && (
         <ConfirmButton 
@@ -910,25 +1010,48 @@ Falls du die Pflanze SICHER erkennst, gib an:
         }
       </AnimatePresence>
 
-      <div className="max-w-4xl mx-auto w-full">
-        <div className="text-center mb-8">
-          {gettingLocation &&
-          <div className="flex items-center justify-center gap-2 text-sm text-stone-500 mt-2">
+      <div className="max-w-4xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="mb-6"
+        >
+          <Button
+            onClick={() => navigate(createPageUrl("Home"))}
+            variant="ghost"
+            className="bg-white hover:bg-stone-50 text-stone-900 font-semibold shadow-sm border-2"
+            style={{
+              borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
+            }}
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Zurück
+          </Button>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
+          {gettingLocation && (
+            <div className="flex items-center justify-center gap-2 text-sm text-stone-600 mb-4">
               <MapPin className="w-4 h-4 animate-pulse" />
               <span>Standort wird ermittelt...</span>
             </div>
-          }
-        </div>
+          )}
 
         {!scanning && !matchedPlant && !showCamera &&
-        <Card className="border-2 border-stone-200 shadow-lg bg-white">
-            <CardHeader>
-              <CardTitle className="text-center text-2xl font-bold text-stone-900 flex items-center justify-center gap-2">
-                <Camera className="w-7 h-7 text-green-600" />
-                Scannen starten
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
+        <Card 
+          className="shadow-xl bg-white overflow-hidden"
+          style={{
+            borderWidth: '2px',
+            borderStyle: 'solid',
+            borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
+          }}
+        >
+            <CardContent className="p-6 md:p-8">
               <button
               onClick={() => setShowCamera(true)}
               className="w-full group relative overflow-hidden rounded-xl bg-gradient-to-br from-green-600 to-green-700 p-8 text-white shadow-md hover:shadow-xl transition-all duration-300">
@@ -955,9 +1078,21 @@ Falls du die Pflanze SICHER erkennst, gib an:
             </CardContent>
           </Card>
         }
+        </motion.div>
 
         {scanning &&
-        <Card className="border-2 border-stone-200 shadow-lg bg-white">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+        <Card 
+          className="shadow-xl bg-white overflow-hidden"
+          style={{
+            borderWidth: '2px',
+            borderStyle: 'solid',
+            borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
+          }}
+        >
             <CardContent className="p-12">
               <div className="flex flex-col items-center">
                 <Loader2 className="w-16 h-16 text-green-600 animate-spin mb-4" />
@@ -970,6 +1105,7 @@ Falls du die Pflanze SICHER erkennst, gib an:
               </div>
             </CardContent>
           </Card>
+        </motion.div>
         }
 
         {matchedPlant && !scanning &&
@@ -1003,6 +1139,7 @@ Falls du die Pflanze SICHER erkennst, gib an:
 
         }
       </div>
-    </div>);
+      </div>
+    </>);
 
 }
