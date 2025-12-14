@@ -223,6 +223,12 @@ export default function Profile() {
   const handleSetBackground = async (imageUrl) => {
     await updateUserMutation.mutateAsync({ background_image_url: imageUrl });
     setShowBackgroundSelector(false);
+    
+    // Berechne Farbe sofort nach dem Setzen
+    const color = await getAverageColor(imageUrl);
+    if (color) {
+      setAverageColor(color);
+    }
   };
 
   const handleRemoveBackground = async () => {
