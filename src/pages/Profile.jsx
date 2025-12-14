@@ -420,7 +420,7 @@ export default function Profile() {
         }
       `}</style>
       <div 
-        className="min-h-screen min-w-full p-4 md:p-8 md:overflow-auto overflow-hidden" 
+        className="min-h-screen min-w-full p-4 md:p-8 overflow-auto" 
         style={{
           background: averageColor 
             ? `linear-gradient(135deg, var(--profile-bg-color-light) 0%, var(--profile-bg-color-mid) 50%, var(--profile-bg-color-dark) 100%)`
@@ -428,7 +428,7 @@ export default function Profile() {
         }}
       >
       <MobileBackButton />
-
+      
       <AnimatePresence>
         {newAchievements.length > 0 && currentAchievementIndex < newAchievements.length && (
           <AchievementNotification
@@ -445,7 +445,7 @@ export default function Profile() {
         )}
       </AnimatePresence>
 
-      <div className="max-w-4xl mx-auto h-full flex flex-col md:block">
+      <div className="max-w-4xl mx-auto">
         {/* Background Selector Dialog */}
         <Dialog open={showBackgroundSelector} onOpenChange={setShowBackgroundSelector}>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
@@ -656,18 +656,17 @@ export default function Profile() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.5 }}
-          className="flex-1 flex flex-col md:block"
         >
           <Card 
-            className="flex-1 mb-6 md:mb-6 shadow-lg bg-white/80 backdrop-blur-md flex flex-col"
+            className="mb-6 shadow-lg bg-white/80 backdrop-blur-md"
             style={{
               borderWidth: '2px',
               borderStyle: 'solid',
               borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
             }}
           >
-            <CardContent className="p-4 flex-1 flex items-center justify-center">
-              <div className="flex items-center justify-around gap-8 w-full">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-around gap-4">
                 <button
                   onClick={() => navigate(createPageUrl("Scanner"))}
                   className="flex items-center gap-2 hover:opacity-80 transition-opacity"
@@ -710,7 +709,6 @@ export default function Profile() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          className="hidden md:block"
         >
           <Card className="border-2 border-stone-200 shadow-lg bg-white">
             <CardHeader className="border-b border-stone-200">
