@@ -436,12 +436,13 @@ export default function Home() {
           transition={{ duration: 0.5 }}
         >
           <Card 
-            className="mb-6 shadow-xl bg-white overflow-hidden"
+            className="mb-6 shadow-xl bg-white overflow-hidden cursor-pointer hover:shadow-2xl transition-shadow"
             style={{
               borderWidth: '2px',
               borderStyle: 'solid',
               borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
             }}
+            onClick={() => navigate(createPageUrl("Profile"))}
           >
             <CardContent 
               className="p-6 md:p-8 relative"
@@ -451,14 +452,7 @@ export default function Home() {
                 backgroundPosition: 'center'
               } : {}}
             >
-              {user?.role === 'admin' && (
-                <button
-                  onClick={() => setShowBackgroundSelector(true)}
-                  className="absolute top-4 right-4 w-10 h-10 bg-stone-200/80 hover:bg-stone-300/80 backdrop-blur-sm rounded-full flex items-center justify-center transition-colors z-10"
-                >
-                  <ImageIcon className="w-5 h-5 text-stone-700" />
-                </button>
-              )}
+
               <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
                 <div className="relative group flex-shrink-0">
                   <div className="w-28 h-28 bg-gradient-to-br from-green-600 to-emerald-600 rounded-2xl flex items-center justify-center shadow-2xl overflow-hidden ring-4 ring-white/50 backdrop-blur-sm">
@@ -530,18 +524,10 @@ export default function Home() {
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="mb-2">
                       <h1 className="text-3xl md:text-4xl font-bold text-stone-900" key={getDisplayName()}>
                         {getDisplayName()}
                       </h1>
-                      <Button
-                        onClick={() => setIsEditingName(true)}
-                        size="icon"
-                        variant="ghost"
-                        className="text-stone-700 hover:text-stone-900 hover:bg-white/30"
-                      >
-                        <Edit2 className="w-5 h-5" />
-                      </Button>
                     </div>
                   )}
 
@@ -570,7 +556,10 @@ export default function Home() {
                 {statButtons.map((stat, index) => (
                   <motion.button
                     key={stat.label}
-                    onClick={stat.onClick}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      stat.onClick();
+                    }}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 + index * 0.05 }}
