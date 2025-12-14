@@ -85,6 +85,7 @@ export default function Friends() {
     queryKey: ['allFriendRecords'],
     queryFn: () => base44.entities.Friend.list(),
     enabled: !!user?.email,
+    staleTime: 10000, // 10 Sekunden Cache
   });
 
   // Akzeptierte Freundschaften (wo ich ENTWEDER Sender ODER Empfänger bin)
@@ -117,11 +118,13 @@ export default function Friends() {
   const { data: allUsers = [] } = useQuery({
     queryKey: ['allUsers'],
     queryFn: () => base44.entities.User.list(),
+    staleTime: 60000, // 1 Minute Cache
   });
 
   const { data: allPublicProfiles = [] } = useQuery({
     queryKey: ['allPublicProfiles'],
     queryFn: () => base44.entities.PublicProfile.list(),
+    staleTime: 30000, // 30 Sekunden Cache
   });
 
   // Lade alle Discoveries - mit höherem Limit
