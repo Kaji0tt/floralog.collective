@@ -226,17 +226,17 @@ export default function Map() {
     };
   });
 
-  // Setze initial View basierend auf friendEmailParam
+  // Setze initial View basierend auf friendEmailParam (nur einmal beim Mount)
   useEffect(() => {
     if (friendEmailParam && friends.length > 0) {
-      const friend = friends.find(f => f.email === friendEmailParam);
+      const friend = friends.find(f => f.email?.toLowerCase() === friendEmailParam?.toLowerCase());
       if (friend) {
         setSelectedViews({ [`friend-${friend.email}`]: true });
       }
-    } else if (!friendEmailParam && Object.keys(selectedViews).length === 0) {
+    } else if (!friendEmailParam) {
       setSelectedViews({ mine: true });
     }
-  }, [friendEmailParam, friends.length]);
+  }, [friendEmailParam, friends.length > 0]);
 
   // Helper function um Plant-Daten mit Discovery-Daten zu kombinieren
   const getPlantsWithDiscoveries = (userEmail) => {
