@@ -656,17 +656,18 @@ export default function Profile() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.5 }}
+          className="flex-1 flex flex-col min-h-0"
         >
           <Card 
-            className="mb-6 shadow-lg bg-white/80 backdrop-blur-md"
+            className="flex-1 shadow-lg bg-white/80 backdrop-blur-md flex flex-col"
             style={{
               borderWidth: '2px',
               borderStyle: 'solid',
               borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
             }}
           >
-            <CardContent className="p-4">
-              <div className="flex items-center justify-around gap-4">
+            <CardContent className="p-4 flex-1 flex items-center justify-center">
+              <div className="flex items-center justify-around gap-4 w-full">
                 <button
                   onClick={() => navigate(createPageUrl("Scanner"))}
                   className="flex items-center gap-2 hover:opacity-80 transition-opacity"
