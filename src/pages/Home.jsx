@@ -730,45 +730,47 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Spenden/Impressum Links - Desktop only, inside profile card */}
-              <div className="hidden md:flex justify-center gap-6 text-sm mt-4">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(createPageUrl("Donate"));
-                  }}
-                  className="hover:opacity-60 transition-all font-medium px-2 py-1 opacity-50"
-                  style={{ 
-                    color: averageColor ? getLighterColor(getLighterColor(averageColor)) : 'rgb(120, 113, 108)',
-                    textShadow: '0 1px 3px rgba(0,0,0,0.3)'
-                  }}
-                >
-                  Spenden
-                </button>
-                <span 
-                  className="opacity-40"
-                  style={{ 
-                    color: averageColor ? getLighterColor(averageColor) : 'rgb(120, 113, 108)'
-                  }}
-                >
-                  •
-                </span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(createPageUrl("Impressum"));
-                  }}
-                  className="hover:opacity-60 transition-all font-medium px-2 py-1 opacity-50"
-                  style={{ 
-                    color: averageColor ? getLighterColor(getLighterColor(averageColor)) : 'rgb(120, 113, 108)',
-                    textShadow: '0 1px 3px rgba(0,0,0,0.3)'
-                  }}
-                >
-                  Impressum
-                </button>
-              </div>
             </CardContent>
           </Card>
+        </motion.div>
+
+        {/* Desktop Spenden/Impressum Links - außerhalb der Profilkarte */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25, duration: 0.5 }}
+          className="hidden md:block flex-shrink-0"
+        >
+          <div className="flex justify-center gap-6 text-sm">
+            <button
+              onClick={() => navigate(createPageUrl("Donate"))}
+              className="hover:opacity-60 transition-all font-medium px-2 py-1 opacity-50"
+              style={{ 
+                color: averageColor ? getLighterColor(getLighterColor(averageColor)) : 'rgb(120, 113, 108)',
+                textShadow: '0 1px 3px rgba(0,0,0,0.3)'
+              }}
+            >
+              Spenden
+            </button>
+            <span 
+              className="opacity-40"
+              style={{ 
+                color: averageColor ? getLighterColor(averageColor) : 'rgb(120, 113, 108)'
+              }}
+            >
+              •
+            </span>
+            <button
+              onClick={() => navigate(createPageUrl("Impressum"))}
+              className="hover:opacity-60 transition-all font-medium px-2 py-1 opacity-50"
+              style={{ 
+                color: averageColor ? getLighterColor(getLighterColor(averageColor)) : 'rgb(120, 113, 108)',
+                textShadow: '0 1px 3px rgba(0,0,0,0.3)'
+              }}
+            >
+              Impressum
+            </button>
+          </div>
         </motion.div>
 
         {/* Mobile Scannen/Karte Container */}
