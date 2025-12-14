@@ -95,7 +95,6 @@ export default function Map() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
-  const [selectedPlant, setSelectedPlant] = useState(null);
   const [gettingLocation, setGettingLocation] = useState(false);
   const [selectedViews, setSelectedViews] = useState({});
   const [targetLocation, setTargetLocation] = useState(null);
@@ -522,9 +521,6 @@ export default function Map() {
                   key={`${plant.id}-${plant.created_by}-${plant.discovery_date}-${index}`}
                   position={plant.coordinates}
                   icon={plant.icon}
-                  eventHandlers={{
-                    click: () => setSelectedPlant(plant),
-                  }}
                 >
                   <Popup>
                     <div className="p-2">
@@ -629,64 +625,7 @@ export default function Map() {
               </div>
             )}
 
-            {/* Overlay: Ausgewählte Pflanze (Unten) */}
-            {selectedPlant && allFilteredPlants.length > 0 && (
-              <div className="absolute bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 z-[1000]">
-                <Card className="shadow-2xl border-2 border-green-200 bg-white/95 backdrop-blur-sm">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <h3 className="font-bold text-base md:text-lg text-stone-900 flex-1 truncate pr-2">
-                        {selectedPlant.species_name}
-                      </h3>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setSelectedPlant(null)}
-                        className="flex-shrink-0 h-6 w-6"
-                      >
-                        <span className="text-xl">×</span>
-                      </Button>
-                    </div>
-                    
-                    {selectedPlant.image_url && (
-                      <img
-                        src={selectedPlant.image_url}
-                        alt={selectedPlant.species_name}
-                        className="w-full h-32 object-cover rounded-lg mb-3"
-                      />
-                    )}
-                    
-                    <p className="text-sm italic text-stone-600 mb-2">{selectedPlant.scientific_name}</p>
-                    
-                    <div className="flex items-center gap-2 text-xs text-stone-500 mb-2">
-                      <MapPin className="w-3 h-3 flex-shrink-0" />
-                      <span className="truncate">{selectedPlant.discovery_location}</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className={`w-2 h-2 ${selectedPlant.colorClass} rounded-full`}></div>
-                      <Badge variant="outline">
-                        {selectedPlant.sourceLabel}
-                      </Badge>
-                    </div>
-                    
-                    {selectedPlant.created_by !== user?.email && (
-                      <Badge variant="outline" className="text-xs mb-3">
-                        Gescannt von: {selectedPlant.created_by}
-                      </Badge>
-                    )}
-                    
-                    <Button
-                      onClick={() => navigate(createPageUrl(`GenusDetail?id=${selectedPlant.genus_id}`))}
-                      size="sm"
-                      className="w-full bg-green-600 hover:bg-green-700"
-                    >
-                      Vollständige Details
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+
           </>
         )}
       </div>
