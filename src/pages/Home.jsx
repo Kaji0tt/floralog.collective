@@ -756,17 +756,19 @@ export default function Home() {
           transition={{ delay: 0.3, duration: 0.5 }}
           className="mt-6 pb-6"
         >
-          <div className="flex justify-center gap-6 text-sm text-stone-600">
+          <div className="flex justify-center gap-6 text-sm">
             <button
               onClick={() => navigate(createPageUrl("Donate"))}
-              className="hover:text-green-600 transition-colors font-medium"
+              className="text-stone-700 hover:text-green-600 transition-colors font-medium px-2 py-1 rounded bg-white/30 backdrop-blur-sm hover:bg-white/50"
+              style={{ textShadow: '0 1px 2px rgba(0,0,0,0.1)' }}
             >
               Spenden
             </button>
-            <span className="text-stone-400">•</span>
+            <span className="text-stone-500">•</span>
             <button
               onClick={() => navigate(createPageUrl("Impressum"))}
-              className="hover:text-green-600 transition-colors font-medium"
+              className="text-stone-700 hover:text-green-600 transition-colors font-medium px-2 py-1 rounded bg-white/30 backdrop-blur-sm hover:bg-white/50"
+              style={{ textShadow: '0 1px 2px rgba(0,0,0,0.1)' }}
             >
               Impressum
             </button>
