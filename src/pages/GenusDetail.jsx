@@ -1,11 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Leaf, CheckCircle2, Lock, Sparkles, Volume2, VolumeX, ChevronLeft, ChevronRight, Star, HelpCircle, MapPin, X, ExternalLink, Trash2 } from "lucide-react";
+import { ArrowLeft, Leaf, CheckCircle2, Lock, Sparkles, Volume2, VolumeX, ChevronLeft, ChevronRight, Star, HelpCircle, MapPin, X, ExternalLink, Trash2, Heart } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { format } from "date-fns";
@@ -26,6 +26,15 @@ export default function GenusDetail() {
   const [expandedPlant, setExpandedPlant] = useState(null);
   const [locationNames, setLocationNames] = useState({});
   const [deleteConfirmDiscoveryId, setDeleteConfirmDiscoveryId] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const user = await base44.auth.me();
+      setCurrentUser(user);
+    };
+    loadUser();
+  }, []);
 
   const { data: genera = [], isLoading: generaLoading } = useQuery({
     queryKey: ['genera'],
@@ -121,6 +130,17 @@ export default function GenusDetail() {
           setExpandedPlant(null);
         }
       }
+    },
+  });
+
+  const setFavoritePlantMutation = useMutation({
+    mutationFn: async (plantId) => {
+      await base44.auth.updateMe({ favorite_plant_id: plantId });
+    },
+    onSuccess: async () => {
+      const user = await base44.auth.me();
+      setCurrentUser(user);
+      queryClient.invalidateQueries({ queryKey: ['user'] });
     },
   });
 
@@ -383,11 +403,30 @@ export default function GenusDetail() {
                       )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <h3 className="text-base font-bold text-stone-900 truncate">{plant.species_name}</h3>
-                            <p className="text-xs text-stone-600 italic truncate">{plant.scientific_name}</p>
-                          </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-base font-bold text-stone-900 truncate">{plant.species_name}</h3>
+                          <p className="text-xs text-stone-600 italic truncate">{plant.scientific_name}</p>
+                        </div>
+                        <div className="flex gap-1 flex-shrink-0">
+                          {!friendEmail && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFavoritePlantMutation.mutate(plant.id);
+                              }}
+                              className="w-7 h-7 flex items-center justify-center hover:scale-110 transition-transform"
+                            >
+                              <Heart 
+                                className={`w-5 h-5 ${
+                                  currentUser?.favorite_plant_id === plant.id 
+                                    ? 'text-red-500 fill-red-500' 
+                                    : 'text-stone-400 hover:text-red-500'
+                                }`} 
+                              />
+                            </button>
+                          )}
                           <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
+                        </div>
                         </div>
                         {plant.rarity && (
                           <Badge className={`mt-1 ${getRarityColor(plant.rarity)} text-white text-xs px-1.5 py-0`}>
@@ -547,19 +586,38 @@ export default function GenusDetail() {
               
               {/* Info-Bereich */}
               <div className="p-4 space-y-3">
-                <div className="flex items-start justify-between">
-                  <div>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1">
                     <h2 className="text-xl font-bold text-stone-900">{expandedPlant.species_name}</h2>
                     <p className="text-sm text-stone-600 italic">{expandedPlant.scientific_name}</p>
                   </div>
-                  <Button
-                    onClick={() => speakPlantDescription(expandedPlant)}
-                    variant="outline"
-                    size="icon"
-                    className="flex-shrink-0"
-                  >
-                    {speakingPlantId === expandedPlant.id ? <VolumeX className="w-5 h-5 text-green-600" /> : <Volume2 className="w-5 h-5 text-stone-600" />}
-                  </Button>
+                  <div className="flex gap-2 flex-shrink-0">
+                    {!friendEmail && (
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFavoritePlantMutation.mutate(expandedPlant.id);
+                        }}
+                        variant="outline"
+                        size="icon"
+                      >
+                        <Heart 
+                          className={`w-5 h-5 ${
+                            currentUser?.favorite_plant_id === expandedPlant.id 
+                              ? 'text-red-500 fill-red-500' 
+                              : 'text-stone-600'
+                          }`} 
+                        />
+                      </Button>
+                    )}
+                    <Button
+                      onClick={() => speakPlantDescription(expandedPlant)}
+                      variant="outline"
+                      size="icon"
+                    >
+                      {speakingPlantId === expandedPlant.id ? <VolumeX className="w-5 h-5 text-green-600" /> : <Volume2 className="w-5 h-5 text-stone-600" />}
+                    </Button>
+                  </div>
                 </div>
                 
                 {expandedPlant.rarity && (
