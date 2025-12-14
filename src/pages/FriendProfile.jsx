@@ -347,8 +347,8 @@ export default function FriendProfile() {
     },
   });
 
-  const isFriend = myFriendship?.status === 'accepted';
-  const hasPendingRequest = myFriendship?.status === 'pending';
+  const isFriend = myFriendship && myFriendship.status === 'accepted';
+  const hasPendingRequest = myFriendship && myFriendship.status === 'pending';
 
   return (
     <>
