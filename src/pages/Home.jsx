@@ -759,10 +759,9 @@ export default function Home() {
           <div className="flex justify-center gap-6 text-sm">
             <button
               onClick={() => navigate(createPageUrl("Donate"))}
-              className="hover:opacity-80 transition-all font-medium px-2 py-1 rounded backdrop-blur-sm"
+              className="hover:opacity-80 transition-all font-medium px-2 py-1"
               style={{ 
                 color: averageColor ? getLighterColor(getLighterColor(averageColor)) : 'rgb(120, 113, 108)',
-                backgroundColor: 'rgba(255, 255, 255, 0.3)',
                 textShadow: '0 1px 3px rgba(0,0,0,0.3)'
               }}
             >
@@ -778,10 +777,9 @@ export default function Home() {
             </span>
             <button
               onClick={() => navigate(createPageUrl("Impressum"))}
-              className="hover:opacity-80 transition-all font-medium px-2 py-1 rounded backdrop-blur-sm"
+              className="hover:opacity-80 transition-all font-medium px-2 py-1"
               style={{ 
                 color: averageColor ? getLighterColor(getLighterColor(averageColor)) : 'rgb(120, 113, 108)',
-                backgroundColor: 'rgba(255, 255, 255, 0.3)',
                 textShadow: '0 1px 3px rgba(0,0,0,0.3)'
               }}
             >
