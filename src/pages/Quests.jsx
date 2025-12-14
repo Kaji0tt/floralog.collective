@@ -570,7 +570,7 @@ export default function Quests() {
                           {dailyProgress} / {currentDailyQuest.required_discoveries}
                         </span>
                       </div>
-                      <Progress value={(dailyProgress / currentDailyQuest.required_discoveries) * 100} className="h-2 bg-stone-200" />
+                      <Progress value={(dailyProgress / currentDailyQuest.required_discoveries) * 100} className="h-2 bg-stone-300/80" />
                       
                       {currentDailyQuest.target_species_name && (
                         <p className="text-xs text-amber-700 font-semibold mt-2">
@@ -644,7 +644,7 @@ export default function Quests() {
                           {weeklyProgress} / {currentWeeklyQuest.required_discoveries}
                         </span>
                       </div>
-                      <Progress value={(weeklyProgress / currentWeeklyQuest.required_discoveries) * 100} className="h-2 bg-stone-200" />
+                      <Progress value={(weeklyProgress / currentWeeklyQuest.required_discoveries) * 100} className="h-2 bg-stone-300/80" />
                       
                       {currentWeeklyQuest.target_species_name && (
                         <p className="text-xs text-amber-700 font-semibold mt-2">
@@ -728,7 +728,7 @@ export default function Quests() {
                             {progress} / {quest.required_discoveries}
                           </span>
                         </div>
-                        <Progress value={progressPercentage} className="h-2 bg-stone-200" />
+                        <Progress value={progressPercentage} className="h-2 bg-stone-300/80" />
                       </div>
                       
                       {isCompleted && (
