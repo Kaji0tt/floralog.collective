@@ -1080,26 +1080,17 @@ Falls du die Pflanze SICHER erkennst, gib an:
             borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
           }}
         >
-          <CardContent className="p-6 md:p-8 relative" style={user?.background_image_url ? {
-            backgroundImage: `linear-gradient(rgba(0,0,0,0.2), rgba(0,0,0,0.2)), url(${user.background_image_url})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center'
-          } : {}}>
+          <CardContent className="p-6 md:p-8">
             <div className="flex items-center justify-between gap-4">
               <Button
                 onClick={() => navigate(createPageUrl("Home"))}
-                className="bg-white/60 backdrop-blur-md hover:bg-white/80 text-stone-900 font-semibold shadow-lg border-2"
-                style={{
-                  borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
-                }}
+                className="bg-gradient-to-br from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold shadow-lg"
               >
                 <ArrowLeft className="w-5 h-5 mr-2" />
                 Zurück
               </Button>
 
-              <div className="flex items-center gap-3 bg-white/60 backdrop-blur-md rounded-lg px-4 py-2 shadow-lg border-2" style={{
-                borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
-              }}>
+              <div className="flex items-center gap-3 bg-stone-50 rounded-lg px-4 py-2.5 border-2 border-stone-200">
                 <Label htmlFor="location-toggle" className="text-stone-900 font-semibold cursor-pointer flex items-center gap-2">
                   <MapPin className="w-4 h-4" />
                   Standort
@@ -1113,8 +1104,8 @@ Falls du die Pflanze SICHER erkennst, gib an:
             </div>
             
             {gettingLocation && locationEnabled && (
-              <div className="flex items-center justify-center gap-2 text-sm text-stone-600 mt-4 bg-white/40 backdrop-blur-md rounded-lg p-3 border border-white/30">
-                <MapPin className="w-4 h-4 animate-pulse" />
+              <div className="flex items-center justify-center gap-2 text-sm text-stone-600 mt-4 bg-green-50 rounded-lg p-3 border border-green-200">
+                <MapPin className="w-4 h-4 animate-pulse text-green-600" />
                 <span>Standort wird ermittelt...</span>
               </div>
             )}
