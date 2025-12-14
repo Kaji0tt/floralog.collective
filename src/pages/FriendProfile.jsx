@@ -94,6 +94,8 @@ export default function FriendProfile() {
       return profiles.find(p => p.user_email?.toLowerCase() === friendEmail.toLowerCase());
     },
     enabled: !!friendEmail,
+    staleTime: 0, // Always fetch fresh data
+    cacheTime: 0, // Don't cache
   });
 
   // Setze friendUser aus den verfügbaren Daten

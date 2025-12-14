@@ -222,12 +222,18 @@ export default function Profile() {
     await updateUserMutation.mutateAsync({ background_color: color });
     setShowColorPicker(false);
     setAverageColor(color);
+    // Force PublicProfile update
+    const freshUser = await base44.auth.me();
+    await updatePublicProfile(freshUser);
   };
 
   const handleRemoveColor = async () => {
     await updateUserMutation.mutateAsync({ background_color: null });
     setShowColorPicker(false);
     setAverageColor(null);
+    // Force PublicProfile update
+    const freshUser = await base44.auth.me();
+    await updatePublicProfile(freshUser);
   };
 
   const getAverageColor = (imageUrl) => {
