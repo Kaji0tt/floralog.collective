@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { getXPProgressInLevel } from "../components/utils/xpSystem";
 import MobileBackButton from "../components/navigation/MobileBackButton"; // Added import
-import { Camera, BookOpen, Trophy, Target, Leaf, Users, ChevronRight, Star, ArrowLeft, Lock, Map, Heart } from "lucide-react";
+import { Camera, BookOpen, Trophy, Target, Leaf, Users, ChevronRight, Star, ArrowLeft, Lock, Map as MapIcon, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -554,7 +554,7 @@ export default function FriendProfile() {
                 onClick={() => navigate(createPageUrl(`Map?email=${friendEmail}`))}
                 className="w-full bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-3 group"
               >
-                <Map className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                <MapIcon className="w-6 h-6 group-hover:scale-110 transition-transform" />
                 <span className="text-lg font-bold">Zur Karte</span>
               </button>
             ) : hasPendingRequest ? (
