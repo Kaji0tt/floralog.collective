@@ -43,7 +43,7 @@ export default function MobileBackButton({ backUrl }) {
 
   return (
     <motion.div 
-      className="md:hidden fixed bottom-4 left-4 z-50"
+      className="fixed bottom-4 left-4 z-50"
       drag
       dragMomentum={false}
       dragElastic={0}
