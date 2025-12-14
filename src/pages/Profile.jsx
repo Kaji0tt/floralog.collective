@@ -665,54 +665,40 @@ export default function Profile() {
               borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
             }}
           >
-            <CardContent className="p-6">
-              <div className="grid grid-cols-2 gap-4">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-around gap-4">
                 <button
                   onClick={() => navigate(createPageUrl("Map"))}
-                  className="flex flex-col items-center gap-3 p-4 rounded-xl hover:shadow-md transition-all duration-300 bg-white/60"
+                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
                 >
                   <div 
-                    className="w-14 h-14 rounded-full flex items-center justify-center shadow-md"
+                    className="w-10 h-10 rounded-full flex items-center justify-center shadow-md"
                     style={{
                       background: averageColor 
                         ? `linear-gradient(135deg, var(--profile-bg-color) 0%, var(--profile-bg-color-dark) 100%)`
                         : 'linear-gradient(135deg, rgb(34, 197, 94), rgb(22, 163, 74))'
                     }}
                   >
-                    <Map className="w-7 h-7 text-white" />
+                    <Map className="w-5 h-5 text-white" />
                   </div>
-                  <div className="text-center">
-                    <h3 className="text-base font-bold text-stone-900 mb-0.5">
-                      Karte
-                    </h3>
-                    <p className="text-xs text-stone-600">
-                      Scans anzeigen
-                    </p>
-                  </div>
+                  <span className="font-semibold text-stone-900">Karte</span>
                 </button>
 
                 <button
                   onClick={() => navigate(createPageUrl("Scanner"))}
-                  className="flex flex-col items-center gap-3 p-4 rounded-xl hover:shadow-md transition-all duration-300 bg-white/60"
+                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
                 >
                   <div 
-                    className="w-14 h-14 rounded-full flex items-center justify-center shadow-md"
+                    className="w-10 h-10 rounded-full flex items-center justify-center shadow-md"
                     style={{
                       background: averageColor 
                         ? `linear-gradient(135deg, var(--profile-bg-color) 0%, var(--profile-bg-color-dark) 100%)`
                         : 'linear-gradient(135deg, rgb(34, 197, 94), rgb(22, 163, 74))'
                     }}
                   >
-                    <Camera className="w-7 h-7 text-white" />
+                    <Camera className="w-5 h-5 text-white" />
                   </div>
-                  <div className="text-center">
-                    <h3 className="text-base font-bold text-stone-900 mb-0.5">
-                      Scannen
-                    </h3>
-                    <p className="text-xs text-stone-600">
-                      Pflanze erfassen
-                    </p>
-                  </div>
+                  <span className="font-semibold text-stone-900">Scannen</span>
                 </button>
               </div>
             </CardContent>
