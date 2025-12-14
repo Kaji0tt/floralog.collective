@@ -23,7 +23,29 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
 });
 
-// Meine Pflanzen (Grün)
+// Erstelle dynamisches Icon mit Farbe
+const createColoredIcon = (color) => {
+  const svgIcon = `
+    <svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12.5 0C5.6 0 0 5.6 0 12.5c0 9.4 12.5 28.5 12.5 28.5S25 21.9 25 12.5C25 5.6 19.4 0 12.5 0z" 
+            fill="rgb(${color.r}, ${color.g}, ${color.b})" 
+            stroke="white" 
+            stroke-width="1.5"/>
+      <circle cx="12.5" cy="12.5" r="6" fill="white" opacity="0.8"/>
+    </svg>
+  `;
+  
+  return new L.Icon({
+    iconUrl: `data:image/svg+xml;base64,${btoa(svgIcon)}`,
+    shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+  });
+};
+
+// Meine Pflanzen (Grün als Fallback)
 const plantIcon = new L.Icon({
   iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png",
   shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
@@ -79,6 +101,7 @@ export default function Map() {
     mine: true, // Standardmäßig eigene Pflanzen anzeigen
   });
   const [targetLocation, setTargetLocation] = useState(null);
+  const [averageColor, setAverageColor] = useState(null);
 
   // URL-Parameter für Zielkoordinaten auslesen
   useEffect(() => {
@@ -94,10 +117,57 @@ export default function Map() {
     }
   }, []);
 
+  const getAverageColor = (imageUrl) => {
+    return new Promise((resolve) => {
+      const img = new window.Image();
+      img.crossOrigin = "anonymous";
+      
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          const size = 50;
+          canvas.width = size;
+          canvas.height = size;
+          
+          ctx.drawImage(img, 0, 0, size, size);
+          const imageData = ctx.getImageData(0, 0, size, size);
+          const data = imageData.data;
+          
+          let r = 0, g = 0, b = 0, count = 0;
+          
+          for (let i = 0; i < data.length; i += 16) {
+            r += data[i];
+            g += data[i + 1];
+            b += data[i + 2];
+            count++;
+          }
+          
+          r = Math.floor(r / count);
+          g = Math.floor(g / count);
+          b = Math.floor(b / count);
+          
+          resolve({ r, g, b });
+        } catch (error) {
+          resolve(null);
+        }
+      };
+      
+      img.onerror = () => resolve(null);
+      img.src = imageUrl;
+    });
+  };
+
   useEffect(() => {
     const loadUser = async () => {
       const currentUser = await base44.auth.me();
       setUser(currentUser);
+      
+      if (currentUser?.background_image_url) {
+        const color = await getAverageColor(currentUser.background_image_url);
+        setAverageColor(color);
+      }
     };
     loadUser();
   }, []);
@@ -220,15 +290,18 @@ export default function Map() {
 
   // Meine Pflanzen
   if (selectedViews.mine && user) {
+    const myIcon = averageColor ? createColoredIcon(averageColor) : plantIcon;
+    const myColorClass = averageColor ? `bg-[rgb(${averageColor.r},${averageColor.g},${averageColor.b})]` : "bg-green-600";
+    
     const myPlants = getPlantsWithDiscoveries(user.email)
       .filter(p => extractCoordinates(p.discovery_location) !== null)
       .map(p => ({
         ...p,
         coordinates: extractCoordinates(p.discovery_location),
-        icon: plantIcon,
+        icon: myIcon,
         source: "mine",
         sourceLabel: "Meine Pflanzen",
-        colorClass: "bg-green-600"
+        colorClass: myColorClass
       }));
     allFilteredPlants.push(...myPlants);
   }
@@ -319,7 +392,14 @@ export default function Map() {
                         onCheckedChange={() => toggleView('mine')}
                       />
                       <div className="flex items-center gap-2 flex-1">
-                        <div className="w-3 h-3 bg-green-600 rounded-full"></div>
+                        <div 
+                          className="w-3 h-3 rounded-full"
+                          style={{
+                            backgroundColor: averageColor 
+                              ? `rgb(${averageColor.r}, ${averageColor.g}, ${averageColor.b})` 
+                              : 'rgb(22, 163, 74)'
+                          }}
+                        ></div>
                         <span className="font-semibold text-stone-900">Meine Pflanzen</span>
                       </div>
                       {selectedViews.mine && (
