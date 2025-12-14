@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { getXPProgressInLevel } from "../components/utils/xpSystem";
@@ -51,6 +51,7 @@ const getAverageColor = (imageUrl) => {
 
 export default function FriendProfile() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [friendUser, setFriendUser] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
@@ -185,6 +186,27 @@ export default function FriendProfile() {
       );
     },
     enabled: !!friendEmail,
+    staleTime: 10000, // 10 Sekunden Cache
+  });
+
+  // Prüfe ob ich mit diesem User bereits befreundet bin
+  const { data: myFriendship } = useQuery({
+    queryKey: ['myFriendship', currentUser?.email, friendEmail],
+    queryFn: async () => {
+      if (!currentUser?.email || !friendEmail) return null;
+      const allFriends = await base44.entities.Friend.list();
+      const currentEmailLower = currentUser.email.toLowerCase();
+      const friendEmailLower = friendEmail.toLowerCase();
+      
+      return allFriends.find(f =>
+        ((f.request_sent_by?.toLowerCase() === currentEmailLower && 
+          f.request_sent_to?.toLowerCase() === friendEmailLower) ||
+         (f.request_sent_by?.toLowerCase() === friendEmailLower && 
+          f.request_sent_to?.toLowerCase() === currentEmailLower))
+      );
+    },
+    enabled: !!currentUser?.email && !!friendEmail,
+    staleTime: 10000, // 10 Sekunden Cache
   });
 
   const { data: friendDiscoveries = [] } = useQuery({
@@ -307,6 +329,26 @@ export default function FriendProfile() {
     if (!match) return rgbString;
     return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${opacity})`;
   };
+
+  const sendFriendRequestMutation = useMutation({
+    mutationFn: async () => {
+      await base44.entities.Friend.create({
+        request_sent_by: currentUser.email,
+        request_sent_to: friendEmail,
+        status: "pending"
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['myFriendship'] });
+      alert(`Freundschaftsanfrage an ${friendUser?.display_name || friendEmail} gesendet! ✅`);
+    },
+    onError: (error) => {
+      alert(`Fehler beim Senden der Anfrage: ${error.message}`);
+    },
+  });
+
+  const isFriend = myFriendship?.status === 'accepted';
+  const hasPendingRequest = myFriendship?.status === 'pending';
 
   return (
     <>
@@ -466,20 +508,41 @@ export default function FriendProfile() {
             </Card>
           </motion.div>
 
-          {/* Karten Button */}
+          {/* Karten Button / Freund hinzufügen */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2, duration: 0.5 }}
             className="mt-6"
           >
-            <button
-              onClick={() => navigate(createPageUrl(`Map?email=${friendEmail}`))}
-              className="w-full bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-3 group"
-            >
-              <Map className="w-6 h-6 group-hover:scale-110 transition-transform" />
-              <span className="text-lg font-bold">Zur Karte</span>
-            </button>
+            {isFriend ? (
+              <button
+                onClick={() => navigate(createPageUrl(`Map?email=${friendEmail}`))}
+                className="w-full bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-3 group"
+              >
+                <Map className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                <span className="text-lg font-bold">Zur Karte</span>
+              </button>
+            ) : hasPendingRequest ? (
+              <button
+                disabled
+                className="w-full bg-gradient-to-br from-gray-400 to-gray-500 text-white rounded-xl p-4 shadow-lg cursor-not-allowed flex items-center justify-center gap-3"
+              >
+                <Users className="w-6 h-6" />
+                <span className="text-lg font-bold">Anfrage gesendet</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => sendFriendRequestMutation.mutate()}
+                disabled={sendFriendRequestMutation.isPending}
+                className="w-full bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-3 group disabled:opacity-50"
+              >
+                <Users className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                <span className="text-lg font-bold">
+                  {sendFriendRequestMutation.isPending ? 'Wird gesendet...' : 'Freund hinzufügen'}
+                </span>
+              </button>
+            )}
           </motion.div>
         </div>
       </div>
