@@ -220,6 +220,23 @@ export default function FriendProfile() {
     staleTime: 30000, // 30 Sekunden Cache
   });
 
+  const sendFriendRequestMutation = useMutation({
+    mutationFn: async () => {
+      await base44.entities.Friend.create({
+        request_sent_by: currentUser.email,
+        request_sent_to: friendEmail,
+        status: "pending"
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['myFriendship'] });
+      alert(`Freundschaftsanfrage an ${friendUser?.display_name || friendEmail} gesendet! ✅`);
+    },
+    onError: (error) => {
+      alert(`Fehler beim Senden der Anfrage: ${error.message}`);
+    },
+  });
+
   const favoritePlant = friendUser?.favorite_plant_id 
     ? plants.find(p => p.id === friendUser.favorite_plant_id)
     : null;
@@ -235,6 +252,9 @@ export default function FriendProfile() {
       setAverageColor(null);
     }
   }, [friendUser?.background_image_url, friendUser?.background_color]);
+
+  const isFriend = myFriendship && myFriendship.status === 'accepted';
+  const hasPendingRequest = myFriendship && myFriendship.status === 'pending';
 
   if (!friendUser || !currentUser) { // Updated loading condition
     return (
@@ -329,26 +349,6 @@ export default function FriendProfile() {
     if (!match) return rgbString;
     return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${opacity})`;
   };
-
-  const sendFriendRequestMutation = useMutation({
-    mutationFn: async () => {
-      await base44.entities.Friend.create({
-        request_sent_by: currentUser.email,
-        request_sent_to: friendEmail,
-        status: "pending"
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['myFriendship'] });
-      alert(`Freundschaftsanfrage an ${friendUser?.display_name || friendEmail} gesendet! ✅`);
-    },
-    onError: (error) => {
-      alert(`Fehler beim Senden der Anfrage: ${error.message}`);
-    },
-  });
-
-  const isFriend = myFriendship && myFriendship.status === 'accepted';
-  const hasPendingRequest = myFriendship && myFriendship.status === 'pending';
 
   return (
     <>
