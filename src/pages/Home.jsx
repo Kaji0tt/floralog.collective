@@ -151,7 +151,7 @@ export default function Home() {
     if (user && user.email) {
       updatePublicProfile(user);
     }
-  }, [user?.level, user?.xp, user?.display_name, user?.avatar_url, user?.selected_title, user?.email, user?.background_image_url, user?.background_color, user?.favorite_plant_id]);
+  }, [user?.level, user?.xp, user?.display_name, user?.avatar_url, user?.selected_title, user?.email, user?.background_image_url, user?.background_color, user?.favorite_plant_id, user?.title]);
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
