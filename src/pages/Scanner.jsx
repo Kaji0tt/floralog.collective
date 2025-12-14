@@ -3,7 +3,9 @@ import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Camera, Loader2, MapPin, AlertTriangle, Home } from "lucide-react";
+import { Camera, Loader2, MapPin, AlertTriangle, ArrowLeft } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import ScanResults from "../components/scanner/ScanResults";
@@ -88,6 +90,7 @@ export default function Scanner() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [isSavingPlant, setIsSavingPlant] = useState(false);
   const [currentResultIndex, setCurrentResultIndex] = useState(0); // Aktuell ausgewähltes Ergebnis
+  const [locationEnabled, setLocationEnabled] = useState(true);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -98,8 +101,16 @@ export default function Scanner() {
     };
     loadUser();
 
-    getUserLocation();
+    if (locationEnabled) {
+      getUserLocation();
+    }
   }, []);
+
+  useEffect(() => {
+    if (locationEnabled && !userLocation && !gettingLocation) {
+      getUserLocation();
+    }
+  }, [locationEnabled]);
 
   const getUserLocation = () => {
     setGettingLocation(true);
@@ -1011,46 +1022,6 @@ Falls du die Pflanze SICHER erkennst, gib an:
       </AnimatePresence>
 
       <div className="max-w-4xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-        <Card 
-          className="mb-6 shadow-xl bg-white overflow-hidden"
-          style={{
-            borderWidth: '2px',
-            borderStyle: 'solid',
-            borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
-          }}
-        >
-          <CardContent className="p-6 md:p-8 relative" style={user?.background_image_url ? {
-            backgroundImage: `linear-gradient(rgba(0,0,0,0.2), rgba(0,0,0,0.2)), url(${user.background_image_url})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center'
-          } : {}}>
-            <div className="flex items-center justify-center">
-              <Button
-                onClick={() => navigate(createPageUrl("Home"))}
-                className="bg-white/60 backdrop-blur-md hover:bg-white/80 text-stone-900 font-semibold shadow-lg border-2"
-                style={{
-                  borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
-                }}
-              >
-                <Home className="w-5 h-5 mr-2" />
-                Home
-              </Button>
-            </div>
-            
-            {gettingLocation && (
-              <div className="flex items-center justify-center gap-2 text-sm text-stone-600 mt-4 bg-white/40 backdrop-blur-md rounded-lg p-3 border border-white/30">
-                <MapPin className="w-4 h-4 animate-pulse" />
-                <span>Standort wird ermittelt...</span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
         {!scanning && !matchedPlant && !showCamera &&
         <Card 
           className="shadow-xl bg-white overflow-hidden"
@@ -1094,6 +1065,61 @@ Falls du die Pflanze SICHER erkennst, gib an:
             </CardContent>
           </Card>
         }
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="mt-6"
+        >
+        <Card 
+          className="shadow-xl bg-white overflow-hidden"
+          style={{
+            borderWidth: '2px',
+            borderStyle: 'solid',
+            borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
+          }}
+        >
+          <CardContent className="p-6 md:p-8 relative" style={user?.background_image_url ? {
+            backgroundImage: `linear-gradient(rgba(0,0,0,0.2), rgba(0,0,0,0.2)), url(${user.background_image_url})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center'
+          } : {}}>
+            <div className="flex items-center justify-between gap-4">
+              <Button
+                onClick={() => navigate(createPageUrl("Home"))}
+                className="bg-white/60 backdrop-blur-md hover:bg-white/80 text-stone-900 font-semibold shadow-lg border-2"
+                style={{
+                  borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
+                }}
+              >
+                <ArrowLeft className="w-5 h-5 mr-2" />
+                Zurück
+              </Button>
+
+              <div className="flex items-center gap-3 bg-white/60 backdrop-blur-md rounded-lg px-4 py-2 shadow-lg border-2" style={{
+                borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
+              }}>
+                <Label htmlFor="location-toggle" className="text-stone-900 font-semibold cursor-pointer flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  Standort
+                </Label>
+                <Switch 
+                  id="location-toggle"
+                  checked={locationEnabled}
+                  onCheckedChange={setLocationEnabled}
+                />
+              </div>
+            </div>
+            
+            {gettingLocation && locationEnabled && (
+              <div className="flex items-center justify-center gap-2 text-sm text-stone-600 mt-4 bg-white/40 backdrop-blur-md rounded-lg p-3 border border-white/30">
+                <MapPin className="w-4 h-4 animate-pulse" />
+                <span>Standort wird ermittelt...</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
         </motion.div>
 
         {scanning &&
