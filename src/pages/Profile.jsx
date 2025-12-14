@@ -420,7 +420,7 @@ export default function Profile() {
         }
       `}</style>
       <div 
-        className="h-screen min-w-full p-4 md:p-8 fixed inset-0 md:overflow-auto overflow-hidden" 
+        className="min-h-screen min-w-full p-4 md:p-8 overflow-auto" 
         style={{
           background: averageColor 
             ? `linear-gradient(135deg, var(--profile-bg-color-light) 0%, var(--profile-bg-color-mid) 50%, var(--profile-bg-color-dark) 100%)`
