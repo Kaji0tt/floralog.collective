@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Lock } from "lucide-react";
+import { Trophy, Lock, Leaf } from "lucide-react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";

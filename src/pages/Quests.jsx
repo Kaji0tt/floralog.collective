@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Trophy, Target, Award, Loader2, CheckCircle2, Lock } from "lucide-react";
+import { Trophy, Target, Award, Loader2, CheckCircle2, Lock, Leaf } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import QuestCompletionAnimation from "../components/quests/QuestCompletionAnimation";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";

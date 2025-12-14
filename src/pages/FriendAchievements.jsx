@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Lock } from "lucide-react";
+import { Trophy, Lock, Leaf } from "lucide-react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
