@@ -342,7 +342,7 @@ export default function ScanResults({
     const confidencePercentage = currentPlant.confidence_percentage || currentPlant.aiData?.confidence_percentage;
 
     // Prüfe ob Ergebnis ändern Button angezeigt werden soll
-    const showChangeResultButton = !isPrimaryResult && confidencePercentage >= 25;
+    const showChangeResultButton = !isPrimaryResult && confidencePercentage >= 25 && !isPendingConfirmation;
 
     return (
       <div className="relative -top-5">
@@ -580,7 +580,7 @@ export default function ScanResults({
                   }
 
                   {/* Alternative Ergebnisse: Button zum Ändern */}
-                  {latestDiscoveryId && !isPrimaryResult && showChangeResultButton && !isPendingConfirmation &&
+                  {latestDiscoveryId && showChangeResultButton &&
                   <Button
                     onClick={handleChangeResult}
                     disabled={isChanging}
