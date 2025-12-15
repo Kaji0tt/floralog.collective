@@ -1068,52 +1068,54 @@ Falls du die Pflanze SICHER erkennst, gib an:
           </Card>
         }
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="mt-6"
-        >
-        <Card 
-          className="shadow-xl bg-white overflow-hidden"
-          style={{
-            borderWidth: '2px',
-            borderStyle: 'solid',
-            borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
-          }}
-        >
-          <CardContent className="p-6 md:p-8">
-            <div className="flex items-center justify-between gap-4">
-              <Button
-                onClick={() => navigate(createPageUrl("Home"))}
-                className="bg-gradient-to-br from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold shadow-lg"
-              >
-                <ArrowLeft className="w-5 h-5 mr-2" />
-                Zurück
-              </Button>
+        {!scanning && !matchedPlant && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="mt-6"
+          >
+          <Card 
+            className="shadow-xl bg-white overflow-hidden"
+            style={{
+              borderWidth: '2px',
+              borderStyle: 'solid',
+              borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
+            }}
+          >
+            <CardContent className="p-6 md:p-8">
+              <div className="flex items-center justify-between gap-4">
+                <Button
+                  onClick={() => navigate(createPageUrl("Home"))}
+                  className="bg-gradient-to-br from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold shadow-lg"
+                >
+                  <ArrowLeft className="w-5 h-5 mr-2" />
+                  Zurück
+                </Button>
 
-              <div className="flex items-center gap-3 bg-stone-50 rounded-lg px-4 py-2.5 border-2 border-stone-200">
-                <Label htmlFor="location-toggle" className="text-stone-900 font-semibold cursor-pointer flex items-center gap-2">
-                  <MapPin className="w-4 h-4" />
-                  Standort
-                </Label>
-                <Switch 
-                  id="location-toggle"
-                  checked={locationEnabled}
-                  onCheckedChange={setLocationEnabled}
-                />
+                <div className="flex items-center gap-3 bg-stone-50 rounded-lg px-4 py-2.5 border-2 border-stone-200">
+                  <Label htmlFor="location-toggle" className="text-stone-900 font-semibold cursor-pointer flex items-center gap-2">
+                    <MapPin className="w-4 h-4" />
+                    Standort
+                  </Label>
+                  <Switch 
+                    id="location-toggle"
+                    checked={locationEnabled}
+                    onCheckedChange={setLocationEnabled}
+                  />
+                </div>
               </div>
-            </div>
-            
-            {gettingLocation && locationEnabled && (
-              <div className="flex items-center justify-center gap-2 text-sm text-stone-600 mt-4 bg-green-50 rounded-lg p-3 border border-green-200">
-                <MapPin className="w-4 h-4 animate-pulse text-green-600" />
-                <span>Standort wird ermittelt...</span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        </motion.div>
+              
+              {gettingLocation && locationEnabled && (
+                <div className="flex items-center justify-center gap-2 text-sm text-stone-600 mt-4 bg-green-50 rounded-lg p-3 border border-green-200">
+                  <MapPin className="w-4 h-4 animate-pulse text-green-600" />
+                  <span>Standort wird ermittelt...</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          </motion.div>
+        )}
 
         {scanning &&
         <Card 
