@@ -454,7 +454,7 @@ export default function AdminQuestCreator() {
                         <SelectContent>
                           <SelectItem value="null">Beliebig</SelectItem>
                           {plants
-                            .filter(p => !formData.target_genus_name || genera.find(g => g.genus_id === p.genus_number && g.category === p.genus_category)?.genus_name === formData.target_genus_name)
+                            .filter(p => !formData.target_genus_name || genera.find(g => g.category_dex_number === p.genus_number && g.category === p.genus_category)?.genus_name === formData.target_genus_name)
                             .map(p => (
                               <SelectItem key={p.id} value={p.species_name}>
                                 {p.species_name}
