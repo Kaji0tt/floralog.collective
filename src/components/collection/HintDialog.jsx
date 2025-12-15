@@ -70,9 +70,9 @@ export default function HintDialog({ genus, isOpen, onClose }) {
       <DialogContent className="max-w-md w-[95vw] sm:w-full">
         <DialogHeader>
           <div className="flex items-center justify-between mb-2 pr-8">
-            <DialogTitle className="text-2xl font-bold text-stone-900 flex items-center gap-2">
-              <Lightbulb className="w-6 h-6 text-amber-500" />
-              Hinweise
+            <DialogTitle className="text-xl sm:text-2xl font-bold text-stone-900 flex items-center gap-2 flex-1 min-w-0">
+              <Lightbulb className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500 flex-shrink-0" />
+              <span className="truncate">Hinweise</span>
             </DialogTitle>
             <Button
               onClick={speakHint}
@@ -94,19 +94,19 @@ export default function HintDialog({ genus, isOpen, onClose }) {
 
         <div className="space-y-4">
           {/* Gattung Info */}
-          <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-5 border-2 border-amber-200">
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-4 border-2 border-amber-200 overflow-hidden">
             <div className="flex items-center gap-3 mb-3">
-              <div className="text-4xl">{getCategoryIcon()}</div>
-              <div>
-                <h3 className="font-bold text-2xl text-stone-900">{genus.genus_name}</h3>
-                <p className="text-sm italic text-stone-600">{genus.scientific_genus}</p>
-                <Badge className="bg-stone-700 text-white mt-2">
+              <div className="text-3xl sm:text-4xl flex-shrink-0">{getCategoryIcon()}</div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-lg sm:text-2xl text-stone-900 break-words">{genus.genus_name}</h3>
+                <p className="text-xs sm:text-sm italic text-stone-600 break-words">{genus.scientific_genus}</p>
+                <Badge className="bg-stone-700 text-white mt-2 text-xs">
                   {genus.category}
                 </Badge>
               </div>
             </div>
             {genus.description && (
-              <p className="text-sm text-stone-700 leading-relaxed mt-3">
+              <p className="text-xs sm:text-sm text-stone-700 leading-relaxed mt-3 break-words">
                 {genus.description}
               </p>
             )}
@@ -114,8 +114,8 @@ export default function HintDialog({ genus, isOpen, onClose }) {
 
           {/* Familie Info */}
           {genus.family && (
-            <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-              <p className="text-sm font-semibold text-purple-900">
+            <div className="bg-purple-50 rounded-lg p-3 sm:p-4 border border-purple-200 overflow-hidden">
+              <p className="text-xs sm:text-sm font-semibold text-purple-900 break-words">
                 🔬 Familie: {genus.family}
               </p>
             </div>
@@ -124,10 +124,10 @@ export default function HintDialog({ genus, isOpen, onClose }) {
           {/* Google Suche Button */}
           <Button
             onClick={handleSearchPlant}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-6 text-base"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 sm:py-6 text-sm sm:text-base"
           >
-            <Search className="w-5 h-5 mr-2" />
-            Pflanze nachschlagen
+            <Search className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+            <span className="truncate">Pflanze nachschlagen</span>
           </Button>
         </div>
       </DialogContent>
