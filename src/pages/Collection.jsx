@@ -201,28 +201,25 @@ export default function Collection() {
         onClose={() => setShowHintDialog(false)}
       />
 
-      <div className="max-w-7xl mx-auto">
-        <div className="bg-white/80 backdrop-blur-md rounded-xl shadow-sm border border-stone-200 p-4 mb-6 max-w-4xl mx-auto">
-          <div className="flex items-center justify-between gap-6 mb-4">
-            <div className="flex items-center gap-3">
-              <div className="text-center">
-                <div className="text-xl font-bold text-green-700">{discoveredCount} / {totalCount}</div>
-                <div className="text-xs font-medium text-stone-600">Gattungen</div>
-              </div>
+      {/* Fixed Filter Bar */}
+      <div className="fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md shadow-sm border-b border-stone-200">
+        <div className="max-w-7xl mx-auto px-4 py-2">
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <div className="text-center">
+              <div className="text-sm font-bold text-green-700">{discoveredCount}/{totalCount}</div>
+              <div className="text-[10px] font-medium text-stone-600">Gattungen</div>
             </div>
-            <div className="h-8 w-px bg-stone-200"></div>
-            <div className="flex items-center gap-3">
-              <div className="text-center">
-                <div className="text-xl font-bold text-amber-700">{discoveredSpecies} / {totalSpecies}</div>
-                <div className="text-xs font-medium text-stone-600">Arten</div>
-              </div>
+            <div className="h-6 w-px bg-stone-200"></div>
+            <div className="text-center">
+              <div className="text-sm font-bold text-amber-700">{discoveredSpecies}/{totalSpecies}</div>
+              <div className="text-[10px] font-medium text-stone-600">Arten</div>
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-row gap-3">
-            <div className="flex gap-3 flex-1">
+          <div className="flex flex-col md:flex-row gap-2">
+            <div className="flex gap-2 flex-1">
               <Select value={activeCategory} onValueChange={setActiveCategory}>
-                <SelectTrigger className="bg-white flex-1">
+                <SelectTrigger className="bg-white flex-1 h-9">
                   <SelectValue placeholder="Kategorie" />
                 </SelectTrigger>
                 <SelectContent>
@@ -241,7 +238,7 @@ export default function Collection() {
               </Select>
 
               <Select value={discoveryFilter} onValueChange={setDiscoveryFilter}>
-                <SelectTrigger className="bg-white flex-1">
+                <SelectTrigger className="bg-white flex-1 h-9">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -258,17 +255,21 @@ export default function Collection() {
             </div>
 
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-stone-400" />
               <Input
                 type="text"
                 placeholder="Suchen..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 bg-white"
+                className="pl-8 bg-white h-9 text-sm"
               />
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Content with top padding for fixed filter */}
+      <div className="max-w-7xl mx-auto pt-28">
 
         {filteredGenera.length === 0 ? (
           <div className="text-center py-20">
