@@ -145,21 +145,24 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
             </motion.div>
           </div>
 
-          {/* Name */}
-          <h3 className={`font-bold mb-0.5 break-words text-xs leading-tight ${discovered ? 'text-stone-900' : 'text-stone-500'}`}>
-            {discovered ? genus.genus_name : '???'}
-          </h3>
-          
-          <p className={`text-[10px] italic mb-1 break-words ${discovered ? 'text-stone-600' : 'text-stone-400'}`}>
-            {discovered ? genus.scientific_genus : ''}
-          </p>
-
-          {/* Progress Badge */}
-          {discovered && (
-            <div className="text-[10px] font-semibold text-green-700">
-              {genus.discoveredCount}/{genus.totalSpecies} Arten
+          {/* Name and Progress */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <h3 className={`font-bold mb-0.5 break-words text-xs leading-tight ${discovered ? 'text-stone-900' : 'text-stone-500'}`}>
+                {discovered ? genus.genus_name : '???'}
+              </h3>
+              
+              <p className={`text-[10px] italic break-words ${discovered ? 'text-stone-600' : 'text-stone-400'}`}>
+                {discovered ? genus.scientific_genus : ''}
+              </p>
             </div>
-          )}
+
+            {discovered && (
+              <div className="text-[10px] font-semibold text-green-700 whitespace-nowrap">
+                {genus.discoveredCount}/{genus.totalSpecies}
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </motion.div>
