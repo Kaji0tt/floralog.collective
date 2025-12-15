@@ -426,14 +426,14 @@ export default function AdminQuestCreator() {
                     <div>
                       <Label>Ziel-Gattung (optional)</Label>
                       <Select
-                        value={formData.target_genus_name}
-                        onValueChange={(v) => setFormData({...formData, target_genus_name: v, target_species_name: ""})}
+                        value={formData.target_genus_name || ""}
+                        onValueChange={(v) => setFormData({...formData, target_genus_name: v === "null" ? "" : v, target_species_name: ""})}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Beliebig" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value={null}>Beliebig</SelectItem>
+                          <SelectItem value="null">Beliebig</SelectItem>
                           {genera.map(g => (
                             <SelectItem key={g.id} value={g.genus_name}>
                               {g.genus_name}
@@ -445,16 +445,16 @@ export default function AdminQuestCreator() {
                     <div>
                       <Label>Ziel-Art (optional)</Label>
                       <Select
-                        value={formData.target_species_name}
-                        onValueChange={(v) => setFormData({...formData, target_species_name: v})}
+                        value={formData.target_species_name || ""}
+                        onValueChange={(v) => setFormData({...formData, target_species_name: v === "null" ? "" : v})}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Beliebig" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value={null}>Beliebig</SelectItem>
+                          <SelectItem value="null">Beliebig</SelectItem>
                           {plants
-                            .filter(p => !formData.target_genus_name || genera.find(g => g.id === p.genus_id)?.genus_name === formData.target_genus_name)
+                            .filter(p => !formData.target_genus_name || genera.find(g => g.genus_id === p.genus_number && g.category === p.genus_category)?.genus_name === formData.target_genus_name)
                             .map(p => (
                               <SelectItem key={p.id} value={p.species_name}>
                                 {p.species_name}
