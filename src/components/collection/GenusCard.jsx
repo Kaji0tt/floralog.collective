@@ -146,7 +146,10 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
                     transform: "rotateY(180deg)"
                   }}
                 >
-                  <p className="text-xl font-bold text-stone-700">{genus.genus_name}</p>
+                  <p className="font-bold text-stone-700 break-words" style={{
+                    fontSize: genus.genus_name?.length > 15 ? 'clamp(0.875rem, 4vw, 1.125rem)' : 'clamp(1rem, 5vw, 1.25rem)',
+                    lineHeight: '1.2'
+                  }}>{genus.genus_name}</p>
                 </motion.div>
               </motion.div>
             )}
@@ -154,11 +157,14 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
           </div>
 
           {/* Name */}
-          <h3 className={`text-base font-bold mb-1 ${discovered ? 'text-stone-900' : 'text-stone-500'}`}>
+          <h3 className={`font-bold mb-1 break-words ${discovered ? 'text-stone-900' : 'text-stone-500'}`} style={{
+            fontSize: genus.genus_name?.length > 15 ? 'clamp(0.75rem, 3.5vw, 0.875rem)' : 'clamp(0.875rem, 4vw, 1rem)',
+            lineHeight: '1.2'
+          }}>
             {discovered ? genus.genus_name : '???'}
           </h3>
           
-          <p className={`text-xs italic mb-2 ${discovered ? 'text-stone-600' : 'text-stone-400'}`}>
+          <p className={`text-xs italic mb-2 break-words ${discovered ? 'text-stone-600' : 'text-stone-400'}`}>
             {discovered ? genus.scientific_genus : ''}
           </p>
 
