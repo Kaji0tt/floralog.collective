@@ -386,16 +386,22 @@ export default function ScanResults({
                     {/* Namen linksbündig mit Rarität Badge rechts */}
                     <div className="mb-4 flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-2xl md:text-3xl font-bold text-stone-900 whitespace-nowrap overflow-hidden text-ellipsis">
+                        <h3 className="font-bold text-stone-900 break-words" style={{
+                          fontSize: currentPlant.species_name?.length > 25 ? 'clamp(1.25rem, 5vw, 1.875rem)' : 'clamp(1.5rem, 6vw, 1.875rem)',
+                          lineHeight: '1.2'
+                        }}>
                           {currentPlant.species_name}
+                        </h3>
+                        <p className="text-stone-600 italic mt-1 break-words flex items-center flex-wrap gap-1" style={{
+                          fontSize: currentPlant.scientific_name?.length > 30 ? 'clamp(0.875rem, 4vw, 1.25rem)' : 'clamp(1rem, 5vw, 1.25rem)',
+                          lineHeight: '1.3'
+                        }}>
+                          <span>{currentPlant.scientific_name}</span>
                           {confidencePercentage &&
-                            <span className="text-lg md:text-xl ml-2 text-stone-400">
+                            <span className="text-stone-400 whitespace-nowrap">
                               ({confidencePercentage}%)
                             </span>
                           }
-                        </h3>
-                        <p className="text-lg md:text-xl text-stone-600 italic mt-1 whitespace-nowrap overflow-hidden text-ellipsis">
-                          {currentPlant.scientific_name}
                         </p>
                       </div>
                       <div className="flex-shrink-0">
