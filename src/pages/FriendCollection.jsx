@@ -228,10 +228,10 @@ export default function FriendCollection() {
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-row gap-3">
-            <div className="flex gap-3 flex-1">
+          <div className="flex flex-col md:flex-row gap-2">
+            <div className="flex gap-2 flex-1">
               <Select value={activeCategory} onValueChange={setActiveCategory}>
-                <SelectTrigger className="bg-white flex-1">
+                <SelectTrigger className="bg-white flex-1 h-9">
                   <SelectValue placeholder="Kategorie" />
                 </SelectTrigger>
                 <SelectContent>
@@ -250,7 +250,7 @@ export default function FriendCollection() {
               </Select>
 
               <Select value={discoveryFilter} onValueChange={setDiscoveryFilter}>
-                <SelectTrigger className="bg-white flex-1">
+                <SelectTrigger className="bg-white flex-1 h-9">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -267,22 +267,24 @@ export default function FriendCollection() {
             </div>
 
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-stone-400" />
               <Input
                 type="text"
                 placeholder="Suchen..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 bg-white"
+                className="pl-8 bg-white h-9 text-sm"
               />
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Genera Grid */}
+      {/* Content with top padding for fixed filter */}
+      <div className="max-w-7xl mx-auto pt-32">
         {filteredGenera.length === 0 ? (
           <div className="text-center py-20">
-            <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-stone-200">
+            <div className="w-24 h-24 bg-white/80 backdrop-blur-md rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-stone-200">
               <Leaf className="w-12 h-12 text-stone-400" />
             </div>
             <h3 className="text-2xl font-bold text-stone-900 mb-2">
@@ -290,7 +292,7 @@ export default function FriendCollection() {
             </h3>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
             {filteredGenera.map((genus) => (
               <GenusCard 
                 key={genus.id} 
