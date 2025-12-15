@@ -269,7 +269,7 @@ export default function Collection() {
       </div>
 
       {/* Content with top padding for fixed filter */}
-      <div className="max-w-7xl mx-auto pt-28">
+      <div className="max-w-7xl mx-auto pt-36">
 
         {filteredGenera.length === 0 ? (
           <div className="text-center py-20">
@@ -281,7 +281,7 @@ export default function Collection() {
             </h3>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
             {filteredGenera.map((genus) => (
               <GenusCard
                 key={genus.id}
