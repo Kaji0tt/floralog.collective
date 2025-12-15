@@ -81,41 +81,31 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
         }`}
         onClick={handleClick}
       >
-        <CardContent className="p-4">
+        <CardContent className="p-2">
           {/* Dex Number Badge */}
-          <div className="flex justify-between items-start mb-3">
-            <Badge className="bg-stone-800 text-white font-bold text-sm px-2 py-1">
+          <div className="flex justify-between items-start mb-2">
+            <Badge className="bg-stone-800 text-white font-bold text-[10px] px-1.5 py-0.5">
               {genus.category === "Bäume" && "🌳"}
               {genus.category === "Sträucher" && "🌿"}
               {genus.category === "Blumen" && "🌸"}
               #{String(genus.category_dex_number).padStart(3, '0')}
             </Badge>
             {discovered ? (
-              <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                <CheckCircle className="w-5 h-5 text-white" />
+              <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                <CheckCircle className="w-4 h-4 text-white" />
               </div>
             ) : (
               <div 
-                className="w-6 h-6 bg-stone-400 rounded-full flex items-center justify-center hover:bg-stone-500 transition-colors cursor-pointer"
+                className="w-5 h-5 bg-stone-400 rounded-full flex items-center justify-center hover:bg-stone-500 transition-colors cursor-pointer"
                 onClick={handleHelpClick}
               >
-                <HelpCircle className="w-4 h-4 text-white" />
+                <HelpCircle className="w-3 h-3 text-white" />
               </div>
             )}
           </div>
 
           {/* Image */}
-          <div className="relative mb-3">
-            {/* Stack Effect - nur bei mehreren Discoveries */}
-            {discovered && plants.filter(p => p.genus_category === genus.category && p.genus_number === genus.category_dex_number).some(p => 
-              userDiscoveries.filter(d => d.plant_id === p.id).length > 1
-            ) && (
-              <>
-                <div className="absolute inset-0 bg-stone-300 rounded-lg transform translate-x-1 translate-y-1 opacity-40" />
-                <div className="absolute inset-0 bg-stone-200 rounded-lg transform translate-x-0.5 translate-y-0.5 opacity-60" />
-              </>
-            )}
-            
+          <div className="relative mb-2">
             <motion.div 
               className="relative aspect-square rounded-lg overflow-hidden bg-gradient-to-br from-stone-100 to-stone-200 z-10"
               style={{ perspective: 1000 }}
@@ -137,7 +127,7 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
                   className="absolute inset-0 flex items-center justify-center"
                   style={{ backfaceVisibility: "hidden" }}
                 >
-                  <CategoryIcon className="w-16 h-16 text-stone-300" strokeWidth={1.5} />
+                  <CategoryIcon className="w-12 h-12 text-stone-300" strokeWidth={1.5} />
                 </motion.div>
                 <motion.div
                   className="absolute inset-0 flex items-center justify-center text-center px-2"
@@ -146,10 +136,9 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
                     transform: "rotateY(180deg)"
                   }}
                 >
-                  <p className="font-bold text-stone-700 break-words" style={{
-                    fontSize: genus.genus_name?.length > 15 ? 'clamp(0.875rem, 4vw, 1.125rem)' : 'clamp(1rem, 5vw, 1.25rem)',
-                    lineHeight: '1.2'
-                  }}>{genus.genus_name}</p>
+                  <p className="font-bold text-stone-700 break-words text-xs">
+                    {genus.genus_name}
+                  </p>
                 </motion.div>
               </motion.div>
             )}
@@ -157,28 +146,20 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
           </div>
 
           {/* Name */}
-          <h3 className={`font-bold mb-1 break-words ${discovered ? 'text-stone-900' : 'text-stone-500'}`} style={{
-            fontSize: genus.genus_name?.length > 15 ? 'clamp(0.75rem, 3.5vw, 0.875rem)' : 'clamp(0.875rem, 4vw, 1rem)',
-            lineHeight: '1.2'
-          }}>
+          <h3 className={`font-bold mb-0.5 break-words text-xs leading-tight ${discovered ? 'text-stone-900' : 'text-stone-500'}`}>
             {discovered ? genus.genus_name : '???'}
           </h3>
           
-          <p className={`text-xs italic mb-2 break-words ${discovered ? 'text-stone-600' : 'text-stone-400'}`}>
+          <p className={`text-[10px] italic mb-1 break-words ${discovered ? 'text-stone-600' : 'text-stone-400'}`}>
             {discovered ? genus.scientific_genus : ''}
           </p>
 
           {/* Progress Badge */}
           {discovered && (
-            <Badge variant="outline" className="border border-green-500 text-green-700 bg-green-50 font-semibold mb-2 text-xs">
+            <div className="text-[10px] font-semibold text-green-700">
               {genus.discoveredCount}/{genus.totalSpecies} Arten
-            </Badge>
+            </div>
           )}
-
-          {/* Category Badge */}
-          <Badge className={`${discovered ? 'bg-green-600' : 'bg-stone-600'} text-white font-semibold text-xs`}>
-            {genus.category}
-          </Badge>
         </CardContent>
       </Card>
     </motion.div>
