@@ -100,11 +100,16 @@ export default function GenusDetail() {
   }, [userDiscoveries]);
 
   const setFrontImageMutation = useMutation({
-    mutationFn: async ({ discoveryId, plantId }) => {
-      // Erst alle anderen Discoveries dieser Pflanze auf false setzen
-      const plantDiscoveries = userDiscoveries.filter(d => d.plant_id === plantId);
+    mutationFn: async ({ discoveryId }) => {
+      // Alle Discoveries der gesamten Gattung auf false setzen
+      const genusDiscoveries = userDiscoveries.filter(d => {
+        const plant = plants.find(p => p.id === d.plant_id);
+        return plant && selectedGenus && 
+               plant.genus_category === selectedGenus.category && 
+               plant.genus_number === selectedGenus.category_dex_number;
+      });
       await Promise.all(
-        plantDiscoveries.map(d => 
+        genusDiscoveries.map(d => 
           base44.entities.UserPlantDiscovery.update(d.id, { is_front_image: false })
         )
       );
@@ -546,21 +551,21 @@ export default function GenusDetail() {
                       </div>
                     </>
                   )}
-                  {/* Front-Image Button - immer anzeigen */}
-                  {!friendEmail && (
+                  {/* Front-Image Button - nur anzeigen wenn mehr als 1 Scan in der Gattung */}
+                  {!friendEmail && genusDiscoveries.length > 1 && (
                     <>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           const currentDiscovery = expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0];
-                          setFrontImageMutation.mutate({ discoveryId: currentDiscovery.id, plantId: expandedPlant.id });
+                          setFrontImageMutation.mutate({ discoveryId: currentDiscovery.id });
                         }}
                         className={`absolute bottom-3 left-3 w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all backdrop-blur-sm ${
                           expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_front_image 
                             ? 'bg-amber-500/80 hover:bg-amber-600/80' 
                             : 'bg-white/60 hover:bg-white/80'
                         }`}
-                        title="Als Hauptbild festlegen"
+                        title="Als Gattungsbild festlegen"
                       >
                         <Star className={`w-5 h-5 ${
                           expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_front_image 
