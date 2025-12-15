@@ -269,7 +269,7 @@ export default function Collection() {
       </div>
 
       {/* Content with top padding for fixed filter */}
-      <div className="max-w-7xl mx-auto pt-36">
+      <div className="max-w-7xl mx-auto pt-32">
 
         {filteredGenera.length === 0 ? (
           <div className="text-center py-20">
