@@ -204,17 +204,21 @@ export default function Collection() {
       {/* Fixed Filter Bar */}
       <div className="fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md shadow-sm border-b border-stone-200">
         <div className="max-w-7xl mx-auto px-4 py-2">
-          <h1 className="text-center text-lg font-bold text-stone-900 mb-2">
-            {user?.display_name || user?.full_name || 'Dein'}'s PlantDex
-          </h1>
-          
-          <div className="flex items-center justify-between gap-4 mb-2">
-            <div className="text-center">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <div className="text-center flex-1">
               <div className="text-sm font-bold text-green-700">{discoveredCount}/{totalCount}</div>
               <div className="text-[10px] font-medium text-stone-600">Gattungen</div>
             </div>
+            
             <div className="h-6 w-px bg-stone-200"></div>
-            <div className="text-center">
+            
+            <h1 className="text-center flex-1 font-bold text-stone-900 text-xs sm:text-sm md:text-base lg:text-lg truncate px-1">
+              {user?.display_name || user?.full_name || 'Dein'}'s PlantDex
+            </h1>
+            
+            <div className="h-6 w-px bg-stone-200"></div>
+            
+            <div className="text-center flex-1">
               <div className="text-sm font-bold text-amber-700">{discoveredSpecies}/{totalSpecies}</div>
               <div className="text-[10px] font-medium text-stone-600">Arten</div>
             </div>
