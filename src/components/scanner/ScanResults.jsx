@@ -564,8 +564,8 @@ export default function ScanResults({
                       }
                       </div>
 
-                  {/* XP Belohnung */}
-                  {currentPlant.xpAwarded !== undefined && isPrimaryResult && !isPendingConfirmation &&
+                  {/* XP Belohnung - nur bei bestätigten Scans */}
+                  {currentPlant.xpAwarded !== undefined && !isPendingConfirmation &&
                   <div className="bg-gradient-to-r from-amber-400 to-yellow-400 rounded-xl p-4 border-2 border-amber-500 shadow-lg">
                       <div className="flex items-center justify-center gap-3 flex-wrap">
                         <Sparkles className="w-6 h-6 text-white animate-pulse" />
@@ -577,29 +577,6 @@ export default function ScanResults({
                         <Sparkles className="w-6 h-6 text-white animate-pulse" />
                       </div>
                     </div>
-                  }
-
-                  {/* Alternative Ergebnisse: Button zum Ändern */}
-                  {latestDiscoveryId && !isPrimaryResult && showChangeResultButton && !isPendingConfirmation &&
-                  <Button
-                    onClick={handleChangeResult}
-                    disabled={isChanging}
-                    variant="outline"
-                    size="sm"
-                    className="w-full border border-amber-200 hover:bg-amber-50 text-amber-700">
-
-                      {isChanging ?
-                    <>
-                          <RotateCcw className="w-4 h-4 mr-1 animate-spin" />
-                          Wird geändert...
-                        </> :
-
-                    <>
-                          <RefreshCw className="w-4 h-4 mr-1" />
-                          Als Ergebnis verwenden
-                        </>
-                    }
-                    </Button>
                   }
                 </CardContent>
 
