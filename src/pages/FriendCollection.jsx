@@ -205,57 +205,26 @@ export default function FriendCollection() {
     <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4 md:p-8">
       <MobileBackButton backUrl={createPageUrl(`FriendProfile?email=${friendEmail}`)} />
       
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-6">
-          <div className="flex flex-col items-center relative mb-4">
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(window.location.href);
-                setCopiedMessage(true);
-                setTimeout(() => setCopiedMessage(false), 2000);
-              }}
-              className="flex items-center justify-center gap-4 p-2 rounded-lg hover:bg-stone-100 transition-colors duration-200 cursor-pointer"
-            >
-              <div className="w-16 h-16 bg-gradient-to-br from-green-600 to-emerald-600 rounded-full flex items-center justify-center overflow-hidden shadow-lg">
-                {friendUser.avatar_url ? (
-                  <img src={friendUser.avatar_url} alt={friendUser.full_name} className="w-full h-full object-cover" />
-                ) : (
-                  <img src={LOGO_URL} alt="PlantDex" className="w-8 h-8 object-contain" />
-                )}
-              </div>
-              <div className="text-left">
-                <h1 className="text-3xl md:text-4xl font-bold text-stone-900">
-                  {friendUser.full_name}'s PlantDex
-                </h1>
-                <p className="text-lg text-stone-600">
-                  Level {friendUser.level || 1} • {friendUser.selected_title || friendUser.title || "Pflanzen-Anfänger"}
-                </p>
-              </div>
-            </button>
-            {copiedMessage && (
-              <Badge className="mt-2 bg-green-500 text-white shadow-sm">
-                Link kopiert!
-              </Badge>
-            )}
-          </div>
-        </div>
-
-        {/* Compact Filter Container */}
-        <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-4 mb-6 max-w-4xl mx-auto">
-          <div className="flex items-center justify-between gap-6 mb-4">
-            <div className="flex items-center gap-3">
-              <div className="text-center">
-                <div className="text-xl font-bold text-green-700">{totalDiscoveredGenera} / {totalGeneraCount}</div>
-                <div className="text-xs font-medium text-stone-600">Gattungen</div>
-              </div>
+      {/* Fixed Filter Bar */}
+      <div className="fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md shadow-sm border-b border-stone-200">
+        <div className="max-w-7xl mx-auto px-4 py-2">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <div className="text-center flex-1">
+              <div className="text-sm font-bold text-green-700">{totalDiscoveredGenera}/{totalGeneraCount}</div>
+              <div className="text-[10px] font-medium text-stone-600">Gattungen</div>
             </div>
-            <div className="h-8 w-px bg-stone-200"></div>
-            <div className="flex items-center gap-3">
-              <div className="text-center">
-                <div className="text-xl font-bold text-amber-700">{friendDiscoveries.length} / {plants.length}</div>
-                <div className="text-xs font-medium text-stone-600">Arten</div>
-              </div>
+            
+            <div className="h-6 w-px bg-stone-200"></div>
+            
+            <h1 className="text-center flex-1 font-bold text-stone-900 text-xs sm:text-sm md:text-base lg:text-lg px-1 leading-tight line-clamp-2">
+              {friendUser.display_name || friendUser.full_name}'s PlantDex
+            </h1>
+            
+            <div className="h-6 w-px bg-stone-200"></div>
+            
+            <div className="text-center flex-1">
+              <div className="text-sm font-bold text-amber-700">{friendDiscoveries.length}/{plants.length}</div>
+              <div className="text-[10px] font-medium text-stone-600">Arten</div>
             </div>
           </div>
 
