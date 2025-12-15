@@ -67,7 +67,7 @@ export default function HintDialog({ genus, isOpen, onClose }) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md w-[95vw] sm:w-full">
         <DialogHeader>
           <div className="flex items-center justify-between mb-2 pr-8">
             <DialogTitle className="text-2xl font-bold text-stone-900 flex items-center gap-2">
