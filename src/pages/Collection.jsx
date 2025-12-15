@@ -212,7 +212,7 @@ export default function Collection() {
             
             <div className="h-6 w-px bg-stone-200"></div>
             
-            <h1 className="text-center flex-1 font-bold text-stone-900 text-xs sm:text-sm md:text-base lg:text-lg truncate px-1">
+            <h1 className="text-center flex-1 font-bold text-stone-900 text-xs sm:text-sm md:text-base lg:text-lg px-1 leading-tight line-clamp-2">
               {user?.display_name || user?.full_name || 'Dein'}'s PlantDex
             </h1>
             
