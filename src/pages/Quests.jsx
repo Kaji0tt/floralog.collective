@@ -58,6 +58,9 @@ export default function Quests() {
   const [questExpanded, setQuestExpanded] = useState(false);
   const [selectedDiscovery, setSelectedDiscovery] = useState(null);
   const [imageIndexes, setImageIndexes] = useState({});
+  const [userLocation, setUserLocation] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedPlantForSighting, setSelectedPlantForSighting] = useState(null);
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
@@ -98,6 +101,18 @@ export default function Quests() {
       setUser(currentUser);
     };
     loadUser();
+    
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+        },
+        (error) => console.log("Location error:", error)
+      );
+    }
   }, []);
 
   useEffect(() => {
@@ -235,14 +250,14 @@ export default function Quests() {
           <div className="fixed top-0 left-0 right-0 z-40 bg-white shadow-sm border-b border-stone-200">
             <div className="max-w-7xl mx-auto">
               <TabsList className="grid w-full grid-cols-3 bg-white h-12 rounded-none border-0">
-                <TabsTrigger value="weekly" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-none">
+                <TabsTrigger value="weekly" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5">
                   🏆 Wöchentlich
                 </TabsTrigger>
-                <TabsTrigger value="missions" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-none">
-                  📋 Missionen
+                <TabsTrigger value="local" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5">
+                  📍 Lokal
                 </TabsTrigger>
-                <TabsTrigger value="completed" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-none">
-                  ✅ Erledigt
+                <TabsTrigger value="sightings" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5">
+                  🔍 Sichtungen
                 </TabsTrigger>
               </TabsList>
               
@@ -456,17 +471,245 @@ export default function Quests() {
             )}
           </TabsContent>
 
-          {/* Placeholder Tabs */}
-          <TabsContent value="missions" className="pt-24 px-4">
-            <div className="text-center py-20">
-              <p className="text-stone-600">Missionen folgen bald...</p>
-            </div>
+          {/* Lokal Tab */}
+          <TabsContent value="local" className="pt-24 px-4 pb-4">
+            {userLocation ? (
+              <div className="h-[calc(100vh-160px)] rounded-xl overflow-hidden border-2 border-stone-200 shadow-lg">
+                <MapContainer
+                  center={[userLocation.lat, userLocation.lng]}
+                  zoom={12}
+                  style={{ height: '100%', width: '100%' }}
+                  className="z-0"
+                >
+                  <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  />
+                  
+                  {allDiscoveries
+                    .filter(d => {
+                      const discoveryUser = allUsers.find(u => u.user_email === d.user || u.user_email === d.created_by);
+                      if (!discoveryUser || discoveryUser.local_tracking === false) return false;
+                      
+                      if (!d.discovery_location) return false;
+                      const coords = d.discovery_location.split(',');
+                      if (coords.length !== 2) return false;
+                      const lat = parseFloat(coords[0].trim());
+                      const lng = parseFloat(coords[1].trim());
+                      if (isNaN(lat) || isNaN(lng)) return false;
+                      
+                      const distance = calculateDistance(userLocation.lat, userLocation.lng, lat, lng);
+                      return distance <= 20;
+                    })
+                    .map((discovery) => {
+                      const coords = discovery.discovery_location.split(',');
+                      const lat = parseFloat(coords[0].trim());
+                      const lng = parseFloat(coords[1].trim());
+                      const plant = plants.find(p => p.id === discovery.plant_id);
+                      const discoveryUser = allUsers.find(u => u.user_email === d.user || u.user_email === d.created_by);
+                      const userColor = getColorForUser(discoveryUser?.user_email, allUsers);
+                      
+                      return (
+                        <Marker
+                          key={discovery.id}
+                          position={[lat, lng]}
+                          icon={createColoredIcon(userColor)}
+                        >
+                          <Popup>
+                            <div className="text-sm">
+                              <p className="font-bold">{plant?.species_name}</p>
+                              <p className="text-xs italic text-stone-600">{plant?.scientific_name}</p>
+                              <p className="text-xs text-stone-500 mt-1">
+                                von {discoveryUser?.display_name || discoveryUser?.full_name}
+                              </p>
+                              {discovery.image_url && (
+                                <img src={discovery.image_url} alt="" className="w-32 h-32 object-cover mt-2 rounded" />
+                              )}
+                            </div>
+                          </Popup>
+                        </Marker>
+                      );
+                    })}
+                    
+                  <Marker position={[userLocation.lat, userLocation.lng]} icon={createColoredIcon('#ef4444')}>
+                    <Popup>
+                      <p className="text-sm font-bold">📍 Dein Standort</p>
+                    </Popup>
+                  </Marker>
+                </MapContainer>
+              </div>
+            ) : (
+              <div className="text-center py-20">
+                <MapPin className="w-16 h-16 text-stone-400 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-stone-900 mb-2">Standort wird geladen...</h3>
+                <p className="text-stone-600">Bitte erlaube den Zugriff auf deinen Standort</p>
+              </div>
+            )}
           </TabsContent>
 
-          <TabsContent value="completed" className="pt-24 px-4">
-            <div className="text-center py-20">
-              <p className="text-stone-600">Erledigte Quests folgen bald...</p>
+          {/* Sichtungen Tab */}
+          <TabsContent value="sightings" className="pt-24 px-4 pb-4">
+            <div className="mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                <Input
+                  type="text"
+                  placeholder="Suche nach Art oder Gattung..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 bg-white/70 backdrop-blur-md border-stone-200"
+                />
+              </div>
+              
+              {searchQuery.length > 1 && !selectedPlantForSighting && (
+                <div className="mt-2 bg-white/90 backdrop-blur-md rounded-lg border border-stone-200 shadow-lg max-h-60 overflow-y-auto">
+                  {genera
+                    .filter(g => 
+                      g.genus_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      g.scientific_genus?.toLowerCase().includes(searchQuery.toLowerCase())
+                    )
+                    .slice(0, 5)
+                    .map(genus => (
+                      <button
+                        key={`genus-${genus.id}`}
+                        onClick={() => setSelectedPlantForSighting({ type: 'genus', data: genus })}
+                        className="w-full text-left px-4 py-2 hover:bg-stone-50 border-b border-stone-100 last:border-0"
+                      >
+                        <p className="text-sm font-bold text-stone-900">{genus.genus_name}</p>
+                        <p className="text-xs text-stone-500">Gattung · {genus.scientific_genus}</p>
+                      </button>
+                    ))}
+                  {plants
+                    .filter(p => 
+                      p.species_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      p.scientific_name?.toLowerCase().includes(searchQuery.toLowerCase())
+                    )
+                    .slice(0, 5)
+                    .map(plant => (
+                      <button
+                        key={`plant-${plant.id}`}
+                        onClick={() => setSelectedPlantForSighting({ type: 'species', data: plant })}
+                        className="w-full text-left px-4 py-2 hover:bg-stone-50 border-b border-stone-100 last:border-0"
+                      >
+                        <p className="text-sm font-bold text-stone-900">{plant.species_name}</p>
+                        <p className="text-xs text-stone-500">Art · {plant.scientific_name}</p>
+                      </button>
+                    ))}
+                </div>
+              )}
             </div>
+
+            {selectedPlantForSighting && (
+              <div className="mb-4">
+                <div className="flex items-center justify-between p-3 bg-white/90 backdrop-blur-md rounded-full border border-green-200">
+                  <div>
+                    <p className="text-sm font-bold text-stone-900">
+                      {selectedPlantForSighting.type === 'genus' 
+                        ? selectedPlantForSighting.data.genus_name 
+                        : selectedPlantForSighting.data.species_name}
+                    </p>
+                    <p className="text-xs text-stone-500">
+                      {selectedPlantForSighting.type === 'genus' ? 'Gattung' : 'Art'}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedPlantForSighting(null);
+                      setSearchQuery("");
+                    }}
+                    className="h-8"
+                  >
+                    Ändern
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {selectedPlantForSighting ? (
+              <div className="h-[calc(100vh-240px)] rounded-xl overflow-hidden border-2 border-stone-200 shadow-lg">
+                <MapContainer
+                  center={userLocation ? [userLocation.lat, userLocation.lng] : [51.1657, 10.4515]}
+                  zoom={6}
+                  style={{ height: '100%', width: '100%' }}
+                  className="z-0"
+                >
+                  <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  />
+                  
+                  {(() => {
+                    const relevantDiscoveries = selectedPlantForSighting.type === 'genus'
+                      ? allDiscoveries.filter(d => {
+                          const plant = plants.find(p => p.id === d.plant_id);
+                          return plant && 
+                            plant.genus_category === selectedPlantForSighting.data.category &&
+                            plant.genus_number === selectedPlantForSighting.data.category_dex_number &&
+                            d.discovery_location;
+                        })
+                      : allDiscoveries.filter(d => 
+                          d.plant_id === selectedPlantForSighting.data.id && d.discovery_location
+                        );
+                    
+                    const bounds = relevantDiscoveries
+                      .filter(d => {
+                        const coords = d.discovery_location.split(',');
+                        return coords.length === 2 && !isNaN(parseFloat(coords[0])) && !isNaN(parseFloat(coords[1]));
+                      })
+                      .map(d => {
+                        const coords = d.discovery_location.split(',');
+                        return [parseFloat(coords[0].trim()), parseFloat(coords[1].trim())];
+                      });
+                    
+                    return (
+                      <>
+                        {bounds.length > 0 && <MapController bounds={bounds} />}
+                        {relevantDiscoveries.map((discovery) => {
+                          const coords = discovery.discovery_location.split(',');
+                          if (coords.length !== 2) return null;
+                          const lat = parseFloat(coords[0].trim());
+                          const lng = parseFloat(coords[1].trim());
+                          if (isNaN(lat) || isNaN(lng)) return null;
+                          
+                          const plant = plants.find(p => p.id === discovery.plant_id);
+                          const discoveryUser = allUsers.find(u => u.user_email === discovery.user || u.user_email === discovery.created_by);
+                          const userColor = getColorForUser(discoveryUser?.user_email, allUsers);
+                          
+                          return (
+                            <Marker
+                              key={discovery.id}
+                              position={[lat, lng]}
+                              icon={createColoredIcon(userColor)}
+                            >
+                              <Popup>
+                                <div className="text-sm">
+                                  <p className="font-bold">{plant?.species_name}</p>
+                                  <p className="text-xs italic text-stone-600">{plant?.scientific_name}</p>
+                                  <p className="text-xs text-stone-500 mt-1">
+                                    von {discoveryUser?.display_name || discoveryUser?.full_name}
+                                  </p>
+                                  {discovery.image_url && (
+                                    <img src={discovery.image_url} alt="" className="w-32 h-32 object-cover mt-2 rounded" />
+                                  )}
+                                </div>
+                              </Popup>
+                            </Marker>
+                          );
+                        })}
+                      </>
+                    );
+                  })()}
+                </MapContainer>
+              </div>
+            ) : (
+              <div className="text-center py-20">
+                <Search className="w-16 h-16 text-stone-400 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-stone-900 mb-2">Suche eine Pflanze</h3>
+                <p className="text-stone-600">Gib eine Art oder Gattung ein, um alle Sichtungen zu sehen</p>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
 
