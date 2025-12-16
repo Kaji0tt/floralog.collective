@@ -970,12 +970,24 @@ export default function Quests() {
                       ).length} Likes
                     </span>
                   </div>
-                  <span className="text-stone-400">•</span>
-                  <p className="text-xs text-stone-500">
-                    {selectedDiscovery.discovery.created_date || selectedDiscovery.discovery.discovered_date
-                      ? format(new Date(selectedDiscovery.discovery.created_date || selectedDiscovery.discovery.discovered_date), "d. MMMM yyyy, HH:mm", { locale: de })
-                      : 'Datum unbekannt'}
-                  </p>
+                  {(() => {
+                    const dateStr = selectedDiscovery.discovery.created_date || selectedDiscovery.discovery.discovered_date;
+                    if (!dateStr) return null;
+                    try {
+                      const date = new Date(dateStr);
+                      if (isNaN(date.getTime())) return null;
+                      return (
+                        <>
+                          <span className="text-stone-400">•</span>
+                          <p className="text-xs text-stone-500">
+                            {format(date, "d. MMMM yyyy, HH:mm", { locale: de })}
+                          </p>
+                        </>
+                      );
+                    } catch (error) {
+                      return null;
+                    }
+                  })()}
                 </div>
               </div>
             </div>
