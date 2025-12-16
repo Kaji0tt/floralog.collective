@@ -803,9 +803,11 @@ export default function Quests() {
               </div>
             ) : (
               <div className="text-center py-20">
-                <Search className="w-16 h-16 text-stone-400 mx-auto mb-4" />
-                <h3 className="text-xl font-bold text-stone-900 mb-2">Suche eine Pflanze</h3>
-                <p className="text-stone-600">Gib eine Art oder Gattung ein, um alle Sichtungen zu sehen</p>
+                <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 max-w-md mx-auto border border-stone-200 shadow-lg">
+                  <Search className="w-16 h-16 text-stone-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-stone-900 mb-2">Suche eine Pflanze</h3>
+                  <p className="text-stone-600">Gib eine Art oder Gattung ein, um alle Sichtungen zu sehen</p>
+                </div>
               </div>
             )}
           </TabsContent>
