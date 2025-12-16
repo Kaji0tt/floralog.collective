@@ -149,25 +149,22 @@ export default function GenusDetail() {
 
   const setFrontImageMutation = useMutation({
     mutationFn: async ({ discoveryId, plantId }) => {
-      // Setze is_front_image = false für alle anderen Scans derselben Art
-      const plantDiscoveries = userDiscoveries.filter(d => d.plant_id === plantId && d.id !== discoveryId);
-      await Promise.all(
-        plantDiscoveries.map(d => 
-          base44.entities.UserPlantDiscovery.update(d.id, { is_front_image: false })
-        )
-      );
-      
-      // Setze is_genus_image = false für alle anderen Scans der Gattung
-      const genusDiscoveries = userDiscoveries.filter(d => {
+      // Hole alle Discoveries der Gattung (außer dem ausgewählten)
+      const allGenusDiscoveries = userDiscoveries.filter(d => {
         const plant = plants.find(p => p.id === d.plant_id);
         return plant && selectedGenus && 
                plant.genus_category === selectedGenus.category && 
                plant.genus_number === selectedGenus.category_dex_number &&
                d.id !== discoveryId;
       });
+      
+      // Setze beide Flags auf false für alle anderen Scans der Gattung
       await Promise.all(
-        genusDiscoveries.map(d => 
-          base44.entities.UserPlantDiscovery.update(d.id, { is_genus_image: false })
+        allGenusDiscoveries.map(d => 
+          base44.entities.UserPlantDiscovery.update(d.id, { 
+            is_front_image: false,
+            is_genus_image: false 
+          })
         )
       );
       
