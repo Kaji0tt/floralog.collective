@@ -393,6 +393,29 @@ export default function Home() {
           --profile-bg-color-dark: ${averageColor ? getDarkerColor(averageColor) : 'rgb(220, 252, 231)'};
           --profile-border-color: ${averageColor ? getRgbaFromRgb(averageColor, 0.4) : 'rgb(134, 239, 172)'};
         }
+        @media (max-height: 700px) {
+          .short-screen\\:hidden {
+            display: none !important;
+          }
+          .short-screen\\:w-7 {
+            width: 1.75rem !important;
+          }
+          .short-screen\\:h-7 {
+            height: 1.75rem !important;
+          }
+          .short-screen\\:w-3\\.5 {
+            width: 0.875rem !important;
+          }
+          .short-screen\\:h-3\\.5 {
+            height: 0.875rem !important;
+          }
+          .short-screen\\:p-1\\.5 {
+            padding: 0.375rem !important;
+          }
+          .short-screen\\:gap-0\\.5 {
+            gap: 0.125rem !important;
+          }
+        }
       `}</style>
       <div 
         className="h-screen min-w-full p-4 md:p-8 fixed inset-0 overflow-hidden flex flex-col" 
@@ -658,19 +681,19 @@ export default function Home() {
                     transition={{ delay: 0.1 + index * 0.05 }}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="bg-white/60 backdrop-blur-md rounded-xl p-3 md:p-4 hover:shadow-lg transition-all duration-300 group"
+                    className="bg-white/60 backdrop-blur-md rounded-xl p-2 short-screen:p-1.5 md:p-4 hover:shadow-lg transition-all duration-300 group"
                     style={{
                       borderWidth: '2px',
                       borderStyle: 'solid',
                       borderColor: averageColor ? 'var(--profile-border-color)' : stat.borderColor.replace('border-', '').replace('-200', '')
                     }}
                   >
-                    <div className="flex flex-col items-center gap-2">
-                      <div className={`w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br ${stat.color} rounded-full flex items-center justify-center shadow-md group-hover:scale-110 transition-transform`}>
-                        <stat.icon className="w-5 h-5 md:w-6 md:h-6 text-white" />
+                    <div className="flex flex-col items-center gap-1 short-screen:gap-0.5 md:gap-2">
+                      <div className={`w-8 h-8 short-screen:w-7 short-screen:h-7 md:w-12 md:h-12 bg-gradient-to-br ${stat.color} rounded-full flex items-center justify-center shadow-md group-hover:scale-110 transition-transform`}>
+                        <stat.icon className="w-4 h-4 short-screen:w-3.5 short-screen:h-3.5 md:w-6 md:h-6 text-white" />
                       </div>
-                      <div className="text-2xl md:text-3xl font-bold text-stone-700">{stat.value}</div>
-                      <div className="text-xs font-semibold text-stone-600 hidden sm:block">{stat.label}</div>
+                      <div className="text-xl short-screen:hidden md:text-3xl font-bold text-stone-700">{stat.value}</div>
+                      <div className="text-xs font-semibold text-stone-600 hidden sm:block short-screen:hidden">{stat.label}</div>
                     </div>
                   </motion.button>
                 ))}
