@@ -569,7 +569,7 @@ export default function Quests() {
                       const lat = parseFloat(coords[0].trim());
                       const lng = parseFloat(coords[1].trim());
                       const plant = plants.find(p => p.id === discovery.plant_id);
-                      const discoveryUser = allUsers.find(u => u.user_email === d.user || u.user_email === d.created_by);
+                      const discoveryUser = allUsers.find(u => u.user_email === discovery.user || u.user_email === discovery.created_by);
                       const userColor = getColorForUser(discoveryUser?.user_email, allUsers);
                       
                       return (
