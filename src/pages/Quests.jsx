@@ -2,30 +2,17 @@ import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Trophy, Target, Award, Loader2, CheckCircle2, Lock, Leaf } from "lucide-react";
+import { Heart, Users, TrendingUp, Clock, Leaf, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import QuestCompletionAnimation from "../components/quests/QuestCompletionAnimation";
-import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
-import AchievementNotification from "../components/achievements/AchievementNotification";
-import { awardXP, getTitleForLevel, getXPProgressInLevel } from "../components/utils/xpSystem";
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { format } from "date-fns";
+import { de } from "date-fns/locale";
 import MobileBackButton from "../components/navigation/MobileBackButton";
-import { 
-  getCurrentMonthlyQuest, 
-  getCurrentWeeklyQuest, 
-  isMonthlyQuestCompletedThisMonth, 
-  isWeeklyQuestCompletedThisWeek,
-  getOrCreateActiveMonthlyQuest,
-  getOrCreateActiveWeeklyQuest,
-  getTodayString,
-  getWeekNumber,
-  getMonthString
-} from "../components/quests/QuestRotationHelper";
-
-const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
+import { getCurrentWeeklyQuest, getWeekNumber } from "../components/quests/QuestRotationHelper";
 
 const getAverageColor = (imageUrl) => {
   return new Promise((resolve) => {
@@ -62,14 +49,12 @@ const getAverageColor = (imageUrl) => {
 };
 
 export default function Quests() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
-  const [showCompletionAnimation, setShowCompletionAnimation] = useState(false);
-  const [completedQuestXP, setCompletedQuestXP] = useState(0);
-  const [newAchievements, setNewAchievements] = useState([]);
-  const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
-  const [activeTab, setActiveTab] = useState("active");
+  const [activeTab, setActiveTab] = useState("weekly");
   const [averageColor, setAverageColor] = useState(null);
+  const [sortFilter, setSortFilter] = useState("newest");
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
@@ -81,49 +66,27 @@ export default function Quests() {
     queryFn: () => base44.entities.PlantGenus.list(),
   });
 
-  const { data: userDiscoveries = [] } = useQuery({
-    queryKey: ['userDiscoveries'],
-    queryFn: () => base44.entities.UserPlantDiscovery.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
-  });
-
-  const { data: quests = [] } = useQuery({
-    queryKey: ['quests'],
-    queryFn: () => base44.entities.Quest.list('quest_number'),
-  });
-
-  const { data: userQuests = [] } = useQuery({
-    queryKey: ['userQuests'],
-    queryFn: () => base44.entities.UserQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
-  });
-
-  const { data: friends = [] } = useQuery({
-    queryKey: ['friends'],
-    queryFn: () => base44.entities.Friend.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
-  });
-
-  const { data: monthlyQuests = [] } = useQuery({
-    queryKey: ['monthlyQuests'],
-    queryFn: () => base44.entities.MonthlyQuest.list('quest_number'),
-  });
-
   const { data: weeklyQuests = [] } = useQuery({
     queryKey: ['weeklyQuests'],
     queryFn: () => base44.entities.WeeklyQuest.list('quest_number'),
   });
 
-  const { data: userMonthlyQuests = [] } = useQuery({
-    queryKey: ['userMonthlyQuests'],
-    queryFn: () => base44.entities.UserMonthlyQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
+  const { data: allUsers = [] } = useQuery({
+    queryKey: ['allUsers'],
+    queryFn: async () => {
+      const users = await base44.entities.PublicProfile.list();
+      return users.filter(u => u.weekly_tracking !== false);
+    },
   });
 
-  const { data: userWeeklyQuests = [] } = useQuery({
-    queryKey: ['userWeeklyQuests'],
-    queryFn: () => base44.entities.UserWeeklyQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
+  const { data: allDiscoveries = [] } = useQuery({
+    queryKey: ['allDiscoveries'],
+    queryFn: () => base44.entities.UserPlantDiscovery.list('-created_date'),
+  });
+
+  const { data: scanLikes = [] } = useQuery({
+    queryKey: ['scanLikes'],
+    queryFn: () => base44.entities.ScanLike.list(),
   });
 
   useEffect(() => {
@@ -146,87 +109,26 @@ export default function Quests() {
     }
   }, [user?.background_image_url, user?.background_color]);
 
-  const updateUserMutation = useMutation({
-    mutationFn: (data) => base44.auth.updateMe(data),
-    onSuccess: async () => {
-      queryClient.invalidateQueries({ queryKey: ['user'] });
-      queryClient.invalidateQueries({ queryKey: ['me'] }); // Invalidate 'me' query to refetch user data
-      const currentUser = await base44.auth.me(); // Re-fetch user data to update local state
-      setUser(currentUser);
-    },
-  });
-
-  const completeQuestMutation = useMutation({
-    mutationFn: async (questId) => {
-      const existingUserQuest = userQuests.find(uq => uq.quest_id === questId);
-      if (existingUserQuest) {
-        return base44.entities.UserQuest.update(existingUserQuest.id, {
-          completed: true,
-          completed_date: new Date().toISOString()
-        });
+  const toggleLikeMutation = useMutation({
+    mutationFn: async (discoveryId) => {
+      const existingLike = scanLikes.find(
+        like => like.discovery_id === discoveryId && like.liked_by === user.email
+      );
+      
+      if (existingLike) {
+        await base44.entities.ScanLike.delete(existingLike.id);
       } else {
-        return base44.entities.UserQuest.create({
-          quest_id: questId,
-          completed: true,
-          completed_date: new Date().toISOString(),
-          created_by: user?.email
+        await base44.entities.ScanLike.create({
+          discovery_id: discoveryId,
+          liked_by: user.email,
+          liked_date: new Date().toISOString()
         });
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['userQuests'] });
+      queryClient.invalidateQueries({ queryKey: ['scanLikes'] });
     },
   });
-
-  const completeMonthlyQuestMutation = useMutation({
-    mutationFn: async (userQuestId) => {
-      return base44.entities.UserMonthlyQuest.update(userQuestId, {
-        completed: true,
-        completed_date: new Date().toISOString()
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['userMonthlyQuests'] });
-    },
-  });
-
-  const completeWeeklyQuestMutation = useMutation({
-    mutationFn: async (userQuestId) => {
-      return base44.entities.UserWeeklyQuest.update(userQuestId, {
-        completed: true,
-        completed_date: new Date().toISOString()
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
-    },
-  });
-
-  const updatePublicProfile = async (userData) => {
-    try {
-      const profiles = await base44.entities.PublicProfile.list();
-      const existingProfile = profiles.find(p => p.user_email?.toLowerCase() === userData.email?.toLowerCase());
-
-      const profileData = {
-        user_email: userData.email,
-        display_name: userData.display_name || userData.full_name,
-        full_name: userData.full_name,
-        level: userData.level || 1,
-        xp: userData.xp || 0,
-        title: userData.title,
-        selected_title: userData.selected_title,
-        avatar_url: userData.avatar_url
-      };
-
-      if (existingProfile) {
-        await base44.entities.PublicProfile.update(existingProfile.id, profileData);
-      } else {
-        await base44.entities.PublicProfile.create(profileData);
-      }
-    } catch (error) {
-      console.error("PublicProfile Update Fehler:", error);
-    }
-  };
 
   if (!user) {
     return (
@@ -236,183 +138,63 @@ export default function Quests() {
     );
   }
 
-  const currentLevel = user.level || 1;
-  const currentXP = user.xp || 0;
-
-  const discoveredPlants = userDiscoveries.length;
-  const discoveredGenera = genera.filter(g => {
-    const genusPlants = plants.filter(p => p.genus_id === g.id);
-    return genusPlants.some(p => userDiscoveries.some(d => d.plant_id === p.id));
-  }).length;
-  const completedQuests = userQuests.filter(uq => uq.completed).length;
-
-  const calculateQuestProgress = (quest) => {
-    if (!quest || !quest.required_discoveries || quest.required_discoveries === 0) return 0;
-    
-    if (quest.category === "Alle") {
-      return Math.min(discoveredGenera, quest.required_discoveries);
-    } else {
-      const categoryGenera = genera.filter(g => g.category === quest.category);
-      const discoveredInCategory = categoryGenera.filter(g => {
-        const genusPlants = plants.filter(p => p.genus_id === g.id);
-        return genusPlants.some(p => userDiscoveries.some(d => d.plant_id === p.id));
-      }).length;
-      return Math.min(discoveredInCategory, quest.required_discoveries);
-    }
-  };
-
-  const handleCompleteQuest = async (quest) => {
-    const progress = calculateQuestProgress(quest);
-    const isCompleted = progress >= quest.required_discoveries;
-    const alreadyCompleted = userQuests.some(uq => uq.quest_id === quest.id && uq.completed);
-
-    if (isCompleted && !alreadyCompleted) {
-      await completeQuestMutation.mutateAsync(quest.id);
-      
-      const currentXP = user.xp || 0;
-      const { newXP, newLevel, newTitle } = awardXP(currentXP, quest.xp_reward);
-
-      setCompletedQuestXP(quest.xp_reward);
-      setShowCompletionAnimation(true);
-
-      setTimeout(async () => {
-        await updateUserMutation.mutateAsync({
-          xp: newXP,
-          level: newLevel,
-          title: newTitle
-        });
-        
-        const freshUser = await base44.auth.me();
-        await updatePublicProfile(freshUser);
-
-        const newlyUnlocked = await checkAndUnlockAchievements(freshUser);
-        if (newlyUnlocked.length > 0) {
-          setNewAchievements(newlyUnlocked);
-          setCurrentAchievementIndex(0);
-        }
-      }, 500);
-    }
-  };
-
-  const handleCompleteMonthlyQuest = async (quest) => {
-    if (!activeMonthlyUserQuest || activeMonthlyUserQuest.completed) return;
-
-    if (isMonthlyCompleted) {
-      await completeMonthlyQuestMutation.mutateAsync(activeMonthlyUserQuest.id);
-      
-      const currentXP = user.xp || 0;
-      const { newXP, newLevel, newTitle } = awardXP(currentXP, quest.xp_reward);
-
-      setCompletedQuestXP(quest.xp_reward);
-      setShowCompletionAnimation(true);
-
-      setTimeout(async () => {
-        await updateUserMutation.mutateAsync({
-          xp: newXP,
-          level: newLevel,
-          title: newTitle
-        });
-        
-        const freshUser = await base44.auth.me();
-        await updatePublicProfile(freshUser);
-
-        const newlyUnlocked = await checkAndUnlockAchievements(freshUser);
-        if (newlyUnlocked.length > 0) {
-          setNewAchievements(newlyUnlocked);
-          setCurrentAchievementIndex(0);
-        }
-      }, 500);
-    }
-  };
-
-  const handleCompleteWeeklyQuest = async (quest) => {
-    if (!activeWeeklyUserQuest || activeWeeklyUserQuest.completed) return;
-
-    if (isWeeklyCompleted) {
-      await completeWeeklyQuestMutation.mutateAsync(activeWeeklyUserQuest.id);
-      
-      const currentXP = user.xp || 0;
-      const { newXP, newLevel, newTitle } = awardXP(currentXP, quest.xp_reward);
-
-      setCompletedQuestXP(quest.xp_reward);
-      setShowCompletionAnimation(true);
-
-      setTimeout(async () => {
-        await updateUserMutation.mutateAsync({
-          xp: newXP,
-          level: newLevel,
-          title: newTitle
-        });
-        
-        const freshUser = await base44.auth.me();
-        await updatePublicProfile(freshUser);
-
-        const newlyUnlocked = await checkAndUnlockAchievements(freshUser);
-        if (newlyUnlocked.length > 0) {
-          setNewAchievements(newlyUnlocked);
-          setCurrentAchievementIndex(0);
-        }
-      }, 500);
-    }
-  };
-
-  // Prüfe ob Prerequisites erfüllt sind
-  const isQuestUnlocked = (quest) => {
-    // Level-Voraussetzung
-    if ((quest.unlocked_at_level || 1) > currentLevel) {
-      return false;
-    }
-    
-    // Prerequisite-Quest Voraussetzung (jetzt mit quest_number statt ID)
-    if (quest.prerequisite_quest_number) {
-      const prerequisiteQuest = quests.find(q => q.quest_number === quest.prerequisite_quest_number);
-      if (prerequisiteQuest) {
-        const prerequisiteCompleted = userQuests.some(
-          uq => uq.quest_id === prerequisiteQuest.id && uq.completed
-        );
-        if (!prerequisiteCompleted) {
-          return false;
-        }
-      }
-    }
-    
-    return true;
-  };
-
-  const availableQuests = quests.filter(q => 
-    isQuestUnlocked(q) &&
-    !userQuests.some(uq => uq.quest_id === q.id && uq.completed)
-  );
-
-  const lockedQuests = quests.filter(q => 
-    !isQuestUnlocked(q) &&
-    !userQuests.some(uq => uq.quest_id === q.id && uq.completed)
-  );
-
-  const completedQuestList = quests.filter(q =>
-    userQuests.some(uq => uq.quest_id === q.id && uq.completed)
-  );
-
-  const currentMonthlyQuest = getCurrentMonthlyQuest(monthlyQuests);
   const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
 
-  // Finde UserQuest-Eintrag, falls vorhanden, ansonsten null
-  const activeMonthlyUserQuest = currentMonthlyQuest 
-    ? userMonthlyQuests.find(umq => umq.monthly_quest_id === currentMonthlyQuest.id && umq.active_month === getMonthString())
-    : null;
-  
-  const activeWeeklyUserQuest = currentWeeklyQuest 
-    ? userWeeklyQuests.find(uwq => uwq.weekly_quest_id === currentWeeklyQuest.id && uwq.active_week === getWeekNumber())
-    : null;
+  // Filtere Discoveries basierend auf wöchentlicher Quest
+  const weeklyDiscoveries = currentWeeklyQuest ? allDiscoveries.filter(d => {
+    // Nur Discoveries von Usern mit weekly_tracking
+    const discoveryUser = allUsers.find(u => u.user_email === d.user || u.user_email === d.created_by);
+    if (!discoveryUser) return false;
 
-  const monthlyProgress = activeMonthlyUserQuest?.progress || 0;
-  const weeklyProgress = activeWeeklyUserQuest?.progress || 0;
+    const plant = plants.find(p => p.id === d.plant_id);
+    if (!plant) return false;
 
-  const isMonthlyCompleted = currentMonthlyQuest && currentMonthlyQuest.required_discoveries > 0 && monthlyProgress >= currentMonthlyQuest.required_discoveries;
-  const isWeeklyCompleted = currentWeeklyQuest && currentWeeklyQuest.required_discoveries > 0 && weeklyProgress >= currentWeeklyQuest.required_discoveries;
+    // Wenn target_species_name gesetzt ist, filtere nach Art
+    if (currentWeeklyQuest.target_species_name) {
+      return plant.species_name === currentWeeklyQuest.target_species_name;
+    }
 
-  const isMonthlyAlreadyCompletedThisMonth = activeMonthlyUserQuest?.completed === true;
-  const isWeeklyAlreadyCompletedThisWeek = activeWeeklyUserQuest?.completed === true;
+    // Wenn target_genus_name gesetzt ist, filtere nach Gattung
+    if (currentWeeklyQuest.target_genus_name) {
+      const genus = genera.find(g => 
+        g.category === plant.genus_category && 
+        g.category_dex_number === plant.genus_number
+      );
+      return genus?.genus_name === currentWeeklyQuest.target_genus_name;
+    }
+
+    // Wenn Kategorie gesetzt ist (aber keine spezifische Gattung/Art), filtere nach Kategorie
+    if (currentWeeklyQuest.category && currentWeeklyQuest.category !== "Alle") {
+      return plant.genus_category === currentWeeklyQuest.category;
+    }
+
+    return true;
+  }) : [];
+
+  // Sortierung anwenden
+  let sortedDiscoveries = [...weeklyDiscoveries];
+  if (sortFilter === "newest") {
+    sortedDiscoveries.sort((a, b) => new Date(b.created_date || b.discovered_date) - new Date(a.created_date || a.discovered_date));
+  } else if (sortFilter === "popular") {
+    sortedDiscoveries.sort((a, b) => {
+      const likesA = scanLikes.filter(like => like.discovery_id === a.id).length;
+      const likesB = scanLikes.filter(like => like.discovery_id === b.id).length;
+      return likesB - likesA;
+    });
+  } else if (sortFilter === "frequent") {
+    // Gruppiere nach User und zähle Scans
+    const userScanCounts = {};
+    weeklyDiscoveries.forEach(d => {
+      const userEmail = d.user || d.created_by;
+      userScanCounts[userEmail] = (userScanCounts[userEmail] || 0) + 1;
+    });
+    
+    sortedDiscoveries.sort((a, b) => {
+      const userA = a.user || a.created_by;
+      const userB = b.user || b.created_by;
+      return userScanCounts[userB] - userScanCounts[userA];
+    });
+  }
 
   const getLighterColor = (rgbString) => {
     if (!rgbString) return null;
@@ -444,418 +226,213 @@ export default function Quests() {
       }}
     >
       <MobileBackButton />
-      
-      {/* Quest Completion Animation */}
-      <AnimatePresence>
-        {showCompletionAnimation && (
-          <QuestCompletionAnimation 
-            xpReward={completedQuestXP}
-            onComplete={() => setShowCompletionAnimation(false)}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Achievement Notifications */}
-      <AnimatePresence>
-        {newAchievements.length > 0 && currentAchievementIndex < newAchievements.length && (
-          <AchievementNotification
-            achievement={newAchievements[currentAchievementIndex]}
-            onComplete={() => {
-              if (currentAchievementIndex < newAchievements.length - 1) {
-                setCurrentAchievementIndex(currentAchievementIndex + 1);
-              } else {
-                setNewAchievements([]);
-                setCurrentAchievementIndex(0);
-              }
-            }}
-          />
-        )}
-      </AnimatePresence>
 
       <div className="max-w-6xl mx-auto">
-
-        {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3 bg-white/80 backdrop-blur-md border border-stone-200 p-1 mb-6">
-            <TabsTrigger value="overview" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold">
-              Übersicht
+            <TabsTrigger value="weekly" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold">
+              🏆 Wöchentlich
             </TabsTrigger>
-            <TabsTrigger value="active" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold">
-              Aktiv ({availableQuests.length})
+            <TabsTrigger value="missions" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold">
+              📋 Missionen
             </TabsTrigger>
             <TabsTrigger value="completed" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold">
-              Fertig ({completedQuestList.length})
+              ✅ Erledigt
             </TabsTrigger>
           </TabsList>
 
-          {/* Übersicht */}
-          <TabsContent value="overview" className="space-y-4">
-            <Card className="border-2 border-stone-200 bg-white/80 backdrop-blur-md">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="w-6 h-6 text-green-600" />
-                  Deine Mission
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <button
-                    onClick={() => setActiveTab("active")}
-                    className="bg-green-50 rounded-lg p-4 border border-green-200 hover:border-green-400 hover:shadow-lg transition-all cursor-pointer text-left"
+          {/* Wöchentliche Community Challenge */}
+          <TabsContent value="weekly" className="space-y-4">
+            {currentWeeklyQuest ? (
+              <>
+                {/* Quest Header Card */}
+                <Card className="border-2 border-emerald-400 bg-white/90 backdrop-blur-md shadow-lg">
+                  <CardHeader>
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        <Badge className="bg-emerald-600 text-white font-bold mb-3">
+                          📆 Wöchentliche Challenge - KW {getWeekNumber().split('-W')[1]}
+                        </Badge>
+                        <CardTitle className="text-2xl text-stone-900 mb-2">{currentWeeklyQuest.title}</CardTitle>
+                        <p className="text-stone-600">{currentWeeklyQuest.description}</p>
+                      </div>
+                    </div>
+                    
+                    {currentWeeklyQuest.target_species_name && (
+                      <Badge variant="outline" className="border-2 border-emerald-500 text-emerald-700 font-bold">
+                        🎯 Ziel: {currentWeeklyQuest.target_species_name}
+                      </Badge>
+                    )}
+                    {currentWeeklyQuest.target_genus_name && !currentWeeklyQuest.target_species_name && (
+                      <Badge variant="outline" className="border-2 border-emerald-500 text-emerald-700 font-bold">
+                        🎯 Ziel: {currentWeeklyQuest.target_genus_name}
+                      </Badge>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-2 text-sm text-stone-600">
+                      <Users className="w-4 h-4" />
+                      <span>{allUsers.length} Teilnehmer aktiv</span>
+                      <span className="mx-2">•</span>
+                      <TrendingUp className="w-4 h-4" />
+                      <span>{weeklyDiscoveries.length} Scans diese Woche</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Filter Buttons */}
+                <div className="flex gap-2 flex-wrap">
+                  <Button
+                    onClick={() => setSortFilter("newest")}
+                    variant={sortFilter === "newest" ? "default" : "outline"}
+                    className={sortFilter === "newest" ? "bg-green-600 hover:bg-green-700" : ""}
                   >
-                    <div className="text-3xl font-bold text-green-700 mb-1">{availableQuests.length}</div>
-                    <div className="text-sm font-semibold text-stone-600">Verfügbare Aufgaben</div>
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("completed")}
-                    className="bg-amber-50 rounded-lg p-4 border border-amber-200 hover:border-amber-400 hover:shadow-lg transition-all cursor-pointer text-left"
+                    <Clock className="w-4 h-4 mr-2" />
+                    Neueste
+                  </Button>
+                  <Button
+                    onClick={() => setSortFilter("popular")}
+                    variant={sortFilter === "popular" ? "default" : "outline"}
+                    className={sortFilter === "popular" ? "bg-green-600 hover:bg-green-700" : ""}
                   >
-                    <div className="text-3xl font-bold text-amber-700 mb-1">{completedQuestList.length}</div>
-                    <div className="text-sm font-semibold text-stone-600">Abgeschlossen</div>
-                  </button>
+                    <Heart className="w-4 h-4 mr-2" />
+                    Beliebteste
+                  </Button>
+                  <Button
+                    onClick={() => setSortFilter("frequent")}
+                    variant={sortFilter === "frequent" ? "default" : "outline"}
+                    className={sortFilter === "frequent" ? "bg-green-600 hover:bg-green-700" : ""}
+                  >
+                    <TrendingUp className="w-4 h-4 mr-2" />
+                    Häufigste
+                  </Button>
                 </div>
+
+                {/* Scans Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {sortedDiscoveries.map((discovery, index) => {
+                    const plant = plants.find(p => p.id === discovery.plant_id);
+                    const genus = genera.find(g => 
+                      plant && g.category === plant.genus_category && 
+                      g.category_dex_number === plant.genus_number
+                    );
+                    const discoveryUser = allUsers.find(u => 
+                      u.user_email === discovery.user || u.user_email === discovery.created_by
+                    );
+                    const likeCount = scanLikes.filter(like => like.discovery_id === discovery.id).length;
+                    const isLiked = scanLikes.some(
+                      like => like.discovery_id === discovery.id && like.liked_by === user.email
+                    );
+
+                    return (
+                      <motion.div
+                        key={discovery.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                      >
+                        <Card className="border-2 border-stone-200 hover:border-green-300 hover:shadow-lg transition-all bg-white/90 backdrop-blur-md overflow-hidden">
+                          {discovery.image_url && (
+                            <img
+                              src={discovery.image_url}
+                              alt={plant?.species_name}
+                              className="w-full h-48 object-cover"
+                            />
+                          )}
+                          <CardContent className="p-4">
+                            {plant && (
+                              <div className="mb-3">
+                                <h3 className="text-lg font-bold text-stone-900">{plant.species_name}</h3>
+                                <p className="text-sm italic text-stone-600">{plant.scientific_name}</p>
+                                {genus && (
+                                  <Badge variant="outline" className="mt-1">
+                                    {genus.genus_name}
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
+
+                            <button
+                              onClick={() => navigate(createPageUrl(`FriendProfile?email=${discoveryUser?.user_email}`))}
+                              className="flex items-center gap-2 mb-3 hover:opacity-70 transition-opacity"
+                            >
+                              <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center">
+                                {discoveryUser?.avatar_url ? (
+                                  <img src={discoveryUser.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                                ) : (
+                                  <Users className="w-4 h-4 text-white" />
+                                )}
+                              </div>
+                              <div className="text-left">
+                                <p className="text-sm font-semibold text-stone-900">
+                                  {discoveryUser?.display_name || discoveryUser?.full_name || 'Unbekannt'}
+                                </p>
+                                <p className="text-xs text-stone-500">
+                                  {format(new Date(discovery.created_date || discovery.discovered_date), "d. MMM yyyy, HH:mm", { locale: de })}
+                                </p>
+                              </div>
+                            </button>
+
+                            <div className="flex items-center gap-2">
+                              <Button
+                                onClick={() => toggleLikeMutation.mutate(discovery.id)}
+                                variant="outline"
+                                size="sm"
+                                disabled={toggleLikeMutation.isPending}
+                                className={isLiked ? "border-red-500 text-red-500" : ""}
+                              >
+                                <Heart className={`w-4 h-4 mr-1 ${isLiked ? 'fill-red-500' : ''}`} />
+                                {likeCount}
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+
+                {sortedDiscoveries.length === 0 && (
+                  <Card className="border-2 border-stone-200 bg-white/80 backdrop-blur-md">
+                    <CardContent className="p-12 text-center">
+                      <Leaf className="w-16 h-16 text-stone-400 mx-auto mb-4" />
+                      <h3 className="text-xl font-bold text-stone-900 mb-2">
+                        Noch keine Scans diese Woche
+                      </h3>
+                      <p className="text-stone-600">
+                        Sei der Erste und scanne eine passende Pflanze!
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            ) : (
+              <Card className="border-2 border-stone-200 bg-white/80 backdrop-blur-md">
+                <CardContent className="p-12 text-center">
+                  <Leaf className="w-16 h-16 text-stone-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-stone-900 mb-2">
+                    Keine wöchentliche Challenge aktiv
+                  </h3>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Placeholder Tabs */}
+          <TabsContent value="missions">
+            <Card className="border-2 border-stone-200 bg-white/80 backdrop-blur-md">
+              <CardContent className="p-12 text-center">
+                <p className="text-stone-600">Missionen folgen bald...</p>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Aktive Aufgaben */}
-          <TabsContent value="active" className="space-y-4">
-            {/* Monatliche Quest */}
-            {currentMonthlyQuest && (
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3 }}
-              >
-                <Card className={`border-2 ${isMonthlyAlreadyCompletedThisMonth ? 'border-green-400 bg-green-50/80 backdrop-blur-md' : 'border-amber-400 bg-white/80 backdrop-blur-md'} hover:shadow-lg transition-all`}>
-                  <CardHeader className="relative">
-                    <div className="absolute top-4 right-4">
-                      <div className="w-14 h-14 bg-gradient-to-br from-amber-500 to-amber-600 rounded-full flex flex-col items-center justify-center shadow-lg">
-                        <span className="text-white font-bold text-sm">+{currentMonthlyQuest.xp_reward}</span>
-                        <span className="text-white text-[9px] font-semibold">XP</span>
-                      </div>
-                    </div>
-                    <div className="pr-20">
-                      <div className="flex items-center gap-3 mb-2">
-                        <Badge className="bg-amber-600 text-white font-bold">
-                          📅 Monatlich
-                        </Badge>
-                        {isMonthlyAlreadyCompletedThisMonth && (
-                          <Badge className="bg-green-600 text-white">
-                            <CheckCircle2 className="w-3 h-3 mr-1" />
-                            Diesen Monat erledigt
-                          </Badge>
-                        )}
-                      </div>
-                      <CardTitle className="text-xl text-stone-900 mb-2">{currentMonthlyQuest.title}</CardTitle>
-                    </div>
-                    <p className="text-stone-600">{currentMonthlyQuest.description}</p>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="mb-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-semibold text-stone-700">
-                          {currentMonthlyQuest.requirement}
-                        </span>
-                        <span className="text-sm font-bold text-amber-700 whitespace-nowrap">
-                          {monthlyProgress} / {currentMonthlyQuest.required_discoveries}
-                        </span>
-                      </div>
-                      <Progress value={(monthlyProgress / currentMonthlyQuest.required_discoveries) * 100} className="h-2 bg-stone-300/80" />
-                      
-                      {currentMonthlyQuest.target_species_name && (
-                        <p className="text-xs text-emerald-700 font-semibold mt-2">
-                          🎯 Spezifische Art: {currentMonthlyQuest.target_species_name}
-                        </p>
-                      )}
-                      {currentMonthlyQuest.target_genus_name && !currentMonthlyQuest.target_species_name && (
-                        <p className="text-xs text-emerald-700 font-semibold mt-2">
-                          🎯 Spezifische Gattung: {currentMonthlyQuest.target_genus_name}
-                        </p>
-                      )}
-                    </div>
-                    
-                    {isMonthlyCompleted && !isMonthlyAlreadyCompletedThisMonth && (
-                      <Button
-                        onClick={() => handleCompleteMonthlyQuest(currentMonthlyQuest)}
-                        className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3"
-                        disabled={completeMonthlyQuestMutation.isPending}
-                      >
-                        {completeMonthlyQuestMutation.isPending ? (
-                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                        ) : (
-                          <Trophy className="w-5 h-5 mr-2" />
-                        )}
-                        Monatliche Aufgabe abschließen!
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-
-            {/* Wöchentliche Quest */}
-            {currentWeeklyQuest && (
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: 0.1 }}
-              >
-                <Card className={`border-2 ${isWeeklyAlreadyCompletedThisWeek ? 'border-green-400 bg-green-50/80 backdrop-blur-md' : 'border-emerald-400 bg-white/80 backdrop-blur-md'} hover:shadow-lg transition-all`}>
-                  <CardHeader className="relative">
-                    <div className="absolute top-4 right-4">
-                      <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex flex-col items-center justify-center shadow-lg">
-                        <span className="text-white font-bold text-sm">+{currentWeeklyQuest.xp_reward}</span>
-                        <span className="text-white text-[9px] font-semibold">XP</span>
-                      </div>
-                    </div>
-                    <div className="pr-20">
-                      <div className="flex items-center gap-3 mb-2">
-                        <Badge className="bg-emerald-600 text-white font-bold">
-                          📆 Wöchentlich
-                        </Badge>
-                        {isWeeklyAlreadyCompletedThisWeek && (
-                          <Badge className="bg-green-600 text-white">
-                            <CheckCircle2 className="w-3 h-3 mr-1" />
-                            Diese Woche erledigt
-                          </Badge>
-                        )}
-                      </div>
-                      <CardTitle className="text-xl text-stone-900 mb-2">{currentWeeklyQuest.title}</CardTitle>
-                    </div>
-                    <p className="text-stone-600">{currentWeeklyQuest.description}</p>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="mb-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-semibold text-stone-700">
-                          {currentWeeklyQuest.requirement}
-                        </span>
-                        <span className="text-sm font-bold text-emerald-700 whitespace-nowrap">
-                          {weeklyProgress} / {currentWeeklyQuest.required_discoveries}
-                        </span>
-                      </div>
-                      <Progress value={(weeklyProgress / currentWeeklyQuest.required_discoveries) * 100} className="h-2 bg-stone-300/80" />
-                      
-                      {currentWeeklyQuest.target_species_name && (
-                        <p className="text-xs text-amber-700 font-semibold mt-2">
-                          🎯 Spezifische Art: {currentWeeklyQuest.target_species_name}
-                        </p>
-                      )}
-                      {currentWeeklyQuest.target_genus_name && !currentWeeklyQuest.target_species_name && (
-                        <p className="text-xs text-amber-700 font-semibold mt-2">
-                          🎯 Spezifische Gattung: {currentWeeklyQuest.target_genus_name}
-                        </p>
-                      )}
-                    </div>
-                    
-                    {isWeeklyCompleted && !isWeeklyAlreadyCompletedThisWeek && (
-                      <Button
-                        onClick={() => handleCompleteWeeklyQuest(currentWeeklyQuest)}
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3"
-                        disabled={completeWeeklyQuestMutation.isPending}
-                      >
-                        {completeWeeklyQuestMutation.isPending ? (
-                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                        ) : (
-                          <Trophy className="w-5 h-5 mr-2" />
-                        )}
-                        Wöchentliche Aufgabe abschließen!
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-
-            {availableQuests.map((quest, index) => {
-              const progress = calculateQuestProgress(quest);
-              const isCompleted = progress >= quest.required_discoveries;
-              const progressPercentage = (progress / quest.required_discoveries) * 100;
-
-              return (
-                <motion.div
-                  key={quest.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <Card className="border-2 border-stone-200 hover:border-green-300 hover:shadow-lg transition-all bg-white/80 backdrop-blur-md">
-                    <CardHeader className="relative">
-                      <div className="absolute top-4 right-4">
-                        <div className="w-14 h-14 bg-gradient-to-br from-amber-500 to-amber-600 rounded-full flex flex-col items-center justify-center shadow-lg">
-                          <span className="text-white font-bold text-sm">+{quest.xp_reward}</span>
-                          <span className="text-white text-[9px] font-semibold">XP</span>
-                        </div>
-                      </div>
-                      <div className="pr-20">
-                        <div className="flex items-center gap-3 mb-2">
-                          <Badge className="bg-stone-800 text-white font-bold">
-                            #{quest.quest_number}
-                          </Badge>
-                          <Badge className={`${
-                            quest.difficulty === "Leicht" ? "bg-green-500" :
-                            quest.difficulty === "Mittel" ? "bg-yellow-500" : "bg-red-500"
-                          } text-white font-semibold`}>
-                            {quest.difficulty}
-                          </Badge>
-                          {quest.category !== "Alle" && (
-                            <Badge variant="outline" className="border-2 border-stone-300 font-semibold">
-                              {quest.category}
-                            </Badge>
-                          )}
-                        </div>
-                        <CardTitle className="text-xl text-stone-900 mb-2">{quest.title}</CardTitle>
-                      </div>
-                      <p className="text-stone-600">{quest.description}</p>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="mb-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-semibold text-stone-700">
-                            {quest.requirement}
-                          </span>
-                          <span className="text-sm font-bold text-green-700 whitespace-nowrap">
-                            {progress} / {quest.required_discoveries}
-                          </span>
-                        </div>
-                        <Progress value={progressPercentage} className="h-2 bg-stone-300/80" />
-                      </div>
-                      
-                      {isCompleted && (
-                        <Button
-                          onClick={() => handleCompleteQuest(quest)}
-                          className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3"
-                          disabled={completeQuestMutation.isPending}
-                        >
-                          {completeQuestMutation.isPending ? (
-                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                          ) : (
-                            <Trophy className="w-5 h-5 mr-2" />
-                          )}
-                          Aufgabe abschließen!
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              );
-            })}
-            {availableQuests.length === 0 && (
-              <Card className="border-2 border-stone-200 bg-white/80 backdrop-blur-md">
-                <CardContent className="p-12 text-center">
-                  <Target className="w-16 h-16 text-stone-400 mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-stone-900 mb-2">
-                    Alle Aufgaben erledigt!
-                  </h3>
-                  <p className="text-stone-600">
-                    {lockedQuests.length > 0 
-                      ? "Schließe Aufgaben ab, um weitere freizuschalten!"
-                      : "Du hast alle verfügbaren Aufgaben abgeschlossen!"}
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          {/* Abgeschlossene Aufgaben */}
-          <TabsContent value="completed" className="space-y-4">
-            {completedQuestList.length === 0 ? (
-              <Card className="border-2 border-stone-200 bg-white/80 backdrop-blur-md">
-                <CardContent className="p-12 text-center">
-                  <Award className="w-16 h-16 text-stone-400 mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-stone-900 mb-2">
-                    Noch keine Aufgaben abgeschlossen
-                  </h3>
-                  <p className="text-stone-600">
-                    Erfülle Aufgaben, um XP zu sammeln und aufzusteigen!
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              completedQuestList.map((quest, index) => (
-                <motion.div
-                  key={quest.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <Card className="border-2 border-green-300 bg-green-50/80 backdrop-blur-md">
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <Badge className="bg-green-600 text-white font-bold">
-                              #{quest.quest_number}
-                            </Badge>
-                            <CheckCircle2 className="w-6 h-6 text-green-600" />
-                          </div>
-                          <CardTitle className="text-xl text-stone-900 mb-2">{quest.title}</CardTitle>
-                          <p className="text-stone-600">{quest.description}</p>
-                        </div>
-                        <Badge className="bg-amber-500 text-white font-bold px-3 py-1">
-                          +{quest.xp_reward} XP
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                  </Card>
-                </motion.div>
-              ))
-            )}
-          </TabsContent>
-
-          {/* Gesperrte Aufgaben - This tab is still rendered but not directly navigatable from the main tabs menu */}
-          <TabsContent value="locked" className="space-y-4">
-            {lockedQuests.length === 0 ? (
-              <Card className="border-2 border-stone-200 bg-white/80 backdrop-blur-md">
-                <CardContent className="p-12 text-center">
-                  <Lock className="w-16 h-16 text-stone-400 mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-stone-900 mb-2">
-                    Keine gesperrten Aufgaben
-                  </h3>
-                  <p className="text-stone-600">
-                    Du hast Zugriff auf alle Aufgaben!
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              lockedQuests.map((quest, index) => (
-                <motion.div
-                  key={quest.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <Card className="border-2 border-stone-200 bg-stone-50/80 backdrop-blur-sm opacity-60">
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <Badge className="bg-stone-500 text-white font-bold">
-                              #{quest.quest_number}
-                            </Badge>
-                            <Badge className="bg-red-500 text-white font-semibold">
-                              {(quest.unlocked_at_level || 1) > currentLevel
-                                ? `Level ${quest.unlocked_at_level}`
-                                : quest.prerequisite_quest_number
-                                  ? `Nach: #${quest.prerequisite_quest_number}`
-                                  : 'Gesperrt'
-                              }
-                            </Badge>
-                            <Lock className="w-5 h-5 text-stone-400" />
-                          </div>
-                          <CardTitle className="text-xl text-stone-700 mb-2">{quest.title}</CardTitle>
-                          <p className="text-stone-500">{quest.description}</p>
-                        </div>
-                        <div className="w-16 h-16 bg-stone-300 rounded-full flex items-center justify-center ml-4">
-                          <span className="text-white font-bold text-sm">+{quest.xp_reward}</span>
-                        </div>
-                      </div>
-                    </CardHeader>
-                  </Card>
-                </motion.div>
-              ))
-            )}
+          <TabsContent value="completed">
+            <Card className="border-2 border-stone-200 bg-white/80 backdrop-blur-md">
+              <CardContent className="p-12 text-center">
+                <p className="text-stone-600">Erledigte Quests folgen bald...</p>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
