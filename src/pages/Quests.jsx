@@ -972,7 +972,9 @@ export default function Quests() {
                   </div>
                   <span className="text-stone-400">•</span>
                   <p className="text-xs text-stone-500">
-                    {format(new Date(selectedDiscovery.discovery.created_date || selectedDiscovery.discovery.discovered_date), "d. MMMM yyyy, HH:mm", { locale: de })}
+                    {selectedDiscovery.discovery.created_date || selectedDiscovery.discovery.discovered_date
+                      ? format(new Date(selectedDiscovery.discovery.created_date || selectedDiscovery.discovery.discovered_date), "d. MMMM yyyy, HH:mm", { locale: de })
+                      : 'Datum unbekannt'}
                   </p>
                 </div>
               </div>
