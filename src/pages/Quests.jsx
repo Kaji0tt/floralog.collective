@@ -55,6 +55,7 @@ export default function Quests() {
   const [activeTab, setActiveTab] = useState("weekly");
   const [averageColor, setAverageColor] = useState(null);
   const [sortFilter, setSortFilter] = useState("newest");
+  const [questExpanded, setQuestExpanded] = useState(false);
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
@@ -218,7 +219,7 @@ export default function Quests() {
 
   return (
     <div 
-      className="min-h-screen p-4 md:p-8"
+      className="min-h-screen"
       style={{
         background: averageColor 
           ? `linear-gradient(135deg, ${getLighterColor(averageColor)} 0%, ${averageColor} 50%, ${getDarkerColor(averageColor)} 100%)`
@@ -227,89 +228,112 @@ export default function Quests() {
     >
       <MobileBackButton />
 
-      <div className="max-w-6xl mx-auto">
+      <div className="w-full">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 bg-white/80 backdrop-blur-md border border-stone-200 p-1 mb-6">
-            <TabsTrigger value="weekly" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold">
-              🏆 Wöchentlich
-            </TabsTrigger>
-            <TabsTrigger value="missions" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold">
-              📋 Missionen
-            </TabsTrigger>
-            <TabsTrigger value="completed" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold">
-              ✅ Erledigt
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Wöchentliche Community Challenge */}
-          <TabsContent value="weekly" className="space-y-4">
-            {currentWeeklyQuest ? (
-              <>
-                {/* Quest Header Card */}
-                <Card className="border-2 border-emerald-400 bg-white/90 backdrop-blur-md shadow-lg">
-                  <CardHeader>
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <Badge className="bg-emerald-600 text-white font-bold mb-3">
-                          📆 Wöchentliche Challenge - KW {getWeekNumber().split('-W')[1]}
-                        </Badge>
-                        <CardTitle className="text-2xl text-stone-900 mb-2">{currentWeeklyQuest.title}</CardTitle>
-                        <p className="text-stone-600">{currentWeeklyQuest.description}</p>
-                      </div>
-                    </div>
-                    
-                    {currentWeeklyQuest.target_species_name && (
-                      <Badge variant="outline" className="border-2 border-emerald-500 text-emerald-700 font-bold">
-                        🎯 Ziel: {currentWeeklyQuest.target_species_name}
-                      </Badge>
-                    )}
-                    {currentWeeklyQuest.target_genus_name && !currentWeeklyQuest.target_species_name && (
-                      <Badge variant="outline" className="border-2 border-emerald-500 text-emerald-700 font-bold">
-                        🎯 Ziel: {currentWeeklyQuest.target_genus_name}
-                      </Badge>
-                    )}
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-2 text-sm text-stone-600">
-                      <Users className="w-4 h-4" />
-                      <span>{allUsers.length} Teilnehmer aktiv</span>
-                      <span className="mx-2">•</span>
-                      <TrendingUp className="w-4 h-4" />
-                      <span>{weeklyDiscoveries.length} Scans diese Woche</span>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Filter Buttons */}
-                <div className="flex gap-2 flex-wrap">
+          <div className="fixed top-0 left-0 right-0 z-40 bg-white shadow-sm border-b border-stone-200">
+            <div className="max-w-7xl mx-auto">
+              <TabsList className="grid w-full grid-cols-3 bg-white h-12 rounded-none border-0">
+                <TabsTrigger value="weekly" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-none">
+                  🏆 Wöchentlich
+                </TabsTrigger>
+                <TabsTrigger value="missions" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-none">
+                  📋 Missionen
+                </TabsTrigger>
+                <TabsTrigger value="completed" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-none">
+                  ✅ Erledigt
+                </TabsTrigger>
+              </TabsList>
+              
+              {activeTab === "weekly" && (
+                <div className="flex gap-2 p-2 border-t border-stone-200">
                   <Button
                     onClick={() => setSortFilter("newest")}
                     variant={sortFilter === "newest" ? "default" : "outline"}
-                    className={sortFilter === "newest" ? "bg-green-600 hover:bg-green-700" : ""}
+                    size="sm"
+                    className={sortFilter === "newest" ? "bg-green-600 hover:bg-green-700 h-8" : "h-8"}
                   >
-                    <Clock className="w-4 h-4 mr-2" />
+                    <Clock className="w-3 h-3 mr-1" />
                     Neueste
                   </Button>
                   <Button
                     onClick={() => setSortFilter("popular")}
                     variant={sortFilter === "popular" ? "default" : "outline"}
-                    className={sortFilter === "popular" ? "bg-green-600 hover:bg-green-700" : ""}
+                    size="sm"
+                    className={sortFilter === "popular" ? "bg-green-600 hover:bg-green-700 h-8" : "h-8"}
                   >
-                    <Heart className="w-4 h-4 mr-2" />
+                    <Heart className="w-3 h-3 mr-1" />
                     Beliebteste
                   </Button>
                   <Button
                     onClick={() => setSortFilter("frequent")}
                     variant={sortFilter === "frequent" ? "default" : "outline"}
-                    className={sortFilter === "frequent" ? "bg-green-600 hover:bg-green-700" : ""}
+                    size="sm"
+                    className={sortFilter === "frequent" ? "bg-green-600 hover:bg-green-700 h-8" : "h-8"}
                   >
-                    <TrendingUp className="w-4 h-4 mr-2" />
+                    <TrendingUp className="w-3 h-3 mr-1" />
                     Häufigste
                   </Button>
                 </div>
+              )}
+            </div>
+          </div>
 
-                {/* Scans Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Wöchentliche Community Challenge */}
+          <TabsContent value="weekly" className="pt-32 px-4 pb-4">
+            {currentWeeklyQuest ? (
+              <>
+                {/* Kompakte Quest-Anzeige */}
+                <div className="mb-4">
+                  <button
+                    onClick={() => setQuestExpanded(!questExpanded)}
+                    className="w-full text-left p-3 bg-white/90 backdrop-blur-md rounded-lg border border-emerald-200 hover:border-emerald-400 transition-all shadow-sm"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="text-xs font-semibold text-emerald-600 mb-1">
+                          📆 KW {getWeekNumber().split('-W')[1]} · {allUsers.length} Teilnehmer · {weeklyDiscoveries.length} Scans
+                        </p>
+                        <p className="text-sm font-bold text-stone-900">{currentWeeklyQuest.title}</p>
+                      </div>
+                      <motion.div
+                        animate={{ rotate: questExpanded ? 180 : 0 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <TrendingUp className="w-5 h-5 text-emerald-600" />
+                      </motion.div>
+                    </div>
+                  </button>
+
+                  <AnimatePresence>
+                    {questExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="p-4 mt-2 bg-white/90 backdrop-blur-md rounded-lg border border-emerald-200 shadow-sm">
+                          <p className="text-sm text-stone-600 mb-3">{currentWeeklyQuest.description}</p>
+                          
+                          {currentWeeklyQuest.target_species_name && (
+                            <Badge variant="outline" className="border-2 border-emerald-500 text-emerald-700 font-bold">
+                              🎯 Ziel: {currentWeeklyQuest.target_species_name}
+                            </Badge>
+                          )}
+                          {currentWeeklyQuest.target_genus_name && !currentWeeklyQuest.target_species_name && (
+                            <Badge variant="outline" className="border-2 border-emerald-500 text-emerald-700 font-bold">
+                              🎯 Ziel: {currentWeeklyQuest.target_genus_name}
+                            </Badge>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Scans Grid - Kompakt wie GenusCard */}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                   {sortedDiscoveries.map((discovery, index) => {
                     const plant = plants.find(p => p.id === discovery.plant_id);
                     const genus = genera.find(g => 
@@ -327,64 +351,60 @@ export default function Quests() {
                     return (
                       <motion.div
                         key={discovery.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.05 }}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: index * 0.02 }}
                       >
-                        <Card className="border-2 border-stone-200 hover:border-green-300 hover:shadow-lg transition-all bg-white/90 backdrop-blur-md overflow-hidden">
+                        <Card className="border-2 border-stone-200 hover:border-green-300 hover:shadow-md transition-all bg-white overflow-hidden">
                           {discovery.image_url && (
-                            <img
-                              src={discovery.image_url}
-                              alt={plant?.species_name}
-                              className="w-full h-48 object-cover"
-                            />
+                            <div className="relative aspect-square">
+                              <img
+                                src={discovery.image_url}
+                                alt={plant?.species_name}
+                                className="w-full h-full object-cover"
+                              />
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleLikeMutation.mutate(discovery.id);
+                                }}
+                                disabled={toggleLikeMutation.isPending}
+                                className="absolute top-2 right-2 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform"
+                              >
+                                <Heart className={`w-4 h-4 ${isLiked ? 'fill-red-500 text-red-500' : 'text-stone-600'}`} />
+                              </button>
+                              {likeCount > 0 && (
+                                <div className="absolute bottom-2 right-2 px-2 py-1 bg-white/90 backdrop-blur-sm rounded-full text-xs font-bold text-stone-900 shadow-md">
+                                  {likeCount}
+                                </div>
+                              )}
+                            </div>
                           )}
-                          <CardContent className="p-4">
+                          <CardContent className="p-2">
                             {plant && (
-                              <div className="mb-3">
-                                <h3 className="text-lg font-bold text-stone-900">{plant.species_name}</h3>
-                                <p className="text-sm italic text-stone-600">{plant.scientific_name}</p>
-                                {genus && (
-                                  <Badge variant="outline" className="mt-1">
-                                    {genus.genus_name}
-                                  </Badge>
-                                )}
+                              <div className="mb-2">
+                                <h3 className="text-xs font-bold text-stone-900 line-clamp-1">{plant.species_name}</h3>
+                                <p className="text-[10px] italic text-stone-600 line-clamp-1">{plant.scientific_name}</p>
                               </div>
                             )}
 
                             <button
                               onClick={() => navigate(createPageUrl(`FriendProfile?email=${discoveryUser?.user_email}`))}
-                              className="flex items-center gap-2 mb-3 hover:opacity-70 transition-opacity"
+                              className="flex items-center gap-1 w-full hover:opacity-70 transition-opacity"
                             >
-                              <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center">
+                              <div className="w-5 h-5 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center flex-shrink-0">
                                 {discoveryUser?.avatar_url ? (
                                   <img src={discoveryUser.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
                                 ) : (
-                                  <Users className="w-4 h-4 text-white" />
+                                  <Users className="w-3 h-3 text-white" />
                                 )}
                               </div>
-                              <div className="text-left">
-                                <p className="text-sm font-semibold text-stone-900">
+                              <div className="text-left flex-1 min-w-0">
+                                <p className="text-[10px] font-semibold text-stone-900 truncate">
                                   {discoveryUser?.display_name || discoveryUser?.full_name || 'Unbekannt'}
-                                </p>
-                                <p className="text-xs text-stone-500">
-                                  {format(new Date(discovery.created_date || discovery.discovered_date), "d. MMM yyyy, HH:mm", { locale: de })}
                                 </p>
                               </div>
                             </button>
-
-                            <div className="flex items-center gap-2">
-                              <Button
-                                onClick={() => toggleLikeMutation.mutate(discovery.id)}
-                                variant="outline"
-                                size="sm"
-                                disabled={toggleLikeMutation.isPending}
-                                className={isLiked ? "border-red-500 text-red-500" : ""}
-                              >
-                                <Heart className={`w-4 h-4 mr-1 ${isLiked ? 'fill-red-500' : ''}`} />
-                                {likeCount}
-                              </Button>
-                            </div>
                           </CardContent>
                         </Card>
                       </motion.div>
@@ -393,46 +413,38 @@ export default function Quests() {
                 </div>
 
                 {sortedDiscoveries.length === 0 && (
-                  <Card className="border-2 border-stone-200 bg-white/80 backdrop-blur-md">
-                    <CardContent className="p-12 text-center">
-                      <Leaf className="w-16 h-16 text-stone-400 mx-auto mb-4" />
-                      <h3 className="text-xl font-bold text-stone-900 mb-2">
-                        Noch keine Scans diese Woche
-                      </h3>
-                      <p className="text-stone-600">
-                        Sei der Erste und scanne eine passende Pflanze!
-                      </p>
-                    </CardContent>
-                  </Card>
+                  <div className="text-center py-20">
+                    <Leaf className="w-16 h-16 text-stone-400 mx-auto mb-4" />
+                    <h3 className="text-xl font-bold text-stone-900 mb-2">
+                      Noch keine Scans diese Woche
+                    </h3>
+                    <p className="text-stone-600">
+                      Sei der Erste und scanne eine passende Pflanze!
+                    </p>
+                  </div>
                 )}
               </>
             ) : (
-              <Card className="border-2 border-stone-200 bg-white/80 backdrop-blur-md">
-                <CardContent className="p-12 text-center">
-                  <Leaf className="w-16 h-16 text-stone-400 mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-stone-900 mb-2">
-                    Keine wöchentliche Challenge aktiv
-                  </h3>
-                </CardContent>
-              </Card>
+              <div className="text-center py-20">
+                <Leaf className="w-16 h-16 text-stone-400 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-stone-900 mb-2">
+                  Keine wöchentliche Challenge aktiv
+                </h3>
+              </div>
             )}
           </TabsContent>
 
           {/* Placeholder Tabs */}
-          <TabsContent value="missions">
-            <Card className="border-2 border-stone-200 bg-white/80 backdrop-blur-md">
-              <CardContent className="p-12 text-center">
-                <p className="text-stone-600">Missionen folgen bald...</p>
-              </CardContent>
-            </Card>
+          <TabsContent value="missions" className="pt-32 px-4">
+            <div className="text-center py-20">
+              <p className="text-stone-600">Missionen folgen bald...</p>
+            </div>
           </TabsContent>
 
-          <TabsContent value="completed">
-            <Card className="border-2 border-stone-200 bg-white/80 backdrop-blur-md">
-              <CardContent className="p-12 text-center">
-                <p className="text-stone-600">Erledigte Quests folgen bald...</p>
-              </CardContent>
-            </Card>
+          <TabsContent value="completed" className="pt-32 px-4">
+            <div className="text-center py-20">
+              <p className="text-stone-600">Erledigte Quests folgen bald...</p>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
