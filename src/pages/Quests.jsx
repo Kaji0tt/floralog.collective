@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Heart, Users, TrendingUp, Clock, Leaf, Loader2 } from "lucide-react";
+import { Heart, Users, TrendingUp, Clock, Leaf, Loader2, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -56,6 +56,8 @@ export default function Quests() {
   const [averageColor, setAverageColor] = useState(null);
   const [sortFilter, setSortFilter] = useState("newest");
   const [questExpanded, setQuestExpanded] = useState(false);
+  const [selectedDiscovery, setSelectedDiscovery] = useState(null);
+  const [imageIndexes, setImageIndexes] = useState({});
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
@@ -343,6 +345,14 @@ export default function Quests() {
                     const discoveryUser = allUsers.find(u => 
                       u.user_email === discovery.user || u.user_email === discovery.created_by
                     );
+                    
+                    // Finde alle Scans dieses Users für diese Pflanze in dieser Woche
+                    const userEmail = discovery.user || discovery.created_by;
+                    const userPlantScans = weeklyDiscoveries.filter(d => 
+                      (d.user === userEmail || d.created_by === userEmail) && 
+                      d.plant_id === discovery.plant_id
+                    );
+                    
                     const likeCount = scanLikes.filter(like => like.discovery_id === discovery.id).length;
                     const isLiked = scanLikes.some(
                       like => like.discovery_id === discovery.id && like.liked_by === user.email
@@ -355,7 +365,10 @@ export default function Quests() {
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: index * 0.02 }}
                       >
-                        <Card className="border-2 border-stone-200 hover:border-green-300 hover:shadow-md transition-all bg-white overflow-hidden">
+                        <Card 
+                          className="border-2 border-stone-200 hover:border-green-300 hover:shadow-md transition-all bg-white overflow-hidden cursor-pointer"
+                          onClick={() => setSelectedDiscovery({ discovery, allScans: userPlantScans, plant, genus, discoveryUser })}
+                        >
                           {discovery.image_url && (
                             <div className="relative aspect-square">
                               <img
@@ -388,23 +401,33 @@ export default function Quests() {
                               </div>
                             )}
 
-                            <button
-                              onClick={() => navigate(createPageUrl(`FriendProfile?email=${discoveryUser?.user_email}`))}
-                              className="flex items-center gap-1 w-full hover:opacity-70 transition-opacity"
-                            >
-                              <div className="w-5 h-5 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center flex-shrink-0">
-                                {discoveryUser?.avatar_url ? (
-                                  <img src={discoveryUser.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
-                                ) : (
-                                  <Users className="w-3 h-3 text-white" />
-                                )}
-                              </div>
-                              <div className="text-left flex-1 min-w-0">
-                                <p className="text-[10px] font-semibold text-stone-900 truncate">
-                                  {discoveryUser?.display_name || discoveryUser?.full_name || 'Unbekannt'}
-                                </p>
-                              </div>
-                            </button>
+                            <div className="flex items-center justify-between gap-1">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(createPageUrl(`FriendProfile?email=${discoveryUser?.user_email}`));
+                                }}
+                                className="flex items-center gap-1 hover:opacity-70 transition-opacity flex-1 min-w-0"
+                              >
+                                <div className="w-5 h-5 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                  {discoveryUser?.avatar_url ? (
+                                    <img src={discoveryUser.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                                  ) : (
+                                    <Users className="w-3 h-3 text-white" />
+                                  )}
+                                </div>
+                                <div className="text-left flex-1 min-w-0">
+                                  <p className="text-[10px] font-semibold text-stone-900 truncate">
+                                    {discoveryUser?.display_name || discoveryUser?.full_name || 'Unbekannt'}
+                                  </p>
+                                </div>
+                              </button>
+                              {userPlantScans.length > 1 && (
+                                <div className="px-1.5 py-0.5 bg-green-100 rounded-full text-[10px] font-bold text-green-700 flex-shrink-0">
+                                  {userPlantScans.length}x
+                                </div>
+                              )}
+                            </div>
                           </CardContent>
                         </Card>
                       </motion.div>
@@ -447,6 +470,137 @@ export default function Quests() {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Vergrößerte Ansicht Modal */}
+        {selectedDiscovery && (
+          <div 
+            className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+            onClick={() => setSelectedDiscovery(null)}
+          >
+            <div 
+              className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Großes Bild */}
+              {selectedDiscovery.allScans?.length > 0 && (
+                <div className="relative">
+                  <img
+                    src={selectedDiscovery.allScans[imageIndexes[selectedDiscovery.discovery.id] || 0]?.image_url || selectedDiscovery.discovery.image_url}
+                    alt={selectedDiscovery.plant?.species_name}
+                    className="w-full aspect-square object-cover rounded-t-2xl"
+                  />
+                  
+                  {/* Schließen Button */}
+                  <button
+                    onClick={() => setSelectedDiscovery(null)}
+                    className="absolute top-3 right-3 w-10 h-10 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center transition-colors"
+                  >
+                    <X className="w-6 h-6 text-white" />
+                  </button>
+                  
+                  {/* Bild-Navigation */}
+                  {selectedDiscovery.allScans.length > 1 && (
+                    <>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const currentIndex = imageIndexes[selectedDiscovery.discovery.id] || 0;
+                          const newIndex = currentIndex > 0 ? currentIndex - 1 : selectedDiscovery.allScans.length - 1;
+                          setImageIndexes(prev => ({ ...prev, [selectedDiscovery.discovery.id]: newIndex }));
+                        }}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-lg"
+                      >
+                        <ChevronLeft className="w-6 h-6 text-stone-700" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const currentIndex = imageIndexes[selectedDiscovery.discovery.id] || 0;
+                          const newIndex = currentIndex < selectedDiscovery.allScans.length - 1 ? currentIndex + 1 : 0;
+                          setImageIndexes(prev => ({ ...prev, [selectedDiscovery.discovery.id]: newIndex }));
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-lg"
+                      >
+                        <ChevronRight className="w-6 h-6 text-stone-700" />
+                      </button>
+                      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white text-sm px-3 py-1 rounded-full">
+                        {(imageIndexes[selectedDiscovery.discovery.id] || 0) + 1} / {selectedDiscovery.allScans.length}
+                      </div>
+                    </>
+                  )}
+
+                  {/* Like Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const currentScan = selectedDiscovery.allScans[imageIndexes[selectedDiscovery.discovery.id] || 0];
+                      toggleLikeMutation.mutate(currentScan.id);
+                    }}
+                    className="absolute bottom-3 right-3 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+                  >
+                    <Heart className={`w-5 h-5 ${
+                      scanLikes.some(like => 
+                        like.discovery_id === (selectedDiscovery.allScans[imageIndexes[selectedDiscovery.discovery.id] || 0]?.id) && 
+                        like.liked_by === user.email
+                      ) ? 'fill-red-500 text-red-500' : 'text-stone-600'
+                    }`} />
+                  </button>
+                </div>
+              )}
+              
+              {/* Info-Bereich */}
+              <div className="p-4 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1">
+                    <h2 className="text-xl font-bold text-stone-900">{selectedDiscovery.plant?.species_name}</h2>
+                    <p className="text-sm text-stone-600 italic">{selectedDiscovery.plant?.scientific_name}</p>
+                    {selectedDiscovery.genus && (
+                      <Badge variant="outline" className="mt-2">
+                        {selectedDiscovery.genus.genus_name}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => navigate(createPageUrl(`FriendProfile?email=${selectedDiscovery.discoveryUser?.user_email}`))}
+                  className="flex items-center gap-2 p-2 bg-stone-50 rounded-lg hover:bg-stone-100 transition-colors w-full"
+                >
+                  <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center">
+                    {selectedDiscovery.discoveryUser?.avatar_url ? (
+                      <img src={selectedDiscovery.discoveryUser.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                    ) : (
+                      <Users className="w-5 h-5 text-white" />
+                    )}
+                  </div>
+                  <div className="text-left flex-1">
+                    <p className="text-sm font-semibold text-stone-900">
+                      {selectedDiscovery.discoveryUser?.display_name || selectedDiscovery.discoveryUser?.full_name || 'Unbekannt'}
+                    </p>
+                    <p className="text-xs text-stone-500">
+                      {selectedDiscovery.allScans.length} {selectedDiscovery.allScans.length === 1 ? 'Scan' : 'Scans'} diese Woche
+                    </p>
+                  </div>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 text-sm text-stone-600">
+                    <Heart className="w-4 h-4" />
+                    <span>
+                      {scanLikes.filter(like => 
+                        like.discovery_id === (selectedDiscovery.allScans[imageIndexes[selectedDiscovery.discovery.id] || 0]?.id)
+                      ).length} Likes
+                    </span>
+                  </div>
+                  <span className="text-stone-400">•</span>
+                  <p className="text-xs text-stone-500">
+                    {format(new Date(selectedDiscovery.discovery.created_date || selectedDiscovery.discovery.discovered_date), "d. MMMM yyyy, HH:mm", { locale: de })}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
