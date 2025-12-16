@@ -306,11 +306,9 @@ export default function Quests() {
           : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
       }}
     >
-      <MobileBackButton />
-
       <div className="w-full">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="fixed top-0 left-0 right-0 z-40 bg-white shadow-sm border-b border-stone-200">
+          <div className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200">
             <div className="max-w-7xl mx-auto">
               <TabsList className="grid w-full grid-cols-3 bg-white h-12 rounded-none border-0">
                 <TabsTrigger value="weekly" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5">
@@ -357,6 +355,8 @@ export default function Quests() {
               )}
             </div>
           </div>
+
+          <MobileBackButton />
 
           {/* Wöchentliche Community Challenge */}
           <TabsContent value="weekly" className="pt-24 px-4 pb-4">
@@ -534,6 +534,8 @@ export default function Quests() {
             )}
           </TabsContent>
 
+          <MobileBackButton />
+
           {/* Lokal Tab */}
           <TabsContent value="local" className="pt-24 px-4 pb-4">
             {userLocation ? (
@@ -609,6 +611,8 @@ export default function Quests() {
               </div>
             )}
           </TabsContent>
+
+          <MobileBackButton />
 
           {/* Sichtungen Tab */}
           <TabsContent value="sightings" className="pt-24 px-4 pb-4">
