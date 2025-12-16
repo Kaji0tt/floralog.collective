@@ -191,11 +191,10 @@ export default function Quests() {
   });
 
   const completeWeeklyQuestMutation = useMutation({
-    mutationFn: async (questId) => {
-      return base44.entities.UserWeeklyQuest.create({
-        weekly_quest_id: questId,
-        completed_week: getWeekNumber(),
-        created_by: user?.email
+    mutationFn: async (userQuestId) => {
+      return base44.entities.UserWeeklyQuest.update(userQuestId, {
+        completed: true,
+        completed_date: new Date().toISOString()
       });
     },
     onSuccess: () => {
@@ -330,7 +329,7 @@ export default function Quests() {
     if (!activeWeeklyUserQuest || activeWeeklyUserQuest.completed) return;
 
     if (isWeeklyCompleted) {
-      await completeWeeklyQuestMutation.mutate(activeWeeklyUserQuest.id);
+      await completeWeeklyQuestMutation.mutateAsync(activeWeeklyUserQuest.id);
       
       const currentXP = user.xp || 0;
       const { newXP, newLevel, newTitle } = awardXP(currentXP, quest.xp_reward);
@@ -356,18 +355,6 @@ export default function Quests() {
       }, 500);
     }
   };
-
-  const completeWeeklyQuestMutation = useMutation({
-    mutationFn: async (userQuestId) => {
-      return base44.entities.UserWeeklyQuest.update(userQuestId, {
-        completed: true,
-        completed_date: new Date().toISOString()
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
-    },
-  });
 
   // Prüfe ob Prerequisites erfüllt sind
   const isQuestUnlocked = (quest) => {
