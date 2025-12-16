@@ -27,6 +27,7 @@ export default function GenusDetail() {
   const [locationNames, setLocationNames] = useState({});
   const [deleteConfirmDiscoveryId, setDeleteConfirmDiscoveryId] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const [averageColor, setAverageColor] = useState(null);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -35,6 +36,53 @@ export default function GenusDetail() {
     };
     loadUser();
   }, []);
+
+  const getAverageColor = (imageUrl) => {
+    return new Promise((resolve) => {
+      const img = new window.Image();
+      img.crossOrigin = "anonymous";
+      
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const size = 50;
+          canvas.width = size;
+          canvas.height = size;
+          ctx.drawImage(img, 0, 0, size, size);
+          const imageData = ctx.getImageData(0, 0, size, size);
+          const data = imageData.data;
+          let r = 0, g = 0, b = 0, count = 0;
+          for (let i = 0; i < data.length; i += 16) {
+            r += data[i];
+            g += data[i + 1];
+            b += data[i + 2];
+            count++;
+          }
+          r = Math.floor(r / count);
+          g = Math.floor(g / count);
+          b = Math.floor(b / count);
+          resolve(`rgb(${r}, ${g}, ${b})`);
+        } catch (error) {
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = imageUrl;
+    });
+  };
+
+  useEffect(() => {
+    if (currentUser?.background_image_url) {
+      getAverageColor(currentUser.background_image_url).then(color => {
+        if (color) setAverageColor(color);
+      });
+    } else if (currentUser?.background_color) {
+      setAverageColor(currentUser.background_color);
+    } else {
+      setAverageColor(null);
+    }
+  }, [currentUser?.background_image_url, currentUser?.background_color]);
 
   const { data: genera = [], isLoading: generaLoading } = useQuery({
     queryKey: ['genera'],
@@ -288,6 +336,26 @@ export default function GenusDetail() {
     }
   };
 
+  const getLighterColor = (rgbString) => {
+    if (!rgbString) return null;
+    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!match) return rgbString;
+    const r = Math.min(255, Math.floor(parseInt(match[1]) * 1.4));
+    const g = Math.min(255, Math.floor(parseInt(match[2]) * 1.4));
+    const b = Math.min(255, Math.floor(parseInt(match[3]) * 1.4));
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+
+  const getDarkerColor = (rgbString) => {
+    if (!rgbString) return null;
+    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!match) return rgbString;
+    const r = Math.floor(parseInt(match[1]) * 0.6);
+    const g = Math.floor(parseInt(match[2]) * 0.6);
+    const b = Math.floor(parseInt(match[3]) * 0.6);
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+
   // Bestimme Zurück-URL basierend auf Kontext
   const backUrl = friendEmail 
     ? createPageUrl(`FriendCollection?email=${friendEmail}`)
@@ -295,7 +363,14 @@ export default function GenusDetail() {
   const backLabel = friendEmail ? "Zurück zum Freundes-PlantDex" : "Zurück zur Sammlung";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4 md:p-8">
+    <div 
+      className="min-h-screen p-4 md:p-8"
+      style={{
+        background: averageColor 
+          ? `linear-gradient(135deg, ${getLighterColor(averageColor)} 0%, ${averageColor} 50%, ${getDarkerColor(averageColor)} 100%)`
+          : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
+      }}
+    >
       <MobileBackButton backUrl={backUrl} />
       
       <div className="max-w-6xl mx-auto">
