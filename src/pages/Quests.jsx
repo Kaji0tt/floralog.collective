@@ -273,7 +273,13 @@ export default function Quests() {
   // Sortierung anwenden
   let sortedDiscoveries = [...weeklyDiscoveries];
   if (sortFilter === "newest") {
-    sortedDiscoveries.sort((a, b) => new Date(b.created_date || b.discovered_date) - new Date(a.created_date || a.discovered_date));
+    sortedDiscoveries.sort((a, b) => {
+      const dateA = new Date(a.created_date || a.discovered_date);
+      const dateB = new Date(b.created_date || b.discovered_date);
+      if (isNaN(dateA.getTime())) return 1;
+      if (isNaN(dateB.getTime())) return -1;
+      return dateB - dateA;
+    });
   } else if (sortFilter === "popular") {
     sortedDiscoveries.sort((a, b) => {
       const likesA = scanLikes.filter(like => like.discovery_id === a.id).length;
