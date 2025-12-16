@@ -365,7 +365,8 @@ export default function Achievements() {
                   </Card>
                 )}
               </div>
-            </TabsContent>
+            </div>
+          </TabsContent>
 
           {/* Aufgaben Tab */}
           <TabsContent value="quests" className="pt-14 px-4 pb-4">
