@@ -281,27 +281,26 @@ export default function Quests() {
           </div>
 
           {/* Wöchentliche Community Challenge */}
-          <TabsContent value="weekly" className="pt-32 px-4 pb-4">
+          <TabsContent value="weekly" className="pt-24 px-4 pb-4">
             {currentWeeklyQuest ? (
               <>
                 {/* Kompakte Quest-Anzeige */}
-                <div className="mb-4">
+                <div className="mb-3">
                   <button
                     onClick={() => setQuestExpanded(!questExpanded)}
-                    className="w-full text-left p-3 bg-white/90 backdrop-blur-md rounded-lg border border-emerald-200 hover:border-emerald-400 transition-all shadow-sm"
+                    className="w-full text-left px-3 py-2 bg-white/70 backdrop-blur-md rounded-full border border-emerald-200 hover:border-emerald-400 transition-all shadow-sm"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <p className="text-xs font-semibold text-emerald-600 mb-1">
-                          📆 KW {getWeekNumber().split('-W')[1]} · {allUsers.length} Teilnehmer · {weeklyDiscoveries.length} Scans
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-stone-900 truncate">
+                          📆 KW {getWeekNumber().split('-W')[1]} · {currentWeeklyQuest.title}
                         </p>
-                        <p className="text-sm font-bold text-stone-900">{currentWeeklyQuest.title}</p>
                       </div>
                       <motion.div
                         animate={{ rotate: questExpanded ? 180 : 0 }}
                         transition={{ duration: 0.2 }}
                       >
-                        <TrendingUp className="w-5 h-5 text-emerald-600" />
+                        <TrendingUp className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                       </motion.div>
                     </div>
                   </button>
@@ -458,13 +457,13 @@ export default function Quests() {
           </TabsContent>
 
           {/* Placeholder Tabs */}
-          <TabsContent value="missions" className="pt-32 px-4">
+          <TabsContent value="missions" className="pt-24 px-4">
             <div className="text-center py-20">
               <p className="text-stone-600">Missionen folgen bald...</p>
             </div>
           </TabsContent>
 
-          <TabsContent value="completed" className="pt-32 px-4">
+          <TabsContent value="completed" className="pt-24 px-4">
             <div className="text-center py-20">
               <p className="text-stone-600">Erledigte Quests folgen bald...</p>
             </div>
