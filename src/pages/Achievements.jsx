@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Lock, Leaf } from "lucide-react";
+import { Trophy, Lock, Leaf, Target } from "lucide-react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle } from "lucide-react";
 import MobileBackButton from "../components/navigation/MobileBackButton";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
@@ -55,6 +57,7 @@ export default function Achievements() {
   const [showTitleDialog, setShowTitleDialog] = useState(false);
   const [selectedAchievement, setSelectedAchievement] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
+  const [activeTab, setActiveTab] = useState("achievements");
 
   useEffect(() => {
     const loadUser = async () => {
@@ -85,6 +88,27 @@ export default function Achievements() {
     queryKey: ['userAchievements', user?.email],
     queryFn: () => base44.entities.UserAchievement.filter({ created_by: user?.email }),
     enabled: !!user?.email,
+  });
+
+  const { data: quests = [] } = useQuery({
+    queryKey: ['quests'],
+    queryFn: () => base44.entities.Quest.list('quest_number'),
+  });
+
+  const { data: userQuests = [] } = useQuery({
+    queryKey: ['userQuests', user?.email],
+    queryFn: () => base44.entities.UserQuest.filter({ created_by: user?.email }),
+    enabled: !!user?.email,
+  });
+
+  const { data: plants = [] } = useQuery({
+    queryKey: ['plants'],
+    queryFn: () => base44.entities.Plant.list(),
+  });
+
+  const { data: genera = [] } = useQuery({
+    queryKey: ['genera'],
+    queryFn: () => base44.entities.PlantGenus.list(),
   });
 
   const updateTitleMutation = useMutation({
@@ -167,9 +191,20 @@ export default function Achievements() {
     return getRarityValue(a.rarity) - getRarityValue(b.rarity);
   });
 
+  // Aktive Quests filtern
+  const activeQuests = quests.filter(q => {
+    const userQuest = userQuests.find(uq => uq.quest_id === q.id);
+    const isCompleted = userQuest?.completed;
+    const isUnlocked = (q.unlocked_at_level || 1) <= (user?.level || 1);
+    return !isCompleted && isUnlocked;
+  }).map(q => {
+    const userQuest = userQuests.find(uq => uq.quest_id === q.id);
+    return { ...q, progress: userQuest?.progress || 0 };
+  });
+
   return (
     <div 
-      className="min-h-screen p-4 md:p-8"
+      className="min-h-screen"
       style={{
         background: averageColor 
           ? `linear-gradient(135deg, ${getLighterColor(averageColor)} 0%, ${averageColor} 50%, ${getDarkerColor(averageColor)} 100%)`
@@ -178,32 +213,48 @@ export default function Achievements() {
     >
       <MobileBackButton />
       
-      <div className="max-w-6xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-3 bg-white/80 backdrop-blur-md px-6 py-3 rounded-xl shadow-sm border border-stone-200">
-              <Trophy className="w-6 h-6 text-amber-600" />
-              <div className="text-left">
-                <div className="text-2xl font-bold text-amber-600">{unlockedCount} / {achievements.length}</div>
-                <div className="text-sm font-medium text-stone-600">Erfolge freigeschaltet</div>
-              </div>
+      <div className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <div className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200">
+            <div className="max-w-7xl mx-auto">
+              <TabsList className="grid w-full grid-cols-2 bg-white h-12 rounded-none border-0">
+                <TabsTrigger value="achievements" className="data-[state=active]:bg-amber-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5">
+                  🏆 Erfolge
+                </TabsTrigger>
+                <TabsTrigger value="quests" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5">
+                  🎯 Aufgaben
+                </TabsTrigger>
+              </TabsList>
             </div>
-            {user.selected_title && (
-              <div className="mt-4">
-                <Badge className="bg-gradient-to-r from-purple-600 to-purple-700 text-white text-base px-4 py-2">
-                  ⭐ Aktueller Titel: {user.selected_title}
-                </Badge>
-              </div>
-            )}
           </div>
-        </motion.div>
 
-        {/* Achievements Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Erfolge Tab */}
+          <TabsContent value="achievements" className="pt-14 px-4 pb-4">
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <div className="text-center mb-6">
+                <div className="inline-flex items-center gap-3 bg-white/80 backdrop-blur-md px-6 py-3 rounded-xl shadow-sm border border-stone-200">
+                  <Trophy className="w-6 h-6 text-amber-600" />
+                  <div className="text-left">
+                    <div className="text-2xl font-bold text-amber-600">{unlockedCount} / {achievements.length}</div>
+                    <div className="text-sm font-medium text-stone-600">Erfolge freigeschaltet</div>
+                  </div>
+                </div>
+                {user.selected_title && (
+                  <div className="mt-4">
+                    <Badge className="bg-gradient-to-r from-purple-600 to-purple-700 text-white text-base px-4 py-2">
+                      ⭐ Aktueller Titel: {user.selected_title}
+                    </Badge>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+
+            <div className="max-w-6xl mx-auto">
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sortedAchievements.map((achievement, index) => {
             const isUnlocked = userAchievements.some(ua => ua.achievement_id === achievement.id);
             const userAchievement = userAchievements.find(ua => ua.achievement_id === achievement.id);
@@ -304,16 +355,141 @@ export default function Achievements() {
           })}
         </div>
 
-        {sortedAchievements.length === 0 && (
-          <Card className="border-2 border-stone-200 bg-white/80 backdrop-blur-md">
-            <CardContent className="p-12 text-center">
-              <Trophy className="w-16 h-16 text-stone-400 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-stone-900 mb-2">
-                Noch keine Erfolge verfügbar
-              </h3>
-            </CardContent>
-          </Card>
-        )}
+                {sortedAchievements.length === 0 && (
+                  <Card className="border-2 border-stone-200 bg-white/80 backdrop-blur-md">
+                    <CardContent className="p-12 text-center">
+                      <Trophy className="w-16 h-16 text-stone-400 mx-auto mb-4" />
+                      <h3 className="text-xl font-bold text-stone-900 mb-2">
+                        Noch keine Erfolge verfügbar
+                      </h3>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Aufgaben Tab */}
+          <TabsContent value="quests" className="pt-14 px-4 pb-4">
+            <div className="max-w-6xl mx-auto">
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                <div className="text-center mb-6">
+                  <div className="inline-flex items-center gap-3 bg-white/80 backdrop-blur-md px-6 py-3 rounded-xl shadow-sm border border-stone-200">
+                    <Target className="w-6 h-6 text-blue-600" />
+                    <div className="text-left">
+                      <div className="text-2xl font-bold text-blue-600">{activeQuests.length}</div>
+                      <div className="text-sm font-medium text-stone-600">Aktive Aufgaben</div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                {activeQuests.map((quest, index) => {
+                  const progressPercentage = quest.required_discoveries 
+                    ? Math.min(100, (quest.progress / quest.required_discoveries) * 100)
+                    : 0;
+
+                  return (
+                    <motion.div
+                      key={quest.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                    >
+                      <Card className="border-2 border-blue-200 bg-white/90 backdrop-blur-md hover:shadow-lg transition-all">
+                        <CardHeader>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Badge variant="outline" className="border-blue-500 text-blue-700 font-bold">
+                                  Quest #{quest.quest_number}
+                                </Badge>
+                                {quest.category && quest.category !== "Alle" && (
+                                  <Badge className={`${
+                                    quest.category === "Bäume" ? "bg-green-600" :
+                                    quest.category === "Sträucher" ? "bg-emerald-600" :
+                                    "bg-pink-600"
+                                  } text-white`}>
+                                    {quest.category}
+                                  </Badge>
+                                )}
+                                {quest.difficulty && (
+                                  <Badge className={`${
+                                    quest.difficulty === "Leicht" ? "bg-green-500" :
+                                    quest.difficulty === "Mittel" ? "bg-amber-500" :
+                                    "bg-red-500"
+                                  } text-white`}>
+                                    {quest.difficulty}
+                                  </Badge>
+                                )}
+                              </div>
+                              <CardTitle className="text-lg text-stone-900 mb-2">
+                                {quest.title}
+                              </CardTitle>
+                              <p className="text-sm text-stone-600 mb-3">
+                                {quest.description}
+                              </p>
+                            </div>
+                            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-md flex-shrink-0">
+                              <Target className="w-6 h-6 text-white" />
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            <div className="text-sm font-semibold text-stone-700">
+                              {quest.requirement}
+                            </div>
+                            
+                            {quest.required_discoveries && (
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-stone-600 font-medium">Fortschritt</span>
+                                  <span className="text-blue-700 font-bold">
+                                    {quest.progress} / {quest.required_discoveries}
+                                  </span>
+                                </div>
+                                <Progress value={progressPercentage} className="h-2" />
+                              </div>
+                            )}
+
+                            <div className="pt-3 border-t border-stone-200">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm text-stone-600">XP-Belohnung</span>
+                                <Badge className="bg-gradient-to-r from-amber-500 to-amber-600 text-white font-bold">
+                                  +{quest.xp_reward} XP
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
+              </div>
+
+              {activeQuests.length === 0 && (
+                <div className="text-center py-20">
+                  <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 max-w-md mx-auto border border-stone-200 shadow-lg">
+                    <Target className="w-16 h-16 text-stone-400 mx-auto mb-4" />
+                    <h3 className="text-xl font-bold text-stone-900 mb-2">
+                      Keine aktiven Aufgaben
+                    </h3>
+                    <p className="text-stone-600">
+                      Alle Aufgaben abgeschlossen oder noch nicht freigeschaltet!
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Title Selection Dialog */}
