@@ -197,8 +197,24 @@ export default function GenusDetail() {
         is_species_front_image: true,
         is_front_image: true 
       });
+
+      return { discoveryId, plantId };
     },
-    onSuccess: () => {
+    onSuccess: ({ discoveryId, plantId }) => {
+      // Sofort lokale States aktualisieren
+      if (expandedPlant && expandedPlant.id === plantId) {
+        const updatedDiscoveries = expandedPlant.allDiscoveries.map(d => ({
+          ...d,
+          is_species_front_image: d.id === discoveryId,
+          is_front_image: d.id === discoveryId
+        }));
+        setExpandedPlant({
+          ...expandedPlant,
+          allDiscoveries: updatedDiscoveries,
+          userDiscovery: updatedDiscoveries.find(d => d.id === discoveryId) || expandedPlant.userDiscovery
+        });
+      }
+      
       queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
     },
   });
