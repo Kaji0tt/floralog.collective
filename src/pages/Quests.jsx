@@ -483,13 +483,6 @@ export default function Quests() {
                             </div>
                           )}
                           <CardContent className="p-2">
-                            {plant && (
-                              <div className="mb-2">
-                                <h3 className="text-xs font-bold text-stone-900 line-clamp-1">{plant.species_name}</h3>
-                                <p className="text-[10px] italic text-stone-600 line-clamp-1">{plant.scientific_name}</p>
-                              </div>
-                            )}
-
                             <div className="flex items-center justify-between gap-1">
                               <button
                                 onClick={(e) => {
