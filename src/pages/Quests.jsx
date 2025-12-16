@@ -552,26 +552,28 @@ export default function Quests() {
           <TabsContent value="local" className="pt-24 px-4 pb-4">
             {!userLocation ? (
               <div className="text-center py-20">
-                <MapPin className="w-16 h-16 text-stone-400 mx-auto mb-4" />
-                <h3 className="text-xl font-bold text-stone-900 mb-2">Standort ermitteln</h3>
-                <p className="text-stone-600 mb-6">Erlaube den Standortzugriff, um Scans in deiner Nähe zu sehen</p>
-                <Button
-                  onClick={calculateLocation}
-                  disabled={isLoadingLocation}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  {isLoadingLocation ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Standort wird ermittelt...
-                    </>
-                  ) : (
-                    <>
-                      <MapPin className="w-5 h-5 mr-2" />
-                      Standort berechnen
-                    </>
-                  )}
-                </Button>
+                <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 max-w-md mx-auto border border-stone-200 shadow-lg">
+                  <MapPin className="w-16 h-16 text-stone-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-stone-900 mb-2">Standort ermitteln</h3>
+                  <p className="text-stone-600 mb-6">Erlaube den Standortzugriff, um Scans in deiner Nähe zu sehen</p>
+                  <Button
+                    onClick={calculateLocation}
+                    disabled={isLoadingLocation}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    {isLoadingLocation ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Standort wird ermittelt...
+                      </>
+                    ) : (
+                      <>
+                        <MapPin className="w-5 h-5 mr-2" />
+                        Standort berechnen
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="h-[calc(100vh-160px)] rounded-xl overflow-hidden border-2 border-stone-200 shadow-lg">
