@@ -159,6 +159,12 @@ export default function Quests() {
     queryFn: () => base44.entities.ScanLike.list(),
   });
 
+  const { data: userDiscoveries = [] } = useQuery({
+    queryKey: ['userDiscoveries'],
+    queryFn: () => base44.entities.UserPlantDiscovery.filter({ created_by: user?.email }),
+    enabled: !!user?.email,
+  });
+
   useEffect(() => {
     const loadUser = async () => {
       const currentUser = await base44.auth.me();
