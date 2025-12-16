@@ -58,6 +58,7 @@ export default function Achievements() {
   const [selectedAchievement, setSelectedAchievement] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
   const [activeTab, setActiveTab] = useState("achievements");
+  const [questFilter, setQuestFilter] = useState("all");
 
   useEffect(() => {
     const loadUser = async () => {
@@ -98,6 +99,28 @@ export default function Achievements() {
   const { data: userQuests = [] } = useQuery({
     queryKey: ['userQuests', user?.email],
     queryFn: () => base44.entities.UserQuest.filter({ created_by: user?.email }),
+    enabled: !!user?.email,
+  });
+
+  const { data: weeklyQuests = [] } = useQuery({
+    queryKey: ['weeklyQuests'],
+    queryFn: () => base44.entities.WeeklyQuest.list('quest_number'),
+  });
+
+  const { data: userWeeklyQuests = [] } = useQuery({
+    queryKey: ['userWeeklyQuests', user?.email],
+    queryFn: () => base44.entities.UserWeeklyQuest.filter({ created_by: user?.email }),
+    enabled: !!user?.email,
+  });
+
+  const { data: monthlyQuests = [] } = useQuery({
+    queryKey: ['monthlyQuests'],
+    queryFn: () => base44.entities.MonthlyQuest.list('quest_number'),
+  });
+
+  const { data: userMonthlyQuests = [] } = useQuery({
+    queryKey: ['userMonthlyQuests', user?.email],
+    queryFn: () => base44.entities.UserMonthlyQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email,
   });
 
@@ -191,16 +214,76 @@ export default function Achievements() {
     return getRarityValue(a.rarity) - getRarityValue(b.rarity);
   });
 
+  // Helper für aktuelle Woche/Monat
+  const getWeekNumber = (date = new Date()) => {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+  };
+
+  const getMonthString = (date = new Date()) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+  };
+
+  const getCurrentWeeklyQuest = () => {
+    if (!weeklyQuests || weeklyQuests.length === 0) return null;
+    const sortedQuests = [...weeklyQuests].sort((a, b) => a.quest_number - b.quest_number);
+    const weekString = getWeekNumber();
+    const weekNumber = parseInt(weekString.split('-W')[1]);
+    const index = weekNumber % sortedQuests.length;
+    return sortedQuests[index];
+  };
+
+  const getCurrentMonthlyQuest = () => {
+    if (!monthlyQuests || monthlyQuests.length === 0) return null;
+    const sortedQuests = [...monthlyQuests].sort((a, b) => a.quest_number - b.quest_number);
+    const month = new Date().getMonth() + 1;
+    const index = (month - 1) % sortedQuests.length;
+    return sortedQuests[index];
+  };
+
   // Aktive Quests filtern
-  const activeQuests = quests.filter(q => {
+  const activeRegularQuests = quests.filter(q => {
     const userQuest = userQuests.find(uq => uq.quest_id === q.id);
     const isCompleted = userQuest?.completed;
     const isUnlocked = (q.unlocked_at_level || 1) <= (user?.level || 1);
     return !isCompleted && isUnlocked;
   }).map(q => {
     const userQuest = userQuests.find(uq => uq.quest_id === q.id);
-    return { ...q, progress: userQuest?.progress || 0 };
+    return { ...q, progress: userQuest?.progress || 0, type: 'regular' };
   });
+
+  const currentWeeklyQuest = getCurrentWeeklyQuest();
+  const currentWeeklyUserQuest = currentWeeklyQuest 
+    ? userWeeklyQuests.find(uwq => uwq.weekly_quest_id === currentWeeklyQuest.id && uwq.active_week === getWeekNumber())
+    : null;
+  const activeWeeklyQuest = currentWeeklyQuest && !currentWeeklyUserQuest?.completed
+    ? { ...currentWeeklyQuest, progress: currentWeeklyUserQuest?.progress || 0, type: 'weekly' }
+    : null;
+
+  const currentMonthlyQuest = getCurrentMonthlyQuest();
+  const currentMonthlyUserQuest = currentMonthlyQuest
+    ? userMonthlyQuests.find(umq => umq.monthly_quest_id === currentMonthlyQuest.id && umq.active_month === getMonthString())
+    : null;
+  const activeMonthlyQuest = currentMonthlyQuest && !currentMonthlyUserQuest?.completed
+    ? { ...currentMonthlyQuest, progress: currentMonthlyUserQuest?.progress || 0, type: 'monthly' }
+    : null;
+
+  let activeQuests = [...activeRegularQuests];
+  if (activeWeeklyQuest) activeQuests.push(activeWeeklyQuest);
+  if (activeMonthlyQuest) activeQuests.push(activeMonthlyQuest);
+
+  // Filter anwenden
+  if (questFilter === 'weekly') {
+    activeQuests = activeWeeklyQuest ? [activeWeeklyQuest] : [];
+  } else if (questFilter === 'monthly') {
+    activeQuests = activeMonthlyQuest ? [activeMonthlyQuest] : [];
+  }
 
   return (
     <div 
@@ -218,40 +301,56 @@ export default function Achievements() {
           <div className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200">
             <div className="max-w-7xl mx-auto">
               <TabsList className="grid w-full grid-cols-2 bg-white h-12 rounded-none border-0">
-                <TabsTrigger value="achievements" className="data-[state=active]:bg-amber-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5">
-                  🏆 Erfolge
+                <TabsTrigger value="achievements" className="data-[state=active]:bg-amber-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
+                  <div className="flex items-center gap-1">
+                    <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span>{unlockedCount}/{achievements.length}</span>
+                    {user.selected_title && (
+                      <span className="hidden sm:inline text-[10px] opacity-70">• {user.selected_title}</span>
+                    )}
+                  </div>
                 </TabsTrigger>
-                <TabsTrigger value="quests" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5">
-                  🎯 Aufgaben
+                <TabsTrigger value="quests" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
+                  <div className="flex items-center gap-1">
+                    <Target className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span>{activeQuests.length} Aktiv</span>
+                  </div>
                 </TabsTrigger>
               </TabsList>
+              
+              {activeTab === "quests" && (
+                <div className="flex gap-1 p-1 border-t border-stone-200 bg-stone-50">
+                  <Button
+                    onClick={() => setQuestFilter("all")}
+                    variant={questFilter === "all" ? "default" : "ghost"}
+                    size="sm"
+                    className={`flex-1 h-7 text-xs ${questFilter === "all" ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                  >
+                    Alle
+                  </Button>
+                  <Button
+                    onClick={() => setQuestFilter("weekly")}
+                    variant={questFilter === "weekly" ? "default" : "ghost"}
+                    size="sm"
+                    className={`flex-1 h-7 text-xs ${questFilter === "weekly" ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                  >
+                    Wöchentlich
+                  </Button>
+                  <Button
+                    onClick={() => setQuestFilter("monthly")}
+                    variant={questFilter === "monthly" ? "default" : "ghost"}
+                    size="sm"
+                    className={`flex-1 h-7 text-xs ${questFilter === "monthly" ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                  >
+                    Monatlich
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Erfolge Tab */}
           <TabsContent value="achievements" className="pt-14 px-4 pb-4">
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <div className="text-center mb-6">
-                <div className="inline-flex items-center gap-3 bg-white/80 backdrop-blur-md px-6 py-3 rounded-xl shadow-sm border border-stone-200">
-                  <Trophy className="w-6 h-6 text-amber-600" />
-                  <div className="text-left">
-                    <div className="text-2xl font-bold text-amber-600">{unlockedCount} / {achievements.length}</div>
-                    <div className="text-sm font-medium text-stone-600">Erfolge freigeschaltet</div>
-                  </div>
-                </div>
-                {user.selected_title && (
-                  <div className="mt-4">
-                    <Badge className="bg-gradient-to-r from-purple-600 to-purple-700 text-white text-base px-4 py-2">
-                      ⭐ Aktueller Titel: {user.selected_title}
-                    </Badge>
-                  </div>
-                )}
-              </div>
-            </motion.div>
 
             <div className="max-w-6xl mx-auto">
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -267,86 +366,54 @@ export default function Achievements() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
               >
-                <Card className={`border-2 shadow-md transition-all duration-300 ${
+                <Card className={`border shadow-sm transition-all duration-300 ${
                   isUnlocked 
-                    ? 'border-amber-300 bg-gradient-to-br from-white/90 to-amber-50/90 backdrop-blur-md hover:shadow-xl' 
+                    ? 'border-amber-300 bg-gradient-to-br from-white/90 to-amber-50/90 backdrop-blur-md hover:shadow-md' 
                     : 'border-stone-200 bg-stone-50/80 backdrop-blur-sm opacity-60'
                 }`}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className={`text-4xl ${isUnlocked ? '' : 'grayscale opacity-30'}`}>
-                            {achievement.icon_emoji}
-                          </div>
-                          <div>
-                            <Badge className={`${getRarityColor(achievement.rarity)} text-white font-semibold text-xs`}>
-                              {achievement.rarity}
-                            </Badge>
-                          </div>
-                        </div>
-                        <CardTitle className={`text-xl mb-2 ${isUnlocked ? 'text-stone-900' : 'text-stone-500'}`}>
-                          {achievement.title}
-                        </CardTitle>
-                        <p className={`text-sm ${isUnlocked ? 'text-stone-600' : 'text-stone-400'}`}>
-                          {achievement.description}
-                        </p>
+                  <CardContent className="p-3">
+                    <div className="flex items-start gap-2">
+                      <div className={`text-2xl ${isUnlocked ? '' : 'grayscale opacity-30'} flex-shrink-0`}>
+                        {achievement.icon_emoji}
                       </div>
-                      {isUnlocked ? (
-                        <div className="ml-3 w-10 h-10 bg-amber-500 rounded-full flex items-center justify-center shadow-md">
-                          <Trophy className="w-6 h-6 text-white" />
-                        </div>
-                      ) : (
-                        <div className="ml-3 w-10 h-10 bg-stone-300 rounded-full flex items-center justify-center">
-                          <Lock className="w-5 h-5 text-stone-500" />
-                        </div>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="text-sm">
-                        <span className={isUnlocked ? 'text-stone-700 font-semibold' : 'text-stone-500'}>
-                          {achievement.requirement}
-                        </span>
-                      </div>
-                      
-                      {achievement.title_reward && (
-                        <div className="pt-2 border-t border-stone-200">
-                          <p className="text-xs text-purple-700 font-semibold mb-2">
-                            ⭐ Titel-Belohnung: "{achievement.title_reward}"
-                          </p>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1 mb-1">
+                          <Badge className={`${getRarityColor(achievement.rarity)} text-white font-semibold text-[10px] px-1 py-0`}>
+                            {achievement.rarity}
+                          </Badge>
                           {isUnlocked && (
-                            <Button
-                              onClick={() => handleSelectTitle(achievement)}
-                              disabled={isCurrentTitle || updateTitleMutation.isPending}
-                              className={`w-full text-xs ${
-                                isCurrentTitle 
-                                  ? 'bg-green-600 hover:bg-green-600' 
-                                  : 'bg-purple-600 hover:bg-purple-700'
-                              }`}
-                              size="sm"
-                            >
-                              {isCurrentTitle ? (
-                                <>
-                                  <CheckCircle className="w-3 h-3 mr-1" />
-                                  Aktiver Titel
-                                </>
-                              ) : (
-                                'Titel ausrüsten'
-                              )}
-                            </Button>
+                            <Trophy className="w-3 h-3 text-amber-500" />
                           )}
                         </div>
-                      )}
-
-                      {isUnlocked && userAchievement && (
-                        <div className="pt-2 border-t border-stone-200">
-                          <p className="text-xs text-stone-500">
-                            Freigeschaltet am {format(new Date(userAchievement.unlocked_date), "d. MMMM yyyy", { locale: de })}
-                          </p>
-                        </div>
-                      )}
+                        <h3 className={`text-sm font-bold mb-1 ${isUnlocked ? 'text-stone-900' : 'text-stone-500'}`}>
+                          {achievement.title}
+                        </h3>
+                        <p className={`text-xs mb-1 ${isUnlocked ? 'text-stone-600' : 'text-stone-400'}`}>
+                          {achievement.description}
+                        </p>
+                        
+                        {achievement.title_reward && isUnlocked && (
+                          <Button
+                            onClick={() => handleSelectTitle(achievement)}
+                            disabled={isCurrentTitle || updateTitleMutation.isPending}
+                            className={`w-full text-[10px] h-6 mt-1 ${
+                              isCurrentTitle 
+                                ? 'bg-green-600 hover:bg-green-600' 
+                                : 'bg-purple-600 hover:bg-purple-700'
+                            }`}
+                            size="sm"
+                          >
+                            {isCurrentTitle ? (
+                              <>
+                                <CheckCircle className="w-2 h-2 mr-1" />
+                                Aktiv
+                              </>
+                            ) : (
+                              `Titel: ${achievement.title_reward}`
+                            )}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -369,23 +436,8 @@ export default function Achievements() {
           </TabsContent>
 
           {/* Aufgaben Tab */}
-          <TabsContent value="quests" className="pt-14 px-4 pb-4">
+          <TabsContent value="quests" className="pt-20 px-4 pb-4">
             <div className="max-w-6xl mx-auto">
-              <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-              >
-                <div className="text-center mb-6">
-                  <div className="inline-flex items-center gap-3 bg-white/80 backdrop-blur-md px-6 py-3 rounded-xl shadow-sm border border-stone-200">
-                    <Target className="w-6 h-6 text-blue-600" />
-                    <div className="text-left">
-                      <div className="text-2xl font-bold text-blue-600">{activeQuests.length}</div>
-                      <div className="text-sm font-medium text-stone-600">Aktive Aufgaben</div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
 
               <div className="grid md:grid-cols-2 gap-4">
                 {activeQuests.map((quest, index) => {
@@ -400,16 +452,34 @@ export default function Achievements() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.05 }}
                     >
-                      <Card className="border-2 border-blue-200 bg-white/90 backdrop-blur-md hover:shadow-lg transition-all">
-                        <CardHeader>
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Badge variant="outline" className="border-blue-500 text-blue-700 font-bold">
-                                  Quest #{quest.quest_number}
-                                </Badge>
+                      <Card className={`border shadow-sm bg-white/90 backdrop-blur-md hover:shadow-md transition-all ${
+                        quest.type === 'weekly' ? 'border-emerald-400 bg-gradient-to-br from-emerald-50/50 to-white' :
+                        quest.type === 'monthly' ? 'border-purple-400 bg-gradient-to-br from-purple-50/50 to-white' :
+                        'border-blue-200'
+                      }`}>
+                        <CardContent className="p-3">
+                          <div className="flex items-start gap-2">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              quest.type === 'weekly' ? 'bg-gradient-to-br from-emerald-500 to-emerald-600' :
+                              quest.type === 'monthly' ? 'bg-gradient-to-br from-purple-500 to-purple-600' :
+                              'bg-gradient-to-br from-blue-500 to-blue-600'
+                            }`}>
+                              <Target className="w-4 h-4 text-white" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1 mb-1 flex-wrap">
+                                {quest.type === 'weekly' && (
+                                  <Badge className="bg-emerald-600 text-white text-[10px] px-1 py-0">
+                                    📅 Wöchentlich
+                                  </Badge>
+                                )}
+                                {quest.type === 'monthly' && (
+                                  <Badge className="bg-purple-600 text-white text-[10px] px-1 py-0">
+                                    📆 Monatlich
+                                  </Badge>
+                                )}
                                 {quest.category && quest.category !== "Alle" && (
-                                  <Badge className={`${
+                                  <Badge className={`text-[10px] px-1 py-0 ${
                                     quest.category === "Bäume" ? "bg-green-600" :
                                     quest.category === "Sträucher" ? "bg-emerald-600" :
                                     "bg-pink-600"
@@ -417,50 +487,29 @@ export default function Achievements() {
                                     {quest.category}
                                   </Badge>
                                 )}
-                                {quest.difficulty && (
-                                  <Badge className={`${
-                                    quest.difficulty === "Leicht" ? "bg-green-500" :
-                                    quest.difficulty === "Mittel" ? "bg-amber-500" :
-                                    "bg-red-500"
-                                  } text-white`}>
-                                    {quest.difficulty}
-                                  </Badge>
-                                )}
                               </div>
-                              <CardTitle className="text-lg text-stone-900 mb-2">
+                              <h3 className="text-sm font-bold text-stone-900 mb-1">
                                 {quest.title}
-                              </CardTitle>
-                              <p className="text-sm text-stone-600 mb-3">
+                              </h3>
+                              <p className="text-xs text-stone-600 mb-2">
                                 {quest.description}
                               </p>
-                            </div>
-                            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-md flex-shrink-0">
-                              <Target className="w-6 h-6 text-white" />
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-3">
-                            <div className="text-sm font-semibold text-stone-700">
-                              {quest.requirement}
-                            </div>
-                            
-                            {quest.required_discoveries && (
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between text-sm">
-                                  <span className="text-stone-600 font-medium">Fortschritt</span>
-                                  <span className="text-blue-700 font-bold">
-                                    {quest.progress} / {quest.required_discoveries}
-                                  </span>
+                              
+                              {quest.required_discoveries && (
+                                <div className="space-y-1 mb-2">
+                                  <div className="flex items-center justify-between text-xs">
+                                    <span className="text-stone-500">Fortschritt</span>
+                                    <span className="font-bold text-blue-700">
+                                      {quest.progress} / {quest.required_discoveries}
+                                    </span>
+                                  </div>
+                                  <Progress value={progressPercentage} className="h-1.5" />
                                 </div>
-                                <Progress value={progressPercentage} className="h-2" />
-                              </div>
-                            )}
+                              )}
 
-                            <div className="pt-3 border-t border-stone-200">
-                              <div className="flex items-center justify-between">
-                                <span className="text-sm text-stone-600">XP-Belohnung</span>
-                                <Badge className="bg-gradient-to-r from-amber-500 to-amber-600 text-white font-bold">
+                              <div className="flex items-center justify-between pt-1 border-t border-stone-200">
+                                <span className="text-[10px] text-stone-500">Belohnung</span>
+                                <Badge className="bg-gradient-to-r from-amber-500 to-amber-600 text-white font-bold text-[10px] px-1.5 py-0">
                                   +{quest.xp_reward} XP
                                 </Badge>
                               </div>
