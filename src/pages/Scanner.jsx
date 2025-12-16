@@ -18,12 +18,13 @@ import MobileBackButton from "../components/navigation/MobileBackButton";
 import { Check, RefreshCw } from "lucide-react";
 import { createPageUrl } from "@/utils";
 import {
-  getCurrentDailyQuest,
+  getCurrentMonthlyQuest,
   getCurrentWeeklyQuest,
-  getOrCreateActiveDailyQuest,
+  getOrCreateActiveMonthlyQuest,
   getOrCreateActiveWeeklyQuest,
   getTodayString,
-  getWeekNumber } from
+  getWeekNumber,
+  getMonthString } from
 "../components/quests/QuestRotationHelper";
 
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
@@ -147,9 +148,9 @@ export default function Scanner() {
     enabled: !!user?.email
   });
 
-  const { data: dailyQuests = [] } = useQuery({
-    queryKey: ['dailyQuests'],
-    queryFn: () => base44.entities.DailyQuest.list('quest_number')
+  const { data: monthlyQuests = [] } = useQuery({
+    queryKey: ['monthlyQuests'],
+    queryFn: () => base44.entities.MonthlyQuest.list('quest_number')
   });
 
   const { data: weeklyQuests = [] } = useQuery({
@@ -157,9 +158,9 @@ export default function Scanner() {
     queryFn: () => base44.entities.WeeklyQuest.list('quest_number')
   });
 
-  const { data: userDailyQuests = [] } = useQuery({
-    queryKey: ['userDailyQuests'],
-    queryFn: () => base44.entities.UserDailyQuest.filter({ created_by: user?.email }),
+  const { data: userMonthlyQuests = [] } = useQuery({
+    queryKey: ['userMonthlyQuests'],
+    queryFn: () => base44.entities.UserMonthlyQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email
   });
 
@@ -245,7 +246,7 @@ export default function Scanner() {
   const updateQuestProgress = async (scannedPlant) => {
     if (!user?.email || !scannedPlant) return;
 
-    const currentDailyQuest = getCurrentDailyQuest(dailyQuests);
+    const currentMonthlyQuest = getCurrentMonthlyQuest(monthlyQuests);
     const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
 
     // Helper: Prüft ob der Scan für die Quest zählt
@@ -268,11 +269,11 @@ export default function Scanner() {
       return true;
     };
 
-    if (currentDailyQuest) {
-      const activeDailyQuest = await getOrCreateActiveDailyQuest(base44, currentDailyQuest, userDailyQuests, user.email);
-      if (activeDailyQuest && !activeDailyQuest.completed && scanMatchesQuest(currentDailyQuest)) {
-        await base44.entities.UserDailyQuest.update(activeDailyQuest.id, {
-          progress: (activeDailyQuest.progress || 0) + 1
+    if (currentMonthlyQuest) {
+      const activeMonthlyQuest = await getOrCreateActiveMonthlyQuest(base44, currentMonthlyQuest, userMonthlyQuests, user.email);
+      if (activeMonthlyQuest && !activeMonthlyQuest.completed && scanMatchesQuest(currentMonthlyQuest)) {
+        await base44.entities.UserMonthlyQuest.update(activeMonthlyQuest.id, {
+          progress: (activeMonthlyQuest.progress || 0) + 1
         });
       }
     }
@@ -286,7 +287,7 @@ export default function Scanner() {
       }
     }
 
-    queryClient.invalidateQueries({ queryKey: ['userDailyQuests'] });
+    queryClient.invalidateQueries({ queryKey: ['userMonthlyQuests'] });
     queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
   };
 
