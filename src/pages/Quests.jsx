@@ -4,15 +4,78 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Heart, Users, TrendingUp, Clock, Leaf, Loader2, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Heart, Users, TrendingUp, Clock, Leaf, Loader2, ChevronLeft, ChevronRight, X, Search, MapPin } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import L from "leaflet";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import { getCurrentWeeklyQuest, getWeekNumber } from "../components/quests/QuestRotationHelper";
+
+// Leaflet Icon Setup
+if (typeof window !== 'undefined') {
+  delete L.Icon.Default.prototype._getIconUrl;
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  });
+}
+
+const createColoredIcon = (color) => {
+  const svgIcon = `
+    <svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12.5 0C5.596 0 0 5.596 0 12.5c0 9.375 12.5 28.125 12.5 28.125S25 21.875 25 12.5C25 5.596 19.404 0 12.5 0z" 
+            fill="${color}" stroke="#fff" stroke-width="2"/>
+      <circle cx="12.5" cy="12.5" r="5" fill="#fff"/>
+    </svg>
+  `;
+  return L.divIcon({
+    html: svgIcon,
+    className: 'custom-marker',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+  });
+};
+
+const USER_COLORS = [
+  '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
+  '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#84cc16'
+];
+
+const getColorForUser = (userEmail, allUsers) => {
+  const index = allUsers.findIndex(u => u.user_email === userEmail);
+  return USER_COLORS[index % USER_COLORS.length];
+};
+
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+};
+
+const MapController = ({ center, zoom, bounds }) => {
+  const map = useMap();
+  React.useEffect(() => {
+    if (bounds && bounds.length > 0) {
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 });
+    } else if (center) {
+      map.setView(center, zoom || 13);
+    }
+  }, [center, zoom, bounds, map]);
+  return null;
+};
 
 const getAverageColor = (imageUrl) => {
   return new Promise((resolve) => {
