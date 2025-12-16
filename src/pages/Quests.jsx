@@ -124,6 +124,7 @@ export default function Quests() {
   const [userLocation, setUserLocation] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPlantForSighting, setSelectedPlantForSighting] = useState(null);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
@@ -164,19 +165,30 @@ export default function Quests() {
       setUser(currentUser);
     };
     loadUser();
-    
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-        },
-        (error) => console.log("Location error:", error)
-      );
-    }
   }, []);
+
+  const calculateLocation = () => {
+    if (!navigator.geolocation) {
+      alert("Standortdienste werden von deinem Browser nicht unterstützt.");
+      return;
+    }
+
+    setIsLoadingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        });
+        setIsLoadingLocation(false);
+      },
+      (error) => {
+        console.log("Location error:", error);
+        alert("Fehler beim Ermitteln des Standorts. Bitte erlaube den Standortzugriff.");
+        setIsLoadingLocation(false);
+      }
+    );
+  };
 
   useEffect(() => {
     if (user?.background_image_url) {
@@ -538,7 +550,30 @@ export default function Quests() {
 
           {/* Lokal Tab */}
           <TabsContent value="local" className="pt-24 px-4 pb-4">
-            {userLocation ? (
+            {!userLocation ? (
+              <div className="text-center py-20">
+                <MapPin className="w-16 h-16 text-stone-400 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-stone-900 mb-2">Standort ermitteln</h3>
+                <p className="text-stone-600 mb-6">Erlaube den Standortzugriff, um Scans in deiner Nähe zu sehen</p>
+                <Button
+                  onClick={calculateLocation}
+                  disabled={isLoadingLocation}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  {isLoadingLocation ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Standort wird ermittelt...
+                    </>
+                  ) : (
+                    <>
+                      <MapPin className="w-5 h-5 mr-2" />
+                      Standort berechnen
+                    </>
+                  )}
+                </Button>
+              </div>
+            ) : (
               <div className="h-[calc(100vh-160px)] rounded-xl overflow-hidden border-2 border-stone-200 shadow-lg">
                 <MapContainer
                   center={[userLocation.lat, userLocation.lng]}
@@ -601,16 +636,10 @@ export default function Quests() {
                       <p className="text-sm font-bold">📍 Dein Standort</p>
                     </Popup>
                   </Marker>
-                </MapContainer>
-              </div>
-            ) : (
-              <div className="text-center py-20">
-                <MapPin className="w-16 h-16 text-stone-400 mx-auto mb-4" />
-                <h3 className="text-xl font-bold text-stone-900 mb-2">Standort wird geladen...</h3>
-                <p className="text-stone-600">Bitte erlaube den Zugriff auf deinen Standort</p>
-              </div>
-            )}
-          </TabsContent>
+                  </MapContainer>
+                  </div>
+                  )}
+                  </TabsContent>
 
           <MobileBackButton />
 
