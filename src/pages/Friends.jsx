@@ -723,13 +723,15 @@ export default function Friends() {
             >
               {sharedScans.length === 0 ? (
                 <div className="text-center py-12">
-                  <Gift className="w-16 h-16 text-stone-300 mx-auto mb-4" />
-                  <p className="text-stone-600 text-lg font-semibold mb-2">
-                    Noch keine Geschenke
-                  </p>
-                  <p className="text-stone-500">
-                    Deine Freunde können dir Pflanzen schenken!
-                  </p>
+                  <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 max-w-md mx-auto border border-stone-200 shadow-lg">
+                    <Gift className="w-16 h-16 text-stone-300 mx-auto mb-4" />
+                    <p className="text-stone-600 text-lg font-semibold mb-2">
+                      Noch keine Geschenke
+                    </p>
+                    <p className="text-stone-500">
+                      Deine Freunde können dir Pflanzen schenken!
+                    </p>
+                  </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -739,6 +741,9 @@ export default function Friends() {
                       g.category === plant.genus_category && 
                       g.category_dex_number === plant.genus_number
                     ) : null;
+                    const senderProfile = allPublicProfiles.find(p => 
+                      p.user_email?.toLowerCase() === scan.shared_by?.toLowerCase()
+                    );
                     
                     return (
                       <motion.div
@@ -763,6 +768,19 @@ export default function Friends() {
                                   <Gift className="w-3 h-3 text-white" />
                                 </div>
                               )}
+                              <div className="absolute bottom-2 left-2 w-6 h-6 bg-white rounded-full shadow-md overflow-hidden border border-stone-200">
+                                {senderProfile?.avatar_url ? (
+                                  <img
+                                    src={senderProfile.avatar_url}
+                                    alt={senderProfile.display_name || scan.shared_by}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white text-[10px] font-bold">
+                                    {scan.shared_by?.[0]?.toUpperCase() || '?'}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )}
                           <CardContent className="p-2">
@@ -770,7 +788,7 @@ export default function Friends() {
                               {plant?.species_name || 'Unbekannt'}
                             </p>
                             <p className="text-[10px] text-stone-500 truncate">
-                              von {scan.shared_by}
+                              von {senderProfile?.display_name || scan.shared_by}
                             </p>
                           </CardContent>
                         </Card>
