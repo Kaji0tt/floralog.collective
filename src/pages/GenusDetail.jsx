@@ -27,6 +27,7 @@ export default function GenusDetail() {
   const [locationNames, setLocationNames] = useState({});
   const [deleteConfirmDiscoveryId, setDeleteConfirmDiscoveryId] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const [averageColor, setAverageColor] = useState(null);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -35,6 +36,53 @@ export default function GenusDetail() {
     };
     loadUser();
   }, []);
+
+  const getAverageColor = (imageUrl) => {
+    return new Promise((resolve) => {
+      const img = new window.Image();
+      img.crossOrigin = "anonymous";
+      
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const size = 50;
+          canvas.width = size;
+          canvas.height = size;
+          ctx.drawImage(img, 0, 0, size, size);
+          const imageData = ctx.getImageData(0, 0, size, size);
+          const data = imageData.data;
+          let r = 0, g = 0, b = 0, count = 0;
+          for (let i = 0; i < data.length; i += 16) {
+            r += data[i];
+            g += data[i + 1];
+            b += data[i + 2];
+            count++;
+          }
+          r = Math.floor(r / count);
+          g = Math.floor(g / count);
+          b = Math.floor(b / count);
+          resolve(`rgb(${r}, ${g}, ${b})`);
+        } catch (error) {
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = imageUrl;
+    });
+  };
+
+  useEffect(() => {
+    if (currentUser?.background_image_url) {
+      getAverageColor(currentUser.background_image_url).then(color => {
+        if (color) setAverageColor(color);
+      });
+    } else if (currentUser?.background_color) {
+      setAverageColor(currentUser.background_color);
+    } else {
+      setAverageColor(null);
+    }
+  }, [currentUser?.background_image_url, currentUser?.background_color]);
 
   const { data: genera = [], isLoading: generaLoading } = useQuery({
     queryKey: ['genera'],
@@ -99,7 +147,24 @@ export default function GenusDetail() {
     });
   }, [userDiscoveries]);
 
-  const setFrontImageMutation = useMutation({
+  const setSpeciesFrontImageMutation = useMutation({
+    mutationFn: async ({ discoveryId, plantId }) => {
+      // Nur Discoveries derselben Art auf false setzen
+      const plantDiscoveries = userDiscoveries.filter(d => d.plant_id === plantId);
+      await Promise.all(
+        plantDiscoveries.map(d => 
+          base44.entities.UserPlantDiscovery.update(d.id, { is_front_image: false })
+        )
+      );
+      // Dann das ausgewählte auf true setzen
+      await base44.entities.UserPlantDiscovery.update(discoveryId, { is_front_image: true });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
+    },
+  });
+
+  const setGenusFrontImageMutation = useMutation({
     mutationFn: async ({ discoveryId }) => {
       // Alle Discoveries der gesamten Gattung auf false setzen
       const genusDiscoveries = userDiscoveries.filter(d => {
@@ -110,11 +175,11 @@ export default function GenusDetail() {
       });
       await Promise.all(
         genusDiscoveries.map(d => 
-          base44.entities.UserPlantDiscovery.update(d.id, { is_front_image: false })
+          base44.entities.UserPlantDiscovery.update(d.id, { is_genus_image: false })
         )
       );
       // Dann das ausgewählte auf true setzen
-      await base44.entities.UserPlantDiscovery.update(discoveryId, { is_front_image: true });
+      await base44.entities.UserPlantDiscovery.update(discoveryId, { is_genus_image: true });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
@@ -230,7 +295,7 @@ export default function GenusDetail() {
 
   // Removed myGenusImages calculation as it was only for the icon selection dialog
 
-  // Hole das Gattungsbild: Front-Image bevorzugt, sonst neuestes
+  // Hole das Gattungsbild: Genus-Image bevorzugt, sonst neuestes
   const genusDiscoveries = userDiscoveries.filter(d => {
     const plant = plants.find(p => p.id === d.plant_id);
     return plant && selectedGenus && 
@@ -238,7 +303,7 @@ export default function GenusDetail() {
            plant.genus_number === selectedGenus.category_dex_number && 
            d.image_url;
   });
-  const genusIconUrl = genusDiscoveries.find(d => d.is_front_image)?.image_url || 
+  const genusIconUrl = genusDiscoveries.find(d => d.is_genus_image)?.image_url || 
                        genusDiscoveries.sort((a, b) => new Date(b.discovered_date) - new Date(a.discovered_date))[0]?.image_url;
 
   if (generaLoading || plantsLoading || discoveriesLoading) {
@@ -294,8 +359,35 @@ export default function GenusDetail() {
     : createPageUrl("Collection");
   const backLabel = friendEmail ? "Zurück zum Freundes-PlantDex" : "Zurück zur Sammlung";
 
+  const getLighterColor = (rgbString) => {
+    if (!rgbString) return null;
+    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!match) return rgbString;
+    const r = Math.min(255, Math.floor(parseInt(match[1]) * 1.4));
+    const g = Math.min(255, Math.floor(parseInt(match[2]) * 1.4));
+    const b = Math.min(255, Math.floor(parseInt(match[3]) * 1.4));
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+
+  const getDarkerColor = (rgbString) => {
+    if (!rgbString) return null;
+    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!match) return rgbString;
+    const r = Math.floor(parseInt(match[1]) * 0.6);
+    const g = Math.floor(parseInt(match[2]) * 0.6);
+    const b = Math.floor(parseInt(match[3]) * 0.6);
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4 md:p-8">
+    <div 
+      className="min-h-screen p-4 md:p-8"
+      style={{
+        background: averageColor 
+          ? `linear-gradient(135deg, ${getLighterColor(averageColor)} 0%, ${averageColor} 50%, ${getDarkerColor(averageColor)} 100%)`
+          : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
+      }}
+    >
       <MobileBackButton backUrl={backUrl} />
       
       <div className="max-w-6xl mx-auto">
@@ -551,28 +643,58 @@ export default function GenusDetail() {
                       </div>
                     </>
                   )}
-                  {/* Front-Image Button - nur anzeigen wenn mehr als 1 Scan in der Gattung */}
-                  {!friendEmail && genusDiscoveries.length > 1 && (
+                  {/* Star Buttons - nur anzeigen wenn nicht im Freundes-Kontext */}
+                  {!friendEmail && (
                     <>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const currentDiscovery = expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0];
-                          setFrontImageMutation.mutate({ discoveryId: currentDiscovery.id });
-                        }}
-                        className={`absolute bottom-3 left-3 w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all backdrop-blur-sm ${
-                          expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_front_image 
-                            ? 'bg-amber-500/80 hover:bg-amber-600/80' 
-                            : 'bg-white/60 hover:bg-white/80'
-                        }`}
-                        title="Als Gattungsbild festlegen"
-                      >
-                        <Star className={`w-5 h-5 ${
-                          expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_front_image 
-                            ? 'text-white fill-white' 
-                            : 'text-stone-600'
-                        }`} />
-                      </button>
+                      {/* Artbild Button - nur wenn mehrere Scans dieser Art */}
+                      {expandedPlant.allDiscoveries.length > 1 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const currentDiscovery = expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0];
+                            setSpeciesFrontImageMutation.mutate({ 
+                              discoveryId: currentDiscovery.id,
+                              plantId: expandedPlant.id
+                            });
+                          }}
+                          className={`absolute bottom-16 left-3 w-9 h-9 rounded-full flex items-center justify-center shadow-lg transition-all backdrop-blur-sm ${
+                            expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_front_image 
+                              ? 'bg-blue-500/80 hover:bg-blue-600/80' 
+                              : 'bg-white/60 hover:bg-white/80'
+                          }`}
+                          title="Als Artbild festlegen"
+                        >
+                          <Star className={`w-4 h-4 ${
+                            expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_front_image 
+                              ? 'text-white fill-white' 
+                              : 'text-stone-600'
+                          }`} />
+                        </button>
+                      )}
+                      
+                      {/* Gattungsbild Button - nur wenn mehrere Scans in der Gattung */}
+                      {genusDiscoveries.length > 1 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const currentDiscovery = expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0];
+                            setGenusFrontImageMutation.mutate({ discoveryId: currentDiscovery.id });
+                          }}
+                          className={`absolute bottom-3 left-3 w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all backdrop-blur-sm ${
+                            expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_genus_image 
+                              ? 'bg-amber-500/80 hover:bg-amber-600/80' 
+                              : 'bg-white/60 hover:bg-white/80'
+                          }`}
+                          title="Als Gattungsbild festlegen"
+                        >
+                          <Star className={`w-5 h-5 ${
+                            expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_genus_image 
+                              ? 'text-white fill-white' 
+                              : 'text-stone-600'
+                          }`} />
+                        </button>
+                      )}
+                      
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
