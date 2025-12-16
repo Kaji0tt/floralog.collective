@@ -147,39 +147,35 @@ export default function GenusDetail() {
     });
   }, [userDiscoveries]);
 
-  const setSpeciesFrontImageMutation = useMutation({
+  const setFrontImageMutation = useMutation({
     mutationFn: async ({ discoveryId, plantId }) => {
-      // Nur Discoveries derselben Art auf false setzen
-      const plantDiscoveries = userDiscoveries.filter(d => d.plant_id === plantId);
+      // Setze is_front_image = false für alle anderen Scans derselben Art
+      const plantDiscoveries = userDiscoveries.filter(d => d.plant_id === plantId && d.id !== discoveryId);
       await Promise.all(
         plantDiscoveries.map(d => 
           base44.entities.UserPlantDiscovery.update(d.id, { is_front_image: false })
         )
       );
-      // Dann das ausgewählte auf true setzen
-      await base44.entities.UserPlantDiscovery.update(discoveryId, { is_front_image: true });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
-    },
-  });
-
-  const setGenusFrontImageMutation = useMutation({
-    mutationFn: async ({ discoveryId }) => {
-      // Alle Discoveries der gesamten Gattung auf false setzen
+      
+      // Setze is_genus_image = false für alle anderen Scans der Gattung
       const genusDiscoveries = userDiscoveries.filter(d => {
         const plant = plants.find(p => p.id === d.plant_id);
         return plant && selectedGenus && 
                plant.genus_category === selectedGenus.category && 
-               plant.genus_number === selectedGenus.category_dex_number;
+               plant.genus_number === selectedGenus.category_dex_number &&
+               d.id !== discoveryId;
       });
       await Promise.all(
         genusDiscoveries.map(d => 
           base44.entities.UserPlantDiscovery.update(d.id, { is_genus_image: false })
         )
       );
-      // Dann das ausgewählte auf true setzen
-      await base44.entities.UserPlantDiscovery.update(discoveryId, { is_genus_image: true });
+      
+      // Setze beide Flags auf true für den ausgewählten Scan
+      await base44.entities.UserPlantDiscovery.update(discoveryId, { 
+        is_front_image: true,
+        is_genus_image: true 
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
@@ -643,57 +639,31 @@ export default function GenusDetail() {
                       </div>
                     </>
                   )}
-                  {/* Star Buttons - nur anzeigen wenn nicht im Freundes-Kontext */}
-                  {!friendEmail && (
+                  {/* Star Button - nur anzeigen wenn nicht im Freundes-Kontext und mehrere Scans */}
+                  {!friendEmail && (expandedPlant.allDiscoveries.length > 1 || genusDiscoveries.length > 1) && (
                     <>
-                      {/* Artbild Button - nur wenn mehrere Scans dieser Art */}
-                      {expandedPlant.allDiscoveries.length > 1 && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const currentDiscovery = expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0];
-                            setSpeciesFrontImageMutation.mutate({ 
-                              discoveryId: currentDiscovery.id,
-                              plantId: expandedPlant.id
-                            });
-                          }}
-                          className={`absolute bottom-16 left-3 w-9 h-9 rounded-full flex items-center justify-center shadow-lg transition-all backdrop-blur-sm ${
-                            expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_front_image 
-                              ? 'bg-blue-500/80 hover:bg-blue-600/80' 
-                              : 'bg-white/60 hover:bg-white/80'
-                          }`}
-                          title="Als Artbild festlegen"
-                        >
-                          <Star className={`w-4 h-4 ${
-                            expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_front_image 
-                              ? 'text-white fill-white' 
-                              : 'text-stone-600'
-                          }`} />
-                        </button>
-                      )}
-                      
-                      {/* Gattungsbild Button - nur wenn mehrere Scans in der Gattung */}
-                      {genusDiscoveries.length > 1 && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const currentDiscovery = expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0];
-                            setGenusFrontImageMutation.mutate({ discoveryId: currentDiscovery.id });
-                          }}
-                          className={`absolute bottom-3 left-3 w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all backdrop-blur-sm ${
-                            expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_genus_image 
-                              ? 'bg-amber-500/80 hover:bg-amber-600/80' 
-                              : 'bg-white/60 hover:bg-white/80'
-                          }`}
-                          title="Als Gattungsbild festlegen"
-                        >
-                          <Star className={`w-5 h-5 ${
-                            expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_genus_image 
-                              ? 'text-white fill-white' 
-                              : 'text-stone-600'
-                          }`} />
-                        </button>
-                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const currentDiscovery = expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0];
+                          setFrontImageMutation.mutate({ 
+                            discoveryId: currentDiscovery.id,
+                            plantId: expandedPlant.id
+                          });
+                        }}
+                        className={`absolute bottom-3 left-3 w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all backdrop-blur-sm ${
+                          expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_genus_image 
+                            ? 'bg-amber-500/80 hover:bg-amber-600/80' 
+                            : 'bg-white/60 hover:bg-white/80'
+                        }`}
+                        title="Als Vorschaubild festlegen"
+                      >
+                        <Star className={`w-5 h-5 ${
+                          expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_genus_image 
+                            ? 'text-white fill-white' 
+                            : 'text-stone-600'
+                        }`} />
+                      </button>
                       
                       <button
                         onClick={(e) => {
