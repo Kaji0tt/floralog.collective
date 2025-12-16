@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Heart, Users, TrendingUp, Clock, Leaf, Loader2, ChevronLeft, ChevronRight, X, Search, MapPin } from "lucide-react";
+import { Heart, Users, TrendingUp, Clock, Leaf, Loader2, ChevronLeft, ChevronRight, X, Search, MapPin, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -483,13 +483,6 @@ export default function Quests() {
                             </div>
                           )}
                           <CardContent className="p-2">
-                            {plant && (
-                              <div className="mb-2">
-                                <h3 className="text-xs font-bold text-stone-900 line-clamp-1">{plant.species_name}</h3>
-                                <p className="text-[10px] italic text-stone-600 line-clamp-1">{plant.scientific_name}</p>
-                              </div>
-                            )}
-
                             <div className="flex items-center justify-between gap-1">
                               <button
                                 onClick={(e) => {
@@ -902,6 +895,43 @@ export default function Quests() {
                       </Badge>
                     )}
                   </div>
+                  <button
+                    onClick={() => {
+                      const plant = selectedDiscovery.plant;
+                      const genus = selectedDiscovery.genus;
+
+                      // Prüfe ob User die Art hat
+                      const userHasSpecies = userDiscoveries.some(d => d.plant_id === plant?.id);
+
+                      if (userHasSpecies) {
+                        // Fall 1: User hat die Art → zu GenusDetail mit Art
+                        navigate(createPageUrl(`PlantDetail?id=${plant.id}`));
+                      } else {
+                        // Prüfe ob User die Gattung hat
+                        const userHasGenus = genera.some(g => {
+                          if (g.id === genus?.id) {
+                            const genusPlants = plants.filter(p => 
+                              p.genus_category === g.category && 
+                              p.genus_number === g.category_dex_number
+                            );
+                            return genusPlants.some(p => userDiscoveries.some(d => d.plant_id === p.id));
+                          }
+                          return false;
+                        });
+
+                        if (userHasGenus) {
+                          // Fall 2: User hat die Gattung → zu GenusDetail der Gattung
+                          navigate(createPageUrl(`GenusDetail?id=${genus.id}`));
+                        } else {
+                          // Fall 3: User hat die Gattung nicht → zu Collection mit Hint
+                          navigate(createPageUrl(`Collection?showHint=${genus?.id || plant?.id}`));
+                        }
+                      }
+                    }}
+                    className="w-10 h-10 bg-blue-100 hover:bg-blue-200 rounded-full flex items-center justify-center transition-colors flex-shrink-0"
+                  >
+                    <AlertCircle className="w-5 h-5 text-blue-600" />
+                  </button>
                 </div>
 
                 <button
