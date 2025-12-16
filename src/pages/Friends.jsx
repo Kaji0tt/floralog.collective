@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, Users, Loader2, Mail, Star, Check, X, Bell, ChevronRight, UserMinus, Clock, Leaf, Trophy } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { UserPlus, Users, Loader2, Mail, Star, Check, X, Bell, ChevronRight, UserMinus, Clock, Leaf, Trophy, Gift } from "lucide-react";
 import { motion } from "framer-motion";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
@@ -59,6 +60,7 @@ export default function Friends() {
   const [newAchievements, setNewAchievements] = useState([]);
   const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
   const [averageColor, setAverageColor] = useState(null);
+  const [activeTab, setActiveTab] = useState("friends");
 
   useEffect(() => {
     const loadUser = async () => {
@@ -141,6 +143,19 @@ export default function Friends() {
   const { data: allPlants = [] } = useQuery({
     queryKey: ['allPlants'],
     queryFn: () => base44.entities.Plant.list()
+  });
+
+  // Lade alle Genera
+  const { data: allGenera = [] } = useQuery({
+    queryKey: ['allGenera'],
+    queryFn: () => base44.entities.PlantGenus.list()
+  });
+
+  // Lade SharedScans
+  const { data: sharedScans = [] } = useQuery({
+    queryKey: ['sharedScans', user?.email],
+    queryFn: () => base44.entities.SharedScan.filter({ shared_to: user?.email }),
+    enabled: !!user?.email,
   });
 
   // Lade alle Achievements - mit höherem Limit
@@ -470,71 +485,56 @@ export default function Friends() {
       </AnimatePresence>
 
       <div className="max-w-4xl mx-auto w-full overflow-hidden">
-        {/* Mobile View */}
-        <div className="md:hidden">
-          {/* Sticky Header mit Freundschaftsanfrage */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }} className="bg-transparent pb-4 sticky top-0 z-40 from-stone-50 to-green-50">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          {/* Tabs Header - Fixed am oberen Bildschirmrand */}
+          <div className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200">
+            <div className="max-w-4xl mx-auto">
+              <TabsList className="grid w-full grid-cols-2 bg-white h-12 rounded-none border-0">
+                <TabsTrigger value="friends" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
+                  <Users className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                  Meine Freunde ({friends.length})
+                </TabsTrigger>
+                <TabsTrigger value="gifts" className="data-[state=active]:bg-pink-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
+                  <Gift className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                  Meine Geschenke ({sharedScans.length})
+                </TabsTrigger>
+              </TabsList>
 
-
-            <Card className="shadow-lg bg-white rounded-b-none border-2 border-b-0" style={{
-              borderColor: averageColor ? getDarkerColor(averageColor) : 'rgb(187, 247, 208)'
-            }}>
-              <CardContent className="p-4">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h1 className="text-2xl font-bold text-stone-900">
-                      Meine Freunde
-                    </h1>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge className="bg-green-600 text-white">
-                        {friends.length} {friends.length === 1 ? 'Freund' : 'Freunde'}
-                      </Badge>
-                      {pendingRequests.length > 0 &&
-                      <Badge className="bg-amber-600 text-white">
-                          {pendingRequests.length} {pendingRequests.length === 1 ? 'Anfrage' : 'Anfragen'}
-                        </Badge>
-                      }
-                    </div>
-                  </div>
-                </div>
-
-                {/* Freund hinzufügen */}
-                <div className="flex gap-2">
+              {/* Email Input - nur im Friends Tab */}
+              {activeTab === "friends" && (
+                <div className="flex gap-2 p-2 border-t border-stone-200">
                   <Input
                     placeholder="E-Mail des Freundes"
                     value={friendEmail}
                     onChange={(e) => setFriendEmail(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSendRequest()}
-                    className="border-2 border-stone-200 flex-1" />
-
+                    className="border-2 border-stone-200 flex-1 h-9" />
                   <Button
                     onClick={handleSendRequest}
                     disabled={!friendEmail || sendFriendRequestMutation.isPending}
-                    className="bg-green-600 hover:bg-green-700 flex-shrink-0"
-                    size="icon">
-
+                    className="bg-green-600 hover:bg-green-700 flex-shrink-0 h-9 px-3"
+                    size="sm">
                     {sendFriendRequestMutation.isPending ?
-                    <Loader2 className="w-5 h-5 animate-spin" /> :
-
-                    <UserPlus className="w-5 h-5" />
+                      <Loader2 className="w-4 h-4 animate-spin" /> :
+                      <UserPlus className="w-4 h-4" />
                     }
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+              )}
+            </div>
+          </div>
 
-          {/* Freundschaftsanfragen */}
-          {pendingRequests.length > 0 &&
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="mb-6 mt-4">
+          <MobileBackButton />
+
+          {/* Friends Tab Content */}
+          <TabsContent value="friends" className="pt-20 px-4 pb-4">
+            {/* Freundschaftsanfragen */}
+            {pendingRequests.length > 0 &&
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="mb-4">
 
               <Card className="border-2 border-amber-200 shadow-lg bg-white">
                 <CardHeader className="border-b border-amber-100 bg-amber-50 p-4">
@@ -605,39 +605,25 @@ export default function Friends() {
             </motion.div>
           }
 
-          {/* Freundesliste */}
-          <div className="relative">
-            {/* Gradient Overlay oben */}
-            <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-white/80 to-transparent pointer-events-none z-10" style={{
-              background: averageColor 
-                ? `linear-gradient(to bottom, ${averageColor}, transparent)`
-                : 'linear-gradient(to bottom, rgb(250, 250, 249), transparent)'
-            }}></div>
-            
+            {/* Freundesliste */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3, duration: 0.5 }}
-              className="overflow-y-auto overscroll-y-contain rounded-t-none border-2 border-t-0 bg-white/95 backdrop-blur-sm p-4"
-              style={{
-                WebkitOverflowScrolling: 'touch',
-                maxHeight: 'calc(100vh - 200px)',
-                minHeight: '60vh',
-                borderColor: averageColor ? getDarkerColor(averageColor) : 'rgb(187, 247, 208)'
-              }}>
+              className="space-y-3">
 
-            {friends.length === 0 ?
-            <div className="text-center py-12">
-                <Users className="w-16 h-16 text-stone-300 mx-auto mb-4" />
-                <p className="text-stone-600 text-lg font-semibold mb-2">
-                  Noch keine Freunde
-                </p>
-                <p className="text-stone-500">
-                  Füge Freunde hinzu, um ihre Sammlungen zu sehen!
-                </p>
-              </div> :
+              {friends.length === 0 ?
+              <div className="text-center py-12">
+                  <Users className="w-16 h-16 text-stone-300 mx-auto mb-4" />
+                  <p className="text-stone-600 text-lg font-semibold mb-2">
+                    Noch keine Freunde
+                  </p>
+                  <p className="text-stone-500">
+                    Füge Freunde hinzu, um ihre Sammlungen zu sehen!
+                  </p>
+                </div> :
 
-            <div className="grid gap-3 pb-24">
+              <div className="grid gap-3">
                 {friends.map((friend, index) => {
                 const friendData = getFriendData(friend);
                 if (!friendData) return null;
@@ -649,7 +635,7 @@ export default function Friends() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.05 }}>
 
-                      <Card className="border-2 border-stone-200 hover:border-green-300 hover:shadow-md transition-all bg-white group overflow-hidden">
+                      <Card className="border shadow-sm hover:border-purple-300 hover:shadow-md transition-all bg-white group overflow-hidden">
                         <CardContent className="p-3">
                           <button
                           onClick={() => navigate(createPageUrl(`FriendProfile?email=${friendData.email}`))}
@@ -722,15 +708,83 @@ export default function Friends() {
                       </Card>
                     </motion.div>);
 
-              })}
-              </div>
-            }
+                })}
+                </div>
+              }
             </motion.div>
-          </div>
-        </div>
+          </TabsContent>
 
-        {/* Desktop View */}
-        <div className="hidden md:block">
+          {/* Gifts Tab Content */}
+          <TabsContent value="gifts" className="pt-14 px-4 pb-4">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              {sharedScans.length === 0 ? (
+                <div className="text-center py-12">
+                  <Gift className="w-16 h-16 text-stone-300 mx-auto mb-4" />
+                  <p className="text-stone-600 text-lg font-semibold mb-2">
+                    Noch keine Geschenke
+                  </p>
+                  <p className="text-stone-500">
+                    Deine Freunde können dir Pflanzen schenken!
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {sharedScans.map((scan, index) => {
+                    const plant = allPlants.find(p => p.id === scan.plant_id);
+                    const genus = plant ? allGenera.find(g => 
+                      g.category === plant.genus_category && 
+                      g.category_dex_number === plant.genus_number
+                    ) : null;
+                    
+                    return (
+                      <motion.div
+                        key={scan.id}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: index * 0.02 }}
+                      >
+                        <Card 
+                          className="border shadow-sm hover:border-pink-300 hover:shadow-md transition-all bg-white overflow-hidden cursor-pointer"
+                          onClick={() => navigate(createPageUrl(`ViewSharedScan?id=${scan.id}`))}
+                        >
+                          {scan.image_url && (
+                            <div className="relative aspect-square">
+                              <img
+                                src={scan.image_url}
+                                alt={plant?.species_name}
+                                className="w-full h-full object-cover"
+                              />
+                              {!scan.viewed && (
+                                <div className="absolute top-2 right-2 w-6 h-6 bg-pink-500 rounded-full flex items-center justify-center shadow-md">
+                                  <Gift className="w-3 h-3 text-white" />
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          <CardContent className="p-2">
+                            <p className="text-xs font-semibold text-stone-900 truncate">
+                              {plant?.species_name || 'Unbekannt'}
+                            </p>
+                            <p className="text-[10px] text-stone-500 truncate">
+                              von {scan.shared_by}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
+            </motion.div>
+          </TabsContent>
+        </Tabs>
+
+        {/* Desktop View - TODO: Implement desktop tabs version similar to mobile */}
+        <div className="hidden md:block pt-14">
 
           {/* Freundschaftsanfragen Desktop */}
           {pendingRequests.length > 0 &&
