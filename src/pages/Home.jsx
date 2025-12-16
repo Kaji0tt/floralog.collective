@@ -393,7 +393,7 @@ export default function Home() {
           --profile-bg-color-dark: ${averageColor ? getDarkerColor(averageColor) : 'rgb(220, 252, 231)'};
           --profile-border-color: ${averageColor ? getRgbaFromRgb(averageColor, 0.4) : 'rgb(134, 239, 172)'};
         }
-        @media (max-height: 700px) {
+        @media (max-height: 610px) {
           .short-screen\\:hidden {
             display: none !important;
           }
