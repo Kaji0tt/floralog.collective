@@ -23,12 +23,19 @@ export const getTodayString = (date = new Date()) => {
   return date.toISOString().split('T')[0];
 };
 
-// Bestimmt die aktuelle tägliche Quest basierend auf dem Tag
-export const getCurrentDailyQuest = (dailyQuests) => {
-  if (!dailyQuests || dailyQuests.length === 0) return null;
-  const sortedQuests = [...dailyQuests].sort((a, b) => a.quest_number - b.quest_number);
-  const dayOfYear = getDayOfYear();
-  const index = dayOfYear % sortedQuests.length;
+// Gibt den aktuellen Monat im Format "YYYY-MM" zurück
+export const getMonthString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+};
+
+// Bestimmt die aktuelle monatliche Quest basierend auf dem Monat
+export const getCurrentMonthlyQuest = (monthlyQuests) => {
+  if (!monthlyQuests || monthlyQuests.length === 0) return null;
+  const sortedQuests = [...monthlyQuests].sort((a, b) => a.quest_number - b.quest_number);
+  const month = new Date().getMonth() + 1; // 1-12
+  const index = (month - 1) % sortedQuests.length;
   return sortedQuests[index];
 };
 
@@ -42,19 +49,19 @@ export const getCurrentWeeklyQuest = (weeklyQuests) => {
   return sortedQuests[index];
 };
 
-// Holt oder erstellt die aktive UserDailyQuest für heute
-export const getOrCreateActiveDailyQuest = async (base44, currentDailyQuest, userDailyQuests, userEmail) => {
-  if (!currentDailyQuest) return null;
+// Holt oder erstellt die aktive UserMonthlyQuest für diesen Monat
+export const getOrCreateActiveMonthlyQuest = async (base44, currentMonthlyQuest, userMonthlyQuests, userEmail) => {
+  if (!currentMonthlyQuest) return null;
   
-  const today = getTodayString();
-  let activeUserQuest = userDailyQuests.find(
-    udq => udq.daily_quest_id === currentDailyQuest.id && udq.active_date === today
+  const currentMonth = getMonthString();
+  let activeUserQuest = userMonthlyQuests.find(
+    umq => umq.monthly_quest_id === currentMonthlyQuest.id && umq.active_month === currentMonth
   );
   
   if (!activeUserQuest) {
-    activeUserQuest = await base44.entities.UserDailyQuest.create({
-      daily_quest_id: currentDailyQuest.id,
-      active_date: today,
+    activeUserQuest = await base44.entities.UserMonthlyQuest.create({
+      monthly_quest_id: currentMonthlyQuest.id,
+      active_month: currentMonth,
       progress: 0,
       completed: false,
       created_by: userEmail
@@ -86,13 +93,13 @@ export const getOrCreateActiveWeeklyQuest = async (base44, currentWeeklyQuest, u
   return activeUserQuest;
 };
 
-// Prüft ob die tägliche Quest heute abgeschlossen wurde
-export const isDailyQuestCompletedToday = (userDailyQuests, questId) => {
-  const today = getTodayString();
-  const todayQuest = userDailyQuests.find(
-    udq => udq.daily_quest_id === questId && udq.active_date === today
+// Prüft ob die monatliche Quest diesen Monat abgeschlossen wurde
+export const isMonthlyQuestCompletedThisMonth = (userMonthlyQuests, questId) => {
+  const currentMonth = getMonthString();
+  const monthQuest = userMonthlyQuests.find(
+    umq => umq.monthly_quest_id === questId && umq.active_month === currentMonth
   );
-  return todayQuest?.completed === true;
+  return monthQuest?.completed === true;
 };
 
 // Prüft ob die wöchentliche Quest diese Woche abgeschlossen wurde

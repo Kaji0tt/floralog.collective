@@ -74,9 +74,9 @@ export default function AdminQuestCreator() {
     queryFn: () => base44.entities.Quest.list(),
   });
 
-  const { data: dailyQuests = [], isLoading: dailyLoading } = useQuery({
-    queryKey: ['dailyQuests'],
-    queryFn: () => base44.entities.DailyQuest.list(),
+  const { data: monthlyQuests = [], isLoading: monthlyLoading } = useQuery({
+    queryKey: ['monthlyQuests'],
+    queryFn: () => base44.entities.MonthlyQuest.list(),
   });
 
   const { data: weeklyQuests = [], isLoading: weeklyLoading } = useQuery({
@@ -97,22 +97,22 @@ export default function AdminQuestCreator() {
   // Mutations
   const createQuestMutation = useMutation({
     mutationFn: async (data) => {
-      const entityName = activeTab === "quest" ? "Quest" : activeTab === "daily" ? "DailyQuest" : "WeeklyQuest";
+      const entityName = activeTab === "quest" ? "Quest" : activeTab === "monthly" ? "MonthlyQuest" : "WeeklyQuest";
       return base44.entities[entityName].create(data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [activeTab === "quest" ? 'quests' : activeTab === "daily" ? 'dailyQuests' : 'weeklyQuests'] });
+      queryClient.invalidateQueries({ queryKey: [activeTab === "quest" ? 'quests' : activeTab === "monthly" ? 'monthlyQuests' : 'weeklyQuests'] });
       resetForm();
     },
   });
 
   const updateQuestMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      const entityName = activeTab === "quest" ? "Quest" : activeTab === "daily" ? "DailyQuest" : "WeeklyQuest";
+      const entityName = activeTab === "quest" ? "Quest" : activeTab === "monthly" ? "MonthlyQuest" : "WeeklyQuest";
       return base44.entities[entityName].update(id, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [activeTab === "quest" ? 'quests' : activeTab === "daily" ? 'dailyQuests' : 'weeklyQuests'] });
+      queryClient.invalidateQueries({ queryKey: [activeTab === "quest" ? 'quests' : activeTab === "monthly" ? 'monthlyQuests' : 'weeklyQuests'] });
       resetForm();
       setEditingQuest(null);
     },
@@ -120,11 +120,11 @@ export default function AdminQuestCreator() {
 
   const deleteQuestMutation = useMutation({
     mutationFn: async (id) => {
-      const entityName = activeTab === "quest" ? "Quest" : activeTab === "daily" ? "DailyQuest" : "WeeklyQuest";
+      const entityName = activeTab === "quest" ? "Quest" : activeTab === "monthly" ? "MonthlyQuest" : "WeeklyQuest";
       return base44.entities[entityName].delete(id);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [activeTab === "quest" ? 'quests' : activeTab === "daily" ? 'dailyQuests' : 'weeklyQuests'] });
+      queryClient.invalidateQueries({ queryKey: [activeTab === "quest" ? 'quests' : activeTab === "monthly" ? 'monthlyQuests' : 'weeklyQuests'] });
     },
   });
 
@@ -186,8 +186,8 @@ export default function AdminQuestCreator() {
       }
     }
 
-    // Add target fields for daily/weekly
-    if (activeTab === "daily" || activeTab === "weekly") {
+    // Add target fields for monthly/weekly
+    if (activeTab === "monthly" || activeTab === "weekly") {
       if (formData.target_genus_name) {
         questData.target_genus_name = formData.target_genus_name;
       }
@@ -205,7 +205,7 @@ export default function AdminQuestCreator() {
 
   const getCurrentQuests = () => {
     if (activeTab === "quest") return quests.sort((a, b) => (a.quest_number || 0) - (b.quest_number || 0));
-    if (activeTab === "daily") return dailyQuests.sort((a, b) => (a.quest_number || 0) - (b.quest_number || 0));
+    if (activeTab === "monthly") return monthlyQuests.sort((a, b) => (a.quest_number || 0) - (b.quest_number || 0));
     return weeklyQuests.sort((a, b) => (a.quest_number || 0) - (b.quest_number || 0));
   };
 
@@ -215,7 +215,7 @@ export default function AdminQuestCreator() {
     return Math.max(...current.map(q => q.quest_number || 0)) + 1;
   };
 
-  const dataLoading = questsLoading || dailyLoading || weeklyLoading;
+  const dataLoading = questsLoading || monthlyLoading || weeklyLoading;
 
   if (isLoading || dataLoading) {
     return (
@@ -258,11 +258,11 @@ export default function AdminQuestCreator() {
               Quests ({quests.length})
             </TabsTrigger>
             <TabsTrigger
-              value="daily"
+              value="monthly"
               className="data-[state=active]:bg-amber-600 data-[state=active]:text-white font-semibold py-3"
             >
               <Calendar className="w-4 h-4 mr-2" />
-              Täglich ({dailyQuests.length})
+              Monatlich ({monthlyQuests.length})
             </TabsTrigger>
             <TabsTrigger
               value="weekly"
@@ -420,8 +420,8 @@ export default function AdminQuestCreator() {
                   </>
                 )}
 
-                {/* Daily/Weekly specific fields */}
-                {(activeTab === "daily" || activeTab === "weekly") && (
+                {/* Monthly/Weekly specific fields */}
+                {(activeTab === "monthly" || activeTab === "weekly") && (
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label>Ziel-Gattung (optional)</Label>
@@ -471,7 +471,7 @@ export default function AdminQuestCreator() {
                   <Button
                     type="submit"
                     disabled={createQuestMutation.isPending || updateQuestMutation.isPending}
-                    className={`flex-1 ${activeTab === "quest" ? "bg-green-600 hover:bg-green-700" : activeTab === "daily" ? "bg-amber-600 hover:bg-amber-700" : "bg-purple-600 hover:bg-purple-700"}`}
+                    className={`flex-1 ${activeTab === "quest" ? "bg-green-600 hover:bg-green-700" : activeTab === "monthly" ? "bg-amber-600 hover:bg-amber-700" : "bg-purple-600 hover:bg-purple-700"}`}
                   >
                     {(createQuestMutation.isPending || updateQuestMutation.isPending) ? (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -498,9 +498,9 @@ export default function AdminQuestCreator() {
             <CardHeader className="border-b border-stone-200">
               <CardTitle className="flex items-center gap-2">
                 {activeTab === "quest" && <Target className="w-5 h-5 text-green-600" />}
-                {activeTab === "daily" && <Calendar className="w-5 h-5 text-amber-600" />}
+                {activeTab === "monthly" && <Calendar className="w-5 h-5 text-amber-600" />}
                 {activeTab === "weekly" && <CalendarDays className="w-5 h-5 text-purple-600" />}
-                {activeTab === "quest" ? "Alle Quests" : activeTab === "daily" ? "Tägliche Quests" : "Wöchentliche Quests"}
+                {activeTab === "quest" ? "Alle Quests" : activeTab === "monthly" ? "Monatliche Quests" : "Wöchentliche Quests"}
                 <Badge variant="outline">{getCurrentQuests().length}</Badge>
               </CardTitle>
             </CardHeader>

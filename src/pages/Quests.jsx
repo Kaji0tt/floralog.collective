@@ -14,14 +14,15 @@ import AchievementNotification from "../components/achievements/AchievementNotif
 import { awardXP, getTitleForLevel, getXPProgressInLevel } from "../components/utils/xpSystem";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import { 
-  getCurrentDailyQuest, 
+  getCurrentMonthlyQuest, 
   getCurrentWeeklyQuest, 
-  isDailyQuestCompletedToday, 
+  isMonthlyQuestCompletedThisMonth, 
   isWeeklyQuestCompletedThisWeek,
-  getOrCreateActiveDailyQuest,
+  getOrCreateActiveMonthlyQuest,
   getOrCreateActiveWeeklyQuest,
   getTodayString,
-  getWeekNumber
+  getWeekNumber,
+  getMonthString
 } from "../components/quests/QuestRotationHelper";
 
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
@@ -103,9 +104,9 @@ export default function Quests() {
     enabled: !!user?.email,
   });
 
-  const { data: dailyQuests = [] } = useQuery({
-    queryKey: ['dailyQuests'],
-    queryFn: () => base44.entities.DailyQuest.list('quest_number'),
+  const { data: monthlyQuests = [] } = useQuery({
+    queryKey: ['monthlyQuests'],
+    queryFn: () => base44.entities.MonthlyQuest.list('quest_number'),
   });
 
   const { data: weeklyQuests = [] } = useQuery({
@@ -113,9 +114,9 @@ export default function Quests() {
     queryFn: () => base44.entities.WeeklyQuest.list('quest_number'),
   });
 
-  const { data: userDailyQuests = [] } = useQuery({
-    queryKey: ['userDailyQuests'],
-    queryFn: () => base44.entities.UserDailyQuest.filter({ created_by: user?.email }),
+  const { data: userMonthlyQuests = [] } = useQuery({
+    queryKey: ['userMonthlyQuests'],
+    queryFn: () => base44.entities.UserMonthlyQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email,
   });
 
@@ -177,16 +178,15 @@ export default function Quests() {
     },
   });
 
-  const completeDailyQuestMutation = useMutation({
-    mutationFn: async (questId) => {
-      return base44.entities.UserDailyQuest.create({
-        daily_quest_id: questId,
-        completed_date: getTodayString(),
-        created_by: user?.email
+  const completeMonthlyQuestMutation = useMutation({
+    mutationFn: async (userQuestId) => {
+      return base44.entities.UserMonthlyQuest.update(userQuestId, {
+        completed: true,
+        completed_date: new Date().toISOString()
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['userDailyQuests'] });
+      queryClient.invalidateQueries({ queryKey: ['userMonthlyQuests'] });
     },
   });
 
@@ -295,15 +295,11 @@ export default function Quests() {
     }
   };
 
-  const handleCompleteDailyQuest = async (quest) => {
-    if (!activeDailyUserQuest || activeDailyUserQuest.completed) return;
+  const handleCompleteMonthlyQuest = async (quest) => {
+    if (!activeMonthlyUserQuest || activeMonthlyUserQuest.completed) return;
 
-    if (isDailyCompleted) {
-      await base44.entities.UserDailyQuest.update(activeDailyUserQuest.id, {
-        completed: true,
-        completed_date: new Date().toISOString()
-      });
-      queryClient.invalidateQueries({ queryKey: ['userDailyQuests'] });
+    if (isMonthlyCompleted) {
+      await completeMonthlyQuestMutation.mutateAsync(activeMonthlyUserQuest.id);
       
       const currentXP = user.xp || 0;
       const { newXP, newLevel, newTitle } = awardXP(currentXP, quest.xp_reward);
@@ -334,11 +330,7 @@ export default function Quests() {
     if (!activeWeeklyUserQuest || activeWeeklyUserQuest.completed) return;
 
     if (isWeeklyCompleted) {
-      await base44.entities.UserWeeklyQuest.update(activeWeeklyUserQuest.id, {
-        completed: true,
-        completed_date: new Date().toISOString()
-      });
-      queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
+      await completeWeeklyQuestMutation.mutate(activeWeeklyUserQuest.id);
       
       const currentXP = user.xp || 0;
       const { newXP, newLevel, newTitle } = awardXP(currentXP, quest.xp_reward);
@@ -364,6 +356,18 @@ export default function Quests() {
       }, 500);
     }
   };
+
+  const completeWeeklyQuestMutation = useMutation({
+    mutationFn: async (userQuestId) => {
+      return base44.entities.UserWeeklyQuest.update(userQuestId, {
+        completed: true,
+        completed_date: new Date().toISOString()
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
+    },
+  });
 
   // Prüfe ob Prerequisites erfüllt sind
   const isQuestUnlocked = (quest) => {
@@ -402,25 +406,25 @@ export default function Quests() {
     userQuests.some(uq => uq.quest_id === q.id && uq.completed)
   );
 
-  const currentDailyQuest = getCurrentDailyQuest(dailyQuests);
+  const currentMonthlyQuest = getCurrentMonthlyQuest(monthlyQuests);
   const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
 
   // Finde UserQuest-Eintrag, falls vorhanden, ansonsten null
-  const activeDailyUserQuest = currentDailyQuest 
-    ? userDailyQuests.find(udq => udq.daily_quest_id === currentDailyQuest.id && udq.active_date === getTodayString())
+  const activeMonthlyUserQuest = currentMonthlyQuest 
+    ? userMonthlyQuests.find(umq => umq.monthly_quest_id === currentMonthlyQuest.id && umq.active_month === getMonthString())
     : null;
   
   const activeWeeklyUserQuest = currentWeeklyQuest 
     ? userWeeklyQuests.find(uwq => uwq.weekly_quest_id === currentWeeklyQuest.id && uwq.active_week === getWeekNumber())
     : null;
 
-  const dailyProgress = activeDailyUserQuest?.progress || 0;
+  const monthlyProgress = activeMonthlyUserQuest?.progress || 0;
   const weeklyProgress = activeWeeklyUserQuest?.progress || 0;
 
-  const isDailyCompleted = currentDailyQuest && currentDailyQuest.required_discoveries > 0 && dailyProgress >= currentDailyQuest.required_discoveries;
+  const isMonthlyCompleted = currentMonthlyQuest && currentMonthlyQuest.required_discoveries > 0 && monthlyProgress >= currentMonthlyQuest.required_discoveries;
   const isWeeklyCompleted = currentWeeklyQuest && currentWeeklyQuest.required_discoveries > 0 && weeklyProgress >= currentWeeklyQuest.required_discoveries;
 
-  const isDailyAlreadyCompletedToday = activeDailyUserQuest?.completed === true;
+  const isMonthlyAlreadyCompletedThisMonth = activeMonthlyUserQuest?.completed === true;
   const isWeeklyAlreadyCompletedThisWeek = activeWeeklyUserQuest?.completed === true;
 
   const getLighterColor = (rgbString) => {
@@ -529,73 +533,73 @@ export default function Quests() {
 
           {/* Aktive Aufgaben */}
           <TabsContent value="active" className="space-y-4">
-            {/* Tägliche Quest */}
-            {currentDailyQuest && (
+            {/* Monatliche Quest */}
+            {currentMonthlyQuest && (
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.3 }}
               >
-                <Card className={`border-2 ${isDailyAlreadyCompletedToday ? 'border-green-400 bg-green-50/80 backdrop-blur-md' : 'border-emerald-400 bg-white/80 backdrop-blur-md'} hover:shadow-lg transition-all`}>
+                <Card className={`border-2 ${isMonthlyAlreadyCompletedThisMonth ? 'border-green-400 bg-green-50/80 backdrop-blur-md' : 'border-amber-400 bg-white/80 backdrop-blur-md'} hover:shadow-lg transition-all`}>
                   <CardHeader className="relative">
                     <div className="absolute top-4 right-4">
-                      <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex flex-col items-center justify-center shadow-lg">
-                        <span className="text-white font-bold text-sm">+{currentDailyQuest.xp_reward}</span>
+                      <div className="w-14 h-14 bg-gradient-to-br from-amber-500 to-amber-600 rounded-full flex flex-col items-center justify-center shadow-lg">
+                        <span className="text-white font-bold text-sm">+{currentMonthlyQuest.xp_reward}</span>
                         <span className="text-white text-[9px] font-semibold">XP</span>
                       </div>
                     </div>
                     <div className="pr-20">
                       <div className="flex items-center gap-3 mb-2">
-                        <Badge className="bg-emerald-600 text-white font-bold">
-                          📅 Täglich
+                        <Badge className="bg-amber-600 text-white font-bold">
+                          📅 Monatlich
                         </Badge>
-                        {isDailyAlreadyCompletedToday && (
+                        {isMonthlyAlreadyCompletedThisMonth && (
                           <Badge className="bg-green-600 text-white">
                             <CheckCircle2 className="w-3 h-3 mr-1" />
-                            Heute erledigt
+                            Diesen Monat erledigt
                           </Badge>
                         )}
                       </div>
-                      <CardTitle className="text-xl text-stone-900 mb-2">{currentDailyQuest.title}</CardTitle>
+                      <CardTitle className="text-xl text-stone-900 mb-2">{currentMonthlyQuest.title}</CardTitle>
                     </div>
-                    <p className="text-stone-600">{currentDailyQuest.description}</p>
+                    <p className="text-stone-600">{currentMonthlyQuest.description}</p>
                   </CardHeader>
                   <CardContent>
                     <div className="mb-3">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-semibold text-stone-700">
-                          {currentDailyQuest.requirement}
+                          {currentMonthlyQuest.requirement}
                         </span>
-                        <span className="text-sm font-bold text-emerald-700 whitespace-nowrap">
-                          {dailyProgress} / {currentDailyQuest.required_discoveries}
+                        <span className="text-sm font-bold text-amber-700 whitespace-nowrap">
+                          {monthlyProgress} / {currentMonthlyQuest.required_discoveries}
                         </span>
                       </div>
-                      <Progress value={(dailyProgress / currentDailyQuest.required_discoveries) * 100} className="h-2 bg-stone-300/80" />
+                      <Progress value={(monthlyProgress / currentMonthlyQuest.required_discoveries) * 100} className="h-2 bg-stone-300/80" />
                       
-                      {currentDailyQuest.target_species_name && (
-                        <p className="text-xs text-amber-700 font-semibold mt-2">
-                          🎯 Spezifische Art: {currentDailyQuest.target_species_name}
+                      {currentMonthlyQuest.target_species_name && (
+                        <p className="text-xs text-emerald-700 font-semibold mt-2">
+                          🎯 Spezifische Art: {currentMonthlyQuest.target_species_name}
                         </p>
                       )}
-                      {currentDailyQuest.target_genus_name && !currentDailyQuest.target_species_name && (
-                        <p className="text-xs text-amber-700 font-semibold mt-2">
-                          🎯 Spezifische Gattung: {currentDailyQuest.target_genus_name}
+                      {currentMonthlyQuest.target_genus_name && !currentMonthlyQuest.target_species_name && (
+                        <p className="text-xs text-emerald-700 font-semibold mt-2">
+                          🎯 Spezifische Gattung: {currentMonthlyQuest.target_genus_name}
                         </p>
                       )}
                     </div>
                     
-                    {isDailyCompleted && !isDailyAlreadyCompletedToday && (
+                    {isMonthlyCompleted && !isMonthlyAlreadyCompletedThisMonth && (
                       <Button
-                        onClick={() => handleCompleteDailyQuest(currentDailyQuest)}
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3"
-                        disabled={completeDailyQuestMutation.isPending}
+                        onClick={() => handleCompleteMonthlyQuest(currentMonthlyQuest)}
+                        className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3"
+                        disabled={completeMonthlyQuestMutation.isPending}
                       >
-                        {completeDailyQuestMutation.isPending ? (
+                        {completeMonthlyQuestMutation.isPending ? (
                           <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                         ) : (
                           <Trophy className="w-5 h-5 mr-2" />
                         )}
-                        Tägliche Aufgabe abschließen!
+                        Monatliche Aufgabe abschließen!
                       </Button>
                     )}
                   </CardContent>
@@ -610,17 +614,17 @@ export default function Quests() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.3, delay: 0.1 }}
               >
-                <Card className={`border-2 ${isWeeklyAlreadyCompletedThisWeek ? 'border-green-400 bg-green-50/80 backdrop-blur-md' : 'border-blue-400 bg-white/80 backdrop-blur-md'} hover:shadow-lg transition-all`}>
+                <Card className={`border-2 ${isWeeklyAlreadyCompletedThisWeek ? 'border-green-400 bg-green-50/80 backdrop-blur-md' : 'border-emerald-400 bg-white/80 backdrop-blur-md'} hover:shadow-lg transition-all`}>
                   <CardHeader className="relative">
                     <div className="absolute top-4 right-4">
-                      <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex flex-col items-center justify-center shadow-lg">
+                      <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex flex-col items-center justify-center shadow-lg">
                         <span className="text-white font-bold text-sm">+{currentWeeklyQuest.xp_reward}</span>
                         <span className="text-white text-[9px] font-semibold">XP</span>
                       </div>
                     </div>
                     <div className="pr-20">
                       <div className="flex items-center gap-3 mb-2">
-                        <Badge className="bg-blue-600 text-white font-bold">
+                        <Badge className="bg-emerald-600 text-white font-bold">
                           📆 Wöchentlich
                         </Badge>
                         {isWeeklyAlreadyCompletedThisWeek && (
@@ -640,7 +644,7 @@ export default function Quests() {
                         <span className="text-sm font-semibold text-stone-700">
                           {currentWeeklyQuest.requirement}
                         </span>
-                        <span className="text-sm font-bold text-blue-700 whitespace-nowrap">
+                        <span className="text-sm font-bold text-emerald-700 whitespace-nowrap">
                           {weeklyProgress} / {currentWeeklyQuest.required_discoveries}
                         </span>
                       </div>
@@ -661,7 +665,7 @@ export default function Quests() {
                     {isWeeklyCompleted && !isWeeklyAlreadyCompletedThisWeek && (
                       <Button
                         onClick={() => handleCompleteWeeklyQuest(currentWeeklyQuest)}
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3"
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3"
                         disabled={completeWeeklyQuestMutation.isPending}
                       >
                         {completeWeeklyQuestMutation.isPending ? (
