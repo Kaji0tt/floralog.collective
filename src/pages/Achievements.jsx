@@ -255,7 +255,7 @@ export default function Achievements() {
 
             <div className="max-w-6xl mx-auto">
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sortedAchievements.map((achievement, index) => {
+                {sortedAchievements.map((achievement, index) => {
             const isUnlocked = userAchievements.some(ua => ua.achievement_id === achievement.id);
             const userAchievement = userAchievements.find(ua => ua.achievement_id === achievement.id);
             const isCurrentTitle = user.selected_title === achievement.title_reward;
@@ -350,10 +350,9 @@ export default function Achievements() {
                     </div>
                   </CardContent>
                 </Card>
-              </motion.div>
-            );
-          })}
-        </div>
+                </motion.div>
+              );
+            })}
 
                 {sortedAchievements.length === 0 && (
                   <Card className="border-2 border-stone-200 bg-white/80 backdrop-blur-md">
@@ -366,8 +365,7 @@ export default function Achievements() {
                   </Card>
                 )}
               </div>
-            </div>
-          </TabsContent>
+            </TabsContent>
 
           {/* Aufgaben Tab */}
           <TabsContent value="quests" className="pt-14 px-4 pb-4">
