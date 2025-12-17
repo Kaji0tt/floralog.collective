@@ -5,9 +5,11 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { MapPin, Navigation, Loader2, Info, Leaf, Filter } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { MapPin, Navigation, Loader2, Info, Leaf, Filter, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { format } from "date-fns";
@@ -23,7 +25,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
 });
 
-// Erstelle dynamisches Icon mit Farbe
 const createColoredIcon = (color) => {
   const svgIcon = `
     <svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg">
@@ -45,7 +46,6 @@ const createColoredIcon = (color) => {
   });
 };
 
-// Meine Pflanzen (Grün als Fallback)
 const plantIcon = new L.Icon({
   iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png",
   shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
@@ -55,7 +55,6 @@ const plantIcon = new L.Icon({
   shadowSize: [41, 41]
 });
 
-// Farbpalette für Freunde
 const friendColors = [
   { name: "blue", url: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png", bg: "bg-blue-600" },
   { name: "red", url: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png", bg: "bg-red-600" },
@@ -66,7 +65,11 @@ const friendColors = [
   { name: "black", url: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-black.png", bg: "bg-black" },
 ];
 
-// Helper function um Icon für Freund zu erstellen
+const USER_COLORS = [
+  '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
+  '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#84cc16'
+];
+
 const createFriendIcon = (colorIndex) => {
   const color = friendColors[colorIndex % friendColors.length];
   return new L.Icon({
@@ -77,6 +80,39 @@ const createFriendIcon = (colorIndex) => {
     popupAnchor: [1, -34],
     shadowSize: [41, 41]
   });
+};
+
+const createSimpleColoredIcon = (color) => {
+  const svgIcon = `
+    <svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12.5 0C5.596 0 0 5.596 0 12.5c0 9.375 12.5 28.125 12.5 28.125S25 21.875 25 12.5C25 5.596 19.404 0 12.5 0z" 
+            fill="${color}" stroke="#fff" stroke-width="2"/>
+      <circle cx="12.5" cy="12.5" r="5" fill="#fff"/>
+    </svg>
+  `;
+  return L.divIcon({
+    html: svgIcon,
+    className: 'custom-marker',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+  });
+};
+
+const getColorForUser = (userEmail, allUsers) => {
+  const index = allUsers.findIndex(u => u.user_email === userEmail);
+  return USER_COLORS[index % USER_COLORS.length];
+};
+
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
 };
 
 function MapController({ center, zoom, bounds }) {
@@ -91,6 +127,48 @@ function MapController({ center, zoom, bounds }) {
   return null;
 }
 
+const getAverageColor = (imageUrl) => {
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    img.crossOrigin = "anonymous";
+    
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        const size = 50;
+        canvas.width = size;
+        canvas.height = size;
+        
+        ctx.drawImage(img, 0, 0, size, size);
+        const imageData = ctx.getImageData(0, 0, size, size);
+        const data = imageData.data;
+        
+        let r = 0, g = 0, b = 0, count = 0;
+        
+        for (let i = 0; i < data.length; i += 16) {
+          r += data[i];
+          g += data[i + 1];
+          b += data[i + 2];
+          count++;
+        }
+        
+        r = Math.floor(r / count);
+        g = Math.floor(g / count);
+        b = Math.floor(b / count);
+        
+        resolve({ r, g, b });
+      } catch (error) {
+        resolve(null);
+      }
+    };
+    
+    img.onerror = () => resolve(null);
+    img.src = imageUrl;
+  });
+};
+
 export default function Map() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -99,8 +177,10 @@ export default function Map() {
   const [selectedViews, setSelectedViews] = useState({});
   const [targetLocation, setTargetLocation] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
+  const [activeTab, setActiveTab] = useState("friends");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedPlantForSighting, setSelectedPlantForSighting] = useState(null);
 
-  // URL-Parameter für Freund-Email und Zielkoordinaten auslesen
   const urlParams = new URLSearchParams(window.location.search);
   const friendEmailParam = urlParams.get('email');
 
@@ -115,48 +195,6 @@ export default function Map() {
       }
     }
   }, []);
-
-  const getAverageColor = (imageUrl) => {
-    return new Promise((resolve) => {
-      const img = new window.Image();
-      img.crossOrigin = "anonymous";
-      
-      img.onload = () => {
-        try {
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          
-          const size = 50;
-          canvas.width = size;
-          canvas.height = size;
-          
-          ctx.drawImage(img, 0, 0, size, size);
-          const imageData = ctx.getImageData(0, 0, size, size);
-          const data = imageData.data;
-          
-          let r = 0, g = 0, b = 0, count = 0;
-          
-          for (let i = 0; i < data.length; i += 16) {
-            r += data[i];
-            g += data[i + 1];
-            b += data[i + 2];
-            count++;
-          }
-          
-          r = Math.floor(r / count);
-          g = Math.floor(g / count);
-          b = Math.floor(b / count);
-          
-          resolve({ r, g, b });
-        } catch (error) {
-          resolve(null);
-        }
-      };
-      
-      img.onerror = () => resolve(null);
-      img.src = imageUrl;
-    });
-  };
 
   useEffect(() => {
     const loadUser = async () => {
@@ -174,19 +212,19 @@ export default function Map() {
   const { data: plants = [], isLoading } = useQuery({
     queryKey: ['plants'],
     queryFn: () => base44.entities.Plant.list('-discovery_date'),
-    staleTime: 60000, // 1 Minute Cache
+    staleTime: 60000,
   });
 
   const { data: genera = [] } = useQuery({
     queryKey: ['genera'],
     queryFn: () => base44.entities.PlantGenus.list(),
-    staleTime: 300000, // 5 Minuten Cache
+    staleTime: 300000,
   });
 
   const { data: allDiscoveries = [] } = useQuery({
     queryKey: ['allDiscoveries'],
     queryFn: () => base44.entities.UserPlantDiscovery.list('-created_date', 999),
-    staleTime: 30000, // 30 Sekunden Cache
+    staleTime: 30000,
   });
 
   const { data: friendships = [] } = useQuery({
@@ -202,17 +240,24 @@ export default function Map() {
       );
     },
     enabled: !!user?.email,
-    staleTime: 10000, // 10 Sekunden Cache
+    staleTime: 10000,
   });
 
   const { data: publicProfiles = [] } = useQuery({
     queryKey: ['publicProfiles'],
     queryFn: () => base44.entities.PublicProfile.list(),
     enabled: friendships.length > 0,
-    staleTime: 30000, // 30 Sekunden Cache
+    staleTime: 30000,
   });
 
-  // Helper: Hole Freund-Email aus Freundschaft
+  const { data: allUsers = [] } = useQuery({
+    queryKey: ['allUsers'],
+    queryFn: async () => {
+      const users = await base44.entities.PublicProfile.list();
+      return users.filter(u => u.weekly_tracking !== false);
+    },
+  });
+
   const getFriendEmail = (friendship) => {
     if (!user) return null;
     const userEmailLower = user.email.toLowerCase();
@@ -221,12 +266,10 @@ export default function Map() {
       : friendship.request_sent_by;
   };
 
-  // Helper: Hole Profil eines Freundes
   const getFriendProfile = (friendEmail) => {
     return publicProfiles.find(p => p.user_email?.toLowerCase() === friendEmail?.toLowerCase());
   };
 
-  // Erstelle Freund-Objekte mit Namen
   const friends = friendships.map(friendship => {
     const friendEmail = getFriendEmail(friendship);
     const profile = getFriendProfile(friendEmail);
@@ -238,7 +281,6 @@ export default function Map() {
     };
   });
 
-  // Setze initial View basierend auf friendEmailParam (nur einmal beim Mount)
   useEffect(() => {
     if (friendEmailParam && friends.length > 0) {
       const friend = friends.find(f => f.email?.toLowerCase() === friendEmailParam?.toLowerCase());
@@ -250,7 +292,6 @@ export default function Map() {
     }
   }, [friendEmailParam, friends.length > 0]);
 
-  // Helper function um Plant-Daten mit Discovery-Daten zu kombinieren
   const getPlantsWithDiscoveries = (userEmail) => {
     if (!userEmail) return [];
     
@@ -312,10 +353,8 @@ export default function Map() {
     }));
   };
 
-  // Sammle alle Pflanzen basierend auf aktivierten Views
   const allFilteredPlants = [];
 
-  // Meine Pflanzen
   if (selectedViews.mine && user) {
     const myIcon = averageColor ? createColoredIcon(averageColor) : plantIcon;
     const myColorClass = averageColor ? `bg-[rgb(${averageColor.r},${averageColor.g},${averageColor.b})]` : "bg-green-600";
@@ -333,7 +372,6 @@ export default function Map() {
     allFilteredPlants.push(...myPlants);
   }
 
-  // Freunde - jeder bekommt seine eigene Farbe
   friends.forEach((friend, friendIndex) => {
     const viewKey = `friend-${friend.email}`;
     if (selectedViews[viewKey]) {
@@ -355,7 +393,6 @@ export default function Map() {
   const defaultCenter = [50.1109, 8.6821];
   const mapCenter = targetLocation || userLocation || (allFilteredPlants.length > 0 ? allFilteredPlants[0].coordinates : defaultCenter);
 
-  // Berechne Bounding Box für alle gefilterten Pflanzen
   const calculateBounds = () => {
     if (allFilteredPlants.length === 0) return null;
     
@@ -376,286 +413,617 @@ export default function Map() {
   };
 
   const bounds = calculateBounds();
-
-  // Zähle aktivierte Views
   const activeViewCount = Object.values(selectedViews).filter(v => v).length;
   const totalPlantCount = allFilteredPlants.length;
 
+  const getLighterColor = (rgbString) => {
+    if (!rgbString) return null;
+    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!match) return rgbString;
+    const r = Math.min(255, Math.floor(parseInt(match[1]) * 1.4));
+    const g = Math.min(255, Math.floor(parseInt(match[2]) * 1.4));
+    const b = Math.min(255, Math.floor(parseInt(match[3]) * 1.4));
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+
+  const getDarkerColor = (rgbString) => {
+    if (!rgbString) return null;
+    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!match) return rgbString;
+    const r = Math.floor(parseInt(match[1]) * 0.6);
+    const g = Math.floor(parseInt(match[2]) * 0.6);
+    const b = Math.floor(parseInt(match[3]) * 0.6);
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50">
+        <Leaf className="w-12 h-12 text-green-600 animate-spin" />
+      </div>
+    );
+  }
+
+  const averageColorRgb = averageColor ? `rgb(${averageColor.r}, ${averageColor.g}, ${averageColor.b})` : null;
+
   return (
-    <div className="h-screen flex flex-col">
-      <div className="z-[1001]">
-        <MobileBackButton />
-      </div>
-      
-      {/* Header mit Filter-Button */}
-      <div className="bg-white border-b-2 border-stone-200 shadow-md z-50">
-        <div className="p-3 md:p-4">
-          <div className="flex items-center gap-3">
-            {/* Filter Popover */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="flex-1 border-2 border-stone-300 bg-white font-semibold h-10 justify-start">
-                  <Filter className="w-4 h-4 mr-2" />
-                  <span className="flex-1 text-left">
-                    {activeViewCount} {activeViewCount === 1 ? 'Ansicht' : 'Ansichten'} aktiv
-                  </span>
-                  {activeViewCount > 0 && (
-                    <Badge className="bg-green-600 text-white ml-2">{totalPlantCount}</Badge>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80 bg-white" align="start">
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-bold text-lg mb-3 text-stone-900">Kartenansichten</h3>
-                    <p className="text-sm text-stone-600 mb-3">Wähle aus, welche Pflanzen angezeigt werden sollen</p>
-                  </div>
-
-                  {/* Meine Pflanzen */}
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-3 p-2 hover:bg-stone-50 rounded-lg cursor-pointer" onClick={() => toggleView('mine')}>
-                      <Checkbox 
-                        checked={selectedViews.mine || false}
-                        onCheckedChange={() => toggleView('mine')}
-                      />
-                      <div className="flex items-center gap-2 flex-1">
-                        <div 
-                          className="w-3 h-3 rounded-full"
-                          style={{
-                            backgroundColor: averageColor 
-                              ? `rgb(${averageColor.r}, ${averageColor.g}, ${averageColor.b})` 
-                              : 'rgb(22, 163, 74)'
-                          }}
-                        ></div>
-                        <span className="font-semibold text-stone-900">Meine Pflanzen</span>
-                      </div>
-                      {selectedViews.mine && (
-                        <Badge variant="outline" className="text-xs">
-                          {getPlantsWithDiscoveries(user?.email || '').filter(p => extractCoordinates(p.discovery_location)).length}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Freunde */}
-                  {friends.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="text-xs font-bold text-stone-500 uppercase tracking-wider px-2">Freunde</div>
-                      {friends.map((friend, friendIndex) => {
-                        const viewKey = `friend-${friend.email}`;
-                        const friendPlantCount = getPlantsWithDiscoveries(friend.email).filter(p => extractCoordinates(p.discovery_location)).length;
-                        const color = friendColors[friendIndex % friendColors.length];
-                        
-                        return (
-                          <div 
-                            key={friend.id} 
-                            className="flex items-center gap-3 p-2 hover:bg-stone-50 rounded-lg cursor-pointer"
-                            onClick={() => toggleView(viewKey)}
-                          >
-                            <Checkbox 
-                              checked={selectedViews[viewKey] || false}
-                              onCheckedChange={() => toggleView(viewKey)}
-                            />
-                            <div className="flex items-center gap-2 flex-1">
-                              <div className={`w-3 h-3 ${color.bg} rounded-full`}></div>
-                              <span className="font-semibold text-stone-900">{friend.name}</span>
-                            </div>
-                            {selectedViews[viewKey] && (
-                              <Badge variant="outline" className="text-xs">{friendPlantCount}</Badge>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </PopoverContent>
-            </Popover>
-
-            {/* Mein Standort Button */}
-            <Button
-              onClick={getUserLocation}
-              disabled={gettingLocation}
-              size="sm"
-              className="bg-green-600 hover:bg-green-700 flex-shrink-0 h-10"
-            >
-              {gettingLocation ? (
-                <>
-                  <Loader2 className="w-4 h-4 md:mr-2 animate-spin" />
-                  <span className="hidden md:inline">Standort...</span>
-                </>
-              ) : (
-                <>
-                  <Navigation className="w-4 h-4 md:mr-2" />
-                  <span className="hidden md:inline">Mein Standort</span>
-                </>
-              )}
-            </Button>
-          </div>
-
-          {/* Info-Zeile */}
-          <div className="mt-2 flex items-center justify-between text-xs text-stone-600">
-            <span className="font-semibold">
-              {totalPlantCount} {totalPlantCount === 1 ? 'Pflanze' : 'Pflanzen'} auf der Karte
-            </span>
-            <span className="text-stone-500">
-              {activeViewCount === 0 ? 'Keine Ansicht aktiv' : `${activeViewCount} ${activeViewCount === 1 ? 'Quelle' : 'Quellen'}`}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Karte - Komplett formatfüllend */}
-      <div className="flex-1 relative">
-        {isLoading ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-stone-50 z-10">
-            <div className="text-center">
-              <Loader2 className="w-12 h-12 text-green-600 animate-spin mx-auto mb-4" />
-              <p className="text-stone-600">Karte wird geladen...</p>
+    <div 
+      className="min-h-screen"
+      style={{
+        background: averageColorRgb 
+          ? `linear-gradient(135deg, ${getLighterColor(averageColorRgb)} 0%, ${averageColorRgb} 50%, ${getDarkerColor(averageColorRgb)} 100%)`
+          : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
+      }}
+    >
+      <div className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <div className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200">
+            <div className="max-w-7xl mx-auto">
+              <TabsList className="grid w-full grid-cols-3 bg-white h-12 rounded-none border-0">
+                <TabsTrigger value="friends" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
+                  👥 Freunde
+                </TabsTrigger>
+                <TabsTrigger value="local" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
+                  📍 Lokal
+                </TabsTrigger>
+                <TabsTrigger value="sightings" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
+                  🔍 Sichtungen
+                </TabsTrigger>
+              </TabsList>
             </div>
           </div>
-        ) : (
-          <>
-            <MapContainer
-              center={mapCenter}
-              zoom={allFilteredPlants.length > 0 ? 6 : 6}
-              style={{ height: '100%', width: '100%' }}
-              className="z-0"
-            >
-              <MapController 
-                center={targetLocation || userLocation} 
-                zoom={targetLocation ? 15 : 13}
-                bounds={!targetLocation && !userLocation ? bounds : null}
-              />
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              
-              {allFilteredPlants.map((plant, index) => (
-                <Marker
-                  key={`${plant.id}-${plant.created_by}-${plant.discovery_date}-${index}`}
-                  position={plant.coordinates}
-                  icon={plant.icon}
+
+          <MobileBackButton />
+
+          {/* Freunde Tab */}
+          <TabsContent value="friends" className="pt-14">
+            <div className="flex flex-col h-screen">
+              <div className="bg-white border-b-2 border-stone-200 shadow-md z-40">
+                <div className="p-3">
+                  <div className="flex items-center gap-3">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="flex-1 border-2 border-stone-300 bg-white font-semibold h-10 justify-start">
+                          <Filter className="w-4 h-4 mr-2" />
+                          <span className="flex-1 text-left">
+                            {activeViewCount} {activeViewCount === 1 ? 'Ansicht' : 'Ansichten'} aktiv
+                          </span>
+                          {activeViewCount > 0 && (
+                            <Badge className="bg-green-600 text-white ml-2">{totalPlantCount}</Badge>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80 bg-white" align="start">
+                        <div className="space-y-4">
+                          <div>
+                            <h3 className="font-bold text-lg mb-3 text-stone-900">Kartenansichten</h3>
+                            <p className="text-sm text-stone-600 mb-3">Wähle aus, welche Pflanzen angezeigt werden sollen</p>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-3 p-2 hover:bg-stone-50 rounded-lg cursor-pointer" onClick={() => toggleView('mine')}>
+                              <Checkbox 
+                                checked={selectedViews.mine || false}
+                                onCheckedChange={() => toggleView('mine')}
+                              />
+                              <div className="flex items-center gap-2 flex-1">
+                                <div 
+                                  className="w-3 h-3 rounded-full"
+                                  style={{
+                                    backgroundColor: averageColor 
+                                      ? `rgb(${averageColor.r}, ${averageColor.g}, ${averageColor.b})` 
+                                      : 'rgb(22, 163, 74)'
+                                  }}
+                                ></div>
+                                <span className="font-semibold text-stone-900">Meine Pflanzen</span>
+                              </div>
+                              {selectedViews.mine && (
+                                <Badge variant="outline" className="text-xs">
+                                  {getPlantsWithDiscoveries(user?.email || '').filter(p => extractCoordinates(p.discovery_location)).length}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+
+                          {friends.length > 0 && (
+                            <div className="space-y-2">
+                              <div className="text-xs font-bold text-stone-500 uppercase tracking-wider px-2">Freunde</div>
+                              {friends.map((friend, friendIndex) => {
+                                const viewKey = `friend-${friend.email}`;
+                                const friendPlantCount = getPlantsWithDiscoveries(friend.email).filter(p => extractCoordinates(p.discovery_location)).length;
+                                const color = friendColors[friendIndex % friendColors.length];
+                                
+                                return (
+                                  <div 
+                                    key={friend.id} 
+                                    className="flex items-center gap-3 p-2 hover:bg-stone-50 rounded-lg cursor-pointer"
+                                    onClick={() => toggleView(viewKey)}
+                                  >
+                                    <Checkbox 
+                                      checked={selectedViews[viewKey] || false}
+                                      onCheckedChange={() => toggleView(viewKey)}
+                                    />
+                                    <div className="flex items-center gap-2 flex-1">
+                                      <div className={`w-3 h-3 ${color.bg} rounded-full`}></div>
+                                      <span className="font-semibold text-stone-900">{friend.name}</span>
+                                    </div>
+                                    {selectedViews[viewKey] && (
+                                      <Badge variant="outline" className="text-xs">{friendPlantCount}</Badge>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+
+                    <Button
+                      onClick={getUserLocation}
+                      disabled={gettingLocation}
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700 flex-shrink-0 h-10"
+                    >
+                      {gettingLocation ? (
+                        <>
+                          <Loader2 className="w-4 h-4 md:mr-2 animate-spin" />
+                          <span className="hidden md:inline">Standort...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Navigation className="w-4 h-4 md:mr-2" />
+                          <span className="hidden md:inline">Mein Standort</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  <div className="mt-2 flex items-center justify-between text-xs text-stone-600">
+                    <span className="font-semibold">
+                      {totalPlantCount} {totalPlantCount === 1 ? 'Pflanze' : 'Pflanzen'} auf der Karte
+                    </span>
+                    <span className="text-stone-500">
+                      {activeViewCount === 0 ? 'Keine Ansicht aktiv' : `${activeViewCount} ${activeViewCount === 1 ? 'Quelle' : 'Quellen'}`}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex-1 relative">
+                {isLoading ? (
+                  <div className="absolute inset-0 flex items-center justify-center bg-stone-50 z-10">
+                    <div className="text-center">
+                      <Loader2 className="w-12 h-12 text-green-600 animate-spin mx-auto mb-4" />
+                      <p className="text-stone-600">Karte wird geladen...</p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <MapContainer
+                      center={mapCenter}
+                      zoom={allFilteredPlants.length > 0 ? 6 : 6}
+                      style={{ height: '100%', width: '100%' }}
+                      className="z-0"
+                    >
+                      <MapController 
+                        center={targetLocation || userLocation} 
+                        zoom={targetLocation ? 15 : 13}
+                        bounds={!targetLocation && !userLocation ? bounds : null}
+                      />
+                      <TileLayer
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      />
+                      
+                      {allFilteredPlants.map((plant, index) => (
+                        <Marker
+                          key={`${plant.id}-${plant.created_by}-${plant.discovery_date}-${index}`}
+                          position={plant.coordinates}
+                          icon={plant.icon}
+                        >
+                          <Popup>
+                            <div className="p-2">
+                              <h3 className="font-bold text-lg mb-1">{plant.species_name}</h3>
+                              <p className="text-sm italic text-stone-600 mb-2">{plant.scientific_name}</p>
+                              {plant.image_url && (
+                                <img 
+                                  src={plant.image_url} 
+                                  alt={plant.species_name}
+                                  className="w-full h-32 object-cover rounded mb-2"
+                                />
+                              )}
+                              <p className="text-xs text-stone-500 mb-2">
+                                {format(new Date(plant.discovery_date), "d. MMMM yyyy", { locale: de })}
+                              </p>
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className={`w-2 h-2 ${plant.colorClass} rounded-full`}></div>
+                                <Badge variant="outline">
+                                  {plant.sourceLabel}
+                                </Badge>
+                              </div>
+                              {plant.created_by !== user?.email && (
+                                <p className="text-xs text-stone-600 mb-2">
+                                  Gescannt von: {plant.created_by}
+                                </p>
+                              )}
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  const genus = genera.find(g => 
+                                    g.category === plant.genus_category && 
+                                    g.category_dex_number === plant.genus_number
+                                  );
+                                  if (genus) {
+                                    const email = plant.source === 'mine' ? '' : plant.created_by;
+                                    const url = email 
+                                      ? `GenusDetail?id=${genus.id}&email=${email}`
+                                      : `GenusDetail?id=${genus.id}`;
+                                    navigate(createPageUrl(url));
+                                  }
+                                }}
+                                className="w-full bg-green-600 hover:bg-green-700"
+                              >
+                                Details anzeigen
+                              </Button>
+                            </div>
+                          </Popup>
+                        </Marker>
+                      ))}
+
+                      {userLocation && (
+                        <Marker position={userLocation}>
+                          <Popup>
+                            <div className="text-center p-2">
+                              <p className="font-semibold">Du bist hier</p>
+                            </div>
+                          </Popup>
+                        </Marker>
+                      )}
+                    </MapContainer>
+
+                    {allFilteredPlants.length === 0 && activeViewCount > 0 && (
+                      <div className="absolute top-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:max-w-md z-[1000]">
+                        <Card className="shadow-2xl border-2 border-green-200 bg-white/95 backdrop-blur-sm">
+                          <CardContent className="p-4 md:p-6">
+                            <div className="flex items-start gap-3">
+                              <div className="w-10 h-10 md:w-12 md:h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                <Info className="w-5 h-5 md:w-6 md:h-6 text-green-600" />
+                              </div>
+                              <div>
+                                <h3 className="font-bold text-base md:text-lg text-stone-900 mb-2">
+                                  Keine Pflanzen mit Standort gefunden
+                                </h3>
+                                <p className="text-xs md:text-sm text-stone-600 mb-3 md:mb-4">
+                                  Die ausgewählten Ansichten haben noch keine Pflanzen mit Standort-Koordinaten.
+                                </p>
+                                {selectedViews.mine && (
+                                  <Button
+                                    onClick={() => navigate(createPageUrl("Scanner"))}
+                                    size="sm"
+                                    className="w-full bg-green-600 hover:bg-green-700"
+                                  >
+                                    <Leaf className="w-3 h-3 md:w-4 md:h-4 mr-2" />
+                                    Erste Pflanze scannen
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    )}
+
+                    {allFilteredPlants.length === 0 && activeViewCount === 0 && (
+                      <div className="absolute top-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:max-w-md z-[1000]">
+                        <Card className="shadow-2xl border-2 border-amber-200 bg-white/95 backdrop-blur-sm">
+                          <CardContent className="p-4 md:p-6">
+                            <div className="flex items-start gap-3">
+                              <div className="w-10 h-10 md:w-12 md:h-12 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                <Info className="w-5 h-5 md:w-6 md:h-6 text-amber-600" />
+                              </div>
+                              <div>
+                                <h3 className="font-bold text-base md:text-lg text-stone-900 mb-2">
+                                  Keine Ansicht ausgewählt
+                                </h3>
+                                <p className="text-xs md:text-sm text-stone-600">
+                                  Wähle mindestens eine Ansicht über den Filter-Button aus.
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+
+          <MobileBackButton />
+
+          {/* Lokal Tab */}
+          <TabsContent value="local" className="pt-14 px-4 pb-4">
+            {!userLocation ? (
+              <div className="text-center py-20">
+                <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 max-w-md mx-auto border border-stone-200 shadow-lg">
+                  <MapPin className="w-16 h-16 text-stone-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-stone-900 mb-2">Standort ermitteln</h3>
+                  <p className="text-stone-600 mb-6">Erlaube den Standortzugriff, um Scans in deiner Nähe zu sehen</p>
+                  <Button
+                    onClick={getUserLocation}
+                    disabled={gettingLocation}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    {gettingLocation ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Standort wird ermittelt...
+                      </>
+                    ) : (
+                      <>
+                        <MapPin className="w-5 h-5 mr-2" />
+                        Standort berechnen
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="h-[calc(100vh-160px)] rounded-xl overflow-hidden border-2 border-stone-200 shadow-lg">
+                <MapContainer
+                  center={[userLocation[0], userLocation[1]]}
+                  zoom={12}
+                  style={{ height: '100%', width: '100%' }}
+                  className="z-0"
                 >
-                  <Popup>
-                    <div className="p-2">
-                      <h3 className="font-bold text-lg mb-1">{plant.species_name}</h3>
-                      <p className="text-sm italic text-stone-600 mb-2">{plant.scientific_name}</p>
-                      {plant.image_url && (
-                        <img 
-                          src={plant.image_url} 
-                          alt={plant.species_name}
-                          className="w-full h-32 object-cover rounded mb-2"
-                        />
-                      )}
-                      <p className="text-xs text-stone-500 mb-2">
-                        {format(new Date(plant.discovery_date), "d. MMMM yyyy", { locale: de })}
-                      </p>
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className={`w-2 h-2 ${plant.colorClass} rounded-full`}></div>
-                        <Badge variant="outline">
-                          {plant.sourceLabel}
-                        </Badge>
-                      </div>
-                      {plant.created_by !== user?.email && (
-                        <p className="text-xs text-stone-600 mb-2">
-                          Gescannt von: {plant.created_by}
-                        </p>
-                      )}
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          const genus = genera.find(g => 
-                            g.category === plant.genus_category && 
-                            g.category_dex_number === plant.genus_number
-                          );
-                          if (genus) {
-                            const email = plant.source === 'mine' ? '' : plant.created_by;
-                            const url = email 
-                              ? `GenusDetail?id=${genus.id}&email=${email}`
-                              : `GenusDetail?id=${genus.id}`;
-                            navigate(createPageUrl(url));
-                          }
-                        }}
-                        className="w-full bg-green-600 hover:bg-green-700"
+                  <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  />
+                  
+                  {allDiscoveries
+                    .filter(d => {
+                      const discoveryUser = allUsers.find(u => u.user_email === d.user || u.user_email === d.created_by);
+                      if (!discoveryUser || discoveryUser.local_tracking === false) return false;
+                      
+                      if (!d.discovery_location) return false;
+                      const coords = d.discovery_location.split(',');
+                      if (coords.length !== 2) return false;
+                      const lat = parseFloat(coords[0].trim());
+                      const lng = parseFloat(coords[1].trim());
+                      if (isNaN(lat) || isNaN(lng)) return false;
+                      
+                      const distance = calculateDistance(userLocation[0], userLocation[1], lat, lng);
+                      return distance <= 20;
+                    })
+                    .map((discovery) => {
+                      const coords = discovery.discovery_location.split(',');
+                      const lat = parseFloat(coords[0].trim());
+                      const lng = parseFloat(coords[1].trim());
+                      const plant = plants.find(p => p.id === discovery.plant_id);
+                      const discoveryUser = allUsers.find(u => u.user_email === discovery.user || u.user_email === discovery.created_by);
+                      const userColor = getColorForUser(discoveryUser?.user_email, allUsers);
+                      
+                      return (
+                        <Marker
+                          key={discovery.id}
+                          position={[lat, lng]}
+                          icon={createSimpleColoredIcon(userColor)}
+                        >
+                          <Popup>
+                            <div className="text-sm">
+                              <p className="font-bold">{plant?.species_name}</p>
+                              <p className="text-xs italic text-stone-600">{plant?.scientific_name}</p>
+                              <p className="text-xs text-stone-500 mt-1">
+                                von {discoveryUser?.display_name || discoveryUser?.full_name}
+                              </p>
+                              {discovery.image_url && (
+                                <img src={discovery.image_url} alt="" className="w-32 h-32 object-cover mt-2 rounded" />
+                              )}
+                            </div>
+                          </Popup>
+                        </Marker>
+                      );
+                    })}
+                    
+                  <Marker position={userLocation} icon={createSimpleColoredIcon('#ef4444')}>
+                    <Popup>
+                      <p className="text-sm font-bold">📍 Dein Standort</p>
+                    </Popup>
+                  </Marker>
+                </MapContainer>
+              </div>
+            )}
+          </TabsContent>
+
+          <MobileBackButton />
+
+          {/* Sichtungen Tab */}
+          <TabsContent value="sightings" className="pt-14 px-4 pb-4">
+            <div className="mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                <Input
+                  type="text"
+                  placeholder="Suche nach Art oder Gattung..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 bg-white/70 backdrop-blur-md border-stone-200"
+                />
+              </div>
+              
+              {searchQuery.length > 1 && !selectedPlantForSighting && (
+                <div className="mt-2 bg-white/90 backdrop-blur-md rounded-lg border border-stone-200 shadow-lg max-h-60 overflow-y-auto">
+                  {genera
+                    .filter(g => 
+                      g.genus_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      g.scientific_genus?.toLowerCase().includes(searchQuery.toLowerCase())
+                    )
+                    .slice(0, 5)
+                    .map(genus => (
+                      <button
+                        key={`genus-${genus.id}`}
+                        onClick={() => setSelectedPlantForSighting({ type: 'genus', data: genus })}
+                        className="w-full text-left px-4 py-2 hover:bg-stone-50 border-b border-stone-100 last:border-0"
                       >
-                        Details anzeigen
-                      </Button>
-                    </div>
-                  </Popup>
-                </Marker>
-              ))}
-
-              {userLocation && (
-                <Marker position={userLocation}>
-                  <Popup>
-                    <div className="text-center p-2">
-                      <p className="font-semibold">Du bist hier</p>
-                    </div>
-                  </Popup>
-                </Marker>
+                        <p className="text-sm font-bold text-stone-900">{genus.genus_name}</p>
+                        <p className="text-xs text-stone-500">Gattung · {genus.scientific_genus}</p>
+                      </button>
+                    ))}
+                  {plants
+                    .filter(p => 
+                      p.species_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      p.scientific_name?.toLowerCase().includes(searchQuery.toLowerCase())
+                    )
+                    .slice(0, 5)
+                    .map(plant => (
+                      <button
+                        key={`plant-${plant.id}`}
+                        onClick={() => setSelectedPlantForSighting({ type: 'species', data: plant })}
+                        className="w-full text-left px-4 py-2 hover:bg-stone-50 border-b border-stone-100 last:border-0"
+                      >
+                        <p className="text-sm font-bold text-stone-900">{plant.species_name}</p>
+                        <p className="text-xs text-stone-500">Art · {plant.scientific_name}</p>
+                      </button>
+                    ))}
+                </div>
               )}
-            </MapContainer>
+            </div>
 
-            {/* Overlay: Info bei keinen Pflanzen */}
-            {allFilteredPlants.length === 0 && activeViewCount > 0 && (
-              <div className="absolute top-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:max-w-md z-[1000]">
-                <Card className="shadow-2xl border-2 border-green-200 bg-white/95 backdrop-blur-sm">
-                  <CardContent className="p-4 md:p-6">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 md:w-12 md:h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <Info className="w-5 h-5 md:w-6 md:h-6 text-green-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-base md:text-lg text-stone-900 mb-2">
-                          Keine Pflanzen mit Standort gefunden
-                        </h3>
-                        <p className="text-xs md:text-sm text-stone-600 mb-3 md:mb-4">
-                          Die ausgewählten Ansichten haben noch keine Pflanzen mit Standort-Koordinaten.
-                        </p>
-                        {selectedViews.mine && (
-                          <Button
-                            onClick={() => navigate(createPageUrl("Scanner"))}
-                            size="sm"
-                            className="w-full bg-green-600 hover:bg-green-700"
-                          >
-                            <Leaf className="w-3 h-3 md:w-4 md:h-4 mr-2" />
-                            Erste Pflanze scannen
-                          </Button>
-                        )}
-                      </div>
+            {selectedPlantForSighting && (
+              <>
+                <div className="mb-4">
+                  <div className="flex items-center justify-between p-3 bg-white/90 backdrop-blur-md rounded-full border border-green-200">
+                    <div>
+                      <p className="text-sm font-bold text-stone-900">
+                        {selectedPlantForSighting.type === 'genus' 
+                          ? selectedPlantForSighting.data.genus_name 
+                          : selectedPlantForSighting.data.species_name}
+                      </p>
+                      <p className="text-xs text-stone-500">
+                        {selectedPlantForSighting.type === 'genus' ? 'Gattung' : 'Art'} · {
+                          (() => {
+                            const relevantDiscoveries = selectedPlantForSighting.type === 'genus'
+                              ? allDiscoveries.filter(d => {
+                                  const plant = plants.find(p => p.id === d.plant_id);
+                                  return plant && 
+                                    plant.genus_category === selectedPlantForSighting.data.category &&
+                                    plant.genus_number === selectedPlantForSighting.data.category_dex_number &&
+                                    d.discovery_location;
+                                })
+                              : allDiscoveries.filter(d => 
+                                  d.plant_id === selectedPlantForSighting.data.id && d.discovery_location
+                                );
+                            return relevantDiscoveries.length;
+                          })()
+                        } Scans
+                      </p>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedPlantForSighting(null);
+                        setSearchQuery("");
+                      }}
+                      className="h-8"
+                    >
+                      Ändern
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="h-[calc(100vh-240px)] rounded-xl overflow-hidden border-2 border-stone-200 shadow-lg">
+                  <MapContainer
+                    center={userLocation ? userLocation : [51.1657, 10.4515]}
+                    zoom={6}
+                    style={{ height: '100%', width: '100%' }}
+                    className="z-0"
+                  >
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    />
+                    
+                    {(() => {
+                      const relevantDiscoveries = selectedPlantForSighting.type === 'genus'
+                        ? allDiscoveries.filter(d => {
+                            const plant = plants.find(p => p.id === d.plant_id);
+                            return plant && 
+                              plant.genus_category === selectedPlantForSighting.data.category &&
+                              plant.genus_number === selectedPlantForSighting.data.category_dex_number &&
+                              d.discovery_location;
+                          })
+                        : allDiscoveries.filter(d => 
+                            d.plant_id === selectedPlantForSighting.data.id && d.discovery_location
+                          );
+                      
+                      const bounds = relevantDiscoveries
+                        .filter(d => {
+                          const coords = d.discovery_location.split(',');
+                          return coords.length === 2 && !isNaN(parseFloat(coords[0])) && !isNaN(parseFloat(coords[1]));
+                        })
+                        .map(d => {
+                          const coords = d.discovery_location.split(',');
+                          return [parseFloat(coords[0].trim()), parseFloat(coords[1].trim())];
+                        });
+                      
+                      return (
+                        <>
+                          {bounds.length > 0 && <MapController bounds={bounds} />}
+                          {relevantDiscoveries.map((discovery) => {
+                            const coords = discovery.discovery_location.split(',');
+                            if (coords.length !== 2) return null;
+                            const lat = parseFloat(coords[0].trim());
+                            const lng = parseFloat(coords[1].trim());
+                            if (isNaN(lat) || isNaN(lng)) return null;
+                            
+                            const plant = plants.find(p => p.id === discovery.plant_id);
+                            const discoveryUser = allUsers.find(u => u.user_email === discovery.user || u.user_email === discovery.created_by);
+                            const userColor = getColorForUser(discoveryUser?.user_email, allUsers);
+                            
+                            return (
+                              <Marker
+                                key={discovery.id}
+                                position={[lat, lng]}
+                                icon={createSimpleColoredIcon(userColor)}
+                              >
+                                <Popup>
+                                  <div className="text-sm">
+                                    <p className="font-bold">{plant?.species_name}</p>
+                                    <p className="text-xs italic text-stone-600">{plant?.scientific_name}</p>
+                                    <p className="text-xs text-stone-500 mt-1">
+                                      von {discoveryUser?.display_name || discoveryUser?.full_name}
+                                    </p>
+                                    {discovery.image_url && (
+                                      <img src={discovery.image_url} alt="" className="w-32 h-32 object-cover mt-2 rounded" />
+                                    )}
+                                  </div>
+                                </Popup>
+                              </Marker>
+                            );
+                          })}
+                        </>
+                      );
+                    })()}
+                  </MapContainer>
+                </div>
+              </>
             )}
 
-            {allFilteredPlants.length === 0 && activeViewCount === 0 && (
-              <div className="absolute top-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:max-w-md z-[1000]">
-                <Card className="shadow-2xl border-2 border-amber-200 bg-white/95 backdrop-blur-sm">
-                  <CardContent className="p-4 md:p-6">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 md:w-12 md:h-12 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <Info className="w-5 h-5 md:w-6 md:h-6 text-amber-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-base md:text-lg text-stone-900 mb-2">
-                          Keine Ansicht ausgewählt
-                        </h3>
-                        <p className="text-xs md:text-sm text-stone-600">
-                          Wähle mindestens eine Ansicht über den Filter-Button aus.
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+            {!selectedPlantForSighting && (
+              <div className="text-center py-20">
+                <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 max-w-md mx-auto border border-stone-200 shadow-lg">
+                  <Search className="w-16 h-16 text-stone-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-stone-900 mb-2">Suche eine Pflanze</h3>
+                  <p className="text-stone-600">Gib eine Art oder Gattung ein, um alle Sichtungen zu sehen</p>
+                </div>
               </div>
             )}
-
-
-          </>
-        )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

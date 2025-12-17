@@ -323,14 +323,14 @@ export default function Quests() {
           <div className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200">
             <div className="max-w-7xl mx-auto">
               <TabsList className="grid w-full grid-cols-3 bg-white h-12 rounded-none border-0">
-                <TabsTrigger value="weekly" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5">
+                <TabsTrigger value="weekly" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
                   🏆 Wöchentlich
                 </TabsTrigger>
-                <TabsTrigger value="local" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5">
-                  📍 Lokal
+                <TabsTrigger value="team" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
+                  👥 Team
                 </TabsTrigger>
-                <TabsTrigger value="sightings" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5">
-                  🔍 Sichtungen
+                <TabsTrigger value="stats" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
+                  📊 Statistiken
                 </TabsTrigger>
               </TabsList>
               
@@ -541,8 +541,21 @@ export default function Quests() {
 
           <MobileBackButton />
 
-          {/* Lokal Tab */}
-          <TabsContent value="local" className="pt-24 px-4 pb-4">
+          {/* Team-Aufgaben Tab */}
+          <TabsContent value="team" className="pt-24 px-4 pb-4">
+            <div className="text-center py-20">
+              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 max-w-md mx-auto border border-stone-200 shadow-lg">
+                <Users className="w-16 h-16 text-stone-400 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-stone-900 mb-2">Team-Aufgaben</h3>
+                <p className="text-stone-600">Bald verfügbar! Hier kannst du gemeinsam mit deinen Freunden Aufgaben lösen.</p>
+              </div>
+            </div>
+          </TabsContent>
+
+          <MobileBackButton />
+
+          {/* Statistiken Tab */}
+          <TabsContent value="stats" className="pt-24 px-4 pb-4">
             {!userLocation ? (
               <div className="text-center py-20">
                 <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 max-w-md mx-auto border border-stone-200 shadow-lg">
@@ -638,172 +651,171 @@ export default function Quests() {
 
           <MobileBackButton />
 
-          {/* Sichtungen Tab */}
-          <TabsContent value="sightings" className="pt-24 px-4 pb-4">
-            <div className="mb-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-                <Input
-                  type="text"
-                  placeholder="Suche nach Art oder Gattung..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 bg-white/70 backdrop-blur-md border-stone-200"
-                />
-              </div>
-              
-              {searchQuery.length > 1 && !selectedPlantForSighting && (
-                <div className="mt-2 bg-white/90 backdrop-blur-md rounded-lg border border-stone-200 shadow-lg max-h-60 overflow-y-auto">
-                  {genera
-                    .filter(g => 
-                      g.genus_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                      g.scientific_genus?.toLowerCase().includes(searchQuery.toLowerCase())
-                    )
-                    .slice(0, 5)
-                    .map(genus => (
-                      <button
-                        key={`genus-${genus.id}`}
-                        onClick={() => setSelectedPlantForSighting({ type: 'genus', data: genus })}
-                        className="w-full text-left px-4 py-2 hover:bg-stone-50 border-b border-stone-100 last:border-0"
-                      >
-                        <p className="text-sm font-bold text-stone-900">{genus.genus_name}</p>
-                        <p className="text-xs text-stone-500">Gattung · {genus.scientific_genus}</p>
-                      </button>
-                    ))}
-                  {plants
-                    .filter(p => 
-                      p.species_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                      p.scientific_name?.toLowerCase().includes(searchQuery.toLowerCase())
-                    )
-                    .slice(0, 5)
-                    .map(plant => (
-                      <button
-                        key={`plant-${plant.id}`}
-                        onClick={() => setSelectedPlantForSighting({ type: 'species', data: plant })}
-                        className="w-full text-left px-4 py-2 hover:bg-stone-50 border-b border-stone-100 last:border-0"
-                      >
-                        <p className="text-sm font-bold text-stone-900">{plant.species_name}</p>
-                        <p className="text-xs text-stone-500">Art · {plant.scientific_name}</p>
-                      </button>
-                    ))}
-                </div>
-              )}
-            </div>
-
-            {selectedPlantForSighting && (
-              <div className="mb-4">
-                <div className="flex items-center justify-between p-3 bg-white/90 backdrop-blur-md rounded-full border border-green-200">
-                  <div>
-                    <p className="text-sm font-bold text-stone-900">
-                      {selectedPlantForSighting.type === 'genus' 
-                        ? selectedPlantForSighting.data.genus_name 
-                        : selectedPlantForSighting.data.species_name}
-                    </p>
-                    <p className="text-xs text-stone-500">
-                      {selectedPlantForSighting.type === 'genus' ? 'Gattung' : 'Art'}
-                    </p>
+          <div className="max-w-4xl mx-auto">
+            <div className="grid md:grid-cols-2 gap-4">
+              {/* Scan-Statistiken */}
+              <Card className="border-2 border-stone-200 bg-white/90 backdrop-blur-md">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Leaf className="w-5 h-5 text-green-600" />
+                    Deine Scans
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                    <span className="text-sm text-stone-700">Gesamt</span>
+                    <Badge className="bg-green-600 text-white text-base px-3 py-1">
+                      {allDiscoveries.filter(d => d.user === user.email || d.created_by === user.email).length}
+                    </Badge>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedPlantForSighting(null);
-                      setSearchQuery("");
-                    }}
-                    className="h-8"
-                  >
-                    Ändern
-                  </Button>
-                </div>
-              </div>
-            )}
+                  <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
+                    <span className="text-sm text-stone-700">Diese Woche</span>
+                    <Badge variant="outline" className="text-base px-3 py-1">
+                      {(() => {
+                        const weekStart = new Date();
+                        weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+                        weekStart.setHours(0, 0, 0, 0);
+                        return allDiscoveries.filter(d => 
+                          (d.user === user.email || d.created_by === user.email) &&
+                          new Date(d.created_date || d.discovered_date) >= weekStart
+                        ).length;
+                      })()}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
+                    <span className="text-sm text-stone-700">Dieser Monat</span>
+                    <Badge variant="outline" className="text-base px-3 py-1">
+                      {(() => {
+                        const monthStart = new Date();
+                        monthStart.setDate(1);
+                        monthStart.setHours(0, 0, 0, 0);
+                        return allDiscoveries.filter(d => 
+                          (d.user === user.email || d.created_by === user.email) &&
+                          new Date(d.created_date || d.discovered_date) >= monthStart
+                        ).length;
+                      })()}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
 
-            {selectedPlantForSighting ? (
-              <div className="h-[calc(100vh-240px)] rounded-xl overflow-hidden border-2 border-stone-200 shadow-lg">
-                <MapContainer
-                  center={userLocation ? [userLocation.lat, userLocation.lng] : [51.1657, 10.4515]}
-                  zoom={6}
-                  style={{ height: '100%', width: '100%' }}
-                  className="z-0"
-                >
-                  <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                  />
-                  
-                  {(() => {
-                    const relevantDiscoveries = selectedPlantForSighting.type === 'genus'
-                      ? allDiscoveries.filter(d => {
+              {/* Level & XP */}
+              <Card className="border-2 border-stone-200 bg-white/90 backdrop-blur-md">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-amber-600" />
+                    Dein Fortschritt
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
+                    <span className="text-sm text-stone-700">Level</span>
+                    <Badge className="bg-amber-600 text-white text-base px-3 py-1">
+                      {user?.level || 1}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
+                    <span className="text-sm text-stone-700">Gesamt-XP</span>
+                    <Badge variant="outline" className="text-base px-3 py-1">
+                      {user?.xp || 0}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
+                    <span className="text-sm text-stone-700">Aktiver Titel</span>
+                    <span className="text-xs text-stone-600 font-semibold">
+                      {user?.selected_title || 'Pflanzen-Anfänger'}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Sammlungs-Statistiken */}
+              <Card className="border-2 border-stone-200 bg-white/90 backdrop-blur-md">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Leaf className="w-5 h-5 text-purple-600" />
+                    Deine Sammlung
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+                    <span className="text-sm text-stone-700">Entdeckte Gattungen</span>
+                    <Badge className="bg-purple-600 text-white text-base px-3 py-1">
+                      {(() => {
+                        const myDiscoveries = allDiscoveries.filter(d => d.user === user.email || d.created_by === user.email);
+                        const uniqueGenera = new Set();
+                        myDiscoveries.forEach(d => {
                           const plant = plants.find(p => p.id === d.plant_id);
-                          return plant && 
-                            plant.genus_category === selectedPlantForSighting.data.category &&
-                            plant.genus_number === selectedPlantForSighting.data.category_dex_number &&
-                            d.discovery_location;
-                        })
-                      : allDiscoveries.filter(d => 
-                          d.plant_id === selectedPlantForSighting.data.id && d.discovery_location
-                        );
-                    
-                    const bounds = relevantDiscoveries
-                      .filter(d => {
-                        const coords = d.discovery_location.split(',');
-                        return coords.length === 2 && !isNaN(parseFloat(coords[0])) && !isNaN(parseFloat(coords[1]));
-                      })
-                      .map(d => {
-                        const coords = d.discovery_location.split(',');
-                        return [parseFloat(coords[0].trim()), parseFloat(coords[1].trim())];
-                      });
-                    
-                    return (
-                      <>
-                        {bounds.length > 0 && <MapController bounds={bounds} />}
-                        {relevantDiscoveries.map((discovery) => {
-                          const coords = discovery.discovery_location.split(',');
-                          if (coords.length !== 2) return null;
-                          const lat = parseFloat(coords[0].trim());
-                          const lng = parseFloat(coords[1].trim());
-                          if (isNaN(lat) || isNaN(lng)) return null;
-                          
-                          const plant = plants.find(p => p.id === discovery.plant_id);
-                          const discoveryUser = allUsers.find(u => u.user_email === discovery.user || u.user_email === discovery.created_by);
-                          const userColor = getColorForUser(discoveryUser?.user_email, allUsers);
-                          
-                          return (
-                            <Marker
-                              key={discovery.id}
-                              position={[lat, lng]}
-                              icon={createColoredIcon(userColor)}
-                            >
-                              <Popup>
-                                <div className="text-sm">
-                                  <p className="font-bold">{plant?.species_name}</p>
-                                  <p className="text-xs italic text-stone-600">{plant?.scientific_name}</p>
-                                  <p className="text-xs text-stone-500 mt-1">
-                                    von {discoveryUser?.display_name || discoveryUser?.full_name}
-                                  </p>
-                                  {discovery.image_url && (
-                                    <img src={discovery.image_url} alt="" className="w-32 h-32 object-cover mt-2 rounded" />
-                                  )}
-                                </div>
-                              </Popup>
-                            </Marker>
-                          );
-                        })}
-                      </>
-                    );
-                  })()}
-                </MapContainer>
-              </div>
-            ) : (
-              <div className="text-center py-20">
-                <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 max-w-md mx-auto border border-stone-200 shadow-lg">
-                  <Search className="w-16 h-16 text-stone-400 mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-stone-900 mb-2">Suche eine Pflanze</h3>
-                  <p className="text-stone-600">Gib eine Art oder Gattung ein, um alle Sichtungen zu sehen</p>
-                </div>
-              </div>
-            )}
-          </TabsContent>
+                          if (plant) {
+                            uniqueGenera.add(`${plant.genus_category}-${plant.genus_number}`);
+                          }
+                        });
+                        return uniqueGenera.size;
+                      })()}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
+                    <span className="text-sm text-stone-700">Entdeckte Arten</span>
+                    <Badge variant="outline" className="text-base px-3 py-1">
+                      {(() => {
+                        const myDiscoveries = allDiscoveries.filter(d => d.user === user.email || d.created_by === user.email);
+                        const uniquePlants = new Set(myDiscoveries.map(d => d.plant_id));
+                        return uniquePlants.size;
+                      })()}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
+                    <span className="text-sm text-stone-700">Seltenste Entdeckung</span>
+                    <Badge variant="outline" className="text-xs px-2 py-1">
+                      {(() => {
+                        const myDiscoveries = allDiscoveries.filter(d => d.user === user.email || d.created_by === user.email);
+                        const myPlants = myDiscoveries.map(d => plants.find(p => p.id === d.plant_id)).filter(p => p);
+                        const rarestPlant = myPlants.find(p => p.rarity === 'Extrem Selten') || 
+                                           myPlants.find(p => p.rarity === 'Sehr Selten') ||
+                                           myPlants.find(p => p.rarity === 'Selten');
+                        return rarestPlant?.rarity || 'Keine';
+                      })()}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Likes & Social */}
+              <Card className="border-2 border-stone-200 bg-white/90 backdrop-blur-md">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Heart className="w-5 h-5 text-red-600" />
+                    Community
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                    <span className="text-sm text-stone-700">Erhaltene Likes</span>
+                    <Badge className="bg-red-600 text-white text-base px-3 py-1">
+                      {(() => {
+                        const myDiscoveries = allDiscoveries.filter(d => d.user === user.email || d.created_by === user.email);
+                        return scanLikes.filter(like => 
+                          myDiscoveries.some(d => d.id === like.discovery_id)
+                        ).length;
+                      })()}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
+                    <span className="text-sm text-stone-700">Gegebene Likes</span>
+                    <Badge variant="outline" className="text-base px-3 py-1">
+                      {scanLikes.filter(like => like.liked_by === user.email).length}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
+                    <span className="text-sm text-stone-700">Aktive Streaks</span>
+                    <Badge variant="outline" className="text-xs px-2 py-1">
+                      Bald verfügbar
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </Tabs>
 
         {/* Vergrößerte Ansicht Modal */}
