@@ -555,104 +555,9 @@ export default function Quests() {
           <MobileBackButton />
 
           {/* Statistiken Tab */}
-          <TabsContent value="stats" className="pt-24 px-4 pb-4">
-            {!userLocation ? (
-              <div className="text-center py-20">
-                <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 max-w-md mx-auto border border-stone-200 shadow-lg">
-                  <MapPin className="w-16 h-16 text-stone-400 mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-stone-900 mb-2">Standort ermitteln</h3>
-                  <p className="text-stone-600 mb-6">Erlaube den Standortzugriff, um Scans in deiner Nähe zu sehen</p>
-                  <Button
-                    onClick={calculateLocation}
-                    disabled={isLoadingLocation}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    {isLoadingLocation ? (
-                      <>
-                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                        Standort wird ermittelt...
-                      </>
-                    ) : (
-                      <>
-                        <MapPin className="w-5 h-5 mr-2" />
-                        Standort berechnen
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="h-[calc(100vh-160px)] rounded-xl overflow-hidden border-2 border-stone-200 shadow-lg">
-                <MapContainer
-                  center={[userLocation.lat, userLocation.lng]}
-                  zoom={12}
-                  style={{ height: '100%', width: '100%' }}
-                  className="z-0"
-                >
-                  <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                  />
-                  
-                  {allDiscoveries
-                    .filter(d => {
-                      const discoveryUser = allUsers.find(u => u.user_email === d.user || u.user_email === d.created_by);
-                      if (!discoveryUser || discoveryUser.local_tracking === false) return false;
-                      
-                      if (!d.discovery_location) return false;
-                      const coords = d.discovery_location.split(',');
-                      if (coords.length !== 2) return false;
-                      const lat = parseFloat(coords[0].trim());
-                      const lng = parseFloat(coords[1].trim());
-                      if (isNaN(lat) || isNaN(lng)) return false;
-                      
-                      const distance = calculateDistance(userLocation.lat, userLocation.lng, lat, lng);
-                      return distance <= 20;
-                    })
-                    .map((discovery) => {
-                      const coords = discovery.discovery_location.split(',');
-                      const lat = parseFloat(coords[0].trim());
-                      const lng = parseFloat(coords[1].trim());
-                      const plant = plants.find(p => p.id === discovery.plant_id);
-                      const discoveryUser = allUsers.find(u => u.user_email === discovery.user || u.user_email === discovery.created_by);
-                      const userColor = getColorForUser(discoveryUser?.user_email, allUsers);
-                      
-                      return (
-                        <Marker
-                          key={discovery.id}
-                          position={[lat, lng]}
-                          icon={createColoredIcon(userColor)}
-                        >
-                          <Popup>
-                            <div className="text-sm">
-                              <p className="font-bold">{plant?.species_name}</p>
-                              <p className="text-xs italic text-stone-600">{plant?.scientific_name}</p>
-                              <p className="text-xs text-stone-500 mt-1">
-                                von {discoveryUser?.display_name || discoveryUser?.full_name}
-                              </p>
-                              {discovery.image_url && (
-                                <img src={discovery.image_url} alt="" className="w-32 h-32 object-cover mt-2 rounded" />
-                              )}
-                            </div>
-                          </Popup>
-                        </Marker>
-                      );
-                    })}
-                    
-                  <Marker position={[userLocation.lat, userLocation.lng]} icon={createColoredIcon('#ef4444')}>
-                    <Popup>
-                      <p className="text-sm font-bold">📍 Dein Standort</p>
-                    </Popup>
-                  </Marker>
-                  </MapContainer>
-                  </div>
-                  )}
-                  </TabsContent>
-
-          <MobileBackButton />
-
-          <div className="max-w-4xl mx-auto">
-            <div className="grid md:grid-cols-2 gap-4">
+          <TabsContent value="stats" className="pt-14 px-4 pb-4">
+            <div className="max-w-4xl mx-auto">
+              <div className="grid md:grid-cols-2 gap-4">
               {/* Scan-Statistiken */}
               <Card className="border-2 border-stone-200 bg-white/90 backdrop-blur-md">
                 <CardHeader className="pb-3">
@@ -814,8 +719,11 @@ export default function Quests() {
                   </div>
                 </CardContent>
               </Card>
+              </div>
             </div>
-          </div>
+          </TabsContent>
+
+          <MobileBackButton />
         </Tabs>
 
         {/* Vergrößerte Ansicht Modal */}
