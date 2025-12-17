@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Heart, Users, TrendingUp, Clock, Leaf, Loader2, ChevronLeft, ChevronRight, X, Search, MapPin } from "lucide-react";
+import { Heart, Users, TrendingUp, Clock, Leaf, Loader2, ChevronLeft, ChevronRight, X, Search, MapPin, BarChart3 } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -557,6 +558,73 @@ export default function Quests() {
           {/* Statistiken Tab */}
           <TabsContent value="stats" className="pt-14 px-4 pb-4">
             <div className="max-w-4xl mx-auto">
+              {/* Scan-Verlauf der letzten 7 Tage */}
+              <Card className="border-2 border-stone-200 bg-white/90 backdrop-blur-md mb-4">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-blue-600" />
+                    Scan-Verlauf (Letzte 7 Tage)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={(() => {
+                      const last7Days = [];
+                      const today = new Date();
+                      
+                      for (let i = 6; i >= 0; i--) {
+                        const date = new Date(today);
+                        date.setDate(date.getDate() - i);
+                        date.setHours(0, 0, 0, 0);
+                        
+                        const nextDay = new Date(date);
+                        nextDay.setDate(nextDay.getDate() + 1);
+                        
+                        const scansOnDay = allDiscoveries.filter(d => {
+                          if (d.user !== user.email && d.created_by !== user.email) return false;
+                          const scanDate = new Date(d.created_date || d.discovered_date);
+                          return scanDate >= date && scanDate < nextDay;
+                        }).length;
+                        
+                        const dayNames = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+                        last7Days.push({
+                          name: dayNames[date.getDay()],
+                          Scans: scansOnDay,
+                          fullDate: date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
+                        });
+                      }
+                      
+                      return last7Days;
+                    })()}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis 
+                        dataKey="name" 
+                        tick={{ fill: '#6b7280', fontSize: 12 }}
+                      />
+                      <YAxis 
+                        tick={{ fill: '#6b7280', fontSize: 12 }}
+                        allowDecimals={false}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'white', 
+                          border: '2px solid #e5e7eb',
+                          borderRadius: '8px',
+                          fontSize: '12px'
+                        }}
+                        labelFormatter={(label, payload) => {
+                          if (payload && payload[0]) {
+                            return `${label} (${payload[0].payload.fullDate})`;
+                          }
+                          return label;
+                        }}
+                      />
+                      <Bar dataKey="Scans" fill="#16a34a" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
               <div className="grid md:grid-cols-2 gap-4">
               {/* Scan-Statistiken */}
               <Card className="border-2 border-stone-200 bg-white/90 backdrop-blur-md">
