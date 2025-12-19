@@ -31,7 +31,6 @@ export default function Profile() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState("");
   const [showBackgroundSelector, setShowBackgroundSelector] = useState(false);
-  const [showColorPicker, setShowColorPicker] = useState(false);
   const [averageColor, setAverageColor] = useState(null);
 
   const { data: plants = [] } = useQuery({
@@ -219,8 +218,8 @@ export default function Profile() {
   };
 
   const handleSetColor = async (color) => {
-    await updateUserMutation.mutateAsync({ background_color: color });
-    setShowColorPicker(false);
+    await updateUserMutation.mutateAsync({ background_image_url: null, background_color: color });
+    setShowBackgroundSelector(false);
     setAverageColor(color);
     // Force PublicProfile update
     const freshUser = await base44.auth.me();
@@ -229,7 +228,7 @@ export default function Profile() {
 
   const handleRemoveColor = async () => {
     await updateUserMutation.mutateAsync({ background_color: null });
-    setShowColorPicker(false);
+    setShowBackgroundSelector(false);
     setAverageColor(null);
     // Force PublicProfile update
     const freshUser = await base44.auth.me();
@@ -439,72 +438,70 @@ export default function Profile() {
             <DialogHeader>
               <DialogTitle>Hintergrund auswählen</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-6">
               <Button
                 variant="outline"
-                onClick={handleRemoveBackground}
+                onClick={() => {
+                  handleRemoveBackground();
+                  handleRemoveColor();
+                }}
                 className="w-full"
               >
                 Hintergrund entfernen
               </Button>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {userDiscoveries
-                  .filter(d => d.image_url)
-                  .map((discovery) => (
-                    <button
-                      key={discovery.id}
-                      onClick={() => handleSetBackground(discovery.image_url)}
-                      className="relative aspect-square rounded-lg overflow-hidden border-2 border-stone-200 hover:border-green-500 transition-colors group"
-                    >
-                      <img
-                        src={discovery.image_url}
-                        alt="Scan"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                      />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-                    </button>
-                  ))}
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
 
-        <Dialog open={showColorPicker} onOpenChange={setShowColorPicker}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Hintergrundfarbe auswählen</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <Button
-                variant="outline"
-                onClick={handleRemoveColor}
-                className="w-full"
-              >
-                Farbe entfernen
-              </Button>
-              <div className="grid grid-cols-4 gap-3">
-                {[
-                  'rgb(59, 130, 246)', // Blue
-                  'rgb(16, 185, 129)', // Green
-                  'rgb(245, 158, 11)', // Amber
-                  'rgb(239, 68, 68)', // Red
-                  'rgb(168, 85, 247)', // Purple
-                  'rgb(236, 72, 153)', // Pink
-                  'rgb(20, 184, 166)', // Teal
-                  'rgb(251, 146, 60)', // Orange
-                  'rgb(34, 197, 94)', // Lime
-                  'rgb(99, 102, 241)', // Indigo
-                  'rgb(217, 70, 239)', // Fuchsia
-                  'rgb(6, 182, 212)', // Cyan
-                ].map((color) => (
-                  <button
-                    key={color}
-                    onClick={() => handleSetColor(color)}
-                    className="aspect-square rounded-lg border-2 border-stone-200 hover:border-stone-400 transition-colors hover:scale-110"
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
+              {/* Farben Section */}
+              <div>
+                <h3 className="text-sm font-semibold text-stone-900 mb-3">Einfarbiger Hintergrund</h3>
+                <div className="grid grid-cols-4 md:grid-cols-6 gap-3">
+                  {[
+                    'rgb(59, 130, 246)', // Blue
+                    'rgb(16, 185, 129)', // Green
+                    'rgb(245, 158, 11)', // Amber
+                    'rgb(239, 68, 68)', // Red
+                    'rgb(168, 85, 247)', // Purple
+                    'rgb(236, 72, 153)', // Pink
+                    'rgb(20, 184, 166)', // Teal
+                    'rgb(251, 146, 60)', // Orange
+                    'rgb(34, 197, 94)', // Lime
+                    'rgb(99, 102, 241)', // Indigo
+                    'rgb(217, 70, 239)', // Fuchsia
+                    'rgb(6, 182, 212)', // Cyan
+                  ].map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => handleSetColor(color)}
+                      className="aspect-square rounded-lg border-2 border-stone-200 hover:border-stone-400 transition-colors hover:scale-110"
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
               </div>
+
+              {/* Scans Section - nur für Admins und Donors */}
+              {(user?.role === 'admin' || user?.donor_status) && (
+                <div>
+                  <h3 className="text-sm font-semibold text-stone-900 mb-3">Pflanzenbild als Hintergrund</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {userDiscoveries
+                      .filter(d => d.image_url)
+                      .map((discovery) => (
+                        <button
+                          key={discovery.id}
+                          onClick={() => handleSetBackground(discovery.image_url)}
+                          className="relative aspect-square rounded-lg overflow-hidden border-2 border-stone-200 hover:border-green-500 transition-colors group"
+                        >
+                          <img
+                            src={discovery.image_url}
+                            alt="Scan"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
           </DialogContent>
         </Dialog>
@@ -532,29 +529,12 @@ export default function Profile() {
                 background: `linear-gradient(135deg, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 0.6)')} 0%, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 1)')} 100%)`
               } : {}}
             >
-              {(user?.role === 'admin' || user?.donor_status) ? (
-                <div className="absolute top-4 right-4 flex gap-2 z-10">
-                  <button
-                    onClick={() => setShowBackgroundSelector(true)}
-                    className="w-10 h-10 bg-stone-200/80 hover:bg-stone-300/80 backdrop-blur-sm rounded-full flex items-center justify-center transition-colors"
-                  >
-                    <ImageIcon className="w-5 h-5 text-stone-700" />
-                  </button>
-                  <button
-                    onClick={() => setShowColorPicker(true)}
-                    className="w-10 h-10 bg-stone-200/80 hover:bg-stone-300/80 backdrop-blur-sm rounded-full flex items-center justify-center transition-colors"
-                  >
-                    <div className="w-5 h-5 rounded-full border-2 border-stone-700 bg-gradient-to-br from-purple-400 to-pink-400" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setShowColorPicker(true)}
-                  className="absolute top-4 right-4 w-10 h-10 bg-stone-200/80 hover:bg-stone-300/80 backdrop-blur-sm rounded-full flex items-center justify-center transition-colors z-10"
-                >
-                  <ImageIcon className="w-5 h-5 text-stone-700" />
-                </button>
-              )}
+              <button
+                onClick={() => setShowBackgroundSelector(true)}
+                className="absolute top-4 right-4 w-10 h-10 bg-stone-200/80 hover:bg-stone-300/80 backdrop-blur-sm rounded-full flex items-center justify-center transition-colors z-10"
+              >
+                <ImageIcon className="w-5 h-5 text-stone-700" />
+              </button>
               <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
                 <div className="relative group flex-shrink-0">
                   <div className="w-28 h-28 bg-gradient-to-br from-green-600 to-emerald-600 rounded-2xl flex items-center justify-center shadow-2xl overflow-hidden ring-4 ring-white/50 backdrop-blur-sm">
