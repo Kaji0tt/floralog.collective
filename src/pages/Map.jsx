@@ -477,10 +477,10 @@ export default function Map() {
           <MobileBackButton />
 
           {/* Freunde Tab */}
-          <TabsContent value="friends" className="pt-14">
+          <TabsContent value="friends" className="pt-12">
             <div className="flex flex-col h-screen">
               <div className="bg-white border-b-2 border-stone-200 shadow-md z-40">
-                <div className="p-3">
+                <div className="p-2">
                   {selectedViews.selectedFriend || selectedViews.mine ? (
                     <div className="flex items-center justify-between p-3 bg-white/90 backdrop-blur-md rounded-full border border-green-200">
                       <div>
