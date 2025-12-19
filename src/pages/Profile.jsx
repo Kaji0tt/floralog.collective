@@ -20,6 +20,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
+// Vorgefertigte Hintergrundbilder - URLs hier einfügen
+const PRESET_BACKGROUNDS = [
+  // Beispiel: "https://deine-url.com/background1.jpg",
+  // Beispiel: "https://deine-url.com/background2.jpg",
+];
+
 export default function Profile() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -477,6 +483,29 @@ export default function Profile() {
                   ))}
                 </div>
               </div>
+
+              {/* Vorgefertigte Hintergründe */}
+              {PRESET_BACKGROUNDS.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-stone-900 mb-3">Vorgefertigte Hintergründe</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {PRESET_BACKGROUNDS.map((bgUrl, index) => (
+                      <button
+                        key={`preset-${index}`}
+                        onClick={() => handleSetBackground(bgUrl)}
+                        className="relative aspect-square rounded-lg overflow-hidden border-2 border-stone-200 hover:border-green-500 transition-colors group"
+                      >
+                        <img
+                          src={bgUrl}
+                          alt={`Hintergrund ${index + 1}`}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Scans Section - nur für Admins und Donors */}
               {(user?.role === 'admin' || user?.donor_status) && (
