@@ -24,6 +24,7 @@ const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 const PRESET_BACKGROUNDS = [
   // Beispiel: "https://deine-url.com/background1.jpg",
   // Beispiel: "https://deine-url.com/background2.jpg",
+  "https://blauzahn.eu/PlantDex/BackGround4.jpg",
 ];
 
 export default function Profile() {
