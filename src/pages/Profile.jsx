@@ -453,20 +453,20 @@ export default function Profile() {
               {/* Farben Section */}
               <div>
                 <h3 className="text-sm font-semibold text-stone-900 mb-3">Einfarbiger Hintergrund</h3>
-                <div className="grid grid-cols-4 md:grid-cols-6 gap-3">
+                <div className="grid grid-cols-4 gap-3">
                   {[
-                    'rgb(59, 130, 246)', // Blue
-                    'rgb(16, 185, 129)', // Green
-                    'rgb(245, 158, 11)', // Amber
-                    'rgb(239, 68, 68)', // Red
-                    'rgb(168, 85, 247)', // Purple
-                    'rgb(236, 72, 153)', // Pink
-                    'rgb(20, 184, 166)', // Teal
-                    'rgb(251, 146, 60)', // Orange
-                    'rgb(34, 197, 94)', // Lime
-                    'rgb(99, 102, 241)', // Indigo
-                    'rgb(217, 70, 239)', // Fuchsia
-                    'rgb(6, 182, 212)', // Cyan
+                    'rgb(199, 209, 163)', // C7D1A3
+                    'rgb(196, 178, 143)', // C4B28F
+                    'rgb(143, 196, 178)', // 8FC4B2
+                    'rgb(196, 143, 143)', // C48F8F
+                    'rgb(176, 72, 72)',   // B04848
+                    'rgb(176, 159, 72)',  // B09F48
+                    'rgb(115, 158, 63)',  // 739E3F
+                    'rgb(227, 197, 84)',  // E3C554
+                    'rgb(97, 36, 31)',    // 61241F
+                    'rgb(31, 92, 97)',    // 1F5C61
+                    'rgb(74, 55, 21)',    // 4A3715
+                    'rgb(30, 54, 8)',     // 1E3608
                   ].map((color) => (
                     <button
                       key={color}
