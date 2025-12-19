@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -21,12 +20,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
-// Vorgefertigte Hintergrundbilder - URLs hier einfügen
+// Vorgefertigte Hintergrundbilder mit vorberechneten Durchschnittsfarben
 const PRESET_BACKGROUNDS = [
-  "https://blauzahn.eu/PlantDex/BackGround4.jpg",
-  "https://blauzahn.eu/PlantDex/BackGround1.png",
-  "https://blauzahn.eu/PlantDex/BackGround2.png",
-  "https://blauzahn.eu/PlantDex/BackGround3.png"
+  { url: "https://blauzahn.eu/PlantDex/BackGround4.jpg", color: "rgb(89, 107, 68)" },
+  { url: "https://blauzahn.eu/PlantDex/BackGround1.png", color: "rgb(118, 142, 98)" },
+  { url: "https://blauzahn.eu/PlantDex/BackGround2.png", color: "rgb(95, 118, 82)" },
+  { url: "https://blauzahn.eu/PlantDex/BackGround3.png", color: "rgb(102, 125, 88)" }
 ];
 
 export default function Profile() {
@@ -211,10 +210,16 @@ export default function Profile() {
     setIsEditingName(false);
   };
 
-  const handleSetBackground = async (imageUrl) => {
+  const handleSetBackground = async (imageUrl, precomputedColor = null) => {
     console.log("🎨 handleSetBackground called with imageUrl:", imageUrl);
-    const color = await getAverageColor(imageUrl);
-    console.log("🎨 getAverageColor returned:", color);
+    console.log("🎨 Precomputed color:", precomputedColor);
+    
+    let color = precomputedColor;
+    if (!color) {
+      color = await getAverageColor(imageUrl);
+      console.log("🎨 getAverageColor returned:", color);
+    }
+    
     await updateUserMutation.mutateAsync({ 
       background_image_url: imageUrl, 
       background_color: null 
@@ -516,14 +521,14 @@ export default function Profile() {
                 <div>
                   <h3 className="text-sm font-semibold text-stone-900 mb-3">Vorgefertigte Hintergründe</h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {PRESET_BACKGROUNDS.map((bgUrl, index) => (
+                    {PRESET_BACKGROUNDS.map((bg, index) => (
                       <button
                         key={`preset-${index}`}
-                        onClick={() => handleSetBackground(bgUrl)}
+                        onClick={() => handleSetBackground(bg.url, bg.color)}
                         className="relative aspect-square rounded-lg overflow-hidden border-2 border-stone-200 hover:border-green-500 transition-colors group"
                       >
                         <img
-                          src={bgUrl}
+                          src={bg.url}
                           alt={`Hintergrund ${index + 1}`}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                         />
