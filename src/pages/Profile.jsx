@@ -532,13 +532,21 @@ export default function Profile() {
                 background: `linear-gradient(135deg, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 0.6)')} 0%, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 1)')} 100%)`
               } : {}}
             >
-              {user?.role === 'admin' ? (
-                <button
-                  onClick={() => setShowBackgroundSelector(true)}
-                  className="absolute top-4 right-4 w-10 h-10 bg-stone-200/80 hover:bg-stone-300/80 backdrop-blur-sm rounded-full flex items-center justify-center transition-colors z-10"
-                >
-                  <ImageIcon className="w-5 h-5 text-stone-700" />
-                </button>
+              {(user?.role === 'admin' || user?.donor_status) ? (
+                <div className="absolute top-4 right-4 flex gap-2 z-10">
+                  <button
+                    onClick={() => setShowBackgroundSelector(true)}
+                    className="w-10 h-10 bg-stone-200/80 hover:bg-stone-300/80 backdrop-blur-sm rounded-full flex items-center justify-center transition-colors"
+                  >
+                    <ImageIcon className="w-5 h-5 text-stone-700" />
+                  </button>
+                  <button
+                    onClick={() => setShowColorPicker(true)}
+                    className="w-10 h-10 bg-stone-200/80 hover:bg-stone-300/80 backdrop-blur-sm rounded-full flex items-center justify-center transition-colors"
+                  >
+                    <div className="w-5 h-5 rounded-full border-2 border-stone-700 bg-gradient-to-br from-purple-400 to-pink-400" />
+                  </button>
+                </div>
               ) : (
                 <button
                   onClick={() => setShowColorPicker(true)}
