@@ -495,8 +495,19 @@ export default function Profile() {
 
               {/* Farben Section */}
               <div>
-                <h3 className="text-sm font-semibold text-stone-900 mb-3">Einfarbiger Hintergrund</h3>
-                <div className="grid grid-cols-4 gap-3">
+                <button
+                  onClick={() => setCollapsedSections(prev => ({ ...prev, colors: !prev.colors }))}
+                  className="w-full flex items-center justify-between p-3 bg-stone-50 rounded-lg hover:bg-stone-100 transition-colors mb-3"
+                >
+                  <h3 className="text-sm font-semibold text-stone-900">Einfarbiger Hintergrund</h3>
+                  {collapsedSections.colors ? (
+                    <ChevronDown className="w-5 h-5 text-stone-600" />
+                  ) : (
+                    <ChevronUp className="w-5 h-5 text-stone-600" />
+                  )}
+                </button>
+                {!collapsedSections.colors && (
+                  <div className="grid grid-cols-4 gap-3">
                   {[
                     'rgb(199, 209, 163)', // C7D1A3
                     'rgb(196, 178, 143)', // C4B28F
@@ -518,7 +529,8 @@ export default function Profile() {
                       style={{ backgroundColor: color }}
                     />
                   ))}
-                </div>
+                  </div>
+                )}
               </div>
 
               {/* Vorgefertigte Hintergründe */}
