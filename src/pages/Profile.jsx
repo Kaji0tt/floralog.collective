@@ -25,6 +25,9 @@ const PRESET_BACKGROUNDS = [
   // Beispiel: "https://deine-url.com/background1.jpg",
   // Beispiel: "https://deine-url.com/background2.jpg",
   "https://blauzahn.eu/PlantDex/BackGround4.jpg",
+    "https://blauzahn.eu/PlantDex/BackGround1.png",
+      "https://blauzahn.eu/PlantDex/BackGround2.png",
+        "https://blauzahn.eu/PlantDex/BackGround3.png",
 ];
 
 export default function Profile() {
