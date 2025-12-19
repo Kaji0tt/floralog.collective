@@ -27,7 +27,7 @@ const PRESET_BACKGROUNDS = [
   "https://blauzahn.eu/PlantDex/BackGround4.jpg",
     "https://blauzahn.eu/PlantDex/BackGround1.png",
       "https://blauzahn.eu/PlantDex/BackGround2.png",
-        "https://blauzahn.eu/PlantDex/BackGround3.png",
+        "https://blauzahn.eu/PlantDex/BackGround3.png"
 ];
 
 export default function Profile() {
