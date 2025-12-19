@@ -216,7 +216,7 @@ export default function Profile() {
     const color = await getAverageColor(imageUrl);
     await updateUserMutation.mutateAsync({ 
       background_image_url: imageUrl, 
-      background_color: color || null 
+      background_color: null 
     });
     setShowBackgroundSelector(false);
     if (color) {
