@@ -410,23 +410,7 @@ export default function Profile() {
 
   return (
     <>
-      <style>{`
-        :root {
-          --profile-bg-color: ${averageColor || 'rgb(250, 250, 249)'};
-          --profile-bg-color-light: ${averageColor ? getLighterColor(averageColor) : 'rgb(255, 255, 255)'};
-          --profile-bg-color-mid: ${averageColor ? averageColor : 'rgb(236, 253, 245)'};
-          --profile-bg-color-dark: ${averageColor ? getDarkerColor(averageColor) : 'rgb(220, 252, 231)'};
-          --profile-border-color: ${averageColor ? getRgbaFromRgb(averageColor, 0.4) : 'rgb(134, 239, 172)'};
-        }
-      `}</style>
-      <div 
-        className="h-screen min-w-full p-4 md:p-8 fixed inset-0 overflow-auto" 
-        style={{
-          background: averageColor 
-            ? `linear-gradient(135deg, var(--profile-bg-color-light) 0%, var(--profile-bg-color-mid) 50%, var(--profile-bg-color-dark) 100%)`
-            : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
-        }}
-      >
+      <div className="h-screen min-w-full p-4 md:p-8 fixed inset-0 overflow-auto">
       <MobileBackButton />
       
       <AnimatePresence>
