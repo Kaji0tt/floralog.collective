@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -22,12 +23,10 @@ const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
 // Vorgefertigte Hintergrundbilder - URLs hier einfügen
 const PRESET_BACKGROUNDS = [
-  // Beispiel: "https://deine-url.com/background1.jpg",
-  // Beispiel: "https://deine-url.com/background2.jpg",
   "https://blauzahn.eu/PlantDex/BackGround4.jpg",
-    "https://blauzahn.eu/PlantDex/BackGround1.png",
-      "https://blauzahn.eu/PlantDex/BackGround2.png",
-        "https://blauzahn.eu/PlantDex/BackGround3.png"
+  "https://blauzahn.eu/PlantDex/BackGround1.png",
+  "https://blauzahn.eu/PlantDex/BackGround2.png",
+  "https://blauzahn.eu/PlantDex/BackGround3.png"
 ];
 
 export default function Profile() {
@@ -213,14 +212,20 @@ export default function Profile() {
   };
 
   const handleSetBackground = async (imageUrl) => {
+    console.log("🎨 handleSetBackground called with imageUrl:", imageUrl);
     const color = await getAverageColor(imageUrl);
+    console.log("🎨 getAverageColor returned:", color);
     await updateUserMutation.mutateAsync({ 
       background_image_url: imageUrl, 
       background_color: null 
     });
+    console.log("✅ User mutation successful, background_image_url set to:", imageUrl);
     setShowBackgroundSelector(false);
     if (color) {
+      console.log("✅ Setting averageColor state to:", color);
       setAverageColor(color);
+    } else {
+      console.warn("⚠️ No color was calculated, averageColor not set");
     }
   };
 
@@ -234,7 +239,6 @@ export default function Profile() {
     await updateUserMutation.mutateAsync({ background_image_url: null, background_color: color });
     setShowBackgroundSelector(false);
     setAverageColor(color);
-    // Force PublicProfile update
     const freshUser = await base44.auth.me();
     await updatePublicProfile(freshUser);
   };
@@ -243,17 +247,18 @@ export default function Profile() {
     await updateUserMutation.mutateAsync({ background_color: null });
     setShowBackgroundSelector(false);
     setAverageColor(null);
-    // Force PublicProfile update
     const freshUser = await base44.auth.me();
     await updatePublicProfile(freshUser);
   };
 
   const getAverageColor = (imageUrl) => {
+    console.log("🖼️ getAverageColor called for:", imageUrl);
     return new Promise((resolve) => {
       const img = new window.Image();
       img.crossOrigin = "anonymous";
       
       img.onload = () => {
+        console.log("✅ Image loaded successfully:", imageUrl);
         try {
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
@@ -279,27 +284,42 @@ export default function Profile() {
           g = Math.floor(g / count);
           b = Math.floor(b / count);
           
-          resolve(`rgb(${r}, ${g}, ${b})`);
+          const resultColor = `rgb(${r}, ${g}, ${b})`;
+          console.log("✅ Average color calculated:", resultColor);
+          resolve(resultColor);
         } catch (error) {
+          console.error("❌ Error calculating average color:", error);
           resolve(null);
         }
       };
       
-      img.onerror = () => resolve(null);
+      img.onerror = (error) => {
+        console.error("❌ Image failed to load:", imageUrl, error);
+        resolve(null);
+      };
       img.src = imageUrl;
     });
   };
 
   useEffect(() => {
+    console.log("🔄 useEffect triggered - user.background_image_url:", user?.background_image_url);
+    console.log("🔄 useEffect triggered - user.background_color:", user?.background_color);
+    
     if (user?.background_image_url) {
+      console.log("📸 User has background_image_url, calculating average color...");
       getAverageColor(user.background_image_url).then(color => {
         if (color) {
+          console.log("✅ Setting averageColor from useEffect:", color);
           setAverageColor(color);
+        } else {
+          console.warn("⚠️ getAverageColor returned null in useEffect");
         }
       });
     } else if (user?.background_color) {
+      console.log("🎨 User has background_color, using it directly:", user.background_color);
       setAverageColor(user.background_color);
     } else {
+      console.log("🔄 No background set, clearing averageColor");
       setAverageColor(null);
     }
   }, [user?.background_image_url, user?.background_color]);
