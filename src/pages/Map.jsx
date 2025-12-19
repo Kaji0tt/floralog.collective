@@ -180,6 +180,7 @@ export default function Map() {
   const [activeTab, setActiveTab] = useState("friends");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPlantForSighting, setSelectedPlantForSighting] = useState(null);
+  const [friendSearchQuery, setFriendSearchQuery] = useState("");
 
   const urlParams = new URLSearchParams(window.location.search);
   const friendEmailParam = urlParams.get('email');
@@ -480,113 +481,93 @@ export default function Map() {
             <div className="flex flex-col h-screen">
               <div className="bg-white border-b-2 border-stone-200 shadow-md z-40">
                 <div className="p-3">
-                  <div className="flex items-center gap-3">
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className="flex-1 border-2 border-stone-300 bg-white font-semibold h-10 justify-start">
-                          <Filter className="w-4 h-4 mr-2" />
-                          <span className="flex-1 text-left">
-                            {activeViewCount} {activeViewCount === 1 ? 'Ansicht' : 'Ansichten'} aktiv
-                          </span>
-                          {activeViewCount > 0 && (
-                            <Badge className="bg-green-600 text-white ml-2">{totalPlantCount}</Badge>
+                  {selectedViews.selectedFriend || selectedViews.mine ? (
+                    <div className="flex items-center justify-between p-3 bg-white/90 backdrop-blur-md rounded-full border border-green-200">
+                      <div>
+                        <p className="text-sm font-bold text-stone-900">
+                          {selectedViews.mine ? 'Meine Pflanzen' : selectedViews.selectedFriend?.name}
+                        </p>
+                        <p className="text-xs text-stone-500">
+                          {totalPlantCount} {totalPlantCount === 1 ? 'Pflanze' : 'Pflanzen'}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedViews({});
+                          setSearchQuery("");
+                        }}
+                        className="h-8"
+                      >
+                        Ändern
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                          <Input
+                            type="text"
+                            placeholder="Wähle einen Freund..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-10 bg-white border-2 border-stone-300 h-10"
+                          />
+                        </div>
+                        <Button
+                          onClick={getUserLocation}
+                          disabled={gettingLocation}
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700 flex-shrink-0 h-10 px-3"
+                        >
+                          {gettingLocation ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Navigation className="w-4 h-4" />
                           )}
                         </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-80 bg-white" align="start">
-                        <div className="space-y-4">
-                          <div>
-                            <h3 className="font-bold text-lg mb-3 text-stone-900">Kartenansichten</h3>
-                            <p className="text-sm text-stone-600 mb-3">Wähle aus, welche Pflanzen angezeigt werden sollen</p>
-                          </div>
+                      </div>
 
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-3 p-2 hover:bg-stone-50 rounded-lg cursor-pointer" onClick={() => toggleView('mine')}>
-                              <Checkbox 
-                                checked={selectedViews.mine || false}
-                                onCheckedChange={() => toggleView('mine')}
-                              />
-                              <div className="flex items-center gap-2 flex-1">
-                                <div 
-                                  className="w-3 h-3 rounded-full"
-                                  style={{
-                                    backgroundColor: averageColor 
-                                      ? `rgb(${averageColor.r}, ${averageColor.g}, ${averageColor.b})` 
-                                      : 'rgb(22, 163, 74)'
-                                  }}
-                                ></div>
-                                <span className="font-semibold text-stone-900">Meine Pflanzen</span>
-                              </div>
-                              {selectedViews.mine && (
-                                <Badge variant="outline" className="text-xs">
-                                  {getPlantsWithDiscoveries(user?.email || '').filter(p => extractCoordinates(p.discovery_location)).length}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-
-                          {friends.length > 0 && (
-                            <div className="space-y-2">
-                              <div className="text-xs font-bold text-stone-500 uppercase tracking-wider px-2">Freunde</div>
-                              {friends.map((friend, friendIndex) => {
-                                const viewKey = `friend-${friend.email}`;
-                                const friendPlantCount = getPlantsWithDiscoveries(friend.email).filter(p => extractCoordinates(p.discovery_location)).length;
-                                const color = friendColors[friendIndex % friendColors.length];
-                                
-                                return (
-                                  <div 
-                                    key={friend.id} 
-                                    className="flex items-center gap-3 p-2 hover:bg-stone-50 rounded-lg cursor-pointer"
-                                    onClick={() => toggleView(viewKey)}
-                                  >
-                                    <Checkbox 
-                                      checked={selectedViews[viewKey] || false}
-                                      onCheckedChange={() => toggleView(viewKey)}
-                                    />
-                                    <div className="flex items-center gap-2 flex-1">
-                                      <div className={`w-3 h-3 ${color.bg} rounded-full`}></div>
-                                      <span className="font-semibold text-stone-900">{friend.name}</span>
-                                    </div>
-                                    {selectedViews[viewKey] && (
-                                      <Badge variant="outline" className="text-xs">{friendPlantCount}</Badge>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
+                      {searchQuery.length > 0 && (
+                        <div className="mt-2 bg-white rounded-lg border border-stone-200 shadow-lg max-h-60 overflow-y-auto">
+                          <button
+                            onClick={() => {
+                              setSelectedViews({ mine: true });
+                              setSearchQuery("");
+                            }}
+                            className="w-full text-left px-4 py-2 hover:bg-stone-50 border-b border-stone-100"
+                          >
+                            <p className="text-sm font-bold text-stone-900">Meine Pflanzen</p>
+                            <p className="text-xs text-stone-500">
+                              {getPlantsWithDiscoveries(user?.email || '').filter(p => extractCoordinates(p.discovery_location)).length} Pflanzen
+                            </p>
+                          </button>
+                          {friends
+                            .filter(f => 
+                              f.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                              f.email?.toLowerCase().includes(searchQuery.toLowerCase())
+                            )
+                            .map((friend) => (
+                              <button
+                                key={friend.id}
+                                onClick={() => {
+                                  setSelectedViews({ [`friend-${friend.email}`]: true, selectedFriend: friend });
+                                  setSearchQuery("");
+                                }}
+                                className="w-full text-left px-4 py-2 hover:bg-stone-50 border-b border-stone-100 last:border-0"
+                              >
+                                <p className="text-sm font-bold text-stone-900">{friend.name}</p>
+                                <p className="text-xs text-stone-500">
+                                  {getPlantsWithDiscoveries(friend.email).filter(p => extractCoordinates(p.discovery_location)).length} Pflanzen
+                                </p>
+                              </button>
+                            ))}
                         </div>
-                      </PopoverContent>
-                    </Popover>
-
-                    <Button
-                      onClick={getUserLocation}
-                      disabled={gettingLocation}
-                      size="sm"
-                      className="bg-green-600 hover:bg-green-700 flex-shrink-0 h-10"
-                    >
-                      {gettingLocation ? (
-                        <>
-                          <Loader2 className="w-4 h-4 md:mr-2 animate-spin" />
-                          <span className="hidden md:inline">Standort...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Navigation className="w-4 h-4 md:mr-2" />
-                          <span className="hidden md:inline">Mein Standort</span>
-                        </>
                       )}
-                    </Button>
-                  </div>
-
-                  <div className="mt-2 flex items-center justify-between text-xs text-stone-600">
-                    <span className="font-semibold">
-                      {totalPlantCount} {totalPlantCount === 1 ? 'Pflanze' : 'Pflanzen'} auf der Karte
-                    </span>
-                    <span className="text-stone-500">
-                      {activeViewCount === 0 ? 'Keine Ansicht aktiv' : `${activeViewCount} ${activeViewCount === 1 ? 'Quelle' : 'Quellen'}`}
-                    </span>
-                  </div>
+                    </>
+                  )}
                 </div>
               </div>
 
