@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Trophy, BookOpen, Target, Users, Camera, Loader2, LogOut, Mail, Key, AlertCircle, RotateCcw, Star, Image as ImageIcon, Edit2, CheckCircle, X, Heart, Map as MapIcon, Leaf } from "lucide-react";
+import { Trophy, BookOpen, Target, Users, Camera, Loader2, LogOut, Mail, Key, AlertCircle, RotateCcw, Star, Image as ImageIcon, Edit2, CheckCircle, X, Heart, Map as MapIcon, Leaf, ChevronDown, ChevronUp } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { motion, AnimatePresence } from "framer-motion";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
@@ -40,6 +40,11 @@ export default function Profile() {
   const [editedName, setEditedName] = useState("");
   const [showBackgroundSelector, setShowBackgroundSelector] = useState(false);
   const [averageColor, setAverageColor] = useState(null);
+  const [collapsedSections, setCollapsedSections] = useState({
+    colors: false,
+    presets: false,
+    scans: false
+  });
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
@@ -519,48 +524,72 @@ export default function Profile() {
               {/* Vorgefertigte Hintergründe */}
               {PRESET_BACKGROUNDS.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-semibold text-stone-900 mb-3">Vorgefertigte Hintergründe</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {PRESET_BACKGROUNDS.map((bg, index) => (
-                      <button
-                        key={`preset-${index}`}
-                        onClick={() => handleSetBackground(bg.url, bg.color)}
-                        className="relative aspect-square rounded-lg overflow-hidden border-2 border-stone-200 hover:border-green-500 transition-colors group"
-                      >
-                        <img
-                          src={bg.url}
-                          alt={`Hintergrund ${index + 1}`}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                        />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-                      </button>
-                    ))}
-                  </div>
+                  <button
+                    onClick={() => setCollapsedSections(prev => ({ ...prev, presets: !prev.presets }))}
+                    className="w-full flex items-center justify-between p-3 bg-stone-50 rounded-lg hover:bg-stone-100 transition-colors mb-3"
+                  >
+                    <h3 className="text-sm font-semibold text-stone-900">Vorgefertigte Hintergründe</h3>
+                    {collapsedSections.presets ? (
+                      <ChevronDown className="w-5 h-5 text-stone-600" />
+                    ) : (
+                      <ChevronUp className="w-5 h-5 text-stone-600" />
+                    )}
+                  </button>
+                  {!collapsedSections.presets && (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {PRESET_BACKGROUNDS.map((bg, index) => (
+                        <button
+                          key={`preset-${index}`}
+                          onClick={() => handleSetBackground(bg.url, bg.color)}
+                          className="relative aspect-square rounded-lg overflow-hidden border-2 border-stone-200 hover:border-green-500 transition-colors group"
+                        >
+                          <img
+                            src={bg.url}
+                            alt={`Hintergrund ${index + 1}`}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Scans Section - nur für Admins und Donors */}
               {(user?.role === 'admin' || user?.donor_status) && (
                 <div>
-                  <h3 className="text-sm font-semibold text-stone-900 mb-3">Pflanzenbild als Hintergrund</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {userDiscoveries
-                      .filter(d => d.image_url)
-                      .map((discovery) => (
-                        <button
-                          key={discovery.id}
-                          onClick={() => handleSetBackground(discovery.image_url)}
-                          className="relative aspect-square rounded-lg overflow-hidden border-2 border-stone-200 hover:border-green-500 transition-colors group"
-                        >
-                          <img
-                            src={discovery.image_url}
-                            alt="Scan"
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                          />
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-                        </button>
-                      ))}
-                  </div>
+                  <button
+                    onClick={() => setCollapsedSections(prev => ({ ...prev, scans: !prev.scans }))}
+                    className="w-full flex items-center justify-between p-3 bg-stone-50 rounded-lg hover:bg-stone-100 transition-colors mb-3"
+                  >
+                    <h3 className="text-sm font-semibold text-stone-900">Pflanzenbild als Hintergrund</h3>
+                    {collapsedSections.scans ? (
+                      <ChevronDown className="w-5 h-5 text-stone-600" />
+                    ) : (
+                      <ChevronUp className="w-5 h-5 text-stone-600" />
+                    )}
+                  </button>
+                  {!collapsedSections.scans && (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {userDiscoveries
+                        .filter(d => d.image_url)
+                        .map((discovery) => (
+                          <button
+                            key={discovery.id}
+                            onClick={() => handleSetBackground(discovery.image_url)}
+                            className="relative aspect-square rounded-lg overflow-hidden border-2 border-stone-200 hover:border-green-500 transition-colors group"
+                          >
+                            <img
+                              src={discovery.image_url}
+                              alt="Scan"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                          </button>
+                        ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
