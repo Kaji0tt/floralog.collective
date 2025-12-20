@@ -524,13 +524,13 @@ export default function Profile() {
                                     className={`aspect-square rounded-lg border-2 relative ${
                                       isUnlocked 
                                         ? 'border-stone-200 hover:border-stone-400 hover:scale-110' 
-                                        : 'border-stone-300 opacity-50 cursor-not-allowed'
+                                        : 'border-stone-400 cursor-not-allowed'
                                     } transition-all`}
                                     style={{ backgroundColor: color }}
                                   >
                                     {!isUnlocked && (
                                       <div className="absolute inset-0 flex items-center justify-center rounded-lg">
-                                        <Lock className="w-10 h-10 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]" />
+                                        <Lock className="w-12 h-12 text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]" />
                                       </div>
                                     )}
                                   </button>
@@ -566,13 +566,13 @@ export default function Profile() {
                                     className={`aspect-square rounded-lg border-2 relative ${
                                       isUnlocked 
                                         ? 'border-stone-200 hover:border-stone-400 hover:scale-110' 
-                                        : 'border-stone-300 opacity-50 cursor-not-allowed'
+                                        : 'border-stone-400 cursor-not-allowed'
                                     } transition-all`}
                                     style={{ backgroundColor: color }}
                                   >
                                     {!isUnlocked && (
                                       <div className="absolute inset-0 flex items-center justify-center rounded-lg">
-                                        <Lock className="w-10 h-10 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]" />
+                                        <Lock className="w-12 h-12 text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]" />
                                       </div>
                                     )}
                                   </button>
@@ -608,13 +608,13 @@ export default function Profile() {
                                     className={`aspect-square rounded-lg border-2 relative ${
                                       isUnlocked 
                                         ? 'border-stone-200 hover:border-stone-400 hover:scale-110' 
-                                        : 'border-stone-300 opacity-50 cursor-not-allowed'
+                                        : 'border-stone-400 cursor-not-allowed'
                                     } transition-all`}
                                     style={{ backgroundColor: color }}
                                   >
                                     {!isUnlocked && (
                                       <div className="absolute inset-0 flex items-center justify-center rounded-lg">
-                                        <Lock className="w-10 h-10 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]" />
+                                        <Lock className="w-12 h-12 text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]" />
                                       </div>
                                     )}
                                   </button>
