@@ -286,15 +286,20 @@ export default function Achievements() {
   }
 
   return (
-    <div 
-      className="min-h-screen"
-      style={{
-        background: averageColor 
-          ? `linear-gradient(135deg, ${getLighterColor(averageColor)} 0%, ${averageColor} 50%, ${getDarkerColor(averageColor)} 100%)`
-          : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
-      }}
-    >
-      <MobileBackButton />
+    <>
+      {/* Fixer Hintergrund */}
+      <div 
+        className="fixed inset-0 -z-10"
+        style={{
+          background: averageColor 
+            ? `linear-gradient(135deg, ${getLighterColor(averageColor)} 0%, ${averageColor} 50%, ${getDarkerColor(averageColor)} 100%)`
+            : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
+        }}
+      />
+      
+      {/* Scrollbarer Content */}
+      <div className="min-h-screen">
+        <MobileBackButton />
       
       <div className="w-full">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -572,6 +577,7 @@ export default function Achievements() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </>
   );
 }

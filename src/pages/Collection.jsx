@@ -185,15 +185,20 @@ export default function Collection() {
   };
 
   return (
-    <div 
-      className="min-h-screen p-4 md:p-8"
-      style={{
-        background: averageColor 
-          ? `linear-gradient(135deg, ${getLighterColor(averageColor)} 0%, ${averageColor} 50%, ${getDarkerColor(averageColor)} 100%)`
-          : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
-      }}
-    >
-      <MobileBackButton />
+    <>
+      {/* Fixer Hintergrund */}
+      <div 
+        className="fixed inset-0 -z-10"
+        style={{
+          background: averageColor 
+            ? `linear-gradient(135deg, ${getLighterColor(averageColor)} 0%, ${averageColor} 50%, ${getDarkerColor(averageColor)} 100%)`
+            : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
+        }}
+      />
+      
+      {/* Scrollbarer Content */}
+      <div className="min-h-screen p-4 md:p-8">
+        <MobileBackButton />
 
       <HintDialog
         genus={selectedGenus}
@@ -302,6 +307,7 @@ export default function Collection() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }
