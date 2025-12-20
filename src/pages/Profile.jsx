@@ -312,24 +312,15 @@ export default function Profile() {
   };
 
   useEffect(() => {
-    console.log("🔄 useEffect triggered - user.background_image_url:", user?.background_image_url);
-    console.log("🔄 useEffect triggered - user.background_color:", user?.background_color);
-    
-    if (user?.background_image_url) {
-      console.log("📸 User has background_image_url, calculating average color...");
+    if (user?.background_color) {
+      setAverageColor(user.background_color);
+    } else if (user?.background_image_url) {
       getAverageColor(user.background_image_url).then(color => {
         if (color) {
-          console.log("✅ Setting averageColor from useEffect:", color);
           setAverageColor(color);
-        } else {
-          console.warn("⚠️ getAverageColor returned null in useEffect");
         }
       });
-    } else if (user?.background_color) {
-      console.log("🎨 User has background_color, using it directly:", user.background_color);
-      setAverageColor(user.background_color);
     } else {
-      console.log("🔄 No background set, clearing averageColor");
       setAverageColor(null);
     }
   }, [user?.background_image_url, user?.background_color]);
