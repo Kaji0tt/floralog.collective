@@ -284,14 +284,14 @@ export default function Home() {
   };
 
   useEffect(() => {
-    if (user?.background_image_url) {
+    if (user?.background_color) {
+      setAverageColor(user.background_color);
+    } else if (user?.background_image_url) {
       getAverageColor(user.background_image_url).then(color => {
         if (color) {
           setAverageColor(color);
         }
       });
-    } else if (user?.background_color) {
-      setAverageColor(user.background_color);
     } else {
       setAverageColor(null);
     }
