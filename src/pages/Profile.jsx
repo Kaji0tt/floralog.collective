@@ -227,7 +227,7 @@ export default function Profile() {
     
     await updateUserMutation.mutateAsync({ 
       background_image_url: imageUrl, 
-      background_color: null 
+      background_color: color 
     });
     console.log("✅ User mutation successful, background_image_url set to:", imageUrl);
     setShowBackgroundSelector(false);
