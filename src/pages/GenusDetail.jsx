@@ -73,12 +73,12 @@ export default function GenusDetail() {
   };
 
   useEffect(() => {
-    if (currentUser?.background_image_url) {
+    if (currentUser?.background_color) {
+      setAverageColor(currentUser.background_color);
+    } else if (currentUser?.background_image_url) {
       getAverageColor(currentUser.background_image_url).then(color => {
         if (color) setAverageColor(color);
       });
-    } else if (currentUser?.background_color) {
-      setAverageColor(currentUser.background_color);
     } else {
       setAverageColor(null);
     }
