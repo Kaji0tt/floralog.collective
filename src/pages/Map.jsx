@@ -202,7 +202,9 @@ export default function Map() {
       const currentUser = await base44.auth.me();
       setUser(currentUser);
       
-      if (currentUser?.background_image_url) {
+      if (currentUser?.background_color) {
+        setAverageColor(currentUser.background_color);
+      } else if (currentUser?.background_image_url) {
         const color = await getAverageColor(currentUser.background_image_url);
         setAverageColor(color);
       }

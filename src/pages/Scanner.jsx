@@ -835,7 +835,9 @@ Falls du die Pflanze SICHER erkennst, gib an:
   const [averageColor, setAverageColor] = useState(null);
 
   useEffect(() => {
-    if (user?.background_image_url) {
+    if (user?.background_color) {
+      setAverageColor(user.background_color);
+    } else if (user?.background_image_url) {
       getAverageColor(user.background_image_url).then(color => {
         if (color) {
           setAverageColor(color);
@@ -844,7 +846,7 @@ Falls du die Pflanze SICHER erkennst, gib an:
     } else {
       setAverageColor(null);
     }
-  }, [user?.background_image_url]);
+  }, [user?.background_image_url, user?.background_color]);
 
   const getAverageColor = (imageUrl) => {
     return new Promise((resolve) => {
