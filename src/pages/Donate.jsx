@@ -66,11 +66,12 @@ export default function Donate() {
           className="text-center mb-8"
         >
           <h1 className="text-4xl md:text-5xl font-bold text-stone-900 mb-4">
-            Hilf uns zu wachsen! 🌱
+            Helfe beim Wachsen! 🌱
           </h1>
           <p className="text-lg text-stone-600 max-w-2xl mx-auto">
-            PlantDex ist ein kostenfreies Bildungsprojekt. Mit deiner Unterstützung können wir 
-            die App weiterentwickeln, mehr Pflanzen hinzufügen und für alle verfügbar halten.
+            PlantDex ist AI gestütztes Bildungsprojekt. Begleite und Unterstütze die Idee beim Keimen.
+            Mit einer kleinen Aufmerksamkeit hilfst du nicht nur dabei, die Serverkosten zu bewältigen, sondern symbolisierst deine Wertschätzung der Idee.
+            Auch über jede Form des Feedbacks und der Kritik wird sich gefreut.
           </p>
         </motion.div>
 
