@@ -529,8 +529,8 @@ export default function Profile() {
                                     style={{ backgroundColor: color }}
                                   >
                                     {!isUnlocked && (
-                                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg">
-                                        <Lock className="w-5 h-5 text-white" />
+                                      <div className="absolute inset-0 flex items-center justify-center rounded-lg">
+                                        <Lock className="w-10 h-10 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]" />
                                       </div>
                                     )}
                                   </button>
@@ -542,20 +542,20 @@ export default function Profile() {
                                 )}
                               </Tooltip>
                             );
-                          })}
-                        </div>
-                      </div>
+                            })}
+                            </div>
+                            </div>
 
-                      {/* Reihe 2: 10 Scans */}
-                      <div>
-                        <p className="text-xs text-stone-600 mb-2">Freischaltung bei 10 Scans</p>
-                        <div className="grid grid-cols-4 gap-3">
-                          {[
+                            {/* Reihe 2: 10 Scans */}
+                            <div>
+                            <p className="text-xs text-stone-600 mb-2">Freischaltung bei 10 Scans</p>
+                            <div className="grid grid-cols-4 gap-3">
+                            {[
                             'rgb(176, 72, 72)',
                             'rgb(176, 159, 72)',
                             'rgb(115, 158, 63)',
                             'rgb(227, 197, 84)',
-                          ].map((color) => {
+                            ].map((color) => {
                             const isUnlocked = scannedPlantsCount >= 10;
                             return (
                               <Tooltip key={color}>
@@ -571,8 +571,8 @@ export default function Profile() {
                                     style={{ backgroundColor: color }}
                                   >
                                     {!isUnlocked && (
-                                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg">
-                                        <Lock className="w-5 h-5 text-white" />
+                                      <div className="absolute inset-0 flex items-center justify-center rounded-lg">
+                                        <Lock className="w-10 h-10 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]" />
                                       </div>
                                     )}
                                   </button>
@@ -584,20 +584,20 @@ export default function Profile() {
                                 )}
                               </Tooltip>
                             );
-                          })}
-                        </div>
-                      </div>
+                            })}
+                            </div>
+                            </div>
 
-                      {/* Reihe 3: 20 Scans */}
-                      <div>
-                        <p className="text-xs text-stone-600 mb-2">Freischaltung bei 20 Scans</p>
-                        <div className="grid grid-cols-4 gap-3">
-                          {[
+                            {/* Reihe 3: 20 Scans */}
+                            <div>
+                            <p className="text-xs text-stone-600 mb-2">Freischaltung bei 20 Scans</p>
+                            <div className="grid grid-cols-4 gap-3">
+                            {[
                             'rgb(97, 36, 31)',
                             'rgb(31, 92, 97)',
                             'rgb(74, 55, 21)',
                             'rgb(30, 54, 8)',
-                          ].map((color) => {
+                            ].map((color) => {
                             const isUnlocked = scannedPlantsCount >= 20;
                             return (
                               <Tooltip key={color}>
@@ -613,8 +613,8 @@ export default function Profile() {
                                     style={{ backgroundColor: color }}
                                   >
                                     {!isUnlocked && (
-                                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg">
-                                        <Lock className="w-5 h-5 text-white" />
+                                      <div className="absolute inset-0 flex items-center justify-center rounded-lg">
+                                        <Lock className="w-10 h-10 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]" />
                                       </div>
                                     )}
                                   </button>
