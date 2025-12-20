@@ -69,9 +69,10 @@ export default function Donate() {
             Helfe beim Wachsen! 🌱
           </h1>
           <p className="text-lg text-stone-600 max-w-2xl mx-auto">
-            PlantDex ist AI gestütztes Bildungsprojekt. Begleite und Unterstütze die Idee beim Keimen.
+            Begleite und Unterstütze das PlantDex, einem gemeinnützigen Hobbyprojekt.
             Du hilfst mit jeder Form des Feedbacks, durch jedes Teilen mit Freunden oder einfach durch das Benutzen der App.
             Mit einer kleinen Aufmerksamkeit unterstützt du nicht nur dabei, die Serverkosten zu bewältigen, sondern symbolisierst zusätzlich deine Wertschätzung der Idee.
+            Als Dankeschön erhältst du einen Hintergrund, der deine Unterstützung des freien Bildungsangebots symbolisiert.
           </p>
         </motion.div>
 
