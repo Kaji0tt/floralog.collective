@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
 
     // PayPal Payment erfassen
     console.log('🔵 Capturing payment for order:', orderID);
-    const captureResponse = await fetch(`https://api-m.paypal.com/v2/checkout/orders/${orderID}/capture`, {
+    const captureResponse = await fetch(`https://api-m.sandbox.paypal.com/v2/checkout/orders/${orderID}/capture`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${access_token}`,
