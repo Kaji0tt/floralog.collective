@@ -442,6 +442,18 @@ export default function Home() {
     return `rgb(${r}, ${g}, ${b})`;
   };
 
+  const isColorDark = (rgbString) => {
+    if (!rgbString) return false;
+    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!match) return false;
+    const r = parseInt(match[1]);
+    const g = parseInt(match[2]);
+    const b = parseInt(match[3]);
+    // Berechne Helligkeit (0-255) - Werte unter 100 gelten als dunkel
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    return brightness < 100;
+  };
+
   return (
     <>
       <style>{`
@@ -451,6 +463,7 @@ export default function Home() {
           --profile-bg-color-mid: ${averageColor ? averageColor : 'rgb(236, 253, 245)'};
           --profile-bg-color-dark: ${averageColor ? getDarkerColor(averageColor) : 'rgb(220, 252, 231)'};
           --profile-border-color: ${averageColor ? getRgbaFromRgb(averageColor, 0.4) : 'rgb(134, 239, 172)'};
+          --profile-text-color: ${averageColor && isColorDark(averageColor) ? 'rgb(255, 255, 255)' : 'rgb(28, 25, 23)'};
         }
         @media (max-height: 610px) {
           .short-screen\\:hidden {
@@ -786,7 +799,7 @@ export default function Home() {
                       >
                         <Camera className="w-5 h-5 text-white" />
                       </div>
-                      <span className="font-semibold text-stone-900">Scannen</span>
+                      <span className="font-semibold" style={{ color: 'var(--profile-text-color)' }}>Scannen</span>
                     </button>
 
                     <button
@@ -806,7 +819,7 @@ export default function Home() {
                       >
                         <MapIcon className="w-5 h-5 text-white" />
                       </div>
-                      <span className="font-semibold text-stone-900">Karte</span>
+                      <span className="font-semibold" style={{ color: 'var(--profile-text-color)' }}>Karte</span>
                     </button>
                   </div>
                 </div>
@@ -865,10 +878,11 @@ export default function Home() {
           <div className="flex justify-center gap-6 text-sm">
             <button
               onClick={() => navigate(createPageUrl("Donate"))}
-              className="hover:opacity-60 transition-all font-medium px-2 py-1 opacity-50"
+              className="hover:opacity-60 transition-all font-medium px-2 py-1"
               style={{ 
-                color: averageColor ? getLighterColor(getLighterColor(averageColor)) : 'rgb(120, 113, 108)',
-                textShadow: '0 1px 3px rgba(0,0,0,0.3)'
+                color: 'var(--profile-text-color)',
+                opacity: 0.7,
+                textShadow: averageColor && isColorDark(averageColor) ? '0 1px 3px rgba(0,0,0,0.5)' : 'none'
               }}
             >
               Spenden
@@ -876,17 +890,18 @@ export default function Home() {
             <span 
               className="opacity-40"
               style={{ 
-                color: averageColor ? getLighterColor(averageColor) : 'rgb(120, 113, 108)'
+                color: 'var(--profile-text-color)'
               }}
             >
               •
             </span>
             <button
               onClick={() => navigate(createPageUrl("Impressum"))}
-              className="hover:opacity-60 transition-all font-medium px-2 py-1 opacity-50"
+              className="hover:opacity-60 transition-all font-medium px-2 py-1"
               style={{ 
-                color: averageColor ? getLighterColor(getLighterColor(averageColor)) : 'rgb(120, 113, 108)',
-                textShadow: '0 1px 3px rgba(0,0,0,0.3)'
+                color: 'var(--profile-text-color)',
+                opacity: 0.7,
+                textShadow: averageColor && isColorDark(averageColor) ? '0 1px 3px rgba(0,0,0,0.5)' : 'none'
               }}
             >
               Impressum
