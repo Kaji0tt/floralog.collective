@@ -271,13 +271,13 @@ Helfe PlantDex zu wachsen! Ob Feedback, Teilen oder Spenden – jede Unterstütz
           transition={{ delay: 0.6, duration: 0.6 }}
           className="mt-8 text-center"
         >
-          <Card className="border-2 border-green-200 bg-gradient-to-br from-white to-green-50">
+          <Card className="border-0 bg-transparent shadow-none">
             <CardContent className="p-8">
               <Heart className="w-12 h-12 text-red-500 fill-red-500 mx-auto mb-4" />
-              <h3 className="text-2xl font-bold text-stone-900 mb-2">
+              <h3 className="text-2xl font-bold mb-2" style={{ color: 'var(--profile-text-color)' }}>
                 Vielen Dank! 💚
               </h3>
-              <p className="text-stone-600 max-w-xl mx-auto">
+              <p className="max-w-xl mx-auto" style={{ color: 'var(--profile-text-color)', opacity: 0.8 }}>
                 Jede Spende hilft uns dabei, PlantDex für alle kostenlos und werbefrei zu halten. 
                 Gemeinsam können wir Menschen für die Natur begeistern!
               </p>
