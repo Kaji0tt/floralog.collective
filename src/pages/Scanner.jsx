@@ -553,6 +553,40 @@ export default function Scanner() {
 
     await updateQuestProgress(plant);
 
+    // Prüfe Referral-Hintergrund Freischaltung (erster Scan)
+    const currentUser = await base44.auth.me();
+    const myDiscoveries = await base44.entities.UserPlantDiscovery.filter({ created_by: currentUser.email });
+    if (myDiscoveries.length === 1) {
+      // Das ist der erste Scan!
+      const referrals = await base44.entities.Referral.list();
+      const myReferral = referrals.find(r => r.invited_email?.toLowerCase() === currentUser.email.toLowerCase() && r.status === "pending");
+      
+      if (myReferral) {
+        // Update Referral Status
+        await base44.entities.Referral.update(myReferral.id, {
+          status: "completed",
+          completed_date: new Date().toISOString()
+        });
+
+        // Schalte Plains-Hintergrund für BEIDE User frei
+        const inviterProfiles = await base44.entities.PublicProfile.list();
+        const inviter = inviterProfiles.find(p => p.user_email?.toLowerCase() === myReferral.invited_by?.toLowerCase());
+        
+        if (inviter) {
+          await base44.entities.PublicProfile.update(inviter.id, {
+            referral_background_unlocked: true
+          });
+        }
+
+        // Freischalten für mich (eingeladener User)
+        await base44.auth.updateMe({
+          referral_background_unlocked: true
+        });
+
+        alert("🎉 Du und dein Freund habt den 'Plains' Hintergrund freigeschaltet!");
+      }
+    }
+
     // Vibration: 1x kurz für erfolgreichen Scan
     if (navigator.vibrate) {
       navigator.vibrate(200);
@@ -640,6 +674,40 @@ export default function Scanner() {
       }
 
       await updateQuestProgress(newPlant);
+
+      // Prüfe Referral-Hintergrund Freischaltung (erster Scan)
+      const currentUser = await base44.auth.me();
+      const myDiscoveries = await base44.entities.UserPlantDiscovery.filter({ created_by: currentUser.email });
+      if (myDiscoveries.length === 1) {
+        // Das ist der erste Scan!
+        const referrals = await base44.entities.Referral.list();
+        const myReferral = referrals.find(r => r.invited_email?.toLowerCase() === currentUser.email.toLowerCase() && r.status === "pending");
+        
+        if (myReferral) {
+          // Update Referral Status
+          await base44.entities.Referral.update(myReferral.id, {
+            status: "completed",
+            completed_date: new Date().toISOString()
+          });
+
+          // Schalte Plains-Hintergrund für BEIDE User frei
+          const inviterProfiles = await base44.entities.PublicProfile.list();
+          const inviter = inviterProfiles.find(p => p.user_email?.toLowerCase() === myReferral.invited_by?.toLowerCase());
+          
+          if (inviter) {
+            await base44.entities.PublicProfile.update(inviter.id, {
+              referral_background_unlocked: true
+            });
+          }
+
+          // Freischalten für mich (eingeladener User)
+          await base44.auth.updateMe({
+            referral_background_unlocked: true
+          });
+
+          alert("🎉 Du und dein Freund habt den 'Plains' Hintergrund freigeschaltet!");
+        }
+      }
 
       // Vibration: 3x kurz für neuen PlantDex-Eintrag
       if (navigator.vibrate) {
