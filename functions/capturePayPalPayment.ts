@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
     
     const auth = btoa(`${clientId}:${clientSecret}`);
     console.log('🔵 Requesting PayPal access token...');
-    const tokenResponse = await fetch('https://api-m.sandbox.paypal.com/v1/oauth2/token', {
+    const tokenResponse = await fetch('https://api-m.paypal.com/v1/oauth2/token', {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${auth}`,
@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
 
     // PayPal Payment erfassen
     console.log('🔵 Capturing payment for order:', orderID);
-    const captureResponse = await fetch(`https://api-m.sandbox.paypal.com/v2/checkout/orders/${orderID}/capture`, {
+    const captureResponse = await fetch(`https://api-m.paypal.com/v2/checkout/orders/${orderID}/capture`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${access_token}`,
