@@ -12,7 +12,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { getXPProgressInLevel } from "../components/utils/xpSystem";
+
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -114,14 +114,6 @@ export default function Profile() {
       const currentUser = await base44.auth.me();
       setUser(currentUser);
       setEditedName(currentUser?.display_name || currentUser?.full_name || "");
-      
-      if (currentUser && !currentUser.level) {
-        await base44.auth.updateMe({
-          level: 1,
-          xp: 0,
-          title: "Pflanzen-Anfänger"
-        });
-      }
     };
     loadUser();
   }, []);
@@ -153,8 +145,6 @@ export default function Profile() {
         user_email: userData.email,
         display_name: userData.display_name || userData.full_name,
         full_name: userData.full_name,
-        level: userData.level || 1,
-        xp: userData.xp || 0,
         title: userData.title,
         selected_title: userData.selected_title,
         avatar_url: userData.avatar_url,
@@ -177,7 +167,7 @@ export default function Profile() {
     if (user && user.email) {
       updatePublicProfile(user);
     }
-  }, [user?.level, user?.xp, user?.display_name, user?.avatar_url, user?.selected_title, user?.email, user?.background_image_url, user?.background_color, user?.favorite_plant_id]);
+  }, [user?.display_name, user?.avatar_url, user?.selected_title, user?.email, user?.background_image_url, user?.background_color, user?.favorite_plant_id]);
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
@@ -340,10 +330,6 @@ export default function Profile() {
     );
   }
 
-  const currentLevel = user.level || 1;
-  const currentXP = user.xp || 0;
-  const xpProgress = getXPProgressInLevel(currentXP, currentLevel);
-
   const discoveredGenera = genera.filter(g => {
     const genusPlants = plants.filter(p => 
       p.genus_category === g.category && p.genus_number === g.category_dex_number
@@ -354,17 +340,8 @@ export default function Profile() {
   const scannedPlantsCount = userDiscoveries.length;
 
   const availableQuests = quests.filter(q => 
-    (q.unlocked_at_level || 1) <= currentLevel &&
     !userQuests.some(uq => uq.quest_id === q.id && uq.completed)
   ).length;
-
-  const getTitleForLevel = (level) => {
-    if (level >= 20) return "Pflanzen-Meister 🌳";
-    if (level >= 15) return "Natur-Experte 🌿";
-    if (level >= 10) return "Flora-Kenner 🍃";
-    if (level >= 5) return "Pflanzen-Forscher 🔍";
-    return "Pflanzen-Anfänger 🌱";
-  };
 
   const statButtons = [
     {
@@ -796,26 +773,7 @@ export default function Profile() {
                     className="hidden"
                   />
                   
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button 
-                        onClick={(e) => e.stopPropagation()}
-                        className="absolute -top-2 -right-2 px-3 py-1 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center shadow-xl backdrop-blur-sm border-2 border-white/80 hover:scale-110 transition-transform cursor-pointer"
-                      >
-                        <span className="text-white font-bold text-sm">LV {currentLevel}</span>
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-64 bg-white">
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-bold text-stone-800">Level {currentLevel}</span>
-                          <span className="text-sm font-bold text-stone-800">{xpProgress.current} / {xpProgress.needed} XP</span>
-                        </div>
-                        <Progress value={xpProgress.percentage} className="h-2" />
-                        <p className="text-xs text-stone-600">{xpProgress.percentage.toFixed(1)}% bis Level {currentLevel + 1}</p>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+
                 </div>
 
                 <div className="flex-1 w-full bg-white/40 backdrop-blur-md rounded-xl p-5 border-2 border-white/30 shadow-lg">
@@ -871,7 +829,7 @@ export default function Profile() {
 
                   <div className="mb-3">
                     <span className="text-base font-semibold text-stone-700">
-                      {user.selected_title || user.title || getTitleForLevel(currentLevel)}
+                      {user.selected_title || user.title || "Pflanzen-Entdecker"}
                     </span>
                     </div>
 
@@ -1041,9 +999,9 @@ export default function Profile() {
                     </p>
                     
                     <Select
-                      value={user.selected_title || `level-${currentLevel}`}
+                      value={user.selected_title || "default"}
                       onValueChange={(value) => {
-                        if (value.startsWith('level-')) {
+                        if (value === 'default') {
                           updateUserMutation.mutate({ selected_title: null });
                         } else {
                           updateUserMutation.mutate({ selected_title: value });
@@ -1054,13 +1012,13 @@ export default function Profile() {
                       <SelectTrigger className="w-full border-2 border-purple-300 bg-white h-12">
                         <SelectValue>
                           <span className="font-semibold">
-                            {user.selected_title || getTitleForLevel(currentLevel)}
+                            {user.selected_title || "Pflanzen-Entdecker"}
                           </span>
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value={`level-${currentLevel}`}>
-                          <span className="font-semibold">{getTitleForLevel(currentLevel)}</span>
+                        <SelectItem value="default">
+                          <span className="font-semibold">Pflanzen-Entdecker</span>
                         </SelectItem>
 
                         {userAchievements

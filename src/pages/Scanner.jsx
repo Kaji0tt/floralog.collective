@@ -13,7 +13,7 @@ import CameraCapture from "../components/scanner/CameraCapture";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import { AnimatePresence, motion } from "framer-motion";
-import { awardXP } from "../components/utils/xpSystem";
+
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import { Check, RefreshCw } from "lucide-react";
 import { createPageUrl } from "@/utils";
@@ -205,18 +205,6 @@ export default function Scanner() {
     }
   });
 
-  const awardXPToUser = async (amount) => {
-    if (!user) return;
-    const currentXP = user.xp || 0;
-    const result = awardXP(currentXP, amount);
-
-    await base44.auth.updateMe(result);
-
-    const freshUser = await base44.auth.me();
-    setUser(freshUser);
-    await updatePublicProfile(freshUser);
-  };
-
   const updatePublicProfile = async (userData) => {
     try {
       const profiles = await base44.entities.PublicProfile.list();
@@ -226,8 +214,6 @@ export default function Scanner() {
         user_email: userData.email,
         display_name: userData.display_name || userData.full_name,
         full_name: userData.full_name,
-        level: userData.level || 1,
-        xp: userData.xp || 0,
         title: userData.title,
         selected_title: userData.selected_title,
         avatar_url: userData.avatar_url
@@ -291,16 +277,7 @@ export default function Scanner() {
     queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
   };
 
-  const getRarityXP = (rarity) => {
-    switch (rarity) {
-      case "Häufig":return 20;
-      case "Gelegentlich":return 35;
-      case "Selten":return 50;
-      case "Sehr Selten":return 75;
-      case "Extrem Selten":return 100;
-      default:return 20;
-    }
-  };
+
 
   const handleDeleteResult = async (discoveryId) => {
     try {
@@ -555,14 +532,6 @@ export default function Scanner() {
 
     console.log("  ✅ alreadyDiscovered:", alreadyDiscovered);
 
-    let xpAwarded = 0;
-
-    if (alreadyDiscovered) {
-      xpAwarded = 5;
-    } else {
-      xpAwarded = getRarityXP(plant.rarity || "Häufig");
-    }
-
     const newDiscovery = await base44.entities.UserPlantDiscovery.create({
       plant_id: plant.id,
       user: user.email,
@@ -573,8 +542,6 @@ export default function Scanner() {
     });
 
     setLatestDiscoveryId(newDiscovery.id);
-
-    await awardXPToUser(xpAwarded);
 
     queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
 
@@ -594,13 +561,12 @@ export default function Scanner() {
     setMatchedPlant({
       ...plant,
       discovered: alreadyDiscovered,
-      xpAwarded: xpAwarded,
       aiData: aiData
     });
 
     // Aktualisiere auch allScanResults mit discovered-Status
     setAllScanResults(prevResults => prevResults.map((result, index) => 
-      index === 0 ? { ...result, discovered: alreadyDiscovered, xpAwarded } : result
+      index === 0 ? { ...result, discovered: alreadyDiscovered } : result
     ));
 
     setScanning(false);
@@ -664,8 +630,6 @@ export default function Scanner() {
 
       setLatestDiscoveryId(newDiscovery.id);
 
-      await awardXPToUser(50);
-
       queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
       queryClient.invalidateQueries({ queryKey: ['plants'] });
 
@@ -685,7 +649,6 @@ export default function Scanner() {
       setMatchedPlant({
         ...newPlant,
         discovered: false,
-        xpAwarded: 50,
         aiData: plantData,
         isNewToPlantDex: true
       });
