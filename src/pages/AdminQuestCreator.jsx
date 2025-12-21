@@ -64,7 +64,8 @@ export default function AdminQuestCreator() {
     prerequisite_quest_number: "",
     target_genus_name: "",
     target_species_name: "",
-    targets: []
+    targets: [],
+    targets_operator: "UND"
   });
 
   // Fetch existing quests
@@ -139,7 +140,8 @@ export default function AdminQuestCreator() {
       prerequisite_quest_number: "",
       target_genus_name: "",
       target_species_name: "",
-      targets: []
+      targets: [],
+      targets_operator: "UND"
     });
     setEditingQuest(null);
   };
@@ -157,7 +159,8 @@ export default function AdminQuestCreator() {
       prerequisite_quest_number: quest.prerequisite_quest_number || "",
       target_genus_name: quest.target_genus_name || "",
       target_species_name: quest.target_species_name || "",
-      targets: quest.targets || []
+      targets: quest.targets || [],
+      targets_operator: quest.targets_operator || "UND"
     });
   };
 
@@ -185,6 +188,7 @@ export default function AdminQuestCreator() {
           target_name: t.target_name,
           required_count: parseInt(t.required_count)
         }));
+        questData.targets_operator = formData.targets_operator;
       }
     }
 
@@ -403,20 +407,36 @@ export default function AdminQuestCreator() {
                     <div className="border-2 border-stone-200 rounded-lg p-4 bg-stone-50">
                       <div className="flex items-center justify-between mb-3">
                         <Label className="text-base font-bold">Ziel Art oder Gattung?</Label>
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={() => {
-                            setFormData({
-                              ...formData,
-                              targets: [...formData.targets, { target_type: "genus", target_name: "", required_count: 1 }]
-                            });
-                          }}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          <Plus className="w-4 h-4 mr-1" />
-                          Ziel hinzufügen
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          {formData.targets.length > 1 && (
+                            <Select
+                              value={formData.targets_operator}
+                              onValueChange={(v) => setFormData({...formData, targets_operator: v})}
+                            >
+                              <SelectTrigger className="w-24 h-8">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="UND">UND</SelectItem>
+                                <SelectItem value="ODER">ODER</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => {
+                              setFormData({
+                                ...formData,
+                                targets: [...formData.targets, { target_type: "genus", target_name: "", required_count: 1 }]
+                              });
+                            }}
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            <Plus className="w-4 h-4 mr-1" />
+                            Ziel hinzufügen
+                          </Button>
+                        </div>
                       </div>
                       
                       {formData.targets.length === 0 ? (
@@ -427,6 +447,13 @@ export default function AdminQuestCreator() {
                         <div className="space-y-3">
                           {formData.targets.map((target, index) => (
                             <div key={index} className="bg-white border border-stone-200 rounded-lg p-3">
+                              {index > 0 && (
+                                <div className="flex items-center justify-center mb-2">
+                                  <Badge className="bg-blue-600 text-white text-xs px-2 py-0.5">
+                                    {formData.targets_operator}
+                                  </Badge>
+                                </div>
+                              )}
                               <div className="grid grid-cols-12 gap-2 items-start">
                                 <div className="col-span-3">
                                   <Select
@@ -644,9 +671,16 @@ export default function AdminQuestCreator() {
                                     </Badge>
                                   )}
                                   {quest.targets && quest.targets.length > 0 && (
-                                    <Badge className="bg-blue-100 text-blue-700">
-                                      {quest.targets.length} Ziel{quest.targets.length > 1 ? 'e' : ''}
-                                    </Badge>
+                                    <>
+                                      <Badge className="bg-blue-100 text-blue-700">
+                                        {quest.targets.length} Ziel{quest.targets.length > 1 ? 'e' : ''}
+                                      </Badge>
+                                      {quest.targets.length > 1 && (
+                                        <Badge className="bg-purple-100 text-purple-700">
+                                          {quest.targets_operator || 'UND'}
+                                        </Badge>
+                                      )}
+                                    </>
                                   )}
                                 </div>
                               </div>
