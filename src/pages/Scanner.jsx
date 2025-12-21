@@ -593,6 +593,35 @@ export default function Scanner() {
       }
     }
 
+    // Prüfe Weekly Quest Hintergrund Freischaltung
+    const userWeeklyQuestsData = await base44.entities.UserWeeklyQuest.filter({ created_by: currentUser.email });
+    const weeklyParticipations = new Set(userWeeklyQuestsData.map(q => q.active_week)).size;
+    
+    if (weeklyParticipations >= 1 && !currentUser.weekly_bg1_unlocked) {
+      await base44.auth.updateMe({ weekly_bg1_unlocked: true });
+      alert("🎉 Hintergrund 'BackGround1' freigeschaltet!");
+    }
+    if (weeklyParticipations >= 3 && !currentUser.weekly_bg2_unlocked) {
+      await base44.auth.updateMe({ weekly_bg2_unlocked: true });
+      alert("🎉 Hintergrund 'BackGround2' freigeschaltet!");
+    }
+
+    // Prüfe Monthly Quest Hintergrund Freischaltung
+    const userMonthlyQuestsData = await base44.entities.UserMonthlyQuest.filter({ created_by: currentUser.email });
+    const hasCompleted = userMonthlyQuestsData.some(q => q.completed);
+    
+    if (hasCompleted && !currentUser.monthly_bg_unlocked) {
+      await base44.auth.updateMe({ monthly_bg_unlocked: true });
+      alert("🎉 Hintergrund 'BackGround4' freigeschaltet!");
+    }
+
+    // Prüfe Gift Hintergrund Freischaltung
+    const receivedGifts = await base44.entities.SharedScan.filter({ shared_to: currentUser.email });
+    if (receivedGifts.length > 0 && !currentUser.gift_bg_unlocked) {
+      await base44.auth.updateMe({ gift_bg_unlocked: true });
+      alert("🎁 Hintergrund 'Colors' freigeschaltet!");
+    }
+
     // Vibration: 1x kurz für erfolgreichen Scan
     if (navigator.vibrate) {
       navigator.vibrate(200);
@@ -719,6 +748,35 @@ export default function Scanner() {
           });
           alert("🌟 Du hast den 'Epic Rare' Hintergrund freigeschaltet!");
         }
+      }
+
+      // Prüfe Weekly Quest Hintergrund Freischaltung
+      const userWeeklyQuestsData = await base44.entities.UserWeeklyQuest.filter({ created_by: currentUser.email });
+      const weeklyParticipations = new Set(userWeeklyQuestsData.map(q => q.active_week)).size;
+      
+      if (weeklyParticipations >= 1 && !currentUser.weekly_bg1_unlocked) {
+        await base44.auth.updateMe({ weekly_bg1_unlocked: true });
+        alert("🎉 Hintergrund 'BackGround1' freigeschaltet!");
+      }
+      if (weeklyParticipations >= 3 && !currentUser.weekly_bg2_unlocked) {
+        await base44.auth.updateMe({ weekly_bg2_unlocked: true });
+        alert("🎉 Hintergrund 'BackGround2' freigeschaltet!");
+      }
+
+      // Prüfe Monthly Quest Hintergrund Freischaltung
+      const userMonthlyQuestsData = await base44.entities.UserMonthlyQuest.filter({ created_by: currentUser.email });
+      const hasCompleted = userMonthlyQuestsData.some(q => q.completed);
+      
+      if (hasCompleted && !currentUser.monthly_bg_unlocked) {
+        await base44.auth.updateMe({ monthly_bg_unlocked: true });
+        alert("🎉 Hintergrund 'BackGround4' freigeschaltet!");
+      }
+
+      // Prüfe Gift Hintergrund Freischaltung
+      const receivedGifts = await base44.entities.SharedScan.filter({ shared_to: currentUser.email });
+      if (receivedGifts.length > 0 && !currentUser.gift_bg_unlocked) {
+        await base44.auth.updateMe({ gift_bg_unlocked: true });
+        alert("🎁 Hintergrund 'Colors' freigeschaltet!");
       }
 
       // Vibration: 3x kurz für neuen PlantDex-Eintrag

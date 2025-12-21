@@ -24,14 +24,14 @@ const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
 // Vorgefertigte Hintergrundbilder mit vorberechneten Durchschnittsfarben
 const PRESET_BACKGROUNDS = [
-  { url: "https://blauzahn.eu/PlantDex/BackGround4.jpg", color: "rgb(89, 107, 68)" },
-  { url: "https://blauzahn.eu/PlantDex/BackGround1.png", color: "rgb(118, 142, 98)" },
-  { url: "https://blauzahn.eu/PlantDex/BackGround2.png", color: "rgb(95, 118, 82)" },
-  { url: "https://blauzahn.eu/PlantDex/Colors.png", color: "rgba(112, 68, 68, 1)" },
+  { url: "https://blauzahn.eu/PlantDex/BackGround4.jpg", color: "rgb(89, 107, 68)", requiresMonthlyQuest: true },
+  { url: "https://blauzahn.eu/PlantDex/BackGround1.png", color: "rgb(118, 142, 98)", requiresWeeklyQuest: 1 },
+  { url: "https://blauzahn.eu/PlantDex/BackGround2.png", color: "rgb(95, 118, 82)", requiresWeeklyQuest: 3 },
+  { url: "https://blauzahn.eu/PlantDex/Colors.png", color: "rgba(112, 68, 68, 1)", requiresGift: true },
   { url: "https://blauzahn.eu/PlantDex/Donor.png", color: "rgb(11, 28, 25)", requiresDonor: true },
   { url: "https://blauzahn.eu/PlantDex/Urban.png", color: "rgb(108, 101, 62)", requiresDonor: true },
   { url: "https://blauzahn.eu/PlantDex/Plains.png", color: "rgb(181, 191, 94)", requiresReferral: true },
-  {url: "https://blauzahn.eu/PlantDex/EpicRare.png", color: "rgb(31, 35, 21)"}
+  { url: "https://blauzahn.eu/PlantDex/EpicRare.png", color: "rgb(31, 35, 21)", requiresRarePlant: true }
 ];
 
 
@@ -107,6 +107,24 @@ export default function Profile() {
   const { data: achievements = [] } = useQuery({
     queryKey: ['achievements'],
     queryFn: () => base44.entities.Achievement.list(),
+  });
+
+  const { data: userWeeklyQuests = [] } = useQuery({
+    queryKey: ['userWeeklyQuests'],
+    queryFn: () => base44.entities.UserWeeklyQuest.filter({ created_by: user?.email }),
+    enabled: !!user?.email,
+  });
+
+  const { data: userMonthlyQuests = [] } = useQuery({
+    queryKey: ['userMonthlyQuests'],
+    queryFn: () => base44.entities.UserMonthlyQuest.filter({ created_by: user?.email }),
+    enabled: !!user?.email,
+  });
+
+  const { data: sharedScans = [] } = useQuery({
+    queryKey: ['sharedScans'],
+    queryFn: () => base44.entities.SharedScan.filter({ shared_to: user?.email }),
+    enabled: !!user?.email,
   });
 
   useEffect(() => {
@@ -338,6 +356,15 @@ export default function Profile() {
   }).length;
 
   const scannedPlantsCount = userDiscoveries.length;
+
+  // Berechne Anzahl verschiedener gescannter Arten
+  const uniqueSpeciesCount = new Set(userDiscoveries.map(d => d.plant_id)).size;
+
+  // Berechne Anzahl verschiedener wöchentlicher Quest-Teilnahmen
+  const weeklyQuestParticipations = new Set(userWeeklyQuests.map(q => q.active_week)).size;
+
+  // Prüfe ob mindestens eine Monatsquest abgeschlossen wurde
+  const hasCompletedMonthlyQuest = userMonthlyQuests.some(q => q.completed);
 
   const availableQuests = quests.filter(q => 
     !userQuests.some(uq => uq.quest_id === q.id && uq.completed)
@@ -634,7 +661,12 @@ export default function Profile() {
                     <TooltipProvider>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         {PRESET_BACKGROUNDS.map((bg, index) => {
-                          const isUnlocked = (!bg.requiresDonor || user?.donor_status) && (!bg.requiresReferral || user?.referral_background_unlocked);
+                          const isUnlocked = (!bg.requiresDonor || user?.donor_status) && 
+                                             (!bg.requiresReferral || user?.referral_background_unlocked) &&
+                                             (!bg.requiresRarePlant || user?.rare_plant_unlocked) &&
+                                             (!bg.requiresWeeklyQuest || weeklyQuestParticipations >= bg.requiresWeeklyQuest) &&
+                                             (!bg.requiresMonthlyQuest || hasCompletedMonthlyQuest) &&
+                                             (!bg.requiresGift || sharedScans.length > 0);
                           return (
                             <Tooltip key={`preset-${index}`}>
                               <TooltipTrigger asChild>
@@ -665,6 +697,10 @@ export default function Profile() {
                                   <p>
                                     {bg.requiresDonor && 'Nur für Unterstützer - spende, um diesen Hintergrund freizuschalten! 💚'}
                                     {bg.requiresReferral && 'Lade einen Freund ein, der seinen ersten Scan macht! 🌱'}
+                                    {bg.requiresRarePlant && 'Entdecke eine seltene Pflanze! 🌟'}
+                                    {bg.requiresWeeklyQuest && `Nimm an ${bg.requiresWeeklyQuest} wöchentlichen Quest${bg.requiresWeeklyQuest > 1 ? 's' : ''} teil! (${weeklyQuestParticipations}/${bg.requiresWeeklyQuest})`}
+                                    {bg.requiresMonthlyQuest && 'Schließe eine Monatsquest ab! 📅'}
+                                    {bg.requiresGift && 'Erhalte ein Geschenk von einem Freund! 🎁'}
                                   </p>
                                 </TooltipContent>
                               )}
@@ -677,8 +713,8 @@ export default function Profile() {
                 </div>
               )}
 
-              {/* Scans Section - nur für Admins und Donors */}
-              {(user?.role === 'admin' || user?.donor_status) && (
+              {/* Scans Section - ab 50 verschiedenen Arten */}
+              {uniqueSpeciesCount >= 50 && (
                 <div>
                   <button
                     onClick={() => setCollapsedSections(prev => ({ ...prev, scans: !prev.scans }))}
@@ -692,24 +728,29 @@ export default function Profile() {
                     )}
                   </button>
                   {!collapsedSections.scans && (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {userDiscoveries
-                        .filter(d => d.image_url)
-                        .map((discovery) => (
-                          <button
-                            key={discovery.id}
-                            onClick={() => handleSetBackground(discovery.image_url)}
-                            className="relative aspect-square rounded-lg overflow-hidden border-2 border-stone-200 hover:border-green-500 transition-colors group"
-                          >
-                            <img
-                              src={discovery.image_url}
-                              alt="Scan"
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                            />
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-                          </button>
-                        ))}
-                    </div>
+                    <>
+                      <p className="text-xs text-stone-600 mb-3">
+                        ✅ Freigeschaltet! Du hast {uniqueSpeciesCount} verschiedene Arten entdeckt.
+                      </p>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {userDiscoveries
+                          .filter(d => d.image_url)
+                          .map((discovery) => (
+                            <button
+                              key={discovery.id}
+                              onClick={() => handleSetBackground(discovery.image_url)}
+                              className="relative aspect-square rounded-lg overflow-hidden border-2 border-stone-200 hover:border-green-500 transition-colors group"
+                            >
+                              <img
+                                src={discovery.image_url}
+                                alt="Scan"
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                              />
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                            </button>
+                          ))}
+                      </div>
+                    </>
                   )}
                 </div>
               )}
