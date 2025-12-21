@@ -1,13 +1,108 @@
-
+import React, { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Heart, Coffee, Leaf, Sparkles, TreeDeciduous } from "lucide-react";
+import { Heart, Coffee, Leaf as LeafIcon, Sparkles, TreeDeciduous } from "lucide-react";
 import { motion } from "framer-motion";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
 export default function Donate() {
+  const [user, setUser] = useState(null);
+  const [averageColor, setAverageColor] = useState(null);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const currentUser = await base44.auth.me();
+        setUser(currentUser);
+        
+        if (currentUser?.background_color) {
+          setAverageColor(currentUser.background_color);
+        } else if (currentUser?.background_image_url) {
+          const color = await getAverageColor(currentUser.background_image_url);
+          if (color) setAverageColor(color);
+        }
+      } catch (error) {
+        console.log("User not authenticated");
+      }
+    };
+    loadUser();
+  }, []);
+
+  const getAverageColor = (imageUrl) => {
+    return new Promise((resolve) => {
+      const img = new window.Image();
+      img.crossOrigin = "anonymous";
+      
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const size = 50;
+          canvas.width = size;
+          canvas.height = size;
+          ctx.drawImage(img, 0, 0, size, size);
+          const imageData = ctx.getImageData(0, 0, size, size);
+          const data = imageData.data;
+          let r = 0, g = 0, b = 0, count = 0;
+          for (let i = 0; i < data.length; i += 16) {
+            r += data[i];
+            g += data[i + 1];
+            b += data[i + 2];
+            count++;
+          }
+          r = Math.floor(r / count);
+          g = Math.floor(g / count);
+          b = Math.floor(b / count);
+          resolve(`rgb(${r}, ${g}, ${b})`);
+        } catch (error) {
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = imageUrl;
+    });
+  };
+
+  const getRgbaFromRgb = (rgbString, opacity) => {
+    if (!rgbString) return null;
+    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!match) return rgbString;
+    return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${opacity})`;
+  };
+
+  const getLighterColor = (rgbString) => {
+    if (!rgbString) return null;
+    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!match) return rgbString;
+    const r = Math.min(255, Math.floor(parseInt(match[1]) * 1.4));
+    const g = Math.min(255, Math.floor(parseInt(match[2]) * 1.4));
+    const b = Math.min(255, Math.floor(parseInt(match[3]) * 1.4));
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+
+  const getDarkerColor = (rgbString) => {
+    if (!rgbString) return null;
+    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!match) return rgbString;
+    const r = Math.floor(parseInt(match[1]) * 0.6);
+    const g = Math.floor(parseInt(match[2]) * 0.6);
+    const b = Math.floor(parseInt(match[3]) * 0.6);
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+
+  const isColorDark = (rgbString) => {
+    if (!rgbString) return false;
+    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!match) return false;
+    const r = parseInt(match[1]);
+    const g = parseInt(match[2]);
+    const b = parseInt(match[3]);
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    return brightness < 100;
+  };
   const donationOptions = [
     {
       amount: 2,
@@ -18,7 +113,7 @@ export default function Donate() {
     },
     {
       amount: 5,
-      icon: Leaf,
+      icon: LeafIcon,
       title: "Eine Pflanze",
       description: "Hilf uns, die App zu pflegen und zu erweitern",
       color: "from-green-500 to-green-600"
@@ -54,8 +149,26 @@ export default function Donate() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4 md:p-8">
-      <MobileBackButton />
+    <>
+      <style>{`
+        :root {
+          --profile-bg-color: ${averageColor || 'rgb(250, 250, 249)'};
+          --profile-bg-color-light: ${averageColor ? getLighterColor(averageColor) : 'rgb(255, 255, 255)'};
+          --profile-bg-color-mid: ${averageColor ? averageColor : 'rgb(236, 253, 245)'};
+          --profile-bg-color-dark: ${averageColor ? getDarkerColor(averageColor) : 'rgb(220, 252, 231)'};
+          --profile-border-color: ${averageColor ? getRgbaFromRgb(averageColor, 0.4) : 'rgb(134, 239, 172)'};
+          --profile-text-color: ${averageColor && isColorDark(averageColor) ? 'rgb(255, 255, 255)' : 'rgb(28, 25, 23)'};
+        }
+      `}</style>
+      <div 
+        className="min-h-screen p-4 md:p-8"
+        style={{
+          background: averageColor 
+            ? `linear-gradient(135deg, var(--profile-bg-color-light) 0%, var(--profile-bg-color-mid) 50%, var(--profile-bg-color-dark) 100%)`
+            : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
+        }}
+      >
+        <MobileBackButton />
       
       <div className="max-w-4xl mx-auto">
         {/* Header */}
@@ -65,10 +178,12 @@ export default function Donate() {
           transition={{ duration: 0.6 }}
           className="text-center mb-8"
         >
-          <h1 className="text-4xl md:text-5xl font-bold text-stone-900 mb-4">
-            Helfe beim Wachsen! 🌱
-          </h1>
-          <p className="text-lg text-stone-600 max-w-2xl mx-auto">
+          <div className="mb-4">
+            <h1 className="text-4xl md:text-5xl font-bold mb-4" style={{ color: 'var(--profile-text-color)' }}>
+              Helfe beim Wachsen! 🌱
+            </h1>
+          </div>
+          <p className="text-lg max-w-2xl mx-auto" style={{ color: 'var(--profile-text-color)', opacity: 0.8 }}>
 Helfe PlantDex zu wachsen! Ob Feedback, Teilen oder Spenden – jede Unterstützung zählt. Mit einer kleinen Spende sicherst du den Betrieb und erhältst als Dank einen besonderen Hintergrund für dein Engagement.
           </p>
         </motion.div>
@@ -170,6 +285,7 @@ Helfe PlantDex zu wachsen! Ob Feedback, Teilen oder Spenden – jede Unterstütz
           </Card>
         </motion.div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
