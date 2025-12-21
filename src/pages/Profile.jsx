@@ -31,7 +31,7 @@ const PRESET_BACKGROUNDS = [
   { url: "https://blauzahn.eu/PlantDex/Colors.png", color: "rgba(134, 94, 94, 1)" },
   { url: "https://blauzahn.eu/PlantDex/Urban.png", color: "rgb(108, 101, 62)", requiresDonor: true },
   { url: "https://blauzahn.eu/PlantDex/Plains.png", color: "rgb(181, 191, 94)", requiresReferral: true },
-  {url: "https://blauzahn.eu/PlantDex/EpicRare.png", color: "rgb(31, 35, 21)"}
+  { url: "https://blauzahn.eu/PlantDex/EpicRare.png", color: "rgb(31, 35, 21)", requiresRarePlant: true }
 ];
 
 
@@ -634,7 +634,9 @@ export default function Profile() {
                     <TooltipProvider>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         {PRESET_BACKGROUNDS.map((bg, index) => {
-                          const isUnlocked = (!bg.requiresDonor || user?.donor_status) && (!bg.requiresReferral || user?.referral_background_unlocked);
+                          const isUnlocked = (!bg.requiresDonor || user?.donor_status) && 
+                                             (!bg.requiresReferral || user?.referral_background_unlocked) &&
+                                             (!bg.requiresRarePlant || user?.rare_plant_unlocked);
                           return (
                             <Tooltip key={`preset-${index}`}>
                               <TooltipTrigger asChild>
@@ -665,6 +667,7 @@ export default function Profile() {
                                   <p>
                                     {bg.requiresDonor && 'Nur für Unterstützer - spende, um diesen Hintergrund freizuschalten! 💚'}
                                     {bg.requiresReferral && 'Lade einen Freund ein, der seinen ersten Scan macht! 🌱'}
+                                    {bg.requiresRarePlant && 'Entdecke eine seltene Pflanze! 🌟'}
                                   </p>
                                 </TooltipContent>
                               )}

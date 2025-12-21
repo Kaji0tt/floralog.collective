@@ -568,7 +568,7 @@ export default function Scanner() {
           completed_date: new Date().toISOString()
         });
 
-        // Schalte Plains-Hintergrund für BEIDE User frei
+        // Schalte Plains-Hintergrund nur für den EINLADENDEN User frei
         const inviterProfiles = await base44.entities.PublicProfile.list();
         const inviter = inviterProfiles.find(p => p.user_email?.toLowerCase() === myReferral.invited_by?.toLowerCase());
         
@@ -578,12 +578,18 @@ export default function Scanner() {
           });
         }
 
-        // Freischalten für mich (eingeladener User)
-        await base44.auth.updateMe({
-          referral_background_unlocked: true
-        });
+        alert("🎉 Dein Freund hat den 'Plains' Hintergrund freigeschaltet!");
+      }
+    }
 
-        alert("🎉 Du und dein Freund habt den 'Plains' Hintergrund freigeschaltet!");
+    // Prüfe Seltene-Pflanze-Hintergrund Freischaltung
+    if (plant.rarity === "Selten" || plant.rarity === "Sehr Selten" || plant.rarity === "Extrem Selten") {
+      const currentUserForRare = await base44.auth.me();
+      if (!currentUserForRare.rare_plant_unlocked) {
+        await base44.auth.updateMe({
+          rare_plant_unlocked: true
+        });
+        alert("🌟 Du hast den 'Epic Rare' Hintergrund freigeschaltet!");
       }
     }
 
@@ -690,7 +696,7 @@ export default function Scanner() {
             completed_date: new Date().toISOString()
           });
 
-          // Schalte Plains-Hintergrund für BEIDE User frei
+          // Schalte Plains-Hintergrund nur für den EINLADENDEN User frei
           const inviterProfiles = await base44.entities.PublicProfile.list();
           const inviter = inviterProfiles.find(p => p.user_email?.toLowerCase() === myReferral.invited_by?.toLowerCase());
           
@@ -700,12 +706,18 @@ export default function Scanner() {
             });
           }
 
-          // Freischalten für mich (eingeladener User)
-          await base44.auth.updateMe({
-            referral_background_unlocked: true
-          });
+          alert("🎉 Dein Freund hat den 'Plains' Hintergrund freigeschaltet!");
+        }
+      }
 
-          alert("🎉 Du und dein Freund habt den 'Plains' Hintergrund freigeschaltet!");
+      // Prüfe Seltene-Pflanze-Hintergrund Freischaltung
+      if (newPlant.rarity === "Selten" || newPlant.rarity === "Sehr Selten" || newPlant.rarity === "Extrem Selten") {
+        const currentUserForRare = await base44.auth.me();
+        if (!currentUserForRare.rare_plant_unlocked) {
+          await base44.auth.updateMe({
+            rare_plant_unlocked: true
+          });
+          alert("🌟 Du hast den 'Epic Rare' Hintergrund freigeschaltet!");
         }
       }
 
