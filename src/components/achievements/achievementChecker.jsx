@@ -1,4 +1,3 @@
-
 import { base44 } from "@/api/base44Client";
 
 /**
@@ -103,17 +102,7 @@ export async function checkAndUnlockAchievements(user) {
       if (achievement) unlockedAchievements.push(achievement);
     }
 
-    // 6. Aufsteiger - Level 15 erreicht
-    if (user.level >= 15 && !hasAchievement("Aufsteiger")) {
-      const achievement = await unlockAchievement("Aufsteiger");
-      if (achievement) unlockedAchievements.push(achievement);
-    }
 
-    // 15. Meister der Flora - Level 30 erreicht (EPISCH)
-    if (user.level >= 30 && !hasAchievement("Meister der Flora")) {
-      const achievement = await unlockAchievement("Meister der Flora");
-      if (achievement) unlockedAchievements.push(achievement);
-    }
 
     // 7. Jahrhundertsammlung - 100 Pflanzen entdeckt
     if (discoveredPlants >= 100 && !hasAchievement("Jahrhundertsammlung")) {
