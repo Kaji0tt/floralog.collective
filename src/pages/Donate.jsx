@@ -173,12 +173,27 @@ export default function Donate() {
               const response = await base44.functions.invoke('createPayPalOrder', { 
                 amount: amount || 5 
               });
-              console.log('🟢 createPayPalOrder response:', response);
+              console.log('🟢 Full response object:', response);
+              console.log('🟢 Response status:', response.status);
+              console.log('🟢 Response data:', response.data);
+              
+              if (!response.data || !response.data.orderID) {
+                console.error('❌ No orderID in response');
+                toast({
+                  title: "Fehler",
+                  description: `Keine OrderID erhalten: ${JSON.stringify(response.data)}`,
+                  variant: "destructive"
+                });
+                setLoading(false);
+                throw new Error('No orderID received');
+              }
+              
               console.log('🟢 OrderID:', response.data.orderID);
               return response.data.orderID;
             } catch (error) {
               console.error('❌ createOrder error:', error);
-              console.error('❌ Error details:', JSON.stringify(error, null, 2));
+              console.error('❌ Error message:', error.message);
+              console.error('❌ Error response:', error.response);
               toast({
                 title: "Fehler",
                 description: `PayPal-Bestellung fehlgeschlagen: ${error.message}`,
