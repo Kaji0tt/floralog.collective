@@ -27,9 +27,9 @@ const PRESET_BACKGROUNDS = [
   { url: "https://blauzahn.eu/PlantDex/BackGround4.jpg", color: "rgb(89, 107, 68)" },
   { url: "https://blauzahn.eu/PlantDex/BackGround1.png", color: "rgb(118, 142, 98)" },
   { url: "https://blauzahn.eu/PlantDex/BackGround2.png", color: "rgb(95, 118, 82)" },
-  { url: "https://blauzahn.eu/PlantDex/Donor.png", color: "rgb(11, 28, 25)" }, // oder einfach nur { url: "..." }
+  { url: "https://blauzahn.eu/PlantDex/Donor.png", color: "rgb(11, 28, 25)", requiresDonor: true },
   { url: "https://blauzahn.eu/PlantDex/Colors.png", color: "rgba(134, 94, 94, 1)" },
-  { url: "https://blauzahn.eu/PlantDex/Urban.png", color: "rgb(108, 101, 62)" },
+  { url: "https://blauzahn.eu/PlantDex/Urban.png", color: "rgb(108, 101, 62)", requiresDonor: true },
   { url: "https://blauzahn.eu/PlantDex/Plains.png", color: "rgb(181, 191, 94)" },
   {url: "https://blauzahn.eu/PlantDex/EpicRare.png", color: "rgb(31, 35, 21)"}
 ];
@@ -654,22 +654,45 @@ export default function Profile() {
                     )}
                   </button>
                   {!collapsedSections.presets && (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {PRESET_BACKGROUNDS.map((bg, index) => (
-                        <button
-                          key={`preset-${index}`}
-                          onClick={() => handleSetBackground(bg.url, bg.color)}
-                          className="relative aspect-square rounded-lg overflow-hidden border-2 border-stone-200 hover:border-green-500 transition-colors group"
-                        >
-                          <img
-                            src={bg.url}
-                            alt={`Hintergrund ${index + 1}`}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                          />
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-                        </button>
-                      ))}
-                    </div>
+                    <TooltipProvider>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {PRESET_BACKGROUNDS.map((bg, index) => {
+                          const isUnlocked = !bg.requiresDonor || user?.donor_status;
+                          return (
+                            <Tooltip key={`preset-${index}`}>
+                              <TooltipTrigger asChild>
+                                <button
+                                  onClick={() => isUnlocked && handleSetBackground(bg.url, bg.color)}
+                                  disabled={!isUnlocked}
+                                  className={`relative aspect-square rounded-lg overflow-hidden border-2 ${
+                                    isUnlocked 
+                                      ? 'border-stone-200 hover:border-green-500' 
+                                      : 'border-stone-400 cursor-not-allowed'
+                                  } transition-colors group`}
+                                >
+                                  <img
+                                    src={bg.url}
+                                    alt={`Hintergrund ${index + 1}`}
+                                    className={`w-full h-full object-cover ${isUnlocked ? 'group-hover:scale-105' : ''} transition-transform`}
+                                  />
+                                  <div className={`absolute inset-0 ${isUnlocked ? 'bg-black/0 group-hover:bg-black/20' : 'bg-black/40'} transition-colors`} />
+                                  {!isUnlocked && (
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                      <Lock className="w-12 h-12 text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]" />
+                                    </div>
+                                  )}
+                                </button>
+                              </TooltipTrigger>
+                              {!isUnlocked && (
+                                <TooltipContent>
+                                  <p>Nur für Unterstützer - spende, um diesen Hintergrund freizuschalten! 💚</p>
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          );
+                        })}
+                      </div>
+                    </TooltipProvider>
                   )}
                 </div>
               )}
