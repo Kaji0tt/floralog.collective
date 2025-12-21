@@ -799,7 +799,7 @@ export default function Home() {
                       >
                         <Camera className="w-5 h-5 text-white" />
                       </div>
-                      <span className="font-semibold" style={{ color: 'var(--profile-text-color)' }}>Scannen</span>
+                      <span className="font-semibold text-stone-900">Scannen</span>
                     </button>
 
                     <button
@@ -819,7 +819,7 @@ export default function Home() {
                       >
                         <MapIcon className="w-5 h-5 text-white" />
                       </div>
-                      <span className="font-semibold" style={{ color: 'var(--profile-text-color)' }}>Karte</span>
+                      <span className="font-semibold text-stone-900">Karte</span>
                     </button>
                   </div>
                 </div>
