@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { UserPlus, Users, Loader2, Mail, Star, Check, X, Bell, ChevronRight, UserMinus, Clock, Leaf, Trophy, Gift } from "lucide-react";
+import { UserPlus, Users, Loader2, Mail, Star, Check, X, Bell, ChevronRight, UserMinus, Clock, Leaf, Trophy, Gift, Share2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
@@ -275,6 +275,42 @@ export default function Friends() {
     }
   });
 
+  const shareAppMutation = useMutation({
+    mutationFn: async (email) => {
+      // Erstelle Referral-Eintrag
+      await base44.entities.Referral.create({
+        invited_by: user.email,
+        invited_email: email,
+        status: "pending"
+      });
+
+      // Sende Einladungs-E-Mail
+      await base44.integrations.Core.SendEmail({
+        to: email,
+        subject: `${user.display_name || user.full_name} lädt dich zu PlantDex ein! 🌱`,
+        body: `Hallo!
+
+${user.display_name || user.full_name} möchte PlantDex mit dir teilen!
+
+PlantDex ist eine App zum Entdecken und Sammeln von Pflanzen. Scanne Pflanzen in deiner Umgebung, baue deine Sammlung auf und tausche dich mit Freunden aus!
+
+Starte jetzt und scanne deine erste Pflanze: https://plantdex.base44.app
+
+Viel Spaß beim Entdecken! 🌿
+
+- Dein PlantDex Team`
+      });
+    },
+    onSuccess: (data, email) => {
+      queryClient.invalidateQueries({ queryKey: ['referrals'] });
+      alert(`Einladung an ${email} gesendet! 📧`);
+      setFriendEmail("");
+    },
+    onError: (error) => {
+      alert(`Fehler beim Versenden: ${error.message}`);
+    }
+  });
+
   const handleSendRequest = async () => {
     if (!user || !user.email) {
       alert("Bitte warte bis dein Profil geladen ist.");
@@ -507,22 +543,43 @@ export default function Friends() {
 
               {/* Email Input - nur im Friends Tab */}
               {activeTab === "friends" && (
-                <div className="flex gap-2 p-2 border-t border-stone-200">
-                  <Input
-                    placeholder="E-Mail des Freundes"
-                    value={friendEmail}
-                    onChange={(e) => setFriendEmail(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendRequest()}
-                    className="border-2 border-stone-200 flex-1 h-9" />
+                <div className="p-2 border-t border-stone-200 space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="E-Mail des Freundes"
+                      value={friendEmail}
+                      onChange={(e) => setFriendEmail(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleSendRequest()}
+                      className="border-2 border-stone-200 flex-1 h-9" />
+                    <Button
+                      onClick={handleSendRequest}
+                      disabled={!friendEmail || sendFriendRequestMutation.isPending}
+                      className="bg-green-600 hover:bg-green-700 flex-shrink-0 h-9 px-3"
+                      size="sm">
+                      {sendFriendRequestMutation.isPending ?
+                        <Loader2 className="w-4 h-4 animate-spin" /> :
+                        <UserPlus className="w-4 h-4" />
+                      }
+                    </Button>
+                  </div>
                   <Button
-                    onClick={handleSendRequest}
-                    disabled={!friendEmail || sendFriendRequestMutation.isPending}
-                    className="bg-green-600 hover:bg-green-700 flex-shrink-0 h-9 px-3"
-                    size="sm">
-                    {sendFriendRequestMutation.isPending ?
-                      <Loader2 className="w-4 h-4 animate-spin" /> :
-                      <UserPlus className="w-4 h-4" />
-                    }
+                    onClick={() => {
+                      const email = prompt("📧 E-Mail des Freundes eingeben:");
+                      if (email && email.trim()) {
+                        shareAppMutation.mutate(email.trim());
+                      }
+                    }}
+                    disabled={shareAppMutation.isPending}
+                    variant="outline"
+                    className="w-full h-8 text-xs border-blue-300 text-blue-700 hover:bg-blue-50"
+                    size="sm"
+                  >
+                    {shareAppMutation.isPending ? (
+                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    ) : (
+                      <Share2 className="w-3 h-3 mr-1" />
+                    )}
+                    Teile diese App mit einem Freund!
                   </Button>
                 </div>
               )}
@@ -895,7 +952,7 @@ export default function Friends() {
             className="mb-8">
 
             <Card className="border-2 border-stone-200 shadow-lg bg-white">
-              <CardContent className="p-6">
+              <CardContent className="p-6 space-y-4">
                 <div className="flex flex-col md:flex-row gap-4 items-end">
                   <div className="flex-1 w-full">
                     <label className="text-sm font-semibold text-stone-700 mb-2 block">
@@ -928,6 +985,25 @@ export default function Friends() {
                     }
                   </Button>
                 </div>
+
+                <Button
+                  onClick={() => {
+                    const email = prompt("📧 E-Mail des Freundes eingeben:");
+                    if (email && email.trim()) {
+                      shareAppMutation.mutate(email.trim());
+                    }
+                  }}
+                  disabled={shareAppMutation.isPending}
+                  variant="outline"
+                  className="w-full border-2 border-blue-300 text-blue-700 hover:bg-blue-50"
+                >
+                  {shareAppMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Share2 className="w-4 h-4 mr-2" />
+                  )}
+                  Teile diese App mit einem Freund!
+                </Button>
               </CardContent>
             </Card>
           </motion.div>
