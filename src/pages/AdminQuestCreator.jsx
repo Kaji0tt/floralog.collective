@@ -64,6 +64,7 @@ export default function AdminQuestCreator() {
     prerequisite_quest_number: "",
     target_genus_name: "",
     target_species_name: "",
+    targets: []
   });
 
   // Fetch existing quests
@@ -138,6 +139,7 @@ export default function AdminQuestCreator() {
       prerequisite_quest_number: "",
       target_genus_name: "",
       target_species_name: "",
+      targets: []
     });
     setEditingQuest(null);
   };
@@ -155,6 +157,7 @@ export default function AdminQuestCreator() {
       prerequisite_quest_number: quest.prerequisite_quest_number || "",
       target_genus_name: quest.target_genus_name || "",
       target_species_name: quest.target_species_name || "",
+      targets: quest.targets || []
     });
   };
 
@@ -175,6 +178,13 @@ export default function AdminQuestCreator() {
       questData.difficulty = formData.difficulty;
       if (formData.prerequisite_quest_number) {
         questData.prerequisite_quest_number = parseInt(formData.prerequisite_quest_number);
+      }
+      if (formData.targets && formData.targets.length > 0) {
+        questData.targets = formData.targets.map(t => ({
+          target_type: t.target_type,
+          target_name: t.target_name,
+          required_count: parseInt(t.required_count)
+        }));
       }
     }
 
@@ -388,6 +398,118 @@ export default function AdminQuestCreator() {
                         />
                       </div>
                     </div>
+
+                    {/* Ziel Art oder Gattung */}
+                    <div className="border-2 border-stone-200 rounded-lg p-4 bg-stone-50">
+                      <div className="flex items-center justify-between mb-3">
+                        <Label className="text-base font-bold">Ziel Art oder Gattung?</Label>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              targets: [...formData.targets, { target_type: "genus", target_name: "", required_count: 1 }]
+                            });
+                          }}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          <Plus className="w-4 h-4 mr-1" />
+                          Ziel hinzufügen
+                        </Button>
+                      </div>
+                      
+                      {formData.targets.length === 0 ? (
+                        <p className="text-sm text-stone-500 text-center py-2">
+                          Keine spezifischen Ziele - alle Pflanzen der Kategorie zählen
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          {formData.targets.map((target, index) => (
+                            <div key={index} className="bg-white border border-stone-200 rounded-lg p-3">
+                              <div className="grid grid-cols-12 gap-2 items-start">
+                                <div className="col-span-3">
+                                  <Select
+                                    value={target.target_type}
+                                    onValueChange={(v) => {
+                                      const newTargets = [...formData.targets];
+                                      newTargets[index].target_type = v;
+                                      newTargets[index].target_name = "";
+                                      setFormData({...formData, targets: newTargets});
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-9">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="genus">Gattung</SelectItem>
+                                      <SelectItem value="species">Art</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="col-span-5">
+                                  <Select
+                                    value={target.target_name}
+                                    onValueChange={(v) => {
+                                      const newTargets = [...formData.targets];
+                                      newTargets[index].target_name = v;
+                                      setFormData({...formData, targets: newTargets});
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-9">
+                                      <SelectValue placeholder="Wählen..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {target.target_type === "genus" ? (
+                                        genera.map(g => (
+                                          <SelectItem key={g.id} value={g.genus_name}>
+                                            {g.genus_name}
+                                          </SelectItem>
+                                        ))
+                                      ) : (
+                                        plants.map(p => (
+                                          <SelectItem key={p.id} value={p.species_name}>
+                                            {p.species_name}
+                                          </SelectItem>
+                                        ))
+                                      )}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="col-span-3">
+                                  <Input
+                                    type="number"
+                                    min={1}
+                                    value={target.required_count}
+                                    onChange={(e) => {
+                                      const newTargets = [...formData.targets];
+                                      newTargets[index].required_count = e.target.value;
+                                      setFormData({...formData, targets: newTargets});
+                                    }}
+                                    className="h-9"
+                                    placeholder="Anz."
+                                  />
+                                </div>
+                                <div className="col-span-1 flex items-center">
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      const newTargets = formData.targets.filter((_, i) => i !== index);
+                                      setFormData({...formData, targets: newTargets});
+                                    }}
+                                    className="h-9 w-9 text-red-600 hover:bg-red-50"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </>
                 )}
 
@@ -519,6 +641,11 @@ export default function AdminQuestCreator() {
                                   {quest.difficulty && (
                                     <Badge className={difficultyOptions.find(d => d.value === quest.difficulty)?.color}>
                                       {quest.difficulty}
+                                    </Badge>
+                                  )}
+                                  {quest.targets && quest.targets.length > 0 && (
+                                    <Badge className="bg-blue-100 text-blue-700">
+                                      {quest.targets.length} Ziel{quest.targets.length > 1 ? 'e' : ''}
                                     </Badge>
                                   )}
                                 </div>
