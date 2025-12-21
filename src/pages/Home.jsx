@@ -373,7 +373,7 @@ export default function Home() {
     },
     {
       icon: Target,
-      label: "Aufgaben",
+      label: "Community",
       value: weeklyDiscoveriesCount,
       color: "from-blue-500 to-blue-600",
       textColor: "text-blue-700",
