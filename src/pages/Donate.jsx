@@ -151,26 +151,37 @@ export default function Donate() {
   ];
 
   const handleDonation = (amount) => {
+    console.log('🔵 handleDonation called with amount:', amount);
     setSelectedAmount(amount);
     
     // PayPal Buttons rendern
     setTimeout(() => {
       const container = document.getElementById('paypal-button-container');
+      console.log('🔵 Container found:', !!container);
+      console.log('🔵 PayPal SDK loaded:', !!window.paypal);
+      console.log('🔵 Buttons already rendered:', paypalButtonsRendered.current);
+      
       if (container && window.paypal && !paypalButtonsRendered.current) {
         container.innerHTML = '';
         
         window.paypal.Buttons({
           createOrder: async () => {
+            console.log('🟢 createOrder started');
             setLoading(true);
             try {
+              console.log('🟢 Calling createPayPalOrder with amount:', amount || 5);
               const response = await base44.functions.invoke('createPayPalOrder', { 
                 amount: amount || 5 
               });
+              console.log('🟢 createPayPalOrder response:', response);
+              console.log('🟢 OrderID:', response.data.orderID);
               return response.data.orderID;
             } catch (error) {
+              console.error('❌ createOrder error:', error);
+              console.error('❌ Error details:', JSON.stringify(error, null, 2));
               toast({
                 title: "Fehler",
-                description: "PayPal-Bestellung konnte nicht erstellt werden.",
+                description: `PayPal-Bestellung fehlgeschlagen: ${error.message}`,
                 variant: "destructive"
               });
               setLoading(false);
@@ -178,12 +189,16 @@ export default function Donate() {
             }
           },
           onApprove: async (data) => {
+            console.log('🟢 onApprove called with data:', data);
             try {
+              console.log('🟢 Calling capturePayPalPayment with orderID:', data.orderID);
               const response = await base44.functions.invoke('capturePayPalPayment', { 
                 orderID: data.orderID 
               });
+              console.log('🟢 capturePayPalPayment response:', response);
               
               if (response.data.success) {
+                console.log('✅ Payment successful!');
                 toast({
                   title: "Spende erfolgreich! 🎉",
                   description: response.data.message,
@@ -192,14 +207,17 @@ export default function Donate() {
                 
                 // User neu laden
                 const updatedUser = await base44.auth.me();
+                console.log('✅ Updated user:', updatedUser);
                 setUser(updatedUser);
                 setSelectedAmount(null);
                 paypalButtonsRendered.current = false;
               }
             } catch (error) {
+              console.error('❌ onApprove error:', error);
+              console.error('❌ Error details:', JSON.stringify(error, null, 2));
               toast({
                 title: "Fehler",
-                description: "Zahlung konnte nicht verarbeitet werden.",
+                description: `Zahlung fehlgeschlagen: ${error.message}`,
                 variant: "destructive"
               });
             } finally {
@@ -207,6 +225,7 @@ export default function Donate() {
             }
           },
           onCancel: () => {
+            console.log('⚠️ Payment cancelled');
             setLoading(false);
             setSelectedAmount(null);
             paypalButtonsRendered.current = false;
@@ -216,13 +235,15 @@ export default function Donate() {
             });
           },
           onError: (err) => {
-            console.error('PayPal Error:', err);
+            console.error('❌ PayPal SDK Error:', err);
+            console.error('❌ Error type:', typeof err);
+            console.error('❌ Error string:', String(err));
             setLoading(false);
             setSelectedAmount(null);
             paypalButtonsRendered.current = false;
             toast({
               title: "Fehler",
-              description: "Ein Fehler ist aufgetreten.",
+              description: `PayPal Fehler: ${String(err)}`,
               variant: "destructive"
             });
           }
