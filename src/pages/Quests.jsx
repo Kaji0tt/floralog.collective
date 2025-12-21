@@ -672,31 +672,25 @@ export default function Quests() {
                 </CardContent>
               </Card>
 
-              {/* Level & XP */}
+              {/* Titel */}
               <Card className="border-2 border-stone-200 bg-white/90 backdrop-blur-md">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <TrendingUp className="w-5 h-5 text-amber-600" />
-                    Dein Fortschritt
+                    Dein Profil
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
-                    <span className="text-sm text-stone-700">Level</span>
-                    <Badge className="bg-amber-600 text-white text-base px-3 py-1">
-                      {user?.level || 1}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
-                    <span className="text-sm text-stone-700">Gesamt-XP</span>
-                    <Badge variant="outline" className="text-base px-3 py-1">
-                      {user?.xp || 0}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
                     <span className="text-sm text-stone-700">Aktiver Titel</span>
                     <span className="text-xs text-stone-600 font-semibold">
-                      {user?.selected_title || 'Pflanzen-Anfänger'}
+                      {user?.selected_title || user?.title || 'Pflanzen-Entdecker'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
+                    <span className="text-sm text-stone-700">Name</span>
+                    <span className="text-xs text-stone-600 font-semibold">
+                      {user?.display_name || user?.full_name}
                     </span>
                   </div>
                 </CardContent>

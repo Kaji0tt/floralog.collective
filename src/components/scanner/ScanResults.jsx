@@ -564,15 +564,15 @@ export default function ScanResults({
                       }
                       </div>
 
-                  {/* XP Belohnung - nur bei bestätigten Scans */}
-                  {currentPlant.xpAwarded !== undefined && !isPendingConfirmation &&
-                  <div className="bg-gradient-to-r from-amber-400 to-yellow-400 rounded-xl p-4 border-2 border-amber-500 shadow-lg">
+                  {/* Status Anzeige - nur bei bestätigten Scans */}
+                  {!isPendingConfirmation &&
+                  <div className="bg-gradient-to-r from-green-400 to-emerald-400 rounded-xl p-4 border-2 border-green-500 shadow-lg">
                       <div className="flex items-center justify-center gap-3 flex-wrap">
                         <Sparkles className="w-6 h-6 text-white animate-pulse" />
                         <p className="text-lg md:text-xl font-bold text-white text-center">
-                          +{currentPlant.xpAwarded} XP {isNewToPlantDex ? "für neue PlantDex-Pflanze!" :
-                        wasAlreadyDiscovered ? "für erneuten Scan!" :
-                        "für Erstentdeckung!"}
+                          {isNewToPlantDex ? "Neue PlantDex-Pflanze!" :
+                        wasAlreadyDiscovered ? "Erneut gescannt!" :
+                        "Erstentdeckung!"}
                         </p>
                         <Sparkles className="w-6 h-6 text-white animate-pulse" />
                       </div>

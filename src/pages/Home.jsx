@@ -11,7 +11,7 @@ import AchievementNotification from "../components/achievements/AchievementNotif
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
-import { getXPProgressInLevel } from "../components/utils/xpSystem";
+
 import { Input } from "@/components/ui/input";
 import { Edit2, CheckCircle, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -106,14 +106,6 @@ export default function Home() {
       const currentUser = await base44.auth.me();
       setUser(currentUser);
       setEditedName(currentUser?.display_name || currentUser?.full_name || "");
-      
-      if (currentUser && !currentUser.level) {
-        await base44.auth.updateMe({
-          level: 1,
-          xp: 0,
-          title: "Pflanzen-Anfänger"
-        });
-      }
     };
     loadUser();
   }, []);
@@ -145,8 +137,6 @@ export default function Home() {
         user_email: userData.email,
         display_name: userData.display_name || userData.full_name,
         full_name: userData.full_name,
-        level: userData.level || 1,
-        xp: userData.xp || 0,
         title: userData.title,
         selected_title: userData.selected_title,
         avatar_url: userData.avatar_url,
@@ -169,7 +159,7 @@ export default function Home() {
     if (user && user.email) {
       updatePublicProfile(user);
     }
-  }, [user?.level, user?.xp, user?.display_name, user?.avatar_url, user?.selected_title, user?.email, user?.background_image_url, user?.background_color, user?.favorite_plant_id, user?.title]);
+  }, [user?.display_name, user?.avatar_url, user?.selected_title, user?.email, user?.background_image_url, user?.background_color, user?.favorite_plant_id, user?.title]);
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
@@ -305,10 +295,6 @@ export default function Home() {
     );
   }
 
-  const currentLevel = user.level || 1;
-  const currentXP = user.xp || 0;
-  const xpProgress = getXPProgressInLevel(currentXP, currentLevel);
-
   const discoveredGenera = genera.filter(g => {
     const genusPlants = plants.filter(p => 
       p.genus_category === g.category && p.genus_number === g.category_dex_number
@@ -362,13 +348,7 @@ export default function Home() {
     return true;
   }).length : 0;
 
-  const getTitleForLevel = (level) => {
-    if (level >= 20) return "Pflanzen-Meister 🌳";
-    if (level >= 15) return "Natur-Experte 🌿";
-    if (level >= 10) return "Flora-Kenner 🍃";
-    if (level >= 5) return "Pflanzen-Forscher 🔍";
-    return "Pflanzen-Anfänger 🌱";
-  };
+
 
   const statButtons = [
     {
@@ -645,26 +625,7 @@ export default function Home() {
                     className="hidden"
                   />
                   
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button 
-                        onClick={(e) => e.stopPropagation()}
-                        className="absolute -top-2 -right-2 px-3 py-1 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center shadow-xl backdrop-blur-sm border-2 border-white/80 hover:scale-110 transition-transform cursor-pointer"
-                      >
-                        <span className="text-white font-bold text-sm">LV {currentLevel}</span>
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-64 bg-white">
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-bold text-stone-800">Level {currentLevel}</span>
-                          <span className="text-sm font-bold text-stone-800">{xpProgress.current} / {xpProgress.needed} XP</span>
-                        </div>
-                        <Progress value={xpProgress.percentage} className="h-2" />
-                        <p className="text-xs text-stone-600">{xpProgress.percentage.toFixed(1)}% bis Level {currentLevel + 1}</p>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+
                 </div>
 
                 <div className="flex-1 w-full bg-white/40 backdrop-blur-md rounded-xl p-5 border-2 border-white/30 shadow-lg">
@@ -712,7 +673,7 @@ export default function Home() {
 
                   <div className="mb-3">
                     <span className="text-base font-semibold text-stone-700">
-                      {user.selected_title || user.title || getTitleForLevel(currentLevel)}
+                      {user.selected_title || user.title || "Pflanzen-Entdecker"}
                     </span>
                     </div>
 

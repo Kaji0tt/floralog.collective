@@ -58,11 +58,9 @@ export default function AdminQuestCreator() {
     title: "",
     description: "",
     requirement: "",
-    xp_reward: 50,
     category: "Alle",
     difficulty: "Leicht",
     required_discoveries: 1,
-    unlocked_at_level: 1,
     prerequisite_quest_number: "",
     target_genus_name: "",
     target_species_name: "",
@@ -134,11 +132,9 @@ export default function AdminQuestCreator() {
       title: "",
       description: "",
       requirement: "",
-      xp_reward: 50,
       category: "Alle",
       difficulty: "Leicht",
       required_discoveries: 1,
-      unlocked_at_level: 1,
       prerequisite_quest_number: "",
       target_genus_name: "",
       target_species_name: "",
@@ -153,11 +149,9 @@ export default function AdminQuestCreator() {
       title: quest.title || "",
       description: quest.description || "",
       requirement: quest.requirement || "",
-      xp_reward: quest.xp_reward || 50,
       category: quest.category || "Alle",
       difficulty: quest.difficulty || "Leicht",
       required_discoveries: quest.required_discoveries || 1,
-      unlocked_at_level: quest.unlocked_at_level || 1,
       prerequisite_quest_number: quest.prerequisite_quest_number || "",
       target_genus_name: quest.target_genus_name || "",
       target_species_name: quest.target_species_name || "",
@@ -172,7 +166,6 @@ export default function AdminQuestCreator() {
       title: formData.title,
       description: formData.description,
       requirement: formData.requirement,
-      xp_reward: parseInt(formData.xp_reward),
       category: formData.category,
       required_discoveries: parseInt(formData.required_discoveries) || undefined,
     };
@@ -180,7 +173,6 @@ export default function AdminQuestCreator() {
     // Add fields specific to Quest entity
     if (activeTab === "quest") {
       questData.difficulty = formData.difficulty;
-      questData.unlocked_at_level = parseInt(formData.unlocked_at_level) || 1;
       if (formData.prerequisite_quest_number) {
         questData.prerequisite_quest_number = parseInt(formData.prerequisite_quest_number);
       }
@@ -286,27 +278,15 @@ export default function AdminQuestCreator() {
             <CardContent className="p-6">
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Quest Number */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Quest-Nummer *</Label>
-                    <Input
-                      type="number"
-                      value={formData.quest_number}
-                      onChange={(e) => setFormData({...formData, quest_number: e.target.value})}
-                      placeholder={`z.B. ${getNextQuestNumber()}`}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label>XP-Belohnung *</Label>
-                    <Input
-                      type="number"
-                      value={formData.xp_reward}
-                      onChange={(e) => setFormData({...formData, xp_reward: e.target.value})}
-                      min={1}
-                      required
-                    />
-                  </div>
+                <div>
+                  <Label>Quest-Nummer *</Label>
+                  <Input
+                    type="number"
+                    value={formData.quest_number}
+                    onChange={(e) => setFormData({...formData, quest_number: e.target.value})}
+                    placeholder={`z.B. ${getNextQuestNumber()}`}
+                    required
+                  />
                 </div>
 
                 {/* Title */}
@@ -399,23 +379,14 @@ export default function AdminQuestCreator() {
                         </Select>
                       </div>
                       <div>
-                        <Label>Freigeschaltet ab Level</Label>
+                        <Label>Voraussetzung Quest-Nr. (optional)</Label>
                         <Input
                           type="number"
-                          value={formData.unlocked_at_level}
-                          onChange={(e) => setFormData({...formData, unlocked_at_level: e.target.value})}
-                          min={1}
+                          value={formData.prerequisite_quest_number}
+                          onChange={(e) => setFormData({...formData, prerequisite_quest_number: e.target.value})}
+                          placeholder="Leer = keine Voraussetzung"
                         />
                       </div>
-                    </div>
-                    <div>
-                      <Label>Voraussetzung Quest-Nr. (optional)</Label>
-                      <Input
-                        type="number"
-                        value={formData.prerequisite_quest_number}
-                        onChange={(e) => setFormData({...formData, prerequisite_quest_number: e.target.value})}
-                        placeholder="Leer = keine Voraussetzung"
-                      />
                     </div>
                   </>
                 )}
@@ -537,9 +508,6 @@ export default function AdminQuestCreator() {
                                   {quest.description}
                                 </p>
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <Badge className="bg-amber-100 text-amber-700">
-                                    {quest.xp_reward} XP
-                                  </Badge>
                                   <Badge variant="outline">
                                     {quest.category}
                                   </Badge>
