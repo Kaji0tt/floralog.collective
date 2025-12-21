@@ -41,7 +41,7 @@ export default function Donate() {
     if (!document.getElementById('paypal-sdk')) {
       const script = document.createElement('script');
       script.id = 'paypal-sdk';
-      script.src = `https://www.paypal.com/sdk/js?client-id=ATM3A6G_fyU8kydQY33y97KtBU1eGseBlBS2-dH-BEMicRzmf2gBYPfueJYrkfrwWZR2ufZuhfqWEmyb&currency=EUR`;
+      script.src = `https://www.paypal.com/sdk/js?client-id=ASv5xp3towIV_O7GNG5l9RE3iHqDT6mo6c-VKJO7aSQhtKvZVtN672jzTjzqOeOFKw-gIFWTbAsZhhy4&currency=EUR`;
       script.async = true;
       document.body.appendChild(script);
     }
