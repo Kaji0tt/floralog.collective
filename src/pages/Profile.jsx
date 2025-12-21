@@ -27,8 +27,12 @@ const PRESET_BACKGROUNDS = [
   { url: "https://blauzahn.eu/PlantDex/BackGround4.jpg", color: "rgb(89, 107, 68)" },
   { url: "https://blauzahn.eu/PlantDex/BackGround1.png", color: "rgb(118, 142, 98)" },
   { url: "https://blauzahn.eu/PlantDex/BackGround2.png", color: "rgb(95, 118, 82)" },
-  { url: "https://blauzahn.eu/PlantDex/BackGround3.png", color: "rgb(102, 125, 88)" }
+  { url: "https://blauzahn.eu/PlantDex/Donor.png", color: null }, // oder einfach nur { url: "..." }
+  { url: "https://blauzahn.eu/PlantDex/Colors.png", color: null },
+  { url: "https://blauzahn.eu/PlantDex/Urban.png", color: null },
+  { url: "https://blauzahn.eu/PlantDex/Plains.png", color: null }
 ];
+
 
 export default function Profile() {
   const navigate = useNavigate();
