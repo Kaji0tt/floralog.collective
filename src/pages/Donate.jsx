@@ -1,16 +1,21 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Heart, Coffee, Leaf as LeafIcon, Sparkles, TreeDeciduous } from "lucide-react";
+import { Heart, Coffee, Leaf as LeafIcon, Sparkles, TreeDeciduous, Loader2, CheckCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import MobileBackButton from "../components/navigation/MobileBackButton";
+import { useToast } from "@/components/ui/use-toast";
 
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
 export default function Donate() {
   const [user, setUser] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [selectedAmount, setSelectedAmount] = useState(null);
+  const paypalButtonsRendered = useRef(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     const loadUser = async () => {
@@ -29,6 +34,17 @@ export default function Donate() {
       }
     };
     loadUser();
+  }, []);
+
+  useEffect(() => {
+    // PayPal SDK laden
+    if (!document.getElementById('paypal-sdk')) {
+      const script = document.createElement('script');
+      script.id = 'paypal-sdk';
+      script.src = `https://www.paypal.com/sdk/js?client-id=ATM3A6G_fyU8kydQY33y97KtBU1eGseBlBS2-dH-BEMicRzmf2gBYPfueJYrkfrwWZR2ufZuhfqWEmyb&currency=EUR`;
+      script.async = true;
+      document.body.appendChild(script);
+    }
   }, []);
 
   const getAverageColor = (imageUrl) => {
@@ -135,17 +151,86 @@ export default function Donate() {
   ];
 
   const handleDonation = (amount) => {
-    if (amount > 0) {
-      window.open(
-        `https://www.paypal.com/paypalme/jaschakruse/${amount}EUR`,
-        '_blank'
-      );
-    } else {
-      window.open(
-        `https://www.paypal.com/paypalme/jaschakruse`,
-        '_blank'
-      );
-    }
+    setSelectedAmount(amount);
+    
+    // PayPal Buttons rendern
+    setTimeout(() => {
+      const container = document.getElementById('paypal-button-container');
+      if (container && window.paypal && !paypalButtonsRendered.current) {
+        container.innerHTML = '';
+        
+        window.paypal.Buttons({
+          createOrder: async () => {
+            setLoading(true);
+            try {
+              const response = await base44.functions.invoke('createPayPalOrder', { 
+                amount: amount || 5 
+              });
+              return response.data.orderID;
+            } catch (error) {
+              toast({
+                title: "Fehler",
+                description: "PayPal-Bestellung konnte nicht erstellt werden.",
+                variant: "destructive"
+              });
+              setLoading(false);
+              throw error;
+            }
+          },
+          onApprove: async (data) => {
+            try {
+              const response = await base44.functions.invoke('capturePayPalPayment', { 
+                orderID: data.orderID 
+              });
+              
+              if (response.data.success) {
+                toast({
+                  title: "Spende erfolgreich! 🎉",
+                  description: response.data.message,
+                  duration: 5000
+                });
+                
+                // User neu laden
+                const updatedUser = await base44.auth.me();
+                setUser(updatedUser);
+                setSelectedAmount(null);
+                paypalButtonsRendered.current = false;
+              }
+            } catch (error) {
+              toast({
+                title: "Fehler",
+                description: "Zahlung konnte nicht verarbeitet werden.",
+                variant: "destructive"
+              });
+            } finally {
+              setLoading(false);
+            }
+          },
+          onCancel: () => {
+            setLoading(false);
+            setSelectedAmount(null);
+            paypalButtonsRendered.current = false;
+            toast({
+              title: "Abgebrochen",
+              description: "Spende wurde abgebrochen."
+            });
+          },
+          onError: (err) => {
+            console.error('PayPal Error:', err);
+            setLoading(false);
+            setSelectedAmount(null);
+            paypalButtonsRendered.current = false;
+            toast({
+              title: "Fehler",
+              description: "Ein Fehler ist aufgetreten.",
+              variant: "destructive"
+            });
+          }
+        }).render('#paypal-button-container');
+        
+        paypalButtonsRendered.current = true;
+      }
+    }, 100);
   };
 
   return (
@@ -188,43 +273,99 @@ Helfe PlantDex zu wachsen! Ob Feedback, Teilen oder Spenden – jede Unterstütz
           </p>
         </motion.div>
 
-        {/* Donation Options */}
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
-          {donationOptions.map((option, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1, duration: 0.6 }}
-            >
-              <Card className="border-2 border-stone-200 hover:border-green-400 hover:shadow-xl transition-all duration-300 h-full">
-                <CardHeader>
-                  <div className="flex items-center gap-4 mb-3">
-                    <div className={`w-16 h-16 bg-gradient-to-br ${option.color} rounded-xl flex items-center justify-center shadow-md`}>
-                      <option.icon className="w-8 h-8 text-white" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-xl text-stone-900">{option.title}</CardTitle>
-                      {option.amount > 0 && (
-                        <p className="text-2xl font-bold text-green-700">{option.amount} EUR</p>
-                      )}
-                    </div>
+        {/* Donor Status Anzeige */}
+        {user?.donor_status && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6"
+          >
+            <Card className="border-2 border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50">
+              <CardContent className="p-4 flex items-center gap-3">
+                <CheckCircle className="w-8 h-8 text-amber-600" />
+                <div>
+                  <p className="font-bold text-amber-900">Donor-Status aktiv! 🎉</p>
+                  <p className="text-sm text-amber-700">Danke für deine Unterstützung!</p>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* PayPal Button Container */}
+        {selectedAmount !== null && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mb-8"
+          >
+            <Card className="border-2 border-green-400 bg-white shadow-xl">
+              <CardHeader>
+                <CardTitle className="text-center">
+                  {selectedAmount > 0 ? `${selectedAmount} EUR spenden` : 'Eigenen Betrag spenden'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loading && (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-8 h-8 animate-spin text-green-600" />
                   </div>
-                  <p className="text-stone-600">{option.description}</p>
-                </CardHeader>
-                <CardContent>
-                  <Button
-                    onClick={() => handleDonation(option.amount)}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-6"
-                  >
-                    <Heart className="w-5 h-5 mr-2" />
-                    Jetzt spenden
-                  </Button>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
+                )}
+                <div id="paypal-button-container" className={loading ? 'opacity-50 pointer-events-none' : ''}></div>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSelectedAmount(null);
+                    paypalButtonsRendered.current = false;
+                  }}
+                  className="w-full mt-4"
+                >
+                  Abbrechen
+                </Button>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Donation Options */}
+        {selectedAmount === null && (
+          <div className="grid md:grid-cols-2 gap-6 mb-8">
+            {donationOptions.map((option, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1, duration: 0.6 }}
+              >
+                <Card className="border-2 border-stone-200 hover:border-green-400 hover:shadow-xl transition-all duration-300 h-full">
+                  <CardHeader>
+                    <div className="flex items-center gap-4 mb-3">
+                      <div className={`w-16 h-16 bg-gradient-to-br ${option.color} rounded-xl flex items-center justify-center shadow-md`}>
+                        <option.icon className="w-8 h-8 text-white" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-xl text-stone-900">{option.title}</CardTitle>
+                        {option.amount > 0 && (
+                          <p className="text-2xl font-bold text-green-700">{option.amount} EUR</p>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-stone-600">{option.description}</p>
+                  </CardHeader>
+                  <CardContent>
+                    <Button
+                      onClick={() => handleDonation(option.amount)}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-6"
+                    >
+                      <Heart className="w-5 h-5 mr-2" />
+                      Jetzt spenden
+                    </Button>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        )}
 
         {/* Info Card */}
         <motion.div
