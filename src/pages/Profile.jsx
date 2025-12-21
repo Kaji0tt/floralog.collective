@@ -28,7 +28,7 @@ const PRESET_BACKGROUNDS = [
   { url: "https://blauzahn.eu/PlantDex/BackGround1.png", color: "rgb(118, 142, 98)" },
   { url: "https://blauzahn.eu/PlantDex/BackGround2.png", color: "rgb(95, 118, 82)" },
   { url: "https://blauzahn.eu/PlantDex/Donor.png", color: "rgb(11, 28, 25)" }, // oder einfach nur { url: "..." }
-  { url: "https://blauzahn.eu/PlantDex/Colors.png", color: "rgba(255, 153, 0, 1)" },
+  { url: "https://blauzahn.eu/PlantDex/Colors.png", color: "rgba(134, 94, 94, 1)" },
   { url: "https://blauzahn.eu/PlantDex/Urban.png", color: "rgb(108, 101, 62)" },
   { url: "https://blauzahn.eu/PlantDex/Plains.png", color: "rgb(181, 191, 94)" },
   {url: "https://blauzahn.eu/PlantDex/EpicRare.png", color: "rgb(31, 35, 21)"}
