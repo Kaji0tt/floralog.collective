@@ -972,7 +972,7 @@ export default function Home() {
                   <img
                     src={LOGO_URL}
                     alt="Quest Giver"
-                    className="absolute bottom-0 right-0 w-full h-full object-cover object-bottom-right drop-shadow-2xl"
+                    className="w-full h-full object-cover object-bottom-right"
                   />
                 </div>
               </motion.div>
