@@ -968,11 +968,11 @@ export default function Home() {
                 </div>
 
                 {/* Person/Charakter Bild - unten rechts */}
-                <div className="fixed bottom-0 right-0 w-64 h-64 pointer-events-none">
+                <div className="fixed bottom-0 right-0 pointer-events-none">
                   <img
                     src={LOGO_URL}
                     alt="Quest Giver"
-                    className="block h-64 w-auto object-contain object-bottom-right"
+                    className="block h-64 w-auto object-contain drop-shadow-2xl"
                   />
                 </div>
               </motion.div>
