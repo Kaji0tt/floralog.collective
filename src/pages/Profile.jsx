@@ -29,7 +29,7 @@ const PRESET_BACKGROUNDS = [
   { url: "https://blauzahn.eu/PlantDex/BackGround2.png", color: "rgb(95, 118, 82)", requiresWeeklyQuest: 3 },
   { url: "https://blauzahn.eu/PlantDex/Colors.png", color: "rgba(112, 68, 68, 1)", requiresGift: true },
   { url: "https://blauzahn.eu/PlantDex/Donor.png", color: "rgb(11, 28, 25)", requiresDonor: true },
-  { url: "https://blauzahn.eu/PlantDex/Urban.png", color: "rgb(108, 101, 62)", requiresDonor: true },
+  { url: "https://blauzahn.eu/PlantDex/Urban.png", color: "rgba(143, 124, 89, 1)", requiresDonor: true },
   { url: "https://blauzahn.eu/PlantDex/Plains.png", color: "rgb(181, 191, 94)", requiresReferral: true },
   { url: "https://blauzahn.eu/PlantDex/EpicRare.png", color: "rgb(31, 35, 21)", requiresRarePlant: true }
 ];
