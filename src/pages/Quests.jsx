@@ -16,7 +16,7 @@ import { de } from "date-fns/locale";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import MobileBackButton from "../components/navigation/MobileBackButton";
-import { getCurrentWeeklyQuest, getWeekNumber } from "../components/quests/QuestRotationHelper";
+import { getCurrentWeeklyQuest, getWeekNumber, getCurrentWeekBounds } from "../components/quests/QuestRotationHelper";
 
 // Leaflet Icon Setup
 if (typeof window !== 'undefined') {
@@ -233,12 +233,17 @@ export default function Quests() {
   }
 
   const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
+  const { weekStart, weekEnd } = getCurrentWeekBounds();
 
   // Filtere Discoveries basierend auf wöchentlicher Quest
   const weeklyDiscoveries = currentWeeklyQuest ? allDiscoveries.filter(d => {
     // Nur Discoveries von Usern mit weekly_tracking
     const discoveryUser = allUsers.find(u => u.user_email === d.user || u.user_email === d.created_by);
     if (!discoveryUser) return false;
+
+    // Prüfe ob der Scan in der aktuellen Kalenderwoche erstellt wurde
+    const scanDate = new Date(d.created_date || d.discovered_date);
+    if (scanDate < weekStart || scanDate > weekEnd) return false;
 
     const plant = plants.find(p => p.id === d.plant_id);
     if (!plant) return false;

@@ -45,7 +45,7 @@ export const getCurrentWeeklyQuest = (weeklyQuests) => {
   const sortedQuests = [...weeklyQuests].sort((a, b) => a.quest_number - b.quest_number);
   const weekString = getWeekNumber();
   const weekNumber = parseInt(weekString.split('-W')[1]);
-  const index = weekNumber % sortedQuests.length;
+  const index = (weekNumber - 1) % sortedQuests.length;
   return sortedQuests[index];
 };
 
@@ -109,4 +109,19 @@ export const isWeeklyQuestCompletedThisWeek = (userWeeklyQuests, questId) => {
     uwq => uwq.weekly_quest_id === questId && uwq.active_week === currentWeek
   );
   return weekQuest?.completed === true;
+};
+
+// Gibt den Start und das Ende der aktuellen Woche zurück
+export const getCurrentWeekBounds = (date = new Date()) => {
+  const d = new Date(date);
+  const day = d.getDay() || 7; // Sonntag = 7
+  const monday = new Date(d);
+  monday.setDate(d.getDate() - day + 1); // Montag der aktuellen Woche
+  monday.setHours(0, 0, 0, 0);
+  
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6); // Sonntag der aktuellen Woche
+  sunday.setHours(23, 59, 59, 999);
+  
+  return { weekStart: monday, weekEnd: sunday };
 };
