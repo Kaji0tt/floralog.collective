@@ -6,7 +6,7 @@ import { X, Scroll } from "lucide-react";
 import { getCurrentWeeklyQuest, getCurrentMonthlyQuest, getTodayString, getWeekNumber, getMonthString } from "./QuestRotationHelper";
 
 // Default-Bild (kann später durch eine Einstellung ersetzt werden)
-const DEFAULT_QUEST_GIVER_IMAGE = "https://blauzahn.eu/PlantDexIcon.png";
+const DEFAULT_QUEST_GIVER_IMAGE = "https://blauzahn.eu/PlantDex/PlantExplorer.png";
 
 export default function QuestNotificationManager({ user }) {
   const [notificationQueue, setNotificationQueue] = useState([]);
