@@ -123,59 +123,53 @@ export default function QuestNotificationManager({ user }) {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -100, opacity: 0 }}
           transition={{ type: "spring", damping: 20 }}
-          className="relative w-full max-w-md"
+          className="relative w-full max-w-2xl"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Sprechblase */}
-          <div className="bg-white rounded-2xl shadow-2xl border-4 border-stone-300 relative mb-4">
-            {/* Sprechblasen-Spitze nach unten rechts */}
-            <div className="absolute right-8 -bottom-6 w-0 h-0 border-l-[20px] border-l-transparent border-r-[20px] border-r-transparent border-t-[30px] border-t-white" />
-            <div className="absolute right-8 -bottom-8 w-0 h-0 border-l-[24px] border-l-transparent border-r-[24px] border-r-transparent border-t-[34px] border-t-stone-300" />
-
+          {/* Quest Content Box */}
+          <div className="bg-amber-50 border-4 border-amber-300 rounded-2xl shadow-2xl p-6 max-h-[80vh] overflow-y-auto relative">
             {/* Schließen Button */}
             <button
               onClick={handleClose}
-              className="absolute top-3 right-3 w-8 h-8 bg-stone-200 hover:bg-stone-300 rounded-full flex items-center justify-center transition-colors z-10"
+              className="absolute top-3 right-3 w-10 h-10 bg-amber-200 hover:bg-amber-300 rounded-full flex items-center justify-center transition-colors z-10 shadow-lg"
             >
-              <X className="w-5 h-5 text-stone-700" />
+              <X className="w-6 h-6 text-amber-900" />
             </button>
 
-            {/* Content */}
-            <div className="p-6 pr-12">
-              <div className="flex items-center gap-2 mb-3">
-                <Scroll className="w-5 h-5 text-amber-600" />
-                <h3 className="text-lg font-bold text-stone-900">
-                  {currentNotification.title}
-                </h3>
-              </div>
-
-              <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-4 max-h-64 overflow-y-auto">
-                <h4 className="font-bold text-stone-900 mb-2 text-base">
-                  {quest.title}
-                </h4>
-                <p className="text-sm text-stone-700 leading-relaxed">
-                  {quest.description}
-                </p>
-                {quest.requirement && (
-                  <p className="text-xs text-stone-600 mt-2 italic">
-                    📋 {quest.requirement}
-                  </p>
-                )}
-                {quest.xp_reward && (
-                  <div className="mt-3 pt-3 border-t border-amber-300">
-                    <span className="text-sm font-bold text-green-600">
-                      🎁 Belohnung: {quest.xp_reward} XP
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {notificationQueue.length > 1 && (
-                <div className="mt-3 text-xs text-stone-500 text-center">
-                  Weitere Quest wartet... ({notificationQueue.length - 1})
-                </div>
-              )}
+            <div className="flex items-center gap-2 mb-4">
+              <Scroll className="w-6 h-6 text-amber-600" />
+              <h3 className="text-xl font-bold text-stone-900">
+                {currentNotification.title}
+              </h3>
             </div>
+
+            <h4 className="font-bold text-stone-900 mb-3 text-lg">
+              {quest.title}
+            </h4>
+            
+            <p className="text-base text-stone-700 leading-relaxed mb-3">
+              {quest.description}
+            </p>
+            
+            {quest.requirement && (
+              <p className="text-sm text-stone-600 mb-3 italic bg-amber-100 p-3 rounded-lg border border-amber-200">
+                📋 {quest.requirement}
+              </p>
+            )}
+            
+            {quest.xp_reward && (
+              <div className="mt-4 pt-4 border-t-2 border-amber-300">
+                <span className="text-base font-bold text-green-600">
+                  🎁 Belohnung: {quest.xp_reward} XP
+                </span>
+              </div>
+            )}
+
+            {notificationQueue.length > 1 && (
+              <div className="mt-4 text-sm text-stone-500 text-center bg-amber-100 py-2 rounded-lg">
+                Weitere Quest wartet... ({notificationQueue.length - 1})
+              </div>
+            )}
           </div>
 
           {/* Person/Charakter Bild - unten rechts */}
