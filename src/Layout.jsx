@@ -4,6 +4,7 @@ import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import NotificationManager from "./components/notifications/NotificationManager";
 import ToastNotificationManager from "./components/notifications/ToastNotificationManager";
+import QuestNotificationManager from "./components/quests/QuestNotificationManager";
 import { Toaster } from "@/components/ui/toaster";
 
 
@@ -53,6 +54,10 @@ export default function Layout({ children, currentPageName }) {
       
       {/* Toast Notifications */}
       {user && <ToastNotificationManager user={user} />}
+      
+      {/* Quest Notifications */}
+      {user && <QuestNotificationManager user={user} />}
+      
       <Toaster />
     </>
   );

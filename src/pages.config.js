@@ -30,6 +30,7 @@ import ResetToLevel5 from './pages/ResetToLevel5';
 import Scanner from './pages/Scanner';
 import ViewSharedScan from './pages/ViewSharedScan';
 import XPMigration from './pages/XPMigration';
+import QuestNotificationTemplate from './pages/QuestNotificationTemplate';
 import __Layout from './Layout.jsx';
 
 
@@ -66,6 +67,7 @@ export const PAGES = {
     "Scanner": Scanner,
     "ViewSharedScan": ViewSharedScan,
     "XPMigration": XPMigration,
+    "QuestNotificationTemplate": QuestNotificationTemplate,
 }
 
 export const pagesConfig = {
