@@ -602,7 +602,7 @@ export default function Home() {
                     {user.avatar_url ? (
                       <img src={user.avatar_url} alt="Profil" className="w-full h-full object-cover" />
                     ) : (
-                      <img src={LOGO_URL} alt="PlantDex" className="w-14 h-14 object-contain" />
+                      <img src={LOGO_URL} alt="PlantDex" className="w-14 h-14 object-cover" />
                     )}
                   </div>
                   
