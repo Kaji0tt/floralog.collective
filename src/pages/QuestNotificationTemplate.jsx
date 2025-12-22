@@ -129,92 +129,93 @@ export default function QuestNotificationTemplate() {
           </Card>
 
           {/* Live-Vorschau */}
-          <Card className="border-2 border-stone-200">
-            <CardHeader>
-              <CardTitle>Live-Vorschau</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="relative bg-gradient-to-br from-stone-100 to-green-100 rounded-xl p-8 min-h-[500px] overflow-hidden">
+          <div className="relative">
+            <Card className="border-2 border-stone-200">
+              <CardHeader>
+                <CardTitle>Live-Vorschau</CardTitle>
+              </CardHeader>
+              <CardContent>
                 <p className="text-center text-stone-500 mb-4">
                   Klicke auf "Benachrichtigung anzeigen" um die Vorschau zu sehen
                 </p>
+                <div className="h-[600px] overflow-y-auto snap-y snap-mandatory rounded-lg border-2 border-stone-300">
+                  {/* Vorschau der Komponente */}
+                  {showNotification && (
+                    <div className="h-screen w-full snap-start bg-black/40 flex items-start justify-start p-6">
+                      <div
+                        className="relative w-full max-w-md"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {/* Sprechblase */}
+                        <div className="bg-white rounded-2xl shadow-2xl border-4 border-stone-300 relative mb-4">
+                          {/* Sprechblasen-Spitze nach unten rechts */}
+                          <div className="absolute right-8 -bottom-6 w-0 h-0 border-l-[20px] border-l-transparent border-r-[20px] border-r-transparent border-t-[30px] border-t-white" />
+                          <div className="absolute right-8 -bottom-8 w-0 h-0 border-l-[24px] border-l-transparent border-r-[24px] border-r-transparent border-t-[34px] border-t-stone-300" />
 
-                {/* Vorschau der Komponente */}
-                {showNotification && (
-                  <div className="absolute inset-0 bg-black/40 flex items-end md:items-center justify-center md:justify-end p-4">
-                    <div
-                      className="relative max-w-md w-full"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {/* Person/Charakter Bild */}
-                      <div className="absolute bottom-0 left-4 md:left-0 w-32 h-32 md:w-40 md:h-40 z-10">
-                        <img
-                          src={characterImage}
-                          alt="Quest Giver"
-                          className="w-full h-full object-contain drop-shadow-2xl"
-                          onError={(e) => {
-                            e.target.src = DEFAULT_IMAGE;
-                          }}
-                        />
-                      </div>
+                          {/* Schließen Button */}
+                          <button
+                            onClick={() => setShowNotification(false)}
+                            className="absolute top-3 right-3 w-8 h-8 bg-stone-200 hover:bg-stone-300 rounded-full flex items-center justify-center transition-colors z-10"
+                          >
+                            <X className="w-5 h-5 text-stone-700" />
+                          </button>
 
-                      {/* Sprechblase */}
-                      <div className="ml-24 md:ml-36 bg-white rounded-2xl shadow-2xl border-4 border-stone-300 relative">
-                        {/* Sprechblasen-Spitze */}
-                        <div className="absolute left-0 bottom-8 w-0 h-0 border-t-[20px] border-t-transparent border-b-[20px] border-b-transparent border-r-[30px] border-r-white -ml-[26px]" />
-                        <div className="absolute left-0 bottom-8 w-0 h-0 border-t-[24px] border-t-transparent border-b-[24px] border-b-transparent border-r-[34px] border-r-stone-300 -ml-[34px]" />
+                          {/* Content */}
+                          <div className="p-6 pr-12">
+                            <div className="flex items-center gap-2 mb-3">
+                              <Scroll className="w-5 h-5 text-amber-600" />
+                              <h3 className="text-lg font-bold text-stone-900">
+                                {questData.title}
+                              </h3>
+                            </div>
 
-                        {/* Schließen Button */}
-                        <button
-                          onClick={() => setShowNotification(false)}
-                          className="absolute top-3 right-3 w-8 h-8 bg-stone-200 hover:bg-stone-300 rounded-full flex items-center justify-center transition-colors z-10"
-                        >
-                          <X className="w-5 h-5 text-stone-700" />
-                        </button>
-
-                        {/* Content */}
-                        <div className="p-6 pr-12">
-                          <div className="flex items-center gap-2 mb-3">
-                            <Scroll className="w-5 h-5 text-amber-600" />
-                            <h3 className="text-lg font-bold text-stone-900">
-                              {questData.title}
-                            </h3>
-                          </div>
-
-                          <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-4 max-h-64 overflow-y-auto">
-                            <h4 className="font-bold text-stone-900 mb-2 text-base">
-                              {questData.questTitle}
-                            </h4>
-                            <p className="text-sm text-stone-700 leading-relaxed">
-                              {questData.description}
-                            </p>
-                            {questData.requirement && (
-                              <p className="text-xs text-stone-600 mt-2 italic">
-                                📋 {questData.requirement}
+                            <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-4 max-h-64 overflow-y-auto">
+                              <h4 className="font-bold text-stone-900 mb-2 text-base">
+                                {questData.questTitle}
+                              </h4>
+                              <p className="text-sm text-stone-700 leading-relaxed">
+                                {questData.description}
                               </p>
-                            )}
-                            {questData.xpReward > 0 && (
-                              <div className="mt-3 pt-3 border-t border-amber-300">
-                                <span className="text-sm font-bold text-green-600">
-                                  🎁 Belohnung: {questData.xpReward} XP
-                                </span>
+                              {questData.requirement && (
+                                <p className="text-xs text-stone-600 mt-2 italic">
+                                  📋 {questData.requirement}
+                                </p>
+                              )}
+                              {questData.xpReward > 0 && (
+                                <div className="mt-3 pt-3 border-t border-amber-300">
+                                  <span className="text-sm font-bold text-green-600">
+                                    🎁 Belohnung: {questData.xpReward} XP
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            {queueCount > 1 && (
+                              <div className="mt-3 text-xs text-stone-500 text-center">
+                                Weitere Quest wartet... ({queueCount - 1})
                               </div>
                             )}
                           </div>
+                        </div>
 
-                          {queueCount > 1 && (
-                            <div className="mt-3 text-xs text-stone-500 text-center">
-                              Weitere Quest wartet... ({queueCount - 1})
-                            </div>
-                          )}
+                        {/* Person/Charakter Bild - unten rechts */}
+                        <div className="absolute bottom-0 right-0 w-40 h-40 md:w-48 md:h-48">
+                          <img
+                            src={characterImage}
+                            alt="Quest Giver"
+                            className="w-full h-full object-contain drop-shadow-2xl"
+                            onError={(e) => {
+                              e.target.src = DEFAULT_IMAGE;
+                            }}
+                          />
                         </div>
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         {/* Technische Hinweise */}

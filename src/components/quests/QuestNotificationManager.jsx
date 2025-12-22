@@ -115,31 +115,22 @@ export default function QuestNotificationManager({ user }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/40 z-[100] flex items-end md:items-center justify-center md:justify-end p-4"
+        className="fixed inset-0 bg-black/40 z-[100] flex items-start justify-start p-6"
         onClick={handleClose}
       >
         <motion.div
-          initial={{ x: 100, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          exit={{ x: 100, opacity: 0 }}
+          initial={{ y: -100, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -100, opacity: 0 }}
           transition={{ type: "spring", damping: 20 }}
-          className="relative max-w-md w-full md:mr-8 mb-4"
+          className="relative w-full max-w-md"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Person/Charakter Bild */}
-          <div className="absolute bottom-0 left-4 md:left-0 w-32 h-32 md:w-40 md:h-40 z-10">
-            <img
-              src={user?.quest_giver_image || DEFAULT_QUEST_GIVER_IMAGE}
-              alt="Quest Giver"
-              className="w-full h-full object-contain drop-shadow-2xl"
-            />
-          </div>
-
           {/* Sprechblase */}
-          <div className="ml-24 md:ml-36 bg-white rounded-2xl shadow-2xl border-4 border-stone-300 relative">
-            {/* Sprechblasen-Spitze */}
-            <div className="absolute left-0 bottom-8 w-0 h-0 border-t-[20px] border-t-transparent border-b-[20px] border-b-transparent border-r-[30px] border-r-white -ml-[26px]" />
-            <div className="absolute left-0 bottom-8 w-0 h-0 border-t-[24px] border-t-transparent border-b-[24px] border-b-transparent border-r-[34px] border-r-stone-300 -ml-[34px]" />
+          <div className="bg-white rounded-2xl shadow-2xl border-4 border-stone-300 relative mb-4">
+            {/* Sprechblasen-Spitze nach unten rechts */}
+            <div className="absolute right-8 -bottom-6 w-0 h-0 border-l-[20px] border-l-transparent border-r-[20px] border-r-transparent border-t-[30px] border-t-white" />
+            <div className="absolute right-8 -bottom-8 w-0 h-0 border-l-[24px] border-l-transparent border-r-[24px] border-r-transparent border-t-[34px] border-t-stone-300" />
 
             {/* Schließen Button */}
             <button
@@ -185,6 +176,15 @@ export default function QuestNotificationManager({ user }) {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Person/Charakter Bild - unten rechts */}
+          <div className="absolute bottom-0 right-0 w-40 h-40 md:w-48 md:h-48">
+            <img
+              src={user?.quest_giver_image || DEFAULT_QUEST_GIVER_IMAGE}
+              alt="Quest Giver"
+              className="w-full h-full object-contain drop-shadow-2xl"
+            />
           </div>
         </motion.div>
       </motion.div>
