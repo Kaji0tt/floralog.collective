@@ -156,14 +156,6 @@ export default function QuestNotificationManager({ user }) {
                 📋 {quest.requirement}
               </p>
             )}
-            
-            {quest.xp_reward && (
-              <div className="mt-4 pt-4 border-t-2 border-amber-300">
-                <span className="text-base font-bold text-green-600">
-                  🎁 Belohnung: {quest.xp_reward} XP
-                </span>
-              </div>
-            )}
 
             {notificationQueue.length > 1 && (
               <div className="mt-4 text-sm text-stone-500 text-center bg-amber-100 py-2 rounded-lg">
@@ -173,11 +165,11 @@ export default function QuestNotificationManager({ user }) {
           </div>
 
           {/* Person/Charakter Bild - unten rechts */}
-          <div className="absolute bottom-0 right-0 w-40 h-40 md:w-48 md:h-48">
+          <div className="fixed bottom-0 right-0 w-64 h-64">
             <img
               src={user?.quest_giver_image || DEFAULT_QUEST_GIVER_IMAGE}
               alt="Quest Giver"
-              className="w-full h-full object-contain drop-shadow-2xl"
+              className="absolute bottom-0 right-0 w-full h-full object-contain object-bottom-right drop-shadow-2xl"
             />
           </div>
         </motion.div>
