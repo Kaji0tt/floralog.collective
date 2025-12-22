@@ -602,7 +602,7 @@ export default function Home() {
                     {user.avatar_url ? (
                       <img src={user.avatar_url} alt="Profil" className="w-full h-full object-cover" />
                     ) : (
-                      <img src={LOGO_URL} alt="PlantDex" className="w-14 h-14 object-cover" />
+                      <img src={LOGO_URL} alt="PlantDex" className="w-14 h-14 object-contain" />
                     )}
                   </div>
                   
@@ -972,7 +972,7 @@ export default function Home() {
                   <img
                     src={LOGO_URL}
                     alt="Quest Giver"
-                    className="absolute bottom-0 right-0 w-full h-full object-contain object-bottom-right drop-shadow-2xl"
+                    className="absolute bottom-0 right-0 w-full h-full object-cover object-bottom-right drop-shadow-2xl"
                   />
                 </div>
               </motion.div>
