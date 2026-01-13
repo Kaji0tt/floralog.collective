@@ -24,13 +24,13 @@ import MigrateDiscoveries from './pages/MigrateDiscoveries';
 import MigratePlantGenus from './pages/MigratePlantGenus';
 import PlantDetail from './pages/PlantDetail';
 import Profile from './pages/Profile';
+import QuestNotificationTemplate from './pages/QuestNotificationTemplate';
 import Quests from './pages/Quests';
 import ResetAccount from './pages/ResetAccount';
 import ResetToLevel5 from './pages/ResetToLevel5';
 import Scanner from './pages/Scanner';
 import ViewSharedScan from './pages/ViewSharedScan';
 import XPMigration from './pages/XPMigration';
-import QuestNotificationTemplate from './pages/QuestNotificationTemplate';
 import __Layout from './Layout.jsx';
 
 
@@ -61,13 +61,13 @@ export const PAGES = {
     "MigratePlantGenus": MigratePlantGenus,
     "PlantDetail": PlantDetail,
     "Profile": Profile,
+    "QuestNotificationTemplate": QuestNotificationTemplate,
     "Quests": Quests,
     "ResetAccount": ResetAccount,
     "ResetToLevel5": ResetToLevel5,
     "Scanner": Scanner,
     "ViewSharedScan": ViewSharedScan,
     "XPMigration": XPMigration,
-    "QuestNotificationTemplate": QuestNotificationTemplate,
 }
 
 export const pagesConfig = {

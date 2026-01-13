@@ -543,11 +543,9 @@ export default function Quests() {
                 </h3>
               </div>
             )}
-          </TabsContent>
+            </TabsContent>
 
-          <MobileBackButton />
-
-          {/* Team-Aufgaben Tab */}
+            {/* Team-Aufgaben Tab */}
           <TabsContent value="team" className="pt-24 px-4 pb-4">
             <div className="text-center py-20">
               <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 max-w-md mx-auto border border-stone-200 shadow-lg">
@@ -556,11 +554,9 @@ export default function Quests() {
                 <p className="text-stone-600">Bald verfügbar! Hier kannst du gemeinsam mit deinen Freunden Aufgaben lösen.</p>
               </div>
             </div>
-          </TabsContent>
+            </TabsContent>
 
-          <MobileBackButton />
-
-          {/* Statistiken Tab */}
+            {/* Statistiken Tab */}
           <TabsContent value="stats" className="pt-14 px-4 pb-4">
             <div className="max-w-4xl mx-auto">
               {/* Scan-Verlauf der letzten 7 Tage */}
@@ -787,11 +783,11 @@ export default function Quests() {
                 </CardContent>
               </Card>
               </div>
-            </div>
-          </TabsContent>
+              </div>
+              </TabsContent>
+              </Tabs>
 
-          <MobileBackButton />
-        </Tabs>
+        <MobileBackButton />
 
         {/* Vergrößerte Ansicht Modal */}
         {selectedDiscovery && (
