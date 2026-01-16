@@ -374,8 +374,6 @@ export default function Quests() {
             </div>
           </div>
 
-          <MobileBackButton />
-
           {/* Wöchentliche Community Challenge */}
           <TabsContent value="weekly" className="pt-24 px-4 pb-4">
             {currentWeeklyQuest ? (
