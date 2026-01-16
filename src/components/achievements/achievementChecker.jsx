@@ -110,7 +110,7 @@ export async function checkAndUnlockAchievements(user) {
       if (achievement) unlockedAchievements.push(achievement);
     }
 
-    // 8. Pionier - 10 neue Pflanzen zum globalen PlantDex hinzugefügt
+    // 8. Pionier - 10 neue Pflanzen zum globalen Floralog hinzugefügt
     if (newPlantsAddedToGlobalDex >= 10 && !hasAchievement("Pionier")) {
       const achievement = await unlockAchievement("Pionier");
       if (achievement) unlockedAchievements.push(achievement);
@@ -146,9 +146,9 @@ export async function checkAndUnlockAchievements(user) {
       }
     }
 
-    // 12. PlantDex Meister - Alle Pflanzen entdeckt
-    if (plants.length > 0 && userDiscoveredPlantObjects.length >= plants.length && !hasAchievement("PlantDex Meister")) {
-      const achievement = await unlockAchievement("PlantDex Meister");
+    // 12. Floralog Meister - Alle Pflanzen entdeckt
+    if (plants.length > 0 && userDiscoveredPlantObjects.length >= plants.length && !hasAchievement("Floralog Meister")) {
+      const achievement = await unlockAchievement("Floralog Meister");
       if (achievement) unlockedAchievements.push(achievement);
     }
 

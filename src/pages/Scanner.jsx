@@ -779,7 +779,7 @@ export default function Scanner() {
         alert("🎁 Hintergrund 'Colors' freigeschaltet!");
       }
 
-      // Vibration: 3x kurz für neuen PlantDex-Eintrag
+      // Vibration: 3x kurz für neuen Floralog-Eintrag
       if (navigator.vibrate) {
         navigator.vibrate([200, 100, 200, 100, 200]);
       }
@@ -788,7 +788,7 @@ export default function Scanner() {
         ...newPlant,
         discovered: false,
         aiData: plantData,
-        isNewToPlantDex: true
+        isNewToFloralog: true
       });
       setScanning(false);
     } catch (error) {

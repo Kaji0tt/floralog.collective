@@ -602,7 +602,7 @@ export default function Home() {
                     {user.avatar_url ? (
                       <img src={user.avatar_url} alt="Profil" className="w-full h-full object-cover" />
                     ) : (
-                      <img src={LOGO_URL} alt="PlantDex" className="w-14 h-14 object-contain" />
+                      <img src={LOGO_URL} alt="Floralog" className="w-14 h-14 object-contain" />
                     )}
                   </div>
                   
@@ -955,7 +955,7 @@ export default function Home() {
                   <p className="text-base text-stone-700 leading-relaxed mb-3">
                     Willkommen, tapferer Sammler! Es ist Zeit, dich auf ein neues Abenteuer zu begeben. 
                     Die Natur ruft nach dir und wartet darauf, von dir entdeckt zu werden. 
-                    Sammle die Schätze der Flora und werde zum Meister des PlantDex!
+                    Sammle die Schätze der Flora und werde zum Meister des Floralog!
                   </p>
                   
                   <p className="text-sm text-stone-600 mb-3 italic bg-amber-100 p-3 rounded-lg border border-amber-200">

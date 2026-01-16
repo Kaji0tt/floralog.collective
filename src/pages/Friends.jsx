@@ -292,13 +292,13 @@ export default function Friends() {
 
 ${user.display_name || user.full_name} möchte PlantDex mit dir teilen!
 
-PlantDex ist eine App zum Entdecken und Sammeln von Pflanzen. Scanne Pflanzen in deiner Umgebung, baue deine Sammlung auf und tausche dich mit Freunden aus!
+Floralog ist eine App zum Entdecken und Sammeln von Pflanzen. Scanne Pflanzen in deiner Umgebung, baue deine Sammlung auf und tausche dich mit Freunden aus!
 
 Starte jetzt und scanne deine erste Pflanze: https://plantdex.base44.app
 
 Viel Spaß beim Entdecken! 🌿
 
-- Dein PlantDex Team`
+- Dein Floralog Team`
       });
     },
     onSuccess: (data, email) => {
