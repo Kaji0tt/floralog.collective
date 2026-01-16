@@ -586,8 +586,6 @@ Viel Spaß beim Entdecken! 🌿
             </div>
           </div>
 
-          <MobileBackButton />
-
           {/* Friends Tab Content */}
           <TabsContent value="friends" className="pt-20 px-4 pb-4">
             {/* Freundschaftsanfragen */}
