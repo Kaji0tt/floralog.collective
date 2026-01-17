@@ -559,14 +559,14 @@ Viel Spaß beim Entdecken! 🌿
           </div>
 
           {/* Friends Tab Content */}
-          <TabsContent value="friends" className="pt-20 px-4 pb-4">
+          <TabsContent value="friends" className="pt-14 px-2 pb-4">
             {/* Freundschaftsanfragen */}
             {pendingRequests.length > 0 &&
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="mb-4">
+              className="mb-2">
 
               <Card className="border-2 border-amber-200 shadow-lg bg-white">
                 <CardHeader className="border-b border-amber-100 bg-amber-50 p-4">
@@ -642,7 +642,7 @@ Viel Spaß beim Entdecken! 🌿
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3, duration: 0.5 }}
-              className="space-y-3">
+              className="space-y-2">
 
               {friends.length === 0 ?
               <div className="text-center py-12">
@@ -668,7 +668,7 @@ Viel Spaß beim Entdecken! 🌿
                     transition={{ delay: index * 0.05 }}>
 
                       <Card className="border shadow-sm hover:border-purple-300 hover:shadow-md transition-all bg-white group rounded-lg">
-                        <CardContent className="p-2.5">
+                        <CardContent className="p-2">
                           <button
                           onClick={() => navigate(createPageUrl(`FriendProfile?email=${friendData.email}`))}
                           className="flex items-start gap-2 w-full text-left min-w-0">
@@ -747,7 +747,7 @@ Viel Spaß beim Entdecken! 🌿
           </TabsContent>
 
           {/* Gifts Tab Content */}
-          <TabsContent value="gifts" className="pt-14 px-4 pb-4">
+          <TabsContent value="gifts" className="pt-14 px-2 pb-4">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
