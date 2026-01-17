@@ -724,8 +724,6 @@ export default function Map() {
             </div>
           </TabsContent>
 
-          <MobileBackButton />
-
           {/* Lokal Tab */}
           <TabsContent value="local" className="pt-14 px-4 pb-4">
             {!userLocation ? (
