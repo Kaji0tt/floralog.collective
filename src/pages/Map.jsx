@@ -819,8 +819,6 @@ export default function Map() {
             )}
           </TabsContent>
 
-          <MobileBackButton />
-
           {/* Sichtungen Tab */}
           <TabsContent value="sightings" className="pt-14 px-4 pb-4">
             <div className="mb-4">
@@ -1006,6 +1004,8 @@ export default function Map() {
           </TabsContent>
         </Tabs>
       </div>
+      
+      <MobileBackButton />
     </div>
   );
 }
