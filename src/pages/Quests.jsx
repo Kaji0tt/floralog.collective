@@ -118,7 +118,7 @@ export default function Quests() {
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState("weekly");
   const [averageColor, setAverageColor] = useState(null);
-  const [sortFilter, setSortFilter] = useState("newest");
+
   const [questExpanded, setQuestExpanded] = useState(false);
   const [selectedDiscovery, setSelectedDiscovery] = useState(null);
   const [imageIndexes, setImageIndexes] = useState({});
@@ -270,30 +270,9 @@ export default function Quests() {
     return true;
   }) : [];
 
-  // Sortierung anwenden
+  // Sortierung: Immer nach Neuesten
   let sortedDiscoveries = [...weeklyDiscoveries];
-  if (sortFilter === "newest") {
-    sortedDiscoveries.sort((a, b) => new Date(b.created_date || b.discovered_date) - new Date(a.created_date || a.discovered_date));
-  } else if (sortFilter === "popular") {
-    sortedDiscoveries.sort((a, b) => {
-      const likesA = scanLikes.filter(like => like.discovery_id === a.id).length;
-      const likesB = scanLikes.filter(like => like.discovery_id === b.id).length;
-      return likesB - likesA;
-    });
-  } else if (sortFilter === "frequent") {
-    // Gruppiere nach User und zähle Scans
-    const userScanCounts = {};
-    weeklyDiscoveries.forEach(d => {
-      const userEmail = d.user || d.created_by;
-      userScanCounts[userEmail] = (userScanCounts[userEmail] || 0) + 1;
-    });
-    
-    sortedDiscoveries.sort((a, b) => {
-      const userA = a.user || a.created_by;
-      const userB = b.user || b.created_by;
-      return userScanCounts[userB] - userScanCounts[userA];
-    });
-  }
+  sortedDiscoveries.sort((a, b) => new Date(b.created_date || b.discovered_date) - new Date(a.created_date || a.discovered_date));
 
   const getLighterColor = (rgbString) => {
     if (!rgbString) return null;
@@ -330,7 +309,7 @@ export default function Quests() {
             <div className="max-w-7xl mx-auto">
               <TabsList className="grid w-full grid-cols-3 bg-white h-12 rounded-none border-0">
                 <TabsTrigger value="weekly" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
-                  🏆 Wöchentlich
+                  🏆 Aufgaben
                 </TabsTrigger>
                 <TabsTrigger value="team" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
                   👥 Team
@@ -340,42 +319,12 @@ export default function Quests() {
                 </TabsTrigger>
               </TabsList>
               
-              {activeTab === "weekly" && (
-                <div className="flex gap-2 p-2 border-t border-stone-200">
-                  <Button
-                    onClick={() => setSortFilter("newest")}
-                    variant={sortFilter === "newest" ? "default" : "outline"}
-                    size="sm"
-                    className={sortFilter === "newest" ? "bg-green-600 hover:bg-green-700 h-8" : "h-8"}
-                  >
-                    <Clock className="w-3 h-3 mr-1" />
-                    Neueste
-                  </Button>
-                  <Button
-                    onClick={() => setSortFilter("popular")}
-                    variant={sortFilter === "popular" ? "default" : "outline"}
-                    size="sm"
-                    className={sortFilter === "popular" ? "bg-green-600 hover:bg-green-700 h-8" : "h-8"}
-                  >
-                    <Heart className="w-3 h-3 mr-1" />
-                    Beliebteste
-                  </Button>
-                  <Button
-                    onClick={() => setSortFilter("frequent")}
-                    variant={sortFilter === "frequent" ? "default" : "outline"}
-                    size="sm"
-                    className={sortFilter === "frequent" ? "bg-green-600 hover:bg-green-700 h-8" : "h-8"}
-                  >
-                    <TrendingUp className="w-3 h-3 mr-1" />
-                    Häufigste
-                  </Button>
-                </div>
-              )}
+
             </div>
           </div>
 
           {/* Wöchentliche Community Challenge */}
-          <TabsContent value="weekly" className="pt-24 px-4 pb-4">
+          <TabsContent value="weekly" className="pt-14 px-4 pb-4">
             {currentWeeklyQuest ? (
               <>
                 {/* Kompakte Quest-Anzeige */}
