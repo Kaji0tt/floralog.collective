@@ -476,8 +476,6 @@ export default function Map() {
             </div>
           </div>
 
-          <MobileBackButton />
-
           {/* Freunde Tab */}
           <TabsContent value="friends" className="pt-12">
             <div className="flex flex-col h-screen">
