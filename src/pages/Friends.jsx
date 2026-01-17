@@ -655,7 +655,7 @@ Viel Spaß beim Entdecken! 🌿
                   </p>
                 </div> :
 
-              <div className="grid gap-3">
+              <div className="grid gap-2">
                 {friends.map((friend, index) => {
                 const friendData = getFriendData(friend);
                 if (!friendData) return null;
