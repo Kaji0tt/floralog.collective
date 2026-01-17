@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { UserPlus, Users, Loader2, Mail, Star, Check, X, Bell, ChevronRight, UserMinus, Clock, Leaf, Trophy, Gift, Share2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { UserPlus, Users, Loader2, Mail, Star, Check, X, Bell, ChevronRight, UserMinus, Clock, Leaf, Trophy, Gift, Share2, Plus } from "lucide-react";
 import { motion } from "framer-motion";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
@@ -61,6 +62,7 @@ export default function Friends() {
   const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
   const [averageColor, setAverageColor] = useState(null);
   const [activeTab, setActiveTab] = useState("friends");
+  const [showAddFriendDialog, setShowAddFriendDialog] = useState(false);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -530,59 +532,29 @@ Viel Spaß beim Entdecken! 🌿
           {/* Tabs Header - Fixed am oberen Bildschirmrand */}
           <div className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200">
             <div className="max-w-4xl mx-auto">
-              <TabsList className="grid w-full grid-cols-2 bg-white h-12 rounded-none border-0">
-                <TabsTrigger value="friends" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
-                  <Users className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                  Meine Freunde ({friends.length})
-                </TabsTrigger>
-                <TabsTrigger value="gifts" className="data-[state=active]:bg-pink-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
-                  <Gift className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                  Meine Geschenke ({sharedScans.length})
-                </TabsTrigger>
-              </TabsList>
-
-              {/* Email Input - nur im Friends Tab */}
-              {activeTab === "friends" && (
-                <div className="p-2 border-t border-stone-200 space-y-2">
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="E-Mail des Freundes"
-                      value={friendEmail}
-                      onChange={(e) => setFriendEmail(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleSendRequest()}
-                      className="border-2 border-stone-200 flex-1 h-9" />
-                    <Button
-                      onClick={handleSendRequest}
-                      disabled={!friendEmail || sendFriendRequestMutation.isPending}
-                      className="bg-green-600 hover:bg-green-700 flex-shrink-0 h-9 px-3"
-                      size="sm">
-                      {sendFriendRequestMutation.isPending ?
-                        <Loader2 className="w-4 h-4 animate-spin" /> :
-                        <UserPlus className="w-4 h-4" />
-                      }
-                    </Button>
-                  </div>
+              <div className="flex items-center justify-between px-2">
+                <TabsList className="flex-1 grid grid-cols-2 bg-white h-12 rounded-none border-0">
+                  <TabsTrigger value="friends" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
+                    <Users className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                    Meine Freunde ({friends.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="gifts" className="data-[state=active]:bg-pink-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
+                    <Gift className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                    Meine Geschenke ({sharedScans.length})
+                  </TabsTrigger>
+                </TabsList>
+                {activeTab === "friends" && (
                   <Button
-                    onClick={() => {
-                      const email = prompt("📧 E-Mail des Freundes eingeben:");
-                      if (email && email.trim()) {
-                        shareAppMutation.mutate(email.trim());
-                      }
-                    }}
-                    disabled={shareAppMutation.isPending}
-                    variant="outline"
-                    className="w-full h-8 text-xs border-blue-300 text-blue-700 hover:bg-blue-50"
-                    size="sm"
+                    onClick={() => setShowAddFriendDialog(true)}
+                    size="icon"
+                    className="bg-green-600 hover:bg-green-700 ml-2 w-10 h-10 rounded-full flex-shrink-0"
                   >
-                    {shareAppMutation.isPending ? (
-                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                    ) : (
-                      <Share2 className="w-3 h-3 mr-1" />
-                    )}
-                    Teile diese App mit einem Freund!
+                    <Plus className="w-5 h-5" />
                   </Button>
-                </div>
-              )}
+                )}
+              </div>
+
+
             </div>
           </div>
 
@@ -1126,7 +1098,78 @@ Viel Spaß beim Entdecken! 🌿
           </motion.div>
         </div>
       </div>
-      </div>
-    </>);
 
-}
+      {/* Add Friend Dialog */}
+      <Dialog open={showAddFriendDialog} onOpenChange={setShowAddFriendDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Freund hinzufügen oder einladen</DialogTitle>
+            <DialogDescription>
+              Wähle eine Option aus
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-stone-900">Freundschaftsanfrage senden</h3>
+              <p className="text-xs text-stone-600">
+                Sende eine Anfrage an jemanden, der bereits die App nutzt
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="E-Mail des Freundes"
+                  value={friendEmail}
+                  onChange={(e) => setFriendEmail(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendRequest()}
+                  className="border-2 border-stone-200 flex-1"
+                />
+                <Button
+                  onClick={() => {
+                    handleSendRequest();
+                    if (!sendFriendRequestMutation.isPending) {
+                      setShowAddFriendDialog(false);
+                    }
+                  }}
+                  disabled={!friendEmail || sendFriendRequestMutation.isPending}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  {sendFriendRequestMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <UserPlus className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <div className="border-t border-stone-200 pt-4">
+              <h3 className="text-sm font-semibold text-stone-900 mb-2">App teilen</h3>
+              <p className="text-xs text-stone-600 mb-3">
+                Lade jemanden ein, der die App noch nicht nutzt
+              </p>
+              <Button
+                onClick={() => {
+                  const email = prompt("📧 E-Mail des Freundes eingeben:");
+                  if (email && email.trim()) {
+                    shareAppMutation.mutate(email.trim());
+                    setShowAddFriendDialog(false);
+                  }
+                }}
+                disabled={shareAppMutation.isPending}
+                variant="outline"
+                className="w-full border-2 border-blue-300 text-blue-700 hover:bg-blue-50"
+              >
+                {shareAppMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Share2 className="w-4 h-4 mr-2" />
+                )}
+                Einladung senden
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      </div>
+      </>);
+
+      }
