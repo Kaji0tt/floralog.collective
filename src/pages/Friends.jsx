@@ -671,7 +671,7 @@ Viel Spaß beim Entdecken! 🌿
                         <CardContent className="p-3">
                           <button
                           onClick={() => navigate(createPageUrl(`FriendProfile?email=${friendData.email}`))}
-                          className="flex items-start gap-2 w-full text-left">
+                          className="flex items-start gap-2 w-full text-left min-w-0">
 
                             <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-base shadow-md overflow-hidden flex-shrink-0">
                               {friendData.avatar_url ?
@@ -682,12 +682,12 @@ Viel Spaß beim Entdecken! 🌿
                             </div>
                             <div className="flex-1 min-w-0">
                               {/* Obere Zeile: Name + Icons */}
-                              <div className="flex items-center justify-between gap-1">
+                              <div className="flex items-center justify-between gap-1 min-w-0">
                                 <div className="font-bold text-stone-900 group-hover:text-green-600 transition-colors truncate text-sm flex-1 min-w-0">
                                   {friendData.name}
                                 </div>
                                 <div className="flex items-center gap-1 flex-shrink-0">
-                                  <ChevronRight className="w-4 h-4 text-stone-400" />
+                                  <ChevronRight className="w-4 h-4 text-stone-400 flex-shrink-0" />
                                   <Button
                                   size="icon"
                                   variant="ghost"
@@ -698,7 +698,7 @@ Viel Spaß beim Entdecken! 🌿
                                     }
                                   }}
                                   disabled={removeFriendMutation.isPending}
-                                  className="text-red-600 hover:bg-red-50 w-6 h-6 p-0">
+                                  className="text-red-600 hover:bg-red-50 w-6 h-6 p-0 flex-shrink-0">
 
                                     <UserMinus className="w-3 h-3" />
                                   </Button>
@@ -707,12 +707,12 @@ Viel Spaß beim Entdecken! 🌿
                               {/* Level */}
                               <div className="text-xs text-stone-600 flex items-center">
                                 <Star className="w-3 h-3 mr-1 text-amber-500 flex-shrink-0" />
-                                <span>Lv.{friendData.level}</span>
+                                <span className="truncate">Lv.{friendData.level}</span>
                               </div>
 
                               {/* Letzte Aktivität */}
                               {friendData.lastActivity &&
-                            <div className="text-xs text-stone-500 flex items-center gap-1 mt-0.5">
+                            <div className="text-xs text-stone-500 flex items-center gap-1 mt-0.5 min-w-0">
                                   {friendData.lastActivity.type === 'discovery' && friendData.lastActivity.plant &&
                               <>
                                       <Leaf className="w-3 h-3 text-green-600 flex-shrink-0" />
@@ -729,7 +729,7 @@ Viel Spaß beim Entdecken! 🌿
                                       </span>
                                     </>
                               }
-                                  <span className="text-stone-400 flex-shrink-0 whitespace-nowrap">
+                                  <span className="text-stone-400 flex-shrink-0 whitespace-nowrap text-[10px]">
                                     · {formatDistanceToNow(new Date(friendData.lastActivity.date), { addSuffix: false, locale: de })}
                                   </span>
                                 </div>
