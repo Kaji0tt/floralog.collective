@@ -58,8 +58,7 @@ export default function Achievements() {
   const [selectedAchievement, setSelectedAchievement] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
   const [activeTab, setActiveTab] = useState("achievements");
-  const [questFilter, setQuestFilter] = useState("all");
-  const [expeditionFilter, setExpeditionFilter] = useState("active");
+  const [questFilter, setQuestFilter] = useState("collections");
 
   useEffect(() => {
     const loadUser = async () => {
@@ -292,12 +291,31 @@ export default function Achievements() {
     ? { ...currentMonthlyQuest, progress: currentMonthlyUserQuest?.progress || 0, type: 'monthly' }
     : null;
 
+  // Sammlungs-Quests filtern
+  const activeCollectionQuests = collectionQuests
+    .filter(quest => {
+      const userQuest = userCollectionQuests.find(ucq => ucq.collection_quest_id === quest.id);
+      return quest.is_active && !userQuest?.completed;
+    })
+    .map(quest => {
+      const userQuest = userCollectionQuests.find(ucq => ucq.collection_quest_id === quest.id);
+      const discoveredPlants = userQuest?.discovered_plants || [];
+      return { 
+        ...quest, 
+        progress: discoveredPlants.length, 
+        required_discoveries: quest.target_plants?.length || 0,
+        type: 'collection' 
+      };
+    });
+
   let activeQuests = [...activeRegularQuests];
   if (activeWeeklyQuest) activeQuests.push(activeWeeklyQuest);
   if (activeMonthlyQuest) activeQuests.push(activeMonthlyQuest);
 
   // Filter anwenden
-  if (questFilter === 'weekly') {
+  if (questFilter === 'collections') {
+    activeQuests = activeCollectionQuests;
+  } else if (questFilter === 'weekly') {
     activeQuests = activeWeeklyQuest ? [activeWeeklyQuest] : [];
   } else if (questFilter === 'monthly') {
     activeQuests = activeMonthlyQuest ? [activeMonthlyQuest] : [];
@@ -323,11 +341,11 @@ export default function Achievements() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200">
             <div className="max-w-7xl mx-auto">
-              <TabsList className="grid w-full grid-cols-3 bg-white h-12 rounded-none border-0">
+              <TabsList className="grid w-full grid-cols-2 bg-white h-12 rounded-none border-0">
                 <TabsTrigger value="achievements" className="data-[state=active]:bg-amber-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
                   <div className="flex items-center gap-1">
                     <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />
-                    <span>{unlockedCount}/{achievements.length}</span>
+                    <span>Erfolge</span>
                     {user.selected_title && (
                       <span className="hidden sm:inline text-[10px] opacity-70">• {user.selected_title}</span>
                     )}
@@ -336,13 +354,7 @@ export default function Achievements() {
                 <TabsTrigger value="quests" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
                   <div className="flex items-center gap-1">
                     <Target className="w-3 h-3 sm:w-4 sm:h-4" />
-                    <span className="hidden sm:inline">Aufgaben</span>
-                  </div>
-                </TabsTrigger>
-                <TabsTrigger value="expeditions" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
-                  <div className="flex items-center gap-1">
-                    <Leaf className="w-3 h-3 sm:w-4 sm:h-4" />
-                    <span className="hidden sm:inline">Expedition</span>
+                    <span>Aufgaben</span>
                   </div>
                 </TabsTrigger>
               </TabsList>
@@ -350,12 +362,12 @@ export default function Achievements() {
               {activeTab === "quests" && (
                 <div className="flex gap-1 p-1 border-t border-stone-200 bg-stone-50">
                   <Button
-                    onClick={() => setQuestFilter("all")}
-                    variant={questFilter === "all" ? "default" : "ghost"}
+                    onClick={() => setQuestFilter("collections")}
+                    variant={questFilter === "collections" ? "default" : "ghost"}
                     size="sm"
-                    className={`flex-1 h-7 text-xs ${questFilter === "all" ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                    className={`flex-1 h-7 text-xs ${questFilter === "collections" ? "bg-blue-600 hover:bg-blue-700" : ""}`}
                   >
-                    Alle
+                    Sammlungen
                   </Button>
                   <Button
                     onClick={() => setQuestFilter("weekly")}
@@ -484,6 +496,7 @@ export default function Achievements() {
                       <Card className={`border shadow-sm bg-white/90 backdrop-blur-md hover:shadow-md transition-all ${
                         quest.type === 'weekly' ? 'border-emerald-400 bg-gradient-to-br from-emerald-50/50 to-white' :
                         quest.type === 'monthly' ? 'border-purple-400 bg-gradient-to-br from-purple-50/50 to-white' :
+                        quest.type === 'collection' ? 'border-indigo-400 bg-gradient-to-br from-indigo-50/50 to-white' :
                         'border-blue-200'
                       }`}>
                         <CardContent className="p-3">
@@ -491,9 +504,14 @@ export default function Achievements() {
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                               quest.type === 'weekly' ? 'bg-gradient-to-br from-emerald-500 to-emerald-600' :
                               quest.type === 'monthly' ? 'bg-gradient-to-br from-purple-500 to-purple-600' :
+                              quest.type === 'collection' ? 'bg-gradient-to-br from-indigo-500 to-indigo-600' :
                               'bg-gradient-to-br from-blue-500 to-blue-600'
                             }`}>
-                              <Target className="w-4 h-4 text-white" />
+                              {quest.type === 'collection' ? (
+                                <span className="text-sm">{quest.icon_emoji || '🗺️'}</span>
+                              ) : (
+                                <Target className="w-4 h-4 text-white" />
+                              )}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1 mb-1 flex-wrap">
@@ -505,6 +523,11 @@ export default function Achievements() {
                                 {quest.type === 'monthly' && (
                                   <Badge className="bg-purple-600 text-white text-[10px] px-1 py-0">
                                     📆 Monatlich
+                                  </Badge>
+                                )}
+                                {quest.type === 'collection' && (
+                                  <Badge className="bg-indigo-600 text-white text-[10px] px-1 py-0">
+                                    🗺️ Sammlung
                                   </Badge>
                                 )}
                                 {quest.category && quest.category !== "Alle" && (
@@ -560,155 +583,6 @@ export default function Achievements() {
                     </h3>
                     <p className="text-stone-600">
                       Alle Aufgaben abgeschlossen oder noch nicht freigeschaltet!
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-
-          {/* Expeditionen Tab */}
-          <TabsContent value="expeditions" className="pt-20 px-4 pb-4">
-            <div className="max-w-6xl mx-auto">
-              {/* Filter */}
-              <div className="flex gap-1 p-1 mb-4 border border-stone-200 bg-white rounded-lg">
-                <Button
-                  onClick={() => setExpeditionFilter("active")}
-                  variant={expeditionFilter === "active" ? "default" : "ghost"}
-                  size="sm"
-                  className={`flex-1 h-7 text-xs ${expeditionFilter === "active" ? "bg-purple-600 hover:bg-purple-700" : ""}`}
-                >
-                  Aktiv
-                </Button>
-                <Button
-                  onClick={() => setExpeditionFilter("completed")}
-                  variant={expeditionFilter === "completed" ? "default" : "ghost"}
-                  size="sm"
-                  className={`flex-1 h-7 text-xs ${expeditionFilter === "completed" ? "bg-purple-600 hover:bg-purple-700" : ""}`}
-                >
-                  Abgeschlossen
-                </Button>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-4">
-                {collectionQuests
-                  .filter(quest => {
-                    const userQuest = userCollectionQuests.find(ucq => ucq.collection_quest_id === quest.id);
-                    if (expeditionFilter === "active") {
-                      return quest.is_active && !userQuest?.completed;
-                    } else {
-                      return userQuest?.completed;
-                    }
-                  })
-                  .map((quest, index) => {
-                    const userQuest = userCollectionQuests.find(ucq => ucq.collection_quest_id === quest.id);
-                    const discoveredPlants = userQuest?.discovered_plants || [];
-                    const totalPlants = quest.target_plants?.length || 0;
-                    const progressPercentage = totalPlants > 0 ? (discoveredPlants.length / totalPlants) * 100 : 0;
-
-                    return (
-                      <motion.div
-                        key={quest.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                      >
-                        <Card className={`border shadow-sm bg-white/90 backdrop-blur-md hover:shadow-md transition-all ${
-                          userQuest?.completed ? 'border-green-400 bg-gradient-to-br from-green-50/50 to-white' : 'border-purple-400 bg-gradient-to-br from-purple-50/50 to-white'
-                        }`}>
-                          <CardContent className="p-3">
-                            <div className="flex items-start gap-2">
-                              <div className={`text-3xl flex-shrink-0 ${userQuest?.completed ? '' : ''}`}>
-                                {quest.icon_emoji || '🗺️'}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1 mb-1 flex-wrap">
-                                  <Badge className={`text-[10px] px-1 py-0 ${
-                                    quest.difficulty === 'Leicht' ? 'bg-green-600' :
-                                    quest.difficulty === 'Mittel' ? 'bg-yellow-600' :
-                                    quest.difficulty === 'Schwer' ? 'bg-orange-600' :
-                                    'bg-red-600'
-                                  } text-white`}>
-                                    {quest.difficulty}
-                                  </Badge>
-                                  {userQuest?.completed && (
-                                    <Badge className="bg-green-600 text-white text-[10px] px-1 py-0">
-                                      ✓ Abgeschlossen
-                                    </Badge>
-                                  )}
-                                </div>
-                                <h3 className="text-sm font-bold text-stone-900 mb-1">
-                                  {quest.title}
-                                </h3>
-                                <p className="text-xs text-stone-600 mb-2">
-                                  {quest.description}
-                                </p>
-                                
-                                {/* Zielpflanzen Liste */}
-                                <div className="mb-2 bg-stone-50 rounded-lg p-2">
-                                  <p className="text-[10px] font-semibold text-stone-700 mb-1">Zielpflanzen:</p>
-                                  <div className="flex flex-wrap gap-1">
-                                    {quest.target_plants?.map((plantId, idx) => {
-                                      const plant = plants.find(p => p.id === plantId || p.species_name === plantId);
-                                      const isDiscovered = discoveredPlants.includes(plantId);
-                                      return (
-                                        <Badge 
-                                          key={idx} 
-                                          variant="outline" 
-                                          className={`text-[10px] px-1 py-0 ${
-                                            isDiscovered ? 'bg-green-100 text-green-700 border-green-400' : 'text-stone-600'
-                                          }`}
-                                        >
-                                          {isDiscovered && '✓ '}
-                                          {plant?.species_name || plantId}
-                                        </Badge>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-
-                                {/* Fortschritt */}
-                                <div className="space-y-1 mb-2">
-                                  <div className="flex items-center justify-between text-xs">
-                                    <span className="text-stone-500">Fortschritt</span>
-                                    <span className="font-bold text-purple-700">
-                                      {discoveredPlants.length} / {totalPlants}
-                                    </span>
-                                  </div>
-                                  <Progress value={progressPercentage} className="h-1.5" />
-                                </div>
-
-                                <div className="flex items-center justify-between pt-1 border-t border-stone-200">
-                                  <span className="text-[10px] text-stone-500">Belohnung</span>
-                                  <Badge className="bg-gradient-to-r from-amber-500 to-amber-600 text-white font-bold text-[10px] px-1.5 py-0">
-                                    +{quest.xp_reward} XP
-                                  </Badge>
-                                </div>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </motion.div>
-                    );
-                  })}
-              </div>
-
-              {collectionQuests.filter(quest => {
-                const userQuest = userCollectionQuests.find(ucq => ucq.collection_quest_id === quest.id);
-                if (expeditionFilter === "active") {
-                  return quest.is_active && !userQuest?.completed;
-                } else {
-                  return userQuest?.completed;
-                }
-              }).length === 0 && (
-                <div className="text-center py-20">
-                  <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 max-w-md mx-auto border border-stone-200 shadow-lg">
-                    <Leaf className="w-16 h-16 text-stone-400 mx-auto mb-4" />
-                    <h3 className="text-xl font-bold text-stone-900 mb-2">
-                      {expeditionFilter === "active" ? "Keine aktiven Expeditionen" : "Keine abgeschlossenen Expeditionen"}
-                    </h3>
-                    <p className="text-stone-600">
-                      {expeditionFilter === "active" ? "Zurzeit sind keine Expeditionen verfügbar." : "Du hast noch keine Expedition abgeschlossen."}
                     </p>
                   </div>
                 </div>
