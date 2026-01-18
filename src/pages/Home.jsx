@@ -89,6 +89,34 @@ export default function Home() {
     queryFn: () => base44.entities.WeeklyQuest.list('quest_number'),
   });
 
+  const { data: userWeeklyQuests = [] } = useQuery({
+    queryKey: ['userWeeklyQuests', user?.email],
+    queryFn: () => base44.entities.UserWeeklyQuest.filter({ created_by: user?.email }),
+    enabled: !!user?.email
+  });
+
+  const { data: monthlyQuests = [] } = useQuery({
+    queryKey: ['monthlyQuests'],
+    queryFn: () => base44.entities.MonthlyQuest.list('quest_number')
+  });
+
+  const { data: userMonthlyQuests = [] } = useQuery({
+    queryKey: ['userMonthlyQuests', user?.email],
+    queryFn: () => base44.entities.UserMonthlyQuest.filter({ created_by: user?.email }),
+    enabled: !!user?.email
+  });
+
+  const { data: collectionQuests = [] } = useQuery({
+    queryKey: ['collectionQuests'],
+    queryFn: () => base44.entities.CollectionQuest.list()
+  });
+
+  const { data: userCollectionQuests = [] } = useQuery({
+    queryKey: ['userCollectionQuests', user?.email],
+    queryFn: () => base44.entities.UserCollectionQuest.filter({ created_by: user?.email }),
+    enabled: !!user?.email
+  });
+
   const { data: allDiscoveries = [] } = useQuery({
     queryKey: ['allDiscoveries'],
     queryFn: () => base44.entities.UserPlantDiscovery.list('-created_date'),
@@ -312,6 +340,12 @@ export default function Home() {
     return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
   };
 
+  const getMonthString = (date = new Date()) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+  };
+
   const getCurrentWeeklyQuest = () => {
     if (!weeklyQuests || weeklyQuests.length === 0) return null;
     const sortedQuests = [...weeklyQuests].sort((a, b) => a.quest_number - b.quest_number);
@@ -321,7 +355,73 @@ export default function Home() {
     return sortedQuests[index];
   };
 
+  const getCurrentMonthlyQuest = () => {
+    if (!monthlyQuests || monthlyQuests.length === 0) return null;
+    const sortedQuests = [...monthlyQuests].sort((a, b) => a.quest_number - b.quest_number);
+    const month = new Date().getMonth() + 1;
+    const index = (month - 1) % sortedQuests.length;
+    return sortedQuests[index];
+  };
+
   const currentWeeklyQuest = getCurrentWeeklyQuest();
+  const currentMonthlyQuest = getCurrentMonthlyQuest();
+
+  // Quest Status berechnen
+  const activeRegularQuests = quests
+    .filter(q => {
+      const userQuest = userQuests.find(uq => uq.quest_id === q.id);
+      return userQuest?.accepted && !userQuest?.redeemed;
+    })
+    .map(q => {
+      const userQuest = userQuests.find(uq => uq.quest_id === q.id);
+      return { ...q, isCompleted: userQuest?.completed || false };
+    });
+
+  const availableRegularQuests = quests.filter(q => {
+    const userQuest = userQuests.find(uq => uq.quest_id === q.id);
+    const isUnlocked = (q.unlocked_at_level || 1) <= (user?.level || 1);
+    let prerequisiteMet = true;
+    if (q.prerequisite_quest_number) {
+      const prerequisiteQuest = quests.find(pq => pq.quest_number === q.prerequisite_quest_number);
+      if (prerequisiteQuest) {
+        const prerequisiteUserQuest = userQuests.find(uq => uq.quest_id === prerequisiteQuest.id);
+        prerequisiteMet = prerequisiteUserQuest?.redeemed || false;
+      }
+    }
+    return !userQuest?.accepted && isUnlocked && prerequisiteMet;
+  });
+
+  const currentWeeklyUserQuest = currentWeeklyQuest ? 
+    userWeeklyQuests.find(uwq => uwq.weekly_quest_id === currentWeeklyQuest.id) : null;
+  const activeWeeklyQuest = currentWeeklyQuest && currentWeeklyUserQuest?.accepted && !currentWeeklyUserQuest?.redeemed ?
+    { ...currentWeeklyQuest, isCompleted: currentWeeklyUserQuest.completed || false } : null;
+  const availableWeeklyQuest = currentWeeklyQuest && !currentWeeklyUserQuest?.accepted;
+
+  const currentMonthlyUserQuest = currentMonthlyQuest ?
+    userMonthlyQuests.find(umq => umq.monthly_quest_id === currentMonthlyQuest.id) : null;
+  const activeMonthlyQuest = currentMonthlyQuest && currentMonthlyUserQuest?.accepted && !currentMonthlyUserQuest?.redeemed ?
+    { ...currentMonthlyQuest, isCompleted: currentMonthlyUserQuest.completed || false } : null;
+  const availableMonthlyQuest = currentMonthlyQuest && !currentMonthlyUserQuest?.accepted;
+
+  const activeCollectionQuests = collectionQuests
+    .filter(quest => {
+      const userQuest = userCollectionQuests.find(ucq => ucq.collection_quest_id === quest.id);
+      return quest.is_active && userQuest?.accepted && !userQuest?.redeemed;
+    })
+    .map(quest => {
+      const userQuest = userCollectionQuests.find(ucq => ucq.collection_quest_id === quest.id);
+      return { ...quest, isCompleted: userQuest?.completed || false };
+    });
+
+  const availableCollectionQuests = collectionQuests.filter(quest => {
+    const userQuest = userCollectionQuests.find(ucq => ucq.collection_quest_id === quest.id);
+    return quest.is_active && !userQuest?.accepted;
+  });
+
+  const hasRedeemableQuests = [...activeRegularQuests, ...activeCollectionQuests].some(q => q.isCompleted) ||
+    (activeWeeklyQuest?.isCompleted) || (activeMonthlyQuest?.isCompleted);
+  const hasNewQuests = availableRegularQuests.length > 0 || availableCollectionQuests.length > 0 ||
+    availableWeeklyQuest || availableMonthlyQuest;
 
   const weeklyDiscoveriesCount = currentWeeklyQuest ? allDiscoveries.filter(d => {
     const discoveryUser = allUsers.find(u => u.user_email === d.user || u.user_email === d.created_by);
@@ -370,7 +470,10 @@ export default function Home() {
       textColor: "text-amber-700",
       bgColor: "bg-amber-50",
       borderColor: "border-amber-200",
-      onClick: () => navigate(createPageUrl("Achievements"))
+      onClick: () => navigate(createPageUrl("Achievements")),
+      hasNotification: hasRedeemableQuests || hasNewQuests,
+      notificationRed: hasNewQuests,
+      notificationGreen: hasRedeemableQuests
     },
     {
       icon: Users,
@@ -715,7 +818,7 @@ export default function Home() {
                     transition={{ delay: 0.1 + index * 0.05 }}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="bg-white/60 backdrop-blur-md rounded-xl p-2 short-screen:p-1.5 md:p-4 hover:shadow-lg transition-all duration-300 group"
+                    className="bg-white/60 backdrop-blur-md rounded-xl p-2 short-screen:p-1.5 md:p-4 hover:shadow-lg transition-all duration-300 group relative"
                     style={{
                       borderWidth: '2px',
                       borderStyle: 'solid',
@@ -723,8 +826,28 @@ export default function Home() {
                     }}
                   >
                     <div className="flex flex-col items-center gap-1 short-screen:gap-0.5 md:gap-2">
-                      <div className={`w-8 h-8 short-screen:w-7 short-screen:h-7 md:w-12 md:h-12 bg-gradient-to-br ${stat.color} rounded-full flex items-center justify-center shadow-md group-hover:scale-110 transition-transform`}>
+                      <div className={`w-8 h-8 short-screen:w-7 short-screen:h-7 md:w-12 md:h-12 bg-gradient-to-br ${stat.color} rounded-full flex items-center justify-center shadow-md group-hover:scale-110 transition-transform relative`}>
                         <stat.icon className="w-4 h-4 short-screen:w-3.5 short-screen:h-3.5 md:w-6 md:h-6 text-white" />
+                        {stat.hasNotification && (
+                          <div className="absolute -top-1 -right-1 flex gap-0.5">
+                            {stat.notificationRed && (
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: [0, 1.2, 1] }}
+                                transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
+                                className="w-3 h-3 bg-red-500 rounded-full border-2 border-white"
+                              />
+                            )}
+                            {stat.notificationGreen && (
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: [0, 1.2, 1] }}
+                                transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2, delay: 0.25 }}
+                                className="w-3 h-3 bg-green-500 rounded-full border-2 border-white"
+                              />
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="text-xl short-screen:hidden md:text-3xl font-bold text-stone-700">{stat.value}</div>
                       <div className="text-xs font-semibold text-stone-600 hidden sm:block short-screen:hidden">{stat.label}</div>

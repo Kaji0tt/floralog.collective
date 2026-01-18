@@ -540,25 +540,83 @@ export default function Achievements() {
                     onClick={() => setQuestFilter("exploration")}
                     variant={questFilter === "exploration" ? "default" : "ghost"}
                     size="sm"
-                    className={`flex-1 h-7 text-xs ${questFilter === "exploration" ? "bg-blue-600 hover:bg-blue-700" : ""}`}>
-
+                    className={`flex-1 h-7 text-xs relative ${questFilter === "exploration" ? "bg-blue-600 hover:bg-blue-700" : ""}`}>
                     Erkundung
+                    {(availableRegularQuests.length > 0 || availableCollectionQuests.length > 0 || 
+                      activeRegularQuests.some(q => q.isCompleted) || activeCollectionQuests.some(q => q.isCompleted)) && (
+                      <div className="absolute -top-1 -right-1 flex gap-0.5">
+                        {(availableRegularQuests.length > 0 || availableCollectionQuests.length > 0) && (
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: [0, 1.2, 1] }}
+                            transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
+                            className="w-2 h-2 bg-red-500 rounded-full border border-white"
+                          />
+                        )}
+                        {(activeRegularQuests.some(q => q.isCompleted) || activeCollectionQuests.some(q => q.isCompleted)) && (
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: [0, 1.2, 1] }}
+                            transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2, delay: 0.25 }}
+                            className="w-2 h-2 bg-green-500 rounded-full border border-white"
+                          />
+                        )}
+                      </div>
+                    )}
                   </Button>
                   <Button
                     onClick={() => setQuestFilter("weekly")}
                     variant={questFilter === "weekly" ? "default" : "ghost"}
                     size="sm"
-                    className={`flex-1 h-7 text-xs ${questFilter === "weekly" ? "bg-blue-600 hover:bg-blue-700" : ""}`}>
-
+                    className={`flex-1 h-7 text-xs relative ${questFilter === "weekly" ? "bg-blue-600 hover:bg-blue-700" : ""}`}>
                     Wöchentlich
+                    {(availableWeeklyQuest || activeWeeklyQuest?.isCompleted) && (
+                      <div className="absolute -top-1 -right-1 flex gap-0.5">
+                        {availableWeeklyQuest && (
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: [0, 1.2, 1] }}
+                            transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
+                            className="w-2 h-2 bg-red-500 rounded-full border border-white"
+                          />
+                        )}
+                        {activeWeeklyQuest?.isCompleted && (
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: [0, 1.2, 1] }}
+                            transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2, delay: 0.25 }}
+                            className="w-2 h-2 bg-green-500 rounded-full border border-white"
+                          />
+                        )}
+                      </div>
+                    )}
                   </Button>
                   <Button
                     onClick={() => setQuestFilter("monthly")}
                     variant={questFilter === "monthly" ? "default" : "ghost"}
                     size="sm"
-                    className={`flex-1 h-7 text-xs ${questFilter === "monthly" ? "bg-blue-600 hover:bg-blue-700" : ""}`}>
-
+                    className={`flex-1 h-7 text-xs relative ${questFilter === "monthly" ? "bg-blue-600 hover:bg-blue-700" : ""}`}>
                     Monatlich
+                    {(availableMonthlyQuest || activeMonthlyQuest?.isCompleted) && (
+                      <div className="absolute -top-1 -right-1 flex gap-0.5">
+                        {availableMonthlyQuest && (
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: [0, 1.2, 1] }}
+                            transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
+                            className="w-2 h-2 bg-red-500 rounded-full border border-white"
+                          />
+                        )}
+                        {activeMonthlyQuest?.isCompleted && (
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: [0, 1.2, 1] }}
+                            transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2, delay: 0.25 }}
+                            className="w-2 h-2 bg-green-500 rounded-full border border-white"
+                          />
+                        )}
+                      </div>
+                    )}
                   </Button>
                 </div>
                 }
