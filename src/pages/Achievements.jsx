@@ -57,7 +57,7 @@ export default function Achievements() {
   const [showTitleDialog, setShowTitleDialog] = useState(false);
   const [selectedAchievement, setSelectedAchievement] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
-  const [activeTab, setActiveTab] = useState("achievements");
+  const [activeTab, setActiveTab] = useState("quests");
   const [questFilter, setQuestFilter] = useState("collections");
 
   useEffect(() => {
@@ -342,6 +342,12 @@ export default function Achievements() {
           <div className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200">
             <div className="max-w-7xl mx-auto">
               <TabsList className="grid w-full grid-cols-2 bg-white h-12 rounded-none border-0">
+                <TabsTrigger value="quests" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
+                  <div className="flex items-center gap-1">
+                    <Target className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span>Aufgaben</span>
+                  </div>
+                </TabsTrigger>
                 <TabsTrigger value="achievements" className="data-[state=active]:bg-amber-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
                   <div className="flex items-center gap-1">
                     <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -349,12 +355,6 @@ export default function Achievements() {
                     {user.selected_title && (
                       <span className="hidden sm:inline text-[10px] opacity-70">• {user.selected_title}</span>
                     )}
-                  </div>
-                </TabsTrigger>
-                <TabsTrigger value="quests" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
-                  <div className="flex items-center gap-1">
-                    <Target className="w-3 h-3 sm:w-4 sm:h-4" />
-                    <span>Aufgaben</span>
                   </div>
                 </TabsTrigger>
               </TabsList>
