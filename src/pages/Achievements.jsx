@@ -475,6 +475,19 @@ export default function Achievements() {
     if (availableMonthlyQuest) availableQuests.push(availableMonthlyQuest);
   }
 
+  // Prüfe ob es neue oder einlösbare Quests gibt (für alle Filter)
+  const allAvailableQuests = [...availableRegularQuests, ...availableCollectionQuests];
+  if (availableWeeklyQuest) allAvailableQuests.push(availableWeeklyQuest);
+  if (availableMonthlyQuest) allAvailableQuests.push(availableMonthlyQuest);
+  
+  const allActiveQuests = [...activeRegularQuests, ...activeCollectionQuests];
+  if (activeWeeklyQuest) allActiveQuests.push(activeWeeklyQuest);
+  if (activeMonthlyQuest) allActiveQuests.push(activeMonthlyQuest);
+  
+  const hasRedeemableQuests = allActiveQuests.some(q => q.isCompleted);
+  const hasNewQuests = allAvailableQuests.length > 0;
+  const showQuestNotification = hasRedeemableQuests || hasNewQuests;
+
   return (
     <>
       {/* Fixer Hintergrund */}
@@ -496,11 +509,19 @@ export default function Achievements() {
           <div className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200">
             <div className="max-w-7xl mx-auto">
               <TabsList className="grid w-full grid-cols-2 bg-white h-12 rounded-none border-0">
-                <TabsTrigger value="quests" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
+                <TabsTrigger value="quests" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm relative">
                   <div className="flex items-center gap-1">
                     <Target className="w-3 h-3 sm:w-4 sm:h-4" />
                     <span>Aufgaben</span>
                   </div>
+                  {showQuestNotification && (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: [0, 1.2, 1] }}
+                      transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
+                      className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white"
+                    />
+                  )}
                 </TabsTrigger>
                 <TabsTrigger value="achievements" className="data-[state=active]:bg-amber-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
                   <div className="flex items-center gap-1">
