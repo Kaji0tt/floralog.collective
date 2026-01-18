@@ -704,12 +704,6 @@ Viel Spaß beim Entdecken! 🌿
                                   </Button>
                                 </div>
                               </div>
-                              {/* Level */}
-                              <div className="text-xs text-stone-600 flex items-center">
-                                <Star className="w-3 h-3 mr-1 text-amber-500 flex-shrink-0" />
-                                <span className="truncate">Lv.{friendData.level}</span>
-                              </div>
-
                               {/* Letzte Aktivität */}
                               {friendData.lastActivity &&
                             <div className="text-xs text-stone-500 flex items-center gap-1 mt-0.5 min-w-0">
@@ -1036,9 +1030,8 @@ Viel Spaß beim Entdecken! 🌿
                                     <div className="font-bold text-lg text-stone-900 group-hover:text-green-600 transition-colors truncate">
                                       {friendData.name}
                                     </div>
-                                    <div className="text-sm text-stone-600 flex items-center mb-2">
-                                      <Star className="w-4 h-4 mr-1 text-amber-500 flex-shrink-0" />
-                                      <span className="truncate">Level {friendData.level} • {friendData.title}</span>
+                                    <div className="text-sm text-stone-600 mb-2">
+                                      <span className="truncate">{friendData.title}</span>
                                     </div>
 
                                     {/* Letzte Aktivität Desktop */}
