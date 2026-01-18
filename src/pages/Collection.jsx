@@ -49,7 +49,6 @@ const getAverageColor = (imageUrl) => {
 
 export default function Collection() {
   const [activeCategory, setActiveCategory] = useState("Alle");
-  const [discoveryFilter, setDiscoveryFilter] = useState("Alle");
   const [selectedGenus, setSelectedGenus] = useState(null);
   const [showHintDialog, setShowHintDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -87,6 +86,20 @@ export default function Collection() {
     },
   });
 
+  const { data: collectionQuests = [] } = useQuery({
+    queryKey: ['collectionQuests'],
+    queryFn: () => base44.entities.CollectionQuest.list(),
+  });
+
+  const { data: userCollectionQuests = [] } = useQuery({
+    queryKey: ['userCollectionQuests'],
+    queryFn: async () => {
+      const user = await base44.auth.me();
+      if (!user || !user.email) return [];
+      return base44.entities.UserCollectionQuest.filter({ created_by: user.email });
+    },
+  });
+
   const isLoading = generaLoading || plantsLoading || discoveriesLoading;
 
   const generaWithDiscovery = genera.map(genus => {
@@ -112,28 +125,40 @@ export default function Collection() {
 
   const categories = ["Alle", "Bäume", "Sträucher", "Blumen"];
 
-  const filteredGenera = generaWithDiscovery
-    .filter(g => activeCategory === "Alle" || g.category === activeCategory)
-    .filter(g => {
-      if (discoveryFilter === "Entdeckt") return g.discovered;
-      if (discoveryFilter === "Nicht entdeckt") return !g.discovered;
-      if (["Häufig", "Gelegentlich", "Selten", "Sehr Selten", "Extrem Selten"].includes(discoveryFilter)) {
-        const genusPlants = plants.filter(p => 
-          p.genus_category === g.category && p.genus_number === g.category_dex_number
-        );
-        return genusPlants.some(p => 
-          p.rarity === discoveryFilter && 
-          userDiscoveries.some(d => d.plant_id === p.id)
-        );
-      }
-      return true;
-    })
-    .filter(g => {
-      if (!searchQuery.trim()) return true;
-      const query = searchQuery.toLowerCase();
-      return g.genus_name?.toLowerCase().includes(query) ||
-             g.scientific_genus?.toLowerCase().includes(query);
-    });
+  // Check if activeCategory is a collection quest ID
+  const isCollectionFilter = activeCategory.startsWith('collection_');
+  const collectionId = isCollectionFilter ? activeCategory.replace('collection_', '') : null;
+  
+  let filteredGenera = generaWithDiscovery;
+  
+  if (isCollectionFilter && collectionId) {
+    const collection = collectionQuests.find(c => c.id === collectionId);
+    if (collection?.target_plants) {
+      const targetPlantIds = collection.target_plants;
+      const targetGeneraIds = new Set();
+      
+      plants.forEach(plant => {
+        if (targetPlantIds.includes(plant.id)) {
+          const genus = genera.find(g => 
+            g.category === plant.genus_category && 
+            g.category_dex_number === plant.genus_number
+          );
+          if (genus) targetGeneraIds.add(genus.id);
+        }
+      });
+      
+      filteredGenera = filteredGenera.filter(g => targetGeneraIds.has(g.id));
+    }
+  } else {
+    filteredGenera = filteredGenera.filter(g => activeCategory === "Alle" || g.category === activeCategory);
+  }
+  
+  filteredGenera = filteredGenera.filter(g => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return g.genus_name?.toLowerCase().includes(query) ||
+           g.scientific_genus?.toLowerCase().includes(query);
+  });
 
   const discoveredCount = filteredGenera.filter(g => g.discovered).length;
   const totalCount = filteredGenera.length;
@@ -242,12 +267,13 @@ export default function Collection() {
             
             <div className="h-6 w-px bg-stone-200"></div>
             
-            <div className="flex gap-2 flex-1">
+            <div className="flex-1">
               <Select value={activeCategory} onValueChange={setActiveCategory}>
-                <SelectTrigger className="bg-white flex-1 h-9 text-xs">
+                <SelectTrigger className="bg-white h-9 text-xs">
                   <SelectValue placeholder="Kategorie" />
                 </SelectTrigger>
                 <SelectContent>
+                  {/* Pflanzentypen */}
                   {categories.map(category => {
                     const categoryGenera = category === "Alle"
                       ? generaWithDiscovery
@@ -259,22 +285,31 @@ export default function Collection() {
                       </SelectItem>
                     );
                   })}
-                </SelectContent>
-              </Select>
-
-              <Select value={discoveryFilter} onValueChange={setDiscoveryFilter}>
-                <SelectTrigger className="bg-white flex-1 h-9 text-xs">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Alle">Alle</SelectItem>
-                  <SelectItem value="Entdeckt">Entdeckt</SelectItem>
-                  <SelectItem value="Nicht entdeckt">Nicht entdeckt</SelectItem>
-                  <SelectItem value="Häufig">Häufig</SelectItem>
-                  <SelectItem value="Gelegentlich">Gelegentlich</SelectItem>
-                  <SelectItem value="Selten">Selten</SelectItem>
-                  <SelectItem value="Sehr Selten">Sehr Selten</SelectItem>
-                  <SelectItem value="Extrem Selten">Extrem Selten</SelectItem>
+                  
+                  {/* Separator */}
+                  <div className="px-2 py-1.5">
+                    <div className="border-t border-stone-200"></div>
+                  </div>
+                  
+                  {/* Sammlungen */}
+                  {collectionQuests.filter(q => q.is_active).length > 0 ? (
+                    collectionQuests
+                      .filter(q => q.is_active)
+                      .map(quest => {
+                        const userQuest = userCollectionQuests.find(ucq => ucq.collection_quest_id === quest.id);
+                        const progress = userQuest?.discovered_plants?.length || 0;
+                        const total = quest.target_plants?.length || 0;
+                        return (
+                          <SelectItem key={quest.id} value={`collection_${quest.id}`}>
+                            {quest.icon_emoji} {quest.title} ({progress}/{total})
+                          </SelectItem>
+                        );
+                      })
+                  ) : (
+                    <SelectItem value="no_collections" disabled>
+                      ❓
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
