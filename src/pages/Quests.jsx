@@ -308,7 +308,7 @@ export default function Quests() {
             <div className="max-w-7xl mx-auto">
               <TabsList className="grid w-full grid-cols-3 bg-white h-12 rounded-none border-0">
                 <TabsTrigger value="weekly" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
-                  🌍 Community
+                  🎯 Aufgaben
                 </TabsTrigger>
                 <TabsTrigger value="team" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
                   👥 Team
