@@ -354,7 +354,7 @@ export default function Home() {
   const statButtons = [
     {
       icon: BookOpen,
-      label: "Gattungen",
+      label: "Sammlung",
       value: discoveredGenera,
       color: "from-green-500 to-green-600",
       textColor: "text-green-700",
@@ -373,7 +373,7 @@ export default function Home() {
       onClick: () => navigate(createPageUrl("Achievements"))
     },
     {
-      icon: Target,
+      icon: Users,
       label: "Community",
       value: weeklyDiscoveriesCount,
       color: "from-blue-500 to-blue-600",
@@ -383,7 +383,7 @@ export default function Home() {
       onClick: () => navigate(createPageUrl("Quests"))
     },
     {
-      icon: Users,
+      icon: Heart,
       label: "Freunde",
       value: friends.length,
       color: "from-purple-500 to-purple-600",
