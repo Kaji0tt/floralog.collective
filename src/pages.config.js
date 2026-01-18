@@ -1,3 +1,4 @@
+import Achievements from './pages/Achievements';
 import AdminBlumenList from './pages/AdminBlumenList';
 import AdminCategoryFix from './pages/AdminCategoryFix';
 import AdminFixSalix from './pages/AdminFixSalix';
@@ -30,11 +31,11 @@ import ResetToLevel5 from './pages/ResetToLevel5';
 import Scanner from './pages/Scanner';
 import ViewSharedScan from './pages/ViewSharedScan';
 import XPMigration from './pages/XPMigration';
-import Achievements from './pages/Achievements';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
+    "Achievements": Achievements,
     "AdminBlumenList": AdminBlumenList,
     "AdminCategoryFix": AdminCategoryFix,
     "AdminFixSalix": AdminFixSalix,
@@ -67,7 +68,6 @@ export const PAGES = {
     "Scanner": Scanner,
     "ViewSharedScan": ViewSharedScan,
     "XPMigration": XPMigration,
-    "Achievements": Achievements,
 }
 
 export const pagesConfig = {

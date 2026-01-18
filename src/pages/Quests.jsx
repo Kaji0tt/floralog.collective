@@ -6,8 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Heart, Users, TrendingUp, Clock, Leaf, Loader2, ChevronLeft, ChevronRight, X, Search, MapPin, BarChart3 } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Heart, Users, TrendingUp, Clock, Leaf, Loader2, ChevronLeft, ChevronRight, X, Search, MapPin, BarChart3, Award } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -506,72 +505,123 @@ export default function Quests() {
             {/* Statistiken Tab */}
           <TabsContent value="stats" className="pt-14 px-4 pb-4">
             <div className="max-w-4xl mx-auto">
-              {/* Scan-Verlauf der letzten 7 Tage */}
-              <Card className="border-2 border-stone-200 bg-white/90 backdrop-blur-md mb-4">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5 text-blue-600" />
-                    Scan-Verlauf (Letzte 7 Tage)
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={(() => {
-                      const last7Days = [];
-                      const today = new Date();
+              <div className="grid md:grid-cols-2 gap-4 mb-4">
+                {/* Häufigste Scans (Insgesamt) */}
+                <Card className="border-2 border-stone-200 bg-white/90 backdrop-blur-md">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Award className="w-5 h-5 text-amber-600" />
+                      Häufigste Scans
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {(() => {
+                      const plantCounts = {};
+                      allDiscoveries.forEach(d => {
+                        if (!plantCounts[d.plant_id]) plantCounts[d.plant_id] = 0;
+                        plantCounts[d.plant_id]++;
+                      });
                       
-                      for (let i = 6; i >= 0; i--) {
-                        const date = new Date(today);
-                        date.setDate(date.getDate() - i);
-                        date.setHours(0, 0, 0, 0);
-                        
-                        const nextDay = new Date(date);
-                        nextDay.setDate(nextDay.getDate() + 1);
-                        
-                        const scansOnDay = allDiscoveries.filter(d => {
-                          if (d.user !== user.email && d.created_by !== user.email) return false;
-                          const scanDate = new Date(d.created_date || d.discovered_date);
-                          return scanDate >= date && scanDate < nextDay;
-                        }).length;
-                        
-                        const dayNames = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
-                        last7Days.push({
-                          name: dayNames[date.getDay()],
-                          Scans: scansOnDay,
-                          fullDate: date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
-                        });
+                      const topPlants = Object.entries(plantCounts)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 3);
+                      
+                      if (topPlants.length === 0) {
+                        return (
+                          <div className="text-center py-6 text-stone-500 text-sm">
+                            Noch keine Scans vorhanden
+                          </div>
+                        );
                       }
                       
-                      return last7Days;
-                    })()}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis 
-                        dataKey="name" 
-                        tick={{ fill: '#6b7280', fontSize: 12 }}
-                      />
-                      <YAxis 
-                        tick={{ fill: '#6b7280', fontSize: 12 }}
-                        allowDecimals={false}
-                      />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'white', 
-                          border: '2px solid #e5e7eb',
-                          borderRadius: '8px',
-                          fontSize: '12px'
-                        }}
-                        labelFormatter={(label, payload) => {
-                          if (payload && payload[0]) {
-                            return `${label} (${payload[0].payload.fullDate})`;
-                          }
-                          return label;
-                        }}
-                      />
-                      <Bar dataKey="Scans" fill="#16a34a" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
+                      return topPlants.map(([plantId, count], index) => {
+                        const plant = plants.find(p => p.id === plantId);
+                        return (
+                          <div key={plantId} className="flex items-center justify-between p-2 bg-stone-50 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                                index === 0 ? 'bg-amber-500 text-white' :
+                                index === 1 ? 'bg-stone-300 text-stone-700' :
+                                'bg-orange-300 text-orange-800'
+                              }`}>
+                                {index + 1}
+                              </div>
+                              <span className="text-sm font-semibold text-stone-900 truncate">
+                                {plant?.species_name || 'Unbekannt'}
+                              </span>
+                            </div>
+                            <Badge className="bg-amber-600 text-white text-xs px-2 py-0">
+                              {count}x
+                            </Badge>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </CardContent>
+                </Card>
+
+                {/* Häufigste Scans (Dieser Monat) */}
+                <Card className="border-2 border-stone-200 bg-white/90 backdrop-blur-md">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Award className="w-5 h-5 text-blue-600" />
+                      Häufigste diesen Monat
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {(() => {
+                      const monthStart = new Date();
+                      monthStart.setDate(1);
+                      monthStart.setHours(0, 0, 0, 0);
+                      
+                      const thisMonthDiscoveries = allDiscoveries.filter(d => 
+                        new Date(d.created_date || d.discovered_date) >= monthStart
+                      );
+                      
+                      const plantCounts = {};
+                      thisMonthDiscoveries.forEach(d => {
+                        if (!plantCounts[d.plant_id]) plantCounts[d.plant_id] = 0;
+                        plantCounts[d.plant_id]++;
+                      });
+                      
+                      const topPlants = Object.entries(plantCounts)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 3);
+                      
+                      if (topPlants.length === 0) {
+                        return (
+                          <div className="text-center py-6 text-stone-500 text-sm">
+                            Noch keine Scans diesen Monat
+                          </div>
+                        );
+                      }
+                      
+                      return topPlants.map(([plantId, count], index) => {
+                        const plant = plants.find(p => p.id === plantId);
+                        return (
+                          <div key={plantId} className="flex items-center justify-between p-2 bg-stone-50 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                                index === 0 ? 'bg-blue-500 text-white' :
+                                index === 1 ? 'bg-stone-300 text-stone-700' :
+                                'bg-blue-300 text-blue-800'
+                              }`}>
+                                {index + 1}
+                              </div>
+                              <span className="text-sm font-semibold text-stone-900 truncate">
+                                {plant?.species_name || 'Unbekannt'}
+                              </span>
+                            </div>
+                            <Badge className="bg-blue-600 text-white text-xs px-2 py-0">
+                              {count}x
+                            </Badge>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </CardContent>
+                </Card>
+              </div>
 
               <div className="grid md:grid-cols-2 gap-4">
               {/* Scan-Statistiken */}
