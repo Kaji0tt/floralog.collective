@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Edit2, CheckCircle, X, Scroll } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-const LOGO_URL = "https://blauzahn.eu/egil.png";
+const LOGO_URL = "";
 
 export default function Home() {
   const navigate = useNavigate();
