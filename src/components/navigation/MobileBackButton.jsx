@@ -48,7 +48,6 @@ export default function MobileBackButton({ backUrl }) {
       dragMomentum={false}
       dragElastic={0}
       onDragEnd={handleDragEnd}
-      animate={position}
       style={{ x: position.x, y: position.y }}
     >
       <Button
