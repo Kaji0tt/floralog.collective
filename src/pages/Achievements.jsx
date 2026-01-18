@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Lock, Leaf, Target } from "lucide-react";
+import { Trophy, Lock, Leaf, Target, CheckCircle2, XCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -58,7 +58,7 @@ export default function Achievements() {
   const [selectedAchievement, setSelectedAchievement] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
   const [activeTab, setActiveTab] = useState("quests");
-  const [questFilter, setQuestFilter] = useState("collections");
+  const [questFilter, setQuestFilter] = useState("exploration");
 
   useEffect(() => {
     const loadUser = async () => {
@@ -159,6 +159,96 @@ export default function Achievements() {
       const currentUser = await base44.auth.me();
       setUser(currentUser);
       setShowTitleDialog(false);
+    },
+  });
+
+  // Quest Mutations
+  const acceptQuestMutation = useMutation({
+    mutationFn: async ({ questId, questType, activeWeek, activeMonth }) => {
+      const now = new Date().toISOString();
+      if (questType === 'regular') {
+        return base44.entities.UserQuest.create({
+          quest_id: questId,
+          accepted: true,
+          accepted_date: now,
+        });
+      } else if (questType === 'weekly') {
+        return base44.entities.UserWeeklyQuest.create({
+          weekly_quest_id: questId,
+          active_week: activeWeek,
+          accepted: true,
+          accepted_date: now,
+        });
+      } else if (questType === 'monthly') {
+        return base44.entities.UserMonthlyQuest.create({
+          monthly_quest_id: questId,
+          active_month: activeMonth,
+          accepted: true,
+          accepted_date: now,
+        });
+      } else if (questType === 'collection') {
+        return base44.entities.UserCollectionQuest.create({
+          collection_quest_id: questId,
+          accepted: true,
+          accepted_date: now,
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userQuests'] });
+      queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
+      queryClient.invalidateQueries({ queryKey: ['userMonthlyQuests'] });
+      queryClient.invalidateQueries({ queryKey: ['userCollectionQuests'] });
+    },
+  });
+
+  const redeemQuestMutation = useMutation({
+    mutationFn: async ({ userQuestId, questType, xpReward }) => {
+      const now = new Date().toISOString();
+      
+      // Quest einlösen
+      if (questType === 'regular') {
+        await base44.entities.UserQuest.update(userQuestId, {
+          redeemed: true,
+          redeemed_date: now,
+        });
+      } else if (questType === 'weekly') {
+        await base44.entities.UserWeeklyQuest.update(userQuestId, {
+          redeemed: true,
+          redeemed_date: now,
+        });
+      } else if (questType === 'monthly') {
+        await base44.entities.UserMonthlyQuest.update(userQuestId, {
+          redeemed: true,
+          redeemed_date: now,
+        });
+      } else if (questType === 'collection') {
+        await base44.entities.UserCollectionQuest.update(userQuestId, {
+          redeemed: true,
+          redeemed_date: now,
+        });
+      }
+
+      // XP vergeben
+      const currentUser = await base44.auth.me();
+      const newXP = (currentUser.xp || 0) + xpReward;
+      const newLevel = Math.floor(newXP / 100) + 1;
+      await base44.auth.updateMe({ xp: newXP, level: newLevel });
+
+      // Achievement-Check durchführen
+      const { checkAndUnlockAchievements } = await import("../components/achievements/achievementChecker");
+      await checkAndUnlockAchievements(currentUser);
+    },
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ['userQuests'] });
+      queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
+      queryClient.invalidateQueries({ queryKey: ['userMonthlyQuests'] });
+      queryClient.invalidateQueries({ queryKey: ['userCollectionQuests'] });
+      queryClient.invalidateQueries({ queryKey: ['userAchievements'] });
+      
+      // User neu laden
+      const currentUser = await base44.auth.me();
+      setUser(currentUser);
     },
   });
 
@@ -264,61 +354,119 @@ export default function Achievements() {
     return sortedQuests[index];
   };
 
-  // Aktive Quests filtern
-  const activeRegularQuests = quests.filter(q => {
-    const userQuest = userQuests.find(uq => uq.quest_id === q.id);
-    const isCompleted = userQuest?.completed;
-    const isUnlocked = (q.unlocked_at_level || 1) <= (user?.level || 1);
-    return !isCompleted && isUnlocked;
-  }).map(q => {
-    const userQuest = userQuests.find(uq => uq.quest_id === q.id);
-    return { ...q, progress: userQuest?.progress || 0, type: 'regular' };
-  });
+  // Reguläre Quests (angenommen & nicht eingelöst)
+  const activeRegularQuests = quests
+    .filter(q => {
+      const userQuest = userQuests.find(uq => uq.quest_id === q.id);
+      const isAccepted = userQuest?.accepted;
+      const isRedeemed = userQuest?.redeemed;
+      const isUnlocked = (q.unlocked_at_level || 1) <= (user?.level || 1);
+      return isAccepted && !isRedeemed && isUnlocked;
+    })
+    .map(q => {
+      const userQuest = userQuests.find(uq => uq.quest_id === q.id);
+      return { 
+        ...q, 
+        userQuestId: userQuest?.id,
+        progress: userQuest?.progress || 0, 
+        isCompleted: userQuest?.completed || false,
+        type: 'regular' 
+      };
+    });
 
+  // Verfügbare (nicht angenommene) reguläre Quests
+  const availableRegularQuests = quests
+    .filter(q => {
+      const userQuest = userQuests.find(uq => uq.quest_id === q.id);
+      const isUnlocked = (q.unlocked_at_level || 1) <= (user?.level || 1);
+      return !userQuest?.accepted && isUnlocked;
+    })
+    .map(q => ({
+      ...q,
+      type: 'regular',
+      available: true,
+    }));
+
+  // Wöchentliche Quest
   const currentWeeklyQuest = getCurrentWeeklyQuest();
   const currentWeeklyUserQuest = currentWeeklyQuest 
-    ? userWeeklyQuests.find(uwq => uwq.weekly_quest_id === currentWeeklyQuest.id && uwq.active_week === getWeekNumber())
+    ? userWeeklyQuests.find(uwq => uwq.weekly_quest_id === currentWeeklyQuest.id)
     : null;
-  const activeWeeklyQuest = currentWeeklyQuest && !currentWeeklyUserQuest?.completed
-    ? { ...currentWeeklyQuest, progress: currentWeeklyUserQuest?.progress || 0, type: 'weekly' }
+  const activeWeeklyQuest = currentWeeklyQuest && currentWeeklyUserQuest?.accepted && !currentWeeklyUserQuest?.redeemed
+    ? { 
+        ...currentWeeklyQuest, 
+        userQuestId: currentWeeklyUserQuest.id,
+        progress: currentWeeklyUserQuest.progress || 0, 
+        isCompleted: currentWeeklyUserQuest.completed || false,
+        type: 'weekly' 
+      }
+    : null;
+  const availableWeeklyQuest = currentWeeklyQuest && !currentWeeklyUserQuest?.accepted
+    ? { ...currentWeeklyQuest, type: 'weekly', available: true }
     : null;
 
+  // Monatliche Quest
   const currentMonthlyQuest = getCurrentMonthlyQuest();
   const currentMonthlyUserQuest = currentMonthlyQuest
-    ? userMonthlyQuests.find(umq => umq.monthly_quest_id === currentMonthlyQuest.id && umq.active_month === getMonthString())
+    ? userMonthlyQuests.find(umq => umq.monthly_quest_id === currentMonthlyQuest.id)
     : null;
-  const activeMonthlyQuest = currentMonthlyQuest && !currentMonthlyUserQuest?.completed
-    ? { ...currentMonthlyQuest, progress: currentMonthlyUserQuest?.progress || 0, type: 'monthly' }
+  const activeMonthlyQuest = currentMonthlyQuest && currentMonthlyUserQuest?.accepted && !currentMonthlyUserQuest?.redeemed
+    ? { 
+        ...currentMonthlyQuest, 
+        userQuestId: currentMonthlyUserQuest.id,
+        progress: currentMonthlyUserQuest.progress || 0, 
+        isCompleted: currentMonthlyUserQuest.completed || false,
+        type: 'monthly' 
+      }
+    : null;
+  const availableMonthlyQuest = currentMonthlyQuest && !currentMonthlyUserQuest?.accepted
+    ? { ...currentMonthlyQuest, type: 'monthly', available: true }
     : null;
 
-  // Sammlungs-Quests filtern
+  // Sammlungs-Quests
   const activeCollectionQuests = collectionQuests
     .filter(quest => {
       const userQuest = userCollectionQuests.find(ucq => ucq.collection_quest_id === quest.id);
-      return quest.is_active && !userQuest?.completed;
+      return quest.is_active && userQuest?.accepted && !userQuest?.redeemed;
     })
     .map(quest => {
       const userQuest = userCollectionQuests.find(ucq => ucq.collection_quest_id === quest.id);
       const discoveredPlants = userQuest?.discovered_plants || [];
       return { 
-        ...quest, 
+        ...quest,
+        userQuestId: userQuest?.id,
         progress: discoveredPlants.length, 
         required_discoveries: quest.target_plants?.length || 0,
+        isCompleted: userQuest?.completed || false,
         type: 'collection' 
       };
     });
 
-  let activeQuests = [...activeRegularQuests];
-  if (activeWeeklyQuest) activeQuests.push(activeWeeklyQuest);
-  if (activeMonthlyQuest) activeQuests.push(activeMonthlyQuest);
+  const availableCollectionQuests = collectionQuests
+    .filter(quest => {
+      const userQuest = userCollectionQuests.find(ucq => ucq.collection_quest_id === quest.id);
+      return quest.is_active && !userQuest?.accepted;
+    })
+    .map(quest => ({
+      ...quest,
+      required_discoveries: quest.target_plants?.length || 0,
+      type: 'collection',
+      available: true,
+    }));
 
-  // Filter anwenden
-  if (questFilter === 'collections') {
-    activeQuests = activeCollectionQuests;
+  // Quests zusammenstellen basierend auf Filter
+  let activeQuests = [];
+  let availableQuests = [];
+
+  if (questFilter === 'exploration') {
+    activeQuests = [...activeRegularQuests, ...activeCollectionQuests];
+    availableQuests = [...availableRegularQuests, ...availableCollectionQuests];
   } else if (questFilter === 'weekly') {
-    activeQuests = activeWeeklyQuest ? [activeWeeklyQuest] : [];
+    if (activeWeeklyQuest) activeQuests.push(activeWeeklyQuest);
+    if (availableWeeklyQuest) availableQuests.push(availableWeeklyQuest);
   } else if (questFilter === 'monthly') {
-    activeQuests = activeMonthlyQuest ? [activeMonthlyQuest] : [];
+    if (activeMonthlyQuest) activeQuests.push(activeMonthlyQuest);
+    if (availableMonthlyQuest) availableQuests.push(availableMonthlyQuest);
   }
 
   return (
@@ -362,12 +510,12 @@ export default function Achievements() {
               {activeTab === "quests" && (
                 <div className="flex gap-1 p-1 border-t border-stone-200 bg-stone-50">
                   <Button
-                    onClick={() => setQuestFilter("collections")}
-                    variant={questFilter === "collections" ? "default" : "ghost"}
+                    onClick={() => setQuestFilter("exploration")}
+                    variant={questFilter === "exploration" ? "default" : "ghost"}
                     size="sm"
-                    className={`flex-1 h-7 text-xs ${questFilter === "collections" ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                    className={`flex-1 h-7 text-xs ${questFilter === "exploration" ? "bg-blue-600 hover:bg-blue-700" : ""}`}
                   >
-                    Sammlungen
+                    Erkundung
                   </Button>
                   <Button
                     onClick={() => setQuestFilter("weekly")}
@@ -478,111 +626,193 @@ export default function Achievements() {
 
           {/* Aufgaben Tab */}
           <TabsContent value="quests" className="pt-20 px-4 pb-4">
-            <div className="max-w-6xl mx-auto">
+            <div className="max-w-6xl mx-auto space-y-6">
 
-              <div className="grid md:grid-cols-2 gap-4">
-                {activeQuests.map((quest, index) => {
-                  const progressPercentage = quest.required_discoveries 
-                    ? Math.min(100, (quest.progress / quest.required_discoveries) * 100)
-                    : 0;
-
-                  return (
-                    <motion.div
-                      key={quest.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                    >
-                      <Card className={`border shadow-sm bg-white/90 backdrop-blur-md hover:shadow-md transition-all ${
-                        quest.type === 'weekly' ? 'border-emerald-400 bg-gradient-to-br from-emerald-50/50 to-white' :
-                        quest.type === 'monthly' ? 'border-purple-400 bg-gradient-to-br from-purple-50/50 to-white' :
-                        quest.type === 'collection' ? 'border-indigo-400 bg-gradient-to-br from-indigo-50/50 to-white' :
-                        'border-blue-200'
-                      }`}>
-                        <CardContent className="p-3">
-                          <div className="flex items-start gap-2">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                              quest.type === 'weekly' ? 'bg-gradient-to-br from-emerald-500 to-emerald-600' :
-                              quest.type === 'monthly' ? 'bg-gradient-to-br from-purple-500 to-purple-600' :
-                              quest.type === 'collection' ? 'bg-gradient-to-br from-indigo-500 to-indigo-600' :
-                              'bg-gradient-to-br from-blue-500 to-blue-600'
-                            }`}>
-                              {quest.type === 'collection' ? (
-                                <span className="text-sm">{quest.icon_emoji || '🗺️'}</span>
-                              ) : (
-                                <Target className="w-4 h-4 text-white" />
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1 mb-1 flex-wrap">
-                                {quest.type === 'weekly' && (
-                                  <Badge className="bg-emerald-600 text-white text-[10px] px-1 py-0">
-                                    📅 Wöchentlich
-                                  </Badge>
-                                )}
-                                {quest.type === 'monthly' && (
-                                  <Badge className="bg-purple-600 text-white text-[10px] px-1 py-0">
-                                    📆 Monatlich
-                                  </Badge>
-                                )}
-                                {quest.type === 'collection' && (
-                                  <Badge className="bg-indigo-600 text-white text-[10px] px-1 py-0">
-                                    🗺️ Sammlung
-                                  </Badge>
-                                )}
-                                {quest.category && quest.category !== "Alle" && (
-                                  <Badge className={`text-[10px] px-1 py-0 ${
-                                    quest.category === "Bäume" ? "bg-green-600" :
-                                    quest.category === "Sträucher" ? "bg-emerald-600" :
-                                    "bg-pink-600"
-                                  } text-white`}>
-                                    {quest.category}
-                                  </Badge>
+              {/* Verfügbare Quests */}
+              {availableQuests.length > 0 && (
+                <div>
+                  <h2 className="text-lg font-bold text-stone-900 mb-3">Verfügbare Aufgaben</h2>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {availableQuests.map((quest, index) => (
+                      <motion.div
+                        key={quest.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                      >
+                        <Card className="border-2 border-dashed border-blue-300 bg-blue-50/50 backdrop-blur-md">
+                          <CardContent className="p-3">
+                            <div className="flex items-start gap-2">
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center flex-shrink-0">
+                                {quest.type === 'collection' ? (
+                                  <span className="text-sm">{quest.icon_emoji || '🗺️'}</span>
+                                ) : (
+                                  <Target className="w-4 h-4 text-white" />
                                 )}
                               </div>
-                              <h3 className="text-sm font-bold text-stone-900 mb-1">
-                                {quest.title}
-                              </h3>
-                              <p className="text-xs text-stone-600 mb-2">
-                                {quest.description}
-                              </p>
-                              
-                              {quest.required_discoveries && (
-                                <div className="space-y-1 mb-2">
-                                  <div className="flex items-center justify-between text-xs">
-                                    <span className="text-stone-500">Fortschritt</span>
-                                    <span className="font-bold text-blue-700">
-                                      {quest.progress} / {quest.required_discoveries}
-                                    </span>
-                                  </div>
-                                  <Progress value={progressPercentage} className="h-1.5" />
+                              <div className="flex-1">
+                                <h3 className="text-sm font-bold text-stone-900 mb-1">{quest.title}</h3>
+                                <p className="text-xs text-stone-600 mb-2">{quest.description}</p>
+                                <div className="flex items-center justify-between">
+                                  <Badge className="bg-amber-500 text-white text-[10px]">
+                                    +{quest.xp_reward} XP
+                                  </Badge>
+                                  <Button
+                                    onClick={() => acceptQuestMutation.mutate({
+                                      questId: quest.id,
+                                      questType: quest.type,
+                                      activeWeek: quest.type === 'weekly' ? getWeekNumber() : undefined,
+                                      activeMonth: quest.type === 'monthly' ? getMonthString() : undefined,
+                                    })}
+                                    disabled={acceptQuestMutation.isPending}
+                                    size="sm"
+                                    className="h-7 text-xs bg-blue-600 hover:bg-blue-700"
+                                  >
+                                    Annehmen
+                                  </Button>
                                 </div>
-                              )}
-
-                              <div className="flex items-center justify-between pt-1 border-t border-stone-200">
-                                <span className="text-[10px] text-stone-500">Belohnung</span>
-                                <Badge className="bg-gradient-to-r from-amber-500 to-amber-600 text-white font-bold text-[10px] px-1.5 py-0">
-                                  +{quest.xp_reward} XP
-                                </Badge>
                               </div>
                             </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  );
-                })}
-              </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-              {activeQuests.length === 0 && (
+              {/* Aktive Quests */}
+              {activeQuests.length > 0 && (
+                <div>
+                  <h2 className="text-lg font-bold text-stone-900 mb-3">Angenommene Aufgaben</h2>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {activeQuests.map((quest, index) => {
+                      const progressPercentage = quest.required_discoveries 
+                        ? Math.min(100, (quest.progress / quest.required_discoveries) * 100)
+                        : 0;
+
+                      return (
+                        <motion.div
+                          key={quest.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                        >
+                          <Card className={`border shadow-sm bg-white/90 backdrop-blur-md hover:shadow-md transition-all ${
+                            quest.isCompleted 
+                              ? 'border-green-400 bg-gradient-to-br from-green-50/50 to-white'
+                              : quest.type === 'weekly' ? 'border-emerald-400 bg-gradient-to-br from-emerald-50/50 to-white' :
+                                quest.type === 'monthly' ? 'border-purple-400 bg-gradient-to-br from-purple-50/50 to-white' :
+                                quest.type === 'collection' ? 'border-indigo-400 bg-gradient-to-br from-indigo-50/50 to-white' :
+                                'border-blue-200'
+                          }`}>
+                            <CardContent className="p-3">
+                              <div className="flex items-start gap-2">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                  quest.isCompleted ? 'bg-gradient-to-br from-green-500 to-green-600' :
+                                  quest.type === 'weekly' ? 'bg-gradient-to-br from-emerald-500 to-emerald-600' :
+                                  quest.type === 'monthly' ? 'bg-gradient-to-br from-purple-500 to-purple-600' :
+                                  quest.type === 'collection' ? 'bg-gradient-to-br from-indigo-500 to-indigo-600' :
+                                  'bg-gradient-to-br from-blue-500 to-blue-600'
+                                }`}>
+                                  {quest.isCompleted ? (
+                                    <CheckCircle2 className="w-4 h-4 text-white" />
+                                  ) : quest.type === 'collection' ? (
+                                    <span className="text-sm">{quest.icon_emoji || '🗺️'}</span>
+                                  ) : (
+                                    <Target className="w-4 h-4 text-white" />
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1 mb-1 flex-wrap">
+                                    {quest.isCompleted && (
+                                      <Badge className="bg-green-600 text-white text-[10px] px-1 py-0">
+                                        ✓ Abgeschlossen
+                                      </Badge>
+                                    )}
+                                    {quest.type === 'weekly' && (
+                                      <Badge className="bg-emerald-600 text-white text-[10px] px-1 py-0">
+                                        📅 Wöchentlich
+                                      </Badge>
+                                    )}
+                                    {quest.type === 'monthly' && (
+                                      <Badge className="bg-purple-600 text-white text-[10px] px-1 py-0">
+                                        📆 Monatlich
+                                      </Badge>
+                                    )}
+                                    {quest.type === 'collection' && (
+                                      <Badge className="bg-indigo-600 text-white text-[10px] px-1 py-0">
+                                        🗺️ Sammlung
+                                      </Badge>
+                                    )}
+                                    {quest.category && quest.category !== "Alle" && (
+                                      <Badge className={`text-[10px] px-1 py-0 ${
+                                        quest.category === "Bäume" ? "bg-green-600" :
+                                        quest.category === "Sträucher" ? "bg-emerald-600" :
+                                        "bg-pink-600"
+                                      } text-white`}>
+                                        {quest.category}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <h3 className="text-sm font-bold text-stone-900 mb-1">
+                                    {quest.title}
+                                  </h3>
+                                  <p className="text-xs text-stone-600 mb-2">
+                                    {quest.description}
+                                  </p>
+                                  
+                                  {quest.required_discoveries && (
+                                    <div className="space-y-1 mb-2">
+                                      <div className="flex items-center justify-between text-xs">
+                                        <span className="text-stone-500">Fortschritt</span>
+                                        <span className="font-bold text-blue-700">
+                                          {quest.progress} / {quest.required_discoveries}
+                                        </span>
+                                      </div>
+                                      <Progress value={progressPercentage} className="h-1.5" />
+                                    </div>
+                                  )}
+
+                                  <div className="flex items-center justify-between pt-1 border-t border-stone-200">
+                                    <Badge className="bg-gradient-to-r from-amber-500 to-amber-600 text-white font-bold text-[10px] px-1.5 py-0">
+                                      +{quest.xp_reward} XP
+                                    </Badge>
+                                    {quest.isCompleted && (
+                                      <Button
+                                        onClick={() => redeemQuestMutation.mutate({
+                                          userQuestId: quest.userQuestId,
+                                          questType: quest.type,
+                                          xpReward: quest.xp_reward || 0,
+                                        })}
+                                        disabled={redeemQuestMutation.isPending}
+                                        size="sm"
+                                        className="h-7 text-xs bg-green-600 hover:bg-green-700"
+                                      >
+                                        Einlösen
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {activeQuests.length === 0 && availableQuests.length === 0 && (
                 <div className="text-center py-20">
                   <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 max-w-md mx-auto border border-stone-200 shadow-lg">
                     <Target className="w-16 h-16 text-stone-400 mx-auto mb-4" />
                     <h3 className="text-xl font-bold text-stone-900 mb-2">
-                      Keine aktiven Aufgaben
+                      Keine Aufgaben verfügbar
                     </h3>
                     <p className="text-stone-600">
-                      Alle Aufgaben abgeschlossen oder noch nicht freigeschaltet!
+                      Alle Aufgaben bereits eingelöst!
                     </p>
                   </div>
                 </div>
