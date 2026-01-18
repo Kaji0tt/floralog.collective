@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import { useToast } from "@/components/ui/use-toast";
 
-const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
+const LOGO_URL = "https://blauzahn.eu/FloralogIcon.png";
 
 export default function Donate() {
   const [user, setUser] = useState(null);
@@ -124,14 +124,14 @@ export default function Donate() {
       amount: 2,
       icon: Coffee,
       title: "Kleiner Kaffee",
-      description: "Unterstütze uns mit einem symbolischen Kaffee",
+      description: "Unterstütze die Entwicklung mit einem symbolischen Kaffee",
       color: "from-amber-500 to-amber-600"
     },
     {
       amount: 5,
       icon: LeafIcon,
       title: "Eine Pflanze",
-      description: "Hilf uns, die App zu pflegen und zu erweitern",
+      description: "Hilf dabei, die App zu pflegen und zu erweitern",
       color: "from-green-500 to-green-600"
     },
     {
@@ -305,7 +305,7 @@ export default function Donate() {
             </h1>
           </div>
           <p className="text-lg max-w-2xl mx-auto" style={{ color: 'var(--profile-text-color)', opacity: 0.8 }}>
-Helfe PlantDex zu wachsen! Ob Feedback, Teilen oder Spenden – jede Unterstützung zählt. Mit einer kleinen Spende sicherst du den Betrieb und erhältst als Dank einen besonderen Hintergrund für dein Engagement.
+Hilf Floralog zu wachsen! Ob durch Feedback, Ideen, Bug-Reports oder Spenden – jede Unterstützung zählt. Mit einer Spende sicherst du die Server und Entwicklung und erhältst als Dank einen besonderen Hintergrund für dein Profil.
           </p>
         </motion.div>
 
@@ -413,28 +413,28 @@ Helfe PlantDex zu wachsen! Ob Feedback, Teilen oder Spenden – jede Unterstütz
             <CardContent className="p-6">
               <h3 className="text-xl font-bold text-stone-900 mb-3 flex items-center gap-2">
                 <Sparkles className="w-6 h-6 text-blue-600" />
-                Wofür werden Spenden verwendet?
+                Wie kannst du helfen?
               </h3>
               <ul className="space-y-2 text-stone-700">
                 <li className="flex items-start gap-2">
                   <span className="text-green-600 font-bold">✓</span>
-                  <span>Erweiterung der Pflanzendatenbank mit mehr Arten</span>
+                  <span>Finanzierung der Server und laufenden Entwicklung</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-green-600 font-bold">✓</span>
-                  <span>Verbesserung der KI-gestützten Pflanzenerkennung</span>
+                  <span>Teile dein Feedback, Ideen und Anregungen</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-green-600 font-bold">✓</span>
-                  <span>Entwicklung neuer Features für Schulen und Lehrer</span>
+                  <span>Melde Bugs und hilf bei der Verbesserung</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-green-600 font-bold">✓</span>
-                  <span>Server- und Wartungskosten</span>
+                  <span>Teste neue Funktionen und gib Rückmeldung</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-green-600 font-bold">✓</span>
-                  <span>Kostenfreier Zugang für alle Nutzer</span>
+                  <span className="text-red-600 font-bold">❤</span>
+                  <span><strong>Am wichtigsten: Deine Wertschätzung!</strong></span>
                 </li>
               </ul>
             </CardContent>
@@ -455,7 +455,7 @@ Helfe PlantDex zu wachsen! Ob Feedback, Teilen oder Spenden – jede Unterstütz
                 Vielen Dank! 💚
               </h3>
               <p className="max-w-xl mx-auto" style={{ color: 'var(--profile-text-color)', opacity: 0.8 }}>
-                Jede Spende hilft uns dabei, PlantDex für alle kostenlos und werbefrei zu halten. 
+                Jede Spende hilft dabei, Floralog für alle kostenlos und werbefrei zu halten. 
                 Gemeinsam können wir Menschen für die Natur begeistern!
               </p>
             </CardContent>
