@@ -670,30 +670,6 @@ export default function Quests() {
                 </CardContent>
               </Card>
 
-              {/* Titel */}
-              <Card className="border-2 border-stone-200 bg-white/90 backdrop-blur-md">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5 text-amber-600" />
-                    Dein Profil
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
-                    <span className="text-sm text-stone-700">Aktiver Titel</span>
-                    <span className="text-xs text-stone-600 font-semibold">
-                      {user?.selected_title || user?.title || 'Pflanzen-Entdecker'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
-                    <span className="text-sm text-stone-700">Name</span>
-                    <span className="text-xs text-stone-600 font-semibold">
-                      {user?.display_name || user?.full_name}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-
               {/* Sammlungs-Statistiken */}
               <Card className="border-2 border-stone-200 bg-white/90 backdrop-blur-md">
                 <CardHeader className="pb-3">
