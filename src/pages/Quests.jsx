@@ -323,7 +323,7 @@ export default function Quests() {
           </div>
 
           {/* Wöchentliche Community Challenge */}
-          <TabsContent value="weekly" className="pt-14 px-4 pb-4">
+          <TabsContent value="weekly" className="pt-14 px-4 pb-20">
             {currentWeeklyQuest ? (
               <>
                 {/* Kompakte Quest-Anzeige */}
@@ -492,7 +492,7 @@ export default function Quests() {
             </TabsContent>
 
             {/* Team-Aufgaben Tab */}
-          <TabsContent value="team" className="pt-24 px-4 pb-4">
+          <TabsContent value="team" className="pt-24 px-4 pb-20">
             <div className="text-center py-20">
               <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 max-w-md mx-auto border border-stone-200 shadow-lg">
                 <Users className="w-16 h-16 text-stone-400 mx-auto mb-4" />
@@ -503,7 +503,7 @@ export default function Quests() {
             </TabsContent>
 
             {/* Statistiken Tab */}
-          <TabsContent value="stats" className="pt-14 px-4 pb-4">
+          <TabsContent value="stats" className="pt-14 px-4 pb-20">
             <div className="max-w-4xl mx-auto">
               <div className="grid md:grid-cols-2 gap-4 mb-4">
                 {/* Häufigste Scans (Insgesamt) */}
@@ -771,12 +771,6 @@ export default function Quests() {
                     <span className="text-sm text-stone-700">Gegebene Likes</span>
                     <Badge variant="outline" className="text-base px-3 py-1">
                       {scanLikes.filter(like => like.liked_by === user.email).length}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
-                    <span className="text-sm text-stone-700">Aktive Streaks</span>
-                    <Badge variant="outline" className="text-xs px-2 py-1">
-                      Bald verfügbar
                     </Badge>
                   </div>
                 </CardContent>
