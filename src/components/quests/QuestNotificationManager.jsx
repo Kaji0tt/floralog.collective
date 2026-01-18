@@ -5,9 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Scroll } from "lucide-react";
 import { getCurrentWeeklyQuest, getCurrentMonthlyQuest, getTodayString, getWeekNumber, getMonthString } from "./QuestRotationHelper";
 
-// Default-Bild (kann später durch eine Einstellung ersetzt werden)
-const DEFAULT_QUEST_GIVER_IMAGE = "https://blauzahn.eu/PlantDex/PlantExplorer.png";
-
 export default function QuestNotificationManager({ user }) {
   const [notificationQueue, setNotificationQueue] = useState([]);
   const [currentNotification, setCurrentNotification] = useState(null);
@@ -162,15 +159,6 @@ export default function QuestNotificationManager({ user }) {
                 Weitere Quest wartet... ({notificationQueue.length - 1})
               </div>
             )}
-          </div>
-
-          {/* Person/Charakter Bild - unten rechts */}
-          <div className="fixed bottom-0 right-0 w-64 h-64">
-            <img
-              src={user?.quest_giver_image || DEFAULT_QUEST_GIVER_IMAGE}
-              alt="Quest Giver"
-              className="absolute bottom-0 right-0 w-full h-full object-contain object-bottom-right drop-shadow-2xl"
-            />
           </div>
         </motion.div>
       </motion.div>
