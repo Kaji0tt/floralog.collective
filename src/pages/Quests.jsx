@@ -681,29 +681,55 @@ export default function Quests() {
                 <CardContent className="space-y-3">
                   <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
                     <span className="text-sm text-stone-700">Entdeckte Gattungen</span>
-                    <Badge className="bg-purple-600 text-white text-base px-3 py-1">
-                      {(() => {
-                        const myDiscoveries = allDiscoveries.filter(d => d.user === user.email || d.created_by === user.email);
-                        const uniqueGenera = new Set();
-                        myDiscoveries.forEach(d => {
-                          const plant = plants.find(p => p.id === d.plant_id);
-                          if (plant) {
-                            uniqueGenera.add(`${plant.genus_category}-${plant.genus_number}`);
-                          }
-                        });
-                        return uniqueGenera.size;
-                      })()}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-purple-600 text-white text-base px-3 py-1">
+                        {(() => {
+                          const myDiscoveries = allDiscoveries.filter(d => d.user === user.email || d.created_by === user.email);
+                          const uniqueGenera = new Set();
+                          myDiscoveries.forEach(d => {
+                            const plant = plants.find(p => p.id === d.plant_id);
+                            if (plant) {
+                              uniqueGenera.add(`${plant.genus_category}-${plant.genus_number}`);
+                            }
+                          });
+                          return uniqueGenera.size;
+                        })()}
+                      </Badge>
+                      <Badge variant="outline" className="text-sm px-2 py-1">
+                        {(() => {
+                          const myDiscoveries = allDiscoveries.filter(d => d.user === user.email || d.created_by === user.email);
+                          const uniqueGenera = new Set();
+                          myDiscoveries.forEach(d => {
+                            const plant = plants.find(p => p.id === d.plant_id);
+                            if (plant) {
+                              uniqueGenera.add(`${plant.genus_category}-${plant.genus_number}`);
+                            }
+                          });
+                          const totalGenera = genera.length;
+                          return totalGenera > 0 ? `${Math.round((uniqueGenera.size / totalGenera) * 100)}%` : '0%';
+                        })()}
+                      </Badge>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
                     <span className="text-sm text-stone-700">Entdeckte Arten</span>
-                    <Badge variant="outline" className="text-base px-3 py-1">
-                      {(() => {
-                        const myDiscoveries = allDiscoveries.filter(d => d.user === user.email || d.created_by === user.email);
-                        const uniquePlants = new Set(myDiscoveries.map(d => d.plant_id));
-                        return uniquePlants.size;
-                      })()}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-base px-3 py-1">
+                        {(() => {
+                          const myDiscoveries = allDiscoveries.filter(d => d.user === user.email || d.created_by === user.email);
+                          const uniquePlants = new Set(myDiscoveries.map(d => d.plant_id));
+                          return uniquePlants.size;
+                        })()}
+                      </Badge>
+                      <Badge variant="outline" className="text-sm px-2 py-1">
+                        {(() => {
+                          const myDiscoveries = allDiscoveries.filter(d => d.user === user.email || d.created_by === user.email);
+                          const uniquePlants = new Set(myDiscoveries.map(d => d.plant_id));
+                          const totalPlants = plants.length;
+                          return totalPlants > 0 ? `${Math.round((uniquePlants.size / totalPlants) * 100)}%` : '0%';
+                        })()}
+                      </Badge>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
                     <span className="text-sm text-stone-700">Seltenste Entdeckung</span>
