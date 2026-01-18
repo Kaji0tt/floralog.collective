@@ -379,7 +379,18 @@ export default function Achievements() {
     .filter(q => {
       const userQuest = userQuests.find(uq => uq.quest_id === q.id);
       const isUnlocked = (q.unlocked_at_level || 1) <= (user?.level || 1);
-      return !userQuest?.accepted && isUnlocked;
+      
+      // Prüfe Voraussetzung
+      let prerequisiteMet = true;
+      if (q.prerequisite_quest_number) {
+        const prerequisiteQuest = quests.find(pq => pq.quest_number === q.prerequisite_quest_number);
+        if (prerequisiteQuest) {
+          const prerequisiteUserQuest = userQuests.find(uq => uq.quest_id === prerequisiteQuest.id);
+          prerequisiteMet = prerequisiteUserQuest?.redeemed || false;
+        }
+      }
+      
+      return !userQuest?.accepted && isUnlocked && prerequisiteMet;
     })
     .map(q => ({
       ...q,
