@@ -124,31 +124,22 @@ export default function Achievements() {
     enabled: !!user?.email,
   });
 
-  const { data: plants = [] } = useQuery({
-    queryKey: ['plants'],
-    queryFn: () => base44.entities.Plant.list(),
-  });
-
-  const { data: genera = [] } = useQuery({
-    queryKey: ['genera'],
-    queryFn: () => base44.entities.PlantGenus.list(),
-  });
-
   const { data: collectionQuests = [] } = useQuery({
     queryKey: ['collectionQuests'],
     queryFn: () => base44.entities.CollectionQuest.list(),
+    enabled: questFilter === 'collections',
   });
 
   const { data: userCollectionQuests = [] } = useQuery({
     queryKey: ['userCollectionQuests', user?.email],
     queryFn: () => base44.entities.UserCollectionQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
+    enabled: !!user?.email && questFilter === 'collections',
   });
 
-  const { data: userDiscoveries = [] } = useQuery({
-    queryKey: ['userDiscoveries', user?.email],
-    queryFn: () => base44.entities.UserPlantDiscovery.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
+  const { data: plants = [] } = useQuery({
+    queryKey: ['plants'],
+    queryFn: () => base44.entities.Plant.list(),
+    enabled: questFilter === 'collections' && collectionQuests.length > 0,
   });
 
   const updateTitleMutation = useMutation({
