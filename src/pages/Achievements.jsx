@@ -59,6 +59,7 @@ export default function Achievements() {
   const [averageColor, setAverageColor] = useState(null);
   const [activeTab, setActiveTab] = useState("achievements");
   const [questFilter, setQuestFilter] = useState("all");
+  const [expeditionFilter, setExpeditionFilter] = useState("active");
 
   useEffect(() => {
     const loadUser = async () => {
@@ -132,6 +133,23 @@ export default function Achievements() {
   const { data: genera = [] } = useQuery({
     queryKey: ['genera'],
     queryFn: () => base44.entities.PlantGenus.list(),
+  });
+
+  const { data: collectionQuests = [] } = useQuery({
+    queryKey: ['collectionQuests'],
+    queryFn: () => base44.entities.CollectionQuest.list(),
+  });
+
+  const { data: userCollectionQuests = [] } = useQuery({
+    queryKey: ['userCollectionQuests', user?.email],
+    queryFn: () => base44.entities.UserCollectionQuest.filter({ created_by: user?.email }),
+    enabled: !!user?.email,
+  });
+
+  const { data: userDiscoveries = [] } = useQuery({
+    queryKey: ['userDiscoveries', user?.email],
+    queryFn: () => base44.entities.UserPlantDiscovery.filter({ created_by: user?.email }),
+    enabled: !!user?.email,
   });
 
   const updateTitleMutation = useMutation({
@@ -305,7 +323,7 @@ export default function Achievements() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200">
             <div className="max-w-7xl mx-auto">
-              <TabsList className="grid w-full grid-cols-2 bg-white h-12 rounded-none border-0">
+              <TabsList className="grid w-full grid-cols-3 bg-white h-12 rounded-none border-0">
                 <TabsTrigger value="achievements" className="data-[state=active]:bg-amber-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
                   <div className="flex items-center gap-1">
                     <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -318,7 +336,13 @@ export default function Achievements() {
                 <TabsTrigger value="quests" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
                   <div className="flex items-center gap-1">
                     <Target className="w-3 h-3 sm:w-4 sm:h-4" />
-                    <span>{activeQuests.length} Aktiv</span>
+                    <span className="hidden sm:inline">Aufgaben</span>
+                  </div>
+                </TabsTrigger>
+                <TabsTrigger value="expeditions" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
+                  <div className="flex items-center gap-1">
+                    <Leaf className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span className="hidden sm:inline">Expedition</span>
                   </div>
                 </TabsTrigger>
               </TabsList>
@@ -536,6 +560,155 @@ export default function Achievements() {
                     </h3>
                     <p className="text-stone-600">
                       Alle Aufgaben abgeschlossen oder noch nicht freigeschaltet!
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Expeditionen Tab */}
+          <TabsContent value="expeditions" className="pt-20 px-4 pb-4">
+            <div className="max-w-6xl mx-auto">
+              {/* Filter */}
+              <div className="flex gap-1 p-1 mb-4 border border-stone-200 bg-white rounded-lg">
+                <Button
+                  onClick={() => setExpeditionFilter("active")}
+                  variant={expeditionFilter === "active" ? "default" : "ghost"}
+                  size="sm"
+                  className={`flex-1 h-7 text-xs ${expeditionFilter === "active" ? "bg-purple-600 hover:bg-purple-700" : ""}`}
+                >
+                  Aktiv
+                </Button>
+                <Button
+                  onClick={() => setExpeditionFilter("completed")}
+                  variant={expeditionFilter === "completed" ? "default" : "ghost"}
+                  size="sm"
+                  className={`flex-1 h-7 text-xs ${expeditionFilter === "completed" ? "bg-purple-600 hover:bg-purple-700" : ""}`}
+                >
+                  Abgeschlossen
+                </Button>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                {collectionQuests
+                  .filter(quest => {
+                    const userQuest = userCollectionQuests.find(ucq => ucq.collection_quest_id === quest.id);
+                    if (expeditionFilter === "active") {
+                      return quest.is_active && !userQuest?.completed;
+                    } else {
+                      return userQuest?.completed;
+                    }
+                  })
+                  .map((quest, index) => {
+                    const userQuest = userCollectionQuests.find(ucq => ucq.collection_quest_id === quest.id);
+                    const discoveredPlants = userQuest?.discovered_plants || [];
+                    const totalPlants = quest.target_plants?.length || 0;
+                    const progressPercentage = totalPlants > 0 ? (discoveredPlants.length / totalPlants) * 100 : 0;
+
+                    return (
+                      <motion.div
+                        key={quest.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                      >
+                        <Card className={`border shadow-sm bg-white/90 backdrop-blur-md hover:shadow-md transition-all ${
+                          userQuest?.completed ? 'border-green-400 bg-gradient-to-br from-green-50/50 to-white' : 'border-purple-400 bg-gradient-to-br from-purple-50/50 to-white'
+                        }`}>
+                          <CardContent className="p-3">
+                            <div className="flex items-start gap-2">
+                              <div className={`text-3xl flex-shrink-0 ${userQuest?.completed ? '' : ''}`}>
+                                {quest.icon_emoji || '🗺️'}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1 mb-1 flex-wrap">
+                                  <Badge className={`text-[10px] px-1 py-0 ${
+                                    quest.difficulty === 'Leicht' ? 'bg-green-600' :
+                                    quest.difficulty === 'Mittel' ? 'bg-yellow-600' :
+                                    quest.difficulty === 'Schwer' ? 'bg-orange-600' :
+                                    'bg-red-600'
+                                  } text-white`}>
+                                    {quest.difficulty}
+                                  </Badge>
+                                  {userQuest?.completed && (
+                                    <Badge className="bg-green-600 text-white text-[10px] px-1 py-0">
+                                      ✓ Abgeschlossen
+                                    </Badge>
+                                  )}
+                                </div>
+                                <h3 className="text-sm font-bold text-stone-900 mb-1">
+                                  {quest.title}
+                                </h3>
+                                <p className="text-xs text-stone-600 mb-2">
+                                  {quest.description}
+                                </p>
+                                
+                                {/* Zielpflanzen Liste */}
+                                <div className="mb-2 bg-stone-50 rounded-lg p-2">
+                                  <p className="text-[10px] font-semibold text-stone-700 mb-1">Zielpflanzen:</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {quest.target_plants?.map((plantId, idx) => {
+                                      const plant = plants.find(p => p.id === plantId || p.species_name === plantId);
+                                      const isDiscovered = discoveredPlants.includes(plantId);
+                                      return (
+                                        <Badge 
+                                          key={idx} 
+                                          variant="outline" 
+                                          className={`text-[10px] px-1 py-0 ${
+                                            isDiscovered ? 'bg-green-100 text-green-700 border-green-400' : 'text-stone-600'
+                                          }`}
+                                        >
+                                          {isDiscovered && '✓ '}
+                                          {plant?.species_name || plantId}
+                                        </Badge>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+
+                                {/* Fortschritt */}
+                                <div className="space-y-1 mb-2">
+                                  <div className="flex items-center justify-between text-xs">
+                                    <span className="text-stone-500">Fortschritt</span>
+                                    <span className="font-bold text-purple-700">
+                                      {discoveredPlants.length} / {totalPlants}
+                                    </span>
+                                  </div>
+                                  <Progress value={progressPercentage} className="h-1.5" />
+                                </div>
+
+                                <div className="flex items-center justify-between pt-1 border-t border-stone-200">
+                                  <span className="text-[10px] text-stone-500">Belohnung</span>
+                                  <Badge className="bg-gradient-to-r from-amber-500 to-amber-600 text-white font-bold text-[10px] px-1.5 py-0">
+                                    +{quest.xp_reward} XP
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    );
+                  })}
+              </div>
+
+              {collectionQuests.filter(quest => {
+                const userQuest = userCollectionQuests.find(ucq => ucq.collection_quest_id === quest.id);
+                if (expeditionFilter === "active") {
+                  return quest.is_active && !userQuest?.completed;
+                } else {
+                  return userQuest?.completed;
+                }
+              }).length === 0 && (
+                <div className="text-center py-20">
+                  <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 max-w-md mx-auto border border-stone-200 shadow-lg">
+                    <Leaf className="w-16 h-16 text-stone-400 mx-auto mb-4" />
+                    <h3 className="text-xl font-bold text-stone-900 mb-2">
+                      {expeditionFilter === "active" ? "Keine aktiven Expeditionen" : "Keine abgeschlossenen Expeditionen"}
+                    </h3>
+                    <p className="text-stone-600">
+                      {expeditionFilter === "active" ? "Zurzeit sind keine Expeditionen verfügbar." : "Du hast noch keine Expedition abgeschlossen."}
                     </p>
                   </div>
                 </div>
