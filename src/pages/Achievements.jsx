@@ -203,7 +203,7 @@ export default function Achievements() {
   });
 
   const redeemQuestMutation = useMutation({
-    mutationFn: async ({ userQuestId, questType, xpReward }) => {
+    mutationFn: async ({ userQuestId, questType }) => {
       const now = new Date().toISOString();
       
       // Quest einlösen
@@ -229,13 +229,8 @@ export default function Achievements() {
         });
       }
 
-      // XP vergeben
-      const currentUser = await base44.auth.me();
-      const newXP = (currentUser.xp || 0) + xpReward;
-      const newLevel = Math.floor(newXP / 100) + 1;
-      await base44.auth.updateMe({ xp: newXP, level: newLevel });
-
       // Achievement-Check durchführen
+      const currentUser = await base44.auth.me();
       const { checkAndUnlockAchievements } = await import("../components/achievements/achievementChecker");
       await checkAndUnlockAchievements(currentUser);
     },
@@ -664,10 +659,7 @@ export default function Achievements() {
                               <div className="flex-1">
                                 <h3 className="text-sm font-bold text-stone-900 mb-1">{quest.title}</h3>
                                 <p className="text-xs text-stone-600 mb-2">{quest.description}</p>
-                                <div className="flex items-center justify-between">
-                                  <Badge className="bg-amber-500 text-white text-[10px]">
-                                    +{quest.xp_reward} XP
-                                  </Badge>
+                                <div className="flex justify-end">
                                   <Button
                                     onClick={() => acceptQuestMutation.mutate({
                                       questId: quest.id,
@@ -785,16 +777,12 @@ export default function Achievements() {
                                     </div>
                                   )}
 
-                                  <div className="flex items-center justify-between pt-1 border-t border-stone-200">
-                                    <Badge className="bg-gradient-to-r from-amber-500 to-amber-600 text-white font-bold text-[10px] px-1.5 py-0">
-                                      +{quest.xp_reward} XP
-                                    </Badge>
-                                    {quest.isCompleted && (
+                                  {quest.isCompleted && (
+                                    <div className="flex justify-end pt-2 border-t border-stone-200">
                                       <Button
                                         onClick={() => redeemQuestMutation.mutate({
                                           userQuestId: quest.userQuestId,
                                           questType: quest.type,
-                                          xpReward: quest.xp_reward || 0,
                                         })}
                                         disabled={redeemQuestMutation.isPending}
                                         size="sm"
@@ -802,8 +790,8 @@ export default function Achievements() {
                                       >
                                         Einlösen
                                       </Button>
-                                    )}
-                                  </div>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </CardContent>
