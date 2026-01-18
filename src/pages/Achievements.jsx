@@ -686,8 +686,7 @@ export default function Achievements() {
 
               {/* Aktive Quests */}
               {activeQuests.length > 0 && (
-                <div>
-                  <h2 className="text-lg font-bold text-stone-900 mb-3">Angenommene Aufgaben</h2>
+                
                   <div className="grid md:grid-cols-2 gap-4">
                     {activeQuests.map((quest, index) => {
                       const progressPercentage = quest.required_discoveries 
@@ -800,7 +799,7 @@ export default function Achievements() {
                       );
                     })}
                   </div>
-                </div>
+                
               )}
 
               {activeQuests.length === 0 && availableQuests.length === 0 && (
