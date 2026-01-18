@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Loader2, Leaf, Search } from "lucide-react";
+import { motion } from "framer-motion";
 import GenusCard from "../components/collection/GenusCard";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import HintDialog from "../components/collection/HintDialog";
@@ -54,6 +55,7 @@ export default function Collection() {
   const [searchQuery, setSearchQuery] = useState("");
   const [user, setUser] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
+  const [showGenera, setShowGenera] = useState(true);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -210,10 +212,27 @@ export default function Collection() {
       <div className="fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md shadow-sm border-b border-stone-200">
         <div className="max-w-7xl mx-auto px-4 py-2">
           <div className="flex items-center justify-between gap-3 mb-2">
-            <div className="text-center flex-1">
-              <div className="text-sm font-bold text-green-700">{discoveredCount}/{totalCount}</div>
-              <div className="text-[10px] font-medium text-stone-600">Gattungen</div>
-            </div>
+            <motion.div 
+              className="text-center flex-1 cursor-pointer select-none"
+              onClick={() => setShowGenera(!showGenera)}
+              animate={{ rotateY: showGenera ? 0 : 180 }}
+              transition={{ duration: 0.6 }}
+              style={{ transformStyle: "preserve-3d" }}
+            >
+              <div style={{ backfaceVisibility: "hidden" }}>
+                {showGenera ? (
+                  <>
+                    <div className="text-sm font-bold text-green-700">{discoveredCount}/{totalCount}</div>
+                    <div className="text-[10px] font-medium text-stone-600">Gattungen</div>
+                  </>
+                ) : (
+                  <div style={{ transform: "rotateY(180deg)" }}>
+                    <div className="text-sm font-bold text-amber-700">{discoveredSpecies}/{totalSpecies}</div>
+                    <div className="text-[10px] font-medium text-stone-600">Arten</div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
             
             <div className="h-6 w-px bg-stone-200"></div>
             
@@ -223,16 +242,9 @@ export default function Collection() {
             
             <div className="h-6 w-px bg-stone-200"></div>
             
-            <div className="text-center flex-1">
-              <div className="text-sm font-bold text-amber-700">{discoveredSpecies}/{totalSpecies}</div>
-              <div className="text-[10px] font-medium text-stone-600">Arten</div>
-            </div>
-          </div>
-
-          <div className="flex flex-col md:flex-row gap-2">
             <div className="flex gap-2 flex-1">
               <Select value={activeCategory} onValueChange={setActiveCategory}>
-                <SelectTrigger className="bg-white flex-1 h-9">
+                <SelectTrigger className="bg-white flex-1 h-9 text-xs">
                   <SelectValue placeholder="Kategorie" />
                 </SelectTrigger>
                 <SelectContent>
@@ -251,7 +263,7 @@ export default function Collection() {
               </Select>
 
               <Select value={discoveryFilter} onValueChange={setDiscoveryFilter}>
-                <SelectTrigger className="bg-white flex-1 h-9">
+                <SelectTrigger className="bg-white flex-1 h-9 text-xs">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -266,17 +278,17 @@ export default function Collection() {
                 </SelectContent>
               </Select>
             </div>
+          </div>
 
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-stone-400" />
-              <Input
-                type="text"
-                placeholder="Suchen..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 bg-white h-9 text-sm"
-              />
-            </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-stone-400" />
+            <Input
+              type="text"
+              placeholder="Suchen..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 bg-white h-9 text-sm"
+            />
           </div>
         </div>
       </div>
