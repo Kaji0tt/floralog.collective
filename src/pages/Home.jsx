@@ -705,7 +705,7 @@ export default function Home() {
                     {user.avatar_url ? (
                       <img src={user.avatar_url} alt="Profil" className="w-full h-full object-cover" />
                     ) : (
-                      <img src={LOGO_URL} alt="Floralog" className="w-14 h-14 object-contain" />
+                      <Leaf className="w-14 h-14 text-white" />
                     )}
                   </div>
                   
