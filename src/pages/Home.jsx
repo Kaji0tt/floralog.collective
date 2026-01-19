@@ -835,14 +835,14 @@ export default function Home() {
                     {stat.hasNotification && (
                       <>
                         <motion.div
-                          className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-300/30 to-transparent"
+                          className="absolute inset-0 bg-gradient-to-b from-transparent via-amber-300/30 to-transparent"
                           animate={{
-                            x: ['-100%', '200%']
+                            y: ['-100%', '200%']
                           }}
                           transition={{
-                            duration: 2,
+                            duration: 2.5,
                             repeat: Infinity,
-                            repeatDelay: 1,
+                            repeatDelay: 3,
                             ease: "easeInOut"
                           }}
                           style={{ pointerEvents: 'none' }}
@@ -857,8 +857,9 @@ export default function Home() {
                             ]
                           }}
                           transition={{
-                            duration: 2,
+                            duration: 2.5,
                             repeat: Infinity,
+                            repeatDelay: 3,
                             ease: "easeInOut"
                           }}
                         />

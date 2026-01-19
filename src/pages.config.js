@@ -17,7 +17,6 @@ import FriendFriendsList from './pages/FriendFriendsList';
 import FriendProfile from './pages/FriendProfile';
 import Friends from './pages/Friends';
 import GenusDetail from './pages/GenusDetail';
-import Home from './pages/Home';
 import Impressum from './pages/Impressum';
 import Map from './pages/Map';
 import MigrateDiscoveries from './pages/MigrateDiscoveries';
@@ -31,6 +30,7 @@ import ResetToLevel5 from './pages/ResetToLevel5';
 import Scanner from './pages/Scanner';
 import ViewSharedScan from './pages/ViewSharedScan';
 import XPMigration from './pages/XPMigration';
+import Home from './pages/Home';
 import __Layout from './Layout.jsx';
 
 
@@ -54,7 +54,6 @@ export const PAGES = {
     "FriendProfile": FriendProfile,
     "Friends": Friends,
     "GenusDetail": GenusDetail,
-    "Home": Home,
     "Impressum": Impressum,
     "Map": Map,
     "MigrateDiscoveries": MigrateDiscoveries,
@@ -68,6 +67,7 @@ export const PAGES = {
     "Scanner": Scanner,
     "ViewSharedScan": ViewSharedScan,
     "XPMigration": XPMigration,
+    "Home": Home,
 }
 
 export const pagesConfig = {
