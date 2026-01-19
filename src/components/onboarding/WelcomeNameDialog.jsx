@@ -34,7 +34,7 @@ export default function WelcomeNameDialog({ user, onComplete }) {
           user_email: user.email,
           notification_type: "custom",
           title: "🌿 Willkommen im Floralog!",
-          message: `Hallo ${name.trim()}! Schön, dass du da bist. Floralog ist dein Wegbegleiter für Entdeckungen in der Natur. Dabei speichert Floralog deine persönlichen Entdeckungen in einer eigenen Kollektion.`,
+          message: `Hallo ${name.trim()}! Schön, dass du da bist. Floralog ist dein persönlicher Wegbegleiter für all deine Entdeckungen in der Natur. Dabei landet jede Entdeckung in einer eigenen Kollektion.`,
           description: "Öffne die Kollektion deines Floralogs.",
           action_url: "",
           priority: "high",
