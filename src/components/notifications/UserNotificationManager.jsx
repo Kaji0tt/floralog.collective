@@ -24,7 +24,7 @@ export default function UserNotificationManager({ user }) {
       );
     },
     enabled: !!user?.email,
-    refetchInterval: 30000 // Alle 30 Sekunden prüfen
+    refetchInterval: 5000 // Alle 5 Sekunden prüfen
   });
 
   // Mutation zum Markieren als gesehen

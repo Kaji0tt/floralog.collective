@@ -41,10 +41,13 @@ export default function WelcomeNameDialog({ user, onComplete }) {
         display_location: "modal"
       });
 
-      // 3. Dialog schließen
+      // 3. Warte kurz, damit die Notification in der DB ist
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // 4. Dialog schließen
       setShowDialog(false);
       
-      // 4. Benachrichtige Parent-Komponente
+      // 5. Benachrichtige Parent-Komponente
       if (onComplete) {
         onComplete();
       }
