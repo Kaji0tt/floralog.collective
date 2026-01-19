@@ -1102,15 +1102,6 @@ export default function Home() {
                     Dies ist eine Test-Notification
                   </div>
                 </div>
-
-                {/* Person/Charakter Bild - unten rechts */}
-                <div className="fixed bottom-0 right-0 pointer-events-none">
-                  <img
-                    src={LOGO_URL}
-                    alt="Quest Giver"
-                    className="block h-64 w-auto object-contain drop-shadow-2xl"
-                  />
-                </div>
               </motion.div>
             </div>
           )}
