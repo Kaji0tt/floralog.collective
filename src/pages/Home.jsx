@@ -840,9 +840,9 @@ export default function Home() {
                             x: ['-100%', '200%']
                           }}
                           transition={{
-                            duration: 2.5,
+                            duration: 2,
                             repeat: Infinity,
-                            repeatDelay: 3,
+                            repeatDelay: 1,
                             ease: "easeInOut"
                           }}
                           style={{ pointerEvents: 'none' }}
@@ -857,9 +857,8 @@ export default function Home() {
                             ]
                           }}
                           transition={{
-                            duration: 2.5,
+                            duration: 2,
                             repeat: Infinity,
-                            repeatDelay: 3,
                             ease: "easeInOut"
                           }}
                         />
