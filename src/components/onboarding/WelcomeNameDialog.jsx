@@ -5,10 +5,8 @@ import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
 import { Leaf, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
-import { useQueryClient } from "@tanstack/react-query";
 
 export default function WelcomeNameDialog({ user, onComplete }) {
-  const queryClient = useQueryClient();
   const [showDialog, setShowDialog] = useState(false);
   const [name, setName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -33,30 +31,23 @@ export default function WelcomeNameDialog({ user, onComplete }) {
 
       // 2. Erstelle die Willkommens-Benachrichtigung
       await base44.entities.UserNotification.create({
-        user_email: user.email,
-        notification_type: "custom",
-        title: "🌿 Willkommen im Floralog!",
-        message: `Hallo ${name.trim()}! Schön, dass du da bist. Beginne jetzt deine Reise und entdecke die faszinierende Welt der Pflanzen!`,
-        description: "Scanne deine erste Pflanze, um dein Abenteuer zu starten und sammle Erfolge auf deinem Weg zum Pflanzen-Meister.",
-        action_url: "Scanner",
-        priority: "high",
-        display_location: "modal"
-      });
+          user_email: user.email,
+          notification_type: "custom",
+          title: "🌿 Willkommen im Floralog!",
+          message: `Hallo ${name.trim()}! Schön, dass du da bist. Floralog ist dein Wegbegleiter für Entdeckungen in der Natur. Dabei speichert Floralog deine persönlichen Entdeckungen in einer eigenen Kollektion.`,
+          description: "Öffne die Kollektion deines Floralogs.",
+          action_url: "",
+          priority: "high",
+          display_location: "modal"
+        });
 
-      // 3. Invalidiere Queries damit Notifications sofort abgerufen werden
-      queryClient.invalidateQueries({ queryKey: ['userNotifications'] });
-      
-      // 4. Dialog schließen
+      // 3. Dialog schließen
       setShowDialog(false);
       
-      // 5. User im Layout neu laden
+      // 4. Benachrichtige Parent-Komponente
       if (onComplete) {
-        await onComplete();
+        onComplete();
       }
-      
-      // 6. Nochmal Notifications laden nach kurzer Verzögerung
-      await new Promise(resolve => setTimeout(resolve, 300));
-      queryClient.invalidateQueries({ queryKey: ['userNotifications'] });
     } catch (error) {
       console.error("Fehler beim Speichern:", error);
       alert("Fehler beim Speichern des Namens. Bitte versuche es erneut.");
