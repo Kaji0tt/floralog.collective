@@ -515,12 +515,7 @@ export default function Achievements() {
                     <span>Aufgaben</span>
                   </div>
                   {showQuestNotification && (
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: [0, 1.2, 1] }}
-                      transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
-                      className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white"
-                    />
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
                   )}
                 </TabsTrigger>
                 <TabsTrigger value="achievements" className="data-[state=active]:bg-amber-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
@@ -546,20 +541,10 @@ export default function Achievements() {
                       activeRegularQuests.some(q => q.isCompleted) || activeCollectionQuests.some(q => q.isCompleted)) && (
                       <div className="absolute -top-1 -right-1 flex gap-0.5">
                         {(availableRegularQuests.length > 0 || availableCollectionQuests.length > 0) && (
-                          <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: [0, 1.2, 1] }}
-                            transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
-                            className="w-2 h-2 bg-red-500 rounded-full border border-white"
-                          />
+                          <div className="w-2 h-2 bg-red-500 rounded-full border border-white" />
                         )}
                         {(activeRegularQuests.some(q => q.isCompleted) || activeCollectionQuests.some(q => q.isCompleted)) && (
-                          <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: [0, 1.2, 1] }}
-                            transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2, delay: 0.25 }}
-                            className="w-2 h-2 bg-green-500 rounded-full border border-white"
-                          />
+                          <div className="w-2 h-2 bg-green-500 rounded-full border border-white" />
                         )}
                       </div>
                     )}
@@ -573,20 +558,10 @@ export default function Achievements() {
                     {(availableWeeklyQuest || activeWeeklyQuest?.isCompleted) && (
                       <div className="absolute -top-1 -right-1 flex gap-0.5">
                         {availableWeeklyQuest && (
-                          <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: [0, 1.2, 1] }}
-                            transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
-                            className="w-2 h-2 bg-red-500 rounded-full border border-white"
-                          />
+                          <div className="w-2 h-2 bg-red-500 rounded-full border border-white" />
                         )}
                         {activeWeeklyQuest?.isCompleted && (
-                          <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: [0, 1.2, 1] }}
-                            transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2, delay: 0.25 }}
-                            className="w-2 h-2 bg-green-500 rounded-full border border-white"
-                          />
+                          <div className="w-2 h-2 bg-green-500 rounded-full border border-white" />
                         )}
                       </div>
                     )}
@@ -600,20 +575,10 @@ export default function Achievements() {
                     {(availableMonthlyQuest || activeMonthlyQuest?.isCompleted) && (
                       <div className="absolute -top-1 -right-1 flex gap-0.5">
                         {availableMonthlyQuest && (
-                          <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: [0, 1.2, 1] }}
-                            transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
-                            className="w-2 h-2 bg-red-500 rounded-full border border-white"
-                          />
+                          <div className="w-2 h-2 bg-red-500 rounded-full border border-white" />
                         )}
                         {activeMonthlyQuest?.isCompleted && (
-                          <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: [0, 1.2, 1] }}
-                            transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2, delay: 0.25 }}
-                            className="w-2 h-2 bg-green-500 rounded-full border border-white"
-                          />
+                          <div className="w-2 h-2 bg-green-500 rounded-full border border-white" />
                         )}
                       </div>
                     )}

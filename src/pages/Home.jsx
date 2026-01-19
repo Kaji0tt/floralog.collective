@@ -825,29 +825,19 @@ export default function Home() {
                       borderColor: averageColor ? 'var(--profile-border-color)' : stat.borderColor.replace('border-', '').replace('-200', '')
                     }}
                   >
-                    <div className="flex flex-col items-center gap-1 short-screen:gap-0.5 md:gap-2">
-                      <div className={`w-8 h-8 short-screen:w-7 short-screen:h-7 md:w-12 md:h-12 bg-gradient-to-br ${stat.color} rounded-full flex items-center justify-center shadow-md group-hover:scale-110 transition-transform relative`}>
-                        <stat.icon className="w-4 h-4 short-screen:w-3.5 short-screen:h-3.5 md:w-6 md:h-6 text-white" />
-                        {stat.hasNotification && (
-                          <div className="absolute -top-1 -right-1 flex gap-0.5">
-                            {stat.notificationRed && (
-                              <motion.div
-                                initial={{ scale: 0 }}
-                                animate={{ scale: [0, 1.2, 1] }}
-                                transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
-                                className="w-3 h-3 bg-red-500 rounded-full border-2 border-white"
-                              />
-                            )}
-                            {stat.notificationGreen && (
-                              <motion.div
-                                initial={{ scale: 0 }}
-                                animate={{ scale: [0, 1.2, 1] }}
-                                transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2, delay: 0.25 }}
-                                className="w-3 h-3 bg-green-500 rounded-full border-2 border-white"
-                              />
-                            )}
-                          </div>
+                    {stat.hasNotification && (
+                      <div className="absolute -top-1 -right-1 flex gap-0.5">
+                        {stat.notificationRed && (
+                          <div className="w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
                         )}
+                        {stat.notificationGreen && (
+                          <div className="w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
+                        )}
+                      </div>
+                    )}
+                    <div className="flex flex-col items-center gap-1 short-screen:gap-0.5 md:gap-2">
+                      <div className={`w-8 h-8 short-screen:w-7 short-screen:h-7 md:w-12 md:h-12 bg-gradient-to-br ${stat.color} rounded-full flex items-center justify-center shadow-md group-hover:scale-110 transition-transform`}>
+                        <stat.icon className="w-4 h-4 short-screen:w-3.5 short-screen:h-3.5 md:w-6 md:h-6 text-white" />
                       </div>
                       <div className="text-xl short-screen:hidden md:text-3xl font-bold text-stone-700">{stat.value}</div>
                       <div className="text-xs font-semibold text-stone-600 hidden sm:block short-screen:hidden">{stat.label}</div>
