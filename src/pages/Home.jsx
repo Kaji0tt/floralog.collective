@@ -835,10 +835,9 @@ export default function Home() {
                     {stat.hasNotification && (
                       <>
                         <motion.div
-                          className="absolute inset-0 bg-gradient-to-br from-transparent via-amber-300/30 to-transparent -rotate-12"
+                          className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-300/30 to-transparent"
                           animate={{
-                            x: ['-150%', '250%'],
-                            y: ['-150%', '250%']
+                            x: ['-100%', '200%']
                           }}
                           transition={{
                             duration: 2.5,
