@@ -818,22 +818,51 @@ export default function Home() {
                     transition={{ delay: 0.1 + index * 0.05 }}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="bg-white/60 backdrop-blur-md rounded-xl p-2 short-screen:p-1.5 md:p-4 hover:shadow-lg transition-all duration-300 group relative"
+                    className="bg-white/60 backdrop-blur-md rounded-xl p-2 short-screen:p-1.5 md:p-4 hover:shadow-lg transition-all duration-300 group relative overflow-hidden"
                     style={{
                       borderWidth: '2px',
                       borderStyle: 'solid',
-                      borderColor: averageColor ? 'var(--profile-border-color)' : stat.borderColor.replace('border-', '').replace('-200', '')
+                      borderColor: stat.hasNotification 
+                        ? 'transparent'
+                        : (averageColor ? 'var(--profile-border-color)' : stat.borderColor.replace('border-', '').replace('-200', '')),
+                      backgroundImage: stat.hasNotification
+                        ? 'linear-gradient(white, white), linear-gradient(90deg, #f59e0b, #f97316, #ea580c, #f59e0b)'
+                        : 'none',
+                      backgroundOrigin: 'border-box',
+                      backgroundClip: stat.hasNotification ? 'padding-box, border-box' : 'padding-box'
                     }}
                   >
                     {stat.hasNotification && (
-                      <div className="absolute -top-1 -right-1 flex gap-0.5">
-                        {stat.notificationRed && (
-                          <div className="w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
-                        )}
-                        {stat.notificationGreen && (
-                          <div className="w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
-                        )}
-                      </div>
+                      <>
+                        <motion.div
+                          className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-300/30 to-transparent"
+                          animate={{
+                            x: ['-100%', '200%']
+                          }}
+                          transition={{
+                            duration: 2,
+                            repeat: Infinity,
+                            repeatDelay: 1,
+                            ease: "easeInOut"
+                          }}
+                          style={{ pointerEvents: 'none' }}
+                        />
+                        <motion.div
+                          className="absolute inset-0 rounded-xl"
+                          animate={{
+                            boxShadow: [
+                              '0 0 0px rgba(245, 158, 11, 0)',
+                              '0 0 20px rgba(245, 158, 11, 0.6)',
+                              '0 0 0px rgba(245, 158, 11, 0)'
+                            ]
+                          }}
+                          transition={{
+                            duration: 2,
+                            repeat: Infinity,
+                            ease: "easeInOut"
+                          }}
+                        />
+                      </>
                     )}
                     <div className="flex flex-col items-center gap-1 short-screen:gap-0.5 md:gap-2">
                       <div className={`w-8 h-8 short-screen:w-7 short-screen:h-7 md:w-12 md:h-12 bg-gradient-to-br ${stat.color} rounded-full flex items-center justify-center shadow-md group-hover:scale-110 transition-transform`}>
