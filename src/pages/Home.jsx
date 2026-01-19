@@ -1084,13 +1084,6 @@ export default function Home() {
                     <X className="w-6 h-6 text-amber-900" />
                   </button>
 
-                  <div className="flex items-center gap-2 mb-4">
-                    <Scroll className="w-6 h-6 text-amber-600" />
-                    <h3 className="text-xl font-bold text-stone-900">
-                      📜 Neue Quest verfügbar!
-                    </h3>
-                  </div>
-
                   <h4 className="font-bold text-stone-900 mb-3 text-lg">
                     Der Pflanzen-Sammler
                   </h4>

@@ -5,6 +5,7 @@ import { base44 } from "@/api/base44Client";
 import NotificationManager from "./components/notifications/NotificationManager";
 import ToastNotificationManager from "./components/notifications/ToastNotificationManager";
 import QuestNotificationManager from "./components/quests/QuestNotificationManager";
+import UserNotificationManager from "./components/notifications/UserNotificationManager";
 import { Toaster } from "@/components/ui/toaster";
 
 
@@ -51,13 +52,16 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Notification Manager - nur Banner, kein Button */}
       {user && currentPageName !== "Profile" && <NotificationManager user={user} />}
-      
+
       {/* Toast Notifications */}
       {user && <ToastNotificationManager user={user} />}
-      
+
       {/* Quest Notifications */}
       {user && <QuestNotificationManager user={user} />}
-      
+
+      {/* User Notifications System */}
+      {user && <UserNotificationManager user={user} />}
+
       <Toaster />
     </>
   );
