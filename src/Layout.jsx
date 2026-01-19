@@ -15,15 +15,16 @@ export default function Layout({ children, currentPageName }) {
   const location = useLocation();
   const [user, setUser] = useState(null);
 
+  const loadUser = async () => {
+    try {
+      const currentUser = await base44.auth.me();
+      setUser(currentUser);
+    } catch (error) {
+      console.log("User not authenticated");
+    }
+  };
+
   useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const currentUser = await base44.auth.me();
-        setUser(currentUser);
-      } catch (error) {
-        console.log("User not authenticated");
-      }
-    };
     loadUser();
   }, []);
 
@@ -64,7 +65,7 @@ export default function Layout({ children, currentPageName }) {
       {user && <UserNotificationManager user={user} />}
 
       {/* Welcome Dialog für neue Nutzer */}
-      {user && <WelcomeNameDialog user={user} onComplete={() => setUser(null)} />}
+      {user && <WelcomeNameDialog user={user} onComplete={loadUser} />}
 
       <Toaster />
     </>

@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
 import { Leaf, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function WelcomeNameDialog({ user, onComplete }) {
+  const queryClient = useQueryClient();
   const [showDialog, setShowDialog] = useState(false);
   const [name, setName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,16 +43,20 @@ export default function WelcomeNameDialog({ user, onComplete }) {
         display_location: "modal"
       });
 
-      // 3. Warte kurz, damit die Notification in der DB ist
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // 3. Invalidiere Queries damit Notifications sofort abgerufen werden
+      queryClient.invalidateQueries({ queryKey: ['userNotifications'] });
       
       // 4. Dialog schließen
       setShowDialog(false);
       
-      // 5. Benachrichtige Parent-Komponente
+      // 5. User im Layout neu laden
       if (onComplete) {
-        onComplete();
+        await onComplete();
       }
+      
+      // 6. Nochmal Notifications laden nach kurzer Verzögerung
+      await new Promise(resolve => setTimeout(resolve, 300));
+      queryClient.invalidateQueries({ queryKey: ['userNotifications'] });
     } catch (error) {
       console.error("Fehler beim Speichern:", error);
       alert("Fehler beim Speichern des Namens. Bitte versuche es erneut.");
