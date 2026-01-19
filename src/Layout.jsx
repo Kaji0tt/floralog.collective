@@ -6,6 +6,7 @@ import NotificationManager from "./components/notifications/NotificationManager"
 import ToastNotificationManager from "./components/notifications/ToastNotificationManager";
 import QuestNotificationManager from "./components/quests/QuestNotificationManager";
 import UserNotificationManager from "./components/notifications/UserNotificationManager";
+import WelcomeNameDialog from "./components/onboarding/WelcomeNameDialog";
 import { Toaster } from "@/components/ui/toaster";
 
 
@@ -61,6 +62,9 @@ export default function Layout({ children, currentPageName }) {
 
       {/* User Notifications System */}
       {user && <UserNotificationManager user={user} />}
+
+      {/* Welcome Dialog für neue Nutzer */}
+      {user && <WelcomeNameDialog user={user} onComplete={() => setUser(null)} />}
 
       <Toaster />
     </>
