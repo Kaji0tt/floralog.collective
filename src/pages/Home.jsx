@@ -147,10 +147,15 @@ export default function Home() {
   // Prüfe ob Scanner-Highlight angezeigt werden soll
   useEffect(() => {
     const hasVisitedScanner = localStorage.getItem('hasVisitedScanner');
-    if (!hasVisitedScanner) {
+    const hasDisplayName = user?.display_name;
+    const hasNoScans = userDiscoveries.length === 0;
+    
+    if (!hasVisitedScanner && hasDisplayName && hasNoScans) {
       setShowScannerHighlight(true);
+    } else {
+      setShowScannerHighlight(false);
     }
-  }, []);
+  }, [user?.display_name, userDiscoveries.length]);
 
   const updateUserMutation = useMutation({
     mutationFn: (data) => base44.auth.updateMe(data),
