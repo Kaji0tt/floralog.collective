@@ -156,12 +156,12 @@ export default function Home() {
   }, []);
 
   // Prüfe ob Scanner-Highlight angezeigt werden soll
+  // Highlight wird NUR ausgeblendet wenn der User mindestens einen Scan hat
   useEffect(() => {
-    const hasVisitedScanner = localStorage.getItem('hasVisitedScanner');
     const hasDisplayName = user?.display_name;
     const hasNoScans = userDiscoveries.length === 0;
     
-    if (!hasVisitedScanner && hasDisplayName && hasNoScans) {
+    if (hasDisplayName && hasNoScans) {
       setShowScannerHighlight(true);
     } else {
       setShowScannerHighlight(false);
@@ -980,6 +980,7 @@ export default function Home() {
                       onClick={(e) => {
                         e.stopPropagation();
                         navigate(createPageUrl("Scanner"));
+                        // NICHT mehr hasVisitedScanner setzen - Highlight bleibt bis zum ersten Scan
                       }}
                       className="flex items-center gap-2 hover:opacity-80 transition-opacity relative"
                       animate={showScannerHighlight ? {
