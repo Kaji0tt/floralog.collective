@@ -14,6 +14,8 @@ import { CheckCircle } from "lucide-react";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import QuestCompletionAnimation from "../components/quests/QuestCompletionAnimation";
+import { AnimatePresence } from "framer-motion";
 
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
@@ -59,6 +61,8 @@ export default function Achievements() {
   const [averageColor, setAverageColor] = useState(null);
   const [activeTab, setActiveTab] = useState("quests");
   const [questFilter, setQuestFilter] = useState("exploration");
+  const [showQuestAnimation, setShowQuestAnimation] = useState(false);
+  const [questXpReward, setQuestXpReward] = useState(0);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -203,7 +207,7 @@ export default function Achievements() {
   });
 
   const redeemQuestMutation = useMutation({
-    mutationFn: async ({ userQuestId, questType }) => {
+    mutationFn: async ({ userQuestId, questType, xpReward }) => {
       const now = new Date().toISOString();
 
       // Quest einlösen
@@ -233,8 +237,10 @@ export default function Achievements() {
       const currentUser = await base44.auth.me();
       const { checkAndUnlockAchievements } = await import("../components/achievements/achievementChecker");
       await checkAndUnlockAchievements(currentUser);
+      
+      return xpReward;
     },
-    onSuccess: async () => {
+    onSuccess: async (xpReward) => {
       queryClient.invalidateQueries({ queryKey: ['userQuests'] });
       queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
       queryClient.invalidateQueries({ queryKey: ['userMonthlyQuests'] });
@@ -244,6 +250,10 @@ export default function Achievements() {
       // User neu laden
       const currentUser = await base44.auth.me();
       setUser(currentUser);
+      
+      // Animation anzeigen
+      setQuestXpReward(xpReward || 100);
+      setShowQuestAnimation(true);
     }
   });
 
@@ -752,10 +762,16 @@ export default function Achievements() {
                                   {quest.isCompleted &&
                                 <div className="flex justify-end pt-2 border-t border-stone-200">
                                       <Button
-                                    onClick={() => redeemQuestMutation.mutate({
-                                      userQuestId: quest.userQuestId,
-                                      questType: quest.type
-                                    })}
+                                    onClick={() => {
+                                      const xpReward = quest.type === 'monthly' ? 500 : 
+                                                      quest.type === 'weekly' ? 300 : 
+                                                      quest.type === 'collection' ? 400 : 100;
+                                      redeemQuestMutation.mutate({
+                                        userQuestId: quest.userQuestId,
+                                        questType: quest.type,
+                                        xpReward: xpReward
+                                      });
+                                    }}
                                     disabled={redeemQuestMutation.isPending}
                                     size="sm"
                                     className="h-7 text-xs bg-green-600 hover:bg-green-700">
@@ -792,6 +808,16 @@ export default function Achievements() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Quest Completion Animation */}
+      <AnimatePresence>
+        {showQuestAnimation && (
+          <QuestCompletionAnimation 
+            xpReward={questXpReward}
+            onComplete={() => setShowQuestAnimation(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Title Selection Dialog */}
       <Dialog open={showTitleDialog} onOpenChange={setShowTitleDialog}>
