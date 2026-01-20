@@ -14,9 +14,7 @@ export default function QuestNotificationDisplay({ notification, onClose, onMark
   if (!notification) return null;
 
   const handleAction = () => {
-    if (notification.action_url) {
-      navigate(createPageUrl(notification.action_url));
-    }
+    // Markiere als gesehen, aber navigiere NICHT automatisch
     onMarkAsSeen(notification.id);
     onClose();
   };
@@ -66,15 +64,13 @@ export default function QuestNotificationDisplay({ notification, onClose, onMark
                 </p>
               )}
 
-              {/* Action Button */}
-              {notification.action_url && (
-                <button
-                  onClick={handleAction}
-                  className="w-full mt-4 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
-                >
-                  Zur Seite
-                </button>
-              )}
+              {/* Action Button - nur schließen, keine Navigation */}
+              <button
+                onClick={handleAction}
+                className="w-full mt-4 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+              >
+                Verstanden
+              </button>
             </div>
           </motion.div>
         </div>
