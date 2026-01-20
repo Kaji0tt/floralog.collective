@@ -475,18 +475,13 @@ export default function Achievements() {
     if (availableMonthlyQuest) availableQuests.push(availableMonthlyQuest);
   }
 
-  // Prüfe ob es neue oder einlösbare Quests gibt (für alle Filter)
-  const allAvailableQuests = [...availableRegularQuests, ...availableCollectionQuests];
-  if (availableWeeklyQuest) allAvailableQuests.push(availableWeeklyQuest);
-  if (availableMonthlyQuest) allAvailableQuests.push(availableMonthlyQuest);
-  
+  // Prüfe ob es einlösbare Quests gibt (für alle Filter)
   const allActiveQuests = [...activeRegularQuests, ...activeCollectionQuests];
   if (activeWeeklyQuest) allActiveQuests.push(activeWeeklyQuest);
   if (activeMonthlyQuest) allActiveQuests.push(activeMonthlyQuest);
   
   const hasRedeemableQuests = allActiveQuests.some(q => q.isCompleted);
-  const hasNewQuests = allAvailableQuests.length > 0;
-  const showQuestNotification = hasRedeemableQuests || hasNewQuests;
+  const showQuestNotification = hasRedeemableQuests;
 
   return (
     <>
@@ -537,15 +532,9 @@ export default function Achievements() {
                     size="sm"
                     className={`flex-1 h-7 text-xs relative ${questFilter === "exploration" ? "bg-blue-600 hover:bg-blue-700" : ""}`}>
                     Erkundung
-                    {(availableRegularQuests.length > 0 || availableCollectionQuests.length > 0 || 
-                      activeRegularQuests.some(q => q.isCompleted) || activeCollectionQuests.some(q => q.isCompleted)) && (
-                      <div className="absolute -top-1 -right-1 flex gap-0.5">
-                        {(availableRegularQuests.length > 0 || availableCollectionQuests.length > 0) && (
-                          <div className="w-2 h-2 bg-red-500 rounded-full border border-white" />
-                        )}
-                        {(activeRegularQuests.some(q => q.isCompleted) || activeCollectionQuests.some(q => q.isCompleted)) && (
-                          <div className="w-2 h-2 bg-green-500 rounded-full border border-white" />
-                        )}
+                    {(activeRegularQuests.some(q => q.isCompleted) || activeCollectionQuests.some(q => q.isCompleted)) && (
+                      <div className="absolute -top-1 -right-1">
+                        <div className="w-2 h-2 bg-green-500 rounded-full border border-white" />
                       </div>
                     )}
                   </Button>
@@ -555,14 +544,9 @@ export default function Achievements() {
                     size="sm"
                     className={`flex-1 h-7 text-xs relative ${questFilter === "weekly" ? "bg-blue-600 hover:bg-blue-700" : ""}`}>
                     Wöchentlich
-                    {(availableWeeklyQuest || activeWeeklyQuest?.isCompleted) && (
-                      <div className="absolute -top-1 -right-1 flex gap-0.5">
-                        {availableWeeklyQuest && (
-                          <div className="w-2 h-2 bg-red-500 rounded-full border border-white" />
-                        )}
-                        {activeWeeklyQuest?.isCompleted && (
-                          <div className="w-2 h-2 bg-green-500 rounded-full border border-white" />
-                        )}
+                    {activeWeeklyQuest?.isCompleted && (
+                      <div className="absolute -top-1 -right-1">
+                        <div className="w-2 h-2 bg-green-500 rounded-full border border-white" />
                       </div>
                     )}
                   </Button>
@@ -572,14 +556,9 @@ export default function Achievements() {
                     size="sm"
                     className={`flex-1 h-7 text-xs relative ${questFilter === "monthly" ? "bg-blue-600 hover:bg-blue-700" : ""}`}>
                     Monatlich
-                    {(availableMonthlyQuest || activeMonthlyQuest?.isCompleted) && (
-                      <div className="absolute -top-1 -right-1 flex gap-0.5">
-                        {availableMonthlyQuest && (
-                          <div className="w-2 h-2 bg-red-500 rounded-full border border-white" />
-                        )}
-                        {activeMonthlyQuest?.isCompleted && (
-                          <div className="w-2 h-2 bg-green-500 rounded-full border border-white" />
-                        )}
+                    {activeMonthlyQuest?.isCompleted && (
+                      <div className="absolute -top-1 -right-1">
+                        <div className="w-2 h-2 bg-green-500 rounded-full border border-white" />
                       </div>
                     )}
                   </Button>
@@ -678,60 +657,10 @@ export default function Achievements() {
           <TabsContent value="quests" className="pt-20 px-4 pb-4">
             <div className="max-w-6xl mx-auto space-y-6">
 
-              {/* Verfügbare Quests */}
-              {availableQuests.length > 0 &&
-                <div>
-                  <h2 className="text-lg font-bold text-stone-900 mb-3">Verfügbare Aufgaben</h2>
-                  <div className="grid md:grid-cols-2 gap-4">
-                    {availableQuests.map((quest, index) =>
-                    <motion.div
-                      key={quest.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}>
-
-                        <Card className="border-2 border-dashed border-blue-300 bg-blue-50/50 backdrop-blur-md">
-                          <CardContent className="p-3">
-                            <div className="flex items-start gap-2">
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center flex-shrink-0">
-                                {quest.type === 'collection' ?
-                              <span className="text-sm">{quest.icon_emoji || '🗺️'}</span> :
-
-                              <Target className="w-4 h-4 text-white" />
-                              }
-                              </div>
-                              <div className="flex-1">
-                                <h3 className="text-sm font-bold text-stone-900 mb-1">{quest.title}</h3>
-                                <p className="text-xs text-stone-600 mb-2">{quest.description}</p>
-                                <div className="flex justify-end">
-                                  <Button
-                                  onClick={() => acceptQuestMutation.mutate({
-                                    questId: quest.id,
-                                    questType: quest.type,
-                                    activeWeek: quest.type === 'weekly' ? getWeekNumber() : undefined,
-                                    activeMonth: quest.type === 'monthly' ? getMonthString() : undefined
-                                  })}
-                                  disabled={acceptQuestMutation.isPending}
-                                  size="sm"
-                                  className="h-7 text-xs bg-blue-600 hover:bg-blue-700">
-
-                                    Annehmen
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </motion.div>
-                    )}
-                  </div>
-                </div>
-                }
-
               {/* Aktive Quests */}
               {activeQuests.length > 0 &&
 
-                <div className="py-5 grid md:grid-cols-2 gap-4">
+                <div className="grid md:grid-cols-2 gap-4">
                     {activeQuests.map((quest, index) => {
                     const progressPercentage = quest.required_discoveries ?
                     Math.min(100, quest.progress / quest.required_discoveries * 100) :
@@ -846,12 +775,12 @@ export default function Achievements() {
 
                 }
 
-              {activeQuests.length === 0 && availableQuests.length === 0 &&
+              {activeQuests.length === 0 &&
                 <div className="text-center py-20">
                   <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 max-w-md mx-auto border border-stone-200 shadow-lg">
                     <Target className="w-16 h-16 text-stone-400 mx-auto mb-4" />
                     <h3 className="text-xl font-bold text-stone-900 mb-2">
-                      Keine Aufgaben verfügbar
+                      Keine aktiven Aufgaben
                     </h3>
                     <p className="text-stone-600">
                       Alle Aufgaben bereits eingelöst!
