@@ -207,7 +207,7 @@ export default function Achievements() {
   });
 
   const redeemQuestMutation = useMutation({
-    mutationFn: async ({ userQuestId, questType, reward }) => {
+    mutationFn: async ({ userQuestId, questType, reward, isFirstQuest }) => {
       const now = new Date().toISOString();
 
       // Quest einlösen
@@ -237,6 +237,25 @@ export default function Achievements() {
       const currentUser = await base44.auth.me();
       const { checkAndUnlockAchievements } = await import("../components/achievements/achievementChecker");
       await checkAndUnlockAchievements(currentUser);
+      
+      // Wenn das die erste Quest ist, erstelle eine Notification für Hintergrund-Personalisierung
+      if (isFirstQuest) {
+        try {
+          await base44.entities.UserNotification.create({
+            user_email: currentUser.email,
+            notification_type: "custom",
+            title: "🎨 Personalisiere dein Profil!",
+            message: "Du hast deine erste Quest gemeistert! Zeit, dein Profil zu verschönern.",
+            description: "Tippe auf dein Profilbild auf der Startseite und wähle einen Hintergrund aus.",
+            action_url: "Profile",
+            priority: "high",
+            display_location: "modal",
+            seen: false
+          });
+        } catch (error) {
+          console.error("Fehler beim Erstellen der Hintergrund-Notification:", error);
+        }
+      }
       
       return reward;
     },
@@ -770,10 +789,15 @@ export default function Achievements() {
                                       <div className="flex justify-end">
                                         <Button
                                       onClick={() => {
+                                        // Prüfe ob das die erste Quest ist
+                                        const allCompletedQuests = [...userQuests, ...userWeeklyQuests, ...userMonthlyQuests, ...userCollectionQuests].filter(q => q.redeemed);
+                                        const isFirstQuest = allCompletedQuests.length === 0;
+                                        
                                         redeemQuestMutation.mutate({
                                           userQuestId: quest.userQuestId,
                                           questType: quest.type,
-                                          reward: quest.reward
+                                          reward: quest.reward,
+                                          isFirstQuest: isFirstQuest
                                         });
                                       }}
                                       disabled={redeemQuestMutation.isPending}

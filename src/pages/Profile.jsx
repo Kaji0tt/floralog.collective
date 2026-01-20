@@ -52,6 +52,7 @@ export default function Profile() {
     presets: false,
     scans: false
   });
+  const [showBackgroundButtonHighlight, setShowBackgroundButtonHighlight] = useState(false);
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
@@ -127,6 +128,16 @@ export default function Profile() {
     enabled: !!user?.email,
   });
 
+  const { data: backgroundNotifications = [] } = useQuery({
+    queryKey: ['backgroundNotifications', user?.email],
+    queryFn: () => base44.entities.UserNotification.filter({ 
+      user_email: user?.email,
+      notification_type: "custom",
+      seen: false
+    }),
+    enabled: !!user?.email
+  });
+
   useEffect(() => {
     const loadUser = async () => {
       const currentUser = await base44.auth.me();
@@ -135,6 +146,21 @@ export default function Profile() {
     };
     loadUser();
   }, []);
+
+  // Prüfe ob Hintergrund-Button-Highlight angezeigt werden soll
+  useEffect(() => {
+    const hasChangedBackground = localStorage.getItem('hasChangedBackground');
+    const hasVisitedProfileSettings = localStorage.getItem('hasVisitedProfileSettings');
+    const hasPendingBackgroundNotification = backgroundNotifications.some(n => 
+      n.title?.includes("Personalisiere") && !n.seen
+    );
+    
+    if (!hasChangedBackground && hasVisitedProfileSettings && hasPendingBackgroundNotification) {
+      setShowBackgroundButtonHighlight(true);
+    } else {
+      setShowBackgroundButtonHighlight(false);
+    }
+  }, [backgroundNotifications]);
 
   const updateUserMutation = useMutation({
     mutationFn: (data) => base44.auth.updateMe(data),
@@ -252,6 +278,9 @@ export default function Profile() {
     } else {
       console.warn("⚠️ No color was calculated, averageColor not set");
     }
+    
+    // Markiere dass Hintergrund geändert wurde
+    localStorage.setItem('hasChangedBackground', 'true');
   };
 
   const handleRemoveBackground = async () => {
@@ -266,6 +295,9 @@ export default function Profile() {
     setAverageColor(color);
     const freshUser = await base44.auth.me();
     await updatePublicProfile(freshUser);
+    
+    // Markiere dass Hintergrund geändert wurde
+    localStorage.setItem('hasChangedBackground', 'true');
   };
 
   const handleRemoveColor = async () => {
@@ -781,12 +813,53 @@ export default function Profile() {
                 background: `linear-gradient(135deg, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 0.6)')} 0%, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 1)')} 100%)`
               } : {}}
             >
-              <button
-                onClick={() => setShowBackgroundSelector(true)}
+              <motion.button
+                onClick={() => {
+                  setShowBackgroundSelector(true);
+                  localStorage.setItem('hasVisitedProfileSettings', 'true');
+                }}
                 className="absolute top-4 right-4 w-10 h-10 bg-stone-200/80 hover:bg-stone-300/80 backdrop-blur-sm rounded-full flex items-center justify-center transition-colors z-10"
+                animate={showBackgroundButtonHighlight ? {
+                  scale: [1, 1.15, 1],
+                } : {}}
+                transition={showBackgroundButtonHighlight ? {
+                  duration: 2,
+                  repeat: Infinity,
+                  repeatDelay: 0.5,
+                  ease: "easeInOut"
+                } : {}}
               >
+                {showBackgroundButtonHighlight && (
+                  <>
+                    <motion.div
+                      className="absolute -inset-1 bg-gradient-to-r from-amber-400 via-orange-500 to-amber-400 rounded-full -z-10"
+                      animate={{
+                        opacity: [0.4, 0.8, 0.4],
+                        scale: [1, 1.2, 1]
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                    />
+                    <motion.div
+                      className="absolute -inset-2 bg-amber-300/30 rounded-full -z-10"
+                      animate={{
+                        scale: [1, 1.3, 1],
+                        opacity: [0.3, 0.5, 0.3]
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                        delay: 0.3
+                      }}
+                    />
+                  </>
+                )}
                 <ImageIcon className="w-5 h-5 text-stone-700" />
-              </button>
+              </motion.button>
               <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
                 <div className="relative group flex-shrink-0">
                   <div className="w-28 h-28 bg-gradient-to-br from-green-600 to-emerald-600 rounded-2xl flex items-center justify-center shadow-2xl overflow-hidden ring-4 ring-white/50 backdrop-blur-sm">

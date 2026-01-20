@@ -33,6 +33,7 @@ export default function Home() {
   const [averageColor, setAverageColor] = useState(null);
   const [showTestQuest, setShowTestQuest] = useState(false);
   const [showScannerHighlight, setShowScannerHighlight] = useState(false);
+  const [showBackgroundHighlight, setShowBackgroundHighlight] = useState(false);
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
@@ -131,6 +132,16 @@ export default function Home() {
     },
   });
 
+  const { data: backgroundNotifications = [] } = useQuery({
+    queryKey: ['backgroundNotifications', user?.email],
+    queryFn: () => base44.entities.UserNotification.filter({ 
+      user_email: user?.email,
+      notification_type: "custom",
+      seen: false
+    }),
+    enabled: !!user?.email
+  });
+
   useEffect(() => {
     const loadUser = async () => {
       const currentUser = await base44.auth.me();
@@ -156,6 +167,20 @@ export default function Home() {
       setShowScannerHighlight(false);
     }
   }, [user?.display_name, userDiscoveries.length]);
+
+  // Prüfe ob Hintergrund-Highlight angezeigt werden soll
+  useEffect(() => {
+    const hasChangedBackground = localStorage.getItem('hasChangedBackground');
+    const hasPendingBackgroundNotification = backgroundNotifications.some(n => 
+      n.title?.includes("Personalisiere") && !n.seen
+    );
+    
+    if (!hasChangedBackground && hasPendingBackgroundNotification) {
+      setShowBackgroundHighlight(true);
+    } else {
+      setShowBackgroundHighlight(false);
+    }
+  }, [backgroundNotifications]);
 
   const updateUserMutation = useMutation({
     mutationFn: (data) => base44.auth.updateMe(data),
@@ -698,15 +723,61 @@ export default function Home() {
           transition={{ duration: 0.5 }}
           className="flex-shrink-0"
         >
-          <Card 
-            className="mb-4 shadow-xl bg-white overflow-hidden cursor-pointer hover:shadow-2xl transition-shadow"
-            style={{
-              borderWidth: '2px',
-              borderStyle: 'solid',
-              borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
-            }}
-            onClick={() => navigate(createPageUrl("Profile"))}
+          <motion.div
+            className="relative mb-4"
+            animate={showBackgroundHighlight ? {
+              scale: [1, 1.02, 1],
+            } : {}}
+            transition={showBackgroundHighlight ? {
+              duration: 2,
+              repeat: Infinity,
+              repeatDelay: 0.5,
+              ease: "easeInOut"
+            } : {}}
           >
+            {showBackgroundHighlight && (
+              <>
+                <motion.div
+                  className="absolute -inset-1 bg-gradient-to-r from-amber-400 via-orange-500 to-amber-400 rounded-2xl -z-10"
+                  animate={{
+                    opacity: [0.3, 0.7, 0.3],
+                    scale: [1, 1.02, 1]
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                />
+                <motion.div
+                  className="absolute -inset-2 bg-amber-300/20 rounded-2xl -z-10"
+                  animate={{
+                    scale: [1, 1.05, 1],
+                    opacity: [0.2, 0.4, 0.2]
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: 0.3
+                  }}
+                />
+              </>
+            )}
+            <Card 
+              className="shadow-xl bg-white overflow-hidden cursor-pointer hover:shadow-2xl transition-shadow"
+              style={{
+                borderWidth: '2px',
+                borderStyle: 'solid',
+                borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
+              }}
+              onClick={() => {
+                navigate(createPageUrl("Profile"));
+                if (showBackgroundHighlight) {
+                  localStorage.setItem('hasVisitedProfileSettings', 'true');
+                }
+              }}
+            >
             <CardContent 
               className="p-6 md:p-8 relative"
               style={user?.background_image_url ? {
@@ -988,6 +1059,7 @@ export default function Home() {
 
             </CardContent>
           </Card>
+          </motion.div>
         </motion.div>
 
         {/* Desktop Spenden/Impressum Links - außerhalb der Profilkarte */}
