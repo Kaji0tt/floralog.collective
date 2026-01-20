@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Lock, Leaf, Target, CheckCircle2, XCircle } from "lucide-react";
+import { Trophy, Lock, Leaf, Target, CheckCircle2, XCircle, Gift } from "lucide-react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -62,7 +62,7 @@ export default function Achievements() {
   const [activeTab, setActiveTab] = useState("quests");
   const [questFilter, setQuestFilter] = useState("exploration");
   const [showQuestAnimation, setShowQuestAnimation] = useState(false);
-  const [questXpReward, setQuestXpReward] = useState(0);
+  const [questReward, setQuestReward] = useState("");
 
   useEffect(() => {
     const loadUser = async () => {
@@ -207,7 +207,7 @@ export default function Achievements() {
   });
 
   const redeemQuestMutation = useMutation({
-    mutationFn: async ({ userQuestId, questType, xpReward }) => {
+    mutationFn: async ({ userQuestId, questType, reward }) => {
       const now = new Date().toISOString();
 
       // Quest einlösen
@@ -238,9 +238,9 @@ export default function Achievements() {
       const { checkAndUnlockAchievements } = await import("../components/achievements/achievementChecker");
       await checkAndUnlockAchievements(currentUser);
       
-      return xpReward;
+      return reward;
     },
-    onSuccess: async (xpReward) => {
+    onSuccess: async (reward) => {
       queryClient.invalidateQueries({ queryKey: ['userQuests'] });
       queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
       queryClient.invalidateQueries({ queryKey: ['userMonthlyQuests'] });
@@ -252,7 +252,7 @@ export default function Achievements() {
       setUser(currentUser);
       
       // Animation anzeigen
-      setQuestXpReward(xpReward || 100);
+      setQuestReward(reward || "Quest abgeschlossen!");
       setShowQuestAnimation(true);
     }
   });
@@ -760,24 +760,29 @@ export default function Achievements() {
                                 }
 
                                   {quest.isCompleted &&
-                                <div className="flex justify-end pt-2 border-t border-stone-200">
-                                      <Button
-                                    onClick={() => {
-                                      const xpReward = quest.type === 'monthly' ? 500 : 
-                                                      quest.type === 'weekly' ? 300 : 
-                                                      quest.type === 'collection' ? 400 : 100;
-                                      redeemQuestMutation.mutate({
-                                        userQuestId: quest.userQuestId,
-                                        questType: quest.type,
-                                        xpReward: xpReward
-                                      });
-                                    }}
-                                    disabled={redeemQuestMutation.isPending}
-                                    size="sm"
-                                    className="h-7 text-xs bg-green-600 hover:bg-green-700">
+                                <div className="space-y-2 pt-2 border-t border-stone-200">
+                                      {quest.reward && (
+                                        <div className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 rounded-lg px-2 py-1">
+                                          <Gift className="w-3 h-3" />
+                                          <span className="font-semibold">{quest.reward}</span>
+                                        </div>
+                                      )}
+                                      <div className="flex justify-end">
+                                        <Button
+                                      onClick={() => {
+                                        redeemQuestMutation.mutate({
+                                          userQuestId: quest.userQuestId,
+                                          questType: quest.type,
+                                          reward: quest.reward
+                                        });
+                                      }}
+                                      disabled={redeemQuestMutation.isPending}
+                                      size="sm"
+                                      className="h-7 text-xs bg-green-600 hover:bg-green-700">
 
-                                        Einlösen
-                                      </Button>
+                                          Einlösen
+                                        </Button>
+                                      </div>
                                     </div>
                                 }
                                 </div>
@@ -813,7 +818,7 @@ export default function Achievements() {
       <AnimatePresence>
         {showQuestAnimation && (
           <QuestCompletionAnimation 
-            xpReward={questXpReward}
+            reward={questReward}
             onComplete={() => setShowQuestAnimation(false)}
           />
         )}

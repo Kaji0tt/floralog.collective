@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Star, Trophy } from "lucide-react";
+import { Star, Trophy, Gift } from "lucide-react";
 
-export default function QuestCompletionAnimation({ xpReward, onComplete }) {
+export default function QuestCompletionAnimation({ reward, onComplete }) {
   const [particles, setParticles] = useState([]);
 
   useEffect(() => {
@@ -70,21 +70,24 @@ export default function QuestCompletionAnimation({ xpReward, onComplete }) {
           </motion.div>
         </div>
         
-        {/* XP Text */}
+        {/* Belohnung Text */}
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.3 }}
-          className="absolute -bottom-16 left-1/2 transform -translate-x-1/2 whitespace-nowrap"
+          className="absolute -bottom-20 left-1/2 transform -translate-x-1/2 whitespace-nowrap"
         >
-          <div className="bg-white rounded-full px-6 py-3 shadow-xl border-2 border-amber-400">
-            <motion.span
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ duration: 0.5, repeat: 2 }}
-              className="text-2xl font-bold text-amber-600"
-            >
-              +{xpReward} XP
-            </motion.span>
+          <div className="bg-white rounded-2xl px-6 py-3 shadow-xl border-2 border-amber-400 max-w-xs">
+            <div className="flex items-center gap-2">
+              <Gift className="w-5 h-5 text-amber-600" />
+              <motion.span
+                animate={{ scale: [1, 1.1, 1] }}
+                transition={{ duration: 0.5, repeat: 2 }}
+                className="text-lg font-bold text-amber-600"
+              >
+                {reward || "Quest abgeschlossen!"}
+              </motion.span>
+            </div>
           </div>
         </motion.div>
       </motion.div>
