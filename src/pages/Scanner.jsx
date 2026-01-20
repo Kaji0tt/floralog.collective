@@ -932,8 +932,8 @@ Falls du die Pflanze SICHER erkennst, gib an:
           notification_type: "custom",
           title: "🎯 Deine erste Quest ist abgeschlossen!",
           message: "Glückwunsch! Du hast deine erste Pflanze gescannt. Jetzt kannst du deine Quests einlösen und Belohnungen erhalten. Schau bei 'Erfolge' vorbei!",
-          description: "Quests einlösen für Belohnungen",
-          action_url: "Achievements",
+          description: "Löse deine erste Quest ein.",
+          action_url: "",
           priority: "high",
           display_location: "modal"
         });
