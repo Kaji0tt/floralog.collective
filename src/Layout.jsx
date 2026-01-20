@@ -7,6 +7,7 @@ import ToastNotificationManager from "./components/notifications/ToastNotificati
 import QuestNotificationManager from "./components/quests/QuestNotificationManager";
 import UserNotificationManager from "./components/notifications/UserNotificationManager";
 import WelcomeNameDialog from "./components/onboarding/WelcomeNameDialog";
+import QuestAutoAccepter from "./components/quests/QuestAutoAccepter";
 import { Toaster } from "@/components/ui/toaster";
 
 
@@ -66,6 +67,9 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Welcome Dialog für neue Nutzer */}
       {user && <WelcomeNameDialog user={user} onComplete={loadUser} />}
+
+      {/* Quest Auto-Accepter */}
+      {user && <QuestAutoAccepter user={user} />}
 
       <Toaster />
     </>
