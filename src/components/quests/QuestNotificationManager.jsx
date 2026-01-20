@@ -5,6 +5,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Scroll } from "lucide-react";
 import { getCurrentWeeklyQuest, getCurrentMonthlyQuest, getTodayString, getWeekNumber, getMonthString } from "./QuestRotationHelper";
 
+/**
+ * WICHTIG: Dieser Manager ist DEAKTIVIERT und sollte NUR für automatische Weekly/Monthly Quest-Rotationen verwendet werden.
+ * 
+ * Für benutzerdefinierte Notifications (z.B. Onboarding, Quest-Completion-Rewards, etc.) verwende:
+ * - UserNotificationManager.jsx (zeigt UserNotification Entities an)
+ * - base44.entities.UserNotification.create() zum Erstellen neuer Notifications
+ * 
+ * Dieser Manager hier arbeitet mit localStorage und ist für wiederkehrende Quests gedacht,
+ * die automatisch jede Woche/Monat rotieren und dem User angezeigt werden sollen.
+ */
 export default function QuestNotificationManager({ user }) {
   const [notificationQueue, setNotificationQueue] = useState([]);
   const [currentNotification, setCurrentNotification] = useState(null);

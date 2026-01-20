@@ -59,10 +59,11 @@ export default function Layout({ children, currentPageName }) {
       {/* Toast Notifications */}
       {user && <ToastNotificationManager user={user} />}
 
-      {/* Quest Notifications */}
-      {user && <QuestNotificationManager user={user} />}
+      {/* Quest Notifications - DEAKTIVIERT: Nur für Weekly/Monthly Quest-Rotationen verwenden, NICHT für Custom User Notifications! 
+          Custom Notifications werden über UserNotificationManager verwaltet. */}
+      {/* {user && <QuestNotificationManager user={user} />} */}
 
-      {/* User Notifications System */}
+      {/* User Notifications System - Hauptsystem für alle benutzerdefinierten Notifications (Onboarding, Quest-Completion, etc.) */}
       {user && <UserNotificationManager user={user} />}
 
       {/* Welcome Dialog für neue Nutzer */}
