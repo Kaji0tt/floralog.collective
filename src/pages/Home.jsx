@@ -137,6 +137,10 @@ export default function Home() {
       setEditedName(currentUser?.display_name || currentUser?.full_name || "");
     };
     loadUser();
+
+    // Polling um Updates zu erkennen
+    const interval = setInterval(loadUser, 2000);
+    return () => clearInterval(interval);
   }, []);
 
   const updateUserMutation = useMutation({
