@@ -32,6 +32,7 @@ export default function Home() {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [averageColor, setAverageColor] = useState(null);
   const [showTestQuest, setShowTestQuest] = useState(false);
+  const [showScannerHighlight, setShowScannerHighlight] = useState(false);
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
@@ -141,6 +142,14 @@ export default function Home() {
     // Polling um Updates zu erkennen
     const interval = setInterval(loadUser, 2000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Prüfe ob Scanner-Highlight angezeigt werden soll
+  useEffect(() => {
+    const hasVisitedScanner = localStorage.getItem('hasVisitedScanner');
+    if (!hasVisitedScanner) {
+      setShowScannerHighlight(true);
+    }
   }, []);
 
   const updateUserMutation = useMutation({
@@ -883,13 +892,53 @@ export default function Home() {
               {/* Scannen/Karte Container - innerhalb der Profilkarte */}
               <div className="mt-4">
                 <div 
-                  className="bg-white/60 backdrop-blur-md rounded-xl p-4 shadow-md"
+                  className="bg-white/60 backdrop-blur-md rounded-xl p-4 shadow-md relative overflow-hidden"
                   style={{
                     borderWidth: '2px',
-                    borderStyle: 'solid',
-                    borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
+                    borderStyle: showScannerHighlight ? 'solid' : 'solid',
+                    borderColor: showScannerHighlight 
+                      ? 'transparent'
+                      : (averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'),
+                    backgroundImage: showScannerHighlight
+                      ? 'linear-gradient(white, white), linear-gradient(90deg, #f59e0b, #f97316, #ea580c, #f59e0b)'
+                      : 'none',
+                    backgroundOrigin: 'border-box',
+                    backgroundClip: showScannerHighlight ? 'padding-box, border-box' : 'padding-box'
                   }}
                 >
+                  {showScannerHighlight && (
+                    <>
+                      <motion.div
+                        className="absolute inset-0 bg-gradient-to-b from-transparent via-amber-300/30 to-transparent"
+                        animate={{
+                          y: ['-100%', '200%']
+                        }}
+                        transition={{
+                          duration: 2.5,
+                          repeat: Infinity,
+                          repeatDelay: 3,
+                          ease: "easeInOut"
+                        }}
+                        style={{ pointerEvents: 'none' }}
+                      />
+                      <motion.div
+                        className="absolute inset-0 rounded-xl"
+                        animate={{
+                          boxShadow: [
+                            '0 0 0px rgba(245, 158, 11, 0)',
+                            '0 0 20px rgba(245, 158, 11, 0.6)',
+                            '0 0 0px rgba(245, 158, 11, 0)'
+                          ]
+                        }}
+                        transition={{
+                          duration: 2.5,
+                          repeat: Infinity,
+                          repeatDelay: 3,
+                          ease: "easeInOut"
+                        }}
+                      />
+                    </>
+                  )}
                   <div className="flex items-center justify-around gap-4">
                     <button
                       onClick={(e) => {

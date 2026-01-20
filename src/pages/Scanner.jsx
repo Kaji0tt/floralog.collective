@@ -102,6 +102,9 @@ export default function Scanner() {
     };
     loadUser();
 
+    // Markiere dass User den Scanner besucht hat
+    localStorage.setItem('hasVisitedScanner', 'true');
+
     if (locationEnabled) {
       getUserLocation();
     }

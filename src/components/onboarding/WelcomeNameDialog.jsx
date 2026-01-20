@@ -41,6 +41,18 @@ export default function WelcomeNameDialog({ user, onComplete }) {
           display_location: "modal"
         });
 
+      // 3. Erstelle Scanner-Hinweis-Benachrichtigung
+      await base44.entities.UserNotification.create({
+          user_email: user.email,
+          notification_type: "custom",
+          title: "📸 Bereit für deinen ersten Scan?",
+          message: "Klicke auf den 'Scannen' Button, um deine erste Pflanze zu entdecken! Halte einfach die Kamera auf eine Pflanze und lass die KI ihre Magie wirken.",
+          description: "Starte jetzt deinen ersten Scan!",
+          action_url: "Scanner",
+          priority: "high",
+          display_location: "modal"
+        });
+
       // 3. Dialog schließen
       setShowDialog(false);
       
