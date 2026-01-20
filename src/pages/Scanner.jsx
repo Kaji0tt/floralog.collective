@@ -922,21 +922,25 @@ Falls du die Pflanze SICHER erkennst, gib an:
       setCurrentResultIndex(0);
       
       // Prüfe ob das der erste Scan war - dann Quest-Notification erstellen
-      const currentUser = await base44.auth.me();
-      const allDiscoveries = await base44.entities.UserPlantDiscovery.filter({ created_by: currentUser.email });
-      
-      if (allDiscoveries.length === 1) {
-        // Erster Scan! Erstelle Quest-Hinweis-Notification
-        await base44.entities.UserNotification.create({
-          user_email: currentUser.email,
-          notification_type: "custom",
-          title: "🎯 Deine erste Quest ist abgeschlossen!",
-          message: "Glückwunsch! Du hast deine erste Pflanze gescannt. Jetzt kannst du deine Quests einlösen und Belohnungen erhalten. Schau bei 'Erfolge' vorbei!",
-          description: "Löse deine erste Quest ein.",
-          action_url: "",
-          priority: "high",
-          display_location: "modal"
-        });
+      try {
+        const currentUser = await base44.auth.me();
+        const allDiscoveries = await base44.entities.UserPlantDiscovery.filter({ created_by: currentUser.email });
+        
+        if (allDiscoveries.length === 1) {
+          // Erster Scan! Erstelle Quest-Hinweis-Notification
+          await base44.entities.UserNotification.create({
+            user_email: currentUser.email,
+            notification_type: "custom",
+            title: "🎯 Deine erste Quest ist abgeschlossen!",
+            message: "Glückwunsch! Du hast deine erste Pflanze gescannt. Jetzt kannst du deine Quests einlösen und Belohnungen erhalten. Schau bei 'Erfolge' vorbei!",
+            description: "Löse deine erste Quest ein.",
+            action_url: "",
+            priority: "high",
+            display_location: "modal"
+          });
+        }
+      } catch (notificationError) {
+        console.error("Fehler beim Erstellen der Notification:", notificationError);
       }
       
       // Nach erfolgreichem Speichern zur Startseite navigieren
