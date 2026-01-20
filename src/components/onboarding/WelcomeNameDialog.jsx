@@ -34,21 +34,9 @@ export default function WelcomeNameDialog({ user, onComplete }) {
           user_email: user.email,
           notification_type: "custom",
           title: "🌿 Willkommen im Floralog!",
-          message: `Hallo ${name.trim()}! Schön, dass du da bist. Floralog ist dein persönlicher Wegbegleiter für all deine Entdeckungen in der Natur. Dabei landet jede Entdeckung in einer eigenen Kollektion.`,
-          description: "Öffne die Kollektion deines Floralogs.",
-          action_url: "",
-          priority: "high",
-          display_location: "modal"
-        });
-
-      // 3. Erstelle Scanner-Hinweis-Benachrichtigung
-      await base44.entities.UserNotification.create({
-          user_email: user.email,
-          notification_type: "custom",
-          title: "📸 Bereit für deinen ersten Scan?",
-          message: "Klicke auf den 'Scannen' Button, um deine erste Pflanze zu entdecken! Halte einfach die Kamera auf eine Pflanze und lass die KI ihre Magie wirken.",
+          message: `Hallo ${name.trim()}! Schön, dass du da bist. Floralog ist dein persönlicher Wegbegleiter für all deine Entdeckungen in der Natur. Dabei landet jede Entdeckung in einer eigenen Kollektion. licke auf den 'Scannen' Button, um deine erste Pflanze zu entdecken!`,
           description: "Starte jetzt deinen ersten Scan!",
-          action_url: "Scanner",
+          action_url: "",
           priority: "high",
           display_location: "modal"
         });
