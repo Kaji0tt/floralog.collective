@@ -29,7 +29,16 @@ export default function WelcomeNameDialog({ user, onComplete }) {
       // 1. Speichere den Namen
       await base44.auth.updateMe({ display_name: name.trim() });
 
-      // 2. Erstelle die Willkommens-Benachrichtigung
+      // 2. Lösche alle alten Notifications für diese Email (verhindert Duplikate bei Account-Neuanlage)
+      const existingNotifications = await base44.entities.UserNotification.filter({
+        user_email: user.email
+      });
+      
+      for (const notification of existingNotifications) {
+        await base44.entities.UserNotification.delete(notification.id);
+      }
+
+      // 3. Erstelle die Willkommens-Benachrichtigung
       await base44.entities.UserNotification.create({
           user_email: user.email,
           notification_type: "custom",
@@ -41,10 +50,10 @@ export default function WelcomeNameDialog({ user, onComplete }) {
           display_location: "modal"
         });
 
-      // 3. Dialog schließen
+      // 4. Dialog schließen
       setShowDialog(false);
       
-      // 4. Benachrichtige Parent-Komponente
+      // 5. Benachrichtige Parent-Komponente
       if (onComplete) {
         onComplete();
       }
