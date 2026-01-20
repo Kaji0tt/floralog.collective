@@ -892,61 +892,59 @@ export default function Home() {
               {/* Scannen/Karte Container - innerhalb der Profilkarte */}
               <div className="mt-4">
                 <div 
-                  className="bg-white/60 backdrop-blur-md rounded-xl p-4 shadow-md relative overflow-hidden"
+                  className="bg-white/60 backdrop-blur-md rounded-xl p-4 shadow-md"
                   style={{
                     borderWidth: '2px',
-                    borderStyle: showScannerHighlight ? 'solid' : 'solid',
-                    borderColor: showScannerHighlight 
-                      ? 'transparent'
-                      : (averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'),
-                    backgroundImage: showScannerHighlight
-                      ? 'linear-gradient(white, white), linear-gradient(90deg, #f59e0b, #f97316, #ea580c, #f59e0b)'
-                      : 'none',
-                    backgroundOrigin: 'border-box',
-                    backgroundClip: showScannerHighlight ? 'padding-box, border-box' : 'padding-box'
+                    borderStyle: 'solid',
+                    borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
                   }}
                 >
-                  {showScannerHighlight && (
-                    <>
-                      <motion.div
-                        className="absolute inset-0 bg-gradient-to-b from-transparent via-amber-300/30 to-transparent"
-                        animate={{
-                          y: ['-100%', '200%']
-                        }}
-                        transition={{
-                          duration: 2.5,
-                          repeat: Infinity,
-                          repeatDelay: 3,
-                          ease: "easeInOut"
-                        }}
-                        style={{ pointerEvents: 'none' }}
-                      />
-                      <motion.div
-                        className="absolute inset-0 rounded-xl"
-                        animate={{
-                          boxShadow: [
-                            '0 0 0px rgba(245, 158, 11, 0)',
-                            '0 0 20px rgba(245, 158, 11, 0.6)',
-                            '0 0 0px rgba(245, 158, 11, 0)'
-                          ]
-                        }}
-                        transition={{
-                          duration: 2.5,
-                          repeat: Infinity,
-                          repeatDelay: 3,
-                          ease: "easeInOut"
-                        }}
-                      />
-                    </>
-                  )}
                   <div className="flex items-center justify-around gap-4">
-                    <button
+                    <motion.button
                       onClick={(e) => {
                         e.stopPropagation();
                         navigate(createPageUrl("Scanner"));
                       }}
-                      className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                      className="flex items-center gap-2 hover:opacity-80 transition-opacity relative"
+                      animate={showScannerHighlight ? {
+                        scale: [1, 1.05, 1],
+                      } : {}}
+                      transition={showScannerHighlight ? {
+                        duration: 2,
+                        repeat: Infinity,
+                        repeatDelay: 0.5,
+                        ease: "easeInOut"
+                      } : {}}
                     >
+                      {showScannerHighlight && (
+                        <>
+                          <motion.div
+                            className="absolute -inset-2 bg-green-400/20 rounded-xl -z-10"
+                            animate={{
+                              scale: [1, 1.2, 1],
+                              opacity: [0.3, 0.6, 0.3]
+                            }}
+                            transition={{
+                              duration: 2,
+                              repeat: Infinity,
+                              ease: "easeInOut"
+                            }}
+                          />
+                          <motion.div
+                            className="absolute -inset-3 bg-green-500/10 rounded-xl -z-10"
+                            animate={{
+                              scale: [1, 1.3, 1],
+                              opacity: [0.2, 0.4, 0.2]
+                            }}
+                            transition={{
+                              duration: 2,
+                              repeat: Infinity,
+                              ease: "easeInOut",
+                              delay: 0.3
+                            }}
+                          />
+                        </>
+                      )}
                       <div 
                         className="w-10 h-10 rounded-full flex items-center justify-center shadow-md"
                         style={{
@@ -958,7 +956,7 @@ export default function Home() {
                         <Camera className="w-5 h-5 text-white" />
                       </div>
                       <span className="font-semibold text-stone-900">Scannen</span>
-                    </button>
+                    </motion.button>
 
                     <button
                       onClick={(e) => {
