@@ -53,6 +53,8 @@ export default function Profile() {
     scans: false
   });
   const [showBackgroundButtonHighlight, setShowBackgroundButtonHighlight] = useState(false);
+  const [showScanButtonHighlight, setShowScanButtonHighlight] = useState(false);
+  const [showAchievementsButtonHighlight, setShowAchievementsButtonHighlight] = useState(false);
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
@@ -161,6 +163,34 @@ export default function Profile() {
     // Nur aktivieren wenn ALLE Bedingungen erfüllt sind
     const shouldHighlight = !hasChangedBackground && hasVisitedProfileSettings && hasPendingBackgroundNotification;
     setShowBackgroundButtonHighlight(shouldHighlight);
+  }, [backgroundNotifications]);
+
+  // Prüfe ob Scan-Button-Highlight angezeigt werden soll
+  useEffect(() => {
+    if (backgroundNotifications.length === undefined) return;
+    
+    const hasCompletedFirstScan = localStorage.getItem('hasVisitedScanner');
+    const hasPendingScanNotification = backgroundNotifications.some(n => 
+      n.title?.includes("Scannen") && !n.seen
+    );
+    
+    // Nur aktivieren wenn ALLE Bedingungen erfüllt sind
+    const shouldHighlight = !hasCompletedFirstScan && hasPendingScanNotification;
+    setShowScanButtonHighlight(shouldHighlight);
+  }, [backgroundNotifications]);
+
+  // Prüfe ob Erfolge-Button-Highlight angezeigt werden soll
+  useEffect(() => {
+    if (backgroundNotifications.length === undefined) return;
+    
+    const hasVisitedAchievements = localStorage.getItem('hasVisitedAchievements');
+    const hasPendingQuestNotification = backgroundNotifications.some(n => 
+      n.title?.includes("Quest") && !n.seen
+    );
+    
+    // Nur aktivieren wenn ALLE Bedingungen erfüllt sind
+    const shouldHighlight = !hasVisitedAchievements && hasPendingQuestNotification;
+    setShowAchievementsButtonHighlight(shouldHighlight);
   }, [backgroundNotifications]);
 
   const updateUserMutation = useMutation({
