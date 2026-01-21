@@ -439,8 +439,8 @@ export default function ScanResults({
                         }
                         </div>
 
-                      {/* Lupe, Lautsprecher, Geschenk und Löschen unterhalb des Bildes */}
-                      {(latestDiscoveryId || isPendingConfirmation) &&
+                      {/* Action Buttons - nur bei bestätigten Scans */}
+                      {latestDiscoveryId &&
                       <div className="flex justify-evenly items-center mt-4">
                         {/* Lupe (Search) */}
                         <motion.button
@@ -485,8 +485,8 @@ export default function ScanResults({
                       }
                   </div>
 
-                  {/* Navigation unterhalb der Rarität-Kachel */}
-                  {hasMultipleResults && (latestDiscoveryId || isPendingConfirmation) && (
+                  {/* Navigation unterhalb der Rarität-Kachel - nur bei mehreren Ergebnissen */}
+                  {hasMultipleResults && (
                     <div className="flex justify-center items-center gap-3 mt-4">
                       {/* Linker Pfeil */}
                       <motion.button
