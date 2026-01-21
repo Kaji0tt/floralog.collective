@@ -170,6 +170,17 @@ export default function Scanner() {
     enabled: !!user?.email
   });
 
+  const { data: quests = [] } = useQuery({
+    queryKey: ['quests'],
+    queryFn: () => base44.entities.Quest.list('quest_number')
+  });
+
+  const { data: userQuests = [] } = useQuery({
+    queryKey: ['userQuests'],
+    queryFn: () => base44.entities.UserQuest.filter({ created_by: user?.email }),
+    enabled: !!user?.email
+  });
+
   const { data: userWeeklyQuests = [] } = useQuery({
     queryKey: ['userWeeklyQuests'],
     queryFn: () => base44.entities.UserWeeklyQuest.filter({ created_by: user?.email }),
