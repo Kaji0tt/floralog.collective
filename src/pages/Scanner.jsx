@@ -445,9 +445,13 @@ export default function Scanner() {
         });
       }
 
-      // Gift Hintergrund
-      const receivedGifts = await base44.entities.SharedScan.filter({ shared_to: currentUser.email });
-      if (receivedGifts.length > 0 && !currentUser.gift_bg_unlocked) {
+      // Quest 1 Hintergrund
+      const userQuestsData = await base44.entities.UserQuest.filter({ created_by: currentUser.email });
+      const questsData = await base44.entities.Quest.list();
+      const quest1 = questsData.find(q => q.quest_number === 1);
+      const userQuest1 = userQuestsData.find(uq => uq.quest_id === quest1?.id);
+      
+      if (userQuest1?.completed && !currentUser.gift_bg_unlocked) {
         await base44.auth.updateMe({ gift_bg_unlocked: true });
         await base44.entities.UserNotification.create({
           user_email: currentUser.email,
