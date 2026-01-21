@@ -249,91 +249,105 @@ export default function Scanner() {
   const updateQuestProgress = async (scannedPlant) => {
     if (!user?.email || !scannedPlant) return;
 
-    const currentMonthlyQuest = getCurrentMonthlyQuest(monthlyQuests);
-    const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
+    try {
+      const currentMonthlyQuest = getCurrentMonthlyQuest(monthlyQuests);
+      const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
 
-    // Helper: Prüft ob der Scan für die Quest zählt
-    const scanMatchesQuest = (quest) => {
-      // Weekly/Monthly Quests: target_species_name / target_genus_name
-      if (quest.target_species_name) {
-        return scannedPlant.species_name?.toLowerCase() === quest.target_species_name.toLowerCase();
-      }
-      if (quest.target_genus_name) {
-        const genus = genera.find((g) => g.id === scannedPlant.genus_id);
-        return genus?.genus_name?.toLowerCase() === quest.target_genus_name.toLowerCase();
-      }
-      
-      // Reguläre Quests: targets Array
-      if (quest.targets && quest.targets.length > 0) {
-        const genus = genera.find((g) => g.id === scannedPlant.genus_id);
-        const matchesTarget = quest.targets.some(target => {
-          if (target.target_type === 'species') {
-            return scannedPlant.species_name?.toLowerCase() === target.target_name.toLowerCase();
-          } else if (target.target_type === 'genus') {
-            return genus?.genus_name?.toLowerCase() === target.target_name.toLowerCase();
-          }
-          return false;
-        });
+      // Helper: Prüft ob der Scan für die Quest zählt
+      const scanMatchesQuest = (quest) => {
+        // Weekly/Monthly Quests: target_species_name / target_genus_name
+        if (quest.target_species_name) {
+          return scannedPlant.species_name?.toLowerCase() === quest.target_species_name.toLowerCase();
+        }
+        if (quest.target_genus_name) {
+          const genus = genera.find((g) => g.id === scannedPlant.genus_id);
+          return genus?.genus_name?.toLowerCase() === quest.target_genus_name.toLowerCase();
+        }
         
-        if (!matchesTarget) return false;
-      }
-      
-      // Kategorie-basiert (falls keine spezifischen Ziele)
-      if (quest.category && quest.category !== "Alle") {
-        const genus = genera.find((g) => g.id === scannedPlant.genus_id);
-        return genus?.category === quest.category;
-      }
-      
-      // Alle Kategorien
-      return true;
-    };
+        // Reguläre Quests: targets Array
+        if (quest.targets && quest.targets.length > 0) {
+          const genus = genera.find((g) => g.id === scannedPlant.genus_id);
+          const matchesTarget = quest.targets.some(target => {
+            if (target.target_type === 'species') {
+              return scannedPlant.species_name?.toLowerCase() === target.target_name.toLowerCase();
+            } else if (target.target_type === 'genus') {
+              return genus?.genus_name?.toLowerCase() === target.target_name.toLowerCase();
+            }
+            return false;
+          });
+          
+          if (!matchesTarget) return false;
+        }
+        
+        // Kategorie-basiert (falls keine spezifischen Ziele)
+        if (quest.category && quest.category !== "Alle") {
+          const genus = genera.find((g) => g.id === scannedPlant.genus_id);
+          return genus?.category === quest.category;
+        }
+        
+        // Alle Kategorien
+        return true;
+      };
 
-    // Update reguläre Quests
-    const allUserQuests = await base44.entities.UserQuest.filter({ created_by: user.email });
-    for (const userQuest of allUserQuests) {
-      if (userQuest.accepted && !userQuest.completed) {
+      // Update reguläre Quests - nur die bereits geladenen durchgehen
+      const activeUserQuests = userQuests.filter(uq => uq.accepted && !uq.completed);
+      const updatePromises = [];
+      
+      for (const userQuest of activeUserQuests) {
         const quest = quests.find(q => q.id === userQuest.quest_id);
         if (quest && scanMatchesQuest(quest)) {
           const newProgress = (userQuest.progress || 0) + 1;
           const isCompleted = newProgress >= (quest.required_discoveries || 1);
-          await base44.entities.UserQuest.update(userQuest.id, {
-            progress: newProgress,
-            completed: isCompleted,
-            completed_date: isCompleted ? new Date().toISOString() : userQuest.completed_date
-          });
+          updatePromises.push(
+            base44.entities.UserQuest.update(userQuest.id, {
+              progress: newProgress,
+              completed: isCompleted,
+              completed_date: isCompleted ? new Date().toISOString() : userQuest.completed_date
+            })
+          );
         }
       }
-    }
 
-    if (currentMonthlyQuest) {
-      const activeMonthlyQuest = await getOrCreateActiveMonthlyQuest(base44, currentMonthlyQuest, userMonthlyQuests, user.email);
-      if (activeMonthlyQuest && !activeMonthlyQuest.completed && scanMatchesQuest(currentMonthlyQuest)) {
-        const newProgress = (activeMonthlyQuest.progress || 0) + 1;
-        const isCompleted = newProgress >= (currentMonthlyQuest.required_discoveries || 1);
-        await base44.entities.UserMonthlyQuest.update(activeMonthlyQuest.id, {
-          progress: newProgress,
-          completed: isCompleted,
-          completed_date: isCompleted ? new Date().toISOString() : activeMonthlyQuest.completed_date
-        });
+      if (currentMonthlyQuest) {
+        const activeMonthlyQuest = await getOrCreateActiveMonthlyQuest(base44, currentMonthlyQuest, userMonthlyQuests, user.email);
+        if (activeMonthlyQuest && !activeMonthlyQuest.completed && scanMatchesQuest(currentMonthlyQuest)) {
+          const newProgress = (activeMonthlyQuest.progress || 0) + 1;
+          const isCompleted = newProgress >= (currentMonthlyQuest.required_discoveries || 1);
+          updatePromises.push(
+            base44.entities.UserMonthlyQuest.update(activeMonthlyQuest.id, {
+              progress: newProgress,
+              completed: isCompleted,
+              completed_date: isCompleted ? new Date().toISOString() : activeMonthlyQuest.completed_date
+            })
+          );
+        }
       }
-    }
 
-    if (currentWeeklyQuest) {
-      const activeWeeklyQuest = await getOrCreateActiveWeeklyQuest(base44, currentWeeklyQuest, userWeeklyQuests, user.email);
-      if (activeWeeklyQuest && !activeWeeklyQuest.completed && scanMatchesQuest(currentWeeklyQuest)) {
-        const newProgress = (activeWeeklyQuest.progress || 0) + 1;
-        const isCompleted = newProgress >= (currentWeeklyQuest.required_discoveries || 1);
-        await base44.entities.UserWeeklyQuest.update(activeWeeklyQuest.id, {
-          progress: newProgress,
-          completed: isCompleted,
-          completed_date: isCompleted ? new Date().toISOString() : activeWeeklyQuest.completed_date
-        });
+      if (currentWeeklyQuest) {
+        const activeWeeklyQuest = await getOrCreateActiveWeeklyQuest(base44, currentWeeklyQuest, userWeeklyQuests, user.email);
+        if (activeWeeklyQuest && !activeWeeklyQuest.completed && scanMatchesQuest(currentWeeklyQuest)) {
+          const newProgress = (activeWeeklyQuest.progress || 0) + 1;
+          const isCompleted = newProgress >= (currentWeeklyQuest.required_discoveries || 1);
+          updatePromises.push(
+            base44.entities.UserWeeklyQuest.update(activeWeeklyQuest.id, {
+              progress: newProgress,
+              completed: isCompleted,
+              completed_date: isCompleted ? new Date().toISOString() : activeWeeklyQuest.completed_date
+            })
+          );
+        }
       }
-    }
 
-    queryClient.invalidateQueries({ queryKey: ['userQuests'] });
-    queryClient.invalidateQueries({ queryKey: ['userMonthlyQuests'] });
-    queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
+      // Alle Updates parallel ausführen
+      await Promise.all(updatePromises);
+
+      queryClient.invalidateQueries({ queryKey: ['userQuests'] });
+      queryClient.invalidateQueries({ queryKey: ['userMonthlyQuests'] });
+      queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
+    } catch (error) {
+      console.error("Quest-Progress Update Fehler:", error);
+      // Fehler nicht weiterwerfen - Quest-Updates sollen den Scan nicht blockieren
+    }
   };
 
   // Hintergrund-Freischaltungen im Hintergrund prüfen (nicht-blockierend)
