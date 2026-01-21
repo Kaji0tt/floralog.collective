@@ -243,20 +243,36 @@ export default function Scanner() {
 
     // Helper: Prüft ob der Scan für die Quest zählt
     const scanMatchesQuest = (quest) => {
-      // Wenn spezifische Art gefordert: muss exakt diese Art sein
+      // Weekly/Monthly Quests: target_species_name / target_genus_name
       if (quest.target_species_name) {
         return scannedPlant.species_name?.toLowerCase() === quest.target_species_name.toLowerCase();
       }
-      // Wenn spezifische Gattung gefordert: muss diese Gattung sein
       if (quest.target_genus_name) {
         const genus = genera.find((g) => g.id === scannedPlant.genus_id);
         return genus?.genus_name?.toLowerCase() === quest.target_genus_name.toLowerCase();
       }
-      // Sonst: Kategorie-basiert (wie bisher)
+      
+      // Reguläre Quests: targets Array
+      if (quest.targets && quest.targets.length > 0) {
+        const genus = genera.find((g) => g.id === scannedPlant.genus_id);
+        const matchesTarget = quest.targets.some(target => {
+          if (target.target_type === 'species') {
+            return scannedPlant.species_name?.toLowerCase() === target.target_name.toLowerCase();
+          } else if (target.target_type === 'genus') {
+            return genus?.genus_name?.toLowerCase() === target.target_name.toLowerCase();
+          }
+          return false;
+        });
+        
+        if (!matchesTarget) return false;
+      }
+      
+      // Kategorie-basiert (falls keine spezifischen Ziele)
       if (quest.category && quest.category !== "Alle") {
         const genus = genera.find((g) => g.id === scannedPlant.genus_id);
         return genus?.category === quest.category;
       }
+      
       // Alle Kategorien
       return true;
     };
