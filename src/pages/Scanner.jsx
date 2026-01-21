@@ -283,6 +283,119 @@ export default function Scanner() {
     queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
   };
 
+  // Hintergrund-Freischaltungen im Hintergrund prüfen (nicht-blockierend)
+  const checkBackgroundUnlocks = async (plant, isFirstScan) => {
+    try {
+      const currentUser = await base44.auth.me();
+      
+      // Referral-Hintergrund (nur bei erstem Scan)
+      if (isFirstScan) {
+        const referrals = await base44.entities.Referral.list();
+        const myReferral = referrals.find(r => r.invited_email?.toLowerCase() === currentUser.email.toLowerCase() && r.status === "pending");
+        
+        if (myReferral) {
+          await base44.entities.Referral.update(myReferral.id, {
+            status: "completed",
+            completed_date: new Date().toISOString()
+          });
+
+          const inviterProfiles = await base44.entities.PublicProfile.list();
+          const inviter = inviterProfiles.find(p => p.user_email?.toLowerCase() === myReferral.invited_by?.toLowerCase());
+          
+          if (inviter) {
+            await base44.entities.PublicProfile.update(inviter.id, {
+              referral_background_unlocked: true
+            });
+          }
+
+          await base44.entities.UserNotification.create({
+            user_email: currentUser.email,
+            notification_type: "custom",
+            title: "🎉 Freund belohnt!",
+            message: "Dein Freund hat den 'Plains' Hintergrund freigeschaltet!",
+            priority: "low",
+            display_location: "banner"
+          });
+        }
+      }
+
+      // Seltene-Pflanze-Hintergrund
+      if (plant.rarity === "Selten" || plant.rarity === "Sehr Selten" || plant.rarity === "Extrem Selten") {
+        if (!currentUser.rare_plant_unlocked) {
+          await base44.auth.updateMe({ rare_plant_unlocked: true });
+          await base44.entities.UserNotification.create({
+            user_email: currentUser.email,
+            notification_type: "custom",
+            title: "🌟 Hintergrund freigeschaltet!",
+            message: "Du hast den 'Epic Rare' Hintergrund freigeschaltet!",
+            priority: "medium",
+            display_location: "banner"
+          });
+        }
+      }
+
+      // Weekly Quest Hintergrund (nur wenn tatsächlich Progress > 0)
+      const userWeeklyQuestsData = await base44.entities.UserWeeklyQuest.filter({ created_by: currentUser.email });
+      const weeklyWithProgress = userWeeklyQuestsData.filter(q => (q.progress || 0) > 0);
+      const weeklyParticipations = new Set(weeklyWithProgress.map(q => q.active_week)).size;
+      
+      if (weeklyParticipations >= 1 && !currentUser.weekly_bg1_unlocked) {
+        await base44.auth.updateMe({ weekly_bg1_unlocked: true });
+        await base44.entities.UserNotification.create({
+          user_email: currentUser.email,
+          notification_type: "custom",
+          title: "🎉 Hintergrund freigeschaltet!",
+          message: "Hintergrund 'BackGround1' freigeschaltet!",
+          priority: "low",
+          display_location: "banner"
+        });
+      }
+      if (weeklyParticipations >= 3 && !currentUser.weekly_bg2_unlocked) {
+        await base44.auth.updateMe({ weekly_bg2_unlocked: true });
+        await base44.entities.UserNotification.create({
+          user_email: currentUser.email,
+          notification_type: "custom",
+          title: "🎉 Hintergrund freigeschaltet!",
+          message: "Hintergrund 'BackGround2' freigeschaltet!",
+          priority: "low",
+          display_location: "banner"
+        });
+      }
+
+      // Monthly Quest Hintergrund (nur wenn tatsächlich completed)
+      const userMonthlyQuestsData = await base44.entities.UserMonthlyQuest.filter({ created_by: currentUser.email });
+      const hasCompleted = userMonthlyQuestsData.some(q => q.completed);
+      
+      if (hasCompleted && !currentUser.monthly_bg_unlocked) {
+        await base44.auth.updateMe({ monthly_bg_unlocked: true });
+        await base44.entities.UserNotification.create({
+          user_email: currentUser.email,
+          notification_type: "custom",
+          title: "🎉 Hintergrund freigeschaltet!",
+          message: "Hintergrund 'BackGround4' freigeschaltet!",
+          priority: "low",
+          display_location: "banner"
+        });
+      }
+
+      // Gift Hintergrund
+      const receivedGifts = await base44.entities.SharedScan.filter({ shared_to: currentUser.email });
+      if (receivedGifts.length > 0 && !currentUser.gift_bg_unlocked) {
+        await base44.auth.updateMe({ gift_bg_unlocked: true });
+        await base44.entities.UserNotification.create({
+          user_email: currentUser.email,
+          notification_type: "custom",
+          title: "🎁 Hintergrund freigeschaltet!",
+          message: "Hintergrund 'Colors' freigeschaltet!",
+          priority: "low",
+          display_location: "banner"
+        });
+      }
+    } catch (error) {
+      console.error("Fehler bei Hintergrund-Freischaltung:", error);
+    }
+  };
+
 
 
   const handleDeleteResult = async (discoveryId) => {
