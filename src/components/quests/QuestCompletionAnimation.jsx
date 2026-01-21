@@ -75,15 +75,15 @@ export default function QuestCompletionAnimation({ reward, onComplete }) {
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.3 }}
-          className="absolute -bottom-20 left-1/2 transform -translate-x-1/2 whitespace-nowrap"
+          className="absolute -bottom-24 left-1/2 transform -translate-x-1/2"
         >
-          <div className="bg-white rounded-2xl px-6 py-3 shadow-xl border-2 border-amber-400 max-w-xs">
-            <div className="flex items-center gap-2">
-              <Gift className="w-5 h-5 text-amber-600" />
+          <div className="bg-white rounded-2xl px-6 py-3 shadow-xl border-2 border-amber-400 flex items-center justify-center">
+            <div className="flex items-center gap-2 justify-center">
+              <Gift className="w-5 h-5 text-amber-600 flex-shrink-0" />
               <motion.span
                 animate={{ scale: [1, 1.1, 1] }}
                 transition={{ duration: 0.5, repeat: 2 }}
-                className="text-lg font-bold text-amber-600"
+                className="text-lg font-bold text-amber-600 text-center"
               >
                 {reward || "Quest abgeschlossen!"}
               </motion.span>
