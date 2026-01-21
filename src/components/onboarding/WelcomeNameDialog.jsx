@@ -34,8 +34,12 @@ export default function WelcomeNameDialog({ user, onComplete }) {
         user_email: user.email
       });
       
-      for (const notification of existingNotifications) {
-        await base44.entities.UserNotification.delete(notification.id);
+      if (existingNotifications && existingNotifications.length > 0) {
+        await Promise.all(
+          existingNotifications.map(notification => 
+            base44.entities.UserNotification.delete(notification.id)
+          )
+        );
       }
 
       // 3. Erstelle die Willkommens-Benachrichtigung
