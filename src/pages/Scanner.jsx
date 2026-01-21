@@ -92,6 +92,7 @@ export default function Scanner() {
   const [isSavingPlant, setIsSavingPlant] = useState(false);
   const [currentResultIndex, setCurrentResultIndex] = useState(0); // Aktuell ausgewähltes Ergebnis
   const [locationEnabled, setLocationEnabled] = useState(true);
+  const [scanningPhase, setScanningPhase] = useState(0);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -376,17 +377,20 @@ export default function Scanner() {
 
   const identifyPlant = async (file, organ = "auto") => {
     setScanning(true);
+    setScanningPhase(0);
     setMatchedPlant(null);
     setAllScanResults([]);
     setLatestDiscoveryId(null);
 
     try {
       console.log("📤 Starte Upload...");
+      setScanningPhase(0); // Komprimiere Bild
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
       console.log("✅ Upload erfolgreich:", file_url);
       setImageUrl(file_url);
 
       console.log(`🌿 Starte Pflanzenerkennung mit organ: ${organ}...`);
+      setScanningPhase(1); // PlantNet-API analysiert
 
       try {
         const response = await base44.functions.invoke('identifyPlant', {
@@ -412,6 +416,9 @@ export default function Scanner() {
 
         if (result && result.identified && result.results && result.results.length > 0) {
           console.log(`🌿 ${result.results.length} Pflanze(n) erkannt`);
+
+          setScanningPhase(2); // Vergleiche mit globalem Floralog
+          await new Promise(resolve => setTimeout(resolve, 800));
 
           const normalizeString = (str) => {
             if (!str) return "";
@@ -468,6 +475,9 @@ export default function Scanner() {
           );
 
           setAllScanResults(processedResults);
+
+          setScanningPhase(3); // Vergleiche mit deinem Floralog
+          await new Promise(resolve => setTimeout(resolve, 800));
 
           const firstResult = processedResults[0];
 
@@ -1270,9 +1280,20 @@ Falls du die Pflanze SICHER erkennst, gib an:
                 <h3 className="text-2xl font-bold text-stone-900 mb-2">
                   Pflanze wird analysiert...
                 </h3>
-                <p className="text-lg text-stone-600">
-                  🔍 Suche im PlantDex...
-                </p>
+                <div className="space-y-2 text-center">
+                  <p className={`text-lg transition-all duration-300 ${scanningPhase >= 0 ? 'text-green-700 font-semibold' : 'text-stone-400'}`}>
+                    {scanningPhase === 0 && '📦 '}Komprimiere Bild...
+                  </p>
+                  <p className={`text-lg transition-all duration-300 ${scanningPhase >= 1 ? 'text-green-700 font-semibold' : 'text-stone-400'}`}>
+                    {scanningPhase === 1 && '🌿 '}Lasse das Bild über PlantNet-API analysieren...
+                  </p>
+                  <p className={`text-lg transition-all duration-300 ${scanningPhase >= 2 ? 'text-green-700 font-semibold' : 'text-stone-400'}`}>
+                    {scanningPhase === 2 && '🌍 '}Vergleiche das Ergebnis mit globalem Floralog...
+                  </p>
+                  <p className={`text-lg transition-all duration-300 ${scanningPhase >= 3 ? 'text-green-700 font-semibold' : 'text-stone-400'}`}>
+                    {scanningPhase === 3 && '📚 '}Vergleiche das Ergebnis mit deinem Floralog...
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
