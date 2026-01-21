@@ -30,15 +30,26 @@ Deno.serve(async (req) => {
             const formData = new FormData();
             
             // Lade Bild herunter und füge zu FormData hinzu
+            console.log("📥 Lade Bild herunter von:", image_url);
             const imageResponse = await fetch(image_url);
+            
+            if (!imageResponse.ok) {
+                throw new Error(`Bild konnte nicht geladen werden: ${imageResponse.status} ${imageResponse.statusText}`);
+            }
+            
             const imageBlob = await imageResponse.blob();
+            console.log("✅ Bild geladen, Größe:", imageBlob.size, "bytes");
+            
             formData.append('images', imageBlob, 'plant.jpg');
             formData.append('organs', organ);
 
+            console.log("📤 Sende Anfrage an PlantNet...");
             const plantnetResponse = await fetch(plantnetUrl, {
                 method: 'POST',
                 body: formData
             });
+            
+            console.log("📥 PlantNet Response Status:", plantnetResponse.status);
 
             if (!plantnetResponse.ok) {
                 const errorText = await plantnetResponse.text();
