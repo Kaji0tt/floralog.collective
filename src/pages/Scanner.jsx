@@ -1403,18 +1403,12 @@ Falls du die Pflanze SICHER erkennst, gib an:
                 <h3 className="text-2xl font-bold text-stone-900 mb-2">
                   Pflanze wird analysiert...
                 </h3>
-                <div className="space-y-2 text-center">
-                  <p className={`text-lg transition-all duration-300 ${scanningPhase >= 0 ? 'text-green-700 font-semibold' : 'text-stone-400'}`}>
-                    {scanningPhase === 0 && '📦 '}Komprimiere Bild...
-                  </p>
-                  <p className={`text-lg transition-all duration-300 ${scanningPhase >= 1 ? 'text-green-700 font-semibold' : 'text-stone-400'}`}>
-                    {scanningPhase === 1 && '🌿 '}Lasse das Bild über PlantNet-API analysieren...
-                  </p>
-                  <p className={`text-lg transition-all duration-300 ${scanningPhase >= 2 ? 'text-green-700 font-semibold' : 'text-stone-400'}`}>
-                    {scanningPhase === 2 && '🌍 '}Vergleiche das Ergebnis mit globalem Floralog...
-                  </p>
-                  <p className={`text-lg transition-all duration-300 ${scanningPhase >= 3 ? 'text-green-700 font-semibold' : 'text-stone-400'}`}>
-                    {scanningPhase === 3 && '📚 '}Vergleiche das Ergebnis mit deinem Floralog...
+                <div className="text-center">
+                  <p className="text-lg text-green-700 font-semibold transition-all duration-300">
+                    {scanningPhase === 0 && '📦 Komprimiere Bild...'}
+                    {scanningPhase === 1 && '🌿 Lasse das Bild über PlantNet-API analysieren...'}
+                    {scanningPhase === 2 && '🌍 Vergleiche das Ergebnis mit globalem Floralog...'}
+                    {scanningPhase === 3 && '📚 Vergleiche das Ergebnis mit deinem Floralog...'}
                   </p>
                 </div>
               </div>
