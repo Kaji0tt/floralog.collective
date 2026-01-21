@@ -1,4 +1,3 @@
-
 import { useRef, useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -100,28 +99,49 @@ export default function CameraCapture({ onCapture, onClose }) {
   const capturePhoto = async () => {
     if (!videoRef.current || !isReady) return;
 
+    // Prüfe ob Video-Dimensionen gültig sind
+    const videoWidth = videoRef.current.videoWidth;
+    const videoHeight = videoRef.current.videoHeight;
+    
+    if (!videoWidth || !videoHeight || videoWidth === 0 || videoHeight === 0) {
+      console.error("Video noch nicht bereit - Dimensionen:", videoWidth, videoHeight);
+      alert("Bitte warte einen Moment bis die Kamera vollständig geladen ist.");
+      return;
+    }
+
     setIsCompressing(true);
     
     try {
       const canvas = document.createElement('canvas');
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
+      canvas.width = videoWidth;
+      canvas.height = videoHeight;
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      
+      // Zeichne das Video-Frame auf den Canvas
+      ctx.drawImage(videoRef.current, 0, 0, videoWidth, videoHeight);
 
+      // Erstelle Blob vom Canvas
       const blob = await new Promise((resolve) => {
         canvas.toBlob(resolve, 'image/jpeg', 0.95);
       });
       
+      if (!blob) {
+        throw new Error("Fehler beim Erstellen des Bildes");
+      }
+      
       const file = new File([blob], `plant-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      
+      console.log("📸 Foto aufgenommen - Größe:", (file.size / 1024 / 1024).toFixed(2) + "MB");
       
       // Komprimiere das Bild
       const compressedFile = await compressImage(file);
       
+      // Stoppe Kamera erst NACH erfolgreicher Kompression
       stopCamera();
-      onCapture(compressedFile, selectedOrgan); // Übergebe auch den organ-Parameter!
+      onCapture(compressedFile, selectedOrgan);
     } catch (error) {
-      console.error("Fehler beim Komprimieren:", error);
+      console.error("Fehler beim Erfassen des Fotos:", error);
+      alert("Fehler beim Aufnehmen des Fotos. Bitte versuche es erneut.");
       setIsCompressing(false);
     }
   };
