@@ -261,11 +261,32 @@ export default function Scanner() {
       return true;
     };
 
+    // Update reguläre Quests
+    const allUserQuests = await base44.entities.UserQuest.filter({ created_by: user.email });
+    for (const userQuest of allUserQuests) {
+      if (userQuest.accepted && !userQuest.completed) {
+        const quest = quests.find(q => q.id === userQuest.quest_id);
+        if (quest && scanMatchesQuest(quest)) {
+          const newProgress = (userQuest.progress || 0) + 1;
+          const isCompleted = newProgress >= (quest.required_discoveries || 1);
+          await base44.entities.UserQuest.update(userQuest.id, {
+            progress: newProgress,
+            completed: isCompleted,
+            completed_date: isCompleted ? new Date().toISOString() : userQuest.completed_date
+          });
+        }
+      }
+    }
+
     if (currentMonthlyQuest) {
       const activeMonthlyQuest = await getOrCreateActiveMonthlyQuest(base44, currentMonthlyQuest, userMonthlyQuests, user.email);
       if (activeMonthlyQuest && !activeMonthlyQuest.completed && scanMatchesQuest(currentMonthlyQuest)) {
+        const newProgress = (activeMonthlyQuest.progress || 0) + 1;
+        const isCompleted = newProgress >= (currentMonthlyQuest.required_discoveries || 1);
         await base44.entities.UserMonthlyQuest.update(activeMonthlyQuest.id, {
-          progress: (activeMonthlyQuest.progress || 0) + 1
+          progress: newProgress,
+          completed: isCompleted,
+          completed_date: isCompleted ? new Date().toISOString() : activeMonthlyQuest.completed_date
         });
       }
     }
@@ -273,12 +294,17 @@ export default function Scanner() {
     if (currentWeeklyQuest) {
       const activeWeeklyQuest = await getOrCreateActiveWeeklyQuest(base44, currentWeeklyQuest, userWeeklyQuests, user.email);
       if (activeWeeklyQuest && !activeWeeklyQuest.completed && scanMatchesQuest(currentWeeklyQuest)) {
+        const newProgress = (activeWeeklyQuest.progress || 0) + 1;
+        const isCompleted = newProgress >= (currentWeeklyQuest.required_discoveries || 1);
         await base44.entities.UserWeeklyQuest.update(activeWeeklyQuest.id, {
-          progress: (activeWeeklyQuest.progress || 0) + 1
+          progress: newProgress,
+          completed: isCompleted,
+          completed_date: isCompleted ? new Date().toISOString() : activeWeeklyQuest.completed_date
         });
       }
     }
 
+    queryClient.invalidateQueries({ queryKey: ['userQuests'] });
     queryClient.invalidateQueries({ queryKey: ['userMonthlyQuests'] });
     queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
   };
