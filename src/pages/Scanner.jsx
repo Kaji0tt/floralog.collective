@@ -681,74 +681,9 @@ export default function Scanner() {
 
     await updateQuestProgress(plant);
 
-    // Prüfe Referral-Hintergrund Freischaltung (erster Scan)
-    const currentUser = await base44.auth.me();
-    const myDiscoveries = await base44.entities.UserPlantDiscovery.filter({ created_by: currentUser.email });
-    if (myDiscoveries.length === 1) {
-      // Das ist der erste Scan!
-      const referrals = await base44.entities.Referral.list();
-      const myReferral = referrals.find(r => r.invited_email?.toLowerCase() === currentUser.email.toLowerCase() && r.status === "pending");
-      
-      if (myReferral) {
-        // Update Referral Status
-        await base44.entities.Referral.update(myReferral.id, {
-          status: "completed",
-          completed_date: new Date().toISOString()
-        });
-
-        // Schalte Plains-Hintergrund nur für den EINLADENDEN User frei
-        const inviterProfiles = await base44.entities.PublicProfile.list();
-        const inviter = inviterProfiles.find(p => p.user_email?.toLowerCase() === myReferral.invited_by?.toLowerCase());
-        
-        if (inviter) {
-          await base44.entities.PublicProfile.update(inviter.id, {
-            referral_background_unlocked: true
-          });
-        }
-
-        alert("🎉 Dein Freund hat den 'Plains' Hintergrund freigeschaltet!");
-      }
-    }
-
-    // Prüfe Seltene-Pflanze-Hintergrund Freischaltung
-    if (plant.rarity === "Selten" || plant.rarity === "Sehr Selten" || plant.rarity === "Extrem Selten") {
-      const currentUserForRare = await base44.auth.me();
-      if (!currentUserForRare.rare_plant_unlocked) {
-        await base44.auth.updateMe({
-          rare_plant_unlocked: true
-        });
-        alert("🌟 Du hast den 'Epic Rare' Hintergrund freigeschaltet!");
-      }
-    }
-
-    // Prüfe Weekly Quest Hintergrund Freischaltung
-    const userWeeklyQuestsData = await base44.entities.UserWeeklyQuest.filter({ created_by: currentUser.email });
-    const weeklyParticipations = new Set(userWeeklyQuestsData.map(q => q.active_week)).size;
-    
-    if (weeklyParticipations >= 1 && !currentUser.weekly_bg1_unlocked) {
-      await base44.auth.updateMe({ weekly_bg1_unlocked: true });
-      alert("🎉 Hintergrund 'BackGround1' freigeschaltet!");
-    }
-    if (weeklyParticipations >= 3 && !currentUser.weekly_bg2_unlocked) {
-      await base44.auth.updateMe({ weekly_bg2_unlocked: true });
-      alert("🎉 Hintergrund 'BackGround2' freigeschaltet!");
-    }
-
-    // Prüfe Monthly Quest Hintergrund Freischaltung
-    const userMonthlyQuestsData = await base44.entities.UserMonthlyQuest.filter({ created_by: currentUser.email });
-    const hasCompleted = userMonthlyQuestsData.some(q => q.completed);
-    
-    if (hasCompleted && !currentUser.monthly_bg_unlocked) {
-      await base44.auth.updateMe({ monthly_bg_unlocked: true });
-      alert("🎉 Hintergrund 'BackGround4' freigeschaltet!");
-    }
-
-    // Prüfe Gift Hintergrund Freischaltung
-    const receivedGifts = await base44.entities.SharedScan.filter({ shared_to: currentUser.email });
-    if (receivedGifts.length > 0 && !currentUser.gift_bg_unlocked) {
-      await base44.auth.updateMe({ gift_bg_unlocked: true });
-      alert("🎁 Hintergrund 'Colors' freigeschaltet!");
-    }
+    // Hintergrund-Freischaltungen im Hintergrund prüfen (nicht-blockierend)
+    const isFirstScan = currentDiscoveries.length === 1;
+    checkBackgroundUnlocks(plant, isFirstScan).catch(err => console.error("Background unlock error:", err));
 
     // Vibration: 1x kurz für erfolgreichen Scan
     if (navigator.vibrate) {
