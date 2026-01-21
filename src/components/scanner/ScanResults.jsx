@@ -439,8 +439,8 @@ export default function ScanResults({
                         }
                         </div>
 
-                      {/* Action Buttons - nur bei bestätigten Scans */}
-                      {latestDiscoveryId &&
+                      {/* Action Buttons unterhalb des Bildes */}
+                      {(latestDiscoveryId || isPendingConfirmation) &&
                       <div className="flex justify-evenly items-center mt-4">
                         {/* Lupe (Search) */}
                         <motion.button
