@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Camera, Loader2, MapPin, AlertTriangle, ArrowLeft } from "lucide-react";
+import { Camera, Loader2, MapPin, AlertTriangle, ArrowLeft, Sparkles } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
@@ -93,6 +93,8 @@ export default function Scanner() {
   const [currentResultIndex, setCurrentResultIndex] = useState(0); // Aktuell ausgewähltes Ergebnis
   const [locationEnabled, setLocationEnabled] = useState(true);
   const [scanningPhase, setScanningPhase] = useState(0);
+  const [showGlobalFloralogModal, setShowGlobalFloralogModal] = useState(false);
+  const [newPlantName, setNewPlantName] = useState("");
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -748,7 +750,15 @@ export default function Scanner() {
             });
           }
 
-          alert("🎉 Dein Freund hat den 'Plains' Hintergrund freigeschaltet!");
+          // Stille Notification statt Alert
+          await base44.entities.UserNotification.create({
+            user_email: currentUser.email,
+            notification_type: "custom",
+            title: "🎉 Freund belohnt!",
+            message: "Dein Freund hat den 'Plains' Hintergrund freigeschaltet!",
+            priority: "low",
+            display_location: "banner"
+          });
         }
       }
 
@@ -759,7 +769,14 @@ export default function Scanner() {
           await base44.auth.updateMe({
             rare_plant_unlocked: true
           });
-          alert("🌟 Du hast den 'Epic Rare' Hintergrund freigeschaltet!");
+          await base44.entities.UserNotification.create({
+            user_email: currentUser.email,
+            notification_type: "custom",
+            title: "🌟 Hintergrund freigeschaltet!",
+            message: "Du hast den 'Epic Rare' Hintergrund freigeschaltet!",
+            priority: "medium",
+            display_location: "banner"
+          });
         }
       }
 
@@ -769,11 +786,25 @@ export default function Scanner() {
       
       if (weeklyParticipations >= 1 && !currentUser.weekly_bg1_unlocked) {
         await base44.auth.updateMe({ weekly_bg1_unlocked: true });
-        alert("🎉 Hintergrund 'BackGround1' freigeschaltet!");
+        await base44.entities.UserNotification.create({
+          user_email: currentUser.email,
+          notification_type: "custom",
+          title: "🎉 Hintergrund freigeschaltet!",
+          message: "Hintergrund 'BackGround1' freigeschaltet!",
+          priority: "low",
+          display_location: "banner"
+        });
       }
       if (weeklyParticipations >= 3 && !currentUser.weekly_bg2_unlocked) {
         await base44.auth.updateMe({ weekly_bg2_unlocked: true });
-        alert("🎉 Hintergrund 'BackGround2' freigeschaltet!");
+        await base44.entities.UserNotification.create({
+          user_email: currentUser.email,
+          notification_type: "custom",
+          title: "🎉 Hintergrund freigeschaltet!",
+          message: "Hintergrund 'BackGround2' freigeschaltet!",
+          priority: "low",
+          display_location: "banner"
+        });
       }
 
       // Prüfe Monthly Quest Hintergrund Freischaltung
@@ -782,14 +813,28 @@ export default function Scanner() {
       
       if (hasCompleted && !currentUser.monthly_bg_unlocked) {
         await base44.auth.updateMe({ monthly_bg_unlocked: true });
-        alert("🎉 Hintergrund 'BackGround4' freigeschaltet!");
+        await base44.entities.UserNotification.create({
+          user_email: currentUser.email,
+          notification_type: "custom",
+          title: "🎉 Hintergrund freigeschaltet!",
+          message: "Hintergrund 'BackGround4' freigeschaltet!",
+          priority: "low",
+          display_location: "banner"
+        });
       }
 
       // Prüfe Gift Hintergrund Freischaltung
       const receivedGifts = await base44.entities.SharedScan.filter({ shared_to: currentUser.email });
       if (receivedGifts.length > 0 && !currentUser.gift_bg_unlocked) {
         await base44.auth.updateMe({ gift_bg_unlocked: true });
-        alert("🎁 Hintergrund 'Colors' freigeschaltet!");
+        await base44.entities.UserNotification.create({
+          user_email: currentUser.email,
+          notification_type: "custom",
+          title: "🎁 Hintergrund freigeschaltet!",
+          message: "Hintergrund 'Colors' freigeschaltet!",
+          priority: "low",
+          display_location: "banner"
+        });
       }
 
       // Vibration: 3x kurz für neuen Floralog-Eintrag
@@ -797,6 +842,9 @@ export default function Scanner() {
         navigator.vibrate([200, 100, 200, 100, 200]);
       }
 
+      // Speichere Pflanzennamen für Modal
+      setNewPlantName(newPlant.species_name);
+      
       setMatchedPlant({
         ...newPlant,
         discovered: false,
@@ -925,36 +973,63 @@ Falls du die Pflanze SICHER erkennst, gib an:
       
       if (isInDatabase) {
         await handleAutoSave(selectedPlant, pendingScanData.imageUrl, selectedPlant.aiData || selectedPlant, pendingScanData.allResults);
+        
+        // Prüfe ob das der erste Scan war - dann Quest-Notification erstellen
+        try {
+          const currentUser = await base44.auth.me();
+          const allDiscoveries = await base44.entities.UserPlantDiscovery.filter({ created_by: currentUser.email });
+          
+          if (allDiscoveries.length === 1) {
+            await base44.entities.UserNotification.create({
+              user_email: currentUser.email,
+              notification_type: "custom",
+              title: "🎯 Deine erste Quest ist abgeschlossen!",
+              message: "Glückwunsch! Du hast deine erste Pflanze gescannt. Jetzt kannst du deine Quests einlösen und Belohnungen erhalten. Schau bei 'Erfolge' vorbei!",
+              description: "Löse deine erste Quest ein.",
+              action_url: "",
+              priority: "high",
+              display_location: "modal"
+            });
+          }
+        } catch (notificationError) {
+          console.error("Fehler beim Erstellen der Notification:", notificationError);
+        }
+        
+        // Direkt zur Home-Page navigieren
+        setPendingScanData(null);
+        setCurrentResultIndex(0);
+        setIsSavingPlant(false);
+        navigate(createPageUrl("Home"));
       } else {
         await handleAutoAddNewPlant(selectedPlant, pendingScanData.imageUrl, pendingScanData.allResults);
-      }
-      setPendingScanData(null);
-      setCurrentResultIndex(0);
-      
-      // Prüfe ob das der erste Scan war - dann Quest-Notification erstellen
-      try {
-        const currentUser = await base44.auth.me();
-        const allDiscoveries = await base44.entities.UserPlantDiscovery.filter({ created_by: currentUser.email });
         
-        if (allDiscoveries.length === 1) {
-          // Erster Scan! Erstelle Quest-Hinweis-Notification
-          await base44.entities.UserNotification.create({
-            user_email: currentUser.email,
-            notification_type: "custom",
-            title: "🎯 Deine erste Quest ist abgeschlossen!",
-            message: "Glückwunsch! Du hast deine erste Pflanze gescannt. Jetzt kannst du deine Quests einlösen und Belohnungen erhalten. Schau bei 'Erfolge' vorbei!",
-            description: "Löse deine erste Quest ein.",
-            action_url: "",
-            priority: "high",
-            display_location: "modal"
-          });
+        // Prüfe ob das der erste Scan war - dann Quest-Notification erstellen
+        try {
+          const currentUser = await base44.auth.me();
+          const allDiscoveries = await base44.entities.UserPlantDiscovery.filter({ created_by: currentUser.email });
+          
+          if (allDiscoveries.length === 1) {
+            await base44.entities.UserNotification.create({
+              user_email: currentUser.email,
+              notification_type: "custom",
+              title: "🎯 Deine erste Quest ist abgeschlossen!",
+              message: "Glückwunsch! Du hast deine erste Pflanze gescannt. Jetzt kannst du deine Quests einlösen und Belohnungen erhalten. Schau bei 'Erfolge' vorbei!",
+              description: "Löse deine erste Quest ein.",
+              action_url: "",
+              priority: "high",
+              display_location: "modal"
+            });
+          }
+        } catch (notificationError) {
+          console.error("Fehler beim Erstellen der Notification:", notificationError);
         }
-      } catch (notificationError) {
-        console.error("Fehler beim Erstellen der Notification:", notificationError);
+        
+        // Zeige "Globales Floralog erweitert"-Modal
+        setPendingScanData(null);
+        setCurrentResultIndex(0);
+        setIsSavingPlant(false);
+        setShowGlobalFloralogModal(true);
       }
-      
-      // Nach erfolgreichem Speichern zur Startseite navigieren
-      navigate(createPageUrl("Home"));
     } catch (error) {
       console.error("Fehler beim Speichern:", error);
       setIsSavingPlant(false);
@@ -1105,6 +1180,45 @@ Falls du die Pflanze SICHER erkennst, gib an:
               className="bg-green-600 hover:bg-green-700"
             >
               Ja
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Globales Floralog erweitert Dialog */}
+      <Dialog open={showGlobalFloralogModal} onOpenChange={(open) => {
+        if (!open) {
+          setShowGlobalFloralogModal(false);
+          navigate(createPageUrl("Home"));
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600">
+              <Sparkles className="w-6 h-6" />
+              Globales Floralog erweitert!
+            </DialogTitle>
+            <DialogDescription className="text-base pt-4 space-y-3">
+              <p className="font-semibold text-green-700">
+                🌟 Glückwunsch!
+              </p>
+              <p>
+                Du hast mit <strong>{newPlantName}</strong> eine neue Pflanze zum globalen Floralog hinzugefügt!
+              </p>
+              <p className="text-sm text-stone-600">
+                Diese Pflanze ist jetzt für alle Nutzer verfügbar.
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button 
+              onClick={() => {
+                setShowGlobalFloralogModal(false);
+                navigate(createPageUrl("Home"));
+              }}
+              className="w-full bg-green-600 hover:bg-green-700"
+            >
+              Verstanden
             </Button>
           </DialogFooter>
         </DialogContent>

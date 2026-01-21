@@ -565,19 +565,17 @@ export default function ScanResults({
                       </div>
 
                   {/* Status Anzeige - nur bei bestätigten Scans */}
-                  {!isPendingConfirmation &&
+                  {!isPendingConfirmation && (
                   <div className="bg-gradient-to-r from-green-400 to-emerald-400 rounded-xl p-4 border-2 border-green-500 shadow-lg">
                       <div className="flex items-center justify-center gap-3 flex-wrap">
                         <Sparkles className="w-6 h-6 text-white animate-pulse" />
                         <p className="text-lg md:text-xl font-bold text-white text-center">
-                          {isNewToPlantDex ? "Neue PlantDex-Pflanze!" :
-                        wasAlreadyDiscovered ? "Erneut gescannt!" :
-                        "Erstentdeckung!"}
+                          {wasAlreadyDiscovered ? "Erneut gescannt!" : "Erstentdeckung!"}
                         </p>
                         <Sparkles className="w-6 h-6 text-white animate-pulse" />
                       </div>
                     </div>
-                  }
+                  )}
                 </CardContent>
 
                 </Card>
