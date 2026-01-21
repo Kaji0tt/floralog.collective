@@ -60,6 +60,16 @@ Deno.serve(async (req) => {
                     throw new Error('PLANTNET_RATE_LIMIT');
                 }
                 
+                // 404 "Species not found" bedeutet: PlantNet konnte die Pflanze nicht identifizieren
+                // Das ist KEIN Fehler, sondern ein gültiges Ergebnis
+                if (plantnetResponse.status === 404) {
+                    console.log("⚠️ PlantNet konnte die Pflanze nicht identifizieren (404)");
+                    return Response.json({
+                        identified: false,
+                        error: 'PlantNet konnte die Pflanze nicht identifizieren.'
+                    });
+                }
+                
                 throw new Error(`PlantNet API Error: ${plantnetResponse.status}`);
             }
 
