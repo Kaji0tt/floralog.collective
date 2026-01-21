@@ -10,6 +10,7 @@ import { AnimatePresence } from "framer-motion";
  */
 export default function UserNotificationManager({ user }) {
   const [currentNotification, setCurrentNotification] = useState(null);
+  const [shownNotificationIds, setShownNotificationIds] = useState(new Set());
   const queryClient = useQueryClient();
 
   // Lade ungesehene Benachrichtigungen
@@ -45,9 +46,15 @@ export default function UserNotificationManager({ user }) {
         return (priorityOrder[b.priority] || 2) - (priorityOrder[a.priority] || 2);
       });
       
-      setCurrentNotification(sortedNotifications[0]);
+      // Finde die erste Benachrichtigung, die noch nicht gezeigt wurde
+      const nextNotification = sortedNotifications.find(n => !shownNotificationIds.has(n.id));
+      
+      if (nextNotification) {
+        setCurrentNotification(nextNotification);
+        setShownNotificationIds(prev => new Set([...prev, nextNotification.id]));
+      }
     }
-  }, [notifications, currentNotification]);
+  }, [notifications, currentNotification, shownNotificationIds]);
 
   const handleClose = () => {
     if (currentNotification) {
