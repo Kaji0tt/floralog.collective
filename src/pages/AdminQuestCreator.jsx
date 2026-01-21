@@ -58,6 +58,7 @@ export default function AdminQuestCreator() {
     title: "",
     description: "",
     requirement: "",
+    reward: "",
     category: "Alle",
     difficulty: "Leicht",
     required_discoveries: 1,
@@ -146,6 +147,7 @@ export default function AdminQuestCreator() {
       title: "",
       description: "",
       requirement: "",
+      reward: "",
       category: "Alle",
       difficulty: "Leicht",
       required_discoveries: 1,
@@ -169,6 +171,7 @@ export default function AdminQuestCreator() {
       title: quest.title || "",
       description: quest.description || "",
       requirement: quest.requirement || "",
+      reward: quest.reward || "",
       category: quest.category || "Alle",
       difficulty: quest.difficulty || "Leicht",
       required_discoveries: quest.required_discoveries || 1,
@@ -214,6 +217,11 @@ export default function AdminQuestCreator() {
       category: formData.category,
       required_discoveries: parseInt(formData.required_discoveries) || undefined,
     };
+
+    // Add reward if specified
+    if (formData.reward) {
+      questData.reward = formData.reward;
+    }
 
     // Add fields specific to Quest entity
     if (activeTab === "quest") {
@@ -377,14 +385,24 @@ export default function AdminQuestCreator() {
 
                 {/* Requirement (nicht für Collection) */}
                 {activeTab !== "collection" && (
-                  <div>
-                    <Label>Anforderung (Anzeige)</Label>
-                    <Input
-                      value={formData.requirement}
-                      onChange={(e) => setFormData({...formData, requirement: e.target.value})}
-                      placeholder="z.B. Scanne 3 verschiedene Bäume"
-                    />
-                  </div>
+                  <>
+                    <div>
+                      <Label>Anforderung (Anzeige)</Label>
+                      <Input
+                        value={formData.requirement}
+                        onChange={(e) => setFormData({...formData, requirement: e.target.value})}
+                        placeholder="z.B. Scanne 3 verschiedene Bäume"
+                      />
+                    </div>
+                    <div>
+                      <Label>Belohnung (optional)</Label>
+                      <Input
+                        value={formData.reward}
+                        onChange={(e) => setFormData({...formData, reward: e.target.value})}
+                        placeholder="z.B. Titel: Waldläufer oder Hintergrund: Forest"
+                      />
+                    </div>
+                  </>
                 )}
 
                 {/* Category & Discoveries */}
@@ -874,6 +892,11 @@ export default function AdminQuestCreator() {
                                   {quest.is_active !== undefined && !quest.is_active && (
                                     <Badge className="bg-stone-400 text-white">
                                       Inaktiv
+                                    </Badge>
+                                  )}
+                                  {quest.reward && (
+                                    <Badge className="bg-amber-100 text-amber-700">
+                                      🎁 {quest.reward}
                                     </Badge>
                                   )}
                                 </div>
