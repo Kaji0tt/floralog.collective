@@ -99,12 +99,18 @@ export default function CameraCapture({ onCapture, onClose }) {
   const capturePhoto = async () => {
     if (!videoRef.current || !isReady) return;
 
+    console.log("🎥 capturePhoto gestartet");
+    console.log("  videoRef.current:", videoRef.current);
+    console.log("  isReady:", isReady);
+
     // Prüfe ob Video-Dimensionen gültig sind
     const videoWidth = videoRef.current.videoWidth;
     const videoHeight = videoRef.current.videoHeight;
     
+    console.log("  Video Dimensionen:", videoWidth, "x", videoHeight);
+    
     if (!videoWidth || !videoHeight || videoWidth === 0 || videoHeight === 0) {
-      console.error("Video noch nicht bereit - Dimensionen:", videoWidth, videoHeight);
+      console.error("❌ Video noch nicht bereit - Dimensionen:", videoWidth, videoHeight);
       alert("Bitte warte einen Moment bis die Kamera vollständig geladen ist.");
       return;
     }
@@ -115,15 +121,21 @@ export default function CameraCapture({ onCapture, onClose }) {
       const canvas = document.createElement('canvas');
       canvas.width = videoWidth;
       canvas.height = videoHeight;
+      console.log("  Canvas erstellt:", canvas.width, "x", canvas.height);
+      
       const ctx = canvas.getContext('2d');
       
       // Zeichne das Video-Frame auf den Canvas
       ctx.drawImage(videoRef.current, 0, 0, videoWidth, videoHeight);
+      console.log("  Video auf Canvas gezeichnet");
 
       // Erstelle Blob vom Canvas
       const blob = await new Promise((resolve) => {
         canvas.toBlob(resolve, 'image/jpeg', 0.95);
       });
+      
+      console.log("  Blob erstellt:", blob);
+      console.log("  Blob size:", blob ? (blob.size / 1024).toFixed(2) + "KB" : "null");
       
       if (!blob) {
         throw new Error("Fehler beim Erstellen des Bildes");
@@ -136,11 +148,13 @@ export default function CameraCapture({ onCapture, onClose }) {
       // Komprimiere das Bild
       const compressedFile = await compressImage(file);
       
+      console.log("✅ Foto komprimiert - rufe onCapture auf");
+      
       // Stoppe Kamera erst NACH erfolgreicher Kompression
       stopCamera();
       onCapture(compressedFile, selectedOrgan);
     } catch (error) {
-      console.error("Fehler beim Erfassen des Fotos:", error);
+      console.error("❌ Fehler beim Erfassen des Fotos:", error);
       alert("Fehler beim Aufnehmen des Fotos. Bitte versuche es erneut.");
       setIsCompressing(false);
     }
