@@ -510,7 +510,7 @@ export default function Scanner() {
           }
           setMatchedPlant({
             identified: false,
-            error: result.error || "Die Pflanze konnte nicht identifiziert werden. Versuche ein klareres Foto mit mehr Details (Blätter, Blüten, Stamm)."
+            error: "Die Pflanze konnte nicht identifiziert werden. Versuche ein klareres Foto mit mehr Details (Blätter, Blüten, Stamm)."
           });
           setScanning(false);
         }
