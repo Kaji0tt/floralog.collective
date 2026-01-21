@@ -34,6 +34,7 @@ export default function Home() {
   const [showTestQuest, setShowTestQuest] = useState(false);
   const [showScannerHighlight, setShowScannerHighlight] = useState(false);
   const [showBackgroundHighlight, setShowBackgroundHighlight] = useState(false);
+  const [showAchievementsHighlight, setShowAchievementsHighlight] = useState(false);
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
@@ -158,28 +159,45 @@ export default function Home() {
   // Prüfe ob Scanner-Highlight angezeigt werden soll
   // Highlight wird NUR ausgeblendet wenn der User mindestens einen Scan hat
   useEffect(() => {
-    const hasDisplayName = user?.display_name;
+    // Nur prüfen wenn Daten vollständig geladen sind
+    if (!user || userDiscoveries === undefined) return;
+    
+    const hasDisplayName = user.display_name;
     const hasNoScans = userDiscoveries.length === 0;
     
-    if (hasDisplayName && hasNoScans) {
-      setShowScannerHighlight(true);
-    } else {
-      setShowScannerHighlight(false);
-    }
-  }, [user?.display_name, userDiscoveries.length]);
+    // Nur aktivieren wenn ALLE Bedingungen erfüllt sind
+    const shouldHighlight = hasDisplayName && hasNoScans;
+    setShowScannerHighlight(shouldHighlight);
+  }, [user?.display_name, userDiscoveries]);
 
   // Prüfe ob Hintergrund-Highlight angezeigt werden soll
   useEffect(() => {
+    // Nur prüfen wenn Daten vollständig geladen sind
+    if (backgroundNotifications === undefined || backgroundNotifications.length === undefined) return;
+    
     const hasChangedBackground = localStorage.getItem('hasChangedBackground');
     const hasPendingBackgroundNotification = backgroundNotifications.some(n => 
       n.title?.includes("Personalisiere") && !n.seen
     );
     
-    if (!hasChangedBackground && hasPendingBackgroundNotification) {
-      setShowBackgroundHighlight(true);
-    } else {
-      setShowBackgroundHighlight(false);
-    }
+    // Nur aktivieren wenn ALLE Bedingungen erfüllt sind
+    const shouldHighlight = !hasChangedBackground && hasPendingBackgroundNotification;
+    setShowBackgroundHighlight(shouldHighlight);
+  }, [backgroundNotifications]);
+
+  // Prüfe ob Erfolge-Highlight angezeigt werden soll
+  useEffect(() => {
+    // Nur prüfen wenn Daten vollständig geladen sind
+    if (backgroundNotifications === undefined || backgroundNotifications.length === undefined) return;
+    
+    const hasVisitedAchievements = localStorage.getItem('hasVisitedAchievements');
+    const hasPendingQuestNotification = backgroundNotifications.some(n => 
+      n.title?.includes("Quest") && !n.seen
+    );
+    
+    // Nur aktivieren wenn ALLE Bedingungen erfüllt sind
+    const shouldHighlight = !hasVisitedAchievements && hasPendingQuestNotification;
+    setShowAchievementsHighlight(shouldHighlight);
   }, [backgroundNotifications]);
 
   const updateUserMutation = useMutation({
@@ -513,8 +531,13 @@ export default function Home() {
       textColor: "text-amber-700",
       bgColor: "bg-amber-50",
       borderColor: "border-amber-200",
-      onClick: () => navigate(createPageUrl("Achievements")),
-      hasNotification: hasRedeemableQuests || hasNewQuests,
+      onClick: () => {
+        navigate(createPageUrl("Achievements"));
+        if (showAchievementsHighlight) {
+          localStorage.setItem('hasVisitedAchievements', 'true');
+        }
+      },
+      hasNotification: hasRedeemableQuests || hasNewQuests || showAchievementsHighlight,
       notificationRed: hasNewQuests,
       notificationGreen: hasRedeemableQuests
     },
