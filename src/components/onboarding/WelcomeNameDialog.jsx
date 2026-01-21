@@ -29,30 +29,26 @@ export default function WelcomeNameDialog({ user, onComplete }) {
       // 1. Speichere den Namen
       await base44.auth.updateMe({ display_name: name.trim() });
 
-      // 2. Lösche alle alten Notifications für diese Email (verhindert Duplikate bei Account-Neuanlage)
-      const existingNotifications = await base44.entities.UserNotification.filter({
-        user_email: user.email
+      // 2. Prüfe, ob eine Willkommens-Benachrichtigung bereits existiert und ungesehen ist
+      const welcomeNotifications = await base44.entities.UserNotification.filter({
+        user_email: user.email,
+        title: "🌿 Willkommen im Floralog!",
+        seen: false
       });
       
-      if (existingNotifications && existingNotifications.length > 0) {
-        await Promise.all(
-          existingNotifications.map(notification => 
-            base44.entities.UserNotification.delete(notification.id)
-          )
-        );
+      if (welcomeNotifications.length === 0) {
+        // 3. Erstelle die Willkommens-Benachrichtigung nur, wenn keine ungesehene existiert
+        await base44.entities.UserNotification.create({
+            user_email: user.email,
+            notification_type: "custom",
+            title: "🌿 Willkommen im Floralog!",
+            message: `Hallo ${name.trim()}! Schön, dass du da bist. Floralog ist dein persönlicher Wegbegleiter für all deine Entdeckungen in der Natur. Dabei landet jede Entdeckung in einer eigenen Kollektion. Klicke auf den 'Scannen' Button, um deine erste Pflanze zu entdecken!`,
+            description: "Starte jetzt deinen ersten Scan!",
+            action_url: "",
+            priority: "high",
+            display_location: "modal"
+          });
       }
-
-      // 3. Erstelle die Willkommens-Benachrichtigung
-      await base44.entities.UserNotification.create({
-          user_email: user.email,
-          notification_type: "custom",
-          title: "🌿 Willkommen im Floralog!",
-          message: `Hallo ${name.trim()}! Schön, dass du da bist. Floralog ist dein persönlicher Wegbegleiter für all deine Entdeckungen in der Natur. Dabei landet jede Entdeckung in einer eigenen Kollektion. licke auf den 'Scannen' Button, um deine erste Pflanze zu entdecken!`,
-          description: "Starte jetzt deinen ersten Scan!",
-          action_url: "",
-          priority: "high",
-          display_location: "modal"
-        });
 
       // 4. Dialog schließen
       setShowDialog(false);
