@@ -149,17 +149,18 @@ export default function Profile() {
 
   // Prüfe ob Hintergrund-Button-Highlight angezeigt werden soll
   useEffect(() => {
+    // Nur prüfen wenn Daten vollständig geladen sind
+    if (backgroundNotifications.length === undefined) return;
+    
     const hasChangedBackground = localStorage.getItem('hasChangedBackground');
     const hasVisitedProfileSettings = localStorage.getItem('hasVisitedProfileSettings');
     const hasPendingBackgroundNotification = backgroundNotifications.some(n => 
       n.title?.includes("Personalisiere") && !n.seen
     );
     
-    if (!hasChangedBackground && hasVisitedProfileSettings && hasPendingBackgroundNotification) {
-      setShowBackgroundButtonHighlight(true);
-    } else {
-      setShowBackgroundButtonHighlight(false);
-    }
+    // Nur aktivieren wenn ALLE Bedingungen erfüllt sind
+    const shouldHighlight = !hasChangedBackground && hasVisitedProfileSettings && hasPendingBackgroundNotification;
+    setShowBackgroundButtonHighlight(shouldHighlight);
   }, [backgroundNotifications]);
 
   const updateUserMutation = useMutation({
