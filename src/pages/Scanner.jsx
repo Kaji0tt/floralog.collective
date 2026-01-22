@@ -150,7 +150,7 @@ export default function Scanner() {
 
   const { data: userDiscoveries = [] } = useQuery({
     queryKey: ['userDiscoveries'],
-    queryFn: () => base44.entities.UserPlantDiscovery.filter({ user: user?.email }),
+    queryFn: () => base44.entities.UserPlantDiscovery.filter({ created_by: user?.email }),
     enabled: !!user?.email
   });
 
@@ -719,7 +719,7 @@ export default function Scanner() {
     }
 
     // Lade aktuelle Discoveries direkt von der DB, nicht vom Cache
-    const currentDiscoveries = await base44.entities.UserPlantDiscovery.filter({ user: user.email });
+    const currentDiscoveries = await base44.entities.UserPlantDiscovery.filter({ created_by: user.email });
 
     console.log("🔍 Überprüfe ob bereits entdeckt:");
     console.log("  plant.id:", plant.id);
@@ -733,7 +733,6 @@ export default function Scanner() {
 
     const newDiscovery = await base44.entities.UserPlantDiscovery.create({
       plant_id: plant.id,
-      user: user.email,
       discovered_date: new Date().toISOString(),
       discovery_location: locationString,
       discovery_notes: "",
@@ -750,9 +749,8 @@ export default function Scanner() {
       setCurrentAchievementIndex(0);
     }
 
-    // Quest-Progress aktualisieren über Helper
-    const { updateQuestProgress: updateAllQuestProgress } = await import("../components/utils/questProgress");
-    await updateAllQuestProgress(user);
+    // Quest-Progress aktualisieren - inline statt über Helper
+    await updateQuestProgress(newPlant);
 
     // Hintergrund-Freischaltungen im Hintergrund prüfen (nicht-blockierend)
     const isFirstScan = currentDiscoveries.length === 1;
@@ -826,7 +824,6 @@ export default function Scanner() {
 
       const newDiscovery = await base44.entities.UserPlantDiscovery.create({
         plant_id: newPlant.id,
-        user: user.email,
         discovered_date: new Date().toISOString(),
         discovery_location: locationString,
         discovery_notes: "",
@@ -844,9 +841,8 @@ export default function Scanner() {
         setCurrentAchievementIndex(0);
       }
 
-      // Quest-Progress aktualisieren über Helper
-      const { updateQuestProgress: updateAllQuestProgress } = await import("../components/utils/questProgress");
-      await updateAllQuestProgress(user);
+      // Quest-Progress aktualisieren - inline statt über Helper
+      await updateQuestProgress(plant);
 
       // Hintergrund-Freischaltungen im Hintergrund prüfen (nicht-blockierend)
       const currentUser = await base44.auth.me();

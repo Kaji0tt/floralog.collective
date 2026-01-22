@@ -203,13 +203,13 @@ export default function Home() {
 
     // Subscription für User-Updates (z.B. aus WelcomeNameDialog)
     const unsubscribe = base44.entities.User.subscribe((event) => {
-      if (event.type === 'update' && event.data?.email === user?.email) {
+      if (event.type === 'update') {
         loadUser();
       }
     });
     
     return unsubscribe;
-  }, [user?.email]);
+  }, []);
 
   // Prüfe ob Scanner-Highlight angezeigt werden soll
   useEffect(() => {
