@@ -56,7 +56,7 @@ export default function Home() {
     queryKey: ['userDiscoveries', user?.email],
     queryFn: () => base44.entities.UserPlantDiscovery.filter({ created_by: user?.email }),
     enabled: !!user?.email,
-    initialData: [],
+    placeholderData: [],
     staleTime: Infinity,
     refetchOnWindowFocus: false,
   });
@@ -77,7 +77,7 @@ export default function Home() {
     queryKey: ['userQuests', user?.email],
     queryFn: () => base44.entities.UserQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email,
-    initialData: [],
+    placeholderData: [],
     staleTime: Infinity,
     refetchOnWindowFocus: false,
   });
@@ -94,7 +94,7 @@ export default function Home() {
       );
     },
     enabled: !!user?.email,
-    initialData: [],
+    placeholderData: [],
     staleTime: Infinity,
     refetchOnWindowFocus: false,
   });
@@ -103,7 +103,7 @@ export default function Home() {
     queryKey: ['userAchievements', user?.email],
     queryFn: () => base44.entities.UserAchievement.filter({ created_by: user?.email }),
     enabled: !!user?.email,
-    initialData: [],
+    placeholderData: [],
     staleTime: Infinity,
     refetchOnWindowFocus: false,
   });
@@ -191,93 +191,7 @@ export default function Home() {
     refetchOnWindowFocus: false,
   });
 
-  // Echtzeit-Subscriptions
-  useEffect(() => {
-    if (!user?.email) return;
-    const unsubscribe = base44.entities.UserPlantDiscovery.subscribe((event) => {
-      if (event.data?.created_by === user.email || event.data?.user === user.email) {
-        queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
-        queryClient.invalidateQueries({ queryKey: ['allDiscoveries'] });
-      }
-    });
-    return unsubscribe;
-  }, [user?.email]);
 
-  useEffect(() => {
-    if (!user?.email) return;
-    const unsubscribe = base44.entities.Friend.subscribe((event) => {
-      const affectedByChange = (
-        event.data?.request_sent_by?.toLowerCase() === user.email.toLowerCase() ||
-        event.data?.request_sent_to?.toLowerCase() === user.email.toLowerCase() ||
-        event.old_data?.request_sent_by?.toLowerCase() === user.email.toLowerCase() ||
-        event.old_data?.request_sent_to?.toLowerCase() === user.email.toLowerCase()
-      );
-      if (affectedByChange) {
-        queryClient.invalidateQueries({ queryKey: ['friends'] });
-      }
-    });
-    return unsubscribe;
-  }, [user?.email]);
-
-  useEffect(() => {
-    if (!user?.email) return;
-    const unsubscribe = base44.entities.UserAchievement.subscribe((event) => {
-      if (event.data?.created_by === user.email) {
-        queryClient.invalidateQueries({ queryKey: ['userAchievements'] });
-      }
-    });
-    return unsubscribe;
-  }, [user?.email]);
-
-  useEffect(() => {
-    if (!user?.email) return;
-    const unsubscribe = base44.entities.UserNotification.subscribe((event) => {
-      if (event.data?.user_email === user.email) {
-        queryClient.invalidateQueries({ queryKey: ['backgroundNotifications'] });
-      }
-    });
-    return unsubscribe;
-  }, [user?.email]);
-
-  useEffect(() => {
-    if (!user?.email) return;
-    const unsubscribe = base44.entities.UserQuest.subscribe((event) => {
-      if (event.data?.created_by === user.email) {
-        queryClient.invalidateQueries({ queryKey: ['userQuests'] });
-      }
-    });
-    return unsubscribe;
-  }, [user?.email]);
-
-  useEffect(() => {
-    if (!user?.email) return;
-    const unsubscribe = base44.entities.UserWeeklyQuest.subscribe((event) => {
-      if (event.data?.created_by === user.email) {
-        queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
-      }
-    });
-    return unsubscribe;
-  }, [user?.email]);
-
-  useEffect(() => {
-    if (!user?.email) return;
-    const unsubscribe = base44.entities.UserMonthlyQuest.subscribe((event) => {
-      if (event.data?.created_by === user.email) {
-        queryClient.invalidateQueries({ queryKey: ['userMonthlyQuests'] });
-      }
-    });
-    return unsubscribe;
-  }, [user?.email]);
-
-  useEffect(() => {
-    if (!user?.email) return;
-    const unsubscribe = base44.entities.UserCollectionQuest.subscribe((event) => {
-      if (event.data?.created_by === user.email) {
-        queryClient.invalidateQueries({ queryKey: ['userCollectionQuests'] });
-      }
-    });
-    return unsubscribe;
-  }, [user?.email]);
 
   useEffect(() => {
     const loadUser = async () => {
