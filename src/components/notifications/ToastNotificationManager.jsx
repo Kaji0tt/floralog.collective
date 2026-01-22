@@ -1,17 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useToast } from "@/components/ui/use-toast";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 export default function ToastNotificationManager({ user }) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [lastChecked, setLastChecked] = useState({
     friendRequests: new Date().toISOString(),
     sharedScans: new Date().toISOString(),
     scanLikes: new Date().toISOString()
   });
 
-  // Freundschaftsanfragen abfragen
+  // Freundschaftsanfragen abfragen (nur initiales Laden)
   const { data: friendRequests = [] } = useQuery({
     queryKey: ['friendRequests', user?.email],
     queryFn: async () => {
@@ -23,10 +24,10 @@ export default function ToastNotificationManager({ user }) {
       );
     },
     enabled: !!user?.email,
-    refetchInterval: 10000, // Alle 10 Sekunden prüfen
+    staleTime: Infinity, // Daten nicht als veraltet markieren
   });
 
-  // Geteilte Scans abfragen
+  // Geteilte Scans abfragen (nur initiales Laden)
   const { data: sharedScans = [] } = useQuery({
     queryKey: ['sharedScans', user?.email],
     queryFn: async () => {
@@ -38,46 +39,93 @@ export default function ToastNotificationManager({ user }) {
       );
     },
     enabled: !!user?.email,
-    refetchInterval: 10000,
+    staleTime: Infinity,
   });
 
-  // Likes auf eigene Scans abfragen
+  // Likes auf eigene Scans abfragen (nur initiales Laden)
   const { data: scanLikes = [] } = useQuery({
     queryKey: ['myRecentScanLikes', user?.email],
     queryFn: async () => {
       if (!user?.email) return [];
       
-      // Hole alle Likes
       const allLikes = await base44.entities.ScanLike.list('-created_date');
-      
-      // Hole alle Discoveries des Users
       const myDiscoveries = await base44.entities.UserPlantDiscovery.filter({
         created_by: user.email
       });
       const myDiscoveryIds = myDiscoveries.map(d => d.id);
       
-      // Filtere Likes auf meine Scans (nicht von mir selbst)
       return allLikes.filter(like => 
         myDiscoveryIds.includes(like.discovery_id) && 
         like.liked_by?.toLowerCase() !== user.email.toLowerCase()
       );
     },
     enabled: !!user?.email,
-    refetchInterval: 10000,
+    staleTime: Infinity,
   });
 
   // Public Profiles für Anzeigenamen
   const { data: publicProfiles = [] } = useQuery({
     queryKey: ['publicProfiles'],
     queryFn: () => base44.entities.PublicProfile.list(),
-    refetchInterval: 30000,
+    staleTime: 5 * 60 * 1000, // 5 Minuten Cache
   });
 
   // Plants für Pflanzennamen
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
     queryFn: () => base44.entities.Plant.list(),
+    staleTime: 10 * 60 * 1000, // 10 Minuten Cache
   });
+
+  // Echtzeit-Subscriptions für Friend-Änderungen
+  useEffect(() => {
+    if (!user?.email) return;
+
+    const unsubscribe = base44.entities.Friend.subscribe((event) => {
+      if (event.type === 'create') {
+        const friend = event.data;
+        if (friend.request_sent_to?.toLowerCase() === user.email.toLowerCase() && 
+            friend.status === 'pending') {
+          queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
+        }
+      } else if (event.type === 'update' || event.type === 'delete') {
+        queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
+      }
+    });
+
+    return unsubscribe;
+  }, [user?.email]);
+
+  // Echtzeit-Subscriptions für SharedScan-Änderungen
+  useEffect(() => {
+    if (!user?.email) return;
+
+    const unsubscribe = base44.entities.SharedScan.subscribe((event) => {
+      if (event.type === 'create') {
+        const scan = event.data;
+        if (scan.shared_to?.toLowerCase() === user.email.toLowerCase() && !scan.viewed) {
+          queryClient.invalidateQueries({ queryKey: ['sharedScans'] });
+        }
+      } else if (event.type === 'update' || event.type === 'delete') {
+        queryClient.invalidateQueries({ queryKey: ['sharedScans'] });
+      }
+    });
+
+    return unsubscribe;
+  }, [user?.email]);
+
+  // Echtzeit-Subscriptions für ScanLike-Änderungen
+  useEffect(() => {
+    if (!user?.email) return;
+
+    const unsubscribe = base44.entities.ScanLike.subscribe((event) => {
+      if (event.type === 'create' || event.type === 'delete') {
+        queryClient.invalidateQueries({ queryKey: ['myRecentScanLikes'] });
+      }
+    });
+
+    return unsubscribe;
+  }, [user?.email]);
 
   // Freundschaftsanfragen-Benachrichtigungen
   useEffect(() => {

@@ -13,7 +13,7 @@ export default function UserNotificationManager({ user }) {
   const [shownNotificationIds, setShownNotificationIds] = useState(new Set());
   const queryClient = useQueryClient();
 
-  // Lade ungesehene Benachrichtigungen
+  // Lade ungesehene Benachrichtigungen (nur initiales Laden)
   const { data: notifications = [] } = useQuery({
     queryKey: ['userNotifications', user?.email],
     queryFn: async () => {
@@ -25,8 +25,26 @@ export default function UserNotificationManager({ user }) {
       );
     },
     enabled: !!user?.email,
-    refetchInterval: 5000 // Alle 5 Sekunden prüfen
+    staleTime: Infinity, // Echtzeit-Updates durch Subscription
   });
+
+  // Echtzeit-Subscription für UserNotification-Änderungen
+  useEffect(() => {
+    if (!user?.email) return;
+
+    const unsubscribe = base44.entities.UserNotification.subscribe((event) => {
+      if (event.type === 'create') {
+        const notification = event.data;
+        if (notification.user_email === user.email && !notification.seen) {
+          queryClient.invalidateQueries({ queryKey: ['userNotifications'] });
+        }
+      } else if (event.type === 'update' || event.type === 'delete') {
+        queryClient.invalidateQueries({ queryKey: ['userNotifications'] });
+      }
+    });
+
+    return unsubscribe;
+  }, [user?.email]);
 
   // Mutation zum Markieren als gesehen
   const markAsSeenMutation = useMutation({
