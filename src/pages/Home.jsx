@@ -200,7 +200,16 @@ export default function Home() {
       setEditedName(currentUser?.display_name || currentUser?.full_name || "");
     };
     loadUser();
-  }, []);
+
+    // Subscription für User-Updates (z.B. aus WelcomeNameDialog)
+    const unsubscribe = base44.entities.User.subscribe((event) => {
+      if (event.type === 'update' && event.data?.email === user?.email) {
+        loadUser();
+      }
+    });
+    
+    return unsubscribe;
+  }, [user?.email]);
 
   // Prüfe ob Scanner-Highlight angezeigt werden soll
   useEffect(() => {
