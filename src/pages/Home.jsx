@@ -39,17 +39,26 @@ export default function Home() {
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
     queryFn: () => base44.entities.Plant.list(),
+    initialData: [],
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: genera = [] } = useQuery({
     queryKey: ['genera'],
     queryFn: () => base44.entities.PlantGenus.list(),
+    initialData: [],
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
-  const { data: userDiscoveries = [] } = useQuery({
-    queryKey: ['userDiscoveries'],
+  const { data: userDiscoveries = [], isLoading: isLoadingDiscoveries } = useQuery({
+    queryKey: ['userDiscoveries', user?.email],
     queryFn: () => base44.entities.UserPlantDiscovery.filter({ created_by: user?.email }),
     enabled: !!user?.email,
+    initialData: [],
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   });
 
   const favoritePlant = user?.favorite_plant_id 
@@ -59,16 +68,22 @@ export default function Home() {
   const { data: quests = [] } = useQuery({
     queryKey: ['quests'],
     queryFn: () => base44.entities.Quest.list('quest_number'),
+    initialData: [],
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
-  const { data: userQuests = [] } = useQuery({
-    queryKey: ['userQuests'],
+  const { data: userQuests = [], isLoading: isLoadingQuests } = useQuery({
+    queryKey: ['userQuests', user?.email],
     queryFn: () => base44.entities.UserQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email,
+    initialData: [],
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   });
 
-  const { data: friends = [] } = useQuery({
-    queryKey: ['friends'],
+  const { data: friends = [], isLoading: isLoadingFriends } = useQuery({
+    queryKey: ['friends', user?.email],
     queryFn: async () => {
       if (!user?.email) return [];
       const allFriends = await base44.entities.Friend.list();
@@ -79,50 +94,77 @@ export default function Home() {
       );
     },
     enabled: !!user?.email,
+    initialData: [],
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   });
 
-  const { data: userAchievements = [] } = useQuery({
-    queryKey: ['userAchievements'],
+  const { data: userAchievements = [], isLoading: isLoadingAchievements } = useQuery({
+    queryKey: ['userAchievements', user?.email],
     queryFn: () => base44.entities.UserAchievement.filter({ created_by: user?.email }),
     enabled: !!user?.email,
+    initialData: [],
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   });
 
   const { data: weeklyQuests = [] } = useQuery({
     queryKey: ['weeklyQuests'],
     queryFn: () => base44.entities.WeeklyQuest.list('quest_number'),
+    initialData: [],
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: userWeeklyQuests = [] } = useQuery({
     queryKey: ['userWeeklyQuests', user?.email],
     queryFn: () => base44.entities.UserWeeklyQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email
+    enabled: !!user?.email,
+    initialData: [],
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   });
 
   const { data: monthlyQuests = [] } = useQuery({
     queryKey: ['monthlyQuests'],
-    queryFn: () => base44.entities.MonthlyQuest.list('quest_number')
+    queryFn: () => base44.entities.MonthlyQuest.list('quest_number'),
+    initialData: [],
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: userMonthlyQuests = [] } = useQuery({
     queryKey: ['userMonthlyQuests', user?.email],
     queryFn: () => base44.entities.UserMonthlyQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email
+    enabled: !!user?.email,
+    initialData: [],
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   });
 
   const { data: collectionQuests = [] } = useQuery({
     queryKey: ['collectionQuests'],
-    queryFn: () => base44.entities.CollectionQuest.list()
+    queryFn: () => base44.entities.CollectionQuest.list(),
+    initialData: [],
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: userCollectionQuests = [] } = useQuery({
     queryKey: ['userCollectionQuests', user?.email],
     queryFn: () => base44.entities.UserCollectionQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email
+    enabled: !!user?.email,
+    initialData: [],
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   });
 
   const { data: allDiscoveries = [] } = useQuery({
     queryKey: ['allDiscoveries'],
     queryFn: () => base44.entities.UserPlantDiscovery.list('-created_date'),
+    initialData: [],
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   });
 
   const { data: allUsers = [] } = useQuery({
@@ -131,6 +173,9 @@ export default function Home() {
       const users = await base44.entities.PublicProfile.list();
       return users.filter(u => u.weekly_tracking !== false);
     },
+    initialData: [],
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: backgroundNotifications = [] } = useQuery({
@@ -140,8 +185,99 @@ export default function Home() {
       notification_type: "custom",
       seen: false
     }),
-    enabled: !!user?.email
+    enabled: !!user?.email,
+    initialData: [],
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   });
+
+  // Echtzeit-Subscriptions
+  useEffect(() => {
+    if (!user?.email) return;
+    const unsubscribe = base44.entities.UserPlantDiscovery.subscribe((event) => {
+      if (event.data?.created_by === user.email || event.data?.user === user.email) {
+        queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
+        queryClient.invalidateQueries({ queryKey: ['allDiscoveries'] });
+      }
+    });
+    return unsubscribe;
+  }, [user?.email]);
+
+  useEffect(() => {
+    if (!user?.email) return;
+    const unsubscribe = base44.entities.Friend.subscribe((event) => {
+      const affectedByChange = (
+        event.data?.request_sent_by?.toLowerCase() === user.email.toLowerCase() ||
+        event.data?.request_sent_to?.toLowerCase() === user.email.toLowerCase() ||
+        event.old_data?.request_sent_by?.toLowerCase() === user.email.toLowerCase() ||
+        event.old_data?.request_sent_to?.toLowerCase() === user.email.toLowerCase()
+      );
+      if (affectedByChange) {
+        queryClient.invalidateQueries({ queryKey: ['friends'] });
+      }
+    });
+    return unsubscribe;
+  }, [user?.email]);
+
+  useEffect(() => {
+    if (!user?.email) return;
+    const unsubscribe = base44.entities.UserAchievement.subscribe((event) => {
+      if (event.data?.created_by === user.email) {
+        queryClient.invalidateQueries({ queryKey: ['userAchievements'] });
+      }
+    });
+    return unsubscribe;
+  }, [user?.email]);
+
+  useEffect(() => {
+    if (!user?.email) return;
+    const unsubscribe = base44.entities.UserNotification.subscribe((event) => {
+      if (event.data?.user_email === user.email) {
+        queryClient.invalidateQueries({ queryKey: ['backgroundNotifications'] });
+      }
+    });
+    return unsubscribe;
+  }, [user?.email]);
+
+  useEffect(() => {
+    if (!user?.email) return;
+    const unsubscribe = base44.entities.UserQuest.subscribe((event) => {
+      if (event.data?.created_by === user.email) {
+        queryClient.invalidateQueries({ queryKey: ['userQuests'] });
+      }
+    });
+    return unsubscribe;
+  }, [user?.email]);
+
+  useEffect(() => {
+    if (!user?.email) return;
+    const unsubscribe = base44.entities.UserWeeklyQuest.subscribe((event) => {
+      if (event.data?.created_by === user.email) {
+        queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
+      }
+    });
+    return unsubscribe;
+  }, [user?.email]);
+
+  useEffect(() => {
+    if (!user?.email) return;
+    const unsubscribe = base44.entities.UserMonthlyQuest.subscribe((event) => {
+      if (event.data?.created_by === user.email) {
+        queryClient.invalidateQueries({ queryKey: ['userMonthlyQuests'] });
+      }
+    });
+    return unsubscribe;
+  }, [user?.email]);
+
+  useEffect(() => {
+    if (!user?.email) return;
+    const unsubscribe = base44.entities.UserCollectionQuest.subscribe((event) => {
+      if (event.data?.created_by === user.email) {
+        queryClient.invalidateQueries({ queryKey: ['userCollectionQuests'] });
+      }
+    });
+    return unsubscribe;
+  }, [user?.email]);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -153,45 +289,30 @@ export default function Home() {
   }, []);
 
   // Prüfe ob Scanner-Highlight angezeigt werden soll
-  // Highlight wird NUR ausgeblendet wenn der User mindestens einen Scan hat
   useEffect(() => {
-    // Nur prüfen wenn Daten vollständig geladen sind
-    if (!user || userDiscoveries === undefined) return;
-    
+    if (!user || isLoadingDiscoveries) return;
     const hasDisplayName = user.display_name;
     const hasNoScans = userDiscoveries.length === 0;
-    
-    // Nur aktivieren wenn ALLE Bedingungen erfüllt sind
     const shouldHighlight = hasDisplayName && hasNoScans;
     setShowScannerHighlight(shouldHighlight);
-  }, [user?.display_name, userDiscoveries]);
+  }, [user?.display_name, userDiscoveries, isLoadingDiscoveries]);
 
   // Prüfe ob Hintergrund-Highlight angezeigt werden soll
   useEffect(() => {
-    // Nur prüfen wenn Daten vollständig geladen sind
-    if (backgroundNotifications === undefined || backgroundNotifications.length === undefined) return;
-    
     const hasChangedBackground = localStorage.getItem('hasChangedBackground');
     const hasPendingBackgroundNotification = backgroundNotifications.some(n => 
       n.title?.includes("Personalisiere") && !n.seen
     );
-    
-    // Nur aktivieren wenn ALLE Bedingungen erfüllt sind
     const shouldHighlight = !hasChangedBackground && hasPendingBackgroundNotification;
     setShowBackgroundHighlight(shouldHighlight);
   }, [backgroundNotifications]);
 
   // Prüfe ob Erfolge-Highlight angezeigt werden soll
   useEffect(() => {
-    // Nur prüfen wenn Daten vollständig geladen sind
-    if (backgroundNotifications === undefined || backgroundNotifications.length === undefined) return;
-    
     const hasVisitedAchievements = localStorage.getItem('hasVisitedAchievements');
     const hasPendingQuestNotification = backgroundNotifications.some(n => 
       n.title?.includes("Quest") && !n.seen
     );
-    
-    // Nur aktivieren wenn ALLE Bedingungen erfüllt sind
     const shouldHighlight = !hasVisitedAchievements && hasPendingQuestNotification;
     setShowAchievementsHighlight(shouldHighlight);
   }, [backgroundNotifications]);
