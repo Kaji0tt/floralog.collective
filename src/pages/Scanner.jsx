@@ -750,7 +750,9 @@ export default function Scanner() {
       setCurrentAchievementIndex(0);
     }
 
-    await updateQuestProgress(plant);
+    // Quest-Progress aktualisieren über Helper
+    const { updateQuestProgress: updateAllQuestProgress } = await import("../components/utils/questProgress");
+    await updateAllQuestProgress(user);
 
     // Hintergrund-Freischaltungen im Hintergrund prüfen (nicht-blockierend)
     const isFirstScan = currentDiscoveries.length === 1;
@@ -842,7 +844,9 @@ export default function Scanner() {
         setCurrentAchievementIndex(0);
       }
 
-      await updateQuestProgress(newPlant);
+      // Quest-Progress aktualisieren über Helper
+      const { updateQuestProgress: updateAllQuestProgress } = await import("../components/utils/questProgress");
+      await updateAllQuestProgress(user);
 
       // Hintergrund-Freischaltungen im Hintergrund prüfen (nicht-blockierend)
       const currentUser = await base44.auth.me();
