@@ -369,7 +369,14 @@ export default function Home() {
     }
   }, [user?.background_image_url, user?.background_color]);
 
-  if (!user) {
+  // Warte bis kritische Daten geladen sind
+  const isDataLoading = !user || 
+    userDiscoveries === undefined || 
+    userQuests === undefined || 
+    userAchievements === undefined ||
+    friends === undefined;
+
+  if (isDataLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50">
         <Leaf className="w-12 h-12 text-green-600 animate-spin" />
