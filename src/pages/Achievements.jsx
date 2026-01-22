@@ -86,74 +86,165 @@ export default function Achievements() {
 
   const { data: achievements = [] } = useQuery({
     queryKey: ['achievements'],
-    queryFn: () => base44.entities.Achievement.list('achievement_number')
+    queryFn: () => base44.entities.Achievement.list('achievement_number'),
+    staleTime: 10 * 60 * 1000, // 10 Minuten - statische Daten
   });
 
   const { data: userAchievements = [] } = useQuery({
     queryKey: ['userAchievements', user?.email],
     queryFn: () => base44.entities.UserAchievement.filter({ created_by: user?.email }),
-    enabled: !!user?.email
+    enabled: !!user?.email,
+    staleTime: Infinity, // Echtzeit-Updates durch Subscription
   });
 
   const { data: quests = [] } = useQuery({
     queryKey: ['quests'],
-    queryFn: () => base44.entities.Quest.list('quest_number')
+    queryFn: () => base44.entities.Quest.list('quest_number'),
+    staleTime: 10 * 60 * 1000, // 10 Minuten - statische Daten
   });
 
   const { data: userQuests = [] } = useQuery({
     queryKey: ['userQuests', user?.email],
     queryFn: () => base44.entities.UserQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email
+    enabled: !!user?.email,
+    staleTime: Infinity, // Echtzeit-Updates durch Subscription
   });
 
   const { data: weeklyQuests = [] } = useQuery({
     queryKey: ['weeklyQuests'],
-    queryFn: () => base44.entities.WeeklyQuest.list('quest_number')
+    queryFn: () => base44.entities.WeeklyQuest.list('quest_number'),
+    staleTime: 10 * 60 * 1000, // 10 Minuten
   });
 
   const { data: userWeeklyQuests = [] } = useQuery({
     queryKey: ['userWeeklyQuests', user?.email],
     queryFn: () => base44.entities.UserWeeklyQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email
+    enabled: !!user?.email,
+    staleTime: Infinity, // Echtzeit-Updates durch Subscription
   });
 
   const { data: monthlyQuests = [] } = useQuery({
     queryKey: ['monthlyQuests'],
-    queryFn: () => base44.entities.MonthlyQuest.list('quest_number')
+    queryFn: () => base44.entities.MonthlyQuest.list('quest_number'),
+    staleTime: 10 * 60 * 1000, // 10 Minuten
   });
 
   const { data: userMonthlyQuests = [] } = useQuery({
     queryKey: ['userMonthlyQuests', user?.email],
     queryFn: () => base44.entities.UserMonthlyQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email
+    enabled: !!user?.email,
+    staleTime: Infinity, // Echtzeit-Updates durch Subscription
   });
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => base44.entities.Plant.list()
+    queryFn: () => base44.entities.Plant.list(),
+    staleTime: 10 * 60 * 1000, // 10 Minuten - ändert sich selten
   });
 
   const { data: genera = [] } = useQuery({
     queryKey: ['genera'],
-    queryFn: () => base44.entities.PlantGenus.list()
+    queryFn: () => base44.entities.PlantGenus.list(),
+    staleTime: 10 * 60 * 1000, // 10 Minuten - ändert sich selten
   });
 
   const { data: collectionQuests = [] } = useQuery({
     queryKey: ['collectionQuests'],
-    queryFn: () => base44.entities.CollectionQuest.list()
+    queryFn: () => base44.entities.CollectionQuest.list(),
+    staleTime: 5 * 60 * 1000, // 5 Minuten
   });
 
   const { data: userCollectionQuests = [] } = useQuery({
     queryKey: ['userCollectionQuests', user?.email],
     queryFn: () => base44.entities.UserCollectionQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email
+    enabled: !!user?.email,
+    staleTime: Infinity, // Echtzeit-Updates durch Subscription
   });
 
   const { data: userDiscoveries = [] } = useQuery({
     queryKey: ['userDiscoveries', user?.email],
     queryFn: () => base44.entities.UserPlantDiscovery.filter({ created_by: user?.email }),
-    enabled: !!user?.email
+    enabled: !!user?.email,
+    staleTime: Infinity, // Echtzeit-Updates durch Subscription
   });
+
+  // Echtzeit-Subscriptions für UserAchievements
+  useEffect(() => {
+    if (!user?.email) return;
+
+    const unsubscribe = base44.entities.UserAchievement.subscribe((event) => {
+      if (event.data?.created_by === user.email) {
+        queryClient.invalidateQueries({ queryKey: ['userAchievements'] });
+      }
+    });
+
+    return unsubscribe;
+  }, [user?.email]);
+
+  // Echtzeit-Subscriptions für UserQuests
+  useEffect(() => {
+    if (!user?.email) return;
+
+    const unsubscribe = base44.entities.UserQuest.subscribe((event) => {
+      if (event.data?.created_by === user.email) {
+        queryClient.invalidateQueries({ queryKey: ['userQuests'] });
+      }
+    });
+
+    return unsubscribe;
+  }, [user?.email]);
+
+  // Echtzeit-Subscriptions für UserWeeklyQuests
+  useEffect(() => {
+    if (!user?.email) return;
+
+    const unsubscribe = base44.entities.UserWeeklyQuest.subscribe((event) => {
+      if (event.data?.created_by === user.email) {
+        queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
+      }
+    });
+
+    return unsubscribe;
+  }, [user?.email]);
+
+  // Echtzeit-Subscriptions für UserMonthlyQuests
+  useEffect(() => {
+    if (!user?.email) return;
+
+    const unsubscribe = base44.entities.UserMonthlyQuest.subscribe((event) => {
+      if (event.data?.created_by === user.email) {
+        queryClient.invalidateQueries({ queryKey: ['userMonthlyQuests'] });
+      }
+    });
+
+    return unsubscribe;
+  }, [user?.email]);
+
+  // Echtzeit-Subscriptions für UserCollectionQuests
+  useEffect(() => {
+    if (!user?.email) return;
+
+    const unsubscribe = base44.entities.UserCollectionQuest.subscribe((event) => {
+      if (event.data?.created_by === user.email) {
+        queryClient.invalidateQueries({ queryKey: ['userCollectionQuests'] });
+      }
+    });
+
+    return unsubscribe;
+  }, [user?.email]);
+
+  // Echtzeit-Subscriptions für UserPlantDiscovery
+  useEffect(() => {
+    if (!user?.email) return;
+
+    const unsubscribe = base44.entities.UserPlantDiscovery.subscribe((event) => {
+      if (event.data?.created_by === user.email || event.data?.user === user.email) {
+        queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
+      }
+    });
+
+    return unsubscribe;
+  }, [user?.email]);
 
   const updateTitleMutation = useMutation({
     mutationFn: (title) => base44.auth.updateMe({ selected_title: title }),
