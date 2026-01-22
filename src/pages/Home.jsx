@@ -56,9 +56,9 @@ export default function Home() {
     queryKey: ['userDiscoveries', user?.email],
     queryFn: () => base44.entities.UserPlantDiscovery.filter({ created_by: user?.email }),
     enabled: !!user?.email,
-    placeholderData: [],
     staleTime: Infinity,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   const favoritePlant = user?.favorite_plant_id 
@@ -77,9 +77,9 @@ export default function Home() {
     queryKey: ['userQuests', user?.email],
     queryFn: () => base44.entities.UserQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email,
-    placeholderData: [],
     staleTime: Infinity,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   const { data: friends = [], isLoading: isLoadingFriends } = useQuery({
@@ -94,18 +94,18 @@ export default function Home() {
       );
     },
     enabled: !!user?.email,
-    placeholderData: [],
     staleTime: Infinity,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   const { data: userAchievements = [], isLoading: isLoadingAchievements } = useQuery({
     queryKey: ['userAchievements', user?.email],
     queryFn: () => base44.entities.UserAchievement.filter({ created_by: user?.email }),
     enabled: !!user?.email,
-    placeholderData: [],
     staleTime: Infinity,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   const { data: weeklyQuests = [] } = useQuery({
