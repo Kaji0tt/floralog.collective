@@ -150,10 +150,6 @@ export default function Home() {
       setEditedName(currentUser?.display_name || currentUser?.full_name || "");
     };
     loadUser();
-
-    // Polling um Updates zu erkennen
-    const interval = setInterval(loadUser, 2000);
-    return () => clearInterval(interval);
   }, []);
 
   // Prüfe ob Scanner-Highlight angezeigt werden soll
@@ -245,11 +241,7 @@ export default function Home() {
     }
   };
 
-  useEffect(() => {
-    if (user && user.email) {
-      updatePublicProfile(user);
-    }
-  }, [user?.display_name, user?.avatar_url, user?.selected_title, user?.email, user?.background_image_url, user?.background_color, user?.favorite_plant_id, user?.title]);
+  // PublicProfile wird nur bei expliziten Updates aktualisiert (nicht automatisch)
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
