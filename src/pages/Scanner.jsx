@@ -445,13 +445,13 @@ export default function Scanner() {
         });
       }
 
-      // Quest 1 Hintergrund
+      // Quest 1 Hintergrund - nur wenn eingelöst (redeemed)
       const userQuestsData = await base44.entities.UserQuest.filter({ created_by: currentUser.email });
       const questsData = await base44.entities.Quest.list();
       const quest1 = questsData.find(q => q.quest_number === 1);
       const userQuest1 = userQuestsData.find(uq => uq.quest_id === quest1?.id);
       
-      if (userQuest1?.completed && !currentUser.gift_bg_unlocked) {
+      if (userQuest1?.redeemed && !currentUser.gift_bg_unlocked) {
         await base44.auth.updateMe({ gift_bg_unlocked: true });
         await base44.entities.UserNotification.create({
           user_email: currentUser.email,
