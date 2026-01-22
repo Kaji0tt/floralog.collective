@@ -369,6 +369,8 @@ export default function Home() {
     }
   }, [user?.background_image_url, user?.background_color]);
 
+  const isLoadingCriticalData = isLoadingDiscoveries || isLoadingQuests || isLoadingAchievements || isLoadingFriends;
+
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50">
@@ -973,7 +975,13 @@ export default function Home() {
                       <div className={`w-8 h-8 short-screen:w-7 short-screen:h-7 md:w-12 md:h-12 bg-gradient-to-br ${stat.color} rounded-full flex items-center justify-center shadow-md group-hover:scale-110 transition-transform`}>
                         <stat.icon className="w-4 h-4 short-screen:w-3.5 short-screen:h-3.5 md:w-6 md:h-6 text-white" />
                       </div>
-                      <div className="text-xl short-screen:hidden md:text-3xl font-bold text-stone-700">{stat.value}</div>
+                      <div className="text-xl short-screen:hidden md:text-3xl font-bold text-stone-700">
+                        {isLoadingCriticalData ? (
+                          <div className="w-8 h-6 bg-stone-200 animate-pulse rounded"></div>
+                        ) : (
+                          stat.value
+                        )}
+                      </div>
                       <div className="text-xs font-semibold text-stone-600 hidden sm:block short-screen:hidden">{stat.label}</div>
                     </div>
                   </motion.button>
