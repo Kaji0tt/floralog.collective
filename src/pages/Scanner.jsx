@@ -984,6 +984,11 @@ Falls du die Pflanze SICHER erkennst, gib an:
       const selectedPlant = pendingScanData.allResults[currentResultIndex] || pendingScanData.plant;
       const isInDatabase = selectedPlant.inDatabase;
       
+      // Zustände sofort zurücksetzen, bevor Navigation
+      setPendingScanData(null);
+      setCurrentResultIndex(0);
+      setShowConfirmDialog(false);
+      
       if (isInDatabase) {
         await handleAutoSave(selectedPlant, pendingScanData.imageUrl, selectedPlant.aiData || selectedPlant, pendingScanData.allResults);
         
@@ -1009,6 +1014,7 @@ Falls du die Pflanze SICHER erkennst, gib an:
         }
         
         // Navigation zur Home-Page
+        setIsSavingPlant(false);
         navigate(createPageUrl("Home"));
       } else {
         await handleAutoAddNewPlant(selectedPlant, pendingScanData.imageUrl, pendingScanData.allResults);
@@ -1034,14 +1040,14 @@ Falls du die Pflanze SICHER erkennst, gib an:
           console.error("Fehler beim Erstellen der Notification:", notificationError);
         }
         
-        // Modal schließen und Floralog-Modal anzeigen
-        setShowConfirmDialog(false);
+        // Floralog-Modal anzeigen
         setIsSavingPlant(false);
         setShowGlobalFloralogModal(true);
       }
     } catch (error) {
       console.error("Fehler beim Speichern:", error);
       setIsSavingPlant(false);
+      setShowConfirmDialog(false);
     }
   };
 
