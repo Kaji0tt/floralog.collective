@@ -12,8 +12,8 @@ export default function WelcomeNameDialog({ user, onComplete }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    // Zeige Dialog nur, wenn User keinen display_name hat
-    if (user && !user.display_name) {
+    // Zeige Dialog nur, wenn User keinen full_name hat
+    if (user && !user.full_name) {
       setShowDialog(true);
     }
   }, [user]);
@@ -26,34 +26,13 @@ export default function WelcomeNameDialog({ user, onComplete }) {
     setIsSubmitting(true);
     
     try {
-      // 1. Speichere den Namen
-      await base44.auth.updateMe({ display_name: name.trim() });
+      // 1. Update full_name in User entity
+      await base44.auth.updateMe({ full_name: name.trim() });
 
-      // 2. Prüfe, ob eine Willkommens-Benachrichtigung bereits existiert und ungesehen ist
-      const welcomeNotifications = await base44.entities.UserNotification.filter({
-        user_email: user.email,
-        title: "🌿 Willkommen im Floralog!",
-        seen: false
-      });
-      
-      if (welcomeNotifications.length === 0) {
-        // 3. Erstelle die Willkommens-Benachrichtigung nur, wenn keine ungesehene existiert
-        await base44.entities.UserNotification.create({
-            user_email: user.email,
-            notification_type: "custom",
-            title: "🌿 Willkommen im Floralog!",
-            message: `Hallo ${name.trim()}! Schön, dass du da bist. Floralog ist dein persönlicher Wegbegleiter für all deine Entdeckungen in der Natur. Dabei landet jede Entdeckung in einer eigenen Kollektion. Klicke auf den 'Scannen' Button, um deine erste Pflanze zu entdecken!`,
-            description: "Starte jetzt deinen ersten Scan!",
-            action_url: "",
-            priority: "high",
-            display_location: "modal"
-          });
-      }
-
-      // 4. Dialog schließen
+      // 2. Dialog schließen
       setShowDialog(false);
       
-      // 5. Benachrichtige Parent-Komponente
+      // 3. Benachrichtige Parent-Komponente (triggert Profil-Initialisierung)
       if (onComplete) {
         onComplete();
       }
