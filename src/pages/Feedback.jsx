@@ -8,6 +8,7 @@ import { MessageSquare, Send, CheckCircle, Loader2, AlertCircle, Wrench } from "
 import { motion } from "framer-motion";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 
+
 export default function Feedback() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
