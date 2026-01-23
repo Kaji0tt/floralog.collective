@@ -214,12 +214,11 @@ export default function Home() {
   // Prüfe ob Scanner-Highlight angezeigt werden soll
   useEffect(() => {
     if (!user || isLoadingDiscoveries) return;
-    // Highlight wenn User einen Namen hat UND noch nie gescannt hat
-    const hasName = user.display_name && user.full_name;
+    const hasDisplayName = user.display_name;
     const hasNoScans = userDiscoveries.length === 0;
-    const shouldHighlight = hasName && hasNoScans;
+    const shouldHighlight = hasDisplayName && hasNoScans;
     setShowScannerHighlight(shouldHighlight);
-  }, [user?.display_name, user?.full_name, userDiscoveries, isLoadingDiscoveries]);
+  }, [user?.display_name, userDiscoveries, isLoadingDiscoveries]);
 
   // Prüfe ob Hintergrund-Highlight angezeigt werden soll
   useEffect(() => {
