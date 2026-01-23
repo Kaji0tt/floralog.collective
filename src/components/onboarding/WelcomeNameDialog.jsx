@@ -69,10 +69,8 @@ export default function WelcomeNameDialog({ user, onComplete }) {
       // 5. Dialog schließen
       setShowDialog(false);
       
-      // 6. Benachrichtige Parent-Komponente
-      if (onComplete) {
-        onComplete();
-      }
+      // 6. Seite neu laden, damit alle Komponenten die frischen Daten bekommen
+      window.location.reload();
     } catch (error) {
       console.error("Fehler beim Speichern:", error);
       alert("Fehler beim Speichern des Namens. Bitte versuche es erneut.");
