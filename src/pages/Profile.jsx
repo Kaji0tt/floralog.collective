@@ -20,17 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Lock } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-// Vorgefertigte Hintergrundbilder mit vorberechneten Durchschnittsfarben
-const PRESET_BACKGROUNDS = [
-  { url: "https://blauzahn.eu/PlantDex/BackGround4.jpg", color: "rgb(89, 107, 68)", requiresMonthlyQuest: true },
-  { url: "https://blauzahn.eu/PlantDex/BackGround1.png", color: "rgb(118, 142, 98)", requiresWeeklyQuest: 1 },
-  { url: "https://blauzahn.eu/PlantDex/BackGround2.png", color: "rgb(95, 118, 82)", requiresWeeklyQuest: 3 },
-  { url: "https://blauzahn.eu/PlantDex/Colors.png", color: "rgba(112, 68, 68, 1)", requiresGift: true },
-  { url: "https://blauzahn.eu/PlantDex/Donor.png", color: "rgb(11, 28, 25)", requiresDonor: true },
-  { url: "https://blauzahn.eu/PlantDex/Urban.png", color: "rgba(143, 124, 89, 1)", requiresDonor: true },
-  { url: "https://blauzahn.eu/PlantDex/Plains.png", color: "rgb(181, 191, 94)", requiresReferral: true },
-  { url: "https://blauzahn.eu/PlantDex/EpicRare.png", color: "rgb(31, 35, 21)", requiresRarePlant: true }
-];
+
 
 
 export default function Profile() {
@@ -135,6 +125,17 @@ export default function Profile() {
       notification_type: "custom",
       seen: false
     }),
+    enabled: !!user?.email
+  });
+
+  const { data: allRewards = [] } = useQuery({
+    queryKey: ['rewards'],
+    queryFn: () => base44.entities.Reward.list(),
+  });
+
+  const { data: userRewards = [] } = useQuery({
+    queryKey: ['userRewards', user?.email],
+    queryFn: () => base44.entities.UserReward.filter({ created_by: user?.email }),
     enabled: !!user?.email
   });
 
@@ -704,8 +705,8 @@ export default function Profile() {
                 )}
               </div>
 
-              {/* Vorgefertigte Hintergründe */}
-              {PRESET_BACKGROUNDS.length > 0 && (
+              {/* Vorgefertigte Hintergründe - aus Reward Entität */}
+              {allRewards.filter(r => r.type === 'background').length > 0 && (
                 <div>
                   <button
                     onClick={() => setCollapsedSections(prev => ({ ...prev, presets: !prev.presets }))}
@@ -721,53 +722,54 @@ export default function Profile() {
                   {!collapsedSections.presets && (
                     <TooltipProvider>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        {PRESET_BACKGROUNDS.map((bg, index) => {
-                          const isUnlocked = (!bg.requiresDonor || user?.donor_status) && 
-                                             (!bg.requiresReferral || user?.referral_background_unlocked) &&
-                                             (!bg.requiresRarePlant || user?.rare_plant_unlocked) &&
-                                             (!bg.requiresWeeklyQuest || weeklyQuestParticipations >= bg.requiresWeeklyQuest) &&
-                                             (!bg.requiresMonthlyQuest || hasCompletedMonthlyQuest) &&
-                                             (!bg.requiresGift || sharedScans.length > 0);
-                          return (
-                            <Tooltip key={`preset-${index}`}>
-                              <TooltipTrigger asChild>
-                                <button
-                                  onClick={() => isUnlocked && handleSetBackground(bg.url, bg.color)}
-                                  disabled={!isUnlocked}
-                                  className={`relative aspect-square rounded-lg overflow-hidden border-2 ${
-                                    isUnlocked 
-                                      ? 'border-stone-200 hover:border-green-500' 
-                                      : 'border-stone-400 cursor-not-allowed'
-                                  } transition-colors group`}
-                                >
-                                  <img
-                                    src={bg.url}
-                                    alt={`Hintergrund ${index + 1}`}
-                                    className={`w-full h-full object-cover ${isUnlocked ? 'group-hover:scale-105' : ''} transition-transform`}
-                                  />
-                                  <div className={`absolute inset-0 ${isUnlocked ? 'bg-black/0 group-hover:bg-black/20' : 'bg-black/40'} transition-colors`} />
-                                  {!isUnlocked && (
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                      <Lock className="w-12 h-12 text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]" />
-                                    </div>
-                                  )}
-                                </button>
-                              </TooltipTrigger>
-                              {!isUnlocked && (
-                                <TooltipContent>
-                                  <p>
-                                    {bg.requiresDonor && 'Nur für Unterstützer - spende, um diesen Hintergrund freizuschalten! 💚'}
-                                    {bg.requiresReferral && 'Lade einen Freund ein, der seinen ersten Scan macht! 🌱'}
-                                    {bg.requiresRarePlant && 'Entdecke eine seltene Pflanze! 🌟'}
-                                    {bg.requiresWeeklyQuest && `Nimm an ${bg.requiresWeeklyQuest} wöchentlichen Quest${bg.requiresWeeklyQuest > 1 ? 's' : ''} teil! (${weeklyQuestParticipations}/${bg.requiresWeeklyQuest})`}
-                                    {bg.requiresMonthlyQuest && 'Schließe eine Monatsquest ab! 📅'}
-                                    {bg.requiresGift && 'Erhalte ein Geschenk von einem Freund! 🎁'}
-                                  </p>
-                                </TooltipContent>
-                              )}
-                            </Tooltip>
-                          );
-                        })}
+                        {allRewards
+                          .filter(r => r.type === 'background')
+                          .map((reward) => {
+                            const isUnlocked = userRewards.some(ur => ur.reward_id === reward.id);
+                            
+                            // Erstelle Tooltip-Text basierend auf Bedingungen
+                            let tooltipText = '';
+                            if (reward.requires_donor) tooltipText = 'Nur für Unterstützer - spende, um diesen Hintergrund freizuschalten! 💚';
+                            else if (reward.requires_referral) tooltipText = 'Lade einen Freund ein, der seinen ersten Scan macht! 🌱';
+                            else if (reward.requires_rare_plant) tooltipText = 'Entdecke eine seltene Pflanze! 🌟';
+                            else if (reward.requires_weekly_quests) tooltipText = `Nimm an ${reward.requires_weekly_quests} wöchentlichen Quest${reward.requires_weekly_quests > 1 ? 's' : ''} teil! (${weeklyQuestParticipations}/${reward.requires_weekly_quests})`;
+                            else if (reward.requires_monthly_quest) tooltipText = 'Schließe eine Monatsquest ab! 📅';
+                            else if (reward.requires_gift) tooltipText = 'Erhalte ein Geschenk von einem Freund! 🎁';
+                            else if (reward.requires_quest) tooltipText = 'Schließe eine spezifische Quest ab!';
+
+                            return (
+                              <Tooltip key={reward.id}>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={() => isUnlocked && handleSetBackground(reward.value, reward.color)}
+                                    disabled={!isUnlocked}
+                                    className={`relative aspect-square rounded-lg overflow-hidden border-2 ${
+                                      isUnlocked 
+                                        ? 'border-stone-200 hover:border-green-500' 
+                                        : 'border-stone-400 cursor-not-allowed'
+                                    } transition-colors group`}
+                                  >
+                                    <img
+                                      src={reward.value}
+                                      alt={reward.display_name}
+                                      className={`w-full h-full object-cover ${isUnlocked ? 'group-hover:scale-105' : ''} transition-transform`}
+                                    />
+                                    <div className={`absolute inset-0 ${isUnlocked ? 'bg-black/0 group-hover:bg-black/20' : 'bg-black/40'} transition-colors`} />
+                                    {!isUnlocked && (
+                                      <div className="absolute inset-0 flex items-center justify-center">
+                                        <Lock className="w-12 h-12 text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]" />
+                                      </div>
+                                    )}
+                                  </button>
+                                </TooltipTrigger>
+                                {!isUnlocked && tooltipText && (
+                                  <TooltipContent>
+                                    <p>{tooltipText}</p>
+                                  </TooltipContent>
+                                )}
+                              </Tooltip>
+                            );
+                          })}
                       </div>
                     </TooltipProvider>
                   )}
