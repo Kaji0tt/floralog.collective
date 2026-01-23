@@ -974,10 +974,10 @@ Falls du die Pflanze SICHER erkennst, gib an:
   };
 
   const handleConfirmSave = async () => {
-    if (!pendingScanData) return;
+    if (!pendingScanData || isSavingPlant) return;
     
     setIsSavingPlant(true);
-    setShowConfirmDialog(false);
+    // Modal bleibt offen und zeigt Loading-State
     
     try {
       // Wähle das aktuell ausgewählte Ergebnis
@@ -1008,10 +1008,7 @@ Falls du die Pflanze SICHER erkennst, gib an:
           console.error("Fehler beim Erstellen der Notification:", notificationError);
         }
         
-        // Direkt zur Home-Page navigieren
-        setPendingScanData(null);
-        setCurrentResultIndex(0);
-        setIsSavingPlant(false);
+        // Navigation zur Home-Page
         navigate(createPageUrl("Home"));
       } else {
         await handleAutoAddNewPlant(selectedPlant, pendingScanData.imageUrl, pendingScanData.allResults);
@@ -1037,9 +1034,8 @@ Falls du die Pflanze SICHER erkennst, gib an:
           console.error("Fehler beim Erstellen der Notification:", notificationError);
         }
         
-        // Zeige "Globales Floralog erweitert"-Modal
-        setPendingScanData(null);
-        setCurrentResultIndex(0);
+        // Modal schließen und Floralog-Modal anzeigen
+        setShowConfirmDialog(false);
         setIsSavingPlant(false);
         setShowGlobalFloralogModal(true);
       }
@@ -1170,28 +1166,38 @@ Falls du die Pflanze SICHER erkennst, gib an:
       )}
       
       {/* Bestätigungs-Dialog */}
-      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog open={showConfirmDialog} onOpenChange={(open) => !isSavingPlant && setShowConfirmDialog(open)}>
+        <DialogContent className="sm:max-w-md" onInteractOutside={(e) => isSavingPlant && e.preventDefault()}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-green-600">
-              <Check className="w-6 h-6" />
-              Pflanze hinzufügen?
+              {isSavingPlant ? <Loader2 className="w-6 h-6 animate-spin" /> : <Check className="w-6 h-6" />}
+              {isSavingPlant ? "Wird gespeichert..." : "Pflanze hinzufügen?"}
             </DialogTitle>
-            <DialogDescription className="text-base pt-4">
-              Möchtest du <strong>{pendingScanData?.allResults?.[currentResultIndex]?.species_name || pendingScanData?.plant?.species_name}</strong> zu deiner Sammlung hinzufügen?
-            </DialogDescription>
+            {!isSavingPlant && (
+              <DialogDescription className="text-base pt-4">
+                Möchtest du <strong>{pendingScanData?.allResults?.[currentResultIndex]?.species_name || pendingScanData?.plant?.species_name}</strong> zu deiner Sammlung hinzufügen?
+              </DialogDescription>
+            )}
+            {isSavingPlant && (
+              <DialogDescription className="text-base pt-4 text-center">
+                <p>Die Pflanze wird gespeichert und Quest-Fortschritte werden aktualisiert...</p>
+              </DialogDescription>
+            )}
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button 
               variant="outline" 
               onClick={handleCancelSave}
+              disabled={isSavingPlant}
             >
               Nein
             </Button>
             <Button 
               onClick={handleConfirmSave}
-              className="bg-green-600 hover:bg-green-700"
+              disabled={isSavingPlant}
+              className="bg-green-600 hover:bg-green-700 disabled:opacity-50"
             >
+              {isSavingPlant ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Ja
             </Button>
           </DialogFooter>
