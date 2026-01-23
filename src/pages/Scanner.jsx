@@ -756,6 +756,10 @@ export default function Scanner() {
     const isFirstScan = currentDiscoveries.length === 1;
     checkBackgroundUnlocks(plant, isFirstScan).catch(err => console.error("Background unlock error:", err));
 
+    // Prüfe und schalte Rewards frei
+    const { checkAndUnlockRewards } = await import('../components/rewards/rewardUnlocker');
+    await checkAndUnlockRewards(user.email);
+
     // Vibration: 1x kurz für erfolgreichen Scan
     if (navigator.vibrate) {
       navigator.vibrate(200);
@@ -849,6 +853,10 @@ export default function Scanner() {
       const myDiscoveries = await base44.entities.UserPlantDiscovery.filter({ created_by: currentUser.email });
       const isFirstScan = myDiscoveries.length === 1;
       checkBackgroundUnlocks(newPlant, isFirstScan).catch(err => console.error("Background unlock error:", err));
+
+      // Prüfe und schalte Rewards frei
+      const { checkAndUnlockRewards } = await import('../components/rewards/rewardUnlocker');
+      await checkAndUnlockRewards(currentUser.email);
 
       // Vibration: 3x kurz für neuen Floralog-Eintrag
       if (navigator.vibrate) {
