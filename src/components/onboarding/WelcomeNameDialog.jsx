@@ -10,13 +10,32 @@ export default function WelcomeNameDialog({ user, onComplete }) {
   const [showDialog, setShowDialog] = useState(false);
   const [name, setName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasCheckedProfile, setHasCheckedProfile] = useState(false);
 
   useEffect(() => {
-    // Zeige Dialog nur, wenn User keinen full_name hat
-    if (user && !user.full_name) {
-      setShowDialog(true);
-    }
-  }, [user]);
+    const checkProfile = async () => {
+      if (!user || hasCheckedProfile) return;
+      
+      try {
+        // Prüfe ob PublicProfile existiert
+        const profiles = await base44.entities.PublicProfile.list();
+        const existingProfile = profiles.find(p => 
+          p.user_email?.toLowerCase() === user.email?.toLowerCase()
+        );
+        
+        // Zeige Dialog nur wenn kein PublicProfile existiert
+        if (!existingProfile) {
+          setShowDialog(true);
+        }
+        setHasCheckedProfile(true);
+      } catch (error) {
+        console.error("Fehler beim Prüfen des Profils:", error);
+        setHasCheckedProfile(true);
+      }
+    };
+    
+    checkProfile();
+  }, [user, hasCheckedProfile]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
