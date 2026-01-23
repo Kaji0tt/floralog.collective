@@ -151,6 +151,10 @@ export async function updateQuestProgress(user) {
       }
     }
 
+    // Prüfe und schalte Rewards frei
+    const { checkAndUnlockRewards } = await import('../rewards/rewardUnlocker');
+    await checkAndUnlockRewards(user.email);
+
   } catch (error) {
     console.error("Fehler beim Aktualisieren des Quest-Fortschritts:", error);
   }
