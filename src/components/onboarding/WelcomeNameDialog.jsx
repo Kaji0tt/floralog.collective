@@ -23,15 +23,20 @@ export default function WelcomeNameDialog({ user, onComplete }) {
     
     if (!name.trim() || isSubmitting) return;
 
+    console.log("[WelcomeNameDialog] Starte Speichervorgang für Name:", name.trim());
     setIsSubmitting(true);
     
     try {
       // 1. Speichere den Namen
+      console.log("[WelcomeNameDialog] Aktualisiere User mit email:", user.email);
       await base44.auth.updateMe({ display_name: name.trim() });
+      console.log("[WelcomeNameDialog] User erfolgreich aktualisiert");
 
       // 2. Erstelle oder aktualisiere das PublicProfile
+      console.log("[WelcomeNameDialog] Lade alle PublicProfiles");
       const profiles = await base44.entities.PublicProfile.list();
       const existingProfile = profiles.find(p => p.user_email?.toLowerCase() === user.email?.toLowerCase());
+      console.log("[WelcomeNameDialog] Gefundenes Profile:", existingProfile);
       
       const profileData = {
         user_email: user.email,
@@ -40,20 +45,27 @@ export default function WelcomeNameDialog({ user, onComplete }) {
       };
 
       if (existingProfile) {
+        console.log("[WelcomeNameDialog] Aktualisiere bestehendes Profile:", existingProfile.id);
         await base44.entities.PublicProfile.update(existingProfile.id, profileData);
+        console.log("[WelcomeNameDialog] PublicProfile erfolgreich aktualisiert");
       } else {
+        console.log("[WelcomeNameDialog] Erstelle neues PublicProfile");
         await base44.entities.PublicProfile.create(profileData);
+        console.log("[WelcomeNameDialog] PublicProfile erfolgreich erstellt");
       }
 
       // 3. Prüfe, ob eine Willkommens-Benachrichtigung bereits existiert und ungesehen ist
+      console.log("[WelcomeNameDialog] Prüfe Welcome Notification");
       const welcomeNotifications = await base44.entities.UserNotification.filter({
         user_email: user.email,
         title: "🌿 Willkommen im Floralog!",
         seen: false
       });
+      console.log("[WelcomeNameDialog] Gefundene Welcome Notifications:", welcomeNotifications.length);
       
       if (welcomeNotifications.length === 0) {
         // 4. Erstelle die Willkommens-Benachrichtigung nur, wenn keine ungesehene existiert
+        console.log("[WelcomeNameDialog] Erstelle Welcome Notification");
         await base44.entities.UserNotification.create({
             user_email: user.email,
             notification_type: "custom",
@@ -64,20 +76,25 @@ export default function WelcomeNameDialog({ user, onComplete }) {
             priority: "high",
             display_location: "modal"
           });
+        console.log("[WelcomeNameDialog] Welcome Notification erstellt");
       }
 
       // 5. Warte kurz, damit die Datenbank-Updates durchgehen
+      console.log("[WelcomeNameDialog] Warte 500ms für DB-Propagierung");
       await new Promise(resolve => setTimeout(resolve, 500));
       
       // 6. Dialog schließen
+      console.log("[WelcomeNameDialog] Schließe Dialog");
       setShowDialog(false);
       
       // 7. Benachrichtige Parent-Komponente, um User neu zu laden
+      console.log("[WelcomeNameDialog] Rufe onComplete Callback auf");
       if (onComplete) {
         await onComplete();
+        console.log("[WelcomeNameDialog] onComplete erfolgreich ausgeführt");
       }
     } catch (error) {
-      console.error("Fehler beim Speichern:", error);
+      console.error("[WelcomeNameDialog] Fehler beim Speichern:", error);
       alert("Fehler beim Speichern des Namens. Bitte versuche es erneut.");
     } finally {
       setIsSubmitting(false);
