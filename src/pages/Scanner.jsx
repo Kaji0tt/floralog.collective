@@ -750,7 +750,7 @@ export default function Scanner() {
     }
 
     // Quest-Progress aktualisieren - inline statt über Helper
-    await updateQuestProgress(newPlant);
+    await updateQuestProgress(plant);
 
     // Hintergrund-Freischaltungen im Hintergrund prüfen (nicht-blockierend)
     const isFirstScan = currentDiscoveries.length === 1;
@@ -842,7 +842,7 @@ export default function Scanner() {
       }
 
       // Quest-Progress aktualisieren - inline statt über Helper
-      await updateQuestProgress(plant);
+      await updateQuestProgress(newPlant);
 
       // Hintergrund-Freischaltungen im Hintergrund prüfen (nicht-blockierend)
       const currentUser = await base44.auth.me();
