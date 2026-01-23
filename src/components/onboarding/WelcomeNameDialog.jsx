@@ -29,7 +29,23 @@ export default function WelcomeNameDialog({ user, onComplete }) {
       // 1. Speichere den Namen
       await base44.auth.updateMe({ display_name: name.trim() });
 
-      // 2. Prüfe, ob eine Willkommens-Benachrichtigung bereits existiert und ungesehen ist
+      // 2. Erstelle oder aktualisiere das PublicProfile
+      const profiles = await base44.entities.PublicProfile.list();
+      const existingProfile = profiles.find(p => p.user_email?.toLowerCase() === user.email?.toLowerCase());
+      
+      const profileData = {
+        user_email: user.email,
+        display_name: name.trim(),
+        full_name: user.full_name
+      };
+
+      if (existingProfile) {
+        await base44.entities.PublicProfile.update(existingProfile.id, profileData);
+      } else {
+        await base44.entities.PublicProfile.create(profileData);
+      }
+
+      // 3. Prüfe, ob eine Willkommens-Benachrichtigung bereits existiert und ungesehen ist
       const welcomeNotifications = await base44.entities.UserNotification.filter({
         user_email: user.email,
         title: "🌿 Willkommen im Floralog!",
@@ -37,7 +53,7 @@ export default function WelcomeNameDialog({ user, onComplete }) {
       });
       
       if (welcomeNotifications.length === 0) {
-        // 3. Erstelle die Willkommens-Benachrichtigung nur, wenn keine ungesehene existiert
+        // 4. Erstelle die Willkommens-Benachrichtigung nur, wenn keine ungesehene existiert
         await base44.entities.UserNotification.create({
             user_email: user.email,
             notification_type: "custom",
@@ -50,10 +66,10 @@ export default function WelcomeNameDialog({ user, onComplete }) {
           });
       }
 
-      // 4. Dialog schließen
+      // 5. Dialog schließen
       setShowDialog(false);
       
-      // 5. Benachrichtige Parent-Komponente
+      // 6. Benachrichtige Parent-Komponente
       if (onComplete) {
         onComplete();
       }
