@@ -61,16 +61,16 @@ export async function checkAndUnlockRewards(userEmail) {
 
     // Berechne User-Statistiken
     const weeklyQuestParticipations = new Set(userWeeklyQuests.map(q => q.active_week)).size;
-    const hasCompletedMonthlyQuest = userMonthlyQuests.some(q => q.completed);
-    const hasReceivedGift = sharedScans.length > 0;
+    const completedMonthlyQuests = userMonthlyQuests.filter(q => q.completed).length;
+    const giftsReceived = sharedScans.length;
     const isDonor = currentUser?.donor_status || false;
-    const hasReferral = currentUser?.referral_background_unlocked || false;
+    const referralCount = (await base44.entities.Referral.filter({ referrer_email: userEmail })).length;
     
     // Prüfe auf seltene Pflanzen
-    const hasRarePlant = userDiscoveries.some(d => {
+    const rarePlantCount = userDiscoveries.filter(d => {
       const plant = plants.find(p => p.id === d.plant_id);
       return plant && (plant.rarity === "Sehr Selten" || plant.rarity === "Extrem Selten");
-    });
+    }).length;
 
     let newRewardsCount = 0;
 
@@ -85,13 +85,13 @@ export async function checkAndUnlockRewards(userEmail) {
         conditionsMet = false;
       }
 
-      // Prüfe requires_monthly_quest
-      if (reward.requires_monthly_quest && !hasCompletedMonthlyQuest) {
+      // Prüfe requires_monthly_quests
+      if (reward.requires_monthly_quests && completedMonthlyQuests < reward.requires_monthly_quests) {
         conditionsMet = false;
       }
 
-      // Prüfe requires_gift
-      if (reward.requires_gift && !hasReceivedGift) {
+      // Prüfe requires_gifts
+      if (reward.requires_gifts && giftsReceived < reward.requires_gifts) {
         conditionsMet = false;
       }
 
@@ -100,13 +100,13 @@ export async function checkAndUnlockRewards(userEmail) {
         conditionsMet = false;
       }
 
-      // Prüfe requires_referral
-      if (reward.requires_referral && !hasReferral) {
+      // Prüfe requires_referrals
+      if (reward.requires_referrals && referralCount < reward.requires_referrals) {
         conditionsMet = false;
       }
 
-      // Prüfe requires_rare_plant
-      if (reward.requires_rare_plant && !hasRarePlant) {
+      // Prüfe requires_rare_plants
+      if (reward.requires_rare_plants && rarePlantCount < reward.requires_rare_plants) {
         conditionsMet = false;
       }
 
