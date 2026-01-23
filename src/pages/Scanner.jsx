@@ -1008,12 +1008,6 @@ Falls du die Pflanze SICHER erkennst, gib an:
           console.error("Fehler beim Erstellen der Notification:", notificationError);
         }
         
-        // State aufräumen und Modal schließen
-        setPendingScanData(null);
-        setCurrentResultIndex(0);
-        setShowConfirmDialog(false);
-        setIsSavingPlant(false);
-        
         // Navigation zur Home-Page
         navigate(createPageUrl("Home"));
       } else {
