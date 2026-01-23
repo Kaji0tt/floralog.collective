@@ -18,10 +18,17 @@ export default function Layout({ children, currentPageName }) {
 
   const loadUser = async () => {
     try {
+      console.log("[Layout] Lade User-Daten...");
       const currentUser = await base44.auth.me();
+      console.log("[Layout] User geladen:", {
+        email: currentUser.email,
+        display_name: currentUser.display_name,
+        full_name: currentUser.full_name
+      });
       setUser(currentUser);
+      console.log("[Layout] User State aktualisiert");
     } catch (error) {
-      console.log("User not authenticated");
+      console.log("[Layout] User nicht authentifiziert:", error);
     }
   };
 

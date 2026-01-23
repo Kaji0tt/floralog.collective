@@ -194,22 +194,37 @@ export default function Home() {
 
 
   const loadUserData = async () => {
+    console.log("[Home] Lade User-Daten...");
     const currentUser = await base44.auth.me();
+    console.log("[Home] User geladen:", {
+      email: currentUser.email,
+      display_name: currentUser.display_name,
+      full_name: currentUser.full_name
+    });
     setUser(currentUser);
-    setEditedName(currentUser?.display_name || currentUser?.full_name || "");
+    const displayName = currentUser?.display_name || currentUser?.full_name || "";
+    setEditedName(displayName);
+    console.log("[Home] User State aktualisiert, display_name:", displayName);
   };
 
   useEffect(() => {
+    console.log("[Home] Initialisiere Home-Seite");
     loadUserData();
 
     // Subscription für User-Updates (z.B. aus WelcomeNameDialog)
+    console.log("[Home] Erstelle User Subscription");
     const unsubscribe = base44.entities.User.subscribe((event) => {
+      console.log("[Home] User Subscription Event:", event.type, event);
       if (event.type === 'update') {
+        console.log("[Home] User wurde aktualisiert, lade Daten neu");
         loadUserData();
       }
     });
     
-    return unsubscribe;
+    return () => {
+      console.log("[Home] Cleanup User Subscription");
+      unsubscribe();
+    };
   }, []);
 
   // Prüfe ob Scanner-Highlight angezeigt werden soll
