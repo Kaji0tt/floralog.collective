@@ -27,6 +27,10 @@ export default function Layout({ children, currentPageName }) {
       });
       setUser(currentUser);
       console.log("[Layout] User State aktualisiert");
+      
+      // Trigger Custom Event für andere Komponenten (z.B. Home)
+      console.log("[Layout] Triggere userUpdated Event");
+      window.dispatchEvent(new CustomEvent('userUpdated', { detail: currentUser }));
     } catch (error) {
       console.log("[Layout] User nicht authentifiziert:", error);
     }

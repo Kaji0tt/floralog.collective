@@ -220,10 +220,24 @@ export default function Home() {
         loadUserData();
       }
     });
+
+    // Custom Event Listener für User-Updates vom Layout
+    const handleUserUpdate = (event) => {
+      console.log("[Home] Empfange userUpdated Event von Layout:", event.detail);
+      const updatedUser = event.detail;
+      setUser(updatedUser);
+      const displayName = updatedUser?.display_name || updatedUser?.full_name || "";
+      setEditedName(displayName);
+      console.log("[Home] User State durch Custom Event aktualisiert, display_name:", displayName);
+    };
+
+    console.log("[Home] Registriere userUpdated Event Listener");
+    window.addEventListener('userUpdated', handleUserUpdate);
     
     return () => {
-      console.log("[Home] Cleanup User Subscription");
+      console.log("[Home] Cleanup User Subscription und Event Listener");
       unsubscribe();
+      window.removeEventListener('userUpdated', handleUserUpdate);
     };
   }, []);
 
