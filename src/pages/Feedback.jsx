@@ -8,8 +8,6 @@ import { MessageSquare, Send, CheckCircle, Loader2, AlertCircle, Wrench } from "
 import { motion } from "framer-motion";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 
-const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
-
 export default function Feedback() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
