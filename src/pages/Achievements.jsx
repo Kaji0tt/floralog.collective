@@ -304,7 +304,7 @@ export default function Achievements() {
   });
 
   const redeemQuestMutation = useMutation({
-    mutationFn: async ({ userQuestId, questType, rewardId, isFirstQuest }) => {
+          mutationFn: async ({ userQuestId, questType, rewardName, isFirstQuest }) => {
       const now = new Date().toISOString();
 
       // Quest einlösen
@@ -357,7 +357,7 @@ export default function Achievements() {
       // Lade die Belohnung und erstelle eine Banner-Notification
       if (rewardId) {
         try {
-          const reward = rewards.find(r => r.id === rewardId);
+          const reward = rewards.find(r => r.name === rewardId);
           if (reward) {
             await base44.entities.UserNotification.create({
               user_email: currentUser.email,
@@ -507,7 +507,7 @@ export default function Achievements() {
   }).
   map((q) => {
     const userQuest = userQuests.find((uq) => uq.quest_id === q.id);
-    const reward = rewards.find(r => r.id === q.reward_id);
+    const reward = rewards.find(r => r.name === q.reward_name);
     return {
       ...q,
       userQuestId: userQuest?.id,
@@ -537,7 +537,7 @@ export default function Achievements() {
     return !userQuest?.accepted && isUnlocked && prerequisiteMet;
   }).
   map((q) => {
-    const reward = rewards.find(r => r.id === q.reward_id);
+    const reward = rewards.find(r => r.name === q.reward_name);
     return {
       ...q,
       type: 'regular',
@@ -551,7 +551,7 @@ export default function Achievements() {
   const currentWeeklyUserQuest = currentWeeklyQuest ?
   userWeeklyQuests.find((uwq) => uwq.weekly_quest_id === currentWeeklyQuest.id) :
   null;
-  const weeklyReward = currentWeeklyQuest ? rewards.find(r => r.id === currentWeeklyQuest.reward_id) : null;
+  const weeklyReward = currentWeeklyQuest ? rewards.find(r => r.name === currentWeeklyQuest.reward_name) : null;
   const activeWeeklyQuest = currentWeeklyQuest && currentWeeklyUserQuest?.accepted && !currentWeeklyUserQuest?.redeemed ?
   {
     ...currentWeeklyQuest,
@@ -571,7 +571,7 @@ export default function Achievements() {
   const currentMonthlyUserQuest = currentMonthlyQuest ?
   userMonthlyQuests.find((umq) => umq.monthly_quest_id === currentMonthlyQuest.id) :
   null;
-  const monthlyReward = currentMonthlyQuest ? rewards.find(r => r.id === currentMonthlyQuest.reward_id) : null;
+  const monthlyReward = currentMonthlyQuest ? rewards.find(r => r.name === currentMonthlyQuest.reward_name) : null;
   const activeMonthlyQuest = currentMonthlyQuest && currentMonthlyUserQuest?.accepted && !currentMonthlyUserQuest?.redeemed ?
   {
     ...currentMonthlyQuest,
@@ -924,7 +924,7 @@ export default function Achievements() {
                                         redeemQuestMutation.mutate({
                                           userQuestId: quest.userQuestId,
                                           questType: quest.type,
-                                          rewardId: quest.rewardData?.id,
+                                          rewardName: quest.rewardData?.name,
                                           isFirstQuest: isFirstQuest
                                         });
                                       }}
