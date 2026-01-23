@@ -136,6 +136,12 @@ export default function Achievements() {
     staleTime: Infinity, // Echtzeit-Updates durch Subscription
   });
 
+  const { data: rewards = [] } = useQuery({
+    queryKey: ['rewards'],
+    queryFn: () => base44.entities.Reward.list(),
+    staleTime: 10 * 60 * 1000, // 10 Minuten - statische Daten
+  });
+
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
     queryFn: () => base44.entities.Plant.list(),
@@ -298,7 +304,7 @@ export default function Achievements() {
   });
 
   const redeemQuestMutation = useMutation({
-    mutationFn: async ({ userQuestId, questType, reward, isFirstQuest }) => {
+    mutationFn: async ({ userQuestId, questType, rewardId, isFirstQuest }) => {
       const now = new Date().toISOString();
 
       // Quest einlösen
@@ -348,24 +354,28 @@ export default function Achievements() {
         }
       }
       
-      // Prüfe ob die Belohnung ein Hintergrund ist und erstelle Notification
-      if (reward && reward.toLowerCase().includes("hintergrund")) {
+      // Lade die Belohnung und erstelle eine Banner-Notification
+      if (rewardId) {
         try {
-          await base44.entities.UserNotification.create({
-            user_email: currentUser.email,
-            notification_type: "custom",
-            title: "🎨 Hintergrund freigeschaltet!",
-            message: reward,
-            priority: "medium",
-            display_location: "banner",
-            seen: false
-          });
+          const reward = rewards.find(r => r.id === rewardId);
+          if (reward) {
+            await base44.entities.UserNotification.create({
+              user_email: currentUser.email,
+              notification_type: "custom",
+              title: reward.notification_title,
+              message: reward.notification_message,
+              priority: "medium",
+              display_location: "banner",
+              seen: false
+            });
+            return reward.display_name;
+          }
         } catch (error) {
-          console.error("Fehler beim Erstellen der Hintergrund-Notification:", error);
+          console.error("Fehler beim Erstellen der Reward-Notification:", error);
         }
       }
       
-      return reward;
+      return "Quest abgeschlossen!";
     },
     onSuccess: async (reward) => {
       queryClient.invalidateQueries({ queryKey: ['userQuests'] });
@@ -497,12 +507,14 @@ export default function Achievements() {
   }).
   map((q) => {
     const userQuest = userQuests.find((uq) => uq.quest_id === q.id);
+    const reward = rewards.find(r => r.id === q.reward_id);
     return {
       ...q,
       userQuestId: userQuest?.id,
       progress: userQuest?.progress || 0,
       isCompleted: userQuest?.completed || false,
-      type: 'regular'
+      type: 'regular',
+      rewardData: reward
     };
   });
 
@@ -524,28 +536,34 @@ export default function Achievements() {
 
     return !userQuest?.accepted && isUnlocked && prerequisiteMet;
   }).
-  map((q) => ({
-    ...q,
-    type: 'regular',
-    available: true
-  }));
+  map((q) => {
+    const reward = rewards.find(r => r.id === q.reward_id);
+    return {
+      ...q,
+      type: 'regular',
+      available: true,
+      rewardData: reward
+    };
+  });
 
   // Wöchentliche Quest
   const currentWeeklyQuest = getCurrentWeeklyQuest();
   const currentWeeklyUserQuest = currentWeeklyQuest ?
   userWeeklyQuests.find((uwq) => uwq.weekly_quest_id === currentWeeklyQuest.id) :
   null;
+  const weeklyReward = currentWeeklyQuest ? rewards.find(r => r.id === currentWeeklyQuest.reward_id) : null;
   const activeWeeklyQuest = currentWeeklyQuest && currentWeeklyUserQuest?.accepted && !currentWeeklyUserQuest?.redeemed ?
   {
     ...currentWeeklyQuest,
     userQuestId: currentWeeklyUserQuest.id,
     progress: currentWeeklyUserQuest.progress || 0,
     isCompleted: currentWeeklyUserQuest.completed || false,
-    type: 'weekly'
+    type: 'weekly',
+    rewardData: weeklyReward
   } :
   null;
   const availableWeeklyQuest = currentWeeklyQuest && !currentWeeklyUserQuest?.accepted ?
-  { ...currentWeeklyQuest, type: 'weekly', available: true } :
+  { ...currentWeeklyQuest, type: 'weekly', available: true, rewardData: weeklyReward } :
   null;
 
   // Monatliche Quest
@@ -553,17 +571,19 @@ export default function Achievements() {
   const currentMonthlyUserQuest = currentMonthlyQuest ?
   userMonthlyQuests.find((umq) => umq.monthly_quest_id === currentMonthlyQuest.id) :
   null;
+  const monthlyReward = currentMonthlyQuest ? rewards.find(r => r.id === currentMonthlyQuest.reward_id) : null;
   const activeMonthlyQuest = currentMonthlyQuest && currentMonthlyUserQuest?.accepted && !currentMonthlyUserQuest?.redeemed ?
   {
     ...currentMonthlyQuest,
     userQuestId: currentMonthlyUserQuest.id,
     progress: currentMonthlyUserQuest.progress || 0,
     isCompleted: currentMonthlyUserQuest.completed || false,
-    type: 'monthly'
+    type: 'monthly',
+    rewardData: monthlyReward
   } :
   null;
   const availableMonthlyQuest = currentMonthlyQuest && !currentMonthlyUserQuest?.accepted ?
-  { ...currentMonthlyQuest, type: 'monthly', available: true } :
+  { ...currentMonthlyQuest, type: 'monthly', available: true, rewardData: monthlyReward } :
   null;
 
   // Sammlungs-Quests
@@ -887,11 +907,11 @@ export default function Achievements() {
                                 }
 
                                   {quest.isCompleted &&
-                                <div className="space-y-2 pt-2 border-t border-stone-200">
-                                      {quest.reward && (
+                                  <div className="space-y-2 pt-2 border-t border-stone-200">
+                                      {quest.rewardData && (
                                         <div className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 rounded-lg px-2 py-1">
                                           <Gift className="w-3 h-3" />
-                                          <span className="font-semibold">{quest.reward}</span>
+                                          <span className="font-semibold">{quest.rewardData.display_name}</span>
                                         </div>
                                       )}
                                       <div className="flex justify-end">
@@ -900,11 +920,11 @@ export default function Achievements() {
                                         // Prüfe ob das die erste Quest ist
                                         const allCompletedQuests = [...userQuests, ...userWeeklyQuests, ...userMonthlyQuests, ...userCollectionQuests].filter(q => q.redeemed);
                                         const isFirstQuest = allCompletedQuests.length === 0;
-                                        
+
                                         redeemQuestMutation.mutate({
                                           userQuestId: quest.userQuestId,
                                           questType: quest.type,
-                                          reward: quest.reward,
+                                          rewardId: quest.rewardData?.id,
                                           isFirstQuest: isFirstQuest
                                         });
                                       }}
@@ -916,7 +936,7 @@ export default function Achievements() {
                                         </Button>
                                       </div>
                                     </div>
-                                }
+                                  }
                                 </div>
                               </div>
                             </CardContent>
