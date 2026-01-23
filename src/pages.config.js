@@ -28,9 +28,9 @@ import QuestNotificationTemplate from './pages/QuestNotificationTemplate';
 import Quests from './pages/Quests';
 import ResetAccount from './pages/ResetAccount';
 import ResetToLevel5 from './pages/ResetToLevel5';
+import Scanner from './pages/Scanner';
 import ViewSharedScan from './pages/ViewSharedScan';
 import XPMigration from './pages/XPMigration';
-import Scanner from './pages/Scanner';
 import __Layout from './Layout.jsx';
 
 
@@ -65,9 +65,9 @@ export const PAGES = {
     "Quests": Quests,
     "ResetAccount": ResetAccount,
     "ResetToLevel5": ResetToLevel5,
+    "Scanner": Scanner,
     "ViewSharedScan": ViewSharedScan,
     "XPMigration": XPMigration,
-    "Scanner": Scanner,
 }
 
 export const pagesConfig = {

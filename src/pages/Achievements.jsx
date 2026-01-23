@@ -348,6 +348,23 @@ export default function Achievements() {
         }
       }
       
+      // Prüfe ob die Belohnung ein Hintergrund ist und erstelle Notification
+      if (reward && reward.toLowerCase().includes("hintergrund")) {
+        try {
+          await base44.entities.UserNotification.create({
+            user_email: currentUser.email,
+            notification_type: "custom",
+            title: "🎨 Hintergrund freigeschaltet!",
+            message: reward,
+            priority: "medium",
+            display_location: "banner",
+            seen: false
+          });
+        } catch (error) {
+          console.error("Fehler beim Erstellen der Hintergrund-Notification:", error);
+        }
+      }
+      
       return reward;
     },
     onSuccess: async (reward) => {
