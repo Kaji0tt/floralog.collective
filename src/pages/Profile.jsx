@@ -730,11 +730,11 @@ export default function Profile() {
                             // Erstelle Tooltip-Text basierend auf Bedingungen
                             let tooltipText = '';
                             if (reward.requires_donor) tooltipText = 'Nur für Unterstützer - spende, um diesen Hintergrund freizuschalten! 💚';
-                            else if (reward.requires_referral) tooltipText = 'Lade einen Freund ein, der seinen ersten Scan macht! 🌱';
-                            else if (reward.requires_rare_plant) tooltipText = 'Entdecke eine seltene Pflanze! 🌟';
+                            else if (reward.requires_referrals) tooltipText = `Werbe ${reward.requires_referrals} Freund${reward.requires_referrals > 1 ? 'e' : ''}! 🌱`;
+                            else if (reward.requires_rare_plants) tooltipText = `Entdecke ${reward.requires_rare_plants} seltene Pflanze${reward.requires_rare_plants > 1 ? 'n' : ''}! 🌟`;
                             else if (reward.requires_weekly_quests) tooltipText = `Nimm an ${reward.requires_weekly_quests} wöchentlichen Quest${reward.requires_weekly_quests > 1 ? 's' : ''} teil! (${weeklyQuestParticipations}/${reward.requires_weekly_quests})`;
-                            else if (reward.requires_monthly_quest) tooltipText = 'Schließe eine Monatsquest ab! 📅';
-                            else if (reward.requires_gift) tooltipText = 'Erhalte ein Geschenk von einem Freund! 🎁';
+                            else if (reward.requires_monthly_quests) tooltipText = `Schließe ${reward.requires_monthly_quests} Monatsquest${reward.requires_monthly_quests > 1 ? 's' : ''} ab! 📅`;
+                            else if (reward.requires_gifts) tooltipText = `Erhalte ${reward.requires_gifts} Geschenk${reward.requires_gifts > 1 ? 'e' : ''} von Freunden! 🎁`;
                             else if (reward.requires_quest) tooltipText = 'Schließe eine spezifische Quest ab!';
 
                             return (
