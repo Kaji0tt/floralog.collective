@@ -193,18 +193,19 @@ export default function Home() {
 
 
 
+  const loadUserData = async () => {
+    const currentUser = await base44.auth.me();
+    setUser(currentUser);
+    setEditedName(currentUser?.display_name || currentUser?.full_name || "");
+  };
+
   useEffect(() => {
-    const loadUser = async () => {
-      const currentUser = await base44.auth.me();
-      setUser(currentUser);
-      setEditedName(currentUser?.display_name || currentUser?.full_name || "");
-    };
-    loadUser();
+    loadUserData();
 
     // Subscription für User-Updates (z.B. aus WelcomeNameDialog)
     const unsubscribe = base44.entities.User.subscribe((event) => {
       if (event.type === 'update') {
-        loadUser();
+        loadUserData();
       }
     });
     

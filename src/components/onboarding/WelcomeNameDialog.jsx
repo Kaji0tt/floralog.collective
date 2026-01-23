@@ -66,11 +66,16 @@ export default function WelcomeNameDialog({ user, onComplete }) {
           });
       }
 
-      // 5. Dialog schließen
+      // 5. Warte kurz, damit die Datenbank-Updates durchgehen
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // 6. Dialog schließen
       setShowDialog(false);
       
-      // 6. Seite neu laden, damit alle Komponenten die frischen Daten bekommen
-      window.location.reload();
+      // 7. Benachrichtige Parent-Komponente, um User neu zu laden
+      if (onComplete) {
+        await onComplete();
+      }
     } catch (error) {
       console.error("Fehler beim Speichern:", error);
       alert("Fehler beim Speichern des Namens. Bitte versuche es erneut.");
