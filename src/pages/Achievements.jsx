@@ -355,15 +355,24 @@ export default function Achievements() {
       }
       
       // Lade die Belohnung und erstelle eine Banner-Notification
-      if (rewardId) {
+      if (rewardName) {
         try {
-          const reward = rewards.find(r => r.name === rewardId);
+          const reward = rewards.find(r => r.name === rewardName);
           if (reward) {
+            // Übersetze Reward-Typ auf Deutsch
+            const rewardTypeMap = {
+              "background": "Hintergrund",
+              "title": "Titel",
+              "animated_border": "Rahmen",
+              "item": "Gegenstand"
+            };
+            const rewardTypeGerman = rewardTypeMap[reward.type] || "Belohnung";
+
             await base44.entities.UserNotification.create({
               user_email: currentUser.email,
               notification_type: "custom",
-              title: reward.notification_title,
-              message: reward.notification_message,
+              title: `🎁 Neuer ${rewardTypeGerman}!`,
+              message: `Du hast ${reward.display_name} freigeschaltet!`,
               priority: "medium",
               display_location: "banner",
               seen: false
