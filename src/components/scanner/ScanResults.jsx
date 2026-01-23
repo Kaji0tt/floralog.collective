@@ -526,9 +526,9 @@ export default function ScanResults({
                   )}
 
                   {/* Informations-Container - direkt unter dem Hauptcontainer */}
-                  <div className="space-y-3">
+                  <div className="space-y-3 bg-white/30 backdrop-blur-md rounded-xl p-4">
                       {(currentPlant.description || currentPlant.aiData?.description) &&
-                      <div className="bg-white/30 backdrop-blur-md rounded-xl p-4 shadow-md">
+                      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border-2 border-blue-200 shadow-md">
                           <h4 className="font-bold text-blue-900 mb-2 flex items-center gap-2">
                             <span className="text-xl">📖</span>
                             <span>Beschreibung</span>
@@ -540,7 +540,7 @@ export default function ScanResults({
                       }
 
                       {(currentPlant.identification_features || currentPlant.aiData?.identification_features) &&
-                      <div className="bg-white/30 backdrop-blur-md rounded-xl p-4 shadow-md">
+                      <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border-2 border-purple-200 shadow-md">
                           <h4 className="font-bold text-purple-900 mb-2 flex items-center gap-2">
                             <span className="text-xl">🔍</span>
                             <span>Erkennungsmerkmale</span>
@@ -552,7 +552,7 @@ export default function ScanResults({
                       }
 
                       {(currentPlant.fun_fact || currentPlant.aiData?.fun_fact) &&
-                      <div className="bg-white/30 backdrop-blur-md rounded-xl p-4 shadow-md">
+                      <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 border-2 border-amber-300 shadow-md">
                           <h4 className="font-bold text-amber-900 mb-2 flex items-center gap-2">
                             <span className="text-xl">💡</span>
                             <span>Wusstest du?</span>
