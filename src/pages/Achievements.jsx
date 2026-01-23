@@ -17,8 +17,6 @@ import { Progress } from "@/components/ui/progress";
 import QuestCompletionAnimation from "../components/quests/QuestCompletionAnimation";
 import { AnimatePresence } from "framer-motion";
 
-const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
-
 const getAverageColor = (imageUrl) => {
   return new Promise((resolve) => {
     const img = new window.Image();
