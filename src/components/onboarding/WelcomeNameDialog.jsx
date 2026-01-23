@@ -83,16 +83,9 @@ export default function WelcomeNameDialog({ user, onComplete }) {
       console.log("[WelcomeNameDialog] Warte 500ms für DB-Propagierung");
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // 6. Dialog schließen
-      console.log("[WelcomeNameDialog] Schließe Dialog");
-      setShowDialog(false);
-      
-      // 7. Benachrichtige Parent-Komponente, um User neu zu laden
-      console.log("[WelcomeNameDialog] Rufe onComplete Callback auf");
-      if (onComplete) {
-        await onComplete();
-        console.log("[WelcomeNameDialog] onComplete erfolgreich ausgeführt");
-      }
+      // 6. Seite neu laden, damit alle Komponenten frische Daten bekommen
+      console.log("[WelcomeNameDialog] Lade Seite neu...");
+      window.location.reload();
     } catch (error) {
       console.error("[WelcomeNameDialog] Fehler beim Speichern:", error);
       alert("Fehler beim Speichern des Namens. Bitte versuche es erneut.");
