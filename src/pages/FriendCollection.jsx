@@ -10,8 +10,6 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 
-const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
-
 export default function FriendCollection() {
   const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState("Alle");

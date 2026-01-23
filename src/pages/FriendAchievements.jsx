@@ -11,8 +11,6 @@ import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 
-const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
-
 export default function FriendAchievements() {
   const navigate = useNavigate();
   const [friendUser, setFriendUser] = useState(null);
@@ -66,7 +64,7 @@ export default function FriendAchievements() {
           full_name: friendEmail,
           display_name: friendEmail,
           level: 1,
-          avatar_url: LOGO_URL,
+          avatar_url: null,
           selected_title: "Unbekannter Freund"
         });
       }
@@ -177,7 +175,7 @@ export default function FriendAchievements() {
                 {friendUser.avatar_url ? (
                   <img src={friendUser.avatar_url} alt={friendUser.display_name || friendUser.full_name} className="w-full h-full object-cover" />
                 ) : (
-                  <img src={LOGO_URL} alt="PlantDex" className="w-8 h-8 object-contain" />
+                  <Leaf className="w-8 h-8 text-white" />
                 )}
               </div>
               <div className="text-left">

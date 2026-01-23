@@ -13,8 +13,6 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { motion } from "framer-motion";
 
-const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
-
 const getAverageColor = (imageUrl) => {
   return new Promise((resolve) => {
     const img = new window.Image();
@@ -401,7 +399,7 @@ export default function FriendProfile() {
                       {friendUser.avatar_url ? (
                         <img src={friendUser.avatar_url} alt="Profil" className="w-full h-full object-cover" />
                       ) : (
-                        <img src={LOGO_URL} alt="Floralog" className="w-14 h-14 object-contain" />
+                        <Leaf className="w-14 h-14 text-white" />
                       )}
                     </div>
                     

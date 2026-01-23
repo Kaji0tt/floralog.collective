@@ -17,8 +17,6 @@ import MobileBackButton from "../components/navigation/MobileBackButton";
 import { formatDistanceToNow } from "date-fns";
 import { de } from "date-fns/locale";
 
-const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
-
 const getAverageColor = (imageUrl) => {
   return new Promise((resolve) => {
     const img = new window.Image();

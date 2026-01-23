@@ -10,8 +10,6 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 
-const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
-
 export default function FriendFriendsList() {
   const navigate = useNavigate();
   const [friendUser, setFriendUser] = useState(null);
@@ -182,7 +180,7 @@ export default function FriendFriendsList() {
                 {friendUser.avatar_url ? (
                   <img src={friendUser.avatar_url} alt={friendUser.full_name} className="w-full h-full object-cover" />
                 ) : (
-                  <img src={LOGO_URL} alt="PlantDex" className="w-8 h-8 object-contain" />
+                  <Leaf className="w-8 h-8 text-white" />
                 )}
               </div>
               <div className="text-left">

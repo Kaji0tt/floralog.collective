@@ -10,8 +10,6 @@ import GenusCard from "../components/collection/GenusCard";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import HintDialog from "../components/collection/HintDialog";
 
-const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
-
 const getAverageColor = (imageUrl) => {
   return new Promise((resolve) => {
     const img = new window.Image();

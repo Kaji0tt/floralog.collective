@@ -20,8 +20,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Lock } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
-
 // Vorgefertigte Hintergrundbilder mit vorberechneten Durchschnittsfarben
 const PRESET_BACKGROUNDS = [
   { url: "https://blauzahn.eu/PlantDex/BackGround4.jpg", color: "rgb(89, 107, 68)", requiresMonthlyQuest: true },
@@ -897,7 +895,7 @@ export default function Profile() {
                     {user.avatar_url ? (
                       <img src={user.avatar_url} alt="Profil" className="w-full h-full object-cover" />
                     ) : (
-                      <img src={LOGO_URL} alt="Floralog" className="w-14 h-14 object-contain" />
+                      <Leaf className="w-14 h-14 text-white" />
                     )}
                   </div>
                   

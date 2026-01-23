@@ -1,9 +1,6 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mail, FileText } from "lucide-react";
 import MobileBackButton from "../components/navigation/MobileBackButton";
-
-const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
 export default function Impressum() {
   return (
