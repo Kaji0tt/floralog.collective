@@ -14,7 +14,6 @@ import { CheckCircle } from "lucide-react";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import QuestCompletionAnimation from "../components/quests/QuestCompletionAnimation";
 import { AnimatePresence } from "framer-motion";
 
 const getAverageColor = (imageUrl) => {
@@ -59,8 +58,6 @@ export default function Achievements() {
   const [averageColor, setAverageColor] = useState(null);
   const [activeTab, setActiveTab] = useState("quests");
   const [questFilter, setQuestFilter] = useState("exploration");
-  const [showQuestAnimation, setShowQuestAnimation] = useState(false);
-  const [questReward, setQuestReward] = useState("");
 
   useEffect(() => {
     const loadUser = async () => {
@@ -394,10 +391,6 @@ export default function Achievements() {
       // User neu laden
       const currentUser = await base44.auth.me();
       setUser(currentUser);
-      
-      // Animation anzeigen
-      setQuestReward(reward || "Quest abgeschlossen!");
-      setShowQuestAnimation(true);
     }
   });
 
@@ -972,16 +965,6 @@ export default function Achievements() {
           </TabsContent>
         </Tabs>
       </div>
-
-      {/* Quest Completion Animation */}
-      <AnimatePresence>
-        {showQuestAnimation && (
-          <QuestCompletionAnimation 
-            reward={questReward}
-            onComplete={() => setShowQuestAnimation(false)}
-          />
-        )}
-      </AnimatePresence>
 
       {/* Title Selection Dialog */}
       <Dialog open={showTitleDialog} onOpenChange={setShowTitleDialog}>
