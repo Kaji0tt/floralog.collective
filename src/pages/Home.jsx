@@ -206,8 +206,10 @@ export default function Home() {
     setEditedName(displayName);
     console.log("[Home] User State aktualisiert, display_name:", displayName);
     
-    // Invalidiere userDiscoveries Query um Sammlung-Count zu aktualisieren
+    // Invalidiere Queries um Stats zu aktualisieren
     queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
+    queryClient.invalidateQueries({ queryKey: ['friends'] });
+    queryClient.invalidateQueries({ queryKey: ['allDiscoveries'] });
   };
 
   useEffect(() => {
@@ -233,8 +235,10 @@ export default function Home() {
       setEditedName(displayName);
       console.log("[Home] User State durch Custom Event aktualisiert, display_name:", displayName);
       
-      // Invalidiere userDiscoveries Query um Sammlung-Count zu aktualisieren
+      // Invalidiere Queries um Stats zu aktualisieren
       queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
+      queryClient.invalidateQueries({ queryKey: ['friends'] });
+      queryClient.invalidateQueries({ queryKey: ['allDiscoveries'] });
     };
 
     console.log("[Home] Registriere userUpdated Event Listener");
