@@ -206,10 +206,10 @@ export default function Home() {
     setEditedName(displayName);
     console.log("[Home] User State aktualisiert, display_name:", displayName);
     
-    // Invalidiere Queries um Stats zu aktualisieren
-    queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
-    queryClient.invalidateQueries({ queryKey: ['friends'] });
-    queryClient.invalidateQueries({ queryKey: ['allDiscoveries'] });
+    // Refetch Queries um Stats sofort zu aktualisieren
+    queryClient.refetchQueries({ queryKey: ['userDiscoveries'] });
+    queryClient.refetchQueries({ queryKey: ['friends'] });
+    queryClient.refetchQueries({ queryKey: ['allDiscoveries'] });
   };
 
   useEffect(() => {
@@ -235,10 +235,10 @@ export default function Home() {
       setEditedName(displayName);
       console.log("[Home] User State durch Custom Event aktualisiert, display_name:", displayName);
       
-      // Invalidiere Queries um Stats zu aktualisieren
-      queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
-      queryClient.invalidateQueries({ queryKey: ['friends'] });
-      queryClient.invalidateQueries({ queryKey: ['allDiscoveries'] });
+      // Refetch Queries um Stats sofort zu aktualisieren
+      queryClient.refetchQueries({ queryKey: ['userDiscoveries'] });
+      queryClient.refetchQueries({ queryKey: ['friends'] });
+      queryClient.refetchQueries({ queryKey: ['allDiscoveries'] });
     };
 
     console.log("[Home] Registriere userUpdated Event Listener");
