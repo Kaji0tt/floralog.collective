@@ -110,10 +110,10 @@ export async function checkAndUnlockRewards(userEmail) {
         conditionsMet = false;
       }
 
-      // Prüfe requires_quest (spezifische Quest abgeschlossen)
+      // Prüfe requires_quest (spezifische Quest eingelöst)
       if (reward.requires_quest) {
         const questCompleted = userQuests.some(uq => 
-          uq.quest_id === reward.requires_quest && uq.completed
+          uq.quest_id === reward.requires_quest && uq.redeemed
         );
         if (!questCompleted) {
           conditionsMet = false;
