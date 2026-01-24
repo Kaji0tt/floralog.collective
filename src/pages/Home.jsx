@@ -54,7 +54,12 @@ export default function Home() {
 
   const { data: userDiscoveries = [], isLoading: isLoadingDiscoveries } = useQuery({
     queryKey: ['userDiscoveries', user?.email],
-    queryFn: () => base44.entities.UserPlantDiscovery.filter({ created_by: user?.email }),
+    queryFn: async () => {
+      console.log("[Home][userDiscoveries Query] Starting fetch for user:", user?.email);
+      const discoveries = await base44.entities.UserPlantDiscovery.filter({ created_by: user?.email });
+      console.log("[Home][userDiscoveries Query] Fetched discoveries:", discoveries.length);
+      return discoveries;
+    },
     enabled: !!user?.email,
     staleTime: Infinity,
     refetchOnWindowFocus: true,
@@ -205,15 +210,25 @@ export default function Home() {
     const displayName = currentUser?.display_name || currentUser?.full_name || "";
     setEditedName(displayName);
     console.log("[Home] User State aktualisiert, display_name:", displayName);
+    console.log("[Home] Triggere refetchQueries nach loadUserData");
     
     // Refetch Queries um Stats sofort zu aktualisieren
-    queryClient.refetchQueries({ queryKey: ['userDiscoveries'] });
-    queryClient.refetchQueries({ queryKey: ['friends'] });
-    queryClient.refetchQueries({ queryKey: ['allDiscoveries'] });
+    queryClient.refetchQueries({ queryKey: ['userDiscoveries'] }).then(() => {
+      console.log("[Home] userDiscoveries refetch nach loadUserData abgeschlossen");
+    });
+    queryClient.refetchQueries({ queryKey: ['friends'] }).then(() => {
+      console.log("[Home] friends refetch nach loadUserData abgeschlossen");
+    });
+    queryClient.refetchQueries({ queryKey: ['allDiscoveries'] }).then(() => {
+      console.log("[Home] allDiscoveries refetch nach loadUserData abgeschlossen");
+    });
   };
 
   useEffect(() => {
-    console.log("[Home] Initialisiere Home-Seite");
+    console.log("[Home] === Initialisiere Home-Seite ===");
+    console.log("[Home] Initial userDiscoveries State:", userDiscoveries);
+    console.log("[Home] Initial userDiscoveries Length:", userDiscoveries.length);
+    console.log("[Home] Initial isLoadingDiscoveries:", isLoadingDiscoveries);
     loadUserData();
 
     // Subscription für User-Updates (z.B. aus WelcomeNameDialog)
@@ -234,11 +249,18 @@ export default function Home() {
       const displayName = updatedUser?.display_name || updatedUser?.full_name || "";
       setEditedName(displayName);
       console.log("[Home] User State durch Custom Event aktualisiert, display_name:", displayName);
+      console.log("[Home] Triggere refetchQueries für userDiscoveries, friends, allDiscoveries");
       
       // Refetch Queries um Stats sofort zu aktualisieren
-      queryClient.refetchQueries({ queryKey: ['userDiscoveries'] });
-      queryClient.refetchQueries({ queryKey: ['friends'] });
-      queryClient.refetchQueries({ queryKey: ['allDiscoveries'] });
+      queryClient.refetchQueries({ queryKey: ['userDiscoveries'] }).then(() => {
+        console.log("[Home] userDiscoveries refetch abgeschlossen");
+      });
+      queryClient.refetchQueries({ queryKey: ['friends'] }).then(() => {
+        console.log("[Home] friends refetch abgeschlossen");
+      });
+      queryClient.refetchQueries({ queryKey: ['allDiscoveries'] }).then(() => {
+        console.log("[Home] allDiscoveries refetch abgeschlossen");
+      });
     };
 
     console.log("[Home] Registriere userUpdated Event Listener");
@@ -463,12 +485,22 @@ export default function Home() {
     );
   }
 
+  console.log("[Home][discoveredGenera Berechnung] userDiscoveries:", userDiscoveries.length, "Discoveries");
+  console.log("[Home][discoveredGenera Berechnung] genera:", genera.length, "Genera");
+  console.log("[Home][discoveredGenera Berechnung] plants:", plants.length, "Plants");
+  
   const discoveredGenera = genera.filter(g => {
     const genusPlants = plants.filter(p => 
       p.genus_category === g.category && p.genus_number === g.category_dex_number
     );
-    return genusPlants.some(p => userDiscoveries.some(d => d.plant_id === p.id));
+    const hasDiscovery = genusPlants.some(p => userDiscoveries.some(d => d.plant_id === p.id));
+    if (hasDiscovery) {
+      console.log("[Home][discoveredGenera] Genus entdeckt:", g.genus_name);
+    }
+    return hasDiscovery;
   }).length;
+  
+  console.log("[Home][discoveredGenera Berechnung] Ergebnis:", discoveredGenera, "entdeckte Gattungen");
 
   const getWeekNumber = (date = new Date()) => {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
