@@ -210,15 +210,9 @@ export default function Home() {
     const displayName = currentUser?.display_name || currentUser?.full_name || "";
     setEditedName(displayName);
     console.log("[Home] User State aktualisiert, display_name:", displayName);
-    console.log("[Home] Triggere refetchQueries nach loadUserData inkl. genera und plants");
+    console.log("[Home] Triggere refetchQueries nach loadUserData");
     
-    // Refetch ALLE benötigten Queries um Stats sofort zu aktualisieren
-    queryClient.refetchQueries({ queryKey: ['genera'] }).then(() => {
-      console.log("[Home] genera refetch nach loadUserData abgeschlossen");
-    });
-    queryClient.refetchQueries({ queryKey: ['plants'] }).then(() => {
-      console.log("[Home] plants refetch nach loadUserData abgeschlossen");
-    });
+    // Refetch Queries um Stats sofort zu aktualisieren
     queryClient.refetchQueries({ queryKey: ['userDiscoveries'] }).then(() => {
       console.log("[Home] userDiscoveries refetch nach loadUserData abgeschlossen");
     });
@@ -255,15 +249,9 @@ export default function Home() {
       const displayName = updatedUser?.display_name || updatedUser?.full_name || "";
       setEditedName(displayName);
       console.log("[Home] User State durch Custom Event aktualisiert, display_name:", displayName);
-      console.log("[Home] Triggere refetchQueries für alle Daten inkl. genera und plants");
+      console.log("[Home] Triggere refetchQueries für userDiscoveries, friends, allDiscoveries");
       
-      // Refetch ALLE benötigten Queries um Stats sofort zu aktualisieren
-      queryClient.refetchQueries({ queryKey: ['genera'] }).then(() => {
-        console.log("[Home] genera refetch abgeschlossen");
-      });
-      queryClient.refetchQueries({ queryKey: ['plants'] }).then(() => {
-        console.log("[Home] plants refetch abgeschlossen");
-      });
+      // Refetch Queries um Stats sofort zu aktualisieren
       queryClient.refetchQueries({ queryKey: ['userDiscoveries'] }).then(() => {
         console.log("[Home] userDiscoveries refetch abgeschlossen");
       });
