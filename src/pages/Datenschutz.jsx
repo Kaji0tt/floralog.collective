@@ -26,7 +26,7 @@ export default function Datenschutz() {
           </CardHeader>
           <CardContent className="p-6">
             <p className="text-stone-700 leading-relaxed">
-              PlantDex respektiert Ihre Privatsphäre. Diese Datenschutzerklärung erläutert, 
+              Floralog respektiert Ihre Privatsphäre. Diese Datenschutzerklärung erläutert, 
               welche Daten wir erheben, wie wir sie verwenden und welche Rechte Sie haben. 
               Die App befindet sich noch in der Entwicklung, diese Datenschutzerklärung wird 
               entsprechend aktualisiert.
@@ -76,7 +76,7 @@ export default function Datenschutz() {
               </p>
               <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                 <p className="text-sm text-stone-700 mb-2">
-                  <strong>Wichtig:</strong> PlantDex selbst speichert keine personenbezogenen Daten auf eigenen Servern. 
+                  <strong>Wichtig:</strong> Floralog selbst speichert keine personenbezogenen Daten auf eigenen Servern. 
                   Die Datenverarbeitung erfolgt durch base44 als Auftragsverarbeiter.
                 </p>
                 <p className="text-sm text-stone-700">
@@ -136,7 +136,7 @@ export default function Datenschutz() {
             <div>
               <h3 className="font-bold text-lg text-stone-900 mb-3">3.1 Pflanzenerkennung mit Pl@ntNet</h3>
               <p className="text-stone-700 leading-relaxed mb-3">
-                Zur Identifizierung von Pflanzen nutzt PlantDex die externe Analysesoftware <strong>Pl@ntNet</strong> 
+                Zur Identifizierung von Pflanzen nutzt Floralog die externe Analysesoftware <strong>Pl@ntNet</strong> 
                 für die ersten 500 Scans pro Tag. Hochgeladene Bilder werden zu diesem Zweck an die Pl@ntNet-API übermittelt.
               </p>
               <ul className="list-disc list-inside space-y-2 text-stone-700 ml-4 mb-3">
@@ -274,7 +274,7 @@ export default function Datenschutz() {
           </CardHeader>
           <CardContent className="p-6">
             <p className="text-stone-700 leading-relaxed mb-3">
-              PlantDex verwendet ausschließlich technisch notwendige Cookies für die 
+              Floralog verwendet ausschließlich technisch notwendige Cookies für die 
               Authentifizierung über base44. Diese Cookies sind für die Funktionsfähigkeit 
               der App erforderlich und können nicht deaktiviert werden.
             </p>
