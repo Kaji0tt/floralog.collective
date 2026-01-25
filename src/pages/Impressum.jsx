@@ -14,57 +14,6 @@ export default function Impressum() {
           </h1>
         </div>
 
-        <Card className="border-2 border-stone-200 shadow-lg bg-white mb-6">
-          <CardContent className="p-6">
-            <div className="space-y-4 text-stone-700 leading-relaxed">
-              <p>
-                <strong className="text-stone-900">Floralog</strong> verbindet moderne Technologie mit der Faszination für die Natur. 
-                Ziel dieser App ist es, Interessierten die heimische Pflanzenwelt auf spielerische und motivierende Weise näherzubringen. 
-                Durch den Einsatz künstlicher Intelligenz und gamifizierte Elemente soll die Entdeckung und das Kennenlernen von Pflanzen zu einem unterhaltsamen und lehrreichen Erlebnis werden.
-              </p>
-
-              <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded">
-                <p className="font-semibold text-amber-900 mb-2">⚠️ Wichtige Hinweise zur KI-gestützten Pflanzenerkennung</p>
-                <p className="text-sm text-amber-800">
-                  Die Pflanzenerkennung basiert auf künstlicher Intelligenz und kann sich irren – dies geschieht auch regelmäßig. 
-                  Insbesondere bei ähnlich aussehenden Pflanzen oder verschiedenen Arten derselben Gattung stößt die KI aktuell an ihre Grenzen. 
-                  <strong className="block mt-2">Es gibt keine Garantie für die Richtigkeit der Scan-Ergebnisse.</strong>
-                  Dies gilt insbesondere für Einschätzungen zur Giftigkeit oder Essbarkeit von Pflanzen. 
-                  Verlassen Sie sich niemals ausschließlich auf die App-Ergebnisse in sicherheitsrelevanten Fragen.
-                </p>
-              </div>
-
-              <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
-                <p className="font-semibold text-blue-900 mb-2">🚧 Entwicklungsstand</p>
-                <p className="text-sm text-blue-800">
-                  Floralog befindet sich im Anfangsstadium der Entwicklung. Features, Design und Funktionen können sich noch erheblich ändern. 
-                  Die Pflanzenerkennung nutzt die PlantNet-API, deren kostenlose Nutzung derzeit auf 500 Scans pro Tag beschränkt ist. 
-                  Bei Erreichen dieses Limits kann es zu Einschränkungen kommen.
-                </p>
-              </div>
-
-              <div className="bg-green-50 border-l-4 border-green-400 p-4 rounded">
-                <p className="font-semibold text-green-900 mb-2">🎮 Philosophie & Fair Play</p>
-                <p className="text-sm text-green-800">
-                  Floralog ist sich bewusst, dass bei gamifizierten Systemen Möglichkeiten zum "Schummeln" existieren können. 
-                  Dies soll jedoch nicht gezielt unterbunden werden. Die sozialen und spielerischen Komponenten dienen ausschließlich der Motivation 
-                  und sollen die Entdeckung der Natur begleiten – nicht im Wettbewerb gegeneinander, sondern mit einem <strong>didaktisch-pädagogischen Ansatz</strong>. 
-                  Der Fokus liegt auf persönlichem Lernen und Naturerfahrung, nicht auf Konkurrenz.
-                </p>
-              </div>
-
-              <div className="bg-purple-50 border-l-4 border-purple-400 p-4 rounded">
-                <p className="font-semibold text-purple-900 mb-2">👶 Altersempfehlung</p>
-                <p className="text-sm text-purple-800">
-                  Es wird <strong>nicht empfohlen, Kindern unter 14 Jahren unbeaufsichtigt ein Mobiltelefon auszuhändigen</strong>. 
-                  Die Nutzung von Floralog wird für Personen ab 14 Jahren empfohlen. 
-                  Bei jüngeren Nutzern sollte die App stets unter elterlicher Aufsicht verwendet werden.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         <Card className="border-2 border-stone-200 shadow-lg bg-white">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -89,7 +38,7 @@ export default function Impressum() {
               </h3>
               <p className="text-stone-700">
                 E-Mail: <br />
-                jascha.kruse@web.de<br />
+                info@floralog.de<br />
               </p>
             </div>
 
@@ -97,7 +46,8 @@ export default function Impressum() {
               <h3 className="font-bold text-lg text-stone-900 mb-2">Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV</h3>
               <p className="text-stone-700">
                 Jascha Kruse<br />
-                Dorotheenstr. 41
+                Dorotheenstr. 41<br />
+                24939 Flensburg
               </p>
             </div>
 
@@ -106,7 +56,7 @@ export default function Impressum() {
               <p className="text-sm text-stone-600 leading-relaxed">
                 Die Inhalte dieser App wurden mit größter Sorgfalt erstellt. 
                 Für die Richtigkeit, Vollständigkeit und Aktualität der Inhalte können wir jedoch keine Gewähr übernehmen. 
-                Floralog dient ausschließlich zu Bildungszwecken und ersetzt keine professionelle botanische Beratung.
+                PlantDex dient ausschließlich zu Bildungszwecken und ersetzt keine professionelle botanische Beratung.
               </p>
             </div>
 
