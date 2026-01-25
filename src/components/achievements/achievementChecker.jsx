@@ -9,6 +9,8 @@ export async function checkAndUnlockAchievements(user) {
   if (!user) return [];
 
   try {
+    console.log('[AchievementChecker] Starting check for user:', user.email);
+    
     // Lade alle benötigten Daten
     const [achievements, userAchievements, plants, genera, userDiscoveries, friends] = await Promise.all([
       base44.entities.Achievement.list(),
@@ -32,6 +34,8 @@ export async function checkAndUnlockAchievements(user) {
       const achievement = achievements.find(a => a.title === title);
       if (!achievement || hasAchievement(title)) return null;
 
+      console.log('[AchievementChecker] Unlocking achievement:', title, 'with reward:', achievement.reward_name);
+
       await base44.entities.UserAchievement.create({
         achievement_id: achievement.id,
         unlocked_date: new Date().toISOString(),
@@ -49,6 +53,8 @@ export async function checkAndUnlockAchievements(user) {
           const hasReward = userRewards.some(ur => ur.reward_id === reward.id);
           
           if (!hasReward) {
+            console.log('[AchievementChecker] Unlocking reward:', reward.name, reward.display_name);
+            
             // Schalte Reward frei
             await base44.entities.UserReward.create({
               reward_id: reward.id,
@@ -69,6 +75,8 @@ export async function checkAndUnlockAchievements(user) {
               priority: "medium",
               seen: false
             });
+          } else {
+            console.log('[AchievementChecker] User already has reward:', reward.name);
           }
         }
       }
@@ -251,10 +259,11 @@ export async function checkAndUnlockAchievements(user) {
       if (achievement) unlockedAchievements.push(achievement);
     }
 
+    console.log('[AchievementChecker] Finished. Unlocked', unlockedAchievements.length, 'achievements');
     return unlockedAchievements;
 
   } catch (error) {
-    console.error("Fehler beim Prüfen der Achievements:", error);
+    console.error("[AchievementChecker] ERROR:", error);
     return [];
   }
 }

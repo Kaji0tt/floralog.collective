@@ -119,6 +119,21 @@ export async function checkAndUnlockRewards(userEmail) {
       // Überspringe random_event Rewards - diese werden nur im randomRewardChecker geprüft
       if (reward.random_event && reward.random_chance) continue;
 
+      // KRITISCH: Überspringe Rewards ohne Bedingungen - diese sollten NUR über Achievements/Quests freigeschaltet werden
+      const hasAnyCondition = 
+        reward.requires_weekly_quests ||
+        reward.requires_monthly_quests ||
+        reward.requires_gifts ||
+        reward.requires_donor ||
+        reward.requires_referrals ||
+        reward.requires_rare_plants ||
+        reward.requires_quest;
+
+      if (!hasAnyCondition) {
+        console.log('[RewardUnlocker] Skipping reward without conditions:', reward.name, reward.display_name);
+        continue;
+      }
+
       let conditionsMet = true;
 
       // Prüfe requires_weekly_quests
@@ -161,10 +176,15 @@ export async function checkAndUnlockRewards(userEmail) {
         }
       }
 
+      console.log('[RewardUnlocker] Checking reward:', reward.name, reward.display_name, 'conditionsMet:', conditionsMet);
+
       // Wenn alle Bedingungen erfüllt sind, schalte den Reward frei
       if (conditionsMet) {
         const unlocked = await unlockReward(reward);
-        if (unlocked) newRewardsCount++;
+        if (unlocked) {
+          console.log('[RewardUnlocker] Unlocked reward:', reward.name, reward.display_name);
+          newRewardsCount++;
+        }
       }
     }
 
