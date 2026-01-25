@@ -300,6 +300,7 @@ export default function Achievements() {
 
   const redeemQuestMutation = useMutation({
           mutationFn: async ({ userQuestId, questType, rewardName, isFirstQuest }) => {
+      console.log('[QuestRedeem] Starting redeem for:', questType, rewardName);
       const now = new Date().toISOString();
 
       // Quest einlösen
@@ -325,36 +326,29 @@ export default function Achievements() {
         });
       }
 
-      // Achievement-Check durchführen
       const currentUser = await base44.auth.me();
-      const { checkAndUnlockAchievements } = await import("../components/achievements/achievementChecker");
-      await checkAndUnlockAchievements(currentUser);
       
-      // Wenn das die erste Quest ist, erstelle eine Notification für Hintergrund-Personalisierung
-      if (isFirstQuest) {
-        try {
-          await base44.entities.UserNotification.create({
-            user_email: currentUser.email,
-            notification_type: "custom",
-            title: "🎨 Personalisiere dein Profil!",
-            message: "Du hast deine erste Quest gemeistert! Zeit, dein Profil zu verschönern.",
-            description: "Tippe auf dein Profilbild auf der Startseite und wähle einen Hintergrund aus.",
-            action_url: "Profile",
-            priority: "high",
-            display_location: "modal",
-            seen: false
-          });
-        } catch (error) {
-          console.error("Fehler beim Erstellen der Hintergrund-Notification:", error);
-        }
-      }
-      
-      // Lade die Belohnung und erstelle eine Banner-Notification
+      // DIREKT den Reward freischalten (ohne Achievement-Check)
       if (rewardName) {
-        try {
-          const reward = rewards.find(r => r.name === rewardName);
-          if (reward) {
-            // Übersetze Reward-Typ auf Deutsch
+        const reward = rewards.find(r => r.name === rewardName);
+        if (reward) {
+          console.log('[QuestRedeem] Unlocking reward:', reward.name, reward.display_name);
+          
+          // Prüfe ob User den Reward bereits hat
+          const userRewards = await base44.entities.UserReward.filter({ created_by: currentUser.email });
+          const hasReward = userRewards.some(ur => ur.reward_id === reward.id);
+          
+          if (!hasReward) {
+            // Schalte Reward frei
+            await base44.entities.UserReward.create({
+              reward_id: reward.id,
+              reward_name: reward.display_name,
+              user_email: currentUser.email,
+              user_name: currentUser.display_name || currentUser.full_name || currentUser.email,
+              unlocked_date: now
+            });
+
+            // Erstelle Notification für den Reward
             const rewardTypeMap = {
               "background": "Hintergrund",
               "title": "Titel",
@@ -372,13 +366,32 @@ export default function Achievements() {
               display_location: "banner",
               seen: false
             });
-            return reward.display_name;
+          } else {
+            console.log('[QuestRedeem] User already has reward:', reward.name);
           }
-        } catch (error) {
-          console.error("Fehler beim Erstellen der Reward-Notification:", error);
         }
       }
       
+      // Wenn das die erste Quest ist, erstelle eine Notification für Hintergrund-Personalisierung
+      if (isFirstQuest) {
+        try {
+          await base44.entities.UserNotification.create({
+            user_email: currentUser.email,
+            notification_type: "custom",
+            title: "🎨 Personalisiere dein Profil!",
+            message: "Du hast deine erste Quest gemeistert! Zeit, dein Profil zu verschönern.",
+            description: "Tippe auf dein Profilbild auf der Startseite und wähle einen Hintergrund aus.",
+            action_url: "Profile",
+            priority: "high",
+            display_location: "modal",
+            seen: false
+          });
+        } catch (error) {
+          console.error("[QuestRedeem] Fehler beim Erstellen der Hintergrund-Notification:", error);
+        }
+      }
+      
+      console.log('[QuestRedeem] Finished successfully');
       return "Quest abgeschlossen!";
     },
     onSuccess: async (reward) => {
