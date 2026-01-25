@@ -224,6 +224,11 @@ export default function Donate() {
                 const updatedUser = await base44.auth.me();
                 console.log('✅ Updated user:', updatedUser);
                 setUser(updatedUser);
+                
+                // Prüfe und schalte Donor-Rewards frei
+                const { checkAndUnlockRewards } = await import("../components/rewards/rewardUnlocker");
+                await checkAndUnlockRewards(updatedUser.email);
+                
                 setSelectedAmount(null);
                 paypalButtonsRendered.current = false;
               }

@@ -144,6 +144,12 @@ export default function Profile() {
       const currentUser = await base44.auth.me();
       setUser(currentUser);
       setEditedName(currentUser?.display_name || currentUser?.full_name || "");
+      
+      // Prüfe und schalte Rewards frei (z.B. Donor-Rewards)
+      if (currentUser?.email) {
+        const { checkAndUnlockRewards } = await import("../components/rewards/rewardUnlocker");
+        await checkAndUnlockRewards(currentUser.email);
+      }
     };
     loadUser();
   }, []);
