@@ -109,8 +109,11 @@ export async function checkAndUnlockAchievements(user) {
       if (achievement) unlockedAchievements.push(achievement);
     }
 
-    // 2. Siebenschläfer - 7 Tage hintereinander aktiv (SELTEN)
-    // TODO: Benötigt Login-Tracking - erstmal überspringen
+    // 2. Siebenschläfer - 7 Tage hintereinander aktiv
+    if (longestScanStreak >= 7 && !hasAchievement("Siebenschläfer")) {
+      const achievement = await unlockAchievement("Siebenschläfer");
+      if (achievement) unlockedAchievements.push(achievement);
+    }
     
     // 3. Fleißiger Sammler - 50 Pflanzen entdeckt
     if (discoveredPlants >= 50 && !hasAchievement("Fleißiger Sammler")) {
@@ -201,6 +204,18 @@ export async function checkAndUnlockAchievements(user) {
     );
     if (hasRarePlant && !hasAchievement("Glücksfund")) {
       const achievement = await unlockAchievement("Glücksfund");
+      if (achievement) unlockedAchievements.push(achievement);
+    }
+
+    // 7. Gewohnheitstier - 3 Tage hintereinander scannen
+    if (longestScanStreak >= 3 && !hasAchievement("Gewohnheitstier")) {
+      const achievement = await unlockAchievement("Gewohnheitstier");
+      if (achievement) unlockedAchievements.push(achievement);
+    }
+
+    // 13. Naturmensch - 30 Tage hintereinander scannen
+    if (longestScanStreak >= 30 && !hasAchievement("Naturmensch")) {
+      const achievement = await unlockAchievement("Naturmensch");
       if (achievement) unlockedAchievements.push(achievement);
     }
 
