@@ -735,7 +735,11 @@ export default function Profile() {
                             else if (reward.requires_weekly_quests) tooltipText = `Nimm an ${reward.requires_weekly_quests} wöchentlichen Quest${reward.requires_weekly_quests > 1 ? 's' : ''} teil! (${weeklyQuestParticipations}/${reward.requires_weekly_quests})`;
                             else if (reward.requires_monthly_quests) tooltipText = `Schließe ${reward.requires_monthly_quests} Monatsquest${reward.requires_monthly_quests > 1 ? 's' : ''} ab! 📅`;
                             else if (reward.requires_gifts) tooltipText = `Erhalte ${reward.requires_gifts} Geschenk${reward.requires_gifts > 1 ? 'e' : ''} von Freunden! 🎁`;
-                            else if (reward.requires_quest) tooltipText = 'Schließe eine spezifische Quest ab!';
+                            else if (reward.requires_quest) {
+                              const requiredQuest = quests.find(q => q.id === reward.requires_quest);
+                              tooltipText = requiredQuest ? `Löse Quest "${requiredQuest.title}" ein! 🎯` : 'Schließe eine spezifische Quest ab! 🎯';
+                            }
+                            else if (reward.random_event) tooltipText = `Zufällige Belohnung beim ${reward.random_event === 'scan' ? 'Scannen' : 'Event'}! 🎲`;
 
                             return (
                               <Tooltip key={reward.id}>
@@ -745,7 +749,7 @@ export default function Profile() {
                                     disabled={!isUnlocked}
                                     className={`relative aspect-square rounded-lg overflow-hidden border-2 ${
                                       isUnlocked 
-                                        ? 'border-stone-200 hover:border-green-500' 
+                                        ? 'border-amber-300 hover:border-amber-500' 
                                         : 'border-stone-400 cursor-not-allowed'
                                     } transition-colors group`}
                                   >
@@ -755,6 +759,9 @@ export default function Profile() {
                                       className={`w-full h-full object-cover ${isUnlocked ? 'group-hover:scale-105' : ''} transition-transform`}
                                     />
                                     <div className={`absolute inset-0 ${isUnlocked ? 'bg-black/0 group-hover:bg-black/20' : 'bg-black/40'} transition-colors`} />
+                                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-1 text-center">
+                                      {reward.display_name}
+                                    </div>
                                     {!isUnlocked && (
                                       <div className="absolute inset-0 flex items-center justify-center">
                                         <Lock className="w-12 h-12 text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]" />
