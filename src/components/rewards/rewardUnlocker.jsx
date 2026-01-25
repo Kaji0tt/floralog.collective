@@ -67,7 +67,7 @@ export async function checkAndUnlockRewards(userEmail) {
         message: `Du hast "${reward.display_name}" freigeschaltet!`,
         image_url: reward.image_url || reward.value,
         display_location: "banner",
-        priority: 5,
+        priority: "medium",
         seen: false
       });
 
