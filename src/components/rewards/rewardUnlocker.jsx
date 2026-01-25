@@ -119,6 +119,11 @@ export async function checkAndUnlockRewards(userEmail) {
     for (const reward of allRewards) {
       if (hasReward(reward.id)) continue;
 
+      // Überspringe random_event Rewards - diese werden nur im randomRewardChecker geprüft
+      if (reward.random_event && reward.random_chance) {
+        continue;
+      }
+
       let conditionsMet = true;
 
       // Prüfe requires_weekly_quests
