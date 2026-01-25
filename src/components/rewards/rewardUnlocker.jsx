@@ -6,8 +6,6 @@ import { base44 } from "@/api/base44Client";
  */
 export async function checkAndUnlockRewards(userEmail) {
   try {
-    console.log(`[RewardUnlocker] Checking rewards for ${userEmail}`);
-
     // Lade alle notwendigen Daten
     const [
       allRewards,
@@ -47,7 +45,6 @@ export async function checkAndUnlockRewards(userEmail) {
     const unlockReward = async (reward) => {
       if (hasReward(reward.id)) return false;
       
-      console.log(`[RewardUnlocker] Unlocking reward: ${reward.display_name}`);
       await base44.entities.UserReward.create({
         reward_id: reward.id,
         reward_name: reward.display_name,
@@ -89,9 +86,6 @@ export async function checkAndUnlockRewards(userEmail) {
 
     let newRewardsCount = 0;
 
-    console.log(`[RewardUnlocker] Starte Prüfung von ${allRewards.length} Rewards`);
-    console.log(`[RewardUnlocker] User hat bereits ${userRewards.length} Rewards freigeschaltet`);
-
     // NACHTRÄGLICHE FREISCHALTUNG: Prüfe alle eingelösten Quests und schalte deren Rewards frei
     const redeemedQuests = [
       ...userQuests.filter(uq => uq.redeemed).map(uq => ({ type: 'regular', userQuest: uq })),
@@ -113,38 +107,17 @@ export async function checkAndUnlockRewards(userEmail) {
         const questReward = allRewards.find(r => r.name === quest.reward_name);
         if (questReward && !hasReward(questReward.id)) {
           const unlocked = await unlockReward(questReward);
-          if (unlocked) {
-            console.log(`✅ Nachträglich freigeschaltet: ${questReward.display_name} (Quest: ${quest.title})`);
-            newRewardsCount++;
-          }
+          if (unlocked) newRewardsCount++;
         }
       }
     }
 
     // Iteriere durch alle Rewards und prüfe Bedingungen
     for (const reward of allRewards) {
-      console.log(`[RewardUnlocker] Prüfe Reward: ${reward.display_name} (${reward.name})`);
-      
-      if (hasReward(reward.id)) {
-        console.log(`[RewardUnlocker] ✓ Bereits freigeschaltet: ${reward.display_name}`);
-        continue;
-      }
+      if (hasReward(reward.id)) continue;
 
       // Überspringe random_event Rewards - diese werden nur im randomRewardChecker geprüft
-      if (reward.random_event && reward.random_chance) {
-        console.log(`[RewardUnlocker] ⏭️ Überspringe Random-Event Reward: ${reward.display_name} (Event: ${reward.random_event}, Chance: ${reward.random_chance})`);
-        continue;
-      }
-
-      console.log(`[RewardUnlocker] 🔍 Prüfe Bedingungen für: ${reward.display_name}`, {
-        requires_weekly_quests: reward.requires_weekly_quests,
-        requires_monthly_quests: reward.requires_monthly_quests,
-        requires_gifts: reward.requires_gifts,
-        requires_donor: reward.requires_donor,
-        requires_referrals: reward.requires_referrals,
-        requires_rare_plants: reward.requires_rare_plants,
-        requires_quest: reward.requires_quest
-      });
+      if (reward.random_event && reward.random_chance) continue;
 
       let conditionsMet = true;
 
@@ -190,15 +163,11 @@ export async function checkAndUnlockRewards(userEmail) {
 
       // Wenn alle Bedingungen erfüllt sind, schalte den Reward frei
       if (conditionsMet) {
-        console.log(`[RewardUnlocker] ✅ Alle Bedingungen erfüllt für: ${reward.display_name}`);
         const unlocked = await unlockReward(reward);
         if (unlocked) newRewardsCount++;
-      } else {
-        console.log(`[RewardUnlocker] ❌ Bedingungen nicht erfüllt für: ${reward.display_name}`);
       }
     }
 
-    console.log(`[RewardUnlocker] Unlocked ${newRewardsCount} new rewards`);
     return newRewardsCount;
 
   } catch (error) {
