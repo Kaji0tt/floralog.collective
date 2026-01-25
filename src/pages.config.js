@@ -22,6 +22,8 @@ import Impressum from './pages/Impressum';
 import Map from './pages/Map';
 import MigrateDiscoveries from './pages/MigrateDiscoveries';
 import MigratePlantGenus from './pages/MigratePlantGenus';
+import News from './pages/News';
+import NewsAdmin from './pages/NewsAdmin';
 import PlantDetail from './pages/PlantDetail';
 import Profile from './pages/Profile';
 import QuestNotificationTemplate from './pages/QuestNotificationTemplate';
@@ -31,8 +33,6 @@ import ResetToLevel5 from './pages/ResetToLevel5';
 import Scanner from './pages/Scanner';
 import ViewSharedScan from './pages/ViewSharedScan';
 import XPMigration from './pages/XPMigration';
-import News from './pages/News';
-import NewsAdmin from './pages/NewsAdmin';
 import __Layout from './Layout.jsx';
 
 
@@ -61,6 +61,8 @@ export const PAGES = {
     "Map": Map,
     "MigrateDiscoveries": MigrateDiscoveries,
     "MigratePlantGenus": MigratePlantGenus,
+    "News": News,
+    "NewsAdmin": NewsAdmin,
     "PlantDetail": PlantDetail,
     "Profile": Profile,
     "QuestNotificationTemplate": QuestNotificationTemplate,
@@ -70,8 +72,6 @@ export const PAGES = {
     "Scanner": Scanner,
     "ViewSharedScan": ViewSharedScan,
     "XPMigration": XPMigration,
-    "News": News,
-    "NewsAdmin": NewsAdmin,
 }
 
 export const pagesConfig = {

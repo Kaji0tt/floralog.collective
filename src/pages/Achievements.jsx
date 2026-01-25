@@ -769,6 +769,15 @@ export default function Achievements() {
                         <p className={`text-xs mb-1 ${isUnlocked ? 'text-stone-600' : 'text-stone-400'}`}>
                           {achievement.description}
                         </p>
+
+                        {achievementReward && (
+                          <div className={`flex items-center gap-1 text-xs mt-2 px-2 py-1 rounded-lg ${
+                            isUnlocked ? 'bg-amber-50 text-amber-700' : 'bg-stone-100 text-stone-400'
+                          }`}>
+                            <Gift className="w-3 h-3" />
+                            <span className="font-semibold">{achievementReward.display_name}</span>
+                          </div>
+                        )}
                         
                         {achievementReward && achievementReward.type === 'title' && isUnlocked &&
                                 <Button
