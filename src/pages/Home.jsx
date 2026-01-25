@@ -31,7 +31,7 @@ export default function Home() {
   const [showBackgroundSelector, setShowBackgroundSelector] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [averageColor, setAverageColor] = useState(null);
-  const [showTestQuest, setShowTestQuest] = useState(false);
+
   const [showScannerHighlight, setShowScannerHighlight] = useState(false);
   const [showBackgroundHighlight, setShowBackgroundHighlight] = useState(false);
   const [showAchievementsHighlight, setShowAchievementsHighlight] = useState(false);
@@ -1195,28 +1195,24 @@ export default function Home() {
             >
               Impressum
             </button>
-            {user?.role === 'admin' && (
-              <>
-                <span 
-                  className="opacity-40"
-                  style={{ 
-                    color: averageColor ? getLighterColor(averageColor) : 'rgb(120, 113, 108)'
-                  }}
-                >
-                  •
-                </span>
-                <button
-                  onClick={() => setShowTestQuest(true)}
-                  className="hover:opacity-60 transition-all font-medium px-2 py-1 opacity-50"
-                  style={{ 
-                    color: averageColor ? getLighterColor(getLighterColor(averageColor)) : 'rgb(120, 113, 108)',
-                    textShadow: '0 1px 3px rgba(0,0,0,0.3)'
-                  }}
-                >
-                  QTest
-                </button>
-              </>
-            )}
+            <span 
+              className="opacity-40"
+              style={{ 
+                color: averageColor ? getLighterColor(averageColor) : 'rgb(120, 113, 108)'
+              }}
+            >
+              •
+            </span>
+            <button
+              onClick={() => navigate(createPageUrl("News"))}
+              className="hover:opacity-60 transition-all font-medium px-2 py-1 opacity-50"
+              style={{ 
+                color: averageColor ? getLighterColor(getLighterColor(averageColor)) : 'rgb(120, 113, 108)',
+                textShadow: '0 1px 3px rgba(0,0,0,0.3)'
+              }}
+            >
+              News
+            </button>
           </div>
         </motion.div>
 
@@ -1258,79 +1254,28 @@ export default function Home() {
             >
               Impressum
             </button>
-            {user?.role === 'admin' && (
-              <>
-                <span 
-                  className="opacity-40"
-                  style={{ 
-                    color: 'var(--profile-text-color)'
-                  }}
-                >
-                  •
-                </span>
-                <button
-                  onClick={() => setShowTestQuest(true)}
-                  className="hover:opacity-60 transition-all font-medium px-2 py-1"
-                  style={{ 
-                    color: 'var(--profile-text-color)',
-                    opacity: 0.7,
-                    textShadow: averageColor && isColorDark(averageColor) ? '0 1px 3px rgba(0,0,0,0.5)' : 'none'
-                  }}
-                >
-                  QTest
-                </button>
-              </>
-            )}
+            <span 
+              className="opacity-40"
+              style={{ 
+                color: 'var(--profile-text-color)'
+              }}
+            >
+              •
+            </span>
+            <button
+              onClick={() => navigate(createPageUrl("News"))}
+              className="hover:opacity-60 transition-all font-medium px-2 py-1"
+              style={{ 
+                color: 'var(--profile-text-color)',
+                opacity: 0.7,
+                textShadow: averageColor && isColorDark(averageColor) ? '0 1px 3px rgba(0,0,0,0.5)' : 'none'
+              }}
+            >
+              News
+            </button>
           </div>
         </motion.div>
-        
-        {/* Test Quest Notification */}
-        <AnimatePresence>
-          {showTestQuest && (
-            <div 
-              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-start justify-center pt-20 px-4"
-              onClick={() => setShowTestQuest(false)}
-            >
-              <motion.div
-                initial={{ y: -100, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: -100, opacity: 0 }}
-                transition={{ type: "spring", damping: 20 }}
-                className="relative w-full max-w-2xl"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Quest Content Box */}
-                <div className="bg-amber-50 border-4 border-amber-300 rounded-2xl shadow-2xl p-6 max-h-[80vh] overflow-y-auto relative">
-                  {/* Schließen Button */}
-                  <button
-                    onClick={() => setShowTestQuest(false)}
-                    className="absolute top-3 right-3 w-10 h-10 bg-amber-200 hover:bg-amber-300 rounded-full flex items-center justify-center transition-colors z-10 shadow-lg"
-                  >
-                    <X className="w-6 h-6 text-amber-900" />
-                  </button>
 
-                  <h4 className="font-bold text-stone-900 mb-3 text-lg">
-                    Der Pflanzen-Sammler
-                  </h4>
-                  
-                  <p className="text-base text-stone-700 leading-relaxed mb-3">
-                    Willkommen, tapferer Sammler! Es ist Zeit, dich auf ein neues Abenteuer zu begeben. 
-                    Die Natur ruft nach dir und wartet darauf, von dir entdeckt zu werden. 
-                    Sammle die Schätze der Flora und werde zum Meister des Floralog!
-                  </p>
-                  
-                  <p className="text-sm text-stone-600 mb-3 italic bg-amber-100 p-3 rounded-lg border border-amber-200">
-                    📋 Scanne 5 verschiedene Pflanzen in deiner Umgebung
-                  </p>
-
-                  <div className="mt-4 text-sm text-stone-500 text-center bg-amber-100 py-2 rounded-lg">
-                    Dies ist eine Test-Notification
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
       </div>
       </div>
     </>
