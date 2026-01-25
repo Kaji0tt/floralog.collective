@@ -78,9 +78,9 @@ export default function Impressum() {
                   <p className="font-semibold text-stone-800 mb-2">In Kürze:</p>
                   <ul className="list-disc list-inside space-y-1">
                     <li>Login und Datenspeicherung erfolgen über base44</li>
-                    <li>Pflanzenerkennung nutzt Pl@ntNet und interne KI</li>
+                    <li>Pflanzenerkennung nutzt Pl@ntNet</li>
                     <li>Keine Datenspeicherung auf eigenen Servern</li>
-                    <li>Einsehbar: E-Mail, Spielfortschritt, Kontaktformular-Daten</li>
+                    <li>Einsehbar: E-Mail, Freischaltungen und Errungenschaften, Standortdaten der Scans sofern aktiviert, Kontaktformular-Daten</li>
                   </ul>
                 </div>
               </div>
