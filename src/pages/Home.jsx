@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { motion, AnimatePresence } from "framer-motion";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
+import { checkAndUnlockRewards } from "../components/rewards/rewardUnlocker";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
@@ -204,6 +205,11 @@ export default function Home() {
     queryClient.refetchQueries({ queryKey: ['genera'] });
     queryClient.refetchQueries({ queryKey: ['friends'] });
     queryClient.refetchQueries({ queryKey: ['allDiscoveries'] });
+    
+    // Prüfe und schalte Rewards frei
+    if (currentUser?.email) {
+      await checkAndUnlockRewards(currentUser.email);
+    }
   };
 
   useEffect(() => {
