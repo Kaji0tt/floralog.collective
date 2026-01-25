@@ -18,7 +18,10 @@ export async function checkAndUnlockRewards(userEmail) {
       sharedScans,
       userDiscoveries,
       plants,
-      currentUser
+      currentUser,
+      quests,
+      weeklyQuests,
+      monthlyQuests
     ] = await Promise.all([
       base44.entities.Reward.list(),
       base44.entities.UserReward.filter({ created_by: userEmail }),
@@ -28,7 +31,10 @@ export async function checkAndUnlockRewards(userEmail) {
       base44.entities.SharedScan.filter({ shared_to: userEmail }),
       base44.entities.UserPlantDiscovery.filter({ created_by: userEmail }),
       base44.entities.Plant.list(),
-      base44.auth.me()
+      base44.auth.me(),
+      base44.entities.Quest.list(),
+      base44.entities.WeeklyQuest.list(),
+      base44.entities.MonthlyQuest.list()
     ]);
 
     // Helper: Prüfe ob User bereits einen Reward hat
@@ -73,6 +79,35 @@ export async function checkAndUnlockRewards(userEmail) {
     }).length;
 
     let newRewardsCount = 0;
+
+    // NACHTRÄGLICHE FREISCHALTUNG: Prüfe alle eingelösten Quests und schalte deren Rewards frei
+    const redeemedQuests = [
+      ...userQuests.filter(uq => uq.redeemed).map(uq => ({ type: 'regular', userQuest: uq })),
+      ...userWeeklyQuests.filter(uwq => uwq.redeemed).map(uwq => ({ type: 'weekly', userQuest: uwq })),
+      ...userMonthlyQuests.filter(umq => umq.redeemed).map(umq => ({ type: 'monthly', userQuest: umq }))
+    ];
+
+    for (const { type, userQuest } of redeemedQuests) {
+      let quest;
+      if (type === 'regular') {
+        quest = quests.find(q => q.id === userQuest.quest_id);
+      } else if (type === 'weekly') {
+        quest = weeklyQuests.find(q => q.id === userQuest.weekly_quest_id);
+      } else if (type === 'monthly') {
+        quest = monthlyQuests.find(q => q.id === userQuest.monthly_quest_id);
+      }
+
+      if (quest?.reward_name) {
+        const questReward = allRewards.find(r => r.name === quest.reward_name);
+        if (questReward && !hasReward(questReward.id)) {
+          const unlocked = await unlockReward(questReward);
+          if (unlocked) {
+            console.log(`✅ Nachträglich freigeschaltet: ${questReward.display_name} (Quest: ${quest.title})`);
+            newRewardsCount++;
+          }
+        }
+      }
+    }
 
     // Iteriere durch alle Rewards und prüfe Bedingungen
     for (const reward of allRewards) {
