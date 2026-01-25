@@ -80,7 +80,39 @@ export async function checkAndUnlockAchievements(user) {
     const userDiscoveredPlantObjects = plants.filter(p => userDiscoveries.some(d => d.plant_id === p.id));
     
     // As per outline, discoveredPlants is the count of userDiscoveries
-    const discoveredPlants = userDiscoveries.length; 
+    const discoveredPlants = userDiscoveries.length;
+
+    // Berechne aufeinanderfolgende Scan-Tage (Streak)
+    const calculateScanStreak = () => {
+      if (userDiscoveries.length === 0) return 0;
+      
+      // Extrahiere alle Scan-Tage (nur Datum, keine Zeit)
+      const scanDates = userDiscoveries
+        .map(d => {
+          const date = new Date(d.discovered_date);
+          return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+        })
+        .filter((value, index, self) => self.indexOf(value) === index) // Unique Tage
+        .sort((a, b) => b - a); // Neueste zuerst
+
+      let maxStreak = 1;
+      let currentStreak = 1;
+      
+      for (let i = 0; i < scanDates.length - 1; i++) {
+        const diffDays = (scanDates[i] - scanDates[i + 1]) / (1000 * 60 * 60 * 24);
+        
+        if (diffDays === 1) {
+          currentStreak++;
+          maxStreak = Math.max(maxStreak, currentStreak);
+        } else {
+          currentStreak = 1;
+        }
+      }
+      
+      return maxStreak;
+    };
+    
+    const longestScanStreak = calculateScanStreak(); 
 
     // As per outline, discoveredGenera is the count of unique genera discovered by the user
     const discoveredGenera = genera.filter(g => {
