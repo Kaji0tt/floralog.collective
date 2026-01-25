@@ -86,6 +86,9 @@ export async function checkAndUnlockRewards(userEmail) {
 
     let newRewardsCount = 0;
 
+    console.log(`[RewardUnlocker] Starte Prüfung von ${allRewards.length} Rewards`);
+    console.log(`[RewardUnlocker] User hat bereits ${userRewards.length} Rewards freigeschaltet`);
+
     // NACHTRÄGLICHE FREISCHALTUNG: Prüfe alle eingelösten Quests und schalte deren Rewards frei
     const redeemedQuests = [
       ...userQuests.filter(uq => uq.redeemed).map(uq => ({ type: 'regular', userQuest: uq })),
