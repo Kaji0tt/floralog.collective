@@ -32,11 +32,11 @@ export default function QuestNotificationDisplay({ notification, onClose, onMark
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -100, opacity: 0 }}
             transition={{ type: "spring", damping: 20 }}
-            className="relative w-full max-w-2xl"
+            className="relative w-full max-w-sm mx-4"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Content Box */}
-            <div className="bg-amber-50 border-4 border-amber-300 rounded-2xl shadow-2xl p-6 max-h-[80vh] overflow-y-auto relative">
+            <div className="bg-amber-50 border-4 border-amber-300 rounded-2xl shadow-2xl p-4 max-h-[80vh] overflow-y-auto relative">
               {/* Close Button */}
               <button
                 onClick={onClose}
@@ -47,19 +47,19 @@ export default function QuestNotificationDisplay({ notification, onClose, onMark
 
               {/* Notification Title */}
               {notification.title && (
-                <h4 className="font-bold text-stone-900 mb-3 text-lg">
+                <h4 className="font-bold text-stone-900 mb-2 text-base pr-8">
                   {notification.title}
                 </h4>
               )}
               
               {/* Notification Message */}
-              <p className="text-base text-stone-700 leading-relaxed mb-3">
+              <p className="text-sm text-stone-700 leading-relaxed mb-2">
                 {notification.message}
               </p>
               
               {/* Notification Description */}
               {notification.description && (
-                <p className="text-sm text-stone-600 mb-3 italic bg-amber-100 p-3 rounded-lg border border-amber-200">
+                <p className="text-xs text-stone-600 mb-2 italic bg-amber-100 p-2 rounded-lg border border-amber-200">
                   {notification.description}
                 </p>
               )}
@@ -67,7 +67,7 @@ export default function QuestNotificationDisplay({ notification, onClose, onMark
               {/* Action Button - nur schließen, keine Navigation */}
               <button
                 onClick={handleAction}
-                className="w-full mt-4 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                className="w-full mt-3 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm"
               >
                 Verstanden
               </button>

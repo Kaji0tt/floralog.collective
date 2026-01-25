@@ -75,7 +75,7 @@ export default function Layout({ children, currentPageName }) {
       {/* {user && <QuestNotificationManager user={user} />} */}
 
       {/* User Notifications System - Hauptsystem für alle benutzerdefinierten Notifications (Onboarding, Quest-Completion, etc.) */}
-      {user && <UserNotificationManager user={user} />}
+      {user && currentPageName === "Home" && <UserNotificationManager user={user} />}
 
       {/* Welcome Dialog für neue Nutzer */}
       {user && <WelcomeNameDialog user={user} onComplete={loadUser} />}
