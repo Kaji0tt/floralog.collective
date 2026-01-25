@@ -50,6 +50,9 @@ export async function checkAndUnlockRewards(userEmail) {
       console.log(`[RewardUnlocker] Unlocking reward: ${reward.display_name}`);
       await base44.entities.UserReward.create({
         reward_id: reward.id,
+        reward_name: reward.display_name,
+        user_email: userEmail,
+        user_name: currentUser?.display_name || currentUser?.full_name || userEmail,
         unlocked_date: new Date().toISOString()
       });
 
