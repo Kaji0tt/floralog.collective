@@ -117,12 +117,28 @@ export async function checkAndUnlockRewards(userEmail) {
 
     // Iteriere durch alle Rewards und prüfe Bedingungen
     for (const reward of allRewards) {
-      if (hasReward(reward.id)) continue;
+      console.log(`[RewardUnlocker] Prüfe Reward: ${reward.display_name} (${reward.name})`);
+      
+      if (hasReward(reward.id)) {
+        console.log(`[RewardUnlocker] ✓ Bereits freigeschaltet: ${reward.display_name}`);
+        continue;
+      }
 
       // Überspringe random_event Rewards - diese werden nur im randomRewardChecker geprüft
       if (reward.random_event && reward.random_chance) {
+        console.log(`[RewardUnlocker] ⏭️ Überspringe Random-Event Reward: ${reward.display_name} (Event: ${reward.random_event}, Chance: ${reward.random_chance})`);
         continue;
       }
+
+      console.log(`[RewardUnlocker] 🔍 Prüfe Bedingungen für: ${reward.display_name}`, {
+        requires_weekly_quests: reward.requires_weekly_quests,
+        requires_monthly_quests: reward.requires_monthly_quests,
+        requires_gifts: reward.requires_gifts,
+        requires_donor: reward.requires_donor,
+        requires_referrals: reward.requires_referrals,
+        requires_rare_plants: reward.requires_rare_plants,
+        requires_quest: reward.requires_quest
+      });
 
       let conditionsMet = true;
 
@@ -168,8 +184,11 @@ export async function checkAndUnlockRewards(userEmail) {
 
       // Wenn alle Bedingungen erfüllt sind, schalte den Reward frei
       if (conditionsMet) {
+        console.log(`[RewardUnlocker] ✅ Alle Bedingungen erfüllt für: ${reward.display_name}`);
         const unlocked = await unlockReward(reward);
         if (unlocked) newRewardsCount++;
+      } else {
+        console.log(`[RewardUnlocker] ❌ Bedingungen nicht erfüllt für: ${reward.display_name}`);
       }
     }
 
