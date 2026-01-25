@@ -37,8 +37,11 @@ export async function checkAndUnlockRewards(userEmail) {
       base44.entities.MonthlyQuest.list()
     ]);
 
+    // Track neu freigeschaltete Rewards lokal
+    const unlockedRewardIds = new Set(userRewards.map(ur => ur.reward_id));
+
     // Helper: Prüfe ob User bereits einen Reward hat
-    const hasReward = (rewardId) => userRewards.some(ur => ur.reward_id === rewardId);
+    const hasReward = (rewardId) => unlockedRewardIds.has(rewardId);
 
     // Helper: Schalte Reward frei
     const unlockReward = async (reward) => {
@@ -49,6 +52,9 @@ export async function checkAndUnlockRewards(userEmail) {
         reward_id: reward.id,
         unlocked_date: new Date().toISOString()
       });
+
+      // Füge zum lokalen Set hinzu
+      unlockedRewardIds.add(reward.id);
 
       // Erstelle Notification
       await base44.entities.UserNotification.create({
