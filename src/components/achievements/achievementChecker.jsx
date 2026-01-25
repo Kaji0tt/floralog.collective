@@ -38,6 +38,41 @@ export async function checkAndUnlockAchievements(user) {
         created_by: user.email
       });
 
+      // Wenn das Achievement einen Reward hat, schalte diesen ebenfalls frei
+      if (achievement.reward_name) {
+        const rewards = await base44.entities.Reward.list();
+        const reward = rewards.find(r => r.name === achievement.reward_name);
+        
+        if (reward) {
+          // Prüfe ob User den Reward bereits hat
+          const userRewards = await base44.entities.UserReward.filter({ created_by: user.email });
+          const hasReward = userRewards.some(ur => ur.reward_id === reward.id);
+          
+          if (!hasReward) {
+            // Schalte Reward frei
+            await base44.entities.UserReward.create({
+              reward_id: reward.id,
+              reward_name: reward.display_name,
+              user_email: user.email,
+              user_name: user.display_name || user.full_name || user.email,
+              unlocked_date: new Date().toISOString()
+            });
+
+            // Erstelle Notification für den Reward
+            await base44.entities.UserNotification.create({
+              user_email: user.email,
+              notification_type: "custom",
+              title: `🎁 Neue Belohnung freigeschaltet!`,
+              message: `Du hast "${reward.display_name}" freigeschaltet!`,
+              image_url: reward.image_url || reward.value,
+              display_location: "banner",
+              priority: "medium",
+              seen: false
+            });
+          }
+        }
+      }
+
       return achievement;
     };
 

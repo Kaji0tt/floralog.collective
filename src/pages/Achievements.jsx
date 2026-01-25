@@ -394,14 +394,14 @@ export default function Achievements() {
     }
   });
 
-  const handleSelectTitle = (achievement) => {
-    setSelectedAchievement(achievement);
+  const handleSelectTitle = (achievement, reward) => {
+    setSelectedAchievement({ ...achievement, selectedReward: reward });
     setShowTitleDialog(true);
   };
 
   const confirmTitleSelection = () => {
-    if (selectedAchievement?.title_reward) {
-      updateTitleMutation.mutate(selectedAchievement.title_reward);
+    if (selectedAchievement?.selectedReward?.value) {
+      updateTitleMutation.mutate(selectedAchievement.selectedReward.value);
     }
   };
 
@@ -732,7 +732,10 @@ export default function Achievements() {
                 {sortedAchievements.map((achievement, index) => {
                     const isUnlocked = userAchievements.some((ua) => ua.achievement_id === achievement.id);
                     const userAchievement = userAchievements.find((ua) => ua.achievement_id === achievement.id);
-                    const isCurrentTitle = user.selected_title === achievement.title_reward;
+                    
+                    // Lade den zugehörigen Reward
+                    const achievementReward = achievement.reward_name ? rewards.find(r => r.name === achievement.reward_name) : null;
+                    const isCurrentTitle = achievementReward?.type === 'title' && user.selected_title === achievementReward.value;
 
                     return (
                       <motion.div
@@ -767,9 +770,9 @@ export default function Achievements() {
                           {achievement.description}
                         </p>
                         
-                        {achievement.title_reward && isUnlocked &&
+                        {achievementReward && achievementReward.type === 'title' && isUnlocked &&
                                 <Button
-                                  onClick={() => handleSelectTitle(achievement)}
+                                  onClick={() => handleSelectTitle(achievement, achievementReward)}
                                   disabled={isCurrentTitle || updateTitleMutation.isPending}
                                   className={`w-full text-[10px] h-6 mt-1 ${
                                   isCurrentTitle ?
@@ -784,7 +787,7 @@ export default function Achievements() {
                                 Aktiv
                               </> :
 
-                                  `Titel: ${achievement.title_reward}`
+                                  `Titel: ${achievementReward.value}`
                                   }
                           </Button>
                                 }
@@ -974,7 +977,7 @@ export default function Achievements() {
           </DialogHeader>
           <div className="py-4">
             <p className="text-stone-700 mb-4">
-              Möchtest du den Titel <strong className="text-purple-700">"{selectedAchievement?.title_reward}"</strong> ausrüsten?
+              Möchtest du den Titel <strong className="text-purple-700">"{selectedAchievement?.selectedReward?.value}"</strong> ausrüsten?
             </p>
             <p className="text-sm text-stone-500 mb-6">
               Dieser Titel wird in deinem Profil und auf der Startseite angezeigt.
