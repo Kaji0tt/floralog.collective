@@ -1143,28 +1143,44 @@ Viel Spaß beim Entdecken! 🌿`;
             </div>
 
             <div className="border-t border-stone-200 pt-4">
-              <h3 className="text-sm font-semibold text-stone-900 mb-2">App teilen</h3>
+              <h3 className="text-sm font-semibold text-stone-900 mb-2">Freund einladen</h3>
               <p className="text-xs text-stone-600 mb-3">
-                Lade jemanden ein, der die App noch nicht nutzt
+                Erstelle einen Einladungslink und teile ihn per WhatsApp, SMS oder E-Mail
               </p>
               <Button
                 onClick={() => {
-                  const email = prompt("📧 E-Mail des Freundes eingeben:");
-                  if (email && email.trim()) {
-                    shareAppMutation.mutate(email.trim());
-                    setShowAddFriendDialog(false);
+                  // Erstelle Referral-Link
+                  const referralCode = encodeURIComponent(user.email);
+                  const referralLink = `https://floralog.de?ref=${referralCode}`;
+                  
+                  // Erstelle Share-Text
+                  const shareText = `Hallo!
+
+${user.display_name || user.full_name} lädt dich zu Floralog ein! 🌱
+
+Floralog ist eine App zum Entdecken und Sammeln von Pflanzen. Scanne Pflanzen in deiner Umgebung, baue deine Sammlung auf und tausche dich mit Freunden aus!
+
+Starte jetzt: ${referralLink}
+
+Viel Spaß beim Entdecken! 🌿`;
+
+                  // Kopiere in Zwischenablage
+                  if (navigator.clipboard) {
+                    navigator.clipboard.writeText(shareText).then(() => {
+                      alert(`✅ Einladungstext wurde in die Zwischenablage kopiert!\n\nSende ihn per WhatsApp, SMS oder E-Mail!\n\nDein Referral-Link: ${referralLink}`);
+                      setShowAddFriendDialog(false);
+                    }).catch(() => {
+                      alert(`✅ Dein Referral-Link: ${referralLink}\n\nKopiere ihn und teile ihn mit deinen Freunden!`);
+                    });
+                  } else {
+                    alert(`✅ Dein Referral-Link: ${referralLink}\n\nKopiere ihn und teile ihn mit deinen Freunden!`);
                   }
                 }}
-                disabled={shareAppMutation.isPending}
                 variant="outline"
                 className="w-full border-2 border-blue-300 text-blue-700 hover:bg-blue-50"
               >
-                {shareAppMutation.isPending ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Share2 className="w-4 h-4 mr-2" />
-                )}
-                Einladung senden
+                <Share2 className="w-4 h-4 mr-2" />
+                Einladungslink kopieren
               </Button>
             </div>
           </div>
