@@ -283,31 +283,37 @@ export default function Friends() {
         invited_email: email,
         status: "pending"
       });
+      return email;
+    },
+    onSuccess: (email) => {
+      queryClient.invalidateQueries({ queryKey: ['referrals'] });
+      
+      // Erstelle Share-Text
+      const shareText = `Hallo!
 
-      // Sende Einladungs-E-Mail
-      await base44.integrations.Core.SendEmail({
-        to: email,
-        subject: `${user.display_name || user.full_name} lädt dich zu PlantDex ein! 🌱`,
-        body: `Hallo!
-
-${user.display_name || user.full_name} möchte PlantDex mit dir teilen!
+${user.display_name || user.full_name} lädt dich zu Floralog ein! 🌱
 
 Floralog ist eine App zum Entdecken und Sammeln von Pflanzen. Scanne Pflanzen in deiner Umgebung, baue deine Sammlung auf und tausche dich mit Freunden aus!
 
-Starte jetzt und scanne deine erste Pflanze: https://plantdex.base44.app
+Starte jetzt: https://floralog.de
 
-Viel Spaß beim Entdecken! 🌿
+Viel Spaß beim Entdecken! 🌿`;
 
-- Dein Floralog Team`
-      });
-    },
-    onSuccess: (data, email) => {
-      queryClient.invalidateQueries({ queryKey: ['referrals'] });
-      alert(`Einladung an ${email} gesendet! 📧`);
+      // Kopiere in Zwischenablage
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(shareText).then(() => {
+          alert(`✅ Einladungstext wurde in die Zwischenablage kopiert!\n\nSende ihn per WhatsApp, SMS oder E-Mail an ${email}!`);
+        }).catch(() => {
+          alert(`✅ Referral für ${email} erstellt!\n\nTeile diesen Link: https://floralog.de`);
+        });
+      } else {
+        alert(`✅ Referral für ${email} erstellt!\n\nTeile diesen Link: https://floralog.de`);
+      }
+      
       setFriendEmail("");
     },
     onError: (error) => {
-      alert(`Fehler beim Versenden: ${error.message}`);
+      alert(`Fehler: ${error.message}`);
     }
   });
 
