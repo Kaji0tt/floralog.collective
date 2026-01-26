@@ -288,6 +288,10 @@ export default function Friends() {
     onSuccess: (email) => {
       queryClient.invalidateQueries({ queryKey: ['referrals'] });
       
+      // Erstelle Referral-Link mit User-Email als Code
+      const referralCode = encodeURIComponent(user.email);
+      const referralLink = `https://floralog.de?ref=${referralCode}`;
+      
       // Erstelle Share-Text
       const shareText = `Hallo!
 
@@ -295,19 +299,19 @@ ${user.display_name || user.full_name} lädt dich zu Floralog ein! 🌱
 
 Floralog ist eine App zum Entdecken und Sammeln von Pflanzen. Scanne Pflanzen in deiner Umgebung, baue deine Sammlung auf und tausche dich mit Freunden aus!
 
-Starte jetzt: https://floralog.de
+Starte jetzt: ${referralLink}
 
 Viel Spaß beim Entdecken! 🌿`;
 
       // Kopiere in Zwischenablage
       if (navigator.clipboard) {
         navigator.clipboard.writeText(shareText).then(() => {
-          alert(`✅ Einladungstext wurde in die Zwischenablage kopiert!\n\nSende ihn per WhatsApp, SMS oder E-Mail an ${email}!`);
+          alert(`✅ Einladungstext wurde in die Zwischenablage kopiert!\n\nSende ihn per WhatsApp, SMS oder E-Mail an ${email}!\n\nDein Referral-Link: ${referralLink}`);
         }).catch(() => {
-          alert(`✅ Referral für ${email} erstellt!\n\nTeile diesen Link: https://floralog.de`);
+          alert(`✅ Referral für ${email} erstellt!\n\nTeile diesen Link: ${referralLink}`);
         });
       } else {
-        alert(`✅ Referral für ${email} erstellt!\n\nTeile diesen Link: https://floralog.de`);
+        alert(`✅ Referral für ${email} erstellt!\n\nTeile diesen Link: ${referralLink}`);
       }
       
       setFriendEmail("");

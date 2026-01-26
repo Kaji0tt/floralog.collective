@@ -38,6 +38,16 @@ export default function Layout({ children, currentPageName }) {
 
   useEffect(() => {
     loadUser();
+    
+    // Referral-Code aus URL extrahieren und speichern
+    const urlParams = new URLSearchParams(window.location.search);
+    const referralCode = urlParams.get('ref');
+    if (referralCode) {
+      localStorage.setItem('referral_code', referralCode);
+      console.log('[Referral] Code gespeichert:', referralCode);
+      // Entferne den Code aus der URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }, []);
 
   return (
