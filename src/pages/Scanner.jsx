@@ -357,32 +357,56 @@ export default function Scanner() {
       
       // Referral-Hintergrund (nur bei erstem Scan)
       if (isFirstScan) {
-        const referrals = await base44.entities.Referral.list();
-        const myReferral = referrals.find(r => r.invited_email?.toLowerCase() === currentUser.email.toLowerCase() && r.status === "pending");
+        console.log('[Referral] Erster Scan erkannt - prüfe Referral-Code...');
+        const referralCode = localStorage.getItem('referral_code');
         
-        if (myReferral) {
-          await base44.entities.Referral.update(myReferral.id, {
-            status: "completed",
-            completed_date: new Date().toISOString()
-          });
-
-          const inviterProfiles = await base44.entities.PublicProfile.list();
-          const inviter = inviterProfiles.find(p => p.user_email?.toLowerCase() === myReferral.invited_by?.toLowerCase());
+        if (referralCode) {
+          console.log('[Referral] Code gefunden:', referralCode);
+          const referrerEmail = decodeURIComponent(referralCode);
           
-          if (inviter) {
-            await base44.entities.PublicProfile.update(inviter.id, {
-              referral_background_unlocked: true
+          // Finde das Referral-Objekt
+          const referrals = await base44.entities.Referral.list();
+          const myReferral = referrals.find(r => 
+            r.invited_by?.toLowerCase() === referrerEmail.toLowerCase() && 
+            r.status === "pending"
+          );
+          
+          if (myReferral) {
+            console.log('[Referral] Referral gefunden - setze auf completed');
+            await base44.entities.Referral.update(myReferral.id, {
+              status: "completed",
+              completed_date: new Date().toISOString()
             });
-          }
 
-          await base44.entities.UserNotification.create({
-            user_email: currentUser.email,
-            notification_type: "custom",
-            title: "🎉 Freund belohnt!",
-            message: "Dein Freund hat den 'Plains' Hintergrund freigeschaltet!",
-            priority: "low",
-            display_location: "banner"
-          });
+            // Lösche den Code aus localStorage
+            localStorage.removeItem('referral_code');
+            console.log('[Referral] Code aus localStorage entfernt');
+
+            // Benachrichtige beide User
+            await base44.entities.UserNotification.create({
+              user_email: currentUser.email,
+              notification_type: "custom",
+              title: "🎉 Erfolgreich eingeladen!",
+              message: "Dein Freund erhält eine Belohnung für deine Einladung!",
+              priority: "low",
+              display_location: "banner"
+            });
+
+            await base44.entities.UserNotification.create({
+              user_email: referrerEmail,
+              notification_type: "custom",
+              title: "🎁 Freund hat gescannt!",
+              message: "Dein eingeladener Freund hat seinen ersten Scan gemacht!",
+              priority: "medium",
+              display_location: "banner"
+            });
+
+            console.log('[Referral] Referral-System erfolgreich abgeschlossen');
+          } else {
+            console.log('[Referral] Kein passendes Referral gefunden');
+          }
+        } else {
+          console.log('[Referral] Kein Referral-Code im localStorage');
         }
       }
 
