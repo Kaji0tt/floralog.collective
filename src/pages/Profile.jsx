@@ -440,17 +440,17 @@ export default function Profile() {
 
   const statButtons = [
     {
-      icon: BookOpen,
+      icon: Leaf,
       label: "Gattungen",
       value: discoveredGenera,
-      color: "from-green-500 to-green-600",
-      textColor: "text-green-700",
-      bgColor: "bg-green-50",
-      borderColor: "border-green-200",
+      color: "from-emerald-500 to-emerald-600",
+      textColor: "text-emerald-700",
+      bgColor: "bg-emerald-50",
+      borderColor: "border-emerald-200",
       onClick: () => navigate(createPageUrl("Collection"))
     },
     {
-      icon: Trophy,
+      icon: BookOpen,
       label: "Erfolge",
       value: userAchievements.length,
       color: "from-amber-500 to-amber-600",
