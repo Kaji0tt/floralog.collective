@@ -551,31 +551,41 @@ export default function Home() {
   const hasNewQuests = availableRegularQuests.length > 0 || availableCollectionQuests.length > 0 ||
     availableWeeklyQuest || availableMonthlyQuest;
 
-  const weeklyDiscoveriesCount = currentWeeklyQuest ? allDiscoveries.filter(d => {
-    const discoveryUser = allUsers.find(u => u.user_email === d.user || u.user_email === d.created_by);
-    if (!discoveryUser) return false;
+  const weeklyParticipantsCount = (() => {
+    if (!currentWeeklyQuest || allDiscoveries.length === 0 || allUsers.length === 0) return 0;
+    
+    const participatingUsers = new Set();
+    
+    allDiscoveries.forEach(d => {
+      const discoveryUser = allUsers.find(u => u.user_email === d.user || u.user_email === d.created_by);
+      if (!discoveryUser) return;
 
-    const plant = plants.find(p => p.id === d.plant_id);
-    if (!plant) return false;
+      const plant = plants.find(p => p.id === d.plant_id);
+      if (!plant) return;
 
-    if (currentWeeklyQuest.target_species_name) {
-      return plant.species_name === currentWeeklyQuest.target_species_name;
-    }
-
-    if (currentWeeklyQuest.target_genus_name) {
-      const genus = genera.find(g => 
-        g.category === plant.genus_category && 
-        g.category_dex_number === plant.genus_number
-      );
-      return genus?.genus_name === currentWeeklyQuest.target_genus_name;
-    }
-
-    if (currentWeeklyQuest.category && currentWeeklyQuest.category !== "Alle") {
-      return plant.genus_category === currentWeeklyQuest.category;
-    }
-
-    return true;
-  }).length : 0;
+      let matches = false;
+      
+      if (currentWeeklyQuest.target_species_name) {
+        matches = plant.species_name === currentWeeklyQuest.target_species_name;
+      } else if (currentWeeklyQuest.target_genus_name) {
+        const genus = genera.find(g => 
+          g.category === plant.genus_category && 
+          g.category_dex_number === plant.genus_number
+        );
+        matches = genus?.genus_name === currentWeeklyQuest.target_genus_name;
+      } else if (currentWeeklyQuest.category && currentWeeklyQuest.category !== "Alle") {
+        matches = plant.genus_category === currentWeeklyQuest.category;
+      } else {
+        matches = true;
+      }
+      
+      if (matches) {
+        participatingUsers.add(discoveryUser.user_email);
+      }
+    });
+    
+    return participatingUsers.size;
+  })();
 
 
 
@@ -611,7 +621,7 @@ export default function Home() {
     {
       icon: Users,
       label: "Community",
-      value: weeklyDiscoveriesCount,
+      value: weeklyParticipantsCount,
       color: "from-blue-500 to-blue-600",
       textColor: "text-blue-700",
       bgColor: "bg-blue-50",
