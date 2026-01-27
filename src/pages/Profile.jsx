@@ -440,24 +440,24 @@ export default function Profile() {
 
   const statButtons = [
     {
-      icon: BookOpen,
+      icon: Leaf,
       label: "Gattungen",
       value: discoveredGenera,
+      color: "from-emerald-500 to-emerald-600",
+      textColor: "text-emerald-700",
+      bgColor: "bg-emerald-50",
+      borderColor: "border-emerald-200",
+      onClick: () => navigate(createPageUrl("Collection"))
+    },
+    {
+      icon: Camera,
+      label: "Scans",
+      value: scannedPlantsCount,
       color: "from-green-500 to-green-600",
       textColor: "text-green-700",
       bgColor: "bg-green-50",
       borderColor: "border-green-200",
       onClick: () => navigate(createPageUrl("Collection"))
-    },
-    {
-      icon: Trophy,
-      label: "Erfolge",
-      value: userAchievements.length,
-      color: "from-amber-500 to-amber-600",
-      textColor: "text-amber-700",
-      bgColor: "bg-amber-50",
-      borderColor: "border-amber-200",
-      onClick: () => navigate(createPageUrl("Achievements"))
     },
     {
       icon: Target,
@@ -467,7 +467,7 @@ export default function Profile() {
       textColor: "text-blue-700",
       bgColor: "bg-blue-50",
       borderColor: "border-blue-200",
-      onClick: () => navigate(createPageUrl("Quests"))
+      onClick: () => navigate(createPageUrl("Achievements"))
     },
     {
       icon: Users,
