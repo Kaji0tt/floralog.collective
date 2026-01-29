@@ -30,7 +30,7 @@ export default function Feedback() {
     try {
       await base44.integrations.Core.SendEmail({
         to: "jascha.kruse@web.de",
-        subject: `PlantDex Feedback von ${name}`,
+        subject: `Floralog Feedback von ${name}`,
         body: `
 Name: ${name}
 E-Mail: ${email}
