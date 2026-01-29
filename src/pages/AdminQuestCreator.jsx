@@ -298,7 +298,7 @@ export default function AdminQuestCreator() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-stone-900 mb-2">Quest Creator</h1>
-          <p className="text-stone-600">Erstelle und verwalte Aufgaben für PlantDex</p>
+          <p className="text-stone-600">Erstelle und verwalte Aufgaben für Floralog</p>
         </div>
 
         {/* Tab Navigation */}
