@@ -215,7 +215,7 @@ export default function FriendCollection() {
             <div className="h-6 w-px bg-stone-200"></div>
             
             <h1 className="text-center flex-1 font-bold text-stone-900 text-xs sm:text-sm md:text-base lg:text-lg px-1 leading-tight line-clamp-2">
-              {friendUser.display_name || friendUser.full_name}'s PlantDex
+              {friendUser.display_name || friendUser.full_name}'s Floralog
             </h1>
             
             <div className="h-6 w-px bg-stone-200"></div>
