@@ -69,7 +69,7 @@ ${message}
             Dein Feedback 💬
           </h1>
           <p className="text-lg text-stone-600 max-w-xl mx-auto">
-            PlantDex befindet sich aktuell noch in der Entwicklung. 
+            Floralog befindet sich aktuell noch in der Entwicklung. 
             Dein Feedback hilft mir, die App stetig zu verbessern!
           </p>
         </motion.div>
