@@ -343,7 +343,7 @@ export default function GenusDetail() {
     const backUrl = friendEmail 
       ? createPageUrl(`FriendCollection?email=${friendEmail}`)
       : createPageUrl("Collection");
-    const backLabel = friendEmail ? "Zurück zum Freundes-PlantDex" : "Zurück zur Sammlung";
+    const backLabel = friendEmail ? "Zurück zum Freundes-Floralog" : "Zurück zur Sammlung";
 
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
