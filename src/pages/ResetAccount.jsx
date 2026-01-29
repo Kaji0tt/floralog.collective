@@ -144,7 +144,7 @@ export default function ResetAccount() {
               Account zurückgesetzt! ✅
             </h2>
             <p className="text-lg text-stone-600 mb-6">
-              Dein PlantDex wurde komplett zurückgesetzt.
+              Dein Floralog wurde komplett zurückgesetzt.
               <br />
               Viel Erfolg beim Neustart! 🌱
             </p>
