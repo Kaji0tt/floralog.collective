@@ -56,7 +56,7 @@ export default function Impressum() {
               <p className="text-sm text-stone-600 leading-relaxed">
                 Die Inhalte dieser App wurden mit größter Sorgfalt erstellt. 
                 Für die Richtigkeit, Vollständigkeit und Aktualität der Inhalte können wir jedoch keine Gewähr übernehmen. 
-                PlantDex dient ausschließlich zu Bildungszwecken und ersetzt keine professionelle botanische Beratung.
+                Floralog dient ausschließlich zu Bildungszwecken und ersetzt keine professionelle botanische Beratung.
               </p>
             </div>
 
