@@ -589,6 +589,11 @@ export default function Home() {
 
 
 
+  const activeQuestsCount = activeRegularQuests.length + 
+    (activeWeeklyQuest ? 1 : 0) + 
+    (activeMonthlyQuest ? 1 : 0) + 
+    activeCollectionQuests.length;
+
   const statButtons = [
     {
       icon: Leaf,
@@ -603,7 +608,7 @@ export default function Home() {
     {
       icon: BookOpen,
       label: "Erfolge",
-      value: userAchievements.length,
+      value: activeQuestsCount,
       color: "from-amber-500 to-amber-600",
       textColor: "text-amber-700",
       bgColor: "bg-amber-50",
