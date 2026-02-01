@@ -116,7 +116,7 @@ export default function Home() {
     refetchOnWindowFocus: false,
   });
 
-  const { data: userWeeklyQuests = [] } = useQuery({
+  const { data: userWeeklyQuests = [], isLoading: isLoadingWeeklyQuests } = useQuery({
     queryKey: ['userWeeklyQuests', user?.email],
     queryFn: () => base44.entities.UserWeeklyQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email,
@@ -133,7 +133,7 @@ export default function Home() {
     refetchOnWindowFocus: false,
   });
 
-  const { data: userMonthlyQuests = [] } = useQuery({
+  const { data: userMonthlyQuests = [], isLoading: isLoadingMonthlyQuests } = useQuery({
     queryKey: ['userMonthlyQuests', user?.email],
     queryFn: () => base44.entities.UserMonthlyQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email,
@@ -150,7 +150,7 @@ export default function Home() {
     refetchOnWindowFocus: false,
   });
 
-  const { data: userCollectionQuests = [] } = useQuery({
+  const { data: userCollectionQuests = [], isLoading: isLoadingCollectionQuests } = useQuery({
     queryKey: ['userCollectionQuests', user?.email],
     queryFn: () => base44.entities.UserCollectionQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email,
@@ -442,7 +442,7 @@ export default function Home() {
     }
   }, [user?.background_image_url, user?.background_color]);
 
-  const isLoadingCriticalData = isLoadingDiscoveries || isLoadingQuests || isLoadingAchievements || isLoadingFriends;
+  const isLoadingCriticalData = isLoadingDiscoveries || isLoadingQuests || isLoadingAchievements || isLoadingFriends || isLoadingWeeklyQuests || isLoadingMonthlyQuests || isLoadingCollectionQuests;
 
   if (!user) {
     return (
