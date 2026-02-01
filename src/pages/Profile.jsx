@@ -460,8 +460,8 @@ export default function Profile() {
       onClick: () => navigate(createPageUrl("Achievements"))
     },
     {
-      icon: Target,
-      label: "Aufgaben",
+      icon: Users,
+      label: "Community",
       value: availableQuests,
       color: "from-blue-500 to-blue-600",
       textColor: "text-blue-700",
@@ -470,7 +470,7 @@ export default function Profile() {
       onClick: () => navigate(createPageUrl("Quests"))
     },
     {
-      icon: Users,
+      icon: Heart,
       label: "Freunde",
       value: friends.length,
       color: "from-purple-500 to-purple-600",
