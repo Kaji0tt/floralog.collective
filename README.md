@@ -11,13 +11,13 @@ Floralog is a React + Vite single-page app for exploratory plant discovery and p
 - `docs/` — documentation and runtime parameter specs (see [docs/APP_PARAMS.md](docs/APP_PARAMS.md)).
 
 ## Core pages (entry points in `src/pages`):
-- **Home** — central hub showing profile, quick-access tiles, and the six core areas: Collection, Achievements, Quests, Friends, Scanner, Map.
-- **Collection** — personal catalogue combining global indices with user photos. Also see `src/components/collection`
-- **Achievements** — personal progress and task lists. Also see `src/components/quests`
-- **Quests / Community** — shared/weekly quests and planned team/room features, statistics.
-- **Friends** — friends list, activity feed, and shared/exchanged scans.
-- **Scanner** — external identification API (Pl@ntNet); presents candidate matches when confidence > 5% in scanResults. `src/components/scanner`
-- **Map** — interactive view of personal and nearby scans (requires location enabled).
+- `Home` — central hub showing profile, quick-access tiles, and the six core areas: `Collection`, `Achievements`, `Quests`, `Friends`, `Scanner`, `Map`.
+- `Collection` — personal catalogue combining global indices with user photos. Also see `src/components/collection`
+- `Achievements` — personal progress and task lists. Also see `src/components/quests`
+- `Quests` / `Community` — shared/weekly quests and planned team/room features, statistics.
+- `Friends` — friends list, activity feed, and shared/exchanged scans.
+- `Scanner` — external identification API (Pl@ntNet); presents candidate matches when confidence > 5% in scanResults. See `src/components/scanner`.
+- `Map` — interactive view of personal and nearby scans (requires location enabled).
 
 ## Additional pages (high-level grouping)
 
