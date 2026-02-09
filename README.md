@@ -1,92 +1,25 @@
 # Floralog
 
-Floralog unterstütz eine explorative Auseinandersetzung mit der Natur.
+Floralog is a React + Vite single-page app for exploratory plant discovery and personal collections. Built with Tailwind CSS and small, composable UI components, it pairs a client-side interface with lightweight serverless functions for integrations (identification, payments, notifications).
 
-Ein einfaches, öffentlich einsehbares Profil verknüpft alle 
-wesentlichen Elemente der Applikation und ermöglicht 
-individuellen Ausdruck.
+Core pages (entry points in `src/pages`):
+- **Home** — central hub showing profile, quick-access tiles, and the six core areas: Collection, Achievements, Quests, Friends, Scanner, Map.
+- **Collection** — personal catalogue combining global indices with user photos. Also see `src/components/collection`
+- **Achievements** — personal progress and task lists. Also see `src/components/quests`
+- **Quests / Community** — shared/weekly quests and planned team/room features, statistics.
+- **Friends** — friends list, activity feed, and shared/exchanged scans.
+- **Scanner** — external identification API (Pl@ntNet); presents candidate matches when confidence > 5% in scanResults. `src/components/scanner`
+- **Map** — interactive view of personal and nearby scans (requires location enabled).
 
-Die Elemente zur Profilgestaltung erlangt der Spieler durch Belohnungen,
-wodurch zum Entdecken angeregt werden soll.
+Project structure (concise):
+- `src/pages` — top-level routes and page logic.
+- `src/components` — feature components and `ui/` primitives.
+- `src/lib`, `src/hooks` — shared utilities and custom hooks (logic separated from presentation).
+- `src/api` — frontend SDK wrappers and API clients.
+- `functions/` — serverless integration functions used by the frontend.
+- `docs/` — documentation and runtime parameter specs (see [docs/APP_PARAMS.md](docs/APP_PARAMS.md)).
 
-## 📄 Floralog Pages
-
-**Home** `src/pages/Home.jsx`
-- Hauptseite mit umrahmender Kachel, Profilbild und Namen des Spielers. Bietet Zugang zu den wichtigsten Funktionen in Form eine übersichtlichen und individualisierbaren UI's.
-Direkter Zugang zu den 6 wesentlichen Kategorien: **Kollektion, Achievements, Quests, Friends, Scanner und Map**
-
-**Kollektion** `src/pages/Collection.jsx`
-- Die persönliche Sammlung. Alle bisher gescannten Pflanzen des globalen Floralogs werden hier für alle Nutzer numerisch hinterlegt. Scans welche der Anwender bereits gefunden hat, werden mit dem persönlichen Bild und Markdown versehen.
-- Wichtige Komponenten: `GenusCard.jsx` - UI zum Anzeigen der Gattung, `PlantCard.jsx` - UI für Pflanzen*
-
-**Erfolge** `src/pages/Achievements.jsx`
-- Hier lassen sich persönliche Erfolge und Aufgaben finden. Quests unterteilt sich weiter in die persönlichen, die wöchentlichen und die monatlichen Quests.
-Relevante Komponenten: *achievementChecker.jsx*
-
-**Community** `src/pages/Quests.jsx`
-- Fallsche Namen, datei heißt "Quests.jsx" da hier früher die Quests angezeigt wurden. Führt zu **Wöchentliche Quest**, **Team** und **Statistiken**. 
-- **Team** bisher nicht integriert. Idee, Räume zu erstellen, in welchen Admins eigene Kollektionen zusammenstellen können umd anschließend Schüler einzuladen, welche dann keine Anmeldung brauchen. Diese Lösung würde die App für den schulischen Gebrauch in der europäischen Zone qualifizieren.
-
-**Freunde** `src/pages/Friends.jsx` 
--  eine Freundesliste. Freunde hinzufügen über Mail. Die Liste zeigt ihre letzten Aktivitäten an. Zeigt außerdem "verschenkte" Scans an. Eine Anlehnung ans Stupsen / Gruscheln, zur Förderung von sozialer Interaktion.
-
-**Scanner** `src/pages/Scanner.jsx`
-- Ermöglicht das Scannen und somit das hinzufügen neuer Pflanzen zum Floralog. Nutzte früher LLM, inzwischen API von Pl@ntNet zum identifizieren und zeigt die Ergebnisse über ScanResults. Wenn die % aus der Pl@ntNet API über 5% liegen, werden die Auswahlmöglichkeiten dem User präsentiert.
-- Wesentliche Komponenten: `CameraCapture.jsx`, `ScanResults.jsx`, `ShareScanDialog.jsx`
-
-**Map** `src/pages/Map.jsx`
-- Interaktive Karte zum Anzeigen von allen persönlichen Scans, allen Scans in der unmittelbaren Umgebung und allen Scans zu einer bestimmten Pflanze. Funktioniert allerdings nur, wenn der User bei den Scans die Standortermittlung angeschaltet hat.
-
-
-
-
-
-
-
-
-# Base44 Floralog (Developer Guide)
-
-Short developer README to orient contributors and prepare the codebase for migration and backend handoff.
-
-## What this project is
-- Frontend SPA (React + Vite) for the Base44 Floralog app. UI built with small custom components and Tailwind.
-- Uses a Base44 SDK (`src/api/base44Client`), `react-query` for data fetching and serverless functions in `functions/` for integrations.
-
-## Quickstart (dev)
-1. Install dependencies:
-
-```bash
-npm install
-```
-
-2. Start dev server:
-
-```bash
-npm run dev
-```
-
-3. Open `http://localhost:5173` (default Vite port).
-
-## Important folders
-- `src/pages` — top-level pages (Scanner, Home, Profile, etc.)
-- `src/components` — UI building blocks and domain components
-- `src/lib` — small shared utilities (e.g. `app-params.js`)
-- `src/api` — SDK wrapper(s) to backend / Base44 client
-- `functions` — serverless functions used by the frontend (see docs in `functions/`)
-
-## ENV / App params
-See `docs/APP_PARAMS.md` which explains `src/lib/app-params.js` and required runtime values.
-
-## Immediate goals for making the code human-readable
-- Add per-folder `README.md` files (we will add a few).
-- Add barrels (`index.js`) for `src/components` and `src/components/ui` to standardize imports.
-- Extract/organize large components into `hooks/` (logic) + `components/` (presentational) files.
-- Add JSDoc/PropTypes for public components and document API contracts for serverless functions.
-
-## Next steps I will do (if you confirm)
-- Create `docs/APP_PARAMS.md` (done).
-- Add barrels for `src/components` and `src/components/ui` (done).
-- Add a `useScanner` hook skeleton and a plan to split `src/pages/Scanner.jsx` into smaller files.
-
-If you want, I can now create issue-ready tasks or continue and apply the Scanner split skeleton into separate files; tell me which option you prefer.
-# Base44 App
+Backend entities
+- Persistent entities and authoritative schemas live server-side and are not included in this frontend repo. 
+To add them here, export API schemas (OpenAPI / JSON Schema) or example responses; 
+- will be possible from 13.02 onwards
