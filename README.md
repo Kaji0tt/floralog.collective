@@ -15,32 +15,32 @@ Alle Seiten lassen sich finden unter:
 - `src/pages/` 
 Die Folgende Liste geht auf die Wichtigsten Seiten, ihre Funktionen und Verknüpfungen ein:
 
-### Home
+1. Home
 - `src/pages/Home.jsx` — Hauptseite mit umrahmender Kachel, Profilbild und Namen des Spielers. Bietet Zugang zu den wichtigsten Funktionen in Form eine übersichtlichen und individualisierbaren UI's.
 Direkter Zugang zu den 6 wesentlichen Kategorien: **Kollektion, Achievements, Quests, Friends, Scanner und Map**
 
-### Kollektion
+2. Kollektion
 - `src/pages/Collection.jsx` — Die persönliche Sammlung. Alle bisher gescannten Pflanzen des globalen Floralogs werden hier für alle Nutzer numerisch hinterlegt. Scans welche der Anwender bereits gefunden hat, werden mit dem persönlichen Bild und Markdown versehen.
-Wichtige Komponenten: *GenusCard.jsx - für das UI zum Anzeigen aller Arten einer bestimmten Gattung, PlantCard.jsx als UI für einzelne Pflanzen*
+- Wichtige Komponenten: `GenusCard.jsx` - UI zum Anzeigen der Gattung, `PlantCard.jsx` - UI für Pflanzen*
 
-### Erfolge
+3. Erfolge
 - `src/pages/Achievements.jsx` — Hier lassen sich persönliche Erfolge und Aufgaben finden. Quests unterteilt sich weiter in die persönlichen, die wöchentlichen und die monatlichen Quests.
 Relevante Komponenten: *achievementChecker.jsx*
 
-### Community
+4. Community
 - `src/pages/Quests.jsx` — Eigentlich ein Fehler in der Namensconvention. Unter "Quests.jsx" konnte der Spieler früher seinen Questfortschritt einsehen und die einzelnen Quests abgeben. Das Segment heißt inzwischen "Community" und dient der übersicht 3 wesentlicher Elemente:
 **Wöchentliche Quest** - alle Beiträge zur wöchentlichen Quests werden hier für die Community einsehbar gelistet.
 **Team** - bisher nicht integriert. Ich hatte die Idee, Räume zu erstellen, in welche Admins eigene Kollektionen zusammenstellen und Schülerinnen und Schüler einladen kann, ohne dass diese sich anmelden müssen. Diese Lösung würde die App für den schulischen Gebrauch in der europäischen Zone qualifizieren.
 **Statistiken** - zeigt Statistiken der Community, wie die häufigste Pflanze diesen Monat oder die häufigsten Scans.
 
-### Freunde
+5. Freunde
 - `src/pages/Friends.jsx` - eine Freundesliste. Freunde hinzufügen über Mail. Die Liste zeigt ihre letzten Aktivitäten an. Zeigt außerdem "verschenkte" Scans an. Eine Anlehnung ans Stupsen / Gruscheln, zur Förderung von sozialer Interaktion.
 
-### Scanner 
+6. Scanner 
 - `src/pages/Scanner.jsx` - Ermöglicht das Scannen und somit das hinzufügen neuer Pflanzen zum Floralog. Nutzte früher LLM, inzwischen API von Pl@ntNet zum identifizieren und zeigt die Ergebnisse über ScanResults. Wenn die % aus der Pl@ntNet API über 5% liegen, werden die Auswahlmöglichkeiten dem User präsentiert.
-Wesentliche Komponenten: *CameraCapture.jsx, ScanResults.jsx, ShareScanDialog.jsx*
+- Wesentliche Komponenten: `CameraCapture.jsx`, `ScanResults.jsx`, `ShareScanDialog.jsx`
 
-### Map 
+7. Map 
 - `src/pages/Map.jsx` - Interaktive Karte zum Anzeigen von allen persönlichen Scans, allen Scans in der unmittelbaren Umgebung und allen Scans zu einer bestimmten Pflanze. Funktioniert allerdings nur, wenn der User bei den Scans die Standortermittlung angeschaltet hat.
 
 
