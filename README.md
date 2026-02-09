@@ -37,7 +37,7 @@ Floralog is a React + Vite single-page app for exploratory plant discovery and p
 - **Other important pages**
 	- `Privacy` / `Datenschutz` — legal privacy notice and data handling details.
 	- `Feedback` — user feedback form and bug reporting.
-	- `Donate` — donation flow and payment info.
+	- `Donate` — donation flow and payment info. Uses PayPal API
 	- `Impressum` — legal imprint / publisher information.
 
 Remaining pages in `src/pages` are mostly utility, migration, or debug helpers (e.g., import/migration tools, debug views). These are lower-priority "leftovers" but can be documented individually on request.
