@@ -24,10 +24,8 @@ Direkter Zugang zu den 6 wesentlichen Kategorien: **Kollektion, Achievements, Qu
 Relevante Komponenten: *achievementChecker.jsx*
 
 **Community** `src/pages/Quests.jsx`
-- Eigentlich ein Fehler in der Namensconvention. Unter "Quests.jsx" konnte der Spieler früher seinen Questfortschritt einsehen und die einzelnen Quests abgeben. Das Segment heißt inzwischen "Community" und dient der übersicht 3 wesentlicher Elemente:
-**Wöchentliche Quest** - alle Beiträge zur wöchentlichen Quests werden hier für die Community einsehbar gelistet.
-**Team** - bisher nicht integriert. Ich hatte die Idee, Räume zu erstellen, in welche Admins eigene Kollektionen zusammenstellen und Schülerinnen und Schüler einladen kann, ohne dass diese sich anmelden müssen. Diese Lösung würde die App für den schulischen Gebrauch in der europäischen Zone qualifizieren.
-**Statistiken** - zeigt Statistiken der Community, wie die häufigste Pflanze diesen Monat oder die häufigsten Scans.
+- Fallsche Namen, datei heißt "Quests.jsx" da hier früher die Quests angezeigt wurden. Führt zu **Wöchentliche Quest**, **Team** und **Statistiken**. 
+- **Team** bisher nicht integriert. Idee, Räume zu erstellen, in welchen Admins eigene Kollektionen zusammenstellen können umd anschließend Schüler einzuladen, welche dann keine Anmeldung brauchen. Diese Lösung würde die App für den schulischen Gebrauch in der europäischen Zone qualifizieren.
 
 **Freunde** `src/pages/Friends.jsx` 
 -  eine Freundesliste. Freunde hinzufügen über Mail. Die Liste zeigt ihre letzten Aktivitäten an. Zeigt außerdem "verschenkte" Scans an. Eine Anlehnung ans Stupsen / Gruscheln, zur Förderung von sozialer Interaktion.
