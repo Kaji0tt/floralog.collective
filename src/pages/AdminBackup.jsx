@@ -302,42 +302,59 @@ export default function AdminBackup() {
                 <div key={entityName} className="border border-stone-200 rounded-lg p-4 bg-white">
                   <h3 className="font-semibold text-stone-900 mb-3">{entityName}</h3>
                   
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 mb-2">
                     <Button
-                      onClick={() => exportEntity(entityName)}
+                      onClick={() => exportEntity(entityName, 'json')}
                       disabled={exportStatus[entityName] === 'loading'}
                       variant="outline"
                       size="sm"
                       className="flex-1"
+                      title="JSON exportieren"
                     >
                       {exportStatus[entityName] === 'loading' ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : exportStatus[entityName] === 'success' ? (
                         <CheckCircle className="w-4 h-4 text-green-600" />
                       ) : (
-                        <Download className="w-4 h-4" />
+                        <>
+                          <Download className="w-4 h-4 mr-1" />
+                          JSON
+                        </>
                       )}
                     </Button>
                     
-                    <label className="flex-1">
-                      <input
-                        type="file"
-                        accept=".json"
-                        onChange={(e) => handleImport(e, entityName)}
-                        disabled={importing}
-                        className="hidden"
-                      />
-                      <Button
-                        as="span"
-                        variant="outline"
-                        size="sm"
-                        className="w-full cursor-pointer"
-                        disabled={importing}
-                      >
-                        <Upload className="w-4 h-4" />
-                      </Button>
-                    </label>
+                    <Button
+                      onClick={() => exportEntity(entityName, 'csv')}
+                      disabled={exportStatus[entityName] === 'loading'}
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      title="CSV exportieren"
+                    >
+                      <Download className="w-4 h-4 mr-1" />
+                      CSV
+                    </Button>
                   </div>
+                  
+                  <label className="w-full">
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={(e) => handleImport(e, entityName)}
+                      disabled={importing}
+                      className="hidden"
+                    />
+                    <Button
+                      as="span"
+                      variant="outline"
+                      size="sm"
+                      className="w-full cursor-pointer"
+                      disabled={importing}
+                    >
+                      <Upload className="w-4 h-4 mr-1" />
+                      Import
+                    </Button>
+                  </label>
                 </div>
               ))}
             </div>
