@@ -50,22 +50,63 @@ export default function AdminBackup() {
     'WeeklyQuest'
   ];
 
-  const exportEntity = async (entityName) => {
+  const exportToCSV = (data, filename) => {
+    if (!data || data.length === 0) {
+      alert('Keine Daten zum Exportieren vorhanden.');
+      return;
+    }
+
+    // Get all unique keys from all objects
+    const allKeys = [...new Set(data.flatMap(obj => Object.keys(obj)))];
+    
+    // CSV Header
+    const csvHeaders = allKeys.join(',');
+    
+    // CSV Rows
+    const csvRows = data.map(row => {
+      return allKeys.map(key => {
+        const value = row[key];
+        // Escape values with commas or quotes
+        if (value === null || value === undefined) return '';
+        const stringValue = String(value);
+        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+          return `"${stringValue.replace(/"/g, '""')}"`;
+        }
+        return stringValue;
+      }).join(',');
+    });
+
+    const csv = [csvHeaders, ...csvRows].join('\n');
+    
+    // Download
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
+  const exportEntity = async (entityName, format = 'json') => {
     try {
       setExportStatus(prev => ({ ...prev, [entityName]: 'loading' }));
       
       const data = await base44.entities[entityName].list();
       
-      const jsonStr = JSON.stringify(data, null, 2);
-      const blob = new Blob([jsonStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${entityName}_backup_${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      if (format === 'csv') {
+        exportToCSV(data, `${entityName}_backup_${new Date().toISOString().split('T')[0]}.csv`);
+      } else {
+        const jsonStr = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${entityName}_backup_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
       
       setExportStatus(prev => ({ ...prev, [entityName]: 'success' }));
       setTimeout(() => {
