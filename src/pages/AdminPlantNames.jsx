@@ -32,45 +32,16 @@ export default function AdminPlantNames() {
     },
   });
 
-  const autoFixMutation = useMutation({
-    mutationFn: async ({ plantId, genusId }) => {
-      const genus = genera.find(g => g.id === genusId);
-      if (!genus) throw new Error("Gattung nicht gefunden");
-
-      const genusPlants = plants.filter(p => p.genus_id === genusId);
-      
-      // Wenn mehrere Arten in Gattung: nutze Gattungsname
-      // Wenn nur eine Art: nutze Artname (frage LLM)
-      let germanName;
-      
-      if (genusPlants.length > 1) {
-        germanName = genus.genus_name;
-      } else {
-        // Frage LLM nach deutschem Artnamen
-        const plant = plants.find(p => p.id === plantId);
-        const result = await base44.integrations.Core.InvokeLLM({
-          prompt: `Gib mir nur den deutschen Artnamen für: ${plant.scientific_name}. Nur der Name, keine Erklärung!`,
-        });
-        germanName = result.trim();
-      }
-
-      return base44.entities.Plant.update(plantId, {
-        species_name: germanName
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['plants'] });
-    },
+  // Filtere Pflanzen nach Suchbegriff
+  const filteredPlants = plants.filter(plant => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      plant.species_name?.toLowerCase().includes(query) ||
+      plant.scientific_name?.toLowerCase().includes(query) ||
+      genera.find(g => g.id === plant.genus_id)?.genus_name?.toLowerCase().includes(query)
+    );
   });
-
-  // Erkenne lateinische Namen (vereinfacht: wenn Name mit Großbuchstaben beginnt und Leerzeichen enthält)
-  const needsFixing = (plant) => {
-    const name = plant.species_name || "";
-    // Prüfe ob es wie ein lateinischer Name aussieht (z.B. "Pyracantha coccinea")
-    return name.includes(' ') && /^[A-Z][a-z]+ [a-z]+/.test(name);
-  };
-
-  const plantsNeedingFix = plants.filter(needsFixing);
 
   if (isLoading) {
     return (
