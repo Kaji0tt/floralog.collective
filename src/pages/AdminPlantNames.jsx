@@ -56,28 +56,47 @@ export default function AdminPlantNames() {
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-stone-900 mb-3">
-            Pflanzennamen korrigieren 🔧
+            Pflanzennamen bearbeiten 🔧
           </h1>
           <p className="text-lg text-stone-600">
-            {plantsNeedingFix.length} Pflanzen mit lateinischen Namen gefunden
+            {plants.length} Pflanzen im Floralog
           </p>
         </div>
 
-        {plantsNeedingFix.length === 0 ? (
-          <Card className="border-2 border-green-200">
+        <Card className="mb-6 border-2 border-green-200">
+          <CardContent className="p-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-stone-400 w-5 h-5" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Suche nach Pflanzennamen (deutsch, lateinisch oder Gattung)..."
+                className="pl-10 text-lg"
+              />
+            </div>
+            {searchQuery && (
+              <p className="text-sm text-stone-600 mt-2">
+                {filteredPlants.length} {filteredPlants.length === 1 ? 'Pflanze' : 'Pflanzen'} gefunden
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {filteredPlants.length === 0 ? (
+          <Card className="border-2 border-stone-200">
             <CardContent className="p-8 text-center">
-              <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
+              <Search className="w-16 h-16 text-stone-400 mx-auto mb-4" />
               <h3 className="text-xl font-bold text-stone-900 mb-2">
-                Alle Namen sind korrekt! ✅
+                Keine Pflanzen gefunden
               </h3>
               <p className="text-stone-600">
-                Keine Pflanzen mit lateinischen Namen gefunden.
+                Versuche einen anderen Suchbegriff.
               </p>
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-4">
-            {plantsNeedingFix.map((plant) => {
+            {filteredPlants.map((plant) => {
               const genus = genera.find(g => g.id === plant.genus_id);
               const isEditing = editingId === plant.id;
 
