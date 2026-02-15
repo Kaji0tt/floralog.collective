@@ -5,12 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Edit, Loader2 } from "lucide-react";
+import { CheckCircle, Edit, Loader2, Search } from "lucide-react";
 
 export default function AdminPlantNames() {
   const queryClient = useQueryClient();
   const [editingId, setEditingId] = useState(null);
   const [newName, setNewName] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: plants = [], isLoading } = useQuery({
     queryKey: ['plants'],
