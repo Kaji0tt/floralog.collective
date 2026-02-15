@@ -103,6 +103,24 @@ export default function AdminPlantNames() {
 
         <Card className="mb-6 border-2 border-green-200">
           <CardContent className="p-6">
+            <div className="flex gap-3 mb-4">
+              <Button
+                onClick={handleExportPlants}
+                variant="outline"
+                className="flex-1"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Plants CSV exportieren
+              </Button>
+              <Button
+                onClick={handleExportGenera}
+                variant="outline"
+                className="flex-1"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Genera CSV exportieren
+              </Button>
+            </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-stone-400 w-5 h-5" />
               <Input
