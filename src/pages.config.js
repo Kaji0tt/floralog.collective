@@ -48,6 +48,7 @@
  * The mainPage value must match a key in the PAGES object exactly.
  */
 import Achievements from './pages/Achievements';
+import AdminBackup from './pages/AdminBackup';
 import AdminBlumenList from './pages/AdminBlumenList';
 import AdminCategoryFix from './pages/AdminCategoryFix';
 import AdminFixDuplicateGenusNumbers from './pages/AdminFixDuplicateGenusNumbers';
@@ -88,6 +89,7 @@ import __Layout from './Layout.jsx';
 
 export const PAGES = {
     "Achievements": Achievements,
+    "AdminBackup": AdminBackup,
     "AdminBlumenList": AdminBlumenList,
     "AdminCategoryFix": AdminCategoryFix,
     "AdminFixDuplicateGenusNumbers": AdminFixDuplicateGenusNumbers,

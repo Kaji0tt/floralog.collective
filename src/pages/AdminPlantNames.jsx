@@ -5,12 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Edit, Loader2 } from "lucide-react";
+import { CheckCircle, Edit, Loader2, Search, Download } from "lucide-react";
 
 export default function AdminPlantNames() {
   const queryClient = useQueryClient();
   const [editingId, setEditingId] = useState(null);
   const [newName, setNewName] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: plants = [], isLoading } = useQuery({
     queryKey: ['plants'],
@@ -31,45 +32,54 @@ export default function AdminPlantNames() {
     },
   });
 
-  const autoFixMutation = useMutation({
-    mutationFn: async ({ plantId, genusId }) => {
-      const genus = genera.find(g => g.id === genusId);
-      if (!genus) throw new Error("Gattung nicht gefunden");
+  const exportToCSV = (data, filename, headers) => {
+    // CSV Header
+    const csvHeaders = headers.join(',');
+    
+    // CSV Rows
+    const csvRows = data.map(row => {
+      return headers.map(header => {
+        const value = row[header];
+        // Escape values with commas or quotes
+        if (value === null || value === undefined) return '';
+        const stringValue = String(value);
+        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+          return `"${stringValue.replace(/"/g, '""')}"`;
+        }
+        return stringValue;
+      }).join(',');
+    });
 
-      const genusPlants = plants.filter(p => p.genus_id === genusId);
-      
-      // Wenn mehrere Arten in Gattung: nutze Gattungsname
-      // Wenn nur eine Art: nutze Artname (frage LLM)
-      let germanName;
-      
-      if (genusPlants.length > 1) {
-        germanName = genus.genus_name;
-      } else {
-        // Frage LLM nach deutschem Artnamen
-        const plant = plants.find(p => p.id === plantId);
-        const result = await base44.integrations.Core.InvokeLLM({
-          prompt: `Gib mir nur den deutschen Artnamen für: ${plant.scientific_name}. Nur der Name, keine Erklärung!`,
-        });
-        germanName = result.trim();
-      }
-
-      return base44.entities.Plant.update(plantId, {
-        species_name: germanName
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['plants'] });
-    },
-  });
-
-  // Erkenne lateinische Namen (vereinfacht: wenn Name mit Großbuchstaben beginnt und Leerzeichen enthält)
-  const needsFixing = (plant) => {
-    const name = plant.species_name || "";
-    // Prüfe ob es wie ein lateinischer Name aussieht (z.B. "Pyracantha coccinea")
-    return name.includes(' ') && /^[A-Z][a-z]+ [a-z]+/.test(name);
+    const csv = [csvHeaders, ...csvRows].join('\n');
+    
+    // Download
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
   };
 
-  const plantsNeedingFix = plants.filter(needsFixing);
+  const handleExportPlants = () => {
+    const headers = ['id', 'genus_category', 'genus_number', 'species_name', 'scientific_name', 'description', 'habitat', 'identification_features', 'flowering_period', 'distribution', 'fun_fact', 'rarity', 'created_date', 'updated_date', 'created_by'];
+    exportToCSV(plants, 'floralog_plants.csv', headers);
+  };
+
+  const handleExportGenera = () => {
+    const headers = ['id', 'category_dex_number', 'genus_name', 'scientific_genus', 'category', 'family', 'description', 'created_date', 'updated_date', 'created_by'];
+    exportToCSV(genera, 'floralog_genera.csv', headers);
+  };
+
+  // Filtere Pflanzen nach Suchbegriff
+  const filteredPlants = plants.filter(plant => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      plant.species_name?.toLowerCase().includes(query) ||
+      plant.scientific_name?.toLowerCase().includes(query) ||
+      genera.find(g => g.id === plant.genus_id)?.genus_name?.toLowerCase().includes(query)
+    );
+  });
 
   if (isLoading) {
     return (
@@ -84,34 +94,71 @@ export default function AdminPlantNames() {
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-stone-900 mb-3">
-            Pflanzennamen korrigieren 🔧
+            Pflanzennamen bearbeiten 🔧
           </h1>
           <p className="text-lg text-stone-600">
-            {plantsNeedingFix.length} Pflanzen mit lateinischen Namen gefunden
+            {plants.length} Pflanzen im Floralog
           </p>
         </div>
 
-        {plantsNeedingFix.length === 0 ? (
-          <Card className="border-2 border-green-200">
+        <Card className="mb-6 border-2 border-green-200">
+          <CardContent className="p-6">
+            <div className="flex gap-3 mb-4">
+              <Button
+                onClick={handleExportPlants}
+                variant="outline"
+                className="flex-1"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Plants CSV exportieren
+              </Button>
+              <Button
+                onClick={handleExportGenera}
+                variant="outline"
+                className="flex-1"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Genera CSV exportieren
+              </Button>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-stone-400 w-5 h-5" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Suche nach Pflanzennamen (deutsch, lateinisch oder Gattung)..."
+                className="pl-10 text-lg"
+              />
+            </div>
+            {searchQuery && (
+              <p className="text-sm text-stone-600 mt-2">
+                {filteredPlants.length} {filteredPlants.length === 1 ? 'Pflanze' : 'Pflanzen'} gefunden
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {filteredPlants.length === 0 ? (
+          <Card className="border-2 border-stone-200">
             <CardContent className="p-8 text-center">
-              <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
+              <Search className="w-16 h-16 text-stone-400 mx-auto mb-4" />
               <h3 className="text-xl font-bold text-stone-900 mb-2">
-                Alle Namen sind korrekt! ✅
+                Keine Pflanzen gefunden
               </h3>
               <p className="text-stone-600">
-                Keine Pflanzen mit lateinischen Namen gefunden.
+                Versuche einen anderen Suchbegriff.
               </p>
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-4">
-            {plantsNeedingFix.map((plant) => {
+            {filteredPlants.map((plant) => {
               const genus = genera.find(g => g.id === plant.genus_id);
               const isEditing = editingId === plant.id;
 
               return (
-                <Card key={plant.id} className="border-2 border-orange-200">
-                  <CardHeader className="bg-orange-50">
+                <Card key={plant.id} className="border-2 border-green-200 hover:border-green-400 transition-colors">
+                  <CardHeader className="bg-green-50">
                     <CardTitle className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         {plant.image_url && (
@@ -143,8 +190,9 @@ export default function AdminPlantNames() {
                         <Input
                           value={newName}
                           onChange={(e) => setNewName(e.target.value)}
-                          placeholder="Neuer deutscher Name"
+                          placeholder="Deutscher Pflanzenname"
                           className="flex-1"
+                          autoFocus
                         />
                         <Button
                           onClick={() => {
@@ -154,8 +202,13 @@ export default function AdminPlantNames() {
                             });
                           }}
                           disabled={!newName || updatePlantMutation.isPending}
+                          className="bg-green-600 hover:bg-green-700"
                         >
-                          Speichern
+                          {updatePlantMutation.isPending ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            "Speichern"
+                          )}
                         </Button>
                         <Button
                           variant="outline"
@@ -168,33 +221,17 @@ export default function AdminPlantNames() {
                         </Button>
                       </div>
                     ) : (
-                      <div className="flex gap-3">
-                        <Button
-                          onClick={() => {
-                            setEditingId(plant.id);
-                            setNewName(genus?.genus_name || "");
-                          }}
-                          variant="outline"
-                          className="flex-1"
-                        >
-                          <Edit className="w-4 h-4 mr-2" />
-                          Manuell ändern
-                        </Button>
-                        <Button
-                          onClick={() => autoFixMutation.mutate({
-                            plantId: plant.id,
-                            genusId: plant.genus_id
-                          })}
-                          disabled={autoFixMutation.isPending}
-                          className="flex-1 bg-green-600 hover:bg-green-700"
-                        >
-                          {autoFixMutation.isPending ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          ) : (
-                            "✨ Auto-Korrektur"
-                          )}
-                        </Button>
-                      </div>
+                      <Button
+                        onClick={() => {
+                          setEditingId(plant.id);
+                          setNewName(plant.species_name || "");
+                        }}
+                        variant="outline"
+                        className="w-full"
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        Namen bearbeiten
+                      </Button>
                     )}
                   </CardContent>
                 </Card>
