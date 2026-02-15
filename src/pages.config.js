@@ -48,6 +48,7 @@
  * The mainPage value must match a key in the PAGES object exactly.
  */
 import Achievements from './pages/Achievements';
+import AdminBackup from './pages/AdminBackup';
 import AdminBlumenList from './pages/AdminBlumenList';
 import AdminCategoryFix from './pages/AdminCategoryFix';
 import AdminFixDuplicateGenusNumbers from './pages/AdminFixDuplicateGenusNumbers';
@@ -83,12 +84,12 @@ import ResetToLevel5 from './pages/ResetToLevel5';
 import Scanner from './pages/Scanner';
 import ViewSharedScan from './pages/ViewSharedScan';
 import XPMigration from './pages/XPMigration';
-import AdminBackup from './pages/AdminBackup';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
     "Achievements": Achievements,
+    "AdminBackup": AdminBackup,
     "AdminBlumenList": AdminBlumenList,
     "AdminCategoryFix": AdminCategoryFix,
     "AdminFixDuplicateGenusNumbers": AdminFixDuplicateGenusNumbers,
@@ -124,7 +125,6 @@ export const PAGES = {
     "Scanner": Scanner,
     "ViewSharedScan": ViewSharedScan,
     "XPMigration": XPMigration,
-    "AdminBackup": AdminBackup,
 }
 
 export const pagesConfig = {
