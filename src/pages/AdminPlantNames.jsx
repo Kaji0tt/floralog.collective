@@ -32,6 +32,44 @@ export default function AdminPlantNames() {
     },
   });
 
+  const exportToCSV = (data, filename, headers) => {
+    // CSV Header
+    const csvHeaders = headers.join(',');
+    
+    // CSV Rows
+    const csvRows = data.map(row => {
+      return headers.map(header => {
+        const value = row[header];
+        // Escape values with commas or quotes
+        if (value === null || value === undefined) return '';
+        const stringValue = String(value);
+        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+          return `"${stringValue.replace(/"/g, '""')}"`;
+        }
+        return stringValue;
+      }).join(',');
+    });
+
+    const csv = [csvHeaders, ...csvRows].join('\n');
+    
+    // Download
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+  };
+
+  const handleExportPlants = () => {
+    const headers = ['id', 'genus_category', 'genus_number', 'species_name', 'scientific_name', 'description', 'habitat', 'identification_features', 'flowering_period', 'distribution', 'fun_fact', 'rarity', 'created_date', 'updated_date', 'created_by'];
+    exportToCSV(plants, 'floralog_plants.csv', headers);
+  };
+
+  const handleExportGenera = () => {
+    const headers = ['id', 'category_dex_number', 'genus_name', 'scientific_genus', 'category', 'family', 'description', 'created_date', 'updated_date', 'created_by'];
+    exportToCSV(genera, 'floralog_genera.csv', headers);
+  };
+
   // Filtere Pflanzen nach Suchbegriff
   const filteredPlants = plants.filter(plant => {
     if (!searchQuery) return true;
