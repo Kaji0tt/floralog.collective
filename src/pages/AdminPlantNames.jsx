@@ -101,8 +101,8 @@ export default function AdminPlantNames() {
               const isEditing = editingId === plant.id;
 
               return (
-                <Card key={plant.id} className="border-2 border-orange-200">
-                  <CardHeader className="bg-orange-50">
+                <Card key={plant.id} className="border-2 border-green-200 hover:border-green-400 transition-colors">
+                  <CardHeader className="bg-green-50">
                     <CardTitle className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         {plant.image_url && (
@@ -134,8 +134,9 @@ export default function AdminPlantNames() {
                         <Input
                           value={newName}
                           onChange={(e) => setNewName(e.target.value)}
-                          placeholder="Neuer deutscher Name"
+                          placeholder="Deutscher Pflanzenname"
                           className="flex-1"
+                          autoFocus
                         />
                         <Button
                           onClick={() => {
@@ -145,8 +146,13 @@ export default function AdminPlantNames() {
                             });
                           }}
                           disabled={!newName || updatePlantMutation.isPending}
+                          className="bg-green-600 hover:bg-green-700"
                         >
-                          Speichern
+                          {updatePlantMutation.isPending ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            "Speichern"
+                          )}
                         </Button>
                         <Button
                           variant="outline"
@@ -159,33 +165,17 @@ export default function AdminPlantNames() {
                         </Button>
                       </div>
                     ) : (
-                      <div className="flex gap-3">
-                        <Button
-                          onClick={() => {
-                            setEditingId(plant.id);
-                            setNewName(genus?.genus_name || "");
-                          }}
-                          variant="outline"
-                          className="flex-1"
-                        >
-                          <Edit className="w-4 h-4 mr-2" />
-                          Manuell ändern
-                        </Button>
-                        <Button
-                          onClick={() => autoFixMutation.mutate({
-                            plantId: plant.id,
-                            genusId: plant.genus_id
-                          })}
-                          disabled={autoFixMutation.isPending}
-                          className="flex-1 bg-green-600 hover:bg-green-700"
-                        >
-                          {autoFixMutation.isPending ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          ) : (
-                            "✨ Auto-Korrektur"
-                          )}
-                        </Button>
-                      </div>
+                      <Button
+                        onClick={() => {
+                          setEditingId(plant.id);
+                          setNewName(plant.species_name || "");
+                        }}
+                        variant="outline"
+                        className="w-full"
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        Namen bearbeiten
+                      </Button>
                     )}
                   </CardContent>
                 </Card>
