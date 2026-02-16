@@ -87,6 +87,40 @@ export default function AdminBackup() {
     URL.revokeObjectURL(link.href);
   };
 
+  const exportUsers = async (format = 'json') => {
+    try {
+      setExportStatus(prev => ({ ...prev, 'User': 'loading' }));
+      
+      const users = await base44.entities.User.list();
+      
+      if (format === 'csv') {
+        exportToCSV(users, `Users_backup_${new Date().toISOString().split('T')[0]}.csv`);
+      } else {
+        const jsonStr = JSON.stringify(users, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Users_backup_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+      
+      setExportStatus(prev => ({ ...prev, 'User': 'success' }));
+      setTimeout(() => {
+        setExportStatus(prev => ({ ...prev, 'User': null }));
+      }, 3000);
+    } catch (error) {
+      console.error('Fehler beim Export von Users:', error);
+      setExportStatus(prev => ({ ...prev, 'User': 'error' }));
+      setTimeout(() => {
+        setExportStatus(prev => ({ ...prev, 'User': null }));
+      }, 3000);
+    }
+  };
+
   const exportEntity = async (entityName, format = 'json') => {
     try {
       setExportStatus(prev => ({ ...prev, [entityName]: 'loading' }));
