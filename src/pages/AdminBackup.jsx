@@ -285,6 +285,47 @@ export default function AdminBackup() {
           </AlertDescription>
         </Alert>
 
+        {/* User-Daten Export */}
+        <Card className="mb-6 border-2 border-blue-300 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50">
+            <CardTitle className="flex items-center gap-2 text-blue-900">
+              <Users className="w-6 h-6" />
+              User-Daten
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            <p className="text-sm text-stone-600 mb-4">
+              Exportiert alle registrierten User (E-Mail, Name, Rolle, etc.).
+            </p>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => exportUsers('json')}
+                disabled={exportStatus.User === 'loading'}
+                variant="outline"
+                className="flex-1"
+              >
+                {exportStatus.User === 'loading' ? (
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                ) : exportStatus.User === 'success' ? (
+                  <CheckCircle className="w-5 h-5 mr-2 text-green-600" />
+                ) : (
+                  <Download className="w-5 h-5 mr-2" />
+                )}
+                JSON Export
+              </Button>
+              <Button
+                onClick={() => exportUsers('csv')}
+                disabled={exportStatus.User === 'loading'}
+                variant="outline"
+                className="flex-1"
+              >
+                <Download className="w-5 h-5 mr-2" />
+                CSV Export
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Vollständiger Export */}
         <Card className="mb-6 border-2 border-green-300 shadow-lg">
           <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50">
