@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, Upload, Database, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+import { Download, Upload, Database, AlertCircle, CheckCircle, Loader2, Users } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function AdminBackup() {
@@ -86,6 +86,40 @@ export default function AdminBackup() {
     link.download = filename;
     link.click();
     URL.revokeObjectURL(link.href);
+  };
+
+  const exportUsers = async (format = 'json') => {
+    try {
+      setExportStatus(prev => ({ ...prev, 'User': 'loading' }));
+      
+      const users = await base44.entities.User.list();
+      
+      if (format === 'csv') {
+        exportToCSV(users, `Users_backup_${new Date().toISOString().split('T')[0]}.csv`);
+      } else {
+        const jsonStr = JSON.stringify(users, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Users_backup_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+      
+      setExportStatus(prev => ({ ...prev, 'User': 'success' }));
+      setTimeout(() => {
+        setExportStatus(prev => ({ ...prev, 'User': null }));
+      }, 3000);
+    } catch (error) {
+      console.error('Fehler beim Export von Users:', error);
+      setExportStatus(prev => ({ ...prev, 'User': 'error' }));
+      setTimeout(() => {
+        setExportStatus(prev => ({ ...prev, 'User': null }));
+      }, 3000);
+    }
   };
 
   const exportEntity = async (entityName, format = 'json') => {
@@ -251,6 +285,47 @@ export default function AdminBackup() {
             Diese müssen manuell neu hinzugefügt werden. User-Authentication wird von Base44 verwaltet.
           </AlertDescription>
         </Alert>
+
+        {/* User-Daten Export */}
+        <Card className="mb-6 border-2 border-blue-300 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50">
+            <CardTitle className="flex items-center gap-2 text-blue-900">
+              <Users className="w-6 h-6" />
+              User-Daten
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            <p className="text-sm text-stone-600 mb-4">
+              Exportiert alle registrierten User (E-Mail, Name, Rolle, etc.).
+            </p>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => exportUsers('json')}
+                disabled={exportStatus.User === 'loading'}
+                variant="outline"
+                className="flex-1"
+              >
+                {exportStatus.User === 'loading' ? (
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                ) : exportStatus.User === 'success' ? (
+                  <CheckCircle className="w-5 h-5 mr-2 text-green-600" />
+                ) : (
+                  <Download className="w-5 h-5 mr-2" />
+                )}
+                JSON Export
+              </Button>
+              <Button
+                onClick={() => exportUsers('csv')}
+                disabled={exportStatus.User === 'loading'}
+                variant="outline"
+                className="flex-1"
+              >
+                <Download className="w-5 h-5 mr-2" />
+                CSV Export
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Vollständiger Export */}
         <Card className="mb-6 border-2 border-green-300 shadow-lg">
