@@ -80,7 +80,7 @@ export const getUserProfile = async (email) => {
   const { data, error } = await supabase
     .from('PublicProfile')
     .select('*')
-    .eq('email', email)
+    .eq('user_email', email)
     .single();
   
   if (error && error.code !== 'PGRST116') { // PGRST116 = no rows
@@ -97,10 +97,10 @@ export const upsertUserProfile = async (email, profileData) => {
   const { data, error } = await supabase
     .from('PublicProfile')
     .upsert({
-      email,
+      user_email: email,
       ...profileData,
       updated_date: new Date().toISOString()
-    }, { onConflict: 'email' })
+    }, { onConflict: 'user_email' })
     .select()
     .single();
   
