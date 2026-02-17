@@ -10,6 +10,7 @@ import { createPageUrl } from "@/utils";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
 import ShareScanDialog from "./ShareScanDialog";
 import { base44 } from "@/api/base44Client";
+import { getCurrentUser } from "@/api/userApi";
 
 export default function ScanResults({
   plant,
@@ -42,7 +43,7 @@ export default function ScanResults({
 
   useEffect(() => {
     const loadUser = async () => {
-      const currentUser = await base44.auth.me();
+      const currentUser = await getCurrentUser();
       setUser(currentUser);
     };
     loadUser();

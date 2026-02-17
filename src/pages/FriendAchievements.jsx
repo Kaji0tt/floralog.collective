@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { getCurrentUser } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -23,7 +24,7 @@ export default function FriendAchievements() {
 
   useEffect(() => {
     const loadCurrentUser = async () => {
-      const user = await base44.auth.me();
+      const user = await getCurrentUser();
       setCurrentUser(user);
     };
     loadCurrentUser();

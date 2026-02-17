@@ -1,4 +1,5 @@
 import { base44 } from "@/api/base44Client";
+import { getCurrentUser } from "@/api/userApi";
 
 /**
  * Zentrale Funktion zum Prüfen und Freischalten von Rewards
@@ -29,7 +30,7 @@ export async function checkAndUnlockRewards(userEmail) {
       base44.entities.SharedScan.filter({ shared_to: userEmail }),
       base44.entities.UserPlantDiscovery.filter({ created_by: userEmail }),
       base44.entities.Plant.list(),
-      base44.auth.me(),
+      getCurrentUser(),
       base44.entities.Quest.list(),
       base44.entities.WeeklyQuest.list(),
       base44.entities.MonthlyQuest.list()

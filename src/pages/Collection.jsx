@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { getCurrentUser } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -56,7 +57,7 @@ export default function Collection() {
 
   useEffect(() => {
     const loadUser = async () => {
-      const currentUser = await base44.auth.me();
+      const currentUser = await getCurrentUser();
       setUser(currentUser);
     };
     loadUser();
@@ -75,7 +76,7 @@ export default function Collection() {
   const { data: userDiscoveries = [], isLoading: discoveriesLoading } = useQuery({
     queryKey: ['userDiscoveries'],
     queryFn: async () => {
-      const user = await base44.auth.me();
+      const user = await getCurrentUser();
       if (!user || !user.email) {
         return [];
       }
@@ -92,7 +93,7 @@ export default function Collection() {
   const { data: userCollectionQuests = [] } = useQuery({
     queryKey: ['userCollectionQuests'],
     queryFn: async () => {
-      const user = await base44.auth.me();
+      const user = await getCurrentUser();
       if (!user || !user.email) return [];
       return base44.entities.UserCollectionQuest.filter({ created_by: user.email });
     },

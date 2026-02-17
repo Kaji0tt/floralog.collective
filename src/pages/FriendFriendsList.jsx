@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { getCurrentUser } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,7 +23,7 @@ export default function FriendFriendsList() {
 
   useEffect(() => {
     const loadCurrentUser = async () => {
-      const user = await base44.auth.me();
+      const user = await getCurrentUser();
       setCurrentUser(user);
     };
     loadCurrentUser();

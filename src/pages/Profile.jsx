@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
+import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -141,7 +142,7 @@ export default function Profile() {
 
   useEffect(() => {
     const loadUser = async () => {
-      const currentUser = await base44.auth.me();
+      const currentUser = await getCurrentUser();
       setUser(currentUser);
       setEditedName(currentUser?.display_name || currentUser?.full_name || "");
       
@@ -202,7 +203,7 @@ export default function Profile() {
     mutationFn: (data) => base44.auth.updateMe(data),
     onSuccess: async () => {
       await new Promise(resolve => setTimeout(resolve, 500));
-      const freshUser = await base44.auth.me();
+      const freshUser = await getCurrentUser();
       setUser(freshUser);
       setEditedName(freshUser.display_name || freshUser.full_name);
       setIsEditingName(false);
@@ -329,7 +330,7 @@ export default function Profile() {
     await updateUserMutation.mutateAsync({ background_image_url: null, background_color: color });
     setShowBackgroundSelector(false);
     setAverageColor(color);
-    const freshUser = await base44.auth.me();
+    const freshUser = await getCurrentUser();
     await updatePublicProfile(freshUser);
     
     // Markiere dass Hintergrund geändert wurde
@@ -340,7 +341,7 @@ export default function Profile() {
     await updateUserMutation.mutateAsync({ background_color: null });
     setShowBackgroundSelector(false);
     setAverageColor(null);
-    const freshUser = await base44.auth.me();
+    const freshUser = await getCurrentUser();
     await updatePublicProfile(freshUser);
   };
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { getCurrentUser } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -61,7 +62,7 @@ export default function Achievements() {
 
   useEffect(() => {
     const loadUser = async () => {
-      const currentUser = await base44.auth.me();
+      const currentUser = await getCurrentUser();
       setUser(currentUser);
     };
     loadUser();
@@ -252,7 +253,7 @@ export default function Achievements() {
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
       // Re-fetch user data to ensure `user` state reflects the change immediately
-      const currentUser = await base44.auth.me();
+      const currentUser = await getCurrentUser();
       setUser(currentUser);
       setShowTitleDialog(false);
     }
@@ -326,7 +327,7 @@ export default function Achievements() {
         });
       }
 
-      const currentUser = await base44.auth.me();
+      const currentUser = await getCurrentUser();
       
       // DIREKT den Reward freischalten (ohne Achievement-Check)
       if (rewardName) {
@@ -402,7 +403,7 @@ export default function Achievements() {
       queryClient.invalidateQueries({ queryKey: ['userAchievements'] });
 
       // User neu laden
-      const currentUser = await base44.auth.me();
+      const currentUser = await getCurrentUser();
       setUser(currentUser);
     }
   });

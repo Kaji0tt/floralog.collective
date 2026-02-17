@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { getCurrentUser } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +26,7 @@ export default function FriendCollection() {
 
   useEffect(() => {
     const loadCurrentUser = async () => {
-      const user = await base44.auth.me();
+      const user = await getCurrentUser();
       setCurrentUser(user);
     };
     loadCurrentUser();

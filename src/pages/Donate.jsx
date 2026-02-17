@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
+import { getCurrentUser } from "@/api/userApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Heart, Coffee, Leaf as LeafIcon, Sparkles, TreeDeciduous, Loader2, CheckCircle } from "lucide-react";
@@ -20,7 +21,7 @@ export default function Donate() {
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const currentUser = await base44.auth.me();
+        const currentUser = await getCurrentUser();
         setUser(currentUser);
         
         if (currentUser?.background_color) {
@@ -221,7 +222,7 @@ export default function Donate() {
                 });
                 
                 // User neu laden
-                const updatedUser = await base44.auth.me();
+                const updatedUser = await getCurrentUser();
                 console.log('✅ Updated user:', updatedUser);
                 setUser(updatedUser);
                 

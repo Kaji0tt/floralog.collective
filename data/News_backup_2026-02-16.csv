@@ -1,0 +1,7 @@
+﻿"title","text","created_date","id","updated_date","created_by_id","created_by"
+"Umzug nach Supabase","Um mehr Kontrolle über die Daten von Floralog zu erhalten und danymischer auf den Code und die Architektur der App einzugehen, wird die App im Verlauf dieses Monats von Base44 zu supabase und einem Webserver von Netcup migrieren.","2026-02-15T17:51:52.411000","699207b89539680d644a7efb","2026-02-15T17:51:52.411000","68ed5acb3c768a7480fef6a0","kaji0tt@googlemail.com"
+"Willkommen im Floralog","Vielen Dank an alle, die sich die Zeit nehmen, Floralog in dieser frühen Phase zu testen.
+
+Langfristig sind weitere Funktionen geplant – zum Beispiel eine „Quartett“-Funktion, mit der sich eigene Scans spielerisch mit denen von Freundinnen und Freunden vergleichen lassen.
+
+Aktuell steht noch das Pflanzen-Scannen und die positive Gestaltung durch Aufgaben und Rewards im Mittelpunkt, die motivieren sollen, die eigene Umgebung bewusster wahrzunehmen und Neues zu entdecken.","2026-01-25T20:30:35.156000","69767d6b7b8b44496af1bb85","2026-01-25T20:30:35.156000","68ed5acb3c768a7480fef6a0","kaji0tt@googlemail.com"

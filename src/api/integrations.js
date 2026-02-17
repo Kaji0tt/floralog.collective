@@ -1,21 +1,14 @@
-import { base44 } from './base44Client';
+// Integrations currently not implemented for Supabase
+// These were base44-specific integrations
 
-
-
-
-export const Core = base44.integrations.Core;
-
-export const InvokeLLM = base44.integrations.Core.InvokeLLM;
-
-export const SendEmail = base44.integrations.Core.SendEmail;
-
-export const SendSMS = base44.integrations.Core.SendSMS;
-
-export const UploadFile = base44.integrations.Core.UploadFile;
-
-export const GenerateImage = base44.integrations.Core.GenerateImage;
-
-export const ExtractDataFromUploadedFile = base44.integrations.Core.ExtractDataFromUploadedFile;
+// Placeholder exports - to be implemented later with Supabase functions or external services
+export const Core = null;
+export const InvokeLLM = null;
+export const SendEmail = null;
+export const SendSMS = null;
+export const UploadFile = null;
+export const GenerateImage = null;
+export const ExtractDataFromUploadedFile = null;
 
 
 

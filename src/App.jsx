@@ -9,6 +9,10 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
+import Login from '@/pages/Login';
+import Register from '@/pages/Register';
+import MigrateLogin from '@/pages/MigrateLogin';
+import SetPassword from '@/pages/SetPassword';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -73,7 +77,16 @@ function App() {
       <QueryClientProvider client={queryClientInstance}>
         <Router>
           <NavigationTracker />
-          <AuthenticatedApp />
+          <Routes>
+            {/* Public Auth Routes - accessible without authentication */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/migration/login" element={<MigrateLogin />} />
+            <Route path="/migration/set-password" element={<SetPassword />} />
+            
+            {/* Protected App Routes */}
+            <Route path="/*" element={<AuthenticatedApp />} />
+          </Routes>
         </Router>
         <Toaster />
         <VisualEditAgent />

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
+import { getCurrentUser } from "@/api/userApi";
 import NotificationManager from "./components/notifications/NotificationManager";
 import ToastNotificationManager from "./components/notifications/ToastNotificationManager";
 import QuestNotificationManager from "./components/quests/QuestNotificationManager";
@@ -19,7 +20,7 @@ export default function Layout({ children, currentPageName }) {
   const loadUser = async () => {
     try {
       console.log("[Layout] Lade User-Daten...");
-      const currentUser = await base44.auth.me();
+      const currentUser = await getCurrentUser();
       console.log("[Layout] User geladen:", {
         email: currentUser.email,
         display_name: currentUser.display_name,

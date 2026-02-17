@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
+import { getCurrentUser } from "@/api/userApi";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getLevelFromXP, getTitleForLevel } from "../components/utils/xpSystem";
@@ -13,7 +14,7 @@ export default function XPMigration() {
     setResult(null);
 
     try {
-      const user = await base44.auth.me();
+      const user = await getCurrentUser();
       const currentXP = user.xp || 0;
       
       const correctLevel = getLevelFromXP(currentXP);
