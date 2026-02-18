@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 /**
@@ -11,45 +11,45 @@ export default function QuestAutoAccepter({ user }) {
 
   const { data: quests = [] } = useQuery({
     queryKey: ['quests'],
-    queryFn: () => base44.entities.Quest.list('quest_number'),
+    queryFn: () => Query.Quest.list('quest_number'),
   });
 
   const { data: userQuests = [] } = useQuery({
     queryKey: ['userQuests', user?.email],
-    queryFn: () => base44.entities.UserQuest.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email,
   });
 
   const { data: weeklyQuests = [] } = useQuery({
     queryKey: ['weeklyQuests'],
-    queryFn: () => base44.entities.WeeklyQuest.list('quest_number')
+    queryFn: () => Query.WeeklyQuest.list('quest_number')
   });
 
   const { data: userWeeklyQuests = [] } = useQuery({
     queryKey: ['userWeeklyQuests', user?.email],
-    queryFn: () => base44.entities.UserWeeklyQuest.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserWeeklyQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email
   });
 
   const { data: monthlyQuests = [] } = useQuery({
     queryKey: ['monthlyQuests'],
-    queryFn: () => base44.entities.MonthlyQuest.list('quest_number')
+    queryFn: () => Query.MonthlyQuest.list('quest_number')
   });
 
   const { data: userMonthlyQuests = [] } = useQuery({
     queryKey: ['userMonthlyQuests', user?.email],
-    queryFn: () => base44.entities.UserMonthlyQuest.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserMonthlyQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email
   });
 
   const { data: collectionQuests = [] } = useQuery({
     queryKey: ['collectionQuests'],
-    queryFn: () => base44.entities.CollectionQuest.list()
+    queryFn: () => Query.CollectionQuest.list()
   });
 
   const { data: userCollectionQuests = [] } = useQuery({
     queryKey: ['userCollectionQuests', user?.email],
-    queryFn: () => base44.entities.UserCollectionQuest.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserCollectionQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email
   });
 
@@ -57,27 +57,27 @@ export default function QuestAutoAccepter({ user }) {
     mutationFn: async ({ questId, questType, activeWeek, activeMonth }) => {
       const now = new Date().toISOString();
       if (questType === 'regular') {
-        return base44.entities.UserQuest.create({
+        return Query.UserQuest.create({
           quest_id: questId,
           accepted: true,
           accepted_date: now
         });
       } else if (questType === 'weekly') {
-        return base44.entities.UserWeeklyQuest.create({
+        return Query.UserWeeklyQuest.create({
           weekly_quest_id: questId,
           active_week: activeWeek,
           accepted: true,
           accepted_date: now
         });
       } else if (questType === 'monthly') {
-        return base44.entities.UserMonthlyQuest.create({
+        return Query.UserMonthlyQuest.create({
           monthly_quest_id: questId,
           active_month: activeMonth,
           accepted: true,
           accepted_date: now
         });
       } else if (questType === 'collection') {
-        return base44.entities.UserCollectionQuest.create({
+        return Query.UserCollectionQuest.create({
           collection_quest_id: questId,
           accepted: true,
           accepted_date: now
@@ -211,3 +211,4 @@ export default function QuestAutoAccepter({ user }) {
 
   return null; // Unsichtbare Komponente
 }
+

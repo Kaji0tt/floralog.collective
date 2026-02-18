@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
-import { getCurrentUser } from "@/api/userApi";
+import { Query } from "@/api/entities";
+import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,19 +32,19 @@ export default function ResetAccount() {
 
   const { data: userDiscoveries = [] } = useQuery({
     queryKey: ['userDiscoveries'],
-    queryFn: () => base44.entities.UserPlantDiscovery.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserPlantDiscovery.filter({ created_by: user?.email }),
     enabled: !!user?.email,
   });
 
   const { data: userQuests = [] } = useQuery({
     queryKey: ['userQuests'],
-    queryFn: () => base44.entities.UserQuest.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email,
   });
 
   const { data: userAchievements = [] } = useQuery({
     queryKey: ['userAchievements'],
-    queryFn: () => base44.entities.UserAchievement.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserAchievement.filter({ created_by: user?.email }),
     enabled: !!user?.email,
   });
 
@@ -52,7 +52,7 @@ export default function ResetAccount() {
     queryKey: ['myFriends'],
     queryFn: async () => {
       if (!user?.email) return [];
-      const allFriends = await base44.entities.Friend.list();
+      const allFriends = await Query.Friend.list();
       // Alle Freundschaften wo ich beteiligt bin (Sender oder Empfänger)
       return allFriends.filter(f => 
         f.request_sent_by?.toLowerCase() === user.email.toLowerCase() || 
@@ -77,30 +77,30 @@ export default function ResetAccount() {
       // 1. Lösche alle UserPlantDiscoveries
       console.log(`🗑️ Lösche ${userDiscoveries.length} Entdeckungen...`);
       for (const discovery of userDiscoveries) {
-        await base44.entities.UserPlantDiscovery.delete(discovery.id);
+        await Query.UserPlantDiscovery.delete(discovery.id);
       }
 
       // 2. Lösche alle UserQuests
       console.log(`🗑️ Lösche ${userQuests.length} Quest-Fortschritte...`);
       for (const quest of userQuests) {
-        await base44.entities.UserQuest.delete(quest.id);
+        await Query.UserQuest.delete(quest.id);
       }
 
       // 3. Lösche alle UserAchievements
       console.log(`🗑️ Lösche ${userAchievements.length} Erfolge...`);
       for (const achievement of userAchievements) {
-        await base44.entities.UserAchievement.delete(achievement.id);
+        await Query.UserAchievement.delete(achievement.id);
       }
 
       // 4. Lösche ALLE Freundschaften wo ich beteiligt bin
       console.log(`🗑️ Lösche ${myFriends.length} Freundschaften...`);
       for (const friend of myFriends) {
-        await base44.entities.Friend.delete(friend.id);
+        await Query.Friend.delete(friend.id);
       }
 
       // 5. Setze User-Daten zurück
       console.log("🔄 Setze User-Daten zurück...");
-      await base44.auth.updateMe({
+      await updateCurrentUserProfile({
         level: 1,
         xp: 0,
         avatar_url: null,
@@ -233,7 +233,7 @@ export default function ResetAccount() {
 
         <Alert className="border-2 border-blue-200 bg-blue-50 mb-6">
           <AlertDescription className="text-blue-900">
-            <strong>ℹ️ Hinweis:</strong> Dein base44-Account (E-Mail & Login) bleibt bestehen. 
+            <strong>ℹ️ Hinweis:</strong> Dein Supabase-Account (E-Mail & Login) bleibt bestehen. 
             Nur deine PlantDex-Daten werden gelöscht.
           </AlertDescription>
         </Alert>

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -92,7 +92,7 @@ export default function AdminBackup() {
     try {
       setExportStatus(prev => ({ ...prev, 'User': 'loading' }));
       
-      const users = await base44.entities.User.list();
+      const users = await Query.PublicProfile.list();
       
       if (format === 'csv') {
         exportToCSV(users, `Users_backup_${new Date().toISOString().split('T')[0]}.csv`);
@@ -126,7 +126,7 @@ export default function AdminBackup() {
     try {
       setExportStatus(prev => ({ ...prev, [entityName]: 'loading' }));
       
-      const data = await base44.entities[entityName].list();
+      const data = await Query[entityName].list();
       
       if (format === 'csv') {
         exportToCSV(data, `${entityName}_backup_${new Date().toISOString().split('T')[0]}.csv`);
@@ -164,7 +164,7 @@ export default function AdminBackup() {
       
       for (const entityName of entities) {
         try {
-          const data = await base44.entities[entityName].list();
+          const data = await Query[entityName].list();
           allData[entityName] = data;
         } catch (error) {
           console.error(`Fehler beim Laden von ${entityName}:`, error);
@@ -230,7 +230,7 @@ export default function AdminBackup() {
         try {
           // Entferne System-Felder vor dem Import
           const { id, created_date, updated_date, created_by, ...cleanItem } = item;
-          await base44.entities[entityName].create(cleanItem);
+          await Query[entityName].create(cleanItem);
           successCount++;
         } catch (error) {
           console.error(`Fehler beim Import von Item:`, error);
@@ -282,7 +282,7 @@ export default function AdminBackup() {
           <AlertCircle className="w-4 h-4 text-blue-600" />
           <AlertDescription className="text-blue-900">
             <strong>Wichtig:</strong> Dieser Backup enthält KEINE Secrets (PayPal, PlantNet API Keys).
-            Diese müssen manuell neu hinzugefügt werden. User-Authentication wird von Base44 verwaltet.
+            Diese müssen manuell neu hinzugefügt werden. User-Authentication wird von Supabase verwaltet.
           </AlertDescription>
         </Alert>
 
@@ -449,10 +449,11 @@ export default function AdminBackup() {
             Importiere nur in eine leere Datenbank oder bereinige vorher!</p>
             <p><strong>Code-Backup:</strong> Dein Code wird automatisch auf GitHub gesichert (bereits aktiviert).</p>
             <p><strong>Nach Wiederherstellung:</strong> Secrets (PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET, PLANTNET_API_KEY) 
-            müssen in den Base44-Einstellungen neu hinzugefügt werden.</p>
+            müssen in den Supabase-Umgebungsvariablen neu hinzugefügt werden.</p>
           </CardContent>
         </Card>
       </div>
     </div>
   );
 }
+

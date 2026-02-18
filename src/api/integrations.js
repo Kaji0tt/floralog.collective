@@ -1,5 +1,5 @@
 // Integrations currently not implemented for Supabase
-// These were base44-specific integrations
+// Placeholder for future external service integrations
 
 // Placeholder exports - to be implemented later with Supabase functions or external services
 export const Core = null;

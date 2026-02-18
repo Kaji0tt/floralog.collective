@@ -1,4 +1,4 @@
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 
 /**
@@ -22,18 +22,18 @@ export async function checkAndUnlockRewards(userEmail) {
       weeklyQuests,
       monthlyQuests
     ] = await Promise.all([
-      base44.entities.Reward.list(),
-      base44.entities.UserReward.filter({ created_by: userEmail }),
-      base44.entities.UserQuest.filter({ created_by: userEmail }),
-      base44.entities.UserWeeklyQuest.filter({ created_by: userEmail }),
-      base44.entities.UserMonthlyQuest.filter({ created_by: userEmail }),
-      base44.entities.SharedScan.filter({ shared_to: userEmail }),
-      base44.entities.UserPlantDiscovery.filter({ created_by: userEmail }),
-      base44.entities.Plant.list(),
+      Query.Reward.list(),
+      Query.UserReward.filter({ created_by: userEmail }),
+      Query.UserQuest.filter({ created_by: userEmail }),
+      Query.UserWeeklyQuest.filter({ created_by: userEmail }),
+      Query.UserMonthlyQuest.filter({ created_by: userEmail }),
+      Query.SharedScan.filter({ shared_to: userEmail }),
+      Query.UserPlantDiscovery.filter({ created_by: userEmail }),
+      Query.Plant.list(),
       getCurrentUser(),
-      base44.entities.Quest.list(),
-      base44.entities.WeeklyQuest.list(),
-      base44.entities.MonthlyQuest.list()
+      Query.Quest.list(),
+      Query.WeeklyQuest.list(),
+      Query.MonthlyQuest.list()
     ]);
 
     // Track neu freigeschaltete Rewards lokal
@@ -46,7 +46,7 @@ export async function checkAndUnlockRewards(userEmail) {
     const unlockReward = async (reward) => {
       if (hasReward(reward.id)) return false;
       
-      await base44.entities.UserReward.create({
+      await Query.UserReward.create({
         reward_id: reward.id,
         reward_name: reward.display_name,
         user_email: userEmail,
@@ -58,7 +58,7 @@ export async function checkAndUnlockRewards(userEmail) {
       unlockedRewardIds.add(reward.id);
 
       // Erstelle Notification
-      await base44.entities.UserNotification.create({
+      await Query.UserNotification.create({
         user_email: userEmail,
         notification_type: "custom",
         title: `🎁 Neue Belohnung freigeschaltet!`,
@@ -77,7 +77,7 @@ export async function checkAndUnlockRewards(userEmail) {
     const completedMonthlyQuests = userMonthlyQuests.filter(q => q.completed).length;
     const giftsReceived = sharedScans.length;
     const isDonor = currentUser?.donor_status || false;
-    const referralCount = (await base44.entities.Referral.filter({ referrer_email: userEmail })).length;
+    const referralCount = (await Query.Referral.filter({ referrer_email: userEmail })).length;
     
     // Prüfe auf seltene Pflanzen
     const rarePlantCount = userDiscoveries.filter(d => {
@@ -196,3 +196,4 @@ export async function checkAndUnlockRewards(userEmail) {
     return 0;
   }
 }
+

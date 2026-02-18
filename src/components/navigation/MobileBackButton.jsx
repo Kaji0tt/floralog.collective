@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
 
-export default function MobileBackButton({ backUrl }) {
+export default function MobileBackButton({ backUrl = null }) {
   const navigate = useNavigate();
   const location = useLocation();
   

@@ -1,11 +1,25 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 //Test Deployment
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
-        const user = await base44.auth.me();
+        const supabaseUrl = Deno.env.get('SUPABASE_URL');
+        const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+
+        if (!supabaseUrl || !supabaseAnonKey) {
+            return Response.json({ error: 'Supabase not configured' }, { status: 500 });
+        }
+
+        const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+            global: {
+                headers: {
+                    Authorization: req.headers.get('Authorization') ?? ''
+                }
+            }
+        });
+
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
         
-        if (!user) {
+        if (authError || !user) {
             return Response.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -105,80 +119,23 @@ Deno.serve(async (req) => {
                             
                             console.log(`🔍 PlantNet Name: "${finalSpeciesName || 'nicht vorhanden'}" für ${species.scientificNameWithoutAuthor} (${(score * 100).toFixed(1)}%)`);
                             
-                            const llmEnrichment = await base44.asServiceRole.integrations.Core.InvokeLLM({
-                                prompt: `Die Pflanze wurde als "${species.scientificNameWithoutAuthor}" identifiziert.
-${finalSpeciesName ? `PlantNet gibt als deutschen Namen: "${finalSpeciesName}" an.` : 'PlantNet hat keinen deutschen Namen geliefert.'}
+                            const scientificName = species.scientificNameWithoutAuthor || species.scientificName || '';
+                            const scientificGenus = scientificName ? scientificName.split(' ')[0] : null;
+                            const translatedSpeciesName = finalSpeciesName || scientificName || 'Unbekannte Art';
+                            const genusName = translatedSpeciesName ? translatedSpeciesName.split(' ')[0] : scientificGenus;
 
-WICHTIG: Prüfe zuerst, ob diese Pflanze in Mitteleuopa (Deutschland, Österreich, Schweiz, Polen, Tschechien, etc.) heimisch oder häufig vorkommt!
-
-Falls die Pflanze NICHT in Mitteleuopa vorkommt (z.B. tropische Pflanzen, asiatische Arten, amerikanische Pflanzen):
-- Setze "is_european" auf false
-- Gib trotzdem alle Informationen an
-
-Falls die Pflanze in Mitteleuopa vorkommt:
-- Setze "is_european" auf true
-
-Gib folgende Informationen an:
-
-1. **species_name** = DEUTSCHER Artname
-   - Falls PlantNet einen deutschen Namen geliefert hat, verwende diesen
-   - Ansonsten: Übersetze den wissenschaftlichen Namen ins Deutsche
-   - Beispiele: "Gewöhnliche Brombeere", "Gemeine Fichte", "Frauenmantel"
-   - WICHTIG: Muss zur Art "${species.scientificNameWithoutAuthor}" passen!
-
-2. **genus_name** = DEUTSCHER Gattungsname im SINGULAR
-   - Beispiele: "Brombeere", "Fichte", "Frauenmantel", "Weide", "Oregano"
-   - NIEMALS lateinisch (FALSCH: "Rubus", "Picea", "Alchemilla")
-   - NIEMALS Plural (FALSCH: "Brombeeren", "Fichten")
-
-3. **scientific_genus** = LATEINISCHER Gattungsname
-   - Extrahiere aus "${species.scientificNameWithoutAuthor}"
-   - Das erste Wort ist die Gattung!
-
-4. Kategorie: "Bäume", "Sträucher" oder "Blumen"
-5. Deutsche Pflanzenfamilie (z.B. "Lippenblütler", "Weidengewächse", "Korbblütler")
-6. Kurze Beschreibung (2-3 Sätze)
-7. Haupterkennungsmerkmale
-8. Interessanter Fakt für Kinder
-9. is_european: true/false (ob die Pflanze in Mitteleuopa vorkommt)
-10. rarity: Wie häufig kommt die Pflanze in Mitteleuopa vor?
-   - "Häufig": Überall zu finden (z.B. Löwenzahn, Brennnessel, Rotbuche)
-   - "Gelegentlich": Regelmäßig anzutreffen, aber nicht überall (z.b. Eiche, Feuerdorn, Oregano)
-   - "Selten": Nur in bestimmten Regionen (z.B. Edelweiß, seltene Orchideen)
-   - "Sehr Selten": Sehr selten in freier Natur
-   - "Extrem Selten": Sehr selten, oft vom Aussterben bedroht`,
-                                response_json_schema: {
-                                    type: "object",
-                                    properties: {
-                                        species_name: { type: "string" },
-                                        genus_name: { type: "string" },
-                                        scientific_genus: { type: "string" },
-                                        category: { type: "string", enum: ["Bäume", "Sträucher", "Blumen"] },
-                                        family: { type: "string" },
-                                        description: { type: "string" },
-                                        identification_features: { type: "string" },
-                                        fun_fact: { type: "string" },
-                                        is_european: { type: "boolean" },
-                                        rarity: { type: "string", enum: ["Häufig", "Gelegentlich", "Selten", "Sehr Selten", "Extrem Selten"] }
-                                    }
-                                }
-                            });
-
-                            // Verwende LLM-übersetzten Namen, oder PlantNet-Namen als Fallback
-                            const translatedSpeciesName = llmEnrichment.species_name || finalSpeciesName || species.scientificNameWithoutAuthor;
-                            
                             return {
                                 species_name: translatedSpeciesName,
-                                genus_name: llmEnrichment.genus_name,
-                                scientific_name: species.scientificNameWithoutAuthor,
-                                scientific_genus: llmEnrichment.scientific_genus,
-                                category: llmEnrichment.category,
-                                family: llmEnrichment.family,
-                                description: llmEnrichment.description,
-                                identification_features: llmEnrichment.identification_features,
-                                fun_fact: llmEnrichment.fun_fact,
-                                is_european: llmEnrichment.is_european,
-                                rarity: llmEnrichment.rarity,
+                                genus_name: genusName || scientificGenus || 'Unbekannte Gattung',
+                                scientific_name: scientificName || null,
+                                scientific_genus: scientificGenus || null,
+                                category: 'Blumen',
+                                family: species.family?.scientificName || species.family?.name || null,
+                                description: null,
+                                identification_features: null,
+                                fun_fact: null,
+                                is_european: null,
+                                rarity: null,
                                 score: score,
                                 confidence_percentage: Math.round(score * 100)
                             };

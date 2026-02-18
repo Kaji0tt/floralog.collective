@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -65,12 +65,12 @@ export default function Collection() {
 
   const { data: genera = [], isLoading: generaLoading } = useQuery({
     queryKey: ['genera'],
-    queryFn: () => base44.entities.PlantGenus.list(),
+    queryFn: () => Query.PlantGenus.list(),
   });
 
   const { data: plants = [], isLoading: plantsLoading } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => base44.entities.Plant.list(),
+    queryFn: () => Query.Plant.list(),
   });
 
   const { data: userDiscoveries = [], isLoading: discoveriesLoading } = useQuery({
@@ -80,14 +80,14 @@ export default function Collection() {
       if (!user || !user.email) {
         return [];
       }
-      const discoveries = await base44.entities.UserPlantDiscovery.list();
+      const discoveries = await Query.UserPlantDiscovery.list();
       return discoveries.filter(d => d.user === user.email || d.created_by === user.email);
     },
   });
 
   const { data: collectionQuests = [] } = useQuery({
     queryKey: ['collectionQuests'],
-    queryFn: () => base44.entities.CollectionQuest.list(),
+    queryFn: () => Query.CollectionQuest.list(),
   });
 
   const { data: userCollectionQuests = [] } = useQuery({
@@ -95,7 +95,7 @@ export default function Collection() {
     queryFn: async () => {
       const user = await getCurrentUser();
       if (!user || !user.email) return [];
-      return base44.entities.UserCollectionQuest.filter({ created_by: user.email });
+      return Query.UserCollectionQuest.filter({ created_by: user.email });
     },
   });
 
@@ -357,3 +357,4 @@ export default function Collection() {
     </>
   );
 }
+

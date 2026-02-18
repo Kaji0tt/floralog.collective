@@ -47,12 +47,14 @@ const useFormField = () => {
 
 const FormItemContext = React.createContext({})
 
-const FormItem = React.forwardRef(({ className, ...props }, ref) => {
+const FormItem = React.forwardRef(({ className, children, ...props }, ref) => {
   const id = React.useId()
 
   return (
     (<FormItemContext.Provider value={{ id }}>
-      <div ref={ref} className={cn("space-y-2", className)} {...props} />
+      <div ref={ref} className={cn("space-y-2", className)} {...props}>
+        {children}
+      </div>
     </FormItemContext.Provider>)
   );
 })

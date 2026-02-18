@@ -78,7 +78,7 @@ export default function Impressum() {
                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                   <p className="font-semibold text-stone-800 mb-2">In Kürze:</p>
                   <ul className="list-disc list-inside space-y-1">
-                    <li>Login und Datenspeicherung erfolgen über base44</li>
+                    <li>Login und Datenspeicherung erfolgen über Supabase</li>
                     <li>Pflanzenerkennung nutzt Pl@ntNet</li>
                     <li>Keine Datenspeicherung auf eigenen Servern</li>
                     <li>Einsehbar: E-Mail, Freischaltungen und Errungenschaften, Standortdaten der Scans sofern aktiviert, Kontaktformular-Daten</li>

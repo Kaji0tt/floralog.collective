@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
+import { supabase } from "@/api/supabaseClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -24,7 +25,7 @@ export default function ShareScanDialog({ open, onClose, discovery, plant, user 
     queryKey: ['friends', user?.email],
     queryFn: async () => {
       if (!user?.email) return [];
-      const allFriends = await base44.entities.Friend.list();
+      const allFriends = await Query.Friend.list();
       
       // Filtere akzeptierte Freundschaften in beide Richtungen
       const acceptedFriends = allFriends.filter(f => {
@@ -43,7 +44,7 @@ export default function ShareScanDialog({ open, onClose, discovery, plant, user 
 
   const { data: publicProfiles = [] } = useQuery({
     queryKey: ['publicProfiles'],
-    queryFn: () => base44.entities.PublicProfile.list(),
+    queryFn: () => Query.PublicProfile.list(),
     enabled: open,
   });
 
@@ -51,7 +52,7 @@ export default function ShareScanDialog({ open, onClose, discovery, plant, user 
     queryKey: ['todayShares', user?.email],
     queryFn: async () => {
       if (!user?.email) return [];
-      const allShares = await base44.entities.SharedScan.list();
+      const allShares = await Query.SharedScan.list();
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       return allShares.filter(s => 
@@ -63,7 +64,7 @@ export default function ShareScanDialog({ open, onClose, discovery, plant, user 
   });
 
   const createShareMutation = useMutation({
-    mutationFn: (data) => base44.entities.SharedScan.create(data),
+    mutationFn: (data) => Query.SharedScan.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['todayShares'] });
       queryClient.invalidateQueries({ queryKey: ['sharedScans'] });
@@ -109,7 +110,7 @@ export default function ShareScanDialog({ open, onClose, discovery, plant, user 
 
       // Push Notification senden
       try {
-        await base44.functions.invoke('sendPushNotification', {
+        await supabase.functions.invoke('sendPushNotification', {
           recipientEmail: friendEmail,
           title: '🎁 Neue Pflanze geschenkt!',
           body: `${user.display_name || user.full_name} hat dir "${plant.species_name}" geschenkt!`,

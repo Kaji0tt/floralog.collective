@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,7 +32,7 @@ export default function NewsAdmin() {
   }, [navigate]);
 
   const createNewsMutation = useMutation({
-    mutationFn: (newsData) => base44.entities.News.create(newsData),
+    mutationFn: (newsData) => Query.News.create(newsData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['news'] });
       setTitle("");

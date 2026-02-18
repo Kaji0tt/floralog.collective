@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
+import { updateCurrentUserProfile } from "@/api/userApi";
 import { Button } from "@/components/ui/button";
 import { Bell, BellOff, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -94,7 +95,7 @@ export default function NotificationManager({ user, showInProfile = false }) {
       });
 
       // Subscription in Datenbank speichern
-      await base44.auth.updateMe({
+      await updateCurrentUserProfile({
         push_subscription: JSON.stringify(subscription.toJSON())
       });
 
@@ -133,7 +134,7 @@ export default function NotificationManager({ user, showInProfile = false }) {
         await subscription.unsubscribe();
       }
 
-      await base44.auth.updateMe({
+      await updateCurrentUserProfile({
         push_subscription: null
       });
 

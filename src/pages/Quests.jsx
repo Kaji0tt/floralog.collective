@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -129,40 +129,40 @@ export default function Quests() {
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => base44.entities.Plant.list(),
+    queryFn: () => Query.Plant.list(),
   });
 
   const { data: genera = [] } = useQuery({
     queryKey: ['genera'],
-    queryFn: () => base44.entities.PlantGenus.list(),
+    queryFn: () => Query.PlantGenus.list(),
   });
 
   const { data: weeklyQuests = [] } = useQuery({
     queryKey: ['weeklyQuests'],
-    queryFn: () => base44.entities.WeeklyQuest.list('quest_number'),
+    queryFn: () => Query.WeeklyQuest.list('quest_number'),
   });
 
   const { data: allUsers = [] } = useQuery({
     queryKey: ['allUsers'],
     queryFn: async () => {
-      const users = await base44.entities.PublicProfile.list();
+      const users = await Query.PublicProfile.list();
       return users.filter(u => u.weekly_tracking !== false);
     },
   });
 
   const { data: allDiscoveries = [] } = useQuery({
     queryKey: ['allDiscoveries'],
-    queryFn: () => base44.entities.UserPlantDiscovery.list('-created_date'),
+    queryFn: () => Query.UserPlantDiscovery.list('-created_date'),
   });
 
   const { data: scanLikes = [] } = useQuery({
     queryKey: ['scanLikes'],
-    queryFn: () => base44.entities.ScanLike.list(),
+    queryFn: () => Query.ScanLike.list(),
   });
 
   useEffect(() => {
     const loadUser = async () => {
-      const currentUser = await base44.auth.me();
+      const currentUser = await getCurrentUser();
       setUser(currentUser);
     };
     loadUser();
@@ -210,9 +210,9 @@ export default function Quests() {
       );
       
       if (existingLike) {
-        await base44.entities.ScanLike.delete(existingLike.id);
+        await Query.ScanLike.delete(existingLike.id);
       } else {
-        await base44.entities.ScanLike.create({
+        await Query.ScanLike.create({
           discovery_id: discoveryId,
           liked_by: user.email,
           liked_date: new Date().toISOString()

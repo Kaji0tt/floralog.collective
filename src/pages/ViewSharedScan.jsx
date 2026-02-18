@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
-import { getCurrentUser } from "@/api/userApi";
+import { Query } from "@/api/entities";
+import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,7 +33,7 @@ export default function ViewSharedScan() {
   const { data: sharedScan, isLoading } = useQuery({
     queryKey: ['sharedScan', sharedScanId],
     queryFn: async () => {
-      const scans = await base44.entities.SharedScan.list();
+      const scans = await Query.SharedScan.list();
       return scans.find(s => s.id === sharedScanId);
     },
     enabled: !!sharedScanId,
@@ -42,7 +42,7 @@ export default function ViewSharedScan() {
   const { data: plant } = useQuery({
     queryKey: ['plant', sharedScan?.plant_id],
     queryFn: async () => {
-      const plants = await base44.entities.Plant.list();
+      const plants = await Query.Plant.list();
       return plants.find(p => p.id === sharedScan.plant_id);
     },
     enabled: !!sharedScan?.plant_id,
@@ -51,7 +51,7 @@ export default function ViewSharedScan() {
   const { data: genus } = useQuery({
     queryKey: ['genus', plant?.genus_id],
     queryFn: async () => {
-      const genera = await base44.entities.PlantGenus.list();
+      const genera = await Query.PlantGenus.list();
       return genera.find(g => g.id === plant.genus_id);
     },
     enabled: !!plant?.genus_id,
@@ -60,45 +60,19 @@ export default function ViewSharedScan() {
   const { data: senderProfile } = useQuery({
     queryKey: ['profile', sharedScan?.shared_by],
     queryFn: async () => {
-      const profiles = await base44.entities.PublicProfile.list();
+      const profiles = await Query.PublicProfile.list();
       return profiles.find(p => p.user_email === sharedScan.shared_by);
     },
     enabled: !!sharedScan?.shared_by,
   });
 
   const updateScanMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.SharedScan.update(id, data),
+    mutationFn: ({ id, data }) => Query.SharedScan.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sharedScan'] });
       queryClient.invalidateQueries({ queryKey: ['sharedScans'] });
     },
   });
-
-  const updatePublicProfile = async (userData) => {
-    try {
-      const profiles = await base44.entities.PublicProfile.list();
-      const existingProfile = profiles.find(p => p.user_email?.toLowerCase() === userData.email?.toLowerCase());
-
-      const profileData = {
-        user_email: userData.email,
-        display_name: userData.display_name || userData.full_name,
-        full_name: userData.full_name,
-        level: userData.level || 1,
-        xp: userData.xp || 0,
-        title: userData.title,
-        selected_title: userData.selected_title,
-        avatar_url: userData.avatar_url
-      };
-
-      if (existingProfile) {
-        await base44.entities.PublicProfile.update(existingProfile.id, profileData);
-      } else {
-        await base44.entities.PublicProfile.create(profileData);
-      }
-    } catch (error) {
-      console.error("PublicProfile Update Fehler:", error);
-    }
-  };
 
   useEffect(() => {
     const markAsViewed = async () => {
@@ -123,11 +97,10 @@ export default function ViewSharedScan() {
         const currentXP = user.xp || 0;
         const result = awardXP(currentXP, 25);
         
-        await base44.auth.updateMe(result);
+        await updateCurrentUserProfile(result);
         
         const freshUser = await getCurrentUser();
         setUser(freshUser);
-        await updatePublicProfile(freshUser);
 
       } catch (error) {
         console.error("Fehler beim Markieren:", error);

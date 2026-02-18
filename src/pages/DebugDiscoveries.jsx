@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,7 @@ export default function DebugDiscoveries() {
       setUser(currentUser);
       
       // Lade ALLE Discoveries (nicht gefiltert)
-      const allDiscoveries = await base44.entities.UserPlantDiscovery.list();
+      const allDiscoveries = await Query.UserPlantDiscovery.list();
       setDiscoveries(allDiscoveries);
     };
     loadData();
@@ -90,3 +90,4 @@ export default function DebugDiscoveries() {
     </div>
   );
 }
+

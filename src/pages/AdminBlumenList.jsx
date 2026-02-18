@@ -1,4 +1,4 @@
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,7 @@ import MobileBackButton from "../components/navigation/MobileBackButton";
 export default function AdminBlumenList() {
   const { data: genera = [], isLoading } = useQuery({
     queryKey: ['genera'],
-    queryFn: () => base44.entities.PlantGenus.list(),
+    queryFn: () => Query.PlantGenus.list(),
   });
 
   const blumenGenera = genera
@@ -148,3 +148,4 @@ export default function AdminBlumenList() {
     </div>
   );
 }
+

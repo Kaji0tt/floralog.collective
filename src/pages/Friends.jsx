@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,7 +65,7 @@ export default function Friends() {
 
   useEffect(() => {
     const loadUser = async () => {
-      const currentUser = await base44.auth.me();
+      const currentUser = await getCurrentUser();
       setUser(currentUser);
     };
     loadUser();
@@ -86,7 +86,7 @@ export default function Friends() {
   // Lade ALLE Friend-Einträge
   const { data: allFriendRecords = [] } = useQuery({
     queryKey: ['allFriendRecords'],
-    queryFn: () => base44.entities.Friend.list(),
+    queryFn: () => Query.Friend.list(),
     enabled: !!user?.email,
     staleTime: 10000 // 10 Sekunden Cache
   });
@@ -120,13 +120,13 @@ export default function Friends() {
 
   const { data: allUsers = [] } = useQuery({
     queryKey: ['allUsers'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => Query.PublicProfile.list(),
     staleTime: 60000 // 1 Minute Cache
   });
 
   const { data: allPublicProfiles = [] } = useQuery({
     queryKey: ['allPublicProfiles'],
-    queryFn: () => base44.entities.PublicProfile.list(),
+    queryFn: () => Query.PublicProfile.list(),
     staleTime: 30000 // 30 Sekunden Cache
   });
 
@@ -134,7 +134,7 @@ export default function Friends() {
   const { data: allDiscoveries = [] } = useQuery({
     queryKey: ['allDiscoveries'],
     queryFn: async () => {
-      const discoveries = await base44.entities.UserPlantDiscovery.list('-created_date', 999);
+      const discoveries = await Query.UserPlantDiscovery.list('-created_date', 999);
       console.log("📊 Geladene Discoveries:", discoveries.length);
       return discoveries;
     }
@@ -143,19 +143,19 @@ export default function Friends() {
   // Lade alle Plants
   const { data: allPlants = [] } = useQuery({
     queryKey: ['allPlants'],
-    queryFn: () => base44.entities.Plant.list()
+    queryFn: () => Query.Plant.list()
   });
 
   // Lade alle Genera
   const { data: allGenera = [] } = useQuery({
     queryKey: ['allGenera'],
-    queryFn: () => base44.entities.PlantGenus.list()
+    queryFn: () => Query.PlantGenus.list()
   });
 
   // Lade SharedScans
   const { data: sharedScans = [] } = useQuery({
     queryKey: ['sharedScans', user?.email],
-    queryFn: () => base44.entities.SharedScan.filter({ shared_to: user?.email }),
+    queryFn: () => Query.SharedScan.filter({ shared_to: user?.email }),
     enabled: !!user?.email,
   });
 
@@ -163,7 +163,7 @@ export default function Friends() {
   const { data: allUserAchievements = [] } = useQuery({
     queryKey: ['allUserAchievements'],
     queryFn: async () => {
-      const achievements = await base44.entities.UserAchievement.list('-created_date', 999);
+      const achievements = await Query.UserAchievement.list('-created_date', 999);
       console.log("📊 Geladene UserAchievements:", achievements.length);
       return achievements;
     }
@@ -172,7 +172,7 @@ export default function Friends() {
   // Lade Achievement Definitionen
   const { data: achievements = [] } = useQuery({
     queryKey: ['achievements'],
-    queryFn: () => base44.entities.Achievement.list()
+    queryFn: () => Query.Achievement.list()
   });
 
   const sendFriendRequestMutation = useMutation({
@@ -208,7 +208,7 @@ export default function Friends() {
       }
 
       // Erstelle EINEN Eintrag mit den neuen Feldern
-      await base44.entities.Friend.create({
+      await Query.Friend.create({
         request_sent_by: user.email,
         request_sent_to: friendEmail,
         status: "pending"
@@ -225,7 +225,7 @@ export default function Friends() {
 
   const acceptFriendRequestMutation = useMutation({
     mutationFn: async (request) => {
-      await base44.entities.Friend.update(request.id, {
+      await Query.Friend.update(request.id, {
         status: "accepted",
         added_date: new Date().toISOString()
       });
@@ -252,7 +252,7 @@ export default function Friends() {
 
   const rejectFriendRequestMutation = useMutation({
     mutationFn: async (request) => {
-      await base44.entities.Friend.delete(request.id);
+      await Query.Friend.delete(request.id);
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['allFriendRecords'] });
@@ -265,7 +265,7 @@ export default function Friends() {
 
   const removeFriendMutation = useMutation({
     mutationFn: async (friendToRemove) => {
-      await base44.entities.Friend.delete(friendToRemove.id);
+      await Query.Friend.delete(friendToRemove.id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['allFriendRecords'] });
@@ -279,7 +279,7 @@ export default function Friends() {
   const shareAppMutation = useMutation({
     mutationFn: async (email) => {
       // Erstelle Referral-Eintrag
-      await base44.entities.Referral.create({
+      await Query.Referral.create({
         invited_by: user.email,
         invited_email: email,
         status: "pending"

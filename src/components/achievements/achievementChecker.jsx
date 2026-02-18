@@ -1,4 +1,4 @@
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 
 /**
  * Prüft alle Achievements und schaltet neue frei
@@ -13,12 +13,12 @@ export async function checkAndUnlockAchievements(user) {
     
     // Lade alle benötigten Daten
     const [achievements, userAchievements, plants, genera, userDiscoveries, friends] = await Promise.all([
-      base44.entities.Achievement.list(),
-      base44.entities.UserAchievement.filter({ created_by: user.email }),
-      base44.entities.Plant.list(),
-      base44.entities.PlantGenus.list(),
-      base44.entities.UserPlantDiscovery.filter({ created_by: user.email }),
-      base44.entities.Friend.filter({ created_by: user.email })
+      Query.Achievement.list(),
+      Query.UserAchievement.filter({ created_by: user.email }),
+      Query.Plant.list(),
+      Query.PlantGenus.list(),
+      Query.UserPlantDiscovery.filter({ created_by: user.email }),
+      Query.Friend.filter({ created_by: user.email })
     ]);
 
     const unlockedAchievements = [];
@@ -36,7 +36,7 @@ export async function checkAndUnlockAchievements(user) {
 
       console.log('[AchievementChecker] Unlocking achievement:', title, 'with reward:', achievement.reward_name);
 
-      await base44.entities.UserAchievement.create({
+      await Query.UserAchievement.create({
         achievement_id: achievement.id,
         unlocked_date: new Date().toISOString(),
         created_by: user.email
@@ -44,19 +44,19 @@ export async function checkAndUnlockAchievements(user) {
 
       // Wenn das Achievement einen Reward hat, schalte diesen ebenfalls frei
       if (achievement.reward_name) {
-        const rewards = await base44.entities.Reward.list();
+        const rewards = await Query.Reward.list();
         const reward = rewards.find(r => r.name === achievement.reward_name);
         
         if (reward) {
           // Prüfe ob User den Reward bereits hat
-          const userRewards = await base44.entities.UserReward.filter({ created_by: user.email });
+          const userRewards = await Query.UserReward.filter({ created_by: user.email });
           const hasReward = userRewards.some(ur => ur.reward_id === reward.id);
           
           if (!hasReward) {
             console.log('[AchievementChecker] Unlocking reward:', reward.name, reward.display_name);
             
             // Schalte Reward frei
-            await base44.entities.UserReward.create({
+            await Query.UserReward.create({
               reward_id: reward.id,
               reward_name: reward.display_name,
               user_email: user.email,
@@ -65,7 +65,7 @@ export async function checkAndUnlockAchievements(user) {
             });
 
             // Erstelle Notification für den Reward
-            await base44.entities.UserNotification.create({
+            await Query.UserNotification.create({
               user_email: user.email,
               notification_type: "custom",
               title: `🎁 Neue Belohnung freigeschaltet!`,
@@ -267,3 +267,4 @@ export async function checkAndUnlockAchievements(user) {
     return [];
   }
 }
+

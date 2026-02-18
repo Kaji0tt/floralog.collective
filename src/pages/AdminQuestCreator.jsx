@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ShieldX } from "lucide-react";
@@ -77,39 +77,39 @@ export default function AdminQuestCreator() {
   // Fetch existing quests
   const { data: quests = [], isLoading: questsLoading } = useQuery({
     queryKey: ['quests'],
-    queryFn: () => base44.entities.Quest.list(),
+    queryFn: () => Query.Quest.list(),
   });
 
   const { data: monthlyQuests = [], isLoading: monthlyLoading } = useQuery({
     queryKey: ['monthlyQuests'],
-    queryFn: () => base44.entities.MonthlyQuest.list(),
+    queryFn: () => Query.MonthlyQuest.list(),
   });
 
   const { data: weeklyQuests = [], isLoading: weeklyLoading } = useQuery({
     queryKey: ['weeklyQuests'],
-    queryFn: () => base44.entities.WeeklyQuest.list(),
+    queryFn: () => Query.WeeklyQuest.list(),
   });
 
   const { data: genera = [] } = useQuery({
     queryKey: ['genera'],
-    queryFn: () => base44.entities.PlantGenus.list(),
+    queryFn: () => Query.PlantGenus.list(),
   });
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => base44.entities.Plant.list(),
+    queryFn: () => Query.Plant.list(),
   });
 
   const { data: collectionQuests = [] } = useQuery({
     queryKey: ['collectionQuests'],
-    queryFn: () => base44.entities.CollectionQuest.list(),
+    queryFn: () => Query.CollectionQuest.list(),
   });
 
   // Mutations
   const createQuestMutation = useMutation({
     mutationFn: async (data) => {
       const entityName = activeTab === "quest" ? "Quest" : activeTab === "monthly" ? "MonthlyQuest" : activeTab === "weekly" ? "WeeklyQuest" : "CollectionQuest";
-      return base44.entities[entityName].create(data);
+      return Query[entityName].create(data);
     },
     onSuccess: () => {
       const queryKey = activeTab === "quest" ? 'quests' : activeTab === "monthly" ? 'monthlyQuests' : activeTab === "weekly" ? 'weeklyQuests' : 'collectionQuests';
@@ -121,7 +121,7 @@ export default function AdminQuestCreator() {
   const updateQuestMutation = useMutation({
     mutationFn: async ({ id, data }) => {
       const entityName = activeTab === "quest" ? "Quest" : activeTab === "monthly" ? "MonthlyQuest" : activeTab === "weekly" ? "WeeklyQuest" : "CollectionQuest";
-      return base44.entities[entityName].update(id, data);
+      return Query[entityName].update(id, data);
     },
     onSuccess: () => {
       const queryKey = activeTab === "quest" ? 'quests' : activeTab === "monthly" ? 'monthlyQuests' : activeTab === "weekly" ? 'weeklyQuests' : 'collectionQuests';
@@ -134,7 +134,7 @@ export default function AdminQuestCreator() {
   const deleteQuestMutation = useMutation({
     mutationFn: async (id) => {
       const entityName = activeTab === "quest" ? "Quest" : activeTab === "monthly" ? "MonthlyQuest" : activeTab === "weekly" ? "WeeklyQuest" : "CollectionQuest";
-      return base44.entities[entityName].delete(id);
+      return Query[entityName].delete(id);
     },
     onSuccess: () => {
       const queryKey = activeTab === "quest" ? 'quests' : activeTab === "monthly" ? 'monthlyQuests' : activeTab === "weekly" ? 'weeklyQuests' : 'collectionQuests';
@@ -940,3 +940,4 @@ export default function AdminQuestCreator() {
     </div>
   );
 }
+

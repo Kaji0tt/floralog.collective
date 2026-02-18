@@ -1,5 +1,5 @@
 
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ export default function PlantDetail() {
 
   const { data: plants = [], isLoading } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => base44.entities.Plant.list(),
+    queryFn: () => Query.Plant.list(),
   });
 
   const plant = plants.find(p => p.id === plantId);

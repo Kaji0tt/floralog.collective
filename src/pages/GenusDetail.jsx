@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -32,7 +32,7 @@ export default function GenusDetail() {
 
   useEffect(() => {
     const loadUser = async () => {
-      const user = await base44.auth.me();
+      const user = await getCurrentUser();
       setCurrentUser(user);
     };
     loadUser();
@@ -87,12 +87,12 @@ export default function GenusDetail() {
 
   const { data: genera = [], isLoading: generaLoading } = useQuery({
     queryKey: ['genera'],
-    queryFn: () => base44.entities.PlantGenus.list(),
+    queryFn: () => Query.PlantGenus.list(),
   });
 
   const { data: plants = [], isLoading: plantsLoading } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => base44.entities.Plant.list(),
+    queryFn: () => Query.Plant.list(),
   });
 
   const { data: userDiscoveries = [], isLoading: discoveriesLoading } = useQuery({
@@ -100,13 +100,13 @@ export default function GenusDetail() {
     queryFn: async () => {
       // Wenn friendEmail vorhanden, lade Discoveries des Freundes
       // Ansonsten lade eigene Discoveries
-      const discoveries = await base44.entities.UserPlantDiscovery.list();
+      const discoveries = await Query.UserPlantDiscovery.list();
       
       if (friendEmail) {
         return discoveries.filter(d => d.user === friendEmail || d.created_by === friendEmail);
       }
       
-      const user = await base44.auth.me();
+      const user = await getCurrentUser();
       if (!user || !user.email) {
         return [];
       }
@@ -159,11 +159,11 @@ export default function GenusDetail() {
       });
       await Promise.all(
         genusDiscoveries.map(d => 
-          base44.entities.UserPlantDiscovery.update(d.id, { is_front_image: false })
+          Query.UserPlantDiscovery.update(d.id, { is_front_image: false })
         )
       );
       // Dann das ausgewählte auf true setzen
-      await base44.entities.UserPlantDiscovery.update(discoveryId, { is_front_image: true });
+      await Query.UserPlantDiscovery.update(discoveryId, { is_front_image: true });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
@@ -176,7 +176,7 @@ export default function GenusDetail() {
       const speciesDiscoveries = userDiscoveries.filter(d => d.plant_id === plantId);
       await Promise.all(
         speciesDiscoveries.map(d => 
-          base44.entities.UserPlantDiscovery.update(d.id, { is_species_front_image: false })
+          Query.UserPlantDiscovery.update(d.id, { is_species_front_image: false })
         )
       );
       
@@ -189,12 +189,12 @@ export default function GenusDetail() {
       });
       await Promise.all(
         genusDiscoveries.map(d => 
-          base44.entities.UserPlantDiscovery.update(d.id, { is_front_image: false })
+          Query.UserPlantDiscovery.update(d.id, { is_front_image: false })
         )
       );
       
       // Dann das ausgewählte auf true setzen für beide Flags
-      await base44.entities.UserPlantDiscovery.update(discoveryId, { 
+      await Query.UserPlantDiscovery.update(discoveryId, { 
         is_species_front_image: true,
         is_front_image: true 
       });
@@ -222,7 +222,7 @@ export default function GenusDetail() {
 
   const deleteDiscoveryMutation = useMutation({
     mutationFn: async (discoveryId) => {
-      await base44.entities.UserPlantDiscovery.delete(discoveryId);
+      await Query.UserPlantDiscovery.delete(discoveryId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
@@ -842,3 +842,4 @@ export default function GenusDetail() {
     </div>
   );
 }
+

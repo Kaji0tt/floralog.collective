@@ -1,4 +1,4 @@
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 
 /**
  * Aktualisiert den Quest-Fortschritt für alle aktiven Quests eines Users
@@ -21,17 +21,17 @@ export async function updateQuestProgress(user) {
       plants,
       genera
     ] = await Promise.all([
-      base44.entities.Quest.list(),
-      base44.entities.UserQuest.filter({ created_by: user.email }),
-      base44.entities.WeeklyQuest.list(),
-      base44.entities.UserWeeklyQuest.filter({ created_by: user.email }),
-      base44.entities.MonthlyQuest.list(),
-      base44.entities.UserMonthlyQuest.filter({ created_by: user.email }),
-      base44.entities.CollectionQuest.list(),
-      base44.entities.UserCollectionQuest.filter({ created_by: user.email }),
-      base44.entities.UserPlantDiscovery.filter({ created_by: user.email }),
-      base44.entities.Plant.list(),
-      base44.entities.PlantGenus.list()
+      Query.Quest.list(),
+      Query.UserQuest.filter({ created_by: user.email }),
+      Query.WeeklyQuest.list(),
+      Query.UserWeeklyQuest.filter({ created_by: user.email }),
+      Query.MonthlyQuest.list(),
+      Query.UserMonthlyQuest.filter({ created_by: user.email }),
+      Query.CollectionQuest.list(),
+      Query.UserCollectionQuest.filter({ created_by: user.email }),
+      Query.UserPlantDiscovery.filter({ created_by: user.email }),
+      Query.Plant.list(),
+      Query.PlantGenus.list()
     ]);
 
     // Hilfsfunktion: Berechne Fortschritt für eine Quest
@@ -80,7 +80,7 @@ export async function updateQuestProgress(user) {
         const completed = progress >= (quest.required_discoveries || 0);
 
         if (progress !== userQuest.progress || completed !== userQuest.completed) {
-          await base44.entities.UserQuest.update(userQuest.id, {
+          await Query.UserQuest.update(userQuest.id, {
             progress,
             completed,
             completed_date: completed && !userQuest.completed ? new Date().toISOString() : userQuest.completed_date
@@ -99,7 +99,7 @@ export async function updateQuestProgress(user) {
         const completed = progress >= (quest.required_discoveries || 0);
 
         if (progress !== userWeeklyQuest.progress || completed !== userWeeklyQuest.completed) {
-          await base44.entities.UserWeeklyQuest.update(userWeeklyQuest.id, {
+          await Query.UserWeeklyQuest.update(userWeeklyQuest.id, {
             progress,
             completed,
             completed_date: completed && !userWeeklyQuest.completed ? new Date().toISOString() : userWeeklyQuest.completed_date
@@ -118,7 +118,7 @@ export async function updateQuestProgress(user) {
         const completed = progress >= (quest.required_discoveries || 0);
 
         if (progress !== userMonthlyQuest.progress || completed !== userMonthlyQuest.completed) {
-          await base44.entities.UserMonthlyQuest.update(userMonthlyQuest.id, {
+          await Query.UserMonthlyQuest.update(userMonthlyQuest.id, {
             progress,
             completed,
             completed_date: completed && !userMonthlyQuest.completed ? new Date().toISOString() : userMonthlyQuest.completed_date
@@ -142,7 +142,7 @@ export async function updateQuestProgress(user) {
 
         if (JSON.stringify(uniqueDiscoveredPlants.sort()) !== JSON.stringify((userCollectionQuest.discovered_plants || []).sort()) ||
             completed !== userCollectionQuest.completed) {
-          await base44.entities.UserCollectionQuest.update(userCollectionQuest.id, {
+          await Query.UserCollectionQuest.update(userCollectionQuest.id, {
             discovered_plants: uniqueDiscoveredPlants,
             completed,
             completed_date: completed && !userCollectionQuest.completed ? new Date().toISOString() : userCollectionQuest.completed_date

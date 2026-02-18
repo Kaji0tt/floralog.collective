@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
@@ -215,19 +215,19 @@ export default function Map() {
 
   const { data: plants = [], isLoading } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => base44.entities.Plant.list('-discovery_date'),
+    queryFn: () => Query.Plant.list('-discovery_date'),
     staleTime: 60000,
   });
 
   const { data: genera = [] } = useQuery({
     queryKey: ['genera'],
-    queryFn: () => base44.entities.PlantGenus.list(),
+    queryFn: () => Query.PlantGenus.list(),
     staleTime: 300000,
   });
 
   const { data: allDiscoveries = [] } = useQuery({
     queryKey: ['allDiscoveries'],
-    queryFn: () => base44.entities.UserPlantDiscovery.list('-created_date', 999),
+    queryFn: () => Query.UserPlantDiscovery.list('-created_date', 999),
     staleTime: 30000,
   });
 
@@ -235,7 +235,7 @@ export default function Map() {
     queryKey: ['friendships'],
     queryFn: async () => {
       if (!user?.email) return [];
-      const allFriends = await base44.entities.Friend.list();
+      const allFriends = await Query.Friend.list();
       const userEmailLower = user.email.toLowerCase();
       return allFriends.filter(f => 
         f.status === 'accepted' &&
@@ -249,7 +249,7 @@ export default function Map() {
 
   const { data: publicProfiles = [] } = useQuery({
     queryKey: ['publicProfiles'],
-    queryFn: () => base44.entities.PublicProfile.list(),
+    queryFn: () => Query.PublicProfile.list(),
     enabled: friendships.length > 0,
     staleTime: 30000,
   });
@@ -257,7 +257,7 @@ export default function Map() {
   const { data: allUsers = [] } = useQuery({
     queryKey: ['allUsers'],
     queryFn: async () => {
-      const users = await base44.entities.PublicProfile.list();
+      const users = await Query.PublicProfile.list();
       return users.filter(u => u.weekly_tracking !== false);
     },
   });
@@ -1008,3 +1008,4 @@ export default function Map() {
     </div>
   );
 }
+

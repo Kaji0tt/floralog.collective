@@ -52,6 +52,33 @@ function createEntity(tableName) {
         .eq('id', id);
       if (error) throw error;
       return true;
+    },
+    subscribe: (callback) => {
+      const channel = supabase
+        .channel(`public:${tableName}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: tableName },
+          (payload) => {
+            const eventType = payload.eventType?.toLowerCase() || 'unknown';
+            const typeMap = {
+              insert: 'create',
+              update: 'update',
+              delete: 'delete'
+            };
+            callback({
+              type: typeMap[eventType] || eventType,
+              data: payload.new || payload.old || null,
+              old: payload.old || null,
+              new: payload.new || null
+            });
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   };
 }

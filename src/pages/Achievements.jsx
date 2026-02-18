@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
-import { getCurrentUser } from "@/api/userApi";
+import { Query } from "@/api/entities";
+import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -82,90 +82,90 @@ export default function Achievements() {
 
   const { data: achievements = [] } = useQuery({
     queryKey: ['achievements'],
-    queryFn: () => base44.entities.Achievement.list('achievement_number'),
+    queryFn: () => Query.Achievement.list('achievement_number'),
     staleTime: 10 * 60 * 1000, // 10 Minuten - statische Daten
   });
 
   const { data: userAchievements = [] } = useQuery({
     queryKey: ['userAchievements', user?.email],
-    queryFn: () => base44.entities.UserAchievement.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserAchievement.filter({ created_by: user?.email }),
     enabled: !!user?.email,
     staleTime: Infinity, // Echtzeit-Updates durch Subscription
   });
 
   const { data: quests = [] } = useQuery({
     queryKey: ['quests'],
-    queryFn: () => base44.entities.Quest.list('quest_number'),
+    queryFn: () => Query.Quest.list('quest_number'),
     staleTime: 10 * 60 * 1000, // 10 Minuten - statische Daten
   });
 
   const { data: userQuests = [] } = useQuery({
     queryKey: ['userQuests', user?.email],
-    queryFn: () => base44.entities.UserQuest.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email,
     staleTime: Infinity, // Echtzeit-Updates durch Subscription
   });
 
   const { data: weeklyQuests = [] } = useQuery({
     queryKey: ['weeklyQuests'],
-    queryFn: () => base44.entities.WeeklyQuest.list('quest_number'),
+    queryFn: () => Query.WeeklyQuest.list('quest_number'),
     staleTime: 10 * 60 * 1000, // 10 Minuten
   });
 
   const { data: userWeeklyQuests = [] } = useQuery({
     queryKey: ['userWeeklyQuests', user?.email],
-    queryFn: () => base44.entities.UserWeeklyQuest.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserWeeklyQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email,
     staleTime: Infinity, // Echtzeit-Updates durch Subscription
   });
 
   const { data: monthlyQuests = [] } = useQuery({
     queryKey: ['monthlyQuests'],
-    queryFn: () => base44.entities.MonthlyQuest.list('quest_number'),
+    queryFn: () => Query.MonthlyQuest.list('quest_number'),
     staleTime: 10 * 60 * 1000, // 10 Minuten
   });
 
   const { data: userMonthlyQuests = [] } = useQuery({
     queryKey: ['userMonthlyQuests', user?.email],
-    queryFn: () => base44.entities.UserMonthlyQuest.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserMonthlyQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email,
     staleTime: Infinity, // Echtzeit-Updates durch Subscription
   });
 
   const { data: rewards = [] } = useQuery({
     queryKey: ['rewards'],
-    queryFn: () => base44.entities.Reward.list(),
+    queryFn: () => Query.Reward.list(),
     staleTime: 10 * 60 * 1000, // 10 Minuten - statische Daten
   });
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => base44.entities.Plant.list(),
+    queryFn: () => Query.Plant.list(),
     staleTime: 10 * 60 * 1000, // 10 Minuten - ändert sich selten
   });
 
   const { data: genera = [] } = useQuery({
     queryKey: ['genera'],
-    queryFn: () => base44.entities.PlantGenus.list(),
+    queryFn: () => Query.PlantGenus.list(),
     staleTime: 10 * 60 * 1000, // 10 Minuten - ändert sich selten
   });
 
   const { data: collectionQuests = [] } = useQuery({
     queryKey: ['collectionQuests'],
-    queryFn: () => base44.entities.CollectionQuest.list(),
+    queryFn: () => Query.CollectionQuest.list(),
     staleTime: 5 * 60 * 1000, // 5 Minuten
   });
 
   const { data: userCollectionQuests = [] } = useQuery({
     queryKey: ['userCollectionQuests', user?.email],
-    queryFn: () => base44.entities.UserCollectionQuest.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserCollectionQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email,
     staleTime: Infinity, // Echtzeit-Updates durch Subscription
   });
 
   const { data: userDiscoveries = [] } = useQuery({
     queryKey: ['userDiscoveries', user?.email],
-    queryFn: () => base44.entities.UserPlantDiscovery.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserPlantDiscovery.filter({ created_by: user?.email }),
     enabled: !!user?.email,
     staleTime: Infinity, // Echtzeit-Updates durch Subscription
   });
@@ -174,7 +174,7 @@ export default function Achievements() {
   useEffect(() => {
     if (!user?.email) return;
 
-    const unsubscribe = base44.entities.UserAchievement.subscribe((event) => {
+    const unsubscribe = Query.UserAchievement.subscribe((event) => {
       if (event.data?.created_by === user.email) {
         queryClient.invalidateQueries({ queryKey: ['userAchievements'] });
       }
@@ -187,7 +187,7 @@ export default function Achievements() {
   useEffect(() => {
     if (!user?.email) return;
 
-    const unsubscribe = base44.entities.UserQuest.subscribe((event) => {
+    const unsubscribe = Query.UserQuest.subscribe((event) => {
       if (event.data?.created_by === user.email) {
         queryClient.invalidateQueries({ queryKey: ['userQuests'] });
       }
@@ -200,7 +200,7 @@ export default function Achievements() {
   useEffect(() => {
     if (!user?.email) return;
 
-    const unsubscribe = base44.entities.UserWeeklyQuest.subscribe((event) => {
+    const unsubscribe = Query.UserWeeklyQuest.subscribe((event) => {
       if (event.data?.created_by === user.email) {
         queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
       }
@@ -213,7 +213,7 @@ export default function Achievements() {
   useEffect(() => {
     if (!user?.email) return;
 
-    const unsubscribe = base44.entities.UserMonthlyQuest.subscribe((event) => {
+    const unsubscribe = Query.UserMonthlyQuest.subscribe((event) => {
       if (event.data?.created_by === user.email) {
         queryClient.invalidateQueries({ queryKey: ['userMonthlyQuests'] });
       }
@@ -226,7 +226,7 @@ export default function Achievements() {
   useEffect(() => {
     if (!user?.email) return;
 
-    const unsubscribe = base44.entities.UserCollectionQuest.subscribe((event) => {
+    const unsubscribe = Query.UserCollectionQuest.subscribe((event) => {
       if (event.data?.created_by === user.email) {
         queryClient.invalidateQueries({ queryKey: ['userCollectionQuests'] });
       }
@@ -239,7 +239,7 @@ export default function Achievements() {
   useEffect(() => {
     if (!user?.email) return;
 
-    const unsubscribe = base44.entities.UserPlantDiscovery.subscribe((event) => {
+    const unsubscribe = Query.UserPlantDiscovery.subscribe((event) => {
       if (event.data?.created_by === user.email || event.data?.user === user.email) {
         queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
       }
@@ -249,7 +249,7 @@ export default function Achievements() {
   }, [user?.email]);
 
   const updateTitleMutation = useMutation({
-    mutationFn: (title) => base44.auth.updateMe({ selected_title: title }),
+    mutationFn: (title) => updateCurrentUserProfile({ selected_title: title }),
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
       // Re-fetch user data to ensure `user` state reflects the change immediately
@@ -264,27 +264,27 @@ export default function Achievements() {
     mutationFn: async ({ questId, questType, activeWeek, activeMonth }) => {
       const now = new Date().toISOString();
       if (questType === 'regular') {
-        return base44.entities.UserQuest.create({
+        return Query.UserQuest.create({
           quest_id: questId,
           accepted: true,
           accepted_date: now
         });
       } else if (questType === 'weekly') {
-        return base44.entities.UserWeeklyQuest.create({
+        return Query.UserWeeklyQuest.create({
           weekly_quest_id: questId,
           active_week: activeWeek,
           accepted: true,
           accepted_date: now
         });
       } else if (questType === 'monthly') {
-        return base44.entities.UserMonthlyQuest.create({
+        return Query.UserMonthlyQuest.create({
           monthly_quest_id: questId,
           active_month: activeMonth,
           accepted: true,
           accepted_date: now
         });
       } else if (questType === 'collection') {
-        return base44.entities.UserCollectionQuest.create({
+        return Query.UserCollectionQuest.create({
           collection_quest_id: questId,
           accepted: true,
           accepted_date: now
@@ -306,22 +306,22 @@ export default function Achievements() {
 
       // Quest einlösen
       if (questType === 'regular') {
-        await base44.entities.UserQuest.update(userQuestId, {
+        await Query.UserQuest.update(userQuestId, {
           redeemed: true,
           redeemed_date: now
         });
       } else if (questType === 'weekly') {
-        await base44.entities.UserWeeklyQuest.update(userQuestId, {
+        await Query.UserWeeklyQuest.update(userQuestId, {
           redeemed: true,
           redeemed_date: now
         });
       } else if (questType === 'monthly') {
-        await base44.entities.UserMonthlyQuest.update(userQuestId, {
+        await Query.UserMonthlyQuest.update(userQuestId, {
           redeemed: true,
           redeemed_date: now
         });
       } else if (questType === 'collection') {
-        await base44.entities.UserCollectionQuest.update(userQuestId, {
+        await Query.UserCollectionQuest.update(userQuestId, {
           redeemed: true,
           redeemed_date: now
         });
@@ -336,12 +336,12 @@ export default function Achievements() {
           console.log('[QuestRedeem] Unlocking reward:', reward.name, reward.display_name);
           
           // Prüfe ob User den Reward bereits hat
-          const userRewards = await base44.entities.UserReward.filter({ created_by: currentUser.email });
+          const userRewards = await Query.UserReward.filter({ created_by: currentUser.email });
           const hasReward = userRewards.some(ur => ur.reward_id === reward.id);
           
           if (!hasReward) {
             // Schalte Reward frei
-            await base44.entities.UserReward.create({
+            await Query.UserReward.create({
               reward_id: reward.id,
               reward_name: reward.display_name,
               user_email: currentUser.email,
@@ -358,7 +358,7 @@ export default function Achievements() {
             };
             const rewardTypeGerman = rewardTypeMap[reward.type] || "Belohnung";
 
-            await base44.entities.UserNotification.create({
+            await Query.UserNotification.create({
               user_email: currentUser.email,
               notification_type: "custom",
               title: `🎁 Neuer ${rewardTypeGerman}!`,
@@ -376,7 +376,7 @@ export default function Achievements() {
       // Wenn das die erste Quest ist, erstelle eine Notification für Hintergrund-Personalisierung
       if (isFirstQuest) {
         try {
-          await base44.entities.UserNotification.create({
+          await Query.UserNotification.create({
             user_email: currentUser.email,
             notification_type: "custom",
             title: "🎨 Personalisiere dein Profil!",
@@ -1028,3 +1028,4 @@ export default function Achievements() {
     </>);
 
 }
+

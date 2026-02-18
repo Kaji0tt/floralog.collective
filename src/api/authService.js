@@ -54,6 +54,17 @@ export const updatePassword = async (newPassword) => {
 };
 
 /**
+ * Update auth user metadata
+ */
+export const updateAuthUser = async (updates) => {
+  const { data, error } = await supabase.auth.updateUser({
+    data: updates
+  });
+  if (error) throw error;
+  return data?.user || null;
+};
+
+/**
  * Get current session
  */
 export const getSession = async () => {

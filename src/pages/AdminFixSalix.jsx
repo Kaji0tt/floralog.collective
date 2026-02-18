@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,11 +13,11 @@ export default function AdminFixSalix() {
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => base44.entities.Plant.list(),
+    queryFn: () => Query.Plant.list(),
   });
 
   const updatePlantMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Plant.update(id, data),
+    mutationFn: ({ id, data }) => Query.Plant.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['plants'] });
     },
@@ -142,3 +142,4 @@ export default function AdminFixSalix() {
     </div>
   );
 }
+

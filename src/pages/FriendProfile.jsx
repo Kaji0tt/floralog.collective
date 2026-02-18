@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -71,7 +71,7 @@ export default function FriendProfile() {
     queryKey: ['friendRecord', friendEmail, currentUser?.email],
     queryFn: async () => {
       if (!friendEmail || !currentUser?.email) return null;
-      const allFriends = await base44.entities.Friend.list();
+      const allFriends = await Query.Friend.list();
       
       // Finde den Friend-Eintrag zwischen mir und dem Freund
       return allFriends.find(f =>
@@ -90,7 +90,7 @@ export default function FriendProfile() {
     queryKey: ['publicProfile', friendEmail],
     queryFn: async () => {
       if (!friendEmail) return null;
-      const profiles = await base44.entities.PublicProfile.list();
+      const profiles = await Query.PublicProfile.list();
       return profiles.find(p => p.user_email?.toLowerCase() === friendEmail.toLowerCase());
     },
     enabled: !!friendEmail,
@@ -139,43 +139,43 @@ export default function FriendProfile() {
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => base44.entities.Plant.list(),
+    queryFn: () => Query.Plant.list(),
     staleTime: 60000, // 1 Minute Cache
   });
 
   const { data: genera = [] } = useQuery({
     queryKey: ['genera'],
-    queryFn: () => base44.entities.PlantGenus.list(),
+    queryFn: () => Query.PlantGenus.list(),
     staleTime: 300000, // 5 Minuten Cache
   });
 
   const { data: quests = [] } = useQuery({
     queryKey: ['quests'],
-    queryFn: () => base44.entities.Quest.list('quest_number'),
+    queryFn: () => Query.Quest.list('quest_number'),
   });
 
   const { data: userQuests = [] } = useQuery({
     queryKey: ['userQuests', friendEmail],
-    queryFn: () => base44.entities.UserQuest.filter({ created_by: friendEmail }),
+    queryFn: () => Query.UserQuest.filter({ created_by: friendEmail }),
     enabled: !!friendEmail,
   });
 
   const { data: userAchievements = [] } = useQuery({
     queryKey: ['userAchievements', friendEmail],
-    queryFn: () => base44.entities.UserAchievement.filter({ created_by: friendEmail }),
+    queryFn: () => Query.UserAchievement.filter({ created_by: friendEmail }),
     enabled: !!friendEmail,
   });
 
   const { data: achievements = [] } = useQuery({
     queryKey: ['achievements'],
-    queryFn: () => base44.entities.Achievement.list('achievement_number'),
+    queryFn: () => Query.Achievement.list('achievement_number'),
   });
 
   const { data: friends = [] } = useQuery({
     queryKey: ['friends', friendEmail],
     queryFn: async () => {
       if (!friendEmail) return [];
-      const allFriends = await base44.entities.Friend.list();
+      const allFriends = await Query.Friend.list();
       
       // Freunde in beide Richtungen - nutze die richtigen Felder
       return allFriends.filter(f => 
@@ -193,7 +193,7 @@ export default function FriendProfile() {
     queryKey: ['myFriendship', currentUser?.email, friendEmail],
     queryFn: async () => {
       if (!currentUser?.email || !friendEmail) return null;
-      const allFriends = await base44.entities.Friend.list();
+      const allFriends = await Query.Friend.list();
       const currentEmailLower = currentUser.email.toLowerCase();
       const friendEmailLower = friendEmail.toLowerCase();
       
@@ -211,7 +211,7 @@ export default function FriendProfile() {
   const { data: friendDiscoveries = [] } = useQuery({
     queryKey: ['friendDiscoveries', friendEmail],
     queryFn: async () => {
-      const discoveries = await base44.entities.UserPlantDiscovery.list('-created_date', 999);
+      const discoveries = await Query.UserPlantDiscovery.list('-created_date', 999);
       // Nutze das neue "user" Feld (mit Fallback auf created_by für alte Einträge)
       return discoveries.filter(d => d.user === friendEmail || d.created_by === friendEmail);
     },
@@ -221,7 +221,7 @@ export default function FriendProfile() {
 
   const sendFriendRequestMutation = useMutation({
     mutationFn: async () => {
-      await base44.entities.Friend.create({
+      await Query.Friend.create({
         request_sent_by: currentUser.email,
         request_sent_to: friendEmail,
         status: "pending"

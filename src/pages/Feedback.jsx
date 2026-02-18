@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,17 +28,17 @@ export default function Feedback() {
     setError(null);
 
     try {
-      await base44.integrations.Core.SendEmail({
-        to: "jascha.kruse@web.de",
-        subject: `Floralog Feedback von ${name}`,
-        body: `
-Name: ${name}
-E-Mail: ${email}
-
-Nachricht:
-${message}
-        `
+      const { error: sendError } = await supabase.functions.invoke("sendFeedbackEmail", {
+        body: {
+          name,
+          email,
+          message
+        }
       });
+
+      if (sendError) {
+        throw sendError;
+      }
 
       setSent(true);
       setName("");

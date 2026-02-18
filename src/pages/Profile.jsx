@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
-import { getCurrentUser } from "@/api/userApi";
+import { Query } from "@/api/entities";
+import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
+import { signOut } from "@/api/authService";
+import { uploadFile } from "@/api/storage";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -47,17 +49,17 @@ export default function Profile() {
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => base44.entities.Plant.list(),
+    queryFn: () => Query.Plant.list(),
   });
 
   const { data: genera = [] } = useQuery({
     queryKey: ['genera'],
-    queryFn: () => base44.entities.PlantGenus.list(),
+    queryFn: () => Query.PlantGenus.list(),
   });
 
   const { data: userDiscoveries = [] } = useQuery({
     queryKey: ['userDiscoveries'],
-    queryFn: () => base44.entities.UserPlantDiscovery.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserPlantDiscovery.filter({ created_by: user?.email }),
     enabled: !!user?.email,
   });
 
@@ -67,12 +69,12 @@ export default function Profile() {
 
   const { data: quests = [] } = useQuery({
     queryKey: ['quests'],
-    queryFn: () => base44.entities.Quest.list('quest_number'),
+    queryFn: () => Query.Quest.list('quest_number'),
   });
 
   const { data: userQuests = [] } = useQuery({
     queryKey: ['userQuests'],
-    queryFn: () => base44.entities.UserQuest.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email,
   });
 
@@ -80,7 +82,7 @@ export default function Profile() {
     queryKey: ['friends'],
     queryFn: async () => {
       if (!user?.email) return [];
-      const allFriends = await base44.entities.Friend.list();
+      const allFriends = await Query.Friend.list();
       return allFriends.filter(f => 
         (f.request_sent_by?.toLowerCase() === user.email.toLowerCase() || 
          f.request_sent_to?.toLowerCase() === user.email.toLowerCase()) && 
@@ -92,36 +94,36 @@ export default function Profile() {
 
   const { data: userAchievements = [] } = useQuery({
     queryKey: ['userAchievements'],
-    queryFn: () => base44.entities.UserAchievement.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserAchievement.filter({ created_by: user?.email }),
     enabled: !!user?.email,
   });
 
   const { data: achievements = [] } = useQuery({
     queryKey: ['achievements'],
-    queryFn: () => base44.entities.Achievement.list(),
+    queryFn: () => Query.Achievement.list(),
   });
 
   const { data: userWeeklyQuests = [] } = useQuery({
     queryKey: ['userWeeklyQuests'],
-    queryFn: () => base44.entities.UserWeeklyQuest.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserWeeklyQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email,
   });
 
   const { data: userMonthlyQuests = [] } = useQuery({
     queryKey: ['userMonthlyQuests'],
-    queryFn: () => base44.entities.UserMonthlyQuest.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserMonthlyQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email,
   });
 
   const { data: sharedScans = [] } = useQuery({
     queryKey: ['sharedScans'],
-    queryFn: () => base44.entities.SharedScan.filter({ shared_to: user?.email }),
+    queryFn: () => Query.SharedScan.filter({ shared_to: user?.email }),
     enabled: !!user?.email,
   });
 
   const { data: backgroundNotifications = [] } = useQuery({
     queryKey: ['backgroundNotifications', user?.email],
-    queryFn: () => base44.entities.UserNotification.filter({ 
+    queryFn: () => Query.UserNotification.filter({ 
       user_email: user?.email,
       notification_type: "custom",
       seen: false
@@ -131,12 +133,12 @@ export default function Profile() {
 
   const { data: allRewards = [] } = useQuery({
     queryKey: ['rewards'],
-    queryFn: () => base44.entities.Reward.list(),
+    queryFn: () => Query.Reward.list(),
   });
 
   const { data: userRewards = [] } = useQuery({
     queryKey: ['userRewards', user?.email],
-    queryFn: () => base44.entities.UserReward.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserReward.filter({ created_by: user?.email }),
     enabled: !!user?.email
   });
 
@@ -200,7 +202,7 @@ export default function Profile() {
   }, [backgroundNotifications]);
 
   const updateUserMutation = useMutation({
-    mutationFn: (data) => base44.auth.updateMe(data),
+    mutationFn: (data) => updateCurrentUserProfile(data),
     onSuccess: async () => {
       await new Promise(resolve => setTimeout(resolve, 500));
       const freshUser = await getCurrentUser();
@@ -219,7 +221,7 @@ export default function Profile() {
 
   const updatePublicProfile = async (userData) => {
     try {
-      const profiles = await base44.entities.PublicProfile.list();
+      const profiles = await Query.PublicProfile.list();
       const existingProfile = profiles.find(p => p.user_email?.toLowerCase() === userData.email?.toLowerCase());
 
       const profileData = {
@@ -235,9 +237,9 @@ export default function Profile() {
       };
 
       if (existingProfile) {
-        await base44.entities.PublicProfile.update(existingProfile.id, profileData);
+        await Query.PublicProfile.update(existingProfile.id, profileData);
       } else {
-        await base44.entities.PublicProfile.create(profileData);
+        await Query.PublicProfile.create(profileData);
       }
     } catch (error) {
       console.error("Fehler beim PublicProfile Update:", error);
@@ -256,7 +258,7 @@ export default function Profile() {
 
     setUploadingImage(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await uploadFile({ file });
       await updateUserMutation.mutateAsync({ avatar_url: file_url });
     } catch (error) {
       console.error("Fehler beim Hochladen:", error);
@@ -1233,7 +1235,7 @@ export default function Profile() {
               <Alert className="border-blue-200 bg-blue-50">
                 <AlertCircle className="w-4 h-4 text-blue-600" />
                 <AlertDescription className="text-sm text-blue-900">
-                  Passwort und E-Mail werden über dein base44-Konto verwaltet.
+                  Passwort und E-Mail werden über dein Supabase-Konto verwaltet.
                 </AlertDescription>
               </Alert>
 
@@ -1248,7 +1250,7 @@ export default function Profile() {
                 </Button>
 
                 <Button
-                  onClick={() => base44.auth.logout()}
+                  onClick={() => signOut()}
                   variant="outline"
                   className="w-full border-2 border-red-300 text-red-700 hover:bg-red-50 hover:border-red-400 font-semibold"
                 >

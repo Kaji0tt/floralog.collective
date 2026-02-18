@@ -1,6 +1,7 @@
-
+// AdminPlantImporter.jsx - File deprecated, used for initial import of plant data, not part of the regular application.
+// Needs to be deleted later on.
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,11 +18,11 @@ export default function AdminPlantImporter() {
 
   const { data: genera = [] } = useQuery({
     queryKey: ['genera'],
-    queryFn: () => base44.entities.PlantGenus.list(),
+    queryFn: () => Query.PlantGenus.list(),
   });
 
   const createPlantMutation = useMutation({
-    mutationFn: (data) => base44.entities.Plant.create(data),
+    mutationFn: (data) => Query.Plant.create(data),
   });
 
   const findGenusId = (genusName) => {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle } from "lucide-react";
@@ -19,7 +19,7 @@ export default function MigrateDiscoveries() {
 
   const loadDiscoveries = async () => {
     try {
-      const allDiscoveries = await base44.entities.UserPlantDiscovery.list();
+      const allDiscoveries = await Query.UserPlantDiscovery.list();
       setDiscoveries(allDiscoveries);
       addLog(`📊 ${allDiscoveries.length} Discoveries geladen`);
       
@@ -64,7 +64,7 @@ export default function MigrateDiscoveries() {
       
       try {
         // Update discovery mit user-Feld
-        await base44.entities.UserPlantDiscovery.update(discovery.id, {
+        await Query.UserPlantDiscovery.update(discovery.id, {
           user: discovery.created_by
         });
         

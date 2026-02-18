@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,11 +22,11 @@ export default function News() {
 
   const { data: news = [], isLoading } = useQuery({
     queryKey: ['news'],
-    queryFn: () => base44.entities.News.list('-created_date'),
+    queryFn: () => Query.News.list('-created_date'),
   });
 
   const deleteNewsMutation = useMutation({
-    mutationFn: (newsId) => base44.entities.News.delete(newsId),
+    mutationFn: (newsId) => Query.News.delete(newsId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['news'] });
     },

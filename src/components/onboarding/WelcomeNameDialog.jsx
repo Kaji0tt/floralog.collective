@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
+import { updateCurrentUserProfile } from "@/api/userApi";
 import { Leaf, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -29,12 +30,12 @@ export default function WelcomeNameDialog({ user, onComplete }) {
     try {
       // 1. Speichere den Namen
       console.log("[WelcomeNameDialog] Aktualisiere User mit email:", user.email);
-      await base44.auth.updateMe({ display_name: name.trim() });
+      await updateCurrentUserProfile({ display_name: name.trim() });
       console.log("[WelcomeNameDialog] User erfolgreich aktualisiert");
 
       // 2. Erstelle oder aktualisiere das PublicProfile
       console.log("[WelcomeNameDialog] Lade alle PublicProfiles");
-      const profiles = await base44.entities.PublicProfile.list();
+      const profiles = await Query.PublicProfile.list();
       const existingProfile = profiles.find(p => p.user_email?.toLowerCase() === user.email?.toLowerCase());
       console.log("[WelcomeNameDialog] Gefundenes Profile:", existingProfile);
       
@@ -46,17 +47,17 @@ export default function WelcomeNameDialog({ user, onComplete }) {
 
       if (existingProfile) {
         console.log("[WelcomeNameDialog] Aktualisiere bestehendes Profile:", existingProfile.id);
-        await base44.entities.PublicProfile.update(existingProfile.id, profileData);
+        await Query.PublicProfile.update(existingProfile.id, profileData);
         console.log("[WelcomeNameDialog] PublicProfile erfolgreich aktualisiert");
       } else {
         console.log("[WelcomeNameDialog] Erstelle neues PublicProfile");
-        await base44.entities.PublicProfile.create(profileData);
+        await Query.PublicProfile.create(profileData);
         console.log("[WelcomeNameDialog] PublicProfile erfolgreich erstellt");
       }
 
       // 3. Prüfe, ob eine Willkommens-Benachrichtigung bereits existiert und ungesehen ist
       console.log("[WelcomeNameDialog] Prüfe Welcome Notification");
-      const welcomeNotifications = await base44.entities.UserNotification.filter({
+      const welcomeNotifications = await Query.UserNotification.filter({
         user_email: user.email,
         title: "🌿 Willkommen im Floralog!",
         seen: false
@@ -66,7 +67,7 @@ export default function WelcomeNameDialog({ user, onComplete }) {
       if (welcomeNotifications.length === 0) {
         // 4. Erstelle die Willkommens-Benachrichtigung nur, wenn keine ungesehene existiert
         console.log("[WelcomeNameDialog] Erstelle Welcome Notification");
-        await base44.entities.UserNotification.create({
+        await Query.UserNotification.create({
             user_email: user.email,
             notification_type: "custom",
             title: "🌿 Willkommen im Floralog!",
@@ -154,3 +155,4 @@ export default function WelcomeNameDialog({ user, onComplete }) {
     </Dialog>
   );
 }
+

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Scroll } from "lucide-react";
@@ -10,7 +10,7 @@ import { getCurrentWeeklyQuest, getCurrentMonthlyQuest, getTodayString, getWeekN
  * 
  * Für benutzerdefinierte Notifications (z.B. Onboarding, Quest-Completion-Rewards, etc.) verwende:
  * - UserNotificationManager.jsx (zeigt UserNotification Entities an)
- * - base44.entities.UserNotification.create() zum Erstellen neuer Notifications
+ * - Query.UserNotification.create() zum Erstellen neuer Notifications
  * 
  * Dieser Manager hier arbeitet mit localStorage und ist für wiederkehrende Quests gedacht,
  * die automatisch jede Woche/Monat rotieren und dem User angezeigt werden sollen.
@@ -21,17 +21,17 @@ export default function QuestNotificationManager({ user }) {
 
   const { data: weeklyQuests = [] } = useQuery({
     queryKey: ['weeklyQuests'],
-    queryFn: () => base44.entities.WeeklyQuest.list('quest_number'),
+    queryFn: () => Query.WeeklyQuest.list('quest_number'),
   });
 
   const { data: monthlyQuests = [] } = useQuery({
     queryKey: ['monthlyQuests'],
-    queryFn: () => base44.entities.MonthlyQuest.list('quest_number'),
+    queryFn: () => Query.MonthlyQuest.list('quest_number'),
   });
 
   const { data: dailyQuests = [] } = useQuery({
     queryKey: ['dailyQuests'],
-    queryFn: () => base44.entities.DailyQuest.list('quest_number'),
+    queryFn: () => Query.DailyQuest.list('quest_number'),
   });
 
   useEffect(() => {
@@ -175,3 +175,4 @@ export default function QuestNotificationManager({ user }) {
     </AnimatePresence>
   );
 }
+

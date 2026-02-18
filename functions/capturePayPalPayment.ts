@@ -1,15 +1,31 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 Deno.serve(async (req) => {
   console.log('🔵 capturePayPalPayment function called');
   try {
-    const base44 = createClientFromRequest(req);
-    console.log('🔵 Base44 client created');
-    
-    const user = await base44.auth.me();
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+      console.log('❌ Supabase env not configured');
+      return Response.json({ error: 'Supabase not configured' }, { status: 500 });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: req.headers.get('Authorization') ?? ''
+        }
+      }
+    });
+
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     console.log('🔵 User authenticated:', user?.email);
 
-    if (!user) {
+    if (authError || !user) {
       console.log('❌ User not authenticated');
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -77,19 +93,24 @@ Deno.serve(async (req) => {
       
       // Donor-Status setzen
       console.log('🔵 Setting donor_status for user:', user.email);
-      await base44.auth.updateMe({ donor_status: true });
+      await supabaseAdmin.auth.admin.updateUserById(user.id, {
+        user_metadata: { donor_status: true }
+      });
       console.log('✅ User donor_status updated');
 
       // Public Profile aktualisieren
       console.log('🔵 Updating PublicProfile...');
-      const profiles = await base44.asServiceRole.entities.PublicProfile.list();
-      const existingProfile = profiles.find(p => p.user_email?.toLowerCase() === user.email?.toLowerCase());
-      console.log('🔵 Found existing profile:', !!existingProfile);
+      const { error: profileError } = await supabaseAdmin
+        .from('PublicProfile')
+        .upsert({
+          user_email: user.email,
+          donor_status: true,
+          updated_date: new Date().toISOString()
+        }, { onConflict: 'user_email' });
 
-      if (existingProfile) {
-        await base44.asServiceRole.entities.PublicProfile.update(existingProfile.id, {
-          donor_status: true
-        });
+      if (profileError) {
+        console.error('❌ PublicProfile update failed:', profileError);
+      } else {
         console.log('✅ PublicProfile updated');
       }
 

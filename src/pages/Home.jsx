@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
-import { getCurrentUser } from "@/api/userApi";
+import { Query } from "@/api/entities";
+import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
+import { uploadFile } from "@/api/storage";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -39,7 +40,7 @@ export default function Home() {
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => base44.entities.Plant.list(),
+    queryFn: () => Query.Plant.list(),
     initialData: [],
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
@@ -47,7 +48,7 @@ export default function Home() {
 
   const { data: genera = [] } = useQuery({
     queryKey: ['genera'],
-    queryFn: () => base44.entities.PlantGenus.list(),
+    queryFn: () => Query.PlantGenus.list(),
     initialData: [],
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
@@ -55,7 +56,7 @@ export default function Home() {
 
   const { data: userDiscoveries = [], isLoading: isLoadingDiscoveries } = useQuery({
     queryKey: ['userDiscoveries', user?.email],
-    queryFn: () => base44.entities.UserPlantDiscovery.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserPlantDiscovery.filter({ created_by: user?.email }),
     enabled: !!user?.email,
     staleTime: Infinity,
     refetchOnWindowFocus: true,
@@ -68,7 +69,7 @@ export default function Home() {
 
   const { data: quests = [] } = useQuery({
     queryKey: ['quests'],
-    queryFn: () => base44.entities.Quest.list('quest_number'),
+    queryFn: () => Query.Quest.list('quest_number'),
     initialData: [],
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
@@ -76,7 +77,7 @@ export default function Home() {
 
   const { data: userQuests = [], isLoading: isLoadingQuests } = useQuery({
     queryKey: ['userQuests', user?.email],
-    queryFn: () => base44.entities.UserQuest.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
@@ -87,7 +88,7 @@ export default function Home() {
     queryKey: ['friends', user?.email],
     queryFn: async () => {
       if (!user?.email) return [];
-      const allFriends = await base44.entities.Friend.list();
+      const allFriends = await Query.Friend.list();
       return allFriends.filter(f => 
         (f.request_sent_by?.toLowerCase() === user.email.toLowerCase() || 
          f.request_sent_to?.toLowerCase() === user.email.toLowerCase()) && 
@@ -102,7 +103,7 @@ export default function Home() {
 
   const { data: userAchievements = [], isLoading: isLoadingAchievements } = useQuery({
     queryKey: ['userAchievements', user?.email],
-    queryFn: () => base44.entities.UserAchievement.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserAchievement.filter({ created_by: user?.email }),
     enabled: !!user?.email,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
@@ -111,7 +112,7 @@ export default function Home() {
 
   const { data: weeklyQuests = [] } = useQuery({
     queryKey: ['weeklyQuests'],
-    queryFn: () => base44.entities.WeeklyQuest.list('quest_number'),
+    queryFn: () => Query.WeeklyQuest.list('quest_number'),
     initialData: [],
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
@@ -119,7 +120,7 @@ export default function Home() {
 
   const { data: userWeeklyQuests = [], isLoading: isLoadingWeeklyQuests } = useQuery({
     queryKey: ['userWeeklyQuests', user?.email],
-    queryFn: () => base44.entities.UserWeeklyQuest.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserWeeklyQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email,
     initialData: [],
     staleTime: Infinity,
@@ -128,7 +129,7 @@ export default function Home() {
 
   const { data: monthlyQuests = [] } = useQuery({
     queryKey: ['monthlyQuests'],
-    queryFn: () => base44.entities.MonthlyQuest.list('quest_number'),
+    queryFn: () => Query.MonthlyQuest.list('quest_number'),
     initialData: [],
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
@@ -136,7 +137,7 @@ export default function Home() {
 
   const { data: userMonthlyQuests = [], isLoading: isLoadingMonthlyQuests } = useQuery({
     queryKey: ['userMonthlyQuests', user?.email],
-    queryFn: () => base44.entities.UserMonthlyQuest.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserMonthlyQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email,
     initialData: [],
     staleTime: Infinity,
@@ -145,7 +146,7 @@ export default function Home() {
 
   const { data: collectionQuests = [] } = useQuery({
     queryKey: ['collectionQuests'],
-    queryFn: () => base44.entities.CollectionQuest.list(),
+    queryFn: () => Query.CollectionQuest.list(),
     initialData: [],
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
@@ -153,7 +154,7 @@ export default function Home() {
 
   const { data: userCollectionQuests = [], isLoading: isLoadingCollectionQuests } = useQuery({
     queryKey: ['userCollectionQuests', user?.email],
-    queryFn: () => base44.entities.UserCollectionQuest.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserCollectionQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email,
     initialData: [],
     staleTime: Infinity,
@@ -162,7 +163,7 @@ export default function Home() {
 
   const { data: allDiscoveries = [] } = useQuery({
     queryKey: ['allDiscoveries'],
-    queryFn: () => base44.entities.UserPlantDiscovery.list('-created_date'),
+    queryFn: () => Query.UserPlantDiscovery.list('-created_date'),
     initialData: [],
     staleTime: Infinity,
     refetchOnWindowFocus: false,
@@ -171,7 +172,7 @@ export default function Home() {
   const { data: allUsers = [] } = useQuery({
     queryKey: ['allUsers'],
     queryFn: async () => {
-      const users = await base44.entities.PublicProfile.list();
+      const users = await Query.PublicProfile.list();
       return users.filter(u => u.weekly_tracking !== false);
     },
     initialData: [],
@@ -181,7 +182,7 @@ export default function Home() {
 
   const { data: backgroundNotifications = [] } = useQuery({
     queryKey: ['backgroundNotifications', user?.email],
-    queryFn: () => base44.entities.UserNotification.filter({ 
+    queryFn: () => Query.UserNotification.filter({ 
       user_email: user?.email,
       notification_type: "custom",
       seen: false
@@ -195,7 +196,7 @@ export default function Home() {
 
 
   const loadUserData = async () => {
-    const currentUser = await base44.auth.me();
+    const currentUser = await getCurrentUser();
     setUser(currentUser);
     const displayName = currentUser?.display_name || currentUser?.full_name || "";
     setEditedName(displayName);
@@ -213,7 +214,7 @@ export default function Home() {
     loadUserData();
 
     // Subscription für User-Updates (z.B. aus WelcomeNameDialog)
-    const unsubscribe = base44.entities.User.subscribe((event) => {
+    const unsubscribe = Query.PublicProfile.subscribe((event) => {
       if (event.type === 'update') {
         loadUserData();
       }
@@ -271,7 +272,7 @@ export default function Home() {
   }, [backgroundNotifications]);
 
   const updateUserMutation = useMutation({
-    mutationFn: (data) => base44.auth.updateMe(data),
+    mutationFn: (data) => updateCurrentUserProfile(data),
     onSuccess: async () => {
       await new Promise(resolve => setTimeout(resolve, 500));
       const freshUser = await getCurrentUser();
@@ -290,7 +291,7 @@ export default function Home() {
 
   const updatePublicProfile = async (userData) => {
     try {
-      const profiles = await base44.entities.PublicProfile.list();
+      const profiles = await Query.PublicProfile.list();
       const existingProfile = profiles.find(p => p.user_email?.toLowerCase() === userData.email?.toLowerCase());
 
       const profileData = {
@@ -306,9 +307,9 @@ export default function Home() {
       };
 
       if (existingProfile) {
-        await base44.entities.PublicProfile.update(existingProfile.id, profileData);
+        await Query.PublicProfile.update(existingProfile.id, profileData);
       } else {
-        await base44.entities.PublicProfile.create(profileData);
+        await Query.PublicProfile.create(profileData);
       }
     } catch (error) {
       console.error("Fehler beim PublicProfile Update:", error);
@@ -323,7 +324,7 @@ export default function Home() {
 
     setUploadingImage(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await uploadFile({ file });
       await updateUserMutation.mutateAsync({ avatar_url: file_url });
     } catch (error) {
       console.error("Fehler beim Hochladen:", error);

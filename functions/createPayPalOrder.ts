@@ -1,15 +1,28 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 Deno.serve(async (req) => {
   console.log('🔵 createPayPalOrder function called');
   try {
-    const base44 = createClientFromRequest(req);
-    console.log('🔵 Base44 client created');
-    
-    const user = await base44.auth.me();
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.log('❌ Supabase env not configured');
+      return Response.json({ error: 'Supabase not configured' }, { status: 500 });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: req.headers.get('Authorization') ?? ''
+        }
+      }
+    });
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     console.log('🔵 User authenticated:', user?.email);
 
-    if (!user) {
+    if (authError || !user) {
       console.log('❌ User not authenticated');
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }

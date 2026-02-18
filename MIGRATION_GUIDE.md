@@ -189,3 +189,32 @@ Nach der Migration für alle Benutzer:
 ---
 
 **Fragen?** 💬 Schreib mir!
+
+Es gab einen riesen Patch, indem die meisten base44.entities Calls ersetzt wurden.
+Ich habe beobachtet was verändert wurde und mir sind baustellen aufgefallen:
+1) Es gibt sehr viele Scripte die mit UI Sachen wie "Card" arbeiten. Die meisten davon gehen nicht mehr und führen zu Compile errors. Was müssen wir integrieren, damit das wieder geht? Welcher Bestandteil von den Base 44 Sachen war das?
+2) Auch der Selbst definierte "MobileBackButton" funktioniert nicht mehr.
+3) Der LLM Fallback der von dir deaktiviert wurde, "die KI-Notfallerkennung ist nicht konfiguriert" soll grundsätzlich sowieso nicht mehr integriert sein. 
+Überprüfe wann und wofür der Fallback diente und erkläre es mir. Erstelle ggf. eine "Versuche es erneut" kachel, um beispielsweise eine höhere SIcherheit beim Scan zu erziehen.
+4) Du hast bei der PayPal spenden integration folgendes Referenzen zu secrets vermerkt. Bitte erkläre mir, wie die Integration verläuft und was ich ggf. bei Cloudflare oder Supabase einstellen muss.
+const supabaseUrl = Deno.env.get('SUPABASE_URL');
+const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+5) Datenschutz/Policy muss aktualisiert werden.
+
+___ Summary after change of base44.entities Calls:
+
+Removed the remaining Base44 hooks, migrated the edge functions to Supabase auth/admin clients, and cleaned up leftover UI/legal references so the app runs without Base44. Also stabilized the scanner flow where the previous fallback block had corrupt code and now uses a safe, explicit “not configured” path.
+
+Updated scanner quest matching and removed the Base44 LLM fallback code path in Scanner.jsx:240, plus adjusted the rate-limit dialog text to match the new behavior.
+Swapped feedback email to a Supabase edge function in Feedback.jsx:1 and added the new handler at sendFeedbackEmail.ts.
+Migrated all remaining edge functions off Base44 SDK to Supabase auth/admin in createPayPalOrder.ts, capturePayPalPayment.ts, sendPushNotification.ts, identifyPlant.ts, and generateQuestNotifications.ts.
+Cleaned admin and navigation remnants and fixed Base44 mentions in AdminQuestCreator.jsx, AdminBackup.jsx, NavigationTracker.jsx, and PageNotFound.jsx.
+Updated legal and profile copy to reference Supabase in Datenschutz.jsx, Classroom.jsx, Profile.jsx, ResetAccount.jsx, and Impressum.jsx.
+Removed unused Base44 artifacts: src/api/base44Client.js, src/lib/app-params.js, and docs/APP_PARAMS.md.
+Next steps
+
+Deploy the updated/new edge functions and set env vars: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY, FEEDBACK_TO_EMAIL, FEEDBACK_FROM_EMAIL, plus existing PAYPAL_*, PLANTNET_API_KEY, and VAPID_*.
+Decide whether you want a replacement LLM provider for identifyPlant (it now returns PlantNet-only fields with minimal defaults).
+Run a quick smoke test: feedback send, PayPal flow, push notification, and a scan with PlantNet.
+If you want, I can wire up a new LLM provider for identifyPlant next.

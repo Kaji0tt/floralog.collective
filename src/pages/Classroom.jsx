@@ -70,24 +70,24 @@ export default function Datenschutz() {
             <div>
               <h3 className="font-bold text-lg text-stone-900 mb-3">2.1 Authentifizierung und Datenspeicherung</h3>
               <p className="text-stone-700 leading-relaxed mb-3">
-                Die Authentifizierung (Login) erfolgt über die Plattform <strong>base44</strong>. 
+                Die Authentifizierung (Login) erfolgt über die Plattform <strong>Supabase</strong>. 
                 Sämtliche Nutzerdaten, einschließlich Ihrer Spielfortschritte und hochgeladenen Inhalte, 
-                werden ausschließlich auf den Servern von base44 gespeichert und verarbeitet.
+                werden ausschließlich auf den Servern von Supabase gespeichert und verarbeitet.
               </p>
               <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                 <p className="text-sm text-stone-700 mb-2">
                   <strong>Wichtig:</strong> Floralog selbst speichert keine personenbezogenen Daten auf eigenen Servern. 
-                  Die Datenverarbeitung erfolgt durch base44 als Auftragsverarbeiter.
+                  Die Datenverarbeitung erfolgt durch Supabase als Auftragsverarbeiter.
                 </p>
                 <p className="text-sm text-stone-700">
-                  Weitere Informationen zu base44's Datenverarbeitung finden Sie in der{" "}
+                  Weitere Informationen zu Supabase's Datenverarbeitung finden Sie in der{" "}
                   <a 
-                    href="https://base44.com/privacy-policy" 
+                    href="https://supabase.com/privacy" 
                     target="_blank" 
                     rel="noopener noreferrer" 
                     className="text-blue-600 hover:underline font-semibold"
                   >
-                    Datenschutzerklärung von base44
+                    Datenschutzerklärung von Supabase
                   </a>.
                 </p>
               </div>
@@ -275,7 +275,7 @@ export default function Datenschutz() {
           <CardContent className="p-6">
             <p className="text-stone-700 leading-relaxed mb-3">
               Floralog verwendet ausschließlich technisch notwendige Cookies für die 
-              Authentifizierung über base44. Diese Cookies sind für die Funktionsfähigkeit 
+              Authentifizierung über Supabase. Diese Cookies sind für die Funktionsfähigkeit 
               der App erforderlich und können nicht deaktiviert werden.
             </p>
             <p className="text-stone-700 leading-relaxed">

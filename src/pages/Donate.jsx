@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import { getCurrentUser } from "@/api/userApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -171,7 +171,7 @@ export default function Donate() {
             setLoading(true);
             try {
               console.log('🟢 Calling createPayPalOrder with amount:', amount || 5);
-              const response = await base44.functions.invoke('createPayPalOrder', { 
+              const response = await supabase.functions.invoke('createPayPalOrder', { 
                 amount: amount || 5 
               });
               console.log('🟢 Full response object:', response);
@@ -208,7 +208,7 @@ export default function Donate() {
             console.log('🟢 onApprove called with data:', data);
             try {
               console.log('🟢 Calling capturePayPalPayment with orderID:', data.orderID);
-              const response = await base44.functions.invoke('capturePayPalPayment', { 
+              const response = await supabase.functions.invoke('capturePayPalPayment', { 
                 orderID: data.orderID 
               });
               console.log('🟢 capturePayPalPayment response:', response);

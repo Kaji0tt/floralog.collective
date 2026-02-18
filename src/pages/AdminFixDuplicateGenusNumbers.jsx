@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ export default function AdminFixDuplicateGenusNumbers() {
 
   const { data: genera = [], isLoading } = useQuery({
     queryKey: ['genera'],
-    queryFn: () => base44.entities.PlantGenus.list(),
+    queryFn: () => Query.PlantGenus.list(),
   });
 
   // Finde Duplikate
@@ -61,7 +61,7 @@ export default function AdminFixDuplicateGenusNumbers() {
         // Das erste Item behalten, die anderen neu nummerieren
         for (let i = 1; i < items.length; i++) {
           maxNumbers[category]++;
-          await base44.entities.PlantGenus.update(items[i].id, {
+          await Query.PlantGenus.update(items[i].id, {
             category_dex_number: maxNumbers[category]
           });
         }
@@ -201,3 +201,4 @@ export default function AdminFixDuplicateGenusNumbers() {
     </div>
   );
 }
+

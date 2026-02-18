@@ -9,7 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
 import ShareScanDialog from "./ShareScanDialog";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 
 export default function ScanResults({
@@ -52,7 +52,7 @@ export default function ScanResults({
   useEffect(() => {
     const loadDiscovery = async () => {
       if (!latestDiscoveryId) return;
-      const discoveries = await base44.entities.UserPlantDiscovery.list();
+      const discoveries = await Query.UserPlantDiscovery.list();
       const found = discoveries.find((d) => d.id === latestDiscoveryId);
       setDiscovery(found);
     };
@@ -589,3 +589,4 @@ export default function ScanResults({
 
   return null;
 }
+

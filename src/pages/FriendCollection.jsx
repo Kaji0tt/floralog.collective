@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -37,7 +37,7 @@ export default function FriendCollection() {
       if (!friendEmail || !currentUser?.email) return;
       
       // Prüfe Freundschaftsstatus
-      const allFriends = await base44.entities.Friend.list();
+      const allFriends = await Query.Friend.list();
       const currentEmailLower = currentUser.email.toLowerCase();
       const friendEmailLower = friendEmail.toLowerCase();
       
@@ -55,7 +55,7 @@ export default function FriendCollection() {
       }
       
       // Versuche PublicProfile zu laden
-      const profiles = await base44.entities.PublicProfile.list();
+      const profiles = await Query.PublicProfile.list();
       const profile = profiles.find(p => p.user_email?.toLowerCase() === friendEmail?.toLowerCase());
       
       if (profile) {
@@ -77,19 +77,19 @@ export default function FriendCollection() {
 
   const { data: genera = [], isLoading: generaLoading } = useQuery({
     queryKey: ['genera'],
-    queryFn: () => base44.entities.PlantGenus.list(),
+    queryFn: () => Query.PlantGenus.list(),
   });
 
   const { data: plants = [], isLoading: plantsLoading } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => base44.entities.Plant.list(),
+    queryFn: () => Query.Plant.list(),
   });
 
   const { data: friendDiscoveries = [], isLoading: discoveriesLoading } = useQuery({
     queryKey: ['friendDiscoveries', friendEmail],
     queryFn: async () => {
       // Nutze das neue "user" Feld (mit Fallback auf created_by für alte Einträge)
-      const discoveries = await base44.entities.UserPlantDiscovery.list();
+      const discoveries = await Query.UserPlantDiscovery.list();
       return discoveries.filter(d => d.user === friendEmail || d.created_by === friendEmail);
     },
     enabled: !!friendEmail,

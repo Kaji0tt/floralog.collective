@@ -1,4 +1,5 @@
 // Helper-Funktionen für tägliche und wöchentliche Quest-Rotation
+import { Query } from "@/api/entities";
 
 // Gibt den aktuellen Tag des Jahres zurück (1-366)
 export const getDayOfYear = (date = new Date()) => {
@@ -50,7 +51,7 @@ export const getCurrentWeeklyQuest = (weeklyQuests) => {
 };
 
 // Holt oder erstellt die aktive UserMonthlyQuest für diesen Monat
-export const getOrCreateActiveMonthlyQuest = async (base44, currentMonthlyQuest, userMonthlyQuests, userEmail) => {
+export const getOrCreateActiveMonthlyQuest = async (currentMonthlyQuest, userMonthlyQuests, userEmail) => {
   if (!currentMonthlyQuest) return null;
   
   const currentMonth = getMonthString();
@@ -59,7 +60,7 @@ export const getOrCreateActiveMonthlyQuest = async (base44, currentMonthlyQuest,
   );
   
   if (!activeUserQuest) {
-    activeUserQuest = await base44.entities.UserMonthlyQuest.create({
+    activeUserQuest = await Query.UserMonthlyQuest.create({
       monthly_quest_id: currentMonthlyQuest.id,
       active_month: currentMonth,
       progress: 0,
@@ -72,7 +73,7 @@ export const getOrCreateActiveMonthlyQuest = async (base44, currentMonthlyQuest,
 };
 
 // Holt oder erstellt die aktive UserWeeklyQuest für diese Woche
-export const getOrCreateActiveWeeklyQuest = async (base44, currentWeeklyQuest, userWeeklyQuests, userEmail) => {
+export const getOrCreateActiveWeeklyQuest = async (currentWeeklyQuest, userWeeklyQuests, userEmail) => {
   if (!currentWeeklyQuest) return null;
   
   const currentWeek = getWeekNumber();
@@ -81,7 +82,7 @@ export const getOrCreateActiveWeeklyQuest = async (base44, currentWeeklyQuest, u
   );
   
   if (!activeUserQuest) {
-    activeUserQuest = await base44.entities.UserWeeklyQuest.create({
+    activeUserQuest = await Query.UserWeeklyQuest.create({
       weekly_quest_id: currentWeeklyQuest.id,
       active_week: currentWeek,
       progress: 0,

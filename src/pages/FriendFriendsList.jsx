@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,7 +34,7 @@ export default function FriendFriendsList() {
       if (!friendEmail || !currentUser?.email) return;
       
       // Prüfe Freundschaftsstatus
-      const allFriends = await base44.entities.Friend.list();
+      const allFriends = await Query.Friend.list();
       const currentEmailLower = currentUser.email.toLowerCase();
       const friendEmailLower = friendEmail.toLowerCase();
       
@@ -51,7 +51,7 @@ export default function FriendFriendsList() {
         return;
       }
       
-      const profiles = await base44.entities.PublicProfile.list();
+      const profiles = await Query.PublicProfile.list();
       const profile = profiles.find(p => p.user_email?.toLowerCase() === friendEmail?.toLowerCase());
       
       if (profile) {
@@ -72,7 +72,7 @@ export default function FriendFriendsList() {
 
   const { data: allFriendRecords = [] } = useQuery({
     queryKey: ['allFriendRecords'],
-    queryFn: () => base44.entities.Friend.list(),
+    queryFn: () => Query.Friend.list(),
     enabled: !!friendEmail,
   });
 
@@ -91,7 +91,7 @@ export default function FriendFriendsList() {
 
   const { data: allPublicProfiles = [] } = useQuery({
     queryKey: ['allPublicProfiles'],
-    queryFn: () => base44.entities.PublicProfile.list(),
+    queryFn: () => Query.PublicProfile.list(),
   });
 
   if (isNotFriend) {

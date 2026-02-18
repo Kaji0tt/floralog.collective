@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, CheckCircle, Loader2 } from "lucide-react";
@@ -21,8 +21,8 @@ export default function MigratePlantGenus() {
 
     try {
       // Lade alle Pflanzen und Gattungen
-      const plants = await base44.entities.Plant.list();
-      const genera = await base44.entities.PlantGenus.list();
+      const plants = await Query.Plant.list();
+      const genera = await Query.PlantGenus.list();
 
       setProgress(`Gefunden: ${plants.length} Pflanzen, ${genera.length} Gattungen`);
 
@@ -48,7 +48,7 @@ export default function MigratePlantGenus() {
 
         try {
           // Update mit neuen Feldern
-          await base44.entities.Plant.update(plant.id, {
+          await Query.Plant.update(plant.id, {
             genus_category: genus.category,
             genus_number: genus.category_dex_number
           });

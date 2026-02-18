@@ -1,4 +1,4 @@
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 
 /**
  * Prüft ob zufällige Rewards bei einem Event freigeschaltet werden sollen
@@ -11,7 +11,7 @@ export async function checkRandomRewards(userEmail, eventType) {
     console.log(`[RandomRewardChecker] Checking random rewards for ${userEmail} on event: ${eventType}`);
 
     // Lade alle Rewards mit dem entsprechenden Event
-    const allRewards = await base44.entities.Reward.filter({ random_event: eventType });
+    const allRewards = await Query.Reward.filter({ random_event: eventType });
     
     if (allRewards.length === 0) {
       console.log(`[RandomRewardChecker] No random rewards configured for event: ${eventType}`);
@@ -19,7 +19,7 @@ export async function checkRandomRewards(userEmail, eventType) {
     }
 
     // Lade bereits freigeschaltete Rewards des Users
-    const userRewards = await base44.entities.UserReward.filter({ created_by: userEmail });
+    const userRewards = await Query.UserReward.filter({ created_by: userEmail });
     const hasReward = (rewardId) => userRewards.some(ur => ur.reward_id === rewardId);
 
     const unlockedRewards = [];
@@ -42,13 +42,13 @@ export async function checkRandomRewards(userEmail, eventType) {
         console.log(`[RandomRewardChecker] 🎉 Unlocked random reward: ${reward.display_name}`);
         
         // Schalte Reward frei
-        await base44.entities.UserReward.create({
+        await Query.UserReward.create({
           reward_id: reward.id,
           unlocked_date: new Date().toISOString()
         });
 
         // Erstelle spezielle Notification für zufällige Belohnungen
-        await base44.entities.UserNotification.create({
+        await Query.UserNotification.create({
           user_email: userEmail,
           notification_type: "custom",
           title: `✨ Glücksfund!`,
@@ -74,3 +74,4 @@ export async function checkRandomRewards(userEmail, eventType) {
     return [];
   }
 }
+

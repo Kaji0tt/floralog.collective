@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import QuestNotificationDisplay from "./QuestNotificationDisplay";
 import { AnimatePresence } from "framer-motion";
@@ -18,7 +18,7 @@ export default function UserNotificationManager({ user }) {
     queryKey: ['userNotifications', user?.email],
     queryFn: async () => {
       if (!user?.email) return [];
-      const allNotifications = await base44.entities.UserNotification.list('-created_date');
+      const allNotifications = await Query.UserNotification.list('-created_date');
       return allNotifications.filter(n => 
         n.user_email === user.email && 
         n.seen === false
@@ -32,7 +32,7 @@ export default function UserNotificationManager({ user }) {
   useEffect(() => {
     if (!user?.email) return;
 
-    const unsubscribe = base44.entities.UserNotification.subscribe((event) => {
+    const unsubscribe = Query.UserNotification.subscribe((event) => {
       if (event.type === 'create') {
         const notification = event.data;
         if (notification.user_email === user.email && !notification.seen) {
@@ -49,7 +49,7 @@ export default function UserNotificationManager({ user }) {
   // Mutation zum Markieren als gesehen
   const markAsSeenMutation = useMutation({
     mutationFn: (notificationId) => 
-      base44.entities.UserNotification.update(notificationId, { seen: true }),
+      Query.UserNotification.update(notificationId, { seen: true }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userNotifications'] });
     }

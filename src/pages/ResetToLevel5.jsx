@@ -1,5 +1,6 @@
+//Deprecated: Diese Seite wird nur für den einmaligen Reset von Accounts auf Level 5 benötigt. Danach kann sie gelöscht werden.
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { updateCurrentUserProfile } from "@/api/userApi";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -13,7 +14,7 @@ export default function ResetToLevel5() {
     try {
       // Level 5 benötigt: 100 + 150 + 200 + 250 + 300 = 1000 XP
       // Wir setzen auf 1000 XP = frisch Level 5
-      await base44.auth.updateMe({
+      await updateCurrentUserProfile({
         level: 5,
         xp: 1000,
         title: "Pflanzen-Forscher 🔍"

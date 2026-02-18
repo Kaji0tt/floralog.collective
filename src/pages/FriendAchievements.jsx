@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -35,7 +35,7 @@ export default function FriendAchievements() {
       if (!friendEmail || !currentUser?.email) return;
       
       // Prüfe Freundschaftsstatus
-      const allFriends = await base44.entities.Friend.list();
+      const allFriends = await Query.Friend.list();
       const currentEmailLower = currentUser.email.toLowerCase();
       const friendEmailLower = friendEmail.toLowerCase();
       
@@ -53,7 +53,7 @@ export default function FriendAchievements() {
       }
       
       // Versuche PublicProfile zu laden
-      const profiles = await base44.entities.PublicProfile.list();
+      const profiles = await Query.PublicProfile.list();
       const profile = profiles.find(p => p.user_email?.toLowerCase() === friendEmail?.toLowerCase());
       
       if (profile) {
@@ -77,13 +77,13 @@ export default function FriendAchievements() {
 
   const { data: achievements = [] } = useQuery({
     queryKey: ['achievements'],
-    queryFn: () => base44.entities.Achievement.list('achievement_number'),
+    queryFn: () => Query.Achievement.list('achievement_number'),
   });
 
   const { data: userAchievements = [] } = useQuery({
     queryKey: ['userAchievements', friendEmail],
     queryFn: async () => {
-      const achievements = await base44.entities.UserAchievement.list();
+      const achievements = await Query.UserAchievement.list();
       // Nutze created_by für Achievements (das ist korrekt)
       return achievements.filter(ua => ua.created_by === friendEmail);
     },
@@ -339,3 +339,4 @@ export default function FriendAchievements() {
     </div>
   );
 }
+

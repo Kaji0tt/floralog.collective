@@ -1,6 +1,6 @@
 // User API utilities using Supabase Auth
 
-import { getCurrentAuthUser, getUserProfile } from './authService';
+import { getCurrentAuthUser, getUserProfile, upsertUserProfile } from './authService';
 
 /**
  * Get current user from Supabase Auth + Profile
@@ -22,5 +22,21 @@ export const getCurrentUser = async () => {
     console.error('Error getting current user:', error);
     return null;
   }
+};
+
+/**
+ * Update current user's PublicProfile data
+ */
+export const updateCurrentUserProfile = async (updates) => {
+  const authUser = await getCurrentAuthUser();
+  if (!authUser?.email) {
+    throw new Error('Auth session missing');
+  }
+
+  const profile = await upsertUserProfile(authUser.email, updates);
+  return {
+    ...authUser,
+    ...profile
+  };
 };
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,11 +13,11 @@ export default function AdminCategoryFix() {
 
   const { data: genera = [] } = useQuery({
     queryKey: ['genera'],
-    queryFn: () => base44.entities.PlantGenus.list(),
+    queryFn: () => Query.PlantGenus.list(),
   });
 
   const updateGenusMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.PlantGenus.update(id, data),
+    mutationFn: ({ id, data }) => Query.PlantGenus.update(id, data),
   });
 
   const blumenGenera = genera.filter(g => g.category === "Blumen" || g.category === "Blumen & Kräuter");
@@ -37,7 +37,7 @@ export default function AdminCategoryFix() {
 
     try {
       // Hole alle aktuellen Blumen-Gattungen
-      const allGenera = await base44.entities.PlantGenus.list();
+      const allGenera = await Query.PlantGenus.list();
       const blumenList = allGenera
         .filter(g => g.category === "Blumen" || g.category === "Blumen & Kräuter")
         .sort((a, b) => {
@@ -180,3 +180,4 @@ export default function AdminCategoryFix() {
     </div>
   );
 }
+

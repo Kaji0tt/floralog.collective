@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
+import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
+import { uploadFile } from "@/api/storage";
+import { supabase } from "@/api/supabaseClient";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -100,7 +103,7 @@ export default function Scanner() {
 
   useEffect(() => {
     const loadUser = async () => {
-      const currentUser = await base44.auth.me();
+      const currentUser = await getCurrentUser();
       setUser(currentUser);
     };
     loadUser();
@@ -140,83 +143,83 @@ export default function Scanner() {
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => base44.entities.Plant.list()
+    queryFn: () => Query.Plant.list()
   });
 
   const { data: genera = [] } = useQuery({
     queryKey: ['genera'],
-    queryFn: () => base44.entities.PlantGenus.list()
+    queryFn: () => Query.PlantGenus.list()
   });
 
   const { data: userDiscoveries = [] } = useQuery({
     queryKey: ['userDiscoveries'],
-    queryFn: () => base44.entities.UserPlantDiscovery.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserPlantDiscovery.filter({ created_by: user?.email }),
     enabled: !!user?.email
   });
 
   const { data: monthlyQuests = [] } = useQuery({
     queryKey: ['monthlyQuests'],
-    queryFn: () => base44.entities.MonthlyQuest.list('quest_number')
+    queryFn: () => Query.MonthlyQuest.list('quest_number')
   });
 
   const { data: weeklyQuests = [] } = useQuery({
     queryKey: ['weeklyQuests'],
-    queryFn: () => base44.entities.WeeklyQuest.list('quest_number')
+    queryFn: () => Query.WeeklyQuest.list('quest_number')
   });
 
   const { data: userMonthlyQuests = [] } = useQuery({
     queryKey: ['userMonthlyQuests'],
-    queryFn: () => base44.entities.UserMonthlyQuest.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserMonthlyQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email
   });
 
   const { data: quests = [] } = useQuery({
     queryKey: ['quests'],
-    queryFn: () => base44.entities.Quest.list('quest_number')
+    queryFn: () => Query.Quest.list('quest_number')
   });
 
   const { data: userQuests = [] } = useQuery({
     queryKey: ['userQuests'],
-    queryFn: () => base44.entities.UserQuest.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email
   });
 
   const { data: userWeeklyQuests = [] } = useQuery({
     queryKey: ['userWeeklyQuests'],
-    queryFn: () => base44.entities.UserWeeklyQuest.filter({ created_by: user?.email }),
+    queryFn: () => Query.UserWeeklyQuest.filter({ created_by: user?.email }),
     enabled: !!user?.email
   });
 
   const updatePlantMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Plant.update(id, data),
+    mutationFn: ({ id, data }) => Query.Plant.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['plants'] });
     }
   });
 
   const createPlantMutation = useMutation({
-    mutationFn: (data) => base44.entities.Plant.create(data),
+    mutationFn: (data) => Query.Plant.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['plants'] });
     }
   });
 
   const createGenusMutation = useMutation({
-    mutationFn: (data) => base44.entities.PlantGenus.create(data),
+    mutationFn: (data) => Query.PlantGenus.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['genera'] });
     }
   });
 
   const deleteDiscoveryMutation = useMutation({
-    mutationFn: (discoveryId) => base44.entities.UserPlantDiscovery.delete(discoveryId),
+    mutationFn: (discoveryId) => Query.UserPlantDiscovery.delete(discoveryId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
     }
   });
 
   const updateDiscoveryMutation = useMutation({
-    mutationFn: ({ discoveryId, data }) => base44.entities.UserPlantDiscovery.update(discoveryId, data),
+    mutationFn: ({ discoveryId, data }) => Query.UserPlantDiscovery.update(discoveryId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
     }
@@ -224,7 +227,7 @@ export default function Scanner() {
 
   const updatePublicProfile = async (userData) => {
     try {
-      const profiles = await base44.entities.PublicProfile.list();
+      const profiles = await Query.PublicProfile.list();
       const existingProfile = profiles.find((p) => p.user_email?.toLowerCase() === userData.email?.toLowerCase());
 
       const profileData = {
@@ -237,9 +240,9 @@ export default function Scanner() {
       };
 
       if (existingProfile) {
-        await base44.entities.PublicProfile.update(existingProfile.id, profileData);
+        await Query.PublicProfile.update(existingProfile.id, profileData);
       } else {
-        await base44.entities.PublicProfile.create(profileData);
+        await Query.PublicProfile.create(profileData);
       }
     } catch (error) {
       console.error("PublicProfile Update Fehler:", error);
@@ -252,6 +255,11 @@ export default function Scanner() {
     try {
       const currentMonthlyQuest = getCurrentMonthlyQuest(monthlyQuests);
       const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
+      const currentUser = await getCurrentUser();
+
+      if (!currentUser?.email) {
+        return;
+      }
 
       // Helper: Prüft ob der Scan für die Quest zählt
       const scanMatchesQuest = (quest) => {
@@ -261,160 +269,20 @@ export default function Scanner() {
         }
         if (quest.target_genus_name) {
           const genus = genera.find((g) => g.id === scannedPlant.genus_id);
-          return genus?.genus_name?.toLowerCase() === quest.target_genus_name.toLowerCase();
+          const targetGenus = quest.target_genus_name.toLowerCase();
+          return (
+            genus?.genus_name?.toLowerCase() === targetGenus ||
+            genus?.scientific_genus?.toLowerCase() === targetGenus
+          );
         }
-        
-        // Reguläre Quests: targets Array
-        if (quest.targets && quest.targets.length > 0) {
-          const genus = genera.find((g) => g.id === scannedPlant.genus_id);
-          const matchesTarget = quest.targets.some(target => {
-            if (target.target_type === 'species') {
-              return scannedPlant.species_name?.toLowerCase() === target.target_name.toLowerCase();
-            } else if (target.target_type === 'genus') {
-              return genus?.genus_name?.toLowerCase() === target.target_name.toLowerCase();
-            }
-            return false;
-          });
-          
-          if (!matchesTarget) return false;
-        }
-        
-        // Kategorie-basiert (falls keine spezifischen Ziele)
-        if (quest.category && quest.category !== "Alle") {
-          const genus = genera.find((g) => g.id === scannedPlant.genus_id);
-          return genus?.category === quest.category;
-        }
-        
-        // Alle Kategorien
-        return true;
+        return false;
       };
 
-      // Update reguläre Quests - nur die bereits geladenen durchgehen
-      const activeUserQuests = userQuests.filter(uq => uq.accepted && !uq.completed);
-      const updatePromises = [];
-      
-      for (const userQuest of activeUserQuests) {
-        const quest = quests.find(q => q.id === userQuest.quest_id);
-        if (quest && scanMatchesQuest(quest)) {
-          const newProgress = (userQuest.progress || 0) + 1;
-          const isCompleted = newProgress >= (quest.required_discoveries || 1);
-          updatePromises.push(
-            base44.entities.UserQuest.update(userQuest.id, {
-              progress: newProgress,
-              completed: isCompleted,
-              completed_date: isCompleted ? new Date().toISOString() : userQuest.completed_date
-            })
-          );
-        }
-      }
-
-      if (currentMonthlyQuest) {
-        const activeMonthlyQuest = await getOrCreateActiveMonthlyQuest(base44, currentMonthlyQuest, userMonthlyQuests, user.email);
-        if (activeMonthlyQuest && !activeMonthlyQuest.completed && scanMatchesQuest(currentMonthlyQuest)) {
-          const newProgress = (activeMonthlyQuest.progress || 0) + 1;
-          const isCompleted = newProgress >= (currentMonthlyQuest.required_discoveries || 1);
-          updatePromises.push(
-            base44.entities.UserMonthlyQuest.update(activeMonthlyQuest.id, {
-              progress: newProgress,
-              completed: isCompleted,
-              completed_date: isCompleted ? new Date().toISOString() : activeMonthlyQuest.completed_date
-            })
-          );
-        }
-      }
-
-      if (currentWeeklyQuest) {
-        const activeWeeklyQuest = await getOrCreateActiveWeeklyQuest(base44, currentWeeklyQuest, userWeeklyQuests, user.email);
-        if (activeWeeklyQuest && !activeWeeklyQuest.completed && scanMatchesQuest(currentWeeklyQuest)) {
-          const newProgress = (activeWeeklyQuest.progress || 0) + 1;
-          const isCompleted = newProgress >= (currentWeeklyQuest.required_discoveries || 1);
-          updatePromises.push(
-            base44.entities.UserWeeklyQuest.update(activeWeeklyQuest.id, {
-              progress: newProgress,
-              completed: isCompleted,
-              completed_date: isCompleted ? new Date().toISOString() : activeWeeklyQuest.completed_date
-            })
-          );
-        }
-      }
-
-      // Alle Updates parallel ausführen
-      await Promise.all(updatePromises);
-
-      queryClient.invalidateQueries({ queryKey: ['userQuests'] });
-      queryClient.invalidateQueries({ queryKey: ['userMonthlyQuests'] });
-      queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
-    } catch (error) {
-      console.error("Quest-Progress Update Fehler:", error);
-      // Fehler nicht weiterwerfen - Quest-Updates sollen den Scan nicht blockieren
-    }
-  };
-
-  // Hintergrund-Freischaltungen im Hintergrund prüfen (nicht-blockierend)
-  const checkBackgroundUnlocks = async (plant, isFirstScan) => {
-    try {
-      const currentUser = await base44.auth.me();
-      
-      // Referral-Hintergrund (nur bei erstem Scan)
-      if (isFirstScan) {
-        console.log('[Referral] Erster Scan erkannt - prüfe Referral-Code...');
-        const referralCode = localStorage.getItem('referral_code');
-        
-        if (referralCode) {
-          console.log('[Referral] Code gefunden:', referralCode);
-          const referrerEmail = decodeURIComponent(referralCode);
-          
-          // Finde das Referral-Objekt
-          const referrals = await base44.entities.Referral.list();
-          const myReferral = referrals.find(r => 
-            r.invited_by?.toLowerCase() === referrerEmail.toLowerCase() && 
-            r.status === "pending"
-          );
-          
-          if (myReferral) {
-            console.log('[Referral] Referral gefunden - setze auf completed');
-            await base44.entities.Referral.update(myReferral.id, {
-              status: "completed",
-              completed_date: new Date().toISOString()
-            });
-
-            // Lösche den Code aus localStorage
-            localStorage.removeItem('referral_code');
-            console.log('[Referral] Code aus localStorage entfernt');
-
-            // Benachrichtige beide User
-            await base44.entities.UserNotification.create({
-              user_email: currentUser.email,
-              notification_type: "custom",
-              title: "🎉 Erfolgreich eingeladen!",
-              message: "Dein Freund erhält eine Belohnung für deine Einladung!",
-              priority: "low",
-              display_location: "banner"
-            });
-
-            await base44.entities.UserNotification.create({
-              user_email: referrerEmail,
-              notification_type: "custom",
-              title: "🎁 Freund hat gescannt!",
-              message: "Dein eingeladener Freund hat seinen ersten Scan gemacht!",
-              priority: "medium",
-              display_location: "banner"
-            });
-
-            console.log('[Referral] Referral-System erfolgreich abgeschlossen');
-          } else {
-            console.log('[Referral] Kein passendes Referral gefunden');
-          }
-        } else {
-          console.log('[Referral] Kein Referral-Code im localStorage');
-        }
-      }
-
       // Seltene-Pflanze-Hintergrund
-      if (plant.rarity === "Selten" || plant.rarity === "Sehr Selten" || plant.rarity === "Extrem Selten") {
+      if (scannedPlant.rarity === "Selten" || scannedPlant.rarity === "Sehr Selten" || scannedPlant.rarity === "Extrem Selten") {
         if (!currentUser.rare_plant_unlocked) {
-          await base44.auth.updateMe({ rare_plant_unlocked: true });
-          await base44.entities.UserNotification.create({
+          await updateCurrentUserProfile({ rare_plant_unlocked: true });
+          await Query.UserNotification.create({
             user_email: currentUser.email,
             notification_type: "custom",
             title: "🌟 Hintergrund freigeschaltet!",
@@ -426,13 +294,13 @@ export default function Scanner() {
       }
 
       // Weekly Quest Hintergrund (nur wenn tatsächlich Progress > 0)
-      const userWeeklyQuestsData = await base44.entities.UserWeeklyQuest.filter({ created_by: currentUser.email });
+      const userWeeklyQuestsData = await Query.UserWeeklyQuest.filter({ created_by: currentUser.email });
       const weeklyWithProgress = userWeeklyQuestsData.filter(q => (q.progress || 0) > 0);
       const weeklyParticipations = new Set(weeklyWithProgress.map(q => q.active_week)).size;
       
       if (weeklyParticipations >= 1 && !currentUser.weekly_bg1_unlocked) {
-        await base44.auth.updateMe({ weekly_bg1_unlocked: true });
-        await base44.entities.UserNotification.create({
+        await updateCurrentUserProfile({ weekly_bg1_unlocked: true });
+        await Query.UserNotification.create({
           user_email: currentUser.email,
           notification_type: "custom",
           title: "🎉 Hintergrund freigeschaltet!",
@@ -442,8 +310,8 @@ export default function Scanner() {
         });
       }
       if (weeklyParticipations >= 3 && !currentUser.weekly_bg2_unlocked) {
-        await base44.auth.updateMe({ weekly_bg2_unlocked: true });
-        await base44.entities.UserNotification.create({
+        await updateCurrentUserProfile({ weekly_bg2_unlocked: true });
+        await Query.UserNotification.create({
           user_email: currentUser.email,
           notification_type: "custom",
           title: "🎉 Hintergrund freigeschaltet!",
@@ -454,12 +322,12 @@ export default function Scanner() {
       }
 
       // Monthly Quest Hintergrund (nur wenn tatsächlich completed)
-      const userMonthlyQuestsData = await base44.entities.UserMonthlyQuest.filter({ created_by: currentUser.email });
+      const userMonthlyQuestsData = await Query.UserMonthlyQuest.filter({ created_by: currentUser.email });
       const hasCompleted = userMonthlyQuestsData.some(q => q.completed);
       
       if (hasCompleted && !currentUser.monthly_bg_unlocked) {
-        await base44.auth.updateMe({ monthly_bg_unlocked: true });
-        await base44.entities.UserNotification.create({
+        await updateCurrentUserProfile({ monthly_bg_unlocked: true });
+        await Query.UserNotification.create({
           user_email: currentUser.email,
           notification_type: "custom",
           title: "🎉 Hintergrund freigeschaltet!",
@@ -470,14 +338,14 @@ export default function Scanner() {
       }
 
       // Quest 1 Hintergrund - nur wenn eingelöst (redeemed)
-      const userQuestsData = await base44.entities.UserQuest.filter({ created_by: currentUser.email });
-      const questsData = await base44.entities.Quest.list();
+      const userQuestsData = await Query.UserQuest.filter({ created_by: currentUser.email });
+      const questsData = await Query.Quest.list();
       const quest1 = questsData.find(q => q.quest_number === 1);
       const userQuest1 = userQuestsData.find(uq => uq.quest_id === quest1?.id);
       
       if (userQuest1?.redeemed && !currentUser.gift_bg_unlocked) {
-        await base44.auth.updateMe({ gift_bg_unlocked: true });
-        await base44.entities.UserNotification.create({
+        await updateCurrentUserProfile({ gift_bg_unlocked: true });
+        await Query.UserNotification.create({
           user_email: currentUser.email,
           notification_type: "custom",
           title: "🎁 Hintergrund freigeschaltet!",
@@ -521,7 +389,7 @@ export default function Scanner() {
 
         if (!genus) {
           // Lade frische Genera-Daten direkt von der DB
-          const allGenera = await base44.entities.PlantGenus.list();
+          const allGenera = await Query.PlantGenus.list();
 
           const categoryGenera = allGenera.filter((g) =>
           g.category === newPlant.category ||
@@ -595,7 +463,7 @@ export default function Scanner() {
     try {
       console.log("📤 Starte Upload...");
       setScanningPhase(0); // Komprimiere Bild
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await uploadFile({ file });
       console.log("✅ Upload erfolgreich:", file_url);
       setImageUrl(file_url);
 
@@ -603,7 +471,7 @@ export default function Scanner() {
       setScanningPhase(1); // PlantNet-API analysiert
 
       try {
-        const response = await base44.functions.invoke('identifyPlant', {
+        const response = await supabase.functions.invoke('identifyPlant', {
           image_url: file_url,
           organ: organ
         });
@@ -743,7 +611,7 @@ export default function Scanner() {
     }
 
     // Lade aktuelle Discoveries direkt von der DB, nicht vom Cache
-    const currentDiscoveries = await base44.entities.UserPlantDiscovery.filter({ created_by: user.email });
+    const currentDiscoveries = await Query.UserPlantDiscovery.filter({ created_by: user.email });
 
     console.log("🔍 Überprüfe ob bereits entdeckt:");
     console.log("  plant.id:", plant.id);
@@ -755,7 +623,7 @@ export default function Scanner() {
 
     console.log("  ✅ alreadyDiscovered:", alreadyDiscovered);
 
-    const newDiscovery = await base44.entities.UserPlantDiscovery.create({
+    const newDiscovery = await Query.UserPlantDiscovery.create({
       plant_id: plant.id,
       discovered_date: new Date().toISOString(),
       discovery_location: locationString,
@@ -821,7 +689,7 @@ export default function Scanner() {
 
       if (!genus) {
         // Lade frische Genera-Daten direkt von der DB
-        const allGenera = await base44.entities.PlantGenus.list();
+        const allGenera = await Query.PlantGenus.list();
 
         const categoryGenera = allGenera.filter((g) =>
         g.category === plantData.category ||
@@ -854,7 +722,7 @@ export default function Scanner() {
         rarity: plantData.rarity || "Gelegentlich"
       });
 
-      const newDiscovery = await base44.entities.UserPlantDiscovery.create({
+      const newDiscovery = await Query.UserPlantDiscovery.create({
         plant_id: newPlant.id,
         discovered_date: new Date().toISOString(),
         discovery_location: locationString,
@@ -877,8 +745,8 @@ export default function Scanner() {
       await updateQuestProgress(newPlant);
 
       // Hintergrund-Freischaltungen im Hintergrund prüfen (nicht-blockierend)
-      const currentUser = await base44.auth.me();
-      const myDiscoveries = await base44.entities.UserPlantDiscovery.filter({ created_by: currentUser.email });
+      const currentUser = await getCurrentUser();
+      const myDiscoveries = await Query.UserPlantDiscovery.filter({ created_by: currentUser.email });
       const isFirstScan = myDiscoveries.length === 1;
       checkBackgroundUnlocks(newPlant, isFirstScan).catch(err => console.error("Background unlock error:", err));
 
@@ -916,173 +784,11 @@ export default function Scanner() {
     identifyPlant(file, organ);
   };
 
-  const handleLLMFallback = async () => {
+  const handleLLMFallback = () => {
     setShowRateLimitDialog(false);
-    if (!pendingImageData) return;
-    
-    setScanning(true);
-    
-    try {
-      // Rufe LLM-Fallback direkt auf
-      const response = await base44.integrations.Core.InvokeLLM({
-        prompt: `Du bist ein präziser Botaniker und Pflanzenexperte.
-
-Analysiere dieses Foto sehr sorgfältig und identifiziere die Pflanze NUR wenn du dir SICHER bist.
-
-WICHTIGE REGELN:
-- Setze "identified" nur auf TRUE wenn du die Pflanze mit hoher Sicherheit erkennst
-- Achte genau auf: Blattform, Blütenform, Farbe, Wuchsform, Stängelstruktur
-- Bei Unsicherheit: setze "identified" auf FALSE
-- Lieber keine Antwort als eine falsche!
-- WICHTIG: Prüfe ob die Pflanze in Mitteleuropa heimisch oder häufig vorkommt
-- Setze "is_european" auf false für tropische, asiatische, amerikanische oder andere nicht-europäische Pflanzen
-
-Falls du die Pflanze SICHER erkennst, gib an:
-1. Deutschen Artnamen (präzise, z.B. "Gewöhnliche Sonnenblume")
-2. Gattungsname (z.B. "Sonnenblume")
-3. Wissenschaftlicher Artname (z.B. "Helianthus annuus")
-4. Wissenschaftlicher Gattungsname (z.B. "Helianthus")
-5. Kategorie: "Bäume", "Sträucher" oder "Blumen"
-6. Pflanzenfamilie (z.B. "Korbblütler")
-7. Beschreibung (2-3 Sätze)
-8. Haupterkennungsmerkmale
-9. Interessanter Fakt
-10. is_european: true/false
-11. rarity: "Häufig", "Gelegentlich", "Selten", "Sehr Selten", oder "Extrem Selten"`,
-        file_urls: [pendingImageData.file_url],
-        response_json_schema: {
-          type: "object",
-          properties: {
-            identified: { type: "boolean" },
-            species_name: { type: "string" },
-            genus_name: { type: "string" },
-            scientific_name: { type: "string" },
-            scientific_genus: { type: "string" },
-            category: { type: "string", enum: ["Bäume", "Sträucher", "Blumen"] },
-            family: { type: "string" },
-            description: { type: "string" },
-            identification_features: { type: "string" },
-            fun_fact: { type: "string" },
-            is_european: { type: "boolean" },
-            rarity: { type: "string", enum: ["Häufig", "Gelegentlich", "Selten", "Sehr Selten", "Extrem Selten"] }
-          },
-          required: ["identified"]
-        }
-      });
-      
-      if (response.identified) {
-        const plantData = {
-          ...response,
-          notInDex: true,
-          inDatabase: false
-        };
-        
-        setAllScanResults([plantData]);
-        
-        if (response.is_european === false) {
-          setMatchedPlant(plantData);
-          setScanning(false);
-        } else {
-          // Temporär speichern, warte auf Bestätigung
-          setPendingScanData({
-            plant: plantData,
-            imageUrl: pendingImageData.file_url,
-            allResults: [plantData],
-            isInDatabase: false
-          });
-          setMatchedPlant(plantData);
-          setScanning(false);
-        }
-      } else {
-        setMatchedPlant({
-          identified: false,
-          error: "Die Pflanze konnte nicht identifiziert werden."
-        });
-        setScanning(false);
-      }
-      
-      setPendingImageData(null);
-    } catch (error) {
-      console.error("LLM-Fallback Fehler:", error);
-      setMatchedPlant({
-        identified: false,
-        error: `Fehler: ${error.message}`
-      });
-      setScanning(false);
-      setPendingImageData(null);
-    }
-  };
-
-  const handleConfirmSave = async () => {
-    if (!pendingScanData || isSavingPlant) return;
-    
-    setIsSavingPlant(true);
-    // Modal bleibt offen und zeigt Loading-State
-    
-    try {
-      // Wähle das aktuell ausgewählte Ergebnis
-      const selectedPlant = pendingScanData.allResults[currentResultIndex] || pendingScanData.plant;
-      const isInDatabase = selectedPlant.inDatabase;
-      
-      if (isInDatabase) {
-        await handleAutoSave(selectedPlant, pendingScanData.imageUrl, selectedPlant.aiData || selectedPlant, pendingScanData.allResults);
-        
-        // Prüfe ob das der erste Scan war - dann Quest-Notification erstellen
-        try {
-          const currentUser = await base44.auth.me();
-          const allDiscoveries = await base44.entities.UserPlantDiscovery.filter({ created_by: currentUser.email });
-          
-          if (allDiscoveries.length === 1) {
-            await base44.entities.UserNotification.create({
-              user_email: currentUser.email,
-              notification_type: "custom",
-              title: "🎯 Deine erste Quest ist abgeschlossen!",
-              message: "Glückwunsch! Du hast deine erste Pflanze gescannt. Jetzt kannst du deine Quests einlösen und Belohnungen erhalten. Schau bei 'Erfolge' vorbei!",
-              description: "Löse deine erste Quest ein.",
-              action_url: "",
-              priority: "high",
-              display_location: "modal"
-            });
-          }
-        } catch (notificationError) {
-          console.error("Fehler beim Erstellen der Notification:", notificationError);
-        }
-        
-        // Navigation zur Home-Page
-        navigate(createPageUrl("Home"));
-      } else {
-        await handleAutoAddNewPlant(selectedPlant, pendingScanData.imageUrl, pendingScanData.allResults);
-        
-        // Prüfe ob das der erste Scan war - dann Quest-Notification erstellen
-        try {
-          const currentUser = await base44.auth.me();
-          const allDiscoveries = await base44.entities.UserPlantDiscovery.filter({ created_by: currentUser.email });
-          
-          if (allDiscoveries.length === 1) {
-            await base44.entities.UserNotification.create({
-              user_email: currentUser.email,
-              notification_type: "custom",
-              title: "🎯 Deine erste Quest ist abgeschlossen!",
-              message: "Glückwunsch! Du hast deine erste Pflanze gescannt. Jetzt kannst du deine Quests einlösen und Belohnungen erhalten. Schau bei 'Erfolge' vorbei!",
-              description: "Löse deine erste Quest ein.",
-              action_url: "",
-              priority: "high",
-              display_location: "modal"
-            });
-          }
-        } catch (notificationError) {
-          console.error("Fehler beim Erstellen der Notification:", notificationError);
-        }
-        
-        // Modal schließen und Floralog-Modal anzeigen
-        setShowConfirmDialog(false);
-        setIsSavingPlant(false);
-        setShowGlobalFloralogModal(true);
-      }
-    } catch (error) {
-      console.error("Fehler beim Speichern:", error);
-      setIsSavingPlant(false);
-    }
+    setPendingImageData(null);
+    setScanning(false);
+    alert("Die KI-Notfall-Erkennung ist aktuell nicht konfiguriert. Bitte versuche es spaeter erneut.");
   };
 
   const handleCancelSave = () => {
@@ -1292,8 +998,8 @@ Falls du die Pflanze SICHER erkennst, gib an:
               PlantNet nicht verfügbar
             </DialogTitle>
             <DialogDescription className="text-base pt-4">
-              Achtung: PlantNet hat die maximale Anzahl an Scans erreicht oder ist nicht erreichbar. 
-              Soll stattdessen die KI von Base44 zur Erkennung verwendet werden? Diese ist deutlich unzuverlässiger.
+              Achtung: PlantNet hat die maximale Anzahl an Scans erreicht oder ist nicht erreichbar.
+              Eine alternative KI-Erkennung ist aktuell nicht konfiguriert.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
@@ -1501,3 +1207,6 @@ Falls du die Pflanze SICHER erkennst, gib an:
     </>);
 
 }
+
+
+

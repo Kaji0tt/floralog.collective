@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { Query } from "@/api/entities";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -17,7 +17,7 @@ export default function ToastNotificationManager({ user }) {
     queryKey: ['friendRequests', user?.email],
     queryFn: async () => {
       if (!user?.email) return [];
-      const allFriends = await base44.entities.Friend.list();
+      const allFriends = await Query.Friend.list();
       return allFriends.filter(f => 
         f.request_sent_to?.toLowerCase() === user.email.toLowerCase() && 
         f.status === 'pending'
@@ -32,7 +32,7 @@ export default function ToastNotificationManager({ user }) {
     queryKey: ['sharedScans', user?.email],
     queryFn: async () => {
       if (!user?.email) return [];
-      const allSharedScans = await base44.entities.SharedScan.list();
+      const allSharedScans = await Query.SharedScan.list();
       return allSharedScans.filter(s => 
         s.shared_to?.toLowerCase() === user.email.toLowerCase() && 
         !s.viewed
@@ -48,8 +48,8 @@ export default function ToastNotificationManager({ user }) {
     queryFn: async () => {
       if (!user?.email) return [];
       
-      const allLikes = await base44.entities.ScanLike.list('-created_date');
-      const myDiscoveries = await base44.entities.UserPlantDiscovery.filter({
+      const allLikes = await Query.ScanLike.list('-created_date');
+      const myDiscoveries = await Query.UserPlantDiscovery.filter({
         created_by: user.email
       });
       const myDiscoveryIds = myDiscoveries.map(d => d.id);
@@ -66,14 +66,14 @@ export default function ToastNotificationManager({ user }) {
   // Public Profiles für Anzeigenamen
   const { data: publicProfiles = [] } = useQuery({
     queryKey: ['publicProfiles'],
-    queryFn: () => base44.entities.PublicProfile.list(),
+    queryFn: () => Query.PublicProfile.list(),
     staleTime: 5 * 60 * 1000, // 5 Minuten Cache
   });
 
   // Plants für Pflanzennamen
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => base44.entities.Plant.list(),
+    queryFn: () => Query.Plant.list(),
     staleTime: 10 * 60 * 1000, // 10 Minuten Cache
   });
 
@@ -81,7 +81,7 @@ export default function ToastNotificationManager({ user }) {
   useEffect(() => {
     if (!user?.email) return;
 
-    const unsubscribe = base44.entities.Friend.subscribe((event) => {
+    const unsubscribe = Query.Friend.subscribe((event) => {
       if (event.type === 'create') {
         const friend = event.data;
         if (friend.request_sent_to?.toLowerCase() === user.email.toLowerCase() && 
@@ -100,7 +100,7 @@ export default function ToastNotificationManager({ user }) {
   useEffect(() => {
     if (!user?.email) return;
 
-    const unsubscribe = base44.entities.SharedScan.subscribe((event) => {
+    const unsubscribe = Query.SharedScan.subscribe((event) => {
       if (event.type === 'create') {
         const scan = event.data;
         if (scan.shared_to?.toLowerCase() === user.email.toLowerCase() && !scan.viewed) {
@@ -118,7 +118,7 @@ export default function ToastNotificationManager({ user }) {
   useEffect(() => {
     if (!user?.email) return;
 
-    const unsubscribe = base44.entities.ScanLike.subscribe((event) => {
+    const unsubscribe = Query.ScanLike.subscribe((event) => {
       if (event.type === 'create' || event.type === 'delete') {
         queryClient.invalidateQueries({ queryKey: ['myRecentScanLikes'] });
       }
