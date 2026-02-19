@@ -105,18 +105,43 @@ export const getUserProfile = async (authId) => {
  * Create or update user profile
  */
 export const upsertUserProfile = async (authId, profileData) => {
-  const { data, error } = await supabase
+  // Erst prüfen, ob das Profil schon existiert
+  const { data: existing } = await supabase
     .from('PublicProfile')
-    .upsert({
-      auth_id: authId,
-      ...profileData,
-      updated_date: new Date().toISOString()
-    }, { onConflict: 'auth_id' })
-    .select()
+    .select('id')
+    .eq('auth_id', authId)
     .single();
-  
-  if (error) throw error;
-  return data;
+
+  if (existing) {
+    // Update existierendes Profil
+    const { data, error } = await supabase
+      .from('PublicProfile')
+      .update({
+        ...profileData,
+        updated_date: new Date().toISOString()
+      })
+      .eq('id', existing.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } else {
+    // Erstelle neues Profil - lass die DB die id generieren (DEFAULT)
+    const { data, error } = await supabase
+      .from('PublicProfile')
+      .insert({
+        auth_id: authId,
+        ...profileData,
+        created_date: new Date().toISOString(),
+        updated_date: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
 };
 
 /**
