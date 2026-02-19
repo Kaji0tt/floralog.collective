@@ -91,7 +91,6 @@ export default function Achievements() {
     queryFn: () => Query.UserAchievement.filter({ auth_id: user?.id }),
     enabled: !!user?.id
   });
-  });
 
   const { data: quests = [] } = useQuery({
     queryKey: ['quests'],
@@ -103,7 +102,6 @@ export default function Achievements() {
     queryKey: ['userQuests', user?.id],
     queryFn: () => Query.UserQuest.filter({ auth_id: user?.id }),
     enabled: !!user?.id
-  });
   });
 
   const { data: weeklyQuests = [] } = useQuery({
