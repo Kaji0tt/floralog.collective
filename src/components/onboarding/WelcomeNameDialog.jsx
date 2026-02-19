@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Query } from "@/api/entities";
 import { updateCurrentUserProfile } from "@/api/userApi";
+import { upsertUserProfile } from "@/api/authService";
 import { Leaf, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -33,27 +34,17 @@ export default function WelcomeNameDialog({ user, onComplete }) {
       await updateCurrentUserProfile({ display_name: name.trim() });
       console.log("[WelcomeNameDialog] User erfolgreich aktualisiert");
 
-      // 2. Erstelle oder aktualisiere das PublicProfile
-      console.log("[WelcomeNameDialog] Prüfe PublicProfile für auth_id:", user.id);
-      const existingProfiles = await Query.PublicProfile.filter({ auth_id: user.id });
-      console.log("[WelcomeNameDialog] Gefundene Profile:", existingProfiles);
+      // 2. Upsert das PublicProfile (erstelle oder aktualisiere)
+      console.log("[WelcomeNameDialog] Upsert PublicProfile für auth_id:", user.id);
       
       const profileData = {
-        auth_id: user.id,              // ✅ Nutze auth.users.id
         user_email: user.email,        // Legacy, für Leserlichkeit
         display_name: name.trim(),
         full_name: user.full_name
       };
 
-      if (existingProfiles.length > 0) {
-        console.log("[WelcomeNameDialog] Aktualisiere bestehendes Profile:", existingProfiles[0].id);
-        await Query.PublicProfile.update(existingProfiles[0].id, profileData);
-        console.log("[WelcomeNameDialog] PublicProfile erfolgreich aktualisiert");
-      } else {
-        console.log("[WelcomeNameDialog] Erstelle neues PublicProfile");
-        await Query.PublicProfile.create(profileData);
-        console.log("[WelcomeNameDialog] PublicProfile erfolgreich erstellt");
-      }
+      await upsertUserProfile(user.id, profileData);
+      console.log("[WelcomeNameDialog] PublicProfile erfolgreich upserted");
 
       // 3. Prüfe, ob eine Willkommens-Benachrichtigung bereits existiert und ungesehen ist
       console.log("[WelcomeNameDialog] Prüfe Welcome Notification");

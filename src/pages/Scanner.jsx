@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Query } from "@/api/entities";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
+import { upsertUserProfile } from "@/api/authService";
 import { uploadFile } from "@/api/storage";
 import { supabase } from "@/api/supabaseClient";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
@@ -227,10 +228,7 @@ export default function Scanner() {
 
   const updatePublicProfile = async (userData) => {
     try {
-      const existingProfiles = await Query.PublicProfile.filter({ auth_id: userData.id });
-
       const profileData = {
-        auth_id: userData.id,
         user_email: userData.email,
         display_name: userData.display_name || userData.full_name,
         full_name: userData.full_name,
@@ -239,11 +237,7 @@ export default function Scanner() {
         avatar_url: userData.avatar_url
       };
 
-      if (existingProfiles.length > 0) {
-        await Query.PublicProfile.update(existingProfiles[0].id, profileData);
-      } else {
-        await Query.PublicProfile.create(profileData);
-      }
+      await upsertUserProfile(userData.id, profileData);
     } catch (error) {
       console.error("PublicProfile Update Fehler:", error);
     }
