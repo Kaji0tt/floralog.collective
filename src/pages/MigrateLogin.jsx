@@ -16,6 +16,36 @@ export default function MigrateLogin() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
 
+  useEffect(() => {
+    let didCancel = false;
+
+    const autoSendOtp = async () => {
+      if (!skipEmailInput || !initialEmail) return;
+      setError(null);
+      setIsLoading(true);
+
+      try {
+        await sendOtpToLegacyUser(initialEmail);
+        if (didCancel) return;
+        setSuccess(true);
+        setStage('otp');
+        setTimeout(() => {
+          if (!didCancel) setSuccess(false);
+        }, 2000);
+      } catch (err) {
+        if (didCancel) return;
+        console.error('Auto OTP request error:', err);
+        setError(err.message || 'Fehler beim Senden von OTP.');
+        setStage('email');
+      } finally {
+        if (!didCancel) setIsLoading(false);
+      }
+    };
+
+    autoSendOtp();
+    return () => { didCancel = true; };
+  }, [skipEmailInput, initialEmail]);
+
   const handleRequestOtp = async (e) => {
     e.preventDefault();
     setError(null);

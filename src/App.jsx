@@ -84,6 +84,7 @@ function App() {
             {/* Public Auth Routes - accessible without authentication */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/migrate" element={<MigrateLogin />} />
             <Route path="/migration/login" element={<MigrateLogin />} />
             <Route path="/migration/set-password" element={<SetPassword />} />
             

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signUp } from '@/api/authService';
-import { checkLegacyUser, sendOtpToLegacyUser } from '@/api/migrationService';
+import { checkLegacyUser } from '@/api/migrationService';
 import { Mail, Lock, User, Loader2, AlertCircle } from 'lucide-react';
 
 export default function Register() {
@@ -14,7 +14,6 @@ export default function Register() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [showMigrationOption, setShowMigrationOption] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -46,9 +45,8 @@ export default function Register() {
       const legacyUser = await checkLegacyUser(formData.email);
       
       if (legacyUser) {
-        // Email exists in baseUsers - offer migration instead
-        setShowMigrationOption(true);
-        setError(null);
+        // Email exists in baseUsers - redirect to migration
+        navigate('/migrate', { state: { email: formData.email, skipEmailInput: true } });
         setIsLoading(false);
         return;
       }
@@ -66,71 +64,6 @@ export default function Register() {
     }
   };
 
-  const handleMigrateAccount = async () => {
-    setError(null);
-    setIsLoading(true);
-
-    try {
-      await sendOtpToLegacyUser(formData.email);
-      navigate('/migration/login', { state: { email: formData.email, skipEmailInput: true } });
-    } catch (err) {
-      console.error('Migration error:', err);
-      setError(err.message || 'Fehler beim Starten der Migration.');
-      setIsLoading(false);
-    }
-  };
-
-  if (showMigrationOption) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-white rounded-lg shadow-lg">
-          <div className="p-8">
-            <h1 className="text-2xl font-bold text-center mb-2">Account Migration erforderlich</h1>
-            <p className="text-center text-gray-600 text-sm mb-6">
-              Diese E-Mail ist bereits in unserem System registriert
-            </p>
-
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-              <p className="text-sm text-gray-700">
-                <strong>Email:</strong> {formData.email}
-              </p>
-              <p className="text-xs text-gray-600 mt-2">
-                Diese Email existiert bereits in unserem System. Möchten Sie Ihren bisherigen Account migrieren?
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              <button
-                onClick={handleMigrateAccount}
-                disabled={isLoading}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Wird vorbereitet...
-                  </>
-                ) : (
-                  'Ja, Account migrieren'
-                )}
-              </button>
-
-              <button
-                onClick={() => {
-                  setShowMigrationOption(false);
-                  setFormData({ email: '', password: '', confirmPassword: '', username: '' });
-                }}
-                disabled={isLoading}
-                className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Mit anderen Angaben erneut versuchen
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">

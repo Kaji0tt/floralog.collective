@@ -68,7 +68,7 @@ export default function Login() {
 
             <div className="space-y-3">
               <button
-                onClick={() => navigate('/register')}
+                onClick={() => navigate('/migrate', { state: { email, skipEmailInput: !!email } })}
                 className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg flex items-center justify-center gap-2"
               >
                 Zur Migration
@@ -175,6 +175,15 @@ export default function Login() {
               Hier registrieren
             </button>
           </p>
+          <div className="text-center text-sm text-gray-600">
+            Schon einen Alt-Account?{' '}
+            <button
+              onClick={() => navigate('/migrate', { state: { email, skipEmailInput: !!email } })}
+              className="text-green-600 hover:underline font-medium"
+            >
+              Jetzt migrieren
+            </button>
+          </div>
         </div>
       </div>
     </div>
