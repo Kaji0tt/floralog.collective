@@ -55,9 +55,9 @@ export default function Home() {
   });
 
   const { data: userDiscoveries = [], isLoading: isLoadingDiscoveries } = useQuery({
-    queryKey: ['userDiscoveries', user?.email],
-    queryFn: () => Query.UserPlantDiscovery.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
+    queryKey: ['userDiscoveries', user?.id],
+    queryFn: () => Query.UserPlantDiscovery.filter({ auth_id: user?.id }),
+    enabled: !!user?.id,
     staleTime: Infinity,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
@@ -76,9 +76,9 @@ export default function Home() {
   });
 
   const { data: userQuests = [], isLoading: isLoadingQuests } = useQuery({
-    queryKey: ['userQuests', user?.email],
-    queryFn: () => Query.UserQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
+    queryKey: ['userQuests', user?.id],
+    queryFn: () => Query.UserQuest.filter({ auth_id: user?.id }),
+    enabled: !!user?.id,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -102,9 +102,9 @@ export default function Home() {
   });
 
   const { data: userAchievements = [], isLoading: isLoadingAchievements } = useQuery({
-    queryKey: ['userAchievements', user?.email],
-    queryFn: () => Query.UserAchievement.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
+    queryKey: ['userAchievements', user?.id],
+    queryFn: () => Query.UserAchievement.filter({ auth_id: user?.id }),
+    enabled: !!user?.id,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -119,9 +119,9 @@ export default function Home() {
   });
 
   const { data: userWeeklyQuests = [], isLoading: isLoadingWeeklyQuests } = useQuery({
-    queryKey: ['userWeeklyQuests', user?.email],
-    queryFn: () => Query.UserWeeklyQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
+    queryKey: ['userWeeklyQuests', user?.id],
+    queryFn: () => Query.UserWeeklyQuest.filter({ auth_id: user?.id }),
+    enabled: !!user?.id,
     initialData: [],
     staleTime: Infinity,
     refetchOnWindowFocus: false,
@@ -136,9 +136,9 @@ export default function Home() {
   });
 
   const { data: userMonthlyQuests = [], isLoading: isLoadingMonthlyQuests } = useQuery({
-    queryKey: ['userMonthlyQuests', user?.email],
-    queryFn: () => Query.UserMonthlyQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
+    queryKey: ['userMonthlyQuests', user?.id],
+    queryFn: () => Query.UserMonthlyQuest.filter({ auth_id: user?.id }),
+    enabled: !!user?.id,
     initialData: [],
     staleTime: Infinity,
     refetchOnWindowFocus: false,
@@ -153,9 +153,9 @@ export default function Home() {
   });
 
   const { data: userCollectionQuests = [], isLoading: isLoadingCollectionQuests } = useQuery({
-    queryKey: ['userCollectionQuests', user?.email],
-    queryFn: () => Query.UserCollectionQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
+    queryKey: ['userCollectionQuests', user?.id],
+    queryFn: () => Query.UserCollectionQuest.filter({ auth_id: user?.id }),
+    enabled: !!user?.id,
     initialData: [],
     staleTime: Infinity,
     refetchOnWindowFocus: false,
@@ -181,13 +181,13 @@ export default function Home() {
   });
 
   const { data: backgroundNotifications = [] } = useQuery({
-    queryKey: ['backgroundNotifications', user?.email],
+    queryKey: ['backgroundNotifications', user?.id],
     queryFn: () => Query.UserNotification.filter({ 
-      user_email: user?.email,
+      auth_id: user?.id,
       notification_type: "custom",
       seen: false
     }),
-    enabled: !!user?.email,
+    enabled: !!user?.id,
     initialData: [],
     staleTime: Infinity,
     refetchOnWindowFocus: false,
@@ -291,10 +291,10 @@ export default function Home() {
 
   const updatePublicProfile = async (userData) => {
     try {
-      const profiles = await Query.PublicProfile.list();
-      const existingProfile = profiles.find(p => p.user_email?.toLowerCase() === userData.email?.toLowerCase());
+      const existingProfiles = await Query.PublicProfile.filter({ auth_id: userData.id });
 
       const profileData = {
+        auth_id: userData.id,
         user_email: userData.email,
         display_name: userData.display_name || userData.full_name,
         full_name: userData.full_name,
@@ -306,8 +306,8 @@ export default function Home() {
         favorite_plant_id: userData.favorite_plant_id
       };
 
-      if (existingProfile) {
-        await Query.PublicProfile.update(existingProfile.id, profileData);
+      if (existingProfiles.length > 0) {
+        await Query.PublicProfile.update(existingProfiles[0].id, profileData);
       } else {
         await Query.PublicProfile.create(profileData);
       }

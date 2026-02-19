@@ -213,6 +213,7 @@ export default function Quests() {
         await Query.ScanLike.delete(existingLike.id);
       } else {
         await Query.ScanLike.create({
+          auth_id: user.id,
           discovery_id: discoveryId,
           liked_by: user.email,
           liked_date: new Date().toISOString()

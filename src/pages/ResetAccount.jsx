@@ -32,20 +32,20 @@ export default function ResetAccount() {
 
   const { data: userDiscoveries = [] } = useQuery({
     queryKey: ['userDiscoveries'],
-    queryFn: () => Query.UserPlantDiscovery.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
+    queryFn: () => Query.UserPlantDiscovery.filter({ auth_id: user?.id }),
+    enabled: !!user?.id,
   });
 
   const { data: userQuests = [] } = useQuery({
     queryKey: ['userQuests'],
-    queryFn: () => Query.UserQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
+    queryFn: () => Query.UserQuest.filter({ auth_id: user?.id }),
+    enabled: !!user?.id,
   });
 
   const { data: userAchievements = [] } = useQuery({
     queryKey: ['userAchievements'],
-    queryFn: () => Query.UserAchievement.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
+    queryFn: () => Query.UserAchievement.filter({ auth_id: user?.id }),
+    enabled: !!user?.id,
   });
 
   const { data: myFriends = [] } = useQuery({

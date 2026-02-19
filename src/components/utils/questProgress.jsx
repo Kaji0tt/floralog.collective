@@ -4,7 +4,7 @@ import { Query } from "@/api/entities";
  * Aktualisiert den Quest-Fortschritt für alle aktiven Quests eines Users
  */
 export async function updateQuestProgress(user) {
-  if (!user) return;
+  if (!user?.id) return;
 
   try {
     // Lade alle benötigten Daten
@@ -22,14 +22,14 @@ export async function updateQuestProgress(user) {
       genera
     ] = await Promise.all([
       Query.Quest.list(),
-      Query.UserQuest.filter({ created_by: user.email }),
+      Query.UserQuest.filter({ auth_id: user.id }),
       Query.WeeklyQuest.list(),
-      Query.UserWeeklyQuest.filter({ created_by: user.email }),
+      Query.UserWeeklyQuest.filter({ auth_id: user.id }),
       Query.MonthlyQuest.list(),
-      Query.UserMonthlyQuest.filter({ created_by: user.email }),
+      Query.UserMonthlyQuest.filter({ auth_id: user.id }),
       Query.CollectionQuest.list(),
-      Query.UserCollectionQuest.filter({ created_by: user.email }),
-      Query.UserPlantDiscovery.filter({ created_by: user.email }),
+      Query.UserCollectionQuest.filter({ auth_id: user.id }),
+      Query.UserPlantDiscovery.filter({ auth_id: user.id }),
       Query.Plant.list(),
       Query.PlantGenus.list()
     ]);
@@ -153,7 +153,7 @@ export async function updateQuestProgress(user) {
 
     // Prüfe und schalte Rewards frei
     const { checkAndUnlockRewards } = await import('../rewards/rewardUnlocker');
-    await checkAndUnlockRewards(user.email);
+    await checkAndUnlockRewards(user);
 
   } catch (error) {
     console.error("Fehler beim Aktualisieren des Quest-Fortschritts:", error);

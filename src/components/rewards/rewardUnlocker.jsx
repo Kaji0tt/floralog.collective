@@ -5,8 +5,15 @@ import { getCurrentUser } from "@/api/userApi";
  * Zentrale Funktion zum Prüfen und Freischalten von Rewards
  * Wird aufgerufen wenn sich relevante User-Daten ändern (Quest abgeschlossen, Gift erhalten, etc.)
  */
-export async function checkAndUnlockRewards(userEmail) {
+export async function checkAndUnlockRewards(user) {
   try {
+    if (!user?.id || !user?.email) {
+      return;
+    }
+
+    const userEmail = user.email;
+    const authId = user.id;
+
     // Lade alle notwendigen Daten
     const [
       allRewards,
@@ -23,12 +30,12 @@ export async function checkAndUnlockRewards(userEmail) {
       monthlyQuests
     ] = await Promise.all([
       Query.Reward.list(),
-      Query.UserReward.filter({ created_by: userEmail }),
-      Query.UserQuest.filter({ created_by: userEmail }),
-      Query.UserWeeklyQuest.filter({ created_by: userEmail }),
-      Query.UserMonthlyQuest.filter({ created_by: userEmail }),
-      Query.SharedScan.filter({ shared_to: userEmail }),
-      Query.UserPlantDiscovery.filter({ created_by: userEmail }),
+      Query.UserReward.filter({ auth_id: authId }),
+      Query.UserQuest.filter({ auth_id: authId }),
+      Query.UserWeeklyQuest.filter({ auth_id: authId }),
+      Query.UserMonthlyQuest.filter({ auth_id: authId }),
+      Query.SharedScan.filter({ auth_id_to: authId }),
+      Query.UserPlantDiscovery.filter({ auth_id: authId }),
       Query.Plant.list(),
       getCurrentUser(),
       Query.Quest.list(),
@@ -49,6 +56,7 @@ export async function checkAndUnlockRewards(userEmail) {
       await Query.UserReward.create({
         reward_id: reward.id,
         reward_name: reward.display_name,
+        auth_id: authId,
         user_email: userEmail,
         user_name: currentUser?.display_name || currentUser?.full_name || userEmail,
         unlocked_date: new Date().toISOString()
@@ -59,6 +67,7 @@ export async function checkAndUnlockRewards(userEmail) {
 
       // Erstelle Notification
       await Query.UserNotification.create({
+        auth_id: authId,
         user_email: userEmail,
         notification_type: "custom",
         title: `🎁 Neue Belohnung freigeschaltet!`,

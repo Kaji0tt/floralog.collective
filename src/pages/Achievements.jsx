@@ -87,10 +87,10 @@ export default function Achievements() {
   });
 
   const { data: userAchievements = [] } = useQuery({
-    queryKey: ['userAchievements', user?.email],
-    queryFn: () => Query.UserAchievement.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
-    staleTime: Infinity, // Echtzeit-Updates durch Subscription
+    queryKey: ['userAchievements', user?.id],
+    queryFn: () => Query.UserAchievement.filter({ auth_id: user?.id }),
+    enabled: !!user?.id
+  });
   });
 
   const { data: quests = [] } = useQuery({
@@ -100,10 +100,10 @@ export default function Achievements() {
   });
 
   const { data: userQuests = [] } = useQuery({
-    queryKey: ['userQuests', user?.email],
-    queryFn: () => Query.UserQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
-    staleTime: Infinity, // Echtzeit-Updates durch Subscription
+    queryKey: ['userQuests', user?.id],
+    queryFn: () => Query.UserQuest.filter({ auth_id: user?.id }),
+    enabled: !!user?.id
+  });
   });
 
   const { data: weeklyQuests = [] } = useQuery({
@@ -113,10 +113,10 @@ export default function Achievements() {
   });
 
   const { data: userWeeklyQuests = [] } = useQuery({
-    queryKey: ['userWeeklyQuests', user?.email],
-    queryFn: () => Query.UserWeeklyQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
-    staleTime: Infinity, // Echtzeit-Updates durch Subscription
+    queryKey: ['userWeeklyQuests', user?.id],
+    queryFn: () => Query.UserWeeklyQuest.filter({ auth_id: user?.id }),
+    enabled: !!user?.id
+  });
   });
 
   const { data: monthlyQuests = [] } = useQuery({
@@ -126,10 +126,10 @@ export default function Achievements() {
   });
 
   const { data: userMonthlyQuests = [] } = useQuery({
-    queryKey: ['userMonthlyQuests', user?.email],
-    queryFn: () => Query.UserMonthlyQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
-    staleTime: Infinity, // Echtzeit-Updates durch Subscription
+    queryKey: ['userMonthlyQuests', user?.id],
+    queryFn: () => Query.UserMonthlyQuest.filter({ auth_id: user?.id }),
+    enabled: !!user?.id
+  });
   });
 
   const { data: rewards = [] } = useQuery({
@@ -157,25 +157,25 @@ export default function Achievements() {
   });
 
   const { data: userCollectionQuests = [] } = useQuery({
-    queryKey: ['userCollectionQuests', user?.email],
-    queryFn: () => Query.UserCollectionQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
-    staleTime: Infinity, // Echtzeit-Updates durch Subscription
+    queryKey: ['userCollectionQuests', user?.id],
+    queryFn: () => Query.UserCollectionQuest.filter({ auth_id: user?.id }),
+    enabled: !!user?.id
+  });
   });
 
   const { data: userDiscoveries = [] } = useQuery({
-    queryKey: ['userDiscoveries', user?.email],
-    queryFn: () => Query.UserPlantDiscovery.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
-    staleTime: Infinity, // Echtzeit-Updates durch Subscription
+    queryKey: ['userDiscoveries', user?.id],
+    queryFn: () => Query.UserPlantDiscovery.filter({ auth_id: user?.id }),
+    enabled: !!user?.id
+  });
   });
 
   // Echtzeit-Subscriptions für UserAchievements
   useEffect(() => {
-    if (!user?.email) return;
+    if (!user?.id) return;
 
     const unsubscribe = Query.UserAchievement.subscribe((event) => {
-      if (event.data?.created_by === user.email) {
+      if (event.data?.auth_id === user.id || event.data?.created_by === user.email) {
         queryClient.invalidateQueries({ queryKey: ['userAchievements'] });
       }
     });
@@ -188,7 +188,7 @@ export default function Achievements() {
     if (!user?.email) return;
 
     const unsubscribe = Query.UserQuest.subscribe((event) => {
-      if (event.data?.created_by === user.email) {
+      if (event.data?.auth_id === user.id || event.data?.created_by === user.email) {
         queryClient.invalidateQueries({ queryKey: ['userQuests'] });
       }
     });
@@ -201,7 +201,7 @@ export default function Achievements() {
     if (!user?.email) return;
 
     const unsubscribe = Query.UserWeeklyQuest.subscribe((event) => {
-      if (event.data?.created_by === user.email) {
+      if (event.data?.auth_id === user.id || event.data?.created_by === user.email) {
         queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
       }
     });
@@ -214,7 +214,7 @@ export default function Achievements() {
     if (!user?.email) return;
 
     const unsubscribe = Query.UserMonthlyQuest.subscribe((event) => {
-      if (event.data?.created_by === user.email) {
+      if (event.data?.auth_id === user.id || event.data?.created_by === user.email) {
         queryClient.invalidateQueries({ queryKey: ['userMonthlyQuests'] });
       }
     });
@@ -227,7 +227,7 @@ export default function Achievements() {
     if (!user?.email) return;
 
     const unsubscribe = Query.UserCollectionQuest.subscribe((event) => {
-      if (event.data?.created_by === user.email) {
+      if (event.data?.auth_id === user.id || event.data?.created_by === user.email) {
         queryClient.invalidateQueries({ queryKey: ['userCollectionQuests'] });
       }
     });
@@ -240,7 +240,7 @@ export default function Achievements() {
     if (!user?.email) return;
 
     const unsubscribe = Query.UserPlantDiscovery.subscribe((event) => {
-      if (event.data?.created_by === user.email || event.data?.user === user.email) {
+      if (event.data?.auth_id === user.id || event.data?.created_by === user.email || event.data?.user === user.email) {
         queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
       }
     });
@@ -266,6 +266,8 @@ export default function Achievements() {
       if (questType === 'regular') {
         return Query.UserQuest.create({
           quest_id: questId,
+          auth_id: user.id,
+          created_by: user.email,
           accepted: true,
           accepted_date: now
         });
@@ -273,6 +275,8 @@ export default function Achievements() {
         return Query.UserWeeklyQuest.create({
           weekly_quest_id: questId,
           active_week: activeWeek,
+          auth_id: user.id,
+          created_by: user.email,
           accepted: true,
           accepted_date: now
         });
@@ -280,12 +284,16 @@ export default function Achievements() {
         return Query.UserMonthlyQuest.create({
           monthly_quest_id: questId,
           active_month: activeMonth,
+          auth_id: user.id,
+          created_by: user.email,
           accepted: true,
           accepted_date: now
         });
       } else if (questType === 'collection') {
         return Query.UserCollectionQuest.create({
           collection_quest_id: questId,
+          auth_id: user.id,
+          created_by: user.email,
           accepted: true,
           accepted_date: now
         });
@@ -336,7 +344,7 @@ export default function Achievements() {
           console.log('[QuestRedeem] Unlocking reward:', reward.name, reward.display_name);
           
           // Prüfe ob User den Reward bereits hat
-          const userRewards = await Query.UserReward.filter({ created_by: currentUser.email });
+          const userRewards = await Query.UserReward.filter({ auth_id: currentUser.id });
           const hasReward = userRewards.some(ur => ur.reward_id === reward.id);
           
           if (!hasReward) {
@@ -344,6 +352,7 @@ export default function Achievements() {
             await Query.UserReward.create({
               reward_id: reward.id,
               reward_name: reward.display_name,
+              auth_id: currentUser.id,
               user_email: currentUser.email,
               user_name: currentUser.display_name || currentUser.full_name || currentUser.email,
               unlocked_date: now
@@ -359,6 +368,7 @@ export default function Achievements() {
             const rewardTypeGerman = rewardTypeMap[reward.type] || "Belohnung";
 
             await Query.UserNotification.create({
+              auth_id: currentUser.id,
               user_email: currentUser.email,
               notification_type: "custom",
               title: `🎁 Neuer ${rewardTypeGerman}!`,
@@ -377,6 +387,7 @@ export default function Achievements() {
       if (isFirstQuest) {
         try {
           await Query.UserNotification.create({
+            auth_id: currentUser.id,
             user_email: currentUser.email,
             notification_type: "custom",
             title: "🎨 Personalisiere dein Profil!",

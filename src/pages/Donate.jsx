@@ -228,7 +228,7 @@ export default function Donate() {
                 
                 // Prüfe und schalte Donor-Rewards frei
                 const { checkAndUnlockRewards } = await import("../components/rewards/rewardUnlocker");
-                await checkAndUnlockRewards(updatedUser.email);
+                await checkAndUnlockRewards(updatedUser);
                 
                 setSelectedAmount(null);
                 paypalButtonsRendered.current = false;

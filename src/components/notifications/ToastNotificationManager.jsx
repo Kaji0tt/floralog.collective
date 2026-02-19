@@ -29,7 +29,7 @@ export default function ToastNotificationManager({ user }) {
 
   // Geteilte Scans abfragen (nur initiales Laden)
   const { data: sharedScans = [] } = useQuery({
-    queryKey: ['sharedScans', user?.email],
+    queryKey: ['sharedScans', user?.id],
     queryFn: async () => {
       if (!user?.email) return [];
       const allSharedScans = await Query.SharedScan.list();
@@ -44,13 +44,13 @@ export default function ToastNotificationManager({ user }) {
 
   // Likes auf eigene Scans abfragen (nur initiales Laden)
   const { data: scanLikes = [] } = useQuery({
-    queryKey: ['myRecentScanLikes', user?.email],
+    queryKey: ['myRecentScanLikes', user?.id],
     queryFn: async () => {
-      if (!user?.email) return [];
+      if (!user?.id || !user?.email) return [];
       
       const allLikes = await Query.ScanLike.list('-created_date');
       const myDiscoveries = await Query.UserPlantDiscovery.filter({
-        created_by: user.email
+        auth_id: user.id
       });
       const myDiscoveryIds = myDiscoveries.map(d => d.id);
       

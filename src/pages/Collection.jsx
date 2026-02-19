@@ -77,11 +77,10 @@ export default function Collection() {
     queryKey: ['userDiscoveries'],
     queryFn: async () => {
       const user = await getCurrentUser();
-      if (!user || !user.email) {
+      if (!user || !user.id) {
         return [];
       }
-      const discoveries = await Query.UserPlantDiscovery.list();
-      return discoveries.filter(d => d.user === user.email || d.created_by === user.email);
+      return Query.UserPlantDiscovery.filter({ auth_id: user.id });
     },
   });
 
@@ -94,8 +93,8 @@ export default function Collection() {
     queryKey: ['userCollectionQuests'],
     queryFn: async () => {
       const user = await getCurrentUser();
-      if (!user || !user.email) return [];
-      return Query.UserCollectionQuest.filter({ created_by: user.email });
+      if (!user || !user.id) return [];
+      return Query.UserCollectionQuest.filter({ auth_id: user.id });
     },
   });
 

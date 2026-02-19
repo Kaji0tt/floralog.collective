@@ -2,12 +2,19 @@ import { Query } from "@/api/entities";
 
 /**
  * Prüft ob zufällige Rewards bei einem Event freigeschaltet werden sollen
- * @param {string} userEmail - Email des Users
+ * @param {Object} user - Aktueller User (auth + profile)
  * @param {string} eventType - Art des Events ("scan", "weekly_scan", "monthly_scan", "gift_scan", "rare_scan")
  * @returns {Array} - Liste der neu freigeschalteten Rewards
  */
-export async function checkRandomRewards(userEmail, eventType) {
+export async function checkRandomRewards(user, eventType) {
   try {
+    if (!user?.id || !user?.email) {
+      return [];
+    }
+
+    const userEmail = user.email;
+    const authId = user.id;
+
     console.log(`[RandomRewardChecker] Checking random rewards for ${userEmail} on event: ${eventType}`);
 
     // Lade alle Rewards mit dem entsprechenden Event
@@ -19,7 +26,7 @@ export async function checkRandomRewards(userEmail, eventType) {
     }
 
     // Lade bereits freigeschaltete Rewards des Users
-    const userRewards = await Query.UserReward.filter({ created_by: userEmail });
+    const userRewards = await Query.UserReward.filter({ auth_id: authId });
     const hasReward = (rewardId) => userRewards.some(ur => ur.reward_id === rewardId);
 
     const unlockedRewards = [];
@@ -44,11 +51,14 @@ export async function checkRandomRewards(userEmail, eventType) {
         // Schalte Reward frei
         await Query.UserReward.create({
           reward_id: reward.id,
+          auth_id: authId,
+          user_email: userEmail,
           unlocked_date: new Date().toISOString()
         });
 
         // Erstelle spezielle Notification für zufällige Belohnungen
         await Query.UserNotification.create({
+          auth_id: authId,
           user_email: userEmail,
           notification_type: "custom",
           title: `✨ Glücksfund!`,

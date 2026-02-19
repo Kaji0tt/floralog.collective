@@ -34,7 +34,7 @@ export const AuthProvider = ({ children }) => {
         
         // Load user profile
         try {
-          const userProfile = await getUserProfile(session.user.email);
+          const userProfile = await getUserProfile(session.user.id);
           setProfile(userProfile);
         } catch (error) {
           console.error('Error loading user profile:', error);

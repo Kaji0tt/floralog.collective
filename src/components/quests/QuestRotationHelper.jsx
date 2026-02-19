@@ -51,8 +51,9 @@ export const getCurrentWeeklyQuest = (weeklyQuests) => {
 };
 
 // Holt oder erstellt die aktive UserMonthlyQuest für diesen Monat
-export const getOrCreateActiveMonthlyQuest = async (currentMonthlyQuest, userMonthlyQuests, userEmail) => {
+export const getOrCreateActiveMonthlyQuest = async (currentMonthlyQuest, userMonthlyQuests, user) => {
   if (!currentMonthlyQuest) return null;
+  if (!user?.id) return null;
   
   const currentMonth = getMonthString();
   let activeUserQuest = userMonthlyQuests.find(
@@ -65,7 +66,8 @@ export const getOrCreateActiveMonthlyQuest = async (currentMonthlyQuest, userMon
       active_month: currentMonth,
       progress: 0,
       completed: false,
-      created_by: userEmail
+      auth_id: user.id,
+      created_by: user.email
     });
   }
   
@@ -73,8 +75,9 @@ export const getOrCreateActiveMonthlyQuest = async (currentMonthlyQuest, userMon
 };
 
 // Holt oder erstellt die aktive UserWeeklyQuest für diese Woche
-export const getOrCreateActiveWeeklyQuest = async (currentWeeklyQuest, userWeeklyQuests, userEmail) => {
+export const getOrCreateActiveWeeklyQuest = async (currentWeeklyQuest, userWeeklyQuests, user) => {
   if (!currentWeeklyQuest) return null;
+  if (!user?.id) return null;
   
   const currentWeek = getWeekNumber();
   let activeUserQuest = userWeeklyQuests.find(
@@ -87,7 +90,8 @@ export const getOrCreateActiveWeeklyQuest = async (currentWeeklyQuest, userWeekl
       active_week: currentWeek,
       progress: 0,
       completed: false,
-      created_by: userEmail
+      auth_id: user.id,
+      created_by: user.email
     });
   }
   

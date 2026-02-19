@@ -152,9 +152,9 @@ export default function Scanner() {
   });
 
   const { data: userDiscoveries = [] } = useQuery({
-    queryKey: ['userDiscoveries'],
-    queryFn: () => Query.UserPlantDiscovery.filter({ created_by: user?.email }),
-    enabled: !!user?.email
+    queryKey: ['userDiscoveries', user?.id],
+    queryFn: () => Query.UserPlantDiscovery.filter({ auth_id: user?.id }),
+    enabled: !!user?.id
   });
 
   const { data: monthlyQuests = [] } = useQuery({
@@ -168,9 +168,9 @@ export default function Scanner() {
   });
 
   const { data: userMonthlyQuests = [] } = useQuery({
-    queryKey: ['userMonthlyQuests'],
-    queryFn: () => Query.UserMonthlyQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email
+    queryKey: ['userMonthlyQuests', user?.id],
+    queryFn: () => Query.UserMonthlyQuest.filter({ auth_id: user?.id }),
+    enabled: !!user?.id
   });
 
   const { data: quests = [] } = useQuery({
@@ -179,15 +179,15 @@ export default function Scanner() {
   });
 
   const { data: userQuests = [] } = useQuery({
-    queryKey: ['userQuests'],
-    queryFn: () => Query.UserQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email
+    queryKey: ['userQuests', user?.id],
+    queryFn: () => Query.UserQuest.filter({ auth_id: user?.id }),
+    enabled: !!user?.id
   });
 
   const { data: userWeeklyQuests = [] } = useQuery({
-    queryKey: ['userWeeklyQuests'],
-    queryFn: () => Query.UserWeeklyQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email
+    queryKey: ['userWeeklyQuests', user?.id],
+    queryFn: () => Query.UserWeeklyQuest.filter({ auth_id: user?.id }),
+    enabled: !!user?.id
   });
 
   const updatePlantMutation = useMutation({
@@ -227,10 +227,10 @@ export default function Scanner() {
 
   const updatePublicProfile = async (userData) => {
     try {
-      const profiles = await Query.PublicProfile.list();
-      const existingProfile = profiles.find((p) => p.user_email?.toLowerCase() === userData.email?.toLowerCase());
+      const existingProfiles = await Query.PublicProfile.filter({ auth_id: userData.id });
 
       const profileData = {
+        auth_id: userData.id,
         user_email: userData.email,
         display_name: userData.display_name || userData.full_name,
         full_name: userData.full_name,
@@ -239,8 +239,8 @@ export default function Scanner() {
         avatar_url: userData.avatar_url
       };
 
-      if (existingProfile) {
-        await Query.PublicProfile.update(existingProfile.id, profileData);
+      if (existingProfiles.length > 0) {
+        await Query.PublicProfile.update(existingProfiles[0].id, profileData);
       } else {
         await Query.PublicProfile.create(profileData);
       }
@@ -250,14 +250,14 @@ export default function Scanner() {
   };
 
   const updateQuestProgress = async (scannedPlant) => {
-    if (!user?.email || !scannedPlant) return;
+    if (!user?.id || !scannedPlant) return;
 
     try {
       const currentMonthlyQuest = getCurrentMonthlyQuest(monthlyQuests);
       const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
       const currentUser = await getCurrentUser();
 
-      if (!currentUser?.email) {
+      if (!currentUser?.id) {
         return;
       }
 
@@ -283,6 +283,7 @@ export default function Scanner() {
         if (!currentUser.rare_plant_unlocked) {
           await updateCurrentUserProfile({ rare_plant_unlocked: true });
           await Query.UserNotification.create({
+            auth_id: currentUser.id,
             user_email: currentUser.email,
             notification_type: "custom",
             title: "🌟 Hintergrund freigeschaltet!",
@@ -294,13 +295,14 @@ export default function Scanner() {
       }
 
       // Weekly Quest Hintergrund (nur wenn tatsächlich Progress > 0)
-      const userWeeklyQuestsData = await Query.UserWeeklyQuest.filter({ created_by: currentUser.email });
+      const userWeeklyQuestsData = await Query.UserWeeklyQuest.filter({ auth_id: currentUser.id });
       const weeklyWithProgress = userWeeklyQuestsData.filter(q => (q.progress || 0) > 0);
       const weeklyParticipations = new Set(weeklyWithProgress.map(q => q.active_week)).size;
       
       if (weeklyParticipations >= 1 && !currentUser.weekly_bg1_unlocked) {
         await updateCurrentUserProfile({ weekly_bg1_unlocked: true });
         await Query.UserNotification.create({
+          auth_id: currentUser.id,
           user_email: currentUser.email,
           notification_type: "custom",
           title: "🎉 Hintergrund freigeschaltet!",
@@ -312,6 +314,7 @@ export default function Scanner() {
       if (weeklyParticipations >= 3 && !currentUser.weekly_bg2_unlocked) {
         await updateCurrentUserProfile({ weekly_bg2_unlocked: true });
         await Query.UserNotification.create({
+          auth_id: currentUser.id,
           user_email: currentUser.email,
           notification_type: "custom",
           title: "🎉 Hintergrund freigeschaltet!",
@@ -322,12 +325,13 @@ export default function Scanner() {
       }
 
       // Monthly Quest Hintergrund (nur wenn tatsächlich completed)
-      const userMonthlyQuestsData = await Query.UserMonthlyQuest.filter({ created_by: currentUser.email });
+      const userMonthlyQuestsData = await Query.UserMonthlyQuest.filter({ auth_id: currentUser.id });
       const hasCompleted = userMonthlyQuestsData.some(q => q.completed);
       
       if (hasCompleted && !currentUser.monthly_bg_unlocked) {
         await updateCurrentUserProfile({ monthly_bg_unlocked: true });
         await Query.UserNotification.create({
+          auth_id: currentUser.id,
           user_email: currentUser.email,
           notification_type: "custom",
           title: "🎉 Hintergrund freigeschaltet!",
@@ -338,7 +342,7 @@ export default function Scanner() {
       }
 
       // Quest 1 Hintergrund - nur wenn eingelöst (redeemed)
-      const userQuestsData = await Query.UserQuest.filter({ created_by: currentUser.email });
+      const userQuestsData = await Query.UserQuest.filter({ auth_id: currentUser.id });
       const questsData = await Query.Quest.list();
       const quest1 = questsData.find(q => q.quest_number === 1);
       const userQuest1 = userQuestsData.find(uq => uq.quest_id === quest1?.id);
@@ -346,6 +350,7 @@ export default function Scanner() {
       if (userQuest1?.redeemed && !currentUser.gift_bg_unlocked) {
         await updateCurrentUserProfile({ gift_bg_unlocked: true });
         await Query.UserNotification.create({
+          auth_id: currentUser.id,
           user_email: currentUser.email,
           notification_type: "custom",
           title: "🎁 Hintergrund freigeschaltet!",
@@ -611,7 +616,7 @@ export default function Scanner() {
     }
 
     // Lade aktuelle Discoveries direkt von der DB, nicht vom Cache
-    const currentDiscoveries = await Query.UserPlantDiscovery.filter({ created_by: user.email });
+    const currentDiscoveries = await Query.UserPlantDiscovery.filter({ auth_id: user.id });
 
     console.log("🔍 Überprüfe ob bereits entdeckt:");
     console.log("  plant.id:", plant.id);
@@ -624,6 +629,8 @@ export default function Scanner() {
     console.log("  ✅ alreadyDiscovered:", alreadyDiscovered);
 
     const newDiscovery = await Query.UserPlantDiscovery.create({
+      auth_id: user.id,
+      created_by: user.email,
       plant_id: plant.id,
       discovered_date: new Date().toISOString(),
       discovery_location: locationString,
@@ -650,11 +657,11 @@ export default function Scanner() {
 
     // Prüfe und schalte Rewards frei
     const { checkAndUnlockRewards } = await import('../components/rewards/rewardUnlocker');
-    await checkAndUnlockRewards(user.email);
+    await checkAndUnlockRewards(user);
 
     // Prüfe zufällige Rewards
     const { checkRandomRewards } = await import('../components/rewards/randomRewardChecker');
-    await checkRandomRewards(user.email, 'scan');
+    await checkRandomRewards(user, 'scan');
 
     // Vibration: 1x kurz für erfolgreichen Scan
     if (navigator.vibrate) {
@@ -723,6 +730,8 @@ export default function Scanner() {
       });
 
       const newDiscovery = await Query.UserPlantDiscovery.create({
+        auth_id: user.id,
+        created_by: user.email,
         plant_id: newPlant.id,
         discovered_date: new Date().toISOString(),
         discovery_location: locationString,
@@ -746,17 +755,17 @@ export default function Scanner() {
 
       // Hintergrund-Freischaltungen im Hintergrund prüfen (nicht-blockierend)
       const currentUser = await getCurrentUser();
-      const myDiscoveries = await Query.UserPlantDiscovery.filter({ created_by: currentUser.email });
+      const myDiscoveries = await Query.UserPlantDiscovery.filter({ auth_id: currentUser.id });
       const isFirstScan = myDiscoveries.length === 1;
       checkBackgroundUnlocks(newPlant, isFirstScan).catch(err => console.error("Background unlock error:", err));
 
       // Prüfe und schalte Rewards frei
       const { checkAndUnlockRewards } = await import('../components/rewards/rewardUnlocker');
-      await checkAndUnlockRewards(currentUser.email);
+      await checkAndUnlockRewards(currentUser);
 
       // Prüfe zufällige Rewards
       const { checkRandomRewards } = await import('../components/rewards/randomRewardChecker');
-      await checkRandomRewards(currentUser.email, 'scan');
+      await checkRandomRewards(currentUser, 'scan');
 
       // Vibration: 3x kurz für neuen Floralog-Eintrag
       if (navigator.vibrate) {

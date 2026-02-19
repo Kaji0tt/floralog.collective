@@ -14,11 +14,11 @@ export async function checkAndUnlockAchievements(user) {
     // Lade alle benötigten Daten
     const [achievements, userAchievements, plants, genera, userDiscoveries, friends] = await Promise.all([
       Query.Achievement.list(),
-      Query.UserAchievement.filter({ created_by: user.email }),
+      Query.UserAchievement.filter({ auth_id: user.id }),
       Query.Plant.list(),
       Query.PlantGenus.list(),
-      Query.UserPlantDiscovery.filter({ created_by: user.email }),
-      Query.Friend.filter({ created_by: user.email })
+      Query.UserPlantDiscovery.filter({ auth_id: user.id }),
+      Query.Friend.filter({ auth_id: user.id })
     ]);
 
     const unlockedAchievements = [];
@@ -39,6 +39,7 @@ export async function checkAndUnlockAchievements(user) {
       await Query.UserAchievement.create({
         achievement_id: achievement.id,
         unlocked_date: new Date().toISOString(),
+        auth_id: user.id,
         created_by: user.email
       });
 
@@ -49,7 +50,7 @@ export async function checkAndUnlockAchievements(user) {
         
         if (reward) {
           // Prüfe ob User den Reward bereits hat
-          const userRewards = await Query.UserReward.filter({ created_by: user.email });
+            const userRewards = await Query.UserReward.filter({ auth_id: user.id });
           const hasReward = userRewards.some(ur => ur.reward_id === reward.id);
           
           if (!hasReward) {
@@ -59,6 +60,7 @@ export async function checkAndUnlockAchievements(user) {
             await Query.UserReward.create({
               reward_id: reward.id,
               reward_name: reward.display_name,
+              auth_id: user.id,
               user_email: user.email,
               user_name: user.display_name || user.full_name || user.email,
               unlocked_date: new Date().toISOString()
@@ -66,6 +68,7 @@ export async function checkAndUnlockAchievements(user) {
 
             // Erstelle Notification für den Reward
             await Query.UserNotification.create({
+              auth_id: user.id,
               user_email: user.email,
               notification_type: "custom",
               title: `🎁 Neue Belohnung freigeschaltet!`,

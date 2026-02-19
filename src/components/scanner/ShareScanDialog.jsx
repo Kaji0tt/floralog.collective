@@ -22,7 +22,7 @@ export default function ShareScanDialog({ open, onClose, discovery, plant, user 
   const queryClient = useQueryClient();
 
   const { data: friends = [] } = useQuery({
-    queryKey: ['friends', user?.email],
+    queryKey: ['friends', user?.id],
     queryFn: async () => {
       if (!user?.email) return [];
       const allFriends = await Query.Friend.list();
@@ -49,18 +49,18 @@ export default function ShareScanDialog({ open, onClose, discovery, plant, user 
   });
 
   const { data: todayShares = [] } = useQuery({
-    queryKey: ['todayShares', user?.email],
+    queryKey: ['todayShares', user?.id],
     queryFn: async () => {
-      if (!user?.email) return [];
+      if (!user?.id) return [];
       const allShares = await Query.SharedScan.list();
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       return allShares.filter(s => 
-        s.shared_by === user.email && 
+        s.auth_id_from === user.id && 
         new Date(s.shared_date) >= today
       );
     },
-    enabled: !!user?.email && open,
+    enabled: !!user?.id && open,
   });
 
   const createShareMutation = useMutation({
@@ -97,6 +97,8 @@ export default function ShareScanDialog({ open, onClose, discovery, plant, user 
       
       // Pflanze teilen
       await createShareMutation.mutateAsync({
+        auth_id_from: user.id,
+        auth_id_to: friendProfile?.auth_id || null,
         discovery_id: discovery.id,
         plant_id: plant.id,
         shared_by: user.email,

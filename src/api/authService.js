@@ -85,13 +85,13 @@ export const getCurrentAuthUser = async () => {
 /**
  * Get user profile from PublicProfile table
  */
-export const getUserProfile = async (email) => {
-  if (!email) return null;
+export const getUserProfile = async (authId) => {
+  if (!authId) return null;
   
   const { data, error } = await supabase
     .from('PublicProfile')
     .select('*')
-    .eq('user_email', email)
+    .eq('auth_id', authId)
     .single();
   
   if (error && error.code !== 'PGRST116') { // PGRST116 = no rows
@@ -104,14 +104,14 @@ export const getUserProfile = async (email) => {
 /**
  * Create or update user profile
  */
-export const upsertUserProfile = async (email, profileData) => {
+export const upsertUserProfile = async (authId, profileData) => {
   const { data, error } = await supabase
     .from('PublicProfile')
     .upsert({
-      user_email: email,
+      auth_id: authId,
       ...profileData,
       updated_date: new Date().toISOString()
-    }, { onConflict: 'user_email' })
+    }, { onConflict: 'auth_id' })
     .select()
     .single();
   

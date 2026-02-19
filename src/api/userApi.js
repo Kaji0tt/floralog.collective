@@ -13,7 +13,7 @@ export const getCurrentUser = async () => {
     }
     
     // Enrich with profile data
-    const profile = await getUserProfile(authUser.email);
+    const profile = await getUserProfile(authUser.id);
     return {
       ...authUser,
       ...profile // Merge profile data into user object
@@ -29,11 +29,11 @@ export const getCurrentUser = async () => {
  */
 export const updateCurrentUserProfile = async (updates) => {
   const authUser = await getCurrentAuthUser();
-  if (!authUser?.email) {
+  if (!authUser?.id) {
     throw new Error('Auth session missing');
   }
 
-  const profile = await upsertUserProfile(authUser.email, updates);
+  const profile = await upsertUserProfile(authUser.id, updates);
   return {
     ...authUser,
     ...profile

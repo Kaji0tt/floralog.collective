@@ -59,8 +59,8 @@ export default function Profile() {
 
   const { data: userDiscoveries = [] } = useQuery({
     queryKey: ['userDiscoveries'],
-    queryFn: () => Query.UserPlantDiscovery.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
+    queryFn: () => Query.UserPlantDiscovery.filter({ auth_id: user?.id }),
+    enabled: !!user?.id,
   });
 
   const favoritePlant = user?.favorite_plant_id 
@@ -74,8 +74,8 @@ export default function Profile() {
 
   const { data: userQuests = [] } = useQuery({
     queryKey: ['userQuests'],
-    queryFn: () => Query.UserQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
+    queryFn: () => Query.UserQuest.filter({ auth_id: user?.id }),
+    enabled: !!user?.id,
   });
 
   const { data: friends = [] } = useQuery({
@@ -94,8 +94,8 @@ export default function Profile() {
 
   const { data: userAchievements = [] } = useQuery({
     queryKey: ['userAchievements'],
-    queryFn: () => Query.UserAchievement.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
+    queryFn: () => Query.UserAchievement.filter({ auth_id: user?.id }),
+    enabled: !!user?.id,
   });
 
   const { data: achievements = [] } = useQuery({
@@ -105,30 +105,30 @@ export default function Profile() {
 
   const { data: userWeeklyQuests = [] } = useQuery({
     queryKey: ['userWeeklyQuests'],
-    queryFn: () => Query.UserWeeklyQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
+    queryFn: () => Query.UserWeeklyQuest.filter({ auth_id: user?.id }),
+    enabled: !!user?.id,
   });
 
   const { data: userMonthlyQuests = [] } = useQuery({
     queryKey: ['userMonthlyQuests'],
-    queryFn: () => Query.UserMonthlyQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
+    queryFn: () => Query.UserMonthlyQuest.filter({ auth_id: user?.id }),
+    enabled: !!user?.id,
   });
 
   const { data: sharedScans = [] } = useQuery({
     queryKey: ['sharedScans'],
-    queryFn: () => Query.SharedScan.filter({ shared_to: user?.email }),
-    enabled: !!user?.email,
+    queryFn: () => Query.SharedScan.filter({ auth_id_to: user?.id }),
+    enabled: !!user?.id,
   });
 
   const { data: backgroundNotifications = [] } = useQuery({
-    queryKey: ['backgroundNotifications', user?.email],
+    queryKey: ['backgroundNotifications', user?.id],
     queryFn: () => Query.UserNotification.filter({ 
-      user_email: user?.email,
+      auth_id: user?.id,
       notification_type: "custom",
       seen: false
     }),
-    enabled: !!user?.email
+    enabled: !!user?.id
   });
 
   const { data: allRewards = [] } = useQuery({
@@ -137,9 +137,9 @@ export default function Profile() {
   });
 
   const { data: userRewards = [] } = useQuery({
-    queryKey: ['userRewards', user?.email],
-    queryFn: () => Query.UserReward.filter({ created_by: user?.email }),
-    enabled: !!user?.email
+    queryKey: ['userRewards', user?.id],
+    queryFn: () => Query.UserReward.filter({ auth_id: user?.id }),
+    enabled: !!user?.id
   });
 
   useEffect(() => {
@@ -151,7 +151,7 @@ export default function Profile() {
       // Prüfe und schalte Rewards frei (z.B. Donor-Rewards)
       if (currentUser?.email) {
         const { checkAndUnlockRewards } = await import("../components/rewards/rewardUnlocker");
-        await checkAndUnlockRewards(currentUser.email);
+        await checkAndUnlockRewards(currentUser);
       }
     };
     loadUser();
@@ -221,10 +221,10 @@ export default function Profile() {
 
   const updatePublicProfile = async (userData) => {
     try {
-      const profiles = await Query.PublicProfile.list();
-      const existingProfile = profiles.find(p => p.user_email?.toLowerCase() === userData.email?.toLowerCase());
+      const existingProfiles = await Query.PublicProfile.filter({ auth_id: userData.id });
 
       const profileData = {
+        auth_id: userData.id,
         user_email: userData.email,
         display_name: userData.display_name || userData.full_name,
         full_name: userData.full_name,
@@ -236,8 +236,8 @@ export default function Profile() {
         favorite_plant_id: userData.favorite_plant_id
       };
 
-      if (existingProfile) {
-        await Query.PublicProfile.update(existingProfile.id, profileData);
+      if (existingProfiles.length > 0) {
+        await Query.PublicProfile.update(existingProfiles[0].id, profileData);
       } else {
         await Query.PublicProfile.create(profileData);
       }

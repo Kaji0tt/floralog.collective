@@ -15,9 +15,9 @@ export default function QuestAutoAccepter({ user }) {
   });
 
   const { data: userQuests = [] } = useQuery({
-    queryKey: ['userQuests', user?.email],
-    queryFn: () => Query.UserQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email,
+    queryKey: ['userQuests', user?.id],
+    queryFn: () => Query.UserQuest.filter({ auth_id: user?.id }),
+    enabled: !!user?.id,
   });
 
   const { data: weeklyQuests = [] } = useQuery({
@@ -26,9 +26,9 @@ export default function QuestAutoAccepter({ user }) {
   });
 
   const { data: userWeeklyQuests = [] } = useQuery({
-    queryKey: ['userWeeklyQuests', user?.email],
-    queryFn: () => Query.UserWeeklyQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email
+    queryKey: ['userWeeklyQuests', user?.id],
+    queryFn: () => Query.UserWeeklyQuest.filter({ auth_id: user?.id }),
+    enabled: !!user?.id
   });
 
   const { data: monthlyQuests = [] } = useQuery({
@@ -37,9 +37,9 @@ export default function QuestAutoAccepter({ user }) {
   });
 
   const { data: userMonthlyQuests = [] } = useQuery({
-    queryKey: ['userMonthlyQuests', user?.email],
-    queryFn: () => Query.UserMonthlyQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email
+    queryKey: ['userMonthlyQuests', user?.id],
+    queryFn: () => Query.UserMonthlyQuest.filter({ auth_id: user?.id }),
+    enabled: !!user?.id
   });
 
   const { data: collectionQuests = [] } = useQuery({
@@ -48,9 +48,9 @@ export default function QuestAutoAccepter({ user }) {
   });
 
   const { data: userCollectionQuests = [] } = useQuery({
-    queryKey: ['userCollectionQuests', user?.email],
-    queryFn: () => Query.UserCollectionQuest.filter({ created_by: user?.email }),
-    enabled: !!user?.email
+    queryKey: ['userCollectionQuests', user?.id],
+    queryFn: () => Query.UserCollectionQuest.filter({ auth_id: user?.id }),
+    enabled: !!user?.id
   });
 
   const acceptQuestMutation = useMutation({
@@ -59,6 +59,8 @@ export default function QuestAutoAccepter({ user }) {
       if (questType === 'regular') {
         return Query.UserQuest.create({
           quest_id: questId,
+          auth_id: user.id,
+          created_by: user.email,
           accepted: true,
           accepted_date: now
         });
@@ -66,6 +68,8 @@ export default function QuestAutoAccepter({ user }) {
         return Query.UserWeeklyQuest.create({
           weekly_quest_id: questId,
           active_week: activeWeek,
+          auth_id: user.id,
+          created_by: user.email,
           accepted: true,
           accepted_date: now
         });
@@ -73,12 +77,16 @@ export default function QuestAutoAccepter({ user }) {
         return Query.UserMonthlyQuest.create({
           monthly_quest_id: questId,
           active_month: activeMonth,
+          auth_id: user.id,
+          created_by: user.email,
           accepted: true,
           accepted_date: now
         });
       } else if (questType === 'collection') {
         return Query.UserCollectionQuest.create({
           collection_quest_id: questId,
+          auth_id: user.id,
+          created_by: user.email,
           accepted: true,
           accepted_date: now
         });
