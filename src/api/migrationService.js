@@ -110,6 +110,70 @@ export const completeMigration = async (email, password) => {
 
     if (linkError) throw linkError;
 
+    // ✅ MIGRATION: Link all user-related tables with auth_id
+    console.log('[Migration] Linking all user tables with auth_id:', userId, 'for email:', email);
+    
+    // PublicProfile
+    await supabase
+      .from('PublicProfile')
+      .update({ auth_id: userId })
+      .eq('user_email', email);
+
+    // UserPlantDiscovery (uses "user" column)
+    await supabase
+      .from('UserPlantDiscovery')
+      .update({ auth_id: userId })
+      .eq('user', email);
+
+    // UserNotification
+    await supabase
+      .from('UserNotification')
+      .update({ auth_id: userId })
+      .eq('user_email', email);
+
+    // UserQuest (uses created_by)
+    await supabase
+      .from('UserQuest')
+      .update({ auth_id: userId })
+      .eq('created_by', email);
+
+    // UserWeeklyQuest
+    await supabase
+      .from('UserWeeklyQuest')
+      .update({ auth_id: userId })
+      .eq('created_by', email);
+
+    // UserMonthlyQuest
+    await supabase
+      .from('UserMonthlyQuest')
+      .update({ auth_id: userId })
+      .eq('created_by', email);
+
+    // Friend
+    await supabase
+      .from('Friend')
+      .update({ auth_id: userId })
+      .eq('user_email', email);
+
+    // SharedScan (has both shared_by and shared_to)
+    await supabase
+      .from('SharedScan')
+      .update({ auth_id_from: userId })
+      .eq('shared_by', email);
+      
+    await supabase
+      .from('SharedScan')
+      .update({ auth_id_to: userId })
+      .eq('shared_to', email);
+
+    // ScanLike
+    await supabase
+      .from('ScanLike')
+      .update({ auth_id: userId })
+      .eq('user_email', email);
+
+    console.log('[Migration] All user tables linked successfully!');
+
     // Clear migration data from localStorage
     localStorage.removeItem('migration_email');
     localStorage.removeItem('migration_legacy_user_id');

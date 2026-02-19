@@ -34,20 +34,20 @@ export default function WelcomeNameDialog({ user, onComplete }) {
       console.log("[WelcomeNameDialog] User erfolgreich aktualisiert");
 
       // 2. Erstelle oder aktualisiere das PublicProfile
-      console.log("[WelcomeNameDialog] Lade alle PublicProfiles");
-      const profiles = await Query.PublicProfile.list();
-      const existingProfile = profiles.find(p => p.user_email?.toLowerCase() === user.email?.toLowerCase());
-      console.log("[WelcomeNameDialog] Gefundenes Profile:", existingProfile);
+      console.log("[WelcomeNameDialog] Prüfe PublicProfile für auth_id:", user.id);
+      const existingProfiles = await Query.PublicProfile.filter({ auth_id: user.id });
+      console.log("[WelcomeNameDialog] Gefundene Profile:", existingProfiles);
       
       const profileData = {
-        user_email: user.email,
+        auth_id: user.id,              // ✅ Nutze auth.users.id
+        user_email: user.email,        // Legacy, für Leserlichkeit
         display_name: name.trim(),
         full_name: user.full_name
       };
 
-      if (existingProfile) {
-        console.log("[WelcomeNameDialog] Aktualisiere bestehendes Profile:", existingProfile.id);
-        await Query.PublicProfile.update(existingProfile.id, profileData);
+      if (existingProfiles.length > 0) {
+        console.log("[WelcomeNameDialog] Aktualisiere bestehendes Profile:", existingProfiles[0].id);
+        await Query.PublicProfile.update(existingProfiles[0].id, profileData);
         console.log("[WelcomeNameDialog] PublicProfile erfolgreich aktualisiert");
       } else {
         console.log("[WelcomeNameDialog] Erstelle neues PublicProfile");
@@ -58,7 +58,7 @@ export default function WelcomeNameDialog({ user, onComplete }) {
       // 3. Prüfe, ob eine Willkommens-Benachrichtigung bereits existiert und ungesehen ist
       console.log("[WelcomeNameDialog] Prüfe Welcome Notification");
       const welcomeNotifications = await Query.UserNotification.filter({
-        user_email: user.email,
+        auth_id: user.id,
         title: "🌿 Willkommen im Floralog!",
         seen: false
       });
@@ -68,7 +68,8 @@ export default function WelcomeNameDialog({ user, onComplete }) {
         // 4. Erstelle die Willkommens-Benachrichtigung nur, wenn keine ungesehene existiert
         console.log("[WelcomeNameDialog] Erstelle Welcome Notification");
         await Query.UserNotification.create({
-            user_email: user.email,
+            auth_id: user.id,              // ✅ Nutze auth.users.id
+            user_email: user.email,        // Legacy
             notification_type: "custom",
             title: "🌿 Willkommen im Floralog!",
             message: `Hallo ${name.trim()}! Schön, dass du da bist. Floralog ist dein persönlicher Wegbegleiter für all deine Entdeckungen in der Natur. Dabei landet jede Entdeckung in einer eigenen Kollektion. Klicke auf den 'Scannen' Button, um deine erste Pflanze zu entdecken!`,
