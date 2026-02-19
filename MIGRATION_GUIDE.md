@@ -186,6 +186,8 @@ Nach der Migration für alle Benutzer:
 4. ⏳ Realtime Subscriptions nutzen
 5. ⏳ Offline-First mit local caching
 
+3b. Datenbank neu Strukturieren, damit Folgesynchronisierungen Errors vermieden werden und Daten schlanker werden.
+
 ---
 
 **Fragen?** 💬 Schreib mir!

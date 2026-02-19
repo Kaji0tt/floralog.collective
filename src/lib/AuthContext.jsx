@@ -16,9 +16,16 @@ export const AuthProvider = ({ children }) => {
   const [authError, setAuthError] = useState(null);
 
   useEffect(() => {
+    // Fallback timeout: if auth doesn't respond in 3 seconds, stop loading
+    const timeoutId = setTimeout(() => {
+      console.log('[AuthContext] Auth timeout - stopping loading state');
+      setIsLoadingAuth(false);
+    }, 3000);
+
     // Listen to auth state changes
     const { data: { subscription } } = onAuthChange(async (event, session) => {
       console.log('Auth event:', event);
+      clearTimeout(timeoutId); // Clear timeout if auth responds
       
       if (session?.user) {
         // User signed in
@@ -44,6 +51,7 @@ export const AuthProvider = ({ children }) => {
 
     // Cleanup subscription on unmount
     return () => {
+      clearTimeout(timeoutId);
       subscription?.unsubscribe();
     };
   }, []);
