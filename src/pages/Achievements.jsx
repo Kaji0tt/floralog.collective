@@ -115,7 +115,6 @@ export default function Achievements() {
     queryFn: () => Query.UserWeeklyQuest.filter({ auth_id: user?.id }),
     enabled: !!user?.id
   });
-  });
 
   const { data: monthlyQuests = [] } = useQuery({
     queryKey: ['monthlyQuests'],
@@ -127,7 +126,6 @@ export default function Achievements() {
     queryKey: ['userMonthlyQuests', user?.id],
     queryFn: () => Query.UserMonthlyQuest.filter({ auth_id: user?.id }),
     enabled: !!user?.id
-  });
   });
 
   const { data: rewards = [] } = useQuery({
@@ -159,13 +157,11 @@ export default function Achievements() {
     queryFn: () => Query.UserCollectionQuest.filter({ auth_id: user?.id }),
     enabled: !!user?.id
   });
-  });
 
   const { data: userDiscoveries = [] } = useQuery({
     queryKey: ['userDiscoveries', user?.id],
     queryFn: () => Query.UserPlantDiscovery.filter({ auth_id: user?.id }),
     enabled: !!user?.id
-  });
   });
 
   // Echtzeit-Subscriptions für UserAchievements
