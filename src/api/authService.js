@@ -110,7 +110,7 @@ export const upsertUserProfile = async (authId, profileData) => {
     .from('PublicProfile')
     .select('id')
     .eq('auth_id', authId)
-    .single();
+    .maybeSingle(); // ✅ Nicht .single()! Gibt null zurück statt Error, wenn kein Profil existiert
 
   if (existing) {
     // Update existierendes Profil
