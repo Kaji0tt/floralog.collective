@@ -59,8 +59,7 @@ export default function Register() {
       // New user registration
       await signUp(formData.email, formData.password, formData.username);
 
-      // PublicProfile wird automatisch aus Supabase Auth Daten erstellt
-      navigate('/login?registered=true');
+      navigate(`/confirm-email?email=${encodeURIComponent(formData.email)}`);
     } catch (err) {
       console.error('Registration error:', err);
       setError(err.message || 'Registrierung fehlgeschlagen. Bitte versuchen Sie es später erneut.');

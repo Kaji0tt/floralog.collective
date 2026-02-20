@@ -11,6 +11,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
+import ConfirmEmail from '@/pages/ConfirmEmail';
 import MigrateLogin from '@/pages/MigrateLogin';
 import SetPassword from '@/pages/SetPassword';
 
@@ -84,6 +85,7 @@ function App() {
             {/* Public Auth Routes - accessible without authentication */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/confirm-email" element={<ConfirmEmail />} />
             <Route path="/migrate" element={<MigrateLogin />} />
             <Route path="/migration/login" element={<MigrateLogin />} />
             <Route path="/migration/set-password" element={<SetPassword />} />
