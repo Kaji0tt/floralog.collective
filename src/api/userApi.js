@@ -1,24 +1,50 @@
 // User API utilities using Supabase Auth
 
 import { getCurrentAuthUser, getUserProfile, upsertUserProfile } from './authService';
-import { supabase } from './supabaseClient';
+const baseUserProxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/baseUserProxy`;
+
+const invokeBaseUserProxy = async (action, payload) => {
+  const response = await fetch(baseUserProxyUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      action,
+      ...payload
+    })
+  });
+
+  const result = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(result?.error || `baseUserProxy request failed (${response.status})`);
+  }
+
+  if (result?.error) throw new Error(result.error);
+  return result?.data || null;
+};
+
+const normalizeName = (value) => {
+  const trimmed = value?.trim?.();
+  return trimmed || null;
+};
+
+const getMetadataName = (authUser) => {
+  const metadata = authUser?.user_metadata || {};
+  return normalizeName(metadata.display_name) || normalizeName(metadata.full_name) || normalizeName(metadata.name);
+};
 
 const resolveLegacyNameFallback = async (authUser) => {
-  if (!authUser?.id || !authUser?.email) return null;
+  if (!authUser?.email) return null;
 
-  const { data, error } = await supabase
-    .from('baseUser')
-    .select('display_name, full_name')
-    .or(`auth_id.eq.${authUser.id},email.eq.${authUser.email}`)
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
+  try {
+    const data = await invokeBaseUserProxy('getProfile', { email: authUser.email });
+    return data || null;
+  } catch (error) {
     console.warn('[userApi] baseUser fallback lookup failed:', error.message);
     return null;
   }
-
-  return data || null;
 };
 
 /**
@@ -34,23 +60,27 @@ export const getCurrentUser = async () => {
     // Enrich with profile data
     const profile = await getUserProfile(authUser.id);
 
-    const hasName = Boolean(
-      profile?.display_name ||
-      profile?.full_name ||
-      authUser?.user_metadata?.display_name ||
-      authUser?.user_metadata?.full_name ||
-      authUser?.user_metadata?.name
-    );
+    const profileDisplayName = normalizeName(profile?.display_name);
+    const profileFullName = normalizeName(profile?.full_name);
+    const metadataName = getMetadataName(authUser);
+
+    const hasName = Boolean(profileDisplayName || profileFullName || metadataName);
 
     let legacyFallback = null;
     if (!hasName) {
       legacyFallback = await resolveLegacyNameFallback(authUser);
     }
 
+    const legacyName = normalizeName(legacyFallback?.display_name);
+    const resolvedDisplayName = profileDisplayName || metadataName || legacyName;
+    const resolvedFullName = profileFullName || metadataName || legacyName;
+
     return {
       ...authUser,
       ...legacyFallback,
-      ...profile // Merge profile data into user object
+      ...profile,
+      display_name: resolvedDisplayName || null,
+      full_name: resolvedFullName || null
     };
   } catch (error) {
     console.error('Error getting current user:', error);
