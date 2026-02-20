@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
     // Get legacy user from baseUser table
     const { data: legacyUser, error: legacyError } = await supabaseAdmin
       .from("baseUser")
-      .select("*")
+      .select("id,email,display_name,auth_id,created_date,updated_date")
       .eq("id", legacyUserId)
       .single()
 
@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
     }
 
     // Verify email matches (security check)
-    const legacyEmail = (legacyUser.email || legacyUser.user_email || "").toLowerCase().trim()
+    const legacyEmail = (legacyUser.email || "").toLowerCase().trim()
     const requestEmail = email.toLowerCase().trim()
 
     console.log("[migrateLegacyUser] Email verification:")
@@ -163,12 +163,9 @@ Deno.serve(async (req) => {
     console.log("[migrateLegacyUser] Step 2: Updating PublicProfile...")
     const fallbackDisplayName = String(
       legacyUser.display_name ||
-      legacyUser.full_name ||
-      legacyUser.username ||
       requestEmail.split("@")[0]
     ).trim()
     const fallbackFullName = String(
-      legacyUser.full_name ||
       legacyUser.display_name ||
       fallbackDisplayName
     ).trim()

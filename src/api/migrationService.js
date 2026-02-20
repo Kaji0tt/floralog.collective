@@ -21,7 +21,7 @@ export const checkLegacyUser = async (email) => {
 
   const { data, error } = await supabase
     .from('baseUser')
-    .select('*')
+    .select('id,email,display_name,auth_id,created_date,updated_date')
     .eq('email', normalizedEmail)
     .single();
   
@@ -54,9 +54,8 @@ export const upsertLegacyUserFromRegistration = async ({ email, displayName, aut
 
   if (existing) {
     const updatePayload = {
+      email: existing.email || normalizedEmail,
       display_name: existing.display_name || trimmedName,
-      full_name: existing.full_name || trimmedName,
-      user_email: existing.user_email || normalizedEmail,
       updated_date: timestamp
     };
 
@@ -68,7 +67,7 @@ export const upsertLegacyUserFromRegistration = async ({ email, displayName, aut
       .from('baseUser')
       .update(updatePayload)
       .eq('id', existing.id)
-      .select('*')
+      .select('id,email,display_name,auth_id,created_date,updated_date')
       .single();
 
     if (error) throw error;
@@ -87,7 +86,7 @@ export const upsertLegacyUserFromRegistration = async ({ email, displayName, aut
   const { data, error } = await supabase
     .from('baseUser')
     .insert(insertPayload)
-    .select('*')
+    .select('id,email,display_name,auth_id,created_date,updated_date')
     .single();
 
   if (error) throw error;
@@ -337,7 +336,7 @@ export const completeMigration = async (email, password, onProgress) => {
 export const getLegacyUserProfile = async (email) => {
   const { data, error } = await supabase
     .from('baseUser')
-    .select('*')
+    .select('id,email,display_name,auth_id,created_date,updated_date')
     .eq('email', email)
     .single();
 
