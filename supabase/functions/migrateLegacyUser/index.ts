@@ -14,15 +14,6 @@ Deno.serve(async (req) => {
   try {
     console.log("[migrateLegacyUser] === REQUEST START ===")
     
-    // Debug: Log all headers
-    const headers: Record<string, string> = {}
-    req.headers.forEach((value, key) => {
-      headers[key] = key.toLowerCase().includes("auth") || key.toLowerCase().includes("token") 
-        ? `${value.substring(0, 20)}...` 
-        : value
-    })
-    console.log("[migrateLegacyUser] Headers:", JSON.stringify(headers, null, 2))
-
     const supabaseUrl = Deno.env.get("FLORALOG_URL")
     const supabaseServiceRoleKey = Deno.env.get("SERVICE_ROLE_KEY")
     const supabaseAnonKey = Deno.env.get("FLORALOG_ANON_KEY")
@@ -39,27 +30,24 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Get Authorization header (Supabase Gateway already validated it)
-    const authHeader = req.headers.get("authorization") || ""
-    console.log("[migrateLegacyUser] Authorization header present:", !!authHeader)
+    // Create Supabase client with anon key to access the user's session
+    // The Authorization header is automatically passed by the Supabase client library
+    const authHeader = req.headers.get("authorization") ?? ""
+    console.log("[migrateLegacyUser] Authorization header length:", authHeader.length)
 
-    if (!authHeader) {
-      console.error("[migrateLegacyUser] No authorization header found!")
-      return new Response(
-        JSON.stringify({ error: "Missing authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } },
-      )
-    }
+    // Create admin client for updates (needed for both auth validation and data migration)
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
+      auth: { persistSession: false },
+    })
 
-    // Create client with user's auth context (uses the already-validated session)
     const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
       auth: { persistSession: false },
     })
 
-    // Get authenticated user (validated by Supabase Gateway)
-    console.log("[migrateLegacyUser] Getting authenticated user from session...")
-    const { data: { user: authUser }, error: authError } = await supabaseUser.auth.getUser()
+    // Get authenticated user - Supabase Gateway has already validated the JWT
+    console.log("[migrateLegacyUser] Getting authenticated user...")
+    let { data: { user: authUser }, error: authError } = await supabaseUser.auth.getUser()
 
     console.log("[migrateLegacyUser] Auth user result:", authUser ? authUser.id : "null")
     if (authError) {
@@ -67,24 +55,42 @@ Deno.serve(async (req) => {
     }
 
     if (authError || !authUser) {
-      console.error("[migrateLegacyUser] ❌ Auth validation FAILED")
-      return new Response(
-        JSON.stringify({ 
-          error: "Invalid or missing auth session", 
-          details: authError?.message 
-        }),
-        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } },
-      )
+      console.error("[migrateLegacyUser] ❌ Auth validation FAILED - trying with JWT from request")
+      
+      // Fallback: Try to extract JWT from Authorization header manually
+      const token = authHeader.replace("Bearer ", "").trim()
+      if (!token) {
+        return new Response(
+          JSON.stringify({ 
+            error: "No authentication token found", 
+            details: "Authorization header is missing or empty" 
+          }),
+          { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } },
+        )
+      }
+
+      // Validate JWT using service role client (bypasses RLS)
+      const { data: { user: validatedUser }, error: validationError } = await supabaseAdmin.auth.getUser(token)
+      console.log("[migrateLegacyUser] Manual JWT validation:", validatedUser ? validatedUser.id : "null")
+      
+      if (validationError || !validatedUser) {
+        console.error("[migrateLegacyUser] Manual validation also failed:", validationError)
+        return new Response(
+          JSON.stringify({ 
+            error: "Invalid or missing auth session", 
+            details: validationError?.message 
+          }),
+          { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } },
+        )
+      }
+
+      // Use the manually validated user
+      authUser = validatedUser
     }
 
     console.log("[migrateLegacyUser] ✅ Auth validation SUCCESS - User ID:", authUser.id)
     console.log("[migrateLegacyUser] User email:", authUser.email)
-
-    // Create admin client for updates
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
-      auth: { persistSession: false },
-    })
-    console.log("[migrateLegacyUser] Admin client created")
+    console.log("[migrateLegacyUser] Admin client ready for migration")
 
     const requestBody = await req.json()
     const { legacyUserId } = requestBody

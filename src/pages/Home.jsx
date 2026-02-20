@@ -3,6 +3,7 @@ import { Query } from "@/api/entities";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { upsertUserProfile } from "@/api/authService";
 import { uploadFile } from "@/api/storage";
+import { executeMigration } from "@/api/migrationService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -38,6 +39,11 @@ export default function Home() {
   const [showScannerHighlight, setShowScannerHighlight] = useState(false);
   const [showBackgroundHighlight, setShowBackgroundHighlight] = useState(false);
   const [showAchievementsHighlight, setShowAchievementsHighlight] = useState(false);
+
+  // Migration states
+  const [isMigrating, setIsMigrating] = useState(false);
+  const [migrationSteps, setMigrationSteps] = useState([]);
+  const [migrationError, setMigrationError] = useState(null);
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
@@ -242,6 +248,33 @@ export default function Home() {
       window.removeEventListener('userUpdated', handleUserUpdate);
     };
   }, []);
+
+  // Auto-execute migration if pending (user came from SetPassword page)
+  useEffect(() => {
+    const migrationPending = localStorage.getItem('migration_pending');
+    if (migrationPending === 'true' && user && !isMigrating) {
+      console.log('[Home] Migration pending detected - starting automatic migration...');
+      setIsMigrating(true);
+      setMigrationSteps([]);
+      setMigrationError(null);
+
+      executeMigration((progress) => {
+        console.log(`[Home] Migration progress: ${progress.completed}/${progress.total} - ${progress.step.name}`);
+        setMigrationSteps(prev => [...prev, progress.step]);
+      })
+        .then(() => {
+          console.log('[Home] Migration completed successfully!');
+          setIsMigrating(false);
+          // Refetch all user data after successful migration
+          loadUserData();
+        })
+        .catch((err) => {
+          console.error('[Home] Migration failed:', err);
+          setMigrationError(err.message || 'Migration fehlgeschlagen');
+          setIsMigrating(false);
+        });
+    }
+  }, [user, isMigrating]);
 
   // Prüfe ob Scanner-Highlight angezeigt werden soll
   useEffect(() => {

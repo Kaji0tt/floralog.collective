@@ -273,3 +273,88 @@ export const getLegacyUserProfile = async (email) => {
   if (error) throw error;
   return data;
 };
+
+/**
+ * Execute migration via Edge Function (called AFTER user is on Home page)
+ * This assumes the user is already signed in with a valid session
+ * 
+ * @param {Function} onProgress - Callback function called with each step
+ */
+export const executeMigration = async (onProgress) => {
+  try {
+    console.log('[executeMigration] Starting migration via Edge Function...');
+
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !sessionData.session?.access_token) {
+      console.error('[executeMigration] Session not available:', sessionError);
+      throw new Error('Session nicht verfügbar. Bitte erneut anmelden.');
+    }
+
+    // Get legacy user ID from localStorage
+    const legacyUserId = localStorage.getItem('migration_legacy_user_id');
+    console.log('[executeMigration] Legacy user ID:', legacyUserId);
+
+    if (!legacyUserId) {
+      throw new Error('Legacy User ID fehlt. Bitte starten Sie die Migration erneut.');
+    }
+
+    // Server-side migration via Edge Function (bypasses RLS safely)
+    console.log('[executeMigration] Invoking migrateLegacyUser Edge Function...');
+    const { data: migrationData, error: migrationError } = await supabase.functions.invoke(
+      'migrateLegacyUser',
+      {
+        headers: {
+          Authorization: `Bearer ${sessionData.session.access_token}`
+        },
+        body: {
+          legacyUserId
+        }
+      }
+    );
+
+    if (migrationError) {
+      console.error('[executeMigration] Edge migration failed:', migrationError);
+      throw migrationError;
+    }
+
+    console.log('[executeMigration] Migration successful:', migrationData);
+
+    const resultSteps = migrationData?.results || [];
+    if (onProgress) {
+      const total = resultSteps.length || MIGRATION_STEPS.length;
+
+      if (resultSteps.length > 0) {
+        resultSteps.forEach((result, index) => {
+          const step = MIGRATION_STEPS.find((s) => s.key === result.key) || {
+            key: result.key,
+            name: result.name || result.key
+          };
+
+          onProgress({
+            step,
+            completed: index + 1,
+            total,
+            percentage: Math.round(((index + 1) / total) * 100),
+            updated: result.updated
+          });
+        });
+      }
+    }
+
+    console.log('[executeMigration] All user tables linked successfully.');
+
+    // Clear migration data from localStorage
+    localStorage.removeItem('migration_email');
+    localStorage.removeItem('migration_legacy_user_id');
+    localStorage.removeItem('migration_verified_email');
+    localStorage.removeItem('migration_verified_at');
+    localStorage.removeItem('migration_pending');
+
+    return { success: true, results: resultSteps };
+  } catch (err) {
+    console.error('[executeMigration] FAILED:', err);
+    // Don't clear the pending flag so user can retry
+    throw err;
+  }
+};
+

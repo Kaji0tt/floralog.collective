@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { completeMigration } from '@/api/migrationService';
+import { supabase } from '@/api/supabaseClient';
 import { Lock, Loader2, CheckCircle, AlertCircle, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 
@@ -16,8 +16,6 @@ export default function SetPassword() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(0);
-  const [migrationSteps, setMigrationSteps] = useState([]); // Track migration progress
-  const [currentStep, setCurrentStep] = useState(null);
 
   useEffect(() => {
     if (!email) {
@@ -63,23 +61,52 @@ export default function SetPassword() {
     setIsLoading(true);
 
     try {
-      console.log('[SetPassword] Starting migration with email:', email);
-      await completeMigration(email, password, (progress) => {
-        // Update state with migration progress
-        setCurrentStep(progress.step);
-        setMigrationSteps(prev => [...prev, progress.step]);
-        console.log(`[SetPassword] Migration progress: ${progress.completed}/${progress.total} - ${progress.step.name}`);
-      });
+      console.log('[SetPassword] Setting password for email:', email);
       
-      console.log('[SetPassword] Migration completed successfully! Navigating to dashboard...');
+      // Get the verified auth user (already created by signInWithOtp + verifyOtp)
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) {
+        console.error('[SetPassword] Auth user not found:', authError);
+        throw new Error('Authentifizierung fehlgeschlagen. Bitte versuchen Sie es erneut.');
+      }
+
+      console.log('[SetPassword] Auth user ID:', authData.user.id);
+
+      // Update password for this user
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: password
+      });
+
+      if (updateError) {
+        console.error('[SetPassword] Password update failed:', updateError);
+        throw updateError;
+      }
+      console.log('[SetPassword] Password updated successfully');
+
+      // Sign in with the new password to establish session
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (signInError) {
+        console.error('[SetPassword] Sign-in after password update failed:', signInError);
+        throw signInError;
+      }
+
+      console.log('[SetPassword] Sign-in successful. Setting migration flag and navigating to dashboard...');
+      
+      // Set flag so Home page knows to trigger migration
+      localStorage.setItem('migration_pending', 'true');
+      
       setSuccess(true);
 
       setTimeout(() => {
-        // Benutzer ist bereits eingeloggt, direkt ins Dashboard
+        // Navigate to dashboard where migration will automatically start
         navigate('/', { replace: true });
-      }, 2000);
+      }, 1000);
     } catch (err) {
-      console.error('[SetPassword] MIGRATION FAILED:', err);
+      console.error('[SetPassword] FAILED:', err);
       console.error('[SetPassword] Error details:', {
         message: err.message,
         code: err.code,
@@ -112,31 +139,8 @@ export default function SetPassword() {
               <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded flex items-start">
                 <CheckCircle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="font-medium">Migration erfolgreich!</p>
+                  <p className="font-medium">Passwort gesetzt!</p>
                   <p className="text-sm">Sie werden weitergeleitet...</p>
-                </div>
-              </div>
-            )}
-
-            {isLoading && migrationSteps.length > 0 && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h3 className="font-medium text-blue-900 mb-3 flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Migration läuft...
-                </h3>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {migrationSteps.map((step, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-sm text-blue-800 animate-in fade-in duration-300">
-                      <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-                      <span>{step.name}</span>
-                    </div>
-                  ))}
-                  {currentStep && migrationSteps.length > 0 && (
-                    <div className="flex items-center gap-2 text-sm text-blue-600 font-medium">
-                      <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
-                      <span>{currentStep.name}</span>
-                    </div>
-                  )}
                 </div>
               </div>
             )}
