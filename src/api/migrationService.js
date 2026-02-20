@@ -78,11 +78,8 @@ export const upsertLegacyUserFromRegistration = async ({ email, displayName, aut
   const insertPayload = {
     id: generateLegacyId(),
     email: normalizedEmail,
-    user_email: normalizedEmail,
     display_name: trimmedName,
-    full_name: trimmedName,
     auth_id: authId || null,
-    created_by: normalizedEmail,
     created_date: timestamp,
     updated_date: timestamp
   };
