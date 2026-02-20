@@ -1,4 +1,3 @@
-import "@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const corsHeaders = {
@@ -6,20 +5,27 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 }
 
+console.log("[migrateLegacyUser] Function loaded successfully")
+
 Deno.serve(async (req) => {
+  console.log("[migrateLegacyUser] === REQUEST RECEIVED ===")
+  console.log("[migrateLegacyUser] Method:", req.method)
+  console.log("[migrateLegacyUser] URL:", req.url)
+  
   if (req.method === "OPTIONS") {
+    console.log("[migrateLegacyUser] Handling OPTIONS request")
     return new Response("ok", { headers: corsHeaders })
   }
 
   try {
-    console.log("[migrateLegacyUser] === REQUEST START ===")
+    console.log("[migrateLegacyUser] === PROCESSING REQUEST ===")
     
     const supabaseUrl = Deno.env.get("FLORALOG_URL")
     const supabaseServiceRoleKey = Deno.env.get("SERVICE_ROLE_KEY")
     const supabaseAnonKey = Deno.env.get("FLORALOG_ANON_KEY")
 
     console.log("[migrateLegacyUser] Env check - URL:", supabaseUrl ? "✓" : "✗")
-    console.log("[migrateLegacyUser] Env check - Service Role Key:", supabaseServiceRoleKey ? "✓" : "✗")
+    console.log("[migrateLegacyUser] Env check - Service Role Key:", supabaseServiceRoleKey ? "✓ (length: " + (supabaseServiceRoleKey?.length || 0) + ")" : "✗")
     console.log("[migrateLegacyUser] Env check - Anon Key:", supabaseAnonKey ? "✓" : "✗")
 
     if (!supabaseUrl || !supabaseServiceRoleKey || !supabaseAnonKey) {
@@ -282,10 +288,12 @@ Deno.serve(async (req) => {
       JSON.stringify({ success: true, results }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
     )
-  } catch (err) {
-    console.error("[migrateLegacyUser] Error:", err.message)
+  } catch (error) {
+    console.error("[migrateLegacyUser] CAUGHT ERROR:", error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error("[migrateLegacyUser] Error message:", errorMessage)
     return new Response(
-      JSON.stringify({ error: err.message }),
+      JSON.stringify({ error: errorMessage }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
     )
   }
