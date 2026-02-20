@@ -7,18 +7,28 @@ const getAuthRedirectBaseUrl = () => {
 };
 
 const normalizeEmail = (email) => email?.trim().toLowerCase();
+const baseUserProxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/baseUserProxy`;
 
 const invokeBaseUserProxy = async (action, payload) => {
-  const { data, error } = await supabase.functions.invoke('baseUserProxy', {
-    body: {
+  const response = await fetch(baseUserProxyUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
       action,
       ...payload
-    }
+    })
   });
 
-  if (error) throw error;
-  if (data?.error) throw new Error(data.error);
-  return data?.data || null;
+  const result = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(result?.error || `baseUserProxy request failed (${response.status})`);
+  }
+
+  if (result?.error) throw new Error(result.error);
+  return result?.data || null;
 };
 
 /**
