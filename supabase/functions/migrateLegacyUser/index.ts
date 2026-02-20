@@ -12,48 +12,38 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization") || ""
-    const token = authHeader.replace("Bearer ", "")
-
-    if (!token) {
-      return new Response(
-        JSON.stringify({ error: "Missing authorization token" }),
-        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } },
-      )
-    }
-
     const supabaseUrl = Deno.env.get("FLORALOG_URL")
     const supabaseServiceRoleKey = Deno.env.get("SERVICE_ROLE_KEY")
     const supabaseAnonKey = Deno.env.get("FLORALOG_ANON_KEY")
 
-    if (!supabaseUrl || !supabaseServiceRoleKey) {
+    if (!supabaseUrl || !supabaseServiceRoleKey || !supabaseAnonKey) {
       return new Response(
         JSON.stringify({ error: "Missing environment variables" }),
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
       )
     }
 
-    // Create user client to verify token
-    const userClient = createClient(supabaseUrl, supabaseAnonKey || "", {
-      global: { headers: { Authorization: `Bearer ${token}` } },
+    // Create user client with request context (gets auth from headers automatically)
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: req.headers.get("Authorization") || "" } },
       auth: { persistSession: false },
     })
+
+    // Get auth user - Supabase liest auth automatisch aus dem Authorization Header
+    const { data: { user: authUser }, error: authError } = await userClient.auth.getUser()
+
+    if (authError || !authUser) {
+      console.error("[migrateLegacyUser] Auth error:", authError?.message)
+      return new Response(
+        JSON.stringify({ error: "Invalid or missing auth token", details: authError?.message }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } },
+      )
+    }
 
     // Create admin client for updates
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
       auth: { persistSession: false },
     })
-
-    // Get auth user from token
-    const { data: { user: authUser }, error: authError } = await userClient.auth.getUser()
-
-    if (authError || !authUser) {
-      console.error("[migrateLegacyUser] Auth error:", authError)
-      return new Response(
-        JSON.stringify({ error: "Invalid auth token", details: authError }),
-        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } },
-      )
-    }
 
     const requestBody = await req.json()
     const { legacyUserId } = requestBody
