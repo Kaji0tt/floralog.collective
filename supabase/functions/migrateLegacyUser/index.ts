@@ -17,23 +17,68 @@ Deno.serve(async (req) => {
     // Debug: Log all headers
     const headers: Record<string, string> = {}
     req.headers.forEach((value, key) => {
-      headers[key] = key.toLowerCase().includes("auth") ? `${value.substring(0, 20)}...` : value
+      headers[key] = key.toLowerCase().includes("auth") || key.toLowerCase().includes("token") 
+        ? `${value.substring(0, 20)}...` 
+        : value
     })
     console.log("[migrateLegacyUser] Headers:", JSON.stringify(headers, null, 2))
 
     const supabaseUrl = Deno.env.get("FLORALOG_URL")
     const supabaseServiceRoleKey = Deno.env.get("SERVICE_ROLE_KEY")
+    const supabaseAnonKey = Deno.env.get("FLORALOG_ANON_KEY")
 
     console.log("[migrateLegacyUser] Env check - URL:", supabaseUrl ? "✓" : "✗")
     console.log("[migrateLegacyUser] Env check - Service Role Key:", supabaseServiceRoleKey ? "✓" : "✗")
+    console.log("[migrateLegacyUser] Env check - Anon Key:", supabaseAnonKey ? "✓" : "✗")
 
-    if (!supabaseUrl || !supabaseServiceRoleKey) {
+    if (!supabaseUrl || !supabaseServiceRoleKey || !supabaseAnonKey) {
       console.error("[migrateLegacyUser] Missing environment variables!")
       return new Response(
         JSON.stringify({ error: "Missing environment variables" }),
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
       )
     }
+
+    // Get Authorization header (Supabase Gateway already validated it)
+    const authHeader = req.headers.get("authorization") || ""
+    console.log("[migrateLegacyUser] Authorization header present:", !!authHeader)
+
+    if (!authHeader) {
+      console.error("[migrateLegacyUser] No authorization header found!")
+      return new Response(
+        JSON.stringify({ error: "Missing authorization header" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } },
+      )
+    }
+
+    // Create client with user's auth context (uses the already-validated session)
+    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+      auth: { persistSession: false },
+    })
+
+    // Get authenticated user (validated by Supabase Gateway)
+    console.log("[migrateLegacyUser] Getting authenticated user from session...")
+    const { data: { user: authUser }, error: authError } = await supabaseUser.auth.getUser()
+
+    console.log("[migrateLegacyUser] Auth user result:", authUser ? authUser.id : "null")
+    if (authError) {
+      console.error("[migrateLegacyUser] Auth error:", JSON.stringify(authError, null, 2))
+    }
+
+    if (authError || !authUser) {
+      console.error("[migrateLegacyUser] ❌ Auth validation FAILED")
+      return new Response(
+        JSON.stringify({ 
+          error: "Invalid or missing auth session", 
+          details: authError?.message 
+        }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } },
+      )
+    }
+
+    console.log("[migrateLegacyUser] ✅ Auth validation SUCCESS - User ID:", authUser.id)
+    console.log("[migrateLegacyUser] User email:", authUser.email)
 
     // Create admin client for updates
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
@@ -42,52 +87,8 @@ Deno.serve(async (req) => {
     console.log("[migrateLegacyUser] Admin client created")
 
     const requestBody = await req.json()
-    const { legacyUserId, accessToken } = requestBody
+    const { legacyUserId } = requestBody
     console.log("[migrateLegacyUser] Request body - legacyUserId:", legacyUserId)
-    console.log("[migrateLegacyUser] Request body - accessToken provided:", !!accessToken)
-
-    const authHeader = req.headers.get("authorization") || req.headers.get("Authorization") || ""
-    console.log("[migrateLegacyUser] Auth header found:", authHeader ? `${authHeader.substring(0, 30)}...` : "NONE")
-    
-    const headerToken = authHeader.startsWith("Bearer ")
-      ? authHeader.slice("Bearer ".length).trim()
-      : authHeader.trim()
-    const token = headerToken || accessToken
-
-    console.log("[migrateLegacyUser] Token source:", headerToken ? "header" : (accessToken ? "body" : "none"))
-    console.log("[migrateLegacyUser] Token length:", token ? token.length : 0)
-
-    if (!token) {
-      console.error("[migrateLegacyUser] No token found in header or body!")
-      return new Response(
-        JSON.stringify({ error: "Missing authorization token" }),
-        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } },
-      )
-    }
-
-    // Validate token using service role
-    console.log("[migrateLegacyUser] Validating token with admin.auth.getUser()...")
-    const { data: { user: authUser }, error: authError } = await supabaseAdmin.auth.getUser(token)
-
-    console.log("[migrateLegacyUser] Auth validation result - user:", authUser ? authUser.id : "null")
-    console.log("[migrateLegacyUser] Auth validation result - error:", authError ? authError.message : "none")
-
-    if (authError || !authUser) {
-      console.error("[migrateLegacyUser] ❌ Auth validation FAILED")
-      console.error("[migrateLegacyUser] Error details:", JSON.stringify(authError, null, 2))
-      return new Response(
-        JSON.stringify({ 
-          error: "Invalid or missing auth token", 
-          details: authError?.message,
-          errorCode: authError?.code,
-          tokenLength: token.length,
-          tokenPrefix: token.substring(0, 20)
-        }),
-        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } },
-      )
-    }
-
-    console.log("[migrateLegacyUser] ✅ Auth validation SUCCESS - User ID:", authUser.id)
 
     if (!legacyUserId) {
       console.error("[migrateLegacyUser] Missing legacyUserId in request body")

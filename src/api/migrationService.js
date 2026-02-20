@@ -204,8 +204,7 @@ export const completeMigration = async (email, password, onProgress) => {
           Authorization: `Bearer ${sessionData.session.access_token}`
         },
         body: {
-          legacyUserId,
-          accessToken: sessionData.session.access_token
+          legacyUserId
         }
       }
     );
