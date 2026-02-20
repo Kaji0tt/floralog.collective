@@ -96,26 +96,8 @@ export default function SetPassword() {
 
       console.log('[SetPassword] Sign-in successful. Setting migration flag and navigating to dashboard...');
       
-      // Create PublicProfile for the new user BEFORE migration
-      console.log('[SetPassword] Creating PublicProfile...');
-      const { error: profileError } = await supabase
-        .from('PublicProfile')
-        .upsert({
-          auth_id: authData.user.id,
-          user_email: email,
-          created_date: new Date().toISOString()
-        }, {
-          onConflict: 'auth_id'
-        });
-
-      if (profileError) {
-        console.error('[SetPassword] PublicProfile creation failed:', profileError);
-        // Don't throw - migration will handle it
-      } else {
-        console.log('[SetPassword] PublicProfile created successfully');
-      }
-      
       // Set flag so Home page knows to trigger migration
+      // Edge Function will handle all database updates including PublicProfile creation
       localStorage.setItem('migration_pending', 'true');
       
       setSuccess(true);

@@ -284,29 +284,28 @@ export const executeMigration = async (onProgress) => {
   try {
     console.log('[executeMigration] Starting migration via Edge Function...');
 
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !sessionData.session?.access_token) {
-      console.error('[executeMigration] Session not available:', sessionError);
-      throw new Error('Session nicht verfügbar. Bitte erneut anmelden.');
-    }
-
-    // Get legacy user ID from localStorage
+    // Get legacy user ID and email from localStorage
     const legacyUserId = localStorage.getItem('migration_legacy_user_id');
+    const email = localStorage.getItem('migration_email');
+    
     console.log('[executeMigration] Legacy user ID:', legacyUserId);
+    console.log('[executeMigration] Email:', email);
 
     if (!legacyUserId) {
       throw new Error('Legacy User ID fehlt. Bitte starten Sie die Migration erneut.');
     }
 
-    // Server-side migration via Edge Function (bypasses RLS safely)
+    if (!email) {
+      throw new Error('Email fehlt. Bitte starten Sie die Migration erneut.');
+    }
+
+    // Server-side migration via Edge Function (public endpoint with internal validation)
     console.log('[executeMigration] Invoking migrateLegacyUser Edge Function...');
     const { data: migrationData, error: migrationError } = await supabase.functions.invoke(
       'migrateLegacyUser',
       {
-        headers: {
-          Authorization: `Bearer ${sessionData.session.access_token}`
-        },
         body: {
+          email,
           legacyUserId
         }
       }
