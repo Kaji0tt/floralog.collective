@@ -182,6 +182,12 @@ export const completeMigration = async (email, password, onProgress) => {
       throw signInError;
     }
 
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !sessionData.session?.access_token) {
+      console.error('[completeMigration] Session not available after sign-in:', sessionError);
+      throw new Error('Session nicht verfuegbar. Bitte erneut anmelden.');
+    }
+
     // Get legacy user ID from localStorage
     const legacyUserId = localStorage.getItem('migration_legacy_user_id');
     console.log('[completeMigration] Legacy user ID:', legacyUserId);
@@ -194,8 +200,12 @@ export const completeMigration = async (email, password, onProgress) => {
     const { data: migrationData, error: migrationError } = await supabase.functions.invoke(
       'migrateLegacyUser',
       {
+        headers: {
+          Authorization: `Bearer ${sessionData.session.access_token}`
+        },
         body: {
-          legacyUserId
+          legacyUserId,
+          accessToken: sessionData.session.access_token
         }
       }
     );

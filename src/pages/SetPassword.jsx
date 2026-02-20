@@ -71,12 +71,13 @@ export default function SetPassword() {
         console.log(`[SetPassword] Migration progress: ${progress.completed}/${progress.total} - ${progress.step.name}`);
       });
       
-      console.log('[SetPassword] Migration completed successfully! Navigating to login...');
+      console.log('[SetPassword] Migration completed successfully! Navigating to dashboard...');
       setSuccess(true);
 
       setTimeout(() => {
-        navigate('/login?migrated=true');
-      }, 3000);
+        // Benutzer ist bereits eingeloggt, direkt ins Dashboard
+        navigate('/', { replace: true });
+      }, 2000);
     } catch (err) {
       console.error('[SetPassword] MIGRATION FAILED:', err);
       console.error('[SetPassword] Error details:', {

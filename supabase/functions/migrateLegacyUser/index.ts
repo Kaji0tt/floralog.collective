@@ -14,29 +14,11 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("FLORALOG_URL")
     const supabaseServiceRoleKey = Deno.env.get("SERVICE_ROLE_KEY")
-    const supabaseAnonKey = Deno.env.get("FLORALOG_ANON_KEY")
 
-    if (!supabaseUrl || !supabaseServiceRoleKey || !supabaseAnonKey) {
+    if (!supabaseUrl || !supabaseServiceRoleKey) {
       return new Response(
         JSON.stringify({ error: "Missing environment variables" }),
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
-      )
-    }
-
-    // Create user client with request context (gets auth from headers automatically)
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: req.headers.get("Authorization") || "" } },
-      auth: { persistSession: false },
-    })
-
-    // Get auth user - Supabase liest auth automatisch aus dem Authorization Header
-    const { data: { user: authUser }, error: authError } = await userClient.auth.getUser()
-
-    if (authError || !authUser) {
-      console.error("[migrateLegacyUser] Auth error:", authError?.message)
-      return new Response(
-        JSON.stringify({ error: "Invalid or missing auth token", details: authError?.message }),
-        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } },
       )
     }
 
@@ -46,7 +28,31 @@ Deno.serve(async (req) => {
     })
 
     const requestBody = await req.json()
-    const { legacyUserId } = requestBody
+    const { legacyUserId, accessToken } = requestBody
+
+    const authHeader = req.headers.get("authorization") || req.headers.get("Authorization") || ""
+    const headerToken = authHeader.startsWith("Bearer ")
+      ? authHeader.slice("Bearer ".length).trim()
+      : authHeader.trim()
+    const token = headerToken || accessToken
+
+    if (!token) {
+      return new Response(
+        JSON.stringify({ error: "Missing authorization token" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } },
+      )
+    }
+
+    // Validate token using service role
+    const { data: { user: authUser }, error: authError } = await supabaseAdmin.auth.getUser(token)
+
+    if (authError || !authUser) {
+      console.error("[migrateLegacyUser] Auth error:", authError?.message)
+      return new Response(
+        JSON.stringify({ error: "Invalid or missing auth token", details: authError?.message }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } },
+      )
+    }
 
     if (!legacyUserId) {
       return new Response(
