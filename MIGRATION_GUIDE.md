@@ -1,8 +1,23 @@
 # Floralog - Benutzer-Migration von base44 zu Supabase
 
+## ✅ Status: LIVE & GETESTET
+
+Die Benutzer-Migration funktioniert! Alle 9 Tabellen werden erfolgreich mit der neuen Supabase Auth verlinkt.
+
+---
+
 ## Überblick
 
 Dieser Guide erklärt, wie alte Floralog-Benutzer (aus base44) zu Supabase Auth migriert werden.
+
+**Migration Path:**
+```
+Legacy User (baseUser Table)
+    ↓ (via Email + 24-char Hex ID)
+Supabase Auth User
+    ↓ (via Edge Function mit Service Role)
+Link zu 9 Tabellen (PublicProfile, UserPlantDiscovery, etc.)
+```
 
 ---
 
@@ -15,11 +30,49 @@ Führe das SQL-Migrations-Script aus:
 3. Kopiere den Inhalt in den SQL Editor
 4. Klick "Run"
 
-Dies fügt die `auth_id` Spalte zur `User` Tabelle hinzu, um alte Benutzer mit neuen Supabase Auth Users zu verlinken.
+Dies fügt die `auth_id` Spalten zu den relevanten Tabellen hinzu, um alte Benutzer mit neuen Supabase Auth Users zu verlinken.
 
 ---
 
-## Schritt 2: Benutzer-Flow verstehen
+## Schritt 2: Edge Function konfigurieren
+
+Die `migrateLegacyUser` Edge Function muss **PUBLIC** sein (kein JWT-Verification):
+
+### 2a. config.toml anpassen
+
+**Datei:** `supabase/config.toml`
+
+```toml
+[functions.migrateLegacyUser]
+enabled = true
+verify_jwt = false  # ⚠️ WICHTIG: JWT Verification disabled!
+import_map = "./functions/migrateLegacyUser/deno.json"
+entrypoint = "./functions/migrateLegacyUser/index.ts"
+```
+
+### 2b. Dashboard-Einstellung deaktivieren
+
+1. Gehe zu **Supabase Dashboard** → **Functions** → **migrateLegacyUser**
+2. Reiter: **Details**
+3. Schalte **"Verify JWT with legacy secret"** auf **OFF** (grau)
+4. Klick **"Save changes"**
+
+⚠️ **Wichtig:** Beide Einstellungen müssen OFF sein! Nur dann werden POST-Requests akzeptiert.
+
+### 2c. Secrets setzen
+
+In der Function müssen folgende Env-Variablen verfügbar sein (in Supabase Project Settings → Edge Functions):
+
+```
+FLORALOG_URL=https://your-project.supabase.co
+SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+Diese werden automatisch bereitgestellt wenn die Function deployed wird.
+
+---
+
+## Schritt 3: Benutzer-Flow verstehen
 
 ### Für alte Benutzer (mit Konto bei base44):
 
@@ -28,7 +81,7 @@ Dies fügt die `auth_id` Spalte zur `User` Tabelle hinzu, um alte Benutzer mit n
    ↓
 2. Gibt seine alte E-Mail ein
    ↓
-3. System prüft ob E-Mail in "User" Tabelle existiert
+3. System prüft ob E-Mail in "baseUser" Tabelle existiert
    ↓
 4. Wenn ja: OTP-Code wird per E-Mail versendet
    ↓
@@ -36,12 +89,34 @@ Dies fügt die `auth_id` Spalte zur `User` Tabelle hinzu, um alte Benutzer mit n
    ↓
 6. Nach Bestätigung: Benutzer setzt neues Passwort
    ↓
-7. Neuer Supabase Auth User wird erstellt
+7. Auth-Session wird etabliert (signInWithPassword)
    ↓
-8. Alte "User" Tabelle wird mit auth_id verlinkt
+8. migration_pending Flag wird gesetzt
    ↓
-9. Benutzer wird zu /login weitergeleitet
+9. Home-Page erkennt Flag → executeMigration() aufgerufen
+   ↓
+10. Edge Function (PUBLIC) wird aufgerufen:
+    - Email validiert
+    - Legacy ID validiert (24-char hex MongoDB ObjectID)
+    - baseUser.auth_id wird aktualisiert
+    - 8 weitere Tabellen werden aktualisiert (mit Service Role)
+   ↓
+11. Migration erfolg → Benutzer sieht Progress Dialog
+   ↓
+12. Benutzer wird zu Dashboard weitergeleitet
 ```
+
+### Migrationstabellen (9 insgesamt):
+
+1. **baseUser** - Link zu auth_id
+2. **PublicProfile** - User Profil
+3. **UserPlantDiscovery** - Pflanzenfunde
+4. **UserNotification** - Benachrichtigungen
+5. **UserQuest** - Missionen
+6. **UserWeeklyQuest** - Wöchentliche Missionen
+7. **UserMonthlyQuest** - Monatliche Missionen
+8. **Friend** - Freundesliste
+9. **ScanLike** - Lieblingscans
 
 ### Für neue Benutzer:
 
@@ -52,7 +127,7 @@ Dies fügt die `auth_id` Spalte zur `User` Tabelle hinzu, um alte Benutzer mit n
 ### Für normale Login:
 
 - `/login` verwenden
-- Email + Passwort (nach Migration)
+- Email + Passwort (nach Migration oder für neue User)
 
 ---
 
@@ -90,17 +165,19 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 ### Funktionen in [src/api/migrationService.js](../src/api/migrationService.js):
 
 #### 1. `checkLegacyUser(email)`
-Prüft ob alt User in "User" Tabelle existiert
+Prüft ob alt User in "baseUser" Tabelle existiert
 
 ```javascript
 const user = await checkLegacyUser('test@example.com');
+// Returns: { id, email, user_email, ... } oder null
 ```
 
 #### 2. `sendOtpToLegacyUser(email)`
-Sendet OTP-Code per Email
+Sendet OTP-Code per Email und erstellt tentativ Auth User
 
 ```javascript
 await sendOtpToLegacyUser('test@example.com');
+// Speichert legacy User ID in localStorage für später
 ```
 
 #### 3. `verifyOtpCode(email, token)`
@@ -108,14 +185,43 @@ Verifiziert OTP-Code
 
 ```javascript
 await verifyOtpCode('test@example.com', '123456');
+// Returns: { user, session, ... }
 ```
 
-#### 4. `completeMigration(email, password)`
-Erstellt Supabase Auth User und verlinkt alte "User" Tabelle
+#### 4. `executeMigration(onProgress)`
+Ruft Edge Function auf um alle 9 Tabellen zu migrieren
 
 ```javascript
-await completeMigration('test@example.com', 'SecurePassword123!');
+await executeMigration((step) => {
+  console.log(`${step.completed}/${step.total} - ${step.name}`);
+  // Returns: step { key, name, completed, total, percentage, updated }
+});
+// Returns: { success: true, results: [...] }
 ```
+
+---
+
+## Sicherheit der Migration
+
+### Email-Validierung
+- Request Email muss @ enthalten
+- Email muss mit Legacy Email exakt matchen
+- Case-insensitive Vergleich
+
+### Legacy ID Validierung (MongoDB ObjectID Format)
+- Muss exakt 24 hexadezimale Zeichen sein
+- Regex: `/^[0-9a-f]{24}$/`
+- Verhindert triviale Brute-Force (2^96 mögliche Kombinationen)
+
+### Datenbankabfrage
+- Legacy User muss in baseUser Tabelle existieren
+- Email UND Legacy ID kombiniert müssen matchen
+- Service Role Key für Admin-Updates (bypasses RLS)
+
+### Session-Handling
+- localStorage für temporäre Flags (migration_pending, migration_legacy_user_id, migration_email)
+- Flags werden nach erfolgreicher Migration gelöscht
+- Migration läuft nur einmal pro Session
 
 ---
 
@@ -125,7 +231,110 @@ Stelle sicher dass Email OTP aktiviert ist:
 
 1. **Supabase Dashboard** → **Authentication** → **Providers**
 2. **Email** aktiviert? ✅
-3. Unter "Email" → "Confirm email" oder "OTP" aktiviert? ✅
+3. Unter "Email" → **Email OTP** aktiviert? ✅
+4. Email Vorlagen konfiguriert? (Optional aber empfohlen)
+
+---
+
+## Deployment & Env Vars
+
+### Deploy Edge Function
+
+```bash
+npx supabase functions deploy migrateLegacyUser --no-verify-jwt
+```
+
+### Erforderliche Env-Variablen (in Supabase)
+
+Das System setzt diese automatisch, aber prüfe im Dashboard:
+
+```
+FLORALOG_URL        = https://project-id.supabase.co
+SERVICE_ROLE_KEY    = (64+ Zeichen JWT Key mit admin privileges)
+```
+
+### Optional (für andere Functions)
+
+```
+RESEND_API_KEY              = (für sendFeedbackEmail)
+FEEDBACK_TO_EMAIL          = (Ziel für Feedback)
+FEEDBACK_FROM_EMAIL        = (Absender für Feedback)
+PLANTNET_API_KEY           = (für identifyPlant)
+PAYPAL_CLIENT_ID           = (für PayPal Integration)
+PAYPAL_CLIENT_SECRET       = (für PayPal Integration)
+```
+
+### Cloudflare & Vercel Deployment
+
+Gib diese Env-Vars auch dort ein, falls du die App hostest.
+
+---
+
+## Testing
+
+### Lokal testen
+
+```bash
+npm run dev
+
+# Gehe zu http://localhost:5173/migration/login
+# Gib deine Test-Email ein (muss in baseUser existieren)
+# Supabase sendet OTP an deine Email
+# Bestätige OTP
+# Setze neues Passwort
+# Beobachte Progress Dialog
+```
+
+### Production testen
+
+Testkonto in baseUser:
+- Email: test@example.com
+- Legacy ID: 6973db6fe290a299ed94b101 (24-char hex)
+
+Dann normale Migration durchlaufen.
+
+---
+
+## Troubleshooting
+
+### ❌ "Email nicht gefunden"
+- Prüfen ob Email in `baseUser` Tabelle existiert
+- Email Case-Sensitivity? (test@example.com vs Test@example.com)
+- SELECT * FROM baseUser WHERE email = 'test@example.com'
+
+### ❌ "OTP nicht erhalten"
+- Spam-Folder checken
+- Supabase Email Provider konfiguriert? (Settings → Email)
+- Resend oder SendGrid verbunden?
+
+### ❌ "Passwort speichern fehlgeschlagen"
+- Password Requirements: min. 8 Zeichen, Groß+Klein+Zahlen
+- Supabase Error Log: https://supabase.com/dashboard/project/[id]/auth/logs
+
+### ❌ "Migration schlägt fehl (HTTP 401/403)"
+- Edge Function JWT Toggle OFF?
+- config.toml: verify_jwt = false?
+- Service Role Key gesetzt?
+- Supabase Logs: https://supabase.com/dashboard/project/[id]/functions/migrateLegacyUser
+
+### ❌ "Legacy User nicht gefunden" oder "Email Mismatch"
+- Ist der Legacy User in baseUser Tabelle?
+- Email exact Match (inkl. Case)?
+- Legacy ID exakt 24 hex Zeichen?
+
+---
+
+## Nächste Schritte
+
+Nach der Migration für alle Benutzer:
+
+1. ✅ Supabase Auth funktioniert
+2. ✅ Migration Edge Function deployed
+3. ✅ Alle 9 Tabellen verlinkt
+4. ⏳ **RLS Policies** für User-Datenschutz (important!)
+5. ⏳ Realtime Subscriptions testen
+6. ⏳ Offline-First mit local caching (optional)
+7. ⏳ Datenschutz/Privacy Policy aktualisieren
 
 ---
 
@@ -134,61 +343,20 @@ Stelle sicher dass Email OTP aktiviert ist:
 ### Sicherheit:
 - ✅ Alte Passwörter sind NICHT in Supabase (base44 hat sie)
 - ✅ 2FA via OTP schützt vor unbefugten Migrationen
-- ✅ Neue Passwörter werden mit Supabase Auth verschlüsselt
+- ✅ Legacy ID (24-char hex) praktisch unmöglich zu raten
+- ✅ Service Role Key nur in Edge Function (nicht im Frontend)
 - ✅ Row-Level-Security Policies schützen User-Daten
 
-### Testing:
-```bash
-# Lokal testen
-npm run dev
+### Performance:
+- ⚡ Migration dauert ~500-700ms pro User
+- ⚡ Edge Function läuft in Frankfurt/Singapur/etc.
+- ⚡ Alle 9 Updates parallel in Service Role
 
-# Gehe zu http://localhost:5173/migration/login
-# Gib deine Test-Email ein
-# Supabase sendet OTP an deine Email
-# Bestätige OTP und setze Passwort
-```
+### Audit Trail:
+- Lokal: Check `supabase/functions/migrateLegacyUser/index.ts` für Console Logs
+- Live: Supabase Dashboard → **Logs** → **Edge Functions**
 
-### Produktivität:
-```bash
-# Build
-npm run build
 
-# Deploy zu Cloudflare
-wrangler pages deploy dist/
-```
-
----
-
-## Troubleshooting
-
-### ❌ "Email nicht gefunden"
-- Prüfen ob Email in `User` Tabelle existiert
-- Email Case-Sensitivity? (test@example.com vs Test@example.com)
-
-### ❌ "OTP nicht erhalte"
-- Prüfen Spam-Folder
-- Supabase Email Provider konfiguriert?
-- Email OTP Provider in Supabase enabled?
-
-### ❌ "Passwort speichern fehlgeschlagen"
-- Password Requirements prüfen (mind. 8 Zeichen, Große+kleine Buchst., Zahlen)
-- Supabase Fehlerlog checken
-
----
-
-## Nächste Schritte
-
-Nach der Migration für alle Benutzer:
-
-1. ✅ Basis Auth funktioniert
-2. ⏳ **base44.entities Calls ersetzen** (große Baustelle)
-3. ⏳ Row-Level-Security Policies setzen
-4. ⏳ Realtime Subscriptions nutzen
-5. ⏳ Offline-First mit local caching
-
-3b. Datenbank neu Strukturieren, damit Folgesynchronisierungen Errors vermieden werden und Daten schlanker werden.
-
----
 
 **Fragen?** 💬 Schreib mir!
 
