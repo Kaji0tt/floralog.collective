@@ -17,7 +17,7 @@ import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 
 import { Input } from "@/components/ui/input";
-import { Edit2, CheckCircle, X, Scroll } from "lucide-react";
+import { Edit2, CheckCircle, X, Scroll, AlertCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const LOGO_URL = "";
@@ -847,6 +847,68 @@ export default function Home() {
                   />
                 ))}
               </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Migration Dialog */}
+        <Dialog open={isMigrating} onOpenChange={() => {}}>
+          <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin text-green-600" />
+                Migration läuft...
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Deine Daten werden migriert. Dies kann einen Moment dauern.
+              </p>
+              
+              {migrationError ? (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-red-900">Migration fehlgeschlagen</p>
+                      <p className="text-sm text-red-700 mt-1">{migrationError}</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {migrationSteps.length === 0 ? (
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Initialisierung...</span>
+                    </div>
+                  ) : (
+                    migrationSteps.map((step, idx) => (
+                      <div key={idx} className="flex items-center gap-2 text-sm text-green-800 animate-in fade-in duration-300">
+                        <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                        <span>{step.name}</span>
+                        {step.updated !== undefined && (
+                          <span className="text-gray-500">({step.updated})</span>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {migrationError && (
+                <Button 
+                  onClick={() => {
+                    setIsMigrating(false);
+                    setMigrationError(null);
+                    localStorage.removeItem('migration_pending');
+                  }}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Schließen
+                </Button>
+              )}
             </div>
           </DialogContent>
         </Dialog>
