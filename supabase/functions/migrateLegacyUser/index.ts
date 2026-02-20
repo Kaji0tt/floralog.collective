@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL_CUSTOM")
+    const supabaseUrl = Deno.env.get("FLORALOG_URL")
     const supabaseServiceRoleKey = Deno.env.get("SERVICE_ROLE_KEY")
 
     if (!supabaseUrl || !supabaseServiceRoleKey) {
