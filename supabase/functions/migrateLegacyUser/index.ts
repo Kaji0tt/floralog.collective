@@ -24,6 +24,7 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("FLORALOG_URL")
     const supabaseServiceRoleKey = Deno.env.get("SERVICE_ROLE_KEY")
+    const supabaseAnonKey = Deno.env.get("FLORALOG_ANON_KEY")
 
     if (!supabaseUrl || !supabaseServiceRoleKey) {
       return new Response(
@@ -32,9 +33,27 @@ Deno.serve(async (req) => {
       )
     }
 
+    // Create user client to verify token
+    const userClient = createClient(supabaseUrl, supabaseAnonKey || "", {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { persistSession: false },
+    })
+
+    // Create admin client for updates
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
       auth: { persistSession: false },
     })
+
+    // Get auth user from token
+    const { data: { user: authUser }, error: authError } = await userClient.auth.getUser()
+
+    if (authError || !authUser) {
+      console.error("[migrateLegacyUser] Auth error:", authError)
+      return new Response(
+        JSON.stringify({ error: "Invalid auth token", details: authError }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } },
+      )
+    }
 
     const requestBody = await req.json()
     const { legacyUserId } = requestBody
@@ -54,21 +73,10 @@ Deno.serve(async (req) => {
       .single()
 
     if (legacyError || !legacyUser) {
+      console.error("[migrateLegacyUser] Legacy user error:", legacyError)
       return new Response(
         JSON.stringify({ error: "Legacy user not found", details: legacyError }),
         { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } },
-      )
-    }
-
-    // Get current auth user from JWT token (decoded by Supabase automatically)
-    const { data: { user: authUser }, error: authError } = await supabaseAdmin.auth.admin.getUserById(
-      token.split(".")[0],
-    )
-
-    if (authError || !authUser) {
-      return new Response(
-        JSON.stringify({ error: "Invalid auth user" }),
-        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } },
       )
     }
 
@@ -77,6 +85,7 @@ Deno.serve(async (req) => {
     const legacyEmail = (legacyUser.email || legacyUser.user_email || "").toLowerCase().trim()
 
     if (authEmail !== legacyEmail) {
+      console.error("[migrateLegacyUser] Email mismatch:", { authEmail, legacyEmail })
       return new Response(
         JSON.stringify({
           error: "Email mismatch - cannot migrate",
@@ -87,6 +96,7 @@ Deno.serve(async (req) => {
     }
 
     const authUserId = authUser.id
+    console.log("[migrateLegacyUser] Starting migration for user:", authUserId)
 
     // Step 1: Update baseUser with auth_id
     const { error: updateBaseUserError } = await supabaseAdmin
