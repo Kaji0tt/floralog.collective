@@ -73,10 +73,74 @@ export const verifyOtpCode = async (email, token) => {
 };
 
 /**
+ * Migration steps with user-friendly names
+ */
+const MIGRATION_STEPS = [
+  {
+    key: 'profile',
+    name: '📋 Mein Feldnotizbuch',
+    tableName: 'PublicProfile',
+    filterField: 'user_email'
+  },
+  {
+    key: 'discoveries',
+    name: '🔍 Vergessene Pflanzenfunde',
+    tableName: 'UserPlantDiscovery',
+    filterField: 'user'
+  },
+  {
+    key: 'notifications',
+    name: '📬 Botaniker-Briefe',
+    tableName: 'UserNotification',
+    filterField: 'user_email'
+  },
+  {
+    key: 'quests',
+    name: '🗺️ Forschungsaufträge',
+    tableName: 'UserQuest',
+    filterField: 'created_by'
+  },
+  {
+    key: 'weeklyQuests',
+    name: '🌱 Wöchentliche Feldaufgaben',
+    tableName: 'UserWeeklyQuest',
+    filterField: 'created_by'
+  },
+  {
+    key: 'monthlyQuests',
+    name: '🌾 Monatliche Erntequoten',
+    tableName: 'UserMonthlyQuest',
+    filterField: 'created_by'
+  },
+  {
+    key: 'friends',
+    name: '👣 Forscher-Kollegen',
+    tableName: 'Friend',
+    filterField: 'created_by'
+  },
+  {
+    key: 'sharedScans',
+    name: '🔬 Geteilte Beobachtungen',
+    tableName: 'SharedScan',
+    filterField: null // Special handling
+  },
+  {
+    key: 'scanLikes',
+    name: '⭐ Lieblingsfunde',
+    tableName: 'ScanLike',
+    filterField: 'created_by'
+  }
+];
+
+/**
  * Complete migration: Create Supabase Auth user with password
  * and link to legacy baseUser record via auth_id
+ * 
+ * @param {string} email - User email
+ * @param {string} password - New password
+ * @param {Function} onProgress - Callback function called with each step: onProgress({ step, completed, total })
  */
-export const completeMigration = async (email, password) => {
+export const completeMigration = async (email, password, onProgress) => {
   // Check if email is verified in migration process
   const verifiedEmail = localStorage.getItem('migration_verified_email');
   if (verifiedEmail !== email) {
@@ -84,95 +148,84 @@ export const completeMigration = async (email, password) => {
   }
 
   try {
+    console.log('[completeMigration] Starting for email:', email);
+    
     // Get the verified auth user (already created by signInWithOtp + verifyOtp)
     const { data: authData, error: authError } = await supabase.auth.getUser();
     if (authError || !authData.user) {
+      console.error('[completeMigration] Auth user not found:', authError);
       throw new Error('Authentifizierung fehlgeschlagen. Bitte versuchen Sie es erneut.');
     }
 
     const userId = authData.user.id;
+    console.log('[completeMigration] Auth user ID:', userId);
 
     // Update password for this user
     const { error: updateError } = await supabase.auth.updateUser({
       password: password
     });
 
-    if (updateError) throw updateError;
+    if (updateError) {
+      console.error('[completeMigration] Password update failed:', updateError);
+      throw updateError;
+    }
+    console.log('[completeMigration] Password updated successfully');
 
     // Get legacy user ID from localStorage
     const legacyUserId = localStorage.getItem('migration_legacy_user_id');
+    console.log('[completeMigration] Legacy user ID:', legacyUserId);
 
-    // Link legacy user to auth user via auth_id
-    const { error: linkError } = await supabase
-      .from('baseUser')
-      .update({ auth_id: userId })
-      .eq('id', legacyUserId);
+    if (!legacyUserId) {
+      throw new Error('Legacy User ID fehlt. Bitte starten Sie die Migration erneut.');
+    }
 
-    if (linkError) throw linkError;
+    // Server-side migration via Edge Function (bypasses RLS safely)
+    const { data: migrationData, error: migrationError } = await supabase.functions.invoke(
+      'migrateLegacyUser',
+      {
+        body: {
+          legacyUserId
+        }
+      }
+    );
 
-    // ✅ MIGRATION: Link all user-related tables with auth_id
-    console.log('[Migration] Linking all user tables with auth_id:', userId, 'for email:', email);
-    
-    // PublicProfile
-    await supabase
-      .from('PublicProfile')
-      .update({ auth_id: userId })
-      .eq('user_email', email);
+    if (migrationError) {
+      console.error('[completeMigration] Edge migration failed:', migrationError);
+      throw migrationError;
+    }
 
-    // UserPlantDiscovery (uses "user" column)
-    await supabase
-      .from('UserPlantDiscovery')
-      .update({ auth_id: userId })
-      .eq('user', email);
+    const resultSteps = migrationData?.results || [];
+    if (onProgress) {
+      const total = resultSteps.length || MIGRATION_STEPS.length;
 
-    // UserNotification
-    await supabase
-      .from('UserNotification')
-      .update({ auth_id: userId })
-      .eq('user_email', email);
+      if (resultSteps.length > 0) {
+        resultSteps.forEach((result, index) => {
+          const step = MIGRATION_STEPS.find((s) => s.key === result.key) || {
+            key: result.key,
+            name: result.name || result.key
+          };
 
-    // UserQuest (uses created_by)
-    await supabase
-      .from('UserQuest')
-      .update({ auth_id: userId })
-      .eq('created_by', email);
+          onProgress({
+            step,
+            completed: index + 1,
+            total,
+            percentage: Math.round(((index + 1) / total) * 100),
+            updated: result.updated
+          });
+        });
+      } else {
+        MIGRATION_STEPS.forEach((step, index) => {
+          onProgress({
+            step,
+            completed: index + 1,
+            total,
+            percentage: Math.round(((index + 1) / total) * 100)
+          });
+        });
+      }
+    }
 
-    // UserWeeklyQuest
-    await supabase
-      .from('UserWeeklyQuest')
-      .update({ auth_id: userId })
-      .eq('created_by', email);
-
-    // UserMonthlyQuest
-    await supabase
-      .from('UserMonthlyQuest')
-      .update({ auth_id: userId })
-      .eq('created_by', email);
-
-    // Friend
-    await supabase
-      .from('Friend')
-      .update({ auth_id: userId })
-      .eq('user_email', email);
-
-    // SharedScan (has both shared_by and shared_to)
-    await supabase
-      .from('SharedScan')
-      .update({ auth_id_from: userId })
-      .eq('shared_by', email);
-      
-    await supabase
-      .from('SharedScan')
-      .update({ auth_id_to: userId })
-      .eq('shared_to', email);
-
-    // ScanLike
-    await supabase
-      .from('ScanLike')
-      .update({ auth_id: userId })
-      .eq('user_email', email);
-
-    console.log('[Migration] All user tables linked successfully!');
+    console.log('[completeMigration] All user tables linked successfully (Edge Function).');
 
     // Clear migration data from localStorage
     localStorage.removeItem('migration_email');
@@ -182,7 +235,7 @@ export const completeMigration = async (email, password) => {
 
     return { success: true, userId };
   } catch (err) {
-    console.error('Migration completion error:', err);
+    console.error('[completeMigration] FAILED:', err);
     throw err;
   }
 };

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { completeMigration } from '@/api/migrationService';
-import { Lock, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Lock, Loader2, CheckCircle, AlertCircle, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 
 export default function SetPassword() {
@@ -16,6 +16,8 @@ export default function SetPassword() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(0);
+  const [migrationSteps, setMigrationSteps] = useState([]); // Track migration progress
+  const [currentStep, setCurrentStep] = useState(null);
 
   useEffect(() => {
     if (!email) {
@@ -61,14 +63,27 @@ export default function SetPassword() {
     setIsLoading(true);
 
     try {
-      await completeMigration(email, password);
+      console.log('[SetPassword] Starting migration with email:', email);
+      await completeMigration(email, password, (progress) => {
+        // Update state with migration progress
+        setCurrentStep(progress.step);
+        setMigrationSteps(prev => [...prev, progress.step]);
+        console.log(`[SetPassword] Migration progress: ${progress.completed}/${progress.total} - ${progress.step.name}`);
+      });
+      
+      console.log('[SetPassword] Migration completed successfully! Navigating to login...');
       setSuccess(true);
 
       setTimeout(() => {
         navigate('/login?migrated=true');
       }, 3000);
     } catch (err) {
-      console.error('Set password error:', err);
+      console.error('[SetPassword] MIGRATION FAILED:', err);
+      console.error('[SetPassword] Error details:', {
+        message: err.message,
+        code: err.code,
+        stack: err.stack
+      });
       setError(err.message || 'Fehler beim Speichern des Passworts.');
     } finally {
       setIsLoading(false);
@@ -98,6 +113,29 @@ export default function SetPassword() {
                 <div>
                   <p className="font-medium">Migration erfolgreich!</p>
                   <p className="text-sm">Sie werden weitergeleitet...</p>
+                </div>
+              </div>
+            )}
+
+            {isLoading && migrationSteps.length > 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 className="font-medium text-blue-900 mb-3 flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Migration läuft...
+                </h3>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {migrationSteps.map((step, idx) => (
+                    <div key={idx} className="flex items-center gap-2 text-sm text-blue-800 animate-in fade-in duration-300">
+                      <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                      <span>{step.name}</span>
+                    </div>
+                  ))}
+                  {currentStep && migrationSteps.length > 0 && (
+                    <div className="flex items-center gap-2 text-sm text-blue-600 font-medium">
+                      <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+                      <span>{currentStep.name}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
