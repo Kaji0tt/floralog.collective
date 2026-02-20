@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signUp } from '@/api/authService';
-import { checkLegacyUser } from '@/api/migrationService';
+import { checkLegacyUser, upsertLegacyUserFromRegistration } from '@/api/migrationService';
 import { Mail, Lock, User, Loader2, AlertCircle } from 'lucide-react';
 
 export default function Register() {
@@ -57,7 +57,13 @@ export default function Register() {
       }
 
       // New user registration
-      await signUp(formData.email, formData.password, formData.username);
+      const signUpResult = await signUp(formData.email, formData.password, formData.username);
+
+      await upsertLegacyUserFromRegistration({
+        email: formData.email,
+        displayName: formData.username,
+        authId: signUpResult?.user?.id || null
+      });
 
       navigate(`/confirm-email?email=${encodeURIComponent(formData.email)}`);
     } catch (err) {

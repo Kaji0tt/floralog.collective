@@ -6,14 +6,23 @@ const getAuthRedirectBaseUrl = () => {
   return import.meta.env.VITE_APP_URL || window.location.origin;
 };
 
+const normalizeEmail = (email) => email?.trim().toLowerCase();
+
+const generateLegacyId = () => {
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  return Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
+};
+
 /**
  * Check if user exists in legacy "baseUser" table
  */
 export const checkLegacyUser = async (email) => {
+  const normalizedEmail = normalizeEmail(email);
+
   const { data, error } = await supabase
     .from('baseUser')
     .select('*')
-    .eq('email', email)
+    .eq('email', normalizedEmail)
     .single();
   
   if (error && error.code === 'PGRST116') {
@@ -25,6 +34,66 @@ export const checkLegacyUser = async (email) => {
     console.error('Error checking legacy user:', error);
     throw error;
   }
+  return data;
+};
+
+/**
+ * Ensure a baseUser entry exists for newly registered users.
+ * This keeps legacy data model in sync and stores display_name/email immediately.
+ */
+export const upsertLegacyUserFromRegistration = async ({ email, displayName, authId }) => {
+  const normalizedEmail = normalizeEmail(email);
+  const trimmedName = displayName?.trim();
+
+  if (!normalizedEmail || !trimmedName) {
+    throw new Error('E-Mail und Name sind für baseUser erforderlich.');
+  }
+
+  const existing = await checkLegacyUser(normalizedEmail);
+  const timestamp = new Date().toISOString();
+
+  if (existing) {
+    const updatePayload = {
+      display_name: existing.display_name || trimmedName,
+      full_name: existing.full_name || trimmedName,
+      user_email: existing.user_email || normalizedEmail,
+      updated_date: timestamp
+    };
+
+    if (authId && !existing.auth_id) {
+      updatePayload.auth_id = authId;
+    }
+
+    const { data, error } = await supabase
+      .from('baseUser')
+      .update(updatePayload)
+      .eq('id', existing.id)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  const insertPayload = {
+    id: generateLegacyId(),
+    email: normalizedEmail,
+    user_email: normalizedEmail,
+    display_name: trimmedName,
+    full_name: trimmedName,
+    auth_id: authId || null,
+    created_by: normalizedEmail,
+    created_date: timestamp,
+    updated_date: timestamp
+  };
+
+  const { data, error } = await supabase
+    .from('baseUser')
+    .insert(insertPayload)
+    .select('*')
+    .single();
+
+  if (error) throw error;
   return data;
 };
 
