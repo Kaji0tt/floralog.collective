@@ -171,6 +171,17 @@ export const completeMigration = async (email, password, onProgress) => {
     }
     console.log('[completeMigration] Password updated successfully');
 
+    // Ensure a valid session by signing in with the new password
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (signInError) {
+      console.error('[completeMigration] Sign-in after password update failed:', signInError);
+      throw signInError;
+    }
+
     // Get legacy user ID from localStorage
     const legacyUserId = localStorage.getItem('migration_legacy_user_id');
     console.log('[completeMigration] Legacy user ID:', legacyUserId);
