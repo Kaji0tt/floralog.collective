@@ -252,8 +252,14 @@ export default function Home() {
   // Auto-execute migration if pending (user came from SetPassword page)
   useEffect(() => {
     const migrationPending = localStorage.getItem('migration_pending');
-    if (migrationPending === 'true' && user && !isMigrating) {
+    
+    // Check if we should run migration
+    if (migrationPending === 'true' && user) {
       console.log('[Home] Migration pending detected - starting automatic migration...');
+      
+      // IMMEDIATELY clear flag to prevent loop
+      localStorage.removeItem('migration_pending');
+      
       setIsMigrating(true);
       setMigrationSteps([]);
       setMigrationError(null);
@@ -274,7 +280,7 @@ export default function Home() {
           setIsMigrating(false);
         });
     }
-  }, [user, isMigrating]);
+  }, [user]); // Only depend on user, not isMigrating!
 
   // Prüfe ob Scanner-Highlight angezeigt werden soll
   useEffect(() => {
