@@ -14,9 +14,19 @@ export default function WelcomeNameDialog({ user, onComplete }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    // Zeige Dialog nur, wenn User keinen display_name hat
-    if (user && !user.display_name) {
+    const hasAnyName = Boolean(
+      user?.display_name?.trim?.() ||
+      user?.full_name?.trim?.() ||
+      user?.user_metadata?.display_name?.trim?.() ||
+      user?.user_metadata?.full_name?.trim?.() ||
+      user?.user_metadata?.name?.trim?.()
+    );
+
+    // Zeige Dialog nur, wenn wirklich kein Name vorhanden ist
+    if (user && !hasAnyName) {
       setShowDialog(true);
+    } else {
+      setShowDialog(false);
     }
   }, [user]);
 

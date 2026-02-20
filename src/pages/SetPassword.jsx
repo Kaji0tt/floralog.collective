@@ -8,7 +8,7 @@ export default function SetPassword() {
   const navigate = useNavigate();
   const location = useLocation();
   const { updateProfile } = useAuth();
-  const email = location.state?.email;
+  const stateEmail = location.state?.email;
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -16,12 +16,33 @@ export default function SetPassword() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(0);
+  const [email, setEmail] = useState(stateEmail || '');
 
   useEffect(() => {
-    if (!email) {
-      navigate('/migration/login');
-    }
-  }, [email, navigate]);
+    let isMounted = true;
+
+    const resolveEmail = async () => {
+      if (stateEmail) {
+        setEmail(stateEmail);
+        return;
+      }
+
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (!isMounted) return;
+
+      if (authError || !authData.user?.email) {
+        navigate('/migration/login');
+        return;
+      }
+
+      setEmail(authData.user.email);
+    };
+
+    resolveEmail();
+    return () => {
+      isMounted = false;
+    };
+  }, [stateEmail, navigate]);
 
   const calculatePasswordStrength = (pwd) => {
     let strength = 0;

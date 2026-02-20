@@ -2,6 +2,10 @@
 
 import { supabase } from './supabaseClient';
 
+const getAuthRedirectBaseUrl = () => {
+  return import.meta.env.VITE_APP_URL || window.location.origin;
+};
+
 /**
  * Check if user exists in legacy "baseUser" table
  */
@@ -40,7 +44,8 @@ export const sendOtpToLegacyUser = async (email) => {
     email,
     options: {
       // This creates the Auth user if it doesn't exist yet, then sends OTP
-      shouldCreateUser: true
+      shouldCreateUser: true,
+      emailRedirectTo: `${getAuthRedirectBaseUrl()}/migration/set-password`
     }
   });
 

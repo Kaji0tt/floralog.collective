@@ -234,6 +234,25 @@ Stelle sicher dass Email OTP aktiviert ist:
 3. Unter "Email" → **Email OTP** aktiviert? ✅
 4. Email Vorlagen konfiguriert? (Optional aber empfohlen)
 
+### Aktivierungsmail: OTP-Hinweis + localhost-Link fixen
+
+Wenn in der Aktivierungsmail ein OTP angezeigt wird, aber im UI kein OTP-Eingabefeld existiert, und/oder der Link auf `localhost` zeigt:
+
+1. **Supabase Dashboard** → **Authentication** → **URL Configuration**
+2. **Site URL** auf die echte App-URL setzen (z. B. `https://floralog.app`)
+3. **Redirect URLs** ergänzen (mindestens):
+   - `https://floralog.app/login`
+   - `https://floralog.app/migration/set-password`
+   - optional Dev: `http://localhost:5173/*`
+4. **Authentication** → **Email Templates** → **Confirm signup**:
+   - Template so anpassen, dass nur der Bestätigungslink kommuniziert wird (kein OTP-Text, falls OTP nicht im Registrierungs-UI genutzt wird)
+
+Zusätzlich im Frontend `.env` setzen, damit Redirects explizit gebaut werden:
+
+```bash
+VITE_APP_URL=https://floralog.app
+```
+
 ---
 
 ## Deployment & Env Vars
@@ -371,6 +390,23 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL');
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 5) Datenschutz/Policy muss aktualisiert werden.
+
+
+__ Verbindungen zwischen den Datenbanken:
+Wir haben es geschafft, dass Accounts migriert werden können.
+Es scheint aber so zu sein, dass sehr viele "innere Abhängigkeiten" noch nicht zu existieren scheinen.
+Ich kann mich einloggen mit meinem account (kaji0tt@googlemail.com) und auch meinen Namen anpassen!
+Aber wenn ich beispielsweise auf die Kollektion des Spielers klicke, dann sehe ich leider keine Eintragungen. 
+In der Theorie sollte man folgendes sehen:
+Die Standardkollektion zeigt alle Pflanzen an, die im Floralog von sämtlichen Spielern bisher gesammelt wurden. Es ist sozusagen eine Liste der bisher bekannten Pflanzen(-gattungen) und ergibt sich aus der Tabelle PlantGenus.
+PlantGenus wiederum teilt sich auf in die unterschiedlichen Pflanzenarten. D.h. in einer Kollektion werden immer alle Pflanzengattungen angezeigt, die bisher im Floralog entdeckt wurden.
+Wenn ein Spieler die Pflanze selber entdeckt hat (abzugleichen über UserPlantDiscovery), dann wird diese für ihn auch mit einem (seinem) Scanbild angezeigt - inkl. der Lokationsdaten.
+Allte Daten des Backends von Base44 wurden migriert.
+Wenn ich jedoch in meinem Profil auf "Kollektion" klicke, dann sehe ich nicht - kein Eintrag, 0/0 Arten werden angezeigt.
+Es scheint also, als ob verlinkungen fehlen würden.
+Jetzt meine Frage an dich:
+Es ist also aktuell nicht nur die fehlende Verknüfung zwisce
+
 
 ___ Summary after change of base44.entities Calls:
 

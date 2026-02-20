@@ -28,6 +28,11 @@ export default function Register() {
     e.preventDefault();
     setError(null);
 
+    if (!formData.username.trim()) {
+      setError('Name ist erforderlich');
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwörter stimmen nicht überein');
       return;
@@ -52,7 +57,7 @@ export default function Register() {
       }
 
       // New user registration
-      await signUp(formData.email, formData.password);
+      await signUp(formData.email, formData.password, formData.username);
 
       // PublicProfile wird automatisch aus Supabase Auth Daten erstellt
       navigate('/login?registered=true');
@@ -88,11 +93,12 @@ export default function Register() {
               <input
                 id="username"
                 type="text"
-                placeholder="Mein Username"
+                placeholder="Dein Name"
                 name="username"
                 value={formData.username}
                 onChange={handleChange}
                 disabled={isLoading}
+                required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
               />
             </div>

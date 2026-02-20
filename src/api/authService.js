@@ -1,13 +1,27 @@
 // Supabase Auth Service
 import { supabase } from './supabaseClient';
 
+const getAuthRedirectBaseUrl = () => {
+  return import.meta.env.VITE_APP_URL || window.location.origin;
+};
+
 /**
  * Sign up with email and password
  */
-export const signUp = async (email, password) => {
+export const signUp = async (email, password, displayName) => {
+  const trimmedDisplayName = displayName?.trim?.() || '';
+
   const { data, error } = await supabase.auth.signUp({
     email,
-    password
+    password,
+    options: {
+      data: {
+        display_name: trimmedDisplayName,
+        full_name: trimmedDisplayName,
+        name: trimmedDisplayName
+      },
+      emailRedirectTo: `${getAuthRedirectBaseUrl()}/login`
+    }
   });
   if (error) throw error;
   return data;
@@ -38,7 +52,7 @@ export const signOut = async () => {
  */
 export const resetPassword = async (email) => {
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/reset-password`
+    redirectTo: `${getAuthRedirectBaseUrl()}/reset-password`
   });
   if (error) throw error;
 };
@@ -127,10 +141,11 @@ export const upsertUserProfile = async (authId, profileData) => {
     if (error) throw error;
     return data;
   } else {
-    // Erstelle neues Profil - lass die DB die id generieren (DEFAULT)
+    // Erstelle neues Profil
     const { data, error } = await supabase
       .from('PublicProfile')
       .insert({
+        id: authId,
         auth_id: authId,
         ...profileData,
         created_date: new Date().toISOString(),

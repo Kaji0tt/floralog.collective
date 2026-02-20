@@ -7,7 +7,6 @@ import NotificationManager from "./components/notifications/NotificationManager"
 import ToastNotificationManager from "./components/notifications/ToastNotificationManager";
 import QuestNotificationManager from "./components/quests/QuestNotificationManager";
 import UserNotificationManager from "./components/notifications/UserNotificationManager";
-import WelcomeNameDialog from "./components/onboarding/WelcomeNameDialog";
 import QuestAutoAccepter from "./components/quests/QuestAutoAccepter";
 import { Toaster } from "@/components/ui/toaster";
 
@@ -87,9 +86,6 @@ export default function Layout({ children, currentPageName }) {
 
       {/* User Notifications System - Hauptsystem für alle benutzerdefinierten Notifications (Onboarding, Quest-Completion, etc.) */}
       {user && currentPageName === "Home" && <UserNotificationManager user={user} />}
-
-      {/* Welcome Dialog für neue Nutzer */}
-      {user && <WelcomeNameDialog user={user} onComplete={loadUser} />}
 
       {/* Quest Auto-Accepter */}
       {user && <QuestAutoAccepter user={user} />}

@@ -159,19 +159,101 @@ Deno.serve(async (req) => {
       },
     ]
 
-    // Step 2: Update PublicProfile
+    // Step 2: Update and backfill PublicProfile (auth_id + display_name)
     console.log("[migrateLegacyUser] Step 2: Updating PublicProfile...")
-    const { data: profileUpdates } = await supabaseAdmin
+    const fallbackDisplayName = String(
+      legacyUser.display_name ||
+      legacyUser.full_name ||
+      legacyUser.username ||
+      requestEmail.split("@")[0]
+    ).trim()
+    const fallbackFullName = String(
+      legacyUser.full_name ||
+      legacyUser.display_name ||
+      fallbackDisplayName
+    ).trim()
+    const timestamp = new Date().toISOString()
+
+    const { data: linkedProfiles, error: linkProfilesError } = await supabaseAdmin
       .from("PublicProfile")
       .update({ auth_id: authUserId })
       .eq("user_email", legacyUser.email)
-      .select("id", { count: "exact" })
+      .select("id, display_name, full_name, user_email")
 
-    console.log("[migrateLegacyUser] ✅ PublicProfile updated:", profileUpdates?.length || 0)
+    if (linkProfilesError) {
+      console.error("[migrateLegacyUser] PublicProfile auth_id link error:", linkProfilesError)
+    }
+
+    let profileUpdatedCount = linkedProfiles?.length || 0
+
+    if ((linkedProfiles?.length || 0) > 0) {
+      for (const profile of linkedProfiles || []) {
+        const updates: Record<string, string> = { updated_date: timestamp }
+
+        if (!profile.display_name?.trim() && fallbackDisplayName) {
+          updates.display_name = fallbackDisplayName
+        }
+
+        if (!profile.full_name?.trim() && fallbackFullName) {
+          updates.full_name = fallbackFullName
+        }
+
+        if (!profile.user_email) {
+          updates.user_email = requestEmail
+        }
+
+        if (Object.keys(updates).length > 1) {
+          const { error: profileBackfillError } = await supabaseAdmin
+            .from("PublicProfile")
+            .update(updates)
+            .eq("id", profile.id)
+
+          if (profileBackfillError) {
+            console.error("[migrateLegacyUser] PublicProfile backfill update error:", profileBackfillError)
+          }
+        }
+      }
+    } else if (fallbackDisplayName) {
+      const { error: createProfileError } = await supabaseAdmin
+        .from("PublicProfile")
+        .insert({
+          id: authUserId,
+          auth_id: authUserId,
+          user_email: requestEmail,
+          display_name: fallbackDisplayName,
+          full_name: fallbackFullName,
+          created_date: timestamp,
+          updated_date: timestamp,
+        })
+
+      if (createProfileError) {
+        console.error("[migrateLegacyUser] PublicProfile create error:", createProfileError)
+      } else {
+        profileUpdatedCount = 1
+      }
+    }
+
+    if (fallbackDisplayName) {
+      const { error: metadataError } = await supabaseAdmin.auth.admin.updateUserById(authUserId, {
+        user_metadata: {
+          ...(authUser.user_metadata || {}),
+          display_name: fallbackDisplayName,
+          full_name: fallbackFullName,
+          name: fallbackDisplayName,
+          migrated_from_legacy: true,
+        },
+      })
+
+      if (metadataError) {
+        console.error("[migrateLegacyUser] Auth metadata backfill error:", metadataError)
+      }
+    }
+
+    console.log("[migrateLegacyUser] ✅ PublicProfile updated:", profileUpdatedCount)
     results.push({
       key: "profile",
       name: "📋 Mein Feldnotizbuch",
-      updated: profileUpdates?.length || 0,
+      updated: profileUpdatedCount,
     })
 
     // Step 3: Update UserPlantDiscovery
