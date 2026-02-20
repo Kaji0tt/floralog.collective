@@ -8,9 +8,17 @@ const getAuthRedirectBaseUrl = () => {
 
 const normalizeEmail = (email) => email?.trim().toLowerCase();
 
-const generateLegacyId = () => {
-  const bytes = crypto.getRandomValues(new Uint8Array(12));
-  return Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
+const invokeBaseUserProxy = async (action, payload) => {
+  const { data, error } = await supabase.functions.invoke('baseUserProxy', {
+    body: {
+      action,
+      ...payload
+    }
+  });
+
+  if (error) throw error;
+  if (data?.error) throw new Error(data.error);
+  return data?.data || null;
 };
 
 /**
@@ -18,23 +26,14 @@ const generateLegacyId = () => {
  */
 export const checkLegacyUser = async (email) => {
   const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) return null;
 
-  const { data, error } = await supabase
-    .from('baseUser')
-    .select('id,email,display_name,auth_id,created_date,updated_date')
-    .eq('email', normalizedEmail)
-    .single();
-  
-  if (error && error.code === 'PGRST116') {
-    // No user found
-    return null;
-  }
-  
-  if (error) {
+  try {
+    return await invokeBaseUserProxy('check', { email: normalizedEmail });
+  } catch (error) {
     console.error('Error checking legacy user:', error);
     throw error;
   }
-  return data;
 };
 
 /**
@@ -49,48 +48,11 @@ export const upsertLegacyUserFromRegistration = async ({ email, displayName, aut
     throw new Error('E-Mail und Name sind für baseUser erforderlich.');
   }
 
-  const existing = await checkLegacyUser(normalizedEmail);
-  const timestamp = new Date().toISOString();
-
-  if (existing) {
-    const updatePayload = {
-      email: existing.email || normalizedEmail,
-      display_name: existing.display_name || trimmedName,
-      updated_date: timestamp
-    };
-
-    if (authId && !existing.auth_id) {
-      updatePayload.auth_id = authId;
-    }
-
-    const { data, error } = await supabase
-      .from('baseUser')
-      .update(updatePayload)
-      .eq('id', existing.id)
-      .select('id,email,display_name,auth_id,created_date,updated_date')
-      .single();
-
-    if (error) throw error;
-    return data;
-  }
-
-  const insertPayload = {
-    id: generateLegacyId(),
+  return invokeBaseUserProxy('upsertRegistration', {
     email: normalizedEmail,
-    display_name: trimmedName,
-    auth_id: authId || null,
-    created_date: timestamp,
-    updated_date: timestamp
-  };
-
-  const { data, error } = await supabase
-    .from('baseUser')
-    .insert(insertPayload)
-    .select('id,email,display_name,auth_id,created_date,updated_date')
-    .single();
-
-  if (error) throw error;
-  return data;
+    displayName: trimmedName,
+    authId: authId || null
+  });
 };
 
 /**
@@ -334,14 +296,9 @@ export const completeMigration = async (email, password, onProgress) => {
  * Get legacy user profile data after successful migration
  */
 export const getLegacyUserProfile = async (email) => {
-  const { data, error } = await supabase
-    .from('baseUser')
-    .select('id,email,display_name,auth_id,created_date,updated_date')
-    .eq('email', email)
-    .single();
-
-  if (error) throw error;
-  return data;
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) return null;
+  return invokeBaseUserProxy('getProfile', { email: normalizedEmail });
 };
 
 /**
