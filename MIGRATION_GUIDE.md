@@ -393,19 +393,15 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
 
 __ Verbindungen zwischen den Datenbanken:
-Wir haben es geschafft, dass Accounts migriert werden können.
-Es scheint aber so zu sein, dass sehr viele "innere Abhängigkeiten" noch nicht zu existieren scheinen.
-Ich kann mich einloggen mit meinem account (kaji0tt@googlemail.com) und auch meinen Namen anpassen!
-Aber wenn ich beispielsweise auf die Kollektion des Spielers klicke, dann sehe ich leider keine Eintragungen. 
-In der Theorie sollte man folgendes sehen:
-Die Standardkollektion zeigt alle Pflanzen an, die im Floralog von sämtlichen Spielern bisher gesammelt wurden. Es ist sozusagen eine Liste der bisher bekannten Pflanzen(-gattungen) und ergibt sich aus der Tabelle PlantGenus.
-PlantGenus wiederum teilt sich auf in die unterschiedlichen Pflanzenarten. D.h. in einer Kollektion werden immer alle Pflanzengattungen angezeigt, die bisher im Floralog entdeckt wurden.
-Wenn ein Spieler die Pflanze selber entdeckt hat (abzugleichen über UserPlantDiscovery), dann wird diese für ihn auch mit einem (seinem) Scanbild angezeigt - inkl. der Lokationsdaten.
-Allte Daten des Backends von Base44 wurden migriert.
-Wenn ich jedoch in meinem Profil auf "Kollektion" klicke, dann sehe ich nicht - kein Eintrag, 0/0 Arten werden angezeigt.
+Inzwischen kann man sich wieder einloggen, auch mit einem alten Profil. Es scheint aber so zu sein, dass sehr viele "innere Abhängigkeiten" noch nicht zu existieren scheinen.
+Aber wenn ich beispielsweise auf die Kollektion klicke, dann sehe ich leider keine Eintragungen. 
+In der Theorie sollte man unter "Collection" alle Eintragungen jeglicher GenusPlants sehen können, die bisher über die PlantNet API entdeckt wurden. Diese sollten, sofern ich mich erinnere, mit "GenusCard" dargestellt werden. GenusPlant schlüsselte sich weiter auf zu Plant.
+Dabei gab es insgesamt 3 Kategorien von GenusPlants: Bäume, Sträucher und Blumen. Wenn ein Spieler die Pflanze selber entdeckt hat (abzugleichen über UserPlantDiscovery), dann sollte diese für ihn auch mit einem (seinem) Scanbild angezeigt werden - inkl. der Lokationsdaten.
+
+Wenn ich jedoch in meinem Profil auf "Kollektion" klicke, dann sehe ich nichts - kein Eintrag, 0/0 Arten werden angezeigt.
 Es scheint also, als ob verlinkungen fehlen würden.
-Jetzt meine Frage an dich:
-Es ist also aktuell nicht nur die fehlende Verknüfung zwisce
+Ich kenne mich mit Backend Architektur nicht wirklich aus, deshalb meine Fragen: Wie stellt man diese Verknüpfungen wieder her? Die einzelnen Seiten sollten ja noch von ihrer Code Logik da sein, also man müsste aus denen ablesen können wo was fehlt, oder?
+Hilf mir, mit der Migration fortzufahren!
 
 
 ___ Summary after change of base44.entities Calls:

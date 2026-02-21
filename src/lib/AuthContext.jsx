@@ -1,10 +1,12 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
+
 import { 
   onAuthChange, 
   getCurrentAuthUser, 
   getUserProfile, 
   signOut as supabaseSignOut 
 } from '@/api/authService';
+import { migrateMissingAuthIds } from '@/api/migrateMissingAuthIds';
 
 const AuthContext = createContext(null);
 
@@ -31,11 +33,21 @@ export const AuthProvider = ({ children }) => {
         // User signed in
         setUser(session.user);
         setIsAuthenticated(true);
-        
+
         // Load user profile
         try {
           const userProfile = await getUserProfile(session.user.id);
           setProfile(userProfile);
+
+          // Migrations-Helper aufrufen
+          // baseUser = { auth_id, email } ableiten
+          const baseUser = {
+            auth_id: session.user.id,
+            email: session.user.email
+          };
+          if (baseUser.auth_id && baseUser.email) {
+            migrateMissingAuthIds(baseUser);
+          }
         } catch (error) {
           console.error('Error loading user profile:', error);
         }
@@ -45,7 +57,7 @@ export const AuthProvider = ({ children }) => {
         setProfile(null);
         setIsAuthenticated(false);
       }
-      
+
       setIsLoadingAuth(false);
     });
 
