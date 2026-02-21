@@ -6,7 +6,7 @@ import {
   getUserProfile, 
   signOut as supabaseSignOut 
 } from '@/api/authService';
-import { migrateMissingAuthIds } from '@/api/migrateMissingAuthIds';
+
 
 const AuthContext = createContext(null);
 
@@ -40,13 +40,30 @@ export const AuthProvider = ({ children }) => {
           setProfile(userProfile);
 
           // Migrations-Helper aufrufen
-          // baseUser = { auth_id, email } ableiten
           const baseUser = {
             auth_id: session.user.id,
             email: session.user.email
           };
+
+
+          // Supabase Edge Function automatisch aufrufen
+          // Jetzt mit auth_id und email
           if (baseUser.auth_id && baseUser.email) {
-            migrateMissingAuthIds(baseUser);
+            fetch('https://mppxozsltkgjozcastgv.functions.supabase.co/migrateLegacyUser', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                // ggf. Authorization-Header ergänzen
+              },
+              body: JSON.stringify({ email: baseUser.email, auth_id: baseUser.auth_id })
+            })
+              .then(res => res.json())
+              .then(data => {
+                console.log('[AuthContext] migrateLegacyUser result:', data);
+              })
+              .catch(err => {
+                console.error('[AuthContext] migrateLegacyUser error:', err);
+              });
           }
         } catch (error) {
           console.error('Error loading user profile:', error);
