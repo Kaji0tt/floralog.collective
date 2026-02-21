@@ -75,7 +75,14 @@ export default function Profile() {
 
   const { data: userQuests = [] } = useQuery({
     queryKey: ['userQuests'],
-    queryFn: () => Query.UserQuest.filter({ auth_id: user?.id }),
+    queryFn: async () => {
+      try {
+        return await Query.UserQuest.filter({ auth_id: user?.id });
+      } catch (e) {
+        // Fehler wird nur einmal angezeigt, kein Retry
+        return [];
+      }
+    },
     enabled: !!user?.id,
   });
 
@@ -523,7 +530,10 @@ export default function Profile() {
         style={{
           background: averageColor 
             ? `linear-gradient(135deg, var(--profile-bg-color-light) 0%, var(--profile-bg-color-mid) 50%, var(--profile-bg-color-dark) 100%)`
-            : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
+            : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          backgroundColor: 'rgba(255,255,255,0.5)'
         }}
       >
       <MobileBackButton />
