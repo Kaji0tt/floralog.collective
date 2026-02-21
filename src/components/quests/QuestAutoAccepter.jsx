@@ -8,6 +8,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
  */
 export default function QuestAutoAccepter({ user }) {
   const queryClient = useQueryClient();
+  // Insert-Guard: Verhindert doppelte Inserts pro Seite
+  const insertGuard = React.useRef({ regular: false, weekly: false, monthly: false, collection: false });
 
   const { data: quests = [] } = useQuery({
     queryKey: ['quests'],
@@ -154,11 +156,17 @@ export default function QuestAutoAccepter({ user }) {
     });
 
     if (availableRegularQuests.length > 0) {
-      const quest = availableRegularQuests[0];
-      acceptQuestMutation.mutate({
-        questId: quest.id,
-        questType: 'regular'
-      });
+      if (!insertGuard.current.regular) {
+        insertGuard.current.regular = true;
+        const quest = availableRegularQuests[0];
+        console.log('[UserQuest] Auto-Insert regular:', quest);
+        acceptQuestMutation.mutate({
+          questId: quest.id,
+          questType: 'regular'
+        });
+      } else {
+        console.warn('[UserQuest] Insert regular skipped: already inserted on this page load.');
+      }
       return;
     }
 
@@ -168,11 +176,17 @@ export default function QuestAutoAccepter({ user }) {
       userWeeklyQuests.find((uwq) => uwq.weekly_quest_id === currentWeeklyQuest.id) : null;
     
     if (currentWeeklyQuest && !currentWeeklyUserQuest?.accepted) {
-      acceptQuestMutation.mutate({
-        questId: currentWeeklyQuest.id,
-        questType: 'weekly',
-        activeWeek: getWeekNumber()
-      });
+      if (!insertGuard.current.weekly) {
+        insertGuard.current.weekly = true;
+        console.log('[UserQuest] Auto-Insert weekly:', currentWeeklyQuest);
+        acceptQuestMutation.mutate({
+          questId: currentWeeklyQuest.id,
+          questType: 'weekly',
+          activeWeek: getWeekNumber()
+        });
+      } else {
+        console.warn('[UserQuest] Insert weekly skipped: already inserted on this page load.');
+      }
       return;
     }
 
@@ -182,11 +196,17 @@ export default function QuestAutoAccepter({ user }) {
       userMonthlyQuests.find((umq) => umq.monthly_quest_id === currentMonthlyQuest.id) : null;
     
     if (currentMonthlyQuest && !currentMonthlyUserQuest?.accepted) {
-      acceptQuestMutation.mutate({
-        questId: currentMonthlyQuest.id,
-        questType: 'monthly',
-        activeMonth: getMonthString()
-      });
+      if (!insertGuard.current.monthly) {
+        insertGuard.current.monthly = true;
+        console.log('[UserQuest] Auto-Insert monthly:', currentMonthlyQuest);
+        acceptQuestMutation.mutate({
+          questId: currentMonthlyQuest.id,
+          questType: 'monthly',
+          activeMonth: getMonthString()
+        });
+      } else {
+        console.warn('[UserQuest] Insert monthly skipped: already inserted on this page load.');
+      }
       return;
     }
 
@@ -197,11 +217,17 @@ export default function QuestAutoAccepter({ user }) {
     });
 
     if (availableCollectionQuests.length > 0) {
-      const quest = availableCollectionQuests[0];
-      acceptQuestMutation.mutate({
-        questId: quest.id,
-        questType: 'collection'
-      });
+      if (!insertGuard.current.collection) {
+        insertGuard.current.collection = true;
+        const quest = availableCollectionQuests[0];
+        console.log('[UserQuest] Auto-Insert collection:', quest);
+        acceptQuestMutation.mutate({
+          questId: quest.id,
+          questType: 'collection'
+        });
+      } else {
+        console.warn('[UserQuest] Insert collection skipped: already inserted on this page load.');
+      }
       return;
     }
   }, [
