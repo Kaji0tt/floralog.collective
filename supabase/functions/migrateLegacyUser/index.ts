@@ -254,12 +254,13 @@ Deno.serve(async (req) => {
       updated: profileUpdatedCount,
     })
 
-    // Step 3: Update UserPlantDiscovery
-    console.log("[migrateLegacyUser] Step 3: Updating UserPlantDiscovery...")
+
+    // Step 3: Update UserPlantDiscovery (user und auth_id)
+    console.log("[migrateLegacyUser] Step 3: Updating UserPlantDiscovery...");
     const { data: discoveryUpdates } = await supabaseAdmin
       .from("UserPlantDiscovery")
-      .update({ user: authUserId })
-      .eq("user", legacyUser.id)
+      .update({ user: authUserId, auth_id: authUserId })
+      .or(`user.eq.${legacyUser.id},and(auth_id.is.null,created_by.eq.${legacyUser.email})`)
       .select("id", { count: "exact" })
 
     console.log("[migrateLegacyUser] ✅ UserPlantDiscovery updated:", discoveryUpdates?.length || 0)
@@ -269,12 +270,13 @@ Deno.serve(async (req) => {
       updated: discoveryUpdates?.length || 0,
     })
 
-    // Step 4: Update UserNotification
-    console.log("[migrateLegacyUser] Step 4: Updating UserNotification...")
+
+    // Step 4: Update UserNotification (user_email und auth_id)
+    console.log("[migrateLegacyUser] Step 4: Updating UserNotification...");
     const { data: notifUpdates } = await supabaseAdmin
       .from("UserNotification")
-      .update({ user_email: authUser.email })
-      .eq("user_email", legacyUser.email)
+      .update({ user_email: authUser.email, auth_id: authUserId })
+      .or(`user_email.eq.${legacyUser.email},and(auth_id.is.null,created_by.eq.${legacyUser.email})`)
       .select("id", { count: "exact" })
 
     console.log("[migrateLegacyUser] ✅ UserNotification updated:", notifUpdates?.length || 0)
@@ -329,12 +331,13 @@ Deno.serve(async (req) => {
       updated: monthlyUpdates?.length || 0,
     })
 
-    // Step 8: Update Friend
-    console.log("[migrateLegacyUser] Step 8: Updating Friend...")
+
+    // Step 8: Update Friend (created_by und auth_id)
+    console.log("[migrateLegacyUser] Step 8: Updating Friend...");
     const { data: friendUpdates } = await supabaseAdmin
       .from("Friend")
-      .update({ created_by: authUserId })
-      .eq("created_by", legacyUser.id)
+      .update({ created_by: authUserId, auth_id: authUserId })
+      .or(`created_by.eq.${legacyUser.id},and(auth_id.is.null,created_by.eq.${legacyUser.email})`)
       .select("id", { count: "exact" })
 
     console.log("[migrateLegacyUser] ✅ Friend updated:", friendUpdates?.length || 0)
@@ -344,12 +347,13 @@ Deno.serve(async (req) => {
       updated: friendUpdates?.length || 0,
     })
 
-    // Step 9: Update ScanLike
-    console.log("[migrateLegacyUser] Step 9: Updating ScanLike...")
+
+    // Step 9: Update ScanLike (created_by und auth_id)
+    console.log("[migrateLegacyUser] Step 9: Updating ScanLike...");
     const { data: likesUpdates } = await supabaseAdmin
       .from("ScanLike")
-      .update({ created_by: authUserId })
-      .eq("created_by", legacyUser.id)
+      .update({ created_by: authUserId, auth_id: authUserId })
+      .or(`created_by.eq.${legacyUser.id},and(auth_id.is.null,created_by.eq.${legacyUser.email})`)
       .select("id", { count: "exact" })
 
     console.log("[migrateLegacyUser] ✅ ScanLike updated:", likesUpdates?.length || 0)
@@ -358,6 +362,71 @@ Deno.serve(async (req) => {
       name: "⭐ Lieblingsfunde",
       updated: likesUpdates?.length || 0,
     })
+
+    // Step 10: Update UserAchievement
+    console.log("[migrateLegacyUser] Step 10: Updating UserAchievement...");
+    const { data: achievementUpdates } = await supabaseAdmin
+      .from("UserAchievement")
+      .update({ auth_id: authUserId })
+      .is("auth_id", null)
+      .eq("created_by", legacyUser.email)
+      .select("id", { count: "exact" });
+    console.log("[migrateLegacyUser] UserAchievement updated:", achievementUpdates?.length || 0);
+    results.push({
+      key: "userAchievements",
+      name: "🏆 Erfolge",
+      updated: achievementUpdates?.length || 0,
+    });
+
+    // Step 11: Update UserRewards
+    console.log("[migrateLegacyUser] Step 11: Updating UserRewards...");
+    const { data: rewardUpdates } = await supabaseAdmin
+      .from("UserRewards")
+      .update({ auth_id: authUserId })
+      .is("auth_id", null)
+      .eq("created_by", legacyUser.email)
+      .select("id", { count: "exact" });
+    console.log("[migrateLegacyUser] UserRewards updated:", rewardUpdates?.length || 0);
+    results.push({
+      key: "userRewards",
+      name: "🎁 Belohnungen",
+      updated: rewardUpdates?.length || 0,
+    });
+
+    // Step 12: Update Referral
+    console.log("[migrateLegacyUser] Step 12: Updating Referral...");
+    const { data: referralUpdates } = await supabaseAdmin
+      .from("Referral")
+      .update({ auth_id: authUserId })
+      .is("auth_id", null)
+      .eq("created_by", legacyUser.email)
+      .select("id", { count: "exact" });
+    console.log("[migrateLegacyUser] Referral updated:", referralUpdates?.length || 0);
+    results.push({
+      key: "referrals",
+      name: "🔗 Empfehlungen",
+      updated: referralUpdates?.length || 0,
+    });
+
+    // Step 13: Update SharedScan (auth_id_from)
+    console.log("[migrateLegacyUser] Step 13: Updating SharedScan (auth_id_from)...");
+    const { data: sharedFromUpdates } = await supabaseAdmin
+      .from("SharedScan")
+      .update({ auth_id_from: authUserId })
+      .is("auth_id_from", null)
+      .eq("shared_by", legacyUser.email)
+      .select("id", { count: "exact" });
+    console.log("[migrateLegacyUser] SharedScan (auth_id_from) updated:", sharedFromUpdates?.length || 0);
+
+    // Step 14: Update SharedScan (auth_id_to)
+    console.log("[migrateLegacyUser] Step 14: Updating SharedScan (auth_id_to)...");
+    const { data: sharedToUpdates } = await supabaseAdmin
+      .from("SharedScan")
+      .update({ auth_id_to: authUserId })
+      .is("auth_id_to", null)
+      .eq("shared_to", legacyUser.email)
+      .select("id", { count: "exact" });
+    console.log("[migrateLegacyUser] SharedScan (auth_id_to) updated:", sharedToUpdates?.length || 0);
 
     console.log("[migrateLegacyUser] ✅ MIGRATION COMPLETE!")
     return new Response(
