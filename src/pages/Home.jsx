@@ -691,9 +691,11 @@ export default function Home() {
 
   const getRgbaFromRgb = (rgbString, opacity) => {
     if (!rgbString) return null;
+    // Fallback: Wenn opacity ungültig ist, auf 1 setzen
+    const safeOpacity = (typeof opacity === 'number' && opacity >= 0 && opacity <= 1) ? opacity : 1;
     const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
     if (!match) return rgbString;
-    return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${opacity})`;
+    return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${safeOpacity})`;
   };
 
   const getLighterColor = (rgbString) => {
@@ -997,7 +999,7 @@ export default function Home() {
                 backgroundSize: 'cover',
                 backgroundPosition: 'center'
               } : user?.background_color ? {
-                background: `linear-gradient(135deg, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 0.6)')} 0%, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 1)')} 100%)`
+                background: `linear-gradient(135deg, ${getRgbaFromRgb(user.background_color, 0.6)} 0%, ${getRgbaFromRgb(user.background_color, 1)} 100%)`
               } : {}}
             >
               <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
