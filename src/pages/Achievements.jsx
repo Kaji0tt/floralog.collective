@@ -254,43 +254,79 @@ export default function Achievements() {
   });
 
   // Quest Mutations
+  // Insert-Guard: Insert nur einmal pro Seite
+  const [hasInserted, setHasInserted] = useState(false);
   const acceptQuestMutation = useMutation({
     mutationFn: async ({ questId, questType, activeWeek, activeMonth }) => {
+      if (hasInserted) {
+        console.warn('[UserQuest] Insert skipped: already inserted on this page load.');
+        return;
+      }
+      setHasInserted(true);
       const now = new Date().toISOString();
+      let insertData;
       if (questType === 'regular') {
-        return Query.UserQuest.create({
+        insertData = {
           quest_id: questId,
           auth_id: user.id,
           created_by: user.email,
           accepted: true,
           accepted_date: now
-        });
+        };
+        console.log('[UserQuest] Insert regular:', insertData);
+        try {
+          return await Query.UserQuest.create(insertData);
+        } catch (err) {
+          console.error('[UserQuest] Insert regular failed:', err, insertData);
+          throw err;
+        }
       } else if (questType === 'weekly') {
-        return Query.UserWeeklyQuest.create({
+        insertData = {
           weekly_quest_id: questId,
           active_week: activeWeek,
           auth_id: user.id,
           created_by: user.email,
           accepted: true,
           accepted_date: now
-        });
+        };
+        console.log('[UserQuest] Insert weekly:', insertData);
+        try {
+          return await Query.UserWeeklyQuest.create(insertData);
+        } catch (err) {
+          console.error('[UserQuest] Insert weekly failed:', err, insertData);
+          throw err;
+        }
       } else if (questType === 'monthly') {
-        return Query.UserMonthlyQuest.create({
+        insertData = {
           monthly_quest_id: questId,
           active_month: activeMonth,
           auth_id: user.id,
           created_by: user.email,
           accepted: true,
           accepted_date: now
-        });
+        };
+        console.log('[UserQuest] Insert monthly:', insertData);
+        try {
+          return await Query.UserMonthlyQuest.create(insertData);
+        } catch (err) {
+          console.error('[UserQuest] Insert monthly failed:', err, insertData);
+          throw err;
+        }
       } else if (questType === 'collection') {
-        return Query.UserCollectionQuest.create({
+        insertData = {
           collection_quest_id: questId,
           auth_id: user.id,
           created_by: user.email,
           accepted: true,
           accepted_date: now
-        });
+        };
+        console.log('[UserQuest] Insert collection:', insertData);
+        try {
+          return await Query.UserCollectionQuest.create(insertData);
+        } catch (err) {
+          console.error('[UserQuest] Insert collection failed:', err, insertData);
+          throw err;
+        }
       }
     },
     onSuccess: () => {

@@ -29,13 +29,14 @@ Deno.serve(async (req) => {
   try {
     console.log("[migrateLegacyUser] === PROCESSING REQUEST ===")
     
-    const requestBody = await req.json()
-    const { email, legacyUserId } = requestBody
-    
-    console.log("[migrateLegacyUser] Request body - email:", email)
-    console.log("[migrateLegacyUser] Request body - legacyUserId:", legacyUserId)
 
-    // Security Check 1: Validate email
+    const requestBody = await req.json()
+    const { email, auth_id } = requestBody
+
+    console.log("[migrateLegacyUser] Request body - email:", email)
+    console.log("[migrateLegacyUser] Request body - auth_id:", auth_id)
+
+    // Security Check: Validate email and auth_id
     if (!email || typeof email !== 'string' || !email.includes('@')) {
       console.error("[migrateLegacyUser] ❌ Invalid email:", email)
       return new Response(
@@ -43,12 +44,10 @@ Deno.serve(async (req) => {
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } },
       )
     }
-
-    // Security Check 2: Validate Legacy ID (must be 24 hex chars - MongoDB ObjectID format)
-    if (!legacyUserId || typeof legacyUserId !== 'string' || !/^[0-9a-f]{24}$/.test(legacyUserId)) {
-      console.error("[migrateLegacyUser] ❌ Invalid legacy user ID:", legacyUserId)
+    if (!auth_id || typeof auth_id !== 'string' || auth_id.length < 10) {
+      console.error("[migrateLegacyUser] ❌ Invalid auth_id:", auth_id)
       return new Response(
-        JSON.stringify({ error: "Invalid legacy user ID format" }),
+        JSON.stringify({ error: "Invalid auth_id" }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } },
       )
     }
@@ -75,37 +74,37 @@ Deno.serve(async (req) => {
     })
     console.log("[migrateLegacyUser] Admin client created")
 
-    console.log("[migrateLegacyUser] Fetching legacy user from baseUser table...")
-    // Get legacy user from baseUser table
-    const { data: legacyUser, error: legacyError } = await supabaseAdmin
+
+    // Suche baseUser anhand von auth_id oder email
+    console.log("[migrateLegacyUser] Fetching user from baseUser table...")
+    let { data: baseUser, error: baseUserError } = await supabaseAdmin
       .from("baseUser")
       .select("id,email,display_name,auth_id,created_date,updated_date")
-      .eq("id", legacyUserId)
+      .eq("auth_id", auth_id)
       .single()
 
-    console.log("[migrateLegacyUser] Legacy user fetch result:", legacyUser ? "found" : "not found")
-    if (legacyError) {
-      console.error("[migrateLegacyUser] Legacy user error:", JSON.stringify(legacyError, null, 2))
+    if (!baseUser) {
+      // Fallback: Suche per Email
+      const { data: fallbackUser, error: fallbackError } = await supabaseAdmin
+        .from("baseUser")
+        .select("id,email,display_name,auth_id,created_date,updated_date")
+        .eq("email", email)
+        .single()
+      baseUser = fallbackUser
+      baseUserError = fallbackError
     }
 
-    if (legacyError || !legacyUser) {
-      console.error("[migrateLegacyUser] ❌ Legacy user not found")
+    if (baseUserError || !baseUser) {
+      console.error("[migrateLegacyUser] ❌ baseUser not found")
       return new Response(
-        JSON.stringify({ error: "Legacy user not found", details: legacyError?.message }),
+        JSON.stringify({ error: "baseUser not found", details: baseUserError?.message }),
         { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } },
       )
     }
 
-    // Verify email matches (security check)
-    const legacyEmail = (legacyUser.email || "").toLowerCase().trim()
     const requestEmail = email.toLowerCase().trim()
-
-    console.log("[migrateLegacyUser] Email verification:")
-    console.log("[migrateLegacyUser]   - Request email:", requestEmail)
-    console.log("[migrateLegacyUser]   - Legacy email:", legacyEmail)
-    console.log("[migrateLegacyUser]   - Match:", requestEmail === legacyEmail ? "✓" : "✗")
-
-    if (requestEmail !== legacyEmail) {
+    const userEmail = (baseUser.email || "").toLowerCase().trim()
+    if (requestEmail !== userEmail) {
       console.error("[migrateLegacyUser] ❌ Email mismatch - migration blocked!")
       return new Response(
         JSON.stringify({ error: "Email mismatch - cannot migrate" }),
@@ -113,42 +112,32 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Get the auth user from Supabase Auth (search by email to get their ID)
-    console.log("[migrateLegacyUser] Fetching auth user by email...")
-    const { data: { users }, error: usersError } = await supabaseAdmin.auth.admin.listUsers()
-    const authUser = users?.find(u => u.email?.toLowerCase() === requestEmail)
 
-    if (!authUser) {
-      console.error("[migrateLegacyUser] ❌ Auth user not found for email:", requestEmail)
-      return new Response(
-        JSON.stringify({ error: "Auth user not found" }),
-        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } },
-      )
-    }
-
-    console.log("[migrateLegacyUser] ✅ Auth user found:", authUser.id)
-    const authUserId = authUser.id
+    const authUserId = auth_id
 
     console.log("[migrateLegacyUser] ✅ All validations passed!")
     console.log("[migrateLegacyUser] Starting migration for user:", authUserId)
-    console.log("[migrateLegacyUser] Legacy user ID:", legacyUserId)
 
-    // Step 1: Update baseUser with auth_id
+
+    // Step 1: Update baseUser with auth_id (falls noch nicht gesetzt)
     console.log("[migrateLegacyUser] Step 1: Updating baseUser...")
-    const { error: updateBaseUserError } = await supabaseAdmin
-      .from("baseUser")
-      .update({ auth_id: authUserId })
-      .eq("id", legacyUserId)
-
-    if (updateBaseUserError) {
-      console.error("[migrateLegacyUser] Failed to update baseUser:", updateBaseUserError)
-      return new Response(
-        JSON.stringify({
-          error: "Failed to update baseUser",
-          details: updateBaseUserError,
-        }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
-      )
+    let baseUserUpdated = 0
+    if (!baseUser.auth_id) {
+      const { error: updateBaseUserError } = await supabaseAdmin
+        .from("baseUser")
+        .update({ auth_id: authUserId })
+        .eq("id", baseUser.id)
+      if (updateBaseUserError) {
+        console.error("[migrateLegacyUser] Failed to update baseUser:", updateBaseUserError)
+        return new Response(
+          JSON.stringify({
+            error: "Failed to update baseUser",
+            details: updateBaseUserError,
+          }),
+          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
+        )
+      }
+      baseUserUpdated = 1
     }
     console.log("[migrateLegacyUser] ✅ baseUser updated")
 
@@ -156,26 +145,28 @@ Deno.serve(async (req) => {
       {
         key: "baseUser",
         name: "Basisbenutzer verknüpft",
-        updated: 1,
+        updated: baseUserUpdated,
       },
     ]
 
     // Step 2: Update and backfill PublicProfile (auth_id + display_name)
     console.log("[migrateLegacyUser] Step 2: Updating PublicProfile...")
+
     const fallbackDisplayName = String(
-      legacyUser.display_name ||
+      baseUser.display_name ||
       requestEmail.split("@")[0]
     ).trim()
     const fallbackFullName = String(
-      legacyUser.display_name ||
+      baseUser.display_name ||
       fallbackDisplayName
     ).trim()
     const timestamp = new Date().toISOString()
 
+
     const { data: linkedProfiles, error: linkProfilesError } = await supabaseAdmin
       .from("PublicProfile")
       .update({ auth_id: authUserId })
-      .eq("user_email", legacyUser.email)
+      .eq("user_email", userEmail)
       .select("id, display_name, full_name, user_email")
 
     if (linkProfilesError) {
@@ -183,6 +174,7 @@ Deno.serve(async (req) => {
     }
 
     let profileUpdatedCount = linkedProfiles?.length || 0
+
 
     if ((linkedProfiles?.length || 0) > 0) {
       for (const profile of linkedProfiles || []) {
@@ -231,21 +223,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (fallbackDisplayName) {
-      const { error: metadataError } = await supabaseAdmin.auth.admin.updateUserById(authUserId, {
-        user_metadata: {
-          ...(authUser.user_metadata || {}),
-          display_name: fallbackDisplayName,
-          full_name: fallbackFullName,
-          name: fallbackDisplayName,
-          migrated_from_legacy: true,
-        },
-      })
-
-      if (metadataError) {
-        console.error("[migrateLegacyUser] Auth metadata backfill error:", metadataError)
-      }
-    }
+    // Optional: User-Metadaten setzen, falls gewünscht (hier nicht mehr nötig, da kein authUser geladen wird)
 
     console.log("[migrateLegacyUser] ✅ PublicProfile updated:", profileUpdatedCount)
     results.push({
@@ -255,15 +233,17 @@ Deno.serve(async (req) => {
     })
 
 
-    // Step 3: Update UserPlantDiscovery (user und auth_id)
+
+    // Step 3: Update UserPlantDiscovery (auth_id)
     console.log("[migrateLegacyUser] Step 3: Updating UserPlantDiscovery...");
     const { data: discoveryUpdates } = await supabaseAdmin
       .from("UserPlantDiscovery")
-      .update({ user: authUserId, auth_id: authUserId })
-      .or(`user.eq.${legacyUser.id},and(auth_id.is.null,created_by.eq.${legacyUser.email})`)
-      .select("id", { count: "exact" })
+      .update({ auth_id: authUserId })
+      .is("auth_id", null)
+      .eq("created_by", baseUser.email)
+      .select("id", { count: "exact" });
 
-    console.log("[migrateLegacyUser] ✅ UserPlantDiscovery updated:", discoveryUpdates?.length || 0)
+    console.log("[migrateLegacyUser] ✅ UserPlantDiscovery updated:", discoveryUpdates?.length || 0);
     results.push({
       key: "discoveries",
       name: "🔍 Vergessene Pflanzenfunde",
@@ -271,12 +251,14 @@ Deno.serve(async (req) => {
     })
 
 
+
     // Step 4: Update UserNotification (user_email und auth_id)
     console.log("[migrateLegacyUser] Step 4: Updating UserNotification...");
     const { data: notifUpdates } = await supabaseAdmin
       .from("UserNotification")
-      .update({ user_email: authUser.email, auth_id: authUserId })
-      .or(`user_email.eq.${legacyUser.email},and(auth_id.is.null,created_by.eq.${legacyUser.email})`)
+      .update({ auth_id: authUserId })
+      .is("auth_id", null)
+      .eq("user_email", baseUser.email)
       .select("id", { count: "exact" })
 
     console.log("[migrateLegacyUser] ✅ UserNotification updated:", notifUpdates?.length || 0)
@@ -286,12 +268,14 @@ Deno.serve(async (req) => {
       updated: notifUpdates?.length || 0,
     })
 
+
     // Step 5: Update UserQuest
     console.log("[migrateLegacyUser] Step 5: Updating UserQuest...")
     const { data: questUpdates } = await supabaseAdmin
       .from("UserQuest")
-      .update({ created_by: authUserId })
-      .eq("created_by", legacyUser.id)
+      .update({ auth_id: authUserId })
+      .is("auth_id", null)
+      .eq("created_by", baseUser.email)
       .select("id", { count: "exact" })
 
     console.log("[migrateLegacyUser] ✅ UserQuest updated:", questUpdates?.length || 0)
@@ -300,13 +284,15 @@ Deno.serve(async (req) => {
       name: "🗺️ Forschungsaufträge",
       updated: questUpdates?.length || 0,
     })
+    
 
     // Step 6: Update UserWeeklyQuest
     console.log("[migrateLegacyUser] Step 6: Updating UserWeeklyQuest...")
     const { data: weeklyUpdates } = await supabaseAdmin
       .from("UserWeeklyQuest")
-      .update({ created_by: authUserId })
-      .eq("created_by", legacyUser.id)
+      .update({ auth_id: authUserId })
+      .is("auth_id", null)
+      .eq("created_by", baseUser.email)
       .select("id", { count: "exact" })
 
     console.log("[migrateLegacyUser] ✅ UserWeeklyQuest updated:", weeklyUpdates?.length || 0)
@@ -316,12 +302,14 @@ Deno.serve(async (req) => {
       updated: weeklyUpdates?.length || 0,
     })
 
+
     // Step 7: Update UserMonthlyQuest
     console.log("[migrateLegacyUser] Step 7: Updating UserMonthlyQuest...")
     const { data: monthlyUpdates } = await supabaseAdmin
       .from("UserMonthlyQuest")
-      .update({ created_by: authUserId })
-      .eq("created_by", legacyUser.id)
+      .update({ auth_id: authUserId })
+      .is("auth_id", null)
+      .eq("created_by", baseUser.email)
       .select("id", { count: "exact" })
 
     console.log("[migrateLegacyUser] ✅ UserMonthlyQuest updated:", monthlyUpdates?.length || 0)
@@ -332,12 +320,14 @@ Deno.serve(async (req) => {
     })
 
 
+
     // Step 8: Update Friend (created_by und auth_id)
     console.log("[migrateLegacyUser] Step 8: Updating Friend...");
     const { data: friendUpdates } = await supabaseAdmin
       .from("Friend")
-      .update({ created_by: authUserId, auth_id: authUserId })
-      .or(`created_by.eq.${legacyUser.id},and(auth_id.is.null,created_by.eq.${legacyUser.email})`)
+      .update({ auth_id: authUserId })
+      .is("auth_id", null)
+      .eq("created_by", baseUser.email)
       .select("id", { count: "exact" })
 
     console.log("[migrateLegacyUser] ✅ Friend updated:", friendUpdates?.length || 0)
@@ -348,12 +338,14 @@ Deno.serve(async (req) => {
     })
 
 
+
     // Step 9: Update ScanLike (created_by und auth_id)
     console.log("[migrateLegacyUser] Step 9: Updating ScanLike...");
     const { data: likesUpdates } = await supabaseAdmin
       .from("ScanLike")
-      .update({ created_by: authUserId, auth_id: authUserId })
-      .or(`created_by.eq.${legacyUser.id},and(auth_id.is.null,created_by.eq.${legacyUser.email})`)
+      .update({ auth_id: authUserId })
+      .is("auth_id", null)
+      .eq("created_by", baseUser.email)
       .select("id", { count: "exact" })
 
     console.log("[migrateLegacyUser] ✅ ScanLike updated:", likesUpdates?.length || 0)
@@ -363,13 +355,14 @@ Deno.serve(async (req) => {
       updated: likesUpdates?.length || 0,
     })
 
+
     // Step 10: Update UserAchievement
     console.log("[migrateLegacyUser] Step 10: Updating UserAchievement...");
     const { data: achievementUpdates } = await supabaseAdmin
       .from("UserAchievement")
       .update({ auth_id: authUserId })
       .is("auth_id", null)
-      .eq("created_by", legacyUser.email)
+      .eq("created_by", baseUser.email)
       .select("id", { count: "exact" });
     console.log("[migrateLegacyUser] UserAchievement updated:", achievementUpdates?.length || 0);
     results.push({
@@ -378,13 +371,14 @@ Deno.serve(async (req) => {
       updated: achievementUpdates?.length || 0,
     });
 
+
     // Step 11: Update UserRewards
     console.log("[migrateLegacyUser] Step 11: Updating UserRewards...");
     const { data: rewardUpdates } = await supabaseAdmin
       .from("UserRewards")
       .update({ auth_id: authUserId })
       .is("auth_id", null)
-      .eq("created_by", legacyUser.email)
+      .eq("created_by", baseUser.email)
       .select("id", { count: "exact" });
     console.log("[migrateLegacyUser] UserRewards updated:", rewardUpdates?.length || 0);
     results.push({
@@ -393,13 +387,14 @@ Deno.serve(async (req) => {
       updated: rewardUpdates?.length || 0,
     });
 
+
     // Step 12: Update Referral
     console.log("[migrateLegacyUser] Step 12: Updating Referral...");
     const { data: referralUpdates } = await supabaseAdmin
       .from("Referral")
       .update({ auth_id: authUserId })
       .is("auth_id", null)
-      .eq("created_by", legacyUser.email)
+      .eq("created_by", baseUser.email)
       .select("id", { count: "exact" });
     console.log("[migrateLegacyUser] Referral updated:", referralUpdates?.length || 0);
     results.push({
@@ -408,25 +403,8 @@ Deno.serve(async (req) => {
       updated: referralUpdates?.length || 0,
     });
 
-    // Step 13: Update SharedScan (auth_id_from)
-    console.log("[migrateLegacyUser] Step 13: Updating SharedScan (auth_id_from)...");
-    const { data: sharedFromUpdates } = await supabaseAdmin
-      .from("SharedScan")
-      .update({ auth_id_from: authUserId })
-      .is("auth_id_from", null)
-      .eq("shared_by", legacyUser.email)
-      .select("id", { count: "exact" });
-    console.log("[migrateLegacyUser] SharedScan (auth_id_from) updated:", sharedFromUpdates?.length || 0);
 
-    // Step 14: Update SharedScan (auth_id_to)
-    console.log("[migrateLegacyUser] Step 14: Updating SharedScan (auth_id_to)...");
-    const { data: sharedToUpdates } = await supabaseAdmin
-      .from("SharedScan")
-      .update({ auth_id_to: authUserId })
-      .is("auth_id_to", null)
-      .eq("shared_to", legacyUser.email)
-      .select("id", { count: "exact" });
-    console.log("[migrateLegacyUser] SharedScan (auth_id_to) updated:", sharedToUpdates?.length || 0);
+    // Step 13: Update SharedScan (auth_id_from) -> Wont be updated
 
     console.log("[migrateLegacyUser] ✅ MIGRATION COMPLETE!")
     return new Response(
