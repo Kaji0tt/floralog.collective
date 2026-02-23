@@ -79,6 +79,10 @@ export const getCurrentUser = async () => {
       ...authUser,
       ...legacyFallback,
       ...profile,
+      // WICHTIG: immer Supabase-Auth-ID als eindeutige User-ID verwenden
+      // und nicht von baseUser/legacy überschreiben lassen
+      id: authUser.id,
+      auth_id: authUser.id,
       display_name: resolvedDisplayName || null,
       full_name: resolvedFullName || null
     };

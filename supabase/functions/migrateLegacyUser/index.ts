@@ -235,15 +235,18 @@ Deno.serve(async (req) => {
 
 
     // Step 3: Update UserPlantDiscovery (auth_id)
-    console.log("[migrateLegacyUser] Step 3: Updating UserPlantDiscovery...");
-    const { data: discoveryUpdates } = await supabaseAdmin
+    console.log("[migrateLegacyUser] Step 3: Updating UserPlantDiscovery...")
+    const { data: discoveryUpdates, error: discoveryError } = await supabaseAdmin
       .from("UserPlantDiscovery")
       .update({ auth_id: authUserId })
-      .is("auth_id", null)
-      .eq("created_by", baseUser.email)
-      .select("id", { count: "exact" });
+      .eq("created_by", userEmail)
+      .select("id", { count: "exact" })
 
-    console.log("[migrateLegacyUser] ✅ UserPlantDiscovery updated:", discoveryUpdates?.length || 0);
+    if (discoveryError) {
+      console.error("[migrateLegacyUser] UserPlantDiscovery update error:", discoveryError)
+    }
+
+    console.log("[migrateLegacyUser] ✅ UserPlantDiscovery updated:", discoveryUpdates?.length || 0)
     results.push({
       key: "discoveries",
       name: "🔍 Vergessene Pflanzenfunde",
@@ -253,13 +256,16 @@ Deno.serve(async (req) => {
 
 
     // Step 4: Update UserNotification (user_email und auth_id)
-    console.log("[migrateLegacyUser] Step 4: Updating UserNotification...");
-    const { data: notifUpdates } = await supabaseAdmin
+    console.log("[migrateLegacyUser] Step 4: Updating UserNotification...")
+    const { data: notifUpdates, error: notifError } = await supabaseAdmin
       .from("UserNotification")
       .update({ auth_id: authUserId })
-      .is("auth_id", null)
-      .eq("user_email", baseUser.email)
+      .eq("user_email", userEmail)
       .select("id", { count: "exact" })
+
+    if (notifError) {
+      console.error("[migrateLegacyUser] UserNotification update error:", notifError)
+    }
 
     console.log("[migrateLegacyUser] ✅ UserNotification updated:", notifUpdates?.length || 0)
     results.push({
@@ -271,12 +277,15 @@ Deno.serve(async (req) => {
 
     // Step 5: Update UserQuest
     console.log("[migrateLegacyUser] Step 5: Updating UserQuest...")
-    const { data: questUpdates } = await supabaseAdmin
+    const { data: questUpdates, error: questError } = await supabaseAdmin
       .from("UserQuest")
       .update({ auth_id: authUserId })
-      .is("auth_id", null)
-      .eq("created_by", baseUser.email)
+      .eq("created_by", userEmail)
       .select("id", { count: "exact" })
+
+    if (questError) {
+      console.error("[migrateLegacyUser] UserQuest update error:", questError)
+    }
 
     console.log("[migrateLegacyUser] ✅ UserQuest updated:", questUpdates?.length || 0)
     results.push({
@@ -288,12 +297,15 @@ Deno.serve(async (req) => {
 
     // Step 6: Update UserWeeklyQuest
     console.log("[migrateLegacyUser] Step 6: Updating UserWeeklyQuest...")
-    const { data: weeklyUpdates } = await supabaseAdmin
+    const { data: weeklyUpdates, error: weeklyError } = await supabaseAdmin
       .from("UserWeeklyQuest")
       .update({ auth_id: authUserId })
-      .is("auth_id", null)
-      .eq("created_by", baseUser.email)
+      .eq("created_by", userEmail)
       .select("id", { count: "exact" })
+
+    if (weeklyError) {
+      console.error("[migrateLegacyUser] UserWeeklyQuest update error:", weeklyError)
+    }
 
     console.log("[migrateLegacyUser] ✅ UserWeeklyQuest updated:", weeklyUpdates?.length || 0)
     results.push({
@@ -305,12 +317,15 @@ Deno.serve(async (req) => {
 
     // Step 7: Update UserMonthlyQuest
     console.log("[migrateLegacyUser] Step 7: Updating UserMonthlyQuest...")
-    const { data: monthlyUpdates } = await supabaseAdmin
+    const { data: monthlyUpdates, error: monthlyError } = await supabaseAdmin
       .from("UserMonthlyQuest")
       .update({ auth_id: authUserId })
-      .is("auth_id", null)
-      .eq("created_by", baseUser.email)
+      .eq("created_by", userEmail)
       .select("id", { count: "exact" })
+
+    if (monthlyError) {
+      console.error("[migrateLegacyUser] UserMonthlyQuest update error:", monthlyError)
+    }
 
     console.log("[migrateLegacyUser] ✅ UserMonthlyQuest updated:", monthlyUpdates?.length || 0)
     results.push({
@@ -322,13 +337,16 @@ Deno.serve(async (req) => {
 
 
     // Step 8: Update Friend (created_by und auth_id)
-    console.log("[migrateLegacyUser] Step 8: Updating Friend...");
-    const { data: friendUpdates } = await supabaseAdmin
+    console.log("[migrateLegacyUser] Step 8: Updating Friend...")
+    const { data: friendUpdates, error: friendError } = await supabaseAdmin
       .from("Friend")
       .update({ auth_id: authUserId })
-      .is("auth_id", null)
-      .eq("created_by", baseUser.email)
+      .eq("created_by", userEmail)
       .select("id", { count: "exact" })
+
+    if (friendError) {
+      console.error("[migrateLegacyUser] Friend update error:", friendError)
+    }
 
     console.log("[migrateLegacyUser] ✅ Friend updated:", friendUpdates?.length || 0)
     results.push({
@@ -340,13 +358,16 @@ Deno.serve(async (req) => {
 
 
     // Step 9: Update ScanLike (created_by und auth_id)
-    console.log("[migrateLegacyUser] Step 9: Updating ScanLike...");
-    const { data: likesUpdates } = await supabaseAdmin
+    console.log("[migrateLegacyUser] Step 9: Updating ScanLike...")
+    const { data: likesUpdates, error: likesError } = await supabaseAdmin
       .from("ScanLike")
       .update({ auth_id: authUserId })
-      .is("auth_id", null)
-      .eq("created_by", baseUser.email)
+      .eq("created_by", userEmail)
       .select("id", { count: "exact" })
+
+    if (likesError) {
+      console.error("[migrateLegacyUser] ScanLike update error:", likesError)
+    }
 
     console.log("[migrateLegacyUser] ✅ ScanLike updated:", likesUpdates?.length || 0)
     results.push({
@@ -357,14 +378,18 @@ Deno.serve(async (req) => {
 
 
     // Step 10: Update UserAchievement
-    console.log("[migrateLegacyUser] Step 10: Updating UserAchievement...");
-    const { data: achievementUpdates } = await supabaseAdmin
+    console.log("[migrateLegacyUser] Step 10: Updating UserAchievement...")
+    const { data: achievementUpdates, error: achievementError } = await supabaseAdmin
       .from("UserAchievement")
       .update({ auth_id: authUserId })
-      .is("auth_id", null)
-      .eq("created_by", baseUser.email)
-      .select("id", { count: "exact" });
-    console.log("[migrateLegacyUser] UserAchievement updated:", achievementUpdates?.length || 0);
+      .eq("created_by", userEmail)
+      .select("id", { count: "exact" })
+
+    if (achievementError) {
+      console.error("[migrateLegacyUser] UserAchievement update error:", achievementError)
+    }
+
+    console.log("[migrateLegacyUser] UserAchievement updated:", achievementUpdates?.length || 0)
     results.push({
       key: "userAchievements",
       name: "🏆 Erfolge",
@@ -373,14 +398,18 @@ Deno.serve(async (req) => {
 
 
     // Step 11: Update UserRewards
-    console.log("[migrateLegacyUser] Step 11: Updating UserRewards...");
-    const { data: rewardUpdates } = await supabaseAdmin
+    console.log("[migrateLegacyUser] Step 11: Updating UserRewards...")
+    const { data: rewardUpdates, error: rewardError } = await supabaseAdmin
       .from("UserRewards")
       .update({ auth_id: authUserId })
-      .is("auth_id", null)
-      .eq("created_by", baseUser.email)
-      .select("id", { count: "exact" });
-    console.log("[migrateLegacyUser] UserRewards updated:", rewardUpdates?.length || 0);
+      .eq("created_by", userEmail)
+      .select("id", { count: "exact" })
+
+    if (rewardError) {
+      console.error("[migrateLegacyUser] UserRewards update error:", rewardError)
+    }
+
+    console.log("[migrateLegacyUser] UserRewards updated:", rewardUpdates?.length || 0)
     results.push({
       key: "userRewards",
       name: "🎁 Belohnungen",
@@ -389,14 +418,18 @@ Deno.serve(async (req) => {
 
 
     // Step 12: Update Referral
-    console.log("[migrateLegacyUser] Step 12: Updating Referral...");
-    const { data: referralUpdates } = await supabaseAdmin
+    console.log("[migrateLegacyUser] Step 12: Updating Referral...")
+    const { data: referralUpdates, error: referralError } = await supabaseAdmin
       .from("Referral")
       .update({ auth_id: authUserId })
-      .is("auth_id", null)
-      .eq("created_by", baseUser.email)
-      .select("id", { count: "exact" });
-    console.log("[migrateLegacyUser] Referral updated:", referralUpdates?.length || 0);
+      .eq("created_by", userEmail)
+      .select("id", { count: "exact" })
+
+    if (referralError) {
+      console.error("[migrateLegacyUser] Referral update error:", referralError)
+    }
+
+    console.log("[migrateLegacyUser] Referral updated:", referralUpdates?.length || 0)
     results.push({
       key: "referrals",
       name: "🔗 Empfehlungen",

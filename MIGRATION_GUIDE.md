@@ -375,7 +375,8 @@ Nach der Migration für alle Benutzer:
 - Lokal: Check `supabase/functions/migrateLegacyUser/index.ts` für Console Logs
 - Live: Supabase Dashboard → **Logs** → **Edge Functions**
 
-
+- Hinweis: Ohne Supabase CLI, Function deployed mit:
+npx supabase functions deploy migrateLegacyUser
 
 **Fragen?** 💬 Schreib mir!
 
