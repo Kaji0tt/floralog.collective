@@ -802,6 +802,50 @@ export default function Scanner() {
     setImageUrl(null);
   };
 
+  const handleConfirmSave = async () => {
+    if (!pendingScanData || isSavingPlant) return;
+
+    setIsSavingPlant(true);
+
+    try {
+      const { plant, imageUrl, allResults = [] } = pendingScanData;
+
+      // Aktuell ausgewähltes Ergebnis bestimmen
+      const selectedFromResults =
+        allResults.length > 0
+          ? allResults[currentResultIndex] || allResults[0]
+          : null;
+
+      const selectedPlant = selectedFromResults || plant;
+
+      if (!selectedPlant) {
+        throw new Error("Kein Scan-Ergebnis zum Speichern gefunden.");
+      }
+
+      if (selectedPlant.inDatabase) {
+        // Pflanze existiert bereits im Floralog
+        await handleAutoSave(
+          selectedPlant,
+          imageUrl,
+          selectedPlant.aiData || plant?.aiData,
+          allResults
+        );
+      } else {
+        // Neue Pflanze für das globale Floralog
+        await handleAutoAddNewPlant(selectedPlant, imageUrl, allResults);
+        setShowGlobalFloralogModal(true);
+      }
+
+      setShowConfirmDialog(false);
+      setPendingScanData(null);
+    } catch (error) {
+      console.error("Fehler beim Bestätigen des Speicherns:", error);
+      alert("Fehler beim Speichern der Pflanze. Bitte versuche es erneut.");
+    } finally {
+      setIsSavingPlant(false);
+    }
+  };
+
   const [averageColor, setAverageColor] = useState(null);
 
   useEffect(() => {
