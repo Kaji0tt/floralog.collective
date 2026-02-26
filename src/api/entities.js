@@ -24,7 +24,10 @@ const legacyIdTables = new Set([
   'UserQuest',
   'UserWeeklyQuest',
   'UserMonthlyQuest',
-  'UserCollectionQuest'
+  'UserCollectionQuest',
+  'UserAchievement',
+  'UserReward',
+  'UserNotification'
 ]);
 
 const generateLegacyHexId = () => {
