@@ -88,10 +88,14 @@ export async function checkAndUnlockRewards(user) {
     const isDonor = currentUser?.donor_status || false;
     const referralCount = (await Query.Referral.filter({ referrer_email: userEmail })).length;
     
-    // Prüfe auf seltene Pflanzen
+    // Prüfe auf seltene Pflanzen (alle seltenen Stufen wie im alten Scanner-Code)
     const rarePlantCount = userDiscoveries.filter(d => {
       const plant = plants.find(p => p.id === d.plant_id);
-      return plant && (plant.rarity === "Sehr Selten" || plant.rarity === "Extrem Selten");
+      return plant && (
+        plant.rarity === "Selten" ||
+        plant.rarity === "Sehr Selten" ||
+        plant.rarity === "Extrem Selten"
+      );
     }).length;
 
     let newRewardsCount = 0;

@@ -135,8 +135,10 @@ function createEntity(tableName) {
 }
 
 // Export all tables as entities
+// NOTE: Some DB tables use pluralized names (e.g. "Achievements").
+// Where naming differs, we map them manually below.
 const tables = [
-  'Achievement', 'Classroom', 'ClassroomMember', 'ClassroomQuest',
+  'Classroom', 'ClassroomMember', 'ClassroomQuest',
   'CollectionQuest', 'DailyQuest', 'Friend', 'MonthlyQuest',
   'News', 'Plant', 'PlantGenus', 'PublicProfile', 'Quest',
   'Referral', 'Reward', 'ScanLike', 'SharedScan', 'UserAchievement',
@@ -149,6 +151,10 @@ const Query = {};
 tables.forEach(table => {
   Query[table] = createEntity(table);
 });
+
+// Manual mappings for tables where the runtime name differs
+// The SQL table is "public.Achievements" but the app uses Query.Achievement
+Query.Achievement = createEntity('Achievements');
 
 export { Query };
 export const User = null; // Auth will be handled separately

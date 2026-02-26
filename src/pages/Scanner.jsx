@@ -272,87 +272,9 @@ export default function Scanner() {
         return false;
       };
 
-      // Seltene-Pflanze-Hintergrund
-      if (scannedPlant.rarity === "Selten" || scannedPlant.rarity === "Sehr Selten" || scannedPlant.rarity === "Extrem Selten") {
-        if (!currentUser.rare_plant_unlocked) {
-          await updateCurrentUserProfile({ rare_plant_unlocked: true });
-          await Query.UserNotification.create({
-            auth_id: currentUser.id,
-            user_email: currentUser.email,
-            notification_type: "custom",
-            title: "🌟 Hintergrund freigeschaltet!",
-            message: "Du hast den 'Epic Rare' Hintergrund freigeschaltet!",
-            priority: "medium",
-            display_location: "banner"
-          });
-        }
-      }
-
-      // Weekly Quest Hintergrund (nur wenn tatsächlich Progress > 0)
-      const userWeeklyQuestsData = await Query.UserWeeklyQuest.filter({ auth_id: currentUser.id });
-      const weeklyWithProgress = userWeeklyQuestsData.filter(q => (q.progress || 0) > 0);
-      const weeklyParticipations = new Set(weeklyWithProgress.map(q => q.active_week)).size;
-      
-      if (weeklyParticipations >= 1 && !currentUser.weekly_bg1_unlocked) {
-        await updateCurrentUserProfile({ weekly_bg1_unlocked: true });
-        await Query.UserNotification.create({
-          auth_id: currentUser.id,
-          user_email: currentUser.email,
-          notification_type: "custom",
-          title: "🎉 Hintergrund freigeschaltet!",
-          message: "Hintergrund 'BackGround1' freigeschaltet!",
-          priority: "low",
-          display_location: "banner"
-        });
-      }
-      if (weeklyParticipations >= 3 && !currentUser.weekly_bg2_unlocked) {
-        await updateCurrentUserProfile({ weekly_bg2_unlocked: true });
-        await Query.UserNotification.create({
-          auth_id: currentUser.id,
-          user_email: currentUser.email,
-          notification_type: "custom",
-          title: "🎉 Hintergrund freigeschaltet!",
-          message: "Hintergrund 'BackGround2' freigeschaltet!",
-          priority: "low",
-          display_location: "banner"
-        });
-      }
-
-      // Monthly Quest Hintergrund (nur wenn tatsächlich completed)
-      const userMonthlyQuestsData = await Query.UserMonthlyQuest.filter({ auth_id: currentUser.id });
-      const hasCompleted = userMonthlyQuestsData.some(q => q.completed);
-      
-      if (hasCompleted && !currentUser.monthly_bg_unlocked) {
-        await updateCurrentUserProfile({ monthly_bg_unlocked: true });
-        await Query.UserNotification.create({
-          auth_id: currentUser.id,
-          user_email: currentUser.email,
-          notification_type: "custom",
-          title: "🎉 Hintergrund freigeschaltet!",
-          message: "Hintergrund 'BackGround4' freigeschaltet!",
-          priority: "low",
-          display_location: "banner"
-        });
-      }
-
-      // Quest 1 Hintergrund - nur wenn eingelöst (redeemed)
-      const userQuestsData = await Query.UserQuest.filter({ auth_id: currentUser.id });
-      const questsData = await Query.Quest.list();
-      const quest1 = questsData.find(q => q.quest_number === 1);
-      const userQuest1 = userQuestsData.find(uq => uq.quest_id === quest1?.id);
-      
-      if (userQuest1?.redeemed && !currentUser.gift_bg_unlocked) {
-        await updateCurrentUserProfile({ gift_bg_unlocked: true });
-        await Query.UserNotification.create({
-          auth_id: currentUser.id,
-          user_email: currentUser.email,
-          notification_type: "custom",
-          title: "🎁 Hintergrund freigeschaltet!",
-          message: "Hintergrund 'Colors' freigeschaltet!",
-          priority: "low",
-          display_location: "banner"
-        });
-      }
+      // Hinweis: Hintergrund-Belohnungen (Hintergründe) werden jetzt zentral
+      // über das Reward-System (Reward/UserReward + rewardUnlocker) gesteuert.
+      // Deshalb setzen wir hier keine Flags mehr im PublicProfile.
     } catch (error) {
       console.error("Fehler bei Hintergrund-Freischaltung:", error);
     }
@@ -647,10 +569,6 @@ export default function Scanner() {
     // Quest-Progress aktualisieren - inline statt über Helper
     await updateQuestProgress(plant);
 
-    // Hintergrund-Freischaltungen im Hintergrund prüfen (nicht-blockierend)
-    const isFirstScan = currentDiscoveries.length === 1;
-    checkBackgroundUnlocks(plant, isFirstScan).catch(err => console.error("Background unlock error:", err));
-
     // Prüfe und schalte Rewards frei
     const { checkAndUnlockRewards } = await import('../components/rewards/rewardUnlocker');
     await checkAndUnlockRewards(user);
@@ -748,12 +666,6 @@ export default function Scanner() {
 
       // Quest-Progress aktualisieren - inline statt über Helper
       await updateQuestProgress(newPlant);
-
-      // Hintergrund-Freischaltungen im Hintergrund prüfen (nicht-blockierend)
-      const currentUser = await getCurrentUser();
-      const myDiscoveries = await Query.UserPlantDiscovery.filter({ auth_id: currentUser.id });
-      const isFirstScan = myDiscoveries.length === 1;
-      checkBackgroundUnlocks(newPlant, isFirstScan).catch(err => console.error("Background unlock error:", err));
 
       // Prüfe und schalte Rewards frei
       const { checkAndUnlockRewards } = await import('../components/rewards/rewardUnlocker');
