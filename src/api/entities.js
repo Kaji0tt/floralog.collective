@@ -20,6 +20,34 @@ const handleMissingTable = (tableName, error) => {
   throw error;
 };
 
+const legacyIdTables = new Set([
+  'UserQuest',
+  'UserWeeklyQuest',
+  'UserMonthlyQuest',
+  'UserCollectionQuest'
+]);
+
+const generateLegacyHexId = () => {
+  try {
+    if (typeof crypto?.getRandomValues === 'function') {
+      const bytes = new Uint8Array(12);
+      crypto.getRandomValues(bytes);
+      return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+    }
+  } catch (error) {
+    console.warn('[Query] crypto.getRandomValues unavailable, falling back to Math.random()', error);
+  }
+  return Array.from({ length: 12 }, () => Math.floor(Math.random() * 256).toString(16).padStart(2, '0')).join('');
+};
+
+const prepareInsertPayload = (tableName, record) => {
+  if (!record) return record;
+  if (legacyIdTables.has(tableName) && !record.id) {
+    return { ...record, id: generateLegacyHexId() };
+  }
+  return record;
+};
+
 // Helper function to create entity queries
 function createEntity(tableName) {
   return {
@@ -48,12 +76,13 @@ function createEntity(tableName) {
       return data || [];
     },
     create: async (record) => {
+      const payload = prepareInsertPayload(tableName, record);
       const { data, error } = await supabase
         .from(tableName)
-        .insert([record])
+        .insert([payload])
         .select();
       if (error) throw error;
-      return data?.[0] || record;
+      return data?.[0] || payload;
     },
     update: async (id, record) => {
       const { data, error } = await supabase
