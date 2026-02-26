@@ -164,10 +164,10 @@ export default function QuestAutoAccepter({ user }) {
           questId: quest.id,
           questType: 'regular'
         });
+        return;
       } else {
         console.warn('[UserQuest] Insert regular skipped: already inserted on this page load.');
       }
-      return;
     }
 
     // 2. Weekly Quest automatisch annehmen
@@ -184,10 +184,10 @@ export default function QuestAutoAccepter({ user }) {
           questType: 'weekly',
           activeWeek: getWeekNumber()
         });
+        return;
       } else {
         console.warn('[UserQuest] Insert weekly skipped: already inserted on this page load.');
       }
-      return;
     }
 
     // 3. Monthly Quest automatisch annehmen
@@ -204,10 +204,10 @@ export default function QuestAutoAccepter({ user }) {
           questType: 'monthly',
           activeMonth: getMonthString()
         });
+        return;
       } else {
         console.warn('[UserQuest] Insert monthly skipped: already inserted on this page load.');
       }
-      return;
     }
 
     // 4. Collection Quests automatisch annehmen
@@ -225,10 +225,10 @@ export default function QuestAutoAccepter({ user }) {
           questId: quest.id,
           questType: 'collection'
         });
+        return;
       } else {
         console.warn('[UserQuest] Insert collection skipped: already inserted on this page load.');
       }
-      return;
     }
   }, [
     user,
