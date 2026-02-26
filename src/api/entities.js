@@ -1,6 +1,25 @@
 // Supabase-based entity access
 import { supabase } from './supabaseClient';
 
+// Treat optional tables (e.g. CollectionQuest) as empty rather than crashing
+const isMissingTableError = (error) => {
+  if (!error) return false;
+  const lowerMessage = (error.message || '').toLowerCase();
+  return error.code === 'PGRST201' ||
+    error.code === 'PGRST301' ||
+    error.code === '42P01' || // postgres undefined_table
+    lowerMessage.includes('does not exist') ||
+    lowerMessage.includes('not found');
+};
+
+const handleMissingTable = (tableName, error) => {
+  if (isMissingTableError(error)) {
+    console.warn(`[Query] Table ${tableName} not available yet. Returning empty result.`);
+    return [];
+  }
+  throw error;
+};
+
 // Helper function to create entity queries
 function createEntity(tableName) {
   return {
@@ -16,7 +35,7 @@ function createEntity(tableName) {
         query = query.limit(limit);
       }
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) return handleMissingTable(tableName, error);
       return data || [];
     },
     filter: async (filters) => {
@@ -25,7 +44,7 @@ function createEntity(tableName) {
         query = query.eq(key, value);
       }
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) return handleMissingTable(tableName, error);
       return data || [];
     },
     create: async (record) => {
