@@ -21,3 +21,9 @@ enabled = true
 verify_jwt = true
 import_map = "./functions/identifyPlant/deno.json"
 entrypoint = "./functions/identifyPlant/index.ts"
+
+[functions.grantRewards]
+enabled = true
+verify_jwt = true
+import_map = "./functions/grantRewards/deno.json"
+entrypoint = "./functions/grantRewards/index.ts"

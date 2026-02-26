@@ -26,7 +26,7 @@ const legacyIdTables = new Set([
   'UserMonthlyQuest',
   'UserCollectionQuest',
   'UserAchievement',
-  'UserReward',
+  'UserRewards',
   'UserNotification'
 ]);
 
@@ -143,7 +143,7 @@ const tables = [
   'News', 'Plant', 'PlantGenus', 'PublicProfile', 'Quest',
   'Referral', 'Reward', 'ScanLike', 'SharedScan', 'UserAchievement',
   'UserCollectionQuest', 'UserDailyQuest', 'UserMonthlyQuest',
-  'UserNotification', 'UserPlantDiscovery', 'UserQuest', 'UserReward',
+  'UserNotification', 'UserPlantDiscovery', 'UserQuest',
   'UserWeeklyQuest', 'WeeklyQuest'
 ];
 
@@ -155,6 +155,8 @@ tables.forEach(table => {
 // Manual mappings for tables where the runtime name differs
 // The SQL table is "public.Achievements" but the app uses Query.Achievement
 Query.Achievement = createEntity('Achievements');
+// The SQL table is "public.UserRewards" but the app uses Query.UserReward
+Query.UserReward = createEntity('UserRewards');
 
 export { Query };
 export const User = null; // Auth will be handled separately
