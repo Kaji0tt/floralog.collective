@@ -539,7 +539,7 @@ export default function Achievements() {
     const sortedQuests = [...weeklyQuests].sort((a, b) => a.quest_number - b.quest_number);
     const weekString = getWeekNumber();
     const weekNumber = parseInt(weekString.split('-W')[1]);
-    const index = weekNumber % sortedQuests.length;
+    const index = (weekNumber - 1) % sortedQuests.length;
     return sortedQuests[index];
   };
 
