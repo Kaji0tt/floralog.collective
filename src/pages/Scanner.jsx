@@ -471,8 +471,10 @@ export default function Scanner() {
 
       try {
         const response = await supabase.functions.invoke('identifyPlant', {
-          image_url: file_url,
-          organ: organ
+          body: {
+            image_url: file_url,
+            organ: organ
+          }
         });
 
         console.log("✅ Rohe Response:", response);

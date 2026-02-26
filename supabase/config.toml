@@ -15,3 +15,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/baseUserProxy/deno.json"
 entrypoint = "./functions/baseUserProxy/index.ts"
+
+[functions.identifyPlant]
+enabled = true
+verify_jwt = true
+import_map = "./functions/identifyPlant/deno.json"
+entrypoint = "./functions/identifyPlant/index.ts"
