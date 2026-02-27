@@ -383,7 +383,7 @@ export default function ScanResults({
               <Card className="shadow-2xl bg-gradient-to-br from-stone-100 to-stone-50 overflow-hidden border-none">
                 <CardContent className="p-4 md:p-6 space-y-3 bg-gradient-to-br from-green-50/40 via-emerald-50/30 to-teal-50/20">
                   {/* Container mit Rarität-Border für Titel und Bild */}
-                  <div className={`relative rounded-2xl p-4 ${getRarityBackgroundColor(rarity)}`} style={{ boxShadow: '8px 8px 24px rgba(0, 0, 0, 0.15)' }}>
+                  <div className={`relative rounded-2xl p-4 border-2 ${getRarityBorderColor(rarity)} ${getRarityBackgroundColor(rarity)}`} style={{ boxShadow: '8px 8px 24px rgba(0, 0, 0, 0.15)' }}>
                     {/* Namen linksbündig mit Rarität Badge rechts */}
                     <div className="mb-4 flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
@@ -435,7 +435,7 @@ export default function ScanResults({
                         <img
                           src={imageUrl}
                           alt={currentPlant.species_name}
-                          className={`w-full aspect-square object-cover rounded-xl shadow-[inset_0_0_30px_rgba(0,0,0,0.4)] border-2 ${getRarityBorderColor(rarity)}`} />
+                          className="w-full aspect-square object-cover rounded-xl shadow-[inset_0_0_20px_rgba(0,0,0,0.35)] border border-white/70" />
                         </>
                         }
                         </div>
