@@ -141,7 +141,7 @@ const tables = [
   'Classroom', 'ClassroomMember', 'ClassroomQuest',
   'CollectionQuest', 'DailyQuest', 'Friend', 'MonthlyQuest',
   'News', 'Plant', 'PlantGenus', 'PublicProfile', 'Quest',
-  'Referral', 'Reward', 'ScanLike', 'SharedScan', 'UserAchievement',
+  'Referral', 'Rewards', 'ScanLike', 'SharedScan', 'UserAchievement',
   'UserCollectionQuest', 'UserDailyQuest', 'UserMonthlyQuest',
   'UserNotification', 'UserPlantDiscovery', 'UserQuest',
   'UserWeeklyQuest', 'WeeklyQuest'
@@ -157,6 +157,8 @@ tables.forEach(table => {
 Query.Achievement = createEntity('Achievements');
 // The SQL table is "public.UserRewards" but the app uses Query.UserReward
 Query.UserReward = createEntity('UserRewards');
+// The SQL table is "public.Rewards" but the app uses Query.Reward
+Query.Reward = createEntity('Rewards');
 
 export { Query };
 export const User = null; // Auth will be handled separately

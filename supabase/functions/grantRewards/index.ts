@@ -180,7 +180,7 @@ Deno.serve(async (req) => {
       monthlyQuestsRes,
       referralsRes,
     ] = await Promise.all([
-      adminClient.from("Reward").select("*"),
+      adminClient.from("Rewards").select("*"),
       adminClient.from("UserRewards").select("reward_id").eq("auth_id", authId),
       adminClient.from("UserQuest").select("quest_id, redeemed").eq("auth_id", authId),
       adminClient
