@@ -12,7 +12,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { motion, AnimatePresence } from "framer-motion";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
-import { useNavigate } from "react-router-dom";
+import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
+import { useNavigate, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 
@@ -24,6 +25,7 @@ const LOGO_URL = "";
 
 export default function Home() {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -39,6 +41,8 @@ export default function Home() {
   const [showScannerHighlight, setShowScannerHighlight] = useState(false);
   const [showBackgroundHighlight, setShowBackgroundHighlight] = useState(false);
   const [showAchievementsHighlight, setShowAchievementsHighlight] = useState(false);
+
+  const [scanFeedback, setScanFeedback] = useState(null);
 
   // Migration states
   const [isMigrating, setIsMigrating] = useState(false);
@@ -255,6 +259,12 @@ export default function Home() {
       window.removeEventListener('userUpdated', handleUserUpdate);
     };
   }, []);
+
+  useEffect(() => {
+    if (location.state && location.state.scanFeedback) {
+      setScanFeedback(location.state.scanFeedback);
+    }
+  }, [location.state]);
 
   // Auto-execute migration if pending (user came from SetPassword page)
   useEffect(() => {
@@ -792,6 +802,15 @@ export default function Home() {
           />
         )}
       </AnimatePresence>
+
+        <AnimatePresence>
+          {scanFeedback && (
+            <ScanFeedbackNotification
+              feedback={scanFeedback}
+              onComplete={() => setScanFeedback(null)}
+            />
+          )}
+        </AnimatePresence>
 
       <div className="max-w-4xl mx-auto flex flex-col flex-1 min-h-0">
         <Dialog open={showBackgroundSelector} onOpenChange={setShowBackgroundSelector}>

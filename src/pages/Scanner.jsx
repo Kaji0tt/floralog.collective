@@ -589,11 +589,13 @@ export default function Scanner() {
     });
 
     // Aktualisiere auch allScanResults mit discovered-Status
-    setAllScanResults(prevResults => prevResults.map((result, index) => 
+    setAllScanResults(prevResults => prevResults.map((result, index) =>
       index === 0 ? { ...result, discovered: alreadyDiscovered } : result
     ));
 
     setScanning(false);
+
+    return { alreadyDiscovered };
   };
 
   const handleAutoAddNewPlant = async (plantData, imageUrl, allResults = []) => {
@@ -690,6 +692,8 @@ export default function Scanner() {
         isNewToFloralog: true
       });
       setScanning(false);
+
+      return { newPlant };
     } catch (error) {
       console.error("Fehler beim Hinzufügen der Pflanze:", error);
       setScanning(false);
@@ -738,20 +742,32 @@ export default function Scanner() {
 
       if (selectedPlant.inDatabase) {
         // Pflanze existiert bereits im Floralog
-        await handleAutoSave(
+        const { alreadyDiscovered } = await handleAutoSave(
           selectedPlant,
           imageUrl,
           selectedPlant.aiData || plant?.aiData,
           allResults
         );
+
+        setShowConfirmDialog(false);
+        setPendingScanData(null);
+
+        navigate(createPageUrl("Home"), {
+          state: {
+            scanFeedback: {
+              type: alreadyDiscovered ? "rescanned" : "newDiscovery",
+              plantName: selectedPlant.species_name
+            }
+          }
+        });
       } else {
         // Neue Pflanze für das globale Floralog
         await handleAutoAddNewPlant(selectedPlant, imageUrl, allResults);
         setShowGlobalFloralogModal(true);
-      }
 
-      setShowConfirmDialog(false);
-      setPendingScanData(null);
+        setShowConfirmDialog(false);
+        setPendingScanData(null);
+      }
     } catch (error) {
       console.error("Fehler beim Bestätigen des Speicherns:", error);
       alert("Fehler beim Speichern der Pflanze. Bitte versuche es erneut.");
@@ -915,7 +931,14 @@ export default function Scanner() {
       <Dialog open={showGlobalFloralogModal} onOpenChange={(open) => {
         if (!open) {
           setShowGlobalFloralogModal(false);
-          navigate(createPageUrl("Home"));
+          navigate(createPageUrl("Home"), {
+            state: {
+              scanFeedback: {
+                type: "globalNewPlant",
+                plantName: newPlantName
+              }
+            }
+          });
         }
       }}>
         <DialogContent className="sm:max-w-md">
@@ -940,7 +963,14 @@ export default function Scanner() {
             <Button 
               onClick={() => {
                 setShowGlobalFloralogModal(false);
-                navigate(createPageUrl("Home"));
+                navigate(createPageUrl("Home"), {
+                  state: {
+                    scanFeedback: {
+                      type: "globalNewPlant",
+                      plantName: newPlantName
+                    }
+                  }
+                });
               }}
               className="w-full bg-green-600 hover:bg-green-700"
             >

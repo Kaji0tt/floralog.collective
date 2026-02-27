@@ -111,10 +111,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const serviceUrl = Deno.env.get("FLORALOG_URL") || Deno.env.get("SUPABASE_URL");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY");
 
-    if (!serviceUrl || !serviceRoleKey) {
+    if (!supabaseUrl || !serviceRoleKey) {
       console.error("[grantRewards] Missing service env vars");
       return new Response(
         JSON.stringify({ error: "Supabase service not configured" }),
@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const adminClient = createClient(serviceUrl, serviceRoleKey, {
+    const adminClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false },
     });
 
