@@ -179,6 +179,7 @@ Deno.serve(async (req) => {
     const { data: insertedPlant, error: insertPlantError } = await adminClient
       .from("Plant")
       .insert({
+        id: generateLegacyHexId(),
         genus_category: genus.category,
         genus_number: genus.category_dex_number,
         species_name: displayName,

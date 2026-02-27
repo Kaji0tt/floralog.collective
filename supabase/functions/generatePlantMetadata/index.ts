@@ -57,14 +57,17 @@ Deno.serve(async (req) => {
     const sciName = scientific_name || "unbekannter wissenschaftlicher Name";
 
     const prompt = `Pflanze: "${commonName}"
-Wissenschaftlicher Name: "${sciName}"
-Sprache: ${language}
+  Wissenschaftlicher Name: "${sciName}"
+  Sprache: ${language}
 
-Erzeuge:
-- description (2–3 Sätze)
-- identification_features (3–5 Stichpunkte)
-- fun_fact (1 Satz)
-- rarity (eins der Wörter: "Häufig", "Gelegentlich", "Selten", "Sehr selten")`;
+  Erzeuge eine kurze JSON-Antwort mit folgendem Schema.
+  Halte alle Texte insgesamt unter 150 Wörtern.
+
+  Felder:
+  - description: 2–3 sehr kurze Sätze.
+  - identification_features: 2-3 Sätze zu den wichtigsten Erkennungsmerkmalen.
+  - fun_fact: genau 1 kurzer Satz.
+  - rarity: genau eines der Wörter "Häufig", "Gelegentlich", "Selten", "Sehr selten".`;
 
     let llmResult: LlmResponse | null = null;
 
@@ -79,8 +82,6 @@ Erzeuge:
         },
         body: JSON.stringify({
           model: "gpt-5-mini",
-          temperature: 0.4,
-          max_output_tokens: 500,
           input: [
             {
               role: "system",
@@ -91,12 +92,14 @@ Erzeuge:
               content: prompt,
             },
           ],
-          response_format: {
-            type: "json_schema",
-            json_schema: {
+          text: {
+            format: {
+              type: "json_schema",
               name: "plant_metadata",
+              strict: true,
               schema: {
                 type: "object",
+                additionalProperties: false,
                 properties: {
                   description: { type: "string" },
                   identification_features: {
@@ -123,9 +126,45 @@ Erzeuge:
       }
 
       const openAiJson = await openAiResponse.json();
-      llmResult = openAiJson?.output_parsed as LlmResponse | null;
+      console.log("[generatePlantMetadata] Raw OpenAI response (truncated):", JSON.stringify(openAiJson).slice(0, 500));
 
-      if (!llmResult || !llmResult.description || !llmResult.identification_features || !llmResult.fun_fact || !llmResult.rarity) {
+      // Prefer the SDK-like helper shape if present
+      const helperParsed = (openAiJson as any).output_parsed as LlmResponse | undefined;
+
+      if (helperParsed &&
+        helperParsed.description &&
+        Array.isArray(helperParsed.identification_features) &&
+        helperParsed.fun_fact &&
+        helperParsed.rarity) {
+        llmResult = helperParsed;
+      } else {
+        // Fallback: extract JSON text from the first message item and parse manually
+        try {
+          const outputItems = (openAiJson as any).output as any[] | undefined;
+          const messageItem = outputItems?.find((item) => item.type === "message");
+          const contentArray = messageItem?.content as any[] | undefined;
+          const textContent = contentArray?.find((c) => c.type === "output_text");
+          const text = textContent?.text as string | undefined;
+
+          if (text) {
+            const parsed = JSON.parse(text) as LlmResponse;
+            if (
+              parsed &&
+              parsed.description &&
+              Array.isArray(parsed.identification_features) &&
+              parsed.fun_fact &&
+              parsed.rarity
+            ) {
+              llmResult = parsed;
+            }
+          }
+        } catch (parseError) {
+          console.error("[generatePlantMetadata] Failed to parse JSON from output_text:", parseError);
+        }
+      }
+
+      if (!llmResult) {
+        console.error("[generatePlantMetadata] Incomplete LLM result payload:", JSON.stringify(openAiJson).slice(0, 500));
         throw new Error("Incomplete LLM result");
       }
     } catch (llmError) {

@@ -682,11 +682,11 @@ export default function Scanner() {
 
       // Prüfe und schalte Rewards frei
       const { checkAndUnlockRewards } = await import('../components/rewards/rewardUnlocker');
-      await checkAndUnlockRewards(currentUser);
+      await checkAndUnlockRewards(user);
 
       // Prüfe zufällige Rewards
       const { checkRandomRewards } = await import('../components/rewards/randomRewardChecker');
-      await checkRandomRewards(currentUser, 'scan');
+      await checkRandomRewards(user, 'scan');
 
       // Vibration: 3x kurz für neuen Floralog-Eintrag
       if (navigator.vibrate) {
