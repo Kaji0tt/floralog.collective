@@ -194,9 +194,9 @@ export default function ScanResults({
 
   const getRarityBorderColor = (rarity) => {
     switch (rarity) {
-      case "Häufig":return "border-gray-500";
-      case "Gelegentlich":return "border-green-500";
-      case "Selten":return "border-purple-500";
+      case "Häufig":return "border-gray-300";
+      case "Gelegentlich":return "border-green-300";
+      case "Selten":return "border-purple-300";
       case "Sehr Selten":return "border-orange-500";
       case "Extrem Selten":return "border-red-500";
       default:return "border-gray-500";
@@ -216,10 +216,12 @@ export default function ScanResults({
 
   const getRaritySymbol = (rarity) => {
     switch (rarity) {
-      case "Häufig":return "●";
-      case "Gelegentlich":return "▲";
-      case "Selten":return "★";
-      default:return "●";
+      case "Häufig":return "🌿";
+      case "Gelegentlich":return "🌼";
+      case "Selten":return "🌸";
+      case "Sehr Selten":return "💎";
+      case "Extrem Selten":return "🌟";
+      default:return "🌿";
     }
   };
 
@@ -416,9 +418,11 @@ export default function ScanResults({
                             <TooltipContent className="bg-white border-2 border-stone-200 shadow-lg p-3">
                               <div className="space-y-1 text-sm text-stone-900">
                                 <div className="font-bold mb-2">Raritäten:</div>
-                                <div className="flex items-center gap-2"><span className="text-xl">●</span> Häufig</div>
-                                <div className="flex items-center gap-2"><span className="text-xl">▲</span> Gelegentlich</div>
-                                <div className="flex items-center gap-2"><span className="text-xl">★</span> Selten</div>
+                                <div className="flex items-center gap-2"><span className="text-xl">🌿</span> Häufig</div>
+                                <div className="flex items-center gap-2"><span className="text-xl">🌼</span> Gelegentlich</div>
+                                <div className="flex items-center gap-2"><span className="text-xl">🌸</span> Selten</div>
+                                <div className="flex items-center gap-2"><span className="text-xl">💎</span> Sehr Selten</div>
+                                <div className="flex items-center gap-2"><span className="text-xl">🌟</span> Extrem Selten</div>
                               </div>
                             </TooltipContent>
                           </Tooltip>
