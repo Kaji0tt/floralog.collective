@@ -1,5 +1,3 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -9,7 +7,7 @@ const corsHeaders = {
 console.log("[generatePlantMetadata] Function loaded successfully");
 
 type GeneratePlantMetadataBody = {
-  plant_id: string;
+  plant_id?: string | null;
   species_name: string | null;
   scientific_name: string | null;
   language?: string | null;
@@ -19,6 +17,7 @@ type LlmResponse = {
   description: string;
   identification_features: string[];
   fun_fact: string;
+  rarity: string;
 };
 
 Deno.serve(async (req) => {
@@ -38,17 +37,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY");
     const openAiKey = Deno.env.get("OPENAI_API_KEY");
-
-    if (!supabaseUrl || !serviceRoleKey) {
-      console.error("[generatePlantMetadata] Missing Supabase service env vars");
-      return new Response(
-        JSON.stringify({ error: "Supabase service not configured" }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
-      );
-    }
 
     if (!openAiKey) {
       console.error("[generatePlantMetadata] Missing OPENAI_API_KEY env var");
@@ -58,22 +47,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    const adminClient = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { persistSession: false },
-    });
-
     const body = (await req.json()) as GeneratePlantMetadataBody;
-    const { plant_id, species_name, scientific_name } = body;
+    const { species_name, scientific_name } = body;
     const language = body.language || "de";
 
-    if (!plant_id) {
-      return new Response(
-        JSON.stringify({ error: "plant_id is required" }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } },
-      );
-    }
-
-    console.log("[generatePlantMetadata] Generating metadata for plant:", plant_id, species_name, scientific_name);
+    console.log("[generatePlantMetadata] Generating metadata for plant name:", species_name, scientific_name);
 
     const commonName = species_name || "unbekannter Name";
     const sciName = scientific_name || "unbekannter wissenschaftlicher Name";
@@ -85,7 +63,8 @@ Sprache: ${language}
 Erzeuge:
 - description (2–3 Sätze)
 - identification_features (3–5 Stichpunkte)
-- fun_fact (1 Satz)`;
+- fun_fact (1 Satz)
+- rarity (eins der Wörter: "Häufig", "Gelegentlich", "Selten", "Sehr selten")`;
 
     let llmResult: LlmResponse | null = null;
 
@@ -125,8 +104,12 @@ Erzeuge:
                     items: { type: "string" },
                   },
                   fun_fact: { type: "string" },
+                  rarity: {
+                    type: "string",
+                    enum: ["Häufig", "Gelegentlich", "Selten", "Sehr selten"],
+                  },
                 },
-                required: ["description", "identification_features", "fun_fact"],
+                required: ["description", "identification_features", "fun_fact", "rarity"],
               },
             },
           },
@@ -142,7 +125,7 @@ Erzeuge:
       const openAiJson = await openAiResponse.json();
       llmResult = openAiJson?.output_parsed as LlmResponse | null;
 
-      if (!llmResult || !llmResult.description || !llmResult.identification_features || !llmResult.fun_fact) {
+      if (!llmResult || !llmResult.description || !llmResult.identification_features || !llmResult.fun_fact || !llmResult.rarity) {
         throw new Error("Incomplete LLM result");
       }
     } catch (llmError) {
@@ -152,34 +135,15 @@ Erzeuge:
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
       );
     }
-
-    console.log("[generatePlantMetadata] LLM result received, updating Plant row...");
-
-    const identificationFeaturesText = Array.isArray(llmResult.identification_features)
-      ? llmResult.identification_features.join("\n- ")
-      : String(llmResult.identification_features);
-
-    const { error: updateError } = await adminClient
-      .from("Plant")
-      .update({
-        description: llmResult.description,
-        identification_features: `- ${identificationFeaturesText}`,
-        fun_fact: llmResult.fun_fact,
-      })
-      .eq("id", plant_id);
-
-    if (updateError) {
-      console.error("[generatePlantMetadata] Failed to update Plant row:", updateError);
-      return new Response(
-        JSON.stringify({ error: "Update failed" }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
-      );
-    }
-
-    console.log("[generatePlantMetadata] Metadata successfully updated for plant", plant_id);
+    console.log("[generatePlantMetadata] LLM result received, returning metadata preview...");
 
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({
+        description: llmResult.description,
+        identification_features: llmResult.identification_features,
+        fun_fact: llmResult.fun_fact,
+        rarity: llmResult.rarity,
+      }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
     );
   } catch (error) {

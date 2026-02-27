@@ -469,7 +469,37 @@ export default function Scanner() {
                 if (plantData.is_european === false) {
                   return { ...plantData, notInDex: true, is_european: false, inDatabase: false };
                 }
+                // Für neue europäische Pflanzen: Metadaten (Beschreibung, Merkmale, Fun Fact, Seltenheit) per LLM erzeugen
+                try {
+                  const { data, error } = await supabase.functions.invoke('generatePlantMetadata', {
+                    body: {
+                      species_name: plantData.species_name,
+                      scientific_name: plantData.scientific_name,
+                      language: 'de'
+                    }
+                  });
 
+                  if (!error && data) {
+                    const meta = data;
+                    const identificationText = Array.isArray(meta.identification_features)
+                      ? meta.identification_features.join('\n- ')
+                      : meta.identification_features;
+
+                    return {
+                      ...plantData,
+                      description: meta.description,
+                      identification_features: `- ${identificationText}`,
+                      fun_fact: meta.fun_fact,
+                      rarity: meta.rarity || plantData.rarity || 'Gelegentlich',
+                      notInDex: true,
+                      inDatabase: false
+                    };
+                  }
+                } catch (e) {
+                  console.error('Fehler beim Generieren der Vorschau-Metadaten:', e);
+                }
+
+                // Fallback: ohne Metadaten zurückgeben, falls LLM fehlschlägt
                 return { ...plantData, notInDex: true, inDatabase: false };
               }
             })
@@ -637,20 +667,6 @@ export default function Scanner() {
       }
 
       setLatestDiscoveryId(newDiscoveryId);
-
-      // Asynchron Metadaten für die neue Pflanze erzeugen lassen (LLM)
-      try {
-        await supabase.functions.invoke('generatePlantMetadata', {
-          body: {
-            plant_id: newPlant.id,
-            species_name: newPlant.species_name,
-            scientific_name: newPlant.scientific_name,
-            language: 'de'
-          }
-        });
-      } catch (e) {
-        console.error("Fehler beim Generieren der Pflanzentexte:", e);
-      }
 
       queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
       queryClient.invalidateQueries({ queryKey: ['plants'] });

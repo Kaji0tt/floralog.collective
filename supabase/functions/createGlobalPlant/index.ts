@@ -25,6 +25,24 @@ type CreateGlobalPlantBody = {
   discovery_location?: string | null;
 };
 
+function generateLegacyHexId(): string {
+  try {
+    if (typeof crypto?.getRandomValues === "function") {
+      const bytes = new Uint8Array(12);
+      crypto.getRandomValues(bytes);
+      return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    }
+  } catch (error) {
+    console.warn("[createGlobalPlant] crypto.getRandomValues unavailable, falling back to Math.random()", error);
+  }
+
+  return Array.from({ length: 12 }, () =>
+    Math.floor(Math.random() * 256)
+      .toString(16)
+      .padStart(2, "0"),
+  ).join("");
+}
+
 function getAccessTokenFromAuthHeader(header: string | null): string | null {
   if (!header) return null;
   const parts = header.split(" ");
@@ -133,6 +151,7 @@ Deno.serve(async (req) => {
       const { data: insertedGenus, error: insertGenusError } = await adminClient
         .from("PlantGenus")
         .insert({
+          id: generateLegacyHexId(),
           category_dex_number: nextCategoryDexNumber,
           genus_name: plant.genus_name,
           scientific_genus: plant.scientific_genus,
