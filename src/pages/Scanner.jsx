@@ -605,57 +605,52 @@ export default function Scanner() {
     }
 
     try {
-      let genus = genera.find((g) =>
-      g.genus_name?.toLowerCase() === plantData.genus_name?.toLowerCase() ||
-      g.scientific_genus?.toLowerCase() === plantData.scientific_genus?.toLowerCase()
-      );
+      const { data, error } = await supabase.functions.invoke('createGlobalPlant', {
+        body: {
+          plant: {
+            species_name: plantData.species_name,
+            scientific_name: plantData.scientific_name,
+            genus_name: plantData.genus_name,
+            scientific_genus: plantData.scientific_genus,
+            category: plantData.category,
+            family: plantData.family,
+            description: plantData.description,
+            identification_features: plantData.identification_features,
+            fun_fact: plantData.fun_fact,
+            rarity: plantData.rarity || "Gelegentlich"
+          },
+          image_url: imageUrl,
+          discovery_location: locationString
+        }
+      });
 
-      if (!genus) {
-        // Lade frische Genera-Daten direkt von der DB
-        const allGenera = await Query.PlantGenus.list();
-
-        const categoryGenera = allGenera.filter((g) =>
-        g.category === plantData.category ||
-        plantData.category === "Blumen" && g.category === "Blumen & Kräuter"
-        );
-
-        // Berechne die nächste Nummer: Anzahl aller Gattungen in dieser Kategorie + 1
-        const nextCategoryDexNumber = categoryGenera.length + 1;
-
-        genus = await createGenusMutation.mutateAsync({
-          category_dex_number: nextCategoryDexNumber,
-          genus_name: plantData.genus_name,
-          scientific_genus: plantData.scientific_genus,
-          category: plantData.category,
-          family: plantData.family,
-          description: `Gattung der ${plantData.category}`
-        });
+      if (error) {
+        console.error("Fehler beim Aufruf von createGlobalPlant:", error);
+        throw error;
       }
 
-      const displayName = plantData.species_name;
+      const newPlant = data?.newPlant;
+      const newDiscoveryId = data?.newDiscoveryId;
 
-      const newPlant = await createPlantMutation.mutateAsync({
-        genus_category: genus.category,
-        genus_number: genus.category_dex_number,
-        species_name: displayName,
-        scientific_name: plantData.scientific_name,
-        description: plantData.description,
-        identification_features: plantData.identification_features,
-        fun_fact: plantData.fun_fact,
-        rarity: plantData.rarity || "Gelegentlich"
-      });
+      if (!newPlant || !newDiscoveryId) {
+        throw new Error("Unerwartete Antwort von createGlobalPlant");
+      }
 
-      const newDiscovery = await Query.UserPlantDiscovery.create({
-        auth_id: user.id,
-        created_by: user.email,
-        plant_id: newPlant.id,
-        discovered_date: new Date().toISOString(),
-        discovery_location: locationString,
-        discovery_notes: "",
-        image_url: imageUrl
-      });
+      setLatestDiscoveryId(newDiscoveryId);
 
-      setLatestDiscoveryId(newDiscovery.id);
+      // Asynchron Metadaten für die neue Pflanze erzeugen lassen (LLM)
+      try {
+        await supabase.functions.invoke('generatePlantMetadata', {
+          body: {
+            plant_id: newPlant.id,
+            species_name: newPlant.species_name,
+            scientific_name: newPlant.scientific_name,
+            language: 'de'
+          }
+        });
+      } catch (e) {
+        console.error("Fehler beim Generieren der Pflanzentexte:", e);
+      }
 
       queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
       queryClient.invalidateQueries({ queryKey: ['plants'] });
@@ -697,6 +692,7 @@ export default function Scanner() {
     } catch (error) {
       console.error("Fehler beim Hinzufügen der Pflanze:", error);
       setScanning(false);
+      throw error;
     }
   };
 
@@ -762,11 +758,21 @@ export default function Scanner() {
         });
       } else {
         // Neue Pflanze für das globale Floralog
-        await handleAutoAddNewPlant(selectedPlant, imageUrl, allResults);
-        setShowGlobalFloralogModal(true);
+        try {
+          const result = await handleAutoAddNewPlant(selectedPlant, imageUrl, allResults);
 
-        setShowConfirmDialog(false);
-        setPendingScanData(null);
+          if (result?.newPlant) {
+            setShowGlobalFloralogModal(true);
+
+            setShowConfirmDialog(false);
+            setPendingScanData(null);
+          } else {
+            alert("Die Pflanze konnte nicht zum globalen Floralog hinzugefügt werden. Bitte versuche es später erneut.");
+          }
+        } catch (error) {
+          console.error("Fehler beim automatischen Hinzufügen zum Floralog:", error);
+          alert("Die Pflanze konnte nicht zum globalen Floralog hinzugefügt werden. Bitte versuche es später erneut.");
+        }
       }
     } catch (error) {
       console.error("Fehler beim Bestätigen des Speicherns:", error);
