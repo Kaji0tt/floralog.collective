@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 
 export default function ScanFeedbackNotification({ feedback, onComplete }) {
@@ -54,6 +54,30 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
     animationVariant = "globalNewPlant";
   }
 
+  // Emoji-Startpositionen einmal pro Mount berechnen, damit sie "zufällig" wirken,
+  // aber nicht bei jedem Re-Render springen
+  const emojiPositions = useMemo(() => {
+    return emojiSet.map((_, index) => {
+      // Basiswinkel um die Karte herum
+      const baseAngle = (index / emojiSet.length) * Math.PI * 2;
+      // Leichte zufällige Abweichung je Emoji
+      const jitter = (Math.random() - 0.5) * (Math.PI / 6);
+      const angle = baseAngle + jitter;
+
+      // Radius knapp außerhalb der Kachel
+      const radius = 80;
+      const x = Math.cos(angle) * radius;
+
+      // Start eher im unteren Bereich rund um die Karte
+      const y = Math.sin(angle) * radius + 10;
+
+      // Ziel: ein Stück weiter oben (Floating-Effekt von unten nach oben)
+      const targetY = y - 35;
+
+      return { x, y, targetY };
+    });
+  }, [emojiSet.length]);
+
   const variants = {
     rescanned: {
       initial: { opacity: 0, scale: 0.9 },
@@ -93,33 +117,38 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
           <h3 className="text-lg font-bold text-stone-900 mb-1">{title}</h3>
           <p className="text-sm text-stone-700">{message}</p>
         </div>
-
         {emojiSet.map((emoji, index) => {
-          const angle = (index / emojiSet.length) * Math.PI * 2;
-          const radius = 60;
-          const x = Math.cos(angle) * radius;
-          const y = Math.sin(angle) * radius;
+          const { x, y, targetY } = emojiPositions[index] || { x: 0, y: 40, targetY: 5 };
 
           let delayBase = 0.12;
           if (animationVariant === "newDiscovery") delayBase = 0.08;
           if (animationVariant === "globalNewPlant") delayBase = 0.05;
 
+          // Scale-Kurve je Typ
+          let scaleKeyframes = [0, 1.05, 0.85, 0];
+          if (animationVariant === "rescanned") {
+            scaleKeyframes = [0, 0.95, 0.85, 0];
+          } else if (animationVariant === "globalNewPlant") {
+            scaleKeyframes = [0, 1.3, 0.9, 0];
+          }
+
           return (
             <motion.div
               key={`${emoji}-${index}`}
-              initial={{ opacity: 0, scale: 0, x: 0, y: 0 }}
+              initial={{ opacity: 0, scale: 0, x, y }}
               animate={{
                 opacity: [0, 1, 1, 0],
-                scale: [0, 1.1, 1, 0.9],
-                x: [0, x * 0.6, x],
-                y: [0, y * 0.6, y]
+                scale: scaleKeyframes,
+                x,
+                y: [y, (y + targetY) / 2, targetY]
               }}
               transition={{
-                duration: animationVariant === "rescanned" ? 0.8 : 1.1,
-                delay: delayBase + index * 0.05,
+                duration: animationVariant === "rescanned" ? 0.7 : 1.0,
+                delay: delayBase + index * 0.06,
                 ease: "easeOut"
               }}
               className="absolute inset-0 flex items-center justify-center text-xl select-none"
+              style={{ transformOrigin: "center" }}
             >
               <span>{emoji}</span>
             </motion.div>
