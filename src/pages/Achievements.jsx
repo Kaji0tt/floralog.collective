@@ -16,6 +16,7 @@ import MobileBackButton from "../components/navigation/MobileBackButton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { AnimatePresence } from "framer-motion";
+import { getWeekNumber, getMonthString, getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
 
 const getAverageColor = (imageUrl) => {
   return new Promise((resolve) => {
@@ -518,38 +519,9 @@ export default function Achievements() {
     return getRarityValue(a.rarity) - getRarityValue(b.rarity);
   });
 
-  // Helper für aktuelle Woche/Monat
-  const getWeekNumber = (date = new Date()) => {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    const weekNo = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
-    return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
-  };
+  const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
 
-  const getMonthString = (date = new Date()) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    return `${year}-${month}`;
-  };
-
-  const getCurrentWeeklyQuest = () => {
-    if (!weeklyQuests || weeklyQuests.length === 0) return null;
-    const sortedQuests = [...weeklyQuests].sort((a, b) => a.quest_number - b.quest_number);
-    const weekString = getWeekNumber();
-    const weekNumber = parseInt(weekString.split('-W')[1]);
-    const index = (weekNumber - 1) % sortedQuests.length;
-    return sortedQuests[index];
-  };
-
-  const getCurrentMonthlyQuest = () => {
-    if (!monthlyQuests || monthlyQuests.length === 0) return null;
-    const sortedQuests = [...monthlyQuests].sort((a, b) => a.quest_number - b.quest_number);
-    const month = new Date().getMonth() + 1;
-    const index = (month - 1) % sortedQuests.length;
-    return sortedQuests[index];
-  };
+  const currentMonthlyQuest = getCurrentMonthlyQuest(monthlyQuests);
 
   // Reguläre Quests (angenommen & nicht eingelöst)
   const activeRegularQuests = quests.
@@ -602,7 +574,6 @@ export default function Achievements() {
   });
 
   // Wöchentliche Quest
-  const currentWeeklyQuest = getCurrentWeeklyQuest();
   const currentWeeklyUserQuest = currentWeeklyQuest ?
   userWeeklyQuests.find((uwq) => uwq.weekly_quest_id === currentWeeklyQuest.id) :
   null;
@@ -622,7 +593,6 @@ export default function Achievements() {
   null;
 
   // Monatliche Quest
-  const currentMonthlyQuest = getCurrentMonthlyQuest();
   const currentMonthlyUserQuest = currentMonthlyQuest ?
   userMonthlyQuests.find((umq) => umq.monthly_quest_id === currentMonthlyQuest.id) :
   null;

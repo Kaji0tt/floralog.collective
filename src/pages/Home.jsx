@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Edit2, CheckCircle, X, Scroll, AlertCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { getWeekNumber, getMonthString, getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
 
 const LOGO_URL = "";
 
@@ -508,40 +509,8 @@ export default function Home() {
     return genusPlants.some(p => userDiscoveries.some(d => d.plant_id === p.id));
   }).length;
 
-  const getWeekNumber = (date = new Date()) => {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-    return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
-  };
-
-  const getMonthString = (date = new Date()) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    return `${year}-${month}`;
-  };
-
-  const getCurrentWeeklyQuest = () => {
-    if (!weeklyQuests || weeklyQuests.length === 0) return null;
-    const sortedQuests = [...weeklyQuests].sort((a, b) => a.quest_number - b.quest_number);
-    const weekString = getWeekNumber();
-    const weekNumber = parseInt(weekString.split('-W')[1]);
-    const index = weekNumber % sortedQuests.length;
-    return sortedQuests[index];
-  };
-
-  const getCurrentMonthlyQuest = () => {
-    if (!monthlyQuests || monthlyQuests.length === 0) return null;
-    const sortedQuests = [...monthlyQuests].sort((a, b) => a.quest_number - b.quest_number);
-    const month = new Date().getMonth() + 1;
-    const index = (month - 1) % sortedQuests.length;
-    return sortedQuests[index];
-  };
-
-  const currentWeeklyQuest = getCurrentWeeklyQuest();
-  const currentMonthlyQuest = getCurrentMonthlyQuest();
+  const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
+  const currentMonthlyQuest = getCurrentMonthlyQuest(monthlyQuests);
 
   // Quest Status berechnen
   const activeRegularQuests = quests
