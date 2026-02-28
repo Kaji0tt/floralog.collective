@@ -236,9 +236,7 @@ export default function FriendProfile() {
     },
   });
 
-  const favoritePlant = friendUser?.favorite_plant_id 
-    ? plants.find(p => p.id === friendUser.favorite_plant_id)
-    : null;
+  // Lieblingsscan-/Lieblingspflanzen-Anzeige wurde aus dem Spiel entfernt
 
   useEffect(() => {
     if (friendUser?.background_image_url) {
@@ -446,28 +444,6 @@ export default function FriendProfile() {
                         {friendUser.selected_title || friendUser.title || "Pflanzen-Anfänger"}
                       </span>
                     </div>
-
-                    {favoritePlant && (() => {
-                      const genus = genera.find(g => 
-                        g.category === favoritePlant.genus_category && 
-                        g.category_dex_number === favoritePlant.genus_number
-                      );
-                      return genus ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(createPageUrl(`GenusDetail?id=${genus.id}&email=${friendEmail}`));
-                          }}
-                          className="mt-3 flex items-center gap-2 p-2 bg-white/40 rounded-lg border border-white/30 hover:bg-white/60 transition-colors w-full"
-                        >
-                          <Heart className="w-4 h-4 text-red-500 fill-red-500" />
-                          <div className="flex-1 text-left">
-                            <p className="text-sm font-bold text-stone-900">{favoritePlant.species_name}</p>
-                            <p className="text-xs italic text-stone-600">{favoritePlant.scientific_name}</p>
-                          </div>
-                        </button>
-                      ) : null;
-                    })()}
                   </div>
                 </div>
                 <div className="grid grid-cols-4 gap-3 mb-4">

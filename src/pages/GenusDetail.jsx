@@ -170,55 +170,7 @@ export default function GenusDetail() {
     },
   });
 
-  const setFavoriteMutation = useMutation({
-    mutationFn: async ({ discoveryId, plantId }) => {
-      // Alle Discoveries dieser Art auf false setzen
-      const speciesDiscoveries = userDiscoveries.filter(d => d.plant_id === plantId);
-      await Promise.all(
-        speciesDiscoveries.map(d => 
-          Query.UserPlantDiscovery.update(d.id, { is_species_front_image: false })
-        )
-      );
-      
-      // Alle Discoveries der gesamten Gattung auf false setzen
-      const genusDiscoveries = userDiscoveries.filter(d => {
-        const plant = plants.find(p => p.id === d.plant_id);
-        return plant && selectedGenus && 
-               plant.genus_category === selectedGenus.category && 
-               plant.genus_number === selectedGenus.category_dex_number;
-      });
-      await Promise.all(
-        genusDiscoveries.map(d => 
-          Query.UserPlantDiscovery.update(d.id, { is_front_image: false })
-        )
-      );
-      
-      // Dann das ausgewählte auf true setzen für beide Flags
-      await Query.UserPlantDiscovery.update(discoveryId, { 
-        is_species_front_image: true,
-        is_front_image: true 
-      });
-
-      return { discoveryId, plantId };
-    },
-    onSuccess: ({ discoveryId, plantId }) => {
-      // Sofort lokale States aktualisieren
-      if (expandedPlant && expandedPlant.id === plantId) {
-        const updatedDiscoveries = expandedPlant.allDiscoveries.map(d => ({
-          ...d,
-          is_species_front_image: d.id === discoveryId,
-          is_front_image: d.id === discoveryId
-        }));
-        setExpandedPlant({
-          ...expandedPlant,
-          allDiscoveries: updatedDiscoveries,
-          userDiscovery: updatedDiscoveries.find(d => d.id === discoveryId) || expandedPlant.userDiscovery
-        });
-      }
-      
-      queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
-    },
-  });
+  // Ehemalige Lieblingsscan-Funktion (Herz) wurde entfernt
 
   const deleteDiscoveryMutation = useMutation({
     mutationFn: async (discoveryId) => {
@@ -530,26 +482,6 @@ export default function GenusDetail() {
                           <p className="text-xs text-stone-600 italic truncate">{plant.scientific_name}</p>
                         </div>
                         <div className="flex gap-1 flex-shrink-0">
-                          {!friendEmail && plant.userDiscovery && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setFavoriteMutation.mutate({ 
-                                  discoveryId: plant.userDiscovery.id,
-                                  plantId: plant.id 
-                                });
-                              }}
-                              className="w-7 h-7 flex items-center justify-center hover:scale-110 transition-transform"
-                            >
-                              <Heart 
-                                className={`w-5 h-5 ${
-                                  plant.userDiscovery.is_species_front_image 
-                                    ? 'text-red-500 fill-red-500' 
-                                    : 'text-stone-400 hover:text-red-500'
-                                }`} 
-                              />
-                            </button>
-                          )}
                           <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
                         </div>
                         </div>
@@ -717,28 +649,6 @@ export default function GenusDetail() {
                     <p className="text-sm text-stone-600 italic">{expandedPlant.scientific_name}</p>
                   </div>
                   <div className="flex gap-2 flex-shrink-0">
-                    {!friendEmail && expandedPlant.allDiscoveries?.[imageIndexes[expandedPlant.id] || 0] && (
-                      <Button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const currentDiscovery = expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0];
-                          setFavoriteMutation.mutate({ 
-                            discoveryId: currentDiscovery.id,
-                            plantId: expandedPlant.id 
-                          });
-                        }}
-                        variant="outline"
-                        size="icon"
-                      >
-                        <Heart 
-                          className={`w-5 h-5 ${
-                            expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_species_front_image 
-                              ? 'text-red-500 fill-red-500' 
-                              : 'text-stone-600'
-                          }`} 
-                        />
-                      </Button>
-                    )}
                     <Button
                       onClick={() => speakPlantDescription(expandedPlant)}
                       variant="outline"

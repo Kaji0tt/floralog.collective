@@ -19,14 +19,30 @@ export default function UserNotificationManager({ user }) {
     queryFn: async () => {
       if (!user?.id) return [];
       const allNotifications = await Query.UserNotification.list('-created_date');
-      return allNotifications.filter(n => 
+      const filtered = allNotifications.filter(n => 
         n.auth_id === user.id && 
         n.seen === false
       );
+      console.log('[UserNotificationManager] Loaded notifications', {
+        userId: user.id,
+        total: allNotifications.length,
+        filtered: filtered.length,
+        sample: filtered[0] || null
+      });
+      return filtered;
     },
     enabled: !!user?.id,
     staleTime: Infinity, // Echtzeit-Updates durch Subscription
   });
+
+  useEffect(() => {
+    if (!user?.id) return;
+    console.log('[UserNotificationManager] notifications state changed', {
+      userId: user.id,
+      count: notifications.length,
+      ids: notifications.map(n => n.id)
+    });
+  }, [notifications, user?.id]);
 
   // Echtzeit-Subscription für UserNotification-Änderungen
   useEffect(() => {

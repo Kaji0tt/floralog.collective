@@ -417,7 +417,71 @@ Deno.serve(async (req) => {
     });
 
 
-    // Step 12: Update Referral
+    // Step 12: Grant legacy background reward for early users
+    console.log("[migrateLegacyUser] Step 12: Granting legacy background reward (if eligible)...")
+
+    let legacyRewardGranted = 0
+    try {
+      const cutoffDate = new Date("2026-02-28T00:00:00Z")
+      const createdDate = baseUser.created_date ? new Date(baseUser.created_date) : null
+
+      if (createdDate && createdDate < cutoffDate) {
+        const legacyRewardName = "legacy_background_2026"
+
+        const { data: legacyReward, error: legacyRewardError } = await supabaseAdmin
+          .from("Rewards")
+          .select("id, display_name")
+          .eq("name", legacyRewardName)
+          .maybeSingle()
+
+        if (legacyRewardError) {
+          console.error("[migrateLegacyUser] Legacy reward lookup error:", legacyRewardError)
+        } else if (legacyReward?.id) {
+          const { data: existingUserReward, error: existingUserRewardError } = await supabaseAdmin
+            .from("UserRewards")
+            .select("id")
+            .eq("auth_id", authUserId)
+            .eq("reward_id", legacyReward.id)
+            .maybeSingle()
+
+          if (existingUserRewardError) {
+            console.error("[migrateLegacyUser] Legacy UserReward lookup error:", existingUserRewardError)
+          } else if (!existingUserReward) {
+            const displayName = fallbackDisplayName || userEmail
+            const timestampLegacy = new Date().toISOString()
+
+            const { error: legacyInsertError } = await supabaseAdmin
+              .from("UserRewards")
+              .insert({
+                reward_id: legacyReward.id,
+                reward_name: legacyReward.display_name,
+                auth_id: authUserId,
+                user_email: userEmail,
+                user_name: displayName,
+                unlocked_date: timestampLegacy,
+              })
+
+            if (legacyInsertError) {
+              console.error("[migrateLegacyUser] Failed to insert legacy UserReward:", legacyInsertError)
+            } else {
+              legacyRewardGranted = 1
+              console.log("[migrateLegacyUser] ✅ Legacy background reward granted")
+            }
+          }
+        }
+      }
+    } catch (legacyError) {
+      console.error("[migrateLegacyUser] Unexpected error while granting legacy reward:", legacyError)
+    }
+
+    results.push({
+      key: "legacyReward",
+      name: "🌅 Früher-Vogel-Hintergrund",
+      updated: legacyRewardGranted,
+    })
+
+
+    // Step 13: Update Referral
     console.log("[migrateLegacyUser] Step 12: Updating Referral...")
     const { data: referralUpdates, error: referralError } = await supabaseAdmin
       .from("Referral")

@@ -64,9 +64,7 @@ export default function Profile() {
     enabled: !!user?.id,
   });
 
-  const favoritePlant = user?.favorite_plant_id 
-    ? plants.find(p => p.id === user.favorite_plant_id)
-    : null;
+  // Lieblingsscan-/Lieblingspflanzen-Anzeige wurde aus dem Spiel entfernt
 
   const { data: quests = [] } = useQuery({
     queryKey: ['quests'],
@@ -237,8 +235,7 @@ export default function Profile() {
         selected_title: userData.selected_title,
         avatar_url: userData.avatar_url,
         background_image_url: userData.background_image_url,
-        background_color: userData.background_color,
-        favorite_plant_id: userData.favorite_plant_id
+        background_color: userData.background_color
       };
 
       await upsertUserProfile(userData.id, profileData);
@@ -251,7 +248,7 @@ export default function Profile() {
     if (user && user.email) {
       updatePublicProfile(user);
     }
-  }, [user?.display_name, user?.avatar_url, user?.selected_title, user?.email, user?.background_image_url, user?.background_color, user?.favorite_plant_id]);
+  }, [user?.display_name, user?.avatar_url, user?.selected_title, user?.email, user?.background_image_url, user?.background_color]);
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
@@ -1000,28 +997,6 @@ export default function Profile() {
                       {user.selected_title || user.title || "Pflanzen-Entdecker"}
                     </span>
                     </div>
-
-                    {favoritePlant && (() => {
-                      const genus = genera.find(g => 
-                        g.category === favoritePlant.genus_category && 
-                        g.category_dex_number === favoritePlant.genus_number
-                      );
-                      return genus ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(createPageUrl(`GenusDetail?id=${genus.id}`));
-                          }}
-                          className="mt-3 flex items-center gap-2 p-2 bg-white/40 rounded-lg border border-white/30 hover:bg-white/60 transition-colors w-full"
-                        >
-                          <Heart className="w-4 h-4 text-red-500 fill-red-500" />
-                          <div className="flex-1 text-left">
-                            <p className="text-sm font-bold text-stone-900">{favoritePlant.species_name}</p>
-                            <p className="text-xs italic text-stone-600">{favoritePlant.scientific_name}</p>
-                          </div>
-                        </button>
-                      ) : null;
-                    })()}
                 </div>
               </div>
 
