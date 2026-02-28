@@ -100,6 +100,8 @@ export default function Collection() {
 
   const isLoading = generaLoading || plantsLoading || discoveriesLoading;
 
+  const rarityOrder = { "Häufig": 1, "Gelegentlich": 2, "Selten": 3 };
+
   const generaWithDiscovery = genera.map(genus => {
     const genusPlants = plants.filter(p => 
       p.genus_category === genus.category && p.genus_number === genus.category_dex_number
@@ -107,11 +109,19 @@ export default function Collection() {
     const discoveredSpecies = genusPlants.filter(p =>
       userDiscoveries.some(d => d.plant_id === p.id)
     );
+
+    const maxRarityScore = genusPlants.reduce((max, plant) => {
+      const score = rarityOrder[plant.rarity] || 0;
+      return score > max ? score : max;
+    }, 0);
+
     return {
       ...genus,
       discovered: discoveredSpecies.length > 0,
       discoveredCount: discoveredSpecies.length,
-      totalSpecies: genusPlants.length
+      totalSpecies: genusPlants.length,
+      hasRareSpecies: maxRarityScore >= 2,
+      maxRarityScore
     };
   }).sort((a, b) => {
     if (a.category !== b.category) {
@@ -121,7 +131,12 @@ export default function Collection() {
     return (a.category_dex_number || 999999) - (b.category_dex_number || 999999);
   });
 
-  const categories = ["Alle", "Bäume", "Sträucher", "Blumen"];
+  const filters = [
+    { value: "Alle", label: "Alle" },
+    { value: "not_discovered", label: "Noch nicht entdeckt" },
+    { value: "discovered", label: "Entdeckt" },
+    { value: "rarity", label: "Rarität" },
+  ];
 
   // Check if activeCategory is a collection quest ID
   const isCollectionFilter = activeCategory.startsWith('collection_');
@@ -148,7 +163,14 @@ export default function Collection() {
       filteredGenera = filteredGenera.filter(g => targetGeneraIds.has(g.id));
     }
   } else {
-    filteredGenera = filteredGenera.filter(g => activeCategory === "Alle" || g.category === activeCategory);
+    if (activeCategory === "not_discovered") {
+      filteredGenera = filteredGenera.filter(g => !g.discovered);
+    } else if (activeCategory === "discovered") {
+      filteredGenera = filteredGenera.filter(g => g.discovered);
+    } else if (activeCategory === "rarity") {
+      filteredGenera = filteredGenera.filter(g => g.hasRareSpecies);
+    }
+    // "Alle" zeigt einfach alle Gattungen ohne zusätzlichen Filter
   }
   
   filteredGenera = filteredGenera.filter(g => {
@@ -268,18 +290,23 @@ export default function Collection() {
             <div className="flex-1">
               <Select value={activeCategory} onValueChange={setActiveCategory}>
                 <SelectTrigger className="bg-white h-9 text-xs">
-                  <SelectValue placeholder="Kategorie" />
+                  <SelectValue placeholder="Filter" />
                 </SelectTrigger>
                 <SelectContent>
-                  {/* Pflanzentypen */}
-                  {categories.map(category => {
-                    const categoryGenera = category === "Alle"
-                      ? generaWithDiscovery
-                      : generaWithDiscovery.filter(g => g.category === category);
-                    const discovered = categoryGenera.filter(g => g.discovered).length;
+                  {/* Entdeckungs-/Raritäts-Filter */}
+                  {filters.map(filter => {
+                    let matchingGenera = generaWithDiscovery;
+                    if (filter.value === "not_discovered") {
+                      matchingGenera = generaWithDiscovery.filter(g => !g.discovered);
+                    } else if (filter.value === "discovered") {
+                      matchingGenera = generaWithDiscovery.filter(g => g.discovered);
+                    } else if (filter.value === "rarity") {
+                      matchingGenera = generaWithDiscovery.filter(g => g.hasRareSpecies);
+                    }
+                    const discovered = matchingGenera.filter(g => g.discovered).length;
                     return (
-                      <SelectItem key={category} value={category}>
-                        {category} ({discovered}/{categoryGenera.length})
+                      <SelectItem key={filter.value} value={filter.value}>
+                        {filter.label} ({discovered}/{matchingGenera.length})
                       </SelectItem>
                     );
                   })}
@@ -335,7 +362,7 @@ export default function Collection() {
               <Leaf className="w-12 h-12 text-stone-400" />
             </div>
             <h3 className="text-2xl font-bold text-stone-900 mb-2">
-              Keine Pflanzen in dieser Kategorie
+              Keine Pflanzen gefunden
             </h3>
           </div>
         ) : (
