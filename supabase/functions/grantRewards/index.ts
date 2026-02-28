@@ -47,19 +47,22 @@ type MonthlyQuestRow = {
 
 type UserQuestRow = {
   quest_id: string | null;
-  redeemed: boolean | null;
+  redeemed: boolean | null; // legacy
+  status?: string | null; // 'active' | 'completed' | 'redeemed'
 };
 
 type UserWeeklyQuestRow = {
   weekly_quest_id: string | null;
-  redeemed: boolean | null;
+  redeemed: boolean | null; // legacy
   active_week: string | null;
+  status?: string | null;
 };
 
 type UserMonthlyQuestRow = {
   monthly_quest_id: string | null;
-  redeemed: boolean | null;
-  completed: boolean | null;
+  redeemed: boolean | null; // legacy
+  completed: boolean | null; // legacy
+  status?: string | null;
 };
 
 type SharedScanRow = {
@@ -182,14 +185,14 @@ Deno.serve(async (req) => {
     ] = await Promise.all([
       adminClient.from("Rewards").select("*"),
       adminClient.from("UserRewards").select("reward_id").eq("auth_id", authId),
-      adminClient.from("UserQuest").select("quest_id, redeemed").eq("auth_id", authId),
+      adminClient.from("UserQuest").select("quest_id, redeemed, status").eq("auth_id", authId),
       adminClient
         .from("UserWeeklyQuest")
-        .select("weekly_quest_id, redeemed, active_week")
+        .select("weekly_quest_id, redeemed, active_week, status")
         .eq("auth_id", authId),
       adminClient
         .from("UserMonthlyQuest")
-        .select("monthly_quest_id, redeemed, completed")
+        .select("monthly_quest_id, redeemed, completed, status")
         .eq("auth_id", authId),
       adminClient.from("SharedScan").select("id").eq("auth_id_to", authId),
       adminClient.from("UserPlantDiscovery").select("plant_id").eq("auth_id", authId),
@@ -264,10 +267,24 @@ Deno.serve(async (req) => {
 
     // Statistiken berechnen
     const weeklyQuestParticipations = new Set(
-      userWeeklyQuests.map((q) => q.active_week).filter((w): w is string => !!w),
+      userWeeklyQuests
+        .filter((q) => {
+          // Zählt nur abgeschlossene oder eingelöste Weekly-Quests
+          if (q.status) {
+            return q.status === "completed" || q.status === "redeemed";
+          }
+          return !!q.redeemed; // Fallback für Legacy-Daten
+        })
+        .map((q) => q.active_week)
+        .filter((w): w is string => !!w),
     ).size;
 
-    const completedMonthlyQuests = userMonthlyQuests.filter((q) => q.completed).length;
+    const completedMonthlyQuests = userMonthlyQuests.filter((q) => {
+      if (q.status) {
+        return q.status === "completed" || q.status === "redeemed";
+      }
+      return !!q.completed || !!q.redeemed; // Legacy-Fallback
+    }).length;
     const giftsReceived = sharedScans.length;
     const isDonor = !!profile.donor_status;
     const referralCount = referrals.length;
@@ -286,15 +303,19 @@ Deno.serve(async (req) => {
     const randomUnlocked: string[] = [];
 
     // Nachträgliche Freischaltung basierend auf eingelösten Quests
+    const isRedeemedStatus = (status: string | null | undefined): boolean => {
+      return status === "redeemed";
+    };
+
     const redeemedQuests = [
       ...userQuests
-        .filter((uq) => uq.redeemed)
+        .filter((uq) => (uq.status ? isRedeemedStatus(uq.status) : !!uq.redeemed))
         .map((uq) => ({ type: "regular" as const, userQuest: uq })),
       ...userWeeklyQuests
-        .filter((uwq) => uwq.redeemed)
+        .filter((uwq) => (uwq.status ? isRedeemedStatus(uwq.status) : !!uwq.redeemed))
         .map((uwq) => ({ type: "weekly" as const, userQuest: uwq })),
       ...userMonthlyQuests
-        .filter((umq) => umq.redeemed)
+        .filter((umq) => (umq.status ? isRedeemedStatus(umq.status) : !!umq.redeemed))
         .map((umq) => ({ type: "monthly" as const, userQuest: umq })),
     ];
 
@@ -362,9 +383,13 @@ Deno.serve(async (req) => {
       }
 
       if (reward.requires_quest) {
-        const questCompleted = userQuests.some(
-          (uq) => uq.quest_id === reward.requires_quest && uq.redeemed,
-        );
+        const questCompleted = userQuests.some((uq) => {
+          if (uq.quest_id !== reward.requires_quest) return false;
+          if (uq.status) {
+            return isRedeemedStatus(uq.status);
+          }
+          return !!uq.redeemed;
+        });
         if (!questCompleted) {
           conditionsMet = false;
         }

@@ -70,9 +70,12 @@ export async function updateQuestProgress(user) {
       return matchingDiscoveries.length;
     };
 
+    const isActiveStatus = (status) => status === 'active';
+
     // Update reguläre Quests
     for (const userQuest of userQuests) {
-      if (userQuest.accepted && !userQuest.redeemed) {
+      const isActive = userQuest.status ? isActiveStatus(userQuest.status) : (userQuest.accepted && !userQuest.redeemed);
+      if (isActive) {
         const quest = quests.find(q => q.id === userQuest.quest_id);
         if (!quest) continue;
 
@@ -83,7 +86,10 @@ export async function updateQuestProgress(user) {
           await Query.UserQuest.update(userQuest.id, {
             progress,
             completed,
-            completed_date: completed && !userQuest.completed ? new Date().toISOString() : userQuest.completed_date
+            completed_date: completed && !userQuest.completed ? new Date().toISOString() : userQuest.completed_date,
+            // New status model
+            status: completed ? 'completed' : 'active',
+            completed_at: completed && !userQuest.completed_at ? new Date().toISOString() : userQuest.completed_at
           });
         }
       }
@@ -91,7 +97,8 @@ export async function updateQuestProgress(user) {
 
     // Update wöchentliche Quests
     for (const userWeeklyQuest of userWeeklyQuests) {
-      if (userWeeklyQuest.accepted && !userWeeklyQuest.redeemed) {
+      const isActive = userWeeklyQuest.status ? isActiveStatus(userWeeklyQuest.status) : (userWeeklyQuest.accepted && !userWeeklyQuest.redeemed);
+      if (isActive) {
         const quest = weeklyQuests.find(q => q.id === userWeeklyQuest.weekly_quest_id);
         if (!quest) continue;
 
@@ -102,7 +109,9 @@ export async function updateQuestProgress(user) {
           await Query.UserWeeklyQuest.update(userWeeklyQuest.id, {
             progress,
             completed,
-            completed_date: completed && !userWeeklyQuest.completed ? new Date().toISOString() : userWeeklyQuest.completed_date
+            completed_date: completed && !userWeeklyQuest.completed ? new Date().toISOString() : userWeeklyQuest.completed_date,
+            status: completed ? 'completed' : 'active',
+            completed_at: completed && !userWeeklyQuest.completed_at ? new Date().toISOString() : userWeeklyQuest.completed_at
           });
         }
       }
@@ -110,7 +119,8 @@ export async function updateQuestProgress(user) {
 
     // Update monatliche Quests
     for (const userMonthlyQuest of userMonthlyQuests) {
-      if (userMonthlyQuest.accepted && !userMonthlyQuest.redeemed) {
+      const isActive = userMonthlyQuest.status ? isActiveStatus(userMonthlyQuest.status) : (userMonthlyQuest.accepted && !userMonthlyQuest.redeemed);
+      if (isActive) {
         const quest = monthlyQuests.find(q => q.id === userMonthlyQuest.monthly_quest_id);
         if (!quest) continue;
 
@@ -121,7 +131,9 @@ export async function updateQuestProgress(user) {
           await Query.UserMonthlyQuest.update(userMonthlyQuest.id, {
             progress,
             completed,
-            completed_date: completed && !userMonthlyQuest.completed ? new Date().toISOString() : userMonthlyQuest.completed_date
+            completed_date: completed && !userMonthlyQuest.completed ? new Date().toISOString() : userMonthlyQuest.completed_date,
+            status: completed ? 'completed' : 'active',
+            completed_at: completed && !userMonthlyQuest.completed_at ? new Date().toISOString() : userMonthlyQuest.completed_at
           });
         }
       }
@@ -129,7 +141,8 @@ export async function updateQuestProgress(user) {
 
     // Update Sammlungs-Quests
     for (const userCollectionQuest of userCollectionQuests) {
-      if (userCollectionQuest.accepted && !userCollectionQuest.redeemed) {
+      const isActive = userCollectionQuest.status ? isActiveStatus(userCollectionQuest.status) : (userCollectionQuest.accepted && !userCollectionQuest.redeemed);
+      if (isActive) {
         const quest = collectionQuests.find(q => q.id === userCollectionQuest.collection_quest_id);
         if (!quest || !quest.target_plants) continue;
 
@@ -145,7 +158,9 @@ export async function updateQuestProgress(user) {
           await Query.UserCollectionQuest.update(userCollectionQuest.id, {
             discovered_plants: uniqueDiscoveredPlants,
             completed,
-            completed_date: completed && !userCollectionQuest.completed ? new Date().toISOString() : userCollectionQuest.completed_date
+            completed_date: completed && !userCollectionQuest.completed ? new Date().toISOString() : userCollectionQuest.completed_date,
+            status: completed ? 'completed' : 'active',
+            completed_at: completed && !userCollectionQuest.completed_at ? new Date().toISOString() : userCollectionQuest.completed_at
           });
         }
       }

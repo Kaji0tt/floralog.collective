@@ -261,9 +261,7 @@ export default function FriendProfile() {
     );
   }
 
-  const currentLevel = friendUser.level || 1;
   const currentXP = friendUser.xp || 0;
-  const xpProgress = getXPProgressInLevel(currentXP, currentLevel);
 
   const discoveredGenera = genera.filter(g => {
     const genusPlants = plants.filter(p => 
@@ -273,7 +271,6 @@ export default function FriendProfile() {
   }).length;
 
   const availableQuests = quests.filter(q => 
-    (q.unlocked_at_level || 1) <= currentLevel &&
     !userQuests.some(uq => uq.quest_id === q.id && uq.completed)
   ).length;
 

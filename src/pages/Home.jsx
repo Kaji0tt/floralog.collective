@@ -513,46 +513,65 @@ export default function Home() {
   const currentMonthlyQuest = getCurrentMonthlyQuest(monthlyQuests);
 
   // Quest Status berechnen
+  const isActiveOrCompleted = (uq) => {
+    if (!uq) return false;
+    if (uq.status) {
+      return uq.status === 'active' || uq.status === 'completed';
+    }
+    return uq.accepted && !uq.redeemed;
+  };
+
+  const isCompletedStatus = (uq) => {
+    if (!uq) return false;
+    if (uq.status) {
+      return uq.status === 'completed' || uq.status === 'redeemed';
+    }
+    return !!uq.completed;
+  };
+
   const activeRegularQuests = quests
     .filter(q => {
       const userQuest = userQuests.find(uq => uq.quest_id === q.id);
-      return userQuest?.accepted && !userQuest?.redeemed;
+      return isActiveOrCompleted(userQuest) && !(userQuest?.status === 'redeemed' || userQuest?.redeemed);
     })
     .map(q => {
       const userQuest = userQuests.find(uq => uq.quest_id === q.id);
-      return { ...q, isCompleted: userQuest?.completed || false };
+      return { ...q, isCompleted: isCompletedStatus(userQuest) };
     });
 
   const availableRegularQuests = quests.filter(q => {
     const userQuest = userQuests.find(uq => uq.quest_id === q.id);
-    const isUnlocked = (q.unlocked_at_level || 1) <= (user?.level || 1);
     let prerequisiteMet = true;
     if (q.prerequisite_quest_number) {
       const prerequisiteQuest = quests.find(pq => pq.quest_number === q.prerequisite_quest_number);
       if (prerequisiteQuest) {
         const prerequisiteUserQuest = userQuests.find(uq => uq.quest_id === prerequisiteQuest.id);
-        prerequisiteMet = prerequisiteUserQuest?.redeemed || false;
+        prerequisiteMet = prerequisiteUserQuest?.status
+          ? (prerequisiteUserQuest.status === 'redeemed')
+          : (prerequisiteUserQuest?.redeemed || false);
       }
     }
-    return !userQuest?.accepted && isUnlocked && prerequisiteMet;
+    const hasUserQuest = !!userQuest;
+    const isAccepted = userQuest?.accepted || !!userQuest?.status;
+    return (!hasUserQuest || !isAccepted) && prerequisiteMet;
   });
 
   const currentWeeklyUserQuest = currentWeeklyQuest ? 
     userWeeklyQuests.find(uwq => uwq.weekly_quest_id === currentWeeklyQuest.id) : null;
-  const activeWeeklyQuest = currentWeeklyQuest && currentWeeklyUserQuest?.accepted && !currentWeeklyUserQuest?.redeemed ?
+  const activeWeeklyQuest = currentWeeklyQuest && currentWeeklyUserQuest && isActiveOrCompleted(currentWeeklyUserQuest) && !(currentWeeklyUserQuest.status === 'redeemed' || currentWeeklyUserQuest.redeemed) ?
     { ...currentWeeklyQuest, isCompleted: currentWeeklyUserQuest.completed || false } : null;
-  const availableWeeklyQuest = currentWeeklyQuest && !currentWeeklyUserQuest?.accepted;
+  const availableWeeklyQuest = currentWeeklyQuest && !currentWeeklyUserQuest;
 
   const currentMonthlyUserQuest = currentMonthlyQuest ?
     userMonthlyQuests.find(umq => umq.monthly_quest_id === currentMonthlyQuest.id) : null;
-  const activeMonthlyQuest = currentMonthlyQuest && currentMonthlyUserQuest?.accepted && !currentMonthlyUserQuest?.redeemed ?
+  const activeMonthlyQuest = currentMonthlyQuest && currentMonthlyUserQuest && isActiveOrCompleted(currentMonthlyUserQuest) && !(currentMonthlyUserQuest.status === 'redeemed' || currentMonthlyUserQuest.redeemed) ?
     { ...currentMonthlyQuest, isCompleted: currentMonthlyUserQuest.completed || false } : null;
-  const availableMonthlyQuest = currentMonthlyQuest && !currentMonthlyUserQuest?.accepted;
+  const availableMonthlyQuest = currentMonthlyQuest && !currentMonthlyUserQuest;
 
   const activeCollectionQuests = collectionQuests
     .filter(quest => {
       const userQuest = userCollectionQuests.find(ucq => ucq.collection_quest_id === quest.id);
-      return quest.is_active && userQuest?.accepted && !userQuest?.redeemed;
+      return quest.is_active && isActiveOrCompleted(userQuest) && !(userQuest?.status === 'redeemed' || userQuest?.redeemed);
     })
     .map(quest => {
       const userQuest = userCollectionQuests.find(ucq => ucq.collection_quest_id === quest.id);

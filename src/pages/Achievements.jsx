@@ -271,6 +271,10 @@ export default function Achievements() {
           quest_id: questId,
           auth_id: user.id,
           created_by: user.email,
+          // New status-based model
+          status: 'active',
+          accepted_at: now,
+          // Legacy flags for backwards compatibility
           accepted: true,
           accepted_date: now
         };
@@ -287,6 +291,8 @@ export default function Achievements() {
           active_week: activeWeek,
           auth_id: user.id,
           created_by: user.email,
+          status: 'active',
+          accepted_at: now,
           accepted: true,
           accepted_date: now
         };
@@ -303,6 +309,8 @@ export default function Achievements() {
           active_month: activeMonth,
           auth_id: user.id,
           created_by: user.email,
+          status: 'active',
+          accepted_at: now,
           accepted: true,
           accepted_date: now
         };
@@ -318,6 +326,8 @@ export default function Achievements() {
           collection_quest_id: questId,
           auth_id: user.id,
           created_by: user.email,
+          status: 'active',
+          accepted_at: now,
           accepted: true,
           accepted_date: now
         };
@@ -523,14 +533,27 @@ export default function Achievements() {
 
   const currentMonthlyQuest = getCurrentMonthlyQuest(monthlyQuests);
 
+  const isActiveOrCompleted = (uq) => {
+    if (!uq) return false;
+    if (uq.status) {
+      return uq.status === 'active' || uq.status === 'completed';
+    }
+    return uq.accepted && !uq.redeemed;
+  };
+
+  const isCompletedStatus = (uq) => {
+    if (!uq) return false;
+    if (uq.status) {
+      return uq.status === 'completed' || uq.status === 'redeemed';
+    }
+    return !!uq.completed;
+  };
+
   // Reguläre Quests (angenommen & nicht eingelöst)
   const activeRegularQuests = quests.
   filter((q) => {
     const userQuest = userQuests.find((uq) => uq.quest_id === q.id);
-    const isAccepted = userQuest?.accepted;
-    const isRedeemed = userQuest?.redeemed;
-    const isUnlocked = (q.unlocked_at_level || 1) <= (user?.level || 1);
-    return isAccepted && !isRedeemed && isUnlocked;
+    return isActiveOrCompleted(userQuest) && !(userQuest?.status === 'redeemed' || userQuest?.redeemed);
   }).
   map((q) => {
     const userQuest = userQuests.find((uq) => uq.quest_id === q.id);
@@ -539,7 +562,7 @@ export default function Achievements() {
       ...q,
       userQuestId: userQuest?.id,
       progress: userQuest?.progress || 0,
-      isCompleted: userQuest?.completed || false,
+      isCompleted: isCompletedStatus(userQuest),
       type: 'regular',
       rewardData: reward
     };
@@ -549,7 +572,6 @@ export default function Achievements() {
   const availableRegularQuests = quests.
   filter((q) => {
     const userQuest = userQuests.find((uq) => uq.quest_id === q.id);
-    const isUnlocked = (q.unlocked_at_level || 1) <= (user?.level || 1);
 
     // Prüfe Voraussetzung
     let prerequisiteMet = true;
@@ -557,11 +579,16 @@ export default function Achievements() {
       const prerequisiteQuest = quests.find((pq) => pq.quest_number === q.prerequisite_quest_number);
       if (prerequisiteQuest) {
         const prerequisiteUserQuest = userQuests.find((uq) => uq.quest_id === prerequisiteQuest.id);
-        prerequisiteMet = prerequisiteUserQuest?.redeemed || false;
+        prerequisiteMet = prerequisiteUserQuest?.status
+          ? (prerequisiteUserQuest.status === 'redeemed')
+          : (prerequisiteUserQuest?.redeemed || false);
       }
     }
 
-    return !userQuest?.accepted && isUnlocked && prerequisiteMet;
+    const hasUserQuest = !!userQuest;
+    const isAccepted = userQuest?.accepted || !!userQuest?.status;
+
+    return !hasUserQuest || !isAccepted && prerequisiteMet;
   }).
   map((q) => {
     const reward = rewards.find(r => r.name === q.reward_name);
@@ -578,17 +605,17 @@ export default function Achievements() {
   userWeeklyQuests.find((uwq) => uwq.weekly_quest_id === currentWeeklyQuest.id) :
   null;
   const weeklyReward = currentWeeklyQuest ? rewards.find(r => r.name === currentWeeklyQuest.reward_name) : null;
-  const activeWeeklyQuest = currentWeeklyQuest && currentWeeklyUserQuest?.accepted && !currentWeeklyUserQuest?.redeemed ?
+  const activeWeeklyQuest = currentWeeklyQuest && currentWeeklyUserQuest && isActiveOrCompleted(currentWeeklyUserQuest) && !(currentWeeklyUserQuest.status === 'redeemed' || currentWeeklyUserQuest.redeemed) ?
   {
     ...currentWeeklyQuest,
     userQuestId: currentWeeklyUserQuest.id,
     progress: currentWeeklyUserQuest.progress || 0,
-    isCompleted: currentWeeklyUserQuest.completed || false,
+    isCompleted: isCompletedStatus(currentWeeklyUserQuest),
     type: 'weekly',
     rewardData: weeklyReward
   } :
   null;
-  const availableWeeklyQuest = currentWeeklyQuest && !currentWeeklyUserQuest?.accepted ?
+  const availableWeeklyQuest = currentWeeklyQuest && !currentWeeklyUserQuest ?
   { ...currentWeeklyQuest, type: 'weekly', available: true, rewardData: weeklyReward } :
   null;
 
@@ -597,17 +624,17 @@ export default function Achievements() {
   userMonthlyQuests.find((umq) => umq.monthly_quest_id === currentMonthlyQuest.id) :
   null;
   const monthlyReward = currentMonthlyQuest ? rewards.find(r => r.name === currentMonthlyQuest.reward_name) : null;
-  const activeMonthlyQuest = currentMonthlyQuest && currentMonthlyUserQuest?.accepted && !currentMonthlyUserQuest?.redeemed ?
+  const activeMonthlyQuest = currentMonthlyQuest && currentMonthlyUserQuest && isActiveOrCompleted(currentMonthlyUserQuest) && !(currentMonthlyUserQuest.status === 'redeemed' || currentMonthlyUserQuest.redeemed) ?
   {
     ...currentMonthlyQuest,
     userQuestId: currentMonthlyUserQuest.id,
     progress: currentMonthlyUserQuest.progress || 0,
-    isCompleted: currentMonthlyUserQuest.completed || false,
+    isCompleted: isCompletedStatus(currentMonthlyUserQuest),
     type: 'monthly',
     rewardData: monthlyReward
   } :
   null;
-  const availableMonthlyQuest = currentMonthlyQuest && !currentMonthlyUserQuest?.accepted ?
+  const availableMonthlyQuest = currentMonthlyQuest && !currentMonthlyUserQuest ?
   { ...currentMonthlyQuest, type: 'monthly', available: true, rewardData: monthlyReward } :
   null;
 
@@ -615,7 +642,7 @@ export default function Achievements() {
   const activeCollectionQuests = collectionQuests.
   filter((quest) => {
     const userQuest = userCollectionQuests.find((ucq) => ucq.collection_quest_id === quest.id);
-    return quest.is_active && userQuest?.accepted && !userQuest?.redeemed;
+    return quest.is_active && isActiveOrCompleted(userQuest) && !(userQuest?.status === 'redeemed' || userQuest?.redeemed);
   }).
   map((quest) => {
     const userQuest = userCollectionQuests.find((ucq) => ucq.collection_quest_id === quest.id);

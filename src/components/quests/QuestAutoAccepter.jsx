@@ -64,6 +64,8 @@ export default function QuestAutoAccepter({ user }) {
           quest_id: questId,
           auth_id: user.id,
           created_by: user.email,
+          status: 'active',
+          accepted_at: now,
           accepted: true,
           accepted_date: now
         });
@@ -73,6 +75,8 @@ export default function QuestAutoAccepter({ user }) {
           active_week: activeWeek,
           auth_id: user.id,
           created_by: user.email,
+          status: 'active',
+          accepted_at: now,
           accepted: true,
           accepted_date: now
         });
@@ -82,6 +86,8 @@ export default function QuestAutoAccepter({ user }) {
           active_month: activeMonth,
           auth_id: user.id,
           created_by: user.email,
+          status: 'active',
+          accepted_at: now,
           accepted: true,
           accepted_date: now
         });
@@ -90,6 +96,8 @@ export default function QuestAutoAccepter({ user }) {
           collection_quest_id: questId,
           auth_id: user.id,
           created_by: user.email,
+          status: 'active',
+          accepted_at: now,
           accepted: true,
           accepted_date: now
         });
@@ -113,7 +121,6 @@ export default function QuestAutoAccepter({ user }) {
     // 1. Regular Quests automatisch annehmen
     const availableRegularQuests = quests.filter((q) => {
       const userQuest = userQuests.find((uq) => uq.quest_id === q.id);
-      const isUnlocked = (q.unlocked_at_level || 1) <= (user?.level || 1);
 
       // Prüfe Voraussetzung
       let prerequisiteMet = true;
@@ -121,11 +128,16 @@ export default function QuestAutoAccepter({ user }) {
         const prerequisiteQuest = quests.find((pq) => pq.quest_number === q.prerequisite_quest_number);
         if (prerequisiteQuest) {
           const prerequisiteUserQuest = userQuests.find((uq) => uq.quest_id === prerequisiteQuest.id);
-          prerequisiteMet = prerequisiteUserQuest?.redeemed || false;
+          prerequisiteMet = prerequisiteUserQuest?.status
+            ? (prerequisiteUserQuest.status === 'redeemed')
+            : (prerequisiteUserQuest?.redeemed || false);
         }
       }
 
-      return !userQuest?.accepted && isUnlocked && prerequisiteMet;
+      const hasUserQuest = !!userQuest;
+      const isAccepted = userQuest?.accepted || !!userQuest?.status;
+
+      return (!hasUserQuest || !isAccepted) && prerequisiteMet;
     });
 
     if (availableRegularQuests.length > 0) {
