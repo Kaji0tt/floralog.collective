@@ -482,13 +482,13 @@ export default function Scanner() {
                   if (!error && data) {
                     const meta = data;
                     const identificationText = Array.isArray(meta.identification_features)
-                      ? meta.identification_features.join('\n- ')
+                      ? meta.identification_features.join(' ')
                       : meta.identification_features;
 
                     return {
                       ...plantData,
                       description: meta.description,
-                      identification_features: `- ${identificationText}`,
+                      identification_features: identificationText,
                       fun_fact: meta.fun_fact,
                       rarity: meta.rarity || plantData.rarity || 'Gelegentlich',
                       notInDex: true,
