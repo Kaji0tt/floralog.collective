@@ -364,84 +364,111 @@ Viel Spaß beim Entdecken! 🌿`;
     return `/${path}`;
   };
 
-  // Helper: Hole letzte Aktivität eines Freundes
-  const getLastActivity = (friendEmail) => {
-    if (!friendEmail) {
-      console.log("⚠️ Keine friendEmail übergeben");
+  const parseActivityDate = (primary, fallback) => {
+    const value = primary || fallback;
+    if (!value) return null;
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    // Filter offensichtlich kaputte Legacy-Daten (1970 etc.) heraus
+    const minValid = new Date('2000-01-01T00:00:00Z');
+    if (d < minValid) return null;
+    return d;
+  };
+
+  // Helper: Hole letzte Aktivität eines Freundes (bevorzugt über auth_id)
+  const getLastActivity = ({ email, authId }) => {
+    if (!email && !authId) {
+      console.log("⚠️ Weder Email noch authId übergeben");
       return null;
     }
 
-    const friendEmailLower = friendEmail.toLowerCase();
-    console.log("🔍 Suche Aktivitäten für:", friendEmailLower);
+    const friendEmailLower = email?.toLowerCase();
+    console.log("🔍 Suche Aktivitäten für:", { email: friendEmailLower, authId });
 
-    // Letzte Discovery - prüfe sowohl user als auch created_by
-    const friendDiscoveries = allDiscoveries.filter((d) => {
-      const userMatch = d.user?.toLowerCase() === friendEmailLower;
-      const createdByMatch = d.created_by?.toLowerCase() === friendEmailLower;
-      return userMatch || createdByMatch;
-    });
+    const matchesFriend = (row) => {
+      const authMatch = authId && row.auth_id && row.auth_id === authId;
+      const emailMatch = friendEmailLower && (
+        row.user?.toLowerCase?.() === friendEmailLower ||
+        row.created_by?.toLowerCase?.() === friendEmailLower
+      );
+      return authMatch || emailMatch;
+    };
 
-    console.log(`📦 ${friendDiscoveries.length} Discoveries gefunden für ${friendEmailLower}`);
+    // Letzte Discovery - prüfe auth_id und fallweise Email
+    const friendDiscoveries = allDiscoveries.filter((d) => matchesFriend(d));
+    console.log(`📦 ${friendDiscoveries.length} Discoveries gefunden`);
 
-    const lastDiscovery = friendDiscoveries.length > 0 ?
-    friendDiscoveries.sort((a, b) => new Date(b.created_date) - new Date(a.created_date))[0] :
-    null;
+    const validSortedDiscoveries = friendDiscoveries
+      .map((d) => ({
+        row: d,
+        date: parseActivityDate(d.discovered_date, d.created_date)
+      }))
+      .filter((x) => x.date)
+      .sort((a, b) => b.date - a.date);
+
+    const lastDiscoveryEntry = validSortedDiscoveries[0] || null;
 
     // Letztes Achievement
-    const friendAchievements = allUserAchievements.filter((a) =>
-    a.created_by?.toLowerCase() === friendEmailLower
-    );
+    const friendAchievements = allUserAchievements.filter((a) => matchesFriend(a));
+    console.log(`🏆 ${friendAchievements.length} Achievements gefunden`);
 
-    console.log(`🏆 ${friendAchievements.length} Achievements gefunden für ${friendEmailLower}`);
+    const validSortedAchievements = friendAchievements
+      .map((a) => ({
+        row: a,
+        date: parseActivityDate(a.unlocked_date, a.created_date)
+      }))
+      .filter((x) => x.date)
+      .sort((a, b) => b.date - a.date);
 
-    const lastAchievement = friendAchievements.length > 0 ?
-    friendAchievements.sort((a, b) => new Date(b.created_date) - new Date(a.created_date))[0] :
-    null;
+    const lastAchievementEntry = validSortedAchievements[0] || null;
 
-    // Vergleiche welches neuer ist
     let activity = null;
 
-    if (lastDiscovery && lastAchievement) {
-      const discoveryDate = new Date(lastDiscovery.created_date);
-      const achievementDate = new Date(lastAchievement.created_date);
+    if (lastDiscoveryEntry && lastAchievementEntry) {
+      const discoveryDate = lastDiscoveryEntry.date;
+      const achievementDate = lastAchievementEntry.date;
 
       console.log("📅 Discovery:", discoveryDate, "Achievement:", achievementDate);
 
       if (discoveryDate > achievementDate) {
+        const lastDiscovery = lastDiscoveryEntry.row;
         const plant = allPlants.find((p) => p.id === lastDiscovery.plant_id);
         activity = {
           type: 'discovery',
-          plant: plant,
-          date: lastDiscovery.created_date
+          plant,
+          date: discoveryDate.toISOString()
         };
         console.log("✅ Neueste Aktivität: Discovery -", plant?.species_name);
       } else {
+        const lastAchievement = lastAchievementEntry.row;
         const achievement = achievements.find((a) => a.id === lastAchievement.achievement_id);
         activity = {
           type: 'achievement',
-          achievement: achievement,
-          date: lastAchievement.created_date
+          achievement,
+          date: achievementDate.toISOString()
         };
         console.log("✅ Neueste Aktivität: Achievement -", achievement?.title);
       }
-    } else if (lastDiscovery) {
+    } else if (lastDiscoveryEntry) {
+      const lastDiscovery = lastDiscoveryEntry.row;
       const plant = allPlants.find((p) => p.id === lastDiscovery.plant_id);
       activity = {
         type: 'discovery',
-        plant: plant,
-        date: lastDiscovery.created_date
+        plant,
+        date: lastDiscoveryEntry.date.toISOString()
       };
       console.log("✅ Neueste Aktivität: Discovery -", plant?.species_name);
-    } else if (lastAchievement) {
+    } else if (lastAchievementEntry) {
+      const lastAchievement = lastAchievementEntry.row;
       const achievement = achievements.find((a) => a.id === lastAchievement.achievement_id);
       activity = {
         type: 'achievement',
-        achievement: achievement,
-        date: lastAchievement.created_date
+        achievement,
+        date: lastAchievementEntry.date.toISOString()
       };
       console.log("✅ Neueste Aktivität: Achievement -", achievement?.title);
     } else {
-      console.log("❌ Keine Aktivitäten gefunden");
+      console.log("❌ Keine gültigen Aktivitäten gefunden");
     }
 
     return activity;
@@ -471,28 +498,32 @@ Viel Spaß beim Entdecken! 🌿`;
   const getFriendData = (friendEntry) => {
     if (!user || !user.email) return null;
 
-    // Bestimme die Email des anderen
-    const friendEmail = friendEntry.request_sent_by?.toLowerCase() === user.email.toLowerCase() ?
-    friendEntry.request_sent_to :
-    friendEntry.request_sent_by;
+    const isCurrentUserSender = friendEntry.request_sent_by?.toLowerCase() === user.email.toLowerCase();
+    const friendEmail = isCurrentUserSender ? friendEntry.request_sent_to : friendEntry.request_sent_by;
 
-    // Suche PublicProfile (jeder kann das sehen!)
+    // Suche PublicProfile (bevorzugt, inkl. auth_id)
     const friendProfile = allPublicProfiles.find((p) => p.user_email?.toLowerCase() === friendEmail?.toLowerCase());
 
-    // Fallback auf allUsers (klappt nur wenn in der Liste)
+    // Fallback auf baseUser
     const friendUser = allUsers.find((u) => u.email?.toLowerCase() === friendEmail?.toLowerCase());
 
-    // Hole letzte Aktivität
-    const lastActivity = getLastActivity(friendEmail);
+    const friendAuthId = friendProfile?.auth_id || friendUser?.auth_id || null;
+
+    // Hole letzte Aktivität, bevorzugt über auth_id
+    const lastActivity = getLastActivity({
+      email: friendEmail,
+      authId: friendAuthId
+    });
 
     return {
       id: friendEntry.id,
       email: friendEmail,
+      auth_id: friendAuthId,
       name: friendProfile?.display_name || friendProfile?.full_name || friendUser?.display_name || friendUser?.full_name || friendEmail,
       avatar_url: friendProfile?.avatar_url || friendUser?.avatar_url,
       level: friendProfile?.level || friendUser?.level || 1,
       title: friendProfile?.selected_title || friendProfile?.title || friendUser?.selected_title || friendUser?.title || "Pflanzen-Anfänger",
-      lastActivity: lastActivity
+      lastActivity
     };
   };
 
