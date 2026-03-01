@@ -267,6 +267,11 @@ export default function Achievements() {
       const now = new Date().toISOString();
       let insertData;
       if (questType === 'regular') {
+        const existing = await Query.UserQuest.filter({ auth_id: user.id, quest_id: questId });
+        if (existing && existing.length > 0) {
+          console.log('[UserQuest] Accept regular skipped, existing row found:', existing[0]);
+          return existing[0];
+        }
         insertData = {
           quest_id: questId,
           auth_id: user.id,
@@ -286,6 +291,11 @@ export default function Achievements() {
           throw err;
         }
       } else if (questType === 'weekly') {
+        const existing = await Query.UserWeeklyQuest.filter({ auth_id: user.id, weekly_quest_id: questId, active_week: activeWeek });
+        if (existing && existing.length > 0) {
+          console.log('[UserQuest] Accept weekly skipped, existing row found:', existing[0]);
+          return existing[0];
+        }
         insertData = {
           weekly_quest_id: questId,
           active_week: activeWeek,
@@ -304,6 +314,11 @@ export default function Achievements() {
           throw err;
         }
       } else if (questType === 'monthly') {
+        const existing = await Query.UserMonthlyQuest.filter({ auth_id: user.id, monthly_quest_id: questId, active_month: activeMonth });
+        if (existing && existing.length > 0) {
+          console.log('[UserQuest] Accept monthly skipped, existing row found:', existing[0]);
+          return existing[0];
+        }
         insertData = {
           monthly_quest_id: questId,
           active_month: activeMonth,
@@ -322,6 +337,11 @@ export default function Achievements() {
           throw err;
         }
       } else if (questType === 'collection') {
+        const existing = await Query.UserCollectionQuest.filter({ auth_id: user.id, collection_quest_id: questId });
+        if (existing && existing.length > 0) {
+          console.log('[UserQuest] Accept collection skipped, existing row found:', existing[0]);
+          return existing[0];
+        }
         insertData = {
           collection_quest_id: questId,
           auth_id: user.id,
@@ -349,7 +369,7 @@ export default function Achievements() {
   });
 
   const redeemQuestMutation = useMutation({
-          mutationFn: async ({ userQuestId, questType, rewardName, isFirstQuest }) => {
+		  mutationFn: async ({ userQuestId, questType, rewardName, isFirstQuest, questTitle }) => {
       console.log('[QuestRedeem] Starting redeem for:', questType, rewardName);
       const now = new Date().toISOString();
 
@@ -450,6 +470,24 @@ export default function Achievements() {
         } catch (error) {
           console.error("[QuestRedeem] Fehler beim Erstellen der Hintergrund-Notification:", error);
         }
+      }
+
+      // Allgemeine Erfolgsmeldung für jede eingelöste Quest (Banner)
+      try {
+        await Query.UserNotification.create({
+          auth_id: currentUser.id,
+          user_email: currentUser.email,
+          notification_type: "custom",
+          title: "✅ Quest eingelöst",
+          message: questTitle
+            ? `Du hast "${questTitle}" erfolgreich eingelöst.`
+            : "Du hast eine Quest erfolgreich eingelöst.",
+          priority: "medium",
+          display_location: "banner",
+          seen: false
+        });
+      } catch (error) {
+        console.error("[QuestRedeem] Fehler beim Erstellen der Quest-Erfolgs-Notification:", error);
       }
       
       console.log('[QuestRedeem] Finished successfully');
@@ -997,7 +1035,8 @@ export default function Achievements() {
                                           userQuestId: quest.userQuestId,
                                           questType: quest.type,
                                           rewardName: quest.rewardData?.name,
-                                          isFirstQuest: isFirstQuest
+                                          isFirstQuest: isFirstQuest,
+                                          questTitle: quest.title
                                         });
                                       }}
                                       disabled={redeemQuestMutation.isPending}

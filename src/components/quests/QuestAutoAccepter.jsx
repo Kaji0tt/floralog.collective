@@ -60,6 +60,12 @@ export default function QuestAutoAccepter({ user }) {
     mutationFn: async ({ questId, questType, activeWeek, activeMonth }) => {
       const now = new Date().toISOString();
       if (questType === 'regular') {
+        // Falls bereits eine aktive oder abgeschlossene UserQuest existiert, nichts neu anlegen
+        const existing = await Query.UserQuest.filter({ auth_id: user.id, quest_id: questId });
+        if (existing && existing.length > 0) {
+          console.log('[UserQuest] Skip regular insert, existing row found:', existing[0]);
+          return existing[0];
+        }
         return Query.UserQuest.create({
           quest_id: questId,
           auth_id: user.id,
@@ -70,6 +76,11 @@ export default function QuestAutoAccepter({ user }) {
           accepted_date: now
         });
       } else if (questType === 'weekly') {
+        const existing = await Query.UserWeeklyQuest.filter({ auth_id: user.id, weekly_quest_id: questId, active_week: activeWeek });
+        if (existing && existing.length > 0) {
+          console.log('[UserQuest] Skip weekly insert, existing row found:', existing[0]);
+          return existing[0];
+        }
         return Query.UserWeeklyQuest.create({
           weekly_quest_id: questId,
           active_week: activeWeek,
@@ -81,6 +92,11 @@ export default function QuestAutoAccepter({ user }) {
           accepted_date: now
         });
       } else if (questType === 'monthly') {
+        const existing = await Query.UserMonthlyQuest.filter({ auth_id: user.id, monthly_quest_id: questId, active_month: activeMonth });
+        if (existing && existing.length > 0) {
+          console.log('[UserQuest] Skip monthly insert, existing row found:', existing[0]);
+          return existing[0];
+        }
         return Query.UserMonthlyQuest.create({
           monthly_quest_id: questId,
           active_month: activeMonth,
@@ -92,6 +108,11 @@ export default function QuestAutoAccepter({ user }) {
           accepted_date: now
         });
       } else if (questType === 'collection') {
+        const existing = await Query.UserCollectionQuest.filter({ auth_id: user.id, collection_quest_id: questId });
+        if (existing && existing.length > 0) {
+          console.log('[UserQuest] Skip collection insert, existing row found:', existing[0]);
+          return existing[0];
+        }
         return Query.UserCollectionQuest.create({
           collection_quest_id: questId,
           auth_id: user.id,
