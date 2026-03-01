@@ -21,16 +21,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import { Check, RefreshCw } from "lucide-react";
 import { createPageUrl } from "@/utils";
-import {
-  getCurrentMonthlyQuest,
-  getCurrentWeeklyQuest,
-  getOrCreateActiveMonthlyQuest,
-  getOrCreateActiveWeeklyQuest,
-  getTodayString,
-  getWeekNumber,
-  getMonthString } from
-"../components/quests/QuestRotationHelper";
-
+import { updateQuestProgress } from "@/components/utils/questProgress";
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
 // Bestätigungs-Button Komponente (draggable wie MobileBackButton)
@@ -243,44 +234,7 @@ export default function Scanner() {
     }
   };
 
-  const updateQuestProgress = async (scannedPlant) => {
-    if (!user?.id || !scannedPlant) return;
-
-    try {
-      const currentMonthlyQuest = getCurrentMonthlyQuest(monthlyQuests);
-      const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
-      const currentUser = await getCurrentUser();
-
-      if (!currentUser?.id) {
-        return;
-      }
-
-      // Helper: Prüft ob der Scan für die Quest zählt
-      const scanMatchesQuest = (quest) => {
-        // Weekly/Monthly Quests: target_species_name / target_genus_name
-        if (quest.target_species_name) {
-          return scannedPlant.species_name?.toLowerCase() === quest.target_species_name.toLowerCase();
-        }
-        if (quest.target_genus_name) {
-          const genus = genera.find((g) => g.id === scannedPlant.genus_id);
-          const targetGenus = quest.target_genus_name.toLowerCase();
-          return (
-            genus?.genus_name?.toLowerCase() === targetGenus ||
-            genus?.scientific_genus?.toLowerCase() === targetGenus
-          );
-        }
-        return false;
-      };
-
-      // Hinweis: Hintergrund-Belohnungen (Hintergründe) werden jetzt zentral
-      // über das Reward-System (Reward/UserReward + rewardUnlocker) gesteuert.
-      // Deshalb setzen wir hier keine Flags mehr im PublicProfile.
-    } catch (error) {
-      console.error("Fehler bei Hintergrund-Freischaltung:", error);
-    }
-  };
-
-
+  
 
   const handleDeleteResult = async (discoveryId) => {
     try {
@@ -641,12 +595,8 @@ export default function Scanner() {
       setCurrentAchievementIndex(0);
     }
 
-    // Quest-Progress aktualisieren - inline statt über Helper
-    await updateQuestProgress(plant);
-
-    // Prüfe und schalte Rewards frei
-    const { checkAndUnlockRewards } = await import('../components/rewards/rewardUnlocker');
-    await checkAndUnlockRewards(user);
+    // Quest-Progress zentral anhand aller Entdeckungen aktualisieren
+    await updateQuestProgress(user);
 
     // Prüfe zufällige Rewards
     const { checkRandomRewards } = await import('../components/rewards/randomRewardChecker');
@@ -722,12 +672,8 @@ export default function Scanner() {
         setCurrentAchievementIndex(0);
       }
 
-      // Quest-Progress aktualisieren - inline statt über Helper
-      await updateQuestProgress(newPlant);
-
-      // Prüfe und schalte Rewards frei
-      const { checkAndUnlockRewards } = await import('../components/rewards/rewardUnlocker');
-      await checkAndUnlockRewards(user);
+      // Quest-Progress zentral anhand aller Entdeckungen aktualisieren
+      await updateQuestProgress(user);
 
       // Prüfe zufällige Rewards
       const { checkRandomRewards } = await import('../components/rewards/randomRewardChecker');
