@@ -102,7 +102,13 @@ export async function updateQuestProgress(user) {
         const quest = weeklyQuests.find(q => q.id === userWeeklyQuest.weekly_quest_id);
         if (!quest) continue;
 
-        const progress = calculateProgress(quest, userDiscoveries, plants, genera);
+        // Nur Entdeckungen ab Aktivierung der Quest zählen
+        const acceptedAt = userWeeklyQuest.accepted_at || userWeeklyQuest.accepted_date;
+        const discoveriesSinceAccept = acceptedAt
+          ? userDiscoveries.filter(d => d.discovered_date && new Date(d.discovered_date) >= new Date(acceptedAt))
+          : userDiscoveries;
+
+        const progress = calculateProgress(quest, discoveriesSinceAccept, plants, genera);
         const completed = progress >= (quest.required_discoveries || 0);
 
         if (progress !== userWeeklyQuest.progress || completed !== userWeeklyQuest.completed) {
@@ -124,7 +130,13 @@ export async function updateQuestProgress(user) {
         const quest = monthlyQuests.find(q => q.id === userMonthlyQuest.monthly_quest_id);
         if (!quest) continue;
 
-        const progress = calculateProgress(quest, userDiscoveries, plants, genera);
+        // Nur Entdeckungen ab Aktivierung der Quest zählen
+        const acceptedAt = userMonthlyQuest.accepted_at || userMonthlyQuest.accepted_date;
+        const discoveriesSinceAccept = acceptedAt
+          ? userDiscoveries.filter(d => d.discovered_date && new Date(d.discovered_date) >= new Date(acceptedAt))
+          : userDiscoveries;
+
+        const progress = calculateProgress(quest, discoveriesSinceAccept, plants, genera);
         const completed = progress >= (quest.required_discoveries || 0);
 
         if (progress !== userMonthlyQuest.progress || completed !== userMonthlyQuest.completed) {

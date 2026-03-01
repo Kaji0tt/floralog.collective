@@ -386,50 +386,54 @@ export default function Achievements() {
 
       const currentUser = await getCurrentUser();
       
-      // DIREKT den Reward freischalten (ohne Achievement-Check)
-      if (rewardName) {
-        const reward = rewards.find(r => r.name === rewardName);
-        if (reward) {
-          console.log('[QuestRedeem] Unlocking reward:', reward.name, reward.display_name);
-          
-          // Prüfe ob User den Reward bereits hat
-          const userRewards = await Query.UserReward.filter({ auth_id: currentUser.id });
-          const hasReward = userRewards.some(ur => ur.reward_id === reward.id);
-          
-          if (!hasReward) {
-            // Schalte Reward frei
-            await Query.UserReward.create({
-              reward_id: reward.id,
-              reward_name: reward.display_name,
-              auth_id: currentUser.id,
-              user_email: currentUser.email,
-              user_name: currentUser.display_name || currentUser.full_name || currentUser.email,
-              unlocked_date: now
-            });
+      // DIREKT den Reward freischalten (ohne Achievement-Check) – Fehler hier sollen die Einlösung nicht blockieren
+      try {
+        if (rewardName) {
+          const reward = rewards.find(r => r.name === rewardName);
+          if (reward) {
+            console.log('[QuestRedeem] Unlocking reward:', reward.name, reward.display_name);
+            
+            // Prüfe ob User den Reward bereits hat
+            const userRewards = await Query.UserReward.filter({ auth_id: currentUser.id });
+            const hasReward = userRewards.some(ur => ur.reward_id === reward.id);
+            
+            if (!hasReward) {
+              // Schalte Reward frei
+              await Query.UserReward.create({
+                reward_id: reward.id,
+                reward_name: reward.display_name,
+                auth_id: currentUser.id,
+                user_email: currentUser.email,
+                user_name: currentUser.display_name || currentUser.full_name || currentUser.email,
+                unlocked_date: now
+              });
 
-            // Erstelle Notification für den Reward
-            const rewardTypeMap = {
-              "background": "Hintergrund",
-              "title": "Titel",
-              "animated_border": "Rahmen",
-              "item": "Gegenstand"
-            };
-            const rewardTypeGerman = rewardTypeMap[reward.type] || "Belohnung";
+              // Erstelle Notification für den Reward
+              const rewardTypeMap = {
+                "background": "Hintergrund",
+                "title": "Titel",
+                "animated_border": "Rahmen",
+                "item": "Gegenstand"
+              };
+              const rewardTypeGerman = rewardTypeMap[reward.type] || "Belohnung";
 
-            await Query.UserNotification.create({
-              auth_id: currentUser.id,
-              user_email: currentUser.email,
-              notification_type: "custom",
-              title: `🎁 Neuer ${rewardTypeGerman}!`,
-              message: `Du hast ${reward.display_name} freigeschaltet!`,
-              priority: "medium",
-              display_location: "banner",
-              seen: false
-            });
-          } else {
-            console.log('[QuestRedeem] User already has reward:', reward.name);
+              await Query.UserNotification.create({
+                auth_id: currentUser.id,
+                user_email: currentUser.email,
+                notification_type: "custom",
+                title: `🎁 Neuer ${rewardTypeGerman}!`,
+                message: `Du hast ${reward.display_name} freigeschaltet!`,
+                priority: "medium",
+                display_location: "banner",
+                seen: false
+              });
+            } else {
+              console.log('[QuestRedeem] User already has reward:', reward.name);
+            }
           }
         }
+      } catch (error) {
+        console.error("[QuestRedeem] Fehler beim Freischalten des Rewards:", error);
       }
       
       // Wenn das die erste Quest ist, erstelle eine Notification für Hintergrund-Personalisierung
