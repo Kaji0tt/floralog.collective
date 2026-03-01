@@ -39,3 +39,9 @@ enabled = true
 verify_jwt = true
 import_map = "./functions/createGlobalPlant/deno.json"
 entrypoint = "./functions/createGlobalPlant/index.ts"
+
+[functions.backfillPlantMetadata]
+enabled = true
+verify_jwt = true
+import_map = "./functions/backfillPlantMetadata/deno.json"
+entrypoint = "./functions/backfillPlantMetadata/index.ts"

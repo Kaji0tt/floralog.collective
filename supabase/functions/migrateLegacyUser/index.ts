@@ -466,6 +466,25 @@ Deno.serve(async (req) => {
             } else {
               legacyRewardGranted = 1
               console.log("[migrateLegacyUser] ✅ Legacy background reward granted")
+
+              const { error: legacyNotifError } = await supabaseAdmin
+                .from("UserNotification")
+                .insert({
+                  auth_id: authUserId,
+                  user_email: userEmail,
+                  notification_type: "custom",
+                  title: "🎁 Neue Belohnung freigeschaltet!",
+                  message: `Du hast den besonderen Hintergrund "${legacyReward.display_name || legacyRewardName}" für frühe Unterstützer freigeschaltet!`,
+                  display_location: "banner",
+                  priority: "medium",
+                  seen: false,
+                })
+
+              if (legacyNotifError) {
+                console.error("[migrateLegacyUser] Failed to insert legacy UserNotification:", legacyNotifError)
+              } else {
+                console.log("[migrateLegacyUser] ✅ Legacy background reward notification created")
+              }
             }
           }
         }

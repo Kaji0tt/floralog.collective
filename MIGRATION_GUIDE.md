@@ -70,6 +70,17 @@ SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 Diese werden automatisch bereitgestellt wenn die Function deployed wird.
 
+## Environment variables
+
+Ensure the following environment variables are configured in your Supabase project:
+
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SERVICE_ROLE_KEY`
+
+For AI-based plant metadata generation and EU classification, also configure:
+
+- `OPENAI_API_KEY` – used by the `generatePlantMetadata` Edge Function to call the OpenAI Responses API. If this key is missing or invalid, new global plants will **not** be created from scans; instead, the scan will be rejected with a clear error message in the app and no empty metadata rows will be inserted.
 ---
 
 ## Schritt 3: Benutzer-Flow verstehen

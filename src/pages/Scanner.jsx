@@ -469,7 +469,7 @@ export default function Scanner() {
                 if (plantData.is_european === false) {
                   return { ...plantData, notInDex: true, is_european: false, inDatabase: false };
                 }
-                // Für neue europäische Pflanzen: Metadaten (Beschreibung, Merkmale, Fun Fact, Seltenheit) per LLM erzeugen
+                // Für neue Pflanzen: Metadaten (Beschreibung, Merkmale, Fun Fact, Seltenheit) + EU-Check per LLM erzeugen
                 try {
                   const { data, error } = await supabase.functions.invoke('generatePlantMetadata', {
                     body: {
@@ -479,12 +479,19 @@ export default function Scanner() {
                     }
                   });
 
-                  if (!error && data) {
-                    const meta = data;
-                    const identificationText = Array.isArray(meta.identification_features)
-                      ? meta.identification_features.join(' ')
-                      : meta.identification_features;
+                  if (error || !data) {
+                    console.error('Fehler beim Aufruf von generatePlantMetadata:', error);
+                    // Hartes Fallback: Scan ablehnen, da keine sinnvollen Metadaten erzeugt werden konnten
+                    return { ...plantData, notInDex: true, inDatabase: false, metadata_failed: true };
+                  }
 
+                  const meta = data;
+                  const identificationText = Array.isArray(meta.identification_features)
+                    ? meta.identification_features.join(' ')
+                    : meta.identification_features;
+
+                  // Falls die KI die Pflanze als nicht-europäisch einstuft, nicht speicherbar machen
+                  if (meta.is_european === false) {
                     return {
                       ...plantData,
                       description: meta.description,
@@ -492,15 +499,32 @@ export default function Scanner() {
                       fun_fact: meta.fun_fact,
                       rarity: meta.rarity || plantData.rarity || 'Gelegentlich',
                       notInDex: true,
-                      inDatabase: false
+                      inDatabase: false,
+                      is_european: false
                     };
                   }
+
+                  // Nur wenn die KI die Pflanze als europäisch klassifiziert UND Metadaten liefert, darf sie gespeichert werden
+                  if (meta.is_european === true && meta.description && identificationText && meta.rarity) {
+                    return {
+                      ...plantData,
+                      description: meta.description,
+                      identification_features: identificationText,
+                      fun_fact: meta.fun_fact,
+                      rarity: meta.rarity || plantData.rarity || 'Gelegentlich',
+                      notInDex: true,
+                      inDatabase: false,
+                      is_european: true
+                    };
+                  }
+
+                  console.error('Unvollständige Metadaten oder fehlende EU-Klassifikation:', meta);
+                  return { ...plantData, notInDex: true, inDatabase: false, metadata_failed: true };
                 } catch (e) {
                   console.error('Fehler beim Generieren der Vorschau-Metadaten:', e);
+                  // Hartes Fallback: Scan ablehnen, da keine sinnvollen Metadaten erzeugt werden konnten
+                  return { ...plantData, notInDex: true, inDatabase: false, metadata_failed: true };
                 }
-
-                // Fallback: ohne Metadaten zurückgeben, falls LLM fehlschlägt
-                return { ...plantData, notInDex: true, inDatabase: false };
               }
             })
           );
@@ -512,13 +536,25 @@ export default function Scanner() {
 
           const firstResult = processedResults[0];
 
+          // Wenn die Metadaten-Generierung fehlgeschlagen ist, Scan klar ablehnen
+          if (firstResult && firstResult.metadata_failed) {
+            console.warn('❌ Metadaten-Generierung fehlgeschlagen – Scan wird abgelehnt');
+            setMatchedPlant({
+              identified: false,
+              error:
+                'Die Pflanze konnte nicht in einen sinnvollen Kontext gesetzt werden. Bitte versuche es später erneut oder mit einem anderen Foto.',
+            });
+            setScanning(false);
+            return;
+          }
+
           // KORRIGIERTE LOGIK: Prüfe zuerst ob nicht-europäisch, dann ob in Datenbank
-          if (firstResult.is_european === false) {
+          if (firstResult && firstResult.is_european === false) {
             // Nicht-europäische Pflanze - nur anzeigen, nicht speichern
             console.log("🌍 Nicht-europäische Pflanze erkannt - nur Anzeige");
             setMatchedPlant(firstResult);
             setScanning(false);
-          } else {
+          } else if (firstResult) {
             // Europäische Pflanze erkannt - temporär speichern, aber noch nicht in DB
             console.log("🌿 Pflanze erkannt - warte auf Bestätigung");
             setPendingScanData({
@@ -528,6 +564,15 @@ export default function Scanner() {
               isInDatabase: firstResult.inDatabase
             });
             setMatchedPlant(firstResult);
+            setScanning(false);
+          } else {
+            // Sicherheitsfallback: Kein valides Ergebnis vorhanden
+            console.warn('❌ Kein valides Scan-Ergebnis nach Verarbeitung vorhanden');
+            setMatchedPlant({
+              identified: false,
+              error:
+                'Die Pflanze konnte nicht in einen sinnvollen Kontext gesetzt werden. Bitte versuche es später erneut oder mit einem anderen Foto.',
+            });
             setScanning(false);
           }
 

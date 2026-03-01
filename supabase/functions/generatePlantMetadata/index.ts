@@ -18,6 +18,7 @@ type LlmResponse = {
   identification_features: string[];
   fun_fact: string;
   rarity: string;
+  is_european: boolean;
 };
 
 Deno.serve(async (req) => {
@@ -67,7 +68,8 @@ Deno.serve(async (req) => {
   - description: 2–3 sehr kurze Sätze.
   - identification_features: 2-3 Sätze zu den wichtigsten Erkennungsmerkmalen.
   - fun_fact: genau 1 kurzer Satz.
-  - rarity: genau eines der Wörter "Häufig", "Gelegentlich", "Selten", "Sehr selten".`;
+  - rarity: genau eines der Wörter "Häufig", "Gelegentlich", "Selten", "Sehr selten".
+  - is_european: boolean, true NUR wenn die Art ursprünglich aus Europa stammt oder heute in Europa heimisch/natürlichisiert ist. Bei Unsicherheit immer false.`;
 
     let llmResult: LlmResponse | null = null;
 
@@ -111,8 +113,17 @@ Deno.serve(async (req) => {
                     type: "string",
                     enum: ["Häufig", "Gelegentlich", "Selten", "Sehr selten"],
                   },
+                  is_european: {
+                    type: "boolean",
+                  },
                 },
-                required: ["description", "identification_features", "fun_fact", "rarity"],
+                required: [
+                  "description",
+                  "identification_features",
+                  "fun_fact",
+                  "rarity",
+                  "is_european",
+                ],
               },
             },
           },
@@ -131,11 +142,14 @@ Deno.serve(async (req) => {
       // Prefer the SDK-like helper shape if present
       const helperParsed = (openAiJson as any).output_parsed as LlmResponse | undefined;
 
-      if (helperParsed &&
+      if (
+        helperParsed &&
         helperParsed.description &&
         Array.isArray(helperParsed.identification_features) &&
         helperParsed.fun_fact &&
-        helperParsed.rarity) {
+        helperParsed.rarity &&
+        typeof helperParsed.is_european === "boolean"
+      ) {
         llmResult = helperParsed;
       } else {
         // Fallback: extract JSON text from the first message item and parse manually
@@ -153,7 +167,8 @@ Deno.serve(async (req) => {
               parsed.description &&
               Array.isArray(parsed.identification_features) &&
               parsed.fun_fact &&
-              parsed.rarity
+              parsed.rarity &&
+              typeof parsed.is_european === "boolean"
             ) {
               llmResult = parsed;
             }
@@ -182,6 +197,7 @@ Deno.serve(async (req) => {
         identification_features: llmResult.identification_features,
         fun_fact: llmResult.fun_fact,
         rarity: llmResult.rarity,
+        is_european: llmResult.is_european,
       }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
     );
