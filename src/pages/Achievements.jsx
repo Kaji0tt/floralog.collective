@@ -357,22 +357,30 @@ export default function Achievements() {
       if (questType === 'regular') {
         await Query.UserQuest.update(userQuestId, {
           redeemed: true,
-          redeemed_date: now
+          redeemed_date: now,
+          status: 'redeemed',
+          redeemed_at: now
         });
       } else if (questType === 'weekly') {
         await Query.UserWeeklyQuest.update(userQuestId, {
           redeemed: true,
-          redeemed_date: now
+          redeemed_date: now,
+          status: 'redeemed',
+          redeemed_at: now
         });
       } else if (questType === 'monthly') {
         await Query.UserMonthlyQuest.update(userQuestId, {
           redeemed: true,
-          redeemed_date: now
+          redeemed_date: now,
+          status: 'redeemed',
+          redeemed_at: now
         });
       } else if (questType === 'collection') {
         await Query.UserCollectionQuest.update(userQuestId, {
           redeemed: true,
-          redeemed_date: now
+          redeemed_date: now,
+          status: 'redeemed',
+          redeemed_at: now
         });
       }
 
