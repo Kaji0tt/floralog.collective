@@ -259,11 +259,22 @@ export default function Home() {
     };
   }, []);
 
+  // Consume scan feedback from navigation state exactly once per navigation
   useEffect(() => {
     if (location.state && location.state.scanFeedback) {
+      // Show feedback from navigation state
       setScanFeedback(location.state.scanFeedback);
+
+      // Remove scanFeedback from history state so it won't re-trigger
+      const { scanFeedback: _ignored, ...restState } = location.state;
+      const nextState = Object.keys(restState).length > 0 ? restState : null;
+
+      navigate(location.pathname + location.search, {
+        replace: true,
+        state: nextState,
+      });
     }
-  }, [location.state]);
+  }, [location, navigate]);
 
   // Auto-execute migration if pending (user came from SetPassword page)
   useEffect(() => {
