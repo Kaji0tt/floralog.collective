@@ -4,12 +4,10 @@ import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { getXPProgressInLevel } from "../components/utils/xpSystem";
 import MobileBackButton from "../components/navigation/MobileBackButton"; // Added import
 import { Camera, BookOpen, Trophy, Target, Users, ChevronRight, Star, ArrowLeft, Lock, Map as MapIcon, Heart, UserPlus, Clock, Leaf } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { motion } from "framer-motion";
@@ -261,8 +259,6 @@ export default function FriendProfile() {
     );
   }
 
-  const currentXP = friendUser.xp || 0;
-
   const discoveredGenera = genera.filter(g => {
     const genusPlants = plants.filter(p => 
       p.genus_category === g.category && p.genus_number === g.category_dex_number
@@ -398,27 +394,6 @@ export default function FriendProfile() {
                         <Leaf className="w-14 h-14 text-white" />
                       )}
                     </div>
-                    
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button 
-                          onClick={(e) => e.stopPropagation()}
-                          className="absolute -top-2 -right-2 px-3 py-1 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center shadow-xl backdrop-blur-sm border-2 border-white/80 hover:scale-110 transition-transform cursor-pointer"
-                        >
-                          <span className="text-white font-bold text-sm">LV {currentLevel}</span>
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-64 bg-white">
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-bold text-stone-800">Level {currentLevel}</span>
-                            <span className="text-sm font-bold text-stone-800">{xpProgress.current} / {xpProgress.needed} XP</span>
-                          </div>
-                          <Progress value={xpProgress.percentage} className="h-2" />
-                          <p className="text-xs text-stone-600">{xpProgress.percentage.toFixed(1)}% bis Level {currentLevel + 1}</p>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
                   </div>
 
                   <div className="flex-1 w-full bg-white/40 backdrop-blur-md rounded-xl p-5 border-2 border-white/30 shadow-lg">
