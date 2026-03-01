@@ -87,9 +87,8 @@ export async function updateQuestProgress(user) {
             progress,
             completed,
             completed_date: completed && !userQuest.completed ? new Date().toISOString() : userQuest.completed_date,
-            // New status model
-            status: completed ? 'completed' : 'active',
-            completed_at: completed && !userQuest.completed_at ? new Date().toISOString() : userQuest.completed_at
+            // Optional Status-Feld: nur setzen, falls vorhanden
+            status: completed ? 'completed' : 'active'
           });
         }
       }
@@ -116,8 +115,7 @@ export async function updateQuestProgress(user) {
             progress,
             completed,
             completed_date: completed && !userWeeklyQuest.completed ? new Date().toISOString() : userWeeklyQuest.completed_date,
-            status: completed ? 'completed' : 'active',
-            completed_at: completed && !userWeeklyQuest.completed_at ? new Date().toISOString() : userWeeklyQuest.completed_at
+            status: completed ? 'completed' : 'active'
           });
         }
       }
@@ -144,8 +142,7 @@ export async function updateQuestProgress(user) {
             progress,
             completed,
             completed_date: completed && !userMonthlyQuest.completed ? new Date().toISOString() : userMonthlyQuest.completed_date,
-            status: completed ? 'completed' : 'active',
-            completed_at: completed && !userMonthlyQuest.completed_at ? new Date().toISOString() : userMonthlyQuest.completed_at
+            status: completed ? 'completed' : 'active'
           });
         }
       }
@@ -171,8 +168,7 @@ export async function updateQuestProgress(user) {
             discovered_plants: uniqueDiscoveredPlants,
             completed,
             completed_date: completed && !userCollectionQuest.completed ? new Date().toISOString() : userCollectionQuest.completed_date,
-            status: completed ? 'completed' : 'active',
-            completed_at: completed && !userCollectionQuest.completed_at ? new Date().toISOString() : userCollectionQuest.completed_at
+            status: completed ? 'completed' : 'active'
           });
         }
       }

@@ -353,34 +353,30 @@ export default function Achievements() {
       console.log('[QuestRedeem] Starting redeem for:', questType, rewardName);
       const now = new Date().toISOString();
 
-      // Quest einlösen
+      // Quest einlösen – verwende nur vorhandene Legacy-Felder (redeemed, redeemed_date)
       if (questType === 'regular') {
         await Query.UserQuest.update(userQuestId, {
           redeemed: true,
           redeemed_date: now,
-          status: 'redeemed',
-          redeemed_at: now
+          status: 'redeemed'
         });
       } else if (questType === 'weekly') {
         await Query.UserWeeklyQuest.update(userQuestId, {
           redeemed: true,
           redeemed_date: now,
-          status: 'redeemed',
-          redeemed_at: now
+          status: 'redeemed'
         });
       } else if (questType === 'monthly') {
         await Query.UserMonthlyQuest.update(userQuestId, {
           redeemed: true,
           redeemed_date: now,
-          status: 'redeemed',
-          redeemed_at: now
+          status: 'redeemed'
         });
       } else if (questType === 'collection') {
         await Query.UserCollectionQuest.update(userQuestId, {
           redeemed: true,
           redeemed_date: now,
-          status: 'redeemed',
-          redeemed_at: now
+          status: 'redeemed'
         });
       }
 
