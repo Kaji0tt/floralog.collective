@@ -667,7 +667,8 @@ export default function Home() {
           localStorage.setItem('hasVisitedAchievements', 'true');
         }
       },
-      hasNotification: hasRedeemableQuests || hasNewQuests || showAchievementsHighlight,
+      // Animierte Hervorhebung NUR, wenn es einlösbare Quests gibt
+      hasNotification: hasRedeemableQuests,
       notificationRed: hasNewQuests,
       notificationGreen: hasRedeemableQuests
     },

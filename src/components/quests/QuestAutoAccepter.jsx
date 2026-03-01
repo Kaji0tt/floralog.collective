@@ -162,18 +162,14 @@ export default function QuestAutoAccepter({ user }) {
     });
 
     if (availableRegularQuests.length > 0) {
-      if (!insertGuard.current.regular) {
-        insertGuard.current.regular = true;
-        const quest = availableRegularQuests[0];
+      // Alle regulären Quests mit erfüllter Voraussetzung automatisch annehmen
+      availableRegularQuests.forEach((quest) => {
         console.log('[UserQuest] Auto-Insert regular:', quest);
         acceptQuestMutation.mutate({
           questId: quest.id,
           questType: 'regular'
         });
-        return;
-      } else {
-        console.warn('[UserQuest] Insert regular skipped: already inserted on this page load.');
-      }
+      });
     }
 
     // 2. Weekly Quest automatisch annehmen
