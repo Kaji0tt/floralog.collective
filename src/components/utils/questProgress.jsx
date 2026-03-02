@@ -42,10 +42,10 @@ export async function updateQuestProgress(user) {
 
       // Filter nach Kategorie
       if (quest.category && quest.category !== "Alle") {
-        const categoryGenera = genera.filter(g => g.category === quest.category);
-        const categoryGeneraIds = categoryGenera.map(g => g.id);
-        const categoryPlants = plants.filter(p => categoryGeneraIds.includes(p.genus_id));
-        const categoryPlantIds = categoryPlants.map(p => p.id);
+        // Plants sind über genus_category (z.B. "Blumen") klassifiziert
+        const categoryPlantIds = plants
+          .filter(p => p.genus_category === quest.category)
+          .map(p => p.id);
         matchingDiscoveries = matchingDiscoveries.filter(d => categoryPlantIds.includes(d.plant_id));
       }
 
@@ -53,8 +53,13 @@ export async function updateQuestProgress(user) {
       if (quest.target_genus_name) {
         const targetGenus = genera.find(g => g.genus_name === quest.target_genus_name);
         if (targetGenus) {
-          const targetGenusPlants = plants.filter(p => p.genus_id === targetGenus.id);
-          const targetGenusPlantIds = targetGenusPlants.map(p => p.id);
+          // Verknüpfung Plant <-> Genus erfolgt über (genus_category, genus_number)
+          const targetGenusPlantIds = plants
+            .filter(p =>
+              p.genus_category === targetGenus.category &&
+              p.genus_number === targetGenus.category_dex_number
+            )
+            .map(p => p.id);
           matchingDiscoveries = matchingDiscoveries.filter(d => targetGenusPlantIds.includes(d.plant_id));
         }
       }
