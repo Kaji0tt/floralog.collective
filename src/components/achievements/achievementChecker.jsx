@@ -66,18 +66,9 @@ export async function checkAndUnlockAchievements(user) {
               unlocked_date: new Date().toISOString()
             });
 
-            // Erstelle Notification für den Reward
-            await Query.UserNotification.create({
-              auth_id: user.id,
-              user_email: user.email,
-              notification_type: "custom",
-              title: `🎁 Neue Belohnung freigeschaltet!`,
-              message: `Du hast "${reward.display_name}" freigeschaltet!`,
-              image_url: reward.image_url || reward.value,
-              display_location: "banner",
-              priority: "medium",
-              seen: false
-            });
+            // Früher wurde hier eine UserNotification im Banner-Stil erstellt.
+            // Belohnungs-Feedback wird nun direkt über UI-Komponenten (z.B. ScanFeedbackNotification)
+            // gehandhabt und nicht mehr als persistente Notification gespeichert.
           } else {
             console.log('[AchievementChecker] User already has reward:', reward.name);
           }

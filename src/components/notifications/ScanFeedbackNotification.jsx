@@ -12,7 +12,7 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
 
   if (!feedback) return null;
 
-  const { type, plantName } = feedback;
+  const { type, plantName, questTitle, rewardName } = feedback;
 
   let title = "Scan erfolgreich!";
   let message = "Dein Scan wurde gespeichert.";
@@ -52,6 +52,18 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
     ringClasses = "bg-amber-300/80";
     emojiSet = ["✨", "🌟", "✨", "🌼"]; 
     animationVariant = "globalNewPlant";
+  } else if (type === "questCompleted") {
+    title = "Quest abgeschlossen!";
+    message = questTitle
+      ? `Du hast "${questTitle}" erfolgreich abgeschlossen.`
+      : "Du hast eine Quest erfolgreich abgeschlossen.";
+    if (rewardName) {
+      message += ` Belohnung: ${rewardName}.`;
+    }
+    containerClasses = "bg-emerald-50/95 border-emerald-300";
+    ringClasses = "bg-emerald-300/80";
+    emojiSet = ["✨", "🎯", "🎁", "✨"]; 
+    animationVariant = "newDiscovery";
   }
 
   // Emoji-Startpositionen einmal pro Mount berechnen, damit sie "zufällig" wirken,

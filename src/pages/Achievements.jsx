@@ -16,6 +16,8 @@ import MobileBackButton from "../components/navigation/MobileBackButton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { AnimatePresence } from "framer-motion";
+import { useLocation, useNavigate } from "react-router-dom";
+import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
 import { getWeekNumber, getMonthString, getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
 
 const getAverageColor = (imageUrl) => {
@@ -54,12 +56,15 @@ const getAverageColor = (imageUrl) => {
 
 export default function Achievements() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [user, setUser] = useState(null);
   const [showTitleDialog, setShowTitleDialog] = useState(false);
   const [selectedAchievement, setSelectedAchievement] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
   const [activeTab, setActiveTab] = useState("quests");
   const [questFilter, setQuestFilter] = useState("exploration");
+  const [questFeedback, setQuestFeedback] = useState(null);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -68,6 +73,21 @@ export default function Achievements() {
     };
     loadUser();
   }, []);
+
+  // Konsumiere Quest-Feedback aus Navigation-State einmalig (analog Home/ScanFeedback)
+  useEffect(() => {
+    if (location.state && location.state.questFeedback) {
+      setQuestFeedback(location.state.questFeedback);
+
+      const { questFeedback: _ignored, ...restState } = location.state;
+      const nextState = Object.keys(restState).length > 0 ? restState : null;
+
+      navigate(location.pathname + location.search, {
+        replace: true,
+        state: nextState,
+      });
+    }
+  }, [location, navigate]);
 
   useEffect(() => {
     if (user?.background_color) {
@@ -424,25 +444,8 @@ export default function Achievements() {
                 unlocked_date: now
               });
 
-              // Erstelle Notification für den Reward
-              const rewardTypeMap = {
-                "background": "Hintergrund",
-                "title": "Titel",
-                "animated_border": "Rahmen",
-                "item": "Gegenstand"
-              };
-              const rewardTypeGerman = rewardTypeMap[reward.type] || "Belohnung";
-
-              await Query.UserNotification.create({
-                auth_id: currentUser.id,
-                user_email: currentUser.email,
-                notification_type: "custom",
-                title: `🎁 Neuer ${rewardTypeGerman}!`,
-                message: `Du hast ${reward.display_name} freigeschaltet!`,
-                priority: "medium",
-                display_location: "banner",
-                seen: false
-              });
+              // Früher wurde hier eine persistente UserNotification im Banner-Stil erstellt.
+              // Feedback für Rewards wird jetzt über das Quest-Feedback-Overlay gehandhabt.
             } else {
               console.log('[QuestRedeem] User already has reward:', reward.name);
             }
@@ -472,23 +475,21 @@ export default function Achievements() {
         }
       }
 
-      // Allgemeine Erfolgsmeldung für jede eingelöste Quest (Banner)
-      try {
-        await Query.UserNotification.create({
-          auth_id: currentUser.id,
-          user_email: currentUser.email,
-          notification_type: "custom",
-          title: "✅ Quest eingelöst",
-          message: questTitle
-            ? `Du hast "${questTitle}" erfolgreich eingelöst.`
-            : "Du hast eine Quest erfolgreich eingelöst.",
-          priority: "medium",
-          display_location: "banner",
-          seen: false
-        });
-      } catch (error) {
-        console.error("[QuestRedeem] Fehler beim Erstellen der Quest-Erfolgs-Notification:", error);
-      }
+      // Setze lokales Quest-Feedback, das als zentriertes Overlay angezeigt wird
+      const rewardLabel = rewardName
+        ? (rewards.find(r => r.name === rewardName)?.display_name || rewardName)
+        : null;
+
+      navigate(location.pathname + location.search, {
+        state: {
+          ...(location.state || {}),
+          questFeedback: {
+            type: "questCompleted",
+            questTitle,
+            rewardName: rewardLabel,
+          },
+        },
+      });
       
       console.log('[QuestRedeem] Finished successfully');
       return "Quest abgeschlossen!";
@@ -558,6 +559,18 @@ export default function Achievements() {
     const b = Math.floor(parseInt(match[3]) * 0.6);
     return `rgb(${r}, ${g}, ${b})`;
   };
+
+  // Overlay für Quest-/Reward-Feedback (ScanFeedback-Style)
+  const renderQuestFeedbackOverlay = () => (
+    <AnimatePresence>
+      {questFeedback && (
+        <ScanFeedbackNotification
+          feedback={questFeedback}
+          onComplete={() => setQuestFeedback(null)}
+        />
+      )}
+    </AnimatePresence>
+  );
 
   // Rarität-Wert für Sortierung
   const getRarityValue = (rarity) => {
@@ -740,6 +753,7 @@ export default function Achievements() {
 
   return (
     <>
+      {renderQuestFeedbackOverlay()}
       {/* Fixer Hintergrund */}
       <div
         className="fixed inset-0 -z-10"
