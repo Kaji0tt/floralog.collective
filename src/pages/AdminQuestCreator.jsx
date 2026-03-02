@@ -172,7 +172,8 @@ export default function AdminQuestCreator() {
       title: quest.title || "",
       description: quest.description || "",
       requirement: quest.requirement || "",
-      reward: quest.reward || "",
+      // In der Datenbank heißt die Spalte "reward_name"
+      reward: quest.reward_name || "",
       category: quest.category || "Alle",
       difficulty: quest.difficulty || "Leicht",
       required_discoveries: quest.required_discoveries || 1,
@@ -219,14 +220,16 @@ export default function AdminQuestCreator() {
       required_discoveries: parseInt(formData.required_discoveries) || undefined,
     };
 
-    // Add reward if specified
+    // Add reward_name if specified (matches DB schema)
     if (formData.reward) {
-      questData.reward = formData.reward;
+      questData.reward_name = formData.reward;
     }
 
     // Add fields specific to Quest entity
     if (activeTab === "quest") {
       questData.difficulty = formData.difficulty;
+      // XP wird nur für reguläre Quests verwendet
+      questData.xp_reward = parseInt(formData.xp_reward) || null;
       if (formData.prerequisite_quest_number) {
         questData.prerequisite_quest_number = parseInt(formData.prerequisite_quest_number);
       }
@@ -895,9 +898,9 @@ export default function AdminQuestCreator() {
                                       Inaktiv
                                     </Badge>
                                   )}
-                                  {quest.reward && (
+                                  {quest.reward_name && (
                                     <Badge className="bg-amber-100 text-amber-700">
-                                      🎁 {quest.reward}
+                                      🎁 {quest.reward_name}
                                     </Badge>
                                   )}
                                 </div>
