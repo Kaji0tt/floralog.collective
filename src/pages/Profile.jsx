@@ -1231,66 +1231,6 @@ export default function Profile() {
                               </div>
                             </div>
                           </div>
-                    </p>
-                    
-                    <Select
-                      value={user.selected_title || "default"}
-                      onValueChange={(value) => {
-                        if (value === 'default') {
-                          updateUserMutation.mutate({ selected_title: null });
-                        } else {
-                          updateUserMutation.mutate({ selected_title: value });
-                        }
-                      }}
-                      disabled={updateUserMutation.isPending}
-                    >
-                      <SelectTrigger className="w-full border-2 border-purple-300 bg-white h-12">
-                        <SelectValue>
-                          <span className="font-semibold">
-                            {user.selected_title || "Pflanzen-Entdecker"}
-                          </span>
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="default">
-                          <span className="font-semibold">Pflanzen-Entdecker</span>
-                        </SelectItem>
-
-                        {userAchievements
-                          .map(ua => {
-                            const achievement = achievements.find(a => a.id === ua.achievement_id);
-                            return achievement?.title_reward ? achievement : null;
-                          })
-                          .filter(a => a !== null)
-                          .map((achievement) => (
-                            <SelectItem key={achievement.id} value={achievement.title_reward}>
-                              <span className="font-semibold">{achievement.title_reward}</span>
-                            </SelectItem>
-                          ))}
-
-                        {userAchievements.filter(ua => {
-                          const achievement = achievements.find(a => a.id === ua.achievement_id);
-                          return achievement?.title_reward;
-                        }).length === 0 && (
-                          <div className="p-3 text-center text-sm text-stone-500">
-                            Keine Erfolgs-Titel freigeschaltet
-                          </div>
-                        )}
-                      </SelectContent>
-                    </Select>
-
-                    {userAchievements.filter(ua => {
-                      const achievement = achievements.find(a => a.id === ua.achievement_id);
-                      return achievement?.title_reward;
-                    }).length === 0 && (
-                      <p className="text-xs text-stone-600 mt-2">
-                        💡 Schalte Erfolge frei, um mehr Titel zu erhalten!
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
               <div className="flex items-center justify-between p-4 bg-stone-50 rounded-lg border border-stone-200">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-stone-200 rounded-full flex items-center justify-center">
