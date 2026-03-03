@@ -95,23 +95,39 @@ export default function GenusDetail() {
     queryFn: () => Query.Plant.list(),
   });
 
-  const { data: userDiscoveries = [], isLoading: discoveriesLoading } = useQuery({
-    queryKey: ['userDiscoveries', friendEmail],
+  // Wenn friendEmail gesetzt ist, laden wir das PublicProfile des Freundes,
+  // um dessen auth_id zu erhalten (für RLS-kompatible Queries auf UserPlantDiscovery).
+  const { data: friendProfile } = useQuery({
+    queryKey: ['friendProfileForGenus', friendEmail],
     queryFn: async () => {
-      // Wenn friendEmail vorhanden, lade Discoveries des Freundes
-      // Ansonsten lade eigene Discoveries
-      const discoveries = await Query.UserPlantDiscovery.list();
-      
+      if (!friendEmail) return null;
+      const profiles = await Query.PublicProfile.list();
+      return profiles.find(p => p.user_email?.toLowerCase() === friendEmail.toLowerCase()) || null;
+    },
+    enabled: !!friendEmail,
+  });
+
+  const { data: userDiscoveries = [], isLoading: discoveriesLoading } = useQuery({
+    queryKey: ['userDiscoveries', friendEmail || currentUser?.id],
+    queryFn: async () => {
+      // Freundes-Kontext: Discoveries des Freundes über auth_id laden
       if (friendEmail) {
+        if (friendProfile?.auth_id) {
+          return Query.UserPlantDiscovery.filter({ auth_id: friendProfile.auth_id });
+        }
+
+        // Fallback: alte Discoveries über Email filtern (falls kein auth_id vorhanden)
+        const discoveries = await Query.UserPlantDiscovery.list();
         return discoveries.filter(d => d.user === friendEmail || d.created_by === friendEmail);
       }
-      
-      const user = await getCurrentUser();
-      if (!user || !user.email) {
+
+      // Eigene Discoveries über auth_id laden (wie in Collection.jsx)
+      if (!currentUser?.id) {
         return [];
       }
-      return discoveries.filter(d => d.user === user.email || d.created_by === user.email);
+      return Query.UserPlantDiscovery.filter({ auth_id: currentUser.id });
     },
+    enabled: friendEmail ? (friendProfile !== undefined) : !!currentUser?.id,
   });
 
   // Koordinaten zu Ortsnamen umwandeln
