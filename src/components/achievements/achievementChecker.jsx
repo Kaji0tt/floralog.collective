@@ -12,14 +12,25 @@ export async function checkAndUnlockAchievements(user) {
     console.log('[AchievementChecker] Starting check for user:', user.email);
     
     // Lade alle benötigten Daten
-    const [achievements, userAchievements, plants, genera, userDiscoveries, friends] = await Promise.all([
+    const [achievements, userAchievements, plants, genera, userDiscoveries, allFriendRecords] = await Promise.all([
       Query.Achievement.list(),
       Query.UserAchievement.filter({ auth_id: user.id }),
       Query.Plant.list(),
       Query.PlantGenus.list(),
       Query.UserPlantDiscovery.filter({ auth_id: user.id }),
-      Query.Friend.filter({ auth_id: user.id })
+      // Lade alle Freundschafts-Einträge und filtere danach wie im restlichen App-Code
+      Query.Friend.list()
     ]);
+
+    const userEmailLower = (user.email || '').toLowerCase();
+
+    // Akzeptierte Freundschaften, bei denen der User entweder Sender oder Empfänger ist
+    const friends = allFriendRecords.filter((f) =>
+      f.status === 'accepted' && (
+        f.request_sent_by?.toLowerCase() === userEmailLower ||
+        f.request_sent_to?.toLowerCase() === userEmailLower
+      )
+    );
 
     const unlockedAchievements = [];
 
