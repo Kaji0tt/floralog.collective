@@ -32,6 +32,16 @@ export async function checkAndUnlockAchievements(user) {
       )
     );
 
+    console.log('[AchievementChecker] Loaded data summary:', {
+      achievements: achievements.length,
+      userAchievements: userAchievements.length,
+      plants: plants.length,
+      genera: genera.length,
+      userDiscoveries: userDiscoveries.length,
+      friendsTotal: allFriendRecords.length,
+      friendsAcceptedForUser: friends.length
+    });
+
     const unlockedAchievements = [];
 
     // Hilfsfunktion: Hat User das Achievement schon?
@@ -43,7 +53,14 @@ export async function checkAndUnlockAchievements(user) {
     // Hilfsfunktion: Achievement freischalten
     const unlockAchievement = async (title) => {
       const achievement = achievements.find(a => a.title === title);
-      if (!achievement || hasAchievement(title)) return null;
+      if (!achievement) {
+        console.warn('[AchievementChecker] Achievement definition not found for title:', title);
+        return null;
+      }
+      if (hasAchievement(title)) {
+        console.log('[AchievementChecker] Achievement already unlocked, skipping:', title);
+        return null;
+      }
 
       console.log('[AchievementChecker] Unlocking achievement:', title, 'with reward:', achievement.reward_name);
 
@@ -145,6 +162,17 @@ export async function checkAndUnlockAchievements(user) {
       p.created_by === user.email && 
       p.discovered === true
     ).length;
+
+    console.log('[AchievementChecker] Computed stats:', {
+      discoveredPlants,
+      longestScanStreak,
+      discoveredGenera,
+      discoveredGeneraByUser: discoveredGeneraByUser.length,
+      baumGeneraTotal: baumGenera.length,
+      discoveredBaumGeneraByUser: discoveredBaumGeneraByUser.length,
+      newPlantsAddedToGlobalDex,
+      friendsAcceptedForUser: friends.length
+    });
 
     // 🏆 ACHIEVEMENT-PRÜFUNGEN 🏆
 

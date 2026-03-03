@@ -18,6 +18,8 @@ import { Progress } from "@/components/ui/progress";
 import { AnimatePresence } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
+import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
+import AchievementNotification from "../components/achievements/AchievementNotification";
 import { getWeekNumber, getMonthString, getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
 
 const getAverageColor = (imageUrl) => {
@@ -65,6 +67,8 @@ export default function Achievements() {
   const [activeTab, setActiveTab] = useState("quests");
   const [questFilter, setQuestFilter] = useState("exploration");
   const [questFeedback, setQuestFeedback] = useState(null);
+  const [newAchievements, setNewAchievements] = useState([]);
+  const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -100,6 +104,26 @@ export default function Achievements() {
       setAverageColor(null);
     }
   }, [user?.background_image_url, user?.background_color]);
+
+  // Beim Öffnen der Achievements-Seite einmalig Achievements prüfen
+  useEffect(() => {
+    const runAchievementCheck = async () => {
+      if (!user) return;
+      try {
+        console.log('[AchievementsPage] Running checkAndUnlockAchievements for user:', user.email);
+        const newlyUnlocked = await checkAndUnlockAchievements(user);
+        console.log('[AchievementsPage] Newly unlocked achievements:', newlyUnlocked?.length || 0);
+        if (newlyUnlocked && newlyUnlocked.length > 0) {
+          setNewAchievements(newlyUnlocked);
+          setCurrentAchievementIndex(0);
+        }
+      } catch (error) {
+        console.error('[AchievementsPage] Error while checking achievements:', error);
+      }
+    };
+
+    runAchievementCheck();
+  }, [user]);
 
   const { data: achievements = [] } = useQuery({
     queryKey: ['achievements'],
@@ -754,6 +778,22 @@ export default function Achievements() {
   return (
     <>
       {renderQuestFeedbackOverlay()}
+      {/* Overlay für frisch freigeschaltete Achievements (analog Scanner / Friends) */}
+      <AnimatePresence>
+        {newAchievements.length > 0 && currentAchievementIndex < newAchievements.length && (
+          <AchievementNotification
+            achievement={newAchievements[currentAchievementIndex]}
+            onComplete={() => {
+              if (currentAchievementIndex < newAchievements.length - 1) {
+                setCurrentAchievementIndex(currentAchievementIndex + 1);
+              } else {
+                setNewAchievements([]);
+                setCurrentAchievementIndex(0);
+              }
+            }}
+          />
+        )}
+      </AnimatePresence>
       {/* Fixer Hintergrund */}
       <div
         className="fixed inset-0 -z-10"
