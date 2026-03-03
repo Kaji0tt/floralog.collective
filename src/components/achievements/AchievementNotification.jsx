@@ -27,7 +27,7 @@ export default function AchievementNotification({ achievement, onComplete }) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -50 }}
       transition={{ type: "spring", damping: 15 }}
-      className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none"
+      className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[60] pointer-events-none"
     >
       <div className={`bg-gradient-to-r ${getRarityColor(achievement.rarity)} rounded-2xl shadow-2xl border-4 border-white p-6 min-w-[320px] max-w-md`}>
         <div className="flex items-center gap-4">

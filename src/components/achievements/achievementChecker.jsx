@@ -44,15 +44,22 @@ export async function checkAndUnlockAchievements(user) {
 
     const unlockedAchievements = [];
 
-    // Hilfsfunktion: Hat User das Achievement schon?
+    // Hilfsfunktionen zum Finden von Achievements
+    const findAchievementByTitle = (title) =>
+      achievements.find(a => a.title === title);
+
+    const findAchievementByRewardName = (rewardName) =>
+      achievements.find(a => a.reward_name === rewardName);
+
+    // Hilfsfunktion: Hat User das Achievement schon? (per Titel)
     const hasAchievement = (title) => {
-      const achievement = achievements.find(a => a.title === title);
+      const achievement = findAchievementByTitle(title);
       return achievement && userAchievements.some(ua => ua.achievement_id === achievement.id);
     };
 
-    // Hilfsfunktion: Achievement freischalten
+    // Hilfsfunktion: Achievement per Titel freischalten
     const unlockAchievement = async (title) => {
-      const achievement = achievements.find(a => a.title === title);
+      const achievement = findAchievementByTitle(title);
       if (!achievement) {
         console.warn('[AchievementChecker] Achievement definition not found for title:', title);
         return null;
@@ -99,6 +106,61 @@ export async function checkAndUnlockAchievements(user) {
             // gehandhabt und nicht mehr als persistente Notification gespeichert.
           } else {
             console.log('[AchievementChecker] User already has reward:', reward.name);
+          }
+        }
+      }
+
+      return achievement;
+    };
+
+    // Hilfsfunktion: Hat User ein Achievement mit bestimmtem Reward bereits?
+    const hasAchievementByRewardName = (rewardName) => {
+      const achievement = findAchievementByRewardName(rewardName);
+      return achievement && userAchievements.some(ua => ua.achievement_id === achievement.id);
+    };
+
+    // Hilfsfunktion: Achievement über Reward-Name freischalten
+    const unlockAchievementByRewardName = async (rewardName) => {
+      const achievement = findAchievementByRewardName(rewardName);
+      if (!achievement) {
+        console.warn('[AchievementChecker] Achievement definition not found for reward_name:', rewardName);
+        return null;
+      }
+      if (userAchievements.some(ua => ua.achievement_id === achievement.id)) {
+        console.log('[AchievementChecker] Achievement for reward already unlocked, skipping:', rewardName, 'title:', achievement.title);
+        return null;
+      }
+
+      console.log('[AchievementChecker] Unlocking achievement by reward:', rewardName, 'title:', achievement.title, 'with reward:', achievement.reward_name);
+
+      await Query.UserAchievement.create({
+        achievement_id: achievement.id,
+        unlocked_date: new Date().toISOString(),
+        auth_id: user.id,
+        created_by: user.email
+      });
+
+      // Wenn das Achievement einen Reward hat, schalte diesen ebenfalls frei (gleiche Logik wie oben)
+      if (achievement.reward_name) {
+        const rewards = await Query.Reward.list();
+        const reward = rewards.find(r => r.name === achievement.reward_name);
+        
+        if (reward) {
+          const userRewards = await Query.UserReward.filter({ auth_id: user.id });
+          const hasReward = userRewards.some(ur => ur.reward_id === reward.id);
+          
+          if (!hasReward) {
+            console.log('[AchievementChecker] Unlocking reward (by reward_name):', reward.name, reward.display_name);
+            await Query.UserReward.create({
+              reward_id: reward.id,
+              reward_name: reward.display_name,
+              auth_id: user.id,
+              user_email: user.email,
+              user_name: user.display_name || user.full_name || user.email,
+              unlocked_date: new Date().toISOString()
+            });
+          } else {
+            console.log('[AchievementChecker] User already has reward (by reward_name):', reward.name);
           }
         }
       }
@@ -227,8 +289,9 @@ export async function checkAndUnlockAchievements(user) {
       if (achievement) unlockedAchievements.push(achievement);
     }
 
-    // 9. Duo Sammler - Erster Freund hinzugefügt
-    if (friends.length >= 1 && !hasAchievement("Duo Sammler")) {
+    // 9. Duo Sammler (Legacy) - Erster Freund hinzugefügt
+    // Hinweis: In neueren Versionen kann dieses Achievement durch "Buddy" ersetzt worden sein.
+    if (friends.length >= 1 && hasAchievement("Duo Sammler") === false) {
       const achievement = await unlockAchievement("Duo Sammler");
       if (achievement) unlockedAchievements.push(achievement);
     }
@@ -263,9 +326,16 @@ export async function checkAndUnlockAchievements(user) {
       if (achievement) unlockedAchievements.push(achievement);
     }
 
-    // 13. Teamforscher - 5 Freunde hinzugefügt
-    if (friends.length >= 5 && !hasAchievement("Teamforscher")) {
+    // 13. Teamforscher (Legacy) - 5 Freunde hinzugefügt
+    if (friends.length >= 5 && hasAchievement("Teamforscher") === false) {
       const achievement = await unlockAchievement("Teamforscher");
+      if (achievement) unlockedAchievements.push(achievement);
+    }
+
+    // Neuer Freundes-Erfolg "Buddy" (über Reward-Name title_buddy)
+    // Bedingung: Mindestens 1 akzeptierte Freundschaft
+    if (friends.length >= 1 && !hasAchievementByRewardName('title_buddy')) {
+      const achievement = await unlockAchievementByRewardName('title_buddy');
       if (achievement) unlockedAchievements.push(achievement);
     }
 
