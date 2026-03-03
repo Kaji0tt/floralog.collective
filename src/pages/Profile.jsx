@@ -1138,7 +1138,99 @@ export default function Profile() {
                   <div className="flex-1">
                     <h3 className="font-bold text-stone-900 mb-1">Titel auswählen</h3>
                     <p className="text-sm text-stone-600 mb-3">
-                      Wähle einen deiner freigeschalteten Titel aus
+                                  Wähle einen deiner freigeschalteten Titel aus
+                                </p>
+                    
+                                {(() => {
+                                  // Titel aus Achievements (legacy-Feld `title_reward`)
+                                  const achievementTitleOptions = userAchievements
+                                    .map(ua => {
+                                      const achievement = achievements.find(a => a.id === ua.achievement_id);
+                                      return achievement?.title_reward ? achievement.title_reward : null;
+                                    })
+                                    .filter(Boolean);
+
+                                  // Titel aus Rewards (type === 'title') für freigeschaltete Rewards
+                                  const rewardTitleOptions = userRewards
+                                    .map(ur => {
+                                      const reward = allRewards.find(r => r.id === ur.reward_id);
+                                      if (!reward || reward.type !== 'title') return null;
+                                      const value = reward.value || reward.display_name;
+                                      const label = reward.display_name || reward.value || value;
+                                      if (!value) return null;
+                                      return { value, label };
+                                    })
+                                    .filter(Boolean);
+
+                                  // Kombiniere alle Titel und entferne Duplikate anhand des Wertes
+                                  const titleMap = new Map();
+
+                                  achievementTitleOptions.forEach(title => {
+                                    if (!titleMap.has(title)) {
+                                      titleMap.set(title, { value: title, label: title });
+                                    }
+                                  });
+
+                                  rewardTitleOptions.forEach(opt => {
+                                    if (!titleMap.has(opt.value)) {
+                                      titleMap.set(opt.value, opt);
+                                    }
+                                  });
+
+                                  const combinedTitleOptions = Array.from(titleMap.values());
+
+                                  const hasAnyTitles = combinedTitleOptions.length > 0;
+
+                                  return (
+                                    <>
+                                      <Select
+                                        value={user.selected_title || "default"}
+                                        onValueChange={(value) => {
+                                          if (value === 'default') {
+                                            updateUserMutation.mutate({ selected_title: null });
+                                          } else {
+                                            updateUserMutation.mutate({ selected_title: value });
+                                          }
+                                        }}
+                                        disabled={updateUserMutation.isPending}
+                                      >
+                                        <SelectTrigger className="w-full border-2 border-purple-300 bg-white h-12">
+                                          <SelectValue>
+                                            <span className="font-semibold">
+                                              {user.selected_title || "Pflanzen-Entdecker"}
+                                            </span>
+                                          </SelectValue>
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="default">
+                                            <span className="font-semibold">Pflanzen-Entdecker</span>
+                                          </SelectItem>
+
+                                          {combinedTitleOptions.map(option => (
+                                            <SelectItem key={option.value} value={option.value}>
+                                              <span className="font-semibold">{option.label}</span>
+                                            </SelectItem>
+                                          ))}
+
+                                          {!hasAnyTitles && (
+                                            <div className="p-3 text-center text-sm text-stone-500">
+                                              Noch keine Titel freigeschaltet
+                                            </div>
+                                          )}
+                                        </SelectContent>
+                                      </Select>
+
+                                      {!hasAnyTitles && (
+                                        <p className="text-xs text-stone-600 mt-2">
+                                          💡 Schalte Erfolge oder besondere Rewards frei, um Titel zu erhalten!
+                                        </p>
+                                      )}
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            </div>
+                          </div>
                     </p>
                     
                     <Select
