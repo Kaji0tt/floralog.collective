@@ -86,13 +86,15 @@ export default function FriendCollection() {
   });
 
   const { data: friendDiscoveries = [], isLoading: discoveriesLoading } = useQuery({
-    queryKey: ['friendDiscoveries', friendEmail],
+    queryKey: ['friendDiscoveries', friendUser?.auth_id],
     queryFn: async () => {
-      // Nutze das neue "user" Feld (mit Fallback auf created_by für alte Einträge)
-      const discoveries = await Query.UserPlantDiscovery.list();
-      return discoveries.filter(d => d.user === friendEmail || d.created_by === friendEmail);
+      // Nutze bevorzugt auth_id des Freundes, damit RLS-Policies greifen können
+      if (!friendUser?.auth_id) {
+        return [];
+      }
+      return Query.UserPlantDiscovery.filter({ auth_id: friendUser.auth_id });
     },
-    enabled: !!friendEmail,
+    enabled: !!friendUser?.auth_id,
   });
 
   const isLoading = generaLoading || plantsLoading || discoveriesLoading;

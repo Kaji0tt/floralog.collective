@@ -207,13 +207,14 @@ export default function FriendProfile() {
   });
 
   const { data: friendDiscoveries = [] } = useQuery({
-    queryKey: ['friendDiscoveries', friendEmail],
+    queryKey: ['friendDiscoveries', friendUser?.auth_id],
     queryFn: async () => {
-      const discoveries = await Query.UserPlantDiscovery.list('-created_date', 999);
-      // Nutze das neue "user" Feld (mit Fallback auf created_by für alte Einträge)
-      return discoveries.filter(d => d.user === friendEmail || d.created_by === friendEmail);
+      if (!friendUser?.auth_id) {
+        return [];
+      }
+      return Query.UserPlantDiscovery.filter({ auth_id: friendUser.auth_id });
     },
-    enabled: !!friendEmail,
+    enabled: !!friendUser?.auth_id,
     staleTime: 30000, // 30 Sekunden Cache
   });
 
@@ -237,12 +238,14 @@ export default function FriendProfile() {
   // Lieblingsscan-/Lieblingspflanzen-Anzeige wurde aus dem Spiel entfernt
 
   useEffect(() => {
-    if (friendUser?.background_image_url) {
+    // Bevorzuge die bereits vorcomputete Hintergrundfarbe aus dem PublicProfile,
+    // um CORS-Probleme beim Canvas-Zugriff auf externe Bilder zu vermeiden.
+    if (friendUser?.background_color) {
+      setAverageColor(friendUser.background_color);
+    } else if (friendUser?.background_image_url) {
       getAverageColor(friendUser.background_image_url).then(color => {
         if (color) setAverageColor(color);
       });
-    } else if (friendUser?.background_color) {
-      setAverageColor(friendUser.background_color);
     } else {
       setAverageColor(null);
     }
@@ -278,7 +281,7 @@ export default function FriendProfile() {
       color: "from-green-500 to-green-600",
       textColor: "text-green-700",
       bgColor: "bg-green-50",
-      borderColor: "border-green-200",
+      borderColor: "rgb(187, 247, 208)",
       onClick: () => navigate(createPageUrl(`FriendCollection?email=${friendEmail}`))
     },
     {
@@ -288,7 +291,7 @@ export default function FriendProfile() {
       color: "from-amber-500 to-amber-600",
       textColor: "text-amber-700",
       bgColor: "bg-amber-50",
-      borderColor: "border-amber-200",
+      borderColor: "rgb(253, 230, 138)",
       onClick: () => navigate(createPageUrl(`FriendAchievements?email=${friendEmail}`))
     },
     {
@@ -298,7 +301,7 @@ export default function FriendProfile() {
       color: "from-blue-500 to-blue-600",
       textColor: "text-blue-700",
       bgColor: "bg-blue-50",
-      borderColor: "border-blue-200",
+      borderColor: "rgb(191, 219, 254)",
       onClick: null
     },
     {
@@ -308,7 +311,7 @@ export default function FriendProfile() {
       color: "from-purple-500 to-purple-600",
       textColor: "text-purple-700",
       bgColor: "bg-purple-50",
-      borderColor: "border-purple-200",
+      borderColor: "rgb(221, 214, 254)",
       onClick: () => navigate(createPageUrl(`FriendFriendsList?email=${friendEmail}`))
     }
   ];
@@ -438,7 +441,7 @@ export default function FriendProfile() {
                       style={{
                         borderWidth: '2px',
                         borderStyle: 'solid',
-                        borderColor: averageColor ? 'var(--friend-border-color)' : stat.borderColor.replace('border-', '').replace('-200', '')
+                        borderColor: averageColor ? 'var(--friend-border-color)' : stat.borderColor
                       }}
                     >
                       <div className="flex flex-col items-center gap-2">

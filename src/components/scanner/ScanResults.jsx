@@ -282,7 +282,7 @@ export default function ScanResults({
             <AlertCircle className="w-8 h-8 text-orange-600 flex-shrink-0" />
             <div>
               <h2 className="text-lg font-bold text-stone-900">Keine mitteleuropäische Pflanze! 🌍</h2>
-              <p className="text-xs text-orange-700">PlantDex sammelt nur Pflanzen aus Mitteleuropa</p>
+              <p className="text-xs text-orange-700">Floralog sammelt nur Pflanzen aus Mitteleuropa</p>
             </div>
           </div>
 
@@ -320,7 +320,7 @@ export default function ScanResults({
           {/* Hinweis */}
           <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
             <p className="text-xs text-orange-800 text-center">
-              ⚠️ Diese Pflanze kann nicht zum PlantDex hinzugefügt werden.
+              ⚠️ Diese Pflanze kann nicht zu Floralog hinzugefügt werden.
             </p>
           </div>
 
