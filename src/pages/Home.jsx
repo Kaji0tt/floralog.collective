@@ -1300,10 +1300,10 @@ export default function Home() {
           transition={{ delay: 0.25, duration: 0.5 }}
           className="hidden md:block flex-shrink-0"
         >
-          <div className="flex justify-center gap-6 text-sm">
+          <div className="flex justify-center gap-3 text-sm">
             <button
               onClick={() => navigate(createPageUrl("Donate"))}
-              className="hover:opacity-60 transition-all font-medium px-2 py-1 opacity-50"
+              className="hover:opacity-60 transition-all font-medium px-1.5 py-1 opacity-50"
               style={{ 
                 color: averageColor ? getLighterColor(getLighterColor(averageColor)) : 'rgb(120, 113, 108)',
                 textShadow: '0 1px 3px rgba(0,0,0,0.3)'
@@ -1321,7 +1321,7 @@ export default function Home() {
             </span>
             <button
               onClick={() => navigate(createPageUrl("Impressum"))}
-              className="hover:opacity-60 transition-all font-medium px-2 py-1 opacity-50"
+              className="hover:opacity-60 transition-all font-medium px-1.5 py-1 opacity-50"
               style={{ 
                 color: averageColor ? getLighterColor(getLighterColor(averageColor)) : 'rgb(120, 113, 108)',
                 textShadow: '0 1px 3px rgba(0,0,0,0.3)'
@@ -1339,7 +1339,7 @@ export default function Home() {
             </span>
             <button
               onClick={() => navigate(createPageUrl("News"))}
-              className="hover:opacity-60 transition-all font-medium px-2 py-1 opacity-50"
+              className="hover:opacity-60 transition-all font-medium px-1.5 py-1 opacity-50"
               style={{ 
                 color: averageColor ? getLighterColor(getLighterColor(averageColor)) : 'rgb(120, 113, 108)',
                 textShadow: '0 1px 3px rgba(0,0,0,0.3)'
@@ -1355,12 +1355,12 @@ export default function Home() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          className="flex-shrink-0 pb-4 md:hidden"
+          className="flex-shrink-0 md:hidden"
         >
-          <div className="flex justify-center gap-6 text-sm">
+          <div className="flex justify-center gap-3 text-sm">
             <button
               onClick={() => navigate(createPageUrl("Donate"))}
-              className="hover:opacity-60 transition-all font-medium px-2 py-1"
+              className="hover:opacity-60 transition-all font-medium px-1.5 py-1"
               style={{ 
                 color: 'var(--profile-text-color)',
                 opacity: 0.7,
@@ -1379,7 +1379,7 @@ export default function Home() {
             </span>
             <button
               onClick={() => navigate(createPageUrl("Impressum"))}
-              className="hover:opacity-60 transition-all font-medium px-2 py-1"
+              className="hover:opacity-60 transition-all font-medium px-1.5 py-1"
               style={{ 
                 color: 'var(--profile-text-color)',
                 opacity: 0.7,
@@ -1398,7 +1398,7 @@ export default function Home() {
             </span>
             <button
               onClick={() => navigate(createPageUrl("News"))}
-              className="hover:opacity-60 transition-all font-medium px-2 py-1"
+              className="hover:opacity-60 transition-all font-medium px-1.5 py-1"
               style={{ 
                 color: 'var(--profile-text-color)',
                 opacity: 0.7,
