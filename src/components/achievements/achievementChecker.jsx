@@ -12,14 +12,26 @@ export async function checkAndUnlockAchievements(user) {
     console.log('[AchievementChecker] Starting check for user:', user.email);
     
     // Lade alle benötigten Daten
-    const [achievements, userAchievements, plants, genera, userDiscoveries, allFriendRecords] = await Promise.all([
+    const [
+      achievements,
+      userAchievements,
+      plants,
+      genera,
+      userDiscoveries,
+      allFriendRecords,
+      rewards,
+      userRewards,
+    ] = await Promise.all([
       Query.Achievement.list(),
       Query.UserAchievement.filter({ auth_id: user.id }),
       Query.Plant.list(),
       Query.PlantGenus.list(),
       Query.UserPlantDiscovery.filter({ auth_id: user.id }),
       // Lade alle Freundschafts-Einträge und filtere danach wie im restlichen App-Code
-      Query.Friend.list()
+      Query.Friend.list(),
+      // Rewards und bereits freigeschaltete User-Rewards (für Backfill)
+      Query.Reward.list(),
+      Query.UserReward.filter({ auth_id: user.id }),
     ]);
 
     const userEmailLower = (user.email || '').toLowerCase();
@@ -38,11 +50,46 @@ export async function checkAndUnlockAchievements(user) {
       plants: plants.length,
       genera: genera.length,
       userDiscoveries: userDiscoveries.length,
+      rewards: rewards.length,
+      userRewards: userRewards.length,
       friendsTotal: allFriendRecords.length,
       friendsAcceptedForUser: friends.length
     });
 
     const unlockedAchievements = [];
+
+    // Backfill: Fehlende Rewards für bereits freigeschaltete Achievements nachtragen
+    try {
+      const unlockedRewardIds = new Set(userRewards.map((ur) => ur.reward_id));
+
+      for (const userAchievement of userAchievements) {
+        const achievement = achievements.find((a) => a.id === userAchievement.achievement_id);
+        if (!achievement || !achievement.reward_name) continue;
+
+        const reward = rewards.find((r) => r.name === achievement.reward_name);
+        if (!reward || unlockedRewardIds.has(reward.id)) continue;
+
+        console.log(
+          "[AchievementChecker] Backfilling missing reward for existing achievement:",
+          achievement.title,
+          "->",
+          reward.name
+        );
+
+        await Query.UserReward.create({
+          reward_id: reward.id,
+          reward_name: reward.display_name,
+          auth_id: user.id,
+          user_email: user.email,
+          user_name: user.display_name || user.full_name || user.email,
+          unlocked_date: new Date().toISOString(),
+        });
+
+        unlockedRewardIds.add(reward.id);
+      }
+    } catch (backfillError) {
+      console.error("[AchievementChecker] Error while backfilling rewards for existing achievements:", backfillError);
+    }
 
     // Hilfsfunktionen zum Finden von Achievements
     const findAchievementByTitle = (title) =>
