@@ -825,7 +825,7 @@ export default function Home() {
           )}
         </AnimatePresence>
 
-      <div className="max-w-4xl mx-auto flex flex-col flex-1 min-h-0">
+      <div className="max-w-4xl mx-auto flex flex-col flex-1 min-h-0 justify-between">
         <Dialog open={showBackgroundSelector} onOpenChange={setShowBackgroundSelector}>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
