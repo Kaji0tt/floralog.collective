@@ -1109,8 +1109,11 @@ export default function Achievements() {
 
                 <div className="grid md:grid-cols-2 gap-4">
                     {activeQuests.map((quest, index) => {
-                    const progressPercentage = quest.required_discoveries ?
-                    Math.min(100, quest.progress / quest.required_discoveries * 100) :
+                    const rawProgress = quest.progress || 0;
+                    const target = quest.required_discoveries || 0;
+                    const displayProgress = target > 0 ? Math.min(rawProgress, target) : rawProgress;
+                    const progressPercentage = target > 0 ?
+                    Math.min(100, (rawProgress / target) * 100) :
                     0;
 
                     return (
@@ -1189,7 +1192,7 @@ export default function Achievements() {
                                       <div className="flex items-center justify-between text-xs">
                                         <span className="text-stone-500">Fortschritt</span>
                                         <span className="font-bold text-blue-700">
-                                          {quest.progress} / {quest.required_discoveries}
+                                          {displayProgress} / {quest.required_discoveries}
                                         </span>
                                       </div>
                                       <Progress value={progressPercentage} className="h-1.5" />
@@ -1258,8 +1261,11 @@ export default function Achievements() {
                   <h3 className="text-sm font-semibold text-stone-700">Abgeschlossene Aufgaben</h3>
                   <div className="grid md:grid-cols-2 gap-4">
                     {completedQuests.map((quest, index) => {
-                      const progressPercentage = quest.required_discoveries ?
-                      Math.min(100, quest.progress / quest.required_discoveries * 100) :
+                      const rawProgress = quest.progress || 0;
+                      const target = quest.required_discoveries || 0;
+                      const displayProgress = target > 0 ? Math.min(rawProgress, target) : rawProgress;
+                      const progressPercentage = target > 0 ?
+                      Math.min(100, (rawProgress / target) * 100) :
                       0;
 
                       return (
@@ -1269,15 +1275,15 @@ export default function Achievements() {
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: index * 0.03 }}>
 
-                          <Card className={`border shadow-sm bg-white/90 backdrop-blur-md hover:shadow-md transition-all border-green-400 bg-gradient-to-br from-green-50/50 to-white`}>
+                          <Card className={`border shadow-sm bg-stone-50/90 backdrop-blur-md hover:shadow-md transition-all border-stone-300`}>
                             <CardContent className="p-3">
                               <div className="flex items-start gap-2">
-                                <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-green-500 to-green-600">
+                                <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-stone-400">
                                   <CheckCircle2 className="w-4 h-4 text-white" />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-1 mb-1 flex-wrap">
-                                    <Badge className="bg-green-600 text-white text-[10px] px-1 py-0">
+                                    <Badge className="bg-stone-500 text-white text-[10px] px-1 py-0">
                                       ✓ Abgeschlossen
                                     </Badge>
                                     {quest.type === 'weekly' && (
@@ -1317,7 +1323,7 @@ export default function Achievements() {
                                       <div className="flex items-center justify-between text-xs">
                                         <span className="text-stone-500">Fortschritt</span>
                                         <span className="font-bold text-blue-700">
-                                          {quest.progress} / {quest.required_discoveries}
+                                          {displayProgress} / {quest.required_discoveries}
                                         </span>
                                       </div>
                                       <Progress value={progressPercentage} className="h-1.5" />
