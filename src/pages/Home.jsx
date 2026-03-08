@@ -967,10 +967,10 @@ export default function Home() {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="flex-1 flex flex-col"
+          className="flex-shrink-0"
         >
           <motion.div
-            className="relative mb-4 flex-1 flex"
+            className="relative mb-4"
             animate={showBackgroundHighlight ? {
               scale: [1, 1.02, 1],
             } : {}}
@@ -1011,7 +1011,7 @@ export default function Home() {
               </>
             )}
             <Card 
-              className="shadow-xl bg-white overflow-hidden cursor-pointer hover:shadow-2xl transition-shadow h-full flex-1"
+              className="shadow-xl bg-white overflow-hidden cursor-pointer hover:shadow-2xl transition-shadow"
               style={{
                 borderWidth: '2px',
                 borderStyle: 'solid',
