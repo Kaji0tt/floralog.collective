@@ -16,6 +16,7 @@ import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNo
 import { useNavigate, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
+import { updateQuestProgress } from "@/components/utils/questProgress";
 
 import { Input } from "@/components/ui/input";
 import { Edit2, CheckCircle, X, Scroll, AlertCircle } from "lucide-react";
@@ -258,6 +259,21 @@ export default function Home() {
       window.removeEventListener('userUpdated', handleUserUpdate);
     };
   }, []);
+
+  // Beim Öffnen der Home-Seite einmalig Quest-Fortschritt aktualisieren
+  useEffect(() => {
+    const runQuestProgressUpdate = async () => {
+      if (!user?.id) return;
+      try {
+        console.log('[HomePage] Running updateQuestProgress for user:', user.email);
+        await updateQuestProgress(user);
+      } catch (error) {
+        console.error('[HomePage] Error while updating quest progress:', error);
+      }
+    };
+
+    runQuestProgressUpdate();
+  }, [user?.id]);
 
   // Consume scan feedback from navigation state exactly once per navigation
   useEffect(() => {

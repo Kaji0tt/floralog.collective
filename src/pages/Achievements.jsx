@@ -21,6 +21,7 @@ import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNo
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import { getWeekNumber, getMonthString, getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
+import { updateQuestProgress } from "@/components/utils/questProgress";
 
 const getAverageColor = (imageUrl) => {
   return new Promise((resolve) => {
@@ -77,6 +78,21 @@ export default function Achievements() {
     };
     loadUser();
   }, []);
+
+  // Beim Öffnen der Achievements-Seite einmalig Quest-Fortschritt aktualisieren
+  useEffect(() => {
+    const runQuestProgressUpdate = async () => {
+      if (!user?.id) return;
+      try {
+        console.log('[AchievementsPage] Running updateQuestProgress for user:', user.email);
+        await updateQuestProgress(user);
+      } catch (error) {
+        console.error('[AchievementsPage] Error while updating quest progress:', error);
+      }
+    };
+
+    runQuestProgressUpdate();
+  }, [user?.id]);
 
   // Konsumiere Quest-Feedback aus Navigation-State einmalig (analog Home/ScanFeedback)
   useEffect(() => {
