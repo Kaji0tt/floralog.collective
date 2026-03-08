@@ -648,6 +648,14 @@ export default function Achievements() {
     return !!uq.completed;
   };
 
+  const isRedeemedStatus = (uq) => {
+    if (!uq) return false;
+    if (uq.status) {
+      return uq.status === 'redeemed';
+    }
+    return !!uq.redeemed;
+  };
+
   // Reguläre Quests (angenommen & nicht eingelöst)
   const activeRegularQuests = quests.
   filter((q) => {
@@ -663,7 +671,29 @@ export default function Achievements() {
       progress: userQuest?.progress || 0,
       isCompleted: isCompletedStatus(userQuest),
       type: 'regular',
-      rewardData: reward
+      rewardData: reward,
+      canRedeem: isCompletedStatus(userQuest) && !isRedeemedStatus(userQuest)
+    };
+  });
+
+  // Abgeschlossene & eingelöste reguläre Quests (Historie)
+  const completedRegularQuests = quests.
+  filter((q) => {
+    const userQuest = userQuests.find((uq) => uq.quest_id === q.id);
+    return isCompletedStatus(userQuest) && isRedeemedStatus(userQuest);
+  }).
+  map((q) => {
+    const userQuest = userQuests.find((uq) => uq.quest_id === q.id);
+    const reward = rewards.find(r => r.name === q.reward_name);
+    return {
+      ...q,
+      userQuestId: userQuest?.id,
+      progress: userQuest?.progress || q.required_discoveries || 0,
+      isCompleted: true,
+      type: 'regular',
+      rewardData: reward,
+      canRedeem: false,
+      completedAt: userQuest?.redeemed_date || userQuest?.completed_date
     };
   });
 
@@ -711,7 +741,8 @@ export default function Achievements() {
     progress: currentWeeklyUserQuest.progress || 0,
     isCompleted: isCompletedStatus(currentWeeklyUserQuest),
     type: 'weekly',
-    rewardData: weeklyReward
+    rewardData: weeklyReward,
+    canRedeem: isCompletedStatus(currentWeeklyUserQuest) && !isRedeemedStatus(currentWeeklyUserQuest)
   } :
   null;
   const availableWeeklyQuest = currentWeeklyQuest && !currentWeeklyUserQuest ?
@@ -730,12 +761,59 @@ export default function Achievements() {
     progress: currentMonthlyUserQuest.progress || 0,
     isCompleted: isCompletedStatus(currentMonthlyUserQuest),
     type: 'monthly',
-    rewardData: monthlyReward
+    rewardData: monthlyReward,
+    canRedeem: isCompletedStatus(currentMonthlyUserQuest) && !isRedeemedStatus(currentMonthlyUserQuest)
   } :
   null;
   const availableMonthlyQuest = currentMonthlyQuest && !currentMonthlyUserQuest ?
   { ...currentMonthlyQuest, type: 'monthly', available: true, rewardData: monthlyReward } :
   null;
+
+  // Abgeschlossene & eingelöste wöchentliche Quests (Historie)
+  const completedWeeklyQuests = weeklyQuests.flatMap((quest) => {
+    const reward = rewards.find(r => r.name === quest.reward_name);
+    const relatedUserQuests = userWeeklyQuests.filter((uwq) =>
+      uwq.weekly_quest_id === quest.id &&
+      isCompletedStatus(uwq) &&
+      isRedeemedStatus(uwq)
+    );
+
+    return relatedUserQuests.map((uwq) => ({
+      ...quest,
+      userQuestId: uwq.id,
+      progress: uwq.progress || 0,
+      required_discoveries: quest.required_discoveries || 0,
+      isCompleted: true,
+      type: 'weekly',
+      rewardData: reward,
+      canRedeem: false,
+      completedAt: uwq.redeemed_date || uwq.completed_date,
+      active_week: uwq.active_week
+    }));
+  });
+
+  // Abgeschlossene & eingelöste monatliche Quests (Historie)
+  const completedMonthlyQuests = monthlyQuests.flatMap((quest) => {
+    const reward = rewards.find(r => r.name === quest.reward_name);
+    const relatedUserQuests = userMonthlyQuests.filter((umq) =>
+      umq.monthly_quest_id === quest.id &&
+      isCompletedStatus(umq) &&
+      isRedeemedStatus(umq)
+    );
+
+    return relatedUserQuests.map((umq) => ({
+      ...quest,
+      userQuestId: umq.id,
+      progress: umq.progress || 0,
+      required_discoveries: quest.required_discoveries || 0,
+      isCompleted: true,
+      type: 'monthly',
+      rewardData: reward,
+      canRedeem: false,
+      completedAt: umq.redeemed_date || umq.completed_date,
+      active_month: umq.active_month
+    }));
+  });
 
   // Sammlungs-Quests
   const activeCollectionQuests = collectionQuests.
@@ -752,7 +830,8 @@ export default function Achievements() {
       progress: discoveredPlants.length,
       required_discoveries: quest.target_plants?.length || 0,
       isCompleted: userQuest?.completed || false,
-      type: 'collection'
+      type: 'collection',
+      canRedeem: isCompletedStatus(userQuest) && !isRedeemedStatus(userQuest)
     };
   });
 
@@ -768,20 +847,51 @@ export default function Achievements() {
     available: true
   }));
 
+  // Abgeschlossene & eingelöste Sammlungs-Quests (Historie)
+  const completedCollectionQuests = collectionQuests.
+  filter((quest) => {
+    const userQuest = userCollectionQuests.find((ucq) => ucq.collection_quest_id === quest.id);
+    return isCompletedStatus(userQuest) && isRedeemedStatus(userQuest);
+  }).
+  map((quest) => {
+    const userQuest = userCollectionQuests.find((ucq) => ucq.collection_quest_id === quest.id);
+    const discoveredPlants = userQuest?.discovered_plants || [];
+    return {
+      ...quest,
+      userQuestId: userQuest?.id,
+      progress: discoveredPlants.length,
+      required_discoveries: quest.target_plants?.length || 0,
+      isCompleted: true,
+      type: 'collection',
+      canRedeem: false,
+      completedAt: userQuest?.redeemed_date || userQuest?.completed_date
+    };
+  });
+
   // Quests zusammenstellen basierend auf Filter
   let activeQuests = [];
   let availableQuests = [];
+  let completedQuests = [];
 
   if (questFilter === 'exploration') {
     activeQuests = [...activeRegularQuests, ...activeCollectionQuests];
     availableQuests = [...availableRegularQuests, ...availableCollectionQuests];
+    completedQuests = [...completedRegularQuests, ...completedCollectionQuests];
   } else if (questFilter === 'weekly') {
     if (activeWeeklyQuest) activeQuests.push(activeWeeklyQuest);
     if (availableWeeklyQuest) availableQuests.push(availableWeeklyQuest);
+    completedQuests = [...completedWeeklyQuests];
   } else if (questFilter === 'monthly') {
     if (activeMonthlyQuest) activeQuests.push(activeMonthlyQuest);
     if (availableMonthlyQuest) availableQuests.push(availableMonthlyQuest);
+    completedQuests = [...completedMonthlyQuests];
   }
+
+  // Sortiere abgeschlossene Quests nach Abschlussdatum (neueste zuerst)
+  completedQuests.sort((a, b) => {
+    if (!a.completedAt || !b.completedAt) return 0;
+    return new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime();
+  });
 
   // Prüfe ob es einlösbare Quests gibt (für alle Filter)
   const allActiveQuests = [...activeRegularQuests, ...activeCollectionQuests];
@@ -1094,27 +1204,40 @@ export default function Achievements() {
                                           <span className="font-semibold">{quest.rewardData.display_name}</span>
                                         </div>
                                       )}
-                                      <div className="flex justify-end">
-                                        <Button
-                                      onClick={() => {
-                                        // Prüfe ob das die erste Quest ist
-                                        const allCompletedQuests = [...userQuests, ...userWeeklyQuests, ...userMonthlyQuests, ...userCollectionQuests].filter(q => q.redeemed);
-                                        const isFirstQuest = allCompletedQuests.length === 0;
+                                      <div className="flex items-center justify-between">
+                                        {quest.completedAt && (
+                                          <span className="text-[11px] text-stone-500">
+                                            Abgeschlossen am {format(new Date(quest.completedAt), 'dd.MM.yyyy', { locale: de })}
+                                          </span>
+                                        )}
+                                        <div className="flex justify-end flex-1">
+                                          {quest.canRedeem ? (
+                                            <Button
+                                              onClick={() => {
+                                                // Prüfe ob das die erste Quest ist
+                                                const allCompletedQuests = [...userQuests, ...userWeeklyQuests, ...userMonthlyQuests, ...userCollectionQuests].filter(q => q.redeemed);
+                                                const isFirstQuest = allCompletedQuests.length === 0;
 
-                                        redeemQuestMutation.mutate({
-                                          userQuestId: quest.userQuestId,
-                                          questType: quest.type,
-                                          rewardName: quest.rewardData?.name,
-                                          isFirstQuest: isFirstQuest,
-                                          questTitle: quest.title
-                                        });
-                                      }}
-                                      disabled={redeemQuestMutation.isPending}
-                                      size="sm"
-                                      className="h-7 text-xs bg-green-600 hover:bg-green-700">
-
-                                          Einlösen
-                                        </Button>
+                                                redeemQuestMutation.mutate({
+                                                  userQuestId: quest.userQuestId,
+                                                  questType: quest.type,
+                                                  rewardName: quest.rewardData?.name,
+                                                  isFirstQuest: isFirstQuest,
+                                                  questTitle: quest.title
+                                                });
+                                              }}
+                                              disabled={redeemQuestMutation.isPending}
+                                              size="sm"
+                                              className="h-7 text-xs bg-green-600 hover:bg-green-700"
+                                            >
+                                              Einlösen
+                                            </Button>
+                                          ) : (
+                                            <span className="text-[11px] text-stone-500 italic">
+                                              Bereits eingelöst
+                                            </span>
+                                          )}
+                                        </div>
                                       </div>
                                     </div>
                                   }
@@ -1129,7 +1252,108 @@ export default function Achievements() {
 
                 }
 
-              {activeQuests.length === 0 &&
+              {/* Historie: Abgeschlossene Quests */}
+              {completedQuests.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold text-stone-700">Abgeschlossene Aufgaben</h3>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {completedQuests.map((quest, index) => {
+                      const progressPercentage = quest.required_discoveries ?
+                      Math.min(100, quest.progress / quest.required_discoveries * 100) :
+                      0;
+
+                      return (
+                        <motion.div
+                          key={`${quest.type}-${quest.userQuestId || quest.id}-${index}`}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.03 }}>
+
+                          <Card className={`border shadow-sm bg-white/90 backdrop-blur-md hover:shadow-md transition-all border-green-400 bg-gradient-to-br from-green-50/50 to-white`}>
+                            <CardContent className="p-3">
+                              <div className="flex items-start gap-2">
+                                <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-green-500 to-green-600">
+                                  <CheckCircle2 className="w-4 h-4 text-white" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1 mb-1 flex-wrap">
+                                    <Badge className="bg-green-600 text-white text-[10px] px-1 py-0">
+                                      ✓ Abgeschlossen
+                                    </Badge>
+                                    {quest.type === 'weekly' && (
+                                      <Badge className="bg-emerald-600 text-white text-[10px] px-1 py-0">
+                                        📅 Wöchentlich
+                                      </Badge>
+                                    )}
+                                    {quest.type === 'monthly' && (
+                                      <Badge className="bg-purple-600 text-white text-[10px] px-1 py-0">
+                                        📆 Monatlich
+                                      </Badge>
+                                    )}
+                                    {quest.type === 'collection' && (
+                                      <Badge className="bg-indigo-600 text-white text-[10px] px-1 py-0">
+                                        🗺️ Sammlung
+                                      </Badge>
+                                    )}
+                                    {quest.category && quest.category !== 'Alle' && (
+                                      <Badge className={`text-[10px] px-1 py-0 ${
+                                      quest.category === 'Bäume' ? 'bg-green-600' :
+                                      quest.category === 'Sträucher' ? 'bg-emerald-600' :
+                                      'bg-pink-600'} text-white`
+                                      }>
+                                        {quest.category}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <h3 className="text-sm font-bold text-stone-900 mb-1">
+                                    {quest.title}
+                                  </h3>
+                                  <p className="text-xs text-stone-600 mb-2">
+                                    {quest.description}
+                                  </p>
+
+                                  {quest.required_discoveries && (
+                                    <div className="space-y-1 mb-2">
+                                      <div className="flex items-center justify-between text-xs">
+                                        <span className="text-stone-500">Fortschritt</span>
+                                        <span className="font-bold text-blue-700">
+                                          {quest.progress} / {quest.required_discoveries}
+                                        </span>
+                                      </div>
+                                      <Progress value={progressPercentage} className="h-1.5" />
+                                    </div>
+                                  )}
+
+                                  <div className="space-y-1 pt-2 border-t border-stone-200">
+                                    {quest.rewardData && (
+                                      <div className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 rounded-lg px-2 py-1">
+                                        <Gift className="w-3 h-3" />
+                                        <span className="font-semibold">{quest.rewardData.display_name}</span>
+                                      </div>
+                                    )}
+                                    <div className="flex items-center justify-between">
+                                      {quest.completedAt && (
+                                        <span className="text-[11px] text-stone-500">
+                                          Abgeschlossen am {format(new Date(quest.completedAt), 'dd.MM.yyyy', { locale: de })}
+                                        </span>
+                                      )}
+                                      <span className="text-[11px] text-stone-500 italic">
+                                        Bereits eingelöst
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {activeQuests.length === 0 && completedQuests.length === 0 &&
                 <div className="text-center py-20">
                   <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 max-w-md mx-auto border border-stone-200 shadow-lg">
                     <Target className="w-16 h-16 text-stone-400 mx-auto mb-4" />
