@@ -970,7 +970,7 @@ export default function Home() {
           className="flex-1 flex flex-col"
         >
           <motion.div
-            className="relative mb-4"
+            className="relative mb-4 flex-1 flex"
             animate={showBackgroundHighlight ? {
               scale: [1, 1.02, 1],
             } : {}}
@@ -1011,7 +1011,7 @@ export default function Home() {
               </>
             )}
             <Card 
-              className="shadow-xl bg-white overflow-hidden cursor-pointer hover:shadow-2xl transition-shadow h-full"
+              className="shadow-xl bg-white overflow-hidden cursor-pointer hover:shadow-2xl transition-shadow h-full flex-1"
               style={{
                 borderWidth: '2px',
                 borderStyle: 'solid',
