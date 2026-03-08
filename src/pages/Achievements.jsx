@@ -70,6 +70,7 @@ export default function Achievements() {
   const [questFeedback, setQuestFeedback] = useState(null);
   const [newAchievements, setNewAchievements] = useState([]);
   const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
+  const [showCompleted, setShowCompleted] = useState(true);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -598,6 +599,17 @@ export default function Achievements() {
     const g = Math.floor(parseInt(match[2]) * 0.6);
     const b = Math.floor(parseInt(match[3]) * 0.6);
     return `rgb(${r}, ${g}, ${b})`;
+  };
+
+  const isColorDark = (rgbString) => {
+    if (!rgbString) return false;
+    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!match) return false;
+    const r = parseInt(match[1]);
+    const g = parseInt(match[2]);
+    const b = parseInt(match[3]);
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    return brightness < 100;
   };
 
   // Overlay für Quest-/Reward-Feedback (ScanFeedback-Style)
@@ -1258,7 +1270,23 @@ export default function Achievements() {
               {/* Historie: Abgeschlossene Quests */}
               {completedQuests.length > 0 && (
                 <div className="space-y-3">
-                  <h3 className="text-sm font-semibold text-stone-700">Abgeschlossene Aufgaben</h3>
+                  <button
+                    type="button"
+                    className="flex items-center justify-between w-full text-left"
+                    onClick={() => setShowCompleted(prev => !prev)}
+                    style={{
+                      color: averageColor && isColorDark(averageColor) ? 'rgb(250, 250, 249)' : 'rgb(28, 25, 23)'
+                    }}
+                  >
+                    <h3 className="text-sm font-semibold">
+                      Abgeschlossene Aufgaben
+                    </h3>
+                    <span className="text-xs opacity-80">
+                      {showCompleted ? '▾' : '▸'}
+                    </span>
+                  </button>
+
+                  {showCompleted && (
                   <div className="grid md:grid-cols-2 gap-4">
                     {completedQuests.map((quest, index) => {
                       const rawProgress = quest.progress || 0;
@@ -1275,7 +1303,7 @@ export default function Achievements() {
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: index * 0.03 }}>
 
-                          <Card className={`border shadow-sm bg-stone-50/90 backdrop-blur-md hover:shadow-md transition-all border-stone-300`}>
+                          <Card className={`border shadow-sm bg-stone-50/70 backdrop-blur-md hover:shadow-md transition-all border-stone-300`}>
                             <CardContent className="p-3">
                               <div className="flex items-start gap-2">
                                 <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-stone-400">
@@ -1356,6 +1384,7 @@ export default function Achievements() {
                       );
                     })}
                   </div>
+                  )}
                 </div>
               )}
 
