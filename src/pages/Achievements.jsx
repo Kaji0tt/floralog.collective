@@ -1303,7 +1303,7 @@ export default function Achievements() {
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: index * 0.03 }}>
 
-                          <Card className={`border shadow-sm bg-stone-50/70 backdrop-blur-md hover:shadow-md transition-all border-stone-300`}>
+                          <Card className={`border shadow-sm border-stone-200 bg-stone-50/80 backdrop-blur-sm opacity-60 transition-all`}>
                             <CardContent className="p-3">
                               <div className="flex items-start gap-2">
                                 <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-stone-400">
