@@ -452,6 +452,8 @@ export default function Scanner() {
                       identification_features: identificationText,
                       fun_fact: meta.fun_fact,
                       rarity: meta.rarity || plantData.rarity || 'Gelegentlich',
+                      genus_name: meta.genus_name || plantData.genus_name,
+                      category: meta.category || plantData.category,
                       notInDex: true,
                       inDatabase: false,
                       is_european: false
@@ -466,6 +468,8 @@ export default function Scanner() {
                       identification_features: identificationText,
                       fun_fact: meta.fun_fact,
                       rarity: meta.rarity || plantData.rarity || 'Gelegentlich',
+                      genus_name: meta.genus_name || plantData.genus_name,
+                      category: meta.category || plantData.category,
                       notInDex: true,
                       inDatabase: false,
                       is_european: true

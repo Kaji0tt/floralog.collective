@@ -19,6 +19,8 @@ type LlmResponse = {
   fun_fact: string;
   rarity: string;
   is_european: boolean;
+  genus_name: string;
+  category: string;
 };
 
 Deno.serve(async (req) => {
@@ -69,7 +71,9 @@ Deno.serve(async (req) => {
   - identification_features: 2-3 Sätze zu den wichtigsten Erkennungsmerkmalen.
   - fun_fact: genau 1 kurzer Satz.
   - rarity: genau eines der Wörter "Häufig", "Gelegentlich", "Selten", "Sehr selten".
-  - is_european: boolean, true NUR wenn die Art ursprünglich aus Europa stammt oder heute in Europa heimisch/natürlichisiert ist. Bei Unsicherheit immer false.`;
+  - is_european: boolean, true NUR wenn die Art ursprünglich aus Europa stammt oder heute in Europa heimisch/natürlichisiert ist. Bei Unsicherheit immer false.
+  - genus_name: der deutsche Gattungsname (z. B. "Glockenblume" für Campanula, "Rose" für Rosa). Falls kein gebräuchlicher deutscher Gattungsname existiert, verwende den wissenschaftlichen Gattungsnamen.
+  - category: genau eines der Wörter "Bäume", "Sträucher", "Blumen & Kräuter". Wähle "Bäume" für verholzte Pflanzen mit einem Stamm (z. B. Eiche, Birke, Fichte). Wähle "Sträucher" für verholzte Pflanzen mit mehreren Trieben ohne klaren Hauptstamm (z. B. Holunder, Weißdorn, Hasel). Wähle "Blumen & Kräuter" für krautige Pflanzen, Wildblumen und Gräser (z. B. Glockenblume, Schafgarbe, Löwenzahn).`;
 
     let llmResult: LlmResponse | null = null;
 
@@ -116,6 +120,11 @@ Deno.serve(async (req) => {
                   is_european: {
                     type: "boolean",
                   },
+                  genus_name: { type: "string" },
+                  category: {
+                    type: "string",
+                    enum: ["Bäume", "Sträucher", "Blumen & Kräuter"],
+                  },
                 },
                 required: [
                   "description",
@@ -123,6 +132,8 @@ Deno.serve(async (req) => {
                   "fun_fact",
                   "rarity",
                   "is_european",
+                  "genus_name",
+                  "category",
                 ],
               },
             },
@@ -148,7 +159,9 @@ Deno.serve(async (req) => {
         Array.isArray(helperParsed.identification_features) &&
         helperParsed.fun_fact &&
         helperParsed.rarity &&
-        typeof helperParsed.is_european === "boolean"
+        typeof helperParsed.is_european === "boolean" &&
+        typeof helperParsed.genus_name === "string" && helperParsed.genus_name &&
+        typeof helperParsed.category === "string" && helperParsed.category
       ) {
         llmResult = helperParsed;
       } else {
@@ -168,7 +181,9 @@ Deno.serve(async (req) => {
               Array.isArray(parsed.identification_features) &&
               parsed.fun_fact &&
               parsed.rarity &&
-              typeof parsed.is_european === "boolean"
+              typeof parsed.is_european === "boolean" &&
+              typeof parsed.genus_name === "string" && parsed.genus_name &&
+              typeof parsed.category === "string" && parsed.category
             ) {
               llmResult = parsed;
             }
@@ -198,6 +213,8 @@ Deno.serve(async (req) => {
         fun_fact: llmResult.fun_fact,
         rarity: llmResult.rarity,
         is_european: llmResult.is_european,
+        genus_name: llmResult.genus_name,
+        category: llmResult.category,
       }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
     );
