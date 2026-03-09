@@ -163,9 +163,13 @@ Deno.serve(async (req) => {
                 species.scientificNameWithoutAuthor || species.scientificName || ""
               const scientificGenus = scientificName ? scientificName.split(" ")[0] : null
               const translatedSpeciesName = finalSpeciesName || scientificName || "Unbekannte Art"
-              const genusName = translatedSpeciesName
-                ? translatedSpeciesName.split(" ")[0]
-                : scientificGenus
+              const words = translatedSpeciesName ? translatedSpeciesName.split(" ") : []
+              const lastWord = words.at(-1) || null
+              // Handle hyphenated compound names like "Wiesen-Glockenblume" → "Glockenblume"
+              const genusNameFromCommon = lastWord?.includes("-")
+                ? lastWord.split("-").pop() ?? lastWord
+                : lastWord
+              const genusName = genusNameFromCommon || scientificGenus
 
               return {
                 species_name: translatedSpeciesName,
