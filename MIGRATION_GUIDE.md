@@ -403,32 +403,3 @@ const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 5) Datenschutz/Policy muss aktualisiert werden.
 
-
-__ Verbindungen zwischen den Datenbanken:
-Inzwischen kann man sich wieder einloggen, auch mit einem alten Profil. Es scheint aber so zu sein, dass sehr viele "innere Abhängigkeiten" noch nicht zu existieren scheinen.
-Aber wenn ich beispielsweise auf die Kollektion klicke, dann sehe ich leider keine Eintragungen. 
-In der Theorie sollte man unter "Collection" alle Eintragungen jeglicher GenusPlants sehen können, die bisher über die PlantNet API entdeckt wurden. Diese sollten, sofern ich mich erinnere, mit "GenusCard" dargestellt werden. GenusPlant schlüsselte sich weiter auf zu Plant.
-Dabei gab es insgesamt 3 Kategorien von GenusPlants: Bäume, Sträucher und Blumen. Wenn ein Spieler die Pflanze selber entdeckt hat (abzugleichen über UserPlantDiscovery), dann sollte diese für ihn auch mit einem (seinem) Scanbild angezeigt werden - inkl. der Lokationsdaten.
-
-Wenn ich jedoch in meinem Profil auf "Kollektion" klicke, dann sehe ich nichts - kein Eintrag, 0/0 Arten werden angezeigt.
-Es scheint also, als ob verlinkungen fehlen würden.
-Ich kenne mich mit Backend Architektur nicht wirklich aus, deshalb meine Fragen: Wie stellt man diese Verknüpfungen wieder her? Die einzelnen Seiten sollten ja noch von ihrer Code Logik da sein, also man müsste aus denen ablesen können wo was fehlt, oder?
-Hilf mir, mit der Migration fortzufahren!
-
-
-___ Summary after change of base44.entities Calls:
-
-Removed the remaining Base44 hooks, migrated the edge functions to Supabase auth/admin clients, and cleaned up leftover UI/legal references so the app runs without Base44. Also stabilized the scanner flow where the previous fallback block had corrupt code and now uses a safe, explicit “not configured” path.
-
-Updated scanner quest matching and removed the Base44 LLM fallback code path in Scanner.jsx:240, plus adjusted the rate-limit dialog text to match the new behavior.
-Swapped feedback email to a Supabase edge function in Feedback.jsx:1 and added the new handler at sendFeedbackEmail.ts.
-Migrated all remaining edge functions off Base44 SDK to Supabase auth/admin in createPayPalOrder.ts, capturePayPalPayment.ts, sendPushNotification.ts, identifyPlant.ts, and generateQuestNotifications.ts.
-Cleaned admin and navigation remnants and fixed Base44 mentions in AdminQuestCreator.jsx, AdminBackup.jsx, NavigationTracker.jsx, and PageNotFound.jsx.
-Updated legal and profile copy to reference Supabase in Datenschutz.jsx, Classroom.jsx, Profile.jsx, ResetAccount.jsx, and Impressum.jsx.
-Removed unused Base44 artifacts: src/api/base44Client.js, src/lib/app-params.js, and docs/APP_PARAMS.md.
-Next steps
-
-Deploy the updated/new edge functions and set env vars: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY, FEEDBACK_TO_EMAIL, FEEDBACK_FROM_EMAIL, plus existing PAYPAL_*, PLANTNET_API_KEY, and VAPID_*.
-Decide whether you want a replacement LLM provider for identifyPlant (it now returns PlantNet-only fields with minimal defaults).
-Run a quick smoke test: feedback send, PayPal flow, push notification, and a scan with PlantNet.
-If you want, I can wire up a new LLM provider for identifyPlant next.
