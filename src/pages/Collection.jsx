@@ -161,6 +161,11 @@ export default function Collection() {
   const isCollectionFilter = activeCategory.startsWith('collection_');
   const collectionId = isCollectionFilter ? activeCategory.replace('collection_', '') : null;
   
+  const selectedCollection =
+    selectedCollectionId !== 'global'
+      ? ownedCollections.find((c) => c.id === selectedCollectionId)
+      : null;
+  
   let filteredGenera = generaWithDiscovery;
   
   if (isCollectionFilter && collectionId) {
@@ -272,11 +277,6 @@ export default function Collection() {
     const b = Math.floor(parseInt(match[3]) * 0.6);
     return `rgb(${r}, ${g}, ${b})`;
   };
-
-  const selectedCollection =
-    selectedCollectionId !== 'global'
-      ? ownedCollections.find((c) => c.id === selectedCollectionId)
-      : null;
 
   const activeBackgroundColor = selectedCollection?.background_color || averageColor;
 
