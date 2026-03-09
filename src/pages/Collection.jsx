@@ -45,6 +45,91 @@ const getAverageColor = (imageUrl) => {
   });
 };
 
+function SearchFilterPanel({
+  visible,
+  searchQuery,
+  setSearchQuery,
+  activeCategory,
+  setActiveCategory,
+  filters,
+  generaWithDiscovery,
+  collectionQuests,
+  userCollectionQuests,
+}) {
+  if (!visible) return null;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-stone-400" />
+          <Input
+            type="text"
+            placeholder="Suchen..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-8 bg-white h-9 text-sm rounded-full"
+          />
+        </div>
+
+        <div>
+          <Select value={activeCategory} onValueChange={setActiveCategory}>
+            <SelectTrigger className="bg-white h-9 text-xs w-32 rounded-full">
+              <SelectValue placeholder="Filter" />
+            </SelectTrigger>
+            <SelectContent>
+              {filters.map((filter) => {
+                let matchingGenera = generaWithDiscovery;
+                if (filter.value === "not_discovered") {
+                  matchingGenera = generaWithDiscovery.filter((g) => !g.discovered);
+                } else if (filter.value === "discovered") {
+                  matchingGenera = generaWithDiscovery.filter((g) => g.discovered);
+                } else if (filter.value === "rarity") {
+                  matchingGenera = generaWithDiscovery.filter((g) => g.hasRareSpecies);
+                }
+                const discovered = matchingGenera.filter((g) => g.discovered).length;
+                return (
+                  <SelectItem key={filter.value} value={filter.value}>
+                    {filter.label} ({discovered}/{matchingGenera.length})
+                  </SelectItem>
+                );
+              })}
+
+              <div className="px-2 py-1.5">
+                <div className="border-t border-stone-200" />
+              </div>
+
+              {collectionQuests.filter((q) => q.is_active).length > 0 ? (
+                collectionQuests
+                  .filter((q) => q.is_active)
+                  .map((quest) => {
+                    const userQuest = userCollectionQuests.find(
+                      (ucq) => ucq.collection_quest_id === quest.id
+                    );
+                    const progress = userQuest?.discovered_plants?.length || 0;
+                    const total = quest.target_plants?.length || 0;
+                    return (
+                      <SelectItem
+                        key={quest.id}
+                        value={"collection_" + quest.id}
+                      >
+                        {quest.icon_emoji} {quest.title} ({progress}/{total})
+                      </SelectItem>
+                    );
+                  })
+              ) : (
+                <SelectItem value="no_collections" disabled>
+                  ❓
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Collection() {
   const [activeCategory, setActiveCategory] = useState("Alle");
   const [selectedGenus, setSelectedGenus] = useState(null);
@@ -458,7 +543,17 @@ export default function Collection() {
           </div>
 
           {/* Suche & Filter (per Icon ein- und ausblendbar) */}
-          {filtersOpen && <div />}
+          <SearchFilterPanel
+            visible={filtersOpen}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            activeCategory={activeCategory}
+            setActiveCategory={setActiveCategory}
+            filters={filters}
+            generaWithDiscovery={generaWithDiscovery}
+            collectionQuests={collectionQuests}
+            userCollectionQuests={userCollectionQuests}
+          />
 
           {/* Collection Grid */}
           <div className="pt-1">
