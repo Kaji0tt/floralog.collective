@@ -577,6 +577,7 @@ export default function Scanner() {
 
     const newDiscovery = await Query.UserPlantDiscovery.create({
       auth_id: user.id,
+      created_by_id: user.id,
       created_by: user.email,
       plant_id: plant.id,
       discovered_date: new Date().toISOString(),

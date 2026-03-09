@@ -205,6 +205,7 @@ Deno.serve(async (req) => {
       .from("UserPlantDiscovery")
       .insert({
         auth_id: authId,
+        created_by_id: authId,
         created_by: userEmail,
         plant_id: insertedPlant.id,
         discovered_date: new Date().toISOString(),
