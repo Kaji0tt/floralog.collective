@@ -35,7 +35,7 @@ const getAverageColor = (imageUrl) => {
         r = Math.floor(r / count);
         g = Math.floor(g / count);
         b = Math.floor(b / count);
-        resolve(`rgb(${r}, ${g}, ${b})`);
+        resolve("rgb(" + r + ", " + g + ", " + b + ")");
       } catch (error) {
         resolve(null);
       }
@@ -312,7 +312,7 @@ export default function Collection() {
     const r = Math.min(255, Math.floor(parseInt(match[1]) * 1.4));
     const g = Math.min(255, Math.floor(parseInt(match[2]) * 1.4));
     const b = Math.min(255, Math.floor(parseInt(match[3]) * 1.4));
-    return `rgb(${r}, ${g}, ${b})`;
+    return "rgb(" + r + ", " + g + ", " + b + ")";
   };
 
   const getDarkerColor = (rgbString) => {
@@ -322,7 +322,7 @@ export default function Collection() {
     const r = Math.floor(parseInt(match[1]) * 0.6);
     const g = Math.floor(parseInt(match[2]) * 0.6);
     const b = Math.floor(parseInt(match[3]) * 0.6);
-    return `rgb(${r}, ${g}, ${b})`;
+    return "rgb(" + r + ", " + g + ", " + b + ")";
   };
 
   const activeBackgroundColor = selectedCollection?.background_color || averageColor;
@@ -343,7 +343,13 @@ export default function Collection() {
         className="fixed inset-0 -z-10"
         style={{
           background: activeBackgroundColor 
-            ? `linear-gradient(135deg, ${getLighterColor(activeBackgroundColor)} 0%, ${activeBackgroundColor} 50%, ${getDarkerColor(activeBackgroundColor)} 100%)`
+            ? "linear-gradient(135deg, "
+              + getLighterColor(activeBackgroundColor)
+              + " 0%, "
+              + activeBackgroundColor
+              + " 50%, "
+              + getDarkerColor(activeBackgroundColor)
+              + " 100%)"
             : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
         }}
       />
@@ -358,10 +364,47 @@ export default function Collection() {
           onClose={() => setShowHintDialog(false)}
         />
 
-        <div className="max-w-7xl mx-auto pt-0 space-y-4">
+        <div className="max-w-7xl mx-auto pt-0 space-y-3">
+          {/* Horizontale Kollektionen-Chips */}
+          <div className="-mx-4 px-4 pb-0 flex gap-2 overflow-x-auto no-scrollbar">
+            {(() => {
+              const all = [
+                { id: 'global', title: 'Global', isGlobal: true },
+                ...ownedCollections.map((c) => ({ id: c.id, title: c.title, isGlobal: false })),
+              ];
+              return all.map((col) => {
+                const stats = getCollectionStats(col.id === 'global' ? 'global' : col.id);
+                const isActive = selectedCollectionId === col.id;
+                return (
+                  <button
+                    key={col.id}
+                    type="button"
+                    onClick={() => setSelectedCollectionId(col.id)}
+                    className={
+                      "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors " +
+                      (isActive
+                        ? "bg-white text-stone-900 shadow-sm"
+                        : "bg-white/70 text-stone-600 hover:bg-white")
+                    }
+                    style={{
+                      borderColor: isActive
+                        ? activeBackgroundColor || 'rgba(148,163,184,0.5)'
+                        : 'rgba(226,232,240,1)',
+                    }}
+                  >
+                    <span className="font-medium">{col.title}</span>
+                    <span className="text-[10px] text-stone-500">
+                      {stats.discovered}/{stats.total || '–'}
+                    </span>
+                  </button>
+                );
+              });
+            })()}
+          </div>
+
           {/* Hero-Kachel */}
           <div
-            className="bg-white/80 rounded-2xl border shadow-sm p-4 flex flex-col gap-3"
+            className="bg-white/80 rounded-2xl border shadow-sm p-3 flex flex-col gap-3"
             style={{
               borderColor: activeBackgroundColor || 'rgba(148, 163, 184, 0.35)',
             }}
@@ -380,14 +423,32 @@ export default function Collection() {
             <div className="flex items-center gap-3 mt-1">
               <div className="flex-1 space-y-1">
                 <div className="flex items-center justify-between text-[10px] text-stone-600">
-                  <span>Sammlungsfortschritt</span>
-                  <span>{heroProgressPercent}%</span>
+                  <div className="flex items-center gap-1">
+                    <span>Sammlungsfortschritt</span>
+                    {heroStats.total > 0 && (
+                      <span className="text-[10px] text-stone-500">
+                        ({heroStats.discovered}/{heroStats.total})
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span>{heroProgressPercent}%</span>
+                    <button
+                      type="button"
+                      onClick={() => setFiltersOpen((prev) => !prev)}
+                      className="p-1 rounded-full bg-stone-100 text-stone-600 hover:bg-stone-200 transition-colors"
+                      aria-label="Suche und Filter öffnen"
+                    >
+                      <Search className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
                 <div className="w-full h-2 bg-stone-100 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all"
                     style={{
-                      width: `${heroProgressPercent}%`,
+                      width: heroProgressPercent + '%',
                       backgroundColor: activeBackgroundColor || 'rgb(34, 197, 94)',
                     }}
                   />
@@ -396,122 +457,11 @@ export default function Collection() {
             </div>
           </div>
 
-          {/* Horizontale Kollektionen-Chips */}
-          <div className="flex items-center gap-2">
-            <div className="flex-1 -mx-4 px-4 pb-1 flex gap-2 overflow-x-auto no-scrollbar">
-              {(() => {
-                const all = [
-                  { id: 'global', title: 'Global', isGlobal: true },
-                  ...ownedCollections.map((c) => ({ id: c.id, title: c.title, isGlobal: false })),
-                ];
-                return all.map((col) => {
-                  const stats = getCollectionStats(col.id === 'global' ? 'global' : col.id);
-                  const isActive = selectedCollectionId === col.id;
-                  return (
-                    <button
-                      key={col.id}
-                      type="button"
-                      onClick={() => setSelectedCollectionId(col.id)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors ${
-                        isActive
-                          ? 'bg-white text-stone-900 shadow-sm'
-                          : 'bg-white/70 text-stone-600 hover:bg-white'
-                      }`}
-                      style={{
-                        borderColor: isActive
-                          ? activeBackgroundColor || 'rgba(148,163,184,0.5)'
-                          : 'rgba(226,232,240,1)',
-                      }}
-                    >
-                      <span className="font-medium">{col.title}</span>
-                      <span className="text-[10px] text-stone-500">
-                        {stats.discovered}/{stats.total || '–'}
-                      </span>
-                    </button>
-                  );
-                });
-              })()}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setFiltersOpen((prev) => !prev)}
-              className="shrink-0 p-2 rounded-full bg-white/80 border border-stone-200 text-stone-600 shadow-sm"
-              aria-label="Suche und Filter öffnen"
-            >
-              <Search className="w-4 h-4" />
-            </button>
-          </div>
-
           {/* Suche & Filter (per Icon ein- und ausblendbar) */}
-          {filtersOpen && (
-            <div className="space-y-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-stone-400" />
-                <Input
-                  type="text"
-                  placeholder="Suchen..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 bg-white h-9 text-sm"
-                />
-              </div>
-
-              <div className="flex justify-end">
-                <Select value={activeCategory} onValueChange={setActiveCategory}>
-                  <SelectTrigger className="bg-white h-9 text-xs w-40">
-                    <SelectValue placeholder="Filter" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filters.map((filter) => {
-                      let matchingGenera = generaWithDiscovery;
-                      if (filter.value === "not_discovered") {
-                        matchingGenera = generaWithDiscovery.filter((g) => !g.discovered);
-                      } else if (filter.value === "discovered") {
-                        matchingGenera = generaWithDiscovery.filter((g) => g.discovered);
-                      } else if (filter.value === "rarity") {
-                        matchingGenera = generaWithDiscovery.filter((g) => g.hasRareSpecies);
-                      }
-                      const discovered = matchingGenera.filter((g) => g.discovered).length;
-                      return (
-                        <SelectItem key={filter.value} value={filter.value}>
-                          {filter.label} ({discovered}/{matchingGenera.length})
-                        </SelectItem>
-                      );
-                    })}
-
-                    <div className="px-2 py-1.5">
-                      <div className="border-t border-stone-200" />
-                    </div>
-
-                    {collectionQuests.filter((q) => q.is_active).length > 0 ? (
-                      collectionQuests
-                        .filter((q) => q.is_active)
-                        .map((quest) => {
-                          const userQuest = userCollectionQuests.find(
-                            (ucq) => ucq.collection_quest_id === quest.id
-                          );
-                          const progress = userQuest?.discovered_plants?.length || 0;
-                          const total = quest.target_plants?.length || 0;
-                          return (
-                            <SelectItem key={quest.id} value={`collection_${quest.id}`}>
-                              {quest.icon_emoji} {quest.title} ({progress}/{total})
-                            </SelectItem>
-                          );
-                        })
-                    ) : (
-                      <SelectItem value="no_collections" disabled>
-                        ❓
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
+          {filtersOpen && <div />}
 
           {/* Collection Grid */}
-          <div className="pt-2">
+          <div className="pt-1">
             {filteredGenera.length === 0 ? (
               <div className="text-center py-20">
                 <div className="w-24 h-24 bg-white/80 backdrop-blur-md rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-stone-200">
