@@ -281,7 +281,7 @@ export default function Collection() {
   const activeBackgroundColor = selectedCollection?.background_color || averageColor;
 
   return (
-    <>
+    <div className="relative min-h-screen">
       {/* Fixer Hintergrund */}
       <div 
         className="fixed inset-0 -z-10"
@@ -296,17 +296,17 @@ export default function Collection() {
       <div className="min-h-screen p-4 md:p-8">
         <MobileBackButton />
 
-      <HintDialog
-        genus={selectedGenus}
-        isOpen={showHintDialog}
-        onClose={() => setShowHintDialog(false)}
-      />
+        <HintDialog
+          genus={selectedGenus}
+          isOpen={showHintDialog}
+          onClose={() => setShowHintDialog(false)}
+        />
 
-      {/* Fixed Filter Bar */}
-      <div className="fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md shadow-sm border-b border-stone-200">
-        <div className="max-w-7xl mx-auto px-4 py-2">
-          <div className="flex flex-col gap-1 mb-2">
-            <div className="flex items-center justify-between gap-3">
+        {/* Fixed Filter Bar */}
+        <div className="fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md shadow-sm border-b border-stone-200">
+          <div className="max-w-7xl mx-auto px-4 py-2">
+            <div className="flex flex-col gap-1 mb-2">
+              <div className="flex items-center justify-between gap-3">
               <h2 className="text-[10px] font-medium text-stone-600">
                 {user?.display_name || user?.full_name || 'Dein'}'s Floralog
               </h2>
@@ -329,9 +329,9 @@ export default function Collection() {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
+              </div>
 
-            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center justify-between gap-3">
             <motion.div 
               className="text-center flex-1 cursor-pointer select-none"
               onClick={() => setShowGenera(!showGenera)}
@@ -354,20 +354,20 @@ export default function Collection() {
               </div>
             </motion.div>
             
-            <div className="h-6 w-px bg-stone-200"></div>
-            
-            <h1 className="text-center flex-1 font-bold text-stone-900 text-xs sm:text-sm md:text-base lg:text-lg px-1 leading-tight line-clamp-2">
-              {selectedCollection ? selectedCollection.title : 'Globales Floralog'}
-            </h1>
-            
-            <div className="h-6 w-px bg-stone-200"></div>
-            
-            <div className="flex-1">
-              <Select value={activeCategory} onValueChange={setActiveCategory}>
-                <SelectTrigger className="bg-white h-9 text-xs">
-                  <SelectValue placeholder="Filter" />
-                </SelectTrigger>
-                <SelectContent>
+              <div className="h-6 w-px bg-stone-200"></div>
+              
+              <h1 className="text-center flex-1 font-bold text-stone-900 text-xs sm:text-sm md:text-base lg:text-lg px-1 leading-tight line-clamp-2">
+                {selectedCollection ? selectedCollection.title : 'Globales Floralog'}
+              </h1>
+              
+              <div className="h-6 w-px bg-stone-200"></div>
+              
+              <div className="flex-1">
+                <Select value={activeCategory} onValueChange={setActiveCategory}>
+                  <SelectTrigger className="bg-white h-9 text-xs">
+                    <SelectValue placeholder="Filter" />
+                  </SelectTrigger>
+                  <SelectContent>
                   {/* Entdeckungs-/Raritäts-Filter */}
                   {filters.map(filter => {
                     let matchingGenera = generaWithDiscovery;
@@ -410,8 +410,9 @@ export default function Collection() {
                       ❓
                     </SelectItem>
                   )}
-                </SelectContent>
-              </Select>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 
@@ -455,7 +456,7 @@ export default function Collection() {
         )}
       </div>
       </div>
-    </>
+    </div>
   );
 }
 
