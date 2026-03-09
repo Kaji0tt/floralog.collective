@@ -6,7 +6,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Loader2, Leaf, Search } from "lucide-react";
-import { motion } from "framer-motion";
 import GenusCard from "../components/collection/GenusCard";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import HintDialog from "../components/collection/HintDialog";
@@ -53,8 +52,8 @@ export default function Collection() {
   const [searchQuery, setSearchQuery] = useState("");
   const [user, setUser] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
-  const [showGenera, setShowGenera] = useState(true);
   const [selectedCollectionId, setSelectedCollectionId] = useState("global");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -332,6 +331,11 @@ export default function Collection() {
     ? Math.round((heroStats.discovered / heroStats.total) * 100)
     : 0;
 
+  const ownerName = user?.display_name || user?.full_name || "Dein";
+  const heroTitle = selectedCollection
+    ? selectedCollection.title
+    : ownerName + "'s Floralog";
+
   return (
     <div className="relative min-h-screen">
       {/* Fixer Hintergrund */}
@@ -354,7 +358,7 @@ export default function Collection() {
           onClose={() => setShowHintDialog(false)}
         />
 
-        <div className="max-w-7xl mx-auto pt-4 space-y-4">
+        <div className="max-w-7xl mx-auto pt-0 space-y-4">
           {/* Hero-Kachel */}
           <div
             className="bg-white/80 rounded-2xl border shadow-sm p-4 flex flex-col gap-3"
@@ -362,18 +366,9 @@ export default function Collection() {
               borderColor: activeBackgroundColor || 'rgba(148, 163, 184, 0.35)',
             }}
           >
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-[11px] text-stone-500">
-                {(user?.display_name || user?.full_name || 'Dein') + "'s Floralog"}
-              </div>
-              <div className="text-[10px] px-2 py-1 rounded-full bg-stone-100 text-stone-600">
-                {selectedCollection ? 'Eigene Kollektion' : 'Globale Sammlung'}
-              </div>
-            </div>
-
             <div className="space-y-1">
               <h1 className="text-lg font-bold text-stone-900 leading-tight">
-                {selectedCollection ? selectedCollection.title : 'Globales Floralog'}
+                {heroTitle}
               </h1>
               {selectedCollection?.description && (
                 <p className="text-[11px] text-stone-600 line-clamp-2">
@@ -383,36 +378,7 @@ export default function Collection() {
             </div>
 
             <div className="flex items-center gap-3 mt-1">
-              <motion.div 
-                className="flex-1 cursor-pointer select-none"
-                onClick={() => setShowGenera(!showGenera)}
-                animate={{ rotateY: showGenera ? 0 : 180 }}
-                transition={{ duration: 0.6 }}
-                style={{ transformStyle: "preserve-3d" }}
-              >
-                <div
-                  className="rounded-xl bg-stone-50 px-3 py-2 flex flex-col items-start justify-center"
-                  style={{ backfaceVisibility: "hidden" }}
-                >
-                  {showGenera ? (
-                    <>
-                      <div className="text-xs font-semibold text-stone-700">Gattungen</div>
-                      <div className="text-sm font-bold text-green-700">
-                        {heroStats.discovered}/{heroStats.total}
-                      </div>
-                    </>
-                  ) : (
-                    <div style={{ transform: "rotateY(180deg)" }}>
-                      <div className="text-xs font-semibold text-stone-700">Arten</div>
-                      <div className="text-sm font-bold text-amber-700">
-                        {discoveredSpecies}/{totalSpecies}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-
-              <div className="flex-[1.2] space-y-1">
+              <div className="flex-1 space-y-1">
                 <div className="flex items-center justify-between text-[10px] text-stone-600">
                   <span>Sammlungsfortschritt</span>
                   <span>{heroProgressPercent}%</span>
@@ -431,105 +397,118 @@ export default function Collection() {
           </div>
 
           {/* Horizontale Kollektionen-Chips */}
-          <div className="-mx-4 px-4 pb-1 flex gap-2 overflow-x-auto no-scrollbar">
-            {(() => {
-              const all = [
-                { id: 'global', title: 'Global', isGlobal: true },
-                ...ownedCollections.map((c) => ({ id: c.id, title: c.title, isGlobal: false })),
-              ];
-              return all.map((col) => {
-                const stats = getCollectionStats(col.id === 'global' ? 'global' : col.id);
-                const isActive = selectedCollectionId === col.id;
-                return (
-                  <button
-                    key={col.id}
-                    type="button"
-                    onClick={() => setSelectedCollectionId(col.id)}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors ${
-                      isActive
-                        ? 'bg-white text-stone-900 shadow-sm'
-                        : 'bg-white/70 text-stone-600 hover:bg-white'
-                    }`}
-                    style={{
-                      borderColor: isActive
-                        ? activeBackgroundColor || 'rgba(148,163,184,0.5)'
-                        : 'rgba(226,232,240,1)',
-                    }}
-                  >
-                    <span className="font-medium">{col.title}</span>
-                    <span className="text-[10px] text-stone-500">
-                      {stats.discovered}/{stats.total || '–'}
-                    </span>
-                  </button>
-                );
-              });
-            })()}
-          </div>
-
-          {/* Suche & Filter */}
-          <div className="space-y-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-stone-400" />
-              <Input
-                type="text"
-                placeholder="Suchen..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 bg-white h-9 text-sm"
-              />
+          <div className="flex items-center gap-2">
+            <div className="flex-1 -mx-4 px-4 pb-1 flex gap-2 overflow-x-auto no-scrollbar">
+              {(() => {
+                const all = [
+                  { id: 'global', title: 'Global', isGlobal: true },
+                  ...ownedCollections.map((c) => ({ id: c.id, title: c.title, isGlobal: false })),
+                ];
+                return all.map((col) => {
+                  const stats = getCollectionStats(col.id === 'global' ? 'global' : col.id);
+                  const isActive = selectedCollectionId === col.id;
+                  return (
+                    <button
+                      key={col.id}
+                      type="button"
+                      onClick={() => setSelectedCollectionId(col.id)}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors ${
+                        isActive
+                          ? 'bg-white text-stone-900 shadow-sm'
+                          : 'bg-white/70 text-stone-600 hover:bg-white'
+                      }`}
+                      style={{
+                        borderColor: isActive
+                          ? activeBackgroundColor || 'rgba(148,163,184,0.5)'
+                          : 'rgba(226,232,240,1)',
+                      }}
+                    >
+                      <span className="font-medium">{col.title}</span>
+                      <span className="text-[10px] text-stone-500">
+                        {stats.discovered}/{stats.total || '–'}
+                      </span>
+                    </button>
+                  );
+                });
+              })()}
             </div>
 
-            <div className="flex justify-end">
-              <Select value={activeCategory} onValueChange={setActiveCategory}>
-                <SelectTrigger className="bg-white h-9 text-xs w-40">
-                  <SelectValue placeholder="Filter" />
-                </SelectTrigger>
-                <SelectContent>
-                  {filters.map((filter) => {
-                    let matchingGenera = generaWithDiscovery;
-                    if (filter.value === 'not_discovered') {
-                      matchingGenera = generaWithDiscovery.filter((g) => !g.discovered);
-                    } else if (filter.value === 'discovered') {
-                      matchingGenera = generaWithDiscovery.filter((g) => g.discovered);
-                    } else if (filter.value === 'rarity') {
-                      matchingGenera = generaWithDiscovery.filter((g) => g.hasRareSpecies);
-                    }
-                    const discovered = matchingGenera.filter((g) => g.discovered).length;
-                    return (
-                      <SelectItem key={filter.value} value={filter.value}>
-                        {filter.label} ({discovered}/{matchingGenera.length})
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((prev) => !prev)}
+              className="shrink-0 p-2 rounded-full bg-white/80 border border-stone-200 text-stone-600 shadow-sm"
+              aria-label="Suche und Filter öffnen"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Suche & Filter (per Icon ein- und ausblendbar) */}
+          {filtersOpen && (
+            <div className="space-y-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-stone-400" />
+                <Input
+                  type="text"
+                  placeholder="Suchen..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8 bg-white h-9 text-sm"
+                />
+              </div>
+
+              <div className="flex justify-end">
+                <Select value={activeCategory} onValueChange={setActiveCategory}>
+                  <SelectTrigger className="bg-white h-9 text-xs w-40">
+                    <SelectValue placeholder="Filter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filters.map((filter) => {
+                      let matchingGenera = generaWithDiscovery;
+                      if (filter.value === "not_discovered") {
+                        matchingGenera = generaWithDiscovery.filter((g) => !g.discovered);
+                      } else if (filter.value === "discovered") {
+                        matchingGenera = generaWithDiscovery.filter((g) => g.discovered);
+                      } else if (filter.value === "rarity") {
+                        matchingGenera = generaWithDiscovery.filter((g) => g.hasRareSpecies);
+                      }
+                      const discovered = matchingGenera.filter((g) => g.discovered).length;
+                      return (
+                        <SelectItem key={filter.value} value={filter.value}>
+                          {filter.label} ({discovered}/{matchingGenera.length})
+                        </SelectItem>
+                      );
+                    })}
+
+                    <div className="px-2 py-1.5">
+                      <div className="border-t border-stone-200" />
+                    </div>
+
+                    {collectionQuests.filter((q) => q.is_active).length > 0 ? (
+                      collectionQuests
+                        .filter((q) => q.is_active)
+                        .map((quest) => {
+                          const userQuest = userCollectionQuests.find(
+                            (ucq) => ucq.collection_quest_id === quest.id
+                          );
+                          const progress = userQuest?.discovered_plants?.length || 0;
+                          const total = quest.target_plants?.length || 0;
+                          return (
+                            <SelectItem key={quest.id} value={`collection_${quest.id}`}>
+                              {quest.icon_emoji} {quest.title} ({progress}/{total})
+                            </SelectItem>
+                          );
+                        })
+                    ) : (
+                      <SelectItem value="no_collections" disabled>
+                        ❓
                       </SelectItem>
-                    );
-                  })}
-
-                  <div className="px-2 py-1.5">
-                    <div className="border-t border-stone-200" />
-                  </div>
-
-                  {collectionQuests.filter((q) => q.is_active).length > 0 ? (
-                    collectionQuests
-                      .filter((q) => q.is_active)
-                      .map((quest) => {
-                        const userQuest = userCollectionQuests.find(
-                          (ucq) => ucq.collection_quest_id === quest.id
-                        );
-                        const progress = userQuest?.discovered_plants?.length || 0;
-                        const total = quest.target_plants?.length || 0;
-                        return (
-                          <SelectItem key={quest.id} value={`collection_${quest.id}`}>
-                            {quest.icon_emoji} {quest.title} ({progress}/{total})
-                          </SelectItem>
-                        );
-                      })
-                  ) : (
-                    <SelectItem value="no_collections" disabled>
-                      ❓
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Collection Grid */}
           <div className="pt-2">
