@@ -54,6 +54,7 @@ export default function Collection() {
   const [user, setUser] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
   const [showGenera, setShowGenera] = useState(true);
+  const [selectedCollectionId, setSelectedCollectionId] = useState("global");
 
   useEffect(() => {
     const loadUser = async () => {
@@ -96,6 +97,24 @@ export default function Collection() {
       if (!user || !user.id) return [];
       return Query.UserCollectionQuest.filter({ auth_id: user.id });
     },
+  });
+
+  const { data: ownedCollections = [] } = useQuery({
+    queryKey: ['ownedCollections', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      return Query.Collection.filter({ auth_id: user.id });
+    },
+    enabled: !!user?.id,
+  });
+
+  const { data: activeCollectionItems = [] } = useQuery({
+    queryKey: ['collectionItems', selectedCollectionId],
+    queryFn: async () => {
+      if (!selectedCollectionId || selectedCollectionId === 'global') return [];
+      return Query.CollectionItem.filter({ collection_id: selectedCollectionId });
+    },
+    enabled: !!selectedCollectionId && selectedCollectionId !== 'global',
   });
 
   const isLoading = generaLoading || plantsLoading || discoveriesLoading;
@@ -173,6 +192,29 @@ export default function Collection() {
     // "Alle" zeigt einfach alle Gattungen ohne zusätzlichen Filter
   }
   
+  // Falls eine benutzerdefinierte Kollektion ausgewählt ist, auf deren Items einschränken
+  if (selectedCollection && activeCollectionItems.length > 0) {
+    const genusIds = new Set(activeCollectionItems.map((item) => item.genus_id).filter(Boolean));
+    const plantIds = new Set(activeCollectionItems.map((item) => item.plant_id).filter(Boolean));
+
+    if (plantIds.size > 0) {
+      plants.forEach((plant) => {
+        if (plantIds.has(plant.id)) {
+          const genus = genera.find(
+            (g) =>
+              g.category === plant.genus_category &&
+              g.category_dex_number === plant.genus_number
+          );
+          if (genus) {
+            genusIds.add(genus.id);
+          }
+        }
+      });
+    }
+
+    filteredGenera = filteredGenera.filter((g) => genusIds.has(g.id));
+  }
+
   filteredGenera = filteredGenera.filter(g => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
@@ -231,14 +273,21 @@ export default function Collection() {
     return `rgb(${r}, ${g}, ${b})`;
   };
 
+  const selectedCollection =
+    selectedCollectionId !== 'global'
+      ? ownedCollections.find((c) => c.id === selectedCollectionId)
+      : null;
+
+  const activeBackgroundColor = selectedCollection?.background_color || averageColor;
+
   return (
     <>
       {/* Fixer Hintergrund */}
       <div 
         className="fixed inset-0 -z-10"
         style={{
-          background: averageColor 
-            ? `linear-gradient(135deg, ${getLighterColor(averageColor)} 0%, ${averageColor} 50%, ${getDarkerColor(averageColor)} 100%)`
+          background: activeBackgroundColor 
+            ? `linear-gradient(135deg, ${getLighterColor(activeBackgroundColor)} 0%, ${activeBackgroundColor} 50%, ${getDarkerColor(activeBackgroundColor)} 100%)`
             : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
         }}
       />
@@ -256,7 +305,33 @@ export default function Collection() {
       {/* Fixed Filter Bar */}
       <div className="fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md shadow-sm border-b border-stone-200">
         <div className="max-w-7xl mx-auto px-4 py-2">
-          <div className="flex items-center justify-between gap-3 mb-2">
+          <div className="flex flex-col gap-1 mb-2">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-[10px] font-medium text-stone-600">
+                {user?.display_name || user?.full_name || 'Dein'}'s Floralog
+              </h2>
+              <div className="flex items-center gap-2 text-[10px] text-stone-600">
+                <span>Kollektion:</span>
+                <Select
+                  value={selectedCollectionId}
+                  onValueChange={setSelectedCollectionId}
+                >
+                  <SelectTrigger className="bg-white h-7 text-[10px] px-2">
+                    <SelectValue placeholder="Kollektion wählen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="global">Globales Floralog</SelectItem>
+                    {ownedCollections.map((col) => (
+                      <SelectItem key={col.id} value={col.id}>
+                        {col.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-3">
             <motion.div 
               className="text-center flex-1 cursor-pointer select-none"
               onClick={() => setShowGenera(!showGenera)}
@@ -282,7 +357,7 @@ export default function Collection() {
             <div className="h-6 w-px bg-stone-200"></div>
             
             <h1 className="text-center flex-1 font-bold text-stone-900 text-xs sm:text-sm md:text-base lg:text-lg px-1 leading-tight line-clamp-2">
-              {user?.display_name || user?.full_name || 'Dein'}'s Floralog
+              {selectedCollection ? selectedCollection.title : 'Globales Floralog'}
             </h1>
             
             <div className="h-6 w-px bg-stone-200"></div>

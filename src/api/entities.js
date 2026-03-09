@@ -144,7 +144,10 @@ const tables = [
   'Referral', 'Rewards', 'ScanLike', 'SharedScan', 'UserAchievement',
   'UserCollectionQuest', 'UserDailyQuest', 'UserMonthlyQuest',
   'UserNotification', 'UserPlantDiscovery', 'UserQuest',
-  'UserWeeklyQuest', 'WeeklyQuest'
+  'UserWeeklyQuest', 'WeeklyQuest',
+  // Collections & Classroom
+  'Collection', 'CollectionItem', 'UserCollection',
+  'ClassroomParticipant', 'ClassroomParticipantProgress'
 ];
 
 const Query = {};
