@@ -94,11 +94,11 @@ For AI-based plant metadata generation and EU classification, also configure:
    ↓
 3. System prüft ob E-Mail in "baseUser" Tabelle existiert
    ↓
-4. Wenn ja: OTP-Code wird per E-Mail versendet
+4. Wenn ja: Es wird eine E-Mail mit einem Bestätigungslink versendet
    ↓
-5. Benutzer gibt OTP-Code ein
+5. Benutzer klickt auf den Link in der E-Mail und landet auf /migration/set-password
    ↓
-6. Nach Bestätigung: Benutzer setzt neues Passwort
+6. Benutzer setzt neues Passwort
    ↓
 7. Auth-Session wird etabliert (signInWithPassword)
    ↓

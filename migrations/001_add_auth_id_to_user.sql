@@ -15,6 +15,6 @@ CREATE INDEX idx_user_email ON public."User"(email);
 
 -- After running this migration, old users can be migrated to Supabase Auth
 -- The migration flow will:
--- 1. Send OTP to their email
--- 2. After OTP verification, create Supabase Auth user
--- 3. Link via auth_id column
+-- 1. Send a sign-in email with a confirmation link to their email
+-- 2. After the user clicks the link, a Supabase Auth user is created and a session is established
+-- 3. Link the legacy user via the auth_id column
