@@ -108,13 +108,9 @@ export default function Collection() {
     enabled: !!user?.id,
   });
 
-  const { data: activeCollectionItems = [] } = useQuery({
-    queryKey: ['collectionItems', selectedCollectionId],
-    queryFn: async () => {
-      if (!selectedCollectionId || selectedCollectionId === 'global') return [];
-      return Query.CollectionItem.filter({ collection_id: selectedCollectionId });
-    },
-    enabled: !!selectedCollectionId && selectedCollectionId !== 'global',
+  const { data: allCollectionItems = [] } = useQuery({
+    queryKey: ['collectionItems'],
+    queryFn: () => Query.CollectionItem.list(),
   });
 
   const isLoading = generaLoading || plantsLoading || discoveriesLoading;
@@ -165,6 +161,48 @@ export default function Collection() {
     selectedCollectionId !== 'global'
       ? ownedCollections.find((c) => c.id === selectedCollectionId)
       : null;
+
+  const getCollectionStats = (collectionKey) => {
+    if (!collectionKey || collectionKey === 'global') {
+      const total = generaWithDiscovery.length;
+      const discovered = generaWithDiscovery.filter((g) => g.discovered).length;
+      return { discovered, total };
+    }
+
+    const itemsForCollection = allCollectionItems.filter(
+      (item) => item.collection_id === collectionKey
+    );
+    if (!itemsForCollection.length) {
+      return { discovered: 0, total: 0 };
+    }
+
+    const genusIds = new Set(
+      itemsForCollection.map((item) => item.genus_id).filter(Boolean)
+    );
+    const plantIds = new Set(
+      itemsForCollection.map((item) => item.plant_id).filter(Boolean)
+    );
+
+    if (plantIds.size > 0) {
+      plants.forEach((plant) => {
+        if (plantIds.has(plant.id)) {
+          const genus = genera.find(
+            (g) =>
+              g.category === plant.genus_category &&
+              g.category_dex_number === plant.genus_number
+          );
+          if (genus) {
+            genusIds.add(genus.id);
+          }
+        }
+      });
+    }
+
+    const relevantGenera = generaWithDiscovery.filter((g) => genusIds.has(g.id));
+    const total = relevantGenera.length;
+    const discovered = relevantGenera.filter((g) => g.discovered).length;
+    return { discovered, total };
+  };
   
   let filteredGenera = generaWithDiscovery;
   
@@ -198,26 +236,36 @@ export default function Collection() {
   }
   
   // Falls eine benutzerdefinierte Kollektion ausgewählt ist, auf deren Items einschränken
-  if (selectedCollection && activeCollectionItems.length > 0) {
-    const genusIds = new Set(activeCollectionItems.map((item) => item.genus_id).filter(Boolean));
-    const plantIds = new Set(activeCollectionItems.map((item) => item.plant_id).filter(Boolean));
+  if (selectedCollection) {
+    const itemsForSelected = allCollectionItems.filter(
+      (item) => item.collection_id === selectedCollection.id
+    );
 
-    if (plantIds.size > 0) {
-      plants.forEach((plant) => {
-        if (plantIds.has(plant.id)) {
-          const genus = genera.find(
-            (g) =>
-              g.category === plant.genus_category &&
-              g.category_dex_number === plant.genus_number
-          );
-          if (genus) {
-            genusIds.add(genus.id);
+    if (itemsForSelected.length > 0) {
+      const genusIds = new Set(
+        itemsForSelected.map((item) => item.genus_id).filter(Boolean)
+      );
+      const plantIds = new Set(
+        itemsForSelected.map((item) => item.plant_id).filter(Boolean)
+      );
+
+      if (plantIds.size > 0) {
+        plants.forEach((plant) => {
+          if (plantIds.has(plant.id)) {
+            const genus = genera.find(
+              (g) =>
+                g.category === plant.genus_category &&
+                g.category_dex_number === plant.genus_number
+            );
+            if (genus) {
+              genusIds.add(genus.id);
+            }
           }
-        }
-      });
-    }
+        });
+      }
 
-    filteredGenera = filteredGenera.filter((g) => genusIds.has(g.id));
+      filteredGenera = filteredGenera.filter((g) => genusIds.has(g.id));
+    }
   }
 
   filteredGenera = filteredGenera.filter(g => {
@@ -279,6 +327,10 @@ export default function Collection() {
   };
 
   const activeBackgroundColor = selectedCollection?.background_color || averageColor;
+  const heroStats = getCollectionStats(selectedCollection ? selectedCollection.id : 'global');
+  const heroProgressPercent = heroStats.total
+    ? Math.round((heroStats.discovered / heroStats.total) * 100)
+    : 0;
 
   return (
     <div className="relative min-h-screen">
@@ -302,101 +354,165 @@ export default function Collection() {
           onClose={() => setShowHintDialog(false)}
         />
 
-        {/* Fixed Filter Bar */}
-        <div className="fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md shadow-sm border-b border-stone-200">
-          <div className="max-w-7xl mx-auto px-4 py-2">
-            <div className="flex flex-col gap-1 mb-2">
-              <div className="flex items-center justify-between gap-3">
-              <h2 className="text-[10px] font-medium text-stone-600">
-                {user?.display_name || user?.full_name || 'Dein'}'s Floralog
-              </h2>
-              <div className="flex items-center gap-2 text-[10px] text-stone-600">
-                <span>Kollektion:</span>
-                <Select
-                  value={selectedCollectionId}
-                  onValueChange={setSelectedCollectionId}
-                >
-                  <SelectTrigger className="bg-white h-7 text-[10px] px-2">
-                    <SelectValue placeholder="Kollektion wählen" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="global">Globales Floralog</SelectItem>
-                    {ownedCollections.map((col) => (
-                      <SelectItem key={col.id} value={col.id}>
-                        {col.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+        <div className="max-w-7xl mx-auto pt-4 space-y-4">
+          {/* Hero-Kachel */}
+          <div
+            className="bg-white/80 rounded-2xl border shadow-sm p-4 flex flex-col gap-3"
+            style={{
+              borderColor: activeBackgroundColor || 'rgba(148, 163, 184, 0.35)',
+            }}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[11px] text-stone-500">
+                {(user?.display_name || user?.full_name || 'Dein') + "'s Floralog"}
               </div>
+              <div className="text-[10px] px-2 py-1 rounded-full bg-stone-100 text-stone-600">
+                {selectedCollection ? 'Eigene Kollektion' : 'Globale Sammlung'}
               </div>
+            </div>
 
-              <div className="flex items-center justify-between gap-3">
-            <motion.div 
-              className="text-center flex-1 cursor-pointer select-none"
-              onClick={() => setShowGenera(!showGenera)}
-              animate={{ rotateY: showGenera ? 0 : 180 }}
-              transition={{ duration: 0.6 }}
-              style={{ transformStyle: "preserve-3d" }}
-            >
-              <div style={{ backfaceVisibility: "hidden" }}>
-                {showGenera ? (
-                  <>
-                    <div className="text-sm font-bold text-green-700">{discoveredCount}/{totalCount}</div>
-                    <div className="text-[10px] font-medium text-stone-600">Gattungen</div>
-                  </>
-                ) : (
-                  <div style={{ transform: "rotateY(180deg)" }}>
-                    <div className="text-sm font-bold text-amber-700">{discoveredSpecies}/{totalSpecies}</div>
-                    <div className="text-[10px] font-medium text-stone-600">Arten</div>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-            
-              <div className="h-6 w-px bg-stone-200"></div>
-              
-              <h1 className="text-center flex-1 font-bold text-stone-900 text-xs sm:text-sm md:text-base lg:text-lg px-1 leading-tight line-clamp-2">
+            <div className="space-y-1">
+              <h1 className="text-lg font-bold text-stone-900 leading-tight">
                 {selectedCollection ? selectedCollection.title : 'Globales Floralog'}
               </h1>
-              
-              <div className="h-6 w-px bg-stone-200"></div>
-              
-              <div className="flex-1">
-                <Select value={activeCategory} onValueChange={setActiveCategory}>
-                  <SelectTrigger className="bg-white h-9 text-xs">
-                    <SelectValue placeholder="Filter" />
-                  </SelectTrigger>
-                  <SelectContent>
-                  {/* Entdeckungs-/Raritäts-Filter */}
-                  {filters.map(filter => {
+              {selectedCollection?.description && (
+                <p className="text-[11px] text-stone-600 line-clamp-2">
+                  {selectedCollection.description}
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 mt-1">
+              <motion.div 
+                className="flex-1 cursor-pointer select-none"
+                onClick={() => setShowGenera(!showGenera)}
+                animate={{ rotateY: showGenera ? 0 : 180 }}
+                transition={{ duration: 0.6 }}
+                style={{ transformStyle: "preserve-3d" }}
+              >
+                <div
+                  className="rounded-xl bg-stone-50 px-3 py-2 flex flex-col items-start justify-center"
+                  style={{ backfaceVisibility: "hidden" }}
+                >
+                  {showGenera ? (
+                    <>
+                      <div className="text-xs font-semibold text-stone-700">Gattungen</div>
+                      <div className="text-sm font-bold text-green-700">
+                        {heroStats.discovered}/{heroStats.total}
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ transform: "rotateY(180deg)" }}>
+                      <div className="text-xs font-semibold text-stone-700">Arten</div>
+                      <div className="text-sm font-bold text-amber-700">
+                        {discoveredSpecies}/{totalSpecies}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+
+              <div className="flex-[1.2] space-y-1">
+                <div className="flex items-center justify-between text-[10px] text-stone-600">
+                  <span>Sammlungsfortschritt</span>
+                  <span>{heroProgressPercent}%</span>
+                </div>
+                <div className="w-full h-2 bg-stone-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${heroProgressPercent}%`,
+                      backgroundColor: activeBackgroundColor || 'rgb(34, 197, 94)',
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Horizontale Kollektionen-Chips */}
+          <div className="-mx-4 px-4 pb-1 flex gap-2 overflow-x-auto no-scrollbar">
+            {(() => {
+              const all = [
+                { id: 'global', title: 'Global', isGlobal: true },
+                ...ownedCollections.map((c) => ({ id: c.id, title: c.title, isGlobal: false })),
+              ];
+              return all.map((col) => {
+                const stats = getCollectionStats(col.id === 'global' ? 'global' : col.id);
+                const isActive = selectedCollectionId === col.id;
+                return (
+                  <button
+                    key={col.id}
+                    type="button"
+                    onClick={() => setSelectedCollectionId(col.id)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors ${
+                      isActive
+                        ? 'bg-white text-stone-900 shadow-sm'
+                        : 'bg-white/70 text-stone-600 hover:bg-white'
+                    }`}
+                    style={{
+                      borderColor: isActive
+                        ? activeBackgroundColor || 'rgba(148,163,184,0.5)'
+                        : 'rgba(226,232,240,1)',
+                    }}
+                  >
+                    <span className="font-medium">{col.title}</span>
+                    <span className="text-[10px] text-stone-500">
+                      {stats.discovered}/{stats.total || '–'}
+                    </span>
+                  </button>
+                );
+              });
+            })()}
+          </div>
+
+          {/* Suche & Filter */}
+          <div className="space-y-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-stone-400" />
+              <Input
+                type="text"
+                placeholder="Suchen..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 bg-white h-9 text-sm"
+              />
+            </div>
+
+            <div className="flex justify-end">
+              <Select value={activeCategory} onValueChange={setActiveCategory}>
+                <SelectTrigger className="bg-white h-9 text-xs w-40">
+                  <SelectValue placeholder="Filter" />
+                </SelectTrigger>
+                <SelectContent>
+                  {filters.map((filter) => {
                     let matchingGenera = generaWithDiscovery;
-                    if (filter.value === "not_discovered") {
-                      matchingGenera = generaWithDiscovery.filter(g => !g.discovered);
-                    } else if (filter.value === "discovered") {
-                      matchingGenera = generaWithDiscovery.filter(g => g.discovered);
-                    } else if (filter.value === "rarity") {
-                      matchingGenera = generaWithDiscovery.filter(g => g.hasRareSpecies);
+                    if (filter.value === 'not_discovered') {
+                      matchingGenera = generaWithDiscovery.filter((g) => !g.discovered);
+                    } else if (filter.value === 'discovered') {
+                      matchingGenera = generaWithDiscovery.filter((g) => g.discovered);
+                    } else if (filter.value === 'rarity') {
+                      matchingGenera = generaWithDiscovery.filter((g) => g.hasRareSpecies);
                     }
-                    const discovered = matchingGenera.filter(g => g.discovered).length;
+                    const discovered = matchingGenera.filter((g) => g.discovered).length;
                     return (
                       <SelectItem key={filter.value} value={filter.value}>
                         {filter.label} ({discovered}/{matchingGenera.length})
                       </SelectItem>
                     );
                   })}
-                  
-                  {/* Separator */}
+
                   <div className="px-2 py-1.5">
-                    <div className="border-t border-stone-200"></div>
+                    <div className="border-t border-stone-200" />
                   </div>
-                  
-                  {/* Sammlungen */}
-                  {collectionQuests.filter(q => q.is_active).length > 0 ? (
+
+                  {collectionQuests.filter((q) => q.is_active).length > 0 ? (
                     collectionQuests
-                      .filter(q => q.is_active)
-                      .map(quest => {
-                        const userQuest = userCollectionQuests.find(ucq => ucq.collection_quest_id === quest.id);
+                      .filter((q) => q.is_active)
+                      .map((quest) => {
+                        const userQuest = userCollectionQuests.find(
+                          (ucq) => ucq.collection_quest_id === quest.id
+                        );
                         const progress = userQuest?.discovered_plants?.length || 0;
                         const total = quest.target_plants?.length || 0;
                         return (
@@ -410,53 +526,40 @@ export default function Collection() {
                       ❓
                     </SelectItem>
                   )}
-                  </SelectContent>
-                </Select>
-              </div>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-stone-400" />
-            <Input
-              type="text"
-              placeholder="Suchen..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 bg-white h-9 text-sm"
-            />
+          {/* Collection Grid */}
+          <div className="pt-2">
+            {filteredGenera.length === 0 ? (
+              <div className="text-center py-20">
+                <div className="w-24 h-24 bg-white/80 backdrop-blur-md rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-stone-200">
+                  <Leaf className="w-12 h-12 text-stone-400" />
+                </div>
+                <h3 className="text-2xl font-bold text-stone-900 mb-2">
+                  Keine Pflanzen gefunden
+                </h3>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                {filteredGenera.map((genus) => (
+                  <GenusCard
+                    key={genus.id}
+                    genus={genus}
+                    onShowHint={handleShowHint}
+                    userDiscoveries={userDiscoveries}
+                    plants={plants}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
-
-      {/* Content with top padding for fixed filter */}
-      <div className="max-w-7xl mx-auto pt-32">
-
-        {filteredGenera.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="w-24 h-24 bg-white/80 backdrop-blur-md rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-stone-200">
-              <Leaf className="w-12 h-12 text-stone-400" />
-            </div>
-            <h3 className="text-2xl font-bold text-stone-900 mb-2">
-              Keine Pflanzen gefunden
-            </h3>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-            {filteredGenera.map((genus) => (
-              <GenusCard
-                key={genus.id}
-                genus={genus}
-                onShowHint={handleShowHint}
-                userDiscoveries={userDiscoveries}
-                plants={plants}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-      </div>
     </div>
   );
+}
 }
 
