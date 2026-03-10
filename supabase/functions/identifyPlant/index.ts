@@ -176,6 +176,7 @@ Deno.serve(async (req) => {
                 genus_name: genusName || scientificGenus || "Unbekannte Gattung",
                 scientific_name: scientificName || null,
                 scientific_genus: scientificGenus || null,
+                gbif_id: species?.gbif?.id ?? result?.gbif?.id ?? null,
                 category: "Blumen",
                 family: species.family?.scientificName || species.family?.name || null,
                 description: null,

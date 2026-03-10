@@ -419,11 +419,52 @@ export default function Scanner() {
                 return { ...match, aiData: plantData, inDatabase: true };
               } else {
                 console.log("🆕 Nicht in Datenbank:", plantData.species_name);
+                // Schritt 1: GBIF-Verteilung prüfen (ausschließliche Quelle für is_european)
+                let distribution = null;
+                let isEuropean = false;
 
-                if (plantData.is_european === false) {
-                  return { ...plantData, notInDex: true, is_european: false, inDatabase: false };
+                if (plantData.gbif_id) {
+                  try {
+                    const { data: distData, error: distError } = await supabase.functions.invoke('checkPlantDistribution', {
+                      body: {
+                        gbifId: plantData.gbif_id,
+                        // Perspektivisch können hier weitere Regionen ergänzt werden
+                        // regions: ['EUROPE', 'MEDITERRANEAN', 'NEAR_EAST'],
+                      }
+                    });
+
+                    if (distError || !distData) {
+                      console.error('Fehler beim Aufruf von checkPlantDistribution:', distError);
+                    } else {
+                      distribution = distData;
+                      isEuropean = distData.is_european === true;
+                    }
+                  } catch (e) {
+                    console.error('Fehler beim Aufruf von checkPlantDistribution:', e);
+                  }
+                } else {
+                  console.warn('Kein gbif_id im PlantNet-Ergebnis vorhanden – kann Verteilung nicht prüfen');
                 }
-                // Für neue Pflanzen: Metadaten (Beschreibung, Merkmale, Fun Fact, Seltenheit) + EU-Check per LLM erzeugen
+
+                // Wenn keine oder zu wenige GBIF-Daten vorhanden sind, lehnen wir den Scan ab
+                if (!distribution || typeof distribution.totalCount !== 'number' || distribution.totalCount === 0) {
+                  console.warn('❌ Keine ausreichenden GBIF-Daten verfügbar – Scan wird abgelehnt');
+                  return { ...plantData, notInDex: true, inDatabase: false, metadata_failed: true };
+                }
+
+                // Wenn GBIF klar sagt „nicht europäisch“, nur zur Anzeige freigeben
+                if (!isEuropean) {
+                  return {
+                    ...plantData,
+                    notInDex: true,
+                    inDatabase: false,
+                    is_european: false,
+                    distribution,
+                  };
+                }
+
+                // Schritt 2: Metadaten (Beschreibung, Merkmale, Fun Fact, Seltenheit) über LLM erzeugen
+                // WICHTIG: is_european aus dem LLM wird ignoriert, GBIF ist alleinige Quelle.
                 try {
                   const { data, error } = await supabase.functions.invoke('generatePlantMetadata', {
                     body: {
@@ -435,8 +476,14 @@ export default function Scanner() {
 
                   if (error || !data) {
                     console.error('Fehler beim Aufruf von generatePlantMetadata:', error);
-                    // Hartes Fallback: Scan ablehnen, da keine sinnvollen Metadaten erzeugt werden konnten
-                    return { ...plantData, notInDex: true, inDatabase: false, metadata_failed: true };
+                    return {
+                      ...plantData,
+                      notInDex: true,
+                      inDatabase: false,
+                      metadata_failed: true,
+                      is_european: isEuropean,
+                      distribution,
+                    };
                   }
 
                   const meta = data;
@@ -444,44 +491,29 @@ export default function Scanner() {
                     ? meta.identification_features.join(' ')
                     : meta.identification_features;
 
-                  // Falls die KI die Pflanze als nicht-europäisch einstuft, nicht speicherbar machen
-                  if (meta.is_european === false) {
-                    return {
-                      ...plantData,
-                      description: meta.description,
-                      identification_features: identificationText,
-                      fun_fact: meta.fun_fact,
-                      rarity: meta.rarity || plantData.rarity || 'Gelegentlich',
-                      genus_name: meta.genus_name || plantData.genus_name,
-                      category: meta.category || plantData.category,
-                      notInDex: true,
-                      inDatabase: false,
-                      is_european: false
-                    };
-                  }
-
-                  // Nur wenn die KI die Pflanze als europäisch klassifiziert UND Metadaten liefert, darf sie gespeichert werden
-                  if (meta.is_european === true && meta.description && identificationText && meta.rarity) {
-                    return {
-                      ...plantData,
-                      description: meta.description,
-                      identification_features: identificationText,
-                      fun_fact: meta.fun_fact,
-                      rarity: meta.rarity || plantData.rarity || 'Gelegentlich',
-                      genus_name: meta.genus_name || plantData.genus_name,
-                      category: meta.category || plantData.category,
-                      notInDex: true,
-                      inDatabase: false,
-                      is_european: true
-                    };
-                  }
-
-                  console.error('Unvollständige Metadaten oder fehlende EU-Klassifikation:', meta);
-                  return { ...plantData, notInDex: true, inDatabase: false, metadata_failed: true };
+                  return {
+                    ...plantData,
+                    description: meta.description || plantData.description,
+                    identification_features: identificationText || plantData.identification_features,
+                    fun_fact: meta.fun_fact || plantData.fun_fact,
+                    rarity: meta.rarity || plantData.rarity || 'Gelegentlich',
+                    genus_name: meta.genus_name || plantData.genus_name,
+                    category: meta.category || plantData.category,
+                    notInDex: true,
+                    inDatabase: false,
+                    is_european: isEuropean,
+                    distribution,
+                  };
                 } catch (e) {
                   console.error('Fehler beim Generieren der Vorschau-Metadaten:', e);
-                  // Hartes Fallback: Scan ablehnen, da keine sinnvollen Metadaten erzeugt werden konnten
-                  return { ...plantData, notInDex: true, inDatabase: false, metadata_failed: true };
+                  return {
+                    ...plantData,
+                    notInDex: true,
+                    inDatabase: false,
+                    metadata_failed: true,
+                    is_european: isEuropean,
+                    distribution,
+                  };
                 }
               }
             })
