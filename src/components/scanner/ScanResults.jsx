@@ -272,85 +272,9 @@ export default function ScanResults({
 
   }
 
-  const isNonEuropeanCandidate = currentPlant?.notInDex && currentPlant?.is_european === false;
-  const hasMetadataFailure = currentPlant?.metadata_failed === true;
-
-  // Nicht speicherbare Kandidaten (nicht-europäisch oder ohne Metadaten) klar kennzeichnen
-  if (isNonEuropeanCandidate || hasMetadataFailure) {
-    return (
-      <Card className="border-2 border-orange-200 shadow-md bg-white overflow-hidden">
-        <CardContent className="p-4 space-y-4">
-          {/* Header kompakt */}
-          <div className="flex items-center gap-3 bg-gradient-to-r from-orange-50 to-red-50 -mx-4 -mt-4 p-3 border-b border-orange-200">
-            <AlertCircle className="w-8 h-8 text-orange-600 flex-shrink-0" />
-            <div>
-              <h2 className="text-lg font-bold text-stone-900">
-                {hasMetadataFailure ? "Unvollständiger Kandidat" : "Keine mitteleuropäische Pflanze! 🌍"}
-              </h2>
-              <p className="text-xs text-orange-700">
-                {hasMetadataFailure
-                  ? "Für diesen Vorschlag konnten keine ausreichenden Metadaten erzeugt werden."
-                  : "Floralog sammelt nur Pflanzen aus Mitteleuropa"}
-              </p>
-            </div>
-          </div>
-
-          {/* Bild und Info nebeneinander */}
-          <div className="flex gap-4">
-            <img
-              src={imageUrl}
-              alt={currentPlant.species_name}
-              className="w-24 h-24 object-cover rounded-xl shadow-sm border-2 border-orange-300 flex-shrink-0"
-            />
-            <div className="flex-1 min-w-0">
-              <h3 className="text-lg font-bold text-stone-900 truncate">
-                {currentPlant.species_name}
-              </h3>
-              <p className="text-sm text-stone-600 italic truncate">
-                {currentPlant.scientific_name}
-              </p>
-              <Badge className="mt-2 bg-red-100 text-red-800 border border-red-200 hover:bg-red-100">
-                Nicht speicherbar
-              </Badge>
-            </div>
-          </div>
-
-          {/* Beschreibung kompakt */}
-          {currentPlant.description && (
-            <div className="bg-stone-50 rounded-lg p-3 border border-stone-200">
-              <p className="text-sm text-stone-700 line-clamp-3">{currentPlant.description}</p>
-            </div>
-          )}
-
-          {currentPlant.fun_fact && (
-            <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-              <p className="text-xs font-semibold text-blue-900 mb-1">💡 Wusstest du?</p>
-              <p className="text-sm text-stone-700 line-clamp-2">{currentPlant.fun_fact}</p>
-            </div>
-          )}
-
-          {/* Hinweis */}
-          <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
-            <p className="text-xs text-orange-800 text-center">
-              ⚠️ Dieser Vorschlag kann nicht zu Floralog hinzugefügt werden.
-            </p>
-          </div>
-
-          {/* Button */}
-          <Button
-            onClick={onRescan}
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold"
-          >
-            <RotateCcw className="w-4 h-4 mr-2" />
-            Andere Pflanze scannen
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
-
   // Erfolgreich gescannte Pflanze (neu oder bereits entdeckt)
   if (currentPlant?.species_name) {
+    const isBlockedResult = currentPlant?.metadata_failed === true || (currentPlant?.notInDex && currentPlant?.is_european === false);
     const rarity = currentPlant.rarity || currentPlant.aiData?.rarity || "Häufig";
     const isNewToPlantDex = currentPlant.isNewToPlantDex || false;
     const wasAlreadyDiscovered = currentPlant.discovered === true;
@@ -452,6 +376,13 @@ export default function ScanResults({
                           src={imageUrl}
                           alt={currentPlant.species_name}
                           className="w-full aspect-square object-cover rounded-xl shadow-[inset_0_0_20px_rgba(0,0,0,0.35)] border border-white/70" />
+                        {isBlockedResult && (
+                          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10">
+                            <Badge variant="secondary" className="bg-red-600 text-white border border-red-200 shadow-md hover:bg-red-600">
+                              Nicht speicherbar
+                            </Badge>
+                          </div>
+                        )}
                         </>
                         }
                         </div>
@@ -544,6 +475,18 @@ export default function ScanResults({
 
                   {/* Informations-Container - direkt unter dem Hauptcontainer */}
                   <div className="space-y-3 bg-white/30 backdrop-blur-md rounded-xl p-4">
+                      {isBlockedResult ? (
+                      <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl p-4 border-2 border-orange-300 shadow-md">
+                          <h4 className="font-bold text-orange-900 mb-2 flex items-center gap-2">
+                            <span className="text-xl">⚠️</span>
+                            <span>Keine mitteleuropäische Pflanze!</span>
+                          </h4>
+                          <p className="text-stone-800 leading-relaxed">
+                            Zum jetzigen Zeitpunkt, konzentriert sich Floralog auf die Verarbeitung von Pflanzen aus Mitteleuropa!
+                          </p>
+                        </div>
+                      ) : (
+                      <>
                       {(currentPlant.description || currentPlant.aiData?.description) &&
                       <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border-2 border-blue-200 shadow-md">
                           <h4 className="font-bold text-blue-900 mb-2 flex items-center gap-2">
@@ -579,6 +522,8 @@ export default function ScanResults({
                           </p>
                         </div>
                       }
+                      </>
+                      )}
                       </div>
 
                   {/* Status Anzeige - nur bei bestätigten Scans */}

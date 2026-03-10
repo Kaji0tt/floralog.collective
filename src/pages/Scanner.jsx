@@ -525,14 +525,10 @@ export default function Scanner() {
 
           const firstResult = processedResults[0];
 
-          // Wenn die Metadaten-Generierung fehlgeschlagen ist, Scan klar ablehnen
+          // Bei fehlenden Metadaten trotzdem Ergebnis anzeigen (nicht speicherbar), damit die UI konsistent bleibt
           if (firstResult && firstResult.metadata_failed) {
-            console.warn('❌ Metadaten-Generierung fehlgeschlagen – Scan wird abgelehnt');
-            setMatchedPlant({
-              identified: false,
-              error:
-                'Die Pflanze konnte nicht in einen sinnvollen Kontext gesetzt werden. Bitte versuche es später erneut oder mit einem anderen Foto.',
-            });
+            console.warn('⚠️ Metadaten-Generierung fehlgeschlagen – zeige nicht speicherbares Ergebnis');
+            setMatchedPlant(firstResult);
             setScanning(false);
             return;
           }
