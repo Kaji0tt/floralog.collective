@@ -139,6 +139,7 @@ export default function Collection() {
   const [averageColor, setAverageColor] = useState(null);
   const [selectedCollectionId, setSelectedCollectionId] = useState("global");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [hasScrolledList, setHasScrolledList] = useState(false);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -440,7 +441,7 @@ export default function Collection() {
       />
       
       {/* Scrollbarer Content */}
-      <div className="min-h-screen p-4 md:p-8">
+      <div className="h-screen p-4 md:p-8 overflow-hidden">
         <MobileBackButton />
 
         <HintDialog
@@ -449,114 +450,127 @@ export default function Collection() {
           onClose={() => setShowHintDialog(false)}
         />
 
-        <div className="max-w-7xl mx-auto pt-0 space-y-3">
-          {/* Horizontale Kollektionen-Chips */}
-          <div className="-mx-4 px-4 pb-0 flex gap-2 overflow-x-auto no-scrollbar">
-            {(() => {
-              const all = [
-                { id: 'global', title: 'Global', isGlobal: true },
-                ...ownedCollections.map((c) => ({ id: c.id, title: c.title, isGlobal: false })),
-              ];
-              return all.map((col) => {
-                const stats = getCollectionStats(col.id === 'global' ? 'global' : col.id);
-                const isActive = selectedCollectionId === col.id;
-                return (
-                  <button
-                    key={col.id}
-                    type="button"
-                    onClick={() => setSelectedCollectionId(col.id)}
-                    className={
-                      "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors " +
-                      (isActive
-                        ? "bg-white text-stone-900 shadow-sm"
-                        : "bg-white/70 text-stone-600 hover:bg-white")
-                    }
-                    style={{
-                      borderColor: isActive
-                        ? activeBackgroundColor || 'rgba(148,163,184,0.5)'
-                        : 'rgba(226,232,240,1)',
-                    }}
-                  >
-                    <span className="font-medium">{col.title}</span>
-                    <span className="text-[10px] text-stone-500">
-                      {stats.discovered}/{stats.total || '–'}
-                    </span>
-                  </button>
-                );
-              });
-            })()}
-          </div>
-
-          {/* Hero-Kachel */}
-          <div
-            className="bg-white/80 rounded-2xl border shadow-sm p-3 flex flex-col gap-3"
-            style={{
-              borderColor: activeBackgroundColor || 'rgba(148, 163, 184, 0.35)',
-            }}
-          >
-            <div className="space-y-1">
-              <h1 className="text-lg font-bold text-stone-900 leading-tight">
-                {heroTitle}
-              </h1>
-              {selectedCollection?.description && (
-                <p className="text-[11px] text-stone-600 line-clamp-2">
-                  {selectedCollection.description}
-                </p>
-              )}
+        <div className="max-w-7xl mx-auto h-full pt-0 flex flex-col gap-3">
+          <div className="shrink-0 space-y-3">
+            {/* Horizontale Kollektionen-Chips */}
+            <div className="-mx-4 px-4 pb-0 flex gap-2 overflow-x-auto no-scrollbar">
+              {(() => {
+                const all = [
+                  { id: 'global', title: 'Global', isGlobal: true },
+                  ...ownedCollections.map((c) => ({ id: c.id, title: c.title, isGlobal: false })),
+                ];
+                return all.map((col) => {
+                  const stats = getCollectionStats(col.id === 'global' ? 'global' : col.id);
+                  const isActive = selectedCollectionId === col.id;
+                  return (
+                    <button
+                      key={col.id}
+                      type="button"
+                      onClick={() => setSelectedCollectionId(col.id)}
+                      className={
+                        "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors " +
+                        (isActive
+                          ? "bg-white text-stone-900 shadow-sm"
+                          : "bg-white/70 text-stone-600 hover:bg-white")
+                      }
+                      style={{
+                        borderColor: isActive
+                          ? activeBackgroundColor || 'rgba(148,163,184,0.5)'
+                          : 'rgba(226,232,240,1)',
+                      }}
+                    >
+                      <span className="font-medium">{col.title}</span>
+                      <span className="text-[10px] text-stone-500">
+                        {stats.discovered}/{stats.total || '–'}
+                      </span>
+                    </button>
+                  );
+                });
+              })()}
             </div>
 
-            <div className="flex items-center gap-3 mt-1">
-              <div className="flex-1 space-y-1">
-                <div className="flex items-center justify-between text-[10px] text-stone-600">
-                  <div className="flex items-center gap-1">
-                    <span>Sammlungsfortschritt</span>
-                    {heroStats.total > 0 && (
-                      <span className="text-[10px] text-stone-500">
-                        ({heroStats.discovered}/{heroStats.total})
-                      </span>
-                    )}
-                  </div>
+            {/* Hero-Kachel */}
+            <div
+              className="bg-white/80 rounded-2xl border shadow-sm p-3 flex flex-col gap-3"
+              style={{
+                borderColor: activeBackgroundColor || 'rgba(148, 163, 184, 0.35)',
+              }}
+            >
+              <div className="space-y-1">
+                <h1 className="text-lg font-bold text-stone-900 leading-tight">
+                  {heroTitle}
+                </h1>
+                {selectedCollection?.description && (
+                  <p className="text-[11px] text-stone-600 line-clamp-2">
+                    {selectedCollection.description}
+                  </p>
+                )}
+              </div>
 
-                  <div className="flex items-center gap-2">
-                    <span>{heroProgressPercent}%</span>
-                    <button
-                      type="button"
-                      onClick={() => setFiltersOpen((prev) => !prev)}
-                      className="p-1 rounded-full bg-stone-100 text-stone-600 hover:bg-stone-200 transition-colors"
-                      aria-label="Suche und Filter öffnen"
-                    >
-                      <Search className="w-3 h-3" />
-                    </button>
+              <div className="flex items-center gap-3 mt-1">
+                <div className="flex-1 space-y-1">
+                  <div className="flex items-center justify-between text-[10px] text-stone-600">
+                    <div className="flex items-center gap-1">
+                      <span>Sammlungsfortschritt</span>
+                      {heroStats.total > 0 && (
+                        <span className="text-[10px] text-stone-500">
+                          ({heroStats.discovered}/{heroStats.total})
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span>{heroProgressPercent}%</span>
+                      <button
+                        type="button"
+                        onClick={() => setFiltersOpen((prev) => !prev)}
+                        className="p-1 rounded-full bg-stone-100 text-stone-600 hover:bg-stone-200 transition-colors"
+                        aria-label="Suche und Filter öffnen"
+                      >
+                        <Search className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div className="w-full h-2 bg-stone-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width: heroProgressPercent + '%',
-                      backgroundColor: activeBackgroundColor || 'rgb(34, 197, 94)',
-                    }}
-                  />
+                  <div className="w-full h-2 bg-stone-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: heroProgressPercent + '%',
+                        backgroundColor: activeBackgroundColor || 'rgb(34, 197, 94)',
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
+
+            {/* Suche & Filter (per Icon ein- und ausblendbar) */}
+            <SearchFilterPanel
+              visible={filtersOpen}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              activeCategory={activeCategory}
+              setActiveCategory={setActiveCategory}
+              filters={filters}
+              generaWithDiscovery={generaWithDiscovery}
+              collectionQuests={collectionQuests}
+              userCollectionQuests={userCollectionQuests}
+            />
           </div>
 
-          {/* Suche & Filter (per Icon ein- und ausblendbar) */}
-          <SearchFilterPanel
-            visible={filtersOpen}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            activeCategory={activeCategory}
-            setActiveCategory={setActiveCategory}
-            filters={filters}
-            generaWithDiscovery={generaWithDiscovery}
-            collectionQuests={collectionQuests}
-            userCollectionQuests={userCollectionQuests}
-          />
-
           {/* Collection Grid */}
-          <div className="pt-1">
+          <div
+            className="relative flex-1 min-h-0 overflow-y-auto pt-1 pb-20"
+            onScroll={(e) => setHasScrolledList(e.currentTarget.scrollTop > 0)}
+            style={{
+              WebkitMaskImage: hasScrolledList
+                ? 'linear-gradient(to bottom, transparent 0px, black 36px, black 100%)'
+                : 'none',
+              maskImage: hasScrolledList
+                ? 'linear-gradient(to bottom, transparent 0px, black 36px, black 100%)'
+                : 'none',
+            }}
+          >
             {filteredGenera.length === 0 ? (
               <div className="text-center py-20">
                 <div className="w-24 h-24 bg-white/80 backdrop-blur-md rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-stone-200">
@@ -575,6 +589,7 @@ export default function Collection() {
                     onShowHint={handleShowHint}
                     userDiscoveries={userDiscoveries}
                     plants={plants}
+                    friendEmail={null}
                   />
                 ))}
               </div>
