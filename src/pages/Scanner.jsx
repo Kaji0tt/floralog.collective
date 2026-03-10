@@ -81,6 +81,8 @@ export default function Scanner() {
   const [currentResultIndex, setCurrentResultIndex] = useState(0); // Aktuell ausgewähltes Ergebnis
   const [locationEnabled, setLocationEnabled] = useState(true);
   const [scanningPhase, setScanningPhase] = useState(0);
+  const [scanningStatusText, setScanningStatusText] = useState("Bereite Scan vor...");
+  const [scanningIteration, setScanningIteration] = useState(null);
   const selectedPendingResult = pendingScanData?.allResults?.[currentResultIndex] || pendingScanData?.plant || null;
   const selectedResultBlocked = !!selectedPendingResult && (
     selectedPendingResult.metadata_failed === true ||
@@ -327,22 +329,28 @@ export default function Scanner() {
     }
   };
 
+  const updateScanningProgress = (phase, text, iteration = null) => {
+    setScanningPhase(phase);
+    setScanningStatusText(text);
+    setScanningIteration(iteration);
+  };
+
   const identifyPlant = async (file, organ = "auto") => {
     setScanning(true);
-    setScanningPhase(0);
+    updateScanningProgress(0, "📦 Packe die Lupe aus und bereite dein Bild vor...");
     setMatchedPlant(null);
     setAllScanResults([]);
     setLatestDiscoveryId(null);
 
     try {
       console.log("📤 Starte Upload...");
-      setScanningPhase(0); // Komprimiere Bild
+      updateScanningProgress(0, "📦 Komprimiere Bild fuer eine schnelle Analyse...");
       const { file_url } = await uploadFile({ file });
       console.log("✅ Upload erfolgreich:", file_url);
       setImageUrl(file_url);
 
       console.log(`🌿 Starte Pflanzenerkennung mit organ: ${organ}...`);
-      setScanningPhase(1); // PlantNet-API analysiert
+      updateScanningProgress(1, "🌿 Sende den Fund an PlantNet...");
 
       try {
         const response = await supabase.functions.invoke('identifyPlant', {
@@ -371,7 +379,7 @@ export default function Scanner() {
         if (result && result.identified && result.results && result.results.length > 0) {
           console.log(`🌿 ${result.results.length} Pflanze(n) erkannt`);
 
-          setScanningPhase(2); // Vergleiche mit globalem Floralog
+          updateScanningProgress(2, "📜 Sortiere Ergebnisse und gleiche sie mit dem Floralog ab...");
           await new Promise(resolve => setTimeout(resolve, 800));
 
           const normalizeString = (str) => {
@@ -379,8 +387,19 @@ export default function Scanner() {
             return str.toLowerCase().trim().replace(/\s+/g, ' ');
           };
 
+          const totalResults = result.results.length;
+          let completedResults = 0;
+
           const processedResults = await Promise.all(
-            result.results.map(async (plantData) => {
+            result.results.map(async (plantData, index) => {
+              const iteration = { current: index + 1, total: totalResults };
+
+              updateScanningProgress(
+                3,
+                `${iteration.current}/${iteration.total} - 📜 Pruefe Namen, Synonyme und Gattungen im Floralog...`,
+                iteration
+              );
+
               const resultSpeciesNorm = normalizeString(plantData.species_name);
               const resultScientificNorm = normalizeString(plantData.scientific_name);
               const resultGenusNorm = normalizeString(plantData.genus_name);
@@ -415,6 +434,12 @@ export default function Scanner() {
 
               if (match) {
                 console.log("📚 Gefunden in Datenbank:", match.species_name);
+                completedResults += 1;
+                updateScanningProgress(
+                  3,
+                  `${completedResults}/${totalResults} - 📜 Kandidaten geprueft, ordne Ergebnisse...`,
+                  { current: completedResults, total: totalResults }
+                );
                 return { ...match, aiData: plantData, inDatabase: true };
               } else {
                 console.log("🆕 Nicht in Datenbank:", plantData.species_name);
@@ -423,6 +448,11 @@ export default function Scanner() {
                 let isEuropean = false;
 
                 if (plantData.gbif_id) {
+                  updateScanningProgress(
+                    4,
+                    `${iteration.current}/${iteration.total} - 🌍 Frage Verbreitungsdaten bei GBIF ab...`,
+                    iteration
+                  );
                   try {
                     const { data: distData, error: distError } = await supabase.functions.invoke('checkPlantDistribution', {
                       body: {
@@ -448,11 +478,23 @@ export default function Scanner() {
                 // Wenn keine oder zu wenige GBIF-Daten vorhanden sind, lehnen wir den Scan ab
                 if (!distribution || typeof distribution.totalCount !== 'number' || distribution.totalCount === 0) {
                   console.warn('❌ Keine ausreichenden GBIF-Daten verfügbar – Scan wird abgelehnt');
+                  completedResults += 1;
+                  updateScanningProgress(
+                    4,
+                    `${completedResults}/${totalResults} - 🌍 Verteilungscheck abgeschlossen...`,
+                    { current: completedResults, total: totalResults }
+                  );
                   return { ...plantData, notInDex: true, inDatabase: false, metadata_failed: true };
                 }
 
                 // Wenn GBIF klar sagt „nicht europäisch“, nur zur Anzeige freigeben
                 if (!isEuropean) {
+                  completedResults += 1;
+                  updateScanningProgress(
+                    4,
+                    `${completedResults}/${totalResults} - 🌍 Verteilungscheck abgeschlossen...`,
+                    { current: completedResults, total: totalResults }
+                  );
                   return {
                     ...plantData,
                     notInDex: true,
@@ -465,6 +507,12 @@ export default function Scanner() {
                 // Schritt 2: Metadaten (Beschreibung, Merkmale, Fun Fact, Seltenheit) über LLM erzeugen
                 // WICHTIG: is_european aus dem LLM wird ignoriert, GBIF ist alleinige Quelle.
                 try {
+                  updateScanningProgress(
+                    5,
+                    `${iteration.current}/${iteration.total} - 📎 Frag Botaniker-KI nach weiteren Infos...`,
+                    iteration
+                  );
+
                   const { data, error } = await supabase.functions.invoke('generatePlantMetadata', {
                     body: {
                       species_name: plantData.species_name,
@@ -475,6 +523,12 @@ export default function Scanner() {
 
                   if (error || !data) {
                     console.error('Fehler beim Aufruf von generatePlantMetadata:', error);
+                    completedResults += 1;
+                    updateScanningProgress(
+                      5,
+                      `${completedResults}/${totalResults} - 📎 Botaniker-KI liefert letzte Details...`,
+                      { current: completedResults, total: totalResults }
+                    );
                     return {
                       ...plantData,
                       notInDex: true,
@@ -490,6 +544,12 @@ export default function Scanner() {
                     ? meta.identification_features.join(' ')
                     : meta.identification_features;
 
+                  completedResults += 1;
+                  updateScanningProgress(
+                    5,
+                    `${completedResults}/${totalResults} - 📎 Botaniker-KI liefert letzte Details...`,
+                    { current: completedResults, total: totalResults }
+                  );
                   return {
                     ...plantData,
                     description: meta.description || plantData.description,
@@ -505,6 +565,12 @@ export default function Scanner() {
                   };
                 } catch (e) {
                   console.error('Fehler beim Generieren der Vorschau-Metadaten:', e);
+                  completedResults += 1;
+                  updateScanningProgress(
+                    5,
+                    `${completedResults}/${totalResults} - 📎 Botaniker-KI liefert letzte Details...`,
+                    { current: completedResults, total: totalResults }
+                  );
                   return {
                     ...plantData,
                     notInDex: true,
@@ -520,7 +586,7 @@ export default function Scanner() {
 
           setAllScanResults(processedResults);
 
-          setScanningPhase(3); // Vergleiche mit deinem Floralog
+          updateScanningProgress(6, "🌽 Ergebnisse werden geerntet...");
           await new Promise(resolve => setTimeout(resolve, 800));
 
           const firstResult = processedResults[0];
@@ -584,6 +650,8 @@ export default function Scanner() {
         error: `Fehler: ${error.message}`
       });
       setScanning(false);
+    } finally {
+      setScanningIteration(null);
     }
   };
 
@@ -1209,12 +1277,17 @@ export default function Scanner() {
                 <h3 className="text-2xl font-bold text-stone-900 mb-2">
                   Pflanze wird analysiert...
                 </h3>
+                {scanningIteration && (
+                  <div className="mb-3 inline-flex items-center rounded-full border border-green-300 bg-green-50 px-3 py-1 text-sm font-semibold text-green-800">
+                    Kandidat {scanningIteration.current} von {scanningIteration.total}
+                  </div>
+                )}
                 <div className="text-center">
                   <p className="text-lg text-green-700 font-semibold transition-all duration-300">
-                    {scanningPhase === 0 && '📦 Komprimiere Bild...'}
-                    {scanningPhase === 1 && '🌿 Lasse das Bild über PlantNet-API analysieren...'}
-                    {scanningPhase === 2 && '🌍 Vergleiche das Ergebnis mit globalem Floralog...'}
-                    {scanningPhase === 3 && '📚 Vergleiche das Ergebnis mit deinem Floralog...'}
+                    {scanningStatusText}
+                  </p>
+                  <p className="text-xs text-stone-600 mt-2">
+                    Phase {scanningPhase + 1} laeuft...
                   </p>
                 </div>
               </div>
