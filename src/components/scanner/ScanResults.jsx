@@ -272,8 +272,11 @@ export default function ScanResults({
 
   }
 
-  // Nicht-europäische Pflanzen - kompaktes Design
-  if (currentPlant?.notInDex && currentPlant?.is_european === false && isPrimaryResult) {
+  const isNonEuropeanCandidate = currentPlant?.notInDex && currentPlant?.is_european === false;
+  const hasMetadataFailure = currentPlant?.metadata_failed === true;
+
+  // Nicht speicherbare Kandidaten (nicht-europäisch oder ohne Metadaten) klar kennzeichnen
+  if (isNonEuropeanCandidate || hasMetadataFailure) {
     return (
       <Card className="border-2 border-orange-200 shadow-md bg-white overflow-hidden">
         <CardContent className="p-4 space-y-4">
@@ -281,8 +284,14 @@ export default function ScanResults({
           <div className="flex items-center gap-3 bg-gradient-to-r from-orange-50 to-red-50 -mx-4 -mt-4 p-3 border-b border-orange-200">
             <AlertCircle className="w-8 h-8 text-orange-600 flex-shrink-0" />
             <div>
-              <h2 className="text-lg font-bold text-stone-900">Keine mitteleuropäische Pflanze! 🌍</h2>
-              <p className="text-xs text-orange-700">Floralog sammelt nur Pflanzen aus Mitteleuropa</p>
+              <h2 className="text-lg font-bold text-stone-900">
+                {hasMetadataFailure ? "Unvollständiger Kandidat" : "Keine mitteleuropäische Pflanze! 🌍"}
+              </h2>
+              <p className="text-xs text-orange-700">
+                {hasMetadataFailure
+                  ? "Für diesen Vorschlag konnten keine ausreichenden Metadaten erzeugt werden."
+                  : "Floralog sammelt nur Pflanzen aus Mitteleuropa"}
+              </p>
             </div>
           </div>
 
@@ -300,6 +309,9 @@ export default function ScanResults({
               <p className="text-sm text-stone-600 italic truncate">
                 {currentPlant.scientific_name}
               </p>
+              <Badge className="mt-2 bg-red-100 text-red-800 border border-red-200 hover:bg-red-100">
+                Nicht speicherbar
+              </Badge>
             </div>
           </div>
 
@@ -320,7 +332,7 @@ export default function ScanResults({
           {/* Hinweis */}
           <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
             <p className="text-xs text-orange-800 text-center">
-              ⚠️ Diese Pflanze kann nicht zu Floralog hinzugefügt werden.
+              ⚠️ Dieser Vorschlag kann nicht zu Floralog hinzugefügt werden.
             </p>
           </div>
 

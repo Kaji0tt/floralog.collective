@@ -19,13 +19,13 @@ import AchievementNotification from "../components/achievements/AchievementNotif
 import { AnimatePresence, motion } from "framer-motion";
 
 import MobileBackButton from "../components/navigation/MobileBackButton";
-import { Check, RefreshCw } from "lucide-react";
+import { Check } from "lucide-react";
 import { createPageUrl } from "@/utils";
 import { updateQuestProgress } from "@/components/utils/questProgress";
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
 // Bestätigungs-Button Komponente (draggable wie MobileBackButton)
-function ConfirmButton({ onConfirm, isPrimaryResult }) {
+function ConfirmButton({ onConfirm, disabled = false }) {
   const [position, setPosition] = useState(() => {
     const saved = localStorage.getItem('mobileButtonPosition');
     return saved ? JSON.parse(saved) : { x: 0, y: 0 };
@@ -52,17 +52,10 @@ function ConfirmButton({ onConfirm, isPrimaryResult }) {
     >
       <Button
         onClick={onConfirm}
-        className={`w-16 h-16 shadow-lg border-2 border-white text-white rounded-full cursor-move ${
-          isPrimaryResult 
-            ? "bg-green-600 hover:bg-green-700" 
-            : "bg-orange-600 hover:bg-orange-700"
-        }`}
+        disabled={disabled}
+        className={`w-16 h-16 shadow-lg border-2 border-white text-white rounded-full cursor-move bg-green-600 hover:bg-green-700 ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
       >
-        {isPrimaryResult ? (
-          <Check className="w-8 h-8" />
-        ) : (
-          <RefreshCw className="w-8 h-8" />
-        )}
+        <Check className="w-8 h-8" />
       </Button>
     </motion.div>
   );
@@ -88,6 +81,12 @@ export default function Scanner() {
   const [currentResultIndex, setCurrentResultIndex] = useState(0); // Aktuell ausgewähltes Ergebnis
   const [locationEnabled, setLocationEnabled] = useState(true);
   const [scanningPhase, setScanningPhase] = useState(0);
+  const selectedPendingResult = pendingScanData?.allResults?.[currentResultIndex] || pendingScanData?.plant || null;
+  const selectedResultBlocked = !!selectedPendingResult && (
+    selectedPendingResult.metadata_failed === true ||
+    (selectedPendingResult.notInDex && selectedPendingResult.is_european === false)
+  );
+
   const [showGlobalFloralogModal, setShowGlobalFloralogModal] = useState(false);
   const [newPlantName, setNewPlantName] = useState("");
   const queryClient = useQueryClient();
@@ -763,6 +762,11 @@ export default function Scanner() {
   const handleConfirmSave = async () => {
     if (!pendingScanData || isSavingPlant) return;
 
+    if (selectedResultBlocked) {
+      alert("Dieser Vorschlag kann nicht gespeichert werden. Bitte waehle ein anderes Ergebnis oder scanne erneut.");
+      return;
+    }
+
     setIsSavingPlant(true);
 
     try {
@@ -933,8 +937,8 @@ export default function Scanner() {
       {/* Grüner Haken / Ändern Button - nur wenn pendingScanData vorhanden */}
       {pendingScanData && !isSavingPlant && (
         <ConfirmButton 
-          onConfirm={() => setShowConfirmDialog(true)}
-          isPrimaryResult={currentResultIndex === 0}
+          onConfirm={() => !selectedResultBlocked && setShowConfirmDialog(true)}
+          disabled={selectedResultBlocked}
         />
       )}
       
@@ -948,7 +952,16 @@ export default function Scanner() {
             </DialogTitle>
             {!isSavingPlant && (
               <DialogDescription className="text-base pt-4">
-                Möchtest du <strong>{pendingScanData?.allResults?.[currentResultIndex]?.species_name || pendingScanData?.plant?.species_name}</strong> zu deiner Sammlung hinzufügen?
+                {selectedResultBlocked ? (
+                  <span>
+                    <strong>{selectedPendingResult?.species_name || "Dieser Vorschlag"}</strong> kann nicht gespeichert werden,
+                    weil er nicht in den Sammelbereich passt oder unvollständige Metadaten hat.
+                  </span>
+                ) : (
+                  <span>
+                    Möchtest du <strong>{pendingScanData?.allResults?.[currentResultIndex]?.species_name || pendingScanData?.plant?.species_name}</strong> zu deiner Sammlung hinzufügen?
+                  </span>
+                )}
               </DialogDescription>
             )}
             {isSavingPlant && (
@@ -967,7 +980,7 @@ export default function Scanner() {
             </Button>
             <Button 
               onClick={handleConfirmSave}
-              disabled={isSavingPlant}
+              disabled={isSavingPlant || selectedResultBlocked}
               className="bg-green-600 hover:bg-green-700 disabled:opacity-50"
             >
               {isSavingPlant ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
