@@ -421,6 +421,7 @@ export default function Collection() {
   const heroTitle = selectedCollection
     ? selectedCollection.title
     : ownerName + "'s Floralog";
+  const listTopFadePx = 12;
 
   return (
     <div className="relative min-h-screen">
@@ -560,14 +561,14 @@ export default function Collection() {
 
           {/* Collection Grid */}
           <div
-            className="relative flex-1 min-h-0 overflow-y-auto pt-1 pb-20"
+            className="relative flex-1 min-h-0 overflow-y-auto pb-20"
             onScroll={(e) => setHasScrolledList(e.currentTarget.scrollTop > 0)}
             style={{
               WebkitMaskImage: hasScrolledList
-                ? 'linear-gradient(to bottom, transparent 0px, black 36px, black 100%)'
+                ? `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black 100%)`
                 : 'none',
               maskImage: hasScrolledList
-                ? 'linear-gradient(to bottom, transparent 0px, black 36px, black 100%)'
+                ? `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black 100%)`
                 : 'none',
             }}
           >

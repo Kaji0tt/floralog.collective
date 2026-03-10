@@ -81,8 +81,6 @@ export default function Scanner() {
   const [currentResultIndex, setCurrentResultIndex] = useState(0); // Aktuell ausgewähltes Ergebnis
   const [locationEnabled, setLocationEnabled] = useState(true);
   const [scanningPhase, setScanningPhase] = useState(0);
-  const [scanningStatusText, setScanningStatusText] = useState("Bereite Scan vor...");
-  const [scanningIteration, setScanningIteration] = useState(null);
   const selectedPendingResult = pendingScanData?.allResults?.[currentResultIndex] || pendingScanData?.plant || null;
   const selectedResultBlocked = !!selectedPendingResult && (
     selectedPendingResult.metadata_failed === true ||
@@ -329,10 +327,8 @@ export default function Scanner() {
     }
   };
 
-  const updateScanningProgress = (phase, text, iteration = null) => {
+  const updateScanningProgress = (phase) => {
     setScanningPhase(phase);
-    setScanningStatusText(text);
-    setScanningIteration(iteration);
   };
 
   const identifyPlant = async (file, organ = "auto") => {
@@ -586,7 +582,7 @@ export default function Scanner() {
 
           setAllScanResults(processedResults);
 
-          updateScanningProgress(6, "🌽 Ergebnisse werden geerntet...");
+          updateScanningProgress(5);
           await new Promise(resolve => setTimeout(resolve, 800));
 
           const firstResult = processedResults[0];
@@ -650,8 +646,6 @@ export default function Scanner() {
         error: `Fehler: ${error.message}`
       });
       setScanning(false);
-    } finally {
-      setScanningIteration(null);
     }
   };
 
@@ -1277,17 +1271,14 @@ export default function Scanner() {
                 <h3 className="text-2xl font-bold text-stone-900 mb-2">
                   Pflanze wird analysiert...
                 </h3>
-                {scanningIteration && (
-                  <div className="mb-3 inline-flex items-center rounded-full border border-green-300 bg-green-50 px-3 py-1 text-sm font-semibold text-green-800">
-                    Kandidat {scanningIteration.current} von {scanningIteration.total}
-                  </div>
-                )}
                 <div className="text-center">
                   <p className="text-lg text-green-700 font-semibold transition-all duration-300">
-                    {scanningStatusText}
-                  </p>
-                  <p className="text-xs text-stone-600 mt-2">
-                    Phase {scanningPhase + 1} laeuft...
+                    {scanningPhase === 0 && '📦 Komprimiere Bild...'}
+                    {scanningPhase === 1 && '📸 Lasse das Bild über PlantNet-API analysieren...'}
+                    {scanningPhase === 2 && '📜 Überprüfe Ergebnis mit globalem Floralog...'}
+                    {scanningPhase === 3 && '🌍 Überprüfe Verteilung...'}
+                    {scanningPhase === 4 && '🧠 Frage einen KI-Botaniker...'}
+                    {scanningPhase === 5 && '📚 Vergleiche das Ergebnis mit deinem Floralog...'}
                   </p>
                 </div>
               </div>
