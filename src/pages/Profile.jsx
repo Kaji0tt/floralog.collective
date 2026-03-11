@@ -601,7 +601,6 @@ export default function Profile() {
                                 <TooltipTrigger asChild>
                                   <button
                                     onClick={() => isUnlocked && handleSetColor(color)}
-                                    disabled={!isUnlocked}
                                     className={`aspect-square rounded-lg border-2 relative ${
                                       isUnlocked 
                                         ? 'border-stone-200 hover:border-stone-400 hover:scale-110' 
@@ -643,7 +642,6 @@ export default function Profile() {
                                 <TooltipTrigger asChild>
                                   <button
                                     onClick={() => isUnlocked && handleSetColor(color)}
-                                    disabled={!isUnlocked}
                                     className={`aspect-square rounded-lg border-2 relative ${
                                       isUnlocked 
                                         ? 'border-stone-200 hover:border-stone-400 hover:scale-110' 
@@ -685,7 +683,6 @@ export default function Profile() {
                                 <TooltipTrigger asChild>
                                   <button
                                     onClick={() => isUnlocked && handleSetColor(color)}
-                                    disabled={!isUnlocked}
                                     className={`aspect-square rounded-lg border-2 relative ${
                                       isUnlocked 
                                         ? 'border-stone-200 hover:border-stone-400 hover:scale-110' 
@@ -756,7 +753,6 @@ export default function Profile() {
                                 <TooltipTrigger asChild>
                                   <button
                                     onClick={() => isUnlocked && handleSetBackground(reward.value, reward.color)}
-                                    disabled={!isUnlocked}
                                     className={`relative aspect-square rounded-lg overflow-hidden border-2 ${
                                       isUnlocked 
                                         ? 'border-amber-300 hover:border-amber-500' 
@@ -779,9 +775,9 @@ export default function Profile() {
                                     )}
                                   </button>
                                 </TooltipTrigger>
-                                {!isUnlocked && tooltipText && (
+                                {!isUnlocked && (
                                   <TooltipContent>
-                                    <p>{tooltipText}</p>
+                                    <p>{tooltipText || 'Noch nicht freigeschaltet'}</p>
                                   </TooltipContent>
                                 )}
                               </Tooltip>
