@@ -77,7 +77,12 @@ const LockedTooltip = ({ children, content }) => {
     <TooltipProvider>
       <Tooltip open={open} onOpenChange={handleOpenChange}>
         <TooltipTrigger asChild>{enhancedChild}</TooltipTrigger>
-        <TooltipContent>{content}</TooltipContent>
+        <TooltipContent
+          className="max-w-xs whitespace-normal break-words"
+          collisionPadding={8}
+        >
+          {content}
+        </TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );
