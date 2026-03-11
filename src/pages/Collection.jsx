@@ -139,7 +139,6 @@ export default function Collection() {
   const [averageColor, setAverageColor] = useState(null);
   const [selectedCollectionId, setSelectedCollectionId] = useState("global");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [hasScrolledList, setHasScrolledList] = useState(false);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -562,14 +561,9 @@ export default function Collection() {
           {/* Collection Grid */}
           <div
             className="relative flex-1 min-h-0 overflow-y-auto pb-20"
-            onScroll={(e) => setHasScrolledList(e.currentTarget.scrollTop > 0)}
             style={{
-              WebkitMaskImage: hasScrolledList
-                ? `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black 100%)`
-                : 'none',
-              maskImage: hasScrolledList
-                ? `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black 100%)`
-                : 'none',
+              WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black 100%)`,
+              maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black 100%)`,
             }}
           >
             {filteredGenera.length === 0 ? (
@@ -582,7 +576,7 @@ export default function Collection() {
                 </h3>
               </div>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2" style={{ paddingTop: listTopFadePx }}>
                 {filteredGenera.map((genus) => (
                   <GenusCard
                     key={genus.id}
