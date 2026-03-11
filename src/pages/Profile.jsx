@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Lock } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { LockedTooltip } from "@/components/ui/locked-tooltip";
 
 
 
@@ -583,132 +584,118 @@ export default function Profile() {
                   )}
                 </button>
                 {!collapsedSections.colors && (
-                  <TooltipProvider>
-                    <div className="space-y-4">
-                      {/* Reihe 1: 5 Scans */}
-                      <div>
-                        <p className="text-xs text-stone-600 mb-2">Freischaltung bei 5 Scans</p>
-                        <div className="grid grid-cols-4 gap-3">
-                          {[
-                            'rgb(199, 209, 163)',
-                            'rgb(196, 178, 143)',
-                            'rgb(143, 196, 178)',
-                            'rgb(196, 143, 143)',
-                          ].map((color) => {
-                            const isUnlocked = scannedPlantsCount >= 5;
-                            return (
-                              <Tooltip key={color}>
-                                <TooltipTrigger asChild>
-                                  <button
-                                    onClick={() => isUnlocked && handleSetColor(color)}
-                                    className={`aspect-square rounded-lg border-2 relative ${
-                                      isUnlocked 
-                                        ? 'border-stone-200 hover:border-stone-400 hover:scale-110' 
-                                        : 'border-stone-400 cursor-not-allowed'
-                                    } transition-all`}
-                                    style={{ backgroundColor: color }}
-                                  >
-                                    {!isUnlocked && (
-                                      <div className="absolute inset-0 flex items-center justify-center rounded-lg">
-                                        <Lock className="w-12 h-12 text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]" />
-                                      </div>
-                                    )}
-                                  </button>
-                                </TooltipTrigger>
+                  <div className="space-y-4">
+                    {/* Reihe 1: 5 Scans */}
+                    <div>
+                      <p className="text-xs text-stone-600 mb-2">Freischaltung bei 5 Scans</p>
+                      <div className="grid grid-cols-4 gap-3">
+                        {[
+                          'rgb(199, 209, 163)',
+                          'rgb(196, 178, 143)',
+                          'rgb(143, 196, 178)',
+                          'rgb(196, 143, 143)',
+                        ].map((color) => {
+                          const isUnlocked = scannedPlantsCount >= 5;
+                          return (
+                            <LockedTooltip
+                              key={color}
+                              content={!isUnlocked && <p>Scanne 5 Pflanzen um diese Farbe freizuschalten ({scannedPlantsCount}/5)</p>}
+                            >
+                              <button
+                                onClick={() => isUnlocked && handleSetColor(color)}
+                                className={`aspect-square rounded-lg border-2 relative ${
+                                  isUnlocked
+                                    ? 'border-stone-200 hover:border-stone-400 hover:scale-110'
+                                    : 'border-stone-400 cursor-not-allowed'
+                                } transition-all`}
+                                style={{ backgroundColor: color }}
+                              >
                                 {!isUnlocked && (
-                                  <TooltipContent>
-                                    <p>Scanne 5 Pflanzen um diese Farbe freizuschalten ({scannedPlantsCount}/5)</p>
-                                  </TooltipContent>
+                                  <div className="absolute inset-0 flex items-center justify-center rounded-lg">
+                                    <Lock className="w-12 h-12 text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]" />
+                                  </div>
                                 )}
-                              </Tooltip>
-                            );
-                            })}
-                            </div>
-                            </div>
-
-                            {/* Reihe 2: 10 Scans */}
-                            <div>
-                            <p className="text-xs text-stone-600 mb-2">Freischaltung bei 10 Scans</p>
-                            <div className="grid grid-cols-4 gap-3">
-                            {[
-                            'rgb(176, 72, 72)',
-                            'rgb(176, 159, 72)',
-                            'rgb(115, 158, 63)',
-                            'rgb(227, 197, 84)',
-                            ].map((color) => {
-                            const isUnlocked = scannedPlantsCount >= 10;
-                            return (
-                              <Tooltip key={color}>
-                                <TooltipTrigger asChild>
-                                  <button
-                                    onClick={() => isUnlocked && handleSetColor(color)}
-                                    className={`aspect-square rounded-lg border-2 relative ${
-                                      isUnlocked 
-                                        ? 'border-stone-200 hover:border-stone-400 hover:scale-110' 
-                                        : 'border-stone-400 cursor-not-allowed'
-                                    } transition-all`}
-                                    style={{ backgroundColor: color }}
-                                  >
-                                    {!isUnlocked && (
-                                      <div className="absolute inset-0 flex items-center justify-center rounded-lg">
-                                        <Lock className="w-12 h-12 text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]" />
-                                      </div>
-                                    )}
-                                  </button>
-                                </TooltipTrigger>
-                                {!isUnlocked && (
-                                  <TooltipContent>
-                                    <p>Scanne 10 Pflanzen um diese Farbe freizuschalten ({scannedPlantsCount}/10)</p>
-                                  </TooltipContent>
-                                )}
-                              </Tooltip>
-                            );
-                            })}
-                            </div>
-                            </div>
-
-                            {/* Reihe 3: 20 Scans */}
-                            <div>
-                            <p className="text-xs text-stone-600 mb-2">Freischaltung bei 20 Scans</p>
-                            <div className="grid grid-cols-4 gap-3">
-                            {[
-                            'rgb(97, 36, 31)',
-                            'rgb(31, 92, 97)',
-                            'rgb(74, 55, 21)',
-                            'rgb(30, 54, 8)',
-                            ].map((color) => {
-                            const isUnlocked = scannedPlantsCount >= 20;
-                            return (
-                              <Tooltip key={color}>
-                                <TooltipTrigger asChild>
-                                  <button
-                                    onClick={() => isUnlocked && handleSetColor(color)}
-                                    className={`aspect-square rounded-lg border-2 relative ${
-                                      isUnlocked 
-                                        ? 'border-stone-200 hover:border-stone-400 hover:scale-110' 
-                                        : 'border-stone-400 cursor-not-allowed'
-                                    } transition-all`}
-                                    style={{ backgroundColor: color }}
-                                  >
-                                    {!isUnlocked && (
-                                      <div className="absolute inset-0 flex items-center justify-center rounded-lg">
-                                        <Lock className="w-12 h-12 text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]" />
-                                      </div>
-                                    )}
-                                  </button>
-                                </TooltipTrigger>
-                                {!isUnlocked && (
-                                  <TooltipContent>
-                                    <p>Scanne 20 Pflanzen um diese Farbe freizuschalten ({scannedPlantsCount}/20)</p>
-                                  </TooltipContent>
-                                )}
-                              </Tooltip>
-                            );
-                          })}
-                        </div>
+                              </button>
+                            </LockedTooltip>
+                          );
+                        })}
                       </div>
                     </div>
-                  </TooltipProvider>
+
+                    {/* Reihe 2: 10 Scans */}
+                    <div>
+                      <p className="text-xs text-stone-600 mb-2">Freischaltung bei 10 Scans</p>
+                      <div className="grid grid-cols-4 gap-3">
+                        {[
+                          'rgb(176, 72, 72)',
+                          'rgb(176, 159, 72)',
+                          'rgb(115, 158, 63)',
+                          'rgb(227, 197, 84)',
+                        ].map((color) => {
+                          const isUnlocked = scannedPlantsCount >= 10;
+                          return (
+                            <LockedTooltip
+                              key={color}
+                              content={!isUnlocked && <p>Scanne 10 Pflanzen um diese Farbe freizuschalten ({scannedPlantsCount}/10)</p>}
+                            >
+                              <button
+                                onClick={() => isUnlocked && handleSetColor(color)}
+                                className={`aspect-square rounded-lg border-2 relative ${
+                                  isUnlocked
+                                    ? 'border-stone-200 hover:border-stone-400 hover:scale-110'
+                                    : 'border-stone-400 cursor-not-allowed'
+                                } transition-all`}
+                                style={{ backgroundColor: color }}
+                              >
+                                {!isUnlocked && (
+                                  <div className="absolute inset-0 flex items-center justify-center rounded-lg">
+                                    <Lock className="w-12 h-12 text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]" />
+                                  </div>
+                                )}
+                              </button>
+                            </LockedTooltip>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Reihe 3: 20 Scans */}
+                    <div>
+                      <p className="text-xs text-stone-600 mb-2">Freischaltung bei 20 Scans</p>
+                      <div className="grid grid-cols-4 gap-3">
+                        {[
+                          'rgb(97, 36, 31)',
+                          'rgb(31, 92, 97)',
+                          'rgb(74, 55, 21)',
+                          'rgb(30, 54, 8)',
+                        ].map((color) => {
+                          const isUnlocked = scannedPlantsCount >= 20;
+                          return (
+                            <LockedTooltip
+                              key={color}
+                              content={!isUnlocked && <p>Scanne 20 Pflanzen um diese Farbe freizuschalten ({scannedPlantsCount}/20)</p>}
+                            >
+                              <button
+                                onClick={() => isUnlocked && handleSetColor(color)}
+                                className={`aspect-square rounded-lg border-2 relative ${
+                                  isUnlocked
+                                    ? 'border-stone-200 hover:border-stone-400 hover:scale-110'
+                                    : 'border-stone-400 cursor-not-allowed'
+                                } transition-all`}
+                                style={{ backgroundColor: color }}
+                              >
+                                {!isUnlocked && (
+                                  <div className="absolute inset-0 flex items-center justify-center rounded-lg">
+                                    <Lock className="w-12 h-12 text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]" />
+                                  </div>
+                                )}
+                              </button>
+                            </LockedTooltip>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -727,64 +714,58 @@ export default function Profile() {
                     )}
                   </button>
                   {!collapsedSections.presets && (
-                    <TooltipProvider>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        {allRewards
-                          .filter(r => r.type === 'background')
-                          .map((reward) => {
-                            const isUnlocked = userRewards.some(ur => ur.reward_id === reward.id);
-                            
-                            // Erstelle Tooltip-Text basierend auf Bedingungen
-                            let tooltipText = '';
-                            if (reward.requires_donor) tooltipText = 'Nur für Unterstützer - spende, um diesen Hintergrund freizuschalten! 💚';
-                            else if (reward.requires_referrals) tooltipText = `Werbe ${reward.requires_referrals} Freund${reward.requires_referrals > 1 ? 'e' : ''}! 🌱`;
-                            else if (reward.requires_rare_plants) tooltipText = `Entdecke ${reward.requires_rare_plants} seltene Pflanze${reward.requires_rare_plants > 1 ? 'n' : ''}! 🌟`;
-                            else if (reward.requires_weekly_quests) tooltipText = `Nimm an ${reward.requires_weekly_quests} wöchentlichen Quest${reward.requires_weekly_quests > 1 ? 's' : ''} teil! (${weeklyQuestParticipations}/${reward.requires_weekly_quests})`;
-                            else if (reward.requires_monthly_quests) tooltipText = `Schließe ${reward.requires_monthly_quests} Monatsquest${reward.requires_monthly_quests > 1 ? 's' : ''} ab! 📅`;
-                            else if (reward.requires_gifts) tooltipText = `Erhalte ${reward.requires_gifts} Geschenk${reward.requires_gifts > 1 ? 'e' : ''} von Freunden! 🎁`;
-                            else if (reward.requires_quest) {
-                              const requiredQuest = quests.find(q => q.id === reward.requires_quest);
-                              tooltipText = requiredQuest ? `Löse Quest "${requiredQuest.title}" ein! 🎯` : 'Schließe eine spezifische Quest ab! 🎯';
-                            }
-                            else if (reward.random_event) tooltipText = `Zufällige Belohnung beim ${reward.random_event === 'scan' ? 'Scannen' : 'Event'}! 🎲`;
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {allRewards
+                        .filter(r => r.type === 'background')
+                        .map((reward) => {
+                          const isUnlocked = userRewards.some(ur => ur.reward_id === reward.id);
 
-                            return (
-                              <Tooltip key={reward.id}>
-                                <TooltipTrigger asChild>
-                                  <button
-                                    onClick={() => isUnlocked && handleSetBackground(reward.value, reward.color)}
-                                    className={`relative aspect-square rounded-lg overflow-hidden border-2 ${
-                                      isUnlocked 
-                                        ? 'border-amber-300 hover:border-amber-500' 
-                                        : 'border-stone-400 cursor-not-allowed'
-                                    } transition-colors group`}
-                                  >
-                                    <img
-                                      src={reward.value}
-                                      alt={reward.display_name}
-                                      className={`w-full h-full object-cover ${isUnlocked ? 'group-hover:scale-105' : ''} transition-transform`}
-                                    />
-                                    <div className={`absolute inset-0 ${isUnlocked ? 'bg-black/0 group-hover:bg-black/20' : 'bg-black/40'} transition-colors`} />
-                                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-1 text-center">
-                                      {reward.display_name}
-                                    </div>
-                                    {!isUnlocked && (
-                                      <div className="absolute inset-0 flex items-center justify-center">
-                                        <Lock className="w-12 h-12 text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]" />
-                                      </div>
-                                    )}
-                                  </button>
-                                </TooltipTrigger>
+                          // Erstelle Tooltip-Text basierend auf Bedingungen
+                          let tooltipText = '';
+                          if (reward.requires_donor) tooltipText = 'Nur für Unterstützer - spende, um diesen Hintergrund freizuschalten! 💚';
+                          else if (reward.requires_referrals) tooltipText = `Werbe ${reward.requires_referrals} Freund${reward.requires_referrals > 1 ? 'e' : ''}! 🌱`;
+                          else if (reward.requires_rare_plants) tooltipText = `Entdecke ${reward.requires_rare_plants} seltene Pflanze${reward.requires_rare_plants > 1 ? 'n' : ''}! 🌟`;
+                          else if (reward.requires_weekly_quests) tooltipText = `Nimm an ${reward.requires_weekly_quests} wöchentlichen Quest${reward.requires_weekly_quests > 1 ? 's' : ''} teil! (${weeklyQuestParticipations}/${reward.requires_weekly_quests})`;
+                          else if (reward.requires_monthly_quests) tooltipText = `Schließe ${reward.requires_monthly_quests} Monatsquest${reward.requires_monthly_quests > 1 ? 's' : ''} ab! 📅`;
+                          else if (reward.requires_gifts) tooltipText = `Erhalte ${reward.requires_gifts} Geschenk${reward.requires_gifts > 1 ? 'e' : ''} von Freunden! 🎁`;
+                          else if (reward.requires_quest) {
+                            const requiredQuest = quests.find(q => q.id === reward.requires_quest);
+                            tooltipText = requiredQuest ? `Löse Quest "${requiredQuest.title}" ein! 🎯` : 'Schließe eine spezifische Quest ab! 🎯';
+                          }
+                          else if (reward.random_event) tooltipText = `Zufällige Belohnung beim ${reward.random_event === 'scan' ? 'Scannen' : 'Event'}! 🎲`;
+
+                          return (
+                            <LockedTooltip
+                              key={reward.id}
+                              content={!isUnlocked && <p>{tooltipText || 'Noch nicht freigeschaltet'}</p>}
+                            >
+                              <button
+                                onClick={() => isUnlocked && handleSetBackground(reward.value, reward.color)}
+                                className={`relative aspect-square rounded-lg overflow-hidden border-2 ${
+                                  isUnlocked
+                                    ? 'border-amber-300 hover:border-amber-500'
+                                    : 'border-stone-400 cursor-not-allowed'
+                                } transition-colors group`}
+                              >
+                                <img
+                                  src={reward.value}
+                                  alt={reward.display_name}
+                                  className={`w-full h-full object-cover ${isUnlocked ? 'group-hover:scale-105' : ''} transition-transform`}
+                                />
+                                <div className={`absolute inset-0 ${isUnlocked ? 'bg-black/0 group-hover:bg-black/20' : 'bg-black/40'} transition-colors`} />
+                                <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-1 text-center">
+                                  {reward.display_name}
+                                </div>
                                 {!isUnlocked && (
-                                  <TooltipContent>
-                                    <p>{tooltipText || 'Noch nicht freigeschaltet'}</p>
-                                  </TooltipContent>
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                    <Lock className="w-12 h-12 text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]" />
+                                  </div>
                                 )}
-                              </Tooltip>
-                            );
-                          })}
-                      </div>
-                    </TooltipProvider>
+                              </button>
+                            </LockedTooltip>
+                          );
+                        })}
+                    </div>
                   )}
                 </div>
               )}
