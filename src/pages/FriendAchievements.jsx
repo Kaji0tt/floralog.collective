@@ -82,11 +82,7 @@ export default function FriendAchievements() {
 
   const { data: userAchievements = [] } = useQuery({
     queryKey: ['userAchievements', friendEmail],
-    queryFn: async () => {
-      const achievements = await Query.UserAchievement.list();
-      // Nutze created_by für Achievements (das ist korrekt)
-      return achievements.filter(ua => ua.created_by === friendEmail);
-    },
+    queryFn: () => Query.UserAchievement.filter({ created_by: friendEmail }),
     enabled: !!friendEmail,
   });
 
