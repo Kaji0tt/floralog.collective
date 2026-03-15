@@ -176,6 +176,8 @@ export default function CollectionEditor() {
     };
 
     if (!collectionId) {
+      // Owner der Kollektion immer auf aktuelle Auth-User-ID setzen (RLS)
+      payload.auth_id = user.id;
       // Slug nur beim Anlegen erzeugen, wenn nicht gesetzt
       const baseSlug = (formData.slug || formData.title || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
       payload.slug = baseSlug || undefined;
