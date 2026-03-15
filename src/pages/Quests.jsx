@@ -124,6 +124,7 @@ export default function Quests() {
   const [imageIndexes, setImageIndexes] = useState({});
   const [userLocation, setUserLocation] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [collectionsSort, setCollectionsSort] = useState("newest"); // "title" | "newest" | "followers" | "items"
   const [selectedPlantForSighting, setSelectedPlantForSighting] = useState(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
 
@@ -140,6 +141,16 @@ export default function Quests() {
   const { data: weeklyQuests = [] } = useQuery({
     queryKey: ['weeklyQuests'],
     queryFn: () => Query.WeeklyQuest.list('quest_number'),
+  });
+
+  const { data: allCollections = [] } = useQuery({
+    queryKey: ['allCollections'],
+    queryFn: () => Query.Collection.list(),
+  });
+
+  const { data: allCollectionItems = [] } = useQuery({
+    queryKey: ['allCollectionItems'],
+    queryFn: () => Query.CollectionItem.list(),
   });
 
   const { data: allUsers = [] } = useQuery({
@@ -312,8 +323,8 @@ export default function Quests() {
                 <TabsTrigger value="weekly" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
                   🎯 Aufgaben
                 </TabsTrigger>
-                <TabsTrigger value="team" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
-                  👥 Team
+                <TabsTrigger value="collections" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
+                  🌿 Kollektionen
                 </TabsTrigger>
                 <TabsTrigger value="stats" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
                   📊 Statistiken
@@ -493,16 +504,164 @@ export default function Quests() {
             )}
             </TabsContent>
 
-            {/* Team-Aufgaben Tab */}
-          <TabsContent value="team" className="pt-24 px-4 pb-20">
-            <div className="text-center py-20">
-              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 max-w-md mx-auto border border-stone-200 shadow-lg">
-                <Users className="w-16 h-16 text-stone-400 mx-auto mb-4" />
-                <h3 className="text-xl font-bold text-stone-900 mb-2">Team-Aufgaben</h3>
-                <p className="text-stone-600">Bald verfügbar! Hier kannst du gemeinsam mit deinen Freunden Aufgaben lösen.</p>
+          {/* Kollektionen Tab */}
+          <TabsContent value="collections" className="pt-14 px-4 pb-20">
+            <div className="max-w-3xl mx-auto space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Suche nach Titel, Beschreibung oder Owner..."
+                    className="pl-9 h-9 text-sm bg-white/90"
+                  />
+                </div>
+                <div className="inline-flex rounded-full bg-stone-100 p-0.5 text-[11px]">
+                  <button
+                    type="button"
+                    className={`px-2 py-0.5 rounded-full ${collectionsSort === 'newest' ? 'bg-white shadow text-stone-900' : 'text-stone-500'}`}
+                    onClick={() => setCollectionsSort('newest')}
+                  >
+                    Neueste
+                  </button>
+                  <button
+                    type="button"
+                    className={`px-2 py-0.5 rounded-full ${collectionsSort === 'title' ? 'bg-white shadow text-stone-900' : 'text-stone-500'}`}
+                    onClick={() => setCollectionsSort('title')}
+                  >
+                    Titel
+                  </button>
+                  <button
+                    type="button"
+                    className={`px-2 py-0.5 rounded-full ${collectionsSort === 'followers' ? 'bg-white shadow text-stone-900' : 'text-stone-500'}`}
+                    onClick={() => setCollectionsSort('followers')}
+                  >
+                    Follower
+                  </button>
+                  <button
+                    type="button"
+                    className={`px-2 py-0.5 rounded-full ${collectionsSort === 'items' ? 'bg-white shadow text-stone-900' : 'text-stone-500'}`}
+                    onClick={() => setCollectionsSort('items')}
+                  >
+                    Pflanzen
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {(() => {
+                  const publicCollections = (allCollections || []).filter((c) => c.is_public);
+
+                  if (!publicCollections.length) {
+                    return (
+                      <div className="text-center py-16 bg-white/60 rounded-2xl border border-dashed border-stone-200">
+                        <Leaf className="w-10 h-10 text-stone-300 mx-auto mb-3" />
+                        <h3 className="text-base font-semibold text-stone-800 mb-1">
+                          Noch keine öffentlichen Kollektionen
+                        </h3>
+                        <p className="text-[13px] text-stone-500 max-w-sm mx-auto">
+                          Markiere deine Kollektionen als öffentlich, damit andere sie im Community-Bereich entdecken können.
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  const normalized = searchQuery.trim().toLowerCase();
+
+                  const itemCounts = {};
+                  (allCollectionItems || []).forEach((item) => {
+                    if (!item.collection_id) return;
+                    itemCounts[item.collection_id] = (itemCounts[item.collection_id] || 0) + 1;
+                  });
+
+                  const collectionsWithMeta = publicCollections.map((c) => {
+                    const owner = (allUsers || []).find((u) => u.auth_id === c.auth_id);
+                    const ownerName = owner?.display_name || owner?.full_name || owner?.user_email || "Unbekannt";
+                    const items = itemCounts[c.id] || 0;
+                    const followers = c.followers_count ?? 0;
+                    return {
+                      ...c,
+                      ownerName,
+                      items,
+                      followers,
+                    };
+                  });
+
+                  let filtered = collectionsWithMeta;
+                  if (normalized) {
+                    filtered = filtered.filter((c) => {
+                      const inTitle = (c.title || "").toLowerCase().includes(normalized);
+                      const inDesc = (c.description || "").toLowerCase().includes(normalized);
+                      const inOwner = (c.ownerName || "").toLowerCase().includes(normalized);
+                      return inTitle || inDesc || inOwner;
+                    });
+                  }
+
+                  filtered = [...filtered];
+                  if (collectionsSort === 'title') {
+                    filtered.sort((a, b) => (a.title || "").localeCompare(b.title || "", 'de')); 
+                  } else if (collectionsSort === 'followers') {
+                    filtered.sort((a, b) => (b.followers || 0) - (a.followers || 0));
+                  } else if (collectionsSort === 'items') {
+                    filtered.sort((a, b) => (b.items || 0) - (a.items || 0));
+                  } else {
+                    // newest
+                    filtered.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+                  }
+
+                  const defaultBg = 'rgba(255,255,255,0.95)';
+
+                  return filtered.map((c) => {
+                    const accent = c.background_color || 'rgb(34,197,94)';
+                    const background = `linear-gradient(to left, ${accent} 0%, ${accent} 35%, ${defaultBg} 70%, ${defaultBg} 100%)`;
+
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => navigate(createPageUrl(`Collection?collectionId=${c.id}`))}
+                        className="w-full text-left"
+                      >
+                        <div
+                          className="rounded-2xl border border-stone-200 bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+                          style={{ background }}
+                        >
+                          <div className="p-3 flex items-center justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="text-[11px] text-stone-600 mb-0.5 truncate">
+                                {c.ownerName}
+                              </div>
+                              <div className="text-sm font-semibold text-stone-900 truncate mb-0.5">
+                                {c.title}
+                              </div>
+                              {c.description && (
+                                <div className="text-[11px] text-stone-600 line-clamp-2">
+                                  {c.description}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex flex-col items-end gap-1 text-[11px] text-stone-700 flex-shrink-0">
+                              <div className="flex items-center gap-1 bg-white/70 rounded-full px-2 py-0.5">
+                                <Leaf className="w-3 h-3 text-emerald-600" />
+                                <span>{c.items}</span>
+                                <span className="text-[10px] text-stone-400">Pflanzen</span>
+                              </div>
+                              <div className="flex items-center gap-1 bg-white/70 rounded-full px-2 py-0.5">
+                                <Users className="w-3 h-3 text-sky-600" />
+                                <span>{c.followers}</span>
+                                <span className="text-[10px] text-stone-400">Follower</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  });
+                })()}
               </div>
             </div>
-            </TabsContent>
+          </TabsContent>
 
             {/* Statistiken Tab */}
           <TabsContent value="stats" className="pt-14 px-4 pb-20">

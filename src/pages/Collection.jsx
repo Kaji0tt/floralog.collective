@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -134,6 +134,7 @@ function SearchFilterPanel({
 export default function Collection() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [activeCategory, setActiveCategory] = useState("Alle");
   const [selectedGenus, setSelectedGenus] = useState(null);
   const [showHintDialog, setShowHintDialog] = useState(false);
@@ -150,6 +151,13 @@ export default function Collection() {
     };
     loadUser();
   }, []);
+
+  useEffect(() => {
+    const urlCollectionId = searchParams.get("collectionId");
+    if (urlCollectionId && urlCollectionId !== selectedCollectionId) {
+      setSelectedCollectionId(urlCollectionId);
+    }
+  }, [searchParams, selectedCollectionId]);
 
   const { data: genera = [], isLoading: generaLoading } = useQuery({
     queryKey: ['genera'],
