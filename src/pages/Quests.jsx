@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -115,6 +115,7 @@ const getAverageColor = (imageUrl) => {
 export default function Quests() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const collectionsHeaderRef = useRef(null);
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState("weekly");
   const [averageColor, setAverageColor] = useState(null);
@@ -214,6 +215,26 @@ export default function Quests() {
       setAverageColor(null);
     }
   }, [user?.background_image_url, user?.background_color]);
+
+  // Schließt das Kollektionen-Suchfeld bei Klick/Tap außerhalb
+  useEffect(() => {
+    if (!collectionsSearchOpen) return;
+
+    const handleClickOutside = (event) => {
+      if (!collectionsHeaderRef.current) return;
+      if (!collectionsHeaderRef.current.contains(event.target)) {
+        setCollectionsSearchOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [collectionsSearchOpen]);
 
   const toggleLikeMutation = useMutation({
     mutationFn: async (discoveryId) => {
@@ -508,8 +529,15 @@ export default function Quests() {
           {/* Kollektionen Tab */}
           <TabsContent value="collections" className="pt-14 px-4 pb-20">
             <div className="max-w-3xl mx-auto space-y-3">
-              <div className="flex items-center gap-2">
-                <div className={collectionsSearchOpen ? "flex-[1.1] min-w-[140px]" : "flex-none"}>
+              <div
+                ref={collectionsHeaderRef}
+                className="flex items-center gap-2"
+              >
+                <div
+                  className={`transition-all duration-200 ease-out ${
+                    collectionsSearchOpen ? "flex-[0.55] min-w-[140px]" : "flex-none"
+                  }`}
+                >
                   {collectionsSearchOpen ? (
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
@@ -517,47 +545,57 @@ export default function Quests() {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Suche nach Titel, Beschreibung oder Owner..."
-                        className="pl-9 h-9 text-sm bg-white/90"
+                        className="pl-9 h-8 text-[11px] rounded-full bg-stone-100 border-0 shadow-sm"
                       />
                     </div>
                   ) : (
                     <button
                       type="button"
                       onClick={() => setCollectionsSearchOpen(true)}
-                      className="w-9 h-9 rounded-full bg-white/90 border border-stone-200 flex items-center justify-center shadow-sm hover:bg-white hover:border-stone-300 transition-colors"
+                      className="w-8 h-8 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center shadow-sm hover:bg-white hover:border-stone-300 transition-colors"
                       aria-label="Kollektionen durchsuchen"
                     >
                       <Search className="w-4 h-4 text-stone-600" />
                     </button>
                   )}
                 </div>
-                <div className={`inline-flex rounded-full bg-stone-100 p-0.5 text-[11px] transition-all ${
-                  collectionsSearchOpen ? "flex-1 justify-end" : "flex-1 justify-start"
-                }`}>
+                <div
+                  className={`flex items-center rounded-full bg-stone-100 p-0.5 text-[11px] overflow-x-auto scrollbar-hide transition-all duration-200 ease-out ${
+                    collectionsSearchOpen ? "flex-[0.45]" : "flex-1"
+                  }`}
+                >
                   <button
                     type="button"
-                    className={`px-2 py-0.5 rounded-full ${collectionsSort === 'newest' ? 'bg-white shadow text-stone-900' : 'text-stone-500'}`}
+                    className={`px-2 py-1 rounded-full whitespace-nowrap ${
+                      collectionsSort === 'newest' ? 'bg-white shadow text-stone-900' : 'text-stone-500'
+                    }`}
                     onClick={() => setCollectionsSort('newest')}
                   >
-                    Neueste
+                    Neu
                   </button>
                   <button
                     type="button"
-                    className={`px-2 py-0.5 rounded-full ${collectionsSort === 'title' ? 'bg-white shadow text-stone-900' : 'text-stone-500'}`}
+                    className={`px-2 py-1 rounded-full whitespace-nowrap ${
+                      collectionsSort === 'title' ? 'bg-white shadow text-stone-900' : 'text-stone-500'
+                    }`}
                     onClick={() => setCollectionsSort('title')}
                   >
                     Titel
                   </button>
                   <button
                     type="button"
-                    className={`px-2 py-0.5 rounded-full ${collectionsSort === 'followers' ? 'bg-white shadow text-stone-900' : 'text-stone-500'}`}
+                    className={`px-2 py-1 rounded-full whitespace-nowrap ${
+                      collectionsSort === 'followers' ? 'bg-white shadow text-stone-900' : 'text-stone-500'
+                    }`}
                     onClick={() => setCollectionsSort('followers')}
                   >
                     Follower
                   </button>
                   <button
                     type="button"
-                    className={`px-2 py-0.5 rounded-full ${collectionsSort === 'items' ? 'bg-white shadow text-stone-900' : 'text-stone-500'}`}
+                    className={`px-2 py-1 rounded-full whitespace-nowrap ${
+                      collectionsSort === 'items' ? 'bg-white shadow text-stone-900' : 'text-stone-500'
+                    }`}
                     onClick={() => setCollectionsSort('items')}
                   >
                     Pflanzen
