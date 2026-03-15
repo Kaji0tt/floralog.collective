@@ -533,32 +533,31 @@ export default function Quests() {
                 ref={collectionsHeaderRef}
                 className="flex items-center gap-2"
               >
-                <div
-                  className={`transition-all duration-200 ease-out ${
-                    collectionsSearchOpen ? "flex-[0.55] min-w-[140px]" : "flex-none"
+                <button
+                  type="button"
+                  onClick={() => setCollectionsSearchOpen(true)}
+                  className={`relative flex items-center bg-stone-100 border border-stone-200 shadow-sm rounded-full h-8 overflow-hidden transition-all duration-200 ease-out ${
+                    collectionsSearchOpen ? "flex-[0.55] min-w-[140px] px-3" : "w-8 justify-center"
                   }`}
+                  aria-label="Kollektionen durchsuchen"
                 >
-                  {collectionsSearchOpen ? (
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-                      <Input
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Suche nach Titel, Beschreibung oder Owner..."
-                        className="pl-9 h-8 text-[11px] rounded-full bg-stone-100 border-0 shadow-sm"
-                      />
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setCollectionsSearchOpen(true)}
-                      className="w-8 h-8 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center shadow-sm hover:bg-white hover:border-stone-300 transition-colors"
-                      aria-label="Kollektionen durchsuchen"
-                    >
-                      <Search className="w-4 h-4 text-stone-600" />
-                    </button>
-                  )}
-                </div>
+                  <Search
+                    className={`w-4 h-4 text-stone-600 transition-all duration-200 ease-out ${
+                      collectionsSearchOpen ? "mr-2 flex-shrink-0" : ""
+                    }`}
+                  />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Suche nach Titel, Beschreibung oder Owner..."
+                    className={`bg-transparent border-0 outline-none text-[11px] placeholder:text-stone-400 text-stone-900 transition-all duration-200 ease-out ${
+                      collectionsSearchOpen
+                        ? "w-full opacity-100"
+                        : "w-0 opacity-0 pointer-events-none"
+                    }`}
+                  />
+                </button>
                 <div
                   className={`flex items-center rounded-full bg-stone-100 p-0.5 text-[11px] overflow-x-auto scrollbar-hide transition-all duration-200 ease-out ${
                     collectionsSearchOpen ? "flex-[0.45]" : "flex-1"
