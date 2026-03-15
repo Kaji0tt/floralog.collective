@@ -454,6 +454,7 @@ export default function Collection() {
     ? selectedCollection.title
     : ownerName + "'s Floralog";
   const listTopFadePx = 12;
+  const chipRightFadePx = 16;
 
   return (
     <div className="relative min-h-screen">
@@ -487,7 +488,19 @@ export default function Collection() {
           <div className="shrink-0 space-y-3">
             {/* Horizontale Kollektionen-Chips + Neuerstellen-Button */}
             <div className="relative flex items-center gap-2">
-              <div className="-mx-4 px-4 pb-0 flex-1 flex gap-2 overflow-x-auto scrollbar-hide pr-6">
+              <div
+                className="-mx-4 px-4 pb-0 flex-1 flex gap-2 overflow-x-auto scrollbar-hide pr-6"
+                style={{
+                  WebkitMaskImage:
+                    "linear-gradient(to right, black 0px, black calc(100% - " +
+                    chipRightFadePx +
+                    "px), transparent 100%)",
+                  maskImage:
+                    "linear-gradient(to right, black 0px, black calc(100% - " +
+                    chipRightFadePx +
+                    "px), transparent 100%)",
+                }}
+              >
                 {(() => {
                   const all = [
                     { id: 'global', title: 'Global', isGlobal: true },
@@ -522,9 +535,6 @@ export default function Collection() {
                   });
                 })()}
               </div>
-
-              {/* Weicher Übergang rechts, damit Chips optisch in den + Button auslaufen */}
-              <div className="pointer-events-none absolute right-9 inset-y-0 w-10 bg-gradient-to-l from-white/90 to-white/0" />
 
               <button
                 type="button"
