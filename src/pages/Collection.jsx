@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Loader2, Leaf, Search } from "lucide-react";
+import { Loader2, Leaf, Search, PencilLine } from "lucide-react";
 import GenusCard from "../components/collection/GenusCard";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import HintDialog from "../components/collection/HintDialog";
@@ -131,6 +132,7 @@ function SearchFilterPanel({
 }
 
 export default function Collection() {
+  const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState("Alle");
   const [selectedGenus, setSelectedGenus] = useState(null);
   const [showHintDialog, setShowHintDialog] = useState(false);
@@ -320,6 +322,7 @@ export default function Collection() {
   }
   
   // Falls eine benutzerdefinierte Kollektion ausgewählt ist, auf deren Items einschränken
+  let collectionNotesByGenusId = {};
   if (selectedCollection) {
     const itemsForSelected = allCollectionItems.filter(
       (item) => item.collection_id === selectedCollection.id
@@ -348,8 +351,38 @@ export default function Collection() {
         });
       }
 
-      filteredGenera = filteredGenera.filter((g) => genusIds.has(g.id));
+      // Mappe optionale Kollektions-Notizen pro Gattung
+      const notesMap = {};
+      itemsForSelected.forEach((item) => {
+        let targetGenusId = item.genus_id;
+        if (!targetGenusId && item.plant_id) {
+          const plant = plants.find((p) => p.id === item.plant_id);
+          if (plant) {
+            const genus = genera.find(
+              (g) =>
+                g.category === plant.genus_category &&
+                g.category_dex_number === plant.genus_number
+            );
+            if (genus) {
+              targetGenusId = genus.id;
+            }
+          }
+        }
+        if (targetGenusId && item.note && !notesMap[targetGenusId]) {
+          notesMap[targetGenusId] = item.note;
+        }
+      });
+
+      collectionNotesByGenusId = notesMap;
+
+      filteredGenera = filteredGenera.filter((g) => genusIds.has(g.id)).map((g) => ({
+        ...g,
+        collectionNote: collectionNotesByGenusId[g.id] || null,
+      }));
     }
+  } else {
+    // Keine spezielle Kollektion: Notiz-Feld zurücksetzen
+    filteredGenera = filteredGenera.map((g) => ({ ...g, collectionNote: null }));
   }
 
   filteredGenera = filteredGenera.filter(g => {
@@ -452,41 +485,52 @@ export default function Collection() {
 
         <div className="max-w-7xl mx-auto h-full pt-0 flex flex-col gap-3">
           <div className="shrink-0 space-y-3">
-            {/* Horizontale Kollektionen-Chips */}
-            <div className="-mx-4 px-4 pb-0 flex gap-2 overflow-x-auto no-scrollbar">
-              {(() => {
-                const all = [
-                  { id: 'global', title: 'Global', isGlobal: true },
-                  ...ownedCollections.map((c) => ({ id: c.id, title: c.title, isGlobal: false })),
-                ];
-                return all.map((col) => {
-                  const stats = getCollectionStats(col.id === 'global' ? 'global' : col.id);
-                  const isActive = selectedCollectionId === col.id;
-                  return (
-                    <button
-                      key={col.id}
-                      type="button"
-                      onClick={() => setSelectedCollectionId(col.id)}
-                      className={
-                        "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors " +
-                        (isActive
-                          ? "bg-white text-stone-900 shadow-sm"
-                          : "bg-white/70 text-stone-600 hover:bg-white")
-                      }
-                      style={{
-                        borderColor: isActive
-                          ? activeBackgroundColor || 'rgba(148,163,184,0.5)'
-                          : 'rgba(226,232,240,1)',
-                      }}
-                    >
-                      <span className="font-medium">{col.title}</span>
-                      <span className="text-[10px] text-stone-500">
-                        {stats.discovered}/{stats.total || '–'}
-                      </span>
-                    </button>
-                  );
-                });
-              })()}
+            {/* Horizontale Kollektionen-Chips + Neuerstellen-Button */}
+            <div className="flex items-center gap-2">
+              <div className="-mx-4 px-4 pb-0 flex-1 flex gap-2 overflow-x-auto no-scrollbar">
+                {(() => {
+                  const all = [
+                    { id: 'global', title: 'Global', isGlobal: true },
+                    ...ownedCollections.map((c) => ({ id: c.id, title: c.title, isGlobal: false })),
+                  ];
+                  return all.map((col) => {
+                    const stats = getCollectionStats(col.id === 'global' ? 'global' : col.id);
+                    const isActive = selectedCollectionId === col.id;
+                    return (
+                      <button
+                        key={col.id}
+                        type="button"
+                        onClick={() => setSelectedCollectionId(col.id)}
+                        className={
+                          "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors " +
+                          (isActive
+                            ? "bg-white text-stone-900 shadow-sm"
+                            : "bg-white/70 text-stone-600 hover:bg-white")
+                        }
+                        style={{
+                          borderColor: isActive
+                            ? activeBackgroundColor || 'rgba(148,163,184,0.5)'
+                            : 'rgba(226,232,240,1)',
+                        }}
+                      >
+                        <span className="font-medium">{col.title}</span>
+                        <span className="text-[10px] text-stone-500">
+                          {stats.discovered}/{stats.total || '–'}
+                        </span>
+                      </button>
+                    );
+                  });
+                })()}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => navigate("/?page=CollectionEditor")}
+                className="shrink-0 w-8 h-8 rounded-full bg-white/80 border border-stone-300 text-stone-700 flex items-center justify-center shadow-sm hover:bg-white hover:border-stone-400 transition-colors"
+                aria-label="Neue Kollektion anlegen"
+              >
+                <span className="text-lg leading-none">+</span>
+              </button>
             </div>
 
             {/* Hero-Kachel */}
@@ -497,9 +541,21 @@ export default function Collection() {
               }}
             >
               <div className="space-y-1">
-                <h1 className="text-lg font-bold text-stone-900 leading-tight">
-                  {heroTitle}
-                </h1>
+                <div className="flex items-center justify-between gap-2">
+                  <h1 className="text-lg font-bold text-stone-900 leading-tight flex-1 min-w-0 truncate">
+                    {heroTitle}
+                  </h1>
+                  {selectedCollection && (
+                    <button
+                      type="button"
+                      onClick={() => navigate("/?page=CollectionEditor&id=" + selectedCollection.id)}
+                      className="shrink-0 p-1.5 rounded-full bg-stone-100 text-stone-600 hover:bg-stone-200 hover:text-stone-800 border border-stone-200 transition-colors"
+                      aria-label="Kollektion bearbeiten"
+                    >
+                      <PencilLine className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
                 {selectedCollection?.description && (
                   <p className="text-[11px] text-stone-600 line-clamp-2">
                     {selectedCollection.description}

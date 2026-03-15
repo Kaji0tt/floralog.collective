@@ -12,7 +12,7 @@ const categoryIcons = {
   "Blumen": Flower2
 };
 
-export default function GenusCard({ genus, onShowHint, userDiscoveries = [], plants = [], friendEmail }) {
+export default function GenusCard({ genus, onShowHint, userDiscoveries = [], plants = [], friendEmail, collectionNote }) {
   const navigate = useNavigate();
   const discovered = genus.discovered;
   const [isFlipped, setIsFlipped] = React.useState(false);
@@ -145,18 +145,26 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
             </motion.div>
           </div>
 
-          {/* Name and Progress */}
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <h3 className={`font-bold break-words text-xs leading-tight ${discovered ? 'text-stone-900' : 'text-stone-500'}`}>
-                {discovered ? genus.genus_name : '???'}
-              </h3>
+          {/* Name, Progress & optionale Kollektions-Notiz */}
+          <div className="space-y-1">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <h3 className={`font-bold break-words text-xs leading-tight ${discovered ? 'text-stone-900' : 'text-stone-500'}`}>
+                  {discovered ? genus.genus_name : '???'}
+                </h3>
+              </div>
+
+              {discovered && (
+                <div className="text-[10px] font-semibold text-green-700 whitespace-nowrap">
+                  {genus.discoveredCount}/{genus.totalSpecies}
+                </div>
+              )}
             </div>
 
-            {discovered && (
-              <div className="text-[10px] font-semibold text-green-700 whitespace-nowrap">
-                {genus.discoveredCount}/{genus.totalSpecies}
-              </div>
+            {collectionNote && (
+              <p className="text-[10px] text-stone-600 leading-snug line-clamp-3">
+                {collectionNote}
+              </p>
             )}
           </div>
         </CardContent>

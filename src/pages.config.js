@@ -58,6 +58,7 @@ import AdminPlantNames from './pages/AdminPlantNames';
 import AdminQuestCreator from './pages/AdminQuestCreator';
 import Classroom from './pages/Classroom';
 import Collection from './pages/Collection';
+import CollectionEditor from './pages/CollectionEditor';
 import Datenschutz from './pages/Datenschutz';
 import DebugDiscoveries from './pages/DebugDiscoveries';
 import Donate from './pages/Donate';
@@ -99,6 +100,7 @@ export const PAGES = {
     "AdminQuestCreator": AdminQuestCreator,
     "Classroom": Classroom,
     "Collection": Collection,
+    "CollectionEditor": CollectionEditor,
     "Datenschutz": Datenschutz,
     "DebugDiscoveries": DebugDiscoveries,
     "Donate": Donate,
