@@ -245,13 +245,25 @@ export default function Collection() {
       return score > max ? score : max;
     }, 0);
 
+    // Neueste Entdeckung pro Gattung
+    const genusDiscoveries = userDiscoveries.filter(d =>
+      genusPlants.some(p => p.id === d.plant_id)
+    );
+    const lastDiscoveryDate = genusDiscoveries.reduce((latest, d) => {
+      const dateStr = d.created_date || d.discovered_date;
+      if (!dateStr) return latest;
+      const time = new Date(dateStr).getTime();
+      return time > latest ? time : latest;
+    }, 0);
+
     return {
       ...genus,
       discovered: discoveredSpecies.length > 0,
       discoveredCount: discoveredSpecies.length,
       totalSpecies: genusPlants.length,
       hasRareSpecies: maxRarityScore >= 2,
-      maxRarityScore
+      maxRarityScore,
+      lastDiscoveryDate,
     };
   }).sort((a, b) => {
     if (a.category !== b.category) {
@@ -262,7 +274,6 @@ export default function Collection() {
   });
 
   const filters = [
-    { value: "Alle", label: "Alle" },
     { value: "rarity", label: "Rarität (nur seltene)" },
   ];
 
@@ -429,12 +440,12 @@ export default function Collection() {
 
   // Sortierung innerhalb der aktuellen Auswahl
   let sortedGenera = [...filteredGenera];
-  if (collectionSort === "title") {
+  if (collectionSort === "newest") {
+    sortedGenera.sort((a, b) => (b.lastDiscoveryDate || 0) - (a.lastDiscoveryDate || 0));
+  } else if (collectionSort === "title") {
     sortedGenera.sort((a, b) => (a.genus_name || "").localeCompare(b.genus_name || "", "de"));
   } else if (collectionSort === "rarity") {
     sortedGenera.sort((a, b) => (b.maxRarityScore || 0) - (a.maxRarityScore || 0));
-  } else if (collectionSort === "species") {
-    sortedGenera.sort((a, b) => (b.totalSpecies || 0) - (a.totalSpecies || 0));
   }
 
   const discoveredCount = sortedGenera.filter(g => g.discovered).length;
@@ -705,7 +716,6 @@ export default function Collection() {
                     { value: "newest", label: "Neu" },
                     { value: "title", label: "Titel" },
                     { value: "rarity", label: "Rarität" },
-                    { value: "species", label: "Pflanzen" },
                   ]}
                   sortValue={collectionSort}
                   onSortChange={setCollectionSort}

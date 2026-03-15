@@ -57,12 +57,12 @@ export default function SearchSortBar({
   return (
     <div
       ref={headerRef}
-      className="flex items-center gap-2"
+      className="flex items-center gap-2 overflow-x-hidden"
     >
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className={`relative flex items-center bg-stone-100 border border-stone-200 shadow-sm rounded-full h-8 overflow-hidden transition-all duration-200 ease-out ${
+        className={`relative flex items-center bg-stone-100 border border-stone-200 shadow-sm rounded-full h-8 overflow-hidden transition-all duration-200 ease-out shrink-0 ${
           isOpen ? "flex-[0.55] min-w-[140px] px-3" : "w-8 justify-center"
         }`}
         aria-label="Suche öffnen"
@@ -86,9 +86,7 @@ export default function SearchSortBar({
       </button>
 
       <div
-        className={`flex items-center rounded-full bg-stone-100 p-0.5 text-[11px] transition-all duration-200 ease-out ${
-          isOpen ? "flex-[0.45]" : "flex-1"
-        }`}
+        className={`flex items-center rounded-full bg-stone-100 p-0.5 text-[11px] overflow-x-auto scrollbar-hide transition-all duration-200 ease-out flex-1 min-w-0`}
       >
         {Array.isArray(sortOptions) && sortOptions.map((opt) => (
           <button
