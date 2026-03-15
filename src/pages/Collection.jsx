@@ -525,7 +525,7 @@ export default function Collection() {
 
               <button
                 type="button"
-                onClick={() => navigate("/?page=CollectionEditor")}
+                onClick={() => navigate("/CollectionEditor")}
                 className="shrink-0 w-8 h-8 rounded-full bg-white/80 border border-stone-300 text-stone-700 flex items-center justify-center shadow-sm hover:bg-white hover:border-stone-400 transition-colors"
                 aria-label="Neue Kollektion anlegen"
               >
@@ -548,7 +548,7 @@ export default function Collection() {
                   {selectedCollection && (
                     <button
                       type="button"
-                      onClick={() => navigate("/?page=CollectionEditor&id=" + selectedCollection.id)}
+                      onClick={() => navigate("/CollectionEditor?id=" + selectedCollection.id)}
                       className="shrink-0 p-1.5 rounded-full bg-stone-100 text-stone-600 hover:bg-stone-200 hover:text-stone-800 border border-stone-200 transition-colors"
                       aria-label="Kollektion bearbeiten"
                     >
