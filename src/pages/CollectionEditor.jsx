@@ -348,16 +348,6 @@ export default function CollectionEditor() {
                   </div>
                 </div>
 
-                <div className="pt-2 flex justify-end gap-2">
-                  <Button
-                    type="submit"
-                    disabled={isSaving || !formData.title.trim()}
-                  >
-                    {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                    {collectionId ? "Änderungen speichern" : "Kollektion anlegen"}
-                  </Button>
-                </div>
-
                 {collectionId && (
                   <div className="mt-4 border-t border-stone-100 pt-3">
                     <h2 className="text-sm font-semibold text-stone-800 mb-1">
@@ -547,6 +537,16 @@ export default function CollectionEditor() {
                     )}
                   </div>
                 )}
+
+                <div className="pt-4 mt-2 border-t border-stone-100 flex justify-end gap-2">
+                  <Button
+                    type="submit"
+                    disabled={isSaving || !formData.title.trim()}
+                  >
+                    {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    {collectionId ? "Änderungen speichern" : "Kollektion anlegen"}
+                  </Button>
+                </div>
               </form>
             )}
           </CardContent>
