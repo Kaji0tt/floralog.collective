@@ -10,6 +10,7 @@ import { Loader2, Leaf, Search, PencilLine } from "lucide-react";
 import GenusCard from "../components/collection/GenusCard";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import HintDialog from "../components/collection/HintDialog";
+import SearchSortBar from "../components/collection/SearchSortBar";
 
 const getAverageColor = (imageUrl) => {
   return new Promise((resolve) => {
@@ -48,8 +49,6 @@ const getAverageColor = (imageUrl) => {
 
 function SearchFilterPanel({
   visible,
-  searchQuery,
-  setSearchQuery,
   activeCategory,
   setActiveCategory,
   filters,
@@ -60,73 +59,54 @@ function SearchFilterPanel({
   if (!visible) return null;
 
   return (
-    <div className="space-y-2">
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-stone-400" />
-          <Input
-            type="text"
-            placeholder="Suchen..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8 bg-white h-9 text-sm rounded-full"
-          />
-        </div>
+    <div className="flex justify-end">
+      <Select value={activeCategory} onValueChange={setActiveCategory}>
+        <SelectTrigger className="bg-white h-9 text-xs w-40 rounded-full">
+          <SelectValue placeholder="Filter" />
+        </SelectTrigger>
+        <SelectContent>
+          {filters.map((filter) => {
+            let matchingGenera = generaWithDiscovery;
+            if (filter.value === "rarity") {
+              matchingGenera = generaWithDiscovery.filter((g) => g.hasRareSpecies);
+            }
+            const discovered = matchingGenera.filter((g) => g.discovered).length;
+            return (
+              <SelectItem key={filter.value} value={filter.value}>
+                {filter.label} ({discovered}/{matchingGenera.length})
+              </SelectItem>
+            );
+          })}
 
-        <div>
-          <Select value={activeCategory} onValueChange={setActiveCategory}>
-            <SelectTrigger className="bg-white h-9 text-xs w-32 rounded-full">
-              <SelectValue placeholder="Filter" />
-            </SelectTrigger>
-            <SelectContent>
-              {filters.map((filter) => {
-                let matchingGenera = generaWithDiscovery;
-                if (filter.value === "not_discovered") {
-                  matchingGenera = generaWithDiscovery.filter((g) => !g.discovered);
-                } else if (filter.value === "discovered") {
-                  matchingGenera = generaWithDiscovery.filter((g) => g.discovered);
-                } else if (filter.value === "rarity") {
-                  matchingGenera = generaWithDiscovery.filter((g) => g.hasRareSpecies);
-                }
-                const discovered = matchingGenera.filter((g) => g.discovered).length;
+          <div className="px-2 py-1.5">
+            <div className="border-t border-stone-200" />
+          </div>
+
+          {collectionQuests.filter((q) => q.is_active).length > 0 ? (
+            collectionQuests
+              .filter((q) => q.is_active)
+              .map((quest) => {
+                const userQuest = userCollectionQuests.find(
+                  (ucq) => ucq.collection_quest_id === quest.id
+                );
+                const progress = userQuest?.discovered_plants?.length || 0;
+                const total = quest.target_plants?.length || 0;
                 return (
-                  <SelectItem key={filter.value} value={filter.value}>
-                    {filter.label} ({discovered}/{matchingGenera.length})
+                  <SelectItem
+                    key={quest.id}
+                    value={"collection_" + quest.id}
+                  >
+                    {quest.icon_emoji} {quest.title} ({progress}/{total})
                   </SelectItem>
                 );
-              })}
-
-              <div className="px-2 py-1.5">
-                <div className="border-t border-stone-200" />
-              </div>
-
-              {collectionQuests.filter((q) => q.is_active).length > 0 ? (
-                collectionQuests
-                  .filter((q) => q.is_active)
-                  .map((quest) => {
-                    const userQuest = userCollectionQuests.find(
-                      (ucq) => ucq.collection_quest_id === quest.id
-                    );
-                    const progress = userQuest?.discovered_plants?.length || 0;
-                    const total = quest.target_plants?.length || 0;
-                    return (
-                      <SelectItem
-                        key={quest.id}
-                        value={"collection_" + quest.id}
-                      >
-                        {quest.icon_emoji} {quest.title} ({progress}/{total})
-                      </SelectItem>
-                    );
-                  })
-              ) : (
-                <SelectItem value="no_collections" disabled>
-                  ❓
-                </SelectItem>
-              )}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+              })
+          ) : (
+            <SelectItem value="no_collections" disabled>
+              ❓
+            </SelectItem>
+          )}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
@@ -139,6 +119,8 @@ export default function Collection() {
   const [selectedGenus, setSelectedGenus] = useState(null);
   const [showHintDialog, setShowHintDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [collectionSort, setCollectionSort] = useState("newest");
+  const [discoveredFilter, setDiscoveredFilter] = useState("all");
   const [user, setUser] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
   const [selectedCollectionId, setSelectedCollectionId] = useState("global");
@@ -281,9 +263,7 @@ export default function Collection() {
 
   const filters = [
     { value: "Alle", label: "Alle" },
-    { value: "not_discovered", label: "Noch nicht entdeckt" },
-    { value: "discovered", label: "Entdeckt" },
-    { value: "rarity", label: "Rarität" },
+    { value: "rarity", label: "Rarität (nur seltene)" },
   ];
 
   // Check if activeCategory is a collection quest ID
@@ -364,11 +344,13 @@ export default function Collection() {
       filteredGenera = filteredGenera.filter(g => targetGeneraIds.has(g.id));
     }
   } else {
-    if (activeCategory === "not_discovered") {
+    if (discoveredFilter === "undiscovered") {
       filteredGenera = filteredGenera.filter(g => !g.discovered);
-    } else if (activeCategory === "discovered") {
+    } else if (discoveredFilter === "discovered") {
       filteredGenera = filteredGenera.filter(g => g.discovered);
-    } else if (activeCategory === "rarity") {
+    }
+
+    if (activeCategory === "rarity") {
       filteredGenera = filteredGenera.filter(g => g.hasRareSpecies);
     }
     // "Alle" zeigt einfach alle Gattungen ohne zusätzlichen Filter
@@ -445,8 +427,18 @@ export default function Collection() {
            g.scientific_genus?.toLowerCase().includes(query);
   });
 
-  const discoveredCount = filteredGenera.filter(g => g.discovered).length;
-  const totalCount = filteredGenera.length;
+  // Sortierung innerhalb der aktuellen Auswahl
+  let sortedGenera = [...filteredGenera];
+  if (collectionSort === "title") {
+    sortedGenera.sort((a, b) => (a.genus_name || "").localeCompare(b.genus_name || "", "de"));
+  } else if (collectionSort === "rarity") {
+    sortedGenera.sort((a, b) => (b.maxRarityScore || 0) - (a.maxRarityScore || 0));
+  } else if (collectionSort === "species") {
+    sortedGenera.sort((a, b) => (b.totalSpecies || 0) - (a.totalSpecies || 0));
+  }
+
+  const discoveredCount = sortedGenera.filter(g => g.discovered).length;
+  const totalCount = sortedGenera.length;
 
   const discoveredSpecies = userDiscoveries.length;
   const totalSpecies = plants.length;
@@ -703,17 +695,36 @@ export default function Collection() {
             </div>
 
             {/* Suche & Filter (per Icon ein- und ausblendbar) */}
-            <SearchFilterPanel
-              visible={filtersOpen}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              activeCategory={activeCategory}
-              setActiveCategory={setActiveCategory}
-              filters={filters}
-              generaWithDiscovery={generaWithDiscovery}
-              collectionQuests={collectionQuests}
-              userCollectionQuests={userCollectionQuests}
-            />
+            {filtersOpen && (
+              <div className="space-y-2">
+                <SearchSortBar
+                  placeholder="Gattungen durchsuchen..."
+                  searchQuery={searchQuery}
+                  onSearchQueryChange={setSearchQuery}
+                  sortOptions={[
+                    { value: "newest", label: "Neu" },
+                    { value: "title", label: "Titel" },
+                    { value: "rarity", label: "Rarität" },
+                    { value: "species", label: "Pflanzen" },
+                  ]}
+                  sortValue={collectionSort}
+                  onSortChange={setCollectionSort}
+                  initialOpen
+                  showDiscoveredToggle
+                  discoveredFilter={discoveredFilter}
+                  onDiscoveredFilterChange={setDiscoveredFilter}
+                />
+                <SearchFilterPanel
+                  visible={true}
+                  activeCategory={activeCategory}
+                  setActiveCategory={setActiveCategory}
+                  filters={filters}
+                  generaWithDiscovery={generaWithDiscovery}
+                  collectionQuests={collectionQuests}
+                  userCollectionQuests={userCollectionQuests}
+                />
+              </div>
+            )}
           </div>
 
           {/* Collection Grid */}
@@ -735,7 +746,7 @@ export default function Collection() {
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2" style={{ paddingTop: listTopFadePx }}>
-                {filteredGenera.map((genus) => (
+                {sortedGenera.map((genus) => (
                   <GenusCard
                     key={genus.id}
                     genus={genus}

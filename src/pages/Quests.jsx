@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -16,6 +16,7 @@ import { de } from "date-fns/locale";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import MobileBackButton from "../components/navigation/MobileBackButton";
+import SearchSortBar from "../components/collection/SearchSortBar";
 import { getCurrentWeeklyQuest, getWeekNumber, getCurrentWeekBounds } from "../components/quests/QuestRotationHelper";
 
 // Leaflet Icon Setup
@@ -115,7 +116,6 @@ const getAverageColor = (imageUrl) => {
 export default function Quests() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const collectionsHeaderRef = useRef(null);
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState("weekly");
   const [averageColor, setAverageColor] = useState(null);
@@ -125,10 +125,16 @@ export default function Quests() {
   const [imageIndexes, setImageIndexes] = useState({});
   const [userLocation, setUserLocation] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [collectionsSearchOpen, setCollectionsSearchOpen] = useState(false);
   const [collectionsSort, setCollectionsSort] = useState("newest"); // "title" | "newest" | "followers" | "items"
   const [selectedPlantForSighting, setSelectedPlantForSighting] = useState(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+
+  const collectionsSortOptions = [
+    { value: "newest", label: "Neu" },
+    { value: "title", label: "Titel" },
+    { value: "followers", label: "Follower" },
+    { value: "items", label: "Pflanzen" },
+  ];
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
@@ -215,26 +221,6 @@ export default function Quests() {
       setAverageColor(null);
     }
   }, [user?.background_image_url, user?.background_color]);
-
-  // Schließt das Kollektionen-Suchfeld bei Klick/Tap außerhalb
-  useEffect(() => {
-    if (!collectionsSearchOpen) return;
-
-    const handleClickOutside = (event) => {
-      if (!collectionsHeaderRef.current) return;
-      if (!collectionsHeaderRef.current.contains(event.target)) {
-        setCollectionsSearchOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("touchstart", handleClickOutside);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("touchstart", handleClickOutside);
-    };
-  }, [collectionsSearchOpen]);
 
   const toggleLikeMutation = useMutation({
     mutationFn: async (discoveryId) => {
@@ -529,78 +515,14 @@ export default function Quests() {
           {/* Kollektionen Tab */}
           <TabsContent value="collections" className="pt-14 px-4 pb-20">
             <div className="max-w-3xl mx-auto space-y-3">
-              <div
-                ref={collectionsHeaderRef}
-                className="flex items-center gap-2"
-              >
-                <button
-                  type="button"
-                  onClick={() => setCollectionsSearchOpen(true)}
-                  className={`relative flex items-center bg-stone-100 border border-stone-200 shadow-sm rounded-full h-8 overflow-hidden transition-all duration-200 ease-out ${
-                    collectionsSearchOpen ? "flex-[0.55] min-w-[140px] px-3" : "w-8 justify-center"
-                  }`}
-                  aria-label="Kollektionen durchsuchen"
-                >
-                  <Search
-                    className={`w-4 h-4 text-stone-600 transition-all duration-200 ease-out ${
-                      collectionsSearchOpen ? "mr-2 flex-shrink-0" : ""
-                    }`}
-                  />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Suche nach Titel, Beschreibung oder Owner..."
-                    className={`bg-transparent border-0 outline-none text-[11px] placeholder:text-stone-400 text-stone-900 transition-all duration-200 ease-out ${
-                      collectionsSearchOpen
-                        ? "w-full opacity-100"
-                        : "w-0 opacity-0 pointer-events-none"
-                    }`}
-                  />
-                </button>
-                <div
-                  className={`flex items-center rounded-full bg-stone-100 p-0.5 text-[11px] overflow-x-auto scrollbar-hide transition-all duration-200 ease-out ${
-                    collectionsSearchOpen ? "flex-[0.45]" : "flex-1"
-                  }`}
-                >
-                  <button
-                    type="button"
-                    className={`px-2 py-1 rounded-full whitespace-nowrap ${
-                      collectionsSort === 'newest' ? 'bg-white shadow text-stone-900' : 'text-stone-500'
-                    }`}
-                    onClick={() => setCollectionsSort('newest')}
-                  >
-                    Neu
-                  </button>
-                  <button
-                    type="button"
-                    className={`px-2 py-1 rounded-full whitespace-nowrap ${
-                      collectionsSort === 'title' ? 'bg-white shadow text-stone-900' : 'text-stone-500'
-                    }`}
-                    onClick={() => setCollectionsSort('title')}
-                  >
-                    Titel
-                  </button>
-                  <button
-                    type="button"
-                    className={`px-2 py-1 rounded-full whitespace-nowrap ${
-                      collectionsSort === 'followers' ? 'bg-white shadow text-stone-900' : 'text-stone-500'
-                    }`}
-                    onClick={() => setCollectionsSort('followers')}
-                  >
-                    Follower
-                  </button>
-                  <button
-                    type="button"
-                    className={`px-2 py-1 rounded-full whitespace-nowrap ${
-                      collectionsSort === 'items' ? 'bg-white shadow text-stone-900' : 'text-stone-500'
-                    }`}
-                    onClick={() => setCollectionsSort('items')}
-                  >
-                    Pflanzen
-                  </button>
-                </div>
-              </div>
+              <SearchSortBar
+                placeholder="Titel, Beschreibung oder Owner durchsuchen..."
+                searchQuery={searchQuery}
+                onSearchQueryChange={setSearchQuery}
+                sortOptions={collectionsSortOptions}
+                sortValue={collectionsSort}
+                onSortChange={setCollectionsSort}
+              />
 
               <div className="space-y-2">
                 {(() => {
