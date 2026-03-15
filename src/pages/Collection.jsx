@@ -454,7 +454,7 @@ export default function Collection() {
     ? selectedCollection.title
     : ownerName + "'s Floralog";
   const listTopFadePx = 12;
-  const chipRightFadePx = 16;
+  const chipRightFadePx = 24;
 
   return (
     <div className="relative min-h-screen">
