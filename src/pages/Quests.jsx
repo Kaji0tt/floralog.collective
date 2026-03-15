@@ -124,6 +124,7 @@ export default function Quests() {
   const [imageIndexes, setImageIndexes] = useState({});
   const [userLocation, setUserLocation] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [collectionsSearchOpen, setCollectionsSearchOpen] = useState(false);
   const [collectionsSort, setCollectionsSort] = useState("newest"); // "title" | "newest" | "followers" | "items"
   const [selectedPlantForSighting, setSelectedPlantForSighting] = useState(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
@@ -508,16 +509,31 @@ export default function Quests() {
           <TabsContent value="collections" className="pt-14 px-4 pb-20">
             <div className="max-w-3xl mx-auto space-y-3">
               <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-                  <Input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Suche nach Titel, Beschreibung oder Owner..."
-                    className="pl-9 h-9 text-sm bg-white/90"
-                  />
+                <div className={collectionsSearchOpen ? "flex-[1.1] min-w-[140px]" : "flex-none"}>
+                  {collectionsSearchOpen ? (
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                      <Input
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Suche nach Titel, Beschreibung oder Owner..."
+                        className="pl-9 h-9 text-sm bg-white/90"
+                      />
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setCollectionsSearchOpen(true)}
+                      className="w-9 h-9 rounded-full bg-white/90 border border-stone-200 flex items-center justify-center shadow-sm hover:bg-white hover:border-stone-300 transition-colors"
+                      aria-label="Kollektionen durchsuchen"
+                    >
+                      <Search className="w-4 h-4 text-stone-600" />
+                    </button>
+                  )}
                 </div>
-                <div className="inline-flex rounded-full bg-stone-100 p-0.5 text-[11px]">
+                <div className={`inline-flex rounded-full bg-stone-100 p-0.5 text-[11px] transition-all ${
+                  collectionsSearchOpen ? "flex-1 justify-end" : "flex-1 justify-start"
+                }`}>
                   <button
                     type="button"
                     className={`px-2 py-0.5 rounded-full ${collectionsSort === 'newest' ? 'bg-white shadow text-stone-900' : 'text-stone-500'}`}
