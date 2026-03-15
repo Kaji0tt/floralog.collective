@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -132,6 +132,7 @@ function SearchFilterPanel({
 }
 
 export default function Collection() {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState("Alle");
   const [selectedGenus, setSelectedGenus] = useState(null);
@@ -185,6 +186,20 @@ export default function Collection() {
     },
   });
 
+  const { data: userCollections = [] } = useQuery({
+    queryKey: ["userCollections", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      return Query.UserCollection.filter({ auth_id: user.id });
+    },
+    enabled: !!user?.id,
+  });
+
+  const { data: visibleCollections = [] } = useQuery({
+    queryKey: ["visibleCollections"],
+    queryFn: () => Query.Collection.list(),
+  });
+
   const { data: ownedCollections = [] } = useQuery({
     queryKey: ['ownedCollections', user?.id],
     queryFn: async () => {
@@ -200,6 +215,30 @@ export default function Collection() {
   });
 
   const isLoading = generaLoading || plantsLoading || discoveriesLoading;
+
+  const followMutation = useMutation({
+    mutationFn: async (collectionId) => {
+      if (!user?.id) return null;
+      return Query.UserCollection.create({
+        auth_id: user.id,
+        collection_id: collectionId,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["userCollections", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["visibleCollections"] });
+    },
+  });
+
+  const unfollowMutation = useMutation({
+    mutationFn: async (userCollectionId) => {
+      return Query.UserCollection.delete(userCollectionId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["userCollections", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["visibleCollections"] });
+    },
+  });
 
   const rarityOrder = { "Häufig": 1, "Gelegentlich": 2, "Selten": 3 };
 
@@ -243,9 +282,15 @@ export default function Collection() {
   const isCollectionFilter = activeCategory.startsWith('collection_');
   const collectionId = isCollectionFilter ? activeCategory.replace('collection_', '') : null;
   
+  const followedCollections = visibleCollections.filter((c) =>
+    c.is_public &&
+    c.auth_id !== user?.id &&
+    userCollections.some((uc) => uc.collection_id === c.id)
+  );
+
   const selectedCollection =
     selectedCollectionId !== 'global'
-      ? ownedCollections.find((c) => c.id === selectedCollectionId)
+      ? [...ownedCollections, ...followedCollections].find((c) => c.id === selectedCollectionId)
       : null;
 
   const getCollectionStats = (collectionKey) => {
@@ -455,6 +500,12 @@ export default function Collection() {
     : ownerName + "'s Floralog";
   const listTopFadePx = 12;
   const chipRightFadePx = 24;
+  const isOwnerOfSelected =
+    !!selectedCollection && !!user?.id && selectedCollection.auth_id === user.id;
+  const userCollectionLinkForSelected = selectedCollection
+    ? userCollections.find((uc) => uc.collection_id === selectedCollection.id)
+    : null;
+  const isFollowingSelected = !!userCollectionLinkForSelected && !isOwnerOfSelected;
 
   return (
     <div className="relative min-h-screen">
@@ -502,10 +553,19 @@ export default function Collection() {
                 }}
               >
                 {(() => {
+                  const followedCollectionsChips = followedCollections.map((c) => ({
+                    id: c.id,
+                    title: c.title,
+                    isGlobal: false,
+                    isFollowed: true,
+                  }));
+
                   const all = [
                     { id: 'global', title: 'Global', isGlobal: true },
                     ...ownedCollections.map((c) => ({ id: c.id, title: c.title, isGlobal: false })),
+                    ...followedCollectionsChips,
                   ];
+
                   return all.map((col) => {
                     const stats = getCollectionStats(col.id === 'global' ? 'global' : col.id);
                     const isActive = selectedCollectionId === col.id;
@@ -559,14 +619,35 @@ export default function Collection() {
                     {heroTitle}
                   </h1>
                   {selectedCollection && (
-                    <button
-                      type="button"
-                      onClick={() => navigate("/CollectionEditor?id=" + selectedCollection.id)}
-                      className="shrink-0 p-1.5 rounded-full bg-stone-100 text-stone-600 hover:bg-stone-200 hover:text-stone-800 border border-stone-200 transition-colors"
-                      aria-label="Kollektion bearbeiten"
-                    >
-                      <PencilLine className="w-3 h-3" />
-                    </button>
+                    <div className="shrink-0 flex items-center gap-1.5">
+                      {selectedCollection.is_public && !isOwnerOfSelected && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isFollowingSelected && userCollectionLinkForSelected) {
+                              unfollowMutation.mutate(userCollectionLinkForSelected.id);
+                            } else if (!isFollowingSelected) {
+                              followMutation.mutate(selectedCollection.id);
+                            }
+                          }}
+                          disabled={followMutation.isPending || unfollowMutation.isPending}
+                          className="px-2 py-1 rounded-full text-[11px] border border-emerald-500/60 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors"
+                        >
+                          {isFollowingSelected ? "Abo beenden" : "Abonnieren"}
+                        </button>
+                      )}
+
+                      {isOwnerOfSelected && (
+                        <button
+                          type="button"
+                          onClick={() => navigate("/CollectionEditor?id=" + selectedCollection.id)}
+                          className="shrink-0 p-1.5 rounded-full bg-stone-100 text-stone-600 hover:bg-stone-200 hover:text-stone-800 border border-stone-200 transition-colors"
+                          aria-label="Kollektion bearbeiten"
+                        >
+                          <PencilLine className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
                 {selectedCollection?.description && (
