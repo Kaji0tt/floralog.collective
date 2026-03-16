@@ -13,6 +13,7 @@ import { Loader2 } from "lucide-react";
 import MobileBackButton from "@/components/navigation/MobileBackButton";
 
 export default function CollectionEditor() {
+  const MIN_COLLECTION_ITEMS = 3;
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -75,6 +76,8 @@ export default function CollectionEditor() {
   const [itemNotes, setItemNotes] = useState({});
   const [searchMode, setSearchMode] = useState("genus"); // "genus" | "plant"
   const [searchQuery, setSearchQuery] = useState("");
+  // Pending items buffered locally when creating a new collection (before save)
+  const [pendingItems, setPendingItems] = useState([]);
 
   useEffect(() => {
     if (collectionItems && collectionItems.length > 0) {
@@ -103,8 +106,20 @@ export default function CollectionEditor() {
   }, [existingCollection]);
 
   const createMutation = useMutation({
-    mutationFn: async (data) => {
-      return Query.Collection.create(data);
+    mutationFn: async ({ collectionData, itemsToCreate }) => {
+      const newCollection = await Query.Collection.create(collectionData);
+      if (newCollection?.id && itemsToCreate.length > 0) {
+        await Promise.all(
+          itemsToCreate.map((item) =>
+            Query.CollectionItem.create({
+              collection_id: newCollection.id,
+              genus_id: item.genusId || null,
+              plant_id: item.plantId || null,
+            })
+          )
+        );
+      }
+      return newCollection;
     },
     onSuccess: (newCollection) => {
       queryClient.invalidateQueries({ queryKey: ["ownedCollections"] });
@@ -185,7 +200,7 @@ export default function CollectionEditor() {
       // Slug nur beim Anlegen erzeugen, wenn nicht gesetzt
       const baseSlug = (formData.slug || formData.title || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
       payload.slug = baseSlug || undefined;
-      createMutation.mutate(payload);
+      createMutation.mutate({ collectionData: payload, itemsToCreate: pendingItems });
     } else {
       updateMutation.mutate({ id: collectionId, data: payload });
     }
@@ -224,8 +239,12 @@ export default function CollectionEditor() {
     collectionItems.filter((item) => item.plant_id).map((item) => item.plant_id)
   );
 
+  // For new collection mode: track which entries are already pending
+  const pendingGenusIds = new Set(pendingItems.filter((i) => i.genusId).map((i) => i.genusId));
+  const pendingPlantIds = new Set(pendingItems.filter((i) => i.plantId).map((i) => i.plantId));
+
   let searchResults = [];
-  if (normalizedSearch && collectionId) {
+  if (normalizedSearch) {
     if (searchMode === "genus") {
       searchResults = genera
         .filter((g) => {
@@ -356,116 +375,168 @@ export default function CollectionEditor() {
                   <h2 className="text-sm font-semibold text-stone-800 mb-1">
                     Pflanzen in dieser Kollektion
                   </h2>
-                  {!collectionId ? (
-                    <p className="text-[11px] text-stone-500">
-                      Speichere zuerst die Kollektion, um Pflanzen oder Gattungen hinzuzufügen.
-                    </p>
-                  ) : (
-                    <>
-                    <p className="text-[11px] text-stone-500 mb-2">
-                      Suche nach Gattungen oder Arten und füge sie hinzu. Unten kannst du pro
-                      Eintrag eine kurze Erklärung ergänzen (z.B. "Hilft bei Kopfschmerzen").
-                    </p>
+                  <p className="text-[11px] text-stone-500 mb-2">
+                    {collectionId
+                      ? "Suche nach Gattungen oder Arten und füge sie hinzu. Unten kannst du pro Eintrag eine kurze Erklärung ergänzen (z.B. \"Hilft bei Kopfschmerzen\")."
+                      : "Wähle mindestens 3 Gattungen oder Arten aus, bevor du die Kollektion anlegst."}
+                  </p>
 
-                    {/* Hinzufügen-Bereich */}
-                    <div className="mb-3 space-y-2">
-                      <div className="flex items-center gap-2 text-[11px]">
-                        <span className="text-stone-600">Suche in:</span>
-                        <div className="inline-flex rounded-full bg-stone-100 p-0.5">
-                          <button
-                            type="button"
-                            className={`px-2 py-0.5 rounded-full text-xs ${
-                              searchMode === "genus"
-                                ? "bg-white shadow text-stone-900"
-                                : "text-stone-500"
-                            }`}
-                            onClick={() => setSearchMode("genus")}
-                          >
-                            Gattungen
-                          </button>
-                          <button
-                            type="button"
-                            className={`px-2 py-0.5 rounded-full text-xs ${
-                              searchMode === "plant"
-                                ? "bg-white shadow text-stone-900"
-                                : "text-stone-500"
-                            }`}
-                            onClick={() => setSearchMode("plant")}
-                          >
-                            Arten
-                          </button>
-                        </div>
+                  {/* Hinzufügen-Bereich */}
+                  <div className="mb-3 space-y-2">
+                    <div className="flex items-center gap-2 text-[11px]">
+                      <span className="text-stone-600">Suche in:</span>
+                      <div className="inline-flex rounded-full bg-stone-100 p-0.5">
+                        <button
+                          type="button"
+                          className={`px-2 py-0.5 rounded-full text-xs ${
+                            searchMode === "genus"
+                              ? "bg-white shadow text-stone-900"
+                              : "text-stone-500"
+                          }`}
+                          onClick={() => setSearchMode("genus")}
+                        >
+                          Gattungen
+                        </button>
+                        <button
+                          type="button"
+                          className={`px-2 py-0.5 rounded-full text-xs ${
+                            searchMode === "plant"
+                              ? "bg-white shadow text-stone-900"
+                              : "text-stone-500"
+                          }`}
+                          onClick={() => setSearchMode("plant")}
+                        >
+                          Arten
+                        </button>
                       </div>
+                    </div>
 
-                      <Input
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder={
-                          searchMode === "genus"
-                            ? "Nach Gattungsnamen suchen..."
-                            : "Nach Pflanzennamen suchen..."
-                        }
-                        className="h-8 text-sm"
-                      />
+                    <Input
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder={
+                        searchMode === "genus"
+                          ? "Nach Gattungsnamen suchen..."
+                          : "Nach Pflanzennamen suchen..."
+                      }
+                      className="h-8 text-sm"
+                    />
 
-                      {normalizedSearch && (
-                        <div className="max-h-40 overflow-y-auto border border-stone-200 rounded-md bg-white/95 text-[12px]">
-                          {searchResults.length === 0 ? (
-                            <div className="px-2 py-2 text-stone-500">
-                              Keine Treffer.
-                            </div>
-                          ) : (
-                            searchResults.map((entry) => {
-                              const isExisting =
-                                searchMode === "genus"
-                                  ? existingGenusIds.has(entry.id)
-                                  : existingPlantIds.has(entry.id);
-                              const mainLabel =
-                                searchMode === "genus"
-                                  ? entry.genus_name || entry.scientific_genus
-                                  : entry.german_name || entry.scientific_name;
-                              const subLabel =
-                                searchMode === "genus"
-                                  ? entry.scientific_genus
-                                  : entry.scientific_name;
+                    {normalizedSearch && (
+                      <div className="max-h-40 overflow-y-auto border border-stone-200 rounded-md bg-white/95 text-[12px]">
+                        {searchResults.length === 0 ? (
+                          <div className="px-2 py-2 text-stone-500">
+                            Keine Treffer.
+                          </div>
+                        ) : (
+                          searchResults.map((entry) => {
+                            const isExisting = collectionId
+                              ? searchMode === "genus"
+                                ? existingGenusIds.has(entry.id)
+                                : existingPlantIds.has(entry.id)
+                              : searchMode === "genus"
+                                ? pendingGenusIds.has(entry.id)
+                                : pendingPlantIds.has(entry.id);
+                            const mainLabel =
+                              searchMode === "genus"
+                                ? entry.genus_name || entry.scientific_genus
+                                : entry.german_name || entry.scientific_name;
+                            const subLabel =
+                              searchMode === "genus"
+                                ? entry.scientific_genus
+                                : entry.scientific_name;
 
-                              return (
-                                <div
-                                  key={entry.id}
-                                  className="flex items-center justify-between gap-2 px-2 py-1.5 border-b border-stone-100 last:border-b-0"
-                                >
-                                  <div className="min-w-0 flex-1">
-                                    <div className="truncate text-stone-800">{mainLabel}</div>
-                                    {subLabel && (
-                                      <div className="truncate text-[11px] text-stone-500">
-                                        {subLabel}
-                                      </div>
-                                    )}
-                                  </div>
-                                  <Button
-                                    type="button"
-                                    size="xs"
-                                    variant="outline"
-                                    className="h-7 px-2 text-[11px]"
-                                    disabled={isExisting || addItemMutation.isPending}
-                                    onClick={() =>
+                            return (
+                              <div
+                                key={entry.id}
+                                className="flex items-center justify-between gap-2 px-2 py-1.5 border-b border-stone-100 last:border-b-0"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="truncate text-stone-800">{mainLabel}</div>
+                                  {subLabel && (
+                                    <div className="truncate text-[11px] text-stone-500">
+                                      {subLabel}
+                                    </div>
+                                  )}
+                                </div>
+                                <Button
+                                  type="button"
+                                  size="xs"
+                                  variant="outline"
+                                  className="h-7 px-2 text-[11px]"
+                                  disabled={isExisting || addItemMutation.isPending}
+                                  onClick={() => {
+                                    if (collectionId) {
                                       addItemMutation.mutate({
                                         genusId: searchMode === "genus" ? entry.id : null,
                                         plantId: searchMode === "plant" ? entry.id : null,
-                                      })
+                                      });
+                                      setSearchQuery("");
+                                    } else {
+                                      setPendingItems((prev) => [
+                                        ...prev,
+                                        {
+                                          tempId: `${searchMode}-${entry.id}-${Date.now()}`,
+                                          genusId: searchMode === "genus" ? entry.id : null,
+                                          plantId: searchMode === "plant" ? entry.id : null,
+                                          label: mainLabel,
+                                          subLabel: subLabel || null,
+                                        },
+                                      ]);
+                                      setSearchQuery("");
                                     }
-                                  >
-                                    {isExisting ? "Bereits drin" : "Hinzufügen"}
-                                  </Button>
-                                </div>
-                              );
-                            })
-                          )}
+                                  }}
+                                >
+                                  {isExisting ? "Bereits drin" : "Hinzufügen"}
+                                </Button>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Pending items list (new collection mode) */}
+                  {!collectionId && (
+                    <>
+                      <div className={`text-[11px] mb-2 font-medium ${pendingItems.length >= MIN_COLLECTION_ITEMS ? "text-emerald-600" : "text-amber-600"}`}>
+                        {pendingItems.length} von mindestens {MIN_COLLECTION_ITEMS} ausgewählt
+                      </div>
+                      {pendingItems.length > 0 && (
+                        <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                          {pendingItems.map((item) => (
+                            <div
+                              key={item.tempId}
+                              className="flex items-center justify-between gap-2 border border-stone-200 rounded-md px-2 py-1.5 bg-stone-50/80 text-[12px]"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-stone-800 font-medium">{item.label}</div>
+                                {item.subLabel && (
+                                  <div className="truncate text-[11px] text-stone-500">{item.subLabel}</div>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                className="text-[10px] text-stone-400 hover:text-red-500 transition-colors shrink-0"
+                                onClick={() =>
+                                  setPendingItems((prev) =>
+                                    prev.filter((i) => i.tempId !== item.tempId)
+                                  )
+                                }
+                              >
+                                Entfernen
+                              </button>
+                            </div>
+                          ))}
                         </div>
                       )}
-                    </div>
+                    </>
+                  )}
 
-                    {/* Notizen-Bereich */}
+                  {/* Saved items list (edit mode) */}
+                  {collectionId && (
+                    <>
                     {itemsLoading ? (
                       <div className="flex items-center justify-center py-4 text-stone-500 text-xs">
                         <Loader2 className="w-3 h-3 mr-2 animate-spin" />
@@ -548,14 +619,21 @@ export default function CollectionEditor() {
                   )}
                 </div>
 
-                <div className="pt-4 mt-2 border-t border-stone-100 flex justify-end gap-2">
-                  <Button
-                    type="submit"
-                    disabled={isSaving || !formData.title.trim()}
-                  >
-                    {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                    {collectionId ? "Änderungen speichern" : "Kollektion anlegen"}
-                  </Button>
+                <div className="pt-4 mt-2 border-t border-stone-100 flex flex-col gap-2">
+                  {!collectionId && pendingItems.length < MIN_COLLECTION_ITEMS && formData.title.trim() && (
+                    <p className="text-[11px] text-amber-600 text-right">
+                      Bitte wähle mindestens {MIN_COLLECTION_ITEMS} Pflanzen oder Gattungen aus ({pendingItems.length}/{MIN_COLLECTION_ITEMS}).
+                    </p>
+                  )}
+                  <div className="flex justify-end">
+                    <Button
+                      type="submit"
+                      disabled={isSaving || !formData.title.trim() || (!collectionId && pendingItems.length < MIN_COLLECTION_ITEMS)}
+                    >
+                      {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                      {collectionId ? "Änderungen speichern" : "Kollektion anlegen"}
+                    </Button>
+                  </div>
                 </div>
               </form>
             )}
