@@ -3,9 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Loader2, Leaf, Search, PencilLine } from "lucide-react";
 import GenusCard from "../components/collection/GenusCard";
 import MobileBackButton from "../components/navigation/MobileBackButton";
@@ -47,69 +45,6 @@ const getAverageColor = (imageUrl) => {
   });
 };
 
-function SearchFilterPanel({
-  visible,
-  activeCategory,
-  setActiveCategory,
-  filters,
-  generaWithDiscovery,
-  collectionQuests,
-  userCollectionQuests,
-}) {
-  if (!visible) return null;
-
-  return (
-    <div className="flex justify-end">
-      <Select value={activeCategory} onValueChange={setActiveCategory}>
-        <SelectTrigger className="bg-white h-9 text-xs w-40 rounded-full">
-          <SelectValue placeholder="Filter" />
-        </SelectTrigger>
-        <SelectContent>
-          {filters.map((filter) => {
-            let matchingGenera = generaWithDiscovery;
-            if (filter.value === "rarity") {
-              matchingGenera = generaWithDiscovery.filter((g) => g.hasRareSpecies);
-            }
-            const discovered = matchingGenera.filter((g) => g.discovered).length;
-            return (
-              <SelectItem key={filter.value} value={filter.value}>
-                {filter.label} ({discovered}/{matchingGenera.length})
-              </SelectItem>
-            );
-          })}
-
-          <div className="px-2 py-1.5">
-            <div className="border-t border-stone-200" />
-          </div>
-
-          {collectionQuests.filter((q) => q.is_active).length > 0 ? (
-            collectionQuests
-              .filter((q) => q.is_active)
-              .map((quest) => {
-                const userQuest = userCollectionQuests.find(
-                  (ucq) => ucq.collection_quest_id === quest.id
-                );
-                const progress = userQuest?.discovered_plants?.length || 0;
-                const total = quest.target_plants?.length || 0;
-                return (
-                  <SelectItem
-                    key={quest.id}
-                    value={"collection_" + quest.id}
-                  >
-                    {quest.icon_emoji} {quest.title} ({progress}/{total})
-                  </SelectItem>
-                );
-              })
-          ) : (
-            <SelectItem value="no_collections" disabled>
-              ❓
-            </SelectItem>
-          )}
-        </SelectContent>
-      </Select>
-    </div>
-  );
-}
 
 export default function Collection() {
   const queryClient = useQueryClient();
@@ -446,6 +381,14 @@ export default function Collection() {
     sortedGenera.sort((a, b) => (a.genus_name || "").localeCompare(b.genus_name || "", "de"));
   } else if (collectionSort === "rarity") {
     sortedGenera.sort((a, b) => (b.maxRarityScore || 0) - (a.maxRarityScore || 0));
+  } else if (collectionSort === "index") {
+    const categoryOrder = { "Bäume": 1, "Sträucher": 2, "Blumen": 3 };
+    sortedGenera.sort((a, b) => {
+      if (a.category !== b.category) {
+        return (categoryOrder[a.category] || 999) - (categoryOrder[b.category] || 999);
+      }
+      return (a.category_dex_number || 999999) - (b.category_dex_number || 999999);
+    });
   }
 
   const discoveredCount = sortedGenera.filter(g => g.discovered).length;
@@ -716,6 +659,7 @@ export default function Collection() {
                     { value: "newest", label: "Neu" },
                     { value: "title", label: "Titel" },
                     { value: "rarity", label: "Rarität" },
+                    { value: "index", label: "Index" },
                   ]}
                   sortValue={collectionSort}
                   onSortChange={setCollectionSort}
@@ -723,15 +667,6 @@ export default function Collection() {
                   showDiscoveredToggle
                   discoveredFilter={discoveredFilter}
                   onDiscoveredFilterChange={setDiscoveredFilter}
-                />
-                <SearchFilterPanel
-                  visible={true}
-                  activeCategory={activeCategory}
-                  setActiveCategory={setActiveCategory}
-                  filters={filters}
-                  generaWithDiscovery={generaWithDiscovery}
-                  collectionQuests={collectionQuests}
-                  userCollectionQuests={userCollectionQuests}
                 />
               </div>
             )}
