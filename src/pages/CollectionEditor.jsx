@@ -109,6 +109,7 @@ export default function CollectionEditor() {
   const [searchQuery, setSearchQuery] = useState("");
   // Pending items buffered locally when creating a new collection (before save)
   const [pendingItems, setPendingItems] = useState([]);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (collectionItems && collectionItems.length > 0) {
@@ -204,6 +205,17 @@ export default function CollectionEditor() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["collectionItemsForEditor", collectionId] });
       queryClient.invalidateQueries({ queryKey: ["collectionItems"] });
+    },
+  });
+
+  const deleteCollectionMutation = useMutation({
+    mutationFn: async (id) => {
+      return Query.Collection.delete(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ownedCollections"] });
+      queryClient.invalidateQueries({ queryKey: ["visibleCollections"] });
+      navigate("/Collection");
     },
   });
 
@@ -689,13 +701,54 @@ export default function CollectionEditor() {
                       Bitte wähle mindestens {MIN_COLLECTION_ITEMS} Pflanzen oder Gattungen aus ({pendingItems.length}/{MIN_COLLECTION_ITEMS}).
                     </p>
                   )}
-                  <div className="flex justify-end">
+                  {collectionId && showDeleteConfirm && (
+                    <div className="flex items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                      <p className="text-[12px] text-red-700">Kollektion wirklich löschen?</p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="text-[11px] h-7 px-2"
+                          onClick={() => setShowDeleteConfirm(false)}
+                          disabled={deleteCollectionMutation.isPending}
+                        >
+                          Abbrechen
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="text-[11px] h-7 px-2 bg-red-600 hover:bg-red-700 text-white"
+                          onClick={() => deleteCollectionMutation.mutate(collectionId)}
+                          disabled={deleteCollectionMutation.isPending}
+                        >
+                          {deleteCollectionMutation.isPending && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                          Ja, löschen
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  <div className={`flex items-center ${collectionId ? "justify-between" : "justify-end"}`}>
+                    {collectionId && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="text-[11px] h-8 px-3 border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
+                        onClick={() => setShowDeleteConfirm(true)}
+                        disabled={isSaving || deleteCollectionMutation.isPending || showDeleteConfirm}
+                      >
+                        Kollektion löschen
+                      </Button>
+                    )}
                     <Button
                       type="submit"
+                      size="sm"
+                      className="text-[11px] h-8 px-3"
                       disabled={isSaving || !formData.title.trim() || (!collectionId && pendingItems.length < MIN_COLLECTION_ITEMS)}
                     >
-                      {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                      {collectionId ? "Änderungen speichern" : "Kollektion anlegen"}
+                      {isSaving && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                      {collectionId ? "Speichern" : "Kollektion anlegen"}
                     </Button>
                   </div>
                 </div>
