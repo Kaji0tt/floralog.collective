@@ -679,10 +679,12 @@ export default function CollectionEditor() {
                     )}
                     <Button
                       type="submit"
+                      size="sm"
+                      className="text-[11px] h-8 px-3"
                       disabled={isSaving || !formData.title.trim() || (!collectionId && pendingItems.length < MIN_COLLECTION_ITEMS)}
                     >
-                      {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                      {collectionId ? "Änderungen speichern" : "Kollektion anlegen"}
+                      {isSaving && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                      {collectionId ? "Speichern" : "Kollektion anlegen"}
                     </Button>
                   </div>
                 </div>
