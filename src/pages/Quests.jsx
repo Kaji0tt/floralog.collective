@@ -721,31 +721,30 @@ export default function Quests() {
                               navigate(createPageUrl(`Collection?collectionId=${c.id}&from=quests`));
                             }
                           }}
-                          className="relative rounded-2xl border border-stone-200 bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow overflow-hidden cursor-pointer"
+                          className="rounded-2xl border border-stone-200 bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow overflow-hidden cursor-pointer"
                           style={{ background }}
                         >
-                          {!c.isOwnCollection && (
-                            <button
-                              type="button"
-                              disabled={isCollectionTogglePending}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleCollectionFollowToggle(c);
-                              }}
-                              aria-label={c.isFollowing ? 'Abo beenden' : 'Abonnieren'}
-                              title={c.isFollowing ? 'Abo beenden' : 'Abonnieren'}
-                              className={`absolute top-2 right-2 z-10 w-6 h-6 rounded-full border shadow-sm flex items-center justify-center transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${c.isFollowing
-                                ? 'bg-emerald-50/95 border-emerald-200 text-emerald-600 hover:bg-emerald-100/95'
-                                : 'bg-white/85 border-stone-200 text-stone-500 hover:bg-white'}`}
-                            >
-                              {c.isFollowing ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
-                            </button>
-                          )}
-
                           <div className="p-3 flex items-center justify-between gap-3">
                             <div className="flex-1 min-w-0">
-                              <div className="text-[11px] text-stone-600 mb-0.5 truncate">
-                                {c.ownerName}
+                              <div className="text-[11px] text-stone-600 mb-0.5 truncate flex items-center gap-1">
+                                {!c.isOwnCollection && (
+                                  <button
+                                    type="button"
+                                    disabled={isCollectionTogglePending}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleCollectionFollowToggle(c);
+                                    }}
+                                    aria-label={c.isFollowing ? 'Abo beenden' : 'Abonnieren'}
+                                    title={c.isFollowing ? 'Abo beenden' : 'Abonnieren'}
+                                    className={`shrink-0 w-4 h-4 rounded-full border flex items-center justify-center transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${c.isFollowing
+                                      ? 'bg-emerald-50/95 border-emerald-200 text-emerald-600 hover:bg-emerald-100/95'
+                                      : 'bg-white/85 border-stone-200 text-stone-500 hover:bg-white'}`}
+                                  >
+                                    {c.isFollowing ? <Check className="w-2.5 h-2.5" /> : <Plus className="w-2.5 h-2.5" />}
+                                  </button>
+                                )}
+                                <span className="truncate">{c.ownerName}</span>
                               </div>
                               <div className="text-sm font-semibold text-stone-900 truncate mb-0.5">
                                 {c.title}
