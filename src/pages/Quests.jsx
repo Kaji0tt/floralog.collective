@@ -550,16 +550,63 @@ export default function Quests() {
                     itemCounts[item.collection_id] = (itemCounts[item.collection_id] || 0) + 1;
                   });
 
+                  const userDiscoveries = (allDiscoveries || []).filter((d) =>
+                    d.auth_id === user?.id ||
+                    d.user === user?.email ||
+                    d.created_by === user?.email ||
+                    d.user_email === user?.email
+                  );
+                  const discoveredPlantIds = new Set(
+                    userDiscoveries.map((d) => d.plant_id).filter(Boolean)
+                  );
+
+                  const userProgressByCollection = {};
+                  publicCollections.forEach((c) => {
+                    const itemsForCollection = (allCollectionItems || []).filter(
+                      (item) => item.collection_id === c.id
+                    );
+
+                    const totalRequired = itemsForCollection.length;
+                    let discoveredRequired = 0;
+
+                    itemsForCollection.forEach((item) => {
+                      let isDiscovered = false;
+
+                      if (item.plant_id) {
+                        isDiscovered = discoveredPlantIds.has(item.plant_id);
+                      } else if (item.genus_id) {
+                        const targetGenus = (genera || []).find((g) => g.id === item.genus_id);
+                        if (targetGenus) {
+                          isDiscovered = (plants || []).some(
+                            (p) =>
+                              p.genus_category === targetGenus.category &&
+                              p.genus_number === targetGenus.category_dex_number &&
+                              discoveredPlantIds.has(p.id)
+                          );
+                        }
+                      }
+
+                      if (isDiscovered) discoveredRequired += 1;
+                    });
+
+                    userProgressByCollection[c.id] = {
+                      discovered: discoveredRequired,
+                      total: totalRequired,
+                    };
+                  });
+
                   const collectionsWithMeta = publicCollections.map((c) => {
                     const owner = (allUsers || []).find((u) => u.auth_id === c.auth_id);
                     const ownerName = owner?.display_name || owner?.full_name || owner?.user_email || "Unbekannt";
                     const items = itemCounts[c.id] || 0;
                     const followers = c.followers_count ?? 0;
+                    const progress = userProgressByCollection[c.id] || { discovered: 0, total: items };
                     return {
                       ...c,
                       ownerName,
                       items,
                       followers,
+                      progress,
                     };
                   });
 
@@ -595,7 +642,7 @@ export default function Quests() {
                       <button
                         key={c.id}
                         type="button"
-                        onClick={() => navigate(createPageUrl(`Collection?collectionId=${c.id}`))}
+                        onClick={() => navigate(createPageUrl(`Collection?collectionId=${c.id}&from=quests`))}
                         className="w-full text-left"
                       >
                         <div
@@ -609,6 +656,9 @@ export default function Quests() {
                               </div>
                               <div className="text-sm font-semibold text-stone-900 truncate mb-0.5">
                                 {c.title}
+                              </div>
+                              <div className="text-[11px] text-emerald-700 font-medium mb-0.5">
+                                Fortschritt: {c.progress.discovered}/{c.progress.total}
                               </div>
                               {c.description && (
                                 <div className="text-[11px] text-stone-600 line-clamp-2">

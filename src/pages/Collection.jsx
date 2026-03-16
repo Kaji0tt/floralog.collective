@@ -60,6 +60,7 @@ export default function Collection() {
   const [averageColor, setAverageColor] = useState(null);
   const [selectedCollectionId, setSelectedCollectionId] = useState("global");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const isQuestCollectionView = searchParams.get("from") === "quests" && !!searchParams.get("collectionId");
 
   useEffect(() => {
     const loadUser = async () => {
@@ -222,9 +223,20 @@ export default function Collection() {
     userCollections.some((uc) => uc.collection_id === c.id)
   );
 
+  const collectionsById = new Map();
+  [
+    ...visibleCollections,
+    ...ownedCollections,
+    ...followedCollections,
+  ].forEach((c) => {
+    if (!collectionsById.has(c.id)) {
+      collectionsById.set(c.id, c);
+    }
+  });
+
   const selectedCollection =
     selectedCollectionId !== 'global'
-      ? [...ownedCollections, ...followedCollections].find((c) => c.id === selectedCollectionId)
+      ? collectionsById.get(selectedCollectionId) || null
       : null;
 
   const getCollectionStats = (collectionKey) => {
@@ -442,7 +454,7 @@ export default function Collection() {
     return "rgb(" + r + ", " + g + ", " + b + ")";
   };
 
-  const activeBackgroundColor = selectedCollection?.background_color || averageColor;
+  const activeBackgroundColor = selectedCollection?.background_color || (isQuestCollectionView ? null : averageColor);
   const heroStats = getCollectionStats(selectedCollection ? selectedCollection.id : 'global');
   const heroProgressPercent = heroStats.total
     ? Math.round((heroStats.discovered / heroStats.total) * 100)
@@ -492,6 +504,7 @@ export default function Collection() {
         <div className="max-w-7xl mx-auto h-full pt-0 flex flex-col gap-3">
           <div className="shrink-0 space-y-3">
             {/* Horizontale Kollektionen-Chips + Neuerstellen-Button */}
+            {!isQuestCollectionView && (
             <div className="relative flex items-center gap-2">
               <div
                 className="-mx-4 px-4 pb-0 flex-1 flex gap-2 overflow-x-auto scrollbar-hide pr-6"
@@ -559,6 +572,7 @@ export default function Collection() {
                 <span className="text-lg leading-none">+</span>
               </button>
             </div>
+            )}
 
             {/* Hero-Kachel */}
             <div
@@ -572,7 +586,7 @@ export default function Collection() {
                   <h1 className="text-lg font-bold text-stone-900 leading-tight flex-1 min-w-0 truncate">
                     {heroTitle}
                   </h1>
-                  {selectedCollection && (
+                  {selectedCollection && !isQuestCollectionView && (
                     <div className="shrink-0 flex items-center gap-1.5">
                       {selectedCollection.is_public && !isOwnerOfSelected && (
                         <button
