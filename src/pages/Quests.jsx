@@ -161,6 +161,15 @@ export default function Quests() {
     queryFn: () => Query.CollectionItem.list(),
   });
 
+  const { data: userCollections = [] } = useQuery({
+    queryKey: ['userCollections', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      return Query.UserCollection.filter({ auth_id: user.id });
+    },
+    enabled: !!user?.id,
+  });
+
   const { data: allUsers = [] } = useQuery({
     queryKey: ['allUsers'],
     queryFn: async () => {
@@ -244,6 +253,39 @@ export default function Quests() {
     },
   });
 
+  const followCollectionMutation = useMutation({
+    mutationFn: async (collectionId) => {
+      if (!user?.id) return null;
+
+      // Avoid duplicate follow rows when a collection is already followed.
+      const existing = await Query.UserCollection.filter({
+        auth_id: user.id,
+        collection_id: collectionId,
+      });
+
+      if (existing?.length) return existing[0];
+
+      return Query.UserCollection.create({
+        auth_id: user.id,
+        collection_id: collectionId,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userCollections', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['allCollections'] });
+    },
+  });
+
+  const unfollowCollectionMutation = useMutation({
+    mutationFn: async (userCollectionId) => {
+      return Query.UserCollection.delete(userCollectionId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userCollections', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['allCollections'] });
+    },
+  });
+
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50">
@@ -312,6 +354,28 @@ export default function Quests() {
     const g = Math.floor(parseInt(match[2]) * 0.6);
     const b = Math.floor(parseInt(match[3]) * 0.6);
     return `rgb(${r}, ${g}, ${b})`;
+  };
+
+  const userCollectionByCollectionId = new Map(
+    (userCollections || [])
+      .filter((uc) => uc?.collection_id)
+      .map((uc) => [uc.collection_id, uc])
+  );
+
+  const isCollectionTogglePending =
+    followCollectionMutation.isPending || unfollowCollectionMutation.isPending;
+
+  const handleCollectionFollowToggle = (collection) => {
+    if (!collection?.id || !user?.id) return;
+    if (collection.auth_id === user.id) return;
+
+    const existingLink = userCollectionByCollectionId.get(collection.id);
+    if (existingLink?.id) {
+      unfollowCollectionMutation.mutate(existingLink.id);
+      return;
+    }
+
+    followCollectionMutation.mutate(collection.id);
   };
 
   return (
@@ -601,12 +665,18 @@ export default function Quests() {
                     const items = itemCounts[c.id] || 0;
                     const followers = c.followers_count ?? 0;
                     const progress = userProgressByCollection[c.id] || { discovered: 0, total: items };
+                    const isOwnCollection = c.auth_id === user?.id;
+                    const userCollectionLink = userCollectionByCollectionId.get(c.id) || null;
+                    const isFollowing = !!userCollectionLink && !isOwnCollection;
                     return {
                       ...c,
                       ownerName,
                       items,
                       followers,
                       progress,
+                      isOwnCollection,
+                      isFollowing,
+                      userCollectionLink,
                     };
                   });
 
@@ -632,21 +702,27 @@ export default function Quests() {
                     filtered.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
                   }
 
+                  const followedCollections = filtered.filter((c) => c.isFollowing);
+                  const discoverableCollections = filtered.filter((c) => !c.isFollowing);
                   const defaultBg = 'rgba(255,255,255,0.95)';
 
-                  return filtered.map((c) => {
+                  const renderCollectionCard = (c) => {
                     const accent = c.background_color || 'rgb(34,197,94)';
                     const background = `linear-gradient(to left, ${accent} 0%, ${accent} 35%, ${defaultBg} 70%, ${defaultBg} 100%)`;
 
                     return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => navigate(createPageUrl(`Collection?collectionId=${c.id}&from=quests`))}
-                        className="w-full text-left"
-                      >
+                      <div key={c.id} className="w-full">
                         <div
-                          className="rounded-2xl border border-stone-200 bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => navigate(createPageUrl(`Collection?collectionId=${c.id}&from=quests`))}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              navigate(createPageUrl(`Collection?collectionId=${c.id}&from=quests`));
+                            }
+                          }}
+                          className="rounded-2xl border border-stone-200 bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow overflow-hidden cursor-pointer"
                           style={{ background }}
                         >
                           <div className="p-3 flex items-center justify-between gap-3">
@@ -666,7 +742,26 @@ export default function Quests() {
                                 </div>
                               )}
                             </div>
+
                             <div className="flex flex-col items-end gap-1 text-[11px] text-stone-700 flex-shrink-0">
+                              {!c.isOwnCollection && (
+                                <Button
+                                  type="button"
+                                  variant={c.isFollowing ? 'outline' : 'default'}
+                                  size="sm"
+                                  disabled={isCollectionTogglePending}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCollectionFollowToggle(c);
+                                  }}
+                                  className={c.isFollowing
+                                    ? 'h-7 px-2 text-[11px] border-emerald-300 text-emerald-700 bg-white/80 hover:bg-emerald-50'
+                                    : 'h-7 px-2 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white'}
+                                >
+                                  {c.isFollowing ? 'Abo beenden' : 'Abonnieren'}
+                                </Button>
+                              )}
+
                               <div className="flex items-center gap-1 bg-white/70 rounded-full px-2 py-0.5">
                                 <Leaf className="w-3 h-3 text-emerald-600" />
                                 <span>{c.items}</span>
@@ -680,9 +775,39 @@ export default function Quests() {
                             </div>
                           </div>
                         </div>
-                      </button>
+                      </div>
                     );
-                  });
+                  };
+
+                  return (
+                    <div className="space-y-3">
+                      {followedCollections.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="px-1">
+                            <h3 className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Deine Abos</h3>
+                          </div>
+                          <div className="space-y-2">
+                            {followedCollections.map((c) => renderCollectionCard(c))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <div className="px-1">
+                          <h3 className="text-xs font-semibold uppercase tracking-wide text-stone-700">Öffentliche Kollektionen</h3>
+                        </div>
+                        <div className="space-y-2">
+                          {discoverableCollections.length > 0 ? (
+                            discoverableCollections.map((c) => renderCollectionCard(c))
+                          ) : (
+                            <div className="text-center py-6 bg-white/60 rounded-xl border border-dashed border-stone-200 text-[12px] text-stone-500">
+                              Aktuell keine weiteren öffentlichen Kollektionen.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
                 })()}
               </div>
             </div>
