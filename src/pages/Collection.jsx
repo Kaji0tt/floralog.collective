@@ -54,7 +54,7 @@ export default function Collection() {
   const [selectedGenus, setSelectedGenus] = useState(null);
   const [showHintDialog, setShowHintDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [collectionSort, setCollectionSort] = useState("newest");
+  const [collectionSort, setCollectionSort] = useState("index");
   const [discoveredFilter, setDiscoveredFilter] = useState("all");
   const [user, setUser] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
@@ -656,10 +656,10 @@ export default function Collection() {
                   searchQuery={searchQuery}
                   onSearchQueryChange={setSearchQuery}
                   sortOptions={[
+                    { value: "index", label: "Index" },
                     { value: "newest", label: "Neu" },
                     { value: "title", label: "Titel" },
                     { value: "rarity", label: "Rarität" },
-                    { value: "index", label: "Index" },
                   ]}
                   sortValue={collectionSort}
                   onSortChange={setCollectionSort}
