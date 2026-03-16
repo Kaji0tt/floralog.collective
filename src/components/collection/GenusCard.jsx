@@ -161,10 +161,12 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
               )}
             </div>
 
-            {collectionNote && (
-              <p className="text-[10px] text-stone-600 leading-snug line-clamp-3">
-                {collectionNote}
-              </p>
+            {!!collectionNote?.trim() && (
+              <div className="max-h-14 overflow-y-auto pr-1">
+                <p className="text-[10px] font-normal text-stone-500 leading-snug whitespace-pre-wrap break-words">
+                  {collectionNote}
+                </p>
+              </div>
             )}
           </div>
         </CardContent>

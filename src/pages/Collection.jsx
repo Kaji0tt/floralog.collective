@@ -699,6 +699,7 @@ export default function Collection() {
                     userDiscoveries={userDiscoveries}
                     plants={plants}
                     friendEmail={null}
+                    collectionNote={genus.collectionNote}
                   />
                 ))}
               </div>

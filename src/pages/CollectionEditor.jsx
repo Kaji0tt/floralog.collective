@@ -147,6 +147,7 @@ export default function CollectionEditor() {
               collection_id: newCollection.id,
               genus_id: item.genusId || null,
               plant_id: item.plantId || null,
+              note: item.note?.trim() || null,
             })
           )
         );
@@ -557,6 +558,7 @@ export default function CollectionEditor() {
                                           plantId: searchMode === "plant" ? entry.id : null,
                                           label: mainLabel,
                                           subLabel: subLabel || null,
+                                          note: "",
                                         },
                                       ]);
                                       setSearchQuery("");
@@ -584,25 +586,44 @@ export default function CollectionEditor() {
                           {pendingItems.map((item) => (
                             <div
                               key={item.tempId}
-                              className="flex items-center justify-between gap-2 border border-stone-200 rounded-md px-2 py-1.5 bg-stone-50/80 text-[12px]"
+                              className="border border-stone-200 rounded-md px-2 py-1.5 bg-stone-50/80 text-[12px]"
                             >
-                              <div className="min-w-0 flex-1">
-                                <div className="truncate text-stone-800 font-medium">{item.label}</div>
-                                {item.subLabel && (
-                                  <div className="truncate text-[11px] text-stone-500">{item.subLabel}</div>
-                                )}
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <div className="truncate text-stone-800 font-medium">{item.label}</div>
+                                  {item.subLabel && (
+                                    <div className="truncate text-[11px] text-stone-500">{item.subLabel}</div>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  className="text-[10px] text-stone-400 hover:text-red-500 transition-colors shrink-0"
+                                  onClick={() =>
+                                    setPendingItems((prev) =>
+                                      prev.filter((i) => i.tempId !== item.tempId)
+                                    )
+                                  }
+                                >
+                                  Entfernen
+                                </button>
                               </div>
-                              <button
-                                type="button"
-                                className="text-[10px] text-stone-400 hover:text-red-500 transition-colors shrink-0"
-                                onClick={() =>
+
+                              <Textarea
+                                value={item.note || ""}
+                                onChange={(e) => {
+                                  const nextNote = e.target.value;
                                   setPendingItems((prev) =>
-                                    prev.filter((i) => i.tempId !== item.tempId)
-                                  )
-                                }
-                              >
-                                Entfernen
-                              </button>
+                                    prev.map((i) =>
+                                      i.tempId === item.tempId
+                                        ? { ...i, note: nextNote }
+                                        : i
+                                    )
+                                  );
+                                }}
+                                rows={2}
+                                className="mt-2 text-[11px]"
+                                placeholder="Optionale kurze Erklärung zu dieser Pflanze in der Kollektion"
+                              />
                             </div>
                           ))}
                         </div>
