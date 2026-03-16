@@ -352,11 +352,16 @@ export default function CollectionEditor() {
                   </div>
                 </div>
 
-                {collectionId && (
-                  <div className="mt-4 border-t border-stone-100 pt-3">
-                    <h2 className="text-sm font-semibold text-stone-800 mb-1">
-                      Pflanzen in dieser Kollektion
-                    </h2>
+                <div className="mt-4 border-t border-stone-100 pt-3">
+                  <h2 className="text-sm font-semibold text-stone-800 mb-1">
+                    Pflanzen in dieser Kollektion
+                  </h2>
+                  {!collectionId ? (
+                    <p className="text-[11px] text-stone-500">
+                      Speichere zuerst die Kollektion, um Pflanzen oder Gattungen hinzuzufügen.
+                    </p>
+                  ) : (
+                    <>
                     <p className="text-[11px] text-stone-500 mb-2">
                       Suche nach Gattungen oder Arten und füge sie hinzu. Unten kannst du pro
                       Eintrag eine kurze Erklärung ergänzen (z.B. "Hilft bei Kopfschmerzen").
@@ -539,8 +544,9 @@ export default function CollectionEditor() {
                         })}
                       </div>
                     )}
-                  </div>
-                )}
+                    </>
+                  )}
+                </div>
 
                 <div className="pt-4 mt-2 border-t border-stone-100 flex justify-end gap-2">
                   <Button
