@@ -4,7 +4,6 @@ import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Heart, Users, TrendingUp, Clock, Leaf, Loader2, ChevronLeft, ChevronRight, X, Search, MapPin, BarChart3, Award } from "lucide-react";
@@ -744,24 +743,6 @@ export default function Quests() {
                             </div>
 
                             <div className="flex flex-col items-end gap-1 text-[11px] text-stone-700 flex-shrink-0">
-                              {!c.isOwnCollection && (
-                                <Button
-                                  type="button"
-                                  variant={c.isFollowing ? 'outline' : 'default'}
-                                  size="sm"
-                                  disabled={isCollectionTogglePending}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleCollectionFollowToggle(c);
-                                  }}
-                                  className={c.isFollowing
-                                    ? 'h-7 px-2 text-[11px] border-emerald-300 text-emerald-700 bg-white/80 hover:bg-emerald-50'
-                                    : 'h-7 px-2 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white'}
-                                >
-                                  {c.isFollowing ? 'Abo beenden' : 'Abonnieren'}
-                                </Button>
-                              )}
-
                               <div className="flex items-center gap-1 bg-white/70 rounded-full px-2 py-0.5">
                                 <Leaf className="w-3 h-3 text-emerald-600" />
                                 <span>{c.items}</span>
@@ -772,6 +753,22 @@ export default function Quests() {
                                 <span>{c.followers}</span>
                                 <span className="text-[10px] text-stone-400">Follower</span>
                               </div>
+                              {!c.isOwnCollection && (
+                                <button
+                                  type="button"
+                                  disabled={isCollectionTogglePending}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCollectionFollowToggle(c);
+                                  }}
+                                  className="flex items-center gap-1 bg-white/70 rounded-full px-2 py-0.5 border border-transparent hover:bg-white/90 hover:border-emerald-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                                >
+                                  <Users className={`w-3 h-3 ${c.isFollowing ? 'text-emerald-600' : 'text-stone-500'}`} />
+                                  <span className="text-[10px] text-stone-500">
+                                    {c.isFollowing ? 'Abo beenden' : 'Abonnieren'}
+                                  </span>
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>
