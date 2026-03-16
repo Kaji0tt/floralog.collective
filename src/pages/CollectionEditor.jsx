@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
@@ -14,6 +14,7 @@ import MobileBackButton from "@/components/navigation/MobileBackButton";
 
 export default function CollectionEditor() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const collectionId = searchParams.get("id");
 
@@ -105,8 +106,11 @@ export default function CollectionEditor() {
     mutationFn: async (data) => {
       return Query.Collection.create(data);
     },
-    onSuccess: () => {
+    onSuccess: (newCollection) => {
       queryClient.invalidateQueries({ queryKey: ["ownedCollections"] });
+      if (newCollection?.id) {
+        navigate(`?id=${newCollection.id}`, { replace: true });
+      }
     },
   });
 
