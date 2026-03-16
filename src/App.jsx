@@ -14,6 +14,8 @@ import Register from '@/pages/Register';
 import ConfirmEmail from '@/pages/ConfirmEmail';
 import MigrateLogin from '@/pages/MigrateLogin';
 import SetPassword from '@/pages/SetPassword';
+import ForgotPassword from '@/pages/ForgotPassword';
+import ResetPassword from '@/pages/ResetPassword';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -86,6 +88,8 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/confirm-email" element={<ConfirmEmail />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/migrate" element={<MigrateLogin />} />
             <Route path="/migration/login" element={<MigrateLogin />} />
             <Route path="/migration/set-password" element={<SetPassword />} />

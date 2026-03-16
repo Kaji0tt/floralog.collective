@@ -148,6 +148,15 @@ export default function Login() {
                 required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
               />
+              <div className="mt-2 text-right">
+                <button
+                  type="button"
+                  onClick={() => navigate('/forgot-password', { state: { email } })}
+                  className="text-sm text-green-600 hover:underline"
+                >
+                  Passwort vergessen?
+                </button>
+              </div>
             </div>
 
             <button
