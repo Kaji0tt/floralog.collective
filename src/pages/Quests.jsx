@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Heart, Users, TrendingUp, Clock, Leaf, Loader2, ChevronLeft, ChevronRight, X, Search, MapPin, BarChart3, Award } from "lucide-react";
+import { Heart, Users, TrendingUp, Clock, Leaf, Loader2, ChevronLeft, ChevronRight, X, Search, MapPin, BarChart3, Award, Plus, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -721,9 +721,27 @@ export default function Quests() {
                               navigate(createPageUrl(`Collection?collectionId=${c.id}&from=quests`));
                             }
                           }}
-                          className="rounded-2xl border border-stone-200 bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow overflow-hidden cursor-pointer"
+                          className="relative rounded-2xl border border-stone-200 bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow overflow-hidden cursor-pointer"
                           style={{ background }}
                         >
+                          {!c.isOwnCollection && (
+                            <button
+                              type="button"
+                              disabled={isCollectionTogglePending}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCollectionFollowToggle(c);
+                              }}
+                              aria-label={c.isFollowing ? 'Abo beenden' : 'Abonnieren'}
+                              title={c.isFollowing ? 'Abo beenden' : 'Abonnieren'}
+                              className={`absolute top-2 right-2 z-10 w-6 h-6 rounded-full border shadow-sm flex items-center justify-center transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${c.isFollowing
+                                ? 'bg-emerald-50/95 border-emerald-200 text-emerald-600 hover:bg-emerald-100/95'
+                                : 'bg-white/85 border-stone-200 text-stone-500 hover:bg-white'}`}
+                            >
+                              {c.isFollowing ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                            </button>
+                          )}
+
                           <div className="p-3 flex items-center justify-between gap-3">
                             <div className="flex-1 min-w-0">
                               <div className="text-[11px] text-stone-600 mb-0.5 truncate">
@@ -753,22 +771,6 @@ export default function Quests() {
                                 <span>{c.followers}</span>
                                 <span className="text-[10px] text-stone-400">Follower</span>
                               </div>
-                              {!c.isOwnCollection && (
-                                <button
-                                  type="button"
-                                  disabled={isCollectionTogglePending}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleCollectionFollowToggle(c);
-                                  }}
-                                  className="flex items-center gap-1 bg-white/70 rounded-full px-2 py-0.5 border border-transparent hover:bg-white/90 hover:border-emerald-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                                >
-                                  <Users className={`w-3 h-3 ${c.isFollowing ? 'text-emerald-600' : 'text-stone-500'}`} />
-                                  <span className="text-[10px] text-stone-500">
-                                    {c.isFollowing ? 'Abo beenden' : 'Abonnieren'}
-                                  </span>
-                                </button>
-                              )}
                             </div>
                           </div>
                         </div>
