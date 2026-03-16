@@ -379,6 +379,8 @@ export default function Collection() {
     sortedGenera.sort((a, b) => (b.lastDiscoveryDate || 0) - (a.lastDiscoveryDate || 0));
   } else if (collectionSort === "title") {
     sortedGenera.sort((a, b) => (a.genus_name || "").localeCompare(b.genus_name || "", "de"));
+  } else if (collectionSort === "rarity") {
+    sortedGenera.sort((a, b) => (b.maxRarityScore || 0) - (a.maxRarityScore || 0));
   } else if (collectionSort === "index") {
     const categoryOrder = { "Bäume": 1, "Sträucher": 2, "Blumen": 3 };
     sortedGenera.sort((a, b) => {
@@ -656,6 +658,7 @@ export default function Collection() {
                   sortOptions={[
                     { value: "newest", label: "Neu" },
                     { value: "title", label: "Titel" },
+                    { value: "rarity", label: "Rarität" },
                     { value: "index", label: "Index" },
                   ]}
                   sortValue={collectionSort}
