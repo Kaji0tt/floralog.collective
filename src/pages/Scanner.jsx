@@ -873,10 +873,14 @@ export default function Scanner() {
             setShowConfirmDialog(false);
             setPendingScanData(null);
           } else {
+            setShowConfirmDialog(false);
+            setPendingScanData(null);
             alert("Die Pflanze konnte nicht zum globalen Floralog hinzugefügt werden. Bitte versuche es später erneut.");
           }
         } catch (error) {
           console.error("Fehler beim automatischen Hinzufügen zum Floralog:", error);
+          setShowConfirmDialog(false);
+          setPendingScanData(null);
           alert("Die Pflanze konnte nicht zum globalen Floralog hinzugefügt werden. Bitte versuche es später erneut.");
         }
       }
