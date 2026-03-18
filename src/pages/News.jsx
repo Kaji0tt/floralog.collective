@@ -43,6 +43,59 @@ export default function News() {
     }).format(date);
   };
 
+  const parseCssColorToRgb = (colorString) => {
+    if (!colorString || typeof colorString !== 'string') return null;
+    const color = colorString.trim();
+
+    const rgbMatch = color.match(/^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/i);
+    if (rgbMatch) {
+      return {
+        r: Math.min(255, Math.max(0, parseInt(rgbMatch[1], 10))),
+        g: Math.min(255, Math.max(0, parseInt(rgbMatch[2], 10))),
+        b: Math.min(255, Math.max(0, parseInt(rgbMatch[3], 10))),
+      };
+    }
+
+    const hexMatch = color.match(/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/);
+    if (hexMatch) {
+      let hex = hexMatch[1];
+      if (hex.length === 3) {
+        hex = hex.split('').map((char) => char + char).join('');
+      }
+
+      return {
+        r: parseInt(hex.slice(0, 2), 16),
+        g: parseInt(hex.slice(2, 4), 16),
+        b: parseInt(hex.slice(4, 6), 16),
+      };
+    }
+
+    return null;
+  };
+
+  const getRgbaFromColor = (colorString, opacity) => {
+    const rgb = parseCssColorToRgb(colorString);
+    if (!rgb) return colorString;
+    const safeOpacity = typeof opacity === 'number' ? Math.min(1, Math.max(0, opacity)) : 1;
+    return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${safeOpacity})`;
+  };
+
+  const isColorDark = (colorString) => {
+    const rgb = parseCssColorToRgb(colorString);
+    if (!rgb) return false;
+    const brightness = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
+    return brightness < 130;
+  };
+
+  const hasProfileBackgroundColor = Boolean(user?.background_color);
+  const headlineColor = hasProfileBackgroundColor && isColorDark(user.background_color) ? 'rgb(255, 255, 255)' : 'rgb(28, 25, 23)';
+  const subtitleColor = hasProfileBackgroundColor && isColorDark(user.background_color) ? 'rgba(255, 255, 255, 0.88)' : 'rgb(87, 83, 78)';
+  const pageBackgroundStyle = hasProfileBackgroundColor
+    ? {
+        background: `linear-gradient(135deg, ${getRgbaFromColor(user.background_color, 0.72)} 0%, ${getRgbaFromColor(user.background_color, 1)} 100%)`,
+      }
+    : {};
+
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50">
@@ -52,16 +105,16 @@ export default function News() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4 md:p-8" style={pageBackgroundStyle}>
       <MobileBackButton />
       
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-4xl md:text-5xl font-bold text-stone-900 mb-3 flex items-center justify-center gap-3">
-            <Newspaper className="w-10 h-10 text-green-600" />
+          <h1 className="text-4xl md:text-5xl font-bold mb-3 flex items-center justify-center gap-3" style={{ color: headlineColor }}>
+            <Newspaper className="w-10 h-10" style={{ color: headlineColor }} />
             Neuigkeiten
           </h1>
-          <p className="text-lg text-stone-600">
+          <p className="text-lg" style={{ color: subtitleColor }}>
             Bleib auf dem Laufenden über Updates und neue Features
           </p>
         </div>
