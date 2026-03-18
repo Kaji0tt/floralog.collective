@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import MobileBackButton from "@/components/navigation/MobileBackButton";
 import { createPageUrl } from "@/utils";
 
@@ -786,8 +786,9 @@ export default function CollectionEditor() {
                           className="text-[11px] h-8 px-3 border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
                           onClick={() => setShowDeleteConfirm(true)}
                           disabled={isSaving || deleteCollectionMutation.isPending || showDeleteConfirm}
+                          aria-label="Kollektion löschen"
                         >
-                          Kollektion löschen
+                          <Trash2 className="w-3.5 h-3.5" />
                         </Button>
                       )}
                     </div>

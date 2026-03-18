@@ -16,6 +16,7 @@ export default function ScanResults({
   plant,
   imageUrl,
   onRescan,
+  onBackToIntro,
   isSaving,
   userLocation,
   allResults = [],
@@ -275,6 +276,7 @@ export default function ScanResults({
   // Erfolgreich gescannte Pflanze (neu oder bereits entdeckt)
   if (currentPlant?.species_name) {
     const isBlockedResult = currentPlant?.metadata_failed === true || (currentPlant?.notInDex && currentPlant?.is_european === false);
+    const showBackToIntroButton = isBlockedResult;
     const rarity = currentPlant.rarity || currentPlant.aiData?.rarity || "Häufig";
     const isNewToPlantDex = currentPlant.isNewToPlantDex || false;
     const wasAlreadyDiscovered = currentPlant.discovered === true;
@@ -526,8 +528,8 @@ export default function ScanResults({
                       )}
                       </div>
 
-                  {/* Status Anzeige - nur bei bestätigten Scans */}
-                  {!isPendingConfirmation && (
+                  {/* Status Anzeige - nur bei bestätigten und speicherbaren Scans */}
+                  {!isPendingConfirmation && !isBlockedResult && (
                   <div className="bg-gradient-to-r from-green-400 to-emerald-400 rounded-xl p-4 border-2 border-green-500 shadow-lg">
                       <div className="flex items-center justify-center gap-3 flex-wrap">
                         <Sparkles className="w-6 h-6 text-white animate-pulse" />
@@ -537,6 +539,15 @@ export default function ScanResults({
                         <Sparkles className="w-6 h-6 text-white animate-pulse" />
                       </div>
                     </div>
+                  )}
+
+                  {showBackToIntroButton && (
+                  <Button
+                    onClick={onBackToIntro || onRescan}
+                    variant="secondary"
+                    className="w-full bg-stone-300 hover:bg-stone-400 text-stone-800 border border-stone-400 font-semibold">
+                      Zurück
+                    </Button>
                   )}
                 </CardContent>
 

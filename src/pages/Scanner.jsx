@@ -817,6 +817,19 @@ export default function Scanner() {
     setImageUrl(null);
   };
 
+  const handleBackToIntro = () => {
+    setScanning(false);
+    setMatchedPlant(null);
+    setAllScanResults([]);
+    setLatestDiscoveryId(null);
+    setImageUrl(null);
+    setPendingScanData(null);
+    setCurrentResultIndex(0);
+    setShowConfirmDialog(false);
+    setShowRateLimitDialog(false);
+    setShowCamera(false);
+  };
+
   const handleConfirmSave = async () => {
     if (!pendingScanData || isSavingPlant) return;
 
@@ -1291,14 +1304,8 @@ export default function Scanner() {
             <ScanResults
             plant={matchedPlant}
             imageUrl={imageUrl}
-            onRescan={() => {
-              setMatchedPlant(null);
-              setAllScanResults([]);
-              setLatestDiscoveryId(null);
-              setImageUrl(null);
-              setPendingScanData(null);
-              setCurrentResultIndex(0);
-            }}
+            onRescan={handleBackToIntro}
+            onBackToIntro={handleBackToIntro}
             onResultIndexChange={setCurrentResultIndex}
             userLocation={userLocation}
             allResults={allScanResults}
