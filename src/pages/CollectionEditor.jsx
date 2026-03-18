@@ -9,8 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Loader2 } from "lucide-react";
 import MobileBackButton from "@/components/navigation/MobileBackButton";
+import { createPageUrl } from "@/utils";
 
 export default function CollectionEditor() {
   const MIN_COLLECTION_ITEMS = 3;
@@ -107,9 +109,18 @@ export default function CollectionEditor() {
   const [itemNotes, setItemNotes] = useState({});
   const [searchMode, setSearchMode] = useState("genus"); // "genus" | "plant"
   const [searchQuery, setSearchQuery] = useState("");
+  const [classroomTooltipOpen, setClassroomTooltipOpen] = useState(false);
   // Pending items buffered locally when creating a new collection (before save)
   const [pendingItems, setPendingItems] = useState([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const navigateBackToCollection = (targetCollectionId = null) => {
+    if (targetCollectionId) {
+      navigate(createPageUrl(`Collection?collectionId=${targetCollectionId}`));
+      return;
+    }
+    navigate(createPageUrl("Collection"));
+  };
 
   useEffect(() => {
     if (collectionItems && collectionItems.length > 0) {
@@ -157,7 +168,7 @@ export default function CollectionEditor() {
     onSuccess: (newCollection) => {
       queryClient.invalidateQueries({ queryKey: ["ownedCollections"] });
       if (newCollection?.id) {
-        navigate(`?id=${newCollection.id}`, { replace: true });
+        navigateBackToCollection(newCollection.id);
       }
     },
   });
@@ -169,6 +180,7 @@ export default function CollectionEditor() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ownedCollections"] });
       queryClient.invalidateQueries({ queryKey: ["collection", collectionId] });
+      navigateBackToCollection(collectionId);
     },
   });
 
@@ -418,19 +430,34 @@ export default function CollectionEditor() {
                     />
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label htmlFor="is_classroom">Classroom-Modus</Label>
-                      <p className="text-[11px] text-stone-500">
-                        Für Klassen/Gruppen mit anonymen Kennungen.
-                      </p>
-                    </div>
-                    <Switch
-                      id="is_classroom"
-                      checked={formData.is_classroom}
-                      onCheckedChange={(v) => handleChange("is_classroom", v)}
-                    />
-                  </div>
+                  <TooltipProvider>
+                    <Tooltip open={classroomTooltipOpen} onOpenChange={setClassroomTooltipOpen}>
+                      <TooltipTrigger asChild>
+                        <div
+                          className="flex items-center justify-between opacity-60 cursor-not-allowed"
+                          onMouseEnter={() => setClassroomTooltipOpen(true)}
+                          onMouseLeave={() => setClassroomTooltipOpen(false)}
+                          onClick={() => setClassroomTooltipOpen(true)}
+                        >
+                          <div>
+                            <Label htmlFor="is_classroom">Classroom-Modus</Label>
+                            <p className="text-[11px] text-stone-500">
+                              Für Klassen/Gruppen mit anonymen Kennungen.
+                            </p>
+                          </div>
+                          <Switch
+                            id="is_classroom"
+                            checked={formData.is_classroom}
+                            disabled
+                            aria-disabled="true"
+                          />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Classroom Modus für Kollektionen folgt noch.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
 
                   <div className="flex items-center justify-between">
                     <div>
@@ -749,28 +776,43 @@ export default function CollectionEditor() {
                       </div>
                     </div>
                   )}
-                  <div className={`flex items-center ${collectionId ? "justify-between" : "justify-end"}`}>
-                    {collectionId && (
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      {collectionId && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="text-[11px] h-8 px-3 border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
+                          onClick={() => setShowDeleteConfirm(true)}
+                          disabled={isSaving || deleteCollectionMutation.isPending || showDeleteConfirm}
+                        >
+                          Kollektion löschen
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 ml-auto">
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="text-[11px] h-8 px-3 border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
-                        onClick={() => setShowDeleteConfirm(true)}
-                        disabled={isSaving || deleteCollectionMutation.isPending || showDeleteConfirm}
+                        className="text-[11px] h-8 px-3"
+                        onClick={() => navigateBackToCollection(collectionId)}
+                        disabled={isSaving || deleteCollectionMutation.isPending}
                       >
-                        Kollektion löschen
+                        Abbrechen
                       </Button>
-                    )}
-                    <Button
-                      type="submit"
-                      size="sm"
-                      className="text-[11px] h-8 px-3"
-                      disabled={isSaving || !formData.title.trim() || (!collectionId && pendingItems.length < MIN_COLLECTION_ITEMS)}
-                    >
-                      {isSaving && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
-                      {collectionId ? "Speichern" : "Kollektion anlegen"}
-                    </Button>
+                      <Button
+                        type="submit"
+                        size="sm"
+                        className="text-[11px] h-8 px-3"
+                        disabled={isSaving || !formData.title.trim() || (!collectionId && pendingItems.length < MIN_COLLECTION_ITEMS)}
+                      >
+                        {isSaving && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                        {collectionId ? "Speichern" : "Kollektion anlegen"}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </form>
