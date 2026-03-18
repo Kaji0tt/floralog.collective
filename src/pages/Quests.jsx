@@ -368,12 +368,28 @@ export default function Quests() {
     if (!collection?.id || !user?.id) return;
     if (collection.auth_id === user.id) return;
 
+    const adjustFollowerCount = (delta) => {
+      queryClient.setQueryData(['allCollections'], (previous) => {
+        if (!Array.isArray(previous)) return previous;
+        return previous.map((entry) =>
+          entry.id === collection.id
+            ? {
+                ...entry,
+                followers_count: Math.max((entry.followers_count ?? 0) + delta, 0),
+              }
+            : entry
+        );
+      });
+    };
+
     const existingLink = userCollectionByCollectionId.get(collection.id);
     if (existingLink?.id) {
+      adjustFollowerCount(-1);
       unfollowCollectionMutation.mutate(existingLink.id);
       return;
     }
 
+    adjustFollowerCount(1);
     followCollectionMutation.mutate(collection.id);
   };
 

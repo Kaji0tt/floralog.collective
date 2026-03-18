@@ -153,6 +153,7 @@ export default function Collection() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["userCollections", user?.id] });
       queryClient.invalidateQueries({ queryKey: ["visibleCollections"] });
+      queryClient.invalidateQueries({ queryKey: ["allCollections"] });
     },
   });
 
@@ -163,6 +164,7 @@ export default function Collection() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["userCollections", user?.id] });
       queryClient.invalidateQueries({ queryKey: ["visibleCollections"] });
+      queryClient.invalidateQueries({ queryKey: ["allCollections"] });
     },
   });
 
