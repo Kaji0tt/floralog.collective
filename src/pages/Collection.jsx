@@ -49,7 +49,7 @@ const getAverageColor = (imageUrl) => {
 export default function Collection() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeCategory, setActiveCategory] = useState("Alle");
   const [selectedGenus, setSelectedGenus] = useState(null);
   const [showHintDialog, setShowHintDialog] = useState(false);
@@ -74,8 +74,27 @@ export default function Collection() {
     const urlCollectionId = searchParams.get("collectionId");
     if (urlCollectionId && urlCollectionId !== selectedCollectionId) {
       setSelectedCollectionId(urlCollectionId);
+      return;
+    }
+    if (!urlCollectionId && selectedCollectionId !== "global") {
+      setSelectedCollectionId("global");
     }
   }, [searchParams, selectedCollectionId]);
+
+  const handleCollectionChipSelect = (nextCollectionId) => {
+    setSelectedCollectionId(nextCollectionId);
+
+    const nextParams = new URLSearchParams(searchParams);
+    if (nextCollectionId === "global") {
+      nextParams.delete("collectionId");
+      nextParams.delete("from");
+    } else {
+      nextParams.set("collectionId", nextCollectionId);
+      nextParams.delete("from");
+    }
+
+    setSearchParams(nextParams, { replace: true });
+  };
 
   const { data: genera = [], isLoading: generaLoading } = useQuery({
     queryKey: ['genera'],
@@ -542,7 +561,7 @@ export default function Collection() {
                       <button
                         key={col.id}
                         type="button"
-                        onClick={() => setSelectedCollectionId(col.id)}
+                        onClick={() => handleCollectionChipSelect(col.id)}
                         className={
                           "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors " +
                           (isActive
