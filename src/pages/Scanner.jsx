@@ -1227,18 +1227,24 @@ export default function Scanner() {
               borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
             }}
           >
-            <CardContent className="p-6 md:p-8">
-              <div className="flex items-center justify-between gap-4">
+            <CardContent className="p-6 md:p-8" style={user?.background_image_url ? {
+              backgroundImage: `linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(0,0,0,0.4) 100%), url(${user.background_image_url})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center'
+            } : user?.background_color ? {
+              background: `linear-gradient(135deg, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 0.6)')} 0%, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 1)')} 100%)`
+            } : {}}>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
                 <Button
                   onClick={() => navigate(createPageUrl("Home"))}
-                  className="bg-gradient-to-br from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold shadow-lg"
+                  className="w-full sm:w-auto justify-center bg-gradient-to-br from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold shadow-lg"
                 >
                   <ArrowLeft className="w-5 h-5 mr-2" />
                   Zurück
                 </Button>
 
-                <div className="flex items-center gap-3 bg-stone-50 rounded-lg px-4 py-2.5 border-2 border-stone-200">
-                  <Label htmlFor="location-toggle" className="text-stone-900 font-semibold cursor-pointer flex items-center gap-2">
+                <div className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-3 bg-stone-50 rounded-lg px-3 sm:px-4 py-2.5 border-2 border-stone-200 min-w-0">
+                  <Label htmlFor="location-toggle" className="text-stone-900 font-semibold cursor-pointer flex items-center gap-2 min-w-0 text-sm sm:text-base">
                     <MapPin className="w-4 h-4" />
                     Standort
                   </Label>
@@ -1246,6 +1252,7 @@ export default function Scanner() {
                     id="location-toggle"
                     checked={locationEnabled}
                     onCheckedChange={setLocationEnabled}
+                    className="shrink-0"
                   />
                 </div>
               </div>
