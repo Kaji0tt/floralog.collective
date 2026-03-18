@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Query } from "@/api/entities";
 import { supabase } from "@/api/supabaseClient";
+import { createUserNotification, getUserDisplayName } from "@/api/notificationService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -96,7 +97,7 @@ export default function ShareScanDialog({ open, onClose, discovery, plant, user 
       const friendProfile = getFriendProfile(friendEmail);
       
       // Pflanze teilen
-      await createShareMutation.mutateAsync({
+      const createdShare = await createShareMutation.mutateAsync({
         auth_id_from: user.id,
         auth_id_to: friendProfile?.auth_id || null,
         discovery_id: discovery.id,
@@ -108,6 +109,20 @@ export default function ShareScanDialog({ open, onClose, discovery, plant, user 
         discovery_location: discovery.discovery_location,
         viewed: false,
         xp_awarded: false
+      });
+
+      const senderName = getUserDisplayName(user, user.email);
+      await createUserNotification({
+        authId: friendProfile?.auth_id,
+        userEmail: friendEmail,
+        notificationType: "gift_received",
+        title: "🎁 Neue Pflanze geschenkt",
+        message: `${senderName} hat dir eine Pflanze geschickt!`,
+        description: plant?.species_name || "",
+        actionUrl: createdShare?.id ? `ViewSharedScan?id=${createdShare.id}` : "Friends",
+        imageUrl: discovery.image_url || "",
+        displayLocation: "banner",
+        createdBy: user.email,
       });
 
       // Push Notification senden

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Query } from "@/api/entities";
+import { createUserNotification } from "@/api/notificationService";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { UserPlus, Users, Loader2, Mail, Star, Check, X, Bell, ChevronRight, UserMinus, Clock, Leaf, Trophy, Gift, Share2, Plus } from "lucide-react";
+import { UserPlus, Users, Loader2, Mail, Check, X, Bell, ChevronRight, UserMinus, Leaf, Trophy, Share2, Plus, Heart, UserCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
@@ -146,18 +147,38 @@ export default function Friends() {
     queryFn: () => Query.Plant.list()
   });
 
-  // Lade alle Genera
-  const { data: allGenera = [] } = useQuery({
-    queryKey: ['allGenera'],
-    queryFn: () => Query.PlantGenus.list()
+  const NEWS_TYPES = ['gift_received', 'collection_followed', 'friendship_accepted', 'friend_achievement', 'scan_liked'];
+
+  const { data: userNews = [] } = useQuery({
+    queryKey: ['friendsNews', user?.id, user?.email],
+    queryFn: async () => {
+      if (!user?.email) return [];
+      const notifications = await Query.UserNotification.list('-created_date', 50);
+      const userEmailLower = user.email.toLowerCase();
+
+      return notifications.filter((notification) => {
+        const isForCurrentUser =
+          (!!user?.id && notification.auth_id === user.id) ||
+          notification.user_email?.toLowerCase() === userEmailLower;
+
+        return isForCurrentUser && NEWS_TYPES.includes(notification.notification_type);
+      });
+    },
+    enabled: !!user?.email,
+    staleTime: 15000,
   });
 
-  // Lade SharedScans
-  const { data: sharedScans = [] } = useQuery({
-    queryKey: ['sharedScans', user?.email],
-    queryFn: () => Query.SharedScan.filter({ shared_to: user?.email }),
-    enabled: !!user?.email,
-  });
+  useEffect(() => {
+    if (!user?.email) return;
+
+    const unsubscribe = Query.UserNotification.subscribe((event) => {
+      if (event.type === 'create' || event.type === 'update' || event.type === 'delete') {
+        queryClient.invalidateQueries({ queryKey: ['friendsNews'] });
+      }
+    });
+
+    return unsubscribe;
+  }, [user?.email, queryClient]);
 
   // Lade alle Achievements - mit höherem Limit
   const { data: allUserAchievements = [] } = useQuery({
@@ -238,6 +259,26 @@ export default function Friends() {
       const requesterEmail = variables.request_sent_by;
       alert(`✅ Freundschaft mit ${requesterEmail} bestätigt!`);
 
+      try {
+        const requesterProfile = allPublicProfiles.find(
+          (profile) => profile.user_email?.toLowerCase() === requesterEmail?.toLowerCase()
+        );
+        const accepterName = user.display_name || user.full_name || user.email;
+
+        await createUserNotification({
+          authId: requesterProfile?.auth_id,
+          userEmail: requesterProfile?.user_email || requesterEmail,
+          notificationType: "friendship_accepted",
+          title: "🤝 Freundschaft bestätigt",
+          message: `${accepterName} hat deine Freundschaftsanfrage angenommen!`,
+          actionUrl: `FriendProfile?email=${encodeURIComponent(user.email)}`,
+          displayLocation: "banner",
+          createdBy: user.email
+        });
+      } catch (notificationError) {
+        console.error("[Friends] Failed to create friendship acceptance notification:", notificationError);
+      }
+
       // Prüfe Achievements
       const newlyUnlocked = await checkAndUnlockAchievements(user);
       if (newlyUnlocked.length > 0) {
@@ -273,6 +314,15 @@ export default function Friends() {
     },
     onError: (error) => {
       alert(`Fehler beim Entfernen des Freundes: ${error.message}`);
+    }
+  });
+
+  const markNewsAsSeenMutation = useMutation({
+    mutationFn: async (notificationId) => {
+      await Query.UserNotification.update(notificationId, { seen: true });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['friendsNews'] });
     }
   });
 
@@ -494,6 +544,59 @@ Viel Spaß beim Entdecken! 🌿`;
     return `rgb(${r}, ${g}, ${b})`;
   };
 
+  const getNewsMeta = (notificationType) => {
+    switch (notificationType) {
+      case 'gift_received':
+        return { icon: Share2, accent: 'text-pink-600', card: 'bg-pink-50 border-pink-200' };
+      case 'collection_followed':
+        return { icon: Users, accent: 'text-blue-600', card: 'bg-blue-50 border-blue-200' };
+      case 'friendship_accepted':
+        return { icon: UserCheck, accent: 'text-green-600', card: 'bg-green-50 border-green-200' };
+      case 'friend_achievement':
+        return { icon: Trophy, accent: 'text-amber-600', card: 'bg-amber-50 border-amber-200' };
+      case 'scan_liked':
+        return { icon: Heart, accent: 'text-rose-600', card: 'bg-rose-50 border-rose-200' };
+      default:
+        return { icon: Bell, accent: 'text-stone-600', card: 'bg-stone-50 border-stone-200' };
+    }
+  };
+
+  const getNewsActor = (newsItem) => {
+    const actorEmail = newsItem.created_by;
+    if (!actorEmail || actorEmail === 'system') {
+      return {
+        name: 'System',
+        avatarUrl: null,
+        email: null,
+      };
+    }
+
+    const actorProfile = allPublicProfiles.find(
+      (profile) => profile.user_email?.toLowerCase() === actorEmail.toLowerCase()
+    );
+
+    return {
+      name:
+        actorProfile?.display_name ||
+        actorProfile?.full_name ||
+        actorEmail,
+      avatarUrl: actorProfile?.avatar_url || null,
+      email: actorEmail,
+    };
+  };
+
+  const unreadNewsCount = userNews.filter((notification) => notification.seen !== true).length;
+
+  const openNewsEntry = (notification) => {
+    if (notification.seen !== true) {
+      markNewsAsSeenMutation.mutate(notification.id);
+    }
+
+    if (notification.action_url) {
+      navigate(createPageUrl(notification.action_url));
+    }
+  };
+
   // Helper: Hole Freundesdaten
   const getFriendData = (friendEntry) => {
     if (!user || !user.email) return null;
@@ -578,9 +681,9 @@ Viel Spaß beim Entdecken! 🌿`;
                     <Users className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                     Meine Freunde ({friends.length})
                   </TabsTrigger>
-                  <TabsTrigger value="gifts" className="data-[state=active]:bg-pink-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
-                    <Gift className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                    Meine Geschenke ({sharedScans.length})
+                  <TabsTrigger value="news" className="data-[state=active]:bg-pink-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
+                    <Bell className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                    Neuigkeiten ({unreadNewsCount})
                   </TabsTrigger>
                 </TabsList>
                 {activeTab === "friends" && (
@@ -780,82 +883,86 @@ Viel Spaß beim Entdecken! 🌿`;
             </motion.div>
           </TabsContent>
 
-          {/* Gifts Tab Content */}
-          <TabsContent value="gifts" className="pt-14 px-2 pb-4">
+          {/* News Tab Content */}
+          <TabsContent value="news" className="pt-14 px-2 pb-4">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              {sharedScans.length === 0 ? (
+              {userNews.length === 0 ? (
                 <div className="text-center py-12">
                   <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 max-w-md mx-auto border border-stone-200 shadow-lg">
-                    <Gift className="w-16 h-16 text-stone-300 mx-auto mb-4" />
+                    <Bell className="w-16 h-16 text-stone-300 mx-auto mb-4" />
                     <p className="text-stone-600 text-lg font-semibold mb-2">
-                      Noch keine Geschenke
+                      Noch keine Neuigkeiten
                     </p>
                     <p className="text-stone-500">
-                      Deine Freunde können dir Pflanzen schenken!
+                      Hier siehst du, was in deinem Freundeskreis passiert.
                     </p>
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {sharedScans.map((scan, index) => {
-                    const plant = allPlants.find(p => p.id === scan.plant_id);
-                    const genus = plant ? allGenera.find(g => 
-                      g.category === plant.genus_category && 
-                      g.category_dex_number === plant.genus_number
-                    ) : null;
-                    const senderProfile = allPublicProfiles.find(p => 
-                      p.user_email?.toLowerCase() === scan.shared_by?.toLowerCase()
-                    );
-                    
+                <div className="space-y-2">
+                  {userNews.map((newsItem, index) => {
+                    const meta = getNewsMeta(newsItem.notification_type);
+                    const Icon = meta.icon;
+                    const actor = getNewsActor(newsItem);
+                    const avatarFallback = (actor.name || actor.email || '?').charAt(0).toUpperCase();
+
                     return (
                       <motion.div
-                        key={scan.id}
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: index * 0.02 }}
+                        key={newsItem.id}
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.04 }}
                       >
-                        <Card 
-                          className="border shadow-sm hover:border-pink-300 hover:shadow-md transition-all bg-white overflow-hidden cursor-pointer"
-                          onClick={() => navigate(createPageUrl(`ViewSharedScan?id=${scan.id}`))}
+                        <Card
+                          className={`border shadow-sm hover:shadow-md transition-all cursor-pointer ${newsItem.seen ? 'bg-white border-stone-200' : meta.card}`}
+                          onClick={() => openNewsEntry(newsItem)}
                         >
-                          {scan.image_url && (
-                            <div className="relative aspect-square">
-                              <img
-                                src={scan.image_url}
-                                alt={plant?.species_name}
-                                className="w-full h-full object-cover"
-                              />
-                              {!scan.viewed && (
-                                <div className="absolute top-2 right-2 w-6 h-6 bg-pink-500 rounded-full flex items-center justify-center shadow-md">
-                                  <Gift className="w-3 h-3 text-white" />
+                          <CardContent className="p-3">
+                            <div className="flex items-start gap-3">
+                              <div className="relative w-10 h-10 flex-shrink-0">
+                                <div className={`w-10 h-10 rounded-full overflow-hidden border border-stone-200 ${newsItem.seen ? 'bg-stone-100' : 'bg-white'} flex items-center justify-center`}>
+                                  {actor.avatarUrl ? (
+                                    <img
+                                      src={actor.avatarUrl}
+                                      alt={actor.name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <span className="text-xs font-semibold text-stone-700">{avatarFallback}</span>
+                                  )}
                                 </div>
-                              )}
-                              <div className="absolute bottom-2 left-2 w-6 h-6 bg-white rounded-full shadow-md overflow-hidden border border-stone-200">
-                                {senderProfile?.avatar_url ? (
-                                  <img
-                                    src={senderProfile.avatar_url}
-                                    alt={senderProfile.display_name || scan.shared_by}
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  <div className="w-full h-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white text-[10px] font-bold">
-                                    {scan.shared_by?.[0]?.toUpperCase() || '?'}
-                                  </div>
-                                )}
+                                <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white border border-stone-200 flex items-center justify-center">
+                                  <Icon className={`w-3 h-3 ${meta.accent}`} />
+                                </div>
                               </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-stone-900 truncate">
+                                  {newsItem.title || 'Neuigkeit'}
+                                </p>
+                                <p className="text-[11px] text-stone-500 mt-0.5 truncate">
+                                  von {actor.name}
+                                </p>
+                                <p className="text-xs text-stone-600 mt-0.5 line-clamp-2">
+                                  {newsItem.message}
+                                </p>
+                                {!!newsItem.description && (
+                                  <p className="text-[11px] text-stone-500 mt-1 truncate">{newsItem.description}</p>
+                                )}
+                                <p className="text-[10px] text-stone-400 mt-1">
+                                  {formatDistanceToNow(new Date(newsItem.created_date || newsItem.created_at || new Date().toISOString()), {
+                                    addSuffix: true,
+                                    locale: de,
+                                  })}
+                                </p>
+                              </div>
+                              {!newsItem.seen && (
+                                <div className="w-2.5 h-2.5 bg-green-500 rounded-full mt-1 flex-shrink-0" />
+                              )}
                             </div>
-                          )}
-                          <CardContent className="p-2">
-                            <p className="text-xs font-semibold text-stone-900 truncate">
-                              {plant?.species_name || 'Unbekannt'}
-                            </p>
-                            <p className="text-[10px] text-stone-500 truncate">
-                              von {senderProfile?.display_name || scan.shared_by}
-                            </p>
                           </CardContent>
                         </Card>
                       </motion.div>
@@ -867,269 +974,6 @@ Viel Spaß beim Entdecken! 🌿`;
           </TabsContent>
         </Tabs>
 
-        {/* Desktop View - TODO: Implement desktop tabs version similar to mobile */}
-        <div className="hidden md:block pt-14">
-
-          {/* Freundschaftsanfragen Desktop */}
-          {pendingRequests.length > 0 &&
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="mb-6">
-
-              <Card className="border-2 border-amber-200 shadow-lg bg-white">
-                <CardHeader className="border-b border-amber-100 bg-amber-50">
-                  <CardTitle className="flex items-center gap-2 text-xl">
-                    <Bell className="w-6 h-6 text-amber-600" />
-                    Freundschaftsanfragen
-                    <Badge className="bg-amber-600 text-white ml-2">{pendingRequests.length}</Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4">
-                  <div className="space-y-3">
-                    {pendingRequests.map((request, index) => {
-                    const requesterData = getFriendData(request);
-                    if (!requesterData) return null;
-
-                    return (
-                      <motion.div
-                        key={request.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.1 }}>
-
-                          <Card className="border-2 border-stone-200 bg-white">
-                            <CardContent className="p-4">
-                              <div className="flex items-center justify-between flex-wrap gap-3">
-                                <div className="flex items-center gap-3 flex-1 min-w-0">
-                                  <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden flex-shrink-0">
-                                    {requesterData?.avatar_url ?
-                                  <img src={requesterData.avatar_url} alt={requesterData.name} className="w-full h-full object-cover" /> :
-
-                                  requesterData.name?.[0]?.toUpperCase() || '?'
-                                  }
-                                  </div>
-                                  <div className="min-w-0">
-                                    <div className="font-bold text-stone-900 truncate">{requesterData.name}</div>
-                                    <div className="text-sm text-stone-600">möchte dein Freund sein</div>
-                                  </div>
-                                </div>
-                                <div className="flex gap-2 flex-shrink-0">
-                                  <Button
-                                  size="sm"
-                                  onClick={() => acceptFriendRequestMutation.mutate(request)}
-                                  disabled={acceptFriendRequestMutation.isPending}
-                                  className="bg-green-600 hover:bg-green-700">
-
-                                    <Check className="w-4 h-4 mr-1" />
-                                    Annehmen
-                                  </Button>
-                                  <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => rejectFriendRequestMutation.mutate(request)}
-                                  disabled={rejectFriendRequestMutation.isPending}
-                                  className="border-2 border-red-300 text-red-600 hover:bg-red-50">
-
-                                    <X className="w-4 h-4 mr-1" />
-                                    Ablehnen
-                                  </Button>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </motion.div>);
-
-                  })}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          }
-
-          {/* Freund hinzufügen Desktop */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, duration: 0.5 }}
-            className="mb-8">
-
-            <Card className="border-2 border-stone-200 shadow-lg bg-white">
-              <CardContent className="p-6 space-y-4">
-                <div className="flex flex-col md:flex-row gap-4 items-end">
-                  <div className="flex-1 w-full">
-                    <label className="text-sm font-semibold text-stone-700 mb-2 block">
-                      <Mail className="w-4 h-4 inline mr-2" />
-                      Freundschaftsanfrage senden
-                    </label>
-                    <Input
-                      placeholder="E-Mail des Freundes"
-                      value={friendEmail}
-                      onChange={(e) => setFriendEmail(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleSendRequest()}
-                      className="border-2 border-stone-200" />
-
-                  </div>
-                  <Button
-                    onClick={handleSendRequest}
-                    disabled={!friendEmail || sendFriendRequestMutation.isPending}
-                    className="bg-green-600 hover:bg-green-700 px-8 w-full md:w-auto">
-
-                    {sendFriendRequestMutation.isPending ?
-                    <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Wird gesendet...
-                      </> :
-
-                    <>
-                        <UserPlus className="w-4 h-4 mr-2" />
-                        Anfrage senden
-                      </>
-                    }
-                  </Button>
-                </div>
-
-                <Button
-                  onClick={() => {
-                    const email = prompt("📧 E-Mail des Freundes eingeben:");
-                    if (email && email.trim()) {
-                      shareAppMutation.mutate(email.trim());
-                    }
-                  }}
-                  disabled={shareAppMutation.isPending}
-                  variant="outline"
-                  className="w-full border-2 border-blue-300 text-blue-700 hover:bg-blue-50"
-                >
-                  {shareAppMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Share2 className="w-4 h-4 mr-2" />
-                  )}
-                  Teile diese App mit einem Freund!
-                </Button>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {/* Freundesliste Desktop */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.5 }}>
-
-            <Card className="border-2 border-stone-200 shadow-lg bg-white">
-              <CardHeader className="border-b border-stone-200">
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  <Users className="w-6 h-6 text-green-600" />
-                  Deine Freunde
-                  {friends.length > 0 &&
-                  <Badge className="bg-green-600 text-white ml-2">{friends.length}</Badge>
-                  }
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                {friends.length === 0 ?
-                <div className="text-center py-12">
-                    <Users className="w-16 h-16 text-stone-300 mx-auto mb-4" />
-                    <p className="text-stone-600 text-lg font-semibold mb-2">
-                      Noch keine Freunde
-                    </p>
-                    <p className="text-stone-500">
-                      Füge Freunde hinzu, um ihre Sammlungen zu sehen!
-                    </p>
-                  </div> :
-
-                <div className="grid gap-3">
-                    {friends.map((friend, index) => {
-                    const friendData = getFriendData(friend);
-                    if (!friendData) return null;
-
-                    return (
-                      <motion.div
-                        key={friend.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.05 }}>
-
-                          <Card className="border-2 border-stone-200 hover:border-green-300 hover:shadow-md transition-all bg-white group">
-                            <CardContent className="p-4">
-                              <div className="flex items-start justify-between gap-3">
-                                <button
-                                onClick={() => navigate(createPageUrl(`FriendProfile?email=${friendData.email}`))}
-                                className="flex items-start gap-3 flex-1 text-left min-w-0">
-
-                                  <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-md overflow-hidden flex-shrink-0">
-                                    {friendData.avatar_url ?
-                                  <img src={friendData.avatar_url} alt={friendData.name} className="w-full h-full object-cover" /> :
-
-                                  friendData.name?.[0]?.toUpperCase() || friendData.email?.[0]?.toUpperCase()
-                                  }
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="font-bold text-lg text-stone-900 group-hover:text-green-600 transition-colors truncate">
-                                      {friendData.name}
-                                    </div>
-                                    <div className="text-sm text-stone-600 mb-2">
-                                      <span className="truncate">{friendData.title}</span>
-                                    </div>
-
-                                    {/* Letzte Aktivität Desktop */}
-                                    {friendData.lastActivity &&
-                                  <div className="text-sm text-stone-500 flex items-start gap-2 bg-stone-50 rounded-lg p-2">
-                                        <Clock className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                                        <div className="flex-1 min-w-0">
-                                          {friendData.lastActivity.type === 'discovery' && friendData.lastActivity.plant &&
-                                      <div className="flex items-center gap-2">
-                                              <Leaf className="w-4 h-4 text-green-600 flex-shrink-0" />
-                                              <span className="truncate font-medium">
-                                                {friendData.lastActivity.plant.species_name}
-                                              </span>
-                                            </div>
-                                      }
-                                          {friendData.lastActivity.type === 'achievement' && friendData.lastActivity.achievement &&
-                                      <div className="flex items-center gap-2">
-                                              <Trophy className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                                              <span className="truncate font-medium">
-                                                {friendData.lastActivity.achievement.title}
-                                              </span>
-                                            </div>
-                                      }
-                                          <span className="text-stone-400 text-xs">
-                                            {formatDistanceToNow(new Date(friendData.lastActivity.date), { addSuffix: true, locale: de })}
-                                          </span>
-                                        </div>
-                                      </div>
-                                  }
-                                  </div>
-                                  <ChevronRight className="w-6 h-6 text-stone-400 group-hover:text-green-600 group-hover:translate-x-1 transition-all flex-shrink-0 mt-1" />
-                                </button>
-                                <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (confirm(`Möchtest du ${friendData.name} wirklich entfernen?`)) {
-                                    removeFriendMutation.mutate(friend);
-                                  }
-                                }}
-                                disabled={removeFriendMutation.isPending}
-                                className="text-red-600 hover:bg-red-50 flex-shrink-0">
-
-                                  <UserMinus className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </motion.div>);
-
-                  })}
-                  </div>
-                }
-              </CardContent>
-            </Card>
-          </motion.div>
-        </div>
       </div>
 
       {/* Add Friend Dialog */}

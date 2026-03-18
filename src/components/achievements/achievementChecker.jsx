@@ -1,4 +1,5 @@
 import { Query } from "@/api/entities";
+import { notifyAcceptedFriends } from "@/api/notificationService";
 
 /**
  * Prüft alle Achievements und schaltet neue frei
@@ -125,6 +126,19 @@ export async function checkAndUnlockAchievements(user) {
         created_by: user.email
       });
 
+      try {
+        await notifyAcceptedFriends({
+          actorUser: user,
+          notificationType: "friend_achievement",
+          title: "🏆 Neuer Freundes-Erfolg",
+          message: `${user.display_name || user.full_name || user.email} hat einen neuen Erfolg freigeschaltet!`,
+          description: achievement.title || "",
+          actionUrl: `FriendAchievements?email=${encodeURIComponent(user.email)}`,
+        });
+      } catch (notificationError) {
+        console.error("[AchievementChecker] Failed to notify friends about achievement unlock:", notificationError);
+      }
+
       // Wenn das Achievement einen Reward hat, schalte diesen ebenfalls frei
       if (achievement.reward_name) {
         const rewards = await Query.Reward.list();
@@ -186,6 +200,19 @@ export async function checkAndUnlockAchievements(user) {
         auth_id: user.id,
         created_by: user.email
       });
+
+      try {
+        await notifyAcceptedFriends({
+          actorUser: user,
+          notificationType: "friend_achievement",
+          title: "🏆 Neuer Freundes-Erfolg",
+          message: `${user.display_name || user.full_name || user.email} hat einen neuen Erfolg freigeschaltet!`,
+          description: achievement.title || "",
+          actionUrl: `FriendAchievements?email=${encodeURIComponent(user.email)}`,
+        });
+      } catch (notificationError) {
+        console.error("[AchievementChecker] Failed to notify friends about achievement unlock:", notificationError);
+      }
 
       // Wenn das Achievement einen Reward hat, schalte diesen ebenfalls frei (gleiche Logik wie oben)
       if (achievement.reward_name) {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Query } from "@/api/entities";
+import { createUserNotification, getUserDisplayName } from "@/api/notificationService";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
@@ -169,7 +170,30 @@ export default function Collection() {
         collection_id: collectionId,
       });
     },
-    onSuccess: () => {
+    onSuccess: async (_data, collectionId) => {
+      try {
+        const collection = visibleCollections.find((c) => c.id === collectionId);
+        if (collection && collection.auth_id && collection.auth_id !== user?.id) {
+          const profiles = await Query.PublicProfile.list();
+          const ownerProfile = profiles.find((p) => p.auth_id === collection.auth_id);
+          const followerName = getUserDisplayName(user, user?.email);
+
+          await createUserNotification({
+            authId: collection.auth_id,
+            userEmail: ownerProfile?.user_email,
+            notificationType: "collection_followed",
+            title: "👀 Neuer Kollektion-Follower",
+            message: `${followerName} folgt jetzt deiner Kollektion!`,
+            description: collection.title || "",
+            actionUrl: `Collection?collectionId=${collection.id}`,
+            displayLocation: "banner",
+            createdBy: user?.email || "system",
+          });
+        }
+      } catch (error) {
+        console.error("[Collection] Could not create follow notification:", error);
+      }
+
       queryClient.invalidateQueries({ queryKey: ["userCollections", user?.id] });
       queryClient.invalidateQueries({ queryKey: ["visibleCollections"] });
       queryClient.invalidateQueries({ queryKey: ["allCollections"] });

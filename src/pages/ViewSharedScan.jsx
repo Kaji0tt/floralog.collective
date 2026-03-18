@@ -16,6 +16,7 @@ import { motion } from "framer-motion";
 export default function ViewSharedScan() {
   const [user, setUser] = useState(null);
   const [processingXP, setProcessingXP] = useState(false);
+  const [isAddingToCollection, setIsAddingToCollection] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -66,11 +67,48 @@ export default function ViewSharedScan() {
     enabled: !!sharedScan?.shared_by,
   });
 
+  const { data: existingDiscoveries = [] } = useQuery({
+    queryKey: ['existingSharedScanDiscoveries', user?.id, sharedScan?.plant_id],
+    queryFn: async () => {
+      if (!user?.id || !sharedScan?.plant_id) return [];
+      const discoveries = await Query.UserPlantDiscovery.filter({ auth_id: user.id });
+      return discoveries.filter((discovery) => discovery.plant_id === sharedScan.plant_id);
+    },
+    enabled: !!user?.id && !!sharedScan?.plant_id,
+  });
+
   const updateScanMutation = useMutation({
     mutationFn: ({ id, data }) => Query.SharedScan.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sharedScan'] });
       queryClient.invalidateQueries({ queryKey: ['sharedScans'] });
+    },
+  });
+
+  const addToCollectionMutation = useMutation({
+    mutationFn: async () => {
+      if (!user?.id || !sharedScan?.plant_id) {
+        throw new Error("Nicht genügend Daten, um die Pflanze zu übernehmen.");
+      }
+
+      if (existingDiscoveries.length > 0) {
+        return existingDiscoveries[0];
+      }
+
+      return Query.UserPlantDiscovery.create({
+        auth_id: user.id,
+        created_by_id: user.id,
+        created_by: user.email,
+        plant_id: sharedScan.plant_id,
+        discovered_date: new Date().toISOString(),
+        discovery_location: sharedScan.discovery_location || "",
+        discovery_notes: "Über Geschenk erhalten",
+        image_url: sharedScan.image_url || "",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
+      queryClient.invalidateQueries({ queryKey: ['existingSharedScanDiscoveries'] });
     },
   });
 
@@ -111,6 +149,25 @@ export default function ViewSharedScan() {
 
     markAsViewed();
   }, [sharedScan, user]);
+
+  const handleAddToCollection = async () => {
+    setIsAddingToCollection(true);
+    try {
+      const wasAlreadyInCollection = existingDiscoveries.length > 0;
+      await addToCollectionMutation.mutateAsync();
+
+      if (wasAlreadyInCollection) {
+        alert("Diese Pflanze ist bereits in deiner Sammlung.");
+      } else {
+        alert("✅ Pflanze wurde deiner Sammlung hinzugefügt!");
+      }
+    } catch (error) {
+      console.error("Fehler beim Übernehmen in die Sammlung:", error);
+      alert(`Fehler beim Hinzufügen: ${error.message}`);
+    } finally {
+      setIsAddingToCollection(false);
+    }
+  };
 
   const getRarityColor = (rarity) => {
     switch(rarity) {
@@ -294,14 +351,29 @@ export default function ViewSharedScan() {
         </Card>
 
         <div className="flex justify-center">
-          <Button
-            onClick={() => navigate(createPageUrl("Home"))}
-            variant="outline"
-            className="border-2"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Zurück zur Startseite
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button
+              onClick={handleAddToCollection}
+              disabled={isAddingToCollection}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {isAddingToCollection ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4 mr-2" />
+              )}
+              {existingDiscoveries.length > 0 ? "Bereits in Sammlung" : "In Sammlung übernehmen"}
+            </Button>
+
+            <Button
+              onClick={() => navigate(createPageUrl("Home"))}
+              variant="outline"
+              className="border-2"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Zurück zur Startseite
+            </Button>
+          </div>
         </div>
       </div>
     </div>
