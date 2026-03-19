@@ -31,9 +31,10 @@ Deno.serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
     const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!supabaseUrl || !serviceRoleKey) {
+    if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
       return new Response(JSON.stringify({ error: "Supabase service not configured" }), {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -48,12 +49,22 @@ Deno.serve(async (req) => {
       });
     }
 
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { persistSession: false },
+      global: {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    });
+
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false },
     });
 
-    const { data: authData, error: authError } = await adminClient.auth.getUser(accessToken);
+    const { data: authData, error: authError } = await userClient.auth.getUser();
     if (authError || !authData?.user?.email) {
+      console.error("[sendFriendRequest] Unauthorized:", authError);
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -136,12 +147,27 @@ Deno.serve(async (req) => {
         request_sent_by: actorEmail,
         request_sent_to: recipientEmail,
         status: "pending",
+        created_by: actorEmail,
+        auth_id: authData.user.id,
       })
       .select("*")
       .single();
 
     if (createError) {
-      return new Response(JSON.stringify({ error: createError.message }), {
+      console.error("[sendFriendRequest] Insert failed:", createError);
+      if (createError.code === "23505") {
+        return new Response(JSON.stringify({ error: "Freundschaftsanfrage existiert bereits." }), {
+          status: 409,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      }
+
+      return new Response(JSON.stringify({
+        error: createError.message,
+        code: createError.code,
+        details: createError.details,
+        hint: createError.hint,
+      }), {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
@@ -152,6 +178,7 @@ Deno.serve(async (req) => {
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   } catch (error) {
+    console.error("[sendFriendRequest] Unexpected error:", error);
     return new Response(JSON.stringify({ error: String(error) }), {
       status: 500,
       headers: { "Content-Type": "application/json", ...corsHeaders },
