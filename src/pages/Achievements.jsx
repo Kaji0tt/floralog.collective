@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Query } from "@/api/entities";
+import { createUserNotification } from "@/api/notificationService";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -499,17 +500,17 @@ export default function Achievements() {
       // Wenn das die erste Quest ist, erstelle eine Notification für Hintergrund-Personalisierung
       if (isFirstQuest) {
         try {
-          await Query.UserNotification.create({
-            auth_id: currentUser.id,
-            user_email: currentUser.email,
-            notification_type: "custom",
+          await createUserNotification({
+            authId: currentUser.id,
+            userEmail: currentUser.email,
+            notificationType: "custom",
             title: "🎨 Personalisiere dein Profil!",
             message: "Du hast deine erste Quest gemeistert! Zeit, dein Profil zu verschönern.",
             description: "Tippe auf dein Profilbild auf der Startseite und wähle einen Hintergrund aus.",
-            action_url: "Profile",
+            actionUrl: "Profile",
             priority: "high",
-            display_location: "modal",
-            seen: false
+            displayLocation: "modal",
+            createdBy: currentUser.email,
           });
         } catch (error) {
           console.error("[QuestRedeem] Fehler beim Erstellen der Hintergrund-Notification:", error);

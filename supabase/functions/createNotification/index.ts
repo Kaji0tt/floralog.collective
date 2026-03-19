@@ -1,0 +1,189 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+type CreateNotificationBody = {
+  authId?: string | null;
+  userEmail?: string | null;
+  notificationType?: string | null;
+  title?: string | null;
+  message?: string | null;
+  actionUrl?: string | null;
+  description?: string | null;
+  imageUrl?: string | null;
+  priority?: string | null;
+  displayLocation?: string | null;
+};
+
+function getAccessTokenFromAuthHeader(header: string | null): string | null {
+  if (!header) return null;
+  const parts = header.split(" ");
+  if (parts.length === 2 && parts[0] === "Bearer") return parts[1];
+  return header;
+}
+
+function isTruthy(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+      status: 405,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey =
+      Deno.env.get("SERVICE_ROLE_KEY") ||
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      return new Response(JSON.stringify({ error: "Supabase service not configured" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    const allowUnauthenticated = isTruthy(Deno.env.get("ALLOW_UNAUTHENTICATED_NOTIFICATIONS"));
+    const accessToken = getAccessTokenFromAuthHeader(req.headers.get("Authorization"));
+
+    const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false },
+    });
+
+    let actorEmail = "system";
+
+    if (!allowUnauthenticated) {
+      if (!accessToken) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      }
+
+      const { data: userData, error: userError } = await adminClient.auth.getUser(accessToken);
+      if (userError || !userData?.user) {
+        console.error("[createNotification] Failed to resolve actor user:", userError);
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      }
+
+      actorEmail = userData.user.email || "system";
+    } else {
+      console.warn("[createNotification] ALLOW_UNAUTHENTICATED_NOTIFICATIONS enabled. JWT auth is bypassed.");
+    }
+
+    const body = (await req.json()) as CreateNotificationBody;
+
+    let targetAuthId = body.authId || null;
+    let targetEmail = body.userEmail || null;
+    const notificationType = body.notificationType || "custom";
+    const title = body.title || "";
+    const message = body.message || "";
+
+    if (!title || !message) {
+      return new Response(JSON.stringify({ error: "Missing required fields: title, message" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    if (!targetAuthId && !targetEmail) {
+      return new Response(JSON.stringify({ error: "Missing target: authId or userEmail required" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    if (!targetAuthId && targetEmail) {
+      const { data: targetProfile } = await adminClient
+        .from("PublicProfile")
+        .select("auth_id")
+        .ilike("user_email", targetEmail)
+        .maybeSingle();
+
+      targetAuthId = targetProfile?.auth_id || null;
+    }
+
+    if (targetAuthId && !targetEmail) {
+      const { data: targetProfile } = await adminClient
+        .from("PublicProfile")
+        .select("user_email")
+        .eq("auth_id", targetAuthId)
+        .maybeSingle();
+
+      targetEmail = targetProfile?.user_email || null;
+    }
+
+    console.log("[createNotification] Creating notification", {
+      actorEmail,
+      targetAuthId,
+      targetEmail,
+      notificationType,
+      title,
+      allowUnauthenticated,
+    });
+
+    const { data: notification, error: insertError } = await adminClient
+      .from("UserNotification")
+      .insert({
+        auth_id: targetAuthId,
+        user_email: targetEmail,
+        notification_type: notificationType,
+        title,
+        message,
+        description: body.description || "",
+        image_url: body.imageUrl || "",
+        action_url: body.actionUrl || "",
+        priority: body.priority || "medium",
+        display_location: body.displayLocation || "banner",
+        seen: false,
+        created_by: actorEmail,
+      })
+      .select("*")
+      .single();
+
+    if (insertError) {
+      console.error("[createNotification] Insert failed:", insertError);
+      return new Response(JSON.stringify({ error: insertError.message }), {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        notification,
+        debug: {
+          actorEmail,
+          targetAuthId,
+          targetEmail,
+          allowUnauthenticated,
+        },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
+    );
+  } catch (error) {
+    console.error("[createNotification] Unexpected error:", error);
+    return new Response(JSON.stringify({ error: String(error) }), {
+      status: 500,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
+  }
+});

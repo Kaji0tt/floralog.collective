@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Query } from "@/api/entities";
+import { createUserNotification } from "@/api/notificationService";
 import { updateCurrentUserProfile } from "@/api/userApi";
 import { upsertUserProfile } from "@/api/authService";
 import { Leaf, Sparkles } from "lucide-react";
@@ -68,17 +69,18 @@ export default function WelcomeNameDialog({ user, onComplete }) {
       if (welcomeNotifications.length === 0) {
         // 4. Erstelle die Willkommens-Benachrichtigung nur, wenn keine ungesehene existiert
         console.log("[WelcomeNameDialog] Erstelle Welcome Notification");
-        await Query.UserNotification.create({
-            auth_id: user.id,              // ✅ Nutze auth.users.id
-            user_email: user.email,        // Legacy
-            notification_type: "custom",
-            title: "🌿 Willkommen im Floralog!",
-            message: `Hallo ${name.trim()}! Schön, dass du da bist. Floralog ist dein persönlicher Wegbegleiter für all deine Entdeckungen in der Natur. Dabei landet jede Entdeckung in einer eigenen Kollektion. Klicke auf den 'Scannen' Button, um deine erste Pflanze zu entdecken!`,
-            description: "Starte jetzt deinen ersten Scan!",
-            action_url: "",
-            priority: "high",
-            display_location: "modal"
-          });
+        await createUserNotification({
+          authId: user.id,
+          userEmail: user.email,
+          notificationType: "custom",
+          title: "🌿 Willkommen im Floralog!",
+          message: `Hallo ${name.trim()}! Schön, dass du da bist. Floralog ist dein persönlicher Wegbegleiter für all deine Entdeckungen in der Natur. Dabei landet jede Entdeckung in einer eigenen Kollektion. Klicke auf den 'Scannen' Button, um deine erste Pflanze zu entdecken!`,
+          description: "Starte jetzt deinen ersten Scan!",
+          actionUrl: "",
+          priority: "high",
+          displayLocation: "modal",
+          createdBy: user.email,
+        });
         console.log("[WelcomeNameDialog] Welcome Notification erstellt");
       }
 

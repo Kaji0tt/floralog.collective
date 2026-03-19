@@ -174,11 +174,18 @@ export default function Collection() {
       try {
         const collection = visibleCollections.find((c) => c.id === collectionId);
         if (collection && collection.auth_id && collection.auth_id !== user?.id) {
+          console.info('[Collection] Follow detected, creating notification', {
+            collectionId,
+            ownerAuthId: collection.auth_id,
+            followerAuthId: user?.id,
+            followerEmail: user?.email,
+          });
+
           const profiles = await Query.PublicProfile.list();
           const ownerProfile = profiles.find((p) => p.auth_id === collection.auth_id);
           const followerName = getUserDisplayName(user, user?.email);
 
-          await createUserNotification({
+          const createdNotification = await createUserNotification({
             authId: collection.auth_id,
             userEmail: ownerProfile?.user_email,
             notificationType: "collection_followed",
@@ -188,6 +195,11 @@ export default function Collection() {
             actionUrl: `Collection?collectionId=${collection.id}`,
             displayLocation: "banner",
             createdBy: user?.email || "system",
+          });
+
+          console.info('[Collection] Notification created for follow event', {
+            notificationId: createdNotification?.id,
+            targetEmail: ownerProfile?.user_email,
           });
         }
       } catch (error) {

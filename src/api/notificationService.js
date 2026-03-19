@@ -1,4 +1,5 @@
 import { Query } from "@/api/entities";
+import { supabase } from "@/api/supabaseClient";
 
 const safeLower = (value) => (value || "").toLowerCase();
 
@@ -25,23 +26,72 @@ export async function createUserNotification({
   displayLocation = "banner",
   createdBy = "system"
 }) {
-  if (!authId && !userEmail) return null;
-  if (!title || !message) return null;
+  if (!authId && !userEmail) {
+    console.warn("[NotificationService] Skip createUserNotification: missing target", {
+      authId,
+      userEmail,
+      notificationType,
+    });
+    return null;
+  }
 
-  return Query.UserNotification.create({
-    auth_id: authId || undefined,
-    user_email: userEmail || undefined,
-    notification_type: notificationType,
+  if (!title || !message) {
+    console.warn("[NotificationService] Skip createUserNotification: missing title/message", {
+      title,
+      message,
+      notificationType,
+    });
+    return null;
+  }
+
+  const payload = {
+    authId,
+    userEmail,
+    notificationType,
     title,
     message,
+    actionUrl,
     description,
-    image_url: imageUrl,
-    action_url: actionUrl,
+    imageUrl,
     priority,
-    display_location: displayLocation,
-    seen: false,
-    created_by: createdBy
+    displayLocation,
+    createdBy,
+  };
+
+  console.info("[NotificationService] createUserNotification -> createNotification", payload);
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const invokeOptions = {
+    body: payload,
+  };
+
+  if (session?.access_token) {
+    invokeOptions.headers = {
+      Authorization: `Bearer ${session.access_token}`,
+    };
+  } else {
+    console.warn("[NotificationService] No active session token found for createNotification call");
+  }
+
+  const { data, error } = await supabase.functions.invoke("createNotification", {
+    ...invokeOptions,
   });
+
+  if (error) {
+    console.error("[NotificationService] Edge function call failed", error);
+    throw error;
+  }
+
+  if (!data?.success) {
+    console.error("[NotificationService] Edge function returned non-success", data);
+    throw new Error(data?.error || "createNotification failed");
+  }
+
+  console.info("[NotificationService] Notification created", data?.debug || {});
+  return data.notification;
 }
 
 export async function notifyAcceptedFriends({
@@ -71,6 +121,12 @@ export async function notifyAcceptedFriends({
   const profileByEmail = new Map(
     allProfiles.map((profile) => [safeLower(profile.user_email), profile])
   );
+
+  console.info("[NotificationService] notifyAcceptedFriends", {
+    actor: actorUser.email,
+    acceptedFriends: acceptedFriends.length,
+    notificationType,
+  });
 
   const notifications = acceptedFriends.map((friendship) => {
     const friendEmail =

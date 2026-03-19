@@ -153,16 +153,35 @@ export default function Friends() {
     queryKey: ['friendsNews', user?.id, user?.email],
     queryFn: async () => {
       if (!user?.email) return [];
-      const notifications = await Query.UserNotification.list('-created_date', 50);
-      const userEmailLower = user.email.toLowerCase();
+      const [byAuthId, byEmail] = await Promise.all([
+        user?.id ? Query.UserNotification.filter({ auth_id: user.id }) : Promise.resolve([]),
+        Query.UserNotification.filter({ user_email: user.email }),
+      ]);
 
-      return notifications.filter((notification) => {
-        const isForCurrentUser =
-          (!!user?.id && notification.auth_id === user.id) ||
-          notification.user_email?.toLowerCase() === userEmailLower;
+      const merged = [...byAuthId, ...byEmail];
+      const dedupedMap = new Map();
 
-        return isForCurrentUser && NEWS_TYPES.includes(notification.notification_type);
+      merged.forEach((notification) => {
+        dedupedMap.set(notification.id, notification);
       });
+
+      const feed = Array.from(dedupedMap.values())
+        .filter((notification) => NEWS_TYPES.includes(notification.notification_type))
+        .sort((a, b) => {
+          const aTime = new Date(a.created_date || a.created_at || 0).getTime();
+          const bTime = new Date(b.created_date || b.created_at || 0).getTime();
+          return bTime - aTime;
+        })
+        .slice(0, 50);
+
+      console.info('[Friends] Loaded news feed', {
+        byAuthId: byAuthId.length,
+        byEmail: byEmail.length,
+        deduped: dedupedMap.size,
+        final: feed.length,
+      });
+
+      return feed;
     },
     enabled: !!user?.email,
     staleTime: 15000,
