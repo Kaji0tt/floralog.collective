@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Query } from "@/api/entities";
 import { createUserNotification } from "@/api/notificationService";
+import { sendFriendRequest } from "@/api/friendService";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -221,11 +222,7 @@ export default function FriendProfile() {
 
   const sendFriendRequestMutation = useMutation({
     mutationFn: async () => {
-      await Query.Friend.create({
-        request_sent_by: currentUser.email,
-        request_sent_to: friendEmail,
-        status: "pending"
-      });
+      await sendFriendRequest(friendEmail);
 
       const senderName = currentUser.display_name || currentUser.full_name || currentUser.email;
 

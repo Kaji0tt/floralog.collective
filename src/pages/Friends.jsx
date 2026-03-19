@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Query } from "@/api/entities";
 import { createUserNotification } from "@/api/notificationService";
+import { sendFriendRequest } from "@/api/friendService";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -252,12 +253,8 @@ export default function Friends() {
         }
       }
 
-      // Erstelle EINEN Eintrag mit den neuen Feldern
-      await Query.Friend.create({
-        request_sent_by: user.email,
-        request_sent_to: targetEmail,
-        status: "pending"
-      });
+      // Serverseitiger Insert (bypasst clientseitige RLS-Probleme)
+      await sendFriendRequest(targetEmail);
 
       const targetProfile = allPublicProfiles.find(
         (profile) => profile.user_email?.toLowerCase() === friendEmailLower
