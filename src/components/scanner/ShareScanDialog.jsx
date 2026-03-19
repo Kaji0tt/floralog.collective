@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { Query } from "@/api/entities";
-import { supabase } from "@/api/supabaseClient";
 import { createUserNotification, getUserDisplayName } from "@/api/notificationService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -124,22 +123,6 @@ export default function ShareScanDialog({ open, onClose, discovery, plant, user 
         displayLocation: "banner",
         createdBy: user.email,
       });
-
-      // Push Notification senden
-      try {
-        await supabase.functions.invoke('sendPushNotification', {
-          recipientEmail: friendEmail,
-          title: '🎁 Neue Pflanze geschenkt!',
-          body: `${user.display_name || user.full_name} hat dir "${plant.species_name}" geschenkt!`,
-          data: {
-            type: 'shared_scan',
-            from: user.email
-          }
-        });
-      } catch (notifError) {
-        console.error('Push notification failed:', notifError);
-        // Fehler bei Notification nicht anzeigen - Teilen war erfolgreich
-      }
 
       alert('Pflanze erfolgreich verschenkt! 🎁');
       onClose();

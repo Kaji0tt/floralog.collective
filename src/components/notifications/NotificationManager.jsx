@@ -46,44 +46,17 @@ export default function NotificationManager({ user, showInProfile = false }) {
       throw new Error("Service Worker not supported");
     }
 
-    // Service Worker inline registrieren
-    const swCode = `
-      self.addEventListener('push', function(event) {
-        const data = event.data.json();
-        const options = {
-          body: data.body,
-          icon: data.icon || '/PlantDexIcon.png',
-          badge: data.badge || '/PlantDexIcon.png',
-          data: data.data,
-          vibrate: [200, 100, 200],
-          tag: 'plantdex-gift'
-        };
-        event.waitUntil(
-          self.registration.showNotification(data.title, options)
-        );
-      });
-
-      self.addEventListener('notificationclick', function(event) {
-        event.notification.close();
-        event.waitUntil(
-          clients.openWindow('/')
-        );
-      });
-    `;
-
-    const blob = new Blob([swCode], { type: "application/javascript" });
-    const swUrl = URL.createObjectURL(blob);
-
-    const registration = await navigator.serviceWorker.register(swUrl);
+    const registration = await navigator.serviceWorker.register("/push-sw.js");
     await navigator.serviceWorker.ready;
     return registration;
   };
 
   const subscribeToPush = async () => {
     try {
-      // VAPID Key von Backend holen (würde normalerweise als env variable bereitgestellt)
-      // Für jetzt verwenden wir einen Standardwert - muss später durch echten Key ersetzt werden
-      const vapidPublicKey = "BNxZZ5ZMKH-qg8ZqJN7XqQF3mG_3Y3a8oKJzL5Y5yKq6b5Z6yJN7X8Z5yKq6b5Z6yJN7X8Z5yKq6b5Z6yJN7X8";
+      const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+      if (!vapidPublicKey) {
+        throw new Error("VITE_VAPID_PUBLIC_KEY ist nicht gesetzt");
+      }
       
       // Service Worker registrieren
       const registration = await registerServiceWorker();

@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import webpush from "npm:web-push@3.6.7";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,6 +31,29 @@ function isTruthy(value: string | null | undefined): boolean {
   if (!value) return false;
   const normalized = value.trim().toLowerCase();
   return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+}
+
+function buildPushPayload(params: {
+  title: string;
+  message: string;
+  notificationType: string;
+  actionUrl: string;
+  actorEmail: string;
+}) {
+  const { title, message, notificationType, actionUrl, actorEmail } = params;
+  return {
+    title,
+    body: message,
+    icon: "/PlantDexIcon.png",
+    badge: "/PlantDexIcon.png",
+    tag: `floralog-${notificationType}`,
+    vibrate: [200, 100, 200],
+    data: {
+      type: notificationType,
+      from: actorEmail,
+      actionUrl: actionUrl || "/Friends?tab=news",
+    },
+  };
 }
 
 Deno.serve(async (req) => {
@@ -148,7 +172,6 @@ Deno.serve(async (req) => {
         title,
         message,
         description: body.description || "",
-        image_url: body.imageUrl || "",
         action_url: body.actionUrl || "",
         priority: body.priority || "medium",
         display_location: body.displayLocation || "banner",
@@ -160,10 +183,59 @@ Deno.serve(async (req) => {
 
     if (insertError) {
       console.error("[createNotification] Insert failed:", insertError);
-      return new Response(JSON.stringify({ error: insertError.message }), {
+      return new Response(JSON.stringify({
+        error: insertError.message,
+        code: insertError.code,
+        details: insertError.details,
+        hint: insertError.hint,
+      }), {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
+    }
+
+    const pushPublicKey = Deno.env.get("VAPID_PUBLIC_KEY");
+    const pushPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY");
+
+    if (targetEmail && pushPublicKey && pushPrivateKey) {
+      try {
+        const { data: targetProfile } = await adminClient
+          .from("PublicProfile")
+          .select("id, push_subscription")
+          .ilike("user_email", targetEmail)
+          .maybeSingle();
+
+        if (targetProfile?.push_subscription) {
+          webpush.setVapidDetails(
+            "mailto:noreply@floralog.app",
+            pushPublicKey,
+            pushPrivateKey,
+          );
+
+          const pushPayload = buildPushPayload({
+            title,
+            message,
+            notificationType,
+            actionUrl: body.actionUrl || "",
+            actorEmail,
+          });
+
+          await webpush.sendNotification(
+            JSON.parse(targetProfile.push_subscription),
+            JSON.stringify(pushPayload),
+          );
+        }
+      } catch (pushError) {
+        const statusCode = (pushError as { statusCode?: number })?.statusCode;
+        console.error("[createNotification] Push send failed:", pushError);
+
+        if ((statusCode === 404 || statusCode === 410) && targetEmail) {
+          await adminClient
+            .from("PublicProfile")
+            .update({ push_subscription: null })
+            .ilike("user_email", targetEmail);
+        }
+      }
     }
 
     return new Response(

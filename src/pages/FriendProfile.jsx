@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Query } from "@/api/entities";
+import { createUserNotification } from "@/api/notificationService";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -225,6 +226,23 @@ export default function FriendProfile() {
         request_sent_to: friendEmail,
         status: "pending"
       });
+
+      const senderName = currentUser.display_name || currentUser.full_name || currentUser.email;
+
+      try {
+        await createUserNotification({
+          authId: friendUser?.auth_id,
+          userEmail: friendUser?.user_email || friendEmail,
+          notificationType: "friend_request_received",
+          title: "🤝 Neue Freundschaftsanfrage",
+          message: `${senderName} hat dir eine Freundschaftsanfrage gesendet.`,
+          actionUrl: "Friends",
+          displayLocation: "banner",
+          createdBy: currentUser.email,
+        });
+      } catch (notificationError) {
+        console.error("[FriendProfile] Failed to create friend request notification:", notificationError);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myFriendship'] });

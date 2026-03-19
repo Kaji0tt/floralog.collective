@@ -147,7 +147,7 @@ export default function Friends() {
     queryFn: () => Query.Plant.list()
   });
 
-  const NEWS_TYPES = ['gift_received', 'collection_followed', 'friendship_accepted', 'friend_achievement', 'scan_liked'];
+  const NEWS_TYPES = ['gift_received', 'collection_followed', 'friendship_accepted', 'friend_request_received', 'friend_achievement', 'scan_liked'];
 
   const { data: userNews = [] } = useQuery({
     queryKey: ['friendsNews', user?.id, user?.email],
@@ -216,13 +216,18 @@ export default function Friends() {
   });
 
   const sendFriendRequestMutation = useMutation({
-    mutationFn: async (friendEmail) => {
+    mutationFn: async () => {
       if (!user || !user.email) {
         throw new Error("User nicht geladen!");
       }
 
+      const targetEmail = friendEmail.trim();
+      if (!targetEmail) {
+        throw new Error("Bitte gib eine E-Mail-Adresse ein.");
+      }
+
       const myEmail = user.email.toLowerCase();
-      const friendEmailLower = friendEmail.toLowerCase();
+      const friendEmailLower = targetEmail.toLowerCase();
 
       // Selbst-Check
       if (friendEmailLower === myEmail) {
@@ -250,9 +255,29 @@ export default function Friends() {
       // Erstelle EINEN Eintrag mit den neuen Feldern
       await Query.Friend.create({
         request_sent_by: user.email,
-        request_sent_to: friendEmail,
+        request_sent_to: targetEmail,
         status: "pending"
       });
+
+      const targetProfile = allPublicProfiles.find(
+        (profile) => profile.user_email?.toLowerCase() === friendEmailLower
+      );
+      const senderName = user.display_name || user.full_name || user.email;
+
+      try {
+        await createUserNotification({
+          authId: targetProfile?.auth_id,
+          userEmail: targetProfile?.user_email || targetEmail,
+          notificationType: "friend_request_received",
+          title: "🤝 Neue Freundschaftsanfrage",
+          message: `${senderName} hat dir eine Freundschaftsanfrage gesendet.`,
+          actionUrl: "Friends",
+          displayLocation: "banner",
+          createdBy: user.email,
+        });
+      } catch (notificationError) {
+        console.error("[Friends] Failed to create friend request notification:", notificationError);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['allFriendRecords'] });
@@ -419,7 +444,7 @@ Viel Spaß beim Entdecken! 🌿`;
     }
 
     try {
-      await sendFriendRequestMutation.mutateAsync(trimmedEmail);
+      await sendFriendRequestMutation.mutateAsync();
       alert(`Freundschaftsanfrage an ${trimmedEmail} gesendet! ✅`);
     } catch (error) {
 
@@ -571,6 +596,8 @@ Viel Spaß beim Entdecken! 🌿`;
         return { icon: Users, accent: 'text-blue-600', card: 'bg-blue-50 border-blue-200' };
       case 'friendship_accepted':
         return { icon: UserCheck, accent: 'text-green-600', card: 'bg-green-50 border-green-200' };
+      case 'friend_request_received':
+        return { icon: UserPlus, accent: 'text-indigo-600', card: 'bg-indigo-50 border-indigo-200' };
       case 'friend_achievement':
         return { icon: Trophy, accent: 'text-amber-600', card: 'bg-amber-50 border-amber-200' };
       case 'scan_liked':
