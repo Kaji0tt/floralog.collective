@@ -67,6 +67,49 @@ export default function NotificationManager({ user, showInProfile = false }) {
     return outputArray;
   };
 
+  const getPushActivationErrorMessage = (error) => {
+    const errorName = error?.name || "UnknownError";
+    const rawMessage = (error?.message || "").trim();
+    const isFirefoxAndroid = /Android/i.test(navigator.userAgent) && /Firefox/i.test(navigator.userAgent);
+
+    if (!window.isSecureContext) {
+      return "Push funktioniert nur in sicherem Kontext (HTTPS).";
+    }
+
+    if (!import.meta.env.VITE_VAPID_PUBLIC_KEY) {
+      return "Push ist noch nicht konfiguriert: VITE_VAPID_PUBLIC_KEY fehlt im Frontend-Environment.";
+    }
+
+    if (!("PushManager" in window)) {
+      return "Dieser Browser erlaubt Benachrichtigungen, unterstützt aber kein Web-Push per Service Worker.";
+    }
+
+    if (errorName === "NotAllowedError") {
+      return "Benachrichtigung wurde blockiert. Bitte Browser- und Website-Berechtigungen erneut prüfen.";
+    }
+
+    if (errorName === "InvalidStateError") {
+      return "Push konnte nicht initialisiert werden. Bitte Seite neu laden und erneut versuchen.";
+    }
+
+    if (errorName === "NotSupportedError") {
+      if (isFirefoxAndroid) {
+        return "Firefox auf Android ist bei Web-Push je nach Version eingeschraenkt. Teste alternativ Chrome/Edge auf dem Handy.";
+      }
+      return "Web-Push wird von diesem Browser/Geraet nicht vollstaendig unterstuetzt.";
+    }
+
+    if (errorName === "AbortError") {
+      return "Push-Aktivierung wurde vom Browser abgebrochen. Bitte erneut versuchen.";
+    }
+
+    if (rawMessage) {
+      return `Push-Aktivierung fehlgeschlagen: ${rawMessage}`;
+    }
+
+    return "Push-Aktivierung fehlgeschlagen. Bitte pruefe Browser-Kompatibilitaet, HTTPS und VAPID-Konfiguration.";
+  };
+
   const registerServiceWorker = async () => {
     if (!supportsPush) {
       throw new Error("Service Worker not supported");
@@ -111,7 +154,7 @@ export default function NotificationManager({ user, showInProfile = false }) {
       alert("🔔 Push-Benachrichtigungen aktiviert! Du wirst nun über Geschenke informiert.");
     } catch (error) {
       console.error("Failed to subscribe to push notifications:", error);
-      alert("Fehler beim Aktivieren der Benachrichtigungen. Stelle sicher, dass dein Browser Push-Benachrichtigungen unterstützt.");
+      alert(getPushActivationErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
