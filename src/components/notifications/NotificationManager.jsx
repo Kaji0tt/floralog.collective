@@ -9,6 +9,7 @@ export default function NotificationManager({ user, showInProfile = false }) {
   const [permissionState, setPermissionState] = useState("default");
   const [showPrompt, setShowPrompt] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     checkNotificationStatus();
@@ -22,9 +23,20 @@ export default function NotificationManager({ user, showInProfile = false }) {
     const permission = Notification.permission;
     setPermissionState(permission);
 
-    if (permission === "granted" && user?.push_subscription) {
-      setIsSubscribed(true);
-    } else if (permission === "default" && !localStorage.getItem("notification-prompt-dismissed") && !showInProfile) {
+    if (permission === "granted") {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        const hasStoredSubscription = Boolean(user?.push_subscription);
+        setIsSubscribed(Boolean(subscription) || hasStoredSubscription);
+      } catch (_error) {
+        setIsSubscribed(Boolean(user?.push_subscription));
+      }
+    } else {
+      setIsSubscribed(false);
+    }
+
+    if (permission === "default" && !localStorage.getItem("notification-prompt-dismissed") && !showInProfile) {
       // Zeige Prompt nach 5 Sekunden
       setTimeout(() => setShowPrompt(true), 5000);
     }
@@ -52,6 +64,7 @@ export default function NotificationManager({ user, showInProfile = false }) {
   };
 
   const subscribeToPush = async () => {
+    setIsLoading(true);
     try {
       const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
       if (!vapidPublicKey) {
@@ -78,6 +91,8 @@ export default function NotificationManager({ user, showInProfile = false }) {
     } catch (error) {
       console.error("Failed to subscribe to push notifications:", error);
       alert("Fehler beim Aktivieren der Benachrichtigungen. Stelle sicher, dass dein Browser Push-Benachrichtigungen unterstützt.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -99,6 +114,7 @@ export default function NotificationManager({ user, showInProfile = false }) {
   };
 
   const unsubscribeFromPush = async () => {
+    setIsLoading(true);
     try {
       const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.getSubscription();
@@ -116,7 +132,25 @@ export default function NotificationManager({ user, showInProfile = false }) {
     } catch (error) {
       console.error("Error unsubscribing:", error);
       alert("Fehler beim Deaktivieren der Benachrichtigungen.");
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  const getStatusLabel = () => {
+    if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+      return { text: "Nicht unterstützt: Dieser Browser unterstützt keine Push-Benachrichtigungen.", className: "text-red-700" };
+    }
+    if (permissionState === "denied") {
+      return { text: "Blockiert: In den Browser-Einstellungen wieder erlauben.", className: "text-amber-700" };
+    }
+    if (permissionState === "granted" && isSubscribed) {
+      return { text: "Aktiv: Push-Benachrichtigungen sind eingeschaltet.", className: "text-green-700" };
+    }
+    if (permissionState === "granted" && !isSubscribed) {
+      return { text: "Nicht aktiv: Berechtigung erteilt, aber keine gültige Push-Subscription gespeichert.", className: "text-amber-700" };
+    }
+    return { text: "Noch nicht entschieden: Benachrichtigungen sind aktuell aus.", className: "text-stone-600" };
   };
 
   const dismissPrompt = () => {
@@ -130,24 +164,37 @@ export default function NotificationManager({ user, showInProfile = false }) {
 
   // Im Profil: Zeige nur Button
   if (showInProfile) {
+    const status = getStatusLabel();
     return (
-      <Button
-        onClick={isSubscribed ? unsubscribeFromPush : requestNotificationPermission}
-        variant="outline"
-        className="w-full"
-      >
-        {isSubscribed ? (
-          <>
-            <BellOff className="w-4 h-4 mr-2" />
-            Benachrichtigungen deaktivieren
-          </>
-        ) : (
-          <>
-            <Bell className="w-4 h-4 mr-2" />
-            Benachrichtigungen aktivieren
-          </>
-        )}
-      </Button>
+      <div className="space-y-2">
+        <p className={`text-xs ${status.className}`}>{status.text}</p>
+        <Button
+          onClick={checkNotificationStatus}
+          variant="ghost"
+          className="w-full text-xs text-stone-600"
+          disabled={isLoading}
+        >
+          Status neu prüfen
+        </Button>
+        <Button
+          onClick={isSubscribed ? unsubscribeFromPush : requestNotificationPermission}
+          variant="outline"
+          className="w-full"
+          disabled={isLoading}
+        >
+          {isSubscribed ? (
+            <>
+              <BellOff className="w-4 h-4 mr-2" />
+              Benachrichtigungen deaktivieren
+            </>
+          ) : (
+            <>
+              <Bell className="w-4 h-4 mr-2" />
+              Benachrichtigungen aktivieren
+            </>
+          )}
+        </Button>
+      </div>
     );
   }
 

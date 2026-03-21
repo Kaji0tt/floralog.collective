@@ -24,6 +24,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Lock } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
+import NotificationManager from "@/components/notifications/NotificationManager";
 
 
 
@@ -1105,6 +1106,12 @@ export default function Profile() {
                   />
                   <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
                 </label>
+              </div>
+
+              <div className="p-4 bg-stone-50 rounded-lg border border-stone-200">
+                <p className="font-semibold text-stone-900 mb-1">Push-Benachrichtigungen</p>
+                <p className="text-xs text-stone-600 mb-3">Aktiviere Push für Geschenke, Einladungen und Neuigkeiten.</p>
+                <NotificationManager user={user} showInProfile />
               </div>
 
               <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
