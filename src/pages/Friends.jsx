@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Query } from "@/api/entities";
 import { createUserNotification } from "@/api/notificationService";
-import { sendFriendRequest, removeFriendship } from "@/api/friendService";
+import { sendFriendRequest, removeFriendship, respondToFriendRequest } from "@/api/friendService";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -287,10 +287,10 @@ export default function Friends() {
 
   const acceptFriendRequestMutation = useMutation({
     mutationFn: async (request) => {
-      await Query.Friend.update(request.id, {
-        status: "accepted",
-        added_date: new Date().toISOString()
-      });
+      const affected = await respondToFriendRequest(request.request_sent_by, "accept");
+      if (affected <= 0) {
+        throw new Error("Diese Anfrage ist nicht mehr offen.");
+      }
     },
     onSuccess: async (data, variables) => {
       await queryClient.invalidateQueries({ queryKey: ['allFriendRecords'] });
@@ -334,7 +334,10 @@ export default function Friends() {
 
   const rejectFriendRequestMutation = useMutation({
     mutationFn: async (request) => {
-      await Query.Friend.delete(request.id);
+      const affected = await respondToFriendRequest(request.request_sent_by, "reject");
+      if (affected <= 0) {
+        throw new Error("Diese Anfrage ist nicht mehr offen.");
+      }
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['allFriendRecords'] });

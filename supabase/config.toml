@@ -50,6 +50,16 @@ enabled = true
 verify_jwt = false
 entrypoint = "./functions/removeFriendship/index.ts"
 
+[functions.respondToFriendRequest]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/respondToFriendRequest/index.ts"
+
+[functions.friendService]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/friendService/index.ts"
+
 [functions.backfillPlantMetadata]
 enabled = true
 verify_jwt = true
