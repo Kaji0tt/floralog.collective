@@ -10,6 +10,11 @@ type SendFriendRequestBody = {
   recipientEmail?: string | null;
 };
 
+function generateLegacyHexId(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 function getAccessTokenFromAuthHeader(header: string | null): string | null {
   if (!header) return null;
   const parts = header.split(" ");
@@ -31,10 +36,9 @@ Deno.serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
     const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
+    if (!supabaseUrl || !serviceRoleKey) {
       return new Response(JSON.stringify({ error: "Supabase service not configured" }), {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -49,20 +53,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: { persistSession: false },
-      global: {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      },
-    });
-
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false },
     });
 
-    const { data: authData, error: authError } = await userClient.auth.getUser();
+    // Internal auth check (required because gateway JWT verification may be disabled)
+    const { data: authData, error: authError } = await adminClient.auth.getUser(accessToken);
     if (authError || !authData?.user?.email) {
       console.error("[sendFriendRequest] Unauthorized:", authError);
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -144,6 +140,7 @@ Deno.serve(async (req) => {
     const { data: createdFriend, error: createError } = await adminClient
       .from("Friend")
       .insert({
+        id: generateLegacyHexId(),
         request_sent_by: actorEmail,
         request_sent_to: recipientEmail,
         status: "pending",

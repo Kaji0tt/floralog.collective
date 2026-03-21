@@ -42,8 +42,13 @@ entrypoint = "./functions/createGlobalPlant/index.ts"
 
 [functions.sendFriendRequest]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 entrypoint = "./functions/sendFriendRequest/index.ts"
+
+[functions.removeFriendship]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/removeFriendship/index.ts"
 
 [functions.backfillPlantMetadata]
 enabled = true

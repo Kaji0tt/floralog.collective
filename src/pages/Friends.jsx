@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Query } from "@/api/entities";
 import { createUserNotification } from "@/api/notificationService";
-import { sendFriendRequest } from "@/api/friendService";
+import { sendFriendRequest, removeFriendship } from "@/api/friendService";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -347,11 +347,15 @@ export default function Friends() {
 
   const removeFriendMutation = useMutation({
     mutationFn: async (friendToRemove) => {
-      await Query.Friend.delete(friendToRemove.id);
+      return removeFriendship(friendToRemove.email);
     },
-    onSuccess: () => {
+    onSuccess: (removedCount) => {
       queryClient.invalidateQueries({ queryKey: ['allFriendRecords'] });
-      alert(`🗑️ Freund entfernt`);
+      if (removedCount > 0) {
+        alert(`🗑️ Freund entfernt`);
+      } else {
+        alert(`Es wurde keine aktive Freundschaft gefunden.`);
+      }
     },
     onError: (error) => {
       alert(`Fehler beim Entfernen des Freundes: ${error.message}`);
@@ -880,7 +884,7 @@ Viel Spaß beim Entdecken! 🌿`;
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     if (confirm(`Möchtest du ${friendData.name} wirklich entfernen?`)) {
-                                      removeFriendMutation.mutate(friend);
+                                      removeFriendMutation.mutate(friendData);
                                     }
                                   }}
                                   disabled={removeFriendMutation.isPending}
