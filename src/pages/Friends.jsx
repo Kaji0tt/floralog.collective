@@ -634,6 +634,44 @@ Viel Spaß beim Entdecken! 🌿`;
 
   const unreadNewsCount = userNews.filter((notification) => notification.seen !== true).length;
 
+  const getPendingRequestFromNews = (newsItem) => {
+    if (newsItem.notification_type !== 'friend_request_received' || !user?.email) {
+      return null;
+    }
+
+    const actorEmail = newsItem.created_by?.toLowerCase();
+    const myEmail = user.email.toLowerCase();
+    if (!actorEmail) return null;
+
+    return allFriendRecords.find((request) =>
+      request.status === 'pending' &&
+      request.request_sent_by?.toLowerCase() === actorEmail &&
+      request.request_sent_to?.toLowerCase() === myEmail
+    ) || null;
+  };
+
+  const handleFriendRequestActionFromNews = async (event, newsItem, action) => {
+    event.stopPropagation();
+
+    const pendingRequest = getPendingRequestFromNews(newsItem);
+    if (!pendingRequest) {
+      alert('Diese Anfrage ist nicht mehr offen.');
+      markNewsAsSeenMutation.mutate(newsItem.id);
+      await queryClient.invalidateQueries({ queryKey: ['allFriendRecords'] });
+      return;
+    }
+
+    if (action === 'accept') {
+      acceptFriendRequestMutation.mutate(pendingRequest);
+    } else {
+      rejectFriendRequestMutation.mutate(pendingRequest);
+    }
+
+    if (newsItem.seen !== true) {
+      markNewsAsSeenMutation.mutate(newsItem.id);
+    }
+  };
+
   const openNewsEntry = (notification) => {
     if (notification.seen !== true) {
       markNewsAsSeenMutation.mutate(notification.id);
@@ -1005,6 +1043,29 @@ Viel Spaß beim Entdecken! 🌿`;
                                     locale: de,
                                   })}
                                 </p>
+                                {newsItem.notification_type === 'friend_request_received' && (
+                                  <div className="flex gap-2 mt-2" onClick={(event) => event.stopPropagation()}>
+                                    <Button
+                                      size="sm"
+                                      className="h-7 px-2 bg-green-600 hover:bg-green-700"
+                                      disabled={acceptFriendRequestMutation.isPending || rejectFriendRequestMutation.isPending}
+                                      onClick={(event) => handleFriendRequestActionFromNews(event, newsItem, 'accept')}
+                                    >
+                                      <Check className="w-3 h-3 mr-1" />
+                                      Annehmen
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 px-2 border-red-300 text-red-600 hover:bg-red-50"
+                                      disabled={acceptFriendRequestMutation.isPending || rejectFriendRequestMutation.isPending}
+                                      onClick={(event) => handleFriendRequestActionFromNews(event, newsItem, 'reject')}
+                                    >
+                                      <X className="w-3 h-3 mr-1" />
+                                      Ablehnen
+                                    </Button>
+                                  </div>
+                                )}
                               </div>
                               {!newsItem.seen && (
                                 <div className="w-2.5 h-2.5 bg-green-500 rounded-full mt-1 flex-shrink-0" />

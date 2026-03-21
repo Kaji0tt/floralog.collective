@@ -196,14 +196,33 @@ Deno.serve(async (req) => {
 
     const pushPublicKey = Deno.env.get("VAPID_PUBLIC_KEY");
     const pushPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY");
+    let pushStatus: { attempted: boolean; sent: boolean; reason?: string } = {
+      attempted: false,
+      sent: false,
+    };
 
-    if (targetEmail && pushPublicKey && pushPrivateKey) {
+    if ((targetEmail || targetAuthId) && pushPublicKey && pushPrivateKey) {
       try {
-        const { data: targetProfile } = await adminClient
-          .from("PublicProfile")
-          .select("id, push_subscription")
-          .ilike("user_email", targetEmail)
-          .maybeSingle();
+        pushStatus.attempted = true;
+        let targetProfile: { id: string; push_subscription: string | null } | null = null;
+
+        if (targetAuthId) {
+          const { data: byAuthId } = await adminClient
+            .from("PublicProfile")
+            .select("id, push_subscription")
+            .eq("auth_id", targetAuthId)
+            .maybeSingle();
+          targetProfile = byAuthId || null;
+        }
+
+        if (!targetProfile && targetEmail) {
+          const { data: byEmail } = await adminClient
+            .from("PublicProfile")
+            .select("id, push_subscription")
+            .ilike("user_email", targetEmail)
+            .maybeSingle();
+          targetProfile = byEmail || null;
+        }
 
         if (targetProfile?.push_subscription) {
           webpush.setVapidDetails(
@@ -224,18 +243,36 @@ Deno.serve(async (req) => {
             JSON.parse(targetProfile.push_subscription),
             JSON.stringify(pushPayload),
           );
+
+          pushStatus.sent = true;
+        } else {
+          pushStatus.reason = "no_push_subscription";
+          console.info("[createNotification] Push skipped: no subscription", {
+            targetAuthId,
+            targetEmail,
+          });
         }
       } catch (pushError) {
         const statusCode = (pushError as { statusCode?: number })?.statusCode;
+        pushStatus.reason = `push_error_${statusCode || "unknown"}`;
         console.error("[createNotification] Push send failed:", pushError);
 
-        if ((statusCode === 404 || statusCode === 410) && targetEmail) {
-          await adminClient
-            .from("PublicProfile")
-            .update({ push_subscription: null })
-            .ilike("user_email", targetEmail);
+        if (statusCode === 404 || statusCode === 410) {
+          if (targetAuthId) {
+            await adminClient
+              .from("PublicProfile")
+              .update({ push_subscription: null })
+              .eq("auth_id", targetAuthId);
+          } else if (targetEmail) {
+            await adminClient
+              .from("PublicProfile")
+              .update({ push_subscription: null })
+              .ilike("user_email", targetEmail);
+          }
         }
       }
+    } else {
+      pushStatus.reason = "missing_target_or_vapid_keys";
     }
 
     return new Response(
@@ -247,6 +284,7 @@ Deno.serve(async (req) => {
           targetAuthId,
           targetEmail,
           allowUnauthenticated,
+          pushStatus,
         },
       }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
