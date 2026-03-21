@@ -997,6 +997,13 @@ Viel Spaß beim Entdecken! 🌿`;
                     const Icon = meta.icon;
                     const actor = getNewsActor(newsItem);
                     const avatarFallback = (actor.name || actor.email || '?').charAt(0).toUpperCase();
+                    const pendingRequestFromNews = getPendingRequestFromNews(newsItem);
+                    const showFriendRequestActions =
+                      newsItem.notification_type === 'friend_request_received' &&
+                      !!pendingRequestFromNews;
+                    const showFriendRequestResolvedHint =
+                      newsItem.notification_type === 'friend_request_received' &&
+                      !pendingRequestFromNews;
 
                     return (
                       <motion.div
@@ -1046,7 +1053,7 @@ Viel Spaß beim Entdecken! 🌿`;
                                     locale: de,
                                   })}
                                 </p>
-                                {newsItem.notification_type === 'friend_request_received' && (
+                                {showFriendRequestActions && (
                                   <div className="flex gap-2 mt-2" onClick={(event) => event.stopPropagation()}>
                                     <Button
                                       size="sm"
@@ -1068,6 +1075,9 @@ Viel Spaß beim Entdecken! 🌿`;
                                       Ablehnen
                                     </Button>
                                   </div>
+                                )}
+                                {showFriendRequestResolvedHint && (
+                                  <p className="text-[11px] text-stone-500 mt-2">Diese Anfrage wurde bereits beantwortet.</p>
                                 )}
                               </div>
                               {!newsItem.seen && (
