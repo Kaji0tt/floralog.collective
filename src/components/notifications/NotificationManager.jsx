@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Query } from "@/api/entities";
 import { updateCurrentUserProfile } from "@/api/userApi";
 import { Button } from "@/components/ui/button";
-import { Bell, BellOff, X } from "lucide-react";
+import { Bell, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 export default function NotificationManager({ user, showInProfile = false }) {
@@ -11,12 +11,18 @@ export default function NotificationManager({ user, showInProfile = false }) {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  const supportsPush =
+    typeof window !== "undefined" &&
+    "Notification" in window &&
+    "serviceWorker" in navigator &&
+    "PushManager" in window;
+
   useEffect(() => {
     checkNotificationStatus();
   }, [user]);
 
   const checkNotificationStatus = async () => {
-    if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+    if (!supportsPush) {
       return;
     }
 
@@ -25,12 +31,20 @@ export default function NotificationManager({ user, showInProfile = false }) {
 
     if (permission === "granted") {
       try {
-        const registration = await navigator.serviceWorker.ready;
+        const registration = await registerServiceWorker();
         const subscription = await registration.pushManager.getSubscription();
-        const hasStoredSubscription = Boolean(user?.push_subscription);
-        setIsSubscribed(Boolean(subscription) || hasStoredSubscription);
+
+        // Keep the backend in sync with the active subscription of this device.
+        if (subscription) {
+          const nextValue = JSON.stringify(subscription.toJSON());
+          if (user?.push_subscription !== nextValue) {
+            await updateCurrentUserProfile({ push_subscription: nextValue });
+          }
+        }
+
+        setIsSubscribed(Boolean(subscription));
       } catch (_error) {
-        setIsSubscribed(Boolean(user?.push_subscription));
+        setIsSubscribed(false);
       }
     } else {
       setIsSubscribed(false);
@@ -54,8 +68,12 @@ export default function NotificationManager({ user, showInProfile = false }) {
   };
 
   const registerServiceWorker = async () => {
-    if (!("serviceWorker" in navigator)) {
+    if (!supportsPush) {
       throw new Error("Service Worker not supported");
+    }
+
+    if (!window.isSecureContext) {
+      throw new Error("Push notifications require HTTPS");
     }
 
     const registration = await navigator.serviceWorker.register("/push-sw.js");
@@ -75,10 +93,13 @@ export default function NotificationManager({ user, showInProfile = false }) {
       const registration = await registerServiceWorker();
 
       // Push Subscription erstellen
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
-      });
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+        });
+      }
 
       // Subscription in Datenbank speichern
       await updateCurrentUserProfile({
@@ -138,17 +159,17 @@ export default function NotificationManager({ user, showInProfile = false }) {
   };
 
   const getStatusLabel = () => {
-    if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+    if (!supportsPush) {
       return { text: "Nicht unterstützt: Dieser Browser unterstützt keine Push-Benachrichtigungen.", className: "text-red-700" };
     }
     if (permissionState === "denied") {
       return { text: "Blockiert: In den Browser-Einstellungen wieder erlauben.", className: "text-amber-700" };
     }
     if (permissionState === "granted" && isSubscribed) {
-      return { text: "Aktiv: Push-Benachrichtigungen sind eingeschaltet.", className: "text-green-700" };
+      return { text: "Aktiv auf diesem Gerät: Push-Benachrichtigungen sind eingeschaltet.", className: "text-green-700" };
     }
     if (permissionState === "granted" && !isSubscribed) {
-      return { text: "Nicht aktiv: Berechtigung erteilt, aber keine gültige Push-Subscription gespeichert.", className: "text-amber-700" };
+      return { text: "Nicht aktiv auf diesem Gerät: Berechtigung ist erteilt, aber keine lokale Push-Subscription gefunden.", className: "text-amber-700" };
     }
     return { text: "Noch nicht entschieden: Benachrichtigungen sind aktuell aus.", className: "text-stone-600" };
   };
@@ -158,15 +179,39 @@ export default function NotificationManager({ user, showInProfile = false }) {
     localStorage.setItem("notification-prompt-dismissed", "true");
   };
 
-  if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+  if (!supportsPush) {
     return null;
   }
 
-  // Im Profil: Zeige nur Button
+  // Im Profil: Status + Toggle-Steuerung
   if (showInProfile) {
     const status = getStatusLabel();
     return (
       <div className="space-y-2">
+        <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg border border-stone-200">
+          <div>
+            <p className="font-semibold text-stone-900">Push-Benachrichtigungen</p>
+            <p className="text-xs text-stone-600">
+              Aktiviere Push für Geschenke, Einladungen und Neuigkeiten.
+            </p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isSubscribed}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  requestNotificationPermission();
+                } else {
+                  unsubscribeFromPush();
+                }
+              }}
+              className="sr-only peer"
+              disabled={isLoading}
+            />
+            <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+          </label>
+        </div>
         <p className={`text-xs ${status.className}`}>{status.text}</p>
         <Button
           onClick={checkNotificationStatus}
@@ -175,24 +220,6 @@ export default function NotificationManager({ user, showInProfile = false }) {
           disabled={isLoading}
         >
           Status neu prüfen
-        </Button>
-        <Button
-          onClick={isSubscribed ? unsubscribeFromPush : requestNotificationPermission}
-          variant="outline"
-          className="w-full"
-          disabled={isLoading}
-        >
-          {isSubscribed ? (
-            <>
-              <BellOff className="w-4 h-4 mr-2" />
-              Benachrichtigungen deaktivieren
-            </>
-          ) : (
-            <>
-              <Bell className="w-4 h-4 mr-2" />
-              Benachrichtigungen aktivieren
-            </>
-          )}
         </Button>
       </div>
     );

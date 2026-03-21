@@ -1108,11 +1108,7 @@ export default function Profile() {
                 </label>
               </div>
 
-              <div className="p-4 bg-stone-50 rounded-lg border border-stone-200">
-                <p className="font-semibold text-stone-900 mb-1">Push-Benachrichtigungen</p>
-                <p className="text-xs text-stone-600 mb-3">Aktiviere Push für Geschenke, Einladungen und Neuigkeiten.</p>
-                <NotificationManager user={user} showInProfile />
-              </div>
+              <NotificationManager user={user} showInProfile />
 
               <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
                 <div className="flex items-start gap-3">
