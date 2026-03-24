@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +14,7 @@ import MobileBackButton from "../components/navigation/MobileBackButton";
 
 export default function FriendFriendsList() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [friendUser, setFriendUser] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [copiedMessage, setCopiedMessage] = useState(false);
@@ -70,24 +72,34 @@ export default function FriendFriendsList() {
     }
   }, [friendEmail, currentUser?.email]);
 
+  useEffect(() => {
+    if (!friendEmail) return;
+
+    const unsubscribe = Query.Friend.subscribe((event) => {
+      if (event.type === 'create' || event.type === 'update' || event.type === 'delete') {
+        queryClient.invalidateQueries({ queryKey: ['allFriendRecords'] });
+      }
+    });
+
+    return unsubscribe;
+  }, [friendEmail, queryClient]);
+
   const { data: allFriendRecords = [] } = useQuery({
     queryKey: ['allFriendRecords'],
     queryFn: () => Query.Friend.list(),
-    enabled: !!friendEmail,
+    enabled: !!friendEmail && !!currentUser?.email,
   });
 
-  const { data: friends = [] } = useQuery({
-    queryKey: ['friendsFriends', friendEmail],
-    queryFn: async () => {
-      if (!friendEmail) return [];
-      return allFriendRecords.filter(f =>
-        (f.request_sent_by?.toLowerCase() === friendEmail.toLowerCase() || 
-         f.request_sent_to?.toLowerCase() === friendEmail.toLowerCase()) &&
-        f.status === 'accepted'
-      );
-    },
-    enabled: !!friendEmail && allFriendRecords.length > 0,
-  });
+  const friends = useMemo(() => {
+    if (!friendEmail) return [];
+    const friendEmailLower = friendEmail.toLowerCase();
+
+    return allFriendRecords.filter((f) =>
+      (f.request_sent_by?.toLowerCase() === friendEmailLower ||
+        f.request_sent_to?.toLowerCase() === friendEmailLower) &&
+      f.status === 'accepted'
+    );
+  }, [allFriendRecords, friendEmail]);
 
   const { data: allPublicProfiles = [] } = useQuery({
     queryKey: ['allPublicProfiles'],

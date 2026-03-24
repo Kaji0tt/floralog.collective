@@ -81,9 +81,9 @@ export default function FriendAchievements() {
   });
 
   const { data: userAchievements = [] } = useQuery({
-    queryKey: ['userAchievements', friendEmail],
-    queryFn: () => Query.UserAchievement.filter({ created_by: friendEmail }),
-    enabled: !!friendEmail,
+    queryKey: ['userAchievements', friendUser?.auth_id],
+    queryFn: () => Query.UserAchievement.filter({ auth_id: friendUser.auth_id }),
+    enabled: !!friendUser?.auth_id,
   });
 
   if (isNotFriend) {

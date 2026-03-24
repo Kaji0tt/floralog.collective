@@ -914,6 +914,49 @@ export default function Achievements() {
   const hasRedeemableQuests = allActiveQuests.some(q => q.isCompleted);
   const showQuestNotification = hasRedeemableQuests;
 
+  const getQuestTargets = (quest) => {
+    if (!quest) return [];
+
+    const targets = [];
+
+    if (quest.target_species_name) {
+      targets.push(quest.target_species_name);
+    } else if (quest.target_genus_name) {
+      targets.push(quest.target_genus_name);
+    }
+
+    if (Array.isArray(quest.target_plants) && quest.target_plants.length > 0) {
+      quest.target_plants.forEach((plantId) => {
+        const plantName = plants.find((plant) => plant.id === plantId)?.species_name;
+        if (plantName) {
+          targets.push(plantName);
+        }
+      });
+    }
+
+    return [...new Set(targets)];
+  };
+
+  const renderQuestTargetBadges = (quest) => {
+    const targets = getQuestTargets(quest);
+
+    if (targets.length === 0) return null;
+
+    return (
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        {targets.map((targetName) => (
+          <Badge
+            key={`${quest.type || 'quest'}-${quest.id}-${targetName}`}
+            variant="outline"
+            className="border-2 border-emerald-500 bg-white/80 text-emerald-700 font-bold text-[10px] px-2 py-0.5"
+          >
+            🎯 Ziel: {targetName}
+          </Badge>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <>
       {renderQuestFeedbackOverlay()}
@@ -1199,6 +1242,7 @@ export default function Achievements() {
                                   <p className="text-xs text-stone-600 mb-2">
                                     {quest.description}
                                   </p>
+                                  {renderQuestTargetBadges(quest)}
                                   
                                   {quest.required_discoveries &&
                                 <div className="space-y-1 mb-2">
@@ -1346,6 +1390,7 @@ export default function Achievements() {
                                   <p className="text-xs text-stone-600 mb-2">
                                     {quest.description}
                                   </p>
+                                  {renderQuestTargetBadges(quest)}
 
                                   {quest.required_discoveries && (
                                     <div className="space-y-1 mb-2">
