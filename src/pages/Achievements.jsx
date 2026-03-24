@@ -914,98 +914,21 @@ export default function Achievements() {
   const hasRedeemableQuests = allActiveQuests.some(q => q.isCompleted);
   const showQuestNotification = hasRedeemableQuests;
 
-  const getQuestTargets = (quest) => {
-    if (!quest) return [];
-
-    const targets = [];
-    const addTarget = (value) => {
-      if (!value) return;
-      const normalized = String(value).trim();
-      if (!normalized) return;
-      targets.push(normalized);
-    };
-
-    if (quest.target_species_name) {
-      addTarget(quest.target_species_name);
-    } else if (quest.target_genus_name) {
-      addTarget(quest.target_genus_name);
-    }
-
-    if (Array.isArray(quest.targets) && quest.targets.length > 0) {
-      quest.targets.forEach((targetEntry) => {
-        if (!targetEntry) return;
-        if (typeof targetEntry === 'string') {
-          addTarget(targetEntry);
-          return;
-        }
-
-        addTarget(
-          targetEntry.target_name ||
-          targetEntry.species_name ||
-          targetEntry.genus_name ||
-          targetEntry.name
-        );
-      });
-    } else if (typeof quest.targets === 'string' && quest.targets.trim()) {
-      const rawTargets = quest.targets.trim();
-      try {
-        const parsedTargets = JSON.parse(rawTargets);
-        if (Array.isArray(parsedTargets)) {
-          parsedTargets.forEach((targetEntry) => {
-            if (!targetEntry) return;
-            if (typeof targetEntry === 'string') {
-              addTarget(targetEntry);
-              return;
-            }
-
-            addTarget(
-              targetEntry.target_name ||
-              targetEntry.species_name ||
-              targetEntry.genus_name ||
-              targetEntry.name
-            );
-          });
-        }
-      } catch {
-        addTarget(rawTargets);
-      }
-    }
-
-    if (Array.isArray(quest.target_plants) && quest.target_plants.length > 0) {
-      quest.target_plants.forEach((targetPlant) => {
-        const targetPlantId = typeof targetPlant === 'object' ? targetPlant?.id : targetPlant;
-        const resolvedPlant = plants.find((plant) => String(plant.id) === String(targetPlantId));
-        const resolvedName = resolvedPlant?.species_name || (typeof targetPlant === 'object' ? targetPlant?.species_name : null);
-
-        if (resolvedName) {
-          addTarget(resolvedName);
-        }
-      });
-    }
-
-    if (targets.length === 0 && quest.category && quest.category !== 'Alle') {
-      addTarget(`Kategorie ${quest.category}`);
-    }
-
-    return [...new Set(targets)];
-  };
-
   const renderQuestTargetBadges = (quest) => {
-    const targets = getQuestTargets(quest);
-
-    if (targets.length === 0) return null;
-
+    if (!quest) return null;
+    if (!quest.target_species_name && !quest.target_genus_name) return null;
     return (
       <div className="flex flex-wrap gap-1.5 mb-2">
-        {targets.map((targetName) => (
-          <Badge
-            key={`${quest.type || 'quest'}-${quest.id}-${targetName}`}
-            variant="outline"
-            className="border-2 border-emerald-500 bg-white/80 text-emerald-700 font-bold text-[10px] px-2 py-0.5"
-          >
-            🎯 Ziel: {targetName}
+        {quest.target_species_name && (
+          <Badge variant="outline" className="border-2 border-emerald-500 text-emerald-700 font-bold">
+            🎯 Ziel: {quest.target_species_name}
           </Badge>
-        ))}
+        )}
+        {quest.target_genus_name && !quest.target_species_name && (
+          <Badge variant="outline" className="border-2 border-emerald-500 text-emerald-700 font-bold">
+            🎯 Ziel: {quest.target_genus_name}
+          </Badge>
+        )}
       </div>
     );
   };
