@@ -926,10 +926,13 @@ export default function Achievements() {
     }
 
     if (Array.isArray(quest.target_plants) && quest.target_plants.length > 0) {
-      quest.target_plants.forEach((plantId) => {
-        const plantName = plants.find((plant) => plant.id === plantId)?.species_name;
-        if (plantName) {
-          targets.push(plantName);
+      quest.target_plants.forEach((targetPlant) => {
+        const targetPlantId = typeof targetPlant === 'object' ? targetPlant?.id : targetPlant;
+        const resolvedPlant = plants.find((plant) => String(plant.id) === String(targetPlantId));
+        const resolvedName = resolvedPlant?.species_name || (typeof targetPlant === 'object' ? targetPlant?.species_name : null);
+
+        if (resolvedName) {
+          targets.push(resolvedName);
         }
       });
     }
