@@ -29,7 +29,6 @@ export default function FriendAchievements() {
     };
     loadCurrentUser();
   }, []);
-
   useEffect(() => {
     const loadFriendUser = async () => {
       if (!friendEmail || !currentUser?.email) return;
