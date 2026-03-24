@@ -918,11 +918,57 @@ export default function Achievements() {
     if (!quest) return [];
 
     const targets = [];
+    const addTarget = (value) => {
+      if (!value) return;
+      const normalized = String(value).trim();
+      if (!normalized) return;
+      targets.push(normalized);
+    };
 
     if (quest.target_species_name) {
-      targets.push(quest.target_species_name);
+      addTarget(quest.target_species_name);
     } else if (quest.target_genus_name) {
-      targets.push(quest.target_genus_name);
+      addTarget(quest.target_genus_name);
+    }
+
+    if (Array.isArray(quest.targets) && quest.targets.length > 0) {
+      quest.targets.forEach((targetEntry) => {
+        if (!targetEntry) return;
+        if (typeof targetEntry === 'string') {
+          addTarget(targetEntry);
+          return;
+        }
+
+        addTarget(
+          targetEntry.target_name ||
+          targetEntry.species_name ||
+          targetEntry.genus_name ||
+          targetEntry.name
+        );
+      });
+    } else if (typeof quest.targets === 'string' && quest.targets.trim()) {
+      const rawTargets = quest.targets.trim();
+      try {
+        const parsedTargets = JSON.parse(rawTargets);
+        if (Array.isArray(parsedTargets)) {
+          parsedTargets.forEach((targetEntry) => {
+            if (!targetEntry) return;
+            if (typeof targetEntry === 'string') {
+              addTarget(targetEntry);
+              return;
+            }
+
+            addTarget(
+              targetEntry.target_name ||
+              targetEntry.species_name ||
+              targetEntry.genus_name ||
+              targetEntry.name
+            );
+          });
+        }
+      } catch {
+        addTarget(rawTargets);
+      }
     }
 
     if (Array.isArray(quest.target_plants) && quest.target_plants.length > 0) {
@@ -932,9 +978,13 @@ export default function Achievements() {
         const resolvedName = resolvedPlant?.species_name || (typeof targetPlant === 'object' ? targetPlant?.species_name : null);
 
         if (resolvedName) {
-          targets.push(resolvedName);
+          addTarget(resolvedName);
         }
       });
+    }
+
+    if (targets.length === 0 && quest.category && quest.category !== 'Alle') {
+      addTarget(`Kategorie ${quest.category}`);
     }
 
     return [...new Set(targets)];
