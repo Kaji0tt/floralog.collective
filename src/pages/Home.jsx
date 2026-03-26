@@ -15,6 +15,7 @@ import AchievementNotification from "../components/achievements/AchievementNotif
 import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
 import { useNavigate, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { getNameFontSize } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { updateQuestProgress } from "@/components/utils/questProgress";
 
@@ -1109,7 +1110,17 @@ export default function Home() {
                     </div>
                   ) : (
                     <div className="mb-2">
-                      <h1 className="text-3xl md:text-4xl font-bold text-stone-900" key={getDisplayName()}>
+                      <h1
+                        className="font-bold text-stone-900"
+                        style={{
+                          fontSize: getNameFontSize(getDisplayName()),
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}
+                        title={getDisplayName()}
+                        key={getDisplayName()}
+                      >
                         {getDisplayName()}
                       </h1>
                     </div>

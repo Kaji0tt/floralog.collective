@@ -14,6 +14,7 @@ import { checkAndUnlockAchievements } from "../components/achievements/achieveme
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { getNameFontSize } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
@@ -961,7 +962,17 @@ export default function Profile() {
                     </div>
                   ) : (
                     <div className="mb-2 flex items-center gap-2">
-                      <h1 className="text-3xl md:text-4xl font-bold text-stone-900" key={getDisplayName()}>
+                      <h1
+                        className="font-bold text-stone-900 min-w-0"
+                        style={{
+                          fontSize: getNameFontSize(getDisplayName()),
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}
+                        title={getDisplayName()}
+                        key={getDisplayName()}
+                      >
                         {getDisplayName()}
                       </h1>
                       <Button
