@@ -16,6 +16,7 @@ import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import SearchSortBar from "../components/collection/SearchSortBar";
 import { getCurrentWeeklyQuest, getWeekNumber, getCurrentWeekBounds } from "../components/quests/QuestRotationHelper";
@@ -130,6 +131,9 @@ export default function Quests() {
   const [selectedPlantForSighting, setSelectedPlantForSighting] = useState(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [mapQuickView, setMapQuickView] = useState("friends");
+  const [mapFriendSearchQuery, setMapFriendSearchQuery] = useState("");
+  const [mapSearchQuery, setMapSearchQuery] = useState("");
+  const [mapSelectedViews, setMapSelectedViews] = useState({ mine: true });
 
   const collectionsSortOptions = [
     { value: "newest", label: "Neu" },
@@ -188,6 +192,29 @@ export default function Quests() {
   const { data: scanLikes = [] } = useQuery({
     queryKey: ['scanLikes'],
     queryFn: () => Query.ScanLike.list(),
+  });
+
+  const { data: friendships = [] } = useQuery({
+    queryKey: ['friendships'],
+    queryFn: async () => {
+      if (!user?.email) return [];
+      const allFriends = await Query.Friend.list();
+      const userEmailLower = user.email.toLowerCase();
+      return allFriends.filter(f =>
+        f.status === 'accepted' &&
+        (f.request_sent_by?.toLowerCase() === userEmailLower ||
+         f.request_sent_to?.toLowerCase() === userEmailLower)
+      );
+    },
+    enabled: !!user?.email,
+    staleTime: 10000,
+  });
+
+  const { data: publicProfiles = [] } = useQuery({
+    queryKey: ['publicProfiles'],
+    queryFn: () => Query.PublicProfile.list(),
+    enabled: friendships.length > 0,
+    staleTime: 30000,
   });
 
   useEffect(() => {
@@ -440,6 +467,60 @@ export default function Quests() {
 
     adjustFollowerCount(1);
     followCollectionMutation.mutate(collection.id);
+  };
+
+  // Map helper functions
+  const extractCoordinates = (location) => {
+    if (!location) return null;
+    const coordPattern = /(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)/;
+    const match = location.match(coordPattern);
+    if (match) {
+      const lat = parseFloat(match[1]);
+      const lng = parseFloat(match[2]);
+      if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        return [lat, lng];
+      }
+    }
+    return null;
+  };
+
+  const getFriendEmail = (friendship) => {
+    if (!user) return null;
+    const userEmailLower = user.email.toLowerCase();
+    return friendship.request_sent_by?.toLowerCase() === userEmailLower
+      ? friendship.request_sent_to
+      : friendship.request_sent_by;
+  };
+
+  const friends = friendships.map(friendship => {
+    const friendEmail = getFriendEmail(friendship);
+    const profile = publicProfiles.find(p => p.user_email?.toLowerCase() === friendEmail?.toLowerCase());
+    return {
+      id: friendship.id,
+      email: friendEmail,
+      name: profile?.display_name || profile?.full_name || friendEmail,
+    };
+  });
+
+  const getPlantsWithDiscoveries = (userEmail) => {
+    if (!userEmail) return [];
+    const userEmailLower = userEmail.toLowerCase();
+    const userDiscoveries = allDiscoveries.filter(d =>
+      d.user?.toLowerCase() === userEmailLower || d.created_by?.toLowerCase() === userEmailLower
+    );
+    return userDiscoveries
+      .map(discovery => {
+        const plant = plants.find(p => p.id === discovery.plant_id);
+        if (!plant) return null;
+        return {
+          ...plant,
+          discovery_location: discovery.discovery_location,
+          discovery_date: discovery.discovered_date,
+          image_url: discovery.image_url,
+          created_by: discovery.user || discovery.created_by,
+        };
+      })
+      .filter(Boolean);
   };
 
   return (
@@ -877,56 +958,375 @@ export default function Quests() {
           </TabsContent>
 
           {/* Karte Tab */}
-          <TabsContent value="map" className="pt-14 px-4 pb-20">
-            <div className="max-w-4xl mx-auto space-y-4">
-              <div className="flex gap-1 p-1 border border-stone-200 bg-stone-50 rounded-xl">
-                <Button
-                  onClick={() => setMapQuickView("friends")}
-                  variant={mapQuickView === "friends" ? "default" : "ghost"}
-                  size="sm"
-                  className={`flex-1 h-8 text-xs ${mapQuickView === "friends" ? "bg-blue-600 hover:bg-blue-700" : ""}`}
-                >
-                  Freunde
-                </Button>
-                <Button
-                  onClick={() => setMapQuickView("local")}
-                  variant={mapQuickView === "local" ? "default" : "ghost"}
-                  size="sm"
-                  className={`flex-1 h-8 text-xs ${mapQuickView === "local" ? "bg-blue-600 hover:bg-blue-700" : ""}`}
-                >
-                  Lokal
-                </Button>
-                <Button
-                  onClick={() => setMapQuickView("sightings")}
-                  variant={mapQuickView === "sightings" ? "default" : "ghost"}
-                  size="sm"
-                  className={`flex-1 h-8 text-xs ${mapQuickView === "sightings" ? "bg-blue-600 hover:bg-blue-700" : ""}`}
-                >
-                  Sichtungen
-                </Button>
+          <TabsContent value="map" className="pt-12 overflow-hidden">
+            <div className="relative w-full" style={{ height: 'calc(100vh - 48px)' }}>
+
+              {/* Overlay: view chips + secondary controls */}
+              <div className="absolute top-2 left-0 right-0 z-[1000] px-4">
+                {/* View selector chips styled like sort chips */}
+                <div className="flex items-center rounded-full bg-white/90 backdrop-blur-md shadow-md border border-stone-200 p-0.5">
+                  {[
+                    { value: "friends", label: "👥 Freunde" },
+                    { value: "local",   label: "📍 Lokal"   },
+                    { value: "sightings", label: "🌿 Sichtungen" },
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setMapQuickView(opt.value)}
+                      className={`flex-1 px-2 py-1.5 rounded-full text-xs whitespace-nowrap text-center transition-all ${
+                        mapQuickView === opt.value
+                          ? "bg-green-600 text-white shadow font-semibold"
+                          : "text-stone-600"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Friends: search / selected friend */}
+                {mapQuickView === "friends" && (
+                  <div className="mt-2">
+                    {mapSelectedViews?.mine || mapSelectedViews?.selectedFriend ? (
+                      <div className="flex items-center justify-between px-4 py-2 bg-white/90 backdrop-blur-md rounded-full border border-green-200 shadow">
+                        <span className="text-sm font-semibold text-stone-900">
+                          {mapSelectedViews.mine ? "Meine Pflanzen" : mapSelectedViews.selectedFriend?.name}
+                        </span>
+                        <button
+                          className="text-xs text-stone-500 ml-2"
+                          onClick={() => { setMapSelectedViews({}); setMapFriendSearchQuery(""); }}
+                        >
+                          Ändern
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                          <input
+                            type="text"
+                            placeholder="Freund auswählen..."
+                            value={mapFriendSearchQuery}
+                            onChange={e => setMapFriendSearchQuery(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 rounded-full bg-white/90 backdrop-blur-md border border-stone-200 shadow text-sm outline-none"
+                          />
+                        </div>
+                        {mapFriendSearchQuery.length > 0 && (
+                          <div className="mt-1 bg-white/95 backdrop-blur-md rounded-xl border border-stone-200 shadow-lg overflow-y-auto" style={{ maxHeight: '180px' }}>
+                            <button
+                              onClick={() => { setMapSelectedViews({ mine: true }); setMapFriendSearchQuery(""); }}
+                              className="w-full text-left px-4 py-2 hover:bg-stone-50 border-b border-stone-100"
+                            >
+                              <p className="text-sm font-bold text-stone-900">Meine Pflanzen</p>
+                            </button>
+                            {friends
+                              .filter(f =>
+                                f.name?.toLowerCase().includes(mapFriendSearchQuery.toLowerCase()) ||
+                                f.email?.toLowerCase().includes(mapFriendSearchQuery.toLowerCase())
+                              )
+                              .map(friend => (
+                                <button
+                                  key={friend.id}
+                                  onClick={() => {
+                                    setMapSelectedViews({ [`friend-${friend.email}`]: true, selectedFriend: friend });
+                                    setMapFriendSearchQuery("");
+                                  }}
+                                  className="w-full text-left px-4 py-2 hover:bg-stone-50 border-b border-stone-100 last:border-0"
+                                >
+                                  <p className="text-sm font-bold text-stone-900">{friend.name}</p>
+                                </button>
+                              ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Sightings: search for a plant/genus */}
+                {mapQuickView === "sightings" && (
+                  <div className="mt-2">
+                    {selectedPlantForSighting ? (
+                      <div className="flex items-center justify-between px-4 py-2 bg-white/90 backdrop-blur-md rounded-full border border-green-200 shadow">
+                        <span className="text-sm font-semibold text-stone-900">
+                          {selectedPlantForSighting.type === 'genus'
+                            ? selectedPlantForSighting.data.genus_name
+                            : selectedPlantForSighting.data.species_name}
+                        </span>
+                        <button
+                          className="text-xs text-stone-500 ml-2"
+                          onClick={() => { setSelectedPlantForSighting(null); setMapSearchQuery(""); }}
+                        >
+                          Ändern
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                          <input
+                            type="text"
+                            placeholder="Art oder Gattung suchen..."
+                            value={mapSearchQuery}
+                            onChange={e => setMapSearchQuery(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 rounded-full bg-white/90 backdrop-blur-md border border-stone-200 shadow text-sm outline-none"
+                          />
+                        </div>
+                        {mapSearchQuery.length > 1 && (
+                          <div className="mt-1 bg-white/95 backdrop-blur-md rounded-xl border border-stone-200 shadow-lg overflow-y-auto" style={{ maxHeight: '180px' }}>
+                            {genera
+                              .filter(g =>
+                                g.genus_name?.toLowerCase().includes(mapSearchQuery.toLowerCase()) ||
+                                g.scientific_genus?.toLowerCase().includes(mapSearchQuery.toLowerCase())
+                              )
+                              .slice(0, 5)
+                              .map(genus => (
+                                <button
+                                  key={`genus-${genus.id}`}
+                                  onClick={() => { setSelectedPlantForSighting({ type: 'genus', data: genus }); setMapSearchQuery(""); }}
+                                  className="w-full text-left px-4 py-2 hover:bg-stone-50 border-b border-stone-100 last:border-0"
+                                >
+                                  <p className="text-sm font-bold text-stone-900">{genus.genus_name}</p>
+                                  <p className="text-xs text-stone-500">Gattung · {genus.scientific_genus}</p>
+                                </button>
+                              ))}
+                            {plants
+                              .filter(p =>
+                                p.species_name?.toLowerCase().includes(mapSearchQuery.toLowerCase()) ||
+                                p.scientific_name?.toLowerCase().includes(mapSearchQuery.toLowerCase())
+                              )
+                              .slice(0, 5)
+                              .map(plant => (
+                                <button
+                                  key={`plant-${plant.id}`}
+                                  onClick={() => { setSelectedPlantForSighting({ type: 'species', data: plant }); setMapSearchQuery(""); }}
+                                  className="w-full text-left px-4 py-2 hover:bg-stone-50 border-b border-stone-100 last:border-0"
+                                >
+                                  <p className="text-sm font-bold text-stone-900">{plant.species_name}</p>
+                                  <p className="text-xs text-stone-500">Art · {plant.scientific_name}</p>
+                                </button>
+                              ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Local: get-location button when no location yet */}
+                {mapQuickView === "local" && !userLocation && (
+                  <div className="mt-2 flex justify-center">
+                    <button
+                      onClick={calculateLocation}
+                      disabled={isLoadingLocation}
+                      className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/90 backdrop-blur-md border border-stone-200 shadow text-sm font-medium text-stone-700 disabled:opacity-60"
+                    >
+                      {isLoadingLocation
+                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : <MapPin className="w-4 h-4" />}
+                      {isLoadingLocation ? "Wird ermittelt..." : "Standort ermitteln"}
+                    </button>
+                  </div>
+                )}
               </div>
 
-              <Card className="border-2 border-stone-200 bg-white/90 backdrop-blur-md overflow-hidden">
-                <CardContent className="p-4 md:p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-md flex-shrink-0">
-                      <MapPin className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-base md:text-lg font-bold text-stone-900">Community-Karte</h3>
-                      <p className="text-sm text-stone-600 mt-1">
-                        Wechsle zwischen Freunde, Lokal und Sichtungen und erkunde deine Entdeckungen im Kartenmodus.
-                      </p>
-                      <Button
-                        className="mt-3 bg-blue-600 hover:bg-blue-700"
-                        onClick={() => navigate(createPageUrl(`Map?view=${mapQuickView}`))}
+              {/* Friends map */}
+              {mapQuickView === "friends" && (() => {
+                const mapUserLocation = userLocation ? [userLocation.lat, userLocation.lng] : null;
+                const filteredPlants = [];
+                if (mapSelectedViews?.mine && user) {
+                  getPlantsWithDiscoveries(user.email)
+                    .filter(p => extractCoordinates(p.discovery_location))
+                    .forEach(p => filteredPlants.push({
+                      ...p,
+                      coordinates: extractCoordinates(p.discovery_location),
+                      color: USER_COLORS[0],
+                      sourceLabel: "Meine Pflanzen",
+                    }));
+                }
+                friends.forEach((friend, idx) => {
+                  if (mapSelectedViews?.[`friend-${friend.email}`]) {
+                    getPlantsWithDiscoveries(friend.email)
+                      .filter(p => extractCoordinates(p.discovery_location))
+                      .forEach(p => filteredPlants.push({
+                        ...p,
+                        coordinates: extractCoordinates(p.discovery_location),
+                        color: USER_COLORS[(idx + 1) % USER_COLORS.length],
+                        sourceLabel: friend.name,
+                      }));
+                  }
+                });
+                const bounds = filteredPlants.length > 0 ? filteredPlants.map(p => p.coordinates) : null;
+                const center = mapUserLocation || (filteredPlants[0]?.coordinates) || [51.1657, 10.4515];
+                return (
+                  <MapContainer
+                    center={center}
+                    zoom={6}
+                    style={{ height: '100%', width: '100%' }}
+                    className="z-0"
+                  >
+                    {bounds && <MapController bounds={bounds} center={null} zoom={null} />}
+                    <TileLayer
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
+                    {filteredPlants.map((plant, idx) => (
+                      <Marker
+                        key={`${plant.id}-${plant.created_by}-${idx}`}
+                        position={plant.coordinates}
+                        icon={createColoredIcon(plant.color)}
                       >
-                        Karte mit {mapQuickView === "friends" ? "Freunde" : mapQuickView === "local" ? "Lokal" : "Sichtungen"} öffnen
-                      </Button>
+                        <Popup>
+                          <div className="p-1">
+                            <p className="font-bold text-sm">{plant.species_name}</p>
+                            {plant.image_url && (
+                              <img src={plant.image_url} alt={plant.species_name} className="w-full h-24 object-cover rounded my-1" />
+                            )}
+                            <Badge variant="outline">{plant.sourceLabel}</Badge>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    ))}
+                    {mapUserLocation && (
+                      <Marker position={mapUserLocation}>
+                        <Popup><p className="text-sm font-bold">📍 Du bist hier</p></Popup>
+                      </Marker>
+                    )}
+                  </MapContainer>
+                );
+              })()}
+
+              {/* Local map */}
+              {mapQuickView === "local" && (() => {
+                if (!userLocation) {
+                  return (
+                    <div className="h-full flex items-center justify-center bg-stone-100">
+                      <div className="text-center text-stone-400">
+                        <MapPin className="w-12 h-12 mx-auto mb-2" />
+                        <p className="text-sm">Standort aktivieren, um Pflanzen in der Nähe zu sehen</p>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  );
+                }
+                const mapUserLocation = [userLocation.lat, userLocation.lng];
+                return (
+                  <MapContainer
+                    center={mapUserLocation}
+                    zoom={12}
+                    style={{ height: '100%', width: '100%' }}
+                    className="z-0"
+                  >
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    />
+                    {(() => {
+                      const userMap = new Map(allUsers.map(u => [u.user_email, u]));
+                      return allDiscoveries
+                        .map(d => {
+                          const coords = extractCoordinates(d.discovery_location);
+                          if (!coords) return null;
+                          const discoveryUser = userMap.get(d.user) || userMap.get(d.created_by);
+                          if (!discoveryUser || discoveryUser.local_tracking === false) return null;
+                          if (calculateDistance(mapUserLocation[0], mapUserLocation[1], coords[0], coords[1]) > 20) return null;
+                          return { discovery: d, coords, discoveryUser };
+                        })
+                        .filter(Boolean)
+                        .map(({ discovery, coords, discoveryUser }) => {
+                          const plant = plants.find(p => p.id === discovery.plant_id);
+                          const userColor = getColorForUser(discoveryUser.user_email, allUsers);
+                          return (
+                            <Marker key={discovery.id} position={coords} icon={createColoredIcon(userColor)}>
+                              <Popup>
+                                <div className="text-sm">
+                                  <p className="font-bold">{plant?.species_name}</p>
+                                  <p className="text-xs italic text-stone-600">{plant?.scientific_name}</p>
+                                  {discovery.image_url && (
+                                    <img src={discovery.image_url} alt="" className="w-24 h-24 object-cover mt-1 rounded" />
+                                  )}
+                                </div>
+                              </Popup>
+                            </Marker>
+                          );
+                        });
+                    })()}
+                    <Marker position={mapUserLocation} icon={createColoredIcon('#ef4444')}>
+                      <Popup><p className="text-sm font-bold">📍 Dein Standort</p></Popup>
+                    </Marker>
+                  </MapContainer>
+                );
+              })()}
+
+              {/* Sightings map */}
+              {mapQuickView === "sightings" && (() => {
+                if (!selectedPlantForSighting) {
+                  return (
+                    <div className="h-full flex items-center justify-center bg-stone-100">
+                      <div className="text-center text-stone-400">
+                        <MapPin className="w-12 h-12 mx-auto mb-2" />
+                        <p className="text-sm">Pflanze suchen, um Sichtungen anzuzeigen</p>
+                      </div>
+                    </div>
+                  );
+                }
+                const relevantDiscoveries = selectedPlantForSighting.type === 'genus'
+                  ? allDiscoveries.filter(d => {
+                      const plant = plants.find(p => p.id === d.plant_id);
+                      return plant &&
+                        plant.genus_category === selectedPlantForSighting.data.category &&
+                        plant.genus_number === selectedPlantForSighting.data.category_dex_number &&
+                        d.discovery_location;
+                    })
+                  : allDiscoveries.filter(d =>
+                      d.plant_id === selectedPlantForSighting.data.id && d.discovery_location
+                    );
+                const validDiscoveries = relevantDiscoveries.filter(d => {
+                  const coords = d.discovery_location?.split(',');
+                  if (!coords || coords.length !== 2) return false;
+                  const lat = parseFloat(coords[0].trim());
+                  const lng = parseFloat(coords[1].trim());
+                  return !isNaN(lat) && !isNaN(lng);
+                });
+                const center = validDiscoveries.length > 0
+                  ? (() => {
+                      const coords = validDiscoveries[0].discovery_location.split(',');
+                      return [parseFloat(coords[0].trim()), parseFloat(coords[1].trim())];
+                    })()
+                  : [51.1657, 10.4515];
+                return (
+                  <MapContainer
+                    center={center}
+                    zoom={validDiscoveries.length > 0 ? 8 : 6}
+                    style={{ height: '100%', width: '100%' }}
+                    className="z-0"
+                  >
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    />
+                    {validDiscoveries.map(discovery => {
+                      const coords = discovery.discovery_location.split(',');
+                      const lat = parseFloat(coords[0].trim());
+                      const lng = parseFloat(coords[1].trim());
+                      const plant = plants.find(p => p.id === discovery.plant_id);
+                      return (
+                        <Marker key={discovery.id} position={[lat, lng]} icon={createColoredIcon('#10b981')}>
+                          <Popup>
+                            <div className="text-sm">
+                              <p className="font-bold">{plant?.species_name}</p>
+                              <p className="text-xs italic">{plant?.scientific_name}</p>
+                              {discovery.image_url && (
+                                <img src={discovery.image_url} alt="" className="w-24 h-24 object-cover mt-1 rounded" />
+                              )}
+                            </div>
+                          </Popup>
+                        </Marker>
+                      );
+                    })}
+                  </MapContainer>
+                );
+              })()}
             </div>
           </TabsContent>
           </Tabs>
