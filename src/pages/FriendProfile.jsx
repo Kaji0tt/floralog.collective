@@ -404,17 +404,22 @@ export default function FriendProfile() {
                 } : {}}
               >
                 <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
-                  <div className="relative group flex-shrink-0">
-                    <div className="w-28 h-28 bg-gradient-to-br from-green-600 to-emerald-600 rounded-2xl flex items-center justify-center shadow-2xl overflow-hidden ring-4 ring-white/50 backdrop-blur-sm">
-                      {friendUser.avatar_url ? (
-                        <img src={friendUser.avatar_url} alt="Profil" className="w-full h-full object-cover" />
-                      ) : (
-                        <Leaf className="w-14 h-14 text-white" />
-                      )}
-                    </div>
+                  <div className="w-28 h-28 rounded-2xl bg-white/60 backdrop-blur-md border-2 border-white/40 shadow-lg flex flex-col items-center justify-center text-stone-700">
+                    <Leaf className="w-10 h-10 text-green-600" />
+                    <span className="mt-1 text-[10px] font-semibold uppercase tracking-wide">Pflanzen-Slot</span>
                   </div>
 
                   <div className="flex-1 w-full bg-white/40 backdrop-blur-md rounded-xl p-5 border-2 border-white/30 shadow-lg">
+                    <div className="flex items-start gap-4 mb-3">
+                      <div className="w-20 h-20 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-xl overflow-hidden ring-2 ring-white/70 backdrop-blur-sm flex-shrink-0">
+                        {friendUser.avatar_url ? (
+                          <img src={friendUser.avatar_url} alt="Profil" className="w-full h-full object-cover" />
+                        ) : (
+                          <Leaf className="w-10 h-10 text-white" />
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
                     <div className="mb-2">
                       <h1 
                         className="font-bold text-stone-900 break-words" 
@@ -433,6 +438,8 @@ export default function FriendProfile() {
                       <span className="text-base font-semibold text-stone-700">
                         {friendUser.selected_title || friendUser.title || "Pflanzen-Anfänger"}
                       </span>
+                    </div>
+                      </div>
                     </div>
                   </div>
                 </div>

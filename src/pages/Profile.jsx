@@ -887,39 +887,44 @@ export default function Profile() {
                 <ImageIcon className="w-5 h-5 text-stone-700" />
               </motion.button>
               <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
-                <div className="relative group flex-shrink-0">
-                  <div className="w-28 h-28 bg-gradient-to-br from-green-600 to-emerald-600 rounded-2xl flex items-center justify-center shadow-2xl overflow-hidden ring-4 ring-white/50 backdrop-blur-sm">
-                    {user.avatar_url ? (
-                      <img src={user.avatar_url} alt="Profil" className="w-full h-full object-cover" />
-                    ) : (
-                      <Leaf className="w-14 h-14 text-white" />
-                    )}
-                  </div>
-                  
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="absolute inset-0 bg-black/50 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                    disabled={uploadingImage}
-                    aria-label="Profilbild hochladen"
-                  >
-                    {uploadingImage ? (
-                      <Loader2 className="w-8 h-8 text-white animate-spin" />
-                    ) : (
-                      <Camera className="w-8 h-8 text-white" />
-                    )}
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                  />
-                  
-
+                <div className="w-28 h-28 rounded-2xl bg-white/60 backdrop-blur-md border-2 border-white/40 shadow-lg flex flex-col items-center justify-center text-stone-700">
+                  <Leaf className="w-10 h-10 text-green-600" />
+                  <span className="mt-1 text-[10px] font-semibold uppercase tracking-wide">Pflanzen-Slot</span>
                 </div>
 
                 <div className="flex-1 w-full bg-white/40 backdrop-blur-md rounded-xl p-5 border-2 border-white/30 shadow-lg">
+                  <div className="flex items-start gap-4 mb-3">
+                    <div className="relative group flex-shrink-0">
+                      <div className="w-20 h-20 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-xl overflow-hidden ring-2 ring-white/70 backdrop-blur-sm">
+                        {user.avatar_url ? (
+                          <img src={user.avatar_url} alt="Profil" className="w-full h-full object-cover" />
+                        ) : (
+                          <Leaf className="w-10 h-10 text-white" />
+                        )}
+                      </div>
+
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        disabled={uploadingImage}
+                        aria-label="Profilbild hochladen"
+                      >
+                        {uploadingImage ? (
+                          <Loader2 className="w-6 h-6 text-white animate-spin" />
+                        ) : (
+                          <Camera className="w-6 h-6 text-white" />
+                        )}
+                      </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                      />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
                   {isEditingName ? (
                     <div className="mb-3">
                       <div className="flex items-center gap-2">
@@ -975,6 +980,8 @@ export default function Profile() {
                       {user.selected_title || user.title || "Pflanzen-Entdecker"}
                     </span>
                     </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
