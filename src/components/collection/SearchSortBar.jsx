@@ -12,12 +12,17 @@ export default function SearchSortBar({
   sortValue,
   onSortChange,
   initialOpen = false,
+  showSortControls = true,
   showDiscoveredToggle = false,
   discoveredFilter = "all",
   onDiscoveredFilterChange,
 }) {
   const [isOpen, setIsOpen] = useState(initialOpen);
   const headerRef = useRef(null);
+
+  useEffect(() => {
+    setIsOpen(initialOpen);
+  }, [initialOpen]);
 
   // Close search pill when clicking/tapping outside
   useEffect(() => {
@@ -85,36 +90,38 @@ export default function SearchSortBar({
         />
       </button>
 
-      <div
-        className={`flex items-center rounded-full bg-stone-100 p-0.5 text-[11px] overflow-x-auto scrollbar-hide transition-all duration-200 ease-out flex-1 min-w-0`}
-      >
-        {Array.isArray(sortOptions) && sortOptions.map((opt) => (
-          <button
-            key={opt.value}
-            type="button"
-            className={`flex-1 px-2 py-1 rounded-full whitespace-nowrap text-center ${
-              sortValue === opt.value
-                ? "bg-white shadow text-stone-900"
-                : "text-stone-500"
-            }`}
-            onClick={() => onSortChange?.(opt.value)}
-          >
-            {opt.label}
-          </button>
-        ))}
+      {showSortControls && (
+        <div
+          className="flex items-center rounded-full bg-stone-100 p-0.5 text-[11px] overflow-x-auto scrollbar-hide transition-all duration-200 ease-out flex-1 min-w-0"
+        >
+          {Array.isArray(sortOptions) && sortOptions.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              className={`flex-1 px-2 py-1 rounded-full whitespace-nowrap text-center ${
+                sortValue === opt.value
+                  ? "bg-white shadow text-stone-900"
+                  : "text-stone-500"
+              }`}
+              onClick={() => onSortChange?.(opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
 
-        {showDiscoveredToggle && onDiscoveredFilterChange && (
-          <button
-            type="button"
-            onClick={handleToggleDiscovered}
-            className="ml-1 px-2 py-1 rounded-full bg-white/70 text-[10px] text-stone-600 hover:bg-white shadow flex items-center gap-1"
-            aria-label={`Filter: ${discoveredLabel}`}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            <span>{discoveredLabel}</span>
-          </button>
-        )}
-      </div>
+          {showDiscoveredToggle && onDiscoveredFilterChange && (
+            <button
+              type="button"
+              onClick={handleToggleDiscovered}
+              className="ml-1 px-2 py-1 rounded-full bg-white/70 text-[10px] text-stone-600 hover:bg-white shadow flex items-center gap-1"
+              aria-label={`Filter: ${discoveredLabel}`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span>{discoveredLabel}</span>
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

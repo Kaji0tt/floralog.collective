@@ -5,7 +5,7 @@ import { createUserNotification, getUserDisplayName } from "@/api/notificationSe
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Leaf, Search, PencilLine } from "lucide-react";
+import { Loader2, Leaf, Search, PencilLine, SlidersHorizontal } from "lucide-react";
 import GenusCard from "../components/collection/GenusCard";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import HintDialog from "../components/collection/HintDialog";
@@ -61,6 +61,7 @@ export default function Collection() {
   const [averageColor, setAverageColor] = useState(null);
   const [selectedCollectionId, setSelectedCollectionId] = useState("global");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [sortChipsOpen, setSortChipsOpen] = useState(true);
   const isQuestCollectionView = searchParams.get("from") === "quests" && !!searchParams.get("collectionId");
 
   useEffect(() => {
@@ -709,10 +710,28 @@ export default function Collection() {
                       <button
                         type="button"
                         onClick={() => setFiltersOpen((prev) => !prev)}
-                        className="p-1 rounded-full bg-stone-100 text-stone-600 hover:bg-stone-200 transition-colors"
-                        aria-label="Suche und Filter öffnen"
+                        className={
+                          "p-1 rounded-full transition-colors " +
+                          (filtersOpen
+                            ? "bg-stone-200 text-stone-800"
+                            : "bg-stone-100 text-stone-600 hover:bg-stone-200")
+                        }
+                        aria-label={filtersOpen ? "Suche ausblenden" : "Suche einblenden"}
                       >
                         <Search className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSortChipsOpen((prev) => !prev)}
+                        className={
+                          "p-1 rounded-full transition-colors " +
+                          (sortChipsOpen
+                            ? "bg-stone-200 text-stone-800"
+                            : "bg-stone-100 text-stone-600 hover:bg-stone-200")
+                        }
+                        aria-label={sortChipsOpen ? "Sortierung ausblenden" : "Sortierung einblenden"}
+                      >
+                        <SlidersHorizontal className="w-3 h-3" />
                       </button>
                     </div>
                   </div>
@@ -729,8 +748,8 @@ export default function Collection() {
               </div>
             </div>
 
-            {/* Suche & Filter (per Icon ein- und ausblendbar) */}
-            {filtersOpen && (
+            {/* Suche und Sortierung (getrennt per Icons ein- und ausblendbar) */}
+            {(filtersOpen || sortChipsOpen) && (
               <div className="space-y-2">
                 <SearchSortBar
                   placeholder="Gattungen durchsuchen..."
@@ -744,7 +763,8 @@ export default function Collection() {
                   ]}
                   sortValue={collectionSort}
                   onSortChange={setCollectionSort}
-                  initialOpen
+                  initialOpen={filtersOpen}
+                  showSortControls={sortChipsOpen}
                   showDiscoveredToggle
                   discoveredFilter={discoveredFilter}
                   onDiscoveredFilterChange={setDiscoveredFilter}
