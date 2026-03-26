@@ -847,7 +847,7 @@ export default function Collection() {
                             ? "bg-stone-200 text-stone-800"
                             : "bg-stone-100 text-stone-600 hover:bg-stone-200")
                         }
-                        aria-label={sortChipsOpen ? "Sortierung ausblenden" : "Sortierung einblenden"}
+                        aria-label={sortChipsOpen ? "Suche und Sortierung ausblenden" : "Suche und Sortierung einblenden"}
                       >
                         <SlidersHorizontal className="w-3 h-3" />
                       </button>
@@ -866,34 +866,36 @@ export default function Collection() {
               </div>
             </div>
 
-            {/* Suche bleibt immer verfügbar, Sortierchips sind per Icon togglebar */}
-            <div className="space-y-2">
-              <SearchSortBar
-                searchQuery={searchQuery}
-                onSearchQueryChange={(nextQuery) => {
-                  setSearchQuery(nextQuery);
-                  saveFiltersForCollection(selectedCollectionId, { searchQuery: nextQuery });
-                }}
-                sortOptions={[
-                  { value: "index", label: "Index" },
-                  { value: "newest", label: "Neu" },
-                  { value: "title", label: "Titel" },
-                  { value: "rarity", label: "Rarität" },
-                ]}
-                sortValue={collectionSort}
-                onSortChange={(nextSort) => {
-                  setCollectionSort(nextSort);
-                  saveFiltersForCollection(selectedCollectionId, { collectionSort: nextSort });
-                }}
-                showSortControls={sortChipsOpen}
-                showDiscoveredToggle
-                discoveredFilter={discoveredFilter}
-                onDiscoveredFilterChange={(nextFilter) => {
-                  setDiscoveredFilter(nextFilter);
-                  saveFiltersForCollection(selectedCollectionId, { discoveredFilter: nextFilter });
-                }}
-              />
-            </div>
+            {/* Suche und Sortierchips per Icon ein/ausblendbar */}
+            {sortChipsOpen && (
+              <div className="space-y-2">
+                <SearchSortBar
+                  searchQuery={searchQuery}
+                  onSearchQueryChange={(nextQuery) => {
+                    setSearchQuery(nextQuery);
+                    saveFiltersForCollection(selectedCollectionId, { searchQuery: nextQuery });
+                  }}
+                  sortOptions={[
+                    { value: "index", label: "Index" },
+                    { value: "newest", label: "Neu" },
+                    { value: "title", label: "Titel" },
+                    { value: "rarity", label: "Rarität" },
+                  ]}
+                  sortValue={collectionSort}
+                  onSortChange={(nextSort) => {
+                    setCollectionSort(nextSort);
+                    saveFiltersForCollection(selectedCollectionId, { collectionSort: nextSort });
+                  }}
+                  showSortControls={sortChipsOpen}
+                  showDiscoveredToggle
+                  discoveredFilter={discoveredFilter}
+                  onDiscoveredFilterChange={(nextFilter) => {
+                    setDiscoveredFilter(nextFilter);
+                    saveFiltersForCollection(selectedCollectionId, { discoveredFilter: nextFilter });
+                  }}
+                />
+              </div>
+            )}
           </div>
 
           {/* Collection Grid */}
