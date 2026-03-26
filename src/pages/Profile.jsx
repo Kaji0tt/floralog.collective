@@ -7,7 +7,7 @@ import { uploadFile } from "@/api/storage";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Trophy, BookOpen, Target, Users, Camera, Loader2, LogOut, Mail, Key, AlertCircle, RotateCcw, Star, Image as ImageIcon, Edit2, CheckCircle, X, Heart, Map as MapIcon, Leaf, ChevronDown, ChevronUp } from "lucide-react";
+import { Trophy, BookOpen, Target, Users, Camera, Loader2, LogOut, Mail, Key, AlertCircle, RotateCcw, Star, Image as ImageIcon, Edit2, CheckCircle, X, Heart, Leaf, ChevronDown, ChevronUp } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { motion, AnimatePresence } from "framer-motion";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
@@ -1013,7 +1013,7 @@ export default function Profile() {
                 ))}
               </div>
 
-              {/* Scannen/Karte Container - innerhalb der Profilkarte */}
+              {/* Scannen Container - innerhalb der Profilkarte */}
               <div className="mt-4">
                 <div 
                   className="bg-white/60 backdrop-blur-md rounded-xl p-4 shadow-md"
@@ -1023,7 +1023,7 @@ export default function Profile() {
                     borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
                   }}
                 >
-                  <div className="flex items-center justify-around gap-4">
+                  <div className="flex items-center justify-center gap-4">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -1042,26 +1042,6 @@ export default function Profile() {
                         <Camera className="w-5 h-5 text-white" />
                       </div>
                       <span className="font-semibold text-stone-900">Scannen</span>
-                    </button>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(createPageUrl("Map"));
-                      }}
-                      className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-                    >
-                      <div 
-                        className="w-10 h-10 rounded-full flex items-center justify-center shadow-md"
-                        style={{
-                          background: averageColor 
-                            ? `linear-gradient(135deg, var(--profile-bg-color) 0%, var(--profile-bg-color-dark) 100%)`
-                            : 'linear-gradient(135deg, rgb(34, 197, 94), rgb(22, 163, 74))'
-                        }}
-                      >
-                        <MapIcon className="w-5 h-5 text-white" />
-                      </div>
-                      <span className="font-semibold text-stone-900">Karte</span>
                     </button>
                   </div>
                 </div>

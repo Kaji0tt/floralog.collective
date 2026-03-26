@@ -6,8 +6,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Heart, Users, TrendingUp, Clock, Leaf, Loader2, ChevronLeft, ChevronRight, X, Search, MapPin, BarChart3, Award, Plus, Check } from "lucide-react";
+import { Heart, Users, TrendingUp, Clock, Leaf, Loader2, ChevronLeft, ChevronRight, X, Search, MapPin, Plus, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -128,6 +129,7 @@ export default function Quests() {
   const [collectionsSort, setCollectionsSort] = useState("newest"); // "title" | "newest" | "followers" | "items"
   const [selectedPlantForSighting, setSelectedPlantForSighting] = useState(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [mapQuickView, setMapQuickView] = useState("friends");
 
   const collectionsSortOptions = [
     { value: "newest", label: "Neu" },
@@ -460,8 +462,8 @@ export default function Quests() {
                 <TabsTrigger value="collections" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
                   🌿 Kollektionen
                 </TabsTrigger>
-                <TabsTrigger value="stats" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
-                  📊 Statistiken
+                <TabsTrigger value="map" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
+                  🗺️ Karte
                 </TabsTrigger>
               </TabsList>
               
@@ -874,283 +876,60 @@ export default function Quests() {
             </div>
           </TabsContent>
 
-            {/* Statistiken Tab */}
-          <TabsContent value="stats" className="pt-14 px-4 pb-20">
-            <div className="max-w-4xl mx-auto">
-              <div className="grid md:grid-cols-2 gap-4 mb-4">
-                {/* Häufigste Scans (Insgesamt) */}
-                <Card className="border-2 border-stone-200 bg-white/90 backdrop-blur-md">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Award className="w-5 h-5 text-amber-600" />
-                      Häufigste Scans
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {(() => {
-                      const plantCounts = {};
-                      allDiscoveries.forEach(d => {
-                        if (!plantCounts[d.plant_id]) plantCounts[d.plant_id] = 0;
-                        plantCounts[d.plant_id]++;
-                      });
-                      
-                      const topPlants = Object.entries(plantCounts)
-                        .sort((a, b) => b[1] - a[1])
-                        .slice(0, 3);
-                      
-                      if (topPlants.length === 0) {
-                        return (
-                          <div className="text-center py-6 text-stone-500 text-sm">
-                            Noch keine Scans vorhanden
-                          </div>
-                        );
-                      }
-                      
-                      return topPlants.map(([plantId, count], index) => {
-                        const plant = plants.find(p => p.id === plantId);
-                        return (
-                          <div key={plantId} className="flex items-center justify-between p-2 bg-stone-50 rounded-lg">
-                            <div className="flex items-center gap-2">
-                              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                                index === 0 ? 'bg-amber-500 text-white' :
-                                index === 1 ? 'bg-stone-300 text-stone-700' :
-                                'bg-orange-300 text-orange-800'
-                              }`}>
-                                {index + 1}
-                              </div>
-                              <span className="text-sm font-semibold text-stone-900 truncate">
-                                {plant?.species_name || 'Unbekannt'}
-                              </span>
-                            </div>
-                            <Badge className="bg-amber-600 text-white text-xs px-2 py-0">
-                              {count}x
-                            </Badge>
-                          </div>
-                        );
-                      });
-                    })()}
-                  </CardContent>
-                </Card>
-
-                {/* Häufigste Scans (Dieser Monat) */}
-                <Card className="border-2 border-stone-200 bg-white/90 backdrop-blur-md">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Award className="w-5 h-5 text-blue-600" />
-                      Häufigste diesen Monat
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {(() => {
-                      const monthStart = new Date();
-                      monthStart.setDate(1);
-                      monthStart.setHours(0, 0, 0, 0);
-                      
-                      const thisMonthDiscoveries = allDiscoveries.filter(d => 
-                        new Date(d.created_date || d.discovered_date) >= monthStart
-                      );
-                      
-                      const plantCounts = {};
-                      thisMonthDiscoveries.forEach(d => {
-                        if (!plantCounts[d.plant_id]) plantCounts[d.plant_id] = 0;
-                        plantCounts[d.plant_id]++;
-                      });
-                      
-                      const topPlants = Object.entries(plantCounts)
-                        .sort((a, b) => b[1] - a[1])
-                        .slice(0, 3);
-                      
-                      if (topPlants.length === 0) {
-                        return (
-                          <div className="text-center py-6 text-stone-500 text-sm">
-                            Noch keine Scans diesen Monat
-                          </div>
-                        );
-                      }
-                      
-                      return topPlants.map(([plantId, count], index) => {
-                        const plant = plants.find(p => p.id === plantId);
-                        return (
-                          <div key={plantId} className="flex items-center justify-between p-2 bg-stone-50 rounded-lg">
-                            <div className="flex items-center gap-2">
-                              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                                index === 0 ? 'bg-blue-500 text-white' :
-                                index === 1 ? 'bg-stone-300 text-stone-700' :
-                                'bg-blue-300 text-blue-800'
-                              }`}>
-                                {index + 1}
-                              </div>
-                              <span className="text-sm font-semibold text-stone-900 truncate">
-                                {plant?.species_name || 'Unbekannt'}
-                              </span>
-                            </div>
-                            <Badge className="bg-blue-600 text-white text-xs px-2 py-0">
-                              {count}x
-                            </Badge>
-                          </div>
-                        );
-                      });
-                    })()}
-                  </CardContent>
-                </Card>
+          {/* Karte Tab */}
+          <TabsContent value="map" className="pt-14 px-4 pb-20">
+            <div className="max-w-4xl mx-auto space-y-4">
+              <div className="flex gap-1 p-1 border border-stone-200 bg-stone-50 rounded-xl">
+                <Button
+                  onClick={() => setMapQuickView("friends")}
+                  variant={mapQuickView === "friends" ? "default" : "ghost"}
+                  size="sm"
+                  className={`flex-1 h-8 text-xs ${mapQuickView === "friends" ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                >
+                  Freunde
+                </Button>
+                <Button
+                  onClick={() => setMapQuickView("local")}
+                  variant={mapQuickView === "local" ? "default" : "ghost"}
+                  size="sm"
+                  className={`flex-1 h-8 text-xs ${mapQuickView === "local" ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                >
+                  Lokal
+                </Button>
+                <Button
+                  onClick={() => setMapQuickView("sightings")}
+                  variant={mapQuickView === "sightings" ? "default" : "ghost"}
+                  size="sm"
+                  className={`flex-1 h-8 text-xs ${mapQuickView === "sightings" ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                >
+                  Sichtungen
+                </Button>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-4">
-              {/* Scan-Statistiken */}
-              <Card className="border-2 border-stone-200 bg-white/90 backdrop-blur-md">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Leaf className="w-5 h-5 text-green-600" />
-                    Deine Scans
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                    <span className="text-sm text-stone-700">Gesamt</span>
-                    <Badge className="bg-green-600 text-white text-base px-3 py-1">
-                      {allDiscoveries.filter(d => d.user === user.email || d.created_by === user.email).length}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
-                    <span className="text-sm text-stone-700">Diese Woche</span>
-                    <Badge variant="outline" className="text-base px-3 py-1">
-                      {(() => {
-                        const weekStart = new Date();
-                        weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-                        weekStart.setHours(0, 0, 0, 0);
-                        return allDiscoveries.filter(d => 
-                          (d.user === user.email || d.created_by === user.email) &&
-                          new Date(d.created_date || d.discovered_date) >= weekStart
-                        ).length;
-                      })()}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
-                    <span className="text-sm text-stone-700">Dieser Monat</span>
-                    <Badge variant="outline" className="text-base px-3 py-1">
-                      {(() => {
-                        const monthStart = new Date();
-                        monthStart.setDate(1);
-                        monthStart.setHours(0, 0, 0, 0);
-                        return allDiscoveries.filter(d => 
-                          (d.user === user.email || d.created_by === user.email) &&
-                          new Date(d.created_date || d.discovered_date) >= monthStart
-                        ).length;
-                      })()}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Sammlungs-Statistiken */}
-              <Card className="border-2 border-stone-200 bg-white/90 backdrop-blur-md">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Leaf className="w-5 h-5 text-purple-600" />
-                    Deine Sammlung
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
-                    <span className="text-sm text-stone-700">Entdeckte Gattungen</span>
-                    <div className="flex items-center gap-2">
-                      <Badge className="bg-purple-600 text-white text-base px-3 py-1">
-                        {(() => {
-                          const myDiscoveries = allDiscoveries.filter(d => d.user === user.email || d.created_by === user.email);
-                          const uniqueGenera = new Set();
-                          myDiscoveries.forEach(d => {
-                            const plant = plants.find(p => p.id === d.plant_id);
-                            if (plant) {
-                              uniqueGenera.add(`${plant.genus_category}-${plant.genus_number}`);
-                            }
-                          });
-                          return uniqueGenera.size;
-                        })()}
-                      </Badge>
-                      <Badge variant="outline" className="text-sm px-2 py-1">
-                        {(() => {
-                          const myDiscoveries = allDiscoveries.filter(d => d.user === user.email || d.created_by === user.email);
-                          const uniqueGenera = new Set();
-                          myDiscoveries.forEach(d => {
-                            const plant = plants.find(p => p.id === d.plant_id);
-                            if (plant) {
-                              uniqueGenera.add(`${plant.genus_category}-${plant.genus_number}`);
-                            }
-                          });
-                          const totalGenera = genera.length;
-                          return totalGenera > 0 ? `${Math.round((uniqueGenera.size / totalGenera) * 100)}%` : '0%';
-                        })()}
-                      </Badge>
+              <Card className="border-2 border-stone-200 bg-white/90 backdrop-blur-md overflow-hidden">
+                <CardContent className="p-4 md:p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-md flex-shrink-0">
+                      <MapPin className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-base md:text-lg font-bold text-stone-900">Community-Karte</h3>
+                      <p className="text-sm text-stone-600 mt-1">
+                        Wechsle zwischen Freunde, Lokal und Sichtungen und erkunde deine Entdeckungen im Kartenmodus.
+                      </p>
+                      <Button
+                        className="mt-3 bg-blue-600 hover:bg-blue-700"
+                        onClick={() => navigate(createPageUrl(`Map?view=${mapQuickView}`))}
+                      >
+                        Karte mit {mapQuickView === "friends" ? "Freunde" : mapQuickView === "local" ? "Lokal" : "Sichtungen"} öffnen
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
-                    <span className="text-sm text-stone-700">Entdeckte Arten</span>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-base px-3 py-1">
-                        {(() => {
-                          const myDiscoveries = allDiscoveries.filter(d => d.user === user.email || d.created_by === user.email);
-                          const uniquePlants = new Set(myDiscoveries.map(d => d.plant_id));
-                          return uniquePlants.size;
-                        })()}
-                      </Badge>
-                      <Badge variant="outline" className="text-sm px-2 py-1">
-                        {(() => {
-                          const myDiscoveries = allDiscoveries.filter(d => d.user === user.email || d.created_by === user.email);
-                          const uniquePlants = new Set(myDiscoveries.map(d => d.plant_id));
-                          const totalPlants = plants.length;
-                          return totalPlants > 0 ? `${Math.round((uniquePlants.size / totalPlants) * 100)}%` : '0%';
-                        })()}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
-                    <span className="text-sm text-stone-700">Seltenste Entdeckung</span>
-                    <Badge variant="outline" className="text-xs px-2 py-1">
-                      {(() => {
-                        const myDiscoveries = allDiscoveries.filter(d => d.user === user.email || d.created_by === user.email);
-                        const myPlants = myDiscoveries.map(d => plants.find(p => p.id === d.plant_id)).filter(p => p);
-                        const rarestPlant = myPlants.find(p => p.rarity === 'Extrem Selten') || 
-                                           myPlants.find(p => p.rarity === 'Sehr Selten') ||
-                                           myPlants.find(p => p.rarity === 'Selten');
-                        return rarestPlant?.rarity || 'Keine';
-                      })()}
-                    </Badge>
-                  </div>
                 </CardContent>
               </Card>
-
-              {/* Likes & Social */}
-              <Card className="border-2 border-stone-200 bg-white/90 backdrop-blur-md">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Heart className="w-5 h-5 text-red-600" />
-                    Community
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                    <span className="text-sm text-stone-700">Erhaltene Likes</span>
-                    <Badge className="bg-red-600 text-white text-base px-3 py-1">
-                      {(() => {
-                        const myDiscoveries = allDiscoveries.filter(d => d.user === user.email || d.created_by === user.email);
-                        return scanLikes.filter(like => 
-                          myDiscoveries.some(d => d.id === like.discovery_id)
-                        ).length;
-                      })()}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
-                    <span className="text-sm text-stone-700">Gegebene Likes</span>
-                    <Badge variant="outline" className="text-base px-3 py-1">
-                      {scanLikes.filter(like => like.liked_by === user.email).length}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-              </div>
-              </div>
-              </TabsContent>
-              </Tabs>
+            </div>
+          </TabsContent>
+          </Tabs>
 
         <MobileBackButton />
 

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { MapPin, Navigation, Loader2, Info, Leaf, Filter, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -178,7 +178,10 @@ export default function Map() {
   const [selectedViews, setSelectedViews] = useState({});
   const [targetLocation, setTargetLocation] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
-  const [activeTab, setActiveTab] = useState("friends");
+  const [activeTab, setActiveTab] = useState(() => {
+    const initialView = new URLSearchParams(window.location.search).get('view');
+    return initialView === 'local' || initialView === 'sightings' ? initialView : 'friends';
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPlantForSighting, setSelectedPlantForSighting] = useState(null);
   const [friendSearchQuery, setFriendSearchQuery] = useState("");
@@ -463,17 +466,34 @@ export default function Map() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200">
             <div className="max-w-7xl mx-auto">
-              <TabsList className="grid w-full grid-cols-3 bg-white h-12 rounded-none border-0">
-                <TabsTrigger value="friends" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
-                  👥 Freunde
-                </TabsTrigger>
-                <TabsTrigger value="local" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
-                  📍 Lokal
-                </TabsTrigger>
-                <TabsTrigger value="sightings" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
-                  🔍 Sichtungen
-                </TabsTrigger>
-              </TabsList>
+              <div className="p-2 border-t border-stone-200 bg-stone-50">
+                <div className="flex gap-1 rounded-xl border border-stone-200 bg-white p-1">
+                  <Button
+                    onClick={() => setActiveTab("friends")}
+                    variant={activeTab === "friends" ? "default" : "ghost"}
+                    size="sm"
+                    className={`flex-1 h-8 text-xs ${activeTab === "friends" ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                  >
+                    Freunde
+                  </Button>
+                  <Button
+                    onClick={() => setActiveTab("local")}
+                    variant={activeTab === "local" ? "default" : "ghost"}
+                    size="sm"
+                    className={`flex-1 h-8 text-xs ${activeTab === "local" ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                  >
+                    Lokal
+                  </Button>
+                  <Button
+                    onClick={() => setActiveTab("sightings")}
+                    variant={activeTab === "sightings" ? "default" : "ghost"}
+                    size="sm"
+                    className={`flex-1 h-8 text-xs ${activeTab === "sightings" ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                  >
+                    Sichtungen
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
 
