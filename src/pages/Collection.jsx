@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Query } from "@/api/entities";
 import { createUserNotification, getUserDisplayName } from "@/api/notificationService";
@@ -12,10 +12,24 @@ import HintDialog from "../components/collection/HintDialog";
 import SearchSortBar from "../components/collection/SearchSortBar";
 
 const COLLECTION_FILTERS_STORAGE_KEY = "collection_filters_by_collection_v1";
+const COLLECTION_VIEW_STATE_STORAGE_KEY = "collection_view_state_v1";
 const DEFAULT_COLLECTION_FILTERS = {
+  searchQuery: "",
   collectionSort: "index",
   discoveredFilter: "all",
   sortChipsOpen: true,
+};
+
+const readCollectionViewState = () => {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.sessionStorage.getItem(COLLECTION_VIEW_STATE_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
 };
 
 const getAverageColor = (imageUrl) => {
@@ -68,6 +82,9 @@ export default function Collection() {
   const [averageColor, setAverageColor] = useState(null);
   const [selectedCollectionId, setSelectedCollectionId] = useState("global");
   const [sortChipsOpen, setSortChipsOpen] = useState(true);
+  const listScrollContainerRef = useRef(null);
+  const restoredScrollForCollectionRef = useRef(null);
+  const collectionViewStateRef = useRef(readCollectionViewState());
   const [filterSettingsByCollection, setFilterSettingsByCollection] = useState(() => {
     if (typeof window === "undefined") return {};
     try {
@@ -136,10 +153,17 @@ export default function Collection() {
       ...DEFAULT_COLLECTION_FILTERS,
       ...(saved || {}),
     };
+    setSearchQuery(next.searchQuery || "");
     setCollectionSort(next.collectionSort);
     setDiscoveredFilter(next.discoveredFilter);
     setSortChipsOpen(Boolean(next.sortChipsOpen));
   }, [selectedCollectionId, filterSettingsByCollection]);
+
+  useEffect(() => {
+    return () => {
+      persistCurrentScrollPosition();
+    };
+  }, [selectedCollectionId]);
 
   const handleCollectionChipSelect = (nextCollectionId) => {
     setSelectedCollectionId(nextCollectionId);
@@ -154,6 +178,34 @@ export default function Collection() {
     }
 
     setSearchParams(nextParams, { replace: true });
+  };
+
+  const persistCollectionViewState = (updater) => {
+    if (typeof window === "undefined") return;
+    const previous = collectionViewStateRef.current || {};
+    const next = typeof updater === "function" ? updater(previous) : { ...previous, ...updater };
+    collectionViewStateRef.current = next;
+    try {
+      window.sessionStorage.setItem(COLLECTION_VIEW_STATE_STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // Ignore sessionStorage write errors silently
+    }
+  };
+
+  const persistCurrentScrollPosition = () => {
+    const key = selectedCollectionId || "global";
+    const currentTop = listScrollContainerRef.current?.scrollTop || 0;
+    persistCollectionViewState((prev) => ({
+      ...prev,
+      scrollByCollection: {
+        ...(prev.scrollByCollection || {}),
+        [key]: currentTop,
+      },
+    }));
+  };
+
+  const handleCollectionListScroll = () => {
+    persistCurrentScrollPosition();
   };
 
   const { data: genera = [], isLoading: generaLoading } = useQuery({
@@ -526,6 +578,21 @@ export default function Collection() {
   const totalSpecies = plants.length;
 
   useEffect(() => {
+    const key = selectedCollectionId || "global";
+    if (restoredScrollForCollectionRef.current === key) return;
+    if (!listScrollContainerRef.current) return;
+
+    const savedTop = collectionViewStateRef.current?.scrollByCollection?.[key];
+    const nextTop = Number.isFinite(savedTop) ? savedTop : 0;
+
+    window.requestAnimationFrame(() => {
+      if (!listScrollContainerRef.current) return;
+      listScrollContainerRef.current.scrollTop = nextTop;
+      restoredScrollForCollectionRef.current = key;
+    });
+  }, [selectedCollectionId, sortedGenera.length]);
+
+  useEffect(() => {
     if (user?.background_color) {
       setAverageColor(user.background_color);
     } else if (user?.background_image_url) {
@@ -799,38 +866,40 @@ export default function Collection() {
               </div>
             </div>
 
-            {/* Suche und Sortierung (getrennt per Icons ein- und ausblendbar) */}
-            {sortChipsOpen && (
-              <div className="space-y-2">
-                <SearchSortBar
-                  searchQuery={searchQuery}
-                  onSearchQueryChange={setSearchQuery}
-                  sortOptions={[
-                    { value: "index", label: "Index" },
-                    { value: "newest", label: "Neu" },
-                    { value: "title", label: "Titel" },
-                    { value: "rarity", label: "Rarität" },
-                  ]}
-                  sortValue={collectionSort}
-                  onSortChange={(nextSort) => {
-                    setCollectionSort(nextSort);
-                    saveFiltersForCollection(selectedCollectionId, { collectionSort: nextSort });
-                  }}
-                  showSearchControl={false}
-                  showSortControls={sortChipsOpen}
-                  showDiscoveredToggle
-                  discoveredFilter={discoveredFilter}
-                  onDiscoveredFilterChange={(nextFilter) => {
-                    setDiscoveredFilter(nextFilter);
-                    saveFiltersForCollection(selectedCollectionId, { discoveredFilter: nextFilter });
-                  }}
-                />
-              </div>
-            )}
+            {/* Suche bleibt immer verfügbar, Sortierchips sind per Icon togglebar */}
+            <div className="space-y-2">
+              <SearchSortBar
+                searchQuery={searchQuery}
+                onSearchQueryChange={(nextQuery) => {
+                  setSearchQuery(nextQuery);
+                  saveFiltersForCollection(selectedCollectionId, { searchQuery: nextQuery });
+                }}
+                sortOptions={[
+                  { value: "index", label: "Index" },
+                  { value: "newest", label: "Neu" },
+                  { value: "title", label: "Titel" },
+                  { value: "rarity", label: "Rarität" },
+                ]}
+                sortValue={collectionSort}
+                onSortChange={(nextSort) => {
+                  setCollectionSort(nextSort);
+                  saveFiltersForCollection(selectedCollectionId, { collectionSort: nextSort });
+                }}
+                showSortControls={sortChipsOpen}
+                showDiscoveredToggle
+                discoveredFilter={discoveredFilter}
+                onDiscoveredFilterChange={(nextFilter) => {
+                  setDiscoveredFilter(nextFilter);
+                  saveFiltersForCollection(selectedCollectionId, { discoveredFilter: nextFilter });
+                }}
+              />
+            </div>
           </div>
 
           {/* Collection Grid */}
           <div
+            ref={listScrollContainerRef}
+            onScroll={handleCollectionListScroll}
             className="relative flex-1 min-h-0 overflow-y-auto pb-20"
             style={{
               WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black 100%)`,
