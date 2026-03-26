@@ -14,11 +14,14 @@ import SearchSortBar from "../components/collection/SearchSortBar";
 const COLLECTION_FILTERS_STORAGE_KEY = "collection_filters_by_collection_v1";
 const COLLECTION_VIEW_STATE_STORAGE_KEY = "collection_view_state_v1";
 const DEFAULT_COLLECTION_FILTERS = {
+  activeCategory: null,
   searchQuery: "",
   collectionSort: "index",
   discoveredFilter: "all",
   sortChipsOpen: true,
 };
+
+const CATEGORY_CHIPS = ["Bäume", "Sträucher", "Blumen"];
 
 const readCollectionViewState = () => {
   if (typeof window === "undefined") return {};
@@ -72,7 +75,7 @@ export default function Collection() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeCategory, setActiveCategory] = useState("Alle");
+  const [activeCategory, setActiveCategory] = useState(null);
   const [selectedGenus, setSelectedGenus] = useState(null);
   const [showHintDialog, setShowHintDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -153,6 +156,7 @@ export default function Collection() {
       ...DEFAULT_COLLECTION_FILTERS,
       ...(saved || {}),
     };
+    setActiveCategory(next.activeCategory || null);
     setSearchQuery(next.searchQuery || "");
     setCollectionSort(next.collectionSort);
     setDiscoveredFilter(next.discoveredFilter);
@@ -377,12 +381,8 @@ export default function Collection() {
     return (a.category_dex_number || 999999) - (b.category_dex_number || 999999);
   });
 
-  const filters = [
-    { value: "rarity", label: "Rarität (nur seltene)" },
-  ];
-
   // Check if activeCategory is a collection quest ID
-  const isCollectionFilter = activeCategory.startsWith('collection_');
+  const isCollectionFilter = typeof activeCategory === "string" && activeCategory.startsWith('collection_');
   const collectionId = isCollectionFilter ? activeCategory.replace('collection_', '') : null;
   
   const followedCollections = visibleCollections.filter((c) =>
@@ -476,10 +476,9 @@ export default function Collection() {
       filteredGenera = filteredGenera.filter(g => g.discovered);
     }
 
-    if (activeCategory === "rarity") {
-      filteredGenera = filteredGenera.filter(g => g.hasRareSpecies);
+    if (CATEGORY_CHIPS.includes(activeCategory)) {
+      filteredGenera = filteredGenera.filter((g) => g.category === activeCategory);
     }
-    // "Alle" zeigt einfach alle Gattungen ohne zusätzlichen Filter
   }
   
   // Falls eine benutzerdefinierte Kollektion ausgewählt ist, auf deren Items einschränken
@@ -816,6 +815,31 @@ export default function Collection() {
                     {selectedCollection.description}
                   </p>
                 )}
+                <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pt-1">
+                  {CATEGORY_CHIPS.map((category) => {
+                    const isActive = activeCategory === category;
+                    return (
+                      <button
+                        key={category}
+                        type="button"
+                        onClick={() => {
+                          const nextCategory = isActive ? null : category;
+                          setActiveCategory(nextCategory);
+                          saveFiltersForCollection(selectedCollectionId, { activeCategory: nextCategory });
+                        }}
+                        className={
+                          "px-2 py-1 rounded-full border text-[10px] whitespace-nowrap transition-colors " +
+                          (isActive
+                            ? "bg-stone-900 text-white border-stone-900"
+                            : "bg-white/80 text-stone-600 border-stone-300 hover:bg-white")
+                        }
+                        aria-pressed={isActive}
+                      >
+                        {category}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="flex items-center gap-3 mt-1">
