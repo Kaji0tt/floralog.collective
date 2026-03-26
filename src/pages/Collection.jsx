@@ -480,8 +480,15 @@ export default function Collection() {
       filteredGenera = filteredGenera.filter(g => g.discovered);
     }
 
-    if (CATEGORY_CHIPS.includes(activeCategory)) {
-      filteredGenera = filteredGenera.filter((g) => g.category === activeCategory);
+    if (CATEGORY_CHIPS.some((chip) => chip.value === activeCategory)) {
+      const matchingGenusKeys = new Set(
+        plants
+          .filter((plant) => plant.genus_category === activeCategory)
+          .map((plant) => `${plant.genus_category}::${plant.genus_number}`)
+      );
+      filteredGenera = filteredGenera.filter((g) =>
+        matchingGenusKeys.has(`${g.category}::${g.category_dex_number}`)
+      );
     }
   }
   
@@ -825,7 +832,7 @@ export default function Collection() {
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center justify-between text-[10px] text-stone-600">
                     <div className="flex items-center gap-1">
-                      <span>Sammlungsfortschritt</span>
+                      <span>Fortschritt</span>
                       {heroStats.total > 0 && (
                         <span className="text-[10px] text-stone-500">
                           ({heroStats.discovered}/{heroStats.total})
