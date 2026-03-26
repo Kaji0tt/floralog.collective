@@ -12,6 +12,7 @@ export default function SearchSortBar({
   sortValue,
   onSortChange,
   initialOpen = false,
+  showSearchControl = true,
   showSortControls = true,
   showDiscoveredToggle = false,
   discoveredFilter = "all",
@@ -64,31 +65,33 @@ export default function SearchSortBar({
       ref={headerRef}
       className="flex items-center gap-2 overflow-x-hidden"
     >
-      <button
-        type="button"
-        onClick={() => setIsOpen(true)}
-        className={`relative flex items-center bg-stone-100 border border-stone-200 shadow-sm rounded-full h-8 overflow-hidden transition-all duration-200 ease-out shrink-0 ${
-          isOpen ? "flex-[0.55] min-w-[140px] px-3" : "w-8 justify-center"
-        }`}
-        aria-label="Suche öffnen"
-      >
-        <Search
-          className={`w-4 h-4 text-stone-600 transition-all duration-200 ease-out ${
-            isOpen ? "mr-2 flex-shrink-0" : ""
+      {showSearchControl && (
+        <button
+          type="button"
+          onClick={() => setIsOpen(true)}
+          className={`relative flex items-center bg-stone-100 border border-stone-200 shadow-sm rounded-full h-8 overflow-hidden transition-all duration-200 ease-out shrink-0 ${
+            isOpen ? "flex-[0.55] min-w-[140px] px-3" : "w-8 justify-center"
           }`}
-        />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => onSearchQueryChange?.(e.target.value)}
-          placeholder={placeholder}
-          className={`bg-transparent border-0 outline-none text-[11px] placeholder:text-stone-400 text-stone-900 transition-all duration-200 ease-out ${
-            isOpen
-              ? "w-full opacity-100"
-              : "w-0 opacity-0 pointer-events-none"
-          }`}
-        />
-      </button>
+          aria-label="Suche öffnen"
+        >
+          <Search
+            className={`w-4 h-4 text-stone-600 transition-all duration-200 ease-out ${
+              isOpen ? "mr-2 flex-shrink-0" : ""
+            }`}
+          />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => onSearchQueryChange?.(e.target.value)}
+            placeholder={placeholder}
+            className={`bg-transparent border-0 outline-none text-[11px] placeholder:text-stone-400 text-stone-900 transition-all duration-200 ease-out ${
+              isOpen
+                ? "w-full opacity-100"
+                : "w-0 opacity-0 pointer-events-none"
+            }`}
+          />
+        </button>
+      )}
 
       {showSortControls && (
         <div

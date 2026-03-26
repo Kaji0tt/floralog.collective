@@ -5,11 +5,18 @@ import { createUserNotification, getUserDisplayName } from "@/api/notificationSe
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Leaf, Search, PencilLine, SlidersHorizontal } from "lucide-react";
+import { Loader2, Leaf, PencilLine, SlidersHorizontal } from "lucide-react";
 import GenusCard from "../components/collection/GenusCard";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import HintDialog from "../components/collection/HintDialog";
 import SearchSortBar from "../components/collection/SearchSortBar";
+
+const COLLECTION_FILTERS_STORAGE_KEY = "collection_filters_by_collection_v1";
+const DEFAULT_COLLECTION_FILTERS = {
+  collectionSort: "index",
+  discoveredFilter: "all",
+  sortChipsOpen: true,
+};
 
 const getAverageColor = (imageUrl) => {
   return new Promise((resolve) => {
@@ -60,9 +67,36 @@ export default function Collection() {
   const [user, setUser] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
   const [selectedCollectionId, setSelectedCollectionId] = useState("global");
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [sortChipsOpen, setSortChipsOpen] = useState(true);
+  const [filterSettingsByCollection, setFilterSettingsByCollection] = useState(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = window.localStorage.getItem(COLLECTION_FILTERS_STORAGE_KEY);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+      return {};
+    }
+  });
   const isQuestCollectionView = searchParams.get("from") === "quests" && !!searchParams.get("collectionId");
+
+  const saveFiltersForCollection = (collectionId, partial) => {
+    const key = collectionId || "global";
+    setFilterSettingsByCollection((prev) => {
+      const prevForKey = {
+        ...DEFAULT_COLLECTION_FILTERS,
+        ...(prev[key] || {}),
+      };
+      return {
+        ...prev,
+        [key]: {
+          ...prevForKey,
+          ...partial,
+        },
+      };
+    });
+  };
 
   useEffect(() => {
     const loadUser = async () => {
@@ -82,6 +116,30 @@ export default function Collection() {
       setSelectedCollectionId("global");
     }
   }, [searchParams, selectedCollectionId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        COLLECTION_FILTERS_STORAGE_KEY,
+        JSON.stringify(filterSettingsByCollection)
+      );
+    } catch {
+      // Ignore localStorage write errors silently
+    }
+  }, [filterSettingsByCollection]);
+
+  useEffect(() => {
+    const key = selectedCollectionId || "global";
+    const saved = filterSettingsByCollection[key];
+    const next = {
+      ...DEFAULT_COLLECTION_FILTERS,
+      ...(saved || {}),
+    };
+    setCollectionSort(next.collectionSort);
+    setDiscoveredFilter(next.discoveredFilter);
+    setSortChipsOpen(Boolean(next.sortChipsOpen));
+  }, [selectedCollectionId, filterSettingsByCollection]);
 
   const handleCollectionChipSelect = (nextCollectionId) => {
     setSelectedCollectionId(nextCollectionId);
@@ -709,20 +767,13 @@ export default function Collection() {
                       <span>{heroProgressPercent}%</span>
                       <button
                         type="button"
-                        onClick={() => setFiltersOpen((prev) => !prev)}
-                        className={
-                          "p-1 rounded-full transition-colors " +
-                          (filtersOpen
-                            ? "bg-stone-200 text-stone-800"
-                            : "bg-stone-100 text-stone-600 hover:bg-stone-200")
-                        }
-                        aria-label={filtersOpen ? "Suche ausblenden" : "Suche einblenden"}
-                      >
-                        <Search className="w-3 h-3" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSortChipsOpen((prev) => !prev)}
+                        onClick={() => {
+                          setSortChipsOpen((prev) => {
+                            const next = !prev;
+                            saveFiltersForCollection(selectedCollectionId, { sortChipsOpen: next });
+                            return next;
+                          });
+                        }}
                         className={
                           "p-1 rounded-full transition-colors " +
                           (sortChipsOpen
@@ -749,10 +800,9 @@ export default function Collection() {
             </div>
 
             {/* Suche und Sortierung (getrennt per Icons ein- und ausblendbar) */}
-            {(filtersOpen || sortChipsOpen) && (
+            {sortChipsOpen && (
               <div className="space-y-2">
                 <SearchSortBar
-                  placeholder="Gattungen durchsuchen..."
                   searchQuery={searchQuery}
                   onSearchQueryChange={setSearchQuery}
                   sortOptions={[
@@ -762,12 +812,18 @@ export default function Collection() {
                     { value: "rarity", label: "Rarität" },
                   ]}
                   sortValue={collectionSort}
-                  onSortChange={setCollectionSort}
-                  initialOpen={filtersOpen}
+                  onSortChange={(nextSort) => {
+                    setCollectionSort(nextSort);
+                    saveFiltersForCollection(selectedCollectionId, { collectionSort: nextSort });
+                  }}
+                  showSearchControl={false}
                   showSortControls={sortChipsOpen}
                   showDiscoveredToggle
                   discoveredFilter={discoveredFilter}
-                  onDiscoveredFilterChange={setDiscoveredFilter}
+                  onDiscoveredFilterChange={(nextFilter) => {
+                    setDiscoveredFilter(nextFilter);
+                    saveFiltersForCollection(selectedCollectionId, { discoveredFilter: nextFilter });
+                  }}
                 />
               </div>
             )}
