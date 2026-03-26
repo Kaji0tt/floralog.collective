@@ -21,7 +21,11 @@ const DEFAULT_COLLECTION_FILTERS = {
   sortChipsOpen: true,
 };
 
-const CATEGORY_CHIPS = ["Bäume", "Sträucher", "Blumen"];
+const CATEGORY_CHIPS = [
+  { value: "Bäume", emoji: "🌳" },
+  { value: "Sträucher", emoji: "🌿" },
+  { value: "Blumen", emoji: "🌸" },
+];
 
 const readCollectionViewState = () => {
   if (typeof window === "undefined") return {};
@@ -815,31 +819,6 @@ export default function Collection() {
                     {selectedCollection.description}
                   </p>
                 )}
-                <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pt-1">
-                  {CATEGORY_CHIPS.map((category) => {
-                    const isActive = activeCategory === category;
-                    return (
-                      <button
-                        key={category}
-                        type="button"
-                        onClick={() => {
-                          const nextCategory = isActive ? null : category;
-                          setActiveCategory(nextCategory);
-                          saveFiltersForCollection(selectedCollectionId, { activeCategory: nextCategory });
-                        }}
-                        className={
-                          "px-2 py-1 rounded-full border text-[10px] whitespace-nowrap transition-colors " +
-                          (isActive
-                            ? "bg-stone-900 text-white border-stone-900"
-                            : "bg-white/80 text-stone-600 border-stone-300 hover:bg-white")
-                        }
-                        aria-pressed={isActive}
-                      >
-                        {category}
-                      </button>
-                    );
-                  })}
-                </div>
               </div>
 
               <div className="flex items-center gap-3 mt-1">
@@ -856,6 +835,30 @@ export default function Collection() {
 
                     <div className="flex items-center gap-2">
                       <span>{heroProgressPercent}%</span>
+                      {CATEGORY_CHIPS.map((categoryChip) => {
+                        const isActive = activeCategory === categoryChip.value;
+                        return (
+                          <button
+                            key={categoryChip.value}
+                            type="button"
+                            onClick={() => {
+                              const nextCategory = isActive ? null : categoryChip.value;
+                              setActiveCategory(nextCategory);
+                              saveFiltersForCollection(selectedCollectionId, { activeCategory: nextCategory });
+                            }}
+                            className={
+                              "p-1 rounded-full transition-colors " +
+                              (isActive
+                                ? "bg-stone-200 text-stone-800"
+                                : "bg-stone-100 text-stone-600 hover:bg-stone-200")
+                            }
+                            aria-label={categoryChip.value + (isActive ? " deaktivieren" : " filtern")}
+                            aria-pressed={isActive}
+                          >
+                            <span className="text-[11px] leading-none">{categoryChip.emoji}</span>
+                          </button>
+                        );
+                      })}
                       <button
                         type="button"
                         onClick={() => {
