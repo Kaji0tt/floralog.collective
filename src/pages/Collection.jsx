@@ -561,7 +561,7 @@ export default function Collection() {
         <div className="max-w-7xl mx-auto h-full pt-0 flex flex-col gap-3">
           <div className="shrink-0 space-y-3">
             {/* Horizontale Kollektionen-Chips + Neuerstellen-Button */}
-            {!isQuestCollectionView && (
+            {!isQuestCollectionView && (ownedCollections.length + followedCollections.length > 0) && (
             <div className="relative flex items-center gap-2">
               <div
                 className="-mx-4 px-4 pb-0 flex-1 flex gap-2 overflow-x-auto scrollbar-hide pr-6"
@@ -643,6 +643,16 @@ export default function Collection() {
                   <h1 className="text-lg font-bold text-stone-900 leading-tight flex-1 min-w-0 truncate">
                     {heroTitle}
                   </h1>
+                  {!isQuestCollectionView && (ownedCollections.length + followedCollections.length === 0) && (
+                    <button
+                      type="button"
+                      onClick={() => navigate("/CollectionEditor")}
+                      className="shrink-0 w-8 h-8 rounded-full bg-white/80 border border-stone-300 text-stone-700 flex items-center justify-center shadow-sm hover:bg-white hover:border-stone-400 transition-colors"
+                      aria-label="Neue Kollektion anlegen"
+                    >
+                      <span className="text-lg leading-none">+</span>
+                    </button>
+                  )}
                   {selectedCollection && !isQuestCollectionView && (
                     <div className="shrink-0 flex items-center gap-1.5">
                       {selectedCollection.is_public && !isOwnerOfSelected && (
