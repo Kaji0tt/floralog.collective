@@ -854,10 +854,10 @@ export default function Collection() {
                               saveFiltersForCollection(selectedCollectionId, { activeCategory: nextCategory });
                             }}
                             className={
-                              "p-1 rounded-full transition-colors " +
+                              "p-1 rounded-full border transition-colors " +
                               (isActive
-                                ? "bg-stone-200 text-stone-800"
-                                : "bg-stone-100 text-stone-600 hover:bg-stone-200")
+                                ? "bg-stone-100 text-stone-700 border-emerald-500"
+                                : "bg-stone-100 text-stone-600 border-stone-300 hover:bg-stone-200")
                             }
                             aria-label={categoryChip.value + (isActive ? " deaktivieren" : " filtern")}
                             aria-pressed={isActive}
