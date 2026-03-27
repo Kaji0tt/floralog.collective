@@ -129,6 +129,64 @@ export default function Scanner() {
           setGettingLocation(false);
         }
       );
+    } else {
+      setGettingLocation(false);
+    }
+  };
+
+  const requestUserLocation = () => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("Geolocation wird von diesem Browser nicht unterstützt."));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+        },
+        (error) => {
+          reject(error);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 12000,
+          maximumAge: 60000
+        }
+      );
+    });
+  };
+
+  const getLocationString = (location) => {
+    if (!location || typeof location.lat !== "number" || typeof location.lng !== "number") {
+      return null;
+    }
+    return `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
+  };
+
+  const resolveLocationForDiscovery = async () => {
+    if (!locationEnabled) {
+      return null;
+    }
+
+    const cachedLocationString = getLocationString(userLocation);
+    if (cachedLocationString) {
+      return cachedLocationString;
+    }
+
+    try {
+      setGettingLocation(true);
+      const freshLocation = await requestUserLocation();
+      setUserLocation(freshLocation);
+      return getLocationString(freshLocation);
+    } catch (error) {
+      console.warn("Standort konnte vor dem Speichern nicht ermittelt werden:", error);
+      return null;
+    } finally {
+      setGettingLocation(false);
     }
   };
 
@@ -650,10 +708,7 @@ export default function Scanner() {
   };
 
   const handleAutoSave = async (plant, imageUrl, aiData, allResults = []) => {
-    let locationString = null;
-    if (userLocation) {
-      locationString = `${userLocation.lat.toFixed(6)}, ${userLocation.lng.toFixed(6)}`;
-    }
+    const locationString = await resolveLocationForDiscovery();
 
     // Lade aktuelle Discoveries direkt von der DB, nicht vom Cache
     const currentDiscoveries = await Query.UserPlantDiscovery.filter({ auth_id: user.id });
@@ -718,10 +773,7 @@ export default function Scanner() {
   };
 
   const handleAutoAddNewPlant = async (plantData, imageUrl, allResults = []) => {
-    let locationString = null;
-    if (userLocation) {
-      locationString = `${userLocation.lat.toFixed(6)}, ${userLocation.lng.toFixed(6)}`;
-    }
+    const locationString = await resolveLocationForDiscovery();
 
     try {
       const { data, error } = await supabase.functions.invoke('createGlobalPlant', {
