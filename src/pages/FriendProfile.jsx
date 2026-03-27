@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { getNameFontSize } from "@/lib/utils";
 import MobileBackButton from "../components/navigation/MobileBackButton"; // Added import
 import { Camera, BookOpen, Trophy, Target, Users, ChevronRight, Star, ArrowLeft, Lock, Map as MapIcon, Heart, UserPlus, Clock, Leaf } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -422,12 +423,14 @@ export default function FriendProfile() {
                       <div className="flex-1 min-w-0">
                     <div className="mb-2">
                       <h1 
-                        className="font-bold text-stone-900 break-words" 
+                        className="font-bold text-stone-900"
                         style={{
-                          fontSize: (friendUser.display_name || friendUser.full_name || '').length > 20 
-                            ? 'clamp(1.5rem, 4vw, 2rem)' 
-                            : 'clamp(1.875rem, 5vw, 2.25rem)'
+                          fontSize: getNameFontSize(friendUser.display_name || friendUser.full_name),
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
                         }}
+                        title={friendUser.display_name || friendUser.full_name}
                         key={friendUser.display_name || friendUser.full_name}
                       >
                         {friendUser.display_name || friendUser.full_name}
