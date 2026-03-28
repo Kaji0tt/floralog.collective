@@ -145,6 +145,10 @@ const tables = [
   'UserCollectionQuest', 'UserDailyQuest', 'UserMonthlyQuest',
   'UserNotification', 'UserPlantDiscovery', 'UserQuest',
   'UserWeeklyQuest', 'WeeklyQuest',
+  // Robot Plant core loop
+  'RobotPlant', 'RobotPlantWalletLedger', 'RobotPlantZone',
+  'RobotPlantUserZoneState', 'RobotPlantDailyChallenge', 'RobotPlantUserDailyChallenge',
+  'RobotPlantShopItem', 'RobotPlantUserInventory', 'RobotPlantActiveEffect',
   // Collections & Classroom
   'Collection', 'CollectionItem', 'UserCollection',
   'ClassroomParticipant', 'ClassroomParticipantProgress'

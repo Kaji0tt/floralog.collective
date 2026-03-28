@@ -65,3 +65,8 @@ enabled = true
 verify_jwt = true
 import_map = "./functions/backfillPlantMetadata/deno.json"
 entrypoint = "./functions/backfillPlantMetadata/index.ts"
+
+[functions.robotPlantGrantReward]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/robotPlantGrantReward/index.ts"
