@@ -5,7 +5,7 @@ import { createUserNotification, getUserDisplayName } from "@/api/notificationSe
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Leaf, PencilLine, SlidersHorizontal, Minus } from "lucide-react";
+import { Loader2, Leaf, PencilLine, SlidersHorizontal, Minus, Plus } from "lucide-react";
 import GenusCard from "../components/collection/GenusCard";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import HintDialog from "../components/collection/HintDialog";
@@ -814,11 +814,11 @@ export default function Collection() {
                           className={
                             isFollowingSelected
                               ? "shrink-0 p-1.5 rounded-full bg-red-500 text-white hover:bg-red-600 border border-red-500 transition-colors disabled:opacity-60"
-                              : "px-2 py-1 rounded-full text-[11px] border border-emerald-500/60 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors disabled:opacity-60"
+                              : "shrink-0 p-1.5 rounded-full bg-emerald-500 text-white hover:bg-emerald-600 border border-emerald-500 transition-colors disabled:opacity-60"
                           }
                           aria-label={isFollowingSelected ? "Abo beenden" : "Abonnieren"}
                         >
-                          {isFollowingSelected ? <Minus className="w-3 h-3" /> : "Abonnieren"}
+                          {isFollowingSelected ? <Minus className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
                         </button>
                       )}
 
