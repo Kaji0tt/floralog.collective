@@ -5,7 +5,7 @@ import { createUserNotification, getUserDisplayName } from "@/api/notificationSe
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Leaf, PencilLine, SlidersHorizontal } from "lucide-react";
+import { Loader2, Leaf, PencilLine, SlidersHorizontal, Users } from "lucide-react";
 import GenusCard from "../components/collection/GenusCard";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import HintDialog from "../components/collection/HintDialog";
@@ -825,6 +825,12 @@ export default function Collection() {
                   <p className="text-[11px] text-stone-600 line-clamp-2">
                     {selectedCollection.description}
                   </p>
+                )}
+                {selectedCollection && (selectedCollection.followers_count ?? 0) > 0 && (
+                  <div className="flex items-center gap-1 text-[11px] text-sky-700">
+                    <Users className="w-3 h-3" />
+                    <span>{selectedCollection.followers_count} Follower</span>
+                  </div>
                 )}
               </div>
 
