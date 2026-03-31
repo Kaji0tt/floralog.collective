@@ -793,7 +793,7 @@ export default function Collection() {
                     <div className="shrink-0 flex items-center gap-1.5">
                       {(selectedCollection.followers_count ?? 0) > 0 && (
                         <div
-                          className="w-5 h-5 rounded-full bg-sky-500 text-white flex items-center justify-center text-[10px] font-bold"
+                          className="p-1 rounded-full border bg-stone-100 text-stone-600 flex items-center justify-center text-[10px] font-bold border-sky-400"
                           title={`${selectedCollection.followers_count} Follower`}
                         >
                           {selectedCollection.followers_count}
@@ -813,8 +813,8 @@ export default function Collection() {
                           disabled={followMutation.isPending || unfollowMutation.isPending}
                           className={
                             isFollowingSelected
-                              ? "shrink-0 p-1.5 rounded-full bg-red-500 text-white hover:bg-red-600 border border-red-500 transition-colors disabled:opacity-60"
-                              : "shrink-0 p-1.5 rounded-full bg-emerald-500 text-white hover:bg-emerald-600 border border-emerald-500 transition-colors disabled:opacity-60"
+                              ? "shrink-0 p-1 rounded-full border bg-stone-100 text-stone-600 hover:bg-stone-200 border-red-400 transition-colors disabled:opacity-60"
+                              : "shrink-0 p-1 rounded-full border bg-stone-100 text-stone-600 hover:bg-stone-200 border-emerald-500 transition-colors disabled:opacity-60"
                           }
                           aria-label={isFollowingSelected ? "Abo beenden" : "Abonnieren"}
                         >
