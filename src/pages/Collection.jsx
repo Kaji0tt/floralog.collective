@@ -5,7 +5,7 @@ import { createUserNotification, getUserDisplayName } from "@/api/notificationSe
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Leaf, PencilLine, SlidersHorizontal, Users } from "lucide-react";
+import { Loader2, Leaf, PencilLine, SlidersHorizontal, Minus } from "lucide-react";
 import GenusCard from "../components/collection/GenusCard";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import HintDialog from "../components/collection/HintDialog";
@@ -791,6 +791,15 @@ export default function Collection() {
                   )}
                   {selectedCollection && !isQuestCollectionView && (
                     <div className="shrink-0 flex items-center gap-1.5">
+                      {(selectedCollection.followers_count ?? 0) > 0 && (
+                        <div
+                          className="w-5 h-5 rounded-full bg-sky-500 text-white flex items-center justify-center text-[10px] font-bold"
+                          title={`${selectedCollection.followers_count} Follower`}
+                        >
+                          {selectedCollection.followers_count}
+                        </div>
+                      )}
+
                       {selectedCollection.is_public && !isOwnerOfSelected && (
                         <button
                           type="button"
@@ -802,9 +811,14 @@ export default function Collection() {
                             }
                           }}
                           disabled={followMutation.isPending || unfollowMutation.isPending}
-                          className="px-2 py-1 rounded-full text-[11px] border border-emerald-500/60 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors"
+                          className={
+                            isFollowingSelected
+                              ? "shrink-0 p-1.5 rounded-full bg-red-500 text-white hover:bg-red-600 border border-red-500 transition-colors disabled:opacity-60"
+                              : "px-2 py-1 rounded-full text-[11px] border border-emerald-500/60 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors disabled:opacity-60"
+                          }
+                          aria-label={isFollowingSelected ? "Abo beenden" : "Abonnieren"}
                         >
-                          {isFollowingSelected ? "Abo beenden" : "Abonnieren"}
+                          {isFollowingSelected ? <Minus className="w-3 h-3" /> : "Abonnieren"}
                         </button>
                       )}
 
@@ -825,12 +839,6 @@ export default function Collection() {
                   <p className="text-[11px] text-stone-600 line-clamp-2">
                     {selectedCollection.description}
                   </p>
-                )}
-                {selectedCollection && (selectedCollection.followers_count ?? 0) > 0 && (
-                  <div className="flex items-center gap-1 text-[11px] text-sky-700">
-                    <Users className="w-3 h-3" />
-                    <span>{selectedCollection.followers_count} Follower</span>
-                  </div>
                 )}
               </div>
 
