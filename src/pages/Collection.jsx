@@ -844,7 +844,7 @@ export default function Collection() {
                   )}
                 </div>
                 {selectedCollection?.description && (
-                  <p className="text-[11px] text-stone-600 line-clamp-2">
+                  <p className="text-[11px] text-stone-600 max-h-[4.5em] overflow-y-auto leading-snug">
                     {selectedCollection.description}
                   </p>
                 )}
