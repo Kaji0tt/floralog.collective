@@ -1334,6 +1334,29 @@ export default function Quests() {
                 );
               })()}
 
+              {/* Admin Debug Button: Force Zone Regeneration */}
+              {mapQuickView === "local" && userLocation && user?.role === 'admin' && (
+                <div className="absolute bottom-4 left-4 z-20">
+                  <button
+                    onClick={async () => {
+                      try {
+                        await getRobotPlantDailyZones({
+                          latitude: userLocation.lat,
+                          longitude: userLocation.lng,
+                          forceRegenerate: true,
+                        });
+                        queryClient.invalidateQueries({ queryKey: ["robotPlantDailyZones"] });
+                      } catch (err) {
+                        console.error('Fehler beim Neugenerieren der Zonen:', err);
+                      }
+                    }}
+                    className="px-3 py-2 text-xs bg-yellow-200 hover:bg-yellow-300 text-yellow-900 rounded-lg font-medium shadow-md transition"
+                  >
+                    🔄 Zonen neu generieren
+                  </button>
+                </div>
+              )}
+
               {/* Sightings map */}
               {mapQuickView === "sightings" && (() => {
                 if (!selectedPlantForSighting) {
