@@ -33,6 +33,7 @@ interface CandidateZone {
   theme: ZoneTheme;
   centerLat: number;
   centerLng: number;
+  radiusM?: number;
   polygonGeometry?: string; // GeoJSON as WKT or JSON string
   sourceAreaM2?: number;
   confidence: number;
@@ -437,15 +438,40 @@ Deno.serve(async (req) => {
       allCandidates[theme] = candidates.sort((a, b) => a.distanceFromm - b.distanceFromm).slice(0, 2);
     }
 
-    // Select 3-4 zones, 1-2 per theme
+    // Select 3-4 zones, 1-2 per theme — with overlap check
     console.log(`[robotPlantDailyZones] Selecting zones from candidates`);
     const selectedZones: CandidateZone[] = [];
     const themeUsed: Record<ZoneTheme, number> = { forest: 0, urban: 0, water: 0, meadow: 0 };
 
+    // Returns true if candidate overlaps any already-selected zone
+    const overlapsExisting = (cand: CandidateZone): boolean => {
+      for (const sel of selectedZones) {
+        const dLat = (cand.centerLat - sel.centerLat) * Math.PI / 180;
+        const dLng = (cand.centerLng - sel.centerLng) * Math.PI / 180;
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(sel.centerLat * Math.PI / 180) *
+          Math.cos(cand.centerLat * Math.PI / 180) *
+          Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        const distM = 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const minSeparation = (cand.radiusM || 120) + (sel.radiusM || 120);
+        if (distM < minSeparation) {
+          console.log(`[ZoneOverlap] Skipping ${cand.theme} candidate (${distM.toFixed(0)}m < ${minSeparation}m separation from ${sel.theme})`);
+          return true;
+        }
+      }
+      return false;
+    };
+
     for (const theme of themes) {
-      if (allCandidates[theme].length > 0 && themeUsed[theme] < 1) {
-        selectedZones.push(allCandidates[theme][0]);
-        themeUsed[theme] += 1;
+      // Try each candidate for the theme until one doesn't overlap
+      for (const candidate of allCandidates[theme]) {
+        if (themeUsed[theme] >= 1) break;
+        if (!overlapsExisting(candidate)) {
+          selectedZones.push(candidate);
+          themeUsed[theme] += 1;
+          break;
+        }
       }
     }
 

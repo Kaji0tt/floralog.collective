@@ -117,10 +117,10 @@ const getAverageColor = (imageUrl) => {
 };
 
 const THEME_MAP_COLORS = {
-  forest: "#2f855a",
+  forest: "#1a4731",
   urban: "#4a5568",
   water: "#2b6cb0",
-  meadow: "#d69e2e",
+  meadow: "#84cc16",
 };
 
 export default function Quests() {
