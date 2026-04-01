@@ -264,6 +264,12 @@ Zusätzlich im Frontend `.env` setzen, damit Redirects explizit gebaut werden:
 VITE_APP_URL=https://floralog.app
 ```
 
+### Fehlende JWT Signaturprüfung
+
+Wichtig ist die Einordnung: Das ist funktional jetzt ohne JWT-Prüfung lauffähig, aber sicherheitlich schwächer als ein echter JWT-Nachweis. authId + userEmail + Origin-Check ist nur eine alternative Härtung, kein gleichwertiger Ersatz für signierte Identität. Im Repo gab es bereits mehrere Functions mit verify_jwt = false, aber keine bestehende robuste Non-JWT-Signaturprüfung, die ich einfach übernehmen konnte.
+
+Langfristig sollte über die Aktivierung von JWT nachgedacht werden.
+
 ---
 
 ## Deployment & Env Vars
@@ -322,35 +328,6 @@ Testkonto in baseUser:
 - Legacy ID: 6973db6fe290a299ed94b101 (24-char hex)
 
 Dann normale Migration durchlaufen.
-
----
-
-## Troubleshooting
-
-### ❌ "Email nicht gefunden"
-- Prüfen ob Email in `baseUser` Tabelle existiert
-- Email Case-Sensitivity? (test@example.com vs Test@example.com)
-- SELECT * FROM baseUser WHERE email = 'test@example.com'
-
-### ❌ "OTP nicht erhalten"
-- Spam-Folder checken
-- Supabase Email Provider konfiguriert? (Settings → Email)
-- Resend oder SendGrid verbunden?
-
-### ❌ "Passwort speichern fehlgeschlagen"
-- Password Requirements: min. 8 Zeichen, Groß+Klein+Zahlen
-- Supabase Error Log: https://supabase.com/dashboard/project/[id]/auth/logs
-
-### ❌ "Migration schlägt fehl (HTTP 401/403)"
-- Edge Function JWT Toggle OFF?
-- config.toml: verify_jwt = false?
-- Service Role Key gesetzt?
-- Supabase Logs: https://supabase.com/dashboard/project/[id]/functions/migrateLegacyUser
-
-### ❌ "Legacy User nicht gefunden" oder "Email Mismatch"
-- Ist der Legacy User in baseUser Tabelle?
-- Email exact Match (inkl. Case)?
-- Legacy ID exakt 24 hex Zeichen?
 
 ---
 

@@ -27,16 +27,41 @@ const CONFIG = {
 type ZoneTheme = "forest" | "urban" | "water" | "meadow";
 
 type RequestBody = {
+  authId?: string;
+  userEmail?: string | null;
   latitude?: number;
   longitude?: number;
   forceRegenerate?: boolean;
 };
 
-function getAccessTokenFromAuthHeader(header: string | null): string | null {
-  if (!header) return null;
-  const parts = header.split(" ");
-  if (parts.length === 2 && parts[0] === "Bearer") return parts[1];
-  return header;
+function jsonResponse(payload: unknown, status = 200): Response {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { "Content-Type": "application/json", ...corsHeaders },
+  });
+}
+
+function isUuid(value: string | null | undefined): value is string {
+  return !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function normalizeEmail(value: string | null | undefined): string | null {
+  const normalized = value?.trim().toLowerCase();
+  return normalized || null;
+}
+
+function getAllowedOrigins(): string[] {
+  const configured = [
+    Deno.env.get("FLORALOG_URL"),
+    Deno.env.get("SITE_URL"),
+  ].filter(Boolean) as string[];
+
+  return [...configured, "http://localhost:5173", "http://127.0.0.1:5173"];
+}
+
+function isAllowedOrigin(origin: string | null): boolean {
+  if (!origin) return true;
+  return getAllowedOrigins().some((allowed) => origin.toLowerCase() === allowed.toLowerCase());
 }
 
 function toDayKey(date = new Date()): string {
@@ -173,10 +198,7 @@ Deno.serve(async (req) => {
   }
 
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+    return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
   try {
@@ -184,48 +206,47 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY");
 
     if (!supabaseUrl || !serviceRoleKey) {
-      return new Response(JSON.stringify({ error: "Supabase service not configured" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+      return jsonResponse({ error: "Supabase service not configured" }, 500);
     }
 
-    const authHeader = req.headers.get("Authorization");
-    const accessToken = getAccessTokenFromAuthHeader(authHeader);
-    if (!accessToken) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+    if (!isAllowedOrigin(req.headers.get("Origin"))) {
+      return jsonResponse({ error: "Origin not allowed" }, 403);
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false },
     });
 
-    const { data: userData, error: userError } = await adminClient.auth.getUser(accessToken);
-    if (userError || !userData?.user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+    const body = (await req.json()) as RequestBody;
+    const authId = String(body.authId || "").trim();
+    const providedEmail = normalizeEmail(body.userEmail);
+
+    if (!isUuid(authId)) {
+      return jsonResponse({ error: "authId is required" }, 400);
     }
 
-    const body = (await req.json()) as RequestBody;
+    const { data: userLookup, error: userLookupError } = await adminClient.auth.admin.getUserById(authId);
+    const resolvedUser = userLookup?.user;
+    if (userLookupError || !resolvedUser) {
+      return jsonResponse({ error: "Invalid authId" }, 401);
+    }
+
+    const resolvedEmail = normalizeEmail(resolvedUser.email);
+    if (providedEmail && resolvedEmail && providedEmail !== resolvedEmail) {
+      return jsonResponse({ error: "authId and userEmail do not match" }, 403);
+    }
+
     const forceRegenerate = body?.forceRegenerate === true;
 
     const { data: robotPlantRows, error: robotPlantReadError } = await adminClient
       .from("RobotPlant")
       .select("id, last_valid_geo_lat, last_valid_geo_lng")
-      .eq("auth_id", userData.user.id)
+      .eq("auth_id", authId)
       .limit(1);
 
     if (robotPlantReadError) {
       console.error("[robotPlantDailyZones] failed reading RobotPlant", robotPlantReadError);
-      return new Response(JSON.stringify({ error: "Failed to load robot plant state" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+      return jsonResponse({ error: "Failed to load robot plant state" }, 500);
     }
 
     const existingPlant = robotPlantRows?.[0] || null;
@@ -239,10 +260,7 @@ Deno.serve(async (req) => {
       Number.isFinite(Number(existingPlant.last_valid_geo_lng));
 
     if (!hasProvidedPosition && !hasStoredPosition) {
-      return new Response(JSON.stringify({ error: "latitude and longitude are required for first generation" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+      return jsonResponse({ error: "latitude and longitude are required for first generation" }, 400);
     }
 
     const baseLat = hasProvidedPosition
@@ -253,7 +271,7 @@ Deno.serve(async (req) => {
       : Number(existingPlant.last_valid_geo_lng);
 
     await adminClient.from("RobotPlant").upsert({
-      auth_id: userData.user.id,
+      auth_id: authId,
       last_valid_geo_lat: roundPosition(baseLat, CONFIG.positionRoundingDecimals),
       last_valid_geo_lng: roundPosition(baseLng, CONFIG.positionRoundingDecimals),
       last_valid_geo_at: new Date().toISOString(),
@@ -265,7 +283,7 @@ Deno.serve(async (req) => {
       const { data: existingStates, error: existingStatesError } = await adminClient
         .from("RobotPlantUserZoneState")
         .select("day_key, scans_in_zone, unique_species_count, zone:RobotPlantZone(id, zone_key, title, theme, center_lat, center_lng, radius_m, zone_bonus_multiplier)")
-        .eq("auth_id", userData.user.id)
+      .eq("auth_id", authId)
         .eq("day_key", dayKey)
         .limit(CONFIG.dailyZoneCount);
 
@@ -285,14 +303,11 @@ Deno.serve(async (req) => {
           }))
           .filter((entry) => !!entry.id);
 
-        return new Response(JSON.stringify({ ok: true, generated: false, dayKey, zones }), {
-          status: 200,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        });
+        return jsonResponse({ ok: true, generated: false, dayKey, zones }, 200);
       }
     }
 
-    const seed = hashString(`${userData.user.id}:${dayKey}`);
+    const seed = hashString(`${authId}:${dayKey}`);
     const rng = createRng(seed);
 
     const generatedZones: Array<Record<string, unknown>> = [];
@@ -324,7 +339,7 @@ Deno.serve(async (req) => {
       }
 
       const finalTheme = theme || pickFallbackTheme(`${seed}:${i}`);
-      const zoneKey = `daily:${userData.user.id}:${dayKey}:${generatedZones.length}`;
+      const zoneKey = `daily:${authId}:${dayKey}:${generatedZones.length}`;
 
       const zoneRecord = {
         zone_key: zoneKey,
@@ -353,7 +368,7 @@ Deno.serve(async (req) => {
       await adminClient
         .from("RobotPlantUserZoneState")
         .upsert({
-          auth_id: userData.user.id,
+          auth_id: authId,
           zone_id: insertedZone.id,
           day_key: dayKey,
         }, { onConflict: "auth_id,zone_id,day_key" });
@@ -372,20 +387,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({
+    return jsonResponse({
       ok: true,
       generated: true,
       dayKey,
       zones: generatedZones,
-    }), {
-      status: 200,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+    }, 200);
   } catch (error) {
     console.error("[robotPlantDailyZones] unexpected error", error);
-    return new Response(JSON.stringify({ error: "Unexpected error" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+    return jsonResponse({ error: "Unexpected error" }, 500);
   }
 });

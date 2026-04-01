@@ -10,6 +10,24 @@ import {
   computeRobotPlantReward,
 } from "@/lib/robotPlantEconomy";
 
+const getCurrentAuthContext = async () => {
+  const { data, error } = await supabase.auth.getUser();
+
+  if (error) {
+    throw error;
+  }
+
+  const user = data?.user;
+  if (!user?.id) {
+    throw new Error("Authenticated user is required");
+  }
+
+  return {
+    authId: user.id,
+    userEmail: user.email || null,
+  };
+};
+
 export const getRobotPlantState = async (authId) => {
   if (!authId) return null;
 
@@ -65,8 +83,12 @@ export const grantRobotPlantRewardServerSide = async ({
   careDelta = 0,
   metadata = {},
 }) => {
+  const { authId, userEmail } = await getCurrentAuthContext();
+
   const { data, error } = await supabase.functions.invoke("robotPlantGrantReward", {
     body: {
+      authId,
+      userEmail,
       eventSource,
       eventReference,
       amount,
@@ -85,8 +107,12 @@ export const grantRobotPlantRewardServerSide = async ({
 };
 
 export const getRobotPlantDailyZones = async ({ latitude, longitude, forceRegenerate = false }) => {
+  const { authId, userEmail } = await getCurrentAuthContext();
+
   const { data, error } = await supabase.functions.invoke("robotPlantDailyZones", {
     body: {
+      authId,
+      userEmail,
       latitude,
       longitude,
       forceRegenerate,
