@@ -15,7 +15,7 @@ import { createPageUrl } from "@/utils";
 import { getRobotPlantDailyZones } from "@/api/robotPlantService";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Circle, CircleMarker, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import MobileBackButton from "../components/navigation/MobileBackButton";
@@ -138,7 +138,7 @@ export default function Quests() {
   const [collectionsSort, setCollectionsSort] = useState("newest"); // "title" | "newest" | "followers" | "items"
   const [selectedPlantForSighting, setSelectedPlantForSighting] = useState(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
-  const [mapQuickView, setMapQuickView] = useState("friends");
+  const [mapQuickView, setMapQuickView] = useState("local");
   const [mapFriendSearchQuery, setMapFriendSearchQuery] = useState("");
   const [mapSearchQuery, setMapSearchQuery] = useState("");
   const [mapSelectedViews, setMapSelectedViews] = useState({ mine: true });
@@ -988,8 +988,8 @@ export default function Quests() {
                 {/* View selector chips styled like sort chips */}
                 <div className="flex items-center rounded-full bg-white/90 backdrop-blur-md shadow-md border border-stone-200 p-0.5">
                   {[
-                    { value: "friends", label: "👥 Freunde" },
                     { value: "local",   label: "📍 Lokal"   },
+                    { value: "friends", label: "👥 Freunde" },
                     { value: "sightings", label: "🌿 Sichtungen" },
                   ].map(opt => (
                     <button
@@ -1285,7 +1285,7 @@ export default function Quests() {
                           const plant = plants.find(p => p.id === discovery.plant_id);
                           const userColor = getColorForUser(discoveryUser.user_email, allUsers);
                           return (
-                            <Marker key={discovery.id} position={coords} icon={createColoredIcon(userColor)}>
+                            <CircleMarker key={discovery.id} center={coords} radius={6} pathOptions={{ color: '#16a34a', fillColor: '#22c55e', fillOpacity: 0.85, weight: 1.5 }}>
                               <Popup>
                                 <div className="text-sm">
                                   <p className="font-bold">{plant?.species_name}</p>
@@ -1295,13 +1295,13 @@ export default function Quests() {
                                   )}
                                 </div>
                               </Popup>
-                            </Marker>
+                            </CircleMarker>
                           );
                         });
                     })()}
-                    <Marker position={mapUserLocation} icon={createColoredIcon('#ef4444')}>
+                    <CircleMarker center={mapUserLocation} radius={9} pathOptions={{ color: '#ef4444', fillColor: '#ef4444', fillOpacity: 1, weight: 2 }}>
                       <Popup><p className="text-sm font-bold">📍 Dein Standort</p></Popup>
-                    </Marker>
+                    </CircleMarker>
                   </MapContainer>
                 );
               })()}
