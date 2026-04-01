@@ -131,16 +131,16 @@ export const getRobotPlantDailyZones = async ({ latitude, longitude, forceRegene
     throw error;
   }
 
-  console.log("[getRobotPlantDailyZones] Response:", { ok: data?.ok, error: data?.error, zoneCount: data?.zones?.length });
+  console.log("[getRobotPlantDailyZones] Response:", { success: data?.success, cached: data?.cached, zoneCount: data?.zones?.length });
 
-  if (!data?.ok) {
+  if (!data?.success || !Array.isArray(data?.zones)) {
     const errMsg = data?.error || "Failed to load daily zones";
     console.error("[getRobotPlantDailyZones] Error response:", errMsg);
     throw new Error(errMsg);
   }
 
   return {
-    generated: data.generated === true,
+    generated: data.cached === false,
     dayKey: data.dayKey,
     zones: data.zones || [],
   };
