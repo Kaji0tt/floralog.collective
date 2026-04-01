@@ -1,5 +1,6 @@
 import {
   REWARD_FORMULA_CONFIG,
+  ROBOT_PLANT_DATA_QUALITY_RULES,
   ROBOT_PLANT_VALUES,
   clampRobotPlantValue,
 } from "@/lib/robotPlantConfig";
@@ -126,4 +127,32 @@ export const buildDecayDelta = ({ hoursSinceLastDecay = 24, decayReduction = 0 }
   });
 
   return delta;
+};
+
+export const computeDataQualityDeltaFromZoneDiversity = ({
+  hasVisitedZoneToday,
+  hasVisitedThemeToday,
+  distinctThemeCountToday,
+  accumulatedDailyDataQualityDelta = 0,
+}) => {
+  const rules = ROBOT_PLANT_DATA_QUALITY_RULES;
+
+  let delta = 0;
+
+  delta += hasVisitedZoneToday ? rules.repeatedZoneDelta : rules.newZoneDelta;
+  delta += hasVisitedThemeToday ? rules.repeatedThemeDelta : rules.newThemeDelta;
+
+  if (
+    !hasVisitedThemeToday &&
+    distinctThemeCountToday + 1 >= rules.distinctThemesForVarietyBonus
+  ) {
+    delta += rules.varietyBonusDelta;
+  }
+
+  const remainingBudget = Math.max(
+    0,
+    rules.maxDailyDataQualityFromZones - accumulatedDailyDataQualityDelta
+  );
+
+  return clamp(delta, 0, remainingBudget);
 };

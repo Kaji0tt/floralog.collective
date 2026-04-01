@@ -83,3 +83,27 @@ export const grantRobotPlantRewardServerSide = async ({
 
   return data?.result || null;
 };
+
+export const getRobotPlantDailyZones = async ({ latitude, longitude, forceRegenerate = false }) => {
+  const { data, error } = await supabase.functions.invoke("robotPlantDailyZones", {
+    body: {
+      latitude,
+      longitude,
+      forceRegenerate,
+    },
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data?.ok) {
+    throw new Error(data?.error || "Failed to load daily zones");
+  }
+
+  return {
+    generated: data.generated === true,
+    dayKey: data.dayKey,
+    zones: data.zones || [],
+  };
+};

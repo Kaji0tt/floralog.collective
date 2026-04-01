@@ -70,3 +70,8 @@ entrypoint = "./functions/backfillPlantMetadata/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/robotPlantGrantReward/index.ts"
+
+[functions.robotPlantDailyZones]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/robotPlantDailyZones/index.ts"

@@ -12,9 +12,10 @@ import { Heart, Users, TrendingUp, Clock, Leaf, Loader2, ChevronLeft, ChevronRig
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { getRobotPlantDailyZones } from "@/api/robotPlantService";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import MobileBackButton from "../components/navigation/MobileBackButton";
@@ -113,6 +114,13 @@ const getAverageColor = (imageUrl) => {
     img.onerror = () => resolve(null);
     img.src = imageUrl;
   });
+};
+
+const THEME_MAP_COLORS = {
+  forest: "#2f855a",
+  urban: "#4a5568",
+  water: "#2b6cb0",
+  meadow: "#d69e2e",
 };
 
 export default function Quests() {
@@ -215,6 +223,20 @@ export default function Quests() {
     queryFn: () => Query.PublicProfile.list(),
     enabled: friendships.length > 0,
     staleTime: 30000,
+  });
+
+  const { data: robotPlantDailyZones = [] } = useQuery({
+    queryKey: ["robotPlantDailyZones", userLocation?.lat, userLocation?.lng],
+    queryFn: async () => {
+      if (!userLocation) return [];
+      const response = await getRobotPlantDailyZones({
+        latitude: userLocation.lat,
+        longitude: userLocation.lng,
+      });
+      return response?.zones || [];
+    },
+    enabled: mapQuickView === "local" && !!userLocation,
+    staleTime: 1000 * 60 * 10,
   });
 
   useEffect(() => {
@@ -1221,6 +1243,32 @@ export default function Quests() {
                       url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
                       attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
                     />
+                    {robotPlantDailyZones
+                      .filter(zone => Number.isFinite(zone.centerLat) && Number.isFinite(zone.centerLng))
+                      .map((zone) => {
+                      const color = THEME_MAP_COLORS[zone.theme] || "#718096";
+                      return (
+                        <Circle
+                          key={zone.id || zone.zoneKey}
+                          center={[zone.centerLat, zone.centerLng]}
+                          radius={zone.radiusM}
+                          pathOptions={{
+                            color,
+                            fillColor: color,
+                            fillOpacity: 0.2,
+                            weight: 2,
+                          }}
+                        >
+                          <Popup>
+                            <div className="text-sm">
+                              <p className="font-bold">{zone.title}</p>
+                              <p className="text-stone-600">Theme: {zone.theme}</p>
+                              <p className="text-stone-600">Bonus: x{Number(zone.zoneBonusMultiplier || 1).toFixed(2)}</p>
+                            </div>
+                          </Popup>
+                        </Circle>
+                      );
+                    })}
                     {(() => {
                       const userMap = new Map(allUsers.map(u => [u.user_email, u]));
                       return allDiscoveries

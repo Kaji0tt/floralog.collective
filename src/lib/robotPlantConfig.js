@@ -96,6 +96,38 @@ export const REWARD_FORMULA_CONFIG = Object.freeze({
   absoluteMaxReward: 250,
 });
 
+export const ROBOT_PLANT_GEO_ZONE_CONFIG = Object.freeze({
+  enabled: true,
+  dailyZoneCount: 4,
+  searchRadiusM: 5000,
+  zoneRadiusMinM: 180,
+  zoneRadiusMaxM: 320,
+  candidateAttempts: 10,
+  classificationRadiusM: 400,
+  maxOsmCallsPerGeneration: 6,
+  positionRoundingDecimals: 3,
+  cooldownSeconds: 180,
+  maxPlausibleSpeedKmh: 130,
+  maxGpsAccuracyM: 80,
+  themes: ["forest", "urban", "water", "meadow"],
+  themeBonusByTheme: {
+    forest: 1.16,
+    urban: 1.12,
+    water: 1.2,
+    meadow: 1.14,
+  },
+});
+
+export const ROBOT_PLANT_DATA_QUALITY_RULES = Object.freeze({
+  newThemeDelta: 4,
+  newZoneDelta: 2,
+  repeatedThemeDelta: 0,
+  repeatedZoneDelta: 0,
+  distinctThemesForVarietyBonus: 3,
+  varietyBonusDelta: 3,
+  maxDailyDataQualityFromZones: 16,
+});
+
 export const ROBOT_PLANT_SHOP_EFFECTS = Object.freeze({
   antiDecaySmall: {
     id: "anti_decay_small",

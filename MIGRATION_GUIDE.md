@@ -361,10 +361,9 @@ Nach der Migration für alle Benutzer:
 1. ✅ Supabase Auth funktioniert
 2. ✅ Migration Edge Function deployed
 3. ✅ Alle 9 Tabellen verlinkt
-4. ⏳ **RLS Policies** für User-Datenschutz (important!)
-5. ⏳ Realtime Subscriptions testen
-6. ⏳ Offline-First mit local caching (optional)
-7. ⏳ Datenschutz/Privacy Policy aktualisieren
+4. ✅ **RLS Policies** für User-Datenschutz (important!)
+5. ✅ Realtime Subscriptions testen
+6. ✅ Datenschutz/Privacy Policy aktualisieren
 
 ---
 
@@ -393,13 +392,8 @@ npx supabase functions deploy migrateLegacyUser
 
 Es gab einen riesen Patch, indem die meisten base44.entities Calls ersetzt wurden.
 Ich habe beobachtet was verändert wurde und mir sind baustellen aufgefallen:
-1) Es gibt sehr viele Scripte die mit UI Sachen wie "Card" arbeiten. Die meisten davon gehen nicht mehr und führen zu Compile errors. Was müssen wir integrieren, damit das wieder geht? Welcher Bestandteil von den Base 44 Sachen war das?
-2) Auch der Selbst definierte "MobileBackButton" funktioniert nicht mehr.
-3) Der LLM Fallback der von dir deaktiviert wurde, "die KI-Notfallerkennung ist nicht konfiguriert" soll grundsätzlich sowieso nicht mehr integriert sein. 
-Überprüfe wann und wofür der Fallback diente und erkläre es mir. Erstelle ggf. eine "Versuche es erneut" kachel, um beispielsweise eine höhere SIcherheit beim Scan zu erziehen.
-4) Du hast bei der PayPal spenden integration folgendes Referenzen zu secrets vermerkt. Bitte erkläre mir, wie die Integration verläuft und was ich ggf. bei Cloudflare oder Supabase einstellen muss.
+1) Du hast bei der PayPal spenden integration folgendes Referenzen zu secrets vermerkt. Bitte erkläre mir, wie die Integration verläuft und was ich ggf. bei Cloudflare oder Supabase einstellen muss.
 const supabaseUrl = Deno.env.get('SUPABASE_URL');
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-5) Datenschutz/Policy muss aktualisiert werden.
 
