@@ -101,7 +101,7 @@ export const ROBOT_PLANT_GEO_ZONE_CONFIG = Object.freeze({
   enabled: true,
   dailyZoneCountMin: 3,
   dailyZoneCountMax: 5,
-  searchRadiusM: 5000,
+  searchRadiusM: 2500,
   themes: ["forest", "urban", "water", "meadow"],
   
   // Zone Size (applies to non-polygon fallback)

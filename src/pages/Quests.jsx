@@ -1340,14 +1340,18 @@ export default function Quests() {
                   <button
                     onClick={async () => {
                       try {
-                        await getRobotPlantDailyZones({
+                        console.log('[Admin] Starting zone regeneration...');
+                        const zones = await getRobotPlantDailyZones({
                           latitude: userLocation.lat,
                           longitude: userLocation.lng,
                           forceRegenerate: true,
                         });
+                        console.log('[Admin] Zones regenerated:', zones);
                         queryClient.invalidateQueries({ queryKey: ["robotPlantDailyZones"] });
+                        alert(`✅ Zonen neu generiert!\n${zones.zones.length} Zonen erstellt.`);
                       } catch (err) {
-                        console.error('Fehler beim Neugenerieren der Zonen:', err);
+                        console.error('[Admin] Regeneration failed:', err);
+                        alert(`❌ Fehler beim Generieren:\n${err.message}`);
                       }
                     }}
                     className="px-3 py-2 text-xs bg-yellow-200 hover:bg-yellow-300 text-yellow-900 rounded-lg font-medium shadow-md transition"

@@ -108,6 +108,43 @@ function parseThemeFromTags(tags: Record<string, string> | undefined): ZoneTheme
   return null;
 }
 
+function generateFallbackCandidates(
+  latitude: number,
+  longitude: number,
+  radiusM: number,
+  theme: ZoneTheme,
+): CandidateZone[] {
+  // Generate deterministic pseudo-zones based on lat/lng/theme seed
+  // This ensures every user in the same area gets similar fallback zones
+  const candidates: CandidateZone[] = [];
+  
+  // Use theme + position as seed for deterministic ordering
+  const seed = (theme.charCodeAt(0) + Math.floor(latitude * 100) + Math.floor(longitude * 100)) % 4;
+  
+  // Generate 1-2 fallback candidates per theme at fixed offsets
+  // This ensures variety while being deterministic
+  const angles = [seed * 90, (seed + 2) * 90]; // Two zones at 90° apart
+  const distanceFromCenter = radiusM * 0.6;
+  
+  for (let i = 0; i < 2; i++) {
+    const angleRad = (angles[i] * Math.PI) / 180;
+    const offsetLat = (distanceFromCenter / 111000) * Math.cos(angleRad);
+    const offsetLng = (distanceFromCenter / (111000 * Math.cos((latitude * Math.PI) / 180))) * Math.sin(angleRad);
+    
+    candidates.push({
+      osmId: `fallback-${theme}-${i}`,
+      theme,
+      centerLat: latitude + offsetLat,
+      centerLng: longitude + offsetLng,
+      confidence: 0.5, // Lower confidence for fallback
+      distanceFromm: distanceFromCenter,
+    });
+  }
+  
+  console.log(`[OSM Fallback] Generated ${candidates.length} deterministic fallback candidates for ${theme}`);
+  return candidates;
+}
+
 async function queryOverpassForTheme(
   latitude: number,
   longitude: number,
@@ -164,6 +201,9 @@ out center geom;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
+    console.log(`[OSM] Querying ${theme} with radius ${radiusM}m around ${latitude}, ${longitude}`);
+    const startTime = Date.now();
+
     const response = await fetch("https://overpass-api.de/api/interpreter", {
       method: "POST",
       headers: { "Content-Type": "text/plain" },
@@ -171,12 +211,21 @@ out center geom;
       signal: controller.signal,
     });
 
+    const duration = Date.now() - startTime;
     clearTimeout(timer);
 
-    if (!response.ok) return [];
+    console.log(`[OSM] Response received in ${duration}ms with status ${response.status}`);
+
+    if (!response.ok) {
+      console.warn(`[OSM] Non-OK response for ${theme}: ${response.status}. Using fallback candidates.`);
+      // Fallback: generate deterministic pseudo-zones
+      return generateFallbackCandidates(latitude, longitude, radiusM, theme);
+    }
 
     const payload = await response.json();
     const elements: OSMElement[] = Array.isArray(payload?.elements) ? payload.elements : [];
+
+    console.log(`[OSM] Found ${elements.length} elements for ${theme}`);
 
     const candidates: CandidateZone[] = [];
     for (const elem of elements.slice(0, 5)) {
@@ -199,9 +248,12 @@ out center geom;
       });
     }
 
-    return candidates;
-  } catch (_err) {
-    return [];
+    console.log(`[OSM] Extracted ${candidates.length} valid candidates for ${theme}`);
+    return candidates.length > 0 ? candidates : generateFallbackCandidates(latitude, longitude, radiusM, theme);
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error(`[OSM] Error querying ${theme}: ${errMsg}. Using fallback candidates.`);
+    return generateFallbackCandidates(latitude, longitude, radiusM, theme);
   }
 }
 
@@ -241,10 +293,12 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log("[robotPlantDailyZones] Request received");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY");
 
     if (!supabaseUrl || !serviceRoleKey) {
+      console.error("[robotPlantDailyZones] Missing config: SUPABASE_URL or SERVICE_ROLE_KEY");
       return jsonResponse({ error: "Service not configured" }, 500);
     }
 
@@ -348,6 +402,7 @@ Deno.serve(async (req) => {
     }
 
     // Generate fresh zones: query OSM for each theme
+    console.log(`[robotPlantDailyZones] Generating fresh zones for ${baseLat}, ${baseLng}`);
     const themes: ZoneTheme[] = ["forest", "water", "urban", "meadow"];
     const allCandidates: Record<ZoneTheme, CandidateZone[]> = {
       forest: [],
@@ -356,12 +411,22 @@ Deno.serve(async (req) => {
       meadow: [],
     };
 
+    // Import config to get searchRadiusM
+    const geoConfig = await import("../../src/lib/robotPlantConfig.js");
+    const searchRadiusM = geoConfig.ROBOT_PLANT_GEO_ZONE_CONFIG.searchRadiusM || 2500;
+
+    // Query each theme sequentially (not in parallel)
     for (const theme of themes) {
-      const candidates = await queryOverpassForTheme(baseLat, baseLng, 5000, theme, 8000);
+      console.log(`[robotPlantDailyZones] Querying OSM for theme: ${theme}`);
+      const startTime = Date.now();
+      const candidates = await queryOverpassForTheme(baseLat, baseLng, searchRadiusM, theme, 8000);
+      const duration = Date.now() - startTime;
+      console.log(`[robotPlantDailyZones] OSM query for ${theme} completed in ${duration}ms, found ${candidates.length} candidates`);
       allCandidates[theme] = candidates.sort((a, b) => a.distanceFromm - b.distanceFromm).slice(0, 2);
     }
 
     // Select 3-4 zones, 1-2 per theme
+    console.log(`[robotPlantDailyZones] Selecting zones from candidates`);
     const selectedZones: CandidateZone[] = [];
     const themeUsed: Record<ZoneTheme, number> = { forest: 0, urban: 0, water: 0, meadow: 0 };
 
@@ -371,6 +436,8 @@ Deno.serve(async (req) => {
         themeUsed[theme] += 1;
       }
     }
+
+    console.log(`[robotPlantDailyZones] Selected ${selectedZones.length} zones for insertion`);
 
     // Insert zones
     const zoneRecords = selectedZones.map((cand) => ({
@@ -389,12 +456,15 @@ Deno.serve(async (req) => {
       day_generated: dayKey,
     }));
 
+    console.log(`[robotPlantDailyZones] Inserting ${zoneRecords.length} zone records`);
     const { data: insertedZones, error: insertError } = await adminClient.from("RobotPlantZone").insert(zoneRecords).select("*");
 
     if (insertError) {
       console.error("[robotPlantDailyZones] Insert error:", insertError);
       return jsonResponse({ error: "Failed to generate zones" }, 500);
     }
+
+    console.log(`[robotPlantDailyZones] Successfully inserted ${insertedZones?.length || 0} zones`);
 
     // Response
     return jsonResponse({
@@ -412,7 +482,10 @@ Deno.serve(async (req) => {
       })),
     });
   } catch (err) {
-    console.error("[robotPlantDailyZones] Unhandled error:", err);
-    return jsonResponse({ error: "Internal server error" }, 500);
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const errStack = err instanceof Error ? err.stack : "";
+    console.error("[robotPlantDailyZones] Unhandled error:", errMsg);
+    console.error("[robotPlantDailyZones] Stack:", errStack);
+    return jsonResponse({ error: `Internal server error: ${errMsg}` }, 500);
   }
 });

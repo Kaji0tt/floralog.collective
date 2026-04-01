@@ -109,6 +109,13 @@ export const grantRobotPlantRewardServerSide = async ({
 export const getRobotPlantDailyZones = async ({ latitude, longitude, forceRegenerate = false }) => {
   const { authId, userEmail } = await getCurrentAuthContext();
 
+  console.log("[getRobotPlantDailyZones] Calling function with:", {
+    latitude,
+    longitude,
+    forceRegenerate,
+    authId: authId?.substring(0, 8) + "...",
+  });
+
   const { data, error } = await supabase.functions.invoke("robotPlantDailyZones", {
     body: {
       authId,
@@ -120,11 +127,16 @@ export const getRobotPlantDailyZones = async ({ latitude, longitude, forceRegene
   });
 
   if (error) {
+    console.error("[getRobotPlantDailyZones] Function error:", error);
     throw error;
   }
 
+  console.log("[getRobotPlantDailyZones] Response:", { ok: data?.ok, error: data?.error, zoneCount: data?.zones?.length });
+
   if (!data?.ok) {
-    throw new Error(data?.error || "Failed to load daily zones");
+    const errMsg = data?.error || "Failed to load daily zones";
+    console.error("[getRobotPlantDailyZones] Error response:", errMsg);
+    throw new Error(errMsg);
   }
 
   return {
