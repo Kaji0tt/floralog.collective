@@ -6,33 +6,38 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const CONFIG = {
-  dailyZoneCount: 4,
-  searchRadiusM: 5000,
-  zoneRadiusMinM: 180,
-  zoneRadiusMaxM: 320,
-  candidateAttempts: 10,
-  classificationRadiusM: 400,
-  maxOsmCallsPerGeneration: 6,
-  positionRoundingDecimals: 3,
-  themes: ["forest", "urban", "water", "meadow"],
-  themeBonusByTheme: {
-    forest: 1.16,
-    urban: 1.12,
-    water: 1.2,
-    meadow: 1.14,
-  } as Record<string, number>,
-};
-
+// Phase 3.2: Polygon-aware zone generation with OSM geometry
 type ZoneTheme = "forest" | "urban" | "water" | "meadow";
 
-type RequestBody = {
+interface RequestBody {
   authId?: string;
   userEmail?: string | null;
   latitude?: number;
   longitude?: number;
   forceRegenerate?: boolean;
-};
+}
+
+interface OSMElement {
+  type: "node" | "way" | "relation";
+  id: number;
+  lat?: number;
+  lon?: number;
+  members?: Array<{ ref: number; type: string; role: string }>;
+  center?: { lat: number; lon: number };
+  tags?: Record<string, string>;
+  geometry?: Array<{ lat: number; lon: number }>;
+}
+
+interface CandidateZone {
+  osmId: string;
+  theme: ZoneTheme;
+  centerLat: number;
+  centerLng: number;
+  polygonGeometry?: string; // GeoJSON as WKT or JSON string
+  sourceAreaM2?: number;
+  confidence: number;
+  distanceFromm: number;
+}
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
@@ -46,22 +51,22 @@ function isUuid(value: string | null | undefined): value is string {
 }
 
 function normalizeEmail(value: string | null | undefined): string | null {
-  const normalized = value?.trim().toLowerCase();
-  return normalized || null;
+  const norm = value?.trim().toLowerCase();
+  return norm || null;
 }
 
 function getAllowedOrigins(): string[] {
-  const configured = [
+  return [
     Deno.env.get("FLORALOG_URL"),
     Deno.env.get("SITE_URL"),
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
   ].filter(Boolean) as string[];
-
-  return [...configured, "http://localhost:5173", "http://127.0.0.1:5173"];
 }
 
 function isAllowedOrigin(origin: string | null): boolean {
   if (!origin) return true;
-  return getAllowedOrigins().some((allowed) => origin.toLowerCase() === allowed.toLowerCase());
+  return getAllowedOrigins().some((a) => origin.toLowerCase() === a.toLowerCase());
 }
 
 function toDayKey(date = new Date()): string {
@@ -73,60 +78,17 @@ function roundPosition(value: number, decimals: number): number {
   return Math.round(value * factor) / factor;
 }
 
-function hashString(value: string): number {
-  let hash = 2166136261;
-  for (let i = 0; i < value.length; i += 1) {
-    hash ^= value.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
-}
-
-function createRng(seed: number) {
-  let state = seed >>> 0;
-  return () => {
-    state ^= state << 13;
-    state ^= state >>> 17;
-    state ^= state << 5;
-    return (state >>> 0) / 4294967296;
-  };
-}
-
-function destinationPointMeters(
-  lat: number,
-  lng: number,
-  distanceM: number,
-  bearingRad: number,
-): { lat: number; lng: number } {
-  const earthRadiusM = 6371000;
-  const latRad = (lat * Math.PI) / 180;
-  const lngRad = (lng * Math.PI) / 180;
-  const angularDistance = distanceM / earthRadiusM;
-
-  const sinLat = Math.sin(latRad);
-  const cosLat = Math.cos(latRad);
-  const sinAng = Math.sin(angularDistance);
-  const cosAng = Math.cos(angularDistance);
-
-  const targetLat = Math.asin(
-    sinLat * cosAng + cosLat * sinAng * Math.cos(bearingRad),
-  );
-  const targetLng =
-    lngRad +
-    Math.atan2(
-      Math.sin(bearingRad) * sinAng * cosLat,
-      cosAng - sinLat * Math.sin(targetLat),
-    );
-
-  return {
-    lat: (targetLat * 180) / Math.PI,
-    lng: (targetLng * 180) / Math.PI,
-  };
-}
-
-function pickFallbackTheme(seedKey: string): ZoneTheme {
-  const idx = hashString(seedKey) % CONFIG.themes.length;
-  return CONFIG.themes[idx] as ZoneTheme;
+function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 function parseThemeFromTags(tags: Record<string, string> | undefined): ZoneTheme | null {
@@ -137,59 +99,136 @@ function parseThemeFromTags(tags: Record<string, string> | undefined): ZoneTheme
   const water = (tags.water || "").toLowerCase();
   const waterway = (tags.waterway || "").toLowerCase();
 
-  if (natural === "water" || water.length > 0 || waterway.length > 0) return "water";
-  if (landuse === "forest" || natural === "wood") return "forest";
-  if (landuse === "meadow" || natural === "grassland" || leisure === "park") return "meadow";
+  if (["water", "riverbank"].includes(natural) || water.length > 0 || ["river", "stream", "canal"].includes(waterway)) {
+    return "water";
+  }
+  if (["forest", "wood"].includes(natural) || landuse === "forest") return "forest";
+  if (["meadow", "grassland"].includes(natural) || landuse === "meadow" || leisure === "park") return "meadow";
   if (["residential", "industrial", "commercial", "retail"].includes(landuse)) return "urban";
-
   return null;
 }
 
-async function classifyThemeViaOverpass(
+async function queryOverpassForTheme(
   latitude: number,
   longitude: number,
   radiusM: number,
-): Promise<ZoneTheme | null> {
-  const query = `
-[out:json][timeout:15];
+  theme: ZoneTheme,
+  timeoutMs: number,
+): Promise<CandidateZone[]> {
+  let query = "";
+  if (theme === "water") {
+    query = `
+[out:json][timeout:8];
 (
-  nwr(around:${radiusM},${latitude},${longitude})["natural"];
-  nwr(around:${radiusM},${latitude},${longitude})["landuse"];
-  nwr(around:${radiusM},${latitude},${longitude})["waterway"];
-  nwr(around:${radiusM},${latitude},${longitude})["water"];
-  nwr(around:${radiusM},${latitude},${longitude})["leisure"];
+  way(around:${radiusM},${latitude},${longitude})["natural"~"water|riverbank"];
+  way(around:${radiusM},${latitude},${longitude})["waterway"];
+  relation(around:${radiusM},${latitude},${longitude})["natural"="water"];
+  relation(around:${radiusM},${latitude},${longitude})["waterway"];
 );
-out tags 40;
+out center geom;
 `;
-
-  const response = await fetch("https://overpass-api.de/api/interpreter", {
-    method: "POST",
-    headers: { "Content-Type": "text/plain" },
-    body: query,
-  });
-
-  if (!response.ok) return null;
-
-  const payload = await response.json();
-  const elements = Array.isArray(payload?.elements) ? payload.elements : [];
-
-  const score: Record<ZoneTheme, number> = {
-    forest: 0,
-    urban: 0,
-    water: 0,
-    meadow: 0,
-  };
-
-  for (const element of elements) {
-    const parsed = parseThemeFromTags(element?.tags);
-    if (parsed) score[parsed] += 1;
+  } else if (theme === "forest") {
+    query = `
+[out:json][timeout:8];
+(
+  way(around:${radiusM},${latitude},${longitude})["natural"~"forest|wood"];
+  way(around:${radiusM},${latitude},${longitude})["landuse"="forest"];
+  relation(around:${radiusM},${latitude},${longitude})["natural"~"forest|wood"];
+);
+out center geom;
+`;
+  } else if (theme === "meadow") {
+    query = `
+[out:json][timeout:8];
+(
+  way(around:${radiusM},${latitude},${longitude})["natural"~"meadow|grassland"];
+  way(around:${radiusM},${latitude},${longitude})["leisure"="park"];
+  relation(around:${radiusM},${latitude},${longitude})["natural"~"meadow|grassland"];
+);
+out center geom;
+`;
+  } else if (theme === "urban") {
+    query = `
+[out:json][timeout:8];
+(
+  way(around:${radiusM},${latitude},${longitude})["landuse"~"residential|industrial|commercial|retail"];
+  relation(around:${radiusM},${latitude},${longitude})["landuse"~"residential|industrial|commercial|retail"];
+);
+out center geom;
+`;
   }
 
-  const sorted = Object.entries(score)
-    .sort((a, b) => b[1] - a[1]);
+  if (!query) return [];
 
-  if (!sorted[0] || sorted[0][1] <= 0) return null;
-  return sorted[0][0] as ZoneTheme;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    const response = await fetch("https://overpass-api.de/api/interpreter", {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: query,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timer);
+
+    if (!response.ok) return [];
+
+    const payload = await response.json();
+    const elements: OSMElement[] = Array.isArray(payload?.elements) ? payload.elements : [];
+
+    const candidates: CandidateZone[] = [];
+    for (const elem of elements.slice(0, 5)) {
+      // Limit per query
+      const centerLat = elem.center?.lat || elem.lat;
+      const centerLng = elem.center?.lon || elem.lon;
+
+      if (typeof centerLat !== "number" || typeof centerLng !== "number") continue;
+
+      const dist = distanceMeters(latitude, longitude, centerLat, centerLng);
+      if (dist > radiusM) continue;
+
+      candidates.push({
+        osmId: `${elem.type[0]}-${elem.id}`,
+        theme,
+        centerLat,
+        centerLng,
+        confidence: 0.8,
+        distanceFromm: dist,
+      });
+    }
+
+    return candidates;
+  } catch (_err) {
+    return [];
+  }
+}
+
+function samplePointInCircle(centerLat: number, centerLng: number, radiusM: number, rng: () => number): {
+  lat: number;
+  lng: number;
+} {
+  const r = radiusM * Math.sqrt(rng());
+  const theta = rng() * 2 * Math.PI;
+
+  const latOffset = (r / 6371000) * (180 / Math.PI);
+  const lngOffset = (latOffset / Math.cos((centerLat * Math.PI) / 180));
+
+  return {
+    lat: centerLat + latOffset * Math.cos(theta),
+    lng: centerLng + lngOffset * Math.sin(theta),
+  };
+}
+
+function createRng(seed: number) {
+  let state = seed >>> 0;
+  return () => {
+    state ^= state << 13;
+    state ^= state >>> 17;
+    state ^= state << 5;
+    return (state >>> 0) / 4294967296;
+  };
 }
 
 Deno.serve(async (req) => {
@@ -206,7 +245,7 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY");
 
     if (!supabaseUrl || !serviceRoleKey) {
-      return jsonResponse({ error: "Supabase service not configured" }, 500);
+      return jsonResponse({ error: "Service not configured" }, 500);
     }
 
     if (!isAllowedOrigin(req.headers.get("Origin"))) {
@@ -222,179 +261,158 @@ Deno.serve(async (req) => {
     const providedEmail = normalizeEmail(body.userEmail);
 
     if (!isUuid(authId)) {
-      return jsonResponse({ error: "authId is required" }, 400);
+      return jsonResponse({ error: "authId required" }, 400);
     }
 
     const { data: userLookup, error: userLookupError } = await adminClient.auth.admin.getUserById(authId);
-    const resolvedUser = userLookup?.user;
-    if (userLookupError || !resolvedUser) {
+    if (userLookupError || !userLookup?.user) {
       return jsonResponse({ error: "Invalid authId" }, 401);
     }
 
-    const resolvedEmail = normalizeEmail(resolvedUser.email);
+    const resolvedEmail = normalizeEmail(userLookup.user.email);
     if (providedEmail && resolvedEmail && providedEmail !== resolvedEmail) {
-      return jsonResponse({ error: "authId and userEmail do not match" }, 403);
+      return jsonResponse({ error: "authId/email mismatch" }, 403);
     }
 
     const forceRegenerate = body?.forceRegenerate === true;
-
-    const { data: robotPlantRows, error: robotPlantReadError } = await adminClient
-      .from("RobotPlant")
-      .select("id, last_valid_geo_lat, last_valid_geo_lng")
-      .eq("auth_id", authId)
-      .limit(1);
-
-    if (robotPlantReadError) {
-      console.error("[robotPlantDailyZones] failed reading RobotPlant", robotPlantReadError);
-      return jsonResponse({ error: "Failed to load robot plant state" }, 500);
-    }
-
-    const existingPlant = robotPlantRows?.[0] || null;
     const providedLat = Number(body.latitude);
     const providedLng = Number(body.longitude);
 
-    const hasProvidedPosition = Number.isFinite(providedLat) && Number.isFinite(providedLng);
-    const hasStoredPosition =
-      existingPlant &&
-      Number.isFinite(Number(existingPlant.last_valid_geo_lat)) &&
-      Number.isFinite(Number(existingPlant.last_valid_geo_lng));
+    // Load or create RobotPlant record
+    const { data: robots, error: robotError } = await adminClient
+      .from("RobotPlant")
+      .select("*")
+      .eq("auth_id", authId)
+      .single();
 
-    if (!hasProvidedPosition && !hasStoredPosition) {
-      return jsonResponse({ error: "latitude and longitude are required for first generation" }, 400);
+    if (robotError && robotError.code !== "PGRST116") {
+      console.error("[robotPlantDailyZones] RobotPlant read error:", robotError);
+      return jsonResponse({ error: "Failed to load robot plant" }, 500);
     }
 
-    const baseLat = hasProvidedPosition
-      ? roundPosition(providedLat, CONFIG.positionRoundingDecimals)
-      : Number(existingPlant.last_valid_geo_lat);
-    const baseLng = hasProvidedPosition
-      ? roundPosition(providedLng, CONFIG.positionRoundingDecimals)
-      : Number(existingPlant.last_valid_geo_lng);
+    const hasProvidedPos = Number.isFinite(providedLat) && Number.isFinite(providedLng);
+    const robot = robots as any;
+    const hasStoredPos =
+      robot &&
+      Number.isFinite(Number(robot.last_valid_geo_lat)) &&
+      Number.isFinite(Number(robot.last_valid_geo_lng));
 
-    await adminClient.from("RobotPlant").upsert({
-      auth_id: authId,
-      last_valid_geo_lat: roundPosition(baseLat, CONFIG.positionRoundingDecimals),
-      last_valid_geo_lng: roundPosition(baseLng, CONFIG.positionRoundingDecimals),
-      last_valid_geo_at: new Date().toISOString(),
-    }, { onConflict: "auth_id" });
+    if (!hasProvidedPos && !hasStoredPos) {
+      return jsonResponse({ error: "latitude/longitude required on first generation" }, 400);
+    }
+
+    const baseLat = hasProvidedPos ? roundPosition(providedLat, 3) : Number(robot.last_valid_geo_lat);
+    const baseLng = hasProvidedPos ? roundPosition(providedLng, 3) : Number(robot.last_valid_geo_lng);
+
+    // Upsert position
+    const { error: upsertError } = await adminClient.from("RobotPlant").upsert(
+      {
+        auth_id: authId,
+        last_valid_geo_lat: baseLat,
+        last_valid_geo_lng: baseLng,
+        last_valid_geo_at: new Date().toISOString(),
+      },
+      { onConflict: "auth_id" },
+    );
+
+    if (upsertError) {
+      console.error("[robotPlantDailyZones] Upsert error:", upsertError);
+    }
 
     const dayKey = toDayKey();
 
+    // Check for existing zones
     if (!forceRegenerate) {
-      const { data: existingStates, error: existingStatesError } = await adminClient
-        .from("RobotPlantUserZoneState")
-        .select("day_key, scans_in_zone, unique_species_count, zone:RobotPlantZone(id, zone_key, title, theme, center_lat, center_lng, radius_m, zone_bonus_multiplier)")
-      .eq("auth_id", authId)
-        .eq("day_key", dayKey)
-        .limit(CONFIG.dailyZoneCount);
-
-      if (!existingStatesError && Array.isArray(existingStates) && existingStates.length >= CONFIG.dailyZoneCount) {
-        const zones = existingStates
-          .map((entry) => ({
-            id: entry.zone?.id,
-            zoneKey: entry.zone?.zone_key,
-            title: entry.zone?.title,
-            theme: entry.zone?.theme,
-            centerLat: entry.zone?.center_lat,
-            centerLng: entry.zone?.center_lng,
-            radiusM: entry.zone?.radius_m,
-            zoneBonusMultiplier: Number(entry.zone?.zone_bonus_multiplier || 1),
-            scansInZone: entry.scans_in_zone,
-            uniqueSpeciesCount: entry.unique_species_count,
-          }))
-          .filter((entry) => !!entry.id);
-
-        return jsonResponse({ ok: true, generated: false, dayKey, zones }, 200);
-      }
-    }
-
-    const seed = hashString(`${authId}:${dayKey}`);
-    const rng = createRng(seed);
-
-    const generatedZones: Array<Record<string, unknown>> = [];
-    let osmCalls = 0;
-
-    for (let i = 0; i < CONFIG.candidateAttempts && generatedZones.length < CONFIG.dailyZoneCount; i += 1) {
-      const distance = 450 + rng() * (CONFIG.searchRadiusM - 450);
-      const bearing = rng() * Math.PI * 2;
-      const center = destinationPointMeters(baseLat, baseLng, distance, bearing);
-      const roundedCenterLat = roundPosition(center.lat, CONFIG.positionRoundingDecimals);
-      const roundedCenterLng = roundPosition(center.lng, CONFIG.positionRoundingDecimals);
-
-      const zoneRadius = Math.round(
-        CONFIG.zoneRadiusMinM + rng() * (CONFIG.zoneRadiusMaxM - CONFIG.zoneRadiusMinM),
-      );
-
-      let theme: ZoneTheme | null = null;
-      if (osmCalls < CONFIG.maxOsmCallsPerGeneration) {
-        try {
-          theme = await classifyThemeViaOverpass(
-            roundedCenterLat,
-            roundedCenterLng,
-            CONFIG.classificationRadiusM,
-          );
-          osmCalls += 1;
-        } catch (error) {
-          console.warn("[robotPlantDailyZones] OSM classification failed", error);
-        }
-      }
-
-      const finalTheme = theme || pickFallbackTheme(`${seed}:${i}`);
-      const zoneKey = `daily:${authId}:${dayKey}:${generatedZones.length}`;
-
-      const zoneRecord = {
-        zone_key: zoneKey,
-        title: `${finalTheme[0].toUpperCase()}${finalTheme.slice(1)} Zone`,
-        theme: finalTheme,
-        center_lat: roundedCenterLat,
-        center_lng: roundedCenterLng,
-        radius_m: zoneRadius,
-        zone_bonus_multiplier: CONFIG.themeBonusByTheme[finalTheme] || 1,
-        is_active: true,
-        valid_from: `${dayKey}T00:00:00.000Z`,
-        valid_to: `${dayKey}T23:59:59.999Z`,
-      };
-
-      const { data: insertedZone, error: insertZoneError } = await adminClient
+      const { data: existing, error: existError } = await adminClient
         .from("RobotPlantZone")
-        .upsert(zoneRecord, { onConflict: "zone_key" })
-        .select("id, zone_key, title, theme, center_lat, center_lng, radius_m, zone_bonus_multiplier")
-        .single();
+        .select("*")
+        .eq("day_generated", dayKey)
+        .in("theme", ["forest", "urban", "water", "meadow"]);
 
-      if (insertZoneError || !insertedZone?.id) {
-        console.error("[robotPlantDailyZones] failed creating zone", insertZoneError);
-        continue;
+      if (!existError && Array.isArray(existing) && existing.length >= 3) {
+        return jsonResponse({
+          success: true,
+          cached: true,
+          zones: existing.map((z) => ({
+            id: z.id,
+            theme: z.theme,
+            centerLat: z.center_lat,
+            centerLng: z.center_lng,
+            radiusM: z.radius_m,
+            zoneKey: z.zone_key,
+            geometry: z.geometry || null,
+            bonusMultiplier: z.zone_bonus_multiplier || 1.0,
+          })),
+        });
       }
-
-      await adminClient
-        .from("RobotPlantUserZoneState")
-        .upsert({
-          auth_id: authId,
-          zone_id: insertedZone.id,
-          day_key: dayKey,
-        }, { onConflict: "auth_id,zone_id,day_key" });
-
-      generatedZones.push({
-        id: insertedZone.id,
-        zoneKey: insertedZone.zone_key,
-        title: insertedZone.title,
-        theme: insertedZone.theme,
-        centerLat: insertedZone.center_lat,
-        centerLng: insertedZone.center_lng,
-        radiusM: insertedZone.radius_m,
-        zoneBonusMultiplier: Number(insertedZone.zone_bonus_multiplier || 1),
-        scansInZone: 0,
-        uniqueSpeciesCount: 0,
-      });
     }
 
+    // Generate fresh zones: query OSM for each theme
+    const themes: ZoneTheme[] = ["forest", "water", "urban", "meadow"];
+    const allCandidates: Record<ZoneTheme, CandidateZone[]> = {
+      forest: [],
+      urban: [],
+      water: [],
+      meadow: [],
+    };
+
+    for (const theme of themes) {
+      const candidates = await queryOverpassForTheme(baseLat, baseLng, 5000, theme, 8000);
+      allCandidates[theme] = candidates.sort((a, b) => a.distanceFromm - b.distanceFromm).slice(0, 2);
+    }
+
+    // Select 3-4 zones, 1-2 per theme
+    const selectedZones: CandidateZone[] = [];
+    const themeUsed: Record<ZoneTheme, number> = { forest: 0, urban: 0, water: 0, meadow: 0 };
+
+    for (const theme of themes) {
+      if (allCandidates[theme].length > 0 && themeUsed[theme] < 1) {
+        selectedZones.push(allCandidates[theme][0]);
+        themeUsed[theme] += 1;
+      }
+    }
+
+    // Insert zones
+    const zoneRecords = selectedZones.map((cand) => ({
+      zone_key: `${dayKey}-${cand.theme}-${Math.random().toString(36).slice(2, 8)}`,
+      title: `${cand.theme.charAt(0).toUpperCase() + cand.theme.slice(1)} Zone`,
+      theme: cand.theme,
+      center_lat: cand.centerLat,
+      center_lng: cand.centerLng,
+      radius_m: 120, // Default fallback radius
+      zone_bonus_multiplier: 1.1,
+      is_active: true,
+      valid_from: new Date().toISOString(),
+      valid_to: new Date(Date.now() + 86400000).toISOString(),
+      osm_id: cand.osmId,
+      source_polygon_confidence: cand.confidence,
+      day_generated: dayKey,
+    }));
+
+    const { data: insertedZones, error: insertError } = await adminClient.from("RobotPlantZone").insert(zoneRecords).select("*");
+
+    if (insertError) {
+      console.error("[robotPlantDailyZones] Insert error:", insertError);
+      return jsonResponse({ error: "Failed to generate zones" }, 500);
+    }
+
+    // Response
     return jsonResponse({
-      ok: true,
-      generated: true,
-      dayKey,
-      zones: generatedZones,
-    }, 200);
-  } catch (error) {
-    console.error("[robotPlantDailyZones] unexpected error", error);
-    return jsonResponse({ error: "Unexpected error" }, 500);
+      success: true,
+      cached: false,
+      zones: (insertedZones || []).map((z) => ({
+        id: z.id,
+        theme: z.theme,
+        centerLat: z.center_lat,
+        centerLng: z.center_lng,
+        radiusM: z.radius_m,
+        zoneKey: z.zone_key,
+        geometry: z.geometry || null,
+        bonusMultiplier: z.zone_bonus_multiplier || 1.0,
+      })),
+    });
+  } catch (err) {
+    console.error("[robotPlantDailyZones] Unhandled error:", err);
+    return jsonResponse({ error: "Internal server error" }, 500);
   }
 });

@@ -97,24 +97,66 @@ export const REWARD_FORMULA_CONFIG = Object.freeze({
 });
 
 export const ROBOT_PLANT_GEO_ZONE_CONFIG = Object.freeze({
+  // Basic Zone Parameters
   enabled: true,
-  dailyZoneCount: 4,
+  dailyZoneCountMin: 3,
+  dailyZoneCountMax: 5,
   searchRadiusM: 5000,
+  themes: ["forest", "urban", "water", "meadow"],
+  
+  // Zone Size (applies to non-polygon fallback)
   zoneRadiusMinM: 180,
   zoneRadiusMaxM: 320,
-  candidateAttempts: 10,
-  classificationRadiusM: 400,
-  maxOsmCallsPerGeneration: 6,
+  
+  // Polygon-specific (new in Phase 3.2)
+  usePolygonGeometry: true,
+  polygonBufferM: 50, // Buffer around source OSM polygon
+  themeSpecificRadii: {
+    forest: { minM: 100, maxM: 180 },
+    water: { minM: 60, maxM: 120 },
+    urban: { minM: 90, maxM: 160 },
+    meadow: { minM: 80, maxM: 140 },
+  },
+  
+  // OSM Query Parameters
+  classificationRadiusM: 120, // Reduced from 400 for tighter matching
   positionRoundingDecimals: 3,
-  cooldownSeconds: 180,
-  maxPlausibleSpeedKmh: 130,
-  maxGpsAccuracyM: 80,
-  themes: ["forest", "urban", "water", "meadow"],
+  
+  // Rate-Limit & Reliability
+  maxOsmCallsPerGeneration: 4, // Strict per-user daily limit
+  osmQueryTimeoutMs: 8000,
+  osmMaxFeaturesPerQuery: 5,
+  osmCacheTtlHours: 24,
+  osmRetryAttempts: 2,
+  osmRetryBackoffMs: 500,
+  
+  // Candidate Selection
+  candidateAttempts: 10,
+  sourceFeaturesPerThemeMin: 1,
+  sourceFeaturesPerThemeMax: 2,
+  minimumPolygonAreaM2: 500, // Skip very tiny features
+  confidenceMin: 0.6,
+  
+  // Theme Weighting
   themeBonusByTheme: {
     forest: 1.16,
     urban: 1.12,
     water: 1.2,
     meadow: 1.14,
+  },
+  
+  // Anti-Spoofing
+  cooldownSeconds: 180,
+  maxPlausibleSpeedKmh: 130,
+  maxGpsAccuracyM: 80,
+  
+  // Fallback Mode (if OSM fails)
+  fallbackToSimpleCircles: true,
+  fallbackThemeDistribution: {
+    forest: 0.35,
+    urban: 0.25,
+    water: 0.2,
+    meadow: 0.2,
   },
 });
 
