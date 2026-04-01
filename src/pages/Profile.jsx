@@ -26,6 +26,7 @@ import { Lock } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import NotificationManager from "@/components/notifications/NotificationManager";
+import LocationManager from "@/components/notifications/LocationManager";
 
 
 
@@ -1107,6 +1108,8 @@ export default function Profile() {
               </div>
 
               <NotificationManager user={user} showInProfile />
+
+              <LocationManager showInProfile />
 
               <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
                 <div className="flex items-start gap-3">
