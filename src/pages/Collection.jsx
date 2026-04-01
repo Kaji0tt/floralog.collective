@@ -559,8 +559,16 @@ export default function Collection() {
   filteredGenera = filteredGenera.filter(g => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
-    return g.genus_name?.toLowerCase().includes(query) ||
-           g.scientific_genus?.toLowerCase().includes(query);
+    if (g.genus_name?.toLowerCase().includes(query) ||
+        g.scientific_genus?.toLowerCase().includes(query)) {
+      return true;
+    }
+    return plants.some(p =>
+      p.genus_category === g.category &&
+      p.genus_number === g.category_dex_number &&
+      (p.species_name?.toLowerCase().includes(query) ||
+       p.scientific_name?.toLowerCase().includes(query))
+    );
   });
 
   // Sortierung innerhalb der aktuellen Auswahl
