@@ -230,10 +230,23 @@ out center geom;
     const candidates: CandidateZone[] = [];
     for (const elem of elements.slice(0, 5)) {
       // Limit per query
-      const centerLat = elem.center?.lat || elem.lat;
-      const centerLng = elem.center?.lon || elem.lon;
-
-      if (typeof centerLat !== "number" || typeof centerLng !== "number") continue;
+      // Try to extract center: prefer center.lat/lon, then lat/lon, then geometry[0]
+      let centerLat = elem.center?.lat || elem.lat;
+      let centerLng = elem.center?.lon || elem.lon;
+      
+      if (typeof centerLat !== "number" || typeof centerLng !== "number") {
+        // Fallback: use first point from geometry array
+        if (Array.isArray(elem.geometry) && elem.geometry.length > 0) {
+          centerLat = elem.geometry[0]?.lat;
+          centerLng = elem.geometry[0]?.lon;
+          if (typeof centerLat !== "number" || typeof centerLng !== "number") {
+            console.log(`[OSM Debug] Element ${elem.id} has no valid center. Type: ${elem.type}, has_center: ${!!elem.center}, has_lat: ${typeof elem.lat}, has_geometry: ${Array.isArray(elem.geometry)}`);
+            continue;
+          }
+        } else {
+          continue;
+        }
+      }
 
       const dist = distanceMeters(latitude, longitude, centerLat, centerLng);
       if (dist > radiusM) continue;
@@ -411,9 +424,8 @@ Deno.serve(async (req) => {
       meadow: [],
     };
 
-    // Import config to get searchRadiusM
-    const geoConfig = await import("../../src/lib/robotPlantConfig.js");
-    const searchRadiusM = geoConfig.ROBOT_PLANT_GEO_ZONE_CONFIG.searchRadiusM || 2500;
+    // Search radius: 2500m (from frontend config, hardcoded here since Edge Functions can't import frontend code)
+    const searchRadiusM = 2500;
 
     // Query each theme sequentially (not in parallel)
     for (const theme of themes) {
