@@ -106,6 +106,28 @@ export const grantRobotPlantRewardServerSide = async ({
   return data?.result || null;
 };
 
+export const initializeGeoRasterGrid = async ({ bounds, forceRefresh = false }) => {
+  const { authId } = await getCurrentAuthContext();
+
+  const { data, error } = await supabase.functions.invoke("initializeGeoRasterGrid", {
+    body: {
+      authId,
+      bounds,
+      forceRefresh,
+    },
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data?.success) {
+    throw new Error(data?.error || "Failed to initialize raster grid");
+  }
+
+  return data;
+};
+
 export const getRobotPlantDailyZones = async ({ latitude, longitude, forceRegenerate = false }) => {
   const { authId, userEmail } = await getCurrentAuthContext();
 

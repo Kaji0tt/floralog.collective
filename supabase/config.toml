@@ -75,3 +75,8 @@ entrypoint = "./functions/robotPlantGrantReward/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/robotPlantDailyZones/index.ts"
+
+[functions.initializeGeoRasterGrid]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/initializeGeoRasterGrid/index.ts"

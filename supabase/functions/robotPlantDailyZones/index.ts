@@ -6,7 +6,10 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// Phase 3.2: Polygon-aware zone generation with OSM geometry
+// Phase 4: Raster-Based Zone Generation
+// Uses pre-computed GeoRasterCell grid instead of live Overpass API calls
+// Guarantees <100ms response time with consistent data quality
+
 type ZoneTheme = "forest" | "urban" | "water" | "meadow";
 
 interface RequestBody {
@@ -17,27 +20,24 @@ interface RequestBody {
   forceRegenerate?: boolean;
 }
 
-interface OSMElement {
-  type: "node" | "way" | "relation";
-  id: number;
-  lat?: number;
-  lon?: number;
-  members?: Array<{ ref: number; type: string; role: string }>;
-  center?: { lat: number; lon: number };
-  tags?: Record<string, string>;
-  geometry?: Array<{ lat: number; lon: number }>;
+interface RasterCell {
+  id: string;
+  theme: ZoneTheme;
+  center_lat: number;
+  center_lng: number;
+  theme_confidence: number;
+  dominant_osm_tags: Record<string, string>;
 }
 
-interface CandidateZone {
-  osmId: string;
+interface GeneratedZone {
+  id: string;
   theme: ZoneTheme;
   centerLat: number;
   centerLng: number;
-  radiusM?: number;
-  polygonGeometry?: string; // GeoJSON as WKT or JSON string
-  sourceAreaM2?: number;
+  radiusM: number;
+  zoneKey: string;
   confidence: number;
-  distanceFromm: number;
+  bonusMultiplier: number;
 }
 
 function jsonResponse(payload: unknown, status = 200): Response {
@@ -92,209 +92,117 @@ function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number):
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function parseThemeFromTags(tags: Record<string, string> | undefined): ZoneTheme | null {
-  if (!tags) return null;
-  const natural = (tags.natural || "").toLowerCase();
-  const landuse = (tags.landuse || "").toLowerCase();
-  const leisure = (tags.leisure || "").toLowerCase();
-  const water = (tags.water || "").toLowerCase();
-  const waterway = (tags.waterway || "").toLowerCase();
-
-  if (["water", "riverbank"].includes(natural) || water.length > 0 || ["river", "stream", "canal"].includes(waterway)) {
-    return "water";
-  }
-  if (["forest", "wood"].includes(natural) || landuse === "forest") return "forest";
-  if (["meadow", "grassland"].includes(natural) || landuse === "meadow" || leisure === "park") return "meadow";
-  if (["residential", "industrial", "commercial", "retail"].includes(landuse)) return "urban";
-  return null;
-}
-
-function generateFallbackCandidates(
-  latitude: number,
-  longitude: number,
-  radiusM: number,
-  theme: ZoneTheme,
-): CandidateZone[] {
-  // Generate deterministic pseudo-zones based on lat/lng/theme seed
-  // This ensures every user in the same area gets similar fallback zones
-  const candidates: CandidateZone[] = [];
-  
-  // Use theme + position as seed for deterministic ordering
-  const seed = (theme.charCodeAt(0) + Math.floor(latitude * 100) + Math.floor(longitude * 100)) % 4;
-  
-  // Generate 1-2 fallback candidates per theme at fixed offsets
-  // This ensures variety while being deterministic
-  const angles = [seed * 90, (seed + 2) * 90]; // Two zones at 90° apart
-  const distanceFromCenter = radiusM * 0.6;
-  
-  for (let i = 0; i < 2; i++) {
-    const angleRad = (angles[i] * Math.PI) / 180;
-    const offsetLat = (distanceFromCenter / 111000) * Math.cos(angleRad);
-    const offsetLng = (distanceFromCenter / (111000 * Math.cos((latitude * Math.PI) / 180))) * Math.sin(angleRad);
-    
-    candidates.push({
-      osmId: `fallback-${theme}-${i}`,
-      theme,
-      centerLat: latitude + offsetLat,
-      centerLng: longitude + offsetLng,
-      confidence: 0.5, // Lower confidence for fallback
-      distanceFromm: distanceFromCenter,
-    });
-  }
-  
-  console.log(`[OSM Fallback] Generated ${candidates.length} deterministic fallback candidates for ${theme}`);
-  return candidates;
-}
-
-async function queryOverpassForTheme(
-  latitude: number,
-  longitude: number,
-  radiusM: number,
-  theme: ZoneTheme,
-  timeoutMs: number,
-): Promise<CandidateZone[]> {
-  let query = "";
-  if (theme === "water") {
-    query = `
-[out:json][timeout:8];
-(
-  way(around:${radiusM},${latitude},${longitude})["natural"~"water|riverbank"];
-  way(around:${radiusM},${latitude},${longitude})["waterway"];
-  relation(around:${radiusM},${latitude},${longitude})["natural"="water"];
-  relation(around:${radiusM},${latitude},${longitude})["waterway"];
-);
-out center geom;
-`;
-  } else if (theme === "forest") {
-    query = `
-[out:json][timeout:8];
-(
-  way(around:${radiusM},${latitude},${longitude})["natural"~"forest|wood"];
-  way(around:${radiusM},${latitude},${longitude})["landuse"="forest"];
-  relation(around:${radiusM},${latitude},${longitude})["natural"~"forest|wood"];
-);
-out center geom;
-`;
-  } else if (theme === "meadow") {
-    query = `
-[out:json][timeout:8];
-(
-  way(around:${radiusM},${latitude},${longitude})["natural"~"meadow|grassland"];
-  way(around:${radiusM},${latitude},${longitude})["leisure"="park"];
-  relation(around:${radiusM},${latitude},${longitude})["natural"~"meadow|grassland"];
-);
-out center geom;
-`;
-  } else if (theme === "urban") {
-    query = `
-[out:json][timeout:8];
-(
-  way(around:${radiusM},${latitude},${longitude})["landuse"~"residential|industrial|commercial|retail"];
-  relation(around:${radiusM},${latitude},${longitude})["landuse"~"residential|industrial|commercial|retail"];
-);
-out center geom;
-`;
-  }
-
-  if (!query) return [];
-
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-    console.log(`[OSM] Querying ${theme} with radius ${radiusM}m around ${latitude}, ${longitude}`);
-    const startTime = Date.now();
-
-    const response = await fetch("https://overpass-api.de/api/interpreter", {
-      method: "POST",
-      headers: { "Content-Type": "text/plain" },
-      body: query,
-      signal: controller.signal,
-    });
-
-    const duration = Date.now() - startTime;
-    clearTimeout(timer);
-
-    console.log(`[OSM] Response received in ${duration}ms with status ${response.status}`);
-
-    if (!response.ok) {
-      console.warn(`[OSM] Non-OK response for ${theme}: ${response.status}. Using fallback candidates.`);
-      // Fallback: generate deterministic pseudo-zones
-      return generateFallbackCandidates(latitude, longitude, radiusM, theme);
-    }
-
-    const payload = await response.json();
-    const elements: OSMElement[] = Array.isArray(payload?.elements) ? payload.elements : [];
-
-    console.log(`[OSM] Found ${elements.length} elements for ${theme}`);
-
-    const candidates: CandidateZone[] = [];
-    for (const elem of elements.slice(0, 5)) {
-      // Limit per query
-      // Try to extract center: prefer center.lat/lon, then lat/lon, then geometry[0]
-      let centerLat = elem.center?.lat || elem.lat;
-      let centerLng = elem.center?.lon || elem.lon;
-      
-      if (typeof centerLat !== "number" || typeof centerLng !== "number") {
-        // Fallback: use first point from geometry array
-        if (Array.isArray(elem.geometry) && elem.geometry.length > 0) {
-          centerLat = elem.geometry[0]?.lat;
-          centerLng = elem.geometry[0]?.lon;
-          if (typeof centerLat !== "number" || typeof centerLng !== "number") {
-            console.log(`[OSM Debug] Element ${elem.id} has no valid center. Type: ${elem.type}, has_center: ${!!elem.center}, has_lat: ${typeof elem.lat}, has_geometry: ${Array.isArray(elem.geometry)}`);
-            continue;
-          }
-        } else {
-          continue;
-        }
-      }
-
-      const dist = distanceMeters(latitude, longitude, centerLat, centerLng);
-      if (dist > radiusM) continue;
-
-      candidates.push({
-        osmId: `${elem.type[0]}-${elem.id}`,
-        theme,
-        centerLat,
-        centerLng,
-        confidence: 0.8,
-        distanceFromm: dist,
-      });
-    }
-
-    console.log(`[OSM] Extracted ${candidates.length} valid candidates for ${theme}`);
-    return candidates.length > 0 ? candidates : generateFallbackCandidates(latitude, longitude, radiusM, theme);
-  } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    console.error(`[OSM] Error querying ${theme}: ${errMsg}. Using fallback candidates.`);
-    return generateFallbackCandidates(latitude, longitude, radiusM, theme);
-  }
-}
-
-function samplePointInCircle(centerLat: number, centerLng: number, radiusM: number, rng: () => number): {
-  lat: number;
-  lng: number;
-} {
-  const r = radiusM * Math.sqrt(rng());
-  const theta = rng() * 2 * Math.PI;
-
-  const latOffset = (r / 6371000) * (180 / Math.PI);
-  const lngOffset = (latOffset / Math.cos((centerLat * Math.PI) / 180));
-
+/**
+ * Calculate grid cell coordinates from latitude/longitude
+ * Grid cell size: ~707m per side (0.5km² area)
+ * Grid resolution: ~0.00636° per cell
+ */
+function getGridCellCoordinates(lat: number, lng: number): { latIdx: number; lngIdx: number } {
+  const gridResolution = 0.00636; // degrees per cell (approx 707m)
   return {
-    lat: centerLat + latOffset * Math.cos(theta),
-    lng: centerLng + lngOffset * Math.sin(theta),
+    latIdx: Math.floor(lat / gridResolution),
+    lngIdx: Math.floor(lng / gridResolution),
   };
 }
 
-function createRng(seed: number) {
-  let state = seed >>> 0;
-  return () => {
-    state ^= state << 13;
-    state ^= state >>> 17;
-    state ^= state << 5;
-    return (state >>> 0) / 4294967296;
+/**
+ * Get all grid cell indices within a search radius
+ */
+function getGridCellsInRadius(centerLat: number, centerLng: number, radiusM: number): Array<{ latIdx: number; lngIdx: number }> {
+  const gridResolution = 0.00636;
+  const radiusInDegrees = radiusM / 111000; // Rough conversion: 1° ≈ 111km
+  
+  const centerCell = getGridCellCoordinates(centerLat, centerLng);
+  const cellOffset = Math.ceil(radiusInDegrees / gridResolution);
+  
+  const cells: Array<{ latIdx: number; lngIdx: number }> = [];
+  for (let latIdx = centerCell.latIdx - cellOffset; latIdx <= centerCell.latIdx + cellOffset; latIdx++) {
+    for (let lngIdx = centerCell.lngIdx - cellOffset; lngIdx <= centerCell.lngIdx + cellOffset; lngIdx++) {
+      cells.push({ latIdx, lngIdx });
+    }
+  }
+  return cells;
+}
+
+/**
+ * Select best zones from available raster cells
+ * Strategy: Pick 1-2 best zones per theme based on:
+ * 1. Distance from center (nearer = better)
+ * 2. Theme confidence (higher = better)
+ * 3. No overlaps
+ */
+function selectBestZones(cells: RasterCell[], centerLat: number, centerLng: number): GeneratedZone[] {
+  const cellsByTheme: Record<ZoneTheme, RasterCell[]> = {
+    forest: [],
+    water: [],
+    urban: [],
+    meadow: [],
   };
+
+  // Group cells by theme and sort by distance
+  for (const cell of cells) {
+    cellsByTheme[cell.theme].push(cell);
+  }
+
+  // Sort each theme group by distance
+  for (const theme of Object.keys(cellsByTheme) as ZoneTheme[]) {
+    cellsByTheme[theme].sort((a, b) => {
+      const distA = distanceMeters(centerLat, centerLng, a.center_lat, a.center_lng);
+      const distB = distanceMeters(centerLat, centerLng, b.center_lat, b.center_lng);
+      return distA - distB;
+    });
+  }
+
+  const selectedZones: GeneratedZone[] = [];
+  const RADIUS_M = 120;
+  const dayKey = toDayKey();
+
+  /**
+   * Check if a candidate zone would overlap with any already-selected zone
+   */
+  const overlapsExisting = (lat: number, lng: number): boolean => {
+    for (const zone of selectedZones) {
+      const dist = distanceMeters(lat, lng, zone.centerLat, zone.centerLng);
+      const minSeparation = RADIUS_M + RADIUS_M; // No overlapping radii
+      if (dist < minSeparation) {
+        console.log(`[ZoneOverlap] Candidate at (${lat.toFixed(4)}, ${lng.toFixed(4)}) overlaps existing zone at (${zone.centerLat.toFixed(4)}, ${zone.centerLng.toFixed(4)}) [dist=${dist.toFixed(0)}m < ${minSeparation}m]`);
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // Select up to 1 zone per theme (goal: 3-4 zones total, 1 per theme where available)
+  const themes: ZoneTheme[] = ["forest", "water", "urban", "meadow"];
+  const themeCount: Record<ZoneTheme, number> = { forest: 0, water: 0, urban: 0, meadow: 0 };
+
+  for (const theme of themes) {
+    const themeCells = cellsByTheme[theme];
+    if (themeCells.length === 0) continue;
+
+    // Try to pick best candidate for this theme
+    for (const cell of themeCells) {
+      if (themeCount[theme] >= 1) break; // Max 1 per theme
+      if (!overlapsExisting(cell.center_lat, cell.center_lng)) {
+        selectedZones.push({
+          id: cell.id,
+          theme: cell.theme,
+          centerLat: cell.center_lat,
+          centerLng: cell.center_lng,
+          radiusM: RADIUS_M,
+          zoneKey: `${dayKey}-${cell.theme}-${cell.id.substring(0, 8)}`,
+          confidence: cell.theme_confidence,
+          bonusMultiplier: 1.1,
+        });
+        themeCount[theme] += 1;
+        console.log(`[ZoneSelection] Selected ${theme} zone at (${cell.center_lat.toFixed(4)}, ${cell.center_lng.toFixed(4)}) with confidence ${cell.theme_confidence}`);
+        break;
+      }
+    }
+  }
+
+  console.log(`[ZoneSelection] Selected ${selectedZones.length} zones from ${cells.length} available raster cells`);
+  return selectedZones;
 }
 
 Deno.serve(async (req) => {
@@ -388,8 +296,9 @@ Deno.serve(async (req) => {
     }
 
     const dayKey = toDayKey();
+    const queryStartTime = Date.now();
 
-    // Check for existing zones
+    // Check for existing cached zones
     if (!forceRegenerate) {
       const { data: existing, error: existError } = await adminClient
         .from("RobotPlantZone")
@@ -398,6 +307,7 @@ Deno.serve(async (req) => {
         .in("theme", ["forest", "urban", "water", "meadow"]);
 
       if (!existError && Array.isArray(existing) && existing.length >= 3) {
+        console.log(`[robotPlantDailyZones] Returning ${existing.length} cached zones for today`);
         return jsonResponse({
           success: true,
           cached: true,
@@ -415,99 +325,103 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Generate fresh zones: query OSM for each theme
-    console.log(`[robotPlantDailyZones] Generating fresh zones for ${baseLat}, ${baseLng}`);
-    const themes: ZoneTheme[] = ["forest", "water", "urban", "meadow"];
-    const allCandidates: Record<ZoneTheme, CandidateZone[]> = {
-      forest: [],
-      urban: [],
-      water: [],
-      meadow: [],
-    };
+    // === RASTER-BASED ZONE GENERATION ===
+    console.log(`[robotPlantDailyZones] Generating zones from raster grid for (${baseLat}, ${baseLng})`);
 
-    // Search radius: 2500m (from frontend config, hardcoded here since Edge Functions can't import frontend code)
-    const searchRadiusM = 2500;
+    const searchRadiusM = 5000; // 5km search radius
+    const cellIndices = getGridCellsInRadius(baseLat, baseLng, searchRadiusM);
+    console.log(`[robotPlantDailyZones] Searching ${cellIndices.length} grid cells within ${searchRadiusM}m radius`);
 
-    // Query each theme sequentially (not in parallel)
-    for (const theme of themes) {
-      console.log(`[robotPlantDailyZones] Querying OSM for theme: ${theme}`);
-      const startTime = Date.now();
-      const candidates = await queryOverpassForTheme(baseLat, baseLng, searchRadiusM, theme, 8000);
-      const duration = Date.now() - startTime;
-      console.log(`[robotPlantDailyZones] OSM query for ${theme} completed in ${duration}ms, found ${candidates.length} candidates`);
-      allCandidates[theme] = candidates.sort((a, b) => a.distanceFromm - b.distanceFromm).slice(0, 2);
+    // Build SQL query for all cells in the search area
+    const gridConditions = cellIndices
+      .map((cell) => `(grid_lat_idx = ${cell.latIdx} and grid_lng_idx = ${cell.lngIdx})`)
+      .join(" or ");
+
+    const { data: rasterCells, error: rasterError } = await adminClient
+      .from("GeoRasterCell")
+      .select("id, theme, center_lat, center_lng, theme_confidence, dominant_osm_tags")
+      .or(gridConditions)
+      .eq("is_valid", true);
+
+    if (rasterError) {
+      console.error("[robotPlantDailyZones] Raster query error:", rasterError);
+      return jsonResponse({ error: "Failed to query raster grid" }, 500);
     }
 
-    // Select 3-4 zones, 1-2 per theme — with overlap check
-    console.log(`[robotPlantDailyZones] Selecting zones from candidates`);
-    const selectedZones: CandidateZone[] = [];
-    const themeUsed: Record<ZoneTheme, number> = { forest: 0, urban: 0, water: 0, meadow: 0 };
+    const cells = (rasterCells || []) as RasterCell[];
+    console.log(`[robotPlantDailyZones] Found ${cells.length} valid raster cells`);
 
-    // Returns true if candidate overlaps any already-selected zone
-    const overlapsExisting = (cand: CandidateZone): boolean => {
-      for (const sel of selectedZones) {
-        const dLat = (cand.centerLat - sel.centerLat) * Math.PI / 180;
-        const dLng = (cand.centerLng - sel.centerLng) * Math.PI / 180;
-        const a =
-          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-          Math.cos(sel.centerLat * Math.PI / 180) *
-          Math.cos(cand.centerLat * Math.PI / 180) *
-          Math.sin(dLng / 2) * Math.sin(dLng / 2);
-        const distM = 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        const minSeparation = (cand.radiusM || 120) + (sel.radiusM || 120);
-        if (distM < minSeparation) {
-          console.log(`[ZoneOverlap] Skipping ${cand.theme} candidate (${distM.toFixed(0)}m < ${minSeparation}m separation from ${sel.theme})`);
-          return true;
-        }
-      }
-      return false;
-    };
-
-    for (const theme of themes) {
-      // Try each candidate for the theme until one doesn't overlap
-      for (const candidate of allCandidates[theme]) {
-        if (themeUsed[theme] >= 1) break;
-        if (!overlapsExisting(candidate)) {
-          selectedZones.push(candidate);
-          themeUsed[theme] += 1;
-          break;
-        }
-      }
+    if (cells.length === 0) {
+      console.warn(`[robotPlantDailyZones] No raster cells found near (${baseLat}, ${baseLng}). Raster grid may not be populated yet.`);
+      return jsonResponse({
+        success: false,
+        error: "No geo-raster data available for this location. Grid initialization pending.",
+        zones: [],
+      }, 503);
     }
 
-    console.log(`[robotPlantDailyZones] Selected ${selectedZones.length} zones for insertion`);
+    // Select best zones from available cells
+    const selectedZones = selectBestZones(cells, baseLat, baseLng);
 
-    // Insert zones
-    const zoneRecords = selectedZones.map((cand) => ({
-      zone_key: `${dayKey}-${cand.theme}-${Math.random().toString(36).slice(2, 8)}`,
-      title: `${cand.theme.charAt(0).toUpperCase() + cand.theme.slice(1)} Zone`,
-      theme: cand.theme,
-      center_lat: cand.centerLat,
-      center_lng: cand.centerLng,
-      radius_m: 120, // Default fallback radius
-      zone_bonus_multiplier: 1.1,
+    // Insert generated zones into RobotPlantZone table
+    const zoneRecords = selectedZones.map((zone) => ({
+      zone_key: zone.zoneKey,
+      title: `${zone.theme.charAt(0).toUpperCase() + zone.theme.slice(1)} Zone`,
+      theme: zone.theme,
+      center_lat: zone.centerLat,
+      center_lng: zone.centerLng,
+      radius_m: zone.radiusM,
+      zone_bonus_multiplier: zone.bonusMultiplier,
       is_active: true,
       valid_from: new Date().toISOString(),
       valid_to: new Date(Date.now() + 86400000).toISOString(),
-      osm_id: cand.osmId,
-      source_polygon_confidence: cand.confidence,
+      osm_id: `raster-${zone.id}`,
+      source_polygon_confidence: zone.confidence,
       day_generated: dayKey,
     }));
 
     console.log(`[robotPlantDailyZones] Inserting ${zoneRecords.length} zone records`);
-    const { data: insertedZones, error: insertError } = await adminClient.from("RobotPlantZone").insert(zoneRecords).select("*");
+    const { data: insertedZones, error: insertError } = await adminClient
+      .from("RobotPlantZone")
+      .upsert(zoneRecords, { onConflict: "zone_key", ignoreDuplicates: true })
+      .select("*");
 
     if (insertError) {
       console.error("[robotPlantDailyZones] Insert error:", insertError);
-      return jsonResponse({ error: "Failed to generate zones" }, 500);
+      return jsonResponse({ error: "Failed to insert zones" }, 500);
     }
 
-    console.log(`[robotPlantDailyZones] Successfully inserted ${insertedZones?.length || 0} zones`);
+    const queryDuration = Date.now() - queryStartTime;
+    console.log(`[robotPlantDailyZones] Zone generation completed in ${queryDuration}ms with ${insertedZones?.length || 0} zones`);
 
-    // Response
+    // Log query metrics
+    const { error: logError } = await adminClient
+      .from("RasterCellQueryLog")
+      .insert({
+        auth_id: authId,
+        query_date: dayKey,
+        search_lat: baseLat,
+        search_lng: baseLng,
+        search_radius_m: searchRadiusM,
+        cells_found: cells.length,
+        cells_by_theme: {
+          forest: cells.filter(c => c.theme === "forest").length,
+          water: cells.filter(c => c.theme === "water").length,
+          urban: cells.filter(c => c.theme === "urban").length,
+          meadow: cells.filter(c => c.theme === "meadow").length,
+        },
+        query_duration_ms: queryDuration,
+      });
+
+    if (logError) {
+      console.warn("[robotPlantDailyZones] Failed to log query metrics:", logError);
+    }
+
     return jsonResponse({
       success: true,
       cached: false,
+      rasterBased: true,
+      queryDurationMs: queryDuration,
       zones: (insertedZones || []).map((z) => ({
         id: z.id,
         theme: z.theme,

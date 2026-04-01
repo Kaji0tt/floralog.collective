@@ -12,7 +12,7 @@ import { Heart, Users, TrendingUp, Clock, Leaf, Loader2, ChevronLeft, ChevronRig
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { getRobotPlantDailyZones } from "@/api/robotPlantService";
+import { getRobotPlantDailyZones, initializeGeoRasterGrid } from "@/api/robotPlantService";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { MapContainer, TileLayer, Marker, Popup, Circle, CircleMarker, useMap, GeoJSON } from "react-leaflet";
@@ -1335,28 +1335,54 @@ export default function Quests() {
               })()}
 
               {/* Admin Debug Button: Force Zone Regeneration */}
-              {mapQuickView === "local" && userLocation && user?.role === 'admin' && (
-                <div className="absolute bottom-4 left-4 z-20">
+              {mapQuickView === "local" && user?.role === 'admin' && (
+                <div className="absolute bottom-4 left-4 z-20 flex flex-col gap-2">
+                  {userLocation && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          console.log('[Admin] Starting zone regeneration...');
+                          const zones = await getRobotPlantDailyZones({
+                            latitude: userLocation.lat,
+                            longitude: userLocation.lng,
+                            forceRegenerate: true,
+                          });
+                          queryClient.invalidateQueries({ queryKey: ["robotPlantDailyZones"] });
+                          alert(`✅ Zonen neu generiert!\n${zones.zones?.length ?? 0} Zonen erstellt.`);
+                        } catch (err) {
+                          alert(`❌ Fehler:\n${err.message}`);
+                        }
+                      }}
+                      className="px-3 py-2 text-xs bg-yellow-200 hover:bg-yellow-300 text-yellow-900 rounded-lg font-medium shadow-md transition"
+                    >
+                      🔄 Zonen neu generieren
+                    </button>
+                  )}
                   <button
                     onClick={async () => {
+                      const lat = userLocation?.lat ?? 54.32;
+                      const lng = userLocation?.lng ?? 10.13;
+                      const r = 0.18; // ~20km radius in degrees
+                      const label = userLocation ? 'Aktueller Standort' : 'Kiel (Standard)';
+                      if (!confirm(`Raster-Grid für ${label} initialisieren?\nBounds: ±${r}° um ${lat.toFixed(3)}, ${lng.toFixed(3)}\n\nDas kann 30-90 Sekunden dauern.`)) return;
                       try {
-                        console.log('[Admin] Starting zone regeneration...');
-                        const zones = await getRobotPlantDailyZones({
-                          latitude: userLocation.lat,
-                          longitude: userLocation.lng,
-                          forceRegenerate: true,
+                        const result = await initializeGeoRasterGrid({
+                          bounds: {
+                            north: lat + r,
+                            south: lat - r,
+                            east: lng + r,
+                            west: lng - r,
+                          },
+                          forceRefresh: false,
                         });
-                        console.log('[Admin] Zones regenerated:', zones);
-                        queryClient.invalidateQueries({ queryKey: ["robotPlantDailyZones"] });
-                        alert(`✅ Zonen neu generiert!\n${zones.zones.length} Zonen erstellt.`);
+                        alert(`✅ Grid initialisiert!\n${result.cellsCreated} Zellen erstellt in ${result.duration_ms}ms.`);
                       } catch (err) {
-                        console.error('[Admin] Regeneration failed:', err);
-                        alert(`❌ Fehler beim Generieren:\n${err.message}`);
+                        alert(`❌ Grid-Fehler:\n${err.message}`);
                       }
                     }}
-                    className="px-3 py-2 text-xs bg-yellow-200 hover:bg-yellow-300 text-yellow-900 rounded-lg font-medium shadow-md transition"
+                    className="px-3 py-2 text-xs bg-blue-200 hover:bg-blue-300 text-blue-900 rounded-lg font-medium shadow-md transition"
                   >
-                    🔄 Zonen neu generieren
+                    🗺️ Grid initialisieren
                   </button>
                 </div>
               )}
