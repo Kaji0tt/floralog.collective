@@ -214,6 +214,26 @@ function shuffleInPlace<T>(arr: T[], rng: () => number): void {
   }
 }
 
+function pickThemeByWeightedProbability(
+  themes: ZoneTheme[],
+  weights: Partial<Record<ZoneTheme, number>>,
+  rng: () => number,
+): ZoneTheme {
+  const validThemes = themes.filter((theme) => (weights[theme] || 0) > 0);
+  if (validThemes.length === 0) return themes[0];
+
+  const total = validThemes.reduce((acc, theme) => acc + (weights[theme] || 0), 0);
+  if (total <= 0) return validThemes[0];
+
+  let roll = rng() * total;
+  for (const theme of validThemes) {
+    roll -= weights[theme] || 0;
+    if (roll <= 0) return theme;
+  }
+
+  return validThemes[validThemes.length - 1];
+}
+
 /**
  * Select best zones from available raster cells
  * Strategy: Pick 1-2 best zones per theme based on:
@@ -225,14 +245,16 @@ function selectBestZones(
   cells: RasterCell[],
   centerLat: number,
   centerLng: number,
-  options?: { randomize?: boolean; seed?: number; maxDistanceM?: number },
+  options?: { randomize?: boolean; seed?: number; maxDistanceM?: number; fallbackCells?: RasterCell[] },
 ): GeneratedZone[] {
   const MIN_THEME_CONFIDENCE = 0.1;
   const GRID_CELL_SIZE_M = 707;
   const ZONE_RADIUS_M = Math.round(GRID_CELL_SIZE_M / 2);
   const randomize = options?.randomize === true;
   const maxDistanceM = options?.maxDistanceM ?? PLAYER_RADIUS_M;
+  const fallbackCells = options?.fallbackCells || [];
   const rng = randomize ? createSeededRng(options?.seed ?? Date.now()) : null;
+  const themePickRng = rng || Math.random;
 
   const candidatesByTheme: Record<ZoneTheme, ThemeCandidate[]> = {
     forest: [],
@@ -265,22 +287,21 @@ function selectBestZones(
       continue;
     }
 
-    for (const theme of availableThemes) {
-      const anchor = anchorPoints[theme];
-      const lat = Number(anchor?.lat ?? cell.center_lat);
-      const lng = Number(anchor?.lng ?? cell.center_lng);
-      const candidateDistance = distanceMeters(centerLat, centerLng, lat, lng);
-      if (candidateDistance > maxDistanceM) continue;
+    const selectedTheme = pickThemeByWeightedProbability(availableThemes, themeScores, themePickRng);
+    const anchor = anchorPoints[selectedTheme];
+    const lat = Number(anchor?.lat ?? cell.center_lat);
+    const lng = Number(anchor?.lng ?? cell.center_lng);
+    const candidateDistance = distanceMeters(centerLat, centerLng, lat, lng);
+    if (candidateDistance > maxDistanceM) continue;
 
-      candidatesByTheme[theme].push({
-        cellId: cell.id,
-        theme,
-        lat,
-        lng,
-        probability: Number(themeScores[theme] || 0),
-        osmElementCount: cell.osm_element_count || 0,
-      });
-    }
+    candidatesByTheme[selectedTheme].push({
+      cellId: cell.id,
+      theme: selectedTheme,
+      lat,
+      lng,
+      probability: Number(themeScores[selectedTheme] || 0),
+      osmElementCount: cell.osm_element_count || 0,
+    });
   }
 
   // Sort each theme by: higher probability, closer distance, stronger evidence.
@@ -400,6 +421,34 @@ function selectBestZones(
     });
     themeCount[candidate.theme] += 1;
     alreadySelectedKeys.add(candidateKey);
+  }
+
+  // If OSM-valid cells are sparse or clustered far away, fill remaining slots with
+  // nearest computed cells as low-confidence meadow zones to keep gameplay near player.
+  if (selectedZones.length < TARGET_ZONE_COUNT && fallbackCells.length > 0) {
+    const fallbackCandidates = fallbackCells
+      .map((cell) => ({
+        cell,
+        distanceToPlayer: distanceMeters(centerLat, centerLng, cell.center_lat, cell.center_lng),
+      }))
+      .filter((entry) => entry.distanceToPlayer <= maxDistanceM)
+      .sort((a, b) => a.distanceToPlayer - b.distanceToPlayer);
+
+    for (const entry of fallbackCandidates) {
+      if (selectedZones.length >= TARGET_ZONE_COUNT) break;
+      if (overlapsExisting(entry.cell.center_lat, entry.cell.center_lng)) continue;
+
+      selectedZones.push({
+        id: entry.cell.id,
+        theme: "meadow",
+        centerLat: entry.cell.center_lat,
+        centerLng: entry.cell.center_lng,
+        radiusM: ZONE_RADIUS_M,
+        zoneKey: `${dayKey}-fallback-${entry.cell.id.substring(0, 8)}-${selectedZones.length}`,
+        confidence: 0.12,
+        bonusMultiplier: 1.0,
+      });
+    }
   }
 
   console.log(`[ZoneSelection] Selected ${selectedZones.length} zones from ${cells.length} available raster cells (target=${TARGET_ZONE_COUNT})`);
@@ -627,6 +676,7 @@ Deno.serve(async (req) => {
 
     const existingGridIds = new Set(rasterRows.map((row) => row.grid_id));
     let missingCells = cellIndices.filter((cell) => !existingGridIds.has(toGridId(cell.latIdx, cell.lngIdx)));
+    let missingInitFailed = false;
 
     if (missingCells.length > 0) {
       const regions = getMissingGridRegions(missingCells);
@@ -657,15 +707,18 @@ Deno.serve(async (req) => {
         }
       } catch (initError) {
         const initMessage = initError instanceof Error ? initError.message : String(initError);
-        console.error("[robotPlantDailyZones] On-demand raster initialization for missing cells failed:", initMessage);
-        return jsonResponse({ error: `Failed to initialize missing raster cells: ${initMessage}` }, 500);
+        missingInitFailed = true;
+        console.warn("[robotPlantDailyZones] On-demand raster initialization for missing cells failed, continuing with existing cells:", initMessage);
       }
 
       try {
         rasterRows = await fetchRasterCells();
       } catch (fetchError) {
         const errMsg = fetchError instanceof Error ? fetchError.message : String(fetchError);
-        return jsonResponse({ error: errMsg }, 500);
+        if (!missingInitFailed) {
+          return jsonResponse({ error: errMsg }, 500);
+        }
+        console.warn("[robotPlantDailyZones] Raster refresh after failed initialization also failed; using previously loaded rows:", errMsg);
       }
 
       const refreshedGridIds = new Set(rasterRows.map((row) => row.grid_id));
@@ -676,7 +729,15 @@ Deno.serve(async (req) => {
     }
 
     const cells = rasterRows.filter((row) => row.is_valid === true) as RasterCell[];
-    console.log(`[robotPlantDailyZones] Found ${cells.length} valid raster cells and ${rasterRows.length} computed cells in search range`);
+    const fallbackCells = rasterRows.filter((row) => row.is_valid !== true) as RasterCell[];
+    const nearestValidDistance = cells.length > 0
+      ? Math.min(...cells.map((cell) => distanceMeters(baseLat, baseLng, cell.center_lat, cell.center_lng)))
+      : null;
+
+    console.log(
+      `[robotPlantDailyZones] Found ${cells.length} valid raster cells and ${rasterRows.length} computed cells in search range` +
+      (nearestValidDistance !== null ? ` (nearest valid=${Math.round(nearestValidDistance)}m)` : ""),
+    );
 
     if (cells.length === 0) {
       console.warn(`[robotPlantDailyZones] Raster initialization completed, but no usable raster cells were available near (${baseLat}, ${baseLng}).`);
@@ -693,6 +754,7 @@ Deno.serve(async (req) => {
       randomize: forceRegenerate,
       seed: regenerationSeed,
       maxDistanceM: PLAYER_RADIUS_M,
+      fallbackCells,
     });
 
     // Insert generated zones into RobotPlantZone table

@@ -192,7 +192,7 @@ out center;
   }
 
   if (succeeded === 0) {
-    throw new Error("Signal timed out.");
+    throw new Error("All Overpass tiles failed");
   }
 
   const merged = Array.from(unique.values());
@@ -334,7 +334,7 @@ function buildRasterGrid(
   }
 
   for (const [gridId, cell] of grid) {
-    cell.is_valid = cell.osm_element_count > 0 || cell.theme_confidence > 0.5;
+    cell.is_valid = cell.osm_element_count > 0 || cell.theme_confidence >= 0.1;
   }
 
   const validCount = Array.from(grid.values()).filter((cell) => cell.is_valid).length;
