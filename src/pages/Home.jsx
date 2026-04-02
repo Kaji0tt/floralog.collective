@@ -212,6 +212,18 @@ export default function Home() {
     refetchOnWindowFocus: false,
   });
 
+  const { data: robotPlantState = null } = useQuery({
+    queryKey: ['robotPlantState', user?.id],
+    queryFn: async () => {
+      const rows = await Query.RobotPlant.filter({ auth_id: user?.id });
+      return rows?.[0] || null;
+    },
+    enabled: !!user?.id,
+    initialData: null,
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
 
 
   const loadUserData = async () => {
@@ -225,6 +237,7 @@ export default function Home() {
     queryClient.refetchQueries({ queryKey: ['genera'] });
     queryClient.refetchQueries({ queryKey: ['friends'] });
     queryClient.refetchQueries({ queryKey: ['allDiscoveries'] });
+    queryClient.refetchQueries({ queryKey: ['robotPlantState'] });
     
     // NICHT mehr hier - Rewards werden nur beim Scannen/Quest-Completion geprüft
   };
@@ -251,6 +264,7 @@ export default function Home() {
       queryClient.refetchQueries({ queryKey: ['genera'] });
       queryClient.refetchQueries({ queryKey: ['friends'] });
       queryClient.refetchQueries({ queryKey: ['allDiscoveries'] });
+      queryClient.refetchQueries({ queryKey: ['robotPlantState'] });
     };
 
     window.addEventListener('userUpdated', handleUserUpdate);
@@ -536,6 +550,11 @@ export default function Home() {
     );
     return genusPlants.some(p => userDiscoveries.some(d => d.plant_id === p.id));
   }).length;
+
+  const playerSeeds = Math.max(
+    0,
+    Number(robotPlantState?.wallet_balance ?? robotPlantState?.walletBalance ?? 0)
+  );
 
   const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
   const currentMonthlyQuest = getCurrentMonthlyQuest(monthlyQuests);
@@ -1036,7 +1055,10 @@ export default function Home() {
               } : {}}
             >
               <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
-                <div className="w-28 h-28 rounded-2xl bg-white/60 backdrop-blur-md border-2 border-white/40 shadow-lg flex flex-col items-center justify-center text-stone-700">
+                <div className="relative w-28 h-28 rounded-2xl bg-white/60 backdrop-blur-md border-2 border-white/40 shadow-lg flex flex-col items-center justify-center text-stone-700">
+                  <div className="absolute -top-2 -right-2 px-2 py-0.5 rounded-full bg-emerald-700 text-white text-[10px] font-bold shadow-md border border-emerald-200">
+                    {playerSeeds}
+                  </div>
                   <Leaf className="w-10 h-10 text-green-600" />
                   <span className="mt-1 text-[10px] font-semibold uppercase tracking-wide">Pflanzen-Slot</span>
                 </div>
