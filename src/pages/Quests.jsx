@@ -118,7 +118,7 @@ const getAverageColor = (imageUrl) => {
 
 const THEME_MAP_COLORS = {
   forest: "#1a4731",
-  urban: "#4a5568",
+  urban: "#d4b492",
   water: "#2b6cb0",
   meadow: "#84cc16",
 };
