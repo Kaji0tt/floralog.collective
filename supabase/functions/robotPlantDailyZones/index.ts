@@ -388,6 +388,7 @@ Deno.serve(async (req) => {
     }
 
     const dayKey = toDayKey();
+    const authKeySuffix = authId.replace(/-/g, "");
     const queryStartTime = Date.now();
 
     // Force regeneration should fully replace today's zones.
@@ -396,6 +397,7 @@ Deno.serve(async (req) => {
         .from("RobotPlantZone")
         .delete()
         .eq("day_generated", dayKey)
+        .like("zone_key", `%:${authKeySuffix}`)
         .in("theme", ["forest", "urban", "water", "meadow"]);
 
       if (deleteError) {
@@ -412,6 +414,7 @@ Deno.serve(async (req) => {
         .from("RobotPlantZone")
         .select("*")
         .eq("day_generated", dayKey)
+        .like("zone_key", `%:${authKeySuffix}`)
         .in("theme", ["forest", "urban", "water", "meadow"]);
 
       if (!existError && Array.isArray(existing) && existing.length >= 4) {
@@ -477,7 +480,7 @@ Deno.serve(async (req) => {
 
     // Insert generated zones into RobotPlantZone table
     const zoneRecords = selectedZones.map((zone) => ({
-      zone_key: zone.zoneKey,
+      zone_key: `${zone.zoneKey}:${authKeySuffix}`,
       title: `${zone.theme.charAt(0).toUpperCase() + zone.theme.slice(1)} Zone`,
       theme: zone.theme,
       center_lat: zone.centerLat,
