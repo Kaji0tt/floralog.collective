@@ -27,6 +27,9 @@ interface RasterCell {
   center_lng: number;
   theme_confidence: number;
   dominant_osm_tags: Record<string, string>;
+  theme_scores?: Partial<Record<ZoneTheme, number>>;
+  theme_anchor_points?: Partial<Record<ZoneTheme, { lat: number; lng: number }>>;
+  osm_element_count?: number;
 }
 
 interface GeneratedZone {
@@ -38,6 +41,15 @@ interface GeneratedZone {
   zoneKey: string;
   confidence: number;
   bonusMultiplier: number;
+}
+
+interface ThemeCandidate {
+  cellId: string;
+  theme: ZoneTheme;
+  lat: number;
+  lng: number;
+  probability: number;
+  osmElementCount: number;
 }
 
 function jsonResponse(payload: unknown, status = 200): Response {
@@ -132,29 +144,65 @@ function getGridCellsInRadius(centerLat: number, centerLng: number, radiusM: num
  * 3. No overlaps
  */
 function selectBestZones(cells: RasterCell[], centerLat: number, centerLng: number): GeneratedZone[] {
-  const cellsByTheme: Record<ZoneTheme, RasterCell[]> = {
+  const MIN_THEME_CONFIDENCE = 0.1;
+  const GRID_CELL_SIZE_M = 707;
+  const ZONE_RADIUS_M = GRID_CELL_SIZE_M / 2;
+
+  const candidatesByTheme: Record<ZoneTheme, ThemeCandidate[]> = {
     forest: [],
     water: [],
     urban: [],
     meadow: [],
   };
 
-  // Group cells by theme and sort by distance
+  // Expand each cell into theme-specific candidates using probability and theme anchor point.
   for (const cell of cells) {
-    cellsByTheme[cell.theme].push(cell);
+    const themeScores = cell.theme_scores || {};
+    const anchorPoints = cell.theme_anchor_points || {};
+
+    const availableThemes = (Object.keys(themeScores) as ZoneTheme[])
+      .filter((theme) => (themeScores[theme] || 0) >= MIN_THEME_CONFIDENCE);
+
+    // Backward-compatible fallback for old rows that do not have multi-theme fields yet.
+    if (availableThemes.length === 0) {
+      candidatesByTheme[cell.theme].push({
+        cellId: cell.id,
+        theme: cell.theme,
+        lat: cell.center_lat,
+        lng: cell.center_lng,
+        probability: Math.max(cell.theme_confidence || 0, MIN_THEME_CONFIDENCE),
+        osmElementCount: cell.osm_element_count || 0,
+      });
+      continue;
+    }
+
+    for (const theme of availableThemes) {
+      const anchor = anchorPoints[theme];
+      candidatesByTheme[theme].push({
+        cellId: cell.id,
+        theme,
+        lat: Number(anchor?.lat ?? cell.center_lat),
+        lng: Number(anchor?.lng ?? cell.center_lng),
+        probability: Number(themeScores[theme] || 0),
+        osmElementCount: cell.osm_element_count || 0,
+      });
+    }
   }
 
-  // Sort each theme group by distance
-  for (const theme of Object.keys(cellsByTheme) as ZoneTheme[]) {
-    cellsByTheme[theme].sort((a, b) => {
-      const distA = distanceMeters(centerLat, centerLng, a.center_lat, a.center_lng);
-      const distB = distanceMeters(centerLat, centerLng, b.center_lat, b.center_lng);
-      return distA - distB;
+  // Sort each theme by: higher probability, closer distance, stronger evidence.
+  for (const theme of Object.keys(candidatesByTheme) as ZoneTheme[]) {
+    candidatesByTheme[theme].sort((a, b) => {
+      if (b.probability !== a.probability) return b.probability - a.probability;
+
+      const distA = distanceMeters(centerLat, centerLng, a.lat, a.lng);
+      const distB = distanceMeters(centerLat, centerLng, b.lat, b.lng);
+      if (distA !== distB) return distA - distB;
+
+      return b.osmElementCount - a.osmElementCount;
     });
   }
 
   const selectedZones: GeneratedZone[] = [];
-  const RADIUS_M = 120;
   const dayKey = toDayKey();
 
   /**
@@ -163,7 +211,7 @@ function selectBestZones(cells: RasterCell[], centerLat: number, centerLng: numb
   const overlapsExisting = (lat: number, lng: number): boolean => {
     for (const zone of selectedZones) {
       const dist = distanceMeters(lat, lng, zone.centerLat, zone.centerLng);
-      const minSeparation = RADIUS_M + RADIUS_M; // No overlapping radii
+      const minSeparation = ZONE_RADIUS_M + ZONE_RADIUS_M; // No overlapping radii
       if (dist < minSeparation) {
         console.log(`[ZoneOverlap] Candidate at (${lat.toFixed(4)}, ${lng.toFixed(4)}) overlaps existing zone at (${zone.centerLat.toFixed(4)}, ${zone.centerLng.toFixed(4)}) [dist=${dist.toFixed(0)}m < ${minSeparation}m]`);
         return true;
@@ -177,25 +225,25 @@ function selectBestZones(cells: RasterCell[], centerLat: number, centerLng: numb
   const themeCount: Record<ZoneTheme, number> = { forest: 0, water: 0, urban: 0, meadow: 0 };
 
   for (const theme of themes) {
-    const themeCells = cellsByTheme[theme];
-    if (themeCells.length === 0) continue;
+    const themeCandidates = candidatesByTheme[theme];
+    if (themeCandidates.length === 0) continue;
 
     // Try to pick best candidate for this theme
-    for (const cell of themeCells) {
+    for (const candidate of themeCandidates) {
       if (themeCount[theme] >= 1) break; // Max 1 per theme
-      if (!overlapsExisting(cell.center_lat, cell.center_lng)) {
+      if (!overlapsExisting(candidate.lat, candidate.lng)) {
         selectedZones.push({
-          id: cell.id,
-          theme: cell.theme,
-          centerLat: cell.center_lat,
-          centerLng: cell.center_lng,
-          radiusM: RADIUS_M,
-          zoneKey: `${dayKey}-${cell.theme}-${cell.id.substring(0, 8)}`,
-          confidence: cell.theme_confidence,
+          id: candidate.cellId,
+          theme: candidate.theme,
+          centerLat: candidate.lat,
+          centerLng: candidate.lng,
+          radiusM: ZONE_RADIUS_M,
+          zoneKey: `${dayKey}-${candidate.theme}-${candidate.cellId.substring(0, 8)}`,
+          confidence: candidate.probability,
           bonusMultiplier: 1.1,
         });
         themeCount[theme] += 1;
-        console.log(`[ZoneSelection] Selected ${theme} zone at (${cell.center_lat.toFixed(4)}, ${cell.center_lng.toFixed(4)}) with confidence ${cell.theme_confidence}`);
+        console.log(`[ZoneSelection] Selected ${theme} zone at (${candidate.lat.toFixed(4)}, ${candidate.lng.toFixed(4)}) with confidence ${candidate.probability.toFixed(2)}`);
         break;
       }
     }
@@ -340,7 +388,7 @@ Deno.serve(async (req) => {
 
     const { data: rasterCells, error: rasterError } = await adminClient
       .from("GeoRasterCell")
-      .select("id, theme, center_lat, center_lng, theme_confidence, dominant_osm_tags")
+      .select("id, theme, center_lat, center_lng, theme_confidence, dominant_osm_tags, theme_scores, theme_anchor_points, osm_element_count")
       .gte("grid_lat_idx", minLatIdx)
       .lte("grid_lat_idx", maxLatIdx)
       .gte("grid_lng_idx", minLngIdx)

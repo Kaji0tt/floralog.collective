@@ -30,15 +30,31 @@ interface BoundingBox {
   west: number;
 }
 
+type ZoneTheme = "forest" | "water" | "urban" | "meadow";
+
+interface ThemeAnchorPoint {
+  lat: number;
+  lng: number;
+}
+
+interface CellThemeAggregate {
+  score: number;
+  latSum: number;
+  lngSum: number;
+  count: number;
+}
+
 interface RasterCellData {
   grid_id: string;
   grid_lat_idx: number;
   grid_lng_idx: number;
   center_lat: number;
   center_lng: number;
-  theme: "forest" | "water" | "urban" | "meadow";
+  theme: ZoneTheme;
   theme_confidence: number;
   dominant_osm_tags: Record<string, string>;
+  theme_scores: Partial<Record<ZoneTheme, number>>;
+  theme_anchor_points: Partial<Record<ZoneTheme, ThemeAnchorPoint>>;
   osm_element_count: number;
   nearest_osm_element_distance_m: number;
 }
@@ -72,7 +88,7 @@ function getGridCellCenter(latIdx: number, lngIdx: number): { lat: number; lng: 
  */
 function classifyTheme(
   tags: Record<string, string>
-): { theme: "forest" | "water" | "urban" | "meadow"; confidence: number } {
+): { theme: ZoneTheme; confidence: number } {
   const natural = (tags.natural || "").toLowerCase();
   const landuse = (tags.landuse || "").toLowerCase();
   const leisure = (tags.leisure || "").toLowerCase();
@@ -228,6 +244,8 @@ function buildRasterGrid(
         theme: "meadow", // default
         theme_confidence: 0.3,
         dominant_osm_tags: {},
+        theme_scores: {},
+        theme_anchor_points: {},
         osm_element_count: 0,
         nearest_osm_element_distance_m: 999999,
       });
@@ -235,6 +253,11 @@ function buildRasterGrid(
   }
 
   console.log(`[Grid] Created ${grid.size} cells`);
+
+  const MIN_THEME_CONFIDENCE = 0.1;
+
+  // Per-cell, per-theme aggregates for mixed-zone probabilities and precise anchors.
+  const cellThemeAggregates = new Map<string, Partial<Record<ZoneTheme, CellThemeAggregate>>>();
 
   // Distribute OSM elements into grid cells
   for (const elem of osmElements) {
@@ -246,6 +269,20 @@ function buildRasterGrid(
 
     // Update cell classification based on OSM element
     const classification = classifyTheme(elem.tags);
+
+    const cellAggregates = cellThemeAggregates.get(gridId) || {};
+    const currentAggregate = cellAggregates[classification.theme] || {
+      score: 0,
+      latSum: 0,
+      lngSum: 0,
+      count: 0,
+    };
+    currentAggregate.score += classification.confidence;
+    currentAggregate.latSum += elem.centerLat;
+    currentAggregate.lngSum += elem.centerLng;
+    currentAggregate.count += 1;
+    cellAggregates[classification.theme] = currentAggregate;
+    cellThemeAggregates.set(gridId, cellAggregates);
     
     // Only update if new classification has higher confidence
     if (classification.confidence > cell.theme_confidence) {
@@ -265,6 +302,55 @@ function buildRasterGrid(
     if (dist < cell.nearest_osm_element_distance_m) {
       cell.nearest_osm_element_distance_m = dist;
     }
+  }
+
+  // Build normalized theme probabilities and per-theme anchor points per cell.
+  for (const [gridId, cell] of grid) {
+    const aggregates = cellThemeAggregates.get(gridId);
+    if (!aggregates) continue;
+
+    const themes = Object.keys(aggregates) as ZoneTheme[];
+    const totalScore = themes.reduce((acc, theme) => acc + (aggregates[theme]?.score || 0), 0);
+    if (totalScore <= 0) continue;
+
+    const rawScores: Partial<Record<ZoneTheme, number>> = {};
+    const anchorPoints: Partial<Record<ZoneTheme, ThemeAnchorPoint>> = {};
+
+    for (const theme of themes) {
+      const aggregate = aggregates[theme];
+      if (!aggregate || aggregate.count === 0) continue;
+
+      const normalizedScore = aggregate.score / totalScore;
+      if (normalizedScore < MIN_THEME_CONFIDENCE) continue;
+
+      rawScores[theme] = normalizedScore;
+      anchorPoints[theme] = {
+        lat: aggregate.latSum / aggregate.count,
+        lng: aggregate.lngSum / aggregate.count,
+      };
+    }
+
+    const acceptedThemes = Object.keys(rawScores) as ZoneTheme[];
+    if (acceptedThemes.length === 0) continue;
+
+    const acceptedTotal = acceptedThemes.reduce((acc, theme) => acc + (rawScores[theme] || 0), 0);
+    if (acceptedTotal <= 0) continue;
+
+    const normalizedScores: Partial<Record<ZoneTheme, number>> = {};
+    for (const theme of acceptedThemes) {
+      normalizedScores[theme] = (rawScores[theme] || 0) / acceptedTotal;
+    }
+
+    const dominantTheme = acceptedThemes.reduce((best, current) => {
+      const bestScore = normalizedScores[best] || 0;
+      const currentScore = normalizedScores[current] || 0;
+      return currentScore > bestScore ? current : best;
+    }, acceptedThemes[0]);
+
+    cell.theme_scores = normalizedScores;
+    cell.theme_anchor_points = anchorPoints;
+    cell.theme = dominantTheme;
+    cell.theme_confidence = normalizedScores[dominantTheme] || cell.theme_confidence;
   }
 
   // Filter out cells with no OSM data
@@ -383,6 +469,8 @@ Deno.serve(async (req) => {
         theme: cell.theme,
         theme_confidence: cell.theme_confidence,
         dominant_osm_tags: cell.dominant_osm_tags,
+        theme_scores: cell.theme_scores,
+        theme_anchor_points: cell.theme_anchor_points,
         osm_element_count: cell.osm_element_count,
         nearest_osm_element_distance_m: Math.round(cell.nearest_osm_element_distance_m),
         is_valid: true,

@@ -1187,6 +1187,7 @@ export default function Quests() {
                     zoom={6}
                     style={{ height: '100%', width: '100%' }}
                     className="z-0"
+                    zoomControl={false}
                   >
                     {bounds && <MapController bounds={bounds} center={null} zoom={null} />}
                     <TileLayer
@@ -1238,6 +1239,7 @@ export default function Quests() {
                     zoom={12}
                     style={{ height: '100%', width: '100%' }}
                     className="z-0"
+                    zoomControl={false}
                   >
                     <TileLayer
                       url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
@@ -1429,6 +1431,7 @@ export default function Quests() {
                     zoom={validDiscoveries.length > 0 ? 8 : 6}
                     style={{ height: '100%', width: '100%' }}
                     className="z-0"
+                    zoomControl={false}
                   >
                     <TileLayer
                       url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
