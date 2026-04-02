@@ -146,7 +146,7 @@ function getGridCellsInRadius(centerLat: number, centerLng: number, radiusM: num
 function selectBestZones(cells: RasterCell[], centerLat: number, centerLng: number): GeneratedZone[] {
   const MIN_THEME_CONFIDENCE = 0.1;
   const GRID_CELL_SIZE_M = 707;
-  const ZONE_RADIUS_M = GRID_CELL_SIZE_M / 2;
+  const ZONE_RADIUS_M = Math.round(GRID_CELL_SIZE_M / 2);
 
   const candidatesByTheme: Record<ZoneTheme, ThemeCandidate[]> = {
     forest: [],
@@ -220,17 +220,21 @@ function selectBestZones(cells: RasterCell[], centerLat: number, centerLng: numb
     return false;
   };
 
-  // Select up to 1 zone per theme (goal: 3-4 zones total, 1 per theme where available)
+  // Selection policy:
+  // 1) Ensure at least one zone per theme where possible.
+  // 2) Fill up to TARGET_ZONE_COUNT with balanced extra zones.
   const themes: ZoneTheme[] = ["forest", "water", "urban", "meadow"];
+  const TARGET_ZONE_COUNT = 8;
+  const MAX_PER_THEME = 2; // 4 themes * 2 = up to 8 zones
   const themeCount: Record<ZoneTheme, number> = { forest: 0, water: 0, urban: 0, meadow: 0 };
 
+  // Pass 1: minimum coverage (1 per theme if candidates are available and non-overlapping)
   for (const theme of themes) {
     const themeCandidates = candidatesByTheme[theme];
     if (themeCandidates.length === 0) continue;
 
-    // Try to pick best candidate for this theme
     for (const candidate of themeCandidates) {
-      if (themeCount[theme] >= 1) break; // Max 1 per theme
+      if (themeCount[theme] >= 1) break;
       if (!overlapsExisting(candidate.lat, candidate.lng)) {
         selectedZones.push({
           id: candidate.cellId,
@@ -249,7 +253,47 @@ function selectBestZones(cells: RasterCell[], centerLat: number, centerLng: numb
     }
   }
 
-  console.log(`[ZoneSelection] Selected ${selectedZones.length} zones from ${cells.length} available raster cells`);
+  // Pass 2: fill up to TARGET_ZONE_COUNT with remaining best candidates, balanced by theme caps.
+  type ScoredCandidate = ThemeCandidate & { distanceToPlayer: number };
+  const allCandidates: ScoredCandidate[] = [];
+  for (const theme of themes) {
+    for (const candidate of candidatesByTheme[theme]) {
+      allCandidates.push({
+        ...candidate,
+        distanceToPlayer: distanceMeters(centerLat, centerLng, candidate.lat, candidate.lng),
+      });
+    }
+  }
+
+  allCandidates.sort((a, b) => {
+    if (b.probability !== a.probability) return b.probability - a.probability;
+    if (a.distanceToPlayer !== b.distanceToPlayer) return a.distanceToPlayer - b.distanceToPlayer;
+    return b.osmElementCount - a.osmElementCount;
+  });
+
+  const alreadySelectedKeys = new Set(selectedZones.map((z) => `${z.id}:${z.theme}`));
+  for (const candidate of allCandidates) {
+    if (selectedZones.length >= TARGET_ZONE_COUNT) break;
+    const candidateKey = `${candidate.cellId}:${candidate.theme}`;
+    if (alreadySelectedKeys.has(candidateKey)) continue;
+    if (themeCount[candidate.theme] >= MAX_PER_THEME) continue;
+    if (overlapsExisting(candidate.lat, candidate.lng)) continue;
+
+    selectedZones.push({
+      id: candidate.cellId,
+      theme: candidate.theme,
+      centerLat: candidate.lat,
+      centerLng: candidate.lng,
+      radiusM: ZONE_RADIUS_M,
+      zoneKey: `${dayKey}-${candidate.theme}-${candidate.cellId.substring(0, 8)}-${selectedZones.length}`,
+      confidence: candidate.probability,
+      bonusMultiplier: 1.1,
+    });
+    themeCount[candidate.theme] += 1;
+    alreadySelectedKeys.add(candidateKey);
+  }
+
+  console.log(`[ZoneSelection] Selected ${selectedZones.length} zones from ${cells.length} available raster cells (target=${TARGET_ZONE_COUNT})`);
   return selectedZones;
 }
 
@@ -346,6 +390,22 @@ Deno.serve(async (req) => {
     const dayKey = toDayKey();
     const queryStartTime = Date.now();
 
+    // Force regeneration should fully replace today's zones.
+    if (forceRegenerate) {
+      const { error: deleteError } = await adminClient
+        .from("RobotPlantZone")
+        .delete()
+        .eq("day_generated", dayKey)
+        .in("theme", ["forest", "urban", "water", "meadow"]);
+
+      if (deleteError) {
+        console.error("[robotPlantDailyZones] Failed to clear existing zones for force regeneration:", deleteError);
+        return jsonResponse({ error: "Failed to clear existing zones" }, 500);
+      }
+
+      console.log("[robotPlantDailyZones] Cleared existing zones for force regeneration");
+    }
+
     // Check for existing cached zones
     if (!forceRegenerate) {
       const { data: existing, error: existError } = await adminClient
@@ -354,7 +414,7 @@ Deno.serve(async (req) => {
         .eq("day_generated", dayKey)
         .in("theme", ["forest", "urban", "water", "meadow"]);
 
-      if (!existError && Array.isArray(existing) && existing.length >= 3) {
+      if (!existError && Array.isArray(existing) && existing.length >= 4) {
         console.log(`[robotPlantDailyZones] Returning ${existing.length} cached zones for today`);
         return jsonResponse({
           success: true,
