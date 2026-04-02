@@ -3,14 +3,19 @@ import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
-import { Newspaper, Trash2, Calendar } from "lucide-react";
+import { Newspaper, Trash2, Calendar, Pencil, Save, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function News() {
   const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
+  const [editingNewsId, setEditingNewsId] = useState(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editText, setEditText] = useState("");
 
   useEffect(() => {
     const loadUser = async () => {
@@ -31,6 +36,44 @@ export default function News() {
       queryClient.invalidateQueries({ queryKey: ['news'] });
     },
   });
+
+  const updateNewsMutation = useMutation({
+    mutationFn: ({ newsId, payload }) => Query.News.update(newsId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['news'] });
+      setEditingNewsId(null);
+      setEditTitle("");
+      setEditText("");
+    },
+  });
+
+  const startEditing = (item) => {
+    setEditingNewsId(item.id);
+    setEditTitle(item.title || "");
+    setEditText(item.text || "");
+  };
+
+  const cancelEditing = () => {
+    setEditingNewsId(null);
+    setEditTitle("");
+    setEditText("");
+  };
+
+  const saveEditing = () => {
+    if (!editingNewsId) return;
+    if (!editTitle.trim() || !editText.trim()) {
+      alert('Bitte fülle Titel und Text aus.');
+      return;
+    }
+
+    updateNewsMutation.mutate({
+      newsId: editingNewsId,
+      payload: {
+        title: editTitle.trim(),
+        text: editText.trim(),
+      },
+    });
+  };
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -145,12 +188,34 @@ export default function News() {
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
-                          <h2 className="text-2xl font-bold text-stone-900 mb-3">
-                            {item.title}
-                          </h2>
-                          <p className="text-stone-700 leading-relaxed whitespace-pre-wrap mb-4">
-                            {item.text}
-                          </p>
+                          {editingNewsId === item.id ? (
+                            <div className="space-y-3 mb-4">
+                              <Input
+                                value={editTitle}
+                                onChange={(e) => setEditTitle(e.target.value)}
+                                maxLength={200}
+                                className="text-lg font-semibold"
+                              />
+                              <Textarea
+                                value={editText}
+                                onChange={(e) => setEditText(e.target.value)}
+                                maxLength={2000}
+                                className="min-h-[140px]"
+                              />
+                              <div className="text-xs text-stone-500 text-right">
+                                {editText.length}/2000 Zeichen
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <h2 className="text-2xl font-bold text-stone-900 mb-3">
+                                {item.title}
+                              </h2>
+                              <p className="text-stone-700 leading-relaxed whitespace-pre-wrap mb-4">
+                                {item.text}
+                              </p>
+                            </>
+                          )}
                           <div className="flex items-center gap-2 text-sm text-stone-500">
                             <Calendar className="w-4 h-4" />
                             {formatDate(item.created_date)}
@@ -158,18 +223,52 @@ export default function News() {
                         </div>
                         
                         {user?.role === 'admin' && (
-                          <Button
-                            onClick={() => {
-                              if (window.confirm('Möchtest du diese Neuigkeit wirklich löschen?')) {
-                                deleteNewsMutation.mutate(item.id);
-                              }
-                            }}
-                            variant="outline"
-                            size="icon"
-                            className="text-red-600 hover:bg-red-50 hover:text-red-700 flex-shrink-0"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </Button>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {editingNewsId === item.id ? (
+                              <>
+                                <Button
+                                  onClick={saveEditing}
+                                  variant="outline"
+                                  size="icon"
+                                  disabled={updateNewsMutation.isPending}
+                                  className="text-green-700 hover:bg-green-50 hover:text-green-800"
+                                >
+                                  <Save className="w-5 h-5" />
+                                </Button>
+                                <Button
+                                  onClick={cancelEditing}
+                                  variant="outline"
+                                  size="icon"
+                                  disabled={updateNewsMutation.isPending}
+                                  className="text-stone-600 hover:bg-stone-100"
+                                >
+                                  <X className="w-5 h-5" />
+                                </Button>
+                              </>
+                            ) : (
+                              <Button
+                                onClick={() => startEditing(item)}
+                                variant="outline"
+                                size="icon"
+                                className="text-blue-700 hover:bg-blue-50 hover:text-blue-800"
+                              >
+                                <Pencil className="w-5 h-5" />
+                              </Button>
+                            )}
+                            <Button
+                              onClick={() => {
+                                if (window.confirm('Möchtest du diese Neuigkeit wirklich löschen?')) {
+                                  deleteNewsMutation.mutate(item.id);
+                                }
+                              }}
+                              variant="outline"
+                              size="icon"
+                              disabled={editingNewsId === item.id && updateNewsMutation.isPending}
+                              className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </Button>
+                          </div>
                         )}
                       </div>
                     </CardContent>
