@@ -235,7 +235,7 @@ export default function Quests() {
       });
       return response?.zones || [];
     },
-    enabled: mapQuickView === "local" && !!userLocation,
+    enabled: mapQuickView === "local" && !!userLocation && user?.role !== 'admin',
     staleTime: 1000 * 60 * 10,
   });
 

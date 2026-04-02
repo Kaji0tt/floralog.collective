@@ -136,6 +136,23 @@ function getGridCellsInRadius(centerLat: number, centerLng: number, radiusM: num
   return cells;
 }
 
+function createSeededRng(seed: number): () => number {
+  let t = seed >>> 0;
+  return () => {
+    t += 0x6d2b79f5;
+    let x = Math.imul(t ^ (t >>> 15), 1 | t);
+    x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffleInPlace<T>(arr: T[], rng: () => number): void {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
 /**
  * Select best zones from available raster cells
  * Strategy: Pick 1-2 best zones per theme based on:
@@ -143,10 +160,17 @@ function getGridCellsInRadius(centerLat: number, centerLng: number, radiusM: num
  * 2. Theme confidence (higher = better)
  * 3. No overlaps
  */
-function selectBestZones(cells: RasterCell[], centerLat: number, centerLng: number): GeneratedZone[] {
+function selectBestZones(
+  cells: RasterCell[],
+  centerLat: number,
+  centerLng: number,
+  options?: { randomize?: boolean; seed?: number },
+): GeneratedZone[] {
   const MIN_THEME_CONFIDENCE = 0.1;
   const GRID_CELL_SIZE_M = 707;
   const ZONE_RADIUS_M = Math.round(GRID_CELL_SIZE_M / 2);
+  const randomize = options?.randomize === true;
+  const rng = randomize ? createSeededRng(options?.seed ?? Date.now()) : null;
 
   const candidatesByTheme: Record<ZoneTheme, ThemeCandidate[]> = {
     forest: [],
@@ -200,6 +224,14 @@ function selectBestZones(cells: RasterCell[], centerLat: number, centerLng: numb
 
       return b.osmElementCount - a.osmElementCount;
     });
+
+    // For force-regeneration, randomize among top-quality candidates to avoid identical sets.
+    if (rng && candidatesByTheme[theme].length > 1) {
+      const topWindowSize = Math.min(8, candidatesByTheme[theme].length);
+      const topWindow = candidatesByTheme[theme].slice(0, topWindowSize);
+      shuffleInPlace(topWindow, rng);
+      candidatesByTheme[theme] = topWindow.concat(candidatesByTheme[theme].slice(topWindowSize));
+    }
   }
 
   const selectedZones: GeneratedZone[] = [];
@@ -270,6 +302,13 @@ function selectBestZones(cells: RasterCell[], centerLat: number, centerLng: numb
     if (a.distanceToPlayer !== b.distanceToPlayer) return a.distanceToPlayer - b.distanceToPlayer;
     return b.osmElementCount - a.osmElementCount;
   });
+
+  if (rng && allCandidates.length > 1) {
+    const topWindowSize = Math.min(24, allCandidates.length);
+    const topWindow = allCandidates.slice(0, topWindowSize);
+    shuffleInPlace(topWindow, rng);
+    allCandidates.splice(0, topWindowSize, ...topWindow);
+  }
 
   const alreadySelectedKeys = new Set(selectedZones.map((z) => `${z.id}:${z.theme}`));
   for (const candidate of allCandidates) {
@@ -393,16 +432,29 @@ Deno.serve(async (req) => {
 
     // Force regeneration should fully replace today's zones.
     if (forceRegenerate) {
-      const { error: deleteError } = await adminClient
+      const { error: deleteUserScopedError } = await adminClient
         .from("RobotPlantZone")
         .delete()
         .eq("day_generated", dayKey)
         .like("zone_key", `%:${authKeySuffix}`)
         .in("theme", ["forest", "urban", "water", "meadow"]);
 
-      if (deleteError) {
-        console.error("[robotPlantDailyZones] Failed to clear existing zones for force regeneration:", deleteError);
+      if (deleteUserScopedError) {
+        console.error("[robotPlantDailyZones] Failed to clear user-scoped zones for force regeneration:", deleteUserScopedError);
         return jsonResponse({ error: "Failed to clear existing zones" }, 500);
+      }
+
+      // Backward-compat cleanup for old rows created before user-scoped zone_key suffix existed.
+      const { error: deleteLegacyError } = await adminClient
+        .from("RobotPlantZone")
+        .delete()
+        .eq("day_generated", dayKey)
+        .like("zone_key", `${dayKey}-%`)
+        .not("zone_key", "like", "%:%")
+        .in("theme", ["forest", "urban", "water", "meadow"]);
+
+      if (deleteLegacyError) {
+        console.warn("[robotPlantDailyZones] Legacy zone cleanup failed (non-fatal):", deleteLegacyError);
       }
 
       console.log("[robotPlantDailyZones] Cleared existing zones for force regeneration");
@@ -476,7 +528,11 @@ Deno.serve(async (req) => {
     }
 
     // Select best zones from available cells
-    const selectedZones = selectBestZones(cells, baseLat, baseLng);
+    const regenerationSeed = Date.now();
+    const selectedZones = selectBestZones(cells, baseLat, baseLng, {
+      randomize: forceRegenerate,
+      seed: regenerationSeed,
+    });
 
     // Insert generated zones into RobotPlantZone table
     const zoneRecords = selectedZones.map((zone) => ({
