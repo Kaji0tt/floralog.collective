@@ -24,6 +24,8 @@ Default state:
 Canonical event sources used by backend and frontend:
 
 - scan
+- new_scan
+- new_global_scan
 - user_quest_completion
 - weekly_quest_completion
 - monthly_quest_completion
@@ -38,16 +40,19 @@ Canonical event sources used by backend and frontend:
 
 ## Reward Formula
 
-Reward seeds for positive events are calculated as:
+Reward seeds for scan events are calculated as:
 
-reward = base(event) * zoneMultiplier * noveltyMultiplier * streakMultiplier * energyInfluencedDataQuality * energyInfluencedCare * energyRewardMultiplier
+reward = base(scanType) * zoneMultiplier * noveltyMultiplier * careMultiplier * energyMultiplier * streakMultiplier
 
-Energy design behavior:
+Rules:
 
-- low energy: no energy meta bonus is applied (neutral baseline only).
-- low energy: Data Quality and Care bonus multipliers are dampened toward neutral.
-- high energy: stronger reward multiplier and stronger effect from Data Quality/Care bonuses.
-- important: energy never reduces positive event rewards below their base reward contribution.
+- Multipliers are only applied to scan, new_scan, and new_global_scan.
+- zoneMultiplier only applies while the user is inside an active zone.
+- zoneMultiplier is derived from RobotPlant.dataQuality.
+- noveltyMultiplier drops by 0.2 for each prior scan of the same plant and floors at 0.2.
+- careMultiplier is derived from RobotPlant.care.
+- energyMultiplier is derived from RobotPlant.energy and never drops below 1.0.
+- streakMultiplier is applied last, is capped at x7, and bypasses absoluteMaxReward.
 
 ## Wallet Ledger (What it means)
 
@@ -63,27 +68,34 @@ Phase 2 implementation uses a server-side RPC and Edge Function for payout execu
 Formula constraints:
 
 - zoneMultiplier: 1.0..1.75
-- noveltyMultiplier: 0.5..1.5
-- streakMultiplier: 1.0..1.5
-- dataQualityMultiplier: 0.5..1.5
-- careMultiplier: 0.5..1.5
+- noveltyMultiplier: 0.2..1.0
+- careMultiplier: 1.0..2.0
+- energyMultiplier: 1.0..2.0
 - absolute min reward (for positive-base events): 1
-- absolute max reward: 250
+- absolute max reward before streak: 350
+- streakMultiplier: 1.0..7.0
 
 Current base values:
 
 - scan: 10
-- user_quest_completion: 25
-- weekly_quest_completion: 20
-- monthly_quest_completion: 50
-- daily_challenge_completion: 25
+- new_scan: 20
+- new_global_scan: 50
+- user_quest_completion: 22
+- weekly_quest_completion: 30
+- monthly_quest_completion: 40
+- daily_challenge_completion: 35
 - share_scan: 8
-- weekly_challenge_participation: 12
-- weekly_challenge_like_received: 5
-- water_plant: 3
-- fertilize_plant: 3
+- weekly_challenge_like_received: 4
 - decay_tick: 0
 - shop_boost: 0
+
+Reward presentation after successful scans:
+
+- The scan animation remains visible on the Home screen.
+- Base reward is shown as a large number.
+- Non-neutral multipliers are revealed one after another below the base reward.
+- The displayed reward counts up to each intermediate result.
+- Positive multipliers trigger device vibration when supported.
 
 ## Decay
 

@@ -1,5 +1,6 @@
 import {
   REWARD_FORMULA_CONFIG,
+  ROBOT_PLANT_EVENT_SOURCES,
   ROBOT_PLANT_DATA_QUALITY_RULES,
   ROBOT_PLANT_VALUES,
   clampRobotPlantValue,
@@ -9,99 +10,168 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 const roundReward = (value) => Math.round(value);
 
-const computeEnergyEffectFactor = (energyLevel) => {
-  const { noBonusThreshold } = REWARD_FORMULA_CONFIG.energyInfluence;
+const roundMultiplier = (value) => Math.round(value * 100) / 100;
 
-  const safeEnergy = clamp(Number(energyLevel ?? 0), 0, 100);
-
-  if (safeEnergy <= noBonusThreshold) return 0;
-
-  return (safeEnergy - noBonusThreshold) / (100 - noBonusThreshold);
+const lerpMultiplier = (value, min, max) => {
+  const safeValue = clamp(Number(value ?? 0), 0, 100);
+  return min + (safeValue / 100) * (max - min);
 };
 
-const computeEnergyRewardMultiplier = (energyLevel) => {
-  const {
-    noBonusThreshold,
-    minRewardMultiplier,
-    maxRewardMultiplier,
-  } = REWARD_FORMULA_CONFIG.energyInfluence;
+const SCAN_EVENT_SOURCES = new Set([
+  ROBOT_PLANT_EVENT_SOURCES.scan,
+  ROBOT_PLANT_EVENT_SOURCES.newScan,
+  ROBOT_PLANT_EVENT_SOURCES.newGlobalScan,
+]);
 
-  const safeEnergy = clamp(Number(energyLevel ?? 0), 0, 100);
+export const isRobotPlantScanEvent = (eventSource) => SCAN_EVENT_SOURCES.has(eventSource);
 
-  if (safeEnergy <= noBonusThreshold) return minRewardMultiplier;
+export const computeZoneMultiplier = ({ dataQualityValue, isInActiveZone = true }) => {
+  if (!isInActiveZone) {
+    return REWARD_FORMULA_CONFIG.zoneMultiplier.default;
+  }
 
-  const linearFactor = (safeEnergy - noBonusThreshold) / (100 - noBonusThreshold);
-  return clamp(
-    minRewardMultiplier + linearFactor * (maxRewardMultiplier - minRewardMultiplier),
-    minRewardMultiplier,
-    maxRewardMultiplier
+  return lerpMultiplier(
+    dataQualityValue,
+    REWARD_FORMULA_CONFIG.zoneMultiplier.min,
+    REWARD_FORMULA_CONFIG.zoneMultiplier.max
   );
 };
 
-const applyEnergyInfluenceToBonus = (multiplier, energyLevel) => {
-  const effectFactor = computeEnergyEffectFactor(energyLevel);
-  const safeMultiplier = Number(multiplier ?? 1);
-  return 1 + (safeMultiplier - 1) * effectFactor;
+export const computeNoveltyMultiplier = (duplicateScanCount = 0) => {
+  const safeCount = Math.max(0, Number(duplicateScanCount ?? 0));
+  const value =
+    REWARD_FORMULA_CONFIG.noveltyMultiplier.max -
+    safeCount * REWARD_FORMULA_CONFIG.noveltyMultiplier.decrementPerDuplicateScan;
+
+  return clamp(
+    value,
+    REWARD_FORMULA_CONFIG.noveltyMultiplier.min,
+    REWARD_FORMULA_CONFIG.noveltyMultiplier.max
+  );
+};
+
+export const computeCareMultiplier = (careValue = ROBOT_PLANT_VALUES.care.initial) => {
+  return lerpMultiplier(
+    careValue,
+    REWARD_FORMULA_CONFIG.careMultiplier.min,
+    REWARD_FORMULA_CONFIG.careMultiplier.max
+  );
+};
+
+export const computeEnergyMultiplier = (energyValue = ROBOT_PLANT_VALUES.energy.initial) => {
+  return lerpMultiplier(
+    energyValue,
+    REWARD_FORMULA_CONFIG.energyMultiplier.min,
+    REWARD_FORMULA_CONFIG.energyMultiplier.max
+  );
+};
+
+export const computeStreakMultiplier = (streakDays = 0) => {
+  const safeDays = Math.max(0, Number(streakDays ?? 0));
+  return clamp(
+    safeDays <= 1 ? 1 : safeDays,
+    REWARD_FORMULA_CONFIG.streakMultiplier.min,
+    REWARD_FORMULA_CONFIG.streakMultiplier.max
+  );
+};
+
+export const computeRobotPlantRewardBreakdown = ({
+  eventSource,
+  dataQualityValue = ROBOT_PLANT_VALUES.dataQuality.initial,
+  duplicateScanCount = 0,
+  careValue = ROBOT_PLANT_VALUES.care.initial,
+  energyValue = ROBOT_PLANT_VALUES.energy.initial,
+  streakDays = 0,
+  isInActiveZone = true,
+}) => {
+  const baseReward = REWARD_FORMULA_CONFIG.baseByEvent[eventSource] ?? 0;
+
+  if (baseReward <= 0) {
+    return {
+      eventSource,
+      isScanReward: false,
+      isInActiveZone: false,
+      baseReward: 0,
+      zoneMultiplier: 1,
+      noveltyMultiplier: 1,
+      careMultiplier: 1,
+      energyMultiplier: 1,
+      streakMultiplier: 1,
+      preStreakReward: 0,
+      finalReward: 0,
+    };
+  }
+
+  if (!isRobotPlantScanEvent(eventSource)) {
+    const reward = clamp(
+      roundReward(baseReward),
+      REWARD_FORMULA_CONFIG.absoluteMinReward,
+      REWARD_FORMULA_CONFIG.absoluteMaxReward
+    );
+
+    return {
+      eventSource,
+      isScanReward: false,
+      isInActiveZone: false,
+      baseReward,
+      zoneMultiplier: 1,
+      noveltyMultiplier: 1,
+      careMultiplier: 1,
+      energyMultiplier: 1,
+      streakMultiplier: 1,
+      preStreakReward: reward,
+      finalReward: reward,
+    };
+  }
+
+  const zoneMultiplier = computeZoneMultiplier({ dataQualityValue, isInActiveZone });
+  const noveltyMultiplier = computeNoveltyMultiplier(duplicateScanCount);
+  const careMultiplier = computeCareMultiplier(careValue);
+  const energyMultiplier = computeEnergyMultiplier(energyValue);
+  const streakMultiplier = computeStreakMultiplier(streakDays);
+
+  const rawPreStreakReward =
+    baseReward * zoneMultiplier * noveltyMultiplier * careMultiplier * energyMultiplier;
+  const preStreakReward = clamp(
+    roundReward(rawPreStreakReward),
+    REWARD_FORMULA_CONFIG.absoluteMinReward,
+    REWARD_FORMULA_CONFIG.absoluteMaxReward
+  );
+  const finalReward = roundReward(preStreakReward * streakMultiplier);
+
+  return {
+    eventSource,
+    isScanReward: true,
+    isInActiveZone,
+    baseReward,
+    zoneMultiplier: roundMultiplier(zoneMultiplier),
+    noveltyMultiplier: roundMultiplier(noveltyMultiplier),
+    careMultiplier: roundMultiplier(careMultiplier),
+    energyMultiplier: roundMultiplier(energyMultiplier),
+    streakMultiplier: roundMultiplier(streakMultiplier),
+    preStreakReward,
+    finalReward,
+  };
 };
 
 export const computeRobotPlantReward = ({
   eventSource,
-  zoneMultiplier = REWARD_FORMULA_CONFIG.zoneMultiplier.default,
-  noveltyMultiplier = REWARD_FORMULA_CONFIG.noveltyMultiplier.default,
-  streakMultiplier = REWARD_FORMULA_CONFIG.streakMultiplier.default,
-  dataQualityMultiplier = REWARD_FORMULA_CONFIG.dataQualityMultiplier.default,
-  careMultiplier = REWARD_FORMULA_CONFIG.careMultiplier.default,
-  energyLevel = ROBOT_PLANT_VALUES.energy.initial,
+  dataQualityValue = ROBOT_PLANT_VALUES.dataQuality.initial,
+  duplicateScanCount = 0,
+  careValue = ROBOT_PLANT_VALUES.care.initial,
+  energyValue = ROBOT_PLANT_VALUES.energy.initial,
+  streakDays = 0,
+  isInActiveZone = true,
 }) => {
-  const base = REWARD_FORMULA_CONFIG.baseByEvent[eventSource] ?? 0;
-
-  if (base <= 0) return 0;
-
-  const safeZone = clamp(
-    zoneMultiplier,
-    REWARD_FORMULA_CONFIG.zoneMultiplier.min,
-    REWARD_FORMULA_CONFIG.zoneMultiplier.max
-  );
-  const safeNovelty = clamp(
-    noveltyMultiplier,
-    REWARD_FORMULA_CONFIG.noveltyMultiplier.min,
-    REWARD_FORMULA_CONFIG.noveltyMultiplier.max
-  );
-  const safeStreak = clamp(
-    streakMultiplier,
-    REWARD_FORMULA_CONFIG.streakMultiplier.min,
-    REWARD_FORMULA_CONFIG.streakMultiplier.max
-  );
-  const safeDataQuality = clamp(
-    dataQualityMultiplier,
-    REWARD_FORMULA_CONFIG.dataQualityMultiplier.min,
-    REWARD_FORMULA_CONFIG.dataQualityMultiplier.max
-  );
-  const safeCare = clamp(
-    careMultiplier,
-    REWARD_FORMULA_CONFIG.careMultiplier.min,
-    REWARD_FORMULA_CONFIG.careMultiplier.max
-  );
-
-  const energyRewardMultiplier = computeEnergyRewardMultiplier(energyLevel);
-  const energyInfluencedDataQuality = applyEnergyInfluenceToBonus(safeDataQuality, energyLevel);
-  const energyInfluencedCare = applyEnergyInfluenceToBonus(safeCare, energyLevel);
-
-  const rawReward =
-    base *
-    safeZone *
-    safeNovelty *
-    safeStreak *
-    energyInfluencedDataQuality *
-    energyInfluencedCare *
-    energyRewardMultiplier;
-  const boundedReward = clamp(
-    roundReward(rawReward),
-    REWARD_FORMULA_CONFIG.absoluteMinReward,
-    REWARD_FORMULA_CONFIG.absoluteMaxReward
-  );
-
-  return boundedReward;
+  return computeRobotPlantRewardBreakdown({
+    eventSource,
+    dataQualityValue,
+    duplicateScanCount,
+    careValue,
+    energyValue,
+    streakDays,
+    isInActiveZone,
+  }).finalReward;
 };
 
 export const applyRobotPlantDelta = (state, delta) => {

@@ -34,6 +34,8 @@ export const ROBOT_PLANT_VALUES = {
 
 export const ROBOT_PLANT_EVENT_SOURCES = Object.freeze({
   scan: "scan",
+  newScan: "new_scan",
+  newGlobalScan: "new_global_scan",
   userQuestCompletion: "user_quest_completion",
   weeklyQuestCompletion: "weekly_quest_completion",
   monthlyQuestCompletion: "monthly_quest_completion",
@@ -50,6 +52,8 @@ export const ROBOT_PLANT_EVENT_SOURCES = Object.freeze({
 export const REWARD_FORMULA_CONFIG = Object.freeze({
   baseByEvent: {
     [ROBOT_PLANT_EVENT_SOURCES.scan]: 10,
+    [ROBOT_PLANT_EVENT_SOURCES.newScan]: 20,
+    [ROBOT_PLANT_EVENT_SOURCES.newGlobalScan]: 50,
     [ROBOT_PLANT_EVENT_SOURCES.userQuestCompletion]: 22,
     [ROBOT_PLANT_EVENT_SOURCES.weeklyQuestCompletion]: 30,
     [ROBOT_PLANT_EVENT_SOURCES.monthlyQuestCompletion]: 40,
@@ -68,32 +72,29 @@ export const REWARD_FORMULA_CONFIG = Object.freeze({
     default: 1,
   },
   noveltyMultiplier: {
-    min: 0.7,
-    max: 1.5,
+    min: 0.2,
+    max: 1,
     default: 1,
+    decrementPerDuplicateScan: 0.2,
   },
   streakMultiplier: {
     min: 1,
-    max: 1.4,
+    max: 7,
     default: 1,
-  },
-  dataQualityMultiplier: {
-    min: 0.7,
-    max: 1.6,
-    default: 1,
+    capDays: 7,
   },
   careMultiplier: {
-    min: 0.7,
-    max: 1.5,
+    min: 1,
+    max: 2,
     default: 1,
   },
-  energyInfluence: {
-    noBonusThreshold: 20,
-    minRewardMultiplier: 1,
-    maxRewardMultiplier: 1.6,
+  energyMultiplier: {
+    min: 1,
+    max: 2,
+    default: 1,
   },
   absoluteMinReward: 1,
-  absoluteMaxReward: 250,
+  absoluteMaxReward: 350,
 });
 
 export const ROBOT_PLANT_GEO_ZONE_CONFIG = Object.freeze({

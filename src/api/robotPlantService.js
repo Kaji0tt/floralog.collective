@@ -7,6 +7,7 @@ import {
 import {
   applyRobotPlantDelta,
   buildDecayDelta,
+  computeRobotPlantRewardBreakdown,
   computeRobotPlantReward,
 } from "@/lib/robotPlantEconomy";
 
@@ -56,21 +57,40 @@ export const simulateRobotPlantDecay = (state, hoursSinceLastDecay, decayReducti
 
 export const estimateRewardForEvent = ({
   eventSource = ROBOT_PLANT_EVENT_SOURCES.scan,
-  zoneMultiplier,
-  noveltyMultiplier,
-  streakMultiplier,
-  dataQualityMultiplier,
-  careMultiplier,
-  energyLevel,
+  duplicateScanCount,
+  streakDays,
+  dataQualityValue,
+  careValue,
+  energyValue,
+  isInActiveZone,
 }) => {
   return computeRobotPlantReward({
     eventSource,
-    zoneMultiplier,
-    noveltyMultiplier,
-    streakMultiplier,
-    dataQualityMultiplier,
-    careMultiplier,
-    energyLevel,
+    duplicateScanCount,
+    streakDays,
+    dataQualityValue,
+    careValue,
+    energyValue,
+    isInActiveZone,
+  });
+};
+
+export const getScanRewardDetails = async ({
+  authId,
+  eventSource,
+  duplicateScanCount = 0,
+  isInActiveZone = true,
+}) => {
+  const robotPlantState = await getRobotPlantState(authId);
+
+  return computeRobotPlantRewardBreakdown({
+    eventSource,
+    duplicateScanCount,
+    isInActiveZone,
+    dataQualityValue: robotPlantState?.dataQuality,
+    careValue: robotPlantState?.care,
+    energyValue: robotPlantState?.energy,
+    streakDays: robotPlantState?.streakDays,
   });
 };
 

@@ -21,8 +21,16 @@ import { AnimatePresence, motion } from "framer-motion";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import { Check } from "lucide-react";
 import { createPageUrl } from "@/utils";
+import {
+  getRobotPlantDailyZones,
+  getScanRewardDetails,
+  grantRobotPlantRewardServerSide,
+} from "@/api/robotPlantService";
+import { ROBOT_PLANT_EVENT_SOURCES } from "@/lib/robotPlantConfig";
 import { updateQuestProgress } from "@/components/utils/questProgress";
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
+
+const EARTH_RADIUS_M = 6371000;
 
 // Bestätigungs-Button Komponente (draggable wie MobileBackButton)
 function ConfirmButton({ onConfirm, disabled = false }) {
@@ -89,6 +97,7 @@ export default function Scanner() {
 
   const [showGlobalFloralogModal, setShowGlobalFloralogModal] = useState(false);
   const [newPlantName, setNewPlantName] = useState("");
+  const [globalScanFeedback, setGlobalScanFeedback] = useState(null);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -167,27 +176,112 @@ export default function Scanner() {
     return `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
   };
 
-  const resolveLocationForDiscovery = async () => {
+  const toRadians = (value) => (value * Math.PI) / 180;
+
+  const getDistanceBetweenCoordinatesM = (from, to) => {
+    if (!from || !to) {
+      return Number.POSITIVE_INFINITY;
+    }
+
+    const dLat = toRadians(to.lat - from.lat);
+    const dLng = toRadians(to.lng - from.lng);
+    const lat1 = toRadians(from.lat);
+    const lat2 = toRadians(to.lat);
+
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.sin(dLng / 2) * Math.sin(dLng / 2) * Math.cos(lat1) * Math.cos(lat2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return EARTH_RADIUS_M * c;
+  };
+
+  const resolveCoordinatesForDiscovery = async () => {
     if (!locationEnabled) {
       return null;
     }
 
-    const cachedLocationString = getLocationString(userLocation);
-    if (cachedLocationString) {
-      return cachedLocationString;
+    if (userLocation && typeof userLocation.lat === "number" && typeof userLocation.lng === "number") {
+      return userLocation;
     }
 
     try {
       setGettingLocation(true);
       const freshLocation = await requestUserLocation();
       setUserLocation(freshLocation);
-      return getLocationString(freshLocation);
+      return freshLocation;
     } catch (error) {
       console.warn("Standort konnte vor dem Speichern nicht ermittelt werden:", error);
       return null;
     } finally {
       setGettingLocation(false);
     }
+  };
+
+  const resolveLocationForDiscovery = async () => {
+    const location = await resolveCoordinatesForDiscovery();
+    return getLocationString(location);
+  };
+
+  const resolveActiveScanZone = async (location) => {
+    if (!location || !locationEnabled) {
+      return null;
+    }
+
+    try {
+      const response = await getRobotPlantDailyZones({
+        latitude: location.lat,
+        longitude: location.lng,
+      });
+      const zones = Array.isArray(response?.zones) ? response.zones : [];
+
+      const matchingZones = zones
+        .filter((zone) => Number.isFinite(zone.centerLat) && Number.isFinite(zone.centerLng))
+        .map((zone) => ({
+          ...zone,
+          distanceM: getDistanceBetweenCoordinatesM(location, {
+            lat: zone.centerLat,
+            lng: zone.centerLng,
+          }),
+        }))
+        .filter((zone) => zone.distanceM <= Number(zone.radiusM || 150))
+        .sort((left, right) => left.distanceM - right.distanceM);
+
+      return matchingZones[0] || null;
+    } catch (error) {
+      console.warn("Aktive Zone konnte nicht ermittelt werden:", error);
+      return null;
+    }
+  };
+
+  const buildScanRewardFeedback = async ({ eventSource, duplicateScanCount, eventReference, location }) => {
+    if (!user?.id) {
+      return { rewardDetails: null, activeZone: null };
+    }
+
+    const activeZone = await resolveActiveScanZone(location);
+    const rewardDetails = await getScanRewardDetails({
+      authId: user.id,
+      eventSource,
+      duplicateScanCount,
+      isInActiveZone: !!activeZone,
+    });
+
+    if (rewardDetails?.finalReward > 0) {
+      await grantRobotPlantRewardServerSide({
+        eventSource,
+        eventReference,
+        amount: rewardDetails.finalReward,
+        metadata: {
+          reward_breakdown: rewardDetails,
+          duplicate_scan_count: duplicateScanCount,
+          active_zone_key: activeZone?.zoneKey || activeZone?.id || null,
+          active_zone_theme: activeZone?.theme || null,
+        },
+      });
+    }
+
+    return { rewardDetails, activeZone };
   };
 
   const { data: plants = [] } = useQuery({
@@ -708,7 +802,8 @@ export default function Scanner() {
   };
 
   const handleAutoSave = async (plant, imageUrl, aiData, allResults = []) => {
-    const locationString = await resolveLocationForDiscovery();
+    const discoveryLocation = await resolveCoordinatesForDiscovery();
+    const locationString = getLocationString(discoveryLocation);
 
     // Lade aktuelle Discoveries direkt von der DB, nicht vom Cache
     const currentDiscoveries = await Query.UserPlantDiscovery.filter({ auth_id: user.id });
@@ -720,6 +815,10 @@ export default function Scanner() {
     console.log("  Plant IDs in Discoveries:", currentDiscoveries.map(d => d.plant_id));
 
     const alreadyDiscovered = currentDiscoveries.some((d) => d.plant_id === plant.id);
+    const duplicateScanCount = currentDiscoveries.filter((d) => d.plant_id === plant.id).length;
+    const eventSource = alreadyDiscovered
+      ? ROBOT_PLANT_EVENT_SOURCES.scan
+      : ROBOT_PLANT_EVENT_SOURCES.newScan;
 
     console.log("  ✅ alreadyDiscovered:", alreadyDiscovered);
 
@@ -735,6 +834,21 @@ export default function Scanner() {
     });
 
     setLatestDiscoveryId(newDiscovery.id);
+
+    let rewardDetails = null;
+    let activeZone = null;
+    try {
+      const rewardFeedback = await buildScanRewardFeedback({
+        eventSource,
+        duplicateScanCount,
+        eventReference: newDiscovery.id,
+        location: discoveryLocation,
+      });
+      rewardDetails = rewardFeedback.rewardDetails;
+      activeZone = rewardFeedback.activeZone;
+    } catch (error) {
+      console.error("Fehler bei Robot-Plant-Reward-Auszahlung:", error);
+    }
 
     queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
 
@@ -769,11 +883,12 @@ export default function Scanner() {
 
     setScanning(false);
 
-    return { alreadyDiscovered };
+    return { alreadyDiscovered, rewardDetails, activeZone };
   };
 
   const handleAutoAddNewPlant = async (plantData, imageUrl, allResults = []) => {
-    const locationString = await resolveLocationForDiscovery();
+    const discoveryLocation = await resolveCoordinatesForDiscovery();
+    const locationString = getLocationString(discoveryLocation);
 
     try {
       const { data, error } = await supabase.functions.invoke('createGlobalPlant', {
@@ -809,6 +924,21 @@ export default function Scanner() {
 
       setLatestDiscoveryId(newDiscoveryId);
 
+      let rewardDetails = null;
+      let activeZone = null;
+      try {
+        const rewardFeedback = await buildScanRewardFeedback({
+          eventSource: ROBOT_PLANT_EVENT_SOURCES.newGlobalScan,
+          duplicateScanCount: 0,
+          eventReference: newDiscoveryId,
+          location: discoveryLocation,
+        });
+        rewardDetails = rewardFeedback.rewardDetails;
+        activeZone = rewardFeedback.activeZone;
+      } catch (rewardError) {
+        console.error("Fehler bei Robot-Plant-Reward-Auszahlung fuer neue Global-Pflanze:", rewardError);
+      }
+
       queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
       queryClient.invalidateQueries({ queryKey: ['plants'] });
 
@@ -841,7 +971,7 @@ export default function Scanner() {
       });
       setScanning(false);
 
-      return { newPlant };
+      return { newPlant, rewardDetails, activeZone };
     } catch (error) {
       console.error("Fehler beim Hinzufügen der Pflanze:", error);
       setScanning(false);
@@ -909,7 +1039,7 @@ export default function Scanner() {
 
       if (selectedPlant.inDatabase) {
         // Pflanze existiert bereits im Floralog
-        const { alreadyDiscovered } = await handleAutoSave(
+        const { alreadyDiscovered, rewardDetails, activeZone } = await handleAutoSave(
           selectedPlant,
           imageUrl,
           selectedPlant.aiData || plant?.aiData,
@@ -923,7 +1053,9 @@ export default function Scanner() {
           state: {
             scanFeedback: {
               type: alreadyDiscovered ? "rescanned" : "newDiscovery",
-              plantName: selectedPlant.species_name
+              plantName: selectedPlant.species_name,
+              rewardDetails,
+              isInActiveZone: !!activeZone,
             }
           }
         });
@@ -933,6 +1065,12 @@ export default function Scanner() {
           const result = await handleAutoAddNewPlant(selectedPlant, imageUrl, allResults);
 
           if (result?.newPlant) {
+            setGlobalScanFeedback({
+              type: "globalNewPlant",
+              plantName: result.newPlant.species_name,
+              rewardDetails: result.rewardDetails,
+              isInActiveZone: !!result.activeZone,
+            });
             setShowGlobalFloralogModal(true);
 
             setShowConfirmDialog(false);
@@ -1119,9 +1257,9 @@ export default function Scanner() {
           setShowGlobalFloralogModal(false);
           navigate(createPageUrl("Home"), {
             state: {
-              scanFeedback: {
+              scanFeedback: globalScanFeedback || {
                 type: "globalNewPlant",
-                plantName: newPlantName
+                plantName: newPlantName,
               }
             }
           });
@@ -1151,9 +1289,9 @@ export default function Scanner() {
                 setShowGlobalFloralogModal(false);
                 navigate(createPageUrl("Home"), {
                   state: {
-                    scanFeedback: {
+                    scanFeedback: globalScanFeedback || {
                       type: "globalNewPlant",
-                      plantName: newPlantName
+                      plantName: newPlantName,
                     }
                   }
                 });
