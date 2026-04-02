@@ -140,6 +140,8 @@ export default function Quests() {
   const [selectedPlantForSighting, setSelectedPlantForSighting] = useState(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [isRegeneratingZones, setIsRegeneratingZones] = useState(false);
+  const [isInitializingGrid, setIsInitializingGrid] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const [mapQuickView, setMapQuickView] = useState("local");
   const [mapFriendSearchQuery, setMapFriendSearchQuery] = useState("");
   const [mapSearchQuery, setMapSearchQuery] = useState("");
@@ -287,6 +289,34 @@ export default function Quests() {
       setAverageColor(null);
     }
   }, [user?.background_image_url, user?.background_color]);
+
+  const isMapZonesBusy =
+    isInitializingGrid ||
+    isRegeneratingZones ||
+    ((user?.role !== 'admin') && (isZonesLoading || isZonesFetching));
+
+  const mapLoadingLabel = isInitializingGrid
+    ? "Raster-Grid wird initialisiert..."
+    : isRegeneratingZones
+      ? "Zonen werden neu generiert..."
+      : "Karte und Zonen werden geladen...";
+
+  useEffect(() => {
+    if (!isMapZonesBusy) {
+      setLoadingProgress(0);
+      return;
+    }
+
+    setLoadingProgress(7);
+    const interval = setInterval(() => {
+      setLoadingProgress((prev) => {
+        if (prev >= 92) return 92;
+        return prev + Math.max(1, Math.ceil((92 - prev) * 0.08));
+      });
+    }, 350);
+
+    return () => clearInterval(interval);
+  }, [isMapZonesBusy]);
 
   const toggleLikeMutation = useMutation({
     mutationFn: async (discoveryId) => {
@@ -1239,7 +1269,7 @@ export default function Quests() {
                   );
                 }
 
-                if (isRegeneratingZones || ((user?.role !== 'admin') && (isZonesLoading || isZonesFetching))) {
+                if (isMapZonesBusy) {
                   return (
                     <div className="h-full flex flex-col items-center justify-center bg-white">
                       <img
@@ -1247,7 +1277,16 @@ export default function Quests() {
                         alt="Zonen werden geladen"
                         className="w-40 h-40 object-contain"
                       />
-                      <p className="mt-4 text-sm text-stone-600 font-medium">Karte und Zonen werden geladen...</p>
+                      <div className="mt-4 w-64 max-w-[75vw]">
+                        <div className="h-2 rounded-full bg-stone-200 overflow-hidden">
+                          <div
+                            className="h-full bg-green-500 transition-all duration-300 ease-out"
+                            style={{ width: `${loadingProgress}%` }}
+                          />
+                        </div>
+                        <p className="mt-3 text-sm text-stone-600 font-medium text-center">{mapLoadingLabel}</p>
+                        <p className="mt-1 text-xs text-stone-400 text-center">{loadingProgress}%</p>
+                      </div>
                     </div>
                   );
                 }
@@ -1394,6 +1433,7 @@ export default function Quests() {
                         const r = 0.0315; // ~3.5km radius in degrees
                         const label = userLocation ? 'Aktueller Standort' : 'Kiel (Standard)';
                         if (!confirm(`Raster-Grid für ${label} initialisieren?\nBounds: ±${r}° (~3,5km) um ${lat.toFixed(3)}, ${lng.toFixed(3)}\n\nDas kann 10-40 Sekunden dauern.`)) return;
+                        setIsInitializingGrid(true);
                         try {
                           const result = await initializeGeoRasterGrid({
                             bounds: {
@@ -1404,9 +1444,12 @@ export default function Quests() {
                             },
                             forceRefresh: false,
                           });
+                          setLoadingProgress(100);
                           alert(`✅ Grid initialisiert!\n${result.cellsCreated} Zellen erstellt in ${result.duration_ms}ms.`);
                         } catch (err) {
                           alert(`❌ Grid-Fehler:\n${err.message}`);
+                        } finally {
+                          setIsInitializingGrid(false);
                         }
                       }}
                       className="px-3 py-2 text-xs bg-blue-200 hover:bg-blue-300 text-blue-900 rounded-lg font-medium shadow-md transition"

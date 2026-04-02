@@ -102,6 +102,15 @@ async function queryOverpassForBounds(bbox: BoundingBox): Promise<
     osmId: string;
   }>
 > {
+  const OVERPASS_ENDPOINTS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.openstreetmap.ru/api/interpreter",
+  ];
+  const ENDPOINT_RETRIES = 2;
+
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
   const toTiles = (source: BoundingBox, maxSpan = 0.1): BoundingBox[] => {
     const tiles: BoundingBox[] = [];
     for (let south = source.south; south < source.north; south += maxSpan) {
@@ -127,45 +136,65 @@ async function queryOverpassForBounds(bbox: BoundingBox): Promise<
 out center;
 `;
 
-    const response = await fetch("https://overpass-api.de/api/interpreter", {
-      method: "POST",
-      headers: { "Content-Type": "text/plain" },
-      body: query,
-      signal: AbortSignal.timeout(25000),
-    });
+    const endpointErrors: string[] = [];
+    for (const endpoint of OVERPASS_ENDPOINTS) {
+      for (let attempt = 1; attempt <= ENDPOINT_RETRIES; attempt++) {
+        try {
+          const response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain" },
+            body: query,
+            signal: AbortSignal.timeout(25000),
+          });
 
-    if (!response.ok) {
-      throw new Error(`Overpass returned ${response.status}`);
-    }
+          if (!response.ok) {
+            endpointErrors.push(`${endpoint} attempt ${attempt} -> ${response.status}`);
+            if (attempt < ENDPOINT_RETRIES) {
+              await sleep(500 * attempt);
+            }
+            continue;
+          }
 
-    const data = await response.json() as any;
-    const elements = Array.isArray(data?.elements) ? data.elements : [];
-    const results: Array<{
-      centerLat: number;
-      centerLng: number;
-      tags: Record<string, string>;
-      osmType: string;
-      osmId: string;
-    }> = [];
+          const data = await response.json() as any;
+          const elements = Array.isArray(data?.elements) ? data.elements : [];
+          const results: Array<{
+            centerLat: number;
+            centerLng: number;
+            tags: Record<string, string>;
+            osmType: string;
+            osmId: string;
+          }> = [];
 
-    for (const elem of elements) {
-      const centerLat = elem.center?.lat || elem.lat;
-      const centerLng = elem.center?.lon || elem.lon;
-      if (typeof centerLat === "number" && typeof centerLng === "number" && elem.tags) {
-        results.push({
-          centerLat,
-          centerLng,
-          tags: elem.tags,
-          osmType: elem.type,
-          osmId: String(elem.id),
-        });
+          for (const elem of elements) {
+            const centerLat = elem.center?.lat || elem.lat;
+            const centerLng = elem.center?.lon || elem.lon;
+            if (typeof centerLat === "number" && typeof centerLng === "number" && elem.tags) {
+              results.push({
+                centerLat,
+                centerLng,
+                tags: elem.tags,
+                osmType: elem.type,
+                osmId: String(elem.id),
+              });
+            }
+          }
+
+          return results;
+        } catch (err) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          endpointErrors.push(`${endpoint} attempt ${attempt} -> ${errMsg}`);
+          if (attempt < ENDPOINT_RETRIES) {
+            await sleep(500 * attempt);
+          }
+        }
       }
     }
 
-    return results;
+    throw new Error(`All Overpass endpoints failed (${endpointErrors.join(" | ")})`);
   };
 
-  const tiles = toTiles(bbox, 0.1);
+  // Smaller tiles reduce probability of endpoint-side timeout/504 on dense areas.
+  const tiles = toTiles(bbox, 0.05);
   console.log(`[Overpass] Querying ${tiles.length} tile(s) for bounds: ${bbox.south},${bbox.west},${bbox.north},${bbox.east}`);
 
   const unique = new Map<string, {
@@ -349,6 +378,18 @@ export async function initializeGeoRasterCells(
 ): Promise<{ cellsCreated: number; durationMs: number; warning?: string }> {
   const startTime = Date.now();
 
+  const toTiles = (source: BoundingBox, maxSpan = 0.05): BoundingBox[] => {
+    const tiles: BoundingBox[] = [];
+    for (let south = source.south; south < source.north; south += maxSpan) {
+      const north = Math.min(source.north, south + maxSpan);
+      for (let west = source.west; west < source.east; west += maxSpan) {
+        const east = Math.min(source.east, west + maxSpan);
+        tiles.push({ south, west, north, east });
+      }
+    }
+    return tiles;
+  };
+
   if (options?.forceRefresh) {
     const startLatIdx = Math.floor(bbox.south / GRID_RESOLUTION);
     const endLatIdx = Math.ceil(bbox.north / GRID_RESOLUTION);
@@ -369,42 +410,91 @@ export async function initializeGeoRasterCells(
     }
   }
 
-  const osmElements = await queryOverpassForBounds(bbox);
-  const gridCells = buildRasterGrid(osmElements, bbox);
+  const tiles = toTiles(bbox, 0.05);
+  let insertedTotal = 0;
+  let validTotal = 0;
+  let skippedTiles = 0;
+  let failedTiles = 0;
 
-  const cellsArray = Array.from(gridCells.values());
-  console.log(`[DB] Inserting ${cellsArray.length} cells`);
+  console.log(`[Grid] Processing ${tiles.length} tile(s) for initialization`);
 
-  const { error: insertError, data } = await adminClient
-    .from("GeoRasterCell")
-    .upsert(cellsArray.map((cell) => ({
-      grid_id: cell.grid_id,
-      grid_lat_idx: cell.grid_lat_idx,
-      grid_lng_idx: cell.grid_lng_idx,
-      center_lat: cell.center_lat,
-      center_lng: cell.center_lng,
-      geometry: `POINT(${cell.center_lng} ${cell.center_lat})`,
-      theme: cell.theme,
-      theme_confidence: cell.theme_confidence,
-      dominant_osm_tags: cell.dominant_osm_tags,
-      theme_scores: cell.theme_scores,
-      theme_anchor_points: cell.theme_anchor_points,
-      osm_element_count: cell.osm_element_count,
-      nearest_osm_element_distance_m: Math.round(cell.nearest_osm_element_distance_m),
-      is_valid: cell.is_valid,
-      last_osm_update_date: new Date().toISOString().split("T")[0],
-    })), { onConflict: "grid_id" })
-    .select();
+  for (const [index, tile] of tiles.entries()) {
+    const startLatIdx = Math.floor(tile.south / GRID_RESOLUTION);
+    const endLatIdx = Math.ceil(tile.north / GRID_RESOLUTION);
+    const startLngIdx = Math.floor(tile.west / GRID_RESOLUTION);
+    const endLngIdx = Math.ceil(tile.east / GRID_RESOLUTION);
+    const expectedCellCount = (endLatIdx - startLatIdx) * (endLngIdx - startLngIdx);
 
-  if (insertError) {
-    console.error("[DB] Insert error:", insertError);
-    throw new Error("Failed to insert grid cells");
+    if (!options?.forceRefresh) {
+      const { count: existingCount, error: countError } = await adminClient
+        .from("GeoRasterCell")
+        .select("grid_id", { head: true, count: "exact" })
+        .gte("grid_lat_idx", startLatIdx)
+        .lt("grid_lat_idx", endLatIdx)
+        .gte("grid_lng_idx", startLngIdx)
+        .lt("grid_lng_idx", endLngIdx);
+
+      if (!countError && (existingCount || 0) >= expectedCellCount) {
+        skippedTiles += 1;
+        console.log(`[Grid] Tile ${index + 1}/${tiles.length} already initialized (${existingCount}/${expectedCellCount}), skipping`);
+        continue;
+      }
+    }
+
+    try {
+      const osmElements = await queryOverpassForBounds(tile);
+      const gridCells = buildRasterGrid(osmElements, tile);
+      const cellsArray = Array.from(gridCells.values());
+
+      const { error: insertError, data } = await adminClient
+        .from("GeoRasterCell")
+        .upsert(cellsArray.map((cell) => ({
+          grid_id: cell.grid_id,
+          grid_lat_idx: cell.grid_lat_idx,
+          grid_lng_idx: cell.grid_lng_idx,
+          center_lat: cell.center_lat,
+          center_lng: cell.center_lng,
+          geometry: `POINT(${cell.center_lng} ${cell.center_lat})`,
+          theme: cell.theme,
+          theme_confidence: cell.theme_confidence,
+          dominant_osm_tags: cell.dominant_osm_tags,
+          theme_scores: cell.theme_scores,
+          theme_anchor_points: cell.theme_anchor_points,
+          osm_element_count: cell.osm_element_count,
+          nearest_osm_element_distance_m: Math.round(cell.nearest_osm_element_distance_m),
+          is_valid: cell.is_valid,
+          last_osm_update_date: new Date().toISOString().split("T")[0],
+        })), { onConflict: "grid_id" })
+        .select();
+
+      if (insertError) {
+        failedTiles += 1;
+        console.warn(`[Grid] Tile ${index + 1}/${tiles.length} insert failed:`, insertError);
+        continue;
+      }
+
+      insertedTotal += data?.length || cellsArray.length;
+      validTotal += cellsArray.filter((cell) => cell.is_valid).length;
+      console.log(`[Grid] Tile ${index + 1}/${tiles.length} initialized (${cellsArray.length} cells)`);
+    } catch (tileError) {
+      failedTiles += 1;
+      const errMsg = tileError instanceof Error ? tileError.message : String(tileError);
+      console.warn(`[Grid] Tile ${index + 1}/${tiles.length} failed: ${errMsg}`);
+    }
   }
 
-  const validCount = cellsArray.filter((cell) => cell.is_valid).length;
+  let warning: string | undefined;
+  if (failedTiles > 0) {
+    warning = `${failedTiles}/${tiles.length} tile(s) failed during initialization; rerun continues with remaining tiles.`;
+  } else if (insertedTotal === 0 && skippedTiles > 0) {
+    warning = "All tiles already initialized";
+  } else if (validTotal === 0) {
+    warning = "No OSM-backed theme data found in requested cells";
+  }
+
   return {
-    cellsCreated: data?.length || 0,
-    warning: validCount === 0 ? "No OSM-backed theme data found in requested cells" : undefined,
+    cellsCreated: insertedTotal,
+    warning,
     durationMs: Date.now() - startTime,
   };
 }
