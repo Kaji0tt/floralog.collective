@@ -1,9 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 
 const formatMultiplier = (value) => {
   const safeValue = Number(value ?? 1);
   return Number.isInteger(safeValue) ? String(safeValue) : safeValue.toFixed(2);
+};
+
+const COUNTER_OUTLINE_STYLE = {
+  textShadow:
+    "-2px 0 #111827, 2px 0 #111827, 0 -2px #111827, 0 2px #111827, -2px -2px #111827, 2px 2px #111827, -2px 2px #111827, 2px -2px #111827",
 };
 
 const buildRewardSteps = (rewardDetails, isInActiveZone) => {
@@ -11,20 +16,20 @@ const buildRewardSteps = (rewardDetails, isInActiveZone) => {
     return [];
   }
 
-  const steps = [];
+  const preStreakSteps = [];
   let runningReward = rewardDetails.baseReward;
 
-  const pushPreStreakStep = (id, label, multiplier, forcePreStreakReward = false) => {
+  const pushPreStreakStep = (id, label, multiplier) => {
     if (multiplier === 1) {
       return;
     }
 
     runningReward *= multiplier;
-    steps.push({
+    preStreakSteps.push({
       id,
       label,
       multiplier,
-      result: forcePreStreakReward ? rewardDetails.preStreakReward : Math.round(runningReward),
+      result: Math.round(runningReward),
       positive: multiplier > 1,
     });
   };
@@ -35,12 +40,15 @@ const buildRewardSteps = (rewardDetails, isInActiveZone) => {
 
   pushPreStreakStep("novelty", "Neuheit", rewardDetails.noveltyMultiplier);
   pushPreStreakStep("care", "Pflege", rewardDetails.careMultiplier);
-  pushPreStreakStep("energy", "Energie", rewardDetails.energyMultiplier, true);
+  pushPreStreakStep("energy", "Energie", rewardDetails.energyMultiplier);
 
-  const visiblePreStreakSteps = steps.filter((step) => step.id !== "streak");
-  if (visiblePreStreakSteps.length > 0) {
-    visiblePreStreakSteps[visiblePreStreakSteps.length - 1].result = rewardDetails.preStreakReward;
+  if (preStreakSteps.length > 0) {
+    preStreakSteps[preStreakSteps.length - 1].result = rewardDetails.preStreakReward;
   }
+
+  const positivePreStreak = preStreakSteps.filter((step) => step.positive);
+  const negativePreStreak = preStreakSteps.filter((step) => !step.positive);
+  const steps = [...positivePreStreak, ...negativePreStreak];
 
   if (rewardDetails.streakMultiplier !== 1) {
     steps.push({
@@ -64,8 +72,13 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
   );
 
   const [displayReward, setDisplayReward] = useState(rewardDetails?.baseReward ?? 0);
+  const [previousReward, setPreviousReward] = useState(null);
+  const [isNegativeSwap, setIsNegativeSwap] = useState(false);
   const [activeStepIndex, setActiveStepIndex] = useState(-1);
   const [visibleStepCount, setVisibleStepCount] = useState(0);
+  const [activePopStepId, setActivePopStepId] = useState(null);
+  const [vibrateCounter, setVibrateCounter] = useState(false);
+  const [vibrateMultiplier, setVibrateMultiplier] = useState(false);
 
   useEffect(() => {
     if (!feedback) {
@@ -73,8 +86,13 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
     }
 
     setDisplayReward(rewardDetails?.baseReward ?? 0);
+    setPreviousReward(null);
+    setIsNegativeSwap(false);
     setActiveStepIndex(-1);
     setVisibleStepCount(0);
+    setActivePopStepId(null);
+    setVibrateCounter(false);
+    setVibrateMultiplier(false);
 
     const timeouts = [];
     let frameId = null;
@@ -128,14 +146,40 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
       const step = rewardSteps[stepIndex];
       setActiveStepIndex(stepIndex);
       setVisibleStepCount(stepIndex + 1);
+      setActivePopStepId(`${step.id}-${stepIndex}`);
 
-      if (step.positive && typeof navigator !== "undefined" && navigator.vibrate) {
-        navigator.vibrate(70);
+      timeouts.push(window.setTimeout(() => setActivePopStepId(null), 260));
+
+      if (step.positive) {
+        setVibrateCounter(true);
+        setVibrateMultiplier(true);
+
+        if (typeof navigator !== "undefined" && navigator.vibrate) {
+          navigator.vibrate(70);
+        }
+
+        animateCounter(currentValue, step.result, 550, () => {
+          setVibrateCounter(false);
+          setVibrateMultiplier(false);
+          timeouts.push(window.setTimeout(() => runStep(stepIndex + 1, step.result), 220));
+        });
+        return;
       }
 
-      animateCounter(currentValue, step.result, 550, () => {
-        timeouts.push(window.setTimeout(() => runStep(stepIndex + 1, step.result), 220));
-      });
+      // Negative multipliers swap the number instead of vibrating/counting.
+      setVibrateCounter(false);
+      setVibrateMultiplier(false);
+      setPreviousReward(currentValue);
+      setDisplayReward(step.result);
+      setIsNegativeSwap(true);
+
+      timeouts.push(
+        window.setTimeout(() => {
+          setPreviousReward(null);
+          setIsNegativeSwap(false);
+          runStep(stepIndex + 1, step.result);
+        }, 380)
+      );
     };
 
     timeouts.push(window.setTimeout(() => runStep(0, rewardDetails.baseReward), 650));
@@ -239,7 +283,7 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.15 }}
-      className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-20 pointer-events-none"
     >
       <motion.div
         variants={variants[animationVariant]}
@@ -247,7 +291,7 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
         animate="animate"
         exit="exit"
         transition={{ type: "spring", damping: 16, stiffness: 260 }}
-        className={`relative pointer-events-auto ${containerClasses} backdrop-blur-md rounded-2xl shadow-xl border px-6 py-5 max-w-sm w-[92%] flex flex-col items-center text-center`}
+        className={`relative pointer-events-auto ${containerClasses} backdrop-blur-md rounded-2xl shadow-xl border px-6 py-4 max-w-sm w-[90%] flex flex-col items-center text-center`}
       >
         <div className={`absolute -inset-px rounded-2xl opacity-40 blur-xl ${ringClasses}`} />
         <div className="relative z-10 flex flex-col items-center w-full">
@@ -256,26 +300,93 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
 
           {rewardDetails && (
             <div className="mt-4 w-full rounded-2xl bg-white/75 border border-white/80 px-4 py-4 shadow-sm">
-              <div className={`text-5xl font-black tracking-tight ${counterClasses}`}>{displayReward}</div>
+              <div className="relative min-h-[3.4rem] flex items-center justify-center overflow-hidden">
+                <AnimatePresence mode="wait" initial={false}>
+                  {isNegativeSwap && previousReward !== null ? (
+                    <motion.div
+                      key={`old-${previousReward}`}
+                      initial={{ y: 0, opacity: 1 }}
+                      animate={{ y: -32, opacity: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.24, ease: "easeInOut" }}
+                      className={`absolute text-5xl font-black tracking-tight ${counterClasses}`}
+                    >
+                      {previousReward}
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+
+                <motion.div
+                  key={`new-${displayReward}-${isNegativeSwap ? "swap" : "count"}`}
+                  initial={isNegativeSwap ? { y: 28, opacity: 0 } : false}
+                  animate={
+                    vibrateCounter
+                      ? { y: 0, x: [0, -1.4, 1.4, -1, 1, 0], opacity: 1 }
+                      : { y: 0, x: 0, opacity: 1 }
+                  }
+                  transition={
+                    vibrateCounter
+                      ? { duration: 0.18, repeat: Infinity, ease: "linear" }
+                      : { duration: 0.26, ease: "easeOut" }
+                  }
+                  className={`relative text-5xl font-black tracking-tight ${counterClasses}`}
+                  style={COUNTER_OUTLINE_STYLE}
+                >
+                  {displayReward}
+                </motion.div>
+              </div>
+
               <div className="mt-1 text-[11px] uppercase tracking-[0.25em] text-stone-500">Seeds</div>
 
               {rewardSteps.length > 0 && (
                 <div className="mt-4 space-y-2 text-left">
                   {rewardSteps.slice(0, visibleStepCount).map((step, index) => {
                     const isActive = index === activeStepIndex;
+                    const popKey = `${step.id}-${index}`;
                     return (
                       <motion.div
                         key={step.id}
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
+                        initial={{ opacity: 0, y: 8, scale: 1.25 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={{ type: "spring", stiffness: 280, damping: 20 }}
                         className={`flex items-center justify-between rounded-xl px-3 py-2 text-sm ${
                           isActive ? "bg-stone-900 text-white" : "bg-white/80 text-stone-700"
                         }`}
                       >
                         <span className="font-semibold">{step.label}</span>
-                        <span className={step.positive ? "text-lime-300" : isActive ? "text-amber-200" : "text-rose-500"}>
-                          x{formatMultiplier(step.multiplier)}
-                        </span>
+                        <div className="relative">
+                          {activePopStepId === popKey && (
+                            <motion.span
+                              initial={{ scale: 0.2, opacity: 0 }}
+                              animate={{ scale: [0.2, 1.25, 1], opacity: [0, 0.85, 0] }}
+                              transition={{ duration: 0.3, ease: "easeOut" }}
+                              className={`absolute inset-0 flex items-center justify-center font-black ${
+                                step.positive ? "text-lime-300/90" : "text-rose-400/90"
+                              }`}
+                              aria-hidden="true"
+                            >
+                              x{formatMultiplier(step.multiplier)}
+                            </motion.span>
+                          )}
+
+                          <motion.span
+                            animate={
+                              isActive && step.positive && vibrateMultiplier
+                                ? { x: [0, -0.9, 0.9, -0.6, 0.6, 0] }
+                                : { x: 0 }
+                            }
+                            transition={
+                              isActive && step.positive && vibrateMultiplier
+                                ? { duration: 0.14, repeat: Infinity, ease: "linear" }
+                                : { duration: 0.16 }
+                            }
+                            className={`relative z-10 font-bold ${
+                              step.positive ? "text-lime-300" : isActive ? "text-amber-200" : "text-rose-500"
+                            }`}
+                          >
+                            x{formatMultiplier(step.multiplier)}
+                          </motion.span>
+                        </div>
                       </motion.div>
                     );
                   })}
