@@ -1349,7 +1349,10 @@ export default function Quests() {
                             longitude: userLocation.lng,
                             forceRegenerate: true,
                           });
-                          queryClient.invalidateQueries({ queryKey: ["robotPlantDailyZones"] });
+                          queryClient.setQueryData(
+                            ["robotPlantDailyZones", userLocation.lat, userLocation.lng],
+                            zones.zones || []
+                          );
                           alert(`✅ Zonen neu generiert!\n${zones.zones?.length ?? 0} Zonen erstellt.`);
                         } catch (err) {
                           alert(`❌ Fehler:\n${err.message}`);
