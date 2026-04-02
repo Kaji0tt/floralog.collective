@@ -18,6 +18,19 @@ export default function NewsAdmin() {
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
 
+  const createUuid = () => {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+
+    // RFC4122 v4 fallback for environments without crypto.randomUUID
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
+      const randomNibble = Math.floor(Math.random() * 16);
+      const value = char === "x" ? randomNibble : (randomNibble & 0x3) | 0x8;
+      return value.toString(16);
+    });
+  };
+
   useEffect(() => {
     const loadUser = async () => {
       const currentUser = await getCurrentUser();
@@ -53,6 +66,7 @@ export default function NewsAdmin() {
     }
 
     createNewsMutation.mutate({
+      id: createUuid(),
       title: title.trim(),
       text: text.trim(),
       created_date: new Date().toISOString(),
