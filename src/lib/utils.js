@@ -18,7 +18,7 @@ export const isIframe = window.self !== window.top;
  *   fontSize (rem) = min(2.25, max(0.75, 20 / nameLength))
  */
 export function getNameFontSize(name) {
-  const len = (name || '').length;
+  const len = [...((name || '').trim())].length;
   if (!len) return '2.25rem';
-  return `${Math.max(0.75, Math.min(2.25, 20 / len)).toFixed(2)}rem`;
+  return `${Math.max(0.65, Math.min(2.25, 18 / len)).toFixed(2)}rem`;
 }

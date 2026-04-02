@@ -527,7 +527,7 @@ export default function Profile() {
         }
       `}</style>
       <div 
-        className="h-screen min-w-full p-4 md:p-8 fixed inset-0 overflow-auto" 
+        className="h-screen w-full box-border p-4 md:p-8 fixed inset-0 overflow-auto" 
         style={{
           background: averageColor 
             ? `linear-gradient(135deg, var(--profile-bg-color-light) 0%, var(--profile-bg-color-mid) 50%, var(--profile-bg-color-dark) 100%)`
@@ -894,7 +894,7 @@ export default function Profile() {
                   <span className="mt-1 text-[10px] font-semibold uppercase tracking-wide">Pflanzen-Slot</span>
                 </div>
 
-                <div className="flex-1 w-full bg-white/40 backdrop-blur-md rounded-xl p-5 border-2 border-white/30 shadow-lg">
+                <div className="flex-1 w-full max-w-full min-w-0 bg-white/40 backdrop-blur-md rounded-xl p-5 border-2 border-white/30 shadow-lg">
                   <div className="flex items-start gap-4 mb-3">
                     <div className="relative group flex-shrink-0">
                       <div className="w-20 h-20 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-xl overflow-hidden ring-2 ring-white/70 backdrop-blur-sm">
@@ -962,9 +962,9 @@ export default function Profile() {
                       </div>
                     </div>
                   ) : (
-                    <div className="mb-2 flex items-center gap-2">
+                    <div className="mb-2 flex items-center gap-2 min-w-0 max-w-full">
                       <h1
-                        className="font-bold text-stone-900 min-w-0"
+                        className="block flex-1 min-w-0 max-w-full font-bold text-stone-900 leading-tight"
                         style={{
                           fontSize: getNameFontSize(getDisplayName()),
                           whiteSpace: 'nowrap',
@@ -980,7 +980,7 @@ export default function Profile() {
                         onClick={() => setIsEditingName(true)}
                         size="icon"
                         variant="ghost"
-                        className="text-stone-700 hover:text-stone-900 hover:bg-white/30"
+                        className="flex-shrink-0 text-stone-700 hover:text-stone-900 hover:bg-white/30"
                       >
                         <Edit2 className="w-5 h-5" />
                       </Button>

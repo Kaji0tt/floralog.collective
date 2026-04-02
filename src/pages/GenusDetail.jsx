@@ -619,28 +619,32 @@ export default function GenusDetail() {
                       </div>
                     </>
                   )}
-                  {/* Front-Image Button - nur anzeigen wenn mehr als 1 Scan in der Gattung */}
-                  {!friendEmail && genusDiscoveries.length > 1 && (
+                  {/* Aktionen für eigene Discoveries */}
+                  {!friendEmail && (
                     <>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const currentDiscovery = expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0];
-                          setFrontImageMutation.mutate({ discoveryId: currentDiscovery.id });
-                        }}
-                        className={`absolute bottom-3 left-3 w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all backdrop-blur-sm ${
-                          expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_front_image 
-                            ? 'bg-amber-500/80 hover:bg-amber-600/80' 
-                            : 'bg-white/60 hover:bg-white/80'
-                        }`}
-                        title="Als Gattungsbild festlegen"
-                      >
-                        <Star className={`w-5 h-5 ${
-                          expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_front_image 
-                            ? 'text-white fill-white' 
-                            : 'text-stone-600'
-                        }`} />
-                      </button>
+                      {/* Front-Image nur sinnvoll, wenn es mehrere Scans in der Gattung gibt */}
+                      {genusDiscoveries.length > 1 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const currentDiscovery = expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0];
+                            setFrontImageMutation.mutate({ discoveryId: currentDiscovery.id });
+                          }}
+                          className={`absolute bottom-3 left-3 w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all backdrop-blur-sm ${
+                            expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_front_image 
+                              ? 'bg-amber-500/80 hover:bg-amber-600/80' 
+                              : 'bg-white/60 hover:bg-white/80'
+                          }`}
+                          title="Als Gattungsbild festlegen"
+                        >
+                          <Star className={`w-5 h-5 ${
+                            expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_front_image 
+                              ? 'text-white fill-white' 
+                              : 'text-stone-600'
+                          }`} />
+                        </button>
+                      )}
+
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

@@ -790,7 +790,7 @@ export default function Home() {
         }
       `}</style>
       <div 
-        className="h-screen min-w-full p-4 md:p-8 fixed inset-0 overflow-hidden flex flex-col" 
+        className="h-screen w-full box-border p-4 md:p-8 fixed inset-0 overflow-hidden flex flex-col" 
         style={{
           background: averageColor 
             ? `linear-gradient(135deg, var(--profile-bg-color-light) 0%, var(--profile-bg-color-mid) 50%, var(--profile-bg-color-dark) 100%)`
@@ -1041,7 +1041,7 @@ export default function Home() {
                   <span className="mt-1 text-[10px] font-semibold uppercase tracking-wide">Pflanzen-Slot</span>
                 </div>
 
-                <div className="flex-1 w-full bg-white/40 backdrop-blur-md rounded-xl p-5 border-2 border-white/30 shadow-lg">
+                <div className="flex-1 w-full max-w-full min-w-0 bg-white/40 backdrop-blur-md rounded-xl p-5 border-2 border-white/30 shadow-lg">
                   <div className="flex items-start gap-4 mb-3">
                     <div className="relative group flex-shrink-0">
                       <div className="w-20 h-20 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-xl overflow-hidden ring-2 ring-white/70 backdrop-blur-sm">
@@ -1109,9 +1109,9 @@ export default function Home() {
                       </div>
                     </div>
                   ) : (
-                    <div className="mb-2">
+                    <div className="mb-2 min-w-0 max-w-full">
                       <h1
-                        className="font-bold text-stone-900"
+                        className="block w-full max-w-full min-w-0 font-bold text-stone-900 leading-tight"
                         style={{
                           fontSize: getNameFontSize(getDisplayName()),
                           whiteSpace: 'nowrap',
