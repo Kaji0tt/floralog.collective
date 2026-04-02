@@ -379,11 +379,12 @@ Deno.serve(async (req) => {
         grid_lng_idx: cell.grid_lng_idx,
         center_lat: cell.center_lat,
         center_lng: cell.center_lng,
+        geometry: `POINT(${cell.center_lng} ${cell.center_lat})`,
         theme: cell.theme,
         theme_confidence: cell.theme_confidence,
         dominant_osm_tags: cell.dominant_osm_tags,
         osm_element_count: cell.osm_element_count,
-        nearest_osm_element_distance_m: cell.nearest_osm_element_distance_m,
+        nearest_osm_element_distance_m: Math.round(cell.nearest_osm_element_distance_m),
         is_valid: true,
         last_osm_update_date: new Date().toISOString().split("T")[0],
       })), { onConflict: "grid_id" })

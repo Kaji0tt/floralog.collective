@@ -332,15 +332,19 @@ Deno.serve(async (req) => {
     const cellIndices = getGridCellsInRadius(baseLat, baseLng, searchRadiusM);
     console.log(`[robotPlantDailyZones] Searching ${cellIndices.length} grid cells within ${searchRadiusM}m radius`);
 
-    // Build SQL query for all cells in the search area
-    const gridConditions = cellIndices
-      .map((cell) => `(grid_lat_idx = ${cell.latIdx} and grid_lng_idx = ${cell.lngIdx})`)
-      .join(" or ");
+    // Build bounding box range query (much more efficient than per-cell OR conditions)
+    const minLatIdx = Math.min(...cellIndices.map(c => c.latIdx));
+    const maxLatIdx = Math.max(...cellIndices.map(c => c.latIdx));
+    const minLngIdx = Math.min(...cellIndices.map(c => c.lngIdx));
+    const maxLngIdx = Math.max(...cellIndices.map(c => c.lngIdx));
 
     const { data: rasterCells, error: rasterError } = await adminClient
       .from("GeoRasterCell")
       .select("id, theme, center_lat, center_lng, theme_confidence, dominant_osm_tags")
-      .or(gridConditions)
+      .gte("grid_lat_idx", minLatIdx)
+      .lte("grid_lat_idx", maxLatIdx)
+      .gte("grid_lng_idx", minLngIdx)
+      .lte("grid_lng_idx", maxLngIdx)
       .eq("is_valid", true);
 
     if (rasterError) {
