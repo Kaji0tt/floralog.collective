@@ -21,6 +21,7 @@ import "leaflet/dist/leaflet.css";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import SearchSortBar from "../components/collection/SearchSortBar";
 import { getCurrentWeeklyQuest, getWeekNumber, getCurrentWeekBounds } from "../components/quests/QuestRotationHelper";
+import tweakingRobotGif from "../../tweaking-robot.gif";
 
 // Leaflet Icon Setup
 if (typeof window !== 'undefined') {
@@ -138,6 +139,7 @@ export default function Quests() {
   const [collectionsSort, setCollectionsSort] = useState("newest"); // "title" | "newest" | "followers" | "items"
   const [selectedPlantForSighting, setSelectedPlantForSighting] = useState(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [isRegeneratingZones, setIsRegeneratingZones] = useState(false);
   const [mapQuickView, setMapQuickView] = useState("local");
   const [mapFriendSearchQuery, setMapFriendSearchQuery] = useState("");
   const [mapSearchQuery, setMapSearchQuery] = useState("");
@@ -225,7 +227,11 @@ export default function Quests() {
     staleTime: 30000,
   });
 
-  const { data: robotPlantDailyZones = [] } = useQuery({
+  const {
+    data: robotPlantDailyZones = [],
+    isLoading: isZonesLoading,
+    isFetching: isZonesFetching,
+  } = useQuery({
     queryKey: ["robotPlantDailyZones", userLocation?.lat, userLocation?.lng],
     queryFn: async () => {
       if (!userLocation) return [];
@@ -1232,6 +1238,20 @@ export default function Quests() {
                     </div>
                   );
                 }
+
+                if (isRegeneratingZones || ((user?.role !== 'admin') && (isZonesLoading || isZonesFetching))) {
+                  return (
+                    <div className="h-full flex flex-col items-center justify-center bg-white">
+                      <img
+                        src={tweakingRobotGif}
+                        alt="Zonen werden geladen"
+                        className="w-40 h-40 object-contain"
+                      />
+                      <p className="mt-4 text-sm text-stone-600 font-medium">Karte und Zonen werden geladen...</p>
+                    </div>
+                  );
+                }
+
                 const mapUserLocation = [userLocation.lat, userLocation.lng];
                 return (
                   <MapContainer
@@ -1342,6 +1362,7 @@ export default function Quests() {
                   {userLocation && (
                     <button
                       onClick={async () => {
+                        setIsRegeneratingZones(true);
                         try {
                           console.log('[Admin] Starting zone regeneration...');
                           const zones = await getRobotPlantDailyZones({
@@ -1356,6 +1377,8 @@ export default function Quests() {
                           alert(`✅ Zonen neu generiert!\n${zones.zones?.length ?? 0} Zonen erstellt.`);
                         } catch (err) {
                           alert(`❌ Fehler:\n${err.message}`);
+                        } finally {
+                          setIsRegeneratingZones(false);
                         }
                       }}
                       className="px-3 py-2 text-xs bg-yellow-200 hover:bg-yellow-300 text-yellow-900 rounded-lg font-medium shadow-md transition"
