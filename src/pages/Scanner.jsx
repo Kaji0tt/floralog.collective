@@ -738,18 +738,30 @@ export default function Scanner() {
 
     queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
 
-    const newlyUnlocked = await checkAndUnlockAchievements(user);
-    if (newlyUnlocked.length > 0) {
-      setNewAchievements(newlyUnlocked);
-      setCurrentAchievementIndex(0);
+    // Nachgelagerte Schritte (nicht-kritisch – Fehler hier blockieren nicht die Erfolgsmeldung)
+
+    try {
+      const newlyUnlocked = await checkAndUnlockAchievements(user);
+      if (newlyUnlocked.length > 0) {
+        setNewAchievements(newlyUnlocked);
+        setCurrentAchievementIndex(0);
+      }
+    } catch (achievementError) {
+      console.error("Fehler beim Aktualisieren der Achievements (nicht kritisch):", achievementError);
     }
 
-    // Quest-Progress zentral anhand aller Entdeckungen aktualisieren
-    await updateQuestProgress(user);
+    try {
+      await updateQuestProgress(user);
+    } catch (questError) {
+      console.error("Fehler beim Aktualisieren des Quest-Fortschritts (nicht kritisch):", questError);
+    }
 
-    // Prüfe zufällige Rewards
-    const { checkRandomRewards } = await import('../components/rewards/randomRewardChecker');
-    await checkRandomRewards(user, 'scan');
+    try {
+      const { checkRandomRewards } = await import('../components/rewards/randomRewardChecker');
+      await checkRandomRewards(user, 'scan');
+    } catch (rewardError) {
+      console.error("Fehler beim Prüfen zufälliger Rewards (nicht kritisch):", rewardError);
+    }
 
     // Vibration: 1x kurz für erfolgreichen Scan
     if (navigator.vibrate) {
@@ -775,6 +787,8 @@ export default function Scanner() {
   const handleAutoAddNewPlant = async (plantData, imageUrl, allResults = []) => {
     const locationString = await resolveLocationForDiscovery();
 
+    // Phase 1: Pflanze zum globalen Floralog hinzufügen (kritisch – Fehler hier = echte Fehlermeldung)
+    let newPlant, newDiscoveryId;
     try {
       const { data, error } = await supabase.functions.invoke('createGlobalPlant', {
         body: {
@@ -800,53 +814,65 @@ export default function Scanner() {
         throw error;
       }
 
-      const newPlant = data?.newPlant;
-      const newDiscoveryId = data?.newDiscoveryId;
+      newPlant = data?.newPlant;
+      newDiscoveryId = data?.newDiscoveryId;
 
       if (!newPlant || !newDiscoveryId) {
         throw new Error("Unerwartete Antwort von createGlobalPlant");
       }
+    } catch (error) {
+      console.error("Fehler beim Hinzufügen der Pflanze zum globalen Floralog:", error);
+      setScanning(false);
+      throw error;
+    }
 
-      setLatestDiscoveryId(newDiscoveryId);
+    // Pflanze wurde erfolgreich hinzugefügt – UI sofort aktualisieren
+    setLatestDiscoveryId(newDiscoveryId);
+    queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
+    queryClient.invalidateQueries({ queryKey: ['plants'] });
 
-      queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
-      queryClient.invalidateQueries({ queryKey: ['plants'] });
+    // Phase 2: Nachgelagerte Schritte (nicht-kritisch – Fehler hier blockieren nicht die Erfolgsmeldung)
 
+    try {
       const newlyUnlocked = await checkAndUnlockAchievements(user);
       if (newlyUnlocked.length > 0) {
         setNewAchievements(newlyUnlocked);
         setCurrentAchievementIndex(0);
       }
+    } catch (achievementError) {
+      console.error("Fehler beim Aktualisieren der Achievements (nicht kritisch):", achievementError);
+    }
 
-      // Quest-Progress zentral anhand aller Entdeckungen aktualisieren
+    try {
       await updateQuestProgress(user);
+    } catch (questError) {
+      console.error("Fehler beim Aktualisieren des Quest-Fortschritts (nicht kritisch):", questError);
+    }
 
-      // Prüfe zufällige Rewards
+    try {
       const { checkRandomRewards } = await import('../components/rewards/randomRewardChecker');
       await checkRandomRewards(user, 'scan');
-
-      // Vibration: 3x kurz für neuen Floralog-Eintrag
-      if (navigator.vibrate) {
-        navigator.vibrate([200, 100, 200, 100, 200]);
-      }
-
-      // Speichere Pflanzennamen für Modal
-      setNewPlantName(newPlant.species_name);
-      
-      setMatchedPlant({
-        ...newPlant,
-        discovered: false,
-        aiData: plantData,
-        isNewToFloralog: true
-      });
-      setScanning(false);
-
-      return { newPlant };
-    } catch (error) {
-      console.error("Fehler beim Hinzufügen der Pflanze:", error);
-      setScanning(false);
-      throw error;
+    } catch (rewardError) {
+      console.error("Fehler beim Prüfen zufälliger Rewards (nicht kritisch):", rewardError);
     }
+
+    // Vibration: 3x kurz für neuen Floralog-Eintrag
+    if (navigator.vibrate) {
+      navigator.vibrate([200, 100, 200, 100, 200]);
+    }
+
+    // Speichere Pflanzennamen für Modal
+    setNewPlantName(newPlant.species_name);
+
+    setMatchedPlant({
+      ...newPlant,
+      discovered: false,
+      aiData: plantData,
+      isNewToFloralog: true
+    });
+    setScanning(false);
+
+    return { newPlant };
   };
 
   const handleCameraCapture = (file, organ = "auto") => {
@@ -938,10 +964,14 @@ export default function Scanner() {
             setShowConfirmDialog(false);
             setPendingScanData(null);
           } else {
+            setShowConfirmDialog(false);
+            setPendingScanData(null);
             alert("Die Pflanze konnte nicht zum globalen Floralog hinzugefügt werden. Bitte versuche es später erneut.");
           }
         } catch (error) {
           console.error("Fehler beim automatischen Hinzufügen zum Floralog:", error);
+          setShowConfirmDialog(false);
+          setPendingScanData(null);
           alert("Die Pflanze konnte nicht zum globalen Floralog hinzugefügt werden. Bitte versuche es später erneut.");
         }
       }

@@ -120,6 +120,78 @@ Deno.serve(async (req) => {
 
     console.log("[createGlobalPlant] Creating plant for user", authId, "plant:", plant.species_name);
 
+    // 0) Idempotency check: Pflanze existiert bereits?
+    type PlantRow = { id: string; species_name: string; scientific_name: string | null; [key: string]: unknown };
+
+    let existingPlant: PlantRow | null = null;
+
+    if (plant.scientific_name) {
+      const { data } = await adminClient
+        .from("Plant")
+        .select("*")
+        .ilike("scientific_name", plant.scientific_name)
+        .limit(1);
+      existingPlant = data?.[0] ?? null;
+    }
+
+    if (!existingPlant) {
+      const { data } = await adminClient
+        .from("Plant")
+        .select("*")
+        .ilike("species_name", plant.species_name)
+        .limit(1);
+      existingPlant = data?.[0] ?? null;
+    }
+
+    if (existingPlant) {
+      console.log("[createGlobalPlant] Plant already exists:", existingPlant.id, existingPlant.species_name);
+
+      // Discovery für diesen User prüfen / anlegen
+      const { data: existingDiscovery } = await adminClient
+        .from("UserPlantDiscovery")
+        .select("id")
+        .eq("auth_id", authId)
+        .eq("plant_id", existingPlant.id)
+        .maybeSingle();
+
+      let discoveryId: string = existingDiscovery?.id;
+
+      if (!existingDiscovery) {
+        const { data: insertedDiscovery, error: insertDiscoveryError } = await adminClient
+          .from("UserPlantDiscovery")
+          .insert({
+            auth_id: authId,
+            created_by_id: authId,
+            created_by: userEmail,
+            plant_id: existingPlant.id,
+            discovered_date: new Date().toISOString(),
+            discovery_location: discovery_location || null,
+            discovery_notes: "",
+            image_url: image_url || null,
+          })
+          .select("id")
+          .single();
+
+        if (insertDiscoveryError || !insertedDiscovery) {
+          console.error("[createGlobalPlant] Failed to insert UserPlantDiscovery for existing plant:", insertDiscoveryError);
+          return new Response(
+            JSON.stringify({ error: "Failed to insert UserPlantDiscovery" }),
+            { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
+          );
+        }
+
+        discoveryId = insertedDiscovery.id;
+      }
+
+      return new Response(
+        JSON.stringify({
+          newPlant: existingPlant,
+          newDiscoveryId: discoveryId,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
+      );
+    }
+
     // 1) Gattung finden oder anlegen
     const { data: allGenera, error: generaError } = await adminClient
       .from("PlantGenus")
