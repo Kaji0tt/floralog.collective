@@ -136,33 +136,36 @@ async function queryOverpassForBounds(bbox: BoundingBox): Promise<
     osmId: string;
   }>
 > {
-  const { south, west, north, east } = bbox;
-  
-  // Overpass QL query: fetch all areas with natural/landuse/leisure tags
-  const query = `
-[out:json][timeout:30];
+  const toTiles = (source: BoundingBox, maxSpan = 0.1): BoundingBox[] => {
+    const tiles: BoundingBox[] = [];
+    for (let south = source.south; south < source.north; south += maxSpan) {
+      const north = Math.min(source.north, south + maxSpan);
+      for (let west = source.west; west < source.east; west += maxSpan) {
+        const east = Math.min(source.east, west + maxSpan);
+        tiles.push({ south, west, north, east });
+      }
+    }
+    return tiles;
+  };
+
+  const queryTile = async (tile: BoundingBox) => {
+    const { south, west, north, east } = tile;
+    const query = `
+[out:json][timeout:20];
 (
   way(${south},${west},${north},${east})["natural"~"^(water|forest|wood|meadow|grassland|riverbank)$"];
   way(${south},${west},${north},${east})["landuse"~"^(forest|meadow|residential|industrial|commercial|retail|water)$"];
   way(${south},${west},${north},${east})["leisure"~"^(park)$"];
   way(${south},${west},${north},${east})["waterway"~"^(river|stream|canal|water)$"];
-  
-  relation(${south},${west},${north},${east})["natural"~"^(water|forest|wood|meadow|grassland|waterbank)$"];
-  relation(${south},${west},${north},${east})["landuse"~"^(forest|meadow|residential|industrial|commercial|retail|water)$"];
-  relation(${south},${west},${north},${east})["leisure"~"^(park)$"];
-  relation(${south},${west},${north},${east})["waterway"~"^(river|stream|canal)$"];
 );
 out center;
 `;
 
-  console.log(`[Overpass] Querying bounds: ${south},${west},${north},${east}`);
-
-  try {
     const response = await fetch("https://overpass-api.de/api/interpreter", {
       method: "POST",
       headers: { "Content-Type": "text/plain" },
       body: query,
-      signal: AbortSignal.timeout(60000), // 60s timeout
+      signal: AbortSignal.timeout(25000),
     });
 
     if (!response.ok) {
@@ -171,7 +174,6 @@ out center;
 
     const data = await response.json() as any;
     const elements = Array.isArray(data?.elements) ? data.elements : [];
-
     const results: Array<{
       centerLat: number;
       centerLng: number;
@@ -181,9 +183,8 @@ out center;
     }> = [];
 
     for (const elem of elements) {
-      let centerLat = elem.center?.lat || elem.lat;
-      let centerLng = elem.center?.lon || elem.lon;
-
+      const centerLat = elem.center?.lat || elem.lat;
+      const centerLng = elem.center?.lon || elem.lon;
       if (typeof centerLat === "number" && typeof centerLng === "number" && elem.tags) {
         results.push({
           centerLat,
@@ -195,13 +196,42 @@ out center;
       }
     }
 
-    console.log(`[Overpass] Retrieved ${results.length} elements`);
     return results;
-  } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    console.error(`[Overpass] Query failed: ${errMsg}`);
-    throw err;
+  };
+
+  const tiles = toTiles(bbox, 0.1);
+  console.log(`[Overpass] Querying ${tiles.length} tile(s) for bounds: ${bbox.south},${bbox.west},${bbox.north},${bbox.east}`);
+
+  const unique = new Map<string, {
+    centerLat: number;
+    centerLng: number;
+    tags: Record<string, string>;
+    osmType: string;
+    osmId: string;
+  }>();
+
+  let succeeded = 0;
+  for (const [index, tile] of tiles.entries()) {
+    try {
+      const tileResults = await queryTile(tile);
+      for (const item of tileResults) {
+        unique.set(`${item.osmType}:${item.osmId}`, item);
+      }
+      succeeded += 1;
+      console.log(`[Overpass] Tile ${index + 1}/${tiles.length} ok (${tileResults.length} elements)`);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.warn(`[Overpass] Tile ${index + 1}/${tiles.length} failed: ${errMsg}`);
+    }
   }
+
+  if (succeeded === 0) {
+    throw new Error("Signal timed out.");
+  }
+
+  const merged = Array.from(unique.values());
+  console.log(`[Overpass] Retrieved ${merged.length} unique elements from ${succeeded}/${tiles.length} tiles`);
+  return merged;
 }
 
 /**

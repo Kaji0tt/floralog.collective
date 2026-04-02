@@ -1364,9 +1364,9 @@ export default function Quests() {
                     onClick={async () => {
                       const lat = userLocation?.lat ?? 54.32;
                       const lng = userLocation?.lng ?? 10.13;
-                      const r = 0.1; // ~11km radius in degrees
+                      const r = 0.075; // ~8km radius in degrees
                       const label = userLocation ? 'Aktueller Standort' : 'Kiel (Standard)';
-                      if (!confirm(`Raster-Grid für ${label} initialisieren?\nBounds: ±${r}° um ${lat.toFixed(3)}, ${lng.toFixed(3)}\n\nDas kann 20-60 Sekunden dauern.`)) return;
+                      if (!confirm(`Raster-Grid für ${label} initialisieren?\nBounds: ±${r}° um ${lat.toFixed(3)}, ${lng.toFixed(3)}\n\nDas kann 10-40 Sekunden dauern.`)) return;
                       try {
                         const result = await initializeGeoRasterGrid({
                           bounds: {
