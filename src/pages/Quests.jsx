@@ -118,8 +118,8 @@ const getAverageColor = (imageUrl) => {
 };
 
 const THEME_MAP_COLORS = {
-  forest: "#1a4731",
-  urban: "#d4b492",
+  forest: "#007a3f",
+  urban: "#8d755c",
   water: "#2b6cb0",
   meadow: "#84cc16",
 };
@@ -1391,9 +1391,9 @@ export default function Quests() {
                       onClick={async () => {
                         const lat = userLocation?.lat ?? 54.32;
                         const lng = userLocation?.lng ?? 10.13;
-                        const r = 0.075; // ~8km radius in degrees
+                        const r = 0.0315; // ~3.5km radius in degrees
                         const label = userLocation ? 'Aktueller Standort' : 'Kiel (Standard)';
-                        if (!confirm(`Raster-Grid für ${label} initialisieren?\nBounds: ±${r}° um ${lat.toFixed(3)}, ${lng.toFixed(3)}\n\nDas kann 10-40 Sekunden dauern.`)) return;
+                        if (!confirm(`Raster-Grid für ${label} initialisieren?\nBounds: ±${r}° (~3,5km) um ${lat.toFixed(3)}, ${lng.toFixed(3)}\n\nDas kann 10-40 Sekunden dauern.`)) return;
                         try {
                           const result = await initializeGeoRasterGrid({
                             bounds: {

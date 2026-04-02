@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getBoundsForGridRange, GRID_RESOLUTION, initializeGeoRasterCells } from "../_shared/geoRaster.ts";
+import { getBoundsForGridRange, getGridCellCenter, GRID_RESOLUTION, initializeGeoRasterCells } from "../_shared/geoRaster.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,6 +12,7 @@ const corsHeaders = {
 // Guarantees <100ms response time with consistent data quality
 
 type ZoneTheme = "forest" | "urban" | "water" | "meadow";
+const PLAYER_RADIUS_M = 3500;
 
 interface RequestBody {
   authId?: string;
@@ -131,7 +132,10 @@ function getGridCellsInRadius(centerLat: number, centerLng: number, radiusM: num
   const cells: Array<{ latIdx: number; lngIdx: number }> = [];
   for (let latIdx = centerCell.latIdx - cellOffset; latIdx <= centerCell.latIdx + cellOffset; latIdx++) {
     for (let lngIdx = centerCell.lngIdx - cellOffset; lngIdx <= centerCell.lngIdx + cellOffset; lngIdx++) {
-      cells.push({ latIdx, lngIdx });
+      const center = getGridCellCenter(latIdx, lngIdx);
+      if (distanceMeters(centerLat, centerLng, center.lat, center.lng) <= radiusM) {
+        cells.push({ latIdx, lngIdx });
+      }
     }
   }
   return cells;
@@ -221,12 +225,13 @@ function selectBestZones(
   cells: RasterCell[],
   centerLat: number,
   centerLng: number,
-  options?: { randomize?: boolean; seed?: number },
+  options?: { randomize?: boolean; seed?: number; maxDistanceM?: number },
 ): GeneratedZone[] {
   const MIN_THEME_CONFIDENCE = 0.1;
   const GRID_CELL_SIZE_M = 707;
   const ZONE_RADIUS_M = Math.round(GRID_CELL_SIZE_M / 2);
   const randomize = options?.randomize === true;
+  const maxDistanceM = options?.maxDistanceM ?? PLAYER_RADIUS_M;
   const rng = randomize ? createSeededRng(options?.seed ?? Date.now()) : null;
 
   const candidatesByTheme: Record<ZoneTheme, ThemeCandidate[]> = {
@@ -246,6 +251,9 @@ function selectBestZones(
 
     // Backward-compatible fallback for old rows that do not have multi-theme fields yet.
     if (availableThemes.length === 0) {
+      const fallbackDistance = distanceMeters(centerLat, centerLng, cell.center_lat, cell.center_lng);
+      if (fallbackDistance > maxDistanceM) continue;
+
       candidatesByTheme[cell.theme].push({
         cellId: cell.id,
         theme: cell.theme,
@@ -259,11 +267,16 @@ function selectBestZones(
 
     for (const theme of availableThemes) {
       const anchor = anchorPoints[theme];
+      const lat = Number(anchor?.lat ?? cell.center_lat);
+      const lng = Number(anchor?.lng ?? cell.center_lng);
+      const candidateDistance = distanceMeters(centerLat, centerLng, lat, lng);
+      if (candidateDistance > maxDistanceM) continue;
+
       candidatesByTheme[theme].push({
         cellId: cell.id,
         theme,
-        lat: Number(anchor?.lat ?? cell.center_lat),
-        lng: Number(anchor?.lng ?? cell.center_lng),
+        lat,
+        lng,
         probability: Number(themeScores[theme] || 0),
         osmElementCount: cell.osm_element_count || 0,
       });
@@ -273,11 +286,11 @@ function selectBestZones(
   // Sort each theme by: higher probability, closer distance, stronger evidence.
   for (const theme of Object.keys(candidatesByTheme) as ZoneTheme[]) {
     candidatesByTheme[theme].sort((a, b) => {
-      if (b.probability !== a.probability) return b.probability - a.probability;
-
       const distA = distanceMeters(centerLat, centerLng, a.lat, a.lng);
       const distB = distanceMeters(centerLat, centerLng, b.lat, b.lng);
       if (distA !== distB) return distA - distB;
+
+      if (b.probability !== a.probability) return b.probability - a.probability;
 
       return b.osmElementCount - a.osmElementCount;
     });
@@ -355,8 +368,8 @@ function selectBestZones(
   }
 
   allCandidates.sort((a, b) => {
-    if (b.probability !== a.probability) return b.probability - a.probability;
     if (a.distanceToPlayer !== b.distanceToPlayer) return a.distanceToPlayer - b.distanceToPlayer;
+    if (b.probability !== a.probability) return b.probability - a.probability;
     return b.osmElementCount - a.osmElementCount;
   });
 
@@ -577,7 +590,7 @@ Deno.serve(async (req) => {
     // === RASTER-BASED ZONE GENERATION ===
     console.log(`[robotPlantDailyZones] Generating zones from raster grid for (${baseLat}, ${baseLng})`);
 
-    const searchRadiusM = 5000; // 5km search radius
+    const searchRadiusM = PLAYER_RADIUS_M;
     const cellIndices = getGridCellsInRadius(baseLat, baseLng, searchRadiusM);
     console.log(`[robotPlantDailyZones] Searching ${cellIndices.length} grid cells within ${searchRadiusM}m radius`);
 
@@ -617,16 +630,30 @@ Deno.serve(async (req) => {
 
     if (missingCells.length > 0) {
       const regions = getMissingGridRegions(missingCells);
-      console.log(`[robotPlantDailyZones] Found ${missingCells.length} uncomputed cells in ${regions.length} missing region(s). Triggering on-demand initialization.`);
+      const regionsSortedByDistance = [...regions].sort((a, b) => {
+        const centerA = getGridCellCenter(
+          Math.floor((a.minLatIdx + a.maxLatIdx) / 2),
+          Math.floor((a.minLngIdx + a.maxLngIdx) / 2),
+        );
+        const centerB = getGridCellCenter(
+          Math.floor((b.minLatIdx + b.maxLatIdx) / 2),
+          Math.floor((b.minLngIdx + b.maxLngIdx) / 2),
+        );
+        const distA = distanceMeters(baseLat, baseLng, centerA.lat, centerA.lng);
+        const distB = distanceMeters(baseLat, baseLng, centerB.lat, centerB.lng);
+        return distA - distB;
+      });
+
+      console.log(`[robotPlantDailyZones] Found ${missingCells.length} uncomputed cells in ${regions.length} missing region(s). Triggering on-demand initialization from near to far.`);
 
       try {
-        for (const [index, region] of regions.entries()) {
+        for (const [index, region] of regionsSortedByDistance.entries()) {
           const bbox = getBoundsForGridRange(region.minLatIdx, region.maxLatIdx, region.minLngIdx, region.maxLngIdx);
           const initResult = await initializeGeoRasterCells(adminClient, bbox, {
             forceRefresh: false,
-            trigger: `robotPlantDailyZones:${authId}:missing-region-${index + 1}/${regions.length}`,
+            trigger: `robotPlantDailyZones:${authId}:missing-region-${index + 1}/${regionsSortedByDistance.length}`,
           });
-          console.log(`[robotPlantDailyZones] Initialized missing region ${index + 1}/${regions.length} with ${initResult.cellsCreated} cells in ${initResult.durationMs}ms`);
+          console.log(`[robotPlantDailyZones] Initialized missing region ${index + 1}/${regionsSortedByDistance.length} with ${initResult.cellsCreated} cells in ${initResult.durationMs}ms`);
         }
       } catch (initError) {
         const initMessage = initError instanceof Error ? initError.message : String(initError);
@@ -665,6 +692,7 @@ Deno.serve(async (req) => {
     const selectedZones = selectBestZones(cells, baseLat, baseLng, {
       randomize: forceRegenerate,
       seed: regenerationSeed,
+      maxDistanceM: PLAYER_RADIUS_M,
     });
 
     // Insert generated zones into RobotPlantZone table
