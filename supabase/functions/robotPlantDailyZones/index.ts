@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getBoundsForGridRange, GRID_RESOLUTION, initializeGeoRasterCells } from "../_shared/geoRaster.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,6 +23,8 @@ interface RequestBody {
 
 interface RasterCell {
   id: string;
+  grid_id: string;
+  is_valid: boolean;
   theme: ZoneTheme;
   center_lat: number;
   center_lng: number;
@@ -110,10 +113,9 @@ function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number):
  * Grid resolution: ~0.00636° per cell
  */
 function getGridCellCoordinates(lat: number, lng: number): { latIdx: number; lngIdx: number } {
-  const gridResolution = 0.00636; // degrees per cell (approx 707m)
   return {
-    latIdx: Math.floor(lat / gridResolution),
-    lngIdx: Math.floor(lng / gridResolution),
+    latIdx: Math.floor(lat / GRID_RESOLUTION),
+    lngIdx: Math.floor(lng / GRID_RESOLUTION),
   };
 }
 
@@ -121,11 +123,10 @@ function getGridCellCoordinates(lat: number, lng: number): { latIdx: number; lng
  * Get all grid cell indices within a search radius
  */
 function getGridCellsInRadius(centerLat: number, centerLng: number, radiusM: number): Array<{ latIdx: number; lngIdx: number }> {
-  const gridResolution = 0.00636;
   const radiusInDegrees = radiusM / 111000; // Rough conversion: 1° ≈ 111km
   
   const centerCell = getGridCellCoordinates(centerLat, centerLng);
-  const cellOffset = Math.ceil(radiusInDegrees / gridResolution);
+  const cellOffset = Math.ceil(radiusInDegrees / GRID_RESOLUTION);
   
   const cells: Array<{ latIdx: number; lngIdx: number }> = [];
   for (let latIdx = centerCell.latIdx - cellOffset; latIdx <= centerCell.latIdx + cellOffset; latIdx++) {
@@ -134,6 +135,62 @@ function getGridCellsInRadius(centerLat: number, centerLng: number, radiusM: num
     }
   }
   return cells;
+}
+
+function toGridId(latIdx: number, lngIdx: number): string {
+  return `${latIdx}_${lngIdx}`;
+}
+
+function getMissingGridRegions(missingCells: Array<{ latIdx: number; lngIdx: number }>):
+  Array<{ minLatIdx: number; maxLatIdx: number; minLngIdx: number; maxLngIdx: number }> {
+  if (missingCells.length === 0) return [];
+
+  const keySet = new Set(missingCells.map((c) => toGridId(c.latIdx, c.lngIdx)));
+  const visited = new Set<string>();
+  const regions: Array<{ minLatIdx: number; maxLatIdx: number; minLngIdx: number; maxLngIdx: number }> = [];
+
+  const neighbors = [
+    [-1, 0],
+    [1, 0],
+    [0, -1],
+    [0, 1],
+  ];
+
+  for (const cell of missingCells) {
+    const startKey = toGridId(cell.latIdx, cell.lngIdx);
+    if (visited.has(startKey)) continue;
+
+    let minLatIdx = cell.latIdx;
+    let maxLatIdx = cell.latIdx;
+    let minLngIdx = cell.lngIdx;
+    let maxLngIdx = cell.lngIdx;
+
+    const queue: Array<{ latIdx: number; lngIdx: number }> = [cell];
+    visited.add(startKey);
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+
+      minLatIdx = Math.min(minLatIdx, current.latIdx);
+      maxLatIdx = Math.max(maxLatIdx, current.latIdx);
+      minLngIdx = Math.min(minLngIdx, current.lngIdx);
+      maxLngIdx = Math.max(maxLngIdx, current.lngIdx);
+
+      for (const [dLat, dLng] of neighbors) {
+        const nextLatIdx = current.latIdx + dLat;
+        const nextLngIdx = current.lngIdx + dLng;
+        const nextKey = toGridId(nextLatIdx, nextLngIdx);
+
+        if (!keySet.has(nextKey) || visited.has(nextKey)) continue;
+        visited.add(nextKey);
+        queue.push({ latIdx: nextLatIdx, lngIdx: nextLngIdx });
+      }
+    }
+
+    regions.push({ minLatIdx, maxLatIdx, minLngIdx, maxLngIdx });
+  }
+
+  return regions;
 }
 
 function createSeededRng(seed: number): () => number {
@@ -381,6 +438,14 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "authId/email mismatch" }, 403);
     }
 
+    const { data: profile } = await adminClient
+      .from("PublicProfile")
+      .select("role")
+      .eq("auth_id", authId)
+      .maybeSingle();
+
+    const isAdmin = profile?.role === "admin";
+
     const forceRegenerate = body?.forceRegenerate === true;
     const providedLat = Number(body.latitude);
     const providedLng = Number(body.longitude);
@@ -429,6 +494,27 @@ Deno.serve(async (req) => {
     const dayKey = toDayKey();
     const authKeySuffix = authId.replace(/-/g, "");
     const queryStartTime = Date.now();
+
+    if (forceRegenerate && !isAdmin) {
+      const { data: existingRegen, error: regenCheckError } = await adminClient
+        .from("RobotPlantZoneGenerationLog")
+        .select("id")
+        .eq("auth_id", authId)
+        .eq("day_key", dayKey)
+        .maybeSingle();
+
+      if (regenCheckError) {
+        console.error("[robotPlantDailyZones] Failed to check daily regeneration limit:", regenCheckError);
+        return jsonResponse({ error: "Failed to validate regeneration limit" }, 500);
+      }
+
+      if (existingRegen?.id) {
+        return jsonResponse({
+          success: false,
+          error: "Zonen-Neugenerierung ist fuer normale Nutzer nur 1x pro Tag verfuegbar.",
+        }, 429);
+      }
+    }
 
     // Force regeneration should fully replace today's zones.
     if (forceRegenerate) {
@@ -501,28 +587,75 @@ Deno.serve(async (req) => {
     const minLngIdx = Math.min(...cellIndices.map(c => c.lngIdx));
     const maxLngIdx = Math.max(...cellIndices.map(c => c.lngIdx));
 
-    const { data: rasterCells, error: rasterError } = await adminClient
-      .from("GeoRasterCell")
-      .select("id, theme, center_lat, center_lng, theme_confidence, dominant_osm_tags, theme_scores, theme_anchor_points, osm_element_count")
-      .gte("grid_lat_idx", minLatIdx)
-      .lte("grid_lat_idx", maxLatIdx)
-      .gte("grid_lng_idx", minLngIdx)
-      .lte("grid_lng_idx", maxLngIdx)
-      .eq("is_valid", true);
+    const fetchRasterCells = async (): Promise<RasterCell[]> => {
+      const { data: rasterCells, error: rasterError } = await adminClient
+        .from("GeoRasterCell")
+        .select("id, grid_id, is_valid, theme, center_lat, center_lng, theme_confidence, dominant_osm_tags, theme_scores, theme_anchor_points, osm_element_count")
+        .gte("grid_lat_idx", minLatIdx)
+        .lte("grid_lat_idx", maxLatIdx)
+        .gte("grid_lng_idx", minLngIdx)
+        .lte("grid_lng_idx", maxLngIdx);
 
-    if (rasterError) {
-      console.error("[robotPlantDailyZones] Raster query error:", rasterError);
-      return jsonResponse({ error: "Failed to query raster grid" }, 500);
+      if (rasterError) {
+        console.error("[robotPlantDailyZones] Raster query error:", rasterError);
+        throw new Error("Failed to query raster grid");
+      }
+
+      return (rasterCells || []) as RasterCell[];
+    };
+
+    let rasterRows: RasterCell[];
+    try {
+      rasterRows = await fetchRasterCells();
+    } catch (fetchError) {
+      const errMsg = fetchError instanceof Error ? fetchError.message : String(fetchError);
+      return jsonResponse({ error: errMsg }, 500);
     }
 
-    const cells = (rasterCells || []) as RasterCell[];
-    console.log(`[robotPlantDailyZones] Found ${cells.length} valid raster cells`);
+    const existingGridIds = new Set(rasterRows.map((row) => row.grid_id));
+    let missingCells = cellIndices.filter((cell) => !existingGridIds.has(toGridId(cell.latIdx, cell.lngIdx)));
+
+    if (missingCells.length > 0) {
+      const regions = getMissingGridRegions(missingCells);
+      console.log(`[robotPlantDailyZones] Found ${missingCells.length} uncomputed cells in ${regions.length} missing region(s). Triggering on-demand initialization.`);
+
+      try {
+        for (const [index, region] of regions.entries()) {
+          const bbox = getBoundsForGridRange(region.minLatIdx, region.maxLatIdx, region.minLngIdx, region.maxLngIdx);
+          const initResult = await initializeGeoRasterCells(adminClient, bbox, {
+            forceRefresh: false,
+            trigger: `robotPlantDailyZones:${authId}:missing-region-${index + 1}/${regions.length}`,
+          });
+          console.log(`[robotPlantDailyZones] Initialized missing region ${index + 1}/${regions.length} with ${initResult.cellsCreated} cells in ${initResult.durationMs}ms`);
+        }
+      } catch (initError) {
+        const initMessage = initError instanceof Error ? initError.message : String(initError);
+        console.error("[robotPlantDailyZones] On-demand raster initialization for missing cells failed:", initMessage);
+        return jsonResponse({ error: `Failed to initialize missing raster cells: ${initMessage}` }, 500);
+      }
+
+      try {
+        rasterRows = await fetchRasterCells();
+      } catch (fetchError) {
+        const errMsg = fetchError instanceof Error ? fetchError.message : String(fetchError);
+        return jsonResponse({ error: errMsg }, 500);
+      }
+
+      const refreshedGridIds = new Set(rasterRows.map((row) => row.grid_id));
+      missingCells = cellIndices.filter((cell) => !refreshedGridIds.has(toGridId(cell.latIdx, cell.lngIdx)));
+      if (missingCells.length > 0) {
+        console.warn(`[robotPlantDailyZones] ${missingCells.length} cells are still uncomputed after on-demand initialization.`);
+      }
+    }
+
+    const cells = rasterRows.filter((row) => row.is_valid === true) as RasterCell[];
+    console.log(`[robotPlantDailyZones] Found ${cells.length} valid raster cells and ${rasterRows.length} computed cells in search range`);
 
     if (cells.length === 0) {
-      console.warn(`[robotPlantDailyZones] No raster cells found near (${baseLat}, ${baseLng}). Raster grid may not be populated yet.`);
+      console.warn(`[robotPlantDailyZones] Raster initialization completed, but no usable raster cells were available near (${baseLat}, ${baseLng}).`);
       return jsonResponse({
         success: false,
-        error: "No geo-raster data available for this location. Grid initialization pending.",
+        error: "No usable geo-raster data available for this location after initialization.",
         zones: [],
       }, 503);
     }
@@ -564,6 +697,30 @@ Deno.serve(async (req) => {
 
     const queryDuration = Date.now() - queryStartTime;
     console.log(`[robotPlantDailyZones] Zone generation completed in ${queryDuration}ms with ${insertedZones?.length || 0} zones`);
+
+    if (forceRegenerate && !isAdmin) {
+      const themeCounts = {
+        forest: selectedZones.filter((zone) => zone.theme === "forest").length,
+        water: selectedZones.filter((zone) => zone.theme === "water").length,
+        urban: selectedZones.filter((zone) => zone.theme === "urban").length,
+        meadow: selectedZones.filter((zone) => zone.theme === "meadow").length,
+      };
+
+      const { error: regenLogError } = await adminClient
+        .from("RobotPlantZoneGenerationLog")
+        .upsert({
+          auth_id: authId,
+          day_key: dayKey,
+          search_radius_m: searchRadiusM,
+          candidate_count_by_theme: themeCounts,
+          selected_zone_count: selectedZones.length,
+          total_duration_ms: queryDuration,
+        }, { onConflict: "auth_id,day_key" });
+
+      if (regenLogError) {
+        console.warn("[robotPlantDailyZones] Failed to log regeneration usage:", regenLogError);
+      }
+    }
 
     // Log query metrics
     const { error: logError } = await adminClient

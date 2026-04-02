@@ -1356,8 +1356,8 @@ export default function Quests() {
                 );
               })()}
 
-              {/* Admin Debug Button: Force Zone Regeneration */}
-              {mapQuickView === "local" && user?.role === 'admin' && (
+              {/* Zone controls */}
+              {mapQuickView === "local" && (
                 <div className="absolute bottom-4 left-4 z-20 flex flex-col gap-2">
                   {userLocation && (
                     <button
@@ -1383,35 +1383,37 @@ export default function Quests() {
                       }}
                       className="px-3 py-2 text-xs bg-yellow-200 hover:bg-yellow-300 text-yellow-900 rounded-lg font-medium shadow-md transition"
                     >
-                      🔄 Zonen neu generieren
+                      🔄 Zonen neu generieren {user?.role === 'admin' ? '' : '(1x taeglich)'}
                     </button>
                   )}
-                  <button
-                    onClick={async () => {
-                      const lat = userLocation?.lat ?? 54.32;
-                      const lng = userLocation?.lng ?? 10.13;
-                      const r = 0.075; // ~8km radius in degrees
-                      const label = userLocation ? 'Aktueller Standort' : 'Kiel (Standard)';
-                      if (!confirm(`Raster-Grid für ${label} initialisieren?\nBounds: ±${r}° um ${lat.toFixed(3)}, ${lng.toFixed(3)}\n\nDas kann 10-40 Sekunden dauern.`)) return;
-                      try {
-                        const result = await initializeGeoRasterGrid({
-                          bounds: {
-                            north: lat + r,
-                            south: lat - r,
-                            east: lng + r,
-                            west: lng - r,
-                          },
-                          forceRefresh: false,
-                        });
-                        alert(`✅ Grid initialisiert!\n${result.cellsCreated} Zellen erstellt in ${result.duration_ms}ms.`);
-                      } catch (err) {
-                        alert(`❌ Grid-Fehler:\n${err.message}`);
-                      }
-                    }}
-                    className="px-3 py-2 text-xs bg-blue-200 hover:bg-blue-300 text-blue-900 rounded-lg font-medium shadow-md transition"
-                  >
-                    🗺️ Grid initialisieren
-                  </button>
+                  {user?.role === 'admin' && (
+                    <button
+                      onClick={async () => {
+                        const lat = userLocation?.lat ?? 54.32;
+                        const lng = userLocation?.lng ?? 10.13;
+                        const r = 0.075; // ~8km radius in degrees
+                        const label = userLocation ? 'Aktueller Standort' : 'Kiel (Standard)';
+                        if (!confirm(`Raster-Grid für ${label} initialisieren?\nBounds: ±${r}° um ${lat.toFixed(3)}, ${lng.toFixed(3)}\n\nDas kann 10-40 Sekunden dauern.`)) return;
+                        try {
+                          const result = await initializeGeoRasterGrid({
+                            bounds: {
+                              north: lat + r,
+                              south: lat - r,
+                              east: lng + r,
+                              west: lng - r,
+                            },
+                            forceRefresh: false,
+                          });
+                          alert(`✅ Grid initialisiert!\n${result.cellsCreated} Zellen erstellt in ${result.duration_ms}ms.`);
+                        } catch (err) {
+                          alert(`❌ Grid-Fehler:\n${err.message}`);
+                        }
+                      }}
+                      className="px-3 py-2 text-xs bg-blue-200 hover:bg-blue-300 text-blue-900 rounded-lg font-medium shadow-md transition"
+                    >
+                      🗺️ Grid initialisieren
+                    </button>
+                  )}
                 </div>
               )}
 
