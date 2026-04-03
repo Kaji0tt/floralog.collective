@@ -1163,7 +1163,7 @@ export default function Home() {
                         className="absolute left-0 top-0 w-28 h-28 rounded-2xl bg-white/70 backdrop-blur-md border-2 border-white/40 shadow-lg z-20 p-2"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <div className="h-full flex flex-col justify-between">
+                        <div className="h-full flex items-end justify-around gap-1">
                           {plantStatMeters.map((meter) => (
                             <Popover
                               key={meter.id}
@@ -1173,20 +1173,26 @@ export default function Home() {
                               <PopoverTrigger asChild>
                                 <button
                                   type="button"
-                                  className="w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 rounded-sm"
+                                  className="h-full w-6 flex items-end justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 rounded-sm"
                                   aria-label={`${meter.label} erklaeren`}
                                 >
-                                  <div className="grid grid-cols-10 gap-[1px]">
+                                  <div className="grid grid-rows-10 gap-[1px] h-full w-4">
                                     {Array.from({ length: 10 }).map((_, index) => (
                                       <div
                                         key={`${meter.label}-${index}`}
-                                        className={`h-3 rounded-[2px] border border-stone-200 ${index < meter.segments ? `${meter.color} border-transparent` : "bg-white/80"}`}
+                                        className={`rounded-[2px] border border-stone-200 ${index >= 10 - meter.segments ? `${meter.color} border-transparent` : "bg-white/80"}`}
                                       />
                                     ))}
                                   </div>
                                 </button>
                               </PopoverTrigger>
-                              <PopoverContent side="left" className="w-56 p-3 text-xs">
+                              <PopoverContent
+                                side="bottom"
+                                align="center"
+                                sideOffset={6}
+                                collisionPadding={12}
+                                className="w-[min(14rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] p-3 text-xs break-words"
+                              >
                                 <p className="font-semibold text-stone-900 mb-1">{meter.label}</p>
                                 <p className="text-stone-600 leading-relaxed">{meter.description}</p>
                               </PopoverContent>
