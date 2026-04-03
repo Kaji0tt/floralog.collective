@@ -128,7 +128,7 @@ export default function Quests() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
-  const [activeTab, setActiveTab] = useState("weekly");
+  const [activeTab, setActiveTab] = useState("map");
   const [averageColor, setAverageColor] = useState(null);
 
   const [questExpanded, setQuestExpanded] = useState(false);
@@ -199,6 +199,15 @@ export default function Quests() {
   const { data: allDiscoveries = [] } = useQuery({
     queryKey: ['allDiscoveries'],
     queryFn: () => Query.UserPlantDiscovery.list('-created_date'),
+  });
+
+  const { data: userOwnDiscoveries = [] } = useQuery({
+    queryKey: ['userDiscoveries', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      return Query.UserPlantDiscovery.filter({ auth_id: user.id });
+    },
+    enabled: !!user?.id,
   });
 
   const { data: scanLikes = [] } = useQuery({
@@ -430,44 +439,84 @@ export default function Quests() {
   const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
   const { weekStart, weekEnd } = getCurrentWeekBounds();
 
-  // Filtere Discoveries basierend auf wöchentlicher Quest
-  const weeklyDiscoveries = currentWeeklyQuest ? allDiscoveries.filter(d => {
-    // Nur Discoveries von Usern mit weekly_tracking
-    const discoveryUser = allUsers.find(u => u.user_email === d.user || u.user_email === d.created_by);
+  const getDiscoveryUserEmailLower = (discovery) => (
+    discovery.user || discovery.created_by || discovery.user_email || ""
+  ).toLowerCase();
+
+  const ownUserEmailLower = user?.email?.toLowerCase() || null;
+  const mergedDiscoveriesMap = new Map();
+
+  (allDiscoveries || []).forEach((discovery) => {
+    const discoveryEmailLower = getDiscoveryUserEmailLower(discovery);
+    const isOwnDiscovery =
+      (user?.id && discovery.auth_id === user.id) ||
+      (ownUserEmailLower && discoveryEmailLower === ownUserEmailLower);
+
+    if (!isOwnDiscovery && discovery?.id) {
+      mergedDiscoveriesMap.set(discovery.id, discovery);
+    }
+  });
+
+  (userOwnDiscoveries || []).forEach((discovery) => {
+    if (discovery?.id) {
+      mergedDiscoveriesMap.set(discovery.id, discovery);
+    }
+  });
+
+  const mergedDiscoveries = Array.from(mergedDiscoveriesMap.values());
+
+  const isCurrentWeekDiscovery = (discovery) => {
+    const discoveryEmailLower = getDiscoveryUserEmailLower(discovery);
+    const discoveryUser = allUsers.find(
+      (entry) => entry.user_email?.toLowerCase() === discoveryEmailLower
+    );
     if (!discoveryUser) return false;
 
-    // Prüfe ob der Scan in der aktuellen Kalenderwoche erstellt wurde
-    const scanDate = new Date(d.created_date || d.discovered_date);
-    if (scanDate < weekStart || scanDate > weekEnd) return false;
+    const scanDate = new Date(discovery.created_date || discovery.discovered_date);
+    if (Number.isNaN(scanDate.getTime())) return false;
+    return scanDate >= weekStart && scanDate <= weekEnd;
+  };
 
-    const plant = plants.find(p => p.id === d.plant_id);
+  const isWeeklyQuestMatch = (discovery) => {
+    if (!currentWeeklyQuest) return false;
+
+    const plant = plants.find((entry) => entry.id === discovery.plant_id);
     if (!plant) return false;
 
-    // Wenn target_species_name gesetzt ist, filtere nach Art
     if (currentWeeklyQuest.target_species_name) {
       return plant.species_name === currentWeeklyQuest.target_species_name;
     }
 
-    // Wenn target_genus_name gesetzt ist, filtere nach Gattung
     if (currentWeeklyQuest.target_genus_name) {
-      const genus = genera.find(g => 
-        g.category === plant.genus_category && 
-        g.category_dex_number === plant.genus_number
+      const genus = genera.find(
+        (entry) =>
+          entry.category === plant.genus_category &&
+          entry.category_dex_number === plant.genus_number
       );
       return genus?.genus_name === currentWeeklyQuest.target_genus_name;
     }
 
-    // Wenn Kategorie gesetzt ist (aber keine spezifische Gattung/Art), filtere nach Kategorie
     if (currentWeeklyQuest.category && currentWeeklyQuest.category !== "Alle") {
       return plant.genus_category === currentWeeklyQuest.category;
     }
 
     return true;
-  }) : [];
+  };
 
-  // Sortierung: Immer nach Neuesten
-  let sortedDiscoveries = [...weeklyDiscoveries];
-  sortedDiscoveries.sort((a, b) => new Date(b.created_date || b.discovered_date) - new Date(a.created_date || a.discovered_date));
+  const sortByNewest = (a, b) =>
+    new Date(b.created_date || b.discovered_date) - new Date(a.created_date || a.discovered_date);
+
+  const currentWeekDiscoveries = mergedDiscoveries.filter(isCurrentWeekDiscovery).sort(sortByNewest);
+
+  const weeklyPriorityDiscoveries = currentWeekDiscoveries
+    .filter(isWeeklyQuestMatch)
+    .sort(sortByNewest);
+
+  const weeklyPriorityIds = new Set(weeklyPriorityDiscoveries.map((entry) => entry.id));
+
+  const remainingCurrentDiscoveries = currentWeekDiscoveries
+    .filter((entry) => !weeklyPriorityIds.has(entry.id))
+    .sort(sortByNewest);
 
   const getLighterColor = (rgbString) => {
     if (!rgbString) return null;
@@ -563,7 +612,7 @@ export default function Quests() {
   const getPlantsWithDiscoveries = (userEmail) => {
     if (!userEmail) return [];
     const userEmailLower = userEmail.toLowerCase();
-    const userDiscoveries = allDiscoveries.filter(d =>
+    const userDiscoveries = mergedDiscoveries.filter(d =>
       d.user?.toLowerCase() === userEmailLower || d.created_by?.toLowerCase() === userEmailLower
     );
     return userDiscoveries
@@ -595,14 +644,14 @@ export default function Quests() {
           <div className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200">
             <div className="max-w-7xl mx-auto">
               <TabsList className="grid w-full grid-cols-3 bg-white h-12 rounded-none border-0">
+                <TabsTrigger value="map" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
+                  🗺️ Karte
+                </TabsTrigger>
                 <TabsTrigger value="weekly" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
-                  🎯 Aufgaben
+                  📒 Forscher Log
                 </TabsTrigger>
                 <TabsTrigger value="collections" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
                   🌿 Kollektionen
-                </TabsTrigger>
-                <TabsTrigger value="map" className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
-                  🗺️ Karte
                 </TabsTrigger>
               </TabsList>
               
@@ -610,81 +659,86 @@ export default function Quests() {
             </div>
           </div>
 
-          {/* Wöchentliche Community Challenge */}
+          {/* Forscher Log */}
           <TabsContent value="weekly" className="pt-14 px-4 pb-20">
-            {currentWeeklyQuest ? (
-              <>
-                {/* Kompakte Quest-Anzeige */}
-                <div className="mb-3">
-                  <button
-                    onClick={() => setQuestExpanded(!questExpanded)}
-                    className="w-full text-left px-3 py-2 bg-white/70 backdrop-blur-md rounded-full border border-emerald-200 hover:border-emerald-400 transition-all shadow-sm"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-stone-900 truncate">
-                          📆 KW {getWeekNumber().split('-W')[1]} · {currentWeeklyQuest.title}
-                        </p>
-                      </div>
-                      <motion.div
-                        animate={{ rotate: questExpanded ? 180 : 0 }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        <TrendingUp className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                      </motion.div>
+            {currentWeeklyQuest && (
+              <div className="mb-3">
+                <button
+                  onClick={() => setQuestExpanded(!questExpanded)}
+                  className="w-full text-left px-3 py-2 bg-white/70 backdrop-blur-md rounded-full border border-emerald-200 hover:border-emerald-400 transition-all shadow-sm"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-stone-900 truncate">
+                        📆 KW {getWeekNumber().split('-W')[1]} · {currentWeeklyQuest.title}
+                      </p>
                     </div>
-                  </button>
+                    <motion.div
+                      animate={{ rotate: questExpanded ? 180 : 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <TrendingUp className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                    </motion.div>
+                  </div>
+                </button>
 
-                  <AnimatePresence>
-                    {questExpanded && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="p-4 mt-2 bg-white/90 backdrop-blur-md rounded-lg border border-emerald-200 shadow-sm">
-                          <p className="text-sm text-stone-600 mb-3">{currentWeeklyQuest.description}</p>
-                          
-                          {currentWeeklyQuest.target_species_name && (
-                            <Badge variant="outline" className="border-2 border-emerald-500 text-emerald-700 font-bold">
-                              🎯 Ziel: {currentWeeklyQuest.target_species_name}
-                            </Badge>
-                          )}
-                          {currentWeeklyQuest.target_genus_name && !currentWeeklyQuest.target_species_name && (
-                            <Badge variant="outline" className="border-2 border-emerald-500 text-emerald-700 font-bold">
-                              🎯 Ziel: {currentWeeklyQuest.target_genus_name}
-                            </Badge>
-                          )}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                <AnimatePresence>
+                  {questExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="p-4 mt-2 bg-white/90 backdrop-blur-md rounded-lg border border-emerald-200 shadow-sm">
+                        <p className="text-sm text-stone-600 mb-3">{currentWeeklyQuest.description}</p>
+
+                        {currentWeeklyQuest.target_species_name && (
+                          <Badge variant="outline" className="border-2 border-emerald-500 text-emerald-700 font-bold">
+                            🎯 Ziel: {currentWeeklyQuest.target_species_name}
+                          </Badge>
+                        )}
+                        {currentWeeklyQuest.target_genus_name && !currentWeeklyQuest.target_species_name && (
+                          <Badge variant="outline" className="border-2 border-emerald-500 text-emerald-700 font-bold">
+                            🎯 Ziel: {currentWeeklyQuest.target_genus_name}
+                          </Badge>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+
+            {weeklyPriorityDiscoveries.length > 0 && (
+              <>
+                <div className="mb-2 px-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Zur Wochenaufgabe</p>
                 </div>
-
-                {/* Scans Grid - Kompakt wie GenusCard */}
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                  {sortedDiscoveries.map((discovery, index) => {
-                    const plant = plants.find(p => p.id === discovery.plant_id);
-                    const genus = genera.find(g => 
-                      plant && g.category === plant.genus_category && 
-                      g.category_dex_number === plant.genus_number
+                  {weeklyPriorityDiscoveries.map((discovery, index) => {
+                    const plant = plants.find((entry) => entry.id === discovery.plant_id);
+                    const genus = genera.find(
+                      (entry) =>
+                        plant &&
+                        entry.category === plant.genus_category &&
+                        entry.category_dex_number === plant.genus_number
                     );
-                    const discoveryUser = allUsers.find(u => 
-                      u.user_email === discovery.user || u.user_email === discovery.created_by
+                    const discoveryUser = allUsers.find(
+                      (entry) => entry.user_email?.toLowerCase() === getDiscoveryUserEmailLower(discovery)
                     );
-                    
-                    // Finde alle Scans dieses Users für diese Pflanze in dieser Woche
-                    const userEmail = discovery.user || discovery.created_by;
-                    const userPlantScans = weeklyDiscoveries.filter(d => 
-                      (d.user === userEmail || d.created_by === userEmail) && 
-                      d.plant_id === discovery.plant_id
+
+                    const discoveryEmailLower = getDiscoveryUserEmailLower(discovery);
+                    const userPlantScans = currentWeekDiscoveries.filter(
+                      (entry) =>
+                        getDiscoveryUserEmailLower(entry) === discoveryEmailLower &&
+                        entry.plant_id === discovery.plant_id
                     );
-                    
-                    const likeCount = scanLikes.filter(like => like.discovery_id === discovery.id).length;
+
+                    const likeCount = scanLikes.filter((like) => like.discovery_id === discovery.id).length;
                     const isLiked = scanLikes.some(
-                      like => like.discovery_id === discovery.id && like.liked_by === user.email
+                      (like) => like.discovery_id === discovery.id && like.liked_by === user.email
                     );
 
                     return (
@@ -694,7 +748,7 @@ export default function Quests() {
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: index * 0.02 }}
                       >
-                        <Card 
+                        <Card
                           className="border-2 border-stone-200 hover:border-green-300 hover:shadow-md transition-all bg-white overflow-hidden cursor-pointer"
                           onClick={() => setSelectedDiscovery({ discovery, allScans: userPlantScans, plant, genus, discoveryUser })}
                         >
@@ -756,28 +810,127 @@ export default function Quests() {
                     );
                   })}
                 </div>
-
-                {sortedDiscoveries.length === 0 && (
-                  <div className="text-center py-20">
-                    <Leaf className="w-16 h-16 text-stone-400 mx-auto mb-4" />
-                    <h3 className="text-xl font-bold text-stone-900 mb-2">
-                      Noch keine Scans diese Woche
-                    </h3>
-                    <p className="text-stone-600">
-                      Sei der Erste und scanne eine passende Pflanze!
-                    </p>
-                  </div>
-                )}
               </>
-            ) : (
+            )}
+
+            {weeklyPriorityDiscoveries.length > 0 && remainingCurrentDiscoveries.length > 0 && (
+              <div className="my-4 h-px w-full bg-stone-300/90" />
+            )}
+
+            {remainingCurrentDiscoveries.length > 0 && (
+              <>
+                <div className="mb-2 px-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-stone-700">Alle aktuellen Scans (neueste zuerst)</p>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {remainingCurrentDiscoveries.map((discovery, index) => {
+                    const plant = plants.find((entry) => entry.id === discovery.plant_id);
+                    const genus = genera.find(
+                      (entry) =>
+                        plant &&
+                        entry.category === plant.genus_category &&
+                        entry.category_dex_number === plant.genus_number
+                    );
+                    const discoveryUser = allUsers.find(
+                      (entry) => entry.user_email?.toLowerCase() === getDiscoveryUserEmailLower(discovery)
+                    );
+
+                    const discoveryEmailLower = getDiscoveryUserEmailLower(discovery);
+                    const userPlantScans = currentWeekDiscoveries.filter(
+                      (entry) =>
+                        getDiscoveryUserEmailLower(entry) === discoveryEmailLower &&
+                        entry.plant_id === discovery.plant_id
+                    );
+
+                    const likeCount = scanLikes.filter((like) => like.discovery_id === discovery.id).length;
+                    const isLiked = scanLikes.some(
+                      (like) => like.discovery_id === discovery.id && like.liked_by === user.email
+                    );
+
+                    return (
+                      <motion.div
+                        key={discovery.id}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: index * 0.02 }}
+                      >
+                        <Card
+                          className="border-2 border-stone-200 hover:border-green-300 hover:shadow-md transition-all bg-white overflow-hidden cursor-pointer"
+                          onClick={() => setSelectedDiscovery({ discovery, allScans: userPlantScans, plant, genus, discoveryUser })}
+                        >
+                          {discovery.image_url && (
+                            <div className="relative aspect-square">
+                              <img
+                                src={discovery.image_url}
+                                alt={plant?.species_name}
+                                className="w-full h-full object-cover"
+                              />
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleLikeMutation.mutate(discovery.id);
+                                }}
+                                disabled={toggleLikeMutation.isPending}
+                                className="absolute top-2 right-2 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform"
+                              >
+                                <Heart className={`w-4 h-4 ${isLiked ? 'fill-red-500 text-red-500' : 'text-stone-600'}`} />
+                              </button>
+                              {likeCount > 0 && (
+                                <div className="absolute bottom-2 right-2 px-2 py-1 bg-white/90 backdrop-blur-sm rounded-full text-xs font-bold text-stone-900 shadow-md">
+                                  {likeCount}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          <CardContent className="p-2">
+                            <div className="flex items-center justify-between gap-1">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(createPageUrl(`FriendProfile?email=${discoveryUser?.user_email}`));
+                                }}
+                                className="flex items-center gap-1 hover:opacity-70 transition-opacity flex-1 min-w-0"
+                              >
+                                <div className="w-5 h-5 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                  {discoveryUser?.avatar_url ? (
+                                    <img src={discoveryUser.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                                  ) : (
+                                    <Users className="w-3 h-3 text-white" />
+                                  )}
+                                </div>
+                                <div className="text-left flex-1 min-w-0">
+                                  <p className="text-[10px] font-semibold text-stone-900 truncate">
+                                    {discoveryUser?.display_name || discoveryUser?.full_name || 'Unbekannt'}
+                                  </p>
+                                </div>
+                              </button>
+                              {userPlantScans.length > 1 && (
+                                <div className="px-1.5 py-0.5 bg-green-100 rounded-full text-[10px] font-bold text-green-700 flex-shrink-0">
+                                  {userPlantScans.length}x
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {currentWeekDiscoveries.length === 0 && (
               <div className="text-center py-20">
                 <Leaf className="w-16 h-16 text-stone-400 mx-auto mb-4" />
                 <h3 className="text-xl font-bold text-stone-900 mb-2">
-                  Keine wöchentliche Challenge aktiv
+                  Noch keine Scans diese Woche
                 </h3>
+                <p className="text-stone-600">
+                  Sei der Erste und scanne eine Pflanze!
+                </p>
               </div>
             )}
-            </TabsContent>
+          </TabsContent>
 
           {/* Kollektionen Tab */}
           <TabsContent value="collections" className="pt-14 px-4 pb-20">
@@ -817,7 +970,7 @@ export default function Quests() {
                     itemCounts[item.collection_id] = (itemCounts[item.collection_id] || 0) + 1;
                   });
 
-                  const userDiscoveries = (allDiscoveries || []).filter((d) =>
+                  const userDiscoveries = (mergedDiscoveries || []).filter((d) =>
                     d.auth_id === user?.id ||
                     d.user === user?.email ||
                     d.created_by === user?.email ||
@@ -1360,7 +1513,7 @@ export default function Quests() {
                     })}
                     {(() => {
                       const userMap = new Map(allUsers.map(u => [u.user_email, u]));
-                      return allDiscoveries
+                      return mergedDiscoveries
                         .map(d => {
                           const coords = extractCoordinates(d.discovery_location);
                           if (!coords) return null;
@@ -1473,14 +1626,14 @@ export default function Quests() {
                   );
                 }
                 const relevantDiscoveries = selectedPlantForSighting.type === 'genus'
-                  ? allDiscoveries.filter(d => {
+                  ? mergedDiscoveries.filter(d => {
                       const plant = plants.find(p => p.id === d.plant_id);
                       return plant &&
                         plant.genus_category === selectedPlantForSighting.data.category &&
                         plant.genus_number === selectedPlantForSighting.data.category_dex_number &&
                         d.discovery_location;
                     })
-                  : allDiscoveries.filter(d =>
+                  : mergedDiscoveries.filter(d =>
                       d.plant_id === selectedPlantForSighting.data.id && d.discovery_location
                     );
                 const validDiscoveries = relevantDiscoveries.filter(d => {

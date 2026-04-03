@@ -1173,7 +1173,6 @@ export default function Home() {
                           </div>
 
                           <div className="relative flex-1">
-                            <div className="absolute bottom-[2px] left-1 right-1 h-px bg-stone-300/80" />
                             <div className="h-full flex items-end justify-around gap-1 px-1 pb-1">
                               {plantStatMeters.map((meter, meterIndex) => (
                             <Popover
