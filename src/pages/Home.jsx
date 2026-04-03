@@ -7,7 +7,7 @@ import { executeMigration } from "@/api/migrationService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Trophy, BookOpen, Target, Users, Camera, Loader2, Image as ImageIcon, Heart, Leaf, ChevronLeft } from "lucide-react";
+import { Trophy, BookOpen, Target, Users, Camera, Loader2, Image as ImageIcon, Heart, Leaf } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { motion, AnimatePresence } from "framer-motion";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
@@ -45,6 +45,7 @@ export default function Home() {
   const [showBackgroundHighlight, setShowBackgroundHighlight] = useState(false);
   const [showAchievementsHighlight, setShowAchievementsHighlight] = useState(false);
   const [showPlantDetailsPanel, setShowPlantDetailsPanel] = useState(false);
+  const [openPlantMeterTooltip, setOpenPlantMeterTooltip] = useState(null);
   const plantSlotPanelRef = useRef(null);
 
   const [scanFeedback, setScanFeedback] = useState(null);
@@ -542,6 +543,7 @@ export default function Home() {
     const handleOutsideClick = (event) => {
       if (plantSlotPanelRef.current && !plantSlotPanelRef.current.contains(event.target)) {
         setShowPlantDetailsPanel(false);
+        setOpenPlantMeterTooltip(null);
       }
     };
 
@@ -594,9 +596,27 @@ export default function Home() {
 
   const toSegments = (value) => Math.max(0, Math.min(10, Math.round(value / 10)));
   const plantStatMeters = [
-    { label: "Energie", segments: toSegments(energyValue), color: "bg-emerald-500" },
-    { label: "Datenqualitaet", segments: toSegments(dataQualityValue), color: "bg-cyan-500" },
-    { label: "Pflege", segments: toSegments(careValue), color: "bg-amber-500" },
+    {
+      id: "energy",
+      label: "Energie",
+      description: "Energie bestimmt, wie leistungsfaehig deine Pflanze ist. Sie steigt vor allem durch aktive Scans und sinkt mit der Zeit.",
+      segments: toSegments(energyValue),
+      color: "bg-emerald-500",
+    },
+    {
+      id: "dataQuality",
+      label: "Datenqualitaet",
+      description: "Datenqualitaet steigt durch abwechslungsreiche und neue Scans, zum Beispiel in verschiedenen Zonen oder mit neuen Pflanzen.",
+      segments: toSegments(dataQualityValue),
+      color: "bg-cyan-500",
+    },
+    {
+      id: "care",
+      label: "Pflege",
+      description: "Pflege zeigt, wie gut du regelmaessig mit deiner Pflanze interagierst. Kontinuierliche Aktivitaet haelt den Wert hoch.",
+      segments: toSegments(careValue),
+      color: "bg-amber-500",
+    },
   ];
 
   const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
@@ -1098,21 +1118,32 @@ export default function Home() {
               } : {}}
             >
               <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
-                <div ref={plantSlotPanelRef} className="relative">
-                  <button
+                <div
+                  ref={plantSlotPanelRef}
+                  className={`relative h-28 transition-all duration-300 ${showPlantDetailsPanel ? "w-[15rem]" : "w-28"}`}
+                >
+                  <motion.button
                     type="button"
-                    className="absolute top-1/2 -left-3 -translate-y-1/2 w-8 h-8 rounded-full border border-emerald-200 bg-white/90 shadow-md z-0 flex items-center justify-center"
+                    className="absolute top-2 left-2 w-6 h-6 rounded-full border-2 border-white/40 bg-white/55 text-stone-500 text-[11px] font-semibold shadow-sm z-30 flex items-center justify-center"
+                    animate={{ x: showPlantDetailsPanel ? 128 : 0 }}
+                    transition={{ duration: 0.22, ease: "easeOut" }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setShowPlantDetailsPanel((prev) => !prev);
+                      setShowPlantDetailsPanel((prev) => {
+                        const next = !prev;
+                        if (!next) setOpenPlantMeterTooltip(null);
+                        return next;
+                      });
                     }}
                     aria-label="Pflanzenpanel aufklappen"
                   >
-                    <ChevronLeft className="w-4 h-4 text-emerald-700" />
-                  </button>
+                    &lt;
+                  </motion.button>
 
-                  <div
-                    className="relative z-10 w-28 h-28 rounded-2xl bg-white/60 backdrop-blur-md border-2 border-white/40 shadow-lg flex flex-col items-center justify-center text-stone-700"
+                  <motion.div
+                    className="absolute left-0 top-0 z-10 w-28 h-28 rounded-2xl bg-white/60 backdrop-blur-md border-2 border-white/40 shadow-lg flex flex-col items-center justify-center text-stone-700"
+                    animate={{ x: showPlantDetailsPanel ? 128 : 0 }}
+                    transition={{ duration: 0.22, ease: "easeOut" }}
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="absolute -top-2 -right-2 px-2 py-0.5 rounded-full bg-emerald-700 text-white text-[10px] font-bold shadow-md border border-emerald-200">
@@ -1120,33 +1151,46 @@ export default function Home() {
                     </div>
                     <Leaf className="w-10 h-10 text-green-600" />
                     <span className="mt-1 text-[10px] font-semibold uppercase tracking-wide">Pflanzen-Slot</span>
-                  </div>
+                  </motion.div>
 
                   <AnimatePresence>
                     {showPlantDetailsPanel && (
                       <motion.div
-                        initial={{ opacity: 0, x: -10, scale: 0.96 }}
+                        initial={{ opacity: 0, x: -8, scale: 0.97 }}
                         animate={{ opacity: 1, x: 0, scale: 1 }}
-                        exit={{ opacity: 0, x: -10, scale: 0.96 }}
+                        exit={{ opacity: 0, x: -8, scale: 0.97 }}
                         transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="absolute top-0 -left-[7.75rem] w-28 h-28 rounded-2xl bg-white/70 backdrop-blur-md border-2 border-white/40 shadow-lg z-20 p-2"
+                        className="absolute left-0 top-0 w-28 h-28 rounded-2xl bg-white/70 backdrop-blur-md border-2 border-white/40 shadow-lg z-20 p-2"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div className="h-full flex flex-col justify-between">
                           {plantStatMeters.map((meter) => (
-                            <div key={meter.label} className="space-y-0.5">
-                              <div className="text-[9px] font-semibold text-stone-700 leading-none">{meter.label}</div>
-                              <div className="grid grid-cols-10 gap-[1px]">
-                                {Array.from({ length: 10 }).map((_, index) => (
-                                  <div
-                                    key={`${meter.label}-${index}`}
-                                    className={`h-3 rounded-[2px] border border-stone-200 flex items-center justify-center text-[7px] font-semibold leading-none ${index < meter.segments ? `${meter.color} text-white border-transparent` : "bg-white/80 text-stone-500"}`}
-                                  >
-                                    10
+                            <Popover
+                              key={meter.id}
+                              open={openPlantMeterTooltip === meter.id}
+                              onOpenChange={(open) => setOpenPlantMeterTooltip(open ? meter.id : null)}
+                            >
+                              <PopoverTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 rounded-sm"
+                                  aria-label={`${meter.label} erklaeren`}
+                                >
+                                  <div className="grid grid-cols-10 gap-[1px]">
+                                    {Array.from({ length: 10 }).map((_, index) => (
+                                      <div
+                                        key={`${meter.label}-${index}`}
+                                        className={`h-3 rounded-[2px] border border-stone-200 ${index < meter.segments ? `${meter.color} border-transparent` : "bg-white/80"}`}
+                                      />
+                                    ))}
                                   </div>
-                                ))}
-                              </div>
-                            </div>
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="left" className="w-56 p-3 text-xs">
+                                <p className="font-semibold text-stone-900 mb-1">{meter.label}</p>
+                                <p className="text-stone-600 leading-relaxed">{meter.description}</p>
+                              </PopoverContent>
+                            </Popover>
                           ))}
                         </div>
                       </motion.div>
