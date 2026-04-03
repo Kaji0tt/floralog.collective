@@ -45,7 +45,7 @@ export default function Impressum() {
             </div>
 
             <div>
-              <h3 className="font-bold text-lg text-stone-900 mb-2">Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV</h3>
+              <h3 className="font-bold text-lg text-stone-900 mb-2">Verantwortlich i.S.d. § 18 Abs. 2 MStV</h3>
               <p className="text-stone-700">
                 Floralog Collective<br />
                 Dorotheenstr. 41<br />
