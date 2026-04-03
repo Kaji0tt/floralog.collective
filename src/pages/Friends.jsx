@@ -15,7 +15,7 @@ import { motion } from "framer-motion";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import { AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import { formatDistanceToNow } from "date-fns";
 import { de } from "date-fns/locale";
@@ -57,12 +57,13 @@ const getAverageColor = (imageUrl) => {
 export default function Friends() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [user, setUser] = useState(null);
   const [friendEmail, setFriendEmail] = useState("");
   const [newAchievements, setNewAchievements] = useState([]);
   const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
   const [averageColor, setAverageColor] = useState(null);
-  const [activeTab, setActiveTab] = useState("friends");
+  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "friends");
   const [showAddFriendDialog, setShowAddFriendDialog] = useState(false);
 
   useEffect(() => {

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Heart, Users, TrendingUp, Clock, Leaf, Loader2, ChevronLeft, ChevronRight, X, Search, MapPin, Plus, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { getRobotPlantDailyZones, initializeGeoRasterGrid } from "@/api/robotPlantService";
 import { format } from "date-fns";
@@ -127,9 +127,10 @@ const THEME_MAP_COLORS = {
 
 export default function Quests() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
-  const [activeTab, setActiveTab] = useState("map");
+  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "map");
   const [averageColor, setAverageColor] = useState(null);
 
   const [questExpanded, setQuestExpanded] = useState(false);
@@ -348,6 +349,10 @@ export default function Quests() {
           const discovery = allDiscoveries.find((d) => d.id === discoveryId);
           const ownerAuthId = discovery?.auth_id;
           const ownerEmail = discovery?.created_by || discovery?.user;
+          const isWeeklyLike = weeklyPriorityIds.has(discoveryId);
+          const plant = plants.find((p) => p.id === discovery?.plant_id);
+          const plantName = plant?.species_name || "deiner Pflanze";
+          const seedAmount = isWeeklyLike ? 20 : 5;
 
           if ((ownerAuthId && ownerAuthId !== user.id) || (ownerEmail && ownerEmail !== user.email)) {
             const likerName = getUserDisplayName(user, user.email);
@@ -356,9 +361,9 @@ export default function Quests() {
               userEmail: ownerEmail,
               notificationType: "scan_liked",
               title: "❤️ Neuer Like",
-              message: `${likerName} gefällt dein Scan!`,
-              actionUrl: "Quests",
-              description: createdLike?.id || "",
+              message: `${likerName} gefällt dein Scan von "${plantName}"! Du hast ${seedAmount} Samen erhalten.`,
+              actionUrl: "Quests?tab=weekly",
+              description: "",
               displayLocation: "banner",
               createdBy: user.email,
             });
@@ -367,7 +372,6 @@ export default function Quests() {
             // Weekly challenge discoveries receive a higher reward
             if (ownerAuthId && createdLike?.id) {
               try {
-                const isWeeklyLike = weeklyPriorityIds.has(discoveryId);
                 await supabase.functions.invoke("robotPlantGrantReward", {
                   body: {
                     authId: ownerAuthId,
@@ -375,7 +379,7 @@ export default function Quests() {
                       ? "weekly_challenge_like_received"
                       : "scan_like_received",
                     eventReference: createdLike.id,
-                    amount: isWeeklyLike ? 20 : 5,
+                    amount: seedAmount,
                   },
                 });
               } catch (seedError) {

@@ -109,12 +109,26 @@ export default function QuestNotificationDisplay({ notification, onClose, onMark
 
   // Banner Display
   if (notification.display_location === "banner") {
+    const handleBannerBodyClick = () => {
+      onClose();
+      navigate(createPageUrl("Friends?tab=news"));
+    };
+
+    const handleAnsehenClick = (e) => {
+      e.stopPropagation();
+      onClose();
+      if (notification.action_url) {
+        navigate(createPageUrl(notification.action_url));
+      }
+    };
+
     return (
       <motion.div
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         exit={{ y: -100 }}
-        className="fixed top-0 left-0 right-0 bg-amber-400 text-stone-900 py-3 px-4 z-50 shadow-lg"
+        className="fixed top-0 left-0 right-0 bg-amber-400 text-stone-900 py-3 px-4 z-50 shadow-lg cursor-pointer"
+        onClick={handleBannerBodyClick}
       >
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex-1">
@@ -124,13 +138,16 @@ export default function QuestNotificationDisplay({ notification, onClose, onMark
           <div className="flex items-center gap-2">
             {notification.action_url && (
               <button
-                onClick={handleAction}
+                onClick={handleAnsehenClick}
                 className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-1 rounded font-semibold text-sm"
               >
                 Ansehen
               </button>
             )}
-            <button onClick={onClose} className="text-stone-900 hover:text-stone-700">
+            <button
+              onClick={(e) => { e.stopPropagation(); onClose(); }}
+              className="text-stone-900 hover:text-stone-700"
+            >
               <X className="w-5 h-5" />
             </button>
           </div>
