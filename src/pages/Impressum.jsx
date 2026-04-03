@@ -82,10 +82,11 @@ export default function Impressum() {
                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                   <p className="font-semibold text-stone-800 mb-2">In Kürze:</p>
                   <ul className="list-disc list-inside space-y-1">
-                    <li>Login und Datenspeicherung erfolgen über Supabase</li>
-                    <li>Pflanzenerkennung nutzt Pl@ntNet</li>
-                    <li>Keine Datenspeicherung auf eigenen Servern</li>
-                    <li>Einsehbar: E-Mail, Freischaltungen und Errungenschaften, Standortdaten der Scans sofern aktiviert, Kontaktformular-Daten</li>
+                    <li>Gespeicherte Daten: E-Mail-Adresse, Anzeigename, Scans und Standortdaten (optional)</li>
+                    <li>Backend: Supabase (Auftragsverarbeiter, Server in Frankfurt/EU)</li>
+                    <li>Frontend: Cloudflare (CDN zur Inhaltsauslieferung)</li>
+                    <li>Pflanzenerkennung: Pl@ntNet und ChatGPT von OpenAI</li>
+                    <li>Keine dateneigene Speicherung auf unseren Servern</li>
                   </ul>
                 </div>
               </div>
