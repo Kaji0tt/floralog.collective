@@ -1137,7 +1137,7 @@ export default function Home() {
                     }}
                     aria-label="Pflanzenpanel aufklappen"
                   >
-                    &lt;
+                    {showPlantDetailsPanel ? ">" : "<"}
                   </motion.button>
 
                   <motion.div
