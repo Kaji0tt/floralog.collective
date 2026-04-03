@@ -363,15 +363,19 @@ export default function Quests() {
               createdBy: user.email,
             });
 
-            // Grant 5 seeds to the scan owner for receiving a like
+            // Grant seeds to the scan owner for receiving a like
+            // Weekly challenge discoveries receive a higher reward
             if (ownerAuthId && createdLike?.id) {
               try {
+                const isWeeklyLike = weeklyPriorityIds.has(discoveryId);
                 await supabase.functions.invoke("robotPlantGrantReward", {
                   body: {
                     authId: ownerAuthId,
-                    eventSource: "scan_like_received",
+                    eventSource: isWeeklyLike
+                      ? "weekly_challenge_like_received"
+                      : "scan_like_received",
                     eventReference: createdLike.id,
-                    amount: 5,
+                    amount: isWeeklyLike ? 20 : 5,
                   },
                 });
               } catch (seedError) {

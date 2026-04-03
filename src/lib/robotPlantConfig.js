@@ -61,7 +61,7 @@ export const REWARD_FORMULA_CONFIG = Object.freeze({
     [ROBOT_PLANT_EVENT_SOURCES.dailyChallengeCompletion]: 35,
     [ROBOT_PLANT_EVENT_SOURCES.shareScan]: 8,
     [ROBOT_PLANT_EVENT_SOURCES.weeklyChallengeParticipation]: 12,
-    [ROBOT_PLANT_EVENT_SOURCES.weeklyChallengeLikeReceived]: 4,
+    [ROBOT_PLANT_EVENT_SOURCES.weeklyChallengeLikeReceived]: 20,
     [ROBOT_PLANT_EVENT_SOURCES.scanLikeReceived]: 5,
     [ROBOT_PLANT_EVENT_SOURCES.waterPlant]: 0,
     [ROBOT_PLANT_EVENT_SOURCES.fertilizePlant]: 0,
