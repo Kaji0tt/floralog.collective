@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Query } from "@/api/entities";
 import { createUserNotification, getUserDisplayName } from "@/api/notificationService";
+import { supabase } from "@/api/supabaseClient";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -361,6 +362,22 @@ export default function Quests() {
               displayLocation: "banner",
               createdBy: user.email,
             });
+
+            // Grant 5 seeds to the scan owner for receiving a like
+            if (ownerAuthId && createdLike?.id) {
+              try {
+                await supabase.functions.invoke("robotPlantGrantReward", {
+                  body: {
+                    authId: ownerAuthId,
+                    eventSource: "scan_like_received",
+                    eventReference: createdLike.id,
+                    amount: 5,
+                  },
+                });
+              } catch (seedError) {
+                console.error("[Quests] Could not grant like seed reward:", seedError);
+              }
+            }
           }
         } catch (error) {
           console.error("[Quests] Could not create scan like notification:", error);
