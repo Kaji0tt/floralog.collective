@@ -594,28 +594,31 @@ export default function Home() {
     Math.min(100, Number(robotPlantState?.care ?? robotPlantState?.care_value ?? 0))
   );
 
-  const toSegments = (value) => Math.max(0, Math.min(10, Math.round(value / 10)));
+  const toSegments = (value) => Math.max(0, Math.min(5, Math.round(value / 20)));
   const plantStatMeters = [
     {
       id: "energy",
       label: "Energie",
       description: "Energie bestimmt, wie leistungsfaehig deine Pflanze ist. Sie steigt vor allem durch aktive Scans und sinkt mit der Zeit.",
       segments: toSegments(energyValue),
-      color: "bg-emerald-500",
+      activeClass: "bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.35)]",
+      dotClass: "bg-emerald-500",
     },
     {
       id: "dataQuality",
       label: "Datenqualitaet",
       description: "Datenqualitaet steigt durch abwechslungsreiche und neue Scans, zum Beispiel in verschiedenen Zonen oder mit neuen Pflanzen.",
       segments: toSegments(dataQualityValue),
-      color: "bg-cyan-500",
+      activeClass: "bg-gradient-to-t from-cyan-600 to-cyan-400 shadow-[0_0_6px_rgba(6,182,212,0.35)]",
+      dotClass: "bg-cyan-500",
     },
     {
       id: "care",
       label: "Pflege",
       description: "Pflege zeigt, wie gut du regelmaessig mit deiner Pflanze interagierst. Kontinuierliche Aktivitaet haelt den Wert hoch.",
       segments: toSegments(careValue),
-      color: "bg-amber-500",
+      activeClass: "bg-gradient-to-t from-amber-600 to-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.35)]",
+      dotClass: "bg-amber-500",
     },
   ];
 
@@ -1160,11 +1163,20 @@ export default function Home() {
                         animate={{ opacity: 1, x: 0, scale: 1 }}
                         exit={{ opacity: 0, x: -8, scale: 0.97 }}
                         transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="absolute left-0 top-0 w-28 h-28 rounded-2xl bg-white/70 backdrop-blur-md border-2 border-white/40 shadow-lg z-20 p-2"
+                        className="absolute left-0 top-0 w-28 h-28 rounded-2xl bg-gradient-to-br from-white/85 via-stone-100/75 to-stone-200/65 backdrop-blur-md border-2 border-white/50 shadow-[0_8px_18px_rgba(15,23,42,0.16)] z-20 p-2"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <div className="h-full flex items-end justify-around gap-1">
-                          {plantStatMeters.map((meter) => (
+                        <div className="absolute inset-0 rounded-2xl pointer-events-none bg-gradient-to-b from-white/30 to-transparent" />
+                        <div className="relative h-full flex flex-col">
+                          <div className="flex items-center justify-between mb-1 px-0.5">
+                            <span className="text-[7px] font-semibold uppercase tracking-[0.08em] text-stone-600/90">Status</span>
+                            <span className="text-[7px] font-bold text-stone-500">{Math.round((energyValue + dataQualityValue + careValue) / 3)}%</span>
+                          </div>
+
+                          <div className="relative flex-1">
+                            <div className="absolute bottom-[2px] left-1 right-1 h-px bg-stone-300/80" />
+                            <div className="h-full flex items-end justify-around gap-1 px-1 pb-1">
+                              {plantStatMeters.map((meter, meterIndex) => (
                             <Popover
                               key={meter.id}
                               open={openPlantMeterTooltip === meter.id}
@@ -1173,14 +1185,18 @@ export default function Home() {
                               <PopoverTrigger asChild>
                                 <button
                                   type="button"
-                                  className="h-full w-6 flex items-end justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 rounded-sm"
+                                  className="h-full w-6 flex flex-col items-center justify-end focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 rounded-sm"
                                   aria-label={`${meter.label} erklaeren`}
                                 >
-                                  <div className="grid grid-rows-10 gap-[1px] h-full w-4">
-                                    {Array.from({ length: 10 }).map((_, index) => (
-                                      <div
+                                  <span className={`mb-1 h-1.5 w-1.5 rounded-full ${meter.dotClass}`} />
+                                  <div className="grid grid-rows-5 gap-[2px] h-full w-4 p-[1px] rounded-md border border-white/50 bg-white/35 shadow-inner">
+                                    {Array.from({ length: 5 }).map((_, index) => (
+                                      <motion.div
                                         key={`${meter.label}-${index}`}
-                                        className={`rounded-[2px] border border-stone-200 ${index >= 10 - meter.segments ? `${meter.color} border-transparent` : "bg-white/80"}`}
+                                        initial={{ opacity: 0, y: 3 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.14, delay: 0.02 * meterIndex + 0.025 * (4 - index) }}
+                                        className={`rounded-[2px] border ${index >= 5 - meter.segments ? `${meter.activeClass} border-transparent` : "border-stone-200 bg-white/75"}`}
                                       />
                                     ))}
                                   </div>
@@ -1197,7 +1213,9 @@ export default function Home() {
                                 <p className="text-stone-600 leading-relaxed">{meter.description}</p>
                               </PopoverContent>
                             </Popover>
-                          ))}
+                              ))}
+                            </div>
+                          </div>
                         </div>
                       </motion.div>
                     )}
