@@ -3,6 +3,8 @@ import { Mail, FileText } from "lucide-react";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 
 export default function Impressum() {
+  const currentYear = new Date().getFullYear();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4 md:p-8">
       <MobileBackButton />
@@ -93,6 +95,10 @@ export default function Impressum() {
             </div>
           </CardContent>
         </Card>
+
+        <p className="text-center text-sm text-stone-600 mt-4">
+          © Floralog Collective, {currentYear}
+        </p>
       </div>
     </div>
   );

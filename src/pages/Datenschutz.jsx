@@ -237,7 +237,7 @@ export default function Datenschutz() {
               Änderungen informiert zu bleiben.
             </p>
             <p className="text-sm text-stone-600 mt-4">
-              Stand: Januar 2025
+              Stand: April 2026
             </p>
           </CardContent>
         </Card>

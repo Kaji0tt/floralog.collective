@@ -7,7 +7,7 @@ import { executeMigration } from "@/api/migrationService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Trophy, BookOpen, Target, Users, Camera, Loader2, Image as ImageIcon, Heart, Leaf } from "lucide-react";
+import { Trophy, BookOpen, Target, Users, Camera, Loader2, Image as ImageIcon, Heart, Leaf, ChevronLeft } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { motion, AnimatePresence } from "framer-motion";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
@@ -44,6 +44,8 @@ export default function Home() {
   const [showScannerHighlight, setShowScannerHighlight] = useState(false);
   const [showBackgroundHighlight, setShowBackgroundHighlight] = useState(false);
   const [showAchievementsHighlight, setShowAchievementsHighlight] = useState(false);
+  const [showPlantDetailsPanel, setShowPlantDetailsPanel] = useState(false);
+  const plantSlotPanelRef = useRef(null);
 
   const [scanFeedback, setScanFeedback] = useState(null);
 
@@ -534,6 +536,24 @@ export default function Home() {
     }
   }, [user?.background_image_url, user?.background_color]);
 
+  useEffect(() => {
+    if (!showPlantDetailsPanel) return;
+
+    const handleOutsideClick = (event) => {
+      if (plantSlotPanelRef.current && !plantSlotPanelRef.current.contains(event.target)) {
+        setShowPlantDetailsPanel(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("touchstart", handleOutsideClick);
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("touchstart", handleOutsideClick);
+    };
+  }, [showPlantDetailsPanel]);
+
   const isLoadingCriticalData = isLoadingDiscoveries || isLoadingQuests || isLoadingAchievements || isLoadingFriends || isLoadingWeeklyQuests || isLoadingMonthlyQuests || isLoadingCollectionQuests;
 
   if (!user) {
@@ -555,6 +575,29 @@ export default function Home() {
     0,
     Number(robotPlantState?.wallet_balance ?? robotPlantState?.walletBalance ?? 0)
   );
+
+  const energyValue = Math.max(
+    0,
+    Math.min(100, Number(robotPlantState?.energy ?? robotPlantState?.energy_value ?? 0))
+  );
+  const dataQualityValue = Math.max(
+    0,
+    Math.min(
+      100,
+      Number(robotPlantState?.dataQuality ?? robotPlantState?.data_quality ?? robotPlantState?.data_quality_value ?? 0)
+    )
+  );
+  const careValue = Math.max(
+    0,
+    Math.min(100, Number(robotPlantState?.care ?? robotPlantState?.care_value ?? 0))
+  );
+
+  const toSegments = (value) => Math.max(0, Math.min(10, Math.round(value / 10)));
+  const plantStatMeters = [
+    { label: "Energie", segments: toSegments(energyValue), color: "bg-emerald-500" },
+    { label: "Datenqualitaet", segments: toSegments(dataQualityValue), color: "bg-cyan-500" },
+    { label: "Pflege", segments: toSegments(careValue), color: "bg-amber-500" },
+  ];
 
   const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
   const currentMonthlyQuest = getCurrentMonthlyQuest(monthlyQuests);
@@ -1055,12 +1098,60 @@ export default function Home() {
               } : {}}
             >
               <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
-                <div className="relative w-28 h-28 rounded-2xl bg-white/60 backdrop-blur-md border-2 border-white/40 shadow-lg flex flex-col items-center justify-center text-stone-700">
-                  <div className="absolute -top-2 -right-2 px-2 py-0.5 rounded-full bg-emerald-700 text-white text-[10px] font-bold shadow-md border border-emerald-200">
-                    {playerSeeds}
+                <div ref={plantSlotPanelRef} className="relative">
+                  <button
+                    type="button"
+                    className="absolute top-1/2 -left-3 -translate-y-1/2 w-8 h-8 rounded-full border border-emerald-200 bg-white/90 shadow-md z-0 flex items-center justify-center"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowPlantDetailsPanel((prev) => !prev);
+                    }}
+                    aria-label="Pflanzenpanel aufklappen"
+                  >
+                    <ChevronLeft className="w-4 h-4 text-emerald-700" />
+                  </button>
+
+                  <div
+                    className="relative z-10 w-28 h-28 rounded-2xl bg-white/60 backdrop-blur-md border-2 border-white/40 shadow-lg flex flex-col items-center justify-center text-stone-700"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="absolute -top-2 -right-2 px-2 py-0.5 rounded-full bg-emerald-700 text-white text-[10px] font-bold shadow-md border border-emerald-200">
+                      {playerSeeds}
+                    </div>
+                    <Leaf className="w-10 h-10 text-green-600" />
+                    <span className="mt-1 text-[10px] font-semibold uppercase tracking-wide">Pflanzen-Slot</span>
                   </div>
-                  <Leaf className="w-10 h-10 text-green-600" />
-                  <span className="mt-1 text-[10px] font-semibold uppercase tracking-wide">Pflanzen-Slot</span>
+
+                  <AnimatePresence>
+                    {showPlantDetailsPanel && (
+                      <motion.div
+                        initial={{ opacity: 0, x: -10, scale: 0.96 }}
+                        animate={{ opacity: 1, x: 0, scale: 1 }}
+                        exit={{ opacity: 0, x: -10, scale: 0.96 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        className="absolute top-0 -left-[7.75rem] w-28 h-28 rounded-2xl bg-white/70 backdrop-blur-md border-2 border-white/40 shadow-lg z-20 p-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="h-full flex flex-col justify-between">
+                          {plantStatMeters.map((meter) => (
+                            <div key={meter.label} className="space-y-0.5">
+                              <div className="text-[9px] font-semibold text-stone-700 leading-none">{meter.label}</div>
+                              <div className="grid grid-cols-10 gap-[1px]">
+                                {Array.from({ length: 10 }).map((_, index) => (
+                                  <div
+                                    key={`${meter.label}-${index}`}
+                                    className={`h-3 rounded-[2px] border border-stone-200 flex items-center justify-center text-[7px] font-semibold leading-none ${index < meter.segments ? `${meter.color} text-white border-transparent` : "bg-white/80 text-stone-500"}`}
+                                  >
+                                    10
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
                 <div className="flex-1 w-full max-w-full min-w-0 bg-white/40 backdrop-blur-md rounded-xl p-5 border-2 border-white/30 shadow-lg">
