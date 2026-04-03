@@ -48,11 +48,12 @@ export default function Datenschutz() {
             </p>
             <div className="bg-stone-50 p-4 rounded-lg border border-stone-200">
               <p className="text-stone-800 font-semibold">
-                Jascha Kruse<br />
+                Floralog Collective<br />
                 Dorotheenstr. 41<br />
                 24939 Flensburg<br />
                 <br />
-                E-Mail: jascha.kruse@web.de
+                Vertreten durch: Jascha Kruse<br />
+                E-Mail: info@floralog.de
               </p>
             </div>
           </CardContent>
@@ -184,7 +185,7 @@ export default function Datenschutz() {
           </CardHeader>
           <CardContent className="p-6">
             <p className="text-stone-700 leading-relaxed mb-3">
-              Der Betreiber (Jascha Kruse) hat ausschließlich Zugriff auf folgende Informationen:
+              Der Betreiber (Floralog Collective, vertreten durch Jascha Kruse) hat ausschließlich Zugriff auf folgende Informationen:
             </p>
             <ul className="list-disc list-inside space-y-2 text-stone-700 ml-4 mb-3">
               <li>E-Mail-Adresse der Nutzenden</li>
@@ -242,7 +243,7 @@ export default function Datenschutz() {
               <li><strong>Widerspruch</strong> – Sie können der Verarbeitung widersprechen</li>
             </ul>
             <p className="text-stone-700 leading-relaxed">
-              Zur Ausübung dieser Rechte wenden Sie sich bitte an: <strong>jascha.kruse@web.de</strong>
+              Zur Ausübung dieser Rechte wenden Sie sich bitte an: <strong>info@floralog.de</strong>
             </p>
           </CardContent>
         </Card>

@@ -25,9 +25,11 @@ export default function Impressum() {
             <div>
               <h3 className="font-bold text-lg text-stone-900 mb-2">Betreiber</h3>
               <p className="text-stone-700">
-                Jascha Kruse<br />
+                Floralog Collective<br />
                 Dorotheenstr. 41<br />
-                24939, Flensburg
+                24939 Flensburg<br />
+                <br />
+                Eigentümer: Jascha Kruse
               </p>
             </div>
 
@@ -45,9 +47,11 @@ export default function Impressum() {
             <div>
               <h3 className="font-bold text-lg text-stone-900 mb-2">Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV</h3>
               <p className="text-stone-700">
-                Jascha Kruse<br />
+                Floralog Collective<br />
                 Dorotheenstr. 41<br />
-                24939 Flensburg
+                24939 Flensburg<br />
+                <br />
+                Vertreten durch: Jascha Kruse
               </p>
             </div>
 
