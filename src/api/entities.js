@@ -27,7 +27,8 @@ const legacyIdTables = new Set([
   'UserCollectionQuest',
   'UserAchievement',
   'UserRewards',
-  'UserNotification'
+  'UserNotification',
+  'ScanLike'
 ]);
 
 const generateLegacyHexId = () => {
