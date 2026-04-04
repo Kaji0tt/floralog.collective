@@ -4,6 +4,51 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import QuestNotificationDisplay from "./QuestNotificationDisplay";
 import { AnimatePresence } from "framer-motion";
 
+// Notification types that belong to the Friends news tab.
+// These must NOT be marked as seen when dismissed from the Home page banner,
+// so that the Friends page unread counter remains accurate.
+const FRIENDS_NEWS_TYPES = [
+  'gift_received',
+  'collection_followed',
+  'friendship_accepted',
+  'friend_request_received',
+  'friend_achievement',
+  'scan_liked',
+];
+
+const DISMISSED_BANNERS_KEY = 'floralog_dismissed_news_banners';
+
+function getDismissedBannerIds() {
+  try {
+    const stored = localStorage.getItem(DISMISSED_BANNERS_KEY);
+    return new Set(stored ? JSON.parse(stored) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function addDismissedBannerId(id) {
+  try {
+    const ids = getDismissedBannerIds();
+    ids.add(id);
+    localStorage.setItem(DISMISSED_BANNERS_KEY, JSON.stringify([...ids]));
+  } catch {
+    // ignore localStorage errors
+  }
+}
+
+function cleanupDismissedBanners(seenIds) {
+  try {
+    const ids = getDismissedBannerIds();
+    const cleaned = [...ids].filter(id => !seenIds.has(id));
+    if (cleaned.length < ids.size) {
+      localStorage.setItem(DISMISSED_BANNERS_KEY, JSON.stringify(cleaned));
+    }
+  } catch {
+    // ignore
+  }
+}
+
 /**
  * Manager für User-Benachrichtigungen
  * Zeigt ungesehene Benachrichtigungen basierend auf display_location an
@@ -19,9 +64,17 @@ export default function UserNotificationManager({ user }) {
     queryFn: async () => {
       if (!user?.id) return [];
       const allNotifications = await Query.UserNotification.list('-created_date');
-      const filtered = allNotifications.filter(n => 
-        n.auth_id === user.id && 
-        n.seen === false
+
+      // Remove IDs from the dismissed-banner list that are now marked as seen in DB
+      const seenIds = new Set(allNotifications.filter(n => n.seen === true).map(n => n.id));
+      cleanupDismissedBanners(seenIds);
+
+      const dismissedBannerIds = getDismissedBannerIds();
+
+      const filtered = allNotifications.filter(n =>
+        n.auth_id === user.id &&
+        n.seen === false &&
+        !dismissedBannerIds.has(n.id)
       );
       console.log('[UserNotificationManager] Loaded notifications', {
         userId: user.id,
@@ -79,9 +132,14 @@ export default function UserNotificationManager({ user }) {
         const priorityOrder = { high: 3, medium: 2, low: 1 };
         return (priorityOrder[b.priority] || 2) - (priorityOrder[a.priority] || 2);
       });
+
+      // Also exclude notifications that were dismissed as banners in a previous session
+      const dismissedBannerIds = getDismissedBannerIds();
       
       // Finde die erste Benachrichtigung, die noch nicht gezeigt wurde
-      const nextNotification = sortedNotifications.find(n => !shownNotificationIds.has(n.id));
+      const nextNotification = sortedNotifications.find(n =>
+        !shownNotificationIds.has(n.id) && !dismissedBannerIds.has(n.id)
+      );
       
       if (nextNotification) {
         setCurrentNotification(nextNotification);
@@ -92,7 +150,14 @@ export default function UserNotificationManager({ user }) {
 
   const handleClose = () => {
     if (currentNotification) {
-      markAsSeenMutation.mutate(currentNotification.id);
+      if (FRIENDS_NEWS_TYPES.includes(currentNotification.notification_type)) {
+        // For Friends news-type notifications: track dismissal in localStorage so the
+        // banner doesn't reappear, but do NOT mark as seen in the DB. The notification
+        // stays unseen so the Friends page unread counter reflects it correctly.
+        addDismissedBannerId(currentNotification.id);
+      } else {
+        markAsSeenMutation.mutate(currentNotification.id);
+      }
     }
     setCurrentNotification(null);
   };
