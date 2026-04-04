@@ -16,6 +16,7 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [authError, setAuthError] = useState(null);
+  const [loginModalOpen, setLoginModalOpen] = useState(false);
 
   useEffect(() => {
     // Fallback timeout: if auth doesn't respond in 3 seconds, stop loading
@@ -112,6 +113,26 @@ export const AuthProvider = ({ children }) => {
     setProfile(newProfile);
   };
 
+  const openLoginModal = () => {
+    setLoginModalOpen(true);
+  };
+
+  const closeLoginModal = () => {
+    setLoginModalOpen(false);
+  };
+
+  /**
+   * Require authentication. If the user is not authenticated, open the login modal
+   * and return false. Otherwise return true.
+   */
+  const requireAuth = () => {
+    if (!isAuthenticated) {
+      openLoginModal();
+      return false;
+    }
+    return true;
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user,
@@ -121,7 +142,11 @@ export const AuthProvider = ({ children }) => {
       authError,
       logout,
       navigateToLogin,
-      updateProfile
+      updateProfile,
+      loginModalOpen,
+      openLoginModal,
+      closeLoginModal,
+      requireAuth
     }}>
       {children}
     </AuthContext.Provider>

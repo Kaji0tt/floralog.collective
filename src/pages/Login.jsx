@@ -193,6 +193,14 @@ export default function Login() {
               Jetzt migrieren
             </button>
           </div>
+          <div className="mt-4 pt-4 border-t border-gray-200 text-center">
+            <button
+              onClick={() => navigate('/')}
+              className="text-sm text-gray-500 hover:text-gray-700 hover:underline transition-colors"
+            >
+              Als Gast stöbern
+            </button>
+          </div>
         </div>
       </div>
     </div>
