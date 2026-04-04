@@ -342,7 +342,7 @@ export default function Collection() {
     },
   });
 
-  const rarityOrder = { "Häufig": 1, "Gelegentlich": 2, "Selten": 3 };
+  const rarityOrder = { "Häufig": 1, "Gelegentlich": 2, "Selten": 3, "Sehr Selten": 4, "Extrem Selten": 5 };
 
   const generaWithDiscovery = genera.map(genus => {
     const genusPlants = plants.filter(p => 
@@ -578,7 +578,11 @@ export default function Collection() {
   } else if (collectionSort === "title") {
     sortedGenera.sort((a, b) => (a.genus_name || "").localeCompare(b.genus_name || "", "de"));
   } else if (collectionSort === "rarity") {
-    sortedGenera.sort((a, b) => (b.maxRarityScore || 0) - (a.maxRarityScore || 0));
+    sortedGenera.sort((a, b) => {
+      const rarityDiff = (b.maxRarityScore || 0) - (a.maxRarityScore || 0);
+      if (rarityDiff !== 0) return rarityDiff;
+      return (a.genus_name || "").localeCompare(b.genus_name || "", "de");
+    });
   } else if (collectionSort === "index") {
     const categoryOrder = { "Bäume": 1, "Sträucher": 2, "Blumen": 3 };
     sortedGenera.sort((a, b) => {
