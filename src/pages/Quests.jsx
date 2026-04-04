@@ -254,7 +254,7 @@ export default function Quests() {
       });
       return response?.zones || [];
     },
-    enabled: mapQuickView === "local" && !!userLocation && user?.role !== 'admin',
+    enabled: mapQuickView === "local" && !!userLocation,
     staleTime: 1000 * 60 * 10,
   });
 
@@ -304,7 +304,7 @@ export default function Quests() {
   const isMapZonesBusy =
     isInitializingGrid ||
     isRegeneratingZones ||
-    ((user?.role !== 'admin') && (isZonesLoading || isZonesFetching));
+    (isZonesLoading || isZonesFetching);
 
   const mapLoadingLabel = isInitializingGrid
     ? "Raster-Grid wird initialisiert..."
