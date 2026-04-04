@@ -31,6 +31,7 @@ export default function Home() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef(null);
   const [newAchievements, setNewAchievements] = useState([]);
@@ -232,6 +233,7 @@ export default function Home() {
   const loadUserData = async () => {
     const currentUser = await getCurrentUser();
     setUser(currentUser);
+    setIsLoadingUser(false);
     const displayName = currentUser?.display_name || currentUser?.full_name || "";
     setEditedName(displayName);
     // Refetch alle Queries um Stats sofort zu aktualisieren
@@ -558,10 +560,44 @@ export default function Home() {
 
   const isLoadingCriticalData = isLoadingDiscoveries || isLoadingQuests || isLoadingAchievements || isLoadingFriends || isLoadingWeeklyQuests || isLoadingMonthlyQuests || isLoadingCollectionQuests;
 
-  if (!user) {
+  if (isLoadingUser) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50">
         <Leaf className="w-12 h-12 text-green-600 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-6 text-center">
+        <div className="w-24 h-24 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center mb-6 shadow-lg">
+          <Leaf className="w-12 h-12 text-white" />
+        </div>
+        <h1 className="text-3xl font-bold text-stone-800 mb-2">Willkommen bei Floralog</h1>
+        <p className="text-stone-500 mb-8 max-w-sm">
+          Entdecke, identifiziere und sammle Pflanzen in deiner Umgebung. Melde dich an oder erstelle ein kostenloses Konto, um loszulegen.
+        </p>
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          <button
+            onClick={() => navigate('/login')}
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-xl shadow-md transition-colors"
+          >
+            Anmelden
+          </button>
+          <button
+            onClick={() => navigate('/register')}
+            className="w-full border-2 border-green-600 text-green-700 hover:bg-green-50 font-semibold py-3 px-6 rounded-xl transition-colors"
+          >
+            Kostenlos registrieren
+          </button>
+          <button
+            onClick={() => navigate('/Scanner')}
+            className="w-full text-stone-500 hover:text-stone-700 text-sm py-2 transition-colors"
+          >
+            Als Gast Pflanze scannen
+          </button>
+        </div>
       </div>
     );
   }
