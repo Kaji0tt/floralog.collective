@@ -27,6 +27,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import NotificationManager from "@/components/notifications/NotificationManager";
 import LocationManager from "@/components/notifications/LocationManager";
+import { useAuth } from "@/lib/AuthContext";
 
 
 
@@ -34,6 +35,7 @@ import LocationManager from "@/components/notifications/LocationManager";
 export default function Profile() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isAuthenticated, isLoadingAuth, openLoginModal } = useAuth();
   const [user, setUser] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef(null);
@@ -414,6 +416,21 @@ export default function Profile() {
   }, [user?.background_image_url, user?.background_color]);
 
   if (!user) {
+    // If auth is done loading and user is not authenticated, show modal and go back
+    if (!isLoadingAuth && !isAuthenticated) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50 gap-4">
+          <Leaf className="w-12 h-12 text-green-600" />
+          <p className="text-stone-600 text-sm">Anmeldung erforderlich</p>
+          <Button
+            onClick={() => openLoginModal()}
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
+            Zur Anmeldung
+          </Button>
+        </div>
+      );
+    }
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50">
         <Leaf className="w-12 h-12 text-green-600 animate-spin" />

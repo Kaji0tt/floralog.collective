@@ -17,6 +17,7 @@ import CameraCapture from "../components/scanner/CameraCapture";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import { AnimatePresence, motion } from "framer-motion";
+import { useAuth } from "@/lib/AuthContext";
 
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import { Check } from "lucide-react";
@@ -100,6 +101,7 @@ export default function Scanner() {
   const [globalScanFeedback, setGlobalScanFeedback] = useState(null);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { requireAuth } = useAuth();
 
   useEffect(() => {
     const loadUser = async () => {
@@ -1373,7 +1375,7 @@ export default function Scanner() {
               background: `linear-gradient(135deg, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 0.6)')} 0%, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 1)')} 100%)`
             } : {}}>
               <button
-              onClick={() => setShowCamera(true)}
+              onClick={() => { if (requireAuth()) setShowCamera(true); }}
               className="w-full group relative overflow-hidden rounded-xl bg-white/60 backdrop-blur-md border-2 p-8 hover:bg-white/80 shadow-lg hover:shadow-xl transition-all duration-300"
               style={{
                 borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
