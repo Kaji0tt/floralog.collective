@@ -20,9 +20,21 @@ export default function SearchSortBar({
 }) {
   const [isOpen, setIsOpen] = useState(initialOpen);
   const headerRef = useRef(null);
+  const searchQueryRef = useRef(searchQuery);
 
   useEffect(() => {
-    setIsOpen(initialOpen);
+    searchQueryRef.current = searchQuery;
+    if (searchQuery) {
+      setIsOpen(true);
+    }
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (initialOpen) {
+      setIsOpen(true);
+    } else if (!searchQueryRef.current) {
+      setIsOpen(false);
+    }
   }, [initialOpen]);
 
   // Close search pill when clicking/tapping outside
@@ -32,7 +44,9 @@ export default function SearchSortBar({
     const handleClickOutside = (event) => {
       if (!headerRef.current) return;
       if (!headerRef.current.contains(event.target)) {
-        setIsOpen(false);
+        if (!searchQueryRef.current) {
+          setIsOpen(false);
+        }
       }
     };
 
