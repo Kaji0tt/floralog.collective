@@ -2,13 +2,18 @@ import React, { useState, useEffect } from "react";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Leaf, Search } from "lucide-react";
+import { Leaf, SlidersHorizontal } from "lucide-react";
 import GenusCard from "../components/collection/GenusCard";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import MobileBackButton from "../components/navigation/MobileBackButton";
+import SearchSortBar from "../components/collection/SearchSortBar";
+
+const CATEGORY_CHIPS = [
+  { value: "Bäume", emoji: "🌳" },
+  { value: "Sträucher", emoji: "🌿" },
+  { value: "Blumen", emoji: "🌸" },
+];
 
 const getAverageColor = (imageUrl) => {
   return new Promise((resolve) => {
@@ -44,63 +49,11 @@ const getAverageColor = (imageUrl) => {
   });
 };
 
-function SearchFilterPanel({
-  visible,
-  searchQuery,
-  setSearchQuery,
-  activeCategory,
-  setActiveCategory,
-  filters,
-  generaWithDiscovery,
-}) {
-  if (!visible) return null;
-
-  return (
-    <div className="space-y-2">
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-stone-400" />
-          <Input
-            type="text"
-            placeholder="Suchen..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8 bg-white h-9 text-sm rounded-full"
-          />
-        </div>
-
-        <div>
-          <Select value={activeCategory} onValueChange={setActiveCategory}>
-            <SelectTrigger className="bg-white h-9 text-xs w-32 rounded-full">
-              <SelectValue placeholder="Filter" />
-            </SelectTrigger>
-            <SelectContent>
-              {filters.map((filter) => {
-                let matchingGenera = generaWithDiscovery;
-                if (filter.value === "not_discovered") {
-                  matchingGenera = generaWithDiscovery.filter((g) => !g.discovered);
-                } else if (filter.value === "discovered") {
-                  matchingGenera = generaWithDiscovery.filter((g) => g.discovered);
-                }
-                const discovered = matchingGenera.filter((g) => g.discovered).length;
-                return (
-                  <SelectItem key={filter.value} value={filter.value}>
-                    {filter.label} ({discovered}/{matchingGenera.length})
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function FriendCollection() {
   const navigate = useNavigate();
-  const [activeCategory, setActiveCategory] = useState("Alle");
+  const [activeCategory, setActiveCategory] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [discoveredFilter, setDiscoveredFilter] = useState("all");
   const [friendUser, setFriendUser] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [isNotFriend, setIsNotFriend] = useState(false);
@@ -239,17 +192,15 @@ export default function FriendCollection() {
     return (a.category_dex_number || 0) - (b.category_dex_number || 0);
   });
 
-  const filters = [
-    { value: "Alle", label: "Alle" },
-    { value: "not_discovered", label: "Noch nicht entdeckt" },
-    { value: "discovered", label: "Entdeckt" },
-  ];
-
   let filteredGenera = generaWithDiscovery;
-  if (activeCategory === "not_discovered") {
+  if (discoveredFilter === "undiscovered") {
     filteredGenera = filteredGenera.filter(g => !g.discovered);
-  } else if (activeCategory === "discovered") {
+  } else if (discoveredFilter === "discovered") {
     filteredGenera = filteredGenera.filter(g => g.discovered);
+  }
+
+  if (CATEGORY_CHIPS.some(chip => chip.value === activeCategory)) {
+    filteredGenera = filteredGenera.filter(g => g.category === activeCategory);
   }
 
   filteredGenera = filteredGenera.filter(g => {
@@ -376,13 +327,38 @@ export default function FriendCollection() {
 
                     <div className="flex items-center gap-2">
                       <span>{heroProgressPercent}%</span>
+                      {CATEGORY_CHIPS.map((categoryChip) => {
+                        const isActive = activeCategory === categoryChip.value;
+                        return (
+                          <button
+                            key={categoryChip.value}
+                            type="button"
+                            onClick={() => setActiveCategory(isActive ? null : categoryChip.value)}
+                            className={
+                              "p-1 rounded-full border transition-colors " +
+                              (isActive
+                                ? "bg-stone-100 text-stone-700 border-emerald-500"
+                                : "bg-stone-100 text-stone-600 border-stone-300 hover:bg-stone-200")
+                            }
+                            aria-label={categoryChip.value + (isActive ? " deaktivieren" : " filtern")}
+                            aria-pressed={isActive}
+                          >
+                            <span className="text-[11px] leading-none">{categoryChip.emoji}</span>
+                          </button>
+                        );
+                      })}
                       <button
                         type="button"
                         onClick={() => setFiltersOpen((prev) => !prev)}
-                        className="p-1 rounded-full bg-stone-100 text-stone-600 hover:bg-stone-200 transition-colors"
-                        aria-label="Suche und Filter öffnen"
+                        className={
+                          "p-1 rounded-full transition-colors " +
+                          (filtersOpen
+                            ? "bg-stone-200 text-stone-800"
+                            : "bg-stone-100 text-stone-600 hover:bg-stone-200")
+                        }
+                        aria-label={filtersOpen ? "Suche und Filter ausblenden" : "Suche und Filter einblenden"}
                       >
-                        <Search className="w-3 h-3" />
+                        <SlidersHorizontal className="w-3 h-3" />
                       </button>
                     </div>
                   </div>
@@ -400,15 +376,18 @@ export default function FriendCollection() {
             </div>
 
             {/* Suche & Filter (per Icon ein- und ausblendbar) */}
-            <SearchFilterPanel
-              visible={filtersOpen}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              activeCategory={activeCategory}
-              setActiveCategory={setActiveCategory}
-              filters={filters}
-              generaWithDiscovery={generaWithDiscovery}
-            />
+            {filtersOpen && (
+              <div className="space-y-2">
+                <SearchSortBar
+                  searchQuery={searchQuery}
+                  onSearchQueryChange={setSearchQuery}
+                  showSortControls={false}
+                  showDiscoveredToggle
+                  discoveredFilter={discoveredFilter}
+                  onDiscoveredFilterChange={setDiscoveredFilter}
+                />
+              </div>
+            )}
           </div>
 
           {/* Collection Grid */}
