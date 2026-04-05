@@ -199,7 +199,7 @@ export default function FriendCollection() {
     filteredGenera = filteredGenera.filter(g => g.discovered);
   }
 
-  if (CATEGORY_CHIPS.some(chip => chip.value === activeCategory)) {
+  if (activeCategory) {
     filteredGenera = filteredGenera.filter(g => g.category === activeCategory);
   }
 
