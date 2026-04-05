@@ -185,91 +185,88 @@ export default function News() {
                   transition={{ delay: index * 0.1 }}
                 >
                   <Card className="border-2 border-stone-200 shadow-lg bg-white hover:shadow-xl transition-shadow">
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
+                    <CardContent className="p-6 relative">
+                      {user?.role === 'admin' && (
+                        <div className="absolute top-3 right-3 flex items-center gap-2">
                           {editingNewsId === item.id ? (
-                            <div className="space-y-3 mb-4">
-                              <Input
-                                value={editTitle}
-                                onChange={(e) => setEditTitle(e.target.value)}
-                                maxLength={200}
-                                className="text-lg font-semibold"
-                              />
-                              <Textarea
-                                value={editText}
-                                onChange={(e) => setEditText(e.target.value)}
-                                maxLength={2000}
-                                className="min-h-[140px]"
-                              />
-                              <div className="text-xs text-stone-500 text-right">
-                                {editText.length}/2000 Zeichen
-                              </div>
-                            </div>
-                          ) : (
                             <>
-                              <h2 className="text-2xl font-bold text-stone-900 mb-3">
-                                {item.title}
-                              </h2>
-                              <p className="text-stone-700 leading-relaxed whitespace-pre-wrap mb-4">
-                                {item.text}
-                              </p>
-                            </>
-                          )}
-                          <div className="flex items-center gap-2 text-sm text-stone-500">
-                            <Calendar className="w-4 h-4" />
-                            {formatDate(item.created_date)}
-                          </div>
-                        </div>
-                        
-                        {user?.role === 'admin' && (
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            {editingNewsId === item.id ? (
-                              <>
-                                <Button
-                                  onClick={saveEditing}
-                                  variant="outline"
-                                  size="icon"
-                                  disabled={updateNewsMutation.isPending}
-                                  className="text-green-700 hover:bg-green-50 hover:text-green-800"
-                                >
-                                  <Save className="w-5 h-5" />
-                                </Button>
-                                <Button
-                                  onClick={cancelEditing}
-                                  variant="outline"
-                                  size="icon"
-                                  disabled={updateNewsMutation.isPending}
-                                  className="text-stone-600 hover:bg-stone-100"
-                                >
-                                  <X className="w-5 h-5" />
-                                </Button>
-                              </>
-                            ) : (
                               <Button
-                                onClick={() => startEditing(item)}
+                                onClick={saveEditing}
                                 variant="outline"
                                 size="icon"
-                                className="text-blue-700 hover:bg-blue-50 hover:text-blue-800"
+                                disabled={updateNewsMutation.isPending}
+                                className="text-green-700 hover:bg-green-50 hover:text-green-800"
                               >
-                                <Pencil className="w-5 h-5" />
+                                <Save className="w-5 h-5" />
                               </Button>
-                            )}
+                              <Button
+                                onClick={cancelEditing}
+                                variant="outline"
+                                size="icon"
+                                disabled={updateNewsMutation.isPending}
+                                className="text-stone-600 hover:bg-stone-100"
+                              >
+                                <X className="w-5 h-5" />
+                              </Button>
+                            </>
+                          ) : (
                             <Button
-                              onClick={() => {
-                                if (window.confirm('Möchtest du diese Neuigkeit wirklich löschen?')) {
-                                  deleteNewsMutation.mutate(item.id);
-                                }
-                              }}
+                              onClick={() => startEditing(item)}
                               variant="outline"
                               size="icon"
-                              disabled={editingNewsId === item.id && updateNewsMutation.isPending}
-                              className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                              className="text-blue-700 hover:bg-blue-50 hover:text-blue-800"
                             >
-                              <Trash2 className="w-5 h-5" />
+                              <Pencil className="w-5 h-5" />
                             </Button>
+                          )}
+                          <Button
+                            onClick={() => {
+                              if (window.confirm('Möchtest du diese Neuigkeit wirklich löschen?')) {
+                                deleteNewsMutation.mutate(item.id);
+                              }
+                            }}
+                            variant="outline"
+                            size="icon"
+                            disabled={editingNewsId === item.id && updateNewsMutation.isPending}
+                            className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </Button>
+                        </div>
+                      )}
+                      <div className={user?.role === 'admin' ? 'pr-24' : ''}>
+                        {editingNewsId === item.id ? (
+                          <div className="space-y-3 mb-4">
+                            <Input
+                              value={editTitle}
+                              onChange={(e) => setEditTitle(e.target.value)}
+                              maxLength={200}
+                              className="text-lg font-semibold"
+                            />
+                            <Textarea
+                              value={editText}
+                              onChange={(e) => setEditText(e.target.value)}
+                              maxLength={2000}
+                              className="min-h-[140px]"
+                            />
+                            <div className="text-xs text-stone-500 text-right">
+                              {editText.length}/2000 Zeichen
+                            </div>
                           </div>
+                        ) : (
+                          <>
+                            <h2 className="text-2xl font-bold text-stone-900 mb-3">
+                              {item.title}
+                            </h2>
+                            <p className="text-stone-700 leading-relaxed whitespace-pre-wrap mb-4">
+                              {item.text}
+                            </p>
+                          </>
                         )}
+                        <div className="flex items-center gap-2 text-sm text-stone-500">
+                          <Calendar className="w-4 h-4" />
+                          {formatDate(item.created_date)}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
