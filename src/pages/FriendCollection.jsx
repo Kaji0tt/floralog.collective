@@ -59,6 +59,7 @@ export default function FriendCollection() {
   const [isNotFriend, setIsNotFriend] = useState(false);
   const [averageColor, setAverageColor] = useState(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [friendCollectionSort, setFriendCollectionSort] = useState("index");
   
   const urlParams = new URLSearchParams(window.location.search);
   const friendEmail = urlParams.get('email');
@@ -217,6 +218,28 @@ export default function FriendCollection() {
        p.scientific_name?.toLowerCase().includes(query))
     );
   });
+
+  // Sortierung
+  let sortedGenera = [...filteredGenera];
+  if (friendCollectionSort === "title") {
+    sortedGenera.sort((a, b) => (a.genus_name || "").localeCompare(b.genus_name || "", "de"));
+  } else if (friendCollectionSort === "rarity") {
+    sortedGenera.sort((a, b) => {
+      const rarityDiff = (b.maxRarityScore || 0) - (a.maxRarityScore || 0);
+      if (rarityDiff !== 0) return rarityDiff;
+      return (a.genus_name || "").localeCompare(b.genus_name || "", "de");
+    });
+  } else if (friendCollectionSort === "newest") {
+    sortedGenera.sort((a, b) => (b.lastDiscoveryDate || 0) - (a.lastDiscoveryDate || 0));
+  } else if (friendCollectionSort === "index") {
+    const categoryOrder = { "Bäume": 1, "Sträucher": 2, "Blumen": 3 };
+    sortedGenera.sort((a, b) => {
+      if (a.category !== b.category) {
+        return (categoryOrder[a.category] || 999) - (categoryOrder[b.category] || 999);
+      }
+      return (a.category_dex_number || 999999) - (b.category_dex_number || 999999);
+    });
+  }
 
   const totalDiscoveredGenera = generaWithDiscovery.filter(g => g.discovered).length;
   const totalGeneraCount = generaWithDiscovery.length;
@@ -381,7 +404,15 @@ export default function FriendCollection() {
                 <SearchSortBar
                   searchQuery={searchQuery}
                   onSearchQueryChange={setSearchQuery}
-                  showSortControls={false}
+                  sortOptions={[
+                    { value: "index", label: "Index" },
+                    { value: "newest", label: "Neu" },
+                    { value: "title", label: "Titel" },
+                    { value: "rarity", label: "Rarität" },
+                  ]}
+                  sortValue={friendCollectionSort}
+                  onSortChange={setFriendCollectionSort}
+                  showSortControls={true}
                   showDiscoveredToggle
                   discoveredFilter={discoveredFilter}
                   onDiscoveredFilterChange={setDiscoveredFilter}
@@ -398,7 +429,7 @@ export default function FriendCollection() {
               maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black 100%)`,
             }}
           >
-            {filteredGenera.length === 0 ? (
+            {sortedGenera.length === 0 ? (
               <div className="text-center py-20">
                 <div className="w-24 h-24 bg-white/80 backdrop-blur-md rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-stone-200">
                   <Leaf className="w-12 h-12 text-stone-400" />
@@ -409,7 +440,7 @@ export default function FriendCollection() {
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2" style={{ paddingTop: listTopFadePx }}>
-                {filteredGenera.map((genus) => (
+                {sortedGenera.map((genus) => (
                   <GenusCard
                     key={genus.id}
                     genus={genus}
