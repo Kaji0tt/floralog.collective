@@ -63,6 +63,7 @@ export const estimateRewardForEvent = ({
   careValue,
   energyValue,
   isInActiveZone,
+  rarity,
 }) => {
   return computeRobotPlantReward({
     eventSource,
@@ -72,6 +73,7 @@ export const estimateRewardForEvent = ({
     careValue,
     energyValue,
     isInActiveZone,
+    rarity,
   });
 };
 
@@ -80,6 +82,7 @@ export const getScanRewardDetails = async ({
   eventSource,
   duplicateScanCount = 0,
   isInActiveZone = true,
+  rarity = null,
 }) => {
   const robotPlantState = await getRobotPlantState(authId);
 
@@ -87,6 +90,7 @@ export const getScanRewardDetails = async ({
     eventSource,
     duplicateScanCount,
     isInActiveZone,
+    rarity,
     dataQualityValue: robotPlantState?.dataQuality,
     careValue: robotPlantState?.care,
     energyValue: robotPlantState?.energy,
@@ -123,7 +127,7 @@ export const grantRobotPlantRewardServerSide = async ({
     throw error;
   }
 
-  return data?.result || null;
+  return data || null;
 };
 
 export const initializeGeoRasterGrid = async ({ bounds, forceRefresh = false }) => {

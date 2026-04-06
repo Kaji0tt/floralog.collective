@@ -38,6 +38,7 @@ const buildRewardSteps = (rewardDetails, isInActiveZone) => {
     pushPreStreakStep("zone", "Zone", rewardDetails.zoneMultiplier);
   }
 
+  pushPreStreakStep("rarity", "Raritaet", rewardDetails.rarityMultiplier);
   pushPreStreakStep("novelty", "Neuheit", rewardDetails.noveltyMultiplier);
   pushPreStreakStep("care", "Pflege", rewardDetails.careMultiplier);
   pushPreStreakStep("energy", "Energie", rewardDetails.energyMultiplier);

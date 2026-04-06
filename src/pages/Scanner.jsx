@@ -23,15 +23,11 @@ import MobileBackButton from "../components/navigation/MobileBackButton";
 import { Check } from "lucide-react";
 import { createPageUrl } from "@/utils";
 import {
-  getRobotPlantDailyZones,
-  getScanRewardDetails,
   grantRobotPlantRewardServerSide,
 } from "@/api/robotPlantService";
 import { ROBOT_PLANT_EVENT_SOURCES } from "@/lib/robotPlantConfig";
 import { updateQuestProgress } from "@/components/utils/questProgress";
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
-
-const EARTH_RADIUS_M = 6371000;
 
 // Bestätigungs-Button Komponente (draggable wie MobileBackButton)
 function ConfirmButton({ onConfirm, disabled = false }) {
@@ -178,26 +174,6 @@ export default function Scanner() {
     return `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
   };
 
-  const toRadians = (value) => (value * Math.PI) / 180;
-
-  const getDistanceBetweenCoordinatesM = (from, to) => {
-    if (!from || !to) {
-      return Number.POSITIVE_INFINITY;
-    }
-
-    const dLat = toRadians(to.lat - from.lat);
-    const dLng = toRadians(to.lng - from.lng);
-    const lat1 = toRadians(from.lat);
-    const lat2 = toRadians(to.lat);
-
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.sin(dLng / 2) * Math.sin(dLng / 2) * Math.cos(lat1) * Math.cos(lat2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return EARTH_RADIUS_M * c;
-  };
-
   const resolveCoordinatesForDiscovery = async () => {
     if (!locationEnabled) {
       return null;
@@ -225,63 +201,24 @@ export default function Scanner() {
     return getLocationString(location);
   };
 
-  const resolveActiveScanZone = async (location) => {
-    if (!location || !locationEnabled) {
-      return null;
-    }
-
-    try {
-      const response = await getRobotPlantDailyZones({
-        latitude: location.lat,
-        longitude: location.lng,
-      });
-      const zones = Array.isArray(response?.zones) ? response.zones : [];
-
-      const matchingZones = zones
-        .filter((zone) => Number.isFinite(zone.centerLat) && Number.isFinite(zone.centerLng))
-        .map((zone) => ({
-          ...zone,
-          distanceM: getDistanceBetweenCoordinatesM(location, {
-            lat: zone.centerLat,
-            lng: zone.centerLng,
-          }),
-        }))
-        .filter((zone) => zone.distanceM <= Number(zone.radiusM || 150))
-        .sort((left, right) => left.distanceM - right.distanceM);
-
-      return matchingZones[0] || null;
-    } catch (error) {
-      console.warn("Aktive Zone konnte nicht ermittelt werden:", error);
-      return null;
-    }
-  };
-
-  const buildScanRewardFeedback = async ({ eventSource, duplicateScanCount, eventReference, location }) => {
+  const buildScanRewardFeedback = async ({ eventSource, duplicateScanCount, eventReference, location, rarity }) => {
     if (!user?.id) {
       return { rewardDetails: null, activeZone: null };
     }
 
-    const activeZone = await resolveActiveScanZone(location);
-    const rewardDetails = await getScanRewardDetails({
-      authId: user.id,
+    const grantResult = await grantRobotPlantRewardServerSide({
       eventSource,
-      duplicateScanCount,
-      isInActiveZone: !!activeZone,
+      eventReference,
+      amount: 0,
+      metadata: {
+        duplicate_scan_count_client_hint: duplicateScanCount,
+        rarity_client_hint: rarity,
+        discovery_location_client_hint: getLocationString(location),
+      },
     });
 
-    if (rewardDetails?.finalReward > 0) {
-      await grantRobotPlantRewardServerSide({
-        eventSource,
-        eventReference,
-        amount: rewardDetails.finalReward,
-        metadata: {
-          reward_breakdown: rewardDetails,
-          duplicate_scan_count: duplicateScanCount,
-          active_zone_key: activeZone?.zoneKey || activeZone?.id || null,
-          active_zone_theme: activeZone?.theme || null,
-        },
-      });
-    }
+    const rewardDetails = grantResult?.rewardDetails || null;
+    const activeZone = rewardDetails?.isInActiveZone ? { serverComputed: true } : null;
 
     return { rewardDetails, activeZone };
   };
@@ -845,6 +782,7 @@ export default function Scanner() {
         duplicateScanCount,
         eventReference: newDiscovery.id,
         location: discoveryLocation,
+        rarity: plant?.rarity || aiData?.rarity || null,
       });
       rewardDetails = rewardFeedback.rewardDetails;
       activeZone = rewardFeedback.activeZone;
@@ -934,6 +872,7 @@ export default function Scanner() {
           duplicateScanCount: 0,
           eventReference: newDiscoveryId,
           location: discoveryLocation,
+          rarity: newPlant?.rarity || plantData?.rarity || null,
         });
         rewardDetails = rewardFeedback.rewardDetails;
         activeZone = rewardFeedback.activeZone;

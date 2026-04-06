@@ -23,7 +23,29 @@ const SCAN_EVENT_SOURCES = new Set([
   ROBOT_PLANT_EVENT_SOURCES.newGlobalScan,
 ]);
 
+const NORMALIZED_RARITY_MULTIPLIERS = Object.freeze({
+  haufig: 1,
+  haeufig: 1,
+  gelegentlich: 2,
+  selten: 3,
+  sehrselten: 3,
+  extremselten: 3,
+});
+
+const normalizeRarityKey = (rarity) =>
+  String(rarity ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "");
+
 export const isRobotPlantScanEvent = (eventSource) => SCAN_EVENT_SOURCES.has(eventSource);
+
+export const computeRarityMultiplier = (rarity) => {
+  const normalizedRarity = normalizeRarityKey(rarity);
+  return NORMALIZED_RARITY_MULTIPLIERS[normalizedRarity] ?? 1;
+};
 
 export const computeZoneMultiplier = ({ dataQualityValue, isInActiveZone = true }) => {
   if (!isInActiveZone) {
@@ -83,6 +105,7 @@ export const computeRobotPlantRewardBreakdown = ({
   energyValue = ROBOT_PLANT_VALUES.energy.initial,
   streakDays = 0,
   isInActiveZone = true,
+  rarity = null,
 }) => {
   const baseReward = REWARD_FORMULA_CONFIG.baseByEvent[eventSource] ?? 0;
 
@@ -93,6 +116,7 @@ export const computeRobotPlantRewardBreakdown = ({
       isInActiveZone: false,
       baseReward: 0,
       zoneMultiplier: 1,
+      rarityMultiplier: 1,
       noveltyMultiplier: 1,
       careMultiplier: 1,
       energyMultiplier: 1,
@@ -115,6 +139,7 @@ export const computeRobotPlantRewardBreakdown = ({
       isInActiveZone: false,
       baseReward,
       zoneMultiplier: 1,
+      rarityMultiplier: 1,
       noveltyMultiplier: 1,
       careMultiplier: 1,
       energyMultiplier: 1,
@@ -125,13 +150,14 @@ export const computeRobotPlantRewardBreakdown = ({
   }
 
   const zoneMultiplier = computeZoneMultiplier({ dataQualityValue, isInActiveZone });
+  const rarityMultiplier = computeRarityMultiplier(rarity);
   const noveltyMultiplier = computeNoveltyMultiplier(duplicateScanCount);
   const careMultiplier = computeCareMultiplier(careValue);
   const energyMultiplier = computeEnergyMultiplier(energyValue);
   const streakMultiplier = computeStreakMultiplier(streakDays);
 
   const rawPreStreakReward =
-    baseReward * zoneMultiplier * noveltyMultiplier * careMultiplier * energyMultiplier;
+    baseReward * zoneMultiplier * rarityMultiplier * noveltyMultiplier * careMultiplier * energyMultiplier;
   const preStreakReward = clamp(
     roundReward(rawPreStreakReward),
     REWARD_FORMULA_CONFIG.absoluteMinReward,
@@ -145,6 +171,7 @@ export const computeRobotPlantRewardBreakdown = ({
     isInActiveZone,
     baseReward,
     zoneMultiplier: roundMultiplier(zoneMultiplier),
+    rarityMultiplier,
     noveltyMultiplier: roundMultiplier(noveltyMultiplier),
     careMultiplier: roundMultiplier(careMultiplier),
     energyMultiplier: roundMultiplier(energyMultiplier),
@@ -162,6 +189,7 @@ export const computeRobotPlantReward = ({
   energyValue = ROBOT_PLANT_VALUES.energy.initial,
   streakDays = 0,
   isInActiveZone = true,
+  rarity = null,
 }) => {
   return computeRobotPlantRewardBreakdown({
     eventSource,
@@ -171,6 +199,7 @@ export const computeRobotPlantReward = ({
     energyValue,
     streakDays,
     isInActiveZone,
+    rarity,
   }).finalReward;
 };
 
