@@ -6,13 +6,14 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Leaf, CheckCircle2, Lock, Sparkles, Volume2, VolumeX, ChevronLeft, ChevronRight, Star, HelpCircle, MapPin, X, ExternalLink, Trash2, Heart } from "lucide-react";
+import { ArrowLeft, Leaf, CheckCircle2, Lock, Sparkles, Volume2, VolumeX, ChevronLeft, ChevronRight, Star, HelpCircle, MapPin, X, ExternalLink, Trash2, Heart, PencilLine } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { motion } from "framer-motion";
 import MobileBackButton from "../components/navigation/MobileBackButton";
+import EditPlantDialog from "../components/collection/EditPlantDialog";
 
 export default function GenusDetail() {
   const navigate = useNavigate();
@@ -25,17 +26,31 @@ export default function GenusDetail() {
   const [flippedPlants, setFlippedPlants] = useState({});
   const [enlargedImage, setEnlargedImage] = useState(null);
   const [expandedPlant, setExpandedPlant] = useState(null);
+  const [editingPlant, setEditingPlant] = useState(null);
   const [locationNames, setLocationNames] = useState({});
   const [deleteConfirmDiscoveryId, setDeleteConfirmDiscoveryId] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
 
   useEffect(() => {
+    let isMounted = true;
     const loadUser = async () => {
-      const user = await getCurrentUser();
-      setCurrentUser(user);
+      try {
+        const user = await getCurrentUser();
+        if (isMounted) {
+          setCurrentUser(user || null);
+        }
+      } catch {
+        if (isMounted) {
+          setCurrentUser(null);
+        }
+      }
     };
     loadUser();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const getAverageColor = (imageUrl) => {
@@ -498,6 +513,19 @@ export default function GenusDetail() {
                           <p className="text-xs text-stone-600 italic truncate">{plant.scientific_name}</p>
                         </div>
                         <div className="flex gap-1 flex-shrink-0">
+                          {currentUser?.role === "admin" && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingPlant(plant);
+                              }}
+                              className="shrink-0 p-1.5 rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 hover:text-amber-800 border border-amber-300 transition-colors"
+                              aria-label="Art bearbeiten"
+                            >
+                              <PencilLine className="w-3 h-3" />
+                            </button>
+                          )}
                           <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
                         </div>
                         </div>
@@ -546,15 +574,30 @@ export default function GenusDetail() {
                       </div>
                     )}
                     {!friendEmail && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.open(`https://www.google.com/search?q=Wo+finde+ich+${encodeURIComponent(plant.species_name)}`, '_blank');
-                        }}
-                        className="absolute top-2 right-2 w-6 h-6 bg-stone-400 rounded-full flex items-center justify-center hover:bg-stone-500 z-10"
-                      >
-                        <HelpCircle className="w-3 h-3 text-white" />
-                      </button>
+                      <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
+                        {currentUser?.role === "admin" && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingPlant(plant);
+                            }}
+                            className="shrink-0 p-1.5 rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 hover:text-amber-800 border border-amber-300 transition-colors"
+                            aria-label="Art bearbeiten"
+                          >
+                            <PencilLine className="w-3 h-3" />
+                          </button>
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(`https://www.google.com/search?q=Wo+finde+ich+${encodeURIComponent(plant.species_name)}`, '_blank');
+                          }}
+                          className="w-6 h-6 bg-stone-400 rounded-full flex items-center justify-center hover:bg-stone-500"
+                        >
+                          <HelpCircle className="w-3 h-3 text-white" />
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}
@@ -768,6 +811,12 @@ export default function GenusDetail() {
             </div>
           </div>
         )}
+
+        <EditPlantDialog
+          plant={editingPlant}
+          isOpen={!!editingPlant}
+          onClose={() => setEditingPlant(null)}
+        />
       </div>
     </div>
   );
