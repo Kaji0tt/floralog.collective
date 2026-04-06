@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -31,6 +31,8 @@ export default function GenusDetail() {
   const [deleteConfirmDiscoveryId, setDeleteConfirmDiscoveryId] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
+  const geocodePendingRef = useRef(new Set());
+  const geocodeByCoordsRef = useRef({});
 
   useEffect(() => {
     let isMounted = true;
@@ -158,15 +160,40 @@ export default function GenusDetail() {
     }
     
     const [, lat, lng] = coordMatch;
+
+    const isLocalhost =
+      typeof window !== "undefined" &&
+      (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+    if (!isLocalhost) {
+      setLocationNames((prev) => ({ ...prev, [discoveryId]: coords }));
+      return;
+    }
+
+    const normalizedCoords = `${Number(lat).toFixed(6)},${Number(lng).toFixed(6)}`;
+    if (geocodeByCoordsRef.current[normalizedCoords]) {
+      setLocationNames((prev) => ({ ...prev, [discoveryId]: geocodeByCoordsRef.current[normalizedCoords] }));
+      return;
+    }
+    if (geocodePendingRef.current.has(normalizedCoords)) {
+      return;
+    }
+
+    geocodePendingRef.current.add(normalizedCoords);
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=10`
       );
+      if (!response.ok) {
+        throw new Error(`Reverse geocode failed: ${response.status}`);
+      }
       const data = await response.json();
       const name = data.address?.city || data.address?.town || data.address?.village || data.address?.municipality || coords;
+      geocodeByCoordsRef.current[normalizedCoords] = name;
       setLocationNames(prev => ({ ...prev, [discoveryId]: name }));
     } catch {
       setLocationNames(prev => ({ ...prev, [discoveryId]: coords }));
+    } finally {
+      geocodePendingRef.current.delete(normalizedCoords);
     }
   };
 
@@ -816,6 +843,13 @@ export default function GenusDetail() {
           plant={editingPlant}
           isOpen={!!editingPlant}
           onClose={() => setEditingPlant(null)}
+          onSaved={(updatedPlant) => {
+            setEditingPlant((prev) => (prev && prev.id === updatedPlant.id ? { ...prev, ...updatedPlant } : prev));
+            setExpandedPlant((prev) => {
+              if (!prev || prev.id !== updatedPlant.id) return prev;
+              return { ...prev, ...updatedPlant };
+            });
+          }}
         />
       </div>
     </div>

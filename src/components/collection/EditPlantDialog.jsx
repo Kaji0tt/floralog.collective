@@ -9,7 +9,7 @@ import { Loader2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Query } from "@/api/entities";
 
-export default function EditPlantDialog({ plant, isOpen, onClose }) {
+export default function EditPlantDialog({ plant, isOpen, onClose, onSaved }) {
   const queryClient = useQueryClient();
   const [speciesName, setSpeciesName] = useState("");
   const [scientificName, setScientificName] = useState("");
@@ -25,8 +25,16 @@ export default function EditPlantDialog({ plant, isOpen, onClose }) {
 
   const updateMutation = useMutation({
     mutationFn: (payload) => Query.Plant.update(payload.id, payload.data),
-    onSuccess: () => {
+    onSuccess: (updatedPlant) => {
+      if (updatedPlant?.id) {
+        queryClient.setQueryData(["plants"], (oldPlants = []) =>
+          oldPlants.map((item) => (item.id === updatedPlant.id ? { ...item, ...updatedPlant } : item))
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ["plants"] });
+      if (onSaved && updatedPlant) {
+        onSaved(updatedPlant);
+      }
       handleClose();
     },
   });
