@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Query } from "@/api/entities";
 import { createUserNotification, getUserDisplayName } from "@/api/notificationService";
 import { supabase } from "@/api/supabaseClient";
@@ -153,6 +153,7 @@ export default function Quests() {
   const [mapFriendSearchQuery, setMapFriendSearchQuery] = useState("");
   const [mapSearchQuery, setMapSearchQuery] = useState("");
   const [mapSelectedViews, setMapSelectedViews] = useState({ mine: true });
+  const hasAutoRequestedLocationRef = useRef(false);
 
   const collectionsSortOptions = [
     { value: "newest", label: "Neu" },
@@ -348,6 +349,14 @@ export default function Quests() {
       }
     });
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== "map") return;
+    if (userLocation || isLoadingLocation || hasAutoRequestedLocationRef.current) return;
+
+    hasAutoRequestedLocationRef.current = true;
+    calculateLocation();
+  }, [activeTab, userLocation, isLoadingLocation]);
 
   useEffect(() => {
     if (user?.background_color) {
@@ -1283,16 +1292,9 @@ export default function Quests() {
           <TabsContent value="map" className="pt-12 overflow-hidden">
             <div className="relative w-full" style={{ height: 'calc(100vh - 48px)' }}>
 
-              {/* Overlay: local map controls */}
-              <div className="absolute top-2 left-0 right-0 z-[1000] px-4">
-                <div className="flex items-center justify-center rounded-full bg-white/90 backdrop-blur-md shadow-md border border-stone-200 p-0.5">
-                  <span className="px-4 py-1.5 rounded-full text-xs text-center bg-green-600 text-white shadow font-semibold">
-                    📍 Lokaler Standort
-                  </span>
-                </div>
-
-                {/* Local: get-location button when no location yet */}
-                {mapQuickView === "local" && !userLocation && (
+              {/* Local: get-location button when no location yet */}
+              {mapQuickView === "local" && !userLocation && (
+                <div className="absolute top-2 left-0 right-0 z-[1000] px-4">
                   <div className="mt-2 flex justify-center">
                     <button
                       onClick={calculateLocation}
@@ -1305,8 +1307,8 @@ export default function Quests() {
                       {isLoadingLocation ? "Wird ermittelt..." : "Standort ermitteln"}
                     </button>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Friends map */}
               {mapQuickView === "friends" && (() => {
