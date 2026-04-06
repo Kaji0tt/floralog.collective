@@ -98,32 +98,31 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
                 {genus.category === "Blumen" && "🌸"}
                 #{String(genus.category_dex_number).padStart(3, '0')}
               </Badge>
-              {discovered ? (
-                <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                  <CheckCircle className="w-4 h-4 text-white" />
-                </div>
-              ) : (
-                <div 
-                  className="w-5 h-5 bg-stone-400 rounded-full flex items-center justify-center hover:bg-stone-500 transition-colors cursor-pointer"
-                  onClick={handleHelpClick}
-                >
-                  <HelpCircle className="w-3 h-3 text-white" />
-                </div>
-              )}
-            </div>
-
-            {isAdmin && (
-              <div className="flex justify-end mb-2">
-                <button
-                  type="button"
-                  onClick={handleEditClick}
-                  className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors"
-                  aria-label="Gattung bearbeiten"
-                >
-                  <PencilIcon className="w-3.5 h-3.5" />
-                </button>
+              <div className="flex items-center gap-1">
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={handleEditClick}
+                    className="shrink-0 w-5 h-5 rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 hover:text-amber-800 border border-amber-300 transition-colors inline-flex items-center justify-center"
+                    aria-label="Gattung bearbeiten"
+                  >
+                    <PencilIcon className="w-3 h-3" />
+                  </button>
+                )}
+                {discovered ? (
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                    <CheckCircle className="w-4 h-4 text-white" />
+                  </div>
+                ) : (
+                  <div 
+                    className="w-5 h-5 bg-stone-400 rounded-full flex items-center justify-center hover:bg-stone-500 transition-colors cursor-pointer"
+                    onClick={handleHelpClick}
+                  >
+                    <HelpCircle className="w-3 h-3 text-white" />
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
             {/* Image */}
             <div className="relative mb-2">
