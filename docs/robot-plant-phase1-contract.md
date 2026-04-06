@@ -74,6 +74,7 @@ Formula constraints:
 - absolute min reward (for positive-base events): 1
 - absolute max reward before streak: 350
 - streakMultiplier: 1.0..7.0
+- rarityMultiplier: 1.0..3.0
 
 Current base values:
 

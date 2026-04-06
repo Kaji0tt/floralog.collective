@@ -221,6 +221,11 @@ export default function Collection() {
     queryFn: () => Query.PlantGenus.list(),
   });
 
+  const { data: currentUser = null } = useQuery({
+    queryKey: ["currentUser"],
+    queryFn: getCurrentUser,
+  });
+
   const { data: plants = [], isLoading: plantsLoading } = useQuery({
     queryKey: ['plants'],
     queryFn: () => Query.Plant.list(),
@@ -988,6 +993,7 @@ export default function Collection() {
                     plants={plants}
                     friendEmail={null}
                     collectionNote={genus.collectionNote}
+                    isAdmin={currentUser?.role === 'admin'}
                   />
                 ))}
               </div>
