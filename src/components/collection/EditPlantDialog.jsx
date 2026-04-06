@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Query } from "@/api/entities";
+import { supabase } from "@/api/supabaseClient";
 
 export default function EditPlantDialog({ plant, isOpen, onClose, onSaved }) {
   const queryClient = useQueryClient();
@@ -24,7 +25,25 @@ export default function EditPlantDialog({ plant, isOpen, onClose, onSaved }) {
   }, [plant, isOpen]);
 
   const updateMutation = useMutation({
-    mutationFn: (payload) => Query.Plant.update(payload.id, payload.data),
+    mutationFn: async (payload) => {
+      const { data, error } = await supabase
+        .from("Plant")
+        .update(payload.data)
+        .eq("id", payload.id)
+        .select("id, species_name, scientific_name, description")
+        .limit(1);
+
+      if (error) {
+        throw error;
+      }
+
+      const updatedPlant = data?.[0] || null;
+      if (!updatedPlant) {
+        throw new Error("Speichern fehlgeschlagen: Keine Zeile aktualisiert. Bitte RLS/Policies fuer Plant pruefen.");
+      }
+
+      return updatedPlant;
+    },
     onSuccess: (updatedPlant) => {
       if (updatedPlant?.id) {
         queryClient.setQueryData(["plants"], (oldPlants = []) =>
