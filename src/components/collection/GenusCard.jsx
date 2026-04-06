@@ -32,7 +32,8 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
     return plant && plant.genus_category === genus.category && plant.genus_number === genus.category_dex_number && d.image_url;
   });
   const genusImage =
-    genusDiscoveries.find((d) => d.is_front_image || d.is_species_front_image)?.image_url ||
+    genusDiscoveries.find((d) => d.is_front_image)?.image_url ||
+    genusDiscoveries.find((d) => d.is_species_front_image)?.image_url ||
     [...genusDiscoveries].sort((a, b) => getDiscoveryTimestamp(b) - getDiscoveryTimestamp(a))[0]?.image_url;
 
   // Ermittle höchste Rarität der entdeckten Pflanzen dieser Gattung

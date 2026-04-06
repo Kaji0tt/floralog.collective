@@ -214,6 +214,11 @@ export default function GenusDetail() {
 
   const setFrontImageMutation = useMutation({
     mutationFn: async ({ discoveryId }) => {
+      const selectedDiscovery = userDiscoveries.find((d) => d.id === discoveryId);
+      if (!selectedDiscovery) {
+        throw new Error("Ausgewaehlter Scan nicht gefunden.");
+      }
+
       // Alle Discoveries der gesamten Gattung auf false setzen
       const genusDiscoveries = userDiscoveries.filter(d => {
         const plant = plants.find(p => p.id === d.plant_id);
@@ -221,15 +226,28 @@ export default function GenusDetail() {
                plant.genus_category === selectedGenus.category && 
                plant.genus_number === selectedGenus.category_dex_number;
       });
-      // Partielle Fehlschläge (z.B. Alt-Datensätze) sollen das Setzen des Zielbilds nicht blockieren.
+
+      // Species-Frontbild nur innerhalb derselben Species zuruecksetzen.
+      const speciesDiscoveries = genusDiscoveries.filter(
+        (d) => d.plant_id === selectedDiscovery.plant_id
+      );
+
       await Promise.allSettled(
         genusDiscoveries.map(d => 
           Query.UserPlantDiscovery.update(d.id, {
             is_front_image: false,
+          })
+        )
+      );
+
+      await Promise.allSettled(
+        speciesDiscoveries.map((d) =>
+          Query.UserPlantDiscovery.update(d.id, {
             is_species_front_image: false,
           })
         )
       );
+
       // Dann das ausgewählte auf true setzen
       await Query.UserPlantDiscovery.update(discoveryId, {
         is_front_image: true,
@@ -242,7 +260,8 @@ export default function GenusDetail() {
     },
     onError: (error) => {
       console.error("Fehler beim Setzen des Gattungsbilds:", error);
-      alert("Das Vorschaubild konnte nicht gesetzt werden. Bitte erneut versuchen.");
+      const details = error?.message || error?.details || error?.hint || "Unbekannter Fehler";
+      alert("Das Vorschaubild konnte nicht gesetzt werden: " + details);
     },
   });
 
@@ -359,7 +378,8 @@ export default function GenusDetail() {
            d.image_url;
   });
   const genusIconUrl =
-    genusDiscoveries.find((d) => d.is_front_image || d.is_species_front_image)?.image_url ||
+    genusDiscoveries.find((d) => d.is_front_image)?.image_url ||
+    genusDiscoveries.find((d) => d.is_species_front_image)?.image_url ||
     [...genusDiscoveries].sort((a, b) => getDiscoveryTimestamp(b) - getDiscoveryTimestamp(a))[0]?.image_url;
 
   if (generaLoading || plantsLoading || discoveriesLoading) {
