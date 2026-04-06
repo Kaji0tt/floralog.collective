@@ -539,8 +539,7 @@ export default function Quests() {
 
   const weeklyPriorityIds = new Set(weeklyPriorityDiscoveries.map((entry) => entry.id));
 
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
   const isLast30DaysDiscovery = (discovery) => {
     const discoveryEmailLower = getDiscoveryUserEmailLower(discovery);
