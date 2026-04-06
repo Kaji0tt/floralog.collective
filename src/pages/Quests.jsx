@@ -539,9 +539,36 @@ export default function Quests() {
 
   const weeklyPriorityIds = new Set(weeklyPriorityDiscoveries.map((entry) => entry.id));
 
-  const remainingCurrentDiscoveries = currentWeekDiscoveries
-    .filter((entry) => !weeklyPriorityIds.has(entry.id))
-    .sort(sortByNewest);
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const isLast30DaysDiscovery = (discovery) => {
+    const discoveryEmailLower = getDiscoveryUserEmailLower(discovery);
+    const discoveryUser = allUsers.find(
+      (entry) => entry.user_email?.toLowerCase() === discoveryEmailLower
+    );
+    if (!discoveryUser) return false;
+    const scanDate = new Date(discovery.created_date || discovery.discovered_date);
+    if (Number.isNaN(scanDate.getTime())) return false;
+    return scanDate >= thirtyDaysAgo;
+  };
+
+  const last30DaysDiscoveries = mergedDiscoveries.filter(isLast30DaysDiscovery).sort(sortByNewest);
+
+  // Group remaining 30-day discoveries by user+plant_id: show only the most recent scan per combination
+  const allLast30DaysRemaining = last30DaysDiscoveries.filter(
+    (entry) => !weeklyPriorityIds.has(entry.id)
+  );
+  const seenUserPlantKeys = new Set();
+  const remainingLast30DaysDiscoveries = [];
+  for (const discovery of allLast30DaysRemaining) {
+    const emailLower = getDiscoveryUserEmailLower(discovery);
+    const key = `${emailLower}::${discovery.plant_id}`;
+    if (!seenUserPlantKeys.has(key)) {
+      seenUserPlantKeys.add(key);
+      remainingLast30DaysDiscoveries.push(discovery);
+    }
+  }
 
   const getLighterColor = (rgbString) => {
     if (!rgbString) return null;
@@ -838,17 +865,17 @@ export default function Quests() {
               </>
             )}
 
-            {weeklyPriorityDiscoveries.length > 0 && remainingCurrentDiscoveries.length > 0 && (
+            {weeklyPriorityDiscoveries.length > 0 && remainingLast30DaysDiscoveries.length > 0 && (
               <div className="my-4 h-px w-full bg-stone-300/90" />
             )}
 
-            {remainingCurrentDiscoveries.length > 0 && (
+            {remainingLast30DaysDiscoveries.length > 0 && (
               <>
                 <div className="mb-2 px-1">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-stone-700">Alle aktuellen Scans (neueste zuerst)</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-stone-700">Alle Scans der letzten 30 Tage</p>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                  {remainingCurrentDiscoveries.map((discovery, index) => {
+                  {remainingLast30DaysDiscoveries.map((discovery, index) => {
                     const plant = plants.find((entry) => entry.id === discovery.plant_id);
                     const genus = genera.find(
                       (entry) =>
@@ -861,7 +888,7 @@ export default function Quests() {
                     );
 
                     const discoveryEmailLower = getDiscoveryUserEmailLower(discovery);
-                    const userPlantScans = currentWeekDiscoveries.filter(
+                    const userPlantScans = last30DaysDiscoveries.filter(
                       (entry) =>
                         getDiscoveryUserEmailLower(entry) === discoveryEmailLower &&
                         entry.plant_id === discovery.plant_id
@@ -881,7 +908,7 @@ export default function Quests() {
                       >
                         <Card
                           className="border-2 border-stone-200 hover:border-green-300 hover:shadow-md transition-all bg-white overflow-hidden cursor-pointer"
-                          onClick={() => setSelectedDiscovery({ discovery, allScans: userPlantScans, plant, genus, discoveryUser })}
+                          onClick={() => setSelectedDiscovery({ discovery, allScans: userPlantScans, plant, genus, discoveryUser, period: '30days' })}
                         >
                           {discovery.image_url && (
                             <div className="relative aspect-square">
@@ -944,11 +971,11 @@ export default function Quests() {
               </>
             )}
 
-            {currentWeekDiscoveries.length === 0 && (
+            {last30DaysDiscoveries.length === 0 && weeklyPriorityDiscoveries.length === 0 && (
               <div className="text-center py-20">
                 <Leaf className="w-16 h-16 text-stone-400 mx-auto mb-4" />
                 <h3 className="text-xl font-bold text-stone-900 mb-2">
-                  Noch keine Scans diese Woche
+                  Keine Scans in den letzten 30 Tagen
                 </h3>
                 <p className="text-stone-600">
                   Sei der Erste und scanne eine Pflanze!
@@ -1821,7 +1848,7 @@ export default function Quests() {
                       {selectedDiscovery.discoveryUser?.display_name || selectedDiscovery.discoveryUser?.full_name || 'Unbekannt'}
                     </p>
                     <p className="text-xs text-stone-500">
-                      {selectedDiscovery.allScans.length} {selectedDiscovery.allScans.length === 1 ? 'Scan' : 'Scans'} diese Woche
+                      {selectedDiscovery.allScans.length} {selectedDiscovery.allScans.length === 1 ? 'Scan' : 'Scans'} {selectedDiscovery.period === '30days' ? 'letzte 30 Tage' : 'diese Woche'}
                     </p>
                   </div>
                 </button>
