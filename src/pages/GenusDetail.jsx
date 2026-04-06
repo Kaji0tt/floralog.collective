@@ -34,6 +34,12 @@ export default function GenusDetail() {
   const geocodePendingRef = useRef(new Set());
   const geocodeByCoordsRef = useRef({});
 
+  const getDiscoveryTimestamp = (discovery) => {
+    const raw = discovery?.discovered_date || discovery?.created_date || discovery?.created_at;
+    const parsed = raw ? new Date(raw).getTime() : 0;
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
   useEffect(() => {
     let isMounted = true;
     const loadUser = async () => {
@@ -215,16 +221,28 @@ export default function GenusDetail() {
                plant.genus_category === selectedGenus.category && 
                plant.genus_number === selectedGenus.category_dex_number;
       });
-      await Promise.all(
+      // Partielle Fehlschläge (z.B. Alt-Datensätze) sollen das Setzen des Zielbilds nicht blockieren.
+      await Promise.allSettled(
         genusDiscoveries.map(d => 
-          Query.UserPlantDiscovery.update(d.id, { is_front_image: false })
+          Query.UserPlantDiscovery.update(d.id, {
+            is_front_image: false,
+            is_species_front_image: false,
+          })
         )
       );
       // Dann das ausgewählte auf true setzen
-      await Query.UserPlantDiscovery.update(discoveryId, { is_front_image: true });
+      await Query.UserPlantDiscovery.update(discoveryId, {
+        is_front_image: true,
+        is_species_front_image: true,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
+      queryClient.invalidateQueries({ queryKey: ['userDiscoveries', currentUser?.id] });
+    },
+    onError: (error) => {
+      console.error("Fehler beim Setzen des Gattungsbilds:", error);
+      alert("Das Vorschaubild konnte nicht gesetzt werden. Bitte erneut versuchen.");
     },
   });
 
@@ -313,9 +331,11 @@ export default function GenusDetail() {
     const plantDiscoveries = userDiscoveries.filter(d => d.plant_id === plant.id);
     // Sortiere: Front-Image zuerst, dann nach Datum
     const sortedDiscoveries = [...plantDiscoveries].sort((a, b) => {
-      if (a.is_front_image && !b.is_front_image) return -1;
-      if (!a.is_front_image && b.is_front_image) return 1;
-      return new Date(b.discovered_date) - new Date(a.discovered_date);
+      const aIsFront = Boolean(a.is_front_image || a.is_species_front_image);
+      const bIsFront = Boolean(b.is_front_image || b.is_species_front_image);
+      if (aIsFront && !bIsFront) return -1;
+      if (!aIsFront && bIsFront) return 1;
+      return getDiscoveryTimestamp(b) - getDiscoveryTimestamp(a);
     });
     const userDiscovery = sortedDiscoveries[0];
     return {
@@ -338,8 +358,9 @@ export default function GenusDetail() {
            plant.genus_number === selectedGenus.category_dex_number && 
            d.image_url;
   });
-  const genusIconUrl = genusDiscoveries.find(d => d.is_front_image)?.image_url || 
-                       genusDiscoveries.sort((a, b) => new Date(b.discovered_date) - new Date(a.discovered_date))[0]?.image_url;
+  const genusIconUrl =
+    genusDiscoveries.find((d) => d.is_front_image || d.is_species_front_image)?.image_url ||
+    [...genusDiscoveries].sort((a, b) => getDiscoveryTimestamp(b) - getDiscoveryTimestamp(a))[0]?.image_url;
 
   if (generaLoading || plantsLoading || discoveriesLoading) {
     return (
@@ -701,14 +722,16 @@ export default function GenusDetail() {
                             setFrontImageMutation.mutate({ discoveryId: currentDiscovery.id });
                           }}
                           className={`absolute bottom-3 left-3 w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all backdrop-blur-sm ${
-                            expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_front_image 
+                            (expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_front_image ||
+                              expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_species_front_image)
                               ? 'bg-amber-500/80 hover:bg-amber-600/80' 
                               : 'bg-white/60 hover:bg-white/80'
                           }`}
                           title="Als Gattungsbild festlegen"
                         >
                           <Star className={`w-5 h-5 ${
-                            expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_front_image 
+                            (expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_front_image ||
+                              expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_species_front_image)
                               ? 'text-white fill-white' 
                               : 'text-stone-600'
                           }`} />

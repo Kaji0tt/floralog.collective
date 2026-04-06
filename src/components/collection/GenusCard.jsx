@@ -20,13 +20,20 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
   const [isEditOpen, setIsEditOpen] = React.useState(false);
   const CategoryIcon = categoryIcons[genus.category] || TreeDeciduous;
 
+  const getDiscoveryTimestamp = (discovery) => {
+    const raw = discovery?.discovered_date || discovery?.created_date || discovery?.created_at;
+    const parsed = raw ? new Date(raw).getTime() : 0;
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
   // Hole das Gattungsbild: Front-Image bevorzugt, sonst neuestes
   const genusDiscoveries = userDiscoveries.filter(d => {
     const plant = plants.find(p => p.id === d.plant_id);
     return plant && plant.genus_category === genus.category && plant.genus_number === genus.category_dex_number && d.image_url;
   });
-  const genusImage = genusDiscoveries.find(d => d.is_front_image)?.image_url || 
-                     genusDiscoveries.sort((a, b) => new Date(b.discovered_date) - new Date(a.discovered_date))[0]?.image_url;
+  const genusImage =
+    genusDiscoveries.find((d) => d.is_front_image || d.is_species_front_image)?.image_url ||
+    [...genusDiscoveries].sort((a, b) => getDiscoveryTimestamp(b) - getDiscoveryTimestamp(a))[0]?.image_url;
 
   // Ermittle höchste Rarität der entdeckten Pflanzen dieser Gattung
   const rarityOrder = { "Häufig": 0, "Gelegentlich": 1, "Selten": 2, "Sehr Selten": 3, "Extrem Selten": 4 };
