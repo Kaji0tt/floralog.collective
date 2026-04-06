@@ -1,8 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
+import { getRobotPlantDailyZones } from "@/api/robotPlantService";
+import {
+  getCachedLocation,
+  refreshCachedLocation,
+} from "@/lib/locationSync";
 import NotificationManager from "./components/notifications/NotificationManager";
 import ToastNotificationManager from "./components/notifications/ToastNotificationManager";
 import QuestNotificationManager from "./components/quests/QuestNotificationManager";
@@ -10,11 +15,16 @@ import UserNotificationManager from "./components/notifications/UserNotification
 import QuestAutoAccepter from "./components/quests/QuestAutoAccepter";
 import { Toaster } from "@/components/ui/toaster";
 
+const LOCATION_REFRESH_INTERVAL_MS = 60 * 1000;
+const ZONE_WARMUP_INTERVAL_MS = 10 * 60 * 1000;
+
 
 
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
   const [user, setUser] = useState(null);
+  const lastLocationRefreshRef = useRef(0);
+  const lastZoneWarmupRef = useRef(0);
 
   const loadUser = async () => {
     try {
@@ -49,6 +59,49 @@ export default function Layout({ children, currentPageName }) {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
+
+  useEffect(() => {
+    const warmupGeoDataInBackground = async () => {
+      const now = Date.now();
+      const shouldRefreshLocation =
+        now - lastLocationRefreshRef.current >= LOCATION_REFRESH_INTERVAL_MS;
+
+      let locationForWarmup = getCachedLocation();
+
+      if (shouldRefreshLocation) {
+        lastLocationRefreshRef.current = now;
+        locationForWarmup = await refreshCachedLocation({
+          skipPrompt: true,
+          options: {
+            enableHighAccuracy: false,
+            timeout: 8000,
+            maximumAge: 60 * 1000,
+          },
+        });
+      }
+
+      if (!user?.id || !Number.isFinite(locationForWarmup?.lat) || !Number.isFinite(locationForWarmup?.lng)) {
+        return;
+      }
+
+      if (now - lastZoneWarmupRef.current < ZONE_WARMUP_INTERVAL_MS) {
+        return;
+      }
+
+      lastZoneWarmupRef.current = now;
+
+      try {
+        await getRobotPlantDailyZones({
+          latitude: locationForWarmup.lat,
+          longitude: locationForWarmup.lng,
+        });
+      } catch (error) {
+        console.warn("[Layout] Hintergrund-Generierung der Zonen fehlgeschlagen:", error?.message || error);
+      }
+    };
+
+    warmupGeoDataInBackground();
+  }, [location.pathname, user?.id]);
 
   return (
     <>

@@ -14,6 +14,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { getRobotPlantDailyZones, initializeGeoRasterGrid } from "@/api/robotPlantService";
+import {
+  getCachedLocation,
+  LOCATION_UPDATED_EVENT,
+  refreshCachedLocation,
+} from "@/lib/locationSync";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { MapContainer, TileLayer, Marker, Popup, Circle, CircleMarker, useMap, GeoJSON } from "react-leaflet";
@@ -144,7 +149,7 @@ export default function Quests() {
   const [isRegeneratingZones, setIsRegeneratingZones] = useState(false);
   const [isInitializingGrid, setIsInitializingGrid] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
-  const [mapQuickView, setMapQuickView] = useState("local");
+  const mapQuickView = "local";
   const [mapFriendSearchQuery, setMapFriendSearchQuery] = useState("");
   const [mapSearchQuery, setMapSearchQuery] = useState("");
   const [mapSelectedViews, setMapSelectedViews] = useState({ mine: true });
@@ -254,7 +259,7 @@ export default function Quests() {
       });
       return response?.zones || [];
     },
-    enabled: mapQuickView === "local" && !!userLocation,
+    enabled: !!userLocation,
     staleTime: 1000 * 60 * 10,
   });
 
@@ -266,28 +271,83 @@ export default function Quests() {
     loadUser();
   }, []);
 
-  const calculateLocation = () => {
+  const calculateLocation = async () => {
     if (!navigator.geolocation) {
       alert("Standortdienste werden von deinem Browser nicht unterstützt.");
       return;
     }
 
     setIsLoadingLocation(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setUserLocation({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
-        });
-        setIsLoadingLocation(false);
-      },
-      (error) => {
-        console.log("Location error:", error);
-        alert("Fehler beim Ermitteln des Standorts. Bitte erlaube den Standortzugriff.");
-        setIsLoadingLocation(false);
+    try {
+      const location = await refreshCachedLocation({
+        skipPrompt: false,
+        force: true,
+        options: {
+          enableHighAccuracy: true,
+          timeout: 12000,
+          maximumAge: 0,
+        },
+      });
+
+      if (Number.isFinite(location?.lat) && Number.isFinite(location?.lng)) {
+        setUserLocation({ lat: location.lat, lng: location.lng });
       }
-    );
+    } catch (error) {
+      console.log("Location error:", error);
+      alert("Fehler beim Ermitteln des Standorts. Bitte erlaube den Standortzugriff.");
+    } finally {
+      setIsLoadingLocation(false);
+    }
   };
+
+  useEffect(() => {
+    const cachedLocation = getCachedLocation();
+    if (Number.isFinite(cachedLocation?.lat) && Number.isFinite(cachedLocation?.lng)) {
+      setUserLocation({ lat: cachedLocation.lat, lng: cachedLocation.lng });
+    }
+
+    const handleLocationUpdate = (event) => {
+      const next = event?.detail;
+      if (Number.isFinite(next?.lat) && Number.isFinite(next?.lng)) {
+        setUserLocation({ lat: next.lat, lng: next.lng });
+      }
+    };
+
+    window.addEventListener(LOCATION_UPDATED_EVENT, handleLocationUpdate);
+    return () => window.removeEventListener(LOCATION_UPDATED_EVENT, handleLocationUpdate);
+  }, []);
+
+  useEffect(() => {
+    refreshCachedLocation({
+      skipPrompt: true,
+      options: {
+        enableHighAccuracy: false,
+        timeout: 8000,
+        maximumAge: 60 * 1000,
+      },
+    }).then((location) => {
+      if (Number.isFinite(location?.lat) && Number.isFinite(location?.lng)) {
+        setUserLocation({ lat: location.lat, lng: location.lng });
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== "map") return;
+
+    refreshCachedLocation({
+      skipPrompt: true,
+      options: {
+        enableHighAccuracy: false,
+        timeout: 8000,
+        maximumAge: 60 * 1000,
+      },
+    }).then((location) => {
+      if (Number.isFinite(location?.lat) && Number.isFinite(location?.lng)) {
+        setUserLocation({ lat: location.lat, lng: location.lng });
+      }
+    });
+  }, [activeTab]);
 
   useEffect(() => {
     if (user?.background_color) {
@@ -1223,158 +1283,13 @@ export default function Quests() {
           <TabsContent value="map" className="pt-12 overflow-hidden">
             <div className="relative w-full" style={{ height: 'calc(100vh - 48px)' }}>
 
-              {/* Overlay: view chips + secondary controls */}
+              {/* Overlay: local map controls */}
               <div className="absolute top-2 left-0 right-0 z-[1000] px-4">
-                {/* View selector chips styled like sort chips */}
-                <div className="flex items-center rounded-full bg-white/90 backdrop-blur-md shadow-md border border-stone-200 p-0.5">
-                  {[
-                    { value: "local",   label: "📍 Lokal"   },
-                    { value: "friends", label: "👥 Freunde" },
-                    { value: "sightings", label: "🌿 Sichtungen" },
-                  ].map(opt => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setMapQuickView(opt.value)}
-                      className={`flex-1 px-2 py-1.5 rounded-full text-xs whitespace-nowrap text-center transition-all ${
-                        mapQuickView === opt.value
-                          ? "bg-green-600 text-white shadow font-semibold"
-                          : "text-stone-600"
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
+                <div className="flex items-center justify-center rounded-full bg-white/90 backdrop-blur-md shadow-md border border-stone-200 p-0.5">
+                  <span className="px-4 py-1.5 rounded-full text-xs text-center bg-green-600 text-white shadow font-semibold">
+                    📍 Lokaler Standort
+                  </span>
                 </div>
-
-                {/* Friends: search / selected friend */}
-                {mapQuickView === "friends" && (
-                  <div className="mt-2">
-                    {mapSelectedViews?.mine || mapSelectedViews?.selectedFriend ? (
-                      <div className="flex items-center justify-between px-4 py-2 bg-white/90 backdrop-blur-md rounded-full border border-green-200 shadow">
-                        <span className="text-sm font-semibold text-stone-900">
-                          {mapSelectedViews.mine ? "Meine Pflanzen" : mapSelectedViews.selectedFriend?.name}
-                        </span>
-                        <button
-                          className="text-xs text-stone-500 ml-2"
-                          onClick={() => { setMapSelectedViews({}); setMapFriendSearchQuery(""); }}
-                        >
-                          Ändern
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-                          <input
-                            type="text"
-                            placeholder="Freund auswählen..."
-                            value={mapFriendSearchQuery}
-                            onChange={e => setMapFriendSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 rounded-full bg-white/90 backdrop-blur-md border border-stone-200 shadow text-sm outline-none"
-                          />
-                        </div>
-                        {mapFriendSearchQuery.length > 0 && (
-                          <div className="mt-1 bg-white/95 backdrop-blur-md rounded-xl border border-stone-200 shadow-lg overflow-y-auto" style={{ maxHeight: '180px' }}>
-                            <button
-                              onClick={() => { setMapSelectedViews({ mine: true }); setMapFriendSearchQuery(""); }}
-                              className="w-full text-left px-4 py-2 hover:bg-stone-50 border-b border-stone-100"
-                            >
-                              <p className="text-sm font-bold text-stone-900">Meine Pflanzen</p>
-                            </button>
-                            {friends
-                              .filter(f =>
-                                f.name?.toLowerCase().includes(mapFriendSearchQuery.toLowerCase()) ||
-                                f.email?.toLowerCase().includes(mapFriendSearchQuery.toLowerCase())
-                              )
-                              .map(friend => (
-                                <button
-                                  key={friend.id}
-                                  onClick={() => {
-                                    setMapSelectedViews({ [`friend-${friend.email}`]: true, selectedFriend: friend });
-                                    setMapFriendSearchQuery("");
-                                  }}
-                                  className="w-full text-left px-4 py-2 hover:bg-stone-50 border-b border-stone-100 last:border-0"
-                                >
-                                  <p className="text-sm font-bold text-stone-900">{friend.name}</p>
-                                </button>
-                              ))}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {/* Sightings: search for a plant/genus */}
-                {mapQuickView === "sightings" && (
-                  <div className="mt-2">
-                    {selectedPlantForSighting ? (
-                      <div className="flex items-center justify-between px-4 py-2 bg-white/90 backdrop-blur-md rounded-full border border-green-200 shadow">
-                        <span className="text-sm font-semibold text-stone-900">
-                          {selectedPlantForSighting.type === 'genus'
-                            ? selectedPlantForSighting.data.genus_name
-                            : selectedPlantForSighting.data.species_name}
-                        </span>
-                        <button
-                          className="text-xs text-stone-500 ml-2"
-                          onClick={() => { setSelectedPlantForSighting(null); setMapSearchQuery(""); }}
-                        >
-                          Ändern
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-                          <input
-                            type="text"
-                            placeholder="Art oder Gattung suchen..."
-                            value={mapSearchQuery}
-                            onChange={e => setMapSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 rounded-full bg-white/90 backdrop-blur-md border border-stone-200 shadow text-sm outline-none"
-                          />
-                        </div>
-                        {mapSearchQuery.length > 1 && (
-                          <div className="mt-1 bg-white/95 backdrop-blur-md rounded-xl border border-stone-200 shadow-lg overflow-y-auto" style={{ maxHeight: '180px' }}>
-                            {genera
-                              .filter(g =>
-                                g.genus_name?.toLowerCase().includes(mapSearchQuery.toLowerCase()) ||
-                                g.scientific_genus?.toLowerCase().includes(mapSearchQuery.toLowerCase())
-                              )
-                              .slice(0, 5)
-                              .map(genus => (
-                                <button
-                                  key={`genus-${genus.id}`}
-                                  onClick={() => { setSelectedPlantForSighting({ type: 'genus', data: genus }); setMapSearchQuery(""); }}
-                                  className="w-full text-left px-4 py-2 hover:bg-stone-50 border-b border-stone-100 last:border-0"
-                                >
-                                  <p className="text-sm font-bold text-stone-900">{genus.genus_name}</p>
-                                  <p className="text-xs text-stone-500">Gattung · {genus.scientific_genus}</p>
-                                </button>
-                              ))}
-                            {plants
-                              .filter(p =>
-                                p.species_name?.toLowerCase().includes(mapSearchQuery.toLowerCase()) ||
-                                p.scientific_name?.toLowerCase().includes(mapSearchQuery.toLowerCase())
-                              )
-                              .slice(0, 5)
-                              .map(plant => (
-                                <button
-                                  key={`plant-${plant.id}`}
-                                  onClick={() => { setSelectedPlantForSighting({ type: 'species', data: plant }); setMapSearchQuery(""); }}
-                                  className="w-full text-left px-4 py-2 hover:bg-stone-50 border-b border-stone-100 last:border-0"
-                                >
-                                  <p className="text-sm font-bold text-stone-900">{plant.species_name}</p>
-                                  <p className="text-xs text-stone-500">Art · {plant.scientific_name}</p>
-                                </button>
-                              ))}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
 
                 {/* Local: get-location button when no location yet */}
                 {mapQuickView === "local" && !userLocation && (

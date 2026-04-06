@@ -3,6 +3,12 @@
 
 alter table public."Plant" enable row level security;
 
+-- Make migration rerunnable: remove policies with the same names first.
+drop policy if exists "plant_select_authenticated" on public."Plant";
+drop policy if exists "plant_update_admin" on public."Plant";
+drop policy if exists "plant_insert_admin" on public."Plant";
+drop policy if exists "plant_delete_admin" on public."Plant";
+
 -- Read access for authenticated users
 create policy "plant_select_authenticated"
   on public."Plant"
