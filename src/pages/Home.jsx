@@ -1,14 +1,11 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { Query } from "@/api/entities";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { upsertUserProfile } from "@/api/authService";
-import { uploadFile } from "@/api/storage";
 import { executeMigration } from "@/api/migrationService";
+import { getRobotPlantDailyZones } from "@/api/robotPlantService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Trophy, BookOpen, Target, Users, Camera, Loader2, Image as ImageIcon, Heart, Leaf } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Camera, Loader2, Leaf, Settings, Plus, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
@@ -16,15 +13,19 @@ import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNo
 import { useNavigate, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { getNameFontSize } from "@/lib/utils";
+import { getCachedLocation } from "@/lib/locationSync";
 import { Button } from "@/components/ui/button";
 import { updateQuestProgress } from "@/components/utils/questProgress";
 
-import { Input } from "@/components/ui/input";
-import { Edit2, CheckCircle, X, Scroll, AlertCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getWeekNumber, getMonthString, getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
 
-const LOGO_URL = "";
+const THEME_MAP_COLORS = {
+  forest: "#007a3f",
+  urban: "#8d755c",
+  water: "#2b6cb0",
+  meadow: "#84cc16",
+};
 
 export default function Home() {
   const navigate = useNavigate();
@@ -32,22 +33,13 @@ export default function Home() {
   const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const fileInputRef = useRef(null);
   const [newAchievements, setNewAchievements] = useState([]);
   const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [editedName, setEditedName] = useState("");
-  const [showBackgroundSelector, setShowBackgroundSelector] = useState(false);
-  const [showColorPicker, setShowColorPicker] = useState(false);
   const [averageColor, setAverageColor] = useState(null);
 
   const [showScannerHighlight, setShowScannerHighlight] = useState(false);
-  const [showBackgroundHighlight, setShowBackgroundHighlight] = useState(false);
-  const [showAchievementsHighlight, setShowAchievementsHighlight] = useState(false);
-  const [showPlantDetailsPanel, setShowPlantDetailsPanel] = useState(false);
-  const [openPlantMeterTooltip, setOpenPlantMeterTooltip] = useState(null);
-  const plantSlotPanelRef = useRef(null);
+  const [activeZone, setActiveZone] = useState(null);
+  const [isLoadingZone, setIsLoadingZone] = useState(false);
 
   const [scanFeedback, setScanFeedback] = useState(null);
 
@@ -234,8 +226,6 @@ export default function Home() {
     const currentUser = await getCurrentUser();
     setUser(currentUser);
     setIsLoadingUser(false);
-    const displayName = currentUser?.display_name || currentUser?.full_name || "";
-    setEditedName(displayName);
     // Refetch alle Queries um Stats sofort zu aktualisieren
     queryClient.refetchQueries({ queryKey: ['userDiscoveries'] });
     queryClient.refetchQueries({ queryKey: ['plants'] });
@@ -261,8 +251,6 @@ export default function Home() {
     const handleUserUpdate = (event) => {
       const updatedUser = event.detail;
       setUser(updatedUser);
-      const displayName = updatedUser?.display_name || updatedUser?.full_name || "";
-      setEditedName(displayName);
       // Refetch alle Queries um Stats sofort zu aktualisieren
       queryClient.refetchQueries({ queryKey: ['userDiscoveries'] });
       queryClient.refetchQueries({ queryKey: ['plants'] });
@@ -354,25 +342,6 @@ export default function Home() {
     setShowScannerHighlight(shouldHighlight);
   }, [user?.display_name, userDiscoveries, isLoadingDiscoveries]);
 
-  // Prüfe ob Hintergrund-Highlight angezeigt werden soll
-  useEffect(() => {
-    const hasChangedBackground = localStorage.getItem('hasChangedBackground');
-    const hasPendingBackgroundNotification = backgroundNotifications.some(n => 
-      n.title?.includes("Personalisiere") && !n.seen
-    );
-    const shouldHighlight = !hasChangedBackground && hasPendingBackgroundNotification;
-    setShowBackgroundHighlight(shouldHighlight);
-  }, [backgroundNotifications]);
-
-  // Prüfe ob Erfolge-Highlight angezeigt werden soll
-  useEffect(() => {
-    const hasVisitedAchievements = localStorage.getItem('hasVisitedAchievements');
-    const hasPendingQuestNotification = backgroundNotifications.some(n => 
-      n.title?.includes("Quest") && !n.seen
-    );
-    const shouldHighlight = !hasVisitedAchievements && hasPendingQuestNotification;
-    setShowAchievementsHighlight(shouldHighlight);
-  }, [backgroundNotifications]);
 
   const updateUserMutation = useMutation({
     mutationFn: (data) => updateCurrentUserProfile(data),
@@ -400,7 +369,6 @@ export default function Home() {
         full_name: userData.full_name,
         title: userData.title,
         selected_title: userData.selected_title,
-        avatar_url: userData.avatar_url,
         background_image_url: userData.background_image_url,
         background_color: userData.background_color
       };
@@ -412,76 +380,6 @@ export default function Home() {
   };
 
   // PublicProfile wird nur bei expliziten Updates aktualisiert (nicht automatisch)
-
-  const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setUploadingImage(true);
-    try {
-      const { file_url } = await uploadFile({ file });
-      await updateUserMutation.mutateAsync({ avatar_url: file_url });
-    } catch (error) {
-      console.error("Fehler beim Hochladen:", error);
-      alert(`Fehler beim Hochladen: ${error.message}`);
-    }
-    setUploadingImage(false);
-  };
-
-  const handleSaveName = async () => {
-    const trimmedName = editedName.trim();
-    
-    if (!trimmedName) {
-      alert("Bitte gib einen Namen ein.");
-      return;
-    }
-    
-    const currentDisplayName = user.display_name || user.full_name;
-    if (trimmedName === currentDisplayName) {
-      setIsEditingName(false);
-      return;
-    }
-
-    try {
-      await updateUserMutation.mutateAsync({ display_name: trimmedName });
-      alert("✅ Name erfolgreich geändert!");
-    } catch (error) {
-      console.error("❌ Fehler beim Speichern:", error);
-      alert(`Fehler: ${error.message}`);
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setEditedName(user.display_name || user.full_name);
-    setIsEditingName(false);
-  };
-
-  const handleSetBackground = async (imageUrl) => {
-    await updateUserMutation.mutateAsync({ background_image_url: imageUrl });
-    setShowBackgroundSelector(false);
-    const color = await getAverageColor(imageUrl);
-    if (color) {
-      setAverageColor(color);
-    }
-  };
-
-  const handleRemoveBackground = async () => {
-    await updateUserMutation.mutateAsync({ background_image_url: null });
-    setShowBackgroundSelector(false);
-    setAverageColor(null);
-  };
-
-  const handleSetColor = async (color) => {
-    await updateUserMutation.mutateAsync({ background_color: color });
-    setShowColorPicker(false);
-    setAverageColor(color);
-  };
-
-  const handleRemoveColor = async () => {
-    await updateUserMutation.mutateAsync({ background_color: null });
-    setShowColorPicker(false);
-    setAverageColor(null);
-  };
 
   const getAverageColor = (imageUrl) => {
     return new Promise((resolve) => {
@@ -538,25 +436,6 @@ export default function Home() {
       setAverageColor(null);
     }
   }, [user?.background_image_url, user?.background_color]);
-
-  useEffect(() => {
-    if (!showPlantDetailsPanel) return;
-
-    const handleOutsideClick = (event) => {
-      if (plantSlotPanelRef.current && !plantSlotPanelRef.current.contains(event.target)) {
-        setShowPlantDetailsPanel(false);
-        setOpenPlantMeterTooltip(null);
-      }
-    };
-
-    document.addEventListener("mousedown", handleOutsideClick);
-    document.addEventListener("touchstart", handleOutsideClick);
-
-    return () => {
-      document.removeEventListener("mousedown", handleOutsideClick);
-      document.removeEventListener("touchstart", handleOutsideClick);
-    };
-  }, [showPlantDetailsPanel]);
 
   const isLoadingCriticalData = isLoadingDiscoveries || isLoadingQuests || isLoadingAchievements || isLoadingFriends || isLoadingWeeklyQuests || isLoadingMonthlyQuests || isLoadingCollectionQuests;
 
@@ -780,58 +659,6 @@ export default function Home() {
     (activeMonthlyQuest ? 1 : 0) + 
     activeCollectionQuests.length;
 
-  const statButtons = [
-    {
-      icon: Leaf,
-      label: "Sammlung",
-      value: discoveredGenera,
-      color: "from-emerald-500 to-emerald-600",
-      textColor: "text-emerald-700",
-      bgColor: "bg-emerald-50",
-      borderColor: "border-emerald-200",
-      onClick: () => navigate(createPageUrl("Collection"))
-    },
-    {
-      icon: BookOpen,
-      label: "Erfolge",
-      value: activeQuestsCount,
-      color: "from-amber-500 to-amber-600",
-      textColor: "text-amber-700",
-      bgColor: "bg-amber-50",
-      borderColor: "border-amber-200",
-      onClick: () => {
-        navigate(createPageUrl("Achievements"));
-        if (showAchievementsHighlight) {
-          localStorage.setItem('hasVisitedAchievements', 'true');
-        }
-      },
-      // Animierte Hervorhebung NUR, wenn es einlösbare Quests gibt
-      hasNotification: hasRedeemableQuests,
-      notificationRed: hasNewQuests,
-      notificationGreen: hasRedeemableQuests
-    },
-    {
-      icon: Users,
-      label: "Community",
-      value: weeklyParticipantsCount,
-      color: "from-blue-500 to-blue-600",
-      textColor: "text-blue-700",
-      bgColor: "bg-blue-50",
-      borderColor: "border-blue-200",
-      onClick: () => navigate(createPageUrl("Quests"))
-    },
-    {
-      icon: Heart,
-      label: "Freunde",
-      value: friends.length,
-      color: "from-purple-500 to-purple-600",
-      textColor: "text-purple-700",
-      bgColor: "bg-purple-50",
-      borderColor: "border-purple-200",
-      onClick: () => navigate(createPageUrl("Friends"))
-    }
-  ];
-
   const getDisplayName = () => user.display_name || user.full_name;
 
   const getRgbaFromRgb = (rgbString, opacity) => {
@@ -875,53 +702,94 @@ export default function Home() {
     return brightness < 100;
   };
 
+  const calculateDistanceMeters = (lat1, lon1, lat2, lon2) => {
+    const R = 6371000;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  useEffect(() => {
+    const loadZoneForHero = async () => {
+      if (!user?.id) return;
+      const location = getCachedLocation();
+      if (!Number.isFinite(location?.lat) || !Number.isFinite(location?.lng)) {
+        setActiveZone(null);
+        return;
+      }
+
+      setIsLoadingZone(true);
+      try {
+        const daily = await getRobotPlantDailyZones({
+          latitude: location.lat,
+          longitude: location.lng,
+        });
+
+        const inRangeZone = (daily?.zones || [])
+          .map((zone) => {
+            const dist = calculateDistanceMeters(
+              location.lat,
+              location.lng,
+              Number(zone.centerLat),
+              Number(zone.centerLng)
+            );
+            return { ...zone, distanceM: dist };
+          })
+          .filter((zone) => Number.isFinite(zone.distanceM) && zone.distanceM <= Number(zone.radiusM || 0))
+          .sort((a, b) => a.distanceM - b.distanceM)[0];
+
+        setActiveZone(inRangeZone || null);
+      } catch (error) {
+        console.warn("[Home] Konnte aktive Zone nicht laden:", error?.message || error);
+        setActiveZone(null);
+      } finally {
+        setIsLoadingZone(false);
+      }
+    };
+
+    loadZoneForHero();
+  }, [user?.id]);
+
+  const safeEnergy = Math.max(0, Math.min(100, energyValue));
+  const safeDataQuality = Math.max(0, Math.min(100, dataQualityValue));
+  const safeCare = Math.max(0, Math.min(100, careValue));
+
+  const overallPlantHealth =
+    safeEnergy <= 0 || safeDataQuality <= 0 || safeCare <= 0
+      ? 0
+      : Math.round(
+          3 /
+            (1 / safeEnergy + 1 / safeDataQuality + 1 / safeCare)
+        );
+
+  const plantHealthState =
+    overallPlantHealth < 25
+      ? { label: "Kritisch", color: "#dc2626" }
+      : overallPlantHealth < 45
+        ? { label: "Schwach", color: "#f97316" }
+        : overallPlantHealth < 70
+          ? { label: "Stabil", color: "#f59e0b" }
+          : { label: "Vital", color: "#22c55e" };
+
+  const currentZoneColor = activeZone
+    ? THEME_MAP_COLORS[activeZone.theme] || "#84cc16"
+    : "#6b7280";
+
+  const navItems = [
+    { label: "Kollektion", icon: Leaf, onClick: () => navigate(createPageUrl("Collection")) },
+    { label: "Quests", icon: Scroll, onClick: () => navigate(createPageUrl("Quests")) },
+    { label: "Social", icon: Users, onClick: () => navigate(createPageUrl("Friends")) },
+    { label: "Shop", icon: ShoppingBag, onClick: () => navigate(createPageUrl("Shop")) },
+  ];
+
   return (
     <>
-      <style>{`
-        :root {
-          --profile-bg-color: ${averageColor || 'rgb(250, 250, 249)'};
-          --profile-bg-color-light: ${averageColor ? getLighterColor(averageColor) : 'rgb(255, 255, 255)'};
-          --profile-bg-color-mid: ${averageColor ? averageColor : 'rgb(236, 253, 245)'};
-          --profile-bg-color-dark: ${averageColor ? getDarkerColor(averageColor) : 'rgb(220, 252, 231)'};
-          --profile-border-color: ${averageColor ? getRgbaFromRgb(averageColor, 0.4) : 'rgb(134, 239, 172)'};
-          --profile-text-color: ${averageColor && isColorDark(averageColor) ? 'rgb(255, 255, 255)' : 'rgb(28, 25, 23)'};
-        }
-        @media (max-height: 610px) {
-          .short-screen\\:hidden {
-            display: none !important;
-          }
-          .short-screen\\:w-7 {
-            width: 1.75rem !important;
-          }
-          .short-screen\\:h-7 {
-            height: 1.75rem !important;
-          }
-          .short-screen\\:w-3\\.5 {
-            width: 0.875rem !important;
-          }
-          .short-screen\\:h-3\\.5 {
-            height: 0.875rem !important;
-          }
-          .short-screen\\:p-1\\.5 {
-            padding: 0.375rem !important;
-          }
-          .short-screen\\:gap-0\\.5 {
-            gap: 0.125rem !important;
-          }
-        }
-      `}</style>
-      <div 
-        className="h-screen w-full box-border p-4 md:p-8 fixed inset-0 overflow-hidden flex flex-col" 
-        style={{
-          background: averageColor 
-            ? `linear-gradient(135deg, var(--profile-bg-color-light) 0%, var(--profile-bg-color-mid) 50%, var(--profile-bg-color-dark) 100%)`
-            : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))',
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
-          backgroundColor: 'rgba(255,255,255,0.5)'
-        }}
-      >
-      
       <AnimatePresence>
         {newAchievements.length > 0 && currentAchievementIndex < newAchievements.length && (
           <AchievementNotification
@@ -938,692 +806,237 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-        <AnimatePresence>
-          {scanFeedback && (
-            <ScanFeedbackNotification
-              feedback={scanFeedback}
-              onComplete={() => setScanFeedback(null)}
-            />
-          )}
-        </AnimatePresence>
+      <AnimatePresence>
+        {scanFeedback && (
+          <ScanFeedbackNotification
+            feedback={scanFeedback}
+            onComplete={() => setScanFeedback(null)}
+          />
+        )}
+      </AnimatePresence>
 
-      <div className="max-w-4xl mx-auto flex flex-col flex-1 min-h-0 justify-between">
-        <Dialog open={showBackgroundSelector} onOpenChange={setShowBackgroundSelector}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Hintergrund auswählen</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <Button
-                variant="outline"
-                onClick={handleRemoveBackground}
-                className="w-full"
-              >
-                Hintergrund entfernen
-              </Button>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {userDiscoveries
-                  .filter(d => d.image_url)
-                  .map((discovery) => (
-                    <button
-                      key={discovery.id}
-                      onClick={() => handleSetBackground(discovery.image_url)}
-                      className="relative aspect-square rounded-lg overflow-hidden border-2 border-stone-200 hover:border-green-500 transition-colors group"
-                    >
-                      <img
-                        src={discovery.image_url}
-                        alt="Scan"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                      />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-                    </button>
-                  ))}
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+      <Dialog open={isMigrating} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Loader2 className="w-5 h-5 animate-spin text-green-600" />
+              Migration läuft...
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Deine Daten werden migriert. Dies kann einen Moment dauern.
+            </p>
 
-        <Dialog open={showColorPicker} onOpenChange={setShowColorPicker}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Hintergrundfarbe auswählen</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <Button
-                variant="outline"
-                onClick={handleRemoveColor}
-                className="w-full"
-              >
-                Farbe entfernen
-              </Button>
-              <div className="grid grid-cols-4 gap-3">
-                {[
-                  'rgb(59, 130, 246)', // Blue
-                  'rgb(16, 185, 129)', // Green
-                  'rgb(245, 158, 11)', // Amber
-                  'rgb(239, 68, 68)', // Red
-                  'rgb(168, 85, 247)', // Purple
-                  'rgb(236, 72, 153)', // Pink
-                  'rgb(20, 184, 166)', // Teal
-                  'rgb(251, 146, 60)', // Orange
-                  'rgb(34, 197, 94)', // Lime
-                  'rgb(99, 102, 241)', // Indigo
-                  'rgb(217, 70, 239)', // Fuchsia
-                  'rgb(6, 182, 212)', // Cyan
-                ].map((color) => (
-                  <button
-                    key={color}
-                    onClick={() => handleSetColor(color)}
-                    className="aspect-square rounded-lg border-2 border-stone-200 hover:border-stone-400 transition-colors hover:scale-110"
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Migration Dialog */}
-        <Dialog open={isMigrating} onOpenChange={() => {}}>
-          <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin text-green-600" />
-                Migration läuft...
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600">
-                Deine Daten werden migriert. Dies kann einen Moment dauern.
-              </p>
-              
-              {migrationError ? (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-medium text-red-900">Migration fehlgeschlagen</p>
-                      <p className="text-sm text-red-700 mt-1">{migrationError}</p>
-                    </div>
+            {migrationError ? (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-red-900">Migration fehlgeschlagen</p>
+                    <p className="text-sm text-red-700 mt-1">{migrationError}</p>
                   </div>
                 </div>
-              ) : (
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {migrationSteps.length === 0 ? (
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Initialisierung...</span>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {migrationSteps.length === 0 ? (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Initialisierung...</span>
+                  </div>
+                ) : (
+                  migrationSteps.map((step, idx) => (
+                    <div key={idx} className="flex items-center gap-2 text-sm text-green-800 animate-in fade-in duration-300">
+                      <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                      <span>{step.name}</span>
+                      {step.updated !== undefined && <span className="text-gray-500">({step.updated})</span>}
                     </div>
-                  ) : (
-                    migrationSteps.map((step, idx) => (
-                      <div key={idx} className="flex items-center gap-2 text-sm text-green-800 animate-in fade-in duration-300">
-                        <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-                        <span>{step.name}</span>
-                        {step.updated !== undefined && (
-                          <span className="text-gray-500">({step.updated})</span>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-
-              {migrationError && (
-                <Button 
-                  onClick={() => {
-                    setIsMigrating(false);
-                    setMigrationError(null);
-                    localStorage.removeItem('migration_pending');
-                  }}
-                  variant="outline"
-                  className="w-full"
-                >
-                  Schließen
-                </Button>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="flex-shrink-0"
-        >
-          <motion.div
-            className="relative mb-4"
-            animate={showBackgroundHighlight ? {
-              scale: [1, 1.02, 1],
-            } : {}}
-            transition={showBackgroundHighlight ? {
-              duration: 2,
-              repeat: Infinity,
-              repeatDelay: 0.5,
-              ease: "easeInOut"
-            } : {}}
-          >
-            {showBackgroundHighlight && (
-              <>
-                <motion.div
-                  className="absolute -inset-1 bg-gradient-to-r from-amber-400 via-orange-500 to-amber-400 rounded-2xl -z-10"
-                  animate={{
-                    opacity: [0.3, 0.7, 0.3],
-                    scale: [1, 1.02, 1]
-                  }}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: "easeInOut"
-                  }}
-                />
-                <motion.div
-                  className="absolute -inset-2 bg-amber-300/20 rounded-2xl -z-10"
-                  animate={{
-                    scale: [1, 1.05, 1],
-                    opacity: [0.2, 0.4, 0.2]
-                  }}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                    delay: 0.3
-                  }}
-                />
-              </>
+                  ))
+                )}
+              </div>
             )}
-            <Card 
-              className="shadow-xl bg-white overflow-hidden cursor-pointer hover:shadow-2xl transition-shadow"
-              style={{
-                borderWidth: '2px',
-                borderStyle: 'solid',
-                borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
-              }}
-              onClick={() => {
-                navigate(createPageUrl("Profile"));
-                if (showBackgroundHighlight) {
-                  localStorage.setItem('hasVisitedProfileSettings', 'true');
-                }
-              }}
-            >
-            <CardContent 
-              className="p-6 md:p-8 relative"
+
+            {migrationError && (
+              <Button
+                onClick={() => {
+                  setIsMigrating(false);
+                  setMigrationError(null);
+                  localStorage.removeItem('migration_pending');
+                }}
+                variant="outline"
+                className="w-full"
+              >
+                Schließen
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <div className="fixed inset-0 overflow-hidden">
+        <div
+          className="absolute inset-0"
+          style={user?.background_image_url ? {
+            backgroundImage: `url(${user.background_image_url})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          } : user?.background_color ? {
+            background: `linear-gradient(160deg, ${getRgbaFromRgb(user.background_color, 1)} 0%, ${getRgbaFromRgb(user.background_color, 0.55)} 100%)`,
+          } : {
+            background: 'radial-gradient(circle at top, rgb(167, 243, 208) 0%, rgb(22, 101, 52) 60%, rgb(10, 30, 18) 100%)',
+          }}
+        />
+        <div className="absolute inset-0 backdrop-blur-3xl bg-black/50" />
+
+        <div className="relative z-10 h-full w-full p-3 md:p-6 flex items-center justify-center">
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: 'easeOut' }}
+            className="relative h-full w-full max-w-md md:max-w-3xl rounded-[2rem] overflow-hidden border border-[#d7cf9c]/65 shadow-[0_20px_80px_rgba(0,0,0,0.55)]"
+          >
+            <div
+              className="absolute inset-0"
               style={user?.background_image_url ? {
-                backgroundImage: `linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(0,0,0,0.4) 100%), url(${user.background_image_url})`,
+                backgroundImage: `linear-gradient(180deg, rgba(19,37,24,0.56) 0%, rgba(12,20,15,0.82) 100%), url(${user.background_image_url})`,
                 backgroundSize: 'cover',
-                backgroundPosition: 'center'
+                backgroundPosition: 'center',
               } : user?.background_color ? {
-                background: `linear-gradient(135deg, ${getRgbaFromRgb(user.background_color, 0.6)} 0%, ${getRgbaFromRgb(user.background_color, 1)} 100%)`
-              } : {}}
-            >
-              <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
-                <div
-                  ref={plantSlotPanelRef}
-                  className={`relative h-28 transition-all duration-300 ${showPlantDetailsPanel ? "w-[15rem]" : "w-28"}`}
-                >
-                  <motion.button
-                    type="button"
-                    className="absolute top-2 left-2 w-6 h-6 rounded-full border-2 border-white/40 bg-white/55 text-stone-500 text-[11px] font-semibold shadow-sm z-30 flex items-center justify-center"
-                    animate={{ x: showPlantDetailsPanel ? 128 : 0 }}
-                    transition={{ duration: 0.22, ease: "easeOut" }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowPlantDetailsPanel((prev) => {
-                        const next = !prev;
-                        if (!next) setOpenPlantMeterTooltip(null);
-                        return next;
-                      });
-                    }}
-                    aria-label="Pflanzenpanel aufklappen"
+                background: `linear-gradient(180deg, ${getRgbaFromRgb(user.background_color, 0.35)} 0%, rgba(14, 22, 16, 0.9) 100%)`,
+              } : {
+                background: 'linear-gradient(180deg, rgba(126, 171, 98, 0.55) 0%, rgba(10, 22, 15, 0.92) 100%)',
+              }}
+            />
+            <div className="absolute inset-0 border border-[#f0e5a5]/30 pointer-events-none rounded-[2rem]" />
+
+            <div className="relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6 text-stone-100">
+              <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#f0e5a5]/20">
+                <div className="min-w-0">
+                  <h1
+                    className="font-bold leading-tight truncate"
+                    style={{ fontSize: getNameFontSize(getDisplayName()) }}
+                    title={getDisplayName()}
                   >
-                    {showPlantDetailsPanel ? ">" : "<"}
-                  </motion.button>
-
-                  <motion.div
-                    className="absolute left-0 top-0 z-10 w-28 h-28 rounded-2xl bg-white/60 backdrop-blur-md border-2 border-white/40 shadow-lg flex flex-col items-center justify-center text-stone-700"
-                    animate={{ x: showPlantDetailsPanel ? 128 : 0 }}
-                    transition={{ duration: 0.22, ease: "easeOut" }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="absolute -top-2 -right-2 px-2 py-0.5 rounded-full bg-emerald-700 text-white text-[10px] font-bold shadow-md border border-emerald-200">
-                      {playerSeeds}
-                    </div>
-                    <Leaf className="w-10 h-10 text-green-600" />
-                    <span className="mt-1 text-[10px] font-semibold uppercase tracking-wide">Pflanzen-Slot</span>
-                  </motion.div>
-
-                  <AnimatePresence>
-                    {showPlantDetailsPanel && (
-                      <motion.div
-                        initial={{ opacity: 0, x: -8, scale: 0.97 }}
-                        animate={{ opacity: 1, x: 0, scale: 1 }}
-                        exit={{ opacity: 0, x: -8, scale: 0.97 }}
-                        transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="absolute left-0 top-0 w-28 h-28 rounded-2xl bg-gradient-to-br from-white/85 via-stone-100/75 to-stone-200/65 backdrop-blur-md border-2 border-white/50 shadow-[0_8px_18px_rgba(15,23,42,0.16),inset_0_16px_24px_rgba(255,255,255,0.35),inset_0_-18px_30px_rgba(15,23,42,0.26),inset_10px_0_18px_rgba(15,23,42,0.16),inset_-10px_0_18px_rgba(15,23,42,0.12)] z-20 p-2"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="absolute inset-0 rounded-2xl pointer-events-none bg-gradient-to-b from-white/30 to-transparent" />
-                        <div className="relative h-full flex flex-col">
-                          <div className="flex items-center justify-between mb-1 px-0.5">
-                            <span className="text-[7px] font-semibold uppercase tracking-[0.08em] text-stone-600/90">Pflanzenstatus</span>
-                          </div>
-
-                          <div className="relative flex-1">
-                            <div className="h-full flex items-end justify-around gap-1 px-1 pb-1">
-                              {plantStatMeters.map((meter, meterIndex) => (
-                            <Popover
-                              key={meter.id}
-                              open={openPlantMeterTooltip === meter.id}
-                              onOpenChange={(open) => setOpenPlantMeterTooltip(open ? meter.id : null)}
-                            >
-                              <PopoverTrigger asChild>
-                                <button
-                                  type="button"
-                                  className="h-full w-6 flex flex-col items-center justify-end focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 rounded-sm"
-                                  aria-label={`${meter.label} erklaeren`}
-                                >
-                                  <div className="grid grid-rows-5 gap-[2px] h-full w-4 p-[1px] rounded-md border border-white/50 bg-white/35 shadow-inner">
-                                    {Array.from({ length: 5 }).map((_, index) => (
-                                      <motion.div
-                                        key={`${meter.label}-${index}`}
-                                        initial={{ opacity: 0, y: 3 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.14, delay: 0.02 * meterIndex + 0.025 * (4 - index) }}
-                                        className={`rounded-[2px] border ${index >= 5 - meter.segments ? `${meter.activeClass} border-transparent` : "border-stone-200 bg-white/75"}`}
-                                      />
-                                    ))}
-                                  </div>
-                                  <span className="mt-0.5 text-[8px] leading-none font-semibold text-stone-600">{meter.value}%</span>
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent
-                                side="bottom"
-                                align="center"
-                                sideOffset={6}
-                                collisionPadding={12}
-                                className="w-[min(14rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] p-3 text-xs break-words"
-                              >
-                                <p className="font-semibold text-stone-900 mb-1">{meter.label}</p>
-                                <p className="text-stone-600 leading-relaxed">{meter.description}</p>
-                              </PopoverContent>
-                            </Popover>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                <div className="flex-1 w-full max-w-full min-w-0 bg-white/40 backdrop-blur-md rounded-xl p-5 border-2 border-white/30 shadow-lg">
-                  <div className="flex items-start gap-4 mb-3">
-                    <div className="relative group flex-shrink-0">
-                      <div className="w-20 h-20 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-xl overflow-hidden ring-2 ring-white/70 backdrop-blur-sm">
-                        {user.avatar_url ? (
-                          <img src={user.avatar_url} alt="Profil" className="w-full h-full object-cover" />
-                        ) : (
-                          <Leaf className="w-10 h-10 text-white" />
-                        )}
-                      </div>
-
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                        disabled={uploadingImage}
-                        aria-label="Profilbild hochladen"
-                      >
-                        {uploadingImage ? (
-                          <Loader2 className="w-6 h-6 text-white animate-spin" />
-                        ) : (
-                          <Camera className="w-6 h-6 text-white" />
-                        )}
-                      </button>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        className="hidden"
-                      />
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                  {isEditingName ? (
-                    <div className="mb-3">
-                      <div className="flex items-center gap-2">
-                        <Input
-                          value={editedName}
-                          onChange={(e) => setEditedName(e.target.value)}
-                          className="text-2xl font-bold border-2 border-green-300 bg-white/60 backdrop-blur-sm"
-                          placeholder="Dein Name"
-                          maxLength={50}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSaveName();
-                            if (e.key === 'Escape') handleCancelEdit();
-                          }}
-                          autoFocus
-                        />
-                        <Button
-                          onClick={handleSaveName}
-                          disabled={updateUserMutation.isPending || !editedName.trim()}
-                          size="icon"
-                          className="bg-green-600 hover:bg-green-700 flex-shrink-0"
-                        >
-                          <CheckCircle className="w-5 h-5" />
-                        </Button>
-                        <Button
-                          onClick={handleCancelEdit}
-                          disabled={updateUserMutation.isPending}
-                          size="icon"
-                          variant="outline"
-                          className="flex-shrink-0 bg-white/60 backdrop-blur-sm"
-                        >
-                          <X className="w-5 h-5" />
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="mb-2 min-w-0 max-w-full">
-                      <h1
-                        className="block w-full max-w-full min-w-0 font-bold text-stone-900 leading-tight"
-                        style={{
-                          fontSize: getNameFontSize(getDisplayName()),
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}
-                        title={getDisplayName()}
-                        key={getDisplayName()}
-                      >
-                        {getDisplayName()}
-                      </h1>
-                    </div>
-                  )}
-
-                  <div className="mb-3">
-                    <span className="text-base font-semibold text-stone-700">
-                      {user.selected_title || user.title || "Pflanzen-Entdecker"}
-                    </span>
-                    </div>
-                    </div>
+                    {getDisplayName()}
+                  </h1>
+                  <p className="text-stone-200/85 text-base md:text-lg">
+                    {user.selected_title || user.title || 'Pflanzen-Entdecker'}
+                  </p>
+                  <div className="hidden mt-1 h-8 items-center gap-1" aria-hidden="true">
+                    <span className="w-8 h-8 rounded-full border border-white/25 bg-white/10" />
+                    <span className="w-8 h-8 rounded-full border border-white/25 bg-white/10" />
+                    <span className="w-8 h-8 rounded-full border border-white/25 bg-white/10" />
                   </div>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-4 gap-3">
-                {statButtons.map((stat, index) => (
-                  <motion.button
-                    key={stat.label}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      stat.onClick();
-                    }}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 + index * 0.05 }}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="bg-white/60 backdrop-blur-md rounded-xl p-2 short-screen:p-1.5 md:p-4 hover:shadow-lg transition-all duration-300 group relative overflow-hidden"
-                    style={{
-                      borderWidth: '2px',
-                      borderStyle: 'solid',
-                      borderColor: stat.hasNotification 
-                        ? 'transparent'
-                        : (averageColor ? 'var(--profile-border-color)' : stat.borderColor.replace('border-', '').replace('-200', '')),
-                      backgroundImage: stat.hasNotification
-                        ? 'linear-gradient(white, white), linear-gradient(90deg, #f59e0b, #f97316, #ea580c, #f59e0b)'
-                        : 'none',
-                      backgroundOrigin: 'border-box',
-                      backgroundClip: stat.hasNotification ? 'padding-box, border-box' : 'padding-box'
-                    }}
-                  >
-                    {stat.hasNotification && (
-                      <>
-                        <motion.div
-                          className="absolute inset-0 bg-gradient-to-b from-transparent via-amber-300/30 to-transparent"
-                          animate={{
-                            y: ['-100%', '200%']
-                          }}
-                          transition={{
-                            duration: 2.5,
-                            repeat: Infinity,
-                            repeatDelay: 3,
-                            ease: "easeInOut"
-                          }}
-                          style={{ pointerEvents: 'none' }}
-                        />
-                        <motion.div
-                          className="absolute inset-0 rounded-xl"
-                          animate={{
-                            boxShadow: [
-                              '0 0 0px rgba(245, 158, 11, 0)',
-                              '0 0 20px rgba(245, 158, 11, 0.6)',
-                              '0 0 0px rgba(245, 158, 11, 0)'
-                            ]
-                          }}
-                          transition={{
-                            duration: 2.5,
-                            repeat: Infinity,
-                            repeatDelay: 3,
-                            ease: "easeInOut"
-                          }}
-                        />
-                      </>
-                    )}
-                    <div className="flex flex-col items-center gap-1 short-screen:gap-0.5 md:gap-2">
-                      <div className={`w-8 h-8 short-screen:w-7 short-screen:h-7 md:w-12 md:h-12 bg-gradient-to-br ${stat.color} rounded-full flex items-center justify-center shadow-md group-hover:scale-110 transition-transform`}>
-                        <stat.icon className="w-4 h-4 short-screen:w-3.5 short-screen:h-3.5 md:w-6 md:h-6 text-white" />
-                      </div>
-                      <div className="text-xl short-screen:hidden md:text-3xl font-bold text-stone-700">
-                        {isLoadingCriticalData ? (
-                          <div className="w-8 h-6 bg-stone-200 animate-pulse rounded"></div>
-                        ) : (
-                          stat.value
-                        )}
-                      </div>
-                      <div className="text-xs font-semibold text-stone-600 hidden sm:block short-screen:hidden">{stat.label}</div>
-                    </div>
-                  </motion.button>
-                ))}
-              </div>
-
-              {/* Scannen Container - innerhalb der Profilkarte */}
-              <div className="mt-4">
-                <div 
-                  className="bg-white/60 backdrop-blur-md rounded-xl p-4 shadow-md"
-                  style={{
-                    borderWidth: '2px',
-                    borderStyle: 'solid',
-                    borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
-                  }}
+                <button
+                  type="button"
+                  onClick={() => navigate(createPageUrl('Profile'))}
+                  className="w-11 h-11 rounded-full border border-[#f0e5a5]/35 bg-black/30 backdrop-blur-md flex items-center justify-center hover:bg-black/45 transition-colors"
+                  aria-label="Einstellungen"
                 >
-                  <div className="flex items-center justify-center gap-4">
-                    <motion.button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(createPageUrl("Scanner"));
-                        // NICHT mehr hasVisitedScanner setzen - Highlight bleibt bis zum ersten Scan
+                  <Settings className="w-5 h-5 text-[#f0e5a5]" />
+                </button>
+              </div>
+
+              <div className="flex-1 min-h-0 flex flex-col justify-between py-4">
+                <section className="rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm px-4 py-5 md:px-6 md:py-6">
+                  <div className="flex items-center justify-between text-xs md:text-sm mb-3">
+                    <div className="inline-flex items-center gap-2 rounded-full bg-black/35 border border-white/15 px-3 py-1">
+                      <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: plantHealthState.color }} />
+                      <span className="font-semibold">Gesamtzustand: {plantHealthState.label} ({overallPlantHealth}%)</span>
+                    </div>
+
+                    <div className="inline-flex items-center gap-2 rounded-full bg-black/35 border border-white/15 px-3 py-1">
+                      <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: currentZoneColor }} />
+                      <span className="font-semibold">
+                        {isLoadingZone ? 'Zone wird geladen...' : activeZone ? `Aktive Zone: ${activeZone.title || activeZone.theme}` : 'Keine aktive Zone'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mb-5 h-2 rounded-full bg-white/10 overflow-hidden border border-white/10">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${overallPlantHealth}%`,
+                        background: `linear-gradient(90deg, ${plantHealthState.color} 0%, #bef264 100%)`,
                       }}
-                      className="flex items-center gap-2 hover:opacity-80 transition-opacity relative"
-                      animate={showScannerHighlight ? {
-                        scale: [1, 1.05, 1],
-                      } : {}}
-                      transition={showScannerHighlight ? {
-                        duration: 2,
-                        repeat: Infinity,
-                        repeatDelay: 0.5,
-                        ease: "easeInOut"
-                      } : {}}
-                    >
-                      {showScannerHighlight && (
-                        <>
-                          <motion.div
-                            className="absolute -inset-2 bg-green-400/20 rounded-xl -z-10"
-                            animate={{
-                              scale: [1, 1.2, 1],
-                              opacity: [0.3, 0.6, 0.3]
-                            }}
-                            transition={{
-                              duration: 2,
-                              repeat: Infinity,
-                              ease: "easeInOut"
-                            }}
-                          />
-                          <motion.div
-                            className="absolute -inset-3 bg-green-500/10 rounded-xl -z-10"
-                            animate={{
-                              scale: [1, 1.3, 1],
-                              opacity: [0.2, 0.4, 0.2]
-                            }}
-                            transition={{
-                              duration: 2,
-                              repeat: Infinity,
-                              ease: "easeInOut",
-                              delay: 0.3
-                            }}
-                          />
-                        </>
-                      )}
-                      <div 
-                        className="w-10 h-10 rounded-full flex items-center justify-center shadow-md"
-                        style={{
-                          background: averageColor 
-                            ? `linear-gradient(135deg, var(--profile-bg-color) 0%, var(--profile-bg-color-dark) 100%)`
-                            : 'linear-gradient(135deg, rgb(34, 197, 94), rgb(22, 163, 74))'
-                        }}
+                    />
+                  </div>
+
+                  <div className="relative mx-auto w-[16rem] h-[16rem] md:w-[19rem] md:h-[19rem]">
+                    <div className="absolute top-2 right-1 rounded-full bg-emerald-700/90 border border-emerald-300/60 px-3 py-1 text-xs md:text-sm font-bold">
+                      Samen {playerSeeds}
+                    </div>
+
+                    <div className="absolute inset-7 rounded-full border border-[#f0e5a5]/35 bg-gradient-to-b from-emerald-100/25 to-emerald-900/45 backdrop-blur-sm shadow-[inset_0_0_30px_rgba(190,242,100,0.15)]" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Leaf className="w-20 h-20 md:w-24 md:h-24 text-lime-200 drop-shadow-[0_0_24px_rgba(190,242,100,0.6)]" />
+                    </div>
+
+                    {[
+                      'left-0 top-1/2 -translate-y-1/2',
+                      'right-0 top-1/2 -translate-y-1/2',
+                      'left-1/2 top-0 -translate-x-1/2',
+                      'left-1/2 bottom-0 -translate-x-1/2',
+                    ].map((position, index) => (
+                      <button
+                        key={`slot-${index}`}
+                        type="button"
+                        className={`absolute ${position} w-12 h-12 md:w-14 md:h-14 rounded-2xl border border-[#f0e5a5]/45 bg-black/35 backdrop-blur-sm flex items-center justify-center text-[#f0e5a5] hover:bg-black/50 transition-colors`}
+                        aria-label={`Plus Slot ${index + 1}`}
                       >
-                        <Camera className="w-5 h-5 text-white" />
+                        <Plus className="w-6 h-6" />
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-3 gap-2 text-xs md:text-sm">
+                    {plantStatMeters.map((meter) => (
+                      <div key={meter.id} className="rounded-xl bg-black/35 border border-white/10 px-2 py-2 text-center">
+                        <p className="opacity-80">{meter.label}</p>
+                        <p className="font-bold">{meter.value}%</p>
                       </div>
-                      <span className="font-semibold text-stone-900">Scannen</span>
-                    </motion.button>
+                    ))}
+                  </div>
+
+                  <motion.button
+                    onClick={() => navigate(createPageUrl('Scanner'))}
+                    className="mt-5 w-full h-14 md:h-16 rounded-2xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 flex items-center justify-center gap-3 text-lg md:text-2xl font-semibold tracking-wide shadow-[0_8px_24px_rgba(34,197,94,0.3)]"
+                    animate={showScannerHighlight ? { scale: [1, 1.02, 1] } : {}}
+                    transition={showScannerHighlight ? { duration: 1.8, repeat: Infinity, ease: 'easeInOut' } : {}}
+                  >
+                    <Camera className="w-6 h-6 md:w-7 md:h-7" />
+                    Scannen
+                  </motion.button>
+                </section>
+
+                <div className="mt-4">
+                  <div className="grid grid-cols-4 gap-2 md:gap-3">
+                    {navItems.map((item) => (
+                      <button
+                        key={item.label}
+                        onClick={item.onClick}
+                        className="rounded-2xl border border-[#f0e5a5]/28 bg-black/35 hover:bg-black/50 transition-colors py-3 md:py-4 flex flex-col items-center gap-1"
+                      >
+                        <item.icon className="w-5 h-5 md:w-6 md:h-6 text-lime-100" />
+                        <span className="text-xs md:text-sm font-semibold">{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 flex justify-center gap-3 text-sm text-stone-300/85">
+                    <button onClick={() => navigate(createPageUrl('Impressum'))} className="hover:text-white transition-colors">Impressum</button>
+                    <span>•</span>
+                    <button onClick={() => navigate(createPageUrl('News'))} className="hover:text-white transition-colors">News</button>
                   </div>
                 </div>
               </div>
-
-            </CardContent>
-          </Card>
+            </div>
           </motion.div>
-        </motion.div>
-
-        {/* Desktop Spenden/Impressum Links - außerhalb der Profilkarte */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25, duration: 0.5 }}
-          className="hidden md:block flex-shrink-0"
-        >
-          <div className="flex justify-center gap-3 text-sm">
-            <button
-              onClick={() => navigate(createPageUrl("Donate"))}
-              className="hover:opacity-60 transition-all font-medium px-1.5 py-1 opacity-50"
-              style={{ 
-                color: averageColor ? getLighterColor(getLighterColor(averageColor)) : 'rgb(120, 113, 108)',
-                textShadow: '0 1px 3px rgba(0,0,0,0.3)'
-              }}
-            >
-              Spenden
-            </button>
-            <span 
-              className="opacity-40"
-              style={{ 
-                color: averageColor ? getLighterColor(averageColor) : 'rgb(120, 113, 108)'
-              }}
-            >
-              •
-            </span>
-            <button
-              onClick={() => navigate(createPageUrl("Impressum"))}
-              className="hover:opacity-60 transition-all font-medium px-1.5 py-1 opacity-50"
-              style={{ 
-                color: averageColor ? getLighterColor(getLighterColor(averageColor)) : 'rgb(120, 113, 108)',
-                textShadow: '0 1px 3px rgba(0,0,0,0.3)'
-              }}
-            >
-              Impressum
-            </button>
-            <span 
-              className="opacity-40"
-              style={{ 
-                color: averageColor ? getLighterColor(averageColor) : 'rgb(120, 113, 108)'
-              }}
-            >
-              •
-            </span>
-            <button
-              onClick={() => navigate(createPageUrl("News"))}
-              className="hover:opacity-60 transition-all font-medium px-1.5 py-1 opacity-50"
-              style={{ 
-                color: averageColor ? getLighterColor(getLighterColor(averageColor)) : 'rgb(120, 113, 108)',
-                textShadow: '0 1px 3px rgba(0,0,0,0.3)'
-              }}
-            >
-              News
-            </button>
-          </div>
-        </motion.div>
-
-        {/* Mobile Spenden/Impressum Links */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.5 }}
-          className="flex-shrink-0 md:hidden"
-        >
-          <div className="flex justify-center gap-3 text-sm">
-            <button
-              onClick={() => navigate(createPageUrl("Donate"))}
-              className="hover:opacity-60 transition-all font-medium px-1.5 py-1"
-              style={{ 
-                color: 'var(--profile-text-color)',
-                opacity: 0.7,
-                textShadow: averageColor && isColorDark(averageColor) ? '0 1px 3px rgba(0,0,0,0.5)' : 'none'
-              }}
-            >
-              Spenden
-            </button>
-            <span 
-              className="opacity-40"
-              style={{ 
-                color: 'var(--profile-text-color)'
-              }}
-            >
-              •
-            </span>
-            <button
-              onClick={() => navigate(createPageUrl("Impressum"))}
-              className="hover:opacity-60 transition-all font-medium px-1.5 py-1"
-              style={{ 
-                color: 'var(--profile-text-color)',
-                opacity: 0.7,
-                textShadow: averageColor && isColorDark(averageColor) ? '0 1px 3px rgba(0,0,0,0.5)' : 'none'
-              }}
-            >
-              Impressum
-            </button>
-            <span 
-              className="opacity-40"
-              style={{ 
-                color: 'var(--profile-text-color)'
-              }}
-            >
-              •
-            </span>
-            <button
-              onClick={() => navigate(createPageUrl("News"))}
-              className="hover:opacity-60 transition-all font-medium px-1.5 py-1"
-              style={{ 
-                color: 'var(--profile-text-color)',
-                opacity: 0.7,
-                textShadow: averageColor && isColorDark(averageColor) ? '0 1px 3px rgba(0,0,0,0.5)' : 'none'
-              }}
-            >
-              News
-            </button>
-          </div>
-        </motion.div>
-
-      </div>
+        </div>
       </div>
     </>
   );
