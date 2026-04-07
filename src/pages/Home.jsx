@@ -1483,21 +1483,23 @@ export default function Home() {
                               <Leaf className="w-20 h-20 md:w-24 md:h-24 text-lime-200 drop-shadow-[0_0_24px_rgba(190,242,100,0.6)]" />
                             </div>
 
-                            {[
-                              'left-0 top-1/2 -translate-y-1/2',
-                              'right-0 top-1/2 -translate-y-1/2',
-                              'left-1/2 top-0 -translate-x-1/2',
-                              'left-1/2 bottom-0 -translate-x-1/2',
-                            ].map((position, index) => (
-                              <button
-                                key={`slot-${index}`}
-                                type="button"
-                                className={`absolute ${position} w-12 h-12 md:w-14 md:h-14 rounded-2xl border border-[#f0e5a5]/45 bg-black/35 backdrop-blur-sm flex items-center justify-center text-[#f0e5a5] hover:bg-black/50 transition-colors`}
-                                aria-label={`Plus Slot ${index + 1}`}
-                              >
-                                <Plus className="w-6 h-6" />
-                              </button>
-                            ))}
+                            <div className="absolute left-1/2 top-1/2 w-[82%] aspect-square -translate-x-1/2 -translate-y-1/2">
+                              {[
+                                'left-0 top-1/2 -translate-x-1/2 -translate-y-1/2',
+                                'right-0 top-1/2 translate-x-1/2 -translate-y-1/2',
+                                'left-1/2 top-0 -translate-x-1/2 -translate-y-1/2',
+                                'left-1/2 bottom-0 -translate-x-1/2 translate-y-1/2',
+                              ].map((position, index) => (
+                                <button
+                                  key={`slot-${index}`}
+                                  type="button"
+                                  className={`absolute ${position} w-12 h-12 md:w-14 md:h-14 rounded-2xl border border-[#f0e5a5]/45 bg-black/35 backdrop-blur-sm flex items-center justify-center text-[#f0e5a5] hover:bg-black/50 transition-colors`}
+                                  aria-label={`Plus Slot ${index + 1}`}
+                                >
+                                  <Plus className="w-6 h-6" />
+                                </button>
+                              ))}
+                            </div>
                           </motion.div>
                         )}
                       </AnimatePresence>
