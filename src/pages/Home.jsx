@@ -1087,8 +1087,8 @@ export default function Home() {
   ];
 
   const footerTextColor = averageColor
-    ? (isColorDark(averageColor) ? "rgba(245,245,244,0.96)" : "rgba(28,25,23,0.88)")
-    : "rgba(245,245,244,0.92)";
+    ? (isColorDark(averageColor) ? "rgba(245, 245, 244, 0.7)" : "rgba(28,25,23,0.8)")
+    : "rgba(245, 245, 244, 0.7)";
   const footerTextShadow = averageColor && isColorDark(averageColor)
     ? "0 2px 8px rgba(0,0,0,0.7)"
     : "0 1px 5px rgba(255,255,255,0.35)";
