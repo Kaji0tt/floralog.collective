@@ -1034,10 +1034,30 @@ export default function Home() {
   ];
 
   const navItems = [
-    { label: "Kollektion", icon: Leaf, onClick: () => navigate(createPageUrl("Collection")) },
-    { label: "Quests", icon: Scroll, onClick: () => navigate(createPageUrl("Quests")) },
-    { label: "Social", icon: Users, onClick: () => navigate(createPageUrl("Friends")) },
-    { label: "Shop", icon: ShoppingBag, onClick: () => navigate(createPageUrl("Shop")) },
+    {
+      label: "Kollektion",
+      icon: Leaf,
+      onClick: () => navigate(createPageUrl("Collection")),
+      gradientClass: "bg-gradient-to-br from-emerald-700/55 via-emerald-600/45 to-emerald-500/35",
+    },
+    {
+      label: "Quests",
+      icon: Scroll,
+      onClick: () => navigate(createPageUrl("Quests")),
+      gradientClass: "bg-gradient-to-br from-amber-900/55 via-amber-800/45 to-orange-700/35",
+    },
+    {
+      label: "Social",
+      icon: Users,
+      onClick: () => navigate(createPageUrl("Friends")),
+      gradientClass: "bg-gradient-to-br from-sky-800/55 via-blue-700/45 to-cyan-600/35",
+    },
+    {
+      label: "Shop",
+      icon: ShoppingBag,
+      onClick: () => navigate(createPageUrl("Shop")),
+      gradientClass: "bg-gradient-to-br from-orange-800/55 via-orange-700/45 to-amber-600/35",
+    },
   ];
 
   const footerTextColor = averageColor
@@ -1420,7 +1440,7 @@ export default function Home() {
                         <button
                           key={item.label}
                           onClick={item.onClick}
-                          className="rounded-2xl border border-[#d7cf9c]/65 bg-black/35 hover:bg-black/50 transition-colors py-3 md:py-4 flex flex-col items-center gap-1"
+                          className={`rounded-2xl border border-[#d7cf9c]/65 ${item.gradientClass} hover:brightness-110 transition-all py-3 md:py-4 flex flex-col items-center gap-1`}
                         >
                           <item.icon className="w-5 h-5 md:w-6 md:h-6 text-lime-100" />
                           <span className="home-tight-vh-label text-xs md:text-sm font-semibold">{item.label}</span>
