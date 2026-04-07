@@ -200,9 +200,11 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
 
   let title = "Scan erfolgreich!";
   let message = "Dein Scan wurde gespeichert.";
-  let containerClasses = "bg-emerald-50/95 border-emerald-200";
-  let ringClasses = "bg-emerald-200";
-  let counterClasses = "text-emerald-700";
+  let containerClasses = "bg-black/55 border-[#f0e5a5]/35";
+  let ringClasses = "bg-emerald-400/35";
+  let counterClasses = "text-emerald-300";
+  let messageClasses = "text-stone-200";
+  let titleClasses = "text-stone-100";
   let emojiSet = ["✨", "✨", "✨"];
   let animationVariant = "rescanned";
 
@@ -211,16 +213,16 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
     message = plantName
       ? `${plantName} wurde erneut bestaetigt.`
       : "Deine Pflanze wurde erneut bestaetigt.";
-    ringClasses = "bg-emerald-200/70";
+    ringClasses = "bg-emerald-300/35";
     emojiSet = ["✨", "🌿", "✨"];
   } else if (type === "newDiscovery") {
     title = "Neue Entdeckung!";
     message = plantName
       ? `${plantName} wurde zu deinem Floralog hinzugefuegt.`
       : "Eine neue Pflanze wurde deinem Floralog hinzugefuegt.";
-    containerClasses = "bg-emerald-50/95 border-emerald-300";
-    ringClasses = "bg-emerald-300/80";
-    counterClasses = "text-lime-700";
+    containerClasses = "bg-black/60 border-lime-200/35";
+    ringClasses = "bg-lime-400/35";
+    counterClasses = "text-lime-300";
     emojiSet = ["✨", "🌿", "✨", "🌱"];
     animationVariant = "newDiscovery";
   } else if (type === "globalNewPlant") {
@@ -228,9 +230,10 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
     message = plantName
       ? `${plantName} ist jetzt im globalen Floralog verfuegbar.`
       : "Eine neue Pflanze ist jetzt im globalen Floralog verfuegbar.";
-    containerClasses = "bg-amber-50/95 border-amber-300";
-    ringClasses = "bg-amber-300/80";
-    counterClasses = "text-amber-700";
+    containerClasses = "bg-black/60 border-amber-200/35";
+    ringClasses = "bg-amber-400/35";
+    counterClasses = "text-amber-300";
+    messageClasses = "text-stone-200";
     emojiSet = ["✨", "🌟", "✨", "🌼"];
     animationVariant = "globalNewPlant";
   } else if (type === "questCompleted") {
@@ -241,8 +244,8 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
     if (rewardName) {
       message += ` Belohnung: ${rewardName}.`;
     }
-    containerClasses = "bg-emerald-50/95 border-emerald-300";
-    ringClasses = "bg-emerald-300/80";
+    containerClasses = "bg-black/60 border-emerald-200/35";
+    ringClasses = "bg-emerald-400/35";
     emojiSet = ["✨", "🎯", "🎁", "✨"];
     animationVariant = "newDiscovery";
   }
@@ -293,15 +296,17 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
         animate="animate"
         exit="exit"
         transition={{ type: "spring", damping: 16, stiffness: 260 }}
-        className={`relative pointer-events-auto ${containerClasses} backdrop-blur-md rounded-2xl shadow-xl border px-6 py-4 max-w-sm w-[90%] flex flex-col items-center text-center`}
+        className={`relative pointer-events-auto ${containerClasses} backdrop-blur-xl rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.55)] border px-6 py-4 max-w-sm w-[90%] flex flex-col items-center text-center overflow-hidden`}
       >
+        <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-emerald-950/15 to-black/45 pointer-events-none" />
         <div className={`absolute -inset-px rounded-2xl opacity-40 blur-xl ${ringClasses}`} />
+        <div className="absolute inset-0 border border-[#f0e5a5]/25 rounded-2xl pointer-events-none" />
         <div className="relative z-10 flex flex-col items-center w-full">
-          <h3 className="text-lg font-bold text-stone-900 mb-1">{title}</h3>
-          <p className="text-sm text-stone-700">{message}</p>
+          <h3 className={`text-lg font-bold mb-1 ${titleClasses}`}>{title}</h3>
+          <p className={`text-sm ${messageClasses}`}>{message}</p>
 
           {rewardDetails && (
-            <div className="mt-4 w-full rounded-2xl bg-white/75 border border-white/80 px-4 py-4 shadow-sm">
+            <div className="mt-4 w-full rounded-2xl bg-black/35 border border-[#f0e5a5]/30 px-4 py-4 shadow-sm">
               <div className="relative min-h-[3.4rem] flex items-center justify-center overflow-hidden">
                 <AnimatePresence mode="wait" initial={false}>
                   {isNegativeSwap && previousReward !== null ? (
@@ -338,7 +343,7 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
                 </motion.div>
               </div>
 
-              <div className="mt-1 text-[11px] uppercase tracking-[0.25em] text-stone-500">Seeds</div>
+              <div className="mt-1 text-[11px] uppercase tracking-[0.25em] text-stone-300">Seeds</div>
 
               {rewardSteps.length > 0 && (
                 <div className="mt-4 space-y-2 text-left">
@@ -352,7 +357,7 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         transition={{ type: "spring", stiffness: 280, damping: 20 }}
                         className={`flex items-center justify-between rounded-xl px-3 py-2 text-sm ${
-                          isActive ? "bg-stone-900 text-white" : "bg-white/80 text-stone-700"
+                          isActive ? "bg-stone-900/95 text-white" : "bg-black/40 text-stone-200 border border-[#f0e5a5]/20"
                         }`}
                       >
                         <span className="font-semibold">{step.label}</span>

@@ -82,6 +82,7 @@ export default function Scanner() {
   const [pendingImageData, setPendingImageData] = useState(null);
   const [pendingScanData, setPendingScanData] = useState(null); // Temporäre Scan-Daten vor Bestätigung
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showBlockedResultDialog, setShowBlockedResultDialog] = useState(false);
   const [isSavingPlant, setIsSavingPlant] = useState(false);
   const [currentResultIndex, setCurrentResultIndex] = useState(0); // Aktuell ausgewähltes Ergebnis
   const [locationEnabled, setLocationEnabled] = useState(true);
@@ -975,7 +976,7 @@ export default function Scanner() {
     if (!pendingScanData || isSavingPlant) return;
 
     if (selectedResultBlocked) {
-      alert("Dieser Vorschlag kann nicht gespeichert werden. Bitte waehle ein anderes Ergebnis oder scanne erneut.");
+      setShowBlockedResultDialog(true);
       return;
     }
 
@@ -1146,14 +1147,43 @@ export default function Scanner() {
           --profile-border-color: ${averageColor ? getRgbaFromRgb(averageColor, 0.4) : 'rgb(134, 239, 172)'};
         }
       `}</style>
-      <div 
-        className="h-screen min-w-full p-4 md:p-8 fixed inset-0 overflow-auto" 
-        style={{
-          background: averageColor 
+      <div className="fixed inset-0 overflow-hidden">
+      <div
+        className="absolute inset-0"
+        style={user?.background_image_url ? {
+          backgroundImage: `url(${user.background_image_url})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        } : user?.background_color ? {
+          background: `linear-gradient(160deg, ${getRgbaFromRgb(user.background_color, 1)} 0%, ${getRgbaFromRgb(user.background_color, 0.55)} 100%)`,
+        } : {
+          background: averageColor
             ? `linear-gradient(135deg, var(--profile-bg-color-light) 0%, var(--profile-bg-color-mid) 50%, var(--profile-bg-color-dark) 100%)`
-            : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
+            : 'radial-gradient(circle at top, rgb(167, 243, 208) 0%, rgb(22, 101, 52) 60%, rgb(10, 30, 18) 100%)',
         }}
+      />
+      <div className="absolute inset-0 backdrop-blur-3xl" />
+      <div className="relative z-10 h-full w-full p-3 md:p-6 flex items-start justify-center">
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: 'easeOut' }}
+        className="relative h-[calc(100%-1.50rem)] md:h-[calc(100%-1.50rem)] w-full max-w-md md:max-w-3xl rounded-[2rem] overflow-hidden border border-[#d7cf9c]/65 shadow-[0_20px_80px_rgba(0,0,0,0.55)]"
       >
+      <div
+        className="absolute inset-0"
+        style={user?.background_image_url ? {
+          backgroundImage: `linear-gradient(180deg, rgba(19,37,24,0.42) 0%, rgba(12,20,15,0.66) 100%), url(${user.background_image_url})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        } : user?.background_color ? {
+          background: `linear-gradient(180deg, ${getRgbaFromRgb(user.background_color, 0.28)} 0%, rgba(14, 22, 16, 0.74) 100%)`,
+        } : {
+          background: 'linear-gradient(180deg, rgba(126, 171, 98, 0.45) 0%, rgba(10, 22, 15, 0.78) 100%)',
+        }}
+      />
+      <div className="absolute inset-0 border border-[#f0e5a5]/30 pointer-events-none rounded-[2rem]" />
+      <div className="relative z-10 h-full overflow-y-auto px-4 md:px-8 py-4 md:py-6 text-stone-100">
       {/* Grüner Haken / Ändern Button - nur wenn pendingScanData vorhanden */}
       {pendingScanData && !isSavingPlant && (
         <ConfirmButton 
@@ -1164,14 +1194,17 @@ export default function Scanner() {
       
       {/* Bestätigungs-Dialog */}
       <Dialog open={showConfirmDialog} onOpenChange={(open) => !isSavingPlant && setShowConfirmDialog(open)}>
-        <DialogContent className="sm:max-w-md" onInteractOutside={(e) => isSavingPlant && e.preventDefault()}>
+        <DialogContent className="sm:max-w-md overflow-hidden rounded-3xl border border-[#f0e5a5]/35 bg-black/40 backdrop-blur-xl text-stone-100 shadow-[0_24px_80px_rgba(0,0,0,0.55)]" onInteractOutside={(e) => isSavingPlant && e.preventDefault()}>
+          <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-emerald-950/20 to-black/45 pointer-events-none" />
+          <div className="absolute inset-0 border border-[#f0e5a5]/25 rounded-3xl pointer-events-none" />
+          <div className="relative z-10">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-green-600">
+            <DialogTitle className="flex items-center gap-2 text-emerald-300">
               {isSavingPlant ? <Loader2 className="w-6 h-6 animate-spin" /> : <Check className="w-6 h-6" />}
               {isSavingPlant ? "Wird gespeichert..." : "Pflanze hinzufügen?"}
             </DialogTitle>
             {!isSavingPlant && (
-              <DialogDescription className="text-base pt-4">
+              <DialogDescription className="text-base pt-4 text-stone-200">
                 {selectedResultBlocked ? (
                   <span>
                     <strong>{selectedPendingResult?.species_name || "Dieser Vorschlag"}</strong> kann nicht gespeichert werden,
@@ -1185,7 +1218,7 @@ export default function Scanner() {
               </DialogDescription>
             )}
             {isSavingPlant && (
-              <DialogDescription className="text-base pt-4 text-center">
+              <DialogDescription className="text-base pt-4 text-center text-stone-200">
                 <p>Die Pflanze wird gespeichert und Quest-Fortschritte werden aktualisiert...</p>
               </DialogDescription>
             )}
@@ -1195,18 +1228,47 @@ export default function Scanner() {
               variant="outline" 
               onClick={handleCancelSave}
               disabled={isSavingPlant}
+              className="border-[#f0e5a5]/35 bg-black/35 text-stone-100 hover:bg-black/55"
             >
               Nein
             </Button>
             <Button 
               onClick={handleConfirmSave}
               disabled={isSavingPlant || selectedResultBlocked}
-              className="bg-green-600 hover:bg-green-700 disabled:opacity-50"
+              className="border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 hover:brightness-110 disabled:opacity-50"
             >
               {isSavingPlant ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Ja
             </Button>
           </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Blockiertes Ergebnis Dialog */}
+      <Dialog open={showBlockedResultDialog} onOpenChange={setShowBlockedResultDialog}>
+        <DialogContent className="sm:max-w-md overflow-hidden rounded-3xl border border-[#f0e5a5]/35 bg-black/40 backdrop-blur-xl text-stone-100 shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
+          <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-red-950/20 to-black/45 pointer-events-none" />
+          <div className="absolute inset-0 border border-[#f0e5a5]/25 rounded-3xl pointer-events-none" />
+          <div className="relative z-10">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-red-300">
+                <AlertTriangle className="w-6 h-6 text-red-300" />
+                Ergebnis nicht speicherbar
+              </DialogTitle>
+              <DialogDescription className="text-base pt-4 text-stone-200">
+                Dieser Vorschlag kann nicht gespeichert werden. Bitte waehle ein anderes Ergebnis oder scanne erneut.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                onClick={() => setShowBlockedResultDialog(false)}
+                className="w-full border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 hover:brightness-110"
+              >
+                Verstanden
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
       
@@ -1224,20 +1286,23 @@ export default function Scanner() {
           });
         }
       }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md overflow-hidden rounded-3xl border border-[#f0e5a5]/35 bg-black/40 backdrop-blur-xl text-stone-100 shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
+          <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-emerald-950/20 to-black/45 pointer-events-none" />
+          <div className="absolute inset-0 border border-[#f0e5a5]/25 rounded-3xl pointer-events-none" />
+          <div className="relative z-10">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-amber-600">
-              <Sparkles className="w-6 h-6" />
+            <DialogTitle className="flex items-center gap-2 text-amber-300">
+              <Sparkles className="w-6 h-6 text-amber-300" />
               Globales Floralog erweitert!
             </DialogTitle>
-            <DialogDescription className="text-base pt-4 space-y-3">
-              <p className="font-semibold text-green-700">
+            <DialogDescription className="text-base pt-4 space-y-3 text-stone-200">
+              <p className="font-semibold text-emerald-300">
                 🌟 Glückwunsch!
               </p>
               <p>
                 Du hast mit <strong>{newPlantName}</strong> eine neue Pflanze zum globalen Floralog hinzugefügt!
               </p>
-              <p className="text-sm text-stone-600">
+              <p className="text-sm text-stone-300">
                 Diese Pflanze ist jetzt für alle Nutzer verfügbar.
               </p>
             </DialogDescription>
@@ -1255,23 +1320,27 @@ export default function Scanner() {
                   }
                 });
               }}
-              className="w-full bg-green-600 hover:bg-green-700"
+              className="w-full border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 hover:brightness-110"
             >
               Verstanden
             </Button>
           </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
       
       {/* Rate-Limit Dialog */}
       <Dialog open={showRateLimitDialog} onOpenChange={setShowRateLimitDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md overflow-hidden rounded-3xl border border-[#f0e5a5]/35 bg-black/40 backdrop-blur-xl text-stone-100 shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
+          <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-amber-950/20 to-black/45 pointer-events-none" />
+          <div className="absolute inset-0 border border-[#f0e5a5]/25 rounded-3xl pointer-events-none" />
+          <div className="relative z-10">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-orange-600">
-              <AlertTriangle className="w-6 h-6" />
+            <DialogTitle className="flex items-center gap-2 text-amber-300">
+              <AlertTriangle className="w-6 h-6 text-amber-300" />
               PlantNet nicht verfügbar
             </DialogTitle>
-            <DialogDescription className="text-base pt-4">
+            <DialogDescription className="text-base pt-4 text-stone-200">
               Achtung: PlantNet hat die maximale Anzahl an Scans erreicht oder ist nicht erreichbar.
               Eine alternative KI-Erkennung ist aktuell nicht konfiguriert.
             </DialogDescription>
@@ -1285,16 +1354,18 @@ export default function Scanner() {
                 setMatchedPlant(null);
                 setImageUrl(null);
               }}
+              className="border-[#f0e5a5]/35 bg-black/35 text-stone-100 hover:bg-black/55"
             >
               Abbrechen
             </Button>
             <Button 
               onClick={handleLLMFallback}
-              className="bg-orange-600 hover:bg-orange-700"
+              className="border border-amber-200/35 bg-gradient-to-r from-amber-700/80 via-amber-500/70 to-amber-700/80 hover:brightness-110"
             >
               Scannen
             </Button>
           </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
       
@@ -1317,42 +1388,28 @@ export default function Scanner() {
       <div className="max-w-4xl mx-auto">
         {!scanning && !matchedPlant && !showCamera &&
         <Card 
-          className="shadow-xl bg-white overflow-hidden"
-          style={{
-            borderWidth: '2px',
-            borderStyle: 'solid',
-            borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
-          }}
+          className="overflow-hidden rounded-3xl border border-[#f0e5a5]/30 bg-black/25 backdrop-blur-sm shadow-[0_18px_42px_rgba(0,0,0,0.42)]"
         >
-            <CardContent className="p-6 md:p-8" style={user?.background_image_url ? {
-              backgroundImage: `linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(0,0,0,0.4) 100%), url(${user.background_image_url})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center'
-            } : user?.background_color ? {
-              background: `linear-gradient(135deg, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 0.6)')} 0%, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 1)')} 100%)`
-            } : {}}>
+            <CardContent className="p-6 md:p-8 bg-gradient-to-b from-black/30 via-emerald-950/15 to-black/35">
               <button
               onClick={() => { if (requireAuth()) setShowCamera(true); }}
-              className="w-full group relative overflow-hidden rounded-xl bg-white/60 backdrop-blur-md border-2 p-8 hover:bg-white/80 shadow-lg hover:shadow-xl transition-all duration-300"
-              style={{
-                borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
-              }}>
+              className="w-full group relative overflow-hidden rounded-2xl bg-black/40 backdrop-blur-md border border-[#f0e5a5]/35 p-8 hover:bg-black/50 shadow-lg hover:shadow-xl transition-all duration-300">
 
                 <div className="flex flex-col items-center">
-                  <div className="w-20 h-20 bg-gradient-to-br from-green-600 to-green-700 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                  <div className="w-20 h-20 bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg border border-lime-200/30">
                     <Camera className="w-10 h-10 text-white" />
                   </div>
-                  <h3 className="text-2xl font-bold mb-2 text-stone-900">Foto aufnehmen</h3>
-                  <p className="text-stone-600 text-base">Mit der Kamera scannen</p>
+                  <h3 className="text-2xl font-bold mb-2 text-stone-100">Foto aufnehmen</h3>
+                  <p className="text-stone-200/85 text-base">Mit der Kamera scannen</p>
                 </div>
               </button>
 
-              <div className="mt-6 p-4 bg-white/40 backdrop-blur-md rounded-xl border border-white/30">
-                <p className="text-center font-semibold text-stone-700">
+              <div className="mt-6 p-4 bg-black/35 backdrop-blur-md rounded-xl border border-[#f0e5a5]/25">
+                <p className="text-center font-semibold text-stone-100">
                   💡 Tipp: Achte darauf, dass die Pflanze gut zu sehen ist!
                 </p>
                 {userLocation &&
-              <p className="text-center text-sm text-stone-600 mt-2">
+              <p className="text-center text-sm text-stone-200/85 mt-2">
                     📍 Dein Standort wird automatisch gespeichert
                   </p>
               }
@@ -1369,31 +1426,20 @@ export default function Scanner() {
             className="mt-6"
           >
           <Card 
-            className="shadow-xl bg-white overflow-hidden"
-            style={{
-              borderWidth: '2px',
-              borderStyle: 'solid',
-              borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
-            }}
+            className="overflow-hidden rounded-3xl border border-[#f0e5a5]/30 bg-black/25 backdrop-blur-sm shadow-[0_18px_42px_rgba(0,0,0,0.42)]"
           >
-            <CardContent className="p-6 md:p-8" style={user?.background_image_url ? {
-              backgroundImage: `linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(0,0,0,0.4) 100%), url(${user.background_image_url})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center'
-            } : user?.background_color ? {
-              background: `linear-gradient(135deg, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 0.6)')} 0%, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 1)')} 100%)`
-            } : {}}>
+            <CardContent className="p-6 md:p-8 bg-gradient-to-b from-black/30 via-emerald-950/15 to-black/35">
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
                 <Button
                   onClick={() => navigate(createPageUrl("Home"))}
-                  className="w-full sm:w-auto justify-center bg-gradient-to-br from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold shadow-lg"
+                  className="w-full sm:w-auto justify-center border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 hover:brightness-110 text-white font-semibold shadow-[0_8px_24px_rgba(34,197,94,0.3)]"
                 >
                   <ArrowLeft className="w-5 h-5 mr-2" />
                   Zurück
                 </Button>
 
-                <div className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-3 bg-stone-50 rounded-lg px-3 sm:px-4 py-2.5 border-2 border-stone-200 min-w-0">
-                  <Label htmlFor="location-toggle" className="text-stone-900 font-semibold cursor-pointer flex items-center gap-2 min-w-0 text-sm sm:text-base">
+                <div className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-3 rounded-xl px-3 sm:px-4 py-2.5 border border-[#f0e5a5]/35 bg-black/40 min-w-0">
+                  <Label htmlFor="location-toggle" className="text-stone-100 font-semibold cursor-pointer flex items-center gap-2 min-w-0 text-sm sm:text-base">
                     <MapPin className="w-4 h-4" />
                     Standort
                   </Label>
@@ -1407,8 +1453,8 @@ export default function Scanner() {
               </div>
               
               {gettingLocation && locationEnabled && (
-                <div className="flex items-center justify-center gap-2 text-sm text-stone-600 mt-4 bg-green-50 rounded-lg p-3 border border-green-200">
-                  <MapPin className="w-4 h-4 animate-pulse text-green-600" />
+                <div className="flex items-center justify-center gap-2 text-sm text-stone-100 mt-4 bg-emerald-900/40 rounded-lg p-3 border border-emerald-200/30">
+                  <MapPin className="w-4 h-4 animate-pulse text-emerald-300" />
                   <span>Standort wird ermittelt...</span>
                 </div>
               )}
@@ -1419,29 +1465,16 @@ export default function Scanner() {
 
         {scanning &&
         <Card 
-          className="shadow-xl bg-white overflow-hidden"
-          style={{
-            borderWidth: '2px',
-            borderStyle: 'solid',
-            borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
-          }}
+          className="overflow-hidden rounded-3xl border border-[#f0e5a5]/30 bg-black/25 backdrop-blur-sm shadow-[0_18px_42px_rgba(0,0,0,0.42)]"
         >
-            <CardContent className="p-12" style={user?.background_image_url ? {
-              backgroundImage: `linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(0,0,0,0.4) 100%), url(${user.background_image_url})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center'
-            } : user?.background_color ? {
-              background: `linear-gradient(135deg, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 0.6)')} 0%, ${user.background_color.replace('rgb', 'rgba').replace(')', ', 1)')} 100%)`
-            } : {}}>
-              <div className="flex flex-col items-center bg-white/60 backdrop-blur-md rounded-xl p-8 border-2" style={{
-                borderColor: averageColor ? 'var(--profile-border-color)' : 'rgb(187, 247, 208)'
-              }}>
-                <Loader2 className="w-16 h-16 text-green-600 animate-spin mb-4" />
-                <h3 className="text-2xl font-bold text-stone-900 mb-2">
+            <CardContent className="p-12 bg-gradient-to-b from-black/30 via-emerald-950/15 to-black/35">
+              <div className="flex flex-col items-center bg-black/40 backdrop-blur-md rounded-2xl p-8 border border-[#f0e5a5]/30">
+                <Loader2 className="w-16 h-16 text-emerald-300 animate-spin mb-4" />
+                <h3 className="text-2xl font-bold text-stone-100 mb-2">
                   Pflanze wird analysiert...
                 </h3>
                 <div className="text-center">
-                  <p className="text-lg text-green-700 font-semibold transition-all duration-300">
+                  <p className="text-lg text-emerald-200 font-semibold transition-all duration-300">
                     {scanningPhase === 0 && '📦 Komprimiere Bild...'}
                     {scanningPhase === 1 && '📸 Lasse das Bild über PlantNet-API analysieren...'}
                     {scanningPhase === 2 && '📜 Überprüfe Ergebnis mit globalem Floralog...'}
@@ -1479,6 +1512,9 @@ export default function Scanner() {
           onClose={() => setShowCamera(false)} />
 
         }
+      </div>
+      </div>
+      </motion.div>
       </div>
       </div>
     </>);

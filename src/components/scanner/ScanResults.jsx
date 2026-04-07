@@ -206,12 +206,12 @@ export default function ScanResults({
 
   const getRarityBackgroundColor = (rarity) => {
     switch (rarity) {
-      case "Häufig":return "bg-gradient-to-br from-zinc-300 via-zinc-200 to-stone-100";
-      case "Gelegentlich":return "bg-gradient-to-br from-green-200 via-emerald-100 to-teal-100";
-      case "Selten":return "bg-gradient-to-br from-purple-200 via-violet-100 to-indigo-100";
-      case "Sehr Selten":return "bg-gradient-to-br from-orange-200 via-amber-100 to-yellow-100";
-      case "Extrem Selten":return "bg-gradient-to-br from-red-200 via-rose-100 to-pink-100";
-      default:return "bg-gradient-to-br from-zinc-300 via-zinc-200 to-stone-100";
+      case "Häufig":return "bg-gradient-to-br from-black/50 via-zinc-900/55 to-black/65";
+      case "Gelegentlich":return "bg-gradient-to-br from-emerald-900/45 via-black/35 to-teal-950/60";
+      case "Selten":return "bg-gradient-to-br from-cyan-900/45 via-black/40 to-sky-950/60";
+      case "Sehr Selten":return "bg-gradient-to-br from-amber-900/45 via-black/35 to-orange-950/60";
+      case "Extrem Selten":return "bg-gradient-to-br from-rose-900/45 via-black/40 to-red-950/65";
+      default:return "bg-gradient-to-br from-black/50 via-zinc-900/55 to-black/65";
     }
   };
 
@@ -230,11 +230,11 @@ export default function ScanResults({
 
   if (isUnidentified) {
     return (
-      <Card className="border-2 border-red-200 shadow-lg bg-white">
+      <Card className="overflow-hidden rounded-3xl border border-red-300/45 bg-black/35 backdrop-blur-sm shadow-[0_18px_42px_rgba(0,0,0,0.42)]">
         <CardContent className="p-4 space-y-3">
-          <Alert className="border border-red-200 bg-red-50">
+          <Alert className="border border-red-300/45 bg-red-900/40 text-red-100">
             <AlertCircle className="h-4 w-4 text-red-600" />
-            <AlertDescription className="text-sm font-semibold text-red-900">
+            <AlertDescription className="text-sm font-semibold text-red-100">
               Diese Pflanze konnte ich nicht erkennen! 🤔
             </AlertDescription>
           </Alert>
@@ -243,7 +243,7 @@ export default function ScanResults({
           <img
             src={imageUrl}
             alt="Gescanntes Bild"
-            className="w-full h-40 object-cover rounded-lg border border-stone-200" />
+            className="w-full h-40 object-cover rounded-lg border border-[#f0e5a5]/30" />
 
           }
 
@@ -254,9 +254,9 @@ export default function ScanResults({
             </div>
           }
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-sm font-semibold text-blue-900 mb-2">💡 Tipps für bessere Ergebnisse:</p>
-            <ul className="list-disc ml-5 space-y-0.5 text-xs text-blue-800">
+          <div className="bg-emerald-900/35 border border-emerald-200/30 rounded-lg p-3">
+            <p className="text-sm font-semibold text-emerald-100 mb-2">💡 Tipps für bessere Ergebnisse:</p>
+            <ul className="list-disc ml-5 space-y-0.5 text-xs text-emerald-50/95">
               <li>Fotografiere bei Tageslicht</li>
               <li>Zeige Details: Blätter, Blüten, Stamm</li>
               <li>Halte die Kamera ruhig</li>
@@ -264,7 +264,7 @@ export default function ScanResults({
             </ul>
           </div>
 
-          <Button onClick={onRescan} className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3">
+          <Button onClick={onRescan} className="w-full border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 hover:brightness-110 text-white font-semibold py-3">
             <RotateCcw className="w-4 h-4 mr-2" />
             Nochmal versuchen
           </Button>
@@ -320,20 +320,20 @@ export default function ScanResults({
               style={{ x, scale, opacity }}
               className="w-full overflow-visible">
 
-              <Card className="shadow-2xl bg-gradient-to-br from-stone-100 to-stone-50 overflow-hidden border-none">
-                <CardContent className="p-4 md:p-6 space-y-3 bg-gradient-to-br from-green-50/40 via-emerald-50/30 to-teal-50/20">
+              <Card className="shadow-2xl bg-black/30 overflow-hidden border border-[#f0e5a5]/30 backdrop-blur-sm rounded-3xl">
+                <CardContent className="p-4 md:p-6 space-y-3 bg-gradient-to-br from-black/35 via-emerald-950/20 to-black/35">
                   {/* Container mit Rarität-Border für Titel und Bild */}
                   <div className={`relative rounded-2xl p-4 border-2 ${getRarityBorderColor(rarity)} ${getRarityBackgroundColor(rarity)}`} style={{ boxShadow: '8px 8px 24px rgba(0, 0, 0, 0.15)' }}>
                     {/* Namen linksbündig mit Rarität Badge rechts */}
                     <div className="mb-4 flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-stone-900 break-words" style={{
+                        <h3 className="font-bold text-stone-100 break-words" style={{
                           fontSize: currentPlant.species_name?.length > 25 ? 'clamp(1.25rem, 5vw, 1.875rem)' : 'clamp(1.5rem, 6vw, 1.875rem)',
                           lineHeight: '1.2'
                         }}>
                           {currentPlant.species_name}
                         </h3>
-                        <p className="text-stone-600 italic mt-1 break-words flex items-center flex-wrap gap-1" style={{
+                        <p className="text-stone-300 italic mt-1 break-words flex items-center flex-wrap gap-1" style={{
                           fontSize: currentPlant.scientific_name?.length > 30 ? 'clamp(0.875rem, 4vw, 1.25rem)' : 'clamp(1rem, 5vw, 1.25rem)',
                           lineHeight: '1.3'
                         }}>
@@ -353,8 +353,8 @@ export default function ScanResults({
                                 {getRaritySymbol(rarity)}
                               </div>
                             </TooltipTrigger>
-                            <TooltipContent className="bg-white border-2 border-stone-200 shadow-lg p-3">
-                              <div className="space-y-1 text-sm text-stone-900">
+                            <TooltipContent className="bg-black/85 border border-[#f0e5a5]/35 shadow-lg p-3">
+                              <div className="space-y-1 text-sm text-stone-100">
                                 <div className="font-bold mb-2">Raritäten:</div>
                                 <div className="flex items-center gap-2"><span className="text-xl">🌿</span> Häufig</div>
                                 <div className="flex items-center gap-2"><span className="text-xl">🌼</span> Gelegentlich</div>
@@ -380,7 +380,7 @@ export default function ScanResults({
                           className="w-full aspect-square object-cover rounded-xl shadow-[inset_0_0_20px_rgba(0,0,0,0.35)] border border-white/70" />
                         {isBlockedResult && (
                           <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10">
-                            <Badge variant="secondary" className="bg-red-600 text-white border border-red-200 shadow-md hover:bg-red-600">
+                            <Badge variant="secondary" className="bg-red-700/90 text-white border border-red-200/35 shadow-md hover:bg-red-700/90">
                               Nicht speicherbar
                             </Badge>
                           </div>
@@ -395,7 +395,7 @@ export default function ScanResults({
                         {/* Lupe (Search) */}
                         <motion.button
                           onClick={handleVerifyResult}
-                          className="w-11 h-11 bg-blue-600 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-all"
+                          className="w-11 h-11 bg-cyan-700 rounded-full flex items-center justify-center shadow-lg hover:bg-cyan-800 transition-all border border-cyan-200/25"
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.95 }}>
                           <Search className="w-5 h-5 text-white" />
@@ -404,7 +404,7 @@ export default function ScanResults({
                         {/* Lautsprecher */}
                         <motion.button
                           onClick={() => speakText(getDescriptionText(currentPlant))}
-                          className="w-11 h-11 bg-purple-600 rounded-full flex items-center justify-center shadow-lg hover:bg-purple-700 transition-all"
+                          className="w-11 h-11 bg-emerald-700 rounded-full flex items-center justify-center shadow-lg hover:bg-emerald-800 transition-all border border-lime-200/25"
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.95 }}>
                           {isSpeaking ?
@@ -416,7 +416,7 @@ export default function ScanResults({
                         {/* Geschenk (Gift) */}
                         <motion.button
                           onClick={() => setShowShareDialog(true)}
-                          className="w-11 h-11 bg-red-600 rounded-full flex items-center justify-center shadow-lg hover:bg-red-700 transition-all"
+                          className="w-11 h-11 bg-amber-700 rounded-full flex items-center justify-center shadow-lg hover:bg-amber-800 transition-all border border-amber-200/30"
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.95 }}>
                           <Gift className="w-5 h-5 text-white" />
@@ -425,7 +425,7 @@ export default function ScanResults({
                         {/* Erneut Scannen */}
                         <motion.button
                           onClick={onRescan}
-                          className="w-11 h-11 bg-stone-600 rounded-full flex items-center justify-center shadow-lg hover:bg-stone-700 transition-all"
+                          className="w-11 h-11 bg-stone-700 rounded-full flex items-center justify-center shadow-lg hover:bg-stone-800 transition-all border border-stone-200/20"
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.95 }}>
                           <RotateCcw className="w-5 h-5 text-white" />
@@ -447,16 +447,16 @@ export default function ScanResults({
                         }`}
                         whileHover={currentResultIndex > 0 ? { scale: 1.2 } : {}}
                         whileTap={currentResultIndex > 0 ? { scale: 0.9 } : {}}>
-                        <ChevronLeft className="w-8 h-8 text-gray-600" />
+                        <ChevronLeft className="w-8 h-8 text-stone-300" />
                       </motion.button>
 
                       {/* Dots */}
-                      <div className="flex gap-1.5 bg-stone-100 px-3 py-1.5 rounded-full border-2 border-stone-300">
+                      <div className="flex gap-1.5 bg-black/40 px-3 py-1.5 rounded-full border border-[#f0e5a5]/30">
                         {results.map((_, index) =>
                           <div
                             key={index}
                             className={`h-2 rounded-full transition-all ${
-                              index === currentResultIndex ? 'bg-green-600 w-6' : 'bg-stone-300 w-2'
+                              index === currentResultIndex ? 'bg-emerald-400 w-6' : 'bg-stone-500/70 w-2'
                             }`} />
                         )}
                       </div>
@@ -470,56 +470,56 @@ export default function ScanResults({
                         }`}
                         whileHover={currentResultIndex < results.length - 1 ? { scale: 1.2 } : {}}
                         whileTap={currentResultIndex < results.length - 1 ? { scale: 0.9 } : {}}>
-                        <ChevronRight className="w-8 h-8 text-gray-600" />
+                        <ChevronRight className="w-8 h-8 text-stone-300" />
                       </motion.button>
                     </div>
                   )}
 
                   {/* Informations-Container - direkt unter dem Hauptcontainer */}
-                  <div className="space-y-3 bg-white/30 backdrop-blur-md rounded-xl p-4">
+                  <div className="space-y-3 bg-black/30 backdrop-blur-md rounded-xl p-4 border border-[#f0e5a5]/20">
                       {isBlockedResult ? (
-                      <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl p-4 border-2 border-orange-300 shadow-md">
-                          <h4 className="font-bold text-orange-900 mb-2 flex items-center gap-2">
+                      <div className="bg-gradient-to-br from-orange-900/45 to-red-900/40 rounded-xl p-4 border border-orange-300/35 shadow-md">
+                          <h4 className="font-bold text-orange-100 mb-2 flex items-center gap-2">
                             <span className="text-xl">⚠️</span>
                             <span>Keine mitteleuropäische Pflanze!</span>
                           </h4>
-                          <p className="text-stone-800 leading-relaxed">
+                          <p className="text-stone-100/95 leading-relaxed">
                             Zum jetzigen Zeitpunkt, konzentriert sich Floralog auf die Verarbeitung von Pflanzen aus Mitteleuropa!
                           </p>
                         </div>
                       ) : (
                       <>
                       {(currentPlant.description || currentPlant.aiData?.description) &&
-                      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border-2 border-blue-200 shadow-md">
-                          <h4 className="font-bold text-blue-900 mb-2 flex items-center gap-2">
+                      <div className="bg-gradient-to-br from-cyan-900/40 to-sky-950/45 rounded-xl p-4 border border-cyan-200/30 shadow-md">
+                          <h4 className="font-bold text-cyan-100 mb-2 flex items-center gap-2">
                             <span className="text-xl">📖</span>
                             <span>Beschreibung</span>
                           </h4>
-                          <p className="text-stone-800 leading-relaxed">
+                          <p className="text-stone-100/95 leading-relaxed">
                             {currentPlant.description || currentPlant.aiData?.description}
                           </p>
                         </div>
                       }
 
                       {(currentPlant.identification_features || currentPlant.aiData?.identification_features) &&
-                      <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border-2 border-purple-200 shadow-md">
-                          <h4 className="font-bold text-purple-900 mb-2 flex items-center gap-2">
+                      <div className="bg-gradient-to-br from-emerald-900/45 to-teal-950/45 rounded-xl p-4 border border-emerald-200/30 shadow-md">
+                          <h4 className="font-bold text-emerald-100 mb-2 flex items-center gap-2">
                             <span className="text-xl">🔍</span>
                             <span>Erkennungsmerkmale</span>
                           </h4>
-                          <p className="text-stone-800 leading-relaxed">
+                          <p className="text-stone-100/95 leading-relaxed">
                             {currentPlant.identification_features || currentPlant.aiData?.identification_features}
                           </p>
                         </div>
                       }
 
                       {(currentPlant.fun_fact || currentPlant.aiData?.fun_fact) &&
-                      <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 border-2 border-amber-300 shadow-md">
-                          <h4 className="font-bold text-amber-900 mb-2 flex items-center gap-2">
+                      <div className="bg-gradient-to-br from-amber-900/45 to-orange-950/45 rounded-xl p-4 border border-amber-200/30 shadow-md">
+                          <h4 className="font-bold text-amber-100 mb-2 flex items-center gap-2">
                             <span className="text-xl">💡</span>
                             <span>Wusstest du?</span>
                           </h4>
-                          <p className="text-stone-800 leading-relaxed">
+                          <p className="text-stone-100/95 leading-relaxed">
                             {currentPlant.fun_fact || currentPlant.aiData?.fun_fact}
                           </p>
                         </div>
@@ -530,7 +530,7 @@ export default function ScanResults({
 
                   {/* Status Anzeige - nur bei bestätigten und speicherbaren Scans */}
                   {!isPendingConfirmation && !isBlockedResult && (
-                  <div className="bg-gradient-to-r from-green-400 to-emerald-400 rounded-xl p-4 border-2 border-green-500 shadow-lg">
+                  <div className="bg-gradient-to-r from-emerald-700/90 via-emerald-500/80 to-emerald-700/90 rounded-xl p-4 border border-lime-200/35 shadow-lg">
                       <div className="flex items-center justify-center gap-3 flex-wrap">
                         <Sparkles className="w-6 h-6 text-white animate-pulse" />
                         <p className="text-lg md:text-xl font-bold text-white text-center">
@@ -545,7 +545,7 @@ export default function ScanResults({
                   <Button
                     onClick={onBackToIntro || onRescan}
                     variant="secondary"
-                    className="w-full bg-stone-300 hover:bg-stone-400 text-stone-800 border border-stone-400 font-semibold">
+                    className="w-full bg-black/45 hover:bg-black/65 text-stone-100 border border-[#f0e5a5]/35 font-semibold">
                       Zurück
                     </Button>
                   )}
