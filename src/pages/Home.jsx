@@ -5,7 +5,7 @@ import { upsertUserProfile } from "@/api/authService";
 import { executeMigration } from "@/api/migrationService";
 import { getRobotPlantDailyZones } from "@/api/robotPlantService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Camera, Loader2, Leaf, Settings, Plus, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, Minus, ArrowLeft, RefreshCw, Map as MapIcon } from "lucide-react";
+import { Camera, Loader2, Leaf, Settings, Plus, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, Minus, ArrowLeft, RefreshCw, Map as MapIcon, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import mapboxgl from "mapbox-gl";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
@@ -1033,30 +1033,52 @@ export default function Home() {
     { id: "care", label: "Pflege", value: Math.round(safeCare), color: "#f59e0b" },
   ];
 
+  const streakDays = Math.max(
+    0,
+    Number(robotPlantState?.streakDays ?? robotPlantState?.streak_days ?? 0)
+  );
+  const streakMultiplier = Math.max(1, Math.min(7, streakDays <= 1 ? 1 : streakDays));
+
+  const zoneMultiplierCandidate = Number(
+    activeZone?.bonusMultiplier ?? activeZone?.zoneBonusMultiplier ?? activeZone?.zone_bonus_multiplier ?? 1
+  );
+  const zoneMultiplier = Number.isFinite(zoneMultiplierCandidate) && zoneMultiplierCandidate > 0
+    ? zoneMultiplierCandidate
+    : 1;
+
+  const formatMultiplier = (value) => {
+    const safeValue = Number.isFinite(value) ? value : 1;
+    return `x${safeValue.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1")}`;
+  };
+
   const navItems = [
     {
       label: "Kollektion",
       icon: Leaf,
       onClick: () => navigate(createPageUrl("Collection")),
-      gradientClass: "bg-gradient-to-br from-emerald-700/55 via-emerald-600/45 to-emerald-500/35",
+      gradientClass: "bg-gradient-to-b from-[#2b4a3a]/78 via-[#1a2f25]/92 to-[#0b1713]/96",
+      shadowStyle: "inset 0 1px 0 rgba(214,255,230,0.2), inset 0 -12px 18px rgba(0,0,0,0.46), 0 8px 16px rgba(0,0,0,0.32)",
     },
     {
       label: "Quests",
       icon: Scroll,
       onClick: () => navigate(createPageUrl("Quests")),
-      gradientClass: "bg-gradient-to-br from-amber-900/55 via-amber-800/45 to-orange-700/35",
+      gradientClass: "bg-gradient-to-b from-[#4f3d2b]/78 via-[#2f2118]/92 to-[#16100c]/96",
+      shadowStyle: "inset 0 1px 0 rgba(255,236,205,0.18), inset 0 -12px 18px rgba(0,0,0,0.48), 0 8px 16px rgba(0,0,0,0.32)",
     },
     {
       label: "Social",
       icon: Users,
       onClick: () => navigate(createPageUrl("Friends")),
-      gradientClass: "bg-gradient-to-br from-sky-800/55 via-blue-700/45 to-cyan-600/35",
+      gradientClass: "bg-gradient-to-b from-[#29435a]/78 via-[#172a3f]/92 to-[#0c151f]/96",
+      shadowStyle: "inset 0 1px 0 rgba(210,235,255,0.18), inset 0 -12px 18px rgba(0,0,0,0.5), 0 8px 16px rgba(0,0,0,0.34)",
     },
     {
       label: "Shop",
       icon: ShoppingBag,
       onClick: () => navigate(createPageUrl("Shop")),
-      gradientClass: "bg-gradient-to-br from-orange-800/55 via-orange-700/45 to-amber-600/35",
+      gradientClass: "bg-gradient-to-b from-[#5a3823]/78 via-[#3a2316]/92 to-[#1b1009]/96",
+      shadowStyle: "inset 0 1px 0 rgba(255,224,188,0.18), inset 0 -12px 18px rgba(0,0,0,0.48), 0 8px 16px rgba(0,0,0,0.34)",
     },
   ];
 
@@ -1419,8 +1441,22 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="mt-4 w-full h-10 rounded-2xl border border-[#f0e5a5]/45 bg-emerald-700/30 backdrop-blur-sm flex items-center justify-center text-xs md:text-sm font-semibold text-lime-100/90">
-                    Samen {playerSeeds}
+                  <div className="mt-4 w-full h-10 rounded-2xl border border-[#f0e5a5]/45 bg-gradient-to-r from-emerald-900/45 via-black/30 to-emerald-900/45 backdrop-blur-sm px-3">
+                    <div className="h-full w-full flex items-center justify-between text-xs md:text-sm font-semibold">
+                      <div className="flex items-center gap-1.5 text-lime-100/95 min-w-0">
+                        <Leaf className="w-4 h-4 text-lime-200" />
+                        <span className="truncate">{playerSeeds}</span>
+                      </div>
+
+                      <div className="h-5 w-px bg-[#f0e5a5]/35" />
+
+                      <div className="flex items-center gap-1.5 text-amber-100/95 min-w-0 justify-end">
+                        <Zap className="w-4 h-4 text-amber-300" />
+                        <span className="truncate">
+                          Streak {formatMultiplier(streakMultiplier)} · Zone {formatMultiplier(zoneMultiplier)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
                   <motion.button
@@ -1440,7 +1476,8 @@ export default function Home() {
                         <button
                           key={item.label}
                           onClick={item.onClick}
-                          className={`rounded-2xl border border-[#d7cf9c]/65 ${item.gradientClass} hover:brightness-110 transition-all py-3 md:py-4 flex flex-col items-center gap-1`}
+                          className={`rounded-2xl border border-[#d7cf9c]/58 ${item.gradientClass} hover:brightness-105 active:translate-y-px transition-all py-3 md:py-4 flex flex-col items-center gap-1 backdrop-blur-[2px]`}
+                          style={{ boxShadow: item.shadowStyle }}
                         >
                           <item.icon className="w-5 h-5 md:w-6 md:h-6 text-lime-100" />
                           <span className="home-tight-vh-label text-xs md:text-sm font-semibold">{item.label}</span>
