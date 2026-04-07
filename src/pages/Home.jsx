@@ -291,6 +291,7 @@ export default function Home() {
   const [zoneMapError, setZoneMapError] = useState(null);
   const [showHealthStatsPanel, setShowHealthStatsPanel] = useState(false);
   const healthStatsPanelRef = useRef(null);
+  const [heroStageSizePx, setHeroStageSizePx] = useState(0);
 
   const [showSeedsTooltip, setShowSeedsTooltip] = useState(false);
   const [showMultiplierTooltip, setShowMultiplierTooltip] = useState(false);
@@ -766,6 +767,29 @@ export default function Home() {
     };
   }, [showHealthStatsPanel]);
 
+  useEffect(() => {
+    const panel = healthStatsPanelRef.current;
+    if (!panel) return;
+
+    const updateHeroStageSize = () => {
+      const bounds = panel.getBoundingClientRect();
+      const nextSize = Math.floor(Math.min(bounds.width, bounds.height));
+      if (!Number.isFinite(nextSize) || nextSize <= 0) return;
+      setHeroStageSizePx((prev) => (prev === nextSize ? prev : nextSize));
+    };
+
+    updateHeroStageSize();
+
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(updateHeroStageSize);
+      observer.observe(panel);
+      return () => observer.disconnect();
+    }
+
+    window.addEventListener("resize", updateHeroStageSize);
+    return () => window.removeEventListener("resize", updateHeroStageSize);
+  }, [showHeroZoneMap]);
+
   const isLoadingCriticalData = isLoadingDiscoveries || isLoadingQuests || isLoadingAchievements || isLoadingFriends || isLoadingWeeklyQuests || isLoadingMonthlyQuests || isLoadingCollectionQuests;
 
   if (isLoadingUser) {
@@ -1041,6 +1065,9 @@ export default function Home() {
     { id: "data-quality", label: "Daten", value: Math.round(safeDataQuality), color: "#06b6d4" },
     { id: "care", label: "Pflege", value: Math.round(safeCare), color: "#f59e0b" },
   ];
+  const controlsScale = heroStageSizePx > 0
+    ? Math.max(0.86, Math.min(1.18, heroStageSizePx / 250))
+    : 1;
 
   const streakDays = Math.max(
     0,
@@ -1369,7 +1396,16 @@ export default function Home() {
                   <div className="h-full flex flex-col gap-[clamp(0.5rem,1.2vh,1rem)]">
                     <section data-ui="home-plant-hero-section" className="flex-1 min-h-0 rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col">
                   <div ref={healthStatsPanelRef} className="flex-1 min-h-0 flex items-center justify-center">
-                    <div className="relative w-auto h-full max-h-[19rem] max-w-full min-h-[12.5rem] aspect-square mx-auto">
+                    <div
+                      className="relative mx-auto"
+                      style={{
+                        width: heroStageSizePx > 0 ? `${heroStageSizePx}px` : "100%",
+                        height: heroStageSizePx > 0 ? `${heroStageSizePx}px` : "100%",
+                        maxWidth: "100%",
+                        maxHeight: "100%",
+                        aspectRatio: "1 / 1",
+                      }}
+                    >
                       <button
                         type="button"
                         onClick={() => setShowHealthStatsPanel((prev) => !prev)}
@@ -1467,7 +1503,10 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="mt-[clamp(0.5rem,1.2vh,1rem)] w-full h-[clamp(2.25rem,4.5vh,2.75rem)] rounded-2xl border border-[#f0e5a5]/45 bg-gradient-to-r from-emerald-900/45 via-black/30 to-emerald-900/45 backdrop-blur-sm px-[clamp(0.625rem,2vw,0.875rem)]">
+                  <div
+                    className="mt-[clamp(0.5rem,1.2vh,1rem)] w-full rounded-2xl border border-[#f0e5a5]/45 bg-gradient-to-r from-emerald-900/45 via-black/30 to-emerald-900/45 backdrop-blur-sm px-[clamp(0.625rem,2vw,0.875rem)]"
+                    style={{ height: `${(2.4 * controlsScale).toFixed(2)}rem` }}
+                  >
                     <div className="h-full w-full flex items-center justify-between text-xs md:text-sm font-semibold">
                       <Popover open={showSeedsTooltip} onOpenChange={setShowSeedsTooltip}>
                         <PopoverTrigger asChild>
@@ -1538,26 +1577,54 @@ export default function Home() {
 
                   <motion.button
                     onClick={() => navigate(createPageUrl('Scanner'))}
-                    className="mt-[clamp(0.625rem,1.6vh,1.25rem)] w-full h-[clamp(3rem,8vh,4rem)] rounded-2xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 flex items-center justify-center gap-[clamp(0.5rem,1.8vw,0.75rem)] text-[clamp(1rem,2.6vh,1.5rem)] font-semibold tracking-wide shadow-[0_8px_24px_rgba(34,197,94,0.3)]"
+                    className="mt-[clamp(0.625rem,1.6vh,1.25rem)] w-full rounded-2xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 flex items-center justify-center font-semibold tracking-wide shadow-[0_8px_24px_rgba(34,197,94,0.3)]"
+                    style={{
+                      height: `${(3.35 * controlsScale).toFixed(2)}rem`,
+                      gap: `${(0.56 * controlsScale).toFixed(2)}rem`,
+                      fontSize: `${(1.15 * controlsScale).toFixed(2)}rem`,
+                    }}
                     animate={showScannerHighlight ? { scale: [1, 1.02, 1] } : {}}
                     transition={showScannerHighlight ? { duration: 1.8, repeat: Infinity, ease: 'easeInOut' } : {}}
                   >
-                    <Camera className="w-[clamp(1.25rem,3.2vw,1.75rem)] h-[clamp(1.25rem,3.2vw,1.75rem)]" />
+                    <Camera
+                      style={{
+                        width: `${(1.45 * controlsScale).toFixed(2)}rem`,
+                        height: `${(1.45 * controlsScale).toFixed(2)}rem`,
+                      }}
+                    />
                     Scannen
                   </motion.button>
                   </section>
 
                   <div data-ui="home-bottom-nav" className="mt-[clamp(0.5rem,1.2vh,1rem)]">
-                    <div className="grid grid-cols-4 gap-[clamp(0.35rem,1vw,0.75rem)]">
+                    <div
+                      className="grid grid-cols-4"
+                      style={{ gap: `${(0.46 * controlsScale).toFixed(2)}rem` }}
+                    >
                       {navItems.map((item) => (
                         <button
                           key={item.label}
                           onClick={item.onClick}
-                          className={`rounded-2xl border border-[#f0e5a5]/45 ${item.gradientClass} hover:brightness-105 active:translate-y-px transition-all py-[clamp(0.45rem,1.6vh,1rem)] flex flex-col items-center gap-[clamp(0.15rem,0.8vh,0.35rem)] backdrop-blur-[2px]`}
-                          style={{ boxShadow: item.shadowStyle }}
+                          className={`rounded-2xl border border-[#f0e5a5]/45 ${item.gradientClass} hover:brightness-105 active:translate-y-px transition-all flex flex-col items-center backdrop-blur-[2px]`}
+                          style={{
+                            boxShadow: item.shadowStyle,
+                            paddingBlock: `${(0.72 * controlsScale).toFixed(2)}rem`,
+                            gap: `${(0.2 * controlsScale).toFixed(2)}rem`,
+                          }}
                         >
-                          <item.icon className="w-[clamp(1rem,2.8vw,1.5rem)] h-[clamp(1rem,2.8vw,1.5rem)] text-lime-100" />
-                          <span className="home-tight-vh-label text-[clamp(0.64rem,1.6vw,0.92rem)] font-semibold">{item.label}</span>
+                          <item.icon
+                            className="text-lime-100"
+                            style={{
+                              width: `${(1.2 * controlsScale).toFixed(2)}rem`,
+                              height: `${(1.2 * controlsScale).toFixed(2)}rem`,
+                            }}
+                          />
+                          <span
+                            className="home-tight-vh-label font-semibold"
+                            style={{ fontSize: `${(0.78 * controlsScale).toFixed(2)}rem` }}
+                          >
+                            {item.label}
+                          </span>
                         </button>
                       ))}
                     </div>
