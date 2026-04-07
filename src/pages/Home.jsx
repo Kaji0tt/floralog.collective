@@ -1251,7 +1251,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, ease: 'easeOut' }}
             data-ui="home-main-content-shell"
-            className="relative h-[calc(100%-3.25rem)] md:h-[calc(100%-3.6rem)] w-full max-w-md md:max-w-3xl rounded-[2rem] overflow-hidden border border-[#d7cf9c]/65 shadow-[0_20px_80px_rgba(0,0,0,0.55)]"
+            className="relative h-full w-full max-w-md md:max-w-3xl rounded-[2rem] overflow-hidden border border-[#d7cf9c]/65 shadow-[0_20px_80px_rgba(0,0,0,0.55)]"
           >
             <div
               className="absolute inset-0"
@@ -1267,7 +1267,7 @@ export default function Home() {
             />
             <div className="absolute inset-0 border border-[#f0e5a5]/30 pointer-events-none rounded-[2rem]" />
 
-            <div className="relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6 text-stone-100">
+            <div className="relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6 text-stone-100 justify-between">
               <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#f0e5a5]/20">
                 <div className="min-w-0">
                   <div className="flex items-baseline gap-2 min-w-0">
@@ -1481,11 +1481,11 @@ export default function Home() {
                             <div className="space-y-2 text-xs">
                               <div className="flex items-start gap-2">
                                 <span className="text-amber-300 font-semibold min-w-fit">🔥 Streak:</span>
-                                <span className="text-amber-50/70">x{formatMultiplier(streakMultiplier)} - Basierend auf deine Scan-Strähne (1-7x)</span>
+                                <span className="text-amber-50/70">{formatMultiplier(streakMultiplier)} - Basierend auf deine Scan-Strähne (1-7x)</span>
                               </div>
                               <div className="flex items-start gap-2">
                                 <span className="text-amber-300 font-semibold min-w-fit">📍 Zone:</span>
-                                <span className="text-amber-50/70">x{formatMultiplier(zoneMultiplier)} - 1-1.75x je nach Datenqualität</span>
+                                <span className="text-amber-50/70">{formatMultiplier(zoneMultiplier)} - 1-1.75x je nach Datenqualität</span>
                               </div>
                               <div className="flex items-start gap-2">
                                 <span className="text-amber-300 font-semibold min-w-fit">⭐ Rarität:</span>
@@ -1543,19 +1543,19 @@ export default function Home() {
                 </div>
                 )}
               </div>
+
+              <div
+                className="flex justify-center gap-3 text-xs md:text-sm font-medium pt-4 border-t border-[#f0e5a5]/20 opacity-50 hover:opacity-70 transition-opacity"
+                style={{ color: footerTextColor, textShadow: footerTextShadow }}
+              >
+                <button onClick={() => navigate(createPageUrl('Donate'))}>Spenden</button>
+                <span>•</span>
+                <button onClick={() => navigate(createPageUrl('Impressum'))}>Impressum</button>
+                <span>•</span>
+                <button onClick={() => navigate(createPageUrl('News'))}>News</button>
+              </div>
             </div>
           </motion.div>
-
-          <div
-            className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex justify-center gap-3 text-sm font-medium"
-            style={{ color: footerTextColor, textShadow: footerTextShadow }}
-          >
-            <button onClick={() => navigate(createPageUrl('Donate'))} className="hover:opacity-80 transition-opacity">Spenden</button>
-            <span className="opacity-70">•</span>
-            <button onClick={() => navigate(createPageUrl('Impressum'))} className="hover:opacity-80 transition-opacity">Impressum</button>
-            <span className="opacity-70">•</span>
-            <button onClick={() => navigate(createPageUrl('News'))} className="hover:opacity-80 transition-opacity">News</button>
-          </div>
         </div>
       </div>
     </>
