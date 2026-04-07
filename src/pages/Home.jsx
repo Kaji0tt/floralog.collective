@@ -1442,15 +1442,14 @@ export default function Home() {
                   </div>
 
                   <div className="mt-4 w-full h-10 rounded-2xl border border-[#f0e5a5]/45 bg-gradient-to-r from-emerald-900/45 via-black/30 to-emerald-900/45 backdrop-blur-sm px-3">
-                    <div className="h-full w-full flex items-center justify-start gap-1.5 text-xs md:text-sm font-semibold">
+                    <div className="h-full w-full flex items-center justify-between text-xs md:text-sm font-semibold">
                       <div className="flex items-center gap-1.5 text-lime-100/95 min-w-0">
                         <Leaf className="w-4 h-4 text-lime-200" />
                         <span className="truncate">{playerSeeds}</span>
                       </div>
 
-                      <div className="h-5 w-px bg-[#f0e5a5]/35" />
-
                       <div className="flex items-center gap-1.5 text-amber-100/95 min-w-0">
+                        <div className="h-5 w-px bg-[#f0e5a5]/35" />
                         <Zap className="w-4 h-4 text-amber-300" />
                         <span className="truncate">
                           Streak {formatMultiplier(streakMultiplier)} · Zone {formatMultiplier(zoneMultiplier)}
@@ -1476,7 +1475,7 @@ export default function Home() {
                         <button
                           key={item.label}
                           onClick={item.onClick}
-                          className={`rounded-2xl border border-[#d7cf9c]/58 ${item.gradientClass} hover:brightness-105 active:translate-y-px transition-all py-3 md:py-4 flex flex-col items-center gap-1 backdrop-blur-[2px]`}
+                          className={`rounded-2xl border border-[#f0e5a5]/45 ${item.gradientClass} hover:brightness-105 active:translate-y-px transition-all py-3 md:py-4 flex flex-col items-center gap-1 backdrop-blur-[2px]`}
                           style={{ boxShadow: item.shadowStyle }}
                         >
                           <item.icon className="w-5 h-5 md:w-6 md:h-6 text-lime-100" />
@@ -1492,7 +1491,7 @@ export default function Home() {
           </motion.div>
 
           <div
-            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex justify-center gap-3 text-sm font-medium"
+            className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex justify-center gap-3 text-sm font-medium"
             style={{ color: footerTextColor, textShadow: footerTextShadow }}
           >
             <button onClick={() => navigate(createPageUrl('Donate'))} className="hover:opacity-80 transition-opacity">Spenden</button>
