@@ -349,15 +349,12 @@ export default function Home() {
       await new Promise(resolve => setTimeout(resolve, 500));
       const freshUser = await getCurrentUser();
       setUser(freshUser);
-      setEditedName(freshUser.display_name || freshUser.full_name);
-      setIsEditingName(false);
       queryClient.invalidateQueries({ queryKey: ['user'] });
       await updatePublicProfile(freshUser);
     },
     onError: (error) => {
       console.error("❌ Fehler beim Update:", error);
       alert(`Fehler beim Speichern: ${error.message}`);
-      setIsEditingName(false);
     }
   });
 
@@ -436,6 +433,60 @@ export default function Home() {
       setAverageColor(null);
     }
   }, [user?.background_image_url, user?.background_color]);
+
+  const calculateDistanceMeters = (lat1, lon1, lat2, lon2) => {
+    const R = 6371000;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  useEffect(() => {
+    const loadZoneForHero = async () => {
+      if (!user?.id) return;
+      const location = getCachedLocation();
+      if (!Number.isFinite(location?.lat) || !Number.isFinite(location?.lng)) {
+        setActiveZone(null);
+        return;
+      }
+
+      setIsLoadingZone(true);
+      try {
+        const daily = await getRobotPlantDailyZones({
+          latitude: location.lat,
+          longitude: location.lng,
+        });
+
+        const inRangeZone = (daily?.zones || [])
+          .map((zone) => {
+            const dist = calculateDistanceMeters(
+              location.lat,
+              location.lng,
+              Number(zone.centerLat),
+              Number(zone.centerLng)
+            );
+            return { ...zone, distanceM: dist };
+          })
+          .filter((zone) => Number.isFinite(zone.distanceM) && zone.distanceM <= Number(zone.radiusM || 0))
+          .sort((a, b) => a.distanceM - b.distanceM)[0];
+
+        setActiveZone(inRangeZone || null);
+      } catch (error) {
+        console.warn("[Home] Konnte aktive Zone nicht laden:", error?.message || error);
+        setActiveZone(null);
+      } finally {
+        setIsLoadingZone(false);
+      }
+    };
+
+    loadZoneForHero();
+  }, [user?.id]);
 
   const isLoadingCriticalData = isLoadingDiscoveries || isLoadingQuests || isLoadingAchievements || isLoadingFriends || isLoadingWeeklyQuests || isLoadingMonthlyQuests || isLoadingCollectionQuests;
 
@@ -701,60 +752,6 @@ export default function Home() {
     const brightness = (r * 299 + g * 587 + b * 114) / 1000;
     return brightness < 100;
   };
-
-  const calculateDistanceMeters = (lat1, lon1, lat2, lon2) => {
-    const R = 6371000;
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  };
-
-  useEffect(() => {
-    const loadZoneForHero = async () => {
-      if (!user?.id) return;
-      const location = getCachedLocation();
-      if (!Number.isFinite(location?.lat) || !Number.isFinite(location?.lng)) {
-        setActiveZone(null);
-        return;
-      }
-
-      setIsLoadingZone(true);
-      try {
-        const daily = await getRobotPlantDailyZones({
-          latitude: location.lat,
-          longitude: location.lng,
-        });
-
-        const inRangeZone = (daily?.zones || [])
-          .map((zone) => {
-            const dist = calculateDistanceMeters(
-              location.lat,
-              location.lng,
-              Number(zone.centerLat),
-              Number(zone.centerLng)
-            );
-            return { ...zone, distanceM: dist };
-          })
-          .filter((zone) => Number.isFinite(zone.distanceM) && zone.distanceM <= Number(zone.radiusM || 0))
-          .sort((a, b) => a.distanceM - b.distanceM)[0];
-
-        setActiveZone(inRangeZone || null);
-      } catch (error) {
-        console.warn("[Home] Konnte aktive Zone nicht laden:", error?.message || error);
-        setActiveZone(null);
-      } finally {
-        setIsLoadingZone(false);
-      }
-    };
-
-    loadZoneForHero();
-  }, [user?.id]);
 
   const safeEnergy = Math.max(0, Math.min(100, energyValue));
   const safeDataQuality = Math.max(0, Math.min(100, dataQualityValue));
