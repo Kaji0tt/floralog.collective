@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { updateQuestProgress } from "@/components/utils/questProgress";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { getWeekNumber, getMonthString, getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
 import "mapbox-gl/dist/mapbox-gl.css";
 
@@ -285,6 +286,9 @@ export default function Home() {
   const [zoneMapError, setZoneMapError] = useState(null);
   const [showHealthStatsPanel, setShowHealthStatsPanel] = useState(false);
   const healthStatsPanelRef = useRef(null);
+
+  const [showSeedsTooltip, setShowSeedsTooltip] = useState(false);
+  const [showMultiplierTooltip, setShowMultiplierTooltip] = useState(false);
 
   const [scanFeedback, setScanFeedback] = useState(null);
 
@@ -1443,18 +1447,70 @@ export default function Home() {
 
                   <div className="mt-4 w-full h-10 rounded-2xl border border-[#f0e5a5]/45 bg-gradient-to-r from-emerald-900/45 via-black/30 to-emerald-900/45 backdrop-blur-sm px-3">
                     <div className="h-full w-full flex items-center justify-between text-xs md:text-sm font-semibold">
-                      <div className="flex items-center gap-1.5 text-lime-100/95 min-w-0">
-                        <Leaf className="w-4 h-4 text-lime-200" />
-                        <span className="truncate">{playerSeeds}</span>
-                      </div>
+                      <Popover open={showSeedsTooltip} onOpenChange={setShowSeedsTooltip}>
+                        <PopoverTrigger asChild>
+                          <div className="flex items-center gap-1.5 text-lime-100/95 min-w-0 cursor-pointer hover:text-lime-100 transition-colors">
+                            <Leaf className="w-4 h-4 text-lime-200" />
+                            <span className="truncate">{playerSeeds}</span>
+                          </div>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="w-64 bg-emerald-950/95 border-amber-600/40 text-amber-50/90">
+                          <div className="space-y-2">
+                            <h3 className="font-semibold text-lime-200">Samen</h3>
+                            <p className="text-xs text-amber-50/70">
+                              Werden verwendet um neue Items zu freischalten, Pflanzen zu upgrades. Die genaue Verwendung wird noch definiert.
+                            </p>
+                            <p className="text-xs text-amber-100/50 italic">💡 Status: In Entwicklung</p>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
 
-                      <div className="flex items-center gap-1.5 text-amber-100/95 min-w-0">
-                        <div className="h-5 w-px bg-[#f0e5a5]/35" />
-                        <Zap className="w-4 h-4 text-amber-300" />
-                        <span className="truncate">
-                          Streak {formatMultiplier(streakMultiplier)} · Zone {formatMultiplier(zoneMultiplier)}
-                        </span>
-                      </div>
+                      <Popover open={showMultiplierTooltip} onOpenChange={setShowMultiplierTooltip}>
+                        <PopoverTrigger asChild>
+                          <div className="flex items-center gap-1.5 text-amber-100/95 min-w-0 cursor-pointer hover:text-amber-100 transition-colors">
+                            <div className="h-5 w-px bg-[#f0e5a5]/35" />
+                            <Zap className="w-4 h-4 text-amber-300" />
+                            <span className="truncate">
+                              Streak {formatMultiplier(streakMultiplier)} · Zone {formatMultiplier(zoneMultiplier)}
+                            </span>
+                          </div>
+                        </PopoverTrigger>
+                        <PopoverContent align="end" className="w-72 bg-emerald-950/95 border-amber-600/40 text-amber-50/90">
+                          <div className="space-y-3">
+                            <h3 className="font-semibold text-amber-300">Multiplikatoren</h3>
+                            <div className="space-y-2 text-xs">
+                              <div className="flex items-start gap-2">
+                                <span className="text-amber-300 font-semibold min-w-fit">🔥 Streak:</span>
+                                <span className="text-amber-50/70">x{formatMultiplier(streakMultiplier)} - Basierend auf deine Scan-Strähne (1-7x)</span>
+                              </div>
+                              <div className="flex items-start gap-2">
+                                <span className="text-amber-300 font-semibold min-w-fit">📍 Zone:</span>
+                                <span className="text-amber-50/70">x{formatMultiplier(zoneMultiplier)} - 1-1.75x je nach Datenqualität</span>
+                              </div>
+                              <div className="flex items-start gap-2">
+                                <span className="text-amber-300 font-semibold min-w-fit">⭐ Rarität:</span>
+                                <span className="text-amber-50/70">1-3x - Je seltener die Pflanze</span>
+                              </div>
+                              <div className="flex items-start gap-2">
+                                <span className="text-amber-300 font-semibold min-w-fit">📉 Neuheit:</span>
+                                <span className="text-amber-50/70">0.2-1x - Mit jedem Duplikat-Scan reduziert</span>
+                              </div>
+                              <div className="flex items-start gap-2">
+                                <span className="text-amber-300 font-semibold min-w-fit">💚 Pflege:</span>
+                                <span className="text-amber-50/70">1-2x - Je höher der Care-Level</span>
+                              </div>
+                              <div className="flex items-start gap-2">
+                                <span className="text-amber-300 font-semibold min-w-fit">⚡ Energie:</span>
+                                <span className="text-amber-50/70">1-2x - Je höher die Energie der Pflanze</span>
+                              </div>
+                              <div className="flex items-start gap-2">
+                                <span className="text-amber-300 font-semibold min-w-fit">🌅 Tagesbonus:</span>
+                                <span className="text-amber-50/70">1.5x - Für den ersten Scan des Tages</span>
+                              </div>
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   </div>
 
