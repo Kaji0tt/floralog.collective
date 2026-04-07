@@ -1299,7 +1299,7 @@ export default function Home() {
                 </button>
               </div>
 
-              <div className="flex-1 min-h-0 py-4">
+              <div className="flex-1 min-h-0 py-[clamp(0.5rem,1.5vh,1rem)]" data-ui="home-content-stack">
                 {showHeroZoneMap ? (
                   <section className="relative h-full rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm overflow-hidden">
                     <HeroZoneMap3D
@@ -1344,10 +1344,10 @@ export default function Home() {
                     </div>
                   </section>
                 ) : (
-                  <div className="h-full flex flex-col justify-between">
-                    <section data-ui="home-plant-hero-section" className="rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm px-4 py-5 md:px-6 md:py-6">
-                  <div ref={healthStatsPanelRef} className="mb-3">
-                    <div className="relative mx-auto w-[16rem] h-[16rem] md:w-[19rem] md:h-[19rem]">
+                  <div className="h-full flex flex-col gap-[clamp(0.5rem,1.2vh,1rem)]">
+                    <section data-ui="home-plant-hero-section" className="flex-1 min-h-0 rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)]">
+                  <div ref={healthStatsPanelRef} className="mb-[clamp(0.5rem,1.2vh,0.75rem)]">
+                    <div className="relative mx-auto w-[clamp(12.5rem,58vw,19rem)] h-[clamp(12.5rem,58vw,19rem)]">
                       <button
                         type="button"
                         onClick={() => setShowHealthStatsPanel((prev) => !prev)}
@@ -1445,7 +1445,7 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="mt-4 w-full h-10 rounded-2xl border border-[#f0e5a5]/45 bg-gradient-to-r from-emerald-900/45 via-black/30 to-emerald-900/45 backdrop-blur-sm px-3">
+                  <div className="mt-[clamp(0.5rem,1.2vh,1rem)] w-full h-[clamp(2.25rem,4.5vh,2.75rem)] rounded-2xl border border-[#f0e5a5]/45 bg-gradient-to-r from-emerald-900/45 via-black/30 to-emerald-900/45 backdrop-blur-sm px-[clamp(0.625rem,2vw,0.875rem)]">
                     <div className="h-full w-full flex items-center justify-between text-xs md:text-sm font-semibold">
                       <Popover open={showSeedsTooltip} onOpenChange={setShowSeedsTooltip}>
                         <PopoverTrigger asChild>
@@ -1516,26 +1516,26 @@ export default function Home() {
 
                   <motion.button
                     onClick={() => navigate(createPageUrl('Scanner'))}
-                    className="mt-5 w-full h-14 md:h-16 rounded-2xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 flex items-center justify-center gap-3 text-lg md:text-2xl font-semibold tracking-wide shadow-[0_8px_24px_rgba(34,197,94,0.3)]"
+                    className="mt-[clamp(0.625rem,1.6vh,1.25rem)] w-full h-[clamp(3rem,8vh,4rem)] rounded-2xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 flex items-center justify-center gap-[clamp(0.5rem,1.8vw,0.75rem)] text-[clamp(1rem,2.6vh,1.5rem)] font-semibold tracking-wide shadow-[0_8px_24px_rgba(34,197,94,0.3)]"
                     animate={showScannerHighlight ? { scale: [1, 1.02, 1] } : {}}
                     transition={showScannerHighlight ? { duration: 1.8, repeat: Infinity, ease: 'easeInOut' } : {}}
                   >
-                    <Camera className="w-6 h-6 md:w-7 md:h-7" />
+                    <Camera className="w-[clamp(1.25rem,3.2vw,1.75rem)] h-[clamp(1.25rem,3.2vw,1.75rem)]" />
                     Scannen
                   </motion.button>
                   </section>
 
-                  <div className="mt-4">
-                    <div className="grid grid-cols-4 gap-2 md:gap-3">
+                  <div data-ui="home-bottom-nav" className="mt-[clamp(0.5rem,1.2vh,1rem)]">
+                    <div className="grid grid-cols-4 gap-[clamp(0.35rem,1vw,0.75rem)]">
                       {navItems.map((item) => (
                         <button
                           key={item.label}
                           onClick={item.onClick}
-                          className={`rounded-2xl border border-[#f0e5a5]/45 ${item.gradientClass} hover:brightness-105 active:translate-y-px transition-all py-3 md:py-4 flex flex-col items-center gap-1 backdrop-blur-[2px]`}
+                          className={`rounded-2xl border border-[#f0e5a5]/45 ${item.gradientClass} hover:brightness-105 active:translate-y-px transition-all py-[clamp(0.45rem,1.6vh,1rem)] flex flex-col items-center gap-[clamp(0.15rem,0.8vh,0.35rem)] backdrop-blur-[2px]`}
                           style={{ boxShadow: item.shadowStyle }}
                         >
-                          <item.icon className="w-5 h-5 md:w-6 md:h-6 text-lime-100" />
-                          <span className="home-tight-vh-label text-xs md:text-sm font-semibold">{item.label}</span>
+                          <item.icon className="w-[clamp(1rem,2.8vw,1.5rem)] h-[clamp(1rem,2.8vw,1.5rem)] text-lime-100" />
+                          <span className="home-tight-vh-label text-[clamp(0.64rem,1.6vw,0.92rem)] font-semibold">{item.label}</span>
                         </button>
                       ))}
                     </div>
