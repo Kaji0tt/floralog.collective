@@ -5,7 +5,7 @@ import { upsertUserProfile } from "@/api/authService";
 import { executeMigration } from "@/api/migrationService";
 import { getRobotPlantDailyZones } from "@/api/robotPlantService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Camera, Loader2, Leaf, Settings, Plus, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, Minus, ArrowLeft, Sun, Moon, RefreshCw, Map as MapIcon } from "lucide-react";
+import { Camera, Loader2, Leaf, Settings, Plus, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, Minus, ArrowLeft, RefreshCw, Map as MapIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MapContainer, TileLayer, Circle, useMap } from "react-leaflet";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
@@ -37,8 +37,7 @@ const THEME_MAP_META = {
 };
 
 const MAP_TILESETS = {
-  dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-  light: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+  watercolor: "https://tiles.stadiamaps.com/tiles/stamen_watercolor/{z}/{x}/{y}.jpg",
 };
 
 /**
@@ -103,7 +102,6 @@ export default function Home() {
   const [isLoadingZone, setIsLoadingZone] = useState(false);
   const [isRegeneratingZones, setIsRegeneratingZones] = useState(false);
   const [showHeroZoneMap, setShowHeroZoneMap] = useState(false);
-  const [heroZoneMapTheme, setHeroZoneMapTheme] = useState("dark");
   const [zoneMapError, setZoneMapError] = useState(null);
   const [showHealthStatsPanel, setShowHealthStatsPanel] = useState(false);
   const healthStatsPanelRef = useRef(null);
@@ -1087,8 +1085,8 @@ export default function Home() {
                         attributionControl={false}
                       >
                         <TileLayer
-                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; CARTO'
-                          url={MAP_TILESETS[heroZoneMapTheme]}
+                          attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a> &copy; <a href="https://stamen.com/">Stamen Design</a> &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                          url={MAP_TILESETS.watercolor}
                         />
                         <HeroZoneMapViewport
                           zones={heroZones}
@@ -1125,7 +1123,7 @@ export default function Home() {
                             center={[cachedLocation.lat, cachedLocation.lng]}
                             radius={16}
                             pathOptions={{
-                              color: heroZoneMapTheme === "dark" ? "#f8fafc" : "#111827",
+                              color: "#111827",
                               fillColor: "#38bdf8",
                               fillOpacity: 0.9,
                               weight: 2,
@@ -1156,15 +1154,6 @@ export default function Home() {
                       >
                         <ArrowLeft className="w-4 h-4" />
                         Zurück
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setHeroZoneMapTheme((prev) => (prev === "dark" ? "light" : "dark"))}
-                        className="h-10 px-3 rounded-xl border border-[#f0e5a5]/45 bg-black/55 backdrop-blur-sm flex items-center gap-2 text-xs md:text-sm font-semibold text-stone-100"
-                      >
-                        {heroZoneMapTheme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-                        {heroZoneMapTheme === "dark" ? "Hell" : "Dunkel"}
                       </button>
 
                       <button
