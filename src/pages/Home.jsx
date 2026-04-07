@@ -5,7 +5,7 @@ import { upsertUserProfile } from "@/api/authService";
 import { executeMigration } from "@/api/migrationService";
 import { getRobotPlantDailyZones } from "@/api/robotPlantService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Camera, Loader2, Leaf, Settings, Plus, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, Minus, ArrowLeft, RefreshCw, Map as MapIcon, Zap } from "lucide-react";
+import { Camera, Loader2, Leaf, Settings, Plus, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, ArrowLeft, RefreshCw, Map as MapIcon, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import mapboxgl from "mapbox-gl";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
@@ -1059,7 +1059,7 @@ export default function Home() {
       : [51.1657, 10.4515];
 
   const activeZoneMeta = activeZone?.theme ? THEME_MAP_META[activeZone.theme] : null;
-  const ZoneIcon = activeZoneMeta?.Icon || Minus;
+  const ZoneIcon = activeZoneMeta?.Icon || MapPin;
   const healthStats = [
     { id: "energy", label: "Energie", value: Math.round(safeEnergy), color: "#10b981" },
     { id: "data-quality", label: "Daten", value: Math.round(safeDataQuality), color: "#06b6d4" },
