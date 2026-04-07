@@ -1301,7 +1301,7 @@ export default function Home() {
                   <div className="h-full flex flex-col justify-between">
                     <section data-ui="home-plant-hero-section" className="rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm px-4 py-5 md:px-6 md:py-6">
                   <div ref={healthStatsPanelRef} className="mb-3">
-                    <div className="relative mx-auto w-[16rem] h-[16rem] md:w-[19rem] md:h-[19rem]">
+                    <div className={showHealthStatsPanel ? "relative w-full h-[16rem] md:h-[19rem]" : "relative mx-auto w-[16rem] h-[16rem] md:w-[19rem] md:h-[19rem]"}>
                       <button
                         type="button"
                         onClick={() => setShowHealthStatsPanel((prev) => !prev)}
@@ -1341,19 +1341,19 @@ export default function Home() {
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -6 }}
                             transition={{ duration: 0.16, ease: "easeOut" }}
-                            className="absolute inset-7 rounded-3xl border border-[#f0e5a5]/35 bg-black/35 backdrop-blur-sm px-4 py-4 md:px-5 md:py-5 flex flex-col justify-center"
+                            className="absolute inset-0 px-0 pt-[4.8rem] md:pt-[5.1rem] flex flex-col justify-start"
                           >
                             <div className="mb-2 text-center text-[11px] md:text-xs text-stone-200/90 font-semibold uppercase tracking-[0.08em]">
                               Plant Health • {plantHealthState.label}
                             </div>
-                            <div className="space-y-2.5">
+                            <div className="space-y-2.5 w-full">
                               {healthStats.map((stat) => (
                                 <div key={stat.id} className="space-y-1">
                                   <div className="flex items-center justify-between text-[11px] md:text-xs text-stone-100/90">
                                     <span className="font-semibold uppercase tracking-wide">{stat.label}</span>
                                     <span className="font-bold">{stat.value}%</span>
                                   </div>
-                                  <div className="h-2 rounded-full bg-black/35 border border-white/10 overflow-hidden">
+                                  <div className="h-2 rounded-full overflow-hidden">
                                     <div
                                       className="h-full rounded-full transition-all duration-500"
                                       style={{
