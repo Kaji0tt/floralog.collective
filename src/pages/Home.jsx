@@ -1341,7 +1341,7 @@ export default function Home() {
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -6 }}
                             transition={{ duration: 0.16, ease: "easeOut" }}
-                            className="absolute inset-0 px-0 pt-[4.8rem] md:pt-[5.1rem] flex flex-col justify-start"
+                            className="absolute inset-0 px-0 pt-[5.2rem] md:pt-[5.3rem] flex flex-col justify-start"
                           >
                             <div className="space-y-2.5 w-full">
                               {healthStats.map((stat) => (
