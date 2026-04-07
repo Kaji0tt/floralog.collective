@@ -1476,7 +1476,9 @@ export default function Home() {
                             transition={{ duration: 0.16, ease: "easeOut" }}
                             className="absolute inset-0"
                           >
-                            <div className="absolute inset-7 rounded-full border border-[#f0e5a5]/35 bg-gradient-to-b from-emerald-100/25 to-emerald-900/45 backdrop-blur-sm shadow-[inset_0_0_30px_rgba(190,242,100,0.15)]" />
+                            <div
+                              className="absolute left-1/2 top-1/2 w-[82%] -translate-x-1/2 -translate-y-1/2 aspect-square rounded-full border border-[#f0e5a5]/35 bg-gradient-to-b from-emerald-100/25 to-emerald-900/45 backdrop-blur-sm shadow-[inset_0_0_30px_rgba(190,242,100,0.15)]"
+                            />
                             <div className="absolute inset-0 flex items-center justify-center">
                               <Leaf className="w-20 h-20 md:w-24 md:h-24 text-lime-200 drop-shadow-[0_0_24px_rgba(190,242,100,0.6)]" />
                             </div>
