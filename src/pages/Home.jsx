@@ -5,7 +5,7 @@ import { upsertUserProfile } from "@/api/authService";
 import { executeMigration } from "@/api/migrationService";
 import { getRobotPlantDailyZones } from "@/api/robotPlantService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Camera, Loader2, Leaf, Settings, Plus, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle } from "lucide-react";
+import { Camera, Loader2, Leaf, Settings, Plus, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, Minus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
@@ -25,6 +25,13 @@ const THEME_MAP_COLORS = {
   urban: "#8d755c",
   water: "#2b6cb0",
   meadow: "#84cc16",
+};
+
+const THEME_MAP_META = {
+  forest: { label: "Forest", Icon: TreePine, color: "#007a3f" },
+  urban: { label: "Urban", Icon: Building2, color: "#8d755c" },
+  water: { label: "Water", Icon: Waves, color: "#2b6cb0" },
+  meadow: { label: "Meadow", Icon: Flower2, color: "#84cc16" },
 };
 
 export default function Home() {
@@ -560,34 +567,6 @@ export default function Home() {
     Math.min(100, Number(robotPlantState?.care ?? robotPlantState?.care_value ?? 0))
   );
 
-  const toSegments = (value) => Math.max(0, Math.min(5, Math.round(value / 20)));
-  const plantStatMeters = [
-    {
-      id: "energy",
-      label: "Energie",
-      description: "Energie bestimmt, wie leistungsfaehig deine Pflanze ist. Sie steigt vor allem durch aktive Scans und sinkt mit der Zeit.",
-      value: Math.round(energyValue),
-      segments: toSegments(energyValue),
-      activeClass: "bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.35)]",
-    },
-    {
-      id: "dataQuality",
-      label: "Datenqualitaet",
-      description: "Datenqualitaet steigt durch abwechslungsreiche und neue Scans, zum Beispiel in verschiedenen Zonen oder mit neuen Pflanzen.",
-      value: Math.round(dataQualityValue),
-      segments: toSegments(dataQualityValue),
-      activeClass: "bg-gradient-to-t from-cyan-600 to-cyan-400 shadow-[0_0_6px_rgba(6,182,212,0.35)]",
-    },
-    {
-      id: "care",
-      label: "Pflege",
-      description: "Pflege zeigt, wie gut du regelmaessig mit deiner Pflanze interagierst. Kontinuierliche Aktivitaet haelt den Wert hoch.",
-      value: Math.round(careValue),
-      segments: toSegments(careValue),
-      activeClass: "bg-gradient-to-t from-amber-600 to-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.35)]",
-    },
-  ];
-
   const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
   const currentMonthlyQuest = getCurrentMonthlyQuest(monthlyQuests);
 
@@ -778,6 +757,9 @@ export default function Home() {
     ? THEME_MAP_COLORS[activeZone.theme] || "#84cc16"
     : "#6b7280";
 
+  const activeZoneMeta = activeZone?.theme ? THEME_MAP_META[activeZone.theme] : null;
+  const ZoneIcon = activeZoneMeta?.Icon || Minus;
+
   const navItems = [
     { label: "Kollektion", icon: Leaf, onClick: () => navigate(createPageUrl("Collection")) },
     { label: "Quests", icon: Scroll, onClick: () => navigate(createPageUrl("Quests")) },
@@ -939,16 +921,26 @@ export default function Home() {
 
               <div className="flex-1 min-h-0 flex flex-col justify-between py-4">
                 <section className="rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm px-4 py-5 md:px-6 md:py-6">
-                  <div className="flex items-center justify-between text-xs md:text-sm mb-3">
-                    <div className="inline-flex items-center gap-2 rounded-full bg-black/35 border border-white/15 px-3 py-1">
-                      <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: plantHealthState.color }} />
-                      <span className="font-semibold">Gesamtzustand: {plantHealthState.label} ({overallPlantHealth}%)</span>
+                  <div className="grid grid-cols-2 gap-2 md:gap-3 text-xs md:text-sm mb-3">
+                    <div
+                      className="h-11 md:h-12 rounded-2xl border border-[#f0e5a5]/45 backdrop-blur-sm flex items-center gap-2 px-3"
+                      style={{
+                        background: `linear-gradient(135deg, ${plantHealthState.color}cc 0%, ${plantHealthState.color}88 100%)`,
+                      }}
+                    >
+                      <Leaf className="w-4 h-4 md:w-5 md:h-5 text-white" />
+                      <span className="font-bold text-white tracking-wide">{overallPlantHealth}%</span>
                     </div>
 
-                    <div className="inline-flex items-center gap-2 rounded-full bg-black/35 border border-white/15 px-3 py-1">
-                      <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: currentZoneColor }} />
-                      <span className="font-semibold">
-                        {isLoadingZone ? 'Zone wird geladen...' : activeZone ? `Aktive Zone: ${activeZone.title || activeZone.theme}` : 'Keine aktive Zone'}
+                    <div
+                      className="h-11 md:h-12 rounded-2xl border border-[#f0e5a5]/45 backdrop-blur-sm flex items-center gap-2 px-3"
+                      style={{
+                        background: `linear-gradient(135deg, ${currentZoneColor}cc 0%, ${currentZoneColor}88 100%)`,
+                      }}
+                    >
+                      <ZoneIcon className="w-4 h-4 md:w-5 md:h-5 text-white" />
+                      <span className="font-semibold text-white truncate">
+                        {isLoadingZone ? "..." : activeZoneMeta?.label || "Leer"}
                       </span>
                     </div>
                   </div>
@@ -990,15 +982,6 @@ export default function Home() {
                     ))}
                   </div>
 
-                  <div className="mt-4 grid grid-cols-3 gap-2 text-xs md:text-sm">
-                    {plantStatMeters.map((meter) => (
-                      <div key={meter.id} className="rounded-xl bg-black/35 border border-white/10 px-2 py-2 text-center">
-                        <p className="opacity-80">{meter.label}</p>
-                        <p className="font-bold">{meter.value}%</p>
-                      </div>
-                    ))}
-                  </div>
-
                   <motion.button
                     onClick={() => navigate(createPageUrl('Scanner'))}
                     className="mt-5 w-full h-14 md:h-16 rounded-2xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 flex items-center justify-center gap-3 text-lg md:text-2xl font-semibold tracking-wide shadow-[0_8px_24px_rgba(34,197,94,0.3)]"
@@ -1025,6 +1008,8 @@ export default function Home() {
                   </div>
 
                   <div className="mt-3 flex justify-center gap-3 text-sm text-stone-300/85">
+                    <button onClick={() => navigate(createPageUrl('Donate'))} className="hover:text-white transition-colors">Spenden</button>
+                    <span>•</span>
                     <button onClick={() => navigate(createPageUrl('Impressum'))} className="hover:text-white transition-colors">Impressum</button>
                     <span>•</span>
                     <button onClick={() => navigate(createPageUrl('News'))} className="hover:text-white transition-colors">News</button>
