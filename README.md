@@ -19,6 +19,26 @@ Floralog is a React + Vite single-page app for exploratory plant discovery and p
 - `Scanner` — external identification API (Pl@ntNet); presents candidate matches when confidence > 5% in scanResults. See `src/components/scanner`.
 - `Map` — interactive view of personal and nearby scans (requires location enabled).
 
+## Home Layout Structure:
+Konkrete Benennung für das Home-Layout:
+
+1. home-page-shell
+Das komplette sichtbare Home-Viewport-Gerüst.
+2. home-profile-card
+Deine „Profil Kachel“ (äußerster gerahmter Bereich mit Name, Hero, Seeds, Scan, Nav).
+3. home-header-bar
+Name/Titel + Settings oben.
+3. home-content-stack
+Der innere Hauptbereich zwischen Header und Bottom-Navigation.
+4. home-plant-hero-section
+Der Block mit Zone/Health, Plant-Hero/Stats, Seeds, Scan.
+5. home-plant-hero-stage
+Nur die große quadratische Hero-Fläche (wo Pflanze oder Stats angezeigt werden).
+6. home-bottom-nav
+Die 4 Buttons unten.
+7. home-footer-links
+Spenden/Impressum/News.
+
 ## Additional pages (high-level grouping)
 
 - **Friends / Social**
