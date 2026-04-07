@@ -1476,35 +1476,35 @@ export default function Home() {
                           </div>
                         </PopoverTrigger>
                         <PopoverContent align="end" className="w-72 bg-emerald-950/95 border-amber-600/40 text-amber-50/90">
-                          <div className="space-y-3">
+                          <div className="space-y-4">
                             <h3 className="font-semibold text-amber-300">Multiplikatoren</h3>
-                            <div className="space-y-2 text-xs">
-                              <div className="flex items-start gap-2">
-                                <span className="text-amber-300 font-semibold min-w-fit">🔥 Streak:</span>
-                                <span className="text-amber-50/70">{formatMultiplier(streakMultiplier)} - Basierend auf deine Scan-Strähne (1-7x)</span>
+                            <div className="space-y-2.5 text-xs">
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-amber-300 font-semibold">🔥 Streak:</span>
+                                <span className="text-amber-50/70">x{formatMultiplier(streakMultiplier)} - Basierend auf deine Scan-Strähne (1-7x)</span>
                               </div>
-                              <div className="flex items-start gap-2">
-                                <span className="text-amber-300 font-semibold min-w-fit">📍 Zone:</span>
-                                <span className="text-amber-50/70">{formatMultiplier(zoneMultiplier)} - 1-1.75x je nach Datenqualität</span>
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-amber-300 font-semibold">📍 Zone:</span>
+                                <span className="text-amber-50/70">x{formatMultiplier(zoneMultiplier)} - 1-1.75x je nach Datenqualität</span>
                               </div>
-                              <div className="flex items-start gap-2">
-                                <span className="text-amber-300 font-semibold min-w-fit">⭐ Rarität:</span>
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-amber-300 font-semibold">⭐ Rarität:</span>
                                 <span className="text-amber-50/70">1-3x - Je seltener die Pflanze</span>
                               </div>
-                              <div className="flex items-start gap-2">
-                                <span className="text-amber-300 font-semibold min-w-fit">📉 Neuheit:</span>
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-amber-300 font-semibold">📉 Neuheit:</span>
                                 <span className="text-amber-50/70">0.2-1x - Mit jedem Duplikat-Scan reduziert</span>
                               </div>
-                              <div className="flex items-start gap-2">
-                                <span className="text-amber-300 font-semibold min-w-fit">💚 Pflege:</span>
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-amber-300 font-semibold">💚 Pflege:</span>
                                 <span className="text-amber-50/70">1-2x - Je höher der Care-Level</span>
                               </div>
-                              <div className="flex items-start gap-2">
-                                <span className="text-amber-300 font-semibold min-w-fit">⚡ Energie:</span>
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-amber-300 font-semibold">⚡ Energie:</span>
                                 <span className="text-amber-50/70">1-2x - Je höher die Energie der Pflanze</span>
                               </div>
-                              <div className="flex items-start gap-2">
-                                <span className="text-amber-300 font-semibold min-w-fit">🌅 Tagesbonus:</span>
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-amber-300 font-semibold">🌅 Tagesbonus:</span>
                                 <span className="text-amber-50/70">1.5x - Für den ersten Scan des Tages</span>
                               </div>
                             </div>
