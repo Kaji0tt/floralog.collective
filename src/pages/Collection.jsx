@@ -638,11 +638,34 @@ export default function Collection() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50">
-        <Leaf className="w-12 h-12 text-green-600 animate-spin" />
+      <div className="fixed inset-0 overflow-hidden" data-ui="home-page-shell">
+        <div
+          className="absolute inset-0"
+          style={user?.background_image_url ? {
+            backgroundImage: `url(${user.background_image_url})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          } : user?.background_color ? {
+            background: `linear-gradient(160deg, ${user.background_color} 0%, rgba(12, 20, 15, 0.88) 100%)`,
+          } : {
+            background: "radial-gradient(circle at top, rgb(167, 243, 208) 0%, rgb(22, 101, 52) 60%, rgb(10, 30, 18) 100%)",
+          }}
+        />
+        <div className="absolute inset-0 bg-black/30" />
+        <div className="relative z-10 flex h-full items-center justify-center">
+          <Leaf className="w-12 h-12 text-[#f0e5a5] animate-spin" />
+        </div>
       </div>
     );
   }
+
+  const getRgbaFromRgb = (rgbString, opacity) => {
+    if (!rgbString) return null;
+    const safeOpacity = (typeof opacity === "number" && opacity >= 0 && opacity <= 1) ? opacity : 1;
+    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!match) return rgbString;
+    return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${safeOpacity})`;
+  };
 
   const getLighterColor = (rgbString) => {
     if (!rgbString) return null;
@@ -665,6 +688,20 @@ export default function Collection() {
   };
 
   const activeBackgroundColor = selectedCollection?.background_color || (isQuestCollectionView ? null : averageColor);
+  const pageShellBackgroundStyle = user?.background_image_url
+    ? {
+      backgroundImage: `url(${user.background_image_url})`,
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+    }
+    : user?.background_color
+      ? {
+        background: `linear-gradient(160deg, ${getRgbaFromRgb(user.background_color, 1)} 0%, ${getRgbaFromRgb(user.background_color, 0.55)} 100%)`,
+      }
+      : {
+        background: "radial-gradient(circle at top, rgb(167, 243, 208) 0%, rgb(22, 101, 52) 60%, rgb(10, 30, 18) 100%)",
+      };
+
   const heroStats = getCollectionStats(selectedCollection ? selectedCollection.id : 'global');
   const heroProgressPercent = heroStats.total
     ? Math.round((heroStats.discovered / heroStats.total) * 100)
@@ -684,34 +721,32 @@ export default function Collection() {
   const isFollowingSelected = !!userCollectionLinkForSelected && !isOwnerOfSelected;
 
   return (
-    <div className="relative min-h-screen">
-      {/* Fixer Hintergrund */}
-      <div 
-        className="fixed inset-0 -z-10"
-        style={{
-          background: activeBackgroundColor 
-            ? "linear-gradient(135deg, "
-              + getLighterColor(activeBackgroundColor)
-              + " 0%, "
-              + activeBackgroundColor
-              + " 50%, "
-              + getDarkerColor(activeBackgroundColor)
-              + " 100%)"
-            : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
-        }}
-      />
-      
-      {/* Scrollbarer Content */}
-      <div className="h-screen p-4 md:p-8 overflow-hidden">
-        <MobileBackButton />
+    <div className="fixed inset-0 overflow-hidden" data-ui="home-page-shell">
+      <div className="absolute inset-0" style={pageShellBackgroundStyle} />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-black/35 to-black/55" />
 
-        <HintDialog
-          genus={selectedGenus}
-          isOpen={showHintDialog}
-          onClose={() => setShowHintDialog(false)}
-        />
+      <div className="relative z-10 h-full w-full p-3 md:p-6 flex items-start justify-center">
+        <div className="relative h-[calc(100%-1.50rem)] w-full max-w-md md:max-w-7xl rounded-[2rem] overflow-hidden border border-[#d7cf9c]/55 shadow-[0_20px_80px_rgba(0,0,0,0.5)]">
+          <div
+            className="absolute inset-0"
+            style={activeBackgroundColor ? {
+              background: `linear-gradient(180deg, ${getRgbaFromRgb(activeBackgroundColor, 0.2)} 0%, rgba(10, 16, 12, 0.78) 100%)`,
+            } : {
+              background: "linear-gradient(180deg, rgba(18, 30, 22, 0.45) 0%, rgba(8, 14, 10, 0.86) 100%)",
+            }}
+          />
+          <div className="absolute inset-0 border border-[#f0e5a5]/25 pointer-events-none rounded-[2rem]" />
 
-        <div className="max-w-7xl mx-auto h-full pt-0 flex flex-col gap-3">
+          <div className="relative z-10 h-full px-4 md:px-8 py-4 md:py-6 text-stone-100">
+            <MobileBackButton />
+
+            <HintDialog
+              genus={selectedGenus}
+              isOpen={showHintDialog}
+              onClose={() => setShowHintDialog(false)}
+            />
+
+            <div className="h-full pt-0 flex flex-col gap-3">
           <div className="shrink-0 space-y-3">
             {/* Horizontale Kollektionen-Chips + Neuerstellen-Button */}
             {!isQuestCollectionView && (ownedCollections.length + followedCollections.length > 0) && (
@@ -754,17 +789,17 @@ export default function Collection() {
                         className={
                           "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors " +
                           (isActive
-                            ? "bg-white text-stone-900 shadow-sm"
-                            : "bg-white/70 text-stone-600 hover:bg-white")
+                            ? "bg-black/55 text-[#f7f0c1] shadow-sm"
+                            : "bg-black/35 text-stone-200 hover:bg-black/50")
                         }
                         style={{
                           borderColor: isActive
-                            ? activeBackgroundColor || 'rgba(148,163,184,0.5)'
-                            : 'rgba(226,232,240,1)',
+                            ? "rgba(240,229,165,0.75)"
+                            : "rgba(255,255,255,0.3)",
                         }}
                       >
                         <span className="font-medium">{col.title}</span>
-                        <span className="text-[10px] text-stone-500">
+                        <span className="text-[10px] text-stone-300">
                           {stats.discovered}/{stats.total || '–'}
                         </span>
                       </button>
@@ -776,7 +811,7 @@ export default function Collection() {
               <button
                 type="button"
                 onClick={() => navigate("/CollectionEditor")}
-                className="shrink-0 w-8 h-8 rounded-full bg-white/80 border border-stone-300 text-stone-700 flex items-center justify-center shadow-sm hover:bg-white hover:border-stone-400 transition-colors"
+                className="shrink-0 w-8 h-8 rounded-full bg-black/45 border border-[#f0e5a5]/40 text-[#f0e5a5] flex items-center justify-center shadow-sm hover:bg-black/60 transition-colors"
                 aria-label="Neue Kollektion anlegen"
               >
                 <span className="text-lg leading-none">+</span>
@@ -786,21 +821,21 @@ export default function Collection() {
 
             {/* Hero-Kachel */}
             <div
-              className="bg-white/80 rounded-2xl border shadow-sm p-3 flex flex-col gap-3"
+              className="rounded-2xl border shadow-sm p-3 flex flex-col gap-3 bg-black/35 backdrop-blur-sm"
               style={{
-                borderColor: activeBackgroundColor || 'rgba(148, 163, 184, 0.35)',
+                borderColor: "rgba(240,229,165,0.35)",
               }}
             >
               <div className="space-y-1">
                 <div className="flex items-center justify-between gap-2">
-                  <h1 className="text-lg font-bold text-stone-900 leading-tight flex-1 min-w-0 truncate">
+                  <h1 className="text-lg font-bold text-[#f8f4d6] leading-tight flex-1 min-w-0 truncate">
                     {heroTitle}
                   </h1>
                   {!isQuestCollectionView && (ownedCollections.length + followedCollections.length === 0) && (
                     <button
                       type="button"
                       onClick={() => navigate("/CollectionEditor")}
-                      className="shrink-0 w-8 h-8 rounded-full bg-white/80 border border-stone-300 text-stone-700 flex items-center justify-center shadow-sm hover:bg-white hover:border-stone-400 transition-colors"
+                      className="shrink-0 w-8 h-8 rounded-full bg-black/45 border border-[#f0e5a5]/40 text-[#f0e5a5] flex items-center justify-center shadow-sm hover:bg-black/60 transition-colors"
                       aria-label="Neue Kollektion anlegen"
                     >
                       <span className="text-lg leading-none">+</span>
@@ -810,7 +845,7 @@ export default function Collection() {
                     <div className="shrink-0 flex items-center gap-1.5">
                       {(selectedCollection.followers_count ?? 0) > 0 && (
                         <div
-                          className="p-1 rounded-full border bg-stone-100 text-stone-600 flex items-center justify-center text-[10px] font-bold border-sky-400"
+                          className="p-1 rounded-full border bg-black/45 text-stone-100 flex items-center justify-center text-[10px] font-bold border-sky-300/70"
                           title={`${selectedCollection.followers_count} Follower`}
                         >
                           {selectedCollection.followers_count}
@@ -830,8 +865,8 @@ export default function Collection() {
                           disabled={followMutation.isPending || unfollowMutation.isPending}
                           className={
                             isFollowingSelected
-                              ? "shrink-0 p-1 rounded-full border bg-stone-100 text-stone-600 hover:bg-stone-200 border-red-400 transition-colors disabled:opacity-60"
-                              : "shrink-0 p-1 rounded-full border bg-stone-100 text-stone-600 hover:bg-stone-200 border-emerald-500 transition-colors disabled:opacity-60"
+                              ? "shrink-0 p-1 rounded-full border bg-black/45 text-stone-100 hover:bg-black/60 border-red-300/80 transition-colors disabled:opacity-60"
+                              : "shrink-0 p-1 rounded-full border bg-black/45 text-stone-100 hover:bg-black/60 border-emerald-300/80 transition-colors disabled:opacity-60"
                           }
                           aria-label={isFollowingSelected ? "Abo beenden" : "Abonnieren"}
                         >
@@ -843,7 +878,7 @@ export default function Collection() {
                         <button
                           type="button"
                           onClick={() => navigate("/CollectionEditor?id=" + selectedCollection.id)}
-                          className="shrink-0 p-1.5 rounded-full bg-stone-100 text-stone-600 hover:bg-stone-200 hover:text-stone-800 border border-stone-200 transition-colors"
+                          className="shrink-0 p-1.5 rounded-full bg-black/45 text-[#f0e5a5] hover:bg-black/60 border border-[#f0e5a5]/35 transition-colors"
                           aria-label="Kollektion bearbeiten"
                         >
                           <PencilLine className="w-3 h-3" />
@@ -853,7 +888,7 @@ export default function Collection() {
                   )}
                 </div>
                 {selectedCollection?.description && (
-                  <p className="text-[11px] text-stone-600 max-h-[4.5em] overflow-y-auto leading-snug rounded focus:outline-none focus:ring-1 focus:ring-stone-400" tabIndex={0}>
+                  <p className="text-[11px] text-stone-200/90 max-h-[4.5em] overflow-y-auto leading-snug rounded focus:outline-none focus:ring-1 focus:ring-[#f0e5a5]/40" tabIndex={0}>
                     {selectedCollection.description}
                   </p>
                 )}
@@ -861,11 +896,11 @@ export default function Collection() {
 
               <div className="flex items-center gap-3 mt-1">
                 <div className="flex-1 space-y-1">
-                  <div className="flex items-center justify-between text-[10px] text-stone-600">
+                  <div className="flex items-center justify-between text-[10px] text-stone-200/90">
                     <div className="flex items-center gap-1">
                       <span>Fortschritt</span>
                       {heroStats.total > 0 && (
-                        <span className="text-[10px] text-stone-500">
+                        <span className="text-[10px] text-stone-300/90">
                           ({heroStats.discovered}/{heroStats.total})
                         </span>
                       )}
@@ -887,8 +922,8 @@ export default function Collection() {
                             className={
                               "p-1 rounded-full border transition-colors " +
                               (isActive
-                                ? "bg-stone-100 text-stone-700 border-emerald-500"
-                                : "bg-stone-100 text-stone-600 border-stone-300 hover:bg-stone-200")
+                                ? "bg-black/55 text-[#f0e5a5] border-[#f0e5a5]/70"
+                                : "bg-black/35 text-stone-100 border-white/30 hover:bg-black/55")
                             }
                             aria-label={categoryChip.value + (isActive ? " deaktivieren" : " filtern")}
                             aria-pressed={isActive}
@@ -909,8 +944,8 @@ export default function Collection() {
                         className={
                           "p-1 rounded-full transition-colors " +
                           (sortChipsOpen
-                            ? "bg-stone-200 text-stone-800"
-                            : "bg-stone-100 text-stone-600 hover:bg-stone-200")
+                            ? "bg-black/60 text-[#f0e5a5]"
+                            : "bg-black/40 text-stone-100 hover:bg-black/60")
                         }
                         aria-label={sortChipsOpen ? "Suche und Sortierung ausblenden" : "Suche und Sortierung einblenden"}
                       >
@@ -918,12 +953,14 @@ export default function Collection() {
                       </button>
                     </div>
                   </div>
-                  <div className="w-full h-2 bg-stone-100 rounded-full overflow-hidden">
+                  <div className="w-full h-2 bg-black/40 rounded-full overflow-hidden border border-white/10">
                     <div
                       className="h-full rounded-full transition-all"
                       style={{
-                        width: heroProgressPercent + '%',
-                        backgroundColor: activeBackgroundColor || 'rgb(34, 197, 94)',
+                        width: heroProgressPercent + "%",
+                        background: activeBackgroundColor
+                          ? `linear-gradient(90deg, ${getLighterColor(activeBackgroundColor)} 0%, ${activeBackgroundColor} 100%)`
+                          : "linear-gradient(90deg, rgb(74, 222, 128) 0%, rgb(34, 197, 94) 100%)",
                       }}
                     />
                   </div>
@@ -975,10 +1012,10 @@ export default function Collection() {
           >
             {filteredGenera.length === 0 ? (
               <div className="text-center py-20">
-                <div className="w-24 h-24 bg-white/80 backdrop-blur-md rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-stone-200">
-                  <Leaf className="w-12 h-12 text-stone-400" />
+                <div className="w-24 h-24 bg-black/45 backdrop-blur-md rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-[#f0e5a5]/30">
+                  <Leaf className="w-12 h-12 text-[#f0e5a5]" />
                 </div>
-                <h3 className="text-2xl font-bold text-stone-900 mb-2">
+                <h3 className="text-2xl font-bold text-[#f8f4d6] mb-2">
                   Keine Pflanzen gefunden
                 </h3>
               </div>
@@ -998,6 +1035,8 @@ export default function Collection() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
           </div>
         </div>
       </div>
