@@ -1074,8 +1074,113 @@ export default function Home() {
                 </button>
               </div>
 
-              <div className="flex-1 min-h-0 flex flex-col justify-between py-4">
-                <section className="rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm px-4 py-5 md:px-6 md:py-6">
+              <div className="flex-1 min-h-0 py-4">
+                {showHeroZoneMap ? (
+                  <section className="relative h-full rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm overflow-hidden">
+                    <div className="absolute inset-0 z-0">
+                      <MapContainer
+                        center={heroMapCenter}
+                        zoom={13}
+                        style={{ height: "100%", width: "100%" }}
+                        className="z-0"
+                        zoomControl={false}
+                        attributionControl={false}
+                      >
+                        <TileLayer
+                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; CARTO'
+                          url={MAP_TILESETS[heroZoneMapTheme]}
+                        />
+                        <HeroZoneMapViewport
+                          zones={heroZones}
+                          userLocation={cachedLocation}
+                          fallbackCenter={{ lat: heroMapCenter[0], lng: heroMapCenter[1] }}
+                        />
+
+                        {heroZones.map((zone) => {
+                          const lat = Number(zone.centerLat);
+                          const lng = Number(zone.centerLng);
+                          const radiusM = Number(zone.radiusM || 0);
+                          if (!Number.isFinite(lat) || !Number.isFinite(lng) || radiusM <= 0) {
+                            return null;
+                          }
+
+                          const color = THEME_MAP_COLORS[zone.theme] || "#84cc16";
+                          return (
+                            <Circle
+                              key={`${zone.zoneKey || zone.id}-${zone.theme}`}
+                              center={[lat, lng]}
+                              radius={radiusM}
+                              pathOptions={{
+                                color,
+                                fillColor: color,
+                                fillOpacity: 0.2,
+                                weight: 2,
+                              }}
+                            />
+                          );
+                        })}
+
+                        {Number.isFinite(cachedLocation?.lat) && Number.isFinite(cachedLocation?.lng) && (
+                          <Circle
+                            center={[cachedLocation.lat, cachedLocation.lng]}
+                            radius={16}
+                            pathOptions={{
+                              color: heroZoneMapTheme === "dark" ? "#f8fafc" : "#111827",
+                              fillColor: "#38bdf8",
+                              fillOpacity: 0.9,
+                              weight: 2,
+                            }}
+                          />
+                        )}
+                      </MapContainer>
+                    </div>
+
+                    <div className="pointer-events-none absolute inset-x-0 top-0 h-20 z-[1100] bg-gradient-to-b from-black/60 to-transparent" />
+
+                    <div className="absolute left-4 top-4 z-[1200] rounded-xl border border-[#f0e5a5]/35 bg-black/55 backdrop-blur-sm px-3 py-1.5 text-[11px] md:text-xs font-semibold text-stone-100 flex items-center gap-1.5">
+                      <MapIcon className="w-3.5 h-3.5" />
+                      Zonen: {heroZones.length}
+                    </div>
+
+                    {zoneMapError && (
+                      <div className="absolute left-4 right-4 top-16 z-[1200] rounded-xl border border-red-300/50 bg-red-900/55 backdrop-blur-sm px-3 py-2 text-[11px] md:text-xs font-medium text-red-100">
+                        {zoneMapError}
+                      </div>
+                    )}
+
+                    <div className="absolute left-4 right-4 bottom-4 z-[1200] flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowHeroZoneMap(false)}
+                        className="h-10 px-3 rounded-xl border border-[#f0e5a5]/45 bg-black/55 backdrop-blur-sm flex items-center gap-2 text-xs md:text-sm font-semibold text-stone-100"
+                      >
+                        <ArrowLeft className="w-4 h-4" />
+                        Zurück
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setHeroZoneMapTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+                        className="h-10 px-3 rounded-xl border border-[#f0e5a5]/45 bg-black/55 backdrop-blur-sm flex items-center gap-2 text-xs md:text-sm font-semibold text-stone-100"
+                      >
+                        {heroZoneMapTheme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                        {heroZoneMapTheme === "dark" ? "Hell" : "Dunkel"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleRegenerateZones}
+                        disabled={isRegeneratingZones || isLoadingZone}
+                        className="h-10 px-3 rounded-xl border border-[#f0e5a5]/45 bg-black/55 backdrop-blur-sm flex items-center gap-2 text-xs md:text-sm font-semibold text-stone-100 disabled:opacity-60"
+                      >
+                        {isRegeneratingZones ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                        Neu
+                      </button>
+                    </div>
+                  </section>
+                ) : (
+                  <div className="h-full flex flex-col justify-between">
+                    <section className="rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm px-4 py-5 md:px-6 md:py-6">
                   <div ref={healthStatsPanelRef} className="mb-3">
                     <div className="relative mx-auto w-[16rem] h-[16rem] md:w-[19rem] md:h-[19rem]">
                       <button
@@ -1109,132 +1214,26 @@ export default function Home() {
                         </span>
                       </button>
 
-                      {showHeroZoneMap ? (
-                        <>
-                          <div className="absolute inset-3 rounded-3xl border border-[#f0e5a5]/35 overflow-hidden bg-black/70">
-                            <MapContainer
-                              center={heroMapCenter}
-                              zoom={13}
-                              style={{ height: "100%", width: "100%" }}
-                              zoomControl={false}
-                              attributionControl={false}
-                            >
-                              <TileLayer
-                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; CARTO'
-                                url={MAP_TILESETS[heroZoneMapTheme]}
-                              />
-                              <HeroZoneMapViewport
-                                zones={heroZones}
-                                userLocation={cachedLocation}
-                                fallbackCenter={{ lat: heroMapCenter[0], lng: heroMapCenter[1] }}
-                              />
+                      <div className="absolute inset-7 rounded-full border border-[#f0e5a5]/35 bg-gradient-to-b from-emerald-100/25 to-emerald-900/45 backdrop-blur-sm shadow-[inset_0_0_30px_rgba(190,242,100,0.15)]" />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Leaf className="w-20 h-20 md:w-24 md:h-24 text-lime-200 drop-shadow-[0_0_24px_rgba(190,242,100,0.6)]" />
+                      </div>
 
-                              {heroZones.map((zone) => {
-                                const lat = Number(zone.centerLat);
-                                const lng = Number(zone.centerLng);
-                                const radiusM = Number(zone.radiusM || 0);
-                                if (!Number.isFinite(lat) || !Number.isFinite(lng) || radiusM <= 0) {
-                                  return null;
-                                }
-
-                                const color = THEME_MAP_COLORS[zone.theme] || "#84cc16";
-                                return (
-                                  <Circle
-                                    key={`${zone.zoneKey || zone.id}-${zone.theme}`}
-                                    center={[lat, lng]}
-                                    radius={radiusM}
-                                    pathOptions={{
-                                      color,
-                                      fillColor: color,
-                                      fillOpacity: 0.2,
-                                      weight: 2,
-                                    }}
-                                  />
-                                );
-                              })}
-
-                              {Number.isFinite(cachedLocation?.lat) && Number.isFinite(cachedLocation?.lng) && (
-                                <Circle
-                                  center={[cachedLocation.lat, cachedLocation.lng]}
-                                  radius={16}
-                                  pathOptions={{
-                                    color: heroZoneMapTheme === "dark" ? "#f8fafc" : "#111827",
-                                    fillColor: "#38bdf8",
-                                    fillOpacity: 0.9,
-                                    weight: 2,
-                                  }}
-                                />
-                              )}
-                            </MapContainer>
-
-                            <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/55 to-transparent" />
-                          </div>
-
-                          <div className="absolute left-4 right-4 bottom-4 z-20 flex items-center justify-between gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setShowHeroZoneMap(false)}
-                              className="h-10 px-3 rounded-xl border border-[#f0e5a5]/45 bg-black/55 backdrop-blur-sm flex items-center gap-2 text-xs md:text-sm font-semibold text-stone-100"
-                            >
-                              <ArrowLeft className="w-4 h-4" />
-                              Zurück
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => setHeroZoneMapTheme((prev) => (prev === "dark" ? "light" : "dark"))}
-                              className="h-10 px-3 rounded-xl border border-[#f0e5a5]/45 bg-black/55 backdrop-blur-sm flex items-center gap-2 text-xs md:text-sm font-semibold text-stone-100"
-                            >
-                              {heroZoneMapTheme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-                              {heroZoneMapTheme === "dark" ? "Hell" : "Dunkel"}
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={handleRegenerateZones}
-                              disabled={isRegeneratingZones || isLoadingZone}
-                              className="h-10 px-3 rounded-xl border border-[#f0e5a5]/45 bg-black/55 backdrop-blur-sm flex items-center gap-2 text-xs md:text-sm font-semibold text-stone-100 disabled:opacity-60"
-                            >
-                              {isRegeneratingZones ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                              Neu
-                            </button>
-                          </div>
-
-                          <div className="absolute left-4 top-4 z-20 rounded-xl border border-[#f0e5a5]/35 bg-black/55 backdrop-blur-sm px-3 py-1.5 text-[11px] md:text-xs font-semibold text-stone-100 flex items-center gap-1.5">
-                            <MapIcon className="w-3.5 h-3.5" />
-                            Zonen: {heroZones.length}
-                          </div>
-
-                          {zoneMapError && (
-                            <div className="absolute left-4 right-4 top-16 z-20 rounded-xl border border-red-300/50 bg-red-900/55 backdrop-blur-sm px-3 py-2 text-[11px] md:text-xs font-medium text-red-100">
-                              {zoneMapError}
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <div className="absolute inset-7 rounded-full border border-[#f0e5a5]/35 bg-gradient-to-b from-emerald-100/25 to-emerald-900/45 backdrop-blur-sm shadow-[inset_0_0_30px_rgba(190,242,100,0.15)]" />
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <Leaf className="w-20 h-20 md:w-24 md:h-24 text-lime-200 drop-shadow-[0_0_24px_rgba(190,242,100,0.6)]" />
-                          </div>
-
-                          {[
-                            'left-0 top-1/2 -translate-y-1/2',
-                            'right-0 top-1/2 -translate-y-1/2',
-                            'left-1/2 top-0 -translate-x-1/2',
-                            'left-1/2 bottom-0 -translate-x-1/2',
-                          ].map((position, index) => (
-                            <button
-                              key={`slot-${index}`}
-                              type="button"
-                              className={`absolute ${position} w-12 h-12 md:w-14 md:h-14 rounded-2xl border border-[#f0e5a5]/45 bg-black/35 backdrop-blur-sm flex items-center justify-center text-[#f0e5a5] hover:bg-black/50 transition-colors`}
-                              aria-label={`Plus Slot ${index + 1}`}
-                            >
-                              <Plus className="w-6 h-6" />
-                            </button>
-                          ))}
-                        </>
-                      )}
+                      {[
+                        'left-0 top-1/2 -translate-y-1/2',
+                        'right-0 top-1/2 -translate-y-1/2',
+                        'left-1/2 top-0 -translate-x-1/2',
+                        'left-1/2 bottom-0 -translate-x-1/2',
+                      ].map((position, index) => (
+                        <button
+                          key={`slot-${index}`}
+                          type="button"
+                          className={`absolute ${position} w-12 h-12 md:w-14 md:h-14 rounded-2xl border border-[#f0e5a5]/45 bg-black/35 backdrop-blur-sm flex items-center justify-center text-[#f0e5a5] hover:bg-black/50 transition-colors`}
+                          aria-label={`Plus Slot ${index + 1}`}
+                        >
+                          <Plus className="w-6 h-6" />
+                        </button>
+                      ))}
 
                     </div>
 
@@ -1282,22 +1281,24 @@ export default function Home() {
                     <Camera className="w-6 h-6 md:w-7 md:h-7" />
                     Scannen
                   </motion.button>
-                </section>
+                  </section>
 
-                <div className="mt-4">
-                  <div className="grid grid-cols-4 gap-2 md:gap-3">
-                    {navItems.map((item) => (
-                      <button
-                        key={item.label}
-                        onClick={item.onClick}
-                        className="rounded-2xl border border-[#d7cf9c]/65 bg-black/35 hover:bg-black/50 transition-colors py-3 md:py-4 flex flex-col items-center gap-1"
-                      >
-                        <item.icon className="w-5 h-5 md:w-6 md:h-6 text-lime-100" />
-                        <span className="home-tight-vh-label text-xs md:text-sm font-semibold">{item.label}</span>
-                      </button>
-                    ))}
+                  <div className="mt-4">
+                    <div className="grid grid-cols-4 gap-2 md:gap-3">
+                      {navItems.map((item) => (
+                        <button
+                          key={item.label}
+                          onClick={item.onClick}
+                          className="rounded-2xl border border-[#d7cf9c]/65 bg-black/35 hover:bg-black/50 transition-colors py-3 md:py-4 flex flex-col items-center gap-1"
+                        >
+                          <item.icon className="w-5 h-5 md:w-6 md:h-6 text-lime-100" />
+                          <span className="home-tight-vh-label text-xs md:text-sm font-semibold">{item.label}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
+                )}
               </div>
             </div>
           </motion.div>
