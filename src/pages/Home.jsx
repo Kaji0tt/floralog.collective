@@ -866,7 +866,7 @@ export default function Home() {
             background: 'radial-gradient(circle at top, rgb(167, 243, 208) 0%, rgb(22, 101, 52) 60%, rgb(10, 30, 18) 100%)',
           }}
         />
-        <div className="absolute inset-0 backdrop-blur-3xl bg-black/50" />
+        <div className="absolute inset-0 backdrop-blur-3xl" />
 
         <div className="relative z-10 h-full w-full p-3 md:p-6 flex items-center justify-center">
           <motion.div
@@ -892,16 +892,18 @@ export default function Home() {
             <div className="relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6 text-stone-100">
               <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#f0e5a5]/20">
                 <div className="min-w-0">
-                  <h1
-                    className="font-bold leading-tight truncate"
-                    style={{ fontSize: getNameFontSize(getDisplayName()) }}
-                    title={getDisplayName()}
-                  >
-                    {getDisplayName()}
-                  </h1>
-                  <p className="text-stone-200/85 text-base md:text-lg">
-                    {user.selected_title || user.title || 'Pflanzen-Entdecker'}
-                  </p>
+                  <div className="flex items-baseline gap-2 min-w-0">
+                    <h1
+                      className="font-bold leading-tight truncate"
+                      style={{ fontSize: getNameFontSize(getDisplayName()) }}
+                      title={getDisplayName()}
+                    >
+                      {getDisplayName()}
+                    </h1>
+                    <p className="text-stone-200/85 text-base md:text-lg whitespace-nowrap truncate">
+                      {user.selected_title || user.title || 'Pflanzen-Entdecker'}
+                    </p>
+                  </div>
                   <div className="hidden mt-1 h-8 items-center gap-1" aria-hidden="true">
                     <span className="w-8 h-8 rounded-full border border-white/25 bg-white/10" />
                     <span className="w-8 h-8 rounded-full border border-white/25 bg-white/10" />
