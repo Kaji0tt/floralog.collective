@@ -1458,7 +1458,7 @@ export default function Home() {
                           <div className="space-y-2">
                             <h3 className="font-semibold text-lime-200">Samen</h3>
                             <p className="text-xs text-amber-50/70">
-                              Werden verwendet um neue Items zu freischalten, Pflanzen zu upgrades. Die genaue Verwendung wird noch definiert.
+                              Werden verwendet um neue Items zu freischalten, welche die Pflanzepflege erleichtern. Voraussichtlich werden auch Cosmetics verfügbar sein. Die genaue Verwendung wird noch definiert.
                             </p>
                             <p className="text-xs text-amber-100/50 italic">💡 Status: In Entwicklung</p>
                           </div>
