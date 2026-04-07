@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Query } from "@/api/entities";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { upsertUserProfile } from "@/api/authService";
@@ -47,6 +47,8 @@ export default function Home() {
   const [showScannerHighlight, setShowScannerHighlight] = useState(false);
   const [activeZone, setActiveZone] = useState(null);
   const [isLoadingZone, setIsLoadingZone] = useState(false);
+  const [showHealthStatsPanel, setShowHealthStatsPanel] = useState(false);
+  const healthPanelRef = useRef(null);
 
   const [scanFeedback, setScanFeedback] = useState(null);
 
@@ -759,6 +761,29 @@ export default function Home() {
 
   const activeZoneMeta = activeZone?.theme ? THEME_MAP_META[activeZone.theme] : null;
   const ZoneIcon = activeZoneMeta?.Icon || Minus;
+  const healthStats = [
+    { id: "energy", label: "Energie", value: Math.round(safeEnergy), color: "#10b981" },
+    { id: "data-quality", label: "Daten", value: Math.round(safeDataQuality), color: "#06b6d4" },
+    { id: "care", label: "Pflege", value: Math.round(safeCare), color: "#f59e0b" },
+  ];
+
+  useEffect(() => {
+    if (!showHealthStatsPanel) return;
+
+    const closeOnOutside = (event) => {
+      if (healthPanelRef.current && !healthPanelRef.current.contains(event.target)) {
+        setShowHealthStatsPanel(false);
+      }
+    };
+
+    document.addEventListener("mousedown", closeOnOutside);
+    document.addEventListener("touchstart", closeOnOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutside);
+      document.removeEventListener("touchstart", closeOnOutside);
+    };
+  }, [showHealthStatsPanel]);
 
   const navItems = [
     { label: "Kollektion", icon: Leaf, onClick: () => navigate(createPageUrl("Collection")) },
@@ -766,6 +791,13 @@ export default function Home() {
     { label: "Social", icon: Users, onClick: () => navigate(createPageUrl("Friends")) },
     { label: "Shop", icon: ShoppingBag, onClick: () => navigate(createPageUrl("Shop")) },
   ];
+
+  const footerTextColor = averageColor
+    ? (isColorDark(averageColor) ? "rgba(245,245,244,0.96)" : "rgba(28,25,23,0.88)")
+    : "rgba(245,245,244,0.92)";
+  const footerTextShadow = averageColor && isColorDark(averageColor)
+    ? "0 2px 8px rgba(0,0,0,0.7)"
+    : "0 1px 5px rgba(255,255,255,0.35)";
 
   return (
     <>
@@ -878,13 +910,13 @@ export default function Home() {
             <div
               className="absolute inset-0"
               style={user?.background_image_url ? {
-                backgroundImage: `linear-gradient(180deg, rgba(19,37,24,0.56) 0%, rgba(12,20,15,0.82) 100%), url(${user.background_image_url})`,
+                backgroundImage: `linear-gradient(180deg, rgba(19,37,24,0.42) 0%, rgba(12,20,15,0.66) 100%), url(${user.background_image_url})`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
               } : user?.background_color ? {
-                background: `linear-gradient(180deg, ${getRgbaFromRgb(user.background_color, 0.35)} 0%, rgba(14, 22, 16, 0.9) 100%)`,
+                background: `linear-gradient(180deg, ${getRgbaFromRgb(user.background_color, 0.28)} 0%, rgba(14, 22, 16, 0.74) 100%)`,
               } : {
-                background: 'linear-gradient(180deg, rgba(126, 171, 98, 0.55) 0%, rgba(10, 22, 15, 0.92) 100%)',
+                background: 'linear-gradient(180deg, rgba(126, 171, 98, 0.45) 0%, rgba(10, 22, 15, 0.78) 100%)',
               }}
             />
             <div className="absolute inset-0 border border-[#f0e5a5]/30 pointer-events-none rounded-[2rem]" />
@@ -924,14 +956,43 @@ export default function Home() {
               <div className="flex-1 min-h-0 flex flex-col justify-between py-4">
                 <section className="rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm px-4 py-5 md:px-6 md:py-6">
                   <div className="grid grid-cols-2 gap-2 md:gap-3 text-xs md:text-sm mb-3">
-                    <div
-                      className="h-11 md:h-12 rounded-2xl border border-[#f0e5a5]/45 backdrop-blur-sm flex items-center gap-2 px-3"
-                      style={{
-                        background: `linear-gradient(135deg, ${plantHealthState.color}cc 0%, ${plantHealthState.color}88 100%)`,
-                      }}
-                    >
-                      <Leaf className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                      <span className="font-bold text-white tracking-wide">{overallPlantHealth}%</span>
+                    <div ref={healthPanelRef} className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowHealthStatsPanel((prev) => !prev)}
+                        className="w-full h-11 md:h-12 rounded-2xl border border-[#f0e5a5]/45 backdrop-blur-sm flex items-center gap-2 px-3"
+                        style={{
+                          background: `linear-gradient(135deg, ${plantHealthState.color}cc 0%, ${plantHealthState.color}88 100%)`,
+                        }}
+                        aria-label="Pflanzenstats anzeigen"
+                      >
+                        <Leaf className="w-4 h-4 md:w-5 md:h-5 text-white" />
+                        <span className="font-bold text-white tracking-wide">{overallPlantHealth}%</span>
+                      </button>
+
+                      <AnimatePresence>
+                        {showHealthStatsPanel && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -6 }}
+                            transition={{ duration: 0.16, ease: "easeOut" }}
+                            className="absolute left-0 right-0 top-[calc(100%+0.45rem)] z-20 grid grid-cols-3 gap-2"
+                          >
+                            {healthStats.map((stat) => (
+                              <div
+                                key={stat.id}
+                                className="h-11 md:h-12 rounded-2xl border border-[#f0e5a5]/45 backdrop-blur-sm flex items-center justify-center"
+                                style={{
+                                  background: `linear-gradient(135deg, ${stat.color}cc 0%, ${stat.color}88 100%)`,
+                                }}
+                              >
+                                <span className="font-semibold text-white text-[11px] md:text-xs tracking-wide">{stat.label}: {stat.value}%</span>
+                              </div>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
 
                     <div
@@ -945,16 +1006,6 @@ export default function Home() {
                         {isLoadingZone ? "..." : activeZoneMeta?.label || "Leer"}
                       </span>
                     </div>
-                  </div>
-
-                  <div className="mb-5 h-2 rounded-full bg-white/10 overflow-hidden border border-white/10">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{
-                        width: `${overallPlantHealth}%`,
-                        background: `linear-gradient(90deg, ${plantHealthState.color} 0%, #bef264 100%)`,
-                      }}
-                    />
                   </div>
 
                   <div className="relative mx-auto w-[16rem] h-[16rem] md:w-[19rem] md:h-[19rem]">
@@ -1008,18 +1059,21 @@ export default function Home() {
                       </button>
                     ))}
                   </div>
-
-                  <div className="mt-3 flex justify-center gap-3 text-sm text-stone-300/85">
-                    <button onClick={() => navigate(createPageUrl('Donate'))} className="hover:text-white transition-colors">Spenden</button>
-                    <span>•</span>
-                    <button onClick={() => navigate(createPageUrl('Impressum'))} className="hover:text-white transition-colors">Impressum</button>
-                    <span>•</span>
-                    <button onClick={() => navigate(createPageUrl('News'))} className="hover:text-white transition-colors">News</button>
-                  </div>
                 </div>
               </div>
             </div>
           </motion.div>
+
+          <div
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex justify-center gap-3 text-sm font-medium"
+            style={{ color: footerTextColor, textShadow: footerTextShadow }}
+          >
+            <button onClick={() => navigate(createPageUrl('Donate'))} className="hover:opacity-80 transition-opacity">Spenden</button>
+            <span className="opacity-70">•</span>
+            <button onClick={() => navigate(createPageUrl('Impressum'))} className="hover:opacity-80 transition-opacity">Impressum</button>
+            <span className="opacity-70">•</span>
+            <button onClick={() => navigate(createPageUrl('News'))} className="hover:opacity-80 transition-opacity">News</button>
+          </div>
         </div>
       </div>
     </>
