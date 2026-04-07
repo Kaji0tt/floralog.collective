@@ -80,7 +80,7 @@ const REWARD_FORMULA_CONFIG = {
   streakMultiplier: { min: 1, max: 7 },
   careMultiplier: { min: 1, max: 2 },
   energyMultiplier: { min: 1, max: 2 },
-  firstScanOfDayMultiplier: { min: 1, max: 1.5, default: 1 },
+  firstScanOfDayMultiplier: { min: 1, max: 2, default: 1 },
   absoluteMinReward: 1,
   absoluteMaxReward: 350,
 };
@@ -340,16 +340,39 @@ async function tryResolveScanRewardContext(
     isInActiveZone = !!matchingZone;
   }
 
-  // Check if this is the first scan of the day for this user
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  const { data: todayScans, error: todayScansError } = await adminClient
+  // Check if this is the first scan of the UTC day for this user
+  const now = new Date();
+  const utcDayStart = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    0,
+    0,
+    0,
+    0,
+  ));
+  const utcNextDayStart = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() + 1,
+    0,
+    0,
+    0,
+    0,
+  ));
+
+  const { count: todayScanCount, error: todayScansError } = await adminClient
     .from("UserPlantDiscovery")
     .select("id", { count: "exact", head: true })
     .eq("auth_id", authId)
-    .gte("discovered_date", `${today}T00:00:00`)
-    .lt("discovered_date", `${today}T23:59:59`);
+    .gte("discovered_date", utcDayStart.toISOString())
+    .lt("discovered_date", utcNextDayStart.toISOString());
 
-  const isFirstScanOfDay = (todayScans?.length ?? 0) === 0;
+  if (todayScansError) {
+    throw new Error(`Failed to load today's scan count: ${todayScansError.message}`);
+  }
+
+  const isFirstScanOfDay = Number(todayScanCount ?? 0) === 0;
 
   const rewardDetails = computeScanRewardBreakdown({
     eventSource,

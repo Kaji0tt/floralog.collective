@@ -15,6 +15,11 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { getNameFontSize } from "@/lib/utils";
 import { getCachedLocation } from "@/lib/locationSync";
+import {
+  computeCareMultiplier,
+  computeEnergyMultiplier,
+  computeFirstScanOfDayMultiplier,
+} from "@/lib/robotPlantEconomy";
 import { Button } from "@/components/ui/button";
 import { updateQuestProgress } from "@/components/utils/questProgress";
 
@@ -1050,6 +1055,23 @@ export default function Home() {
     ? zoneMultiplierCandidate
     : 1;
 
+  const careMultiplier = computeCareMultiplier(safeCare);
+  const energyMultiplier = computeEnergyMultiplier(safeEnergy);
+
+  const hasScanToday = userDiscoveries.some((discovery) => {
+    const rawDate = discovery?.created_date || discovery?.discovered_date || discovery?.updated_date;
+    if (!rawDate) return false;
+    const scanDate = new Date(rawDate);
+    if (Number.isNaN(scanDate.getTime())) return false;
+    const now = new Date();
+    return (
+      scanDate.getFullYear() === now.getFullYear() &&
+      scanDate.getMonth() === now.getMonth() &&
+      scanDate.getDate() === now.getDate()
+    );
+  });
+  const dailyBonusMultiplier = computeFirstScanOfDayMultiplier(!hasScanToday);
+
   const formatMultiplier = (value) => {
     const safeValue = Number.isFinite(value) ? value : 1;
     return `x${safeValue.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1")}`;
@@ -1488,23 +1510,23 @@ export default function Home() {
                                 <span className="text-amber-50/70">1-1.75x je nach Datenqualität</span>
                               </div>
                               <div className="flex flex-col gap-0.5">
-                                <span className="text-amber-300 font-semibold">💚 Pflege:</span>
+                                <span className="text-amber-300 font-semibold">💚 Pflege:<strong>{formatMultiplier(careMultiplier)}</strong></span>
                                 <span className="text-amber-50/70">1-2x - Je höher der Care-Level</span>
                               </div>
                               <div className="flex flex-col gap-0.5">
-                                <span className="text-amber-300 font-semibold">⚡ Energie:</span>
+                                <span className="text-amber-300 font-semibold">⚡ Energie:<strong>{formatMultiplier(energyMultiplier)}</strong></span>
                                 <span className="text-amber-50/70">1-2x - Je höher die Energie der Pflanze</span>
                               </div>
                               <div className="flex flex-col gap-0.5">
-                                <span className="text-amber-300 font-semibold">🌅 Tagesbonus:</span>
-                                <span className="text-amber-50/70">1.5x - Für den ersten Scan des Tages</span>
+                                <span className="text-amber-300 font-semibold">🌅 Tagesbonus:<strong>{formatMultiplier(dailyBonusMultiplier)}</strong></span>
+                                <span className="text-amber-50/70">2x bis zum ersten Scan des Tages, danach x1</span>
                               </div>
                               <div className="flex flex-col gap-0.5">
-                                <span className="text-amber-300 font-semibold">⭐ Rarität:</span>
-                                <span className="text-amber-50/70">Scan abhängig - Je seltener die Pflanze</span>
+                                <span className="text-amber-300 font-semibold">⭐ Rarität:<strong>Scan abhängig</strong></span>
+                                <span className="text-amber-50/70">- 1-3x, Je seltener die Pflanze</span>
                               </div>
                               <div className="flex flex-col gap-0.5">
-                                <span className="text-amber-300 font-semibold">📉 Neuheit:</span>
+                                <span className="text-amber-300 font-semibold">📉 Neuheit:<strong>Scan abhängig</strong></span>
                                 <span className="text-amber-50/70">Scan abhängig - Mit jedem Duplikat-Scan reduziert</span>
                               </div>
                             </div>
