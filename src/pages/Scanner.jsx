@@ -1163,27 +1163,14 @@ export default function Scanner() {
         }}
       />
       <div className="absolute inset-0 backdrop-blur-3xl" />
-      <div className="relative z-10 h-full w-full p-3 md:p-6 flex items-start justify-center">
+      <div className="relative z-10 h-full overflow-y-auto p-3 md:p-6 text-stone-100">
       <motion.div
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, ease: 'easeOut' }}
-        className="relative h-[calc(100%-1.50rem)] md:h-[calc(100%-1.50rem)] w-full max-w-md md:max-w-3xl rounded-[2rem] overflow-hidden border border-[#d7cf9c]/65 shadow-[0_20px_80px_rgba(0,0,0,0.55)]"
+        className="w-full max-w-4xl mx-auto"
       >
-      <div
-        className="absolute inset-0"
-        style={user?.background_image_url ? {
-          backgroundImage: `linear-gradient(180deg, rgba(19,37,24,0.42) 0%, rgba(12,20,15,0.66) 100%), url(${user.background_image_url})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        } : user?.background_color ? {
-          background: `linear-gradient(180deg, ${getRgbaFromRgb(user.background_color, 0.28)} 0%, rgba(14, 22, 16, 0.74) 100%)`,
-        } : {
-          background: 'linear-gradient(180deg, rgba(126, 171, 98, 0.45) 0%, rgba(10, 22, 15, 0.78) 100%)',
-        }}
-      />
-      <div className="absolute inset-0 border border-[#f0e5a5]/30 pointer-events-none rounded-[2rem]" />
-      <div className="relative z-10 h-full overflow-y-auto px-4 md:px-8 py-4 md:py-6 text-stone-100">
+      <div className="w-full">
       {/* Grüner Haken / Ändern Button - nur wenn pendingScanData vorhanden */}
       {pendingScanData && !isSavingPlant && (
         <ConfirmButton 
@@ -1385,7 +1372,7 @@ export default function Scanner() {
         }
       </AnimatePresence>
 
-      <div className="max-w-4xl mx-auto">
+      <div className="w-full">
         {!scanning && !matchedPlant && !showCamera &&
         <Card 
           className="overflow-hidden rounded-3xl border border-[#f0e5a5]/30 bg-black/25 backdrop-blur-sm shadow-[0_18px_42px_rgba(0,0,0,0.42)]"
@@ -1404,16 +1391,6 @@ export default function Scanner() {
                 </div>
               </button>
 
-              <div className="mt-6 p-4 bg-black/35 backdrop-blur-md rounded-xl border border-[#f0e5a5]/25">
-                <p className="text-center font-semibold text-stone-100">
-                  💡 Tipp: Achte darauf, dass die Pflanze gut zu sehen ist!
-                </p>
-                {userLocation &&
-              <p className="text-center text-sm text-stone-200/85 mt-2">
-                    📍 Dein Standort wird automatisch gespeichert
-                  </p>
-              }
-              </div>
             </CardContent>
           </Card>
         }
