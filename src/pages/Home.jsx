@@ -5,8 +5,9 @@ import { upsertUserProfile } from "@/api/authService";
 import { executeMigration } from "@/api/migrationService";
 import { getRobotPlantDailyZones } from "@/api/robotPlantService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Camera, Loader2, Leaf, Settings, Plus, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, Minus } from "lucide-react";
+import { Camera, Loader2, Leaf, Settings, Plus, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, Minus, ArrowLeft, Sun, Moon, RefreshCw, Map as MapIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { MapContainer, TileLayer, Circle, useMap } from "react-leaflet";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
@@ -19,6 +20,7 @@ import { updateQuestProgress } from "@/components/utils/questProgress";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getWeekNumber, getMonthString, getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
+import "leaflet/dist/leaflet.css";
 
 const THEME_MAP_COLORS = {
   forest: "#007a3f",
@@ -34,6 +36,57 @@ const THEME_MAP_META = {
   meadow: { label: "Meadow", Icon: Flower2, color: "#84cc16" },
 };
 
+const MAP_TILESETS = {
+  dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+  light: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+};
+
+/**
+ * @param {{
+ *   zones?: Array<{ centerLat: number | string; centerLng: number | string }>;
+ *   userLocation?: { lat?: number; lng?: number } | null;
+ *   fallbackCenter?: { lat?: number; lng?: number } | null;
+ * }} props
+ */
+function HeroZoneMapViewport(props) {
+  const map = useMap();
+  const zones = Array.isArray(props?.zones) ? props.zones : [];
+  const userLocation = props?.userLocation || null;
+  const fallbackCenter = props?.fallbackCenter || null;
+
+  useEffect(() => {
+    /** @type {Array<[number, number]>} */
+    const points = [];
+    for (const zone of zones) {
+      const lat = Number(zone.centerLat);
+      const lng = Number(zone.centerLng);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        points.push([lat, lng]);
+      }
+    }
+
+    const userLat = Number(userLocation?.lat);
+    const userLng = Number(userLocation?.lng);
+    if (Number.isFinite(userLat) && Number.isFinite(userLng)) {
+      points.push([userLat, userLng]);
+    }
+
+    const centerLat = Number.isFinite(userLat)
+      ? userLat
+      : Number(points[0]?.[0] ?? fallbackCenter?.lat);
+    const centerLng = Number.isFinite(userLng)
+      ? userLng
+      : Number(points[0]?.[1] ?? fallbackCenter?.lng);
+
+    if (Number.isFinite(centerLat) && Number.isFinite(centerLng)) {
+      const zoom = points.length > 3 ? 12 : points.length > 0 ? 13 : 14;
+      map.setView([centerLat, centerLng], zoom);
+    }
+  }, [map, zones, userLocation, fallbackCenter]);
+
+  return null;
+}
+
 export default function Home() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -45,8 +98,13 @@ export default function Home() {
   const [averageColor, setAverageColor] = useState(null);
 
   const [showScannerHighlight, setShowScannerHighlight] = useState(false);
+  const [heroZones, setHeroZones] = useState([]);
   const [activeZone, setActiveZone] = useState(null);
   const [isLoadingZone, setIsLoadingZone] = useState(false);
+  const [isRegeneratingZones, setIsRegeneratingZones] = useState(false);
+  const [showHeroZoneMap, setShowHeroZoneMap] = useState(false);
+  const [heroZoneMapTheme, setHeroZoneMapTheme] = useState("dark");
+  const [zoneMapError, setZoneMapError] = useState(null);
   const [showHealthStatsPanel, setShowHealthStatsPanel] = useState(false);
   const healthStatsPanelRef = useRef(null);
 
@@ -461,16 +519,20 @@ export default function Home() {
       if (!user?.id) return;
       const location = getCachedLocation();
       if (!Number.isFinite(location?.lat) || !Number.isFinite(location?.lng)) {
+        setHeroZones([]);
         setActiveZone(null);
         return;
       }
 
       setIsLoadingZone(true);
+      setZoneMapError(null);
       try {
         const daily = await getRobotPlantDailyZones({
           latitude: location.lat,
           longitude: location.lng,
         });
+
+        setHeroZones(daily?.zones || []);
 
         const inRangeZone = (daily?.zones || [])
           .map((zone) => {
@@ -488,7 +550,9 @@ export default function Home() {
         setActiveZone(inRangeZone || null);
       } catch (error) {
         console.warn("[Home] Konnte aktive Zone nicht laden:", error?.message || error);
+        setHeroZones([]);
         setActiveZone(null);
+        setZoneMapError("Zonen konnten nicht geladen werden.");
       } finally {
         setIsLoadingZone(false);
       }
@@ -776,6 +840,12 @@ export default function Home() {
   const currentZoneColor = activeZone
     ? THEME_MAP_COLORS[activeZone.theme] || "#84cc16"
     : "#6b7280";
+  const cachedLocation = getCachedLocation();
+  const heroMapCenter = Number.isFinite(cachedLocation?.lat) && Number.isFinite(cachedLocation?.lng)
+    ? [cachedLocation.lat, cachedLocation.lng]
+    : heroZones[0]
+      ? [Number(heroZones[0].centerLat), Number(heroZones[0].centerLng)]
+      : [51.1657, 10.4515];
 
   const activeZoneMeta = activeZone?.theme ? THEME_MAP_META[activeZone.theme] : null;
   const ZoneIcon = activeZoneMeta?.Icon || Minus;
@@ -798,6 +868,49 @@ export default function Home() {
   const footerTextShadow = averageColor && isColorDark(averageColor)
     ? "0 2px 8px rgba(0,0,0,0.7)"
     : "0 1px 5px rgba(255,255,255,0.35)";
+
+  const handleRegenerateZones = async () => {
+    if (isRegeneratingZones || !user?.id) return;
+
+    const location = getCachedLocation();
+    if (!Number.isFinite(location?.lat) || !Number.isFinite(location?.lng)) {
+      setZoneMapError("Standort fehlt. Bitte Standortfreigabe aktivieren.");
+      return;
+    }
+
+    setIsRegeneratingZones(true);
+    setZoneMapError(null);
+    try {
+      const daily = await getRobotPlantDailyZones({
+        latitude: location.lat,
+        longitude: location.lng,
+        forceRegenerate: true,
+      });
+
+      const zones = daily?.zones || [];
+      setHeroZones(zones);
+
+      const inRangeZone = zones
+        .map((zone) => {
+          const dist = calculateDistanceMeters(
+            location.lat,
+            location.lng,
+            Number(zone.centerLat),
+            Number(zone.centerLng)
+          );
+          return { ...zone, distanceM: dist };
+        })
+        .filter((zone) => Number.isFinite(zone.distanceM) && zone.distanceM <= Number(zone.radiusM || 0))
+        .sort((a, b) => a.distanceM - b.distanceM)[0];
+
+      setActiveZone(inRangeZone || null);
+    } catch (error) {
+      const message = error?.message || "Zonen konnten nicht neu generiert werden.";
+      setZoneMapError(String(message));
+    } finally {
+      setIsRegeneratingZones(false);
+    }
+  };
 
   return (
     <>
@@ -978,7 +1091,13 @@ export default function Home() {
                         <span className="font-bold text-white text-[11px] md:text-xs leading-none mt-0.5">{overallPlantHealth}%</span>
                       </button>
 
-                      <div
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowHeroZoneMap(true);
+                          setShowHealthStatsPanel(false);
+                        }}
+                        aria-label="Zonenkarte in Plant-Hero öffnen"
                         className="absolute right-0 md:right-2 top-5 md:top-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border border-[#f0e5a5]/40 backdrop-blur-sm flex flex-col items-center justify-center"
                         style={{
                           background: `linear-gradient(135deg, ${currentZoneColor}7a 0%, ${currentZoneColor}4d 100%)`,
@@ -988,28 +1107,134 @@ export default function Home() {
                         <span className="font-semibold text-white text-[11px] md:text-xs leading-none mt-0.5 truncate max-w-[85%]">
                           {isLoadingZone ? "..." : activeZoneMeta?.label || "Leer"}
                         </span>
-                      </div>
-
-                    <div className="absolute inset-7 rounded-full border border-[#f0e5a5]/35 bg-gradient-to-b from-emerald-100/25 to-emerald-900/45 backdrop-blur-sm shadow-[inset_0_0_30px_rgba(190,242,100,0.15)]" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <Leaf className="w-20 h-20 md:w-24 md:h-24 text-lime-200 drop-shadow-[0_0_24px_rgba(190,242,100,0.6)]" />
-                    </div>
-
-                    {[
-                      'left-0 top-1/2 -translate-y-1/2',
-                      'right-0 top-1/2 -translate-y-1/2',
-                      'left-1/2 top-0 -translate-x-1/2',
-                      'left-1/2 bottom-0 -translate-x-1/2',
-                    ].map((position, index) => (
-                      <button
-                        key={`slot-${index}`}
-                        type="button"
-                        className={`absolute ${position} w-12 h-12 md:w-14 md:h-14 rounded-2xl border border-[#f0e5a5]/45 bg-black/35 backdrop-blur-sm flex items-center justify-center text-[#f0e5a5] hover:bg-black/50 transition-colors`}
-                        aria-label={`Plus Slot ${index + 1}`}
-                      >
-                        <Plus className="w-6 h-6" />
                       </button>
-                    ))}
+
+                      {showHeroZoneMap ? (
+                        <>
+                          <div className="absolute inset-3 rounded-3xl border border-[#f0e5a5]/35 overflow-hidden bg-black/70">
+                            <MapContainer
+                              center={heroMapCenter}
+                              zoom={13}
+                              style={{ height: "100%", width: "100%" }}
+                              zoomControl={false}
+                              attributionControl={false}
+                            >
+                              <TileLayer
+                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; CARTO'
+                                url={MAP_TILESETS[heroZoneMapTheme]}
+                              />
+                              <HeroZoneMapViewport
+                                zones={heroZones}
+                                userLocation={cachedLocation}
+                                fallbackCenter={{ lat: heroMapCenter[0], lng: heroMapCenter[1] }}
+                              />
+
+                              {heroZones.map((zone) => {
+                                const lat = Number(zone.centerLat);
+                                const lng = Number(zone.centerLng);
+                                const radiusM = Number(zone.radiusM || 0);
+                                if (!Number.isFinite(lat) || !Number.isFinite(lng) || radiusM <= 0) {
+                                  return null;
+                                }
+
+                                const color = THEME_MAP_COLORS[zone.theme] || "#84cc16";
+                                return (
+                                  <Circle
+                                    key={`${zone.zoneKey || zone.id}-${zone.theme}`}
+                                    center={[lat, lng]}
+                                    radius={radiusM}
+                                    pathOptions={{
+                                      color,
+                                      fillColor: color,
+                                      fillOpacity: 0.2,
+                                      weight: 2,
+                                    }}
+                                  />
+                                );
+                              })}
+
+                              {Number.isFinite(cachedLocation?.lat) && Number.isFinite(cachedLocation?.lng) && (
+                                <Circle
+                                  center={[cachedLocation.lat, cachedLocation.lng]}
+                                  radius={16}
+                                  pathOptions={{
+                                    color: heroZoneMapTheme === "dark" ? "#f8fafc" : "#111827",
+                                    fillColor: "#38bdf8",
+                                    fillOpacity: 0.9,
+                                    weight: 2,
+                                  }}
+                                />
+                              )}
+                            </MapContainer>
+
+                            <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/55 to-transparent" />
+                          </div>
+
+                          <div className="absolute left-4 right-4 bottom-4 z-20 flex items-center justify-between gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setShowHeroZoneMap(false)}
+                              className="h-10 px-3 rounded-xl border border-[#f0e5a5]/45 bg-black/55 backdrop-blur-sm flex items-center gap-2 text-xs md:text-sm font-semibold text-stone-100"
+                            >
+                              <ArrowLeft className="w-4 h-4" />
+                              Zurück
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setHeroZoneMapTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+                              className="h-10 px-3 rounded-xl border border-[#f0e5a5]/45 bg-black/55 backdrop-blur-sm flex items-center gap-2 text-xs md:text-sm font-semibold text-stone-100"
+                            >
+                              {heroZoneMapTheme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                              {heroZoneMapTheme === "dark" ? "Hell" : "Dunkel"}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={handleRegenerateZones}
+                              disabled={isRegeneratingZones || isLoadingZone}
+                              className="h-10 px-3 rounded-xl border border-[#f0e5a5]/45 bg-black/55 backdrop-blur-sm flex items-center gap-2 text-xs md:text-sm font-semibold text-stone-100 disabled:opacity-60"
+                            >
+                              {isRegeneratingZones ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                              Neu
+                            </button>
+                          </div>
+
+                          <div className="absolute left-4 top-4 z-20 rounded-xl border border-[#f0e5a5]/35 bg-black/55 backdrop-blur-sm px-3 py-1.5 text-[11px] md:text-xs font-semibold text-stone-100 flex items-center gap-1.5">
+                            <MapIcon className="w-3.5 h-3.5" />
+                            Zonen: {heroZones.length}
+                          </div>
+
+                          {zoneMapError && (
+                            <div className="absolute left-4 right-4 top-16 z-20 rounded-xl border border-red-300/50 bg-red-900/55 backdrop-blur-sm px-3 py-2 text-[11px] md:text-xs font-medium text-red-100">
+                              {zoneMapError}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <div className="absolute inset-7 rounded-full border border-[#f0e5a5]/35 bg-gradient-to-b from-emerald-100/25 to-emerald-900/45 backdrop-blur-sm shadow-[inset_0_0_30px_rgba(190,242,100,0.15)]" />
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <Leaf className="w-20 h-20 md:w-24 md:h-24 text-lime-200 drop-shadow-[0_0_24px_rgba(190,242,100,0.6)]" />
+                          </div>
+
+                          {[
+                            'left-0 top-1/2 -translate-y-1/2',
+                            'right-0 top-1/2 -translate-y-1/2',
+                            'left-1/2 top-0 -translate-x-1/2',
+                            'left-1/2 bottom-0 -translate-x-1/2',
+                          ].map((position, index) => (
+                            <button
+                              key={`slot-${index}`}
+                              type="button"
+                              className={`absolute ${position} w-12 h-12 md:w-14 md:h-14 rounded-2xl border border-[#f0e5a5]/45 bg-black/35 backdrop-blur-sm flex items-center justify-center text-[#f0e5a5] hover:bg-black/50 transition-colors`}
+                              aria-label={`Plus Slot ${index + 1}`}
+                            >
+                              <Plus className="w-6 h-6" />
+                            </button>
+                          ))}
+                        </>
+                      )}
 
                     </div>
 
