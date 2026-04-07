@@ -1396,7 +1396,7 @@ export default function Home() {
                                     <span className="font-semibold uppercase tracking-wide">{stat.label}</span>
                                     <span className="font-bold">{stat.value}%</span>
                                   </div>
-                                  <div className="h-2 rounded-full overflow-hidden">
+                                  <div className="h-2 rounded-full overflow-hidden bg-black/35 border border-black/25">
                                     <div
                                       className="h-full rounded-full transition-all duration-500"
                                       style={{
