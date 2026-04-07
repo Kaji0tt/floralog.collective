@@ -497,6 +497,24 @@ export default function Home() {
     loadZoneForHero();
   }, [user?.id]);
 
+  useEffect(() => {
+    if (!showHealthStatsPanel) return;
+
+    const closeOnOutside = (event) => {
+      if (healthPanelRef.current && !healthPanelRef.current.contains(event.target)) {
+        setShowHealthStatsPanel(false);
+      }
+    };
+
+    document.addEventListener("mousedown", closeOnOutside);
+    document.addEventListener("touchstart", closeOnOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutside);
+      document.removeEventListener("touchstart", closeOnOutside);
+    };
+  }, [showHealthStatsPanel]);
+
   const isLoadingCriticalData = isLoadingDiscoveries || isLoadingQuests || isLoadingAchievements || isLoadingFriends || isLoadingWeeklyQuests || isLoadingMonthlyQuests || isLoadingCollectionQuests;
 
   if (isLoadingUser) {
@@ -766,24 +784,6 @@ export default function Home() {
     { id: "data-quality", label: "Daten", value: Math.round(safeDataQuality), color: "#06b6d4" },
     { id: "care", label: "Pflege", value: Math.round(safeCare), color: "#f59e0b" },
   ];
-
-  useEffect(() => {
-    if (!showHealthStatsPanel) return;
-
-    const closeOnOutside = (event) => {
-      if (healthPanelRef.current && !healthPanelRef.current.contains(event.target)) {
-        setShowHealthStatsPanel(false);
-      }
-    };
-
-    document.addEventListener("mousedown", closeOnOutside);
-    document.addEventListener("touchstart", closeOnOutside);
-
-    return () => {
-      document.removeEventListener("mousedown", closeOnOutside);
-      document.removeEventListener("touchstart", closeOnOutside);
-    };
-  }, [showHealthStatsPanel]);
 
   const navItems = [
     { label: "Kollektion", icon: Leaf, onClick: () => navigate(createPageUrl("Collection")) },
