@@ -801,6 +801,14 @@ export default function Home() {
 
   return (
     <>
+      <style>{`
+        @media (max-height: 760px) {
+          .home-tight-vh-label {
+            display: none;
+          }
+        }
+      `}</style>
+
       <AnimatePresence>
         {newAchievements.length > 0 && currentAchievementIndex < newAchievements.length && (
           <AchievementNotification
@@ -955,32 +963,54 @@ export default function Home() {
 
               <div className="flex-1 min-h-0 flex flex-col justify-between py-4">
                 <section className="rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm px-4 py-5 md:px-6 md:py-6">
-                  <div ref={healthStatsPanelRef} className="space-y-2 mb-3">
-                    <div className="grid grid-cols-2 gap-2 md:gap-3 text-xs md:text-sm">
+                  <div ref={healthStatsPanelRef} className="mb-3">
+                    <div className="relative mx-auto w-[16rem] h-[16rem] md:w-[19rem] md:h-[19rem]">
                       <button
                         type="button"
                         onClick={() => setShowHealthStatsPanel((prev) => !prev)}
-                        className="h-11 md:h-12 rounded-2xl border border-[#f0e5a5]/45 backdrop-blur-sm flex items-center gap-2 px-3"
+                        className="absolute left-0 md:left-2 top-5 md:top-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border border-[#f0e5a5]/40 backdrop-blur-sm flex flex-col items-center justify-center"
                         style={{
-                          background: `linear-gradient(135deg, ${plantHealthState.color}cc 0%, ${plantHealthState.color}88 100%)`,
+                          background: `linear-gradient(135deg, ${plantHealthState.color}7a 0%, ${plantHealthState.color}4d 100%)`,
                         }}
                         aria-label="Pflanzenstatus ein- oder ausklappen"
                       >
-                        <Leaf className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                        <span className="font-bold text-white tracking-wide">{overallPlantHealth}%</span>
+                        <Leaf className="w-4 h-4 text-white/90" />
+                        <span className="font-bold text-white text-[11px] md:text-xs leading-none mt-0.5">{overallPlantHealth}%</span>
                       </button>
 
                       <div
-                        className="h-11 md:h-12 rounded-2xl border border-[#f0e5a5]/45 backdrop-blur-sm flex items-center gap-2 px-3"
+                        className="absolute right-0 md:right-2 top-5 md:top-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border border-[#f0e5a5]/40 backdrop-blur-sm flex flex-col items-center justify-center"
                         style={{
-                          background: `linear-gradient(135deg, ${currentZoneColor}cc 0%, ${currentZoneColor}88 100%)`,
+                          background: `linear-gradient(135deg, ${currentZoneColor}7a 0%, ${currentZoneColor}4d 100%)`,
                         }}
                       >
-                        <ZoneIcon className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                        <span className="font-semibold text-white truncate">
+                        <ZoneIcon className="w-4 h-4 text-white/90" />
+                        <span className="font-semibold text-white text-[11px] md:text-xs leading-none mt-0.5 truncate max-w-[85%]">
                           {isLoadingZone ? "..." : activeZoneMeta?.label || "Leer"}
                         </span>
                       </div>
+
+                    <div className="absolute inset-7 rounded-full border border-[#f0e5a5]/35 bg-gradient-to-b from-emerald-100/25 to-emerald-900/45 backdrop-blur-sm shadow-[inset_0_0_30px_rgba(190,242,100,0.15)]" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Leaf className="w-20 h-20 md:w-24 md:h-24 text-lime-200 drop-shadow-[0_0_24px_rgba(190,242,100,0.6)]" />
+                    </div>
+
+                    {[
+                      'left-0 top-1/2 -translate-y-1/2',
+                      'right-0 top-1/2 -translate-y-1/2',
+                      'left-1/2 top-0 -translate-x-1/2',
+                      'left-1/2 bottom-0 -translate-x-1/2',
+                    ].map((position, index) => (
+                      <button
+                        key={`slot-${index}`}
+                        type="button"
+                        className={`absolute ${position} w-12 h-12 md:w-14 md:h-14 rounded-2xl border border-[#f0e5a5]/45 bg-black/35 backdrop-blur-sm flex items-center justify-center text-[#f0e5a5] hover:bg-black/50 transition-colors`}
+                        aria-label={`Plus Slot ${index + 1}`}
+                      >
+                        <Plus className="w-6 h-6" />
+                      </button>
+                    ))}
+
                     </div>
 
                     <AnimatePresence>
@@ -990,7 +1020,7 @@ export default function Home() {
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -6 }}
                           transition={{ duration: 0.16, ease: "easeOut" }}
-                          className="space-y-2"
+                          className="mt-3 space-y-2"
                         >
                           {healthStats.map((stat) => (
                             <div key={stat.id} className="space-y-1">
@@ -1012,29 +1042,6 @@ export default function Home() {
                         </motion.div>
                       )}
                     </AnimatePresence>
-                  </div>
-
-                  <div className="relative mx-auto w-[16rem] h-[16rem] md:w-[19rem] md:h-[19rem]">
-                    <div className="absolute inset-7 rounded-full border border-[#f0e5a5]/35 bg-gradient-to-b from-emerald-100/25 to-emerald-900/45 backdrop-blur-sm shadow-[inset_0_0_30px_rgba(190,242,100,0.15)]" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <Leaf className="w-20 h-20 md:w-24 md:h-24 text-lime-200 drop-shadow-[0_0_24px_rgba(190,242,100,0.6)]" />
-                    </div>
-
-                    {[
-                      'left-0 top-1/2 -translate-y-1/2',
-                      'right-0 top-1/2 -translate-y-1/2',
-                      'left-1/2 top-0 -translate-x-1/2',
-                      'left-1/2 bottom-0 -translate-x-1/2',
-                    ].map((position, index) => (
-                      <button
-                        key={`slot-${index}`}
-                        type="button"
-                        className={`absolute ${position} w-12 h-12 md:w-14 md:h-14 rounded-2xl border border-[#f0e5a5]/45 bg-black/35 backdrop-blur-sm flex items-center justify-center text-[#f0e5a5] hover:bg-black/50 transition-colors`}
-                        aria-label={`Plus Slot ${index + 1}`}
-                      >
-                        <Plus className="w-6 h-6" />
-                      </button>
-                    ))}
                   </div>
 
                   <div className="mt-4 w-full h-10 rounded-2xl border border-[#f0e5a5]/45 bg-emerald-700/30 backdrop-blur-sm flex items-center justify-center text-xs md:text-sm font-semibold text-lime-100/90">
@@ -1061,7 +1068,7 @@ export default function Home() {
                         className="rounded-2xl border border-[#d7cf9c]/65 bg-black/35 hover:bg-black/50 transition-colors py-3 md:py-4 flex flex-col items-center gap-1"
                       >
                         <item.icon className="w-5 h-5 md:w-6 md:h-6 text-lime-100" />
-                        <span className="text-xs md:text-sm font-semibold">{item.label}</span>
+                        <span className="home-tight-vh-label text-xs md:text-sm font-semibold">{item.label}</span>
                       </button>
                     ))}
                   </div>
