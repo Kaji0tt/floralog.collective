@@ -30,8 +30,10 @@ Deine „Profil Kachel“ (äußerster gerahmter Bereich mit Name, Hero, Seeds, 
 Name/Titel + Settings oben.
 3. home-content-stack
 Der innere Hauptbereich zwischen Header und Bottom-Navigation.
-4. home-plant-hero-section
+4. 1. home-plant-hero-section
 Der Block mit Zone/Health, Plant-Hero/Stats, Seeds, Scan.
+4. 2. home-plant-health-status-subcontainer
+Der Block unterhalb Zone/Healh, der angezeigt wird um die Pflanzendaten anzuzeigen.
 5. home-plant-hero-stage
 Nur die große quadratische Hero-Fläche (wo Pflanze oder Stats angezeigt werden).
 6. home-bottom-nav
