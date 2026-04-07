@@ -1301,7 +1301,7 @@ export default function Home() {
                   <div className="h-full flex flex-col justify-between">
                     <section data-ui="home-plant-hero-section" className="rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm px-4 py-5 md:px-6 md:py-6">
                   <div ref={healthStatsPanelRef} className="mb-3">
-                    <div data-ui="home-plant-hero-stage" className="relative mx-auto w-[16rem] h-[16rem] md:w-[19rem] md:h-[19rem]">
+                    <div className="relative mx-auto w-[16rem] h-[16rem] md:w-[19rem] md:h-[19rem]">
                       <button
                         type="button"
                         onClick={() => setShowHealthStatsPanel((prev) => !prev)}
@@ -1333,76 +1333,71 @@ export default function Home() {
                         </span>
                       </button>
 
-                      <div
-                        data-ui="home-plant-health-status-subcontainer"
-                        className="absolute inset-x-0 top-[4.8rem] md:top-[5.4rem] bottom-0"
-                      >
-                        <AnimatePresence mode="wait">
-                          {showHealthStatsPanel ? (
-                            <motion.div
-                              key="hero-stats"
-                              initial={{ opacity: 0, y: 6 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -6 }}
-                              transition={{ duration: 0.16, ease: "easeOut" }}
-                              className="w-full h-full px-1 md:px-2 flex flex-col justify-start"
-                            >
-                              <div className="mb-2 text-center text-[11px] md:text-xs text-stone-200/90 font-semibold uppercase tracking-[0.08em]">
-                                Plant Health • {plantHealthState.label}
-                              </div>
-                              <div className="space-y-2.5">
-                                {healthStats.map((stat) => (
-                                  <div key={stat.id} className="space-y-1">
-                                    <div className="flex items-center justify-between text-[11px] md:text-xs text-stone-100/90">
-                                      <span className="font-semibold uppercase tracking-wide">{stat.label}</span>
-                                      <span className="font-bold">{stat.value}%</span>
-                                    </div>
-                                    <div className="h-2 rounded-full bg-black/35 overflow-hidden">
-                                      <div
-                                        className="h-full rounded-full transition-all duration-500"
-                                        style={{
-                                          width: `${stat.value}%`,
-                                          background: `linear-gradient(90deg, ${stat.color} 0%, rgba(255,255,255,0.78) 100%)`,
-                                        }}
-                                      />
-                                    </div>
+                      <AnimatePresence mode="wait">
+                        {showHealthStatsPanel ? (
+                          <motion.div
+                            key="hero-stats"
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -6 }}
+                            transition={{ duration: 0.16, ease: "easeOut" }}
+                            className="absolute inset-7 rounded-3xl border border-[#f0e5a5]/35 bg-black/35 backdrop-blur-sm px-4 py-4 md:px-5 md:py-5 flex flex-col justify-center"
+                          >
+                            <div className="mb-2 text-center text-[11px] md:text-xs text-stone-200/90 font-semibold uppercase tracking-[0.08em]">
+                              Plant Health • {plantHealthState.label}
+                            </div>
+                            <div className="space-y-2.5">
+                              {healthStats.map((stat) => (
+                                <div key={stat.id} className="space-y-1">
+                                  <div className="flex items-center justify-between text-[11px] md:text-xs text-stone-100/90">
+                                    <span className="font-semibold uppercase tracking-wide">{stat.label}</span>
+                                    <span className="font-bold">{stat.value}%</span>
                                   </div>
-                                ))}
-                              </div>
-                            </motion.div>
-                          ) : (
-                            <motion.div
-                              key="hero-plant"
-                              initial={{ opacity: 0, y: 6 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -6 }}
-                              transition={{ duration: 0.16, ease: "easeOut" }}
-                              className="absolute inset-0"
-                            >
-                              <div className="absolute inset-7 rounded-full border border-[#f0e5a5]/35 bg-gradient-to-b from-emerald-100/25 to-emerald-900/45 backdrop-blur-sm shadow-[inset_0_0_30px_rgba(190,242,100,0.15)]" />
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <Leaf className="w-20 h-20 md:w-24 md:h-24 text-lime-200 drop-shadow-[0_0_24px_rgba(190,242,100,0.6)]" />
-                              </div>
-
-                              {[
-                                'left-0 top-1/2 -translate-y-1/2',
-                                'right-0 top-1/2 -translate-y-1/2',
-                                'left-1/2 top-0 -translate-x-1/2',
-                                'left-1/2 bottom-0 -translate-x-1/2',
-                              ].map((position, index) => (
-                                <button
-                                  key={`slot-${index}`}
-                                  type="button"
-                                  className={`absolute ${position} w-12 h-12 md:w-14 md:h-14 rounded-2xl border border-[#f0e5a5]/45 bg-black/35 backdrop-blur-sm flex items-center justify-center text-[#f0e5a5] hover:bg-black/50 transition-colors`}
-                                  aria-label={`Plus Slot ${index + 1}`}
-                                >
-                                  <Plus className="w-6 h-6" />
-                                </button>
+                                  <div className="h-2 rounded-full bg-black/35 border border-white/10 overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full transition-all duration-500"
+                                      style={{
+                                        width: `${stat.value}%`,
+                                        background: `linear-gradient(90deg, ${stat.color} 0%, rgba(255,255,255,0.78) 100%)`,
+                                      }}
+                                    />
+                                  </div>
+                                </div>
                               ))}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
+                            </div>
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            key="hero-plant"
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -6 }}
+                            transition={{ duration: 0.16, ease: "easeOut" }}
+                            className="absolute inset-0"
+                          >
+                            <div className="absolute inset-7 rounded-full border border-[#f0e5a5]/35 bg-gradient-to-b from-emerald-100/25 to-emerald-900/45 backdrop-blur-sm shadow-[inset_0_0_30px_rgba(190,242,100,0.15)]" />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <Leaf className="w-20 h-20 md:w-24 md:h-24 text-lime-200 drop-shadow-[0_0_24px_rgba(190,242,100,0.6)]" />
+                            </div>
+
+                            {[
+                              'left-0 top-1/2 -translate-y-1/2',
+                              'right-0 top-1/2 -translate-y-1/2',
+                              'left-1/2 top-0 -translate-x-1/2',
+                              'left-1/2 bottom-0 -translate-x-1/2',
+                            ].map((position, index) => (
+                              <button
+                                key={`slot-${index}`}
+                                type="button"
+                                className={`absolute ${position} w-12 h-12 md:w-14 md:h-14 rounded-2xl border border-[#f0e5a5]/45 bg-black/35 backdrop-blur-sm flex items-center justify-center text-[#f0e5a5] hover:bg-black/50 transition-colors`}
+                                aria-label={`Plus Slot ${index + 1}`}
+                              >
+                                <Plus className="w-6 h-6" />
+                              </button>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
 
                     </div>
                   </div>
