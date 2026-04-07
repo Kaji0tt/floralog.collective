@@ -48,7 +48,7 @@ export default function Home() {
   const [activeZone, setActiveZone] = useState(null);
   const [isLoadingZone, setIsLoadingZone] = useState(false);
   const [showHealthStatsPanel, setShowHealthStatsPanel] = useState(false);
-  const healthPanelRef = useRef(null);
+  const healthStatsPanelRef = useRef(null);
 
   const [scanFeedback, setScanFeedback] = useState(null);
 
@@ -500,18 +500,18 @@ export default function Home() {
   useEffect(() => {
     if (!showHealthStatsPanel) return;
 
-    const closeOnOutside = (event) => {
-      if (healthPanelRef.current && !healthPanelRef.current.contains(event.target)) {
+    const handleOutside = (event) => {
+      if (healthStatsPanelRef.current && !healthStatsPanelRef.current.contains(event.target)) {
         setShowHealthStatsPanel(false);
       }
     };
 
-    document.addEventListener("mousedown", closeOnOutside);
-    document.addEventListener("touchstart", closeOnOutside);
+    document.addEventListener("mousedown", handleOutside);
+    document.addEventListener("touchstart", handleOutside);
 
     return () => {
-      document.removeEventListener("mousedown", closeOnOutside);
-      document.removeEventListener("touchstart", closeOnOutside);
+      document.removeEventListener("mousedown", handleOutside);
+      document.removeEventListener("touchstart", handleOutside);
     };
   }, [showHealthStatsPanel]);
 
@@ -900,12 +900,12 @@ export default function Home() {
         />
         <div className="absolute inset-0 backdrop-blur-3xl" />
 
-        <div className="relative z-10 h-full w-full p-3 md:p-6 flex items-center justify-center">
+        <div className="relative z-10 h-full w-full p-3 md:p-6 flex items-start justify-center">
           <motion.div
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, ease: 'easeOut' }}
-            className="relative h-full w-full max-w-md md:max-w-3xl rounded-[2rem] overflow-hidden border border-[#d7cf9c]/65 shadow-[0_20px_80px_rgba(0,0,0,0.55)]"
+            className="relative h-[calc(100%-3.25rem)] md:h-[calc(100%-3.6rem)] w-full max-w-md md:max-w-3xl rounded-[2rem] overflow-hidden border border-[#d7cf9c]/65 shadow-[0_20px_80px_rgba(0,0,0,0.55)]"
           >
             <div
               className="absolute inset-0"
@@ -955,64 +955,66 @@ export default function Home() {
 
               <div className="flex-1 min-h-0 flex flex-col justify-between py-4">
                 <section className="rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm px-4 py-5 md:px-6 md:py-6">
-                  <div className="grid grid-cols-2 gap-2 md:gap-3 text-xs md:text-sm mb-3">
-                    <div ref={healthPanelRef} className="relative">
+                  <div ref={healthStatsPanelRef} className="space-y-2 mb-3">
+                    <div className="grid grid-cols-2 gap-2 md:gap-3 text-xs md:text-sm">
                       <button
                         type="button"
                         onClick={() => setShowHealthStatsPanel((prev) => !prev)}
-                        className="w-full h-11 md:h-12 rounded-2xl border border-[#f0e5a5]/45 backdrop-blur-sm flex items-center gap-2 px-3"
+                        className="h-11 md:h-12 rounded-2xl border border-[#f0e5a5]/45 backdrop-blur-sm flex items-center gap-2 px-3"
                         style={{
                           background: `linear-gradient(135deg, ${plantHealthState.color}cc 0%, ${plantHealthState.color}88 100%)`,
                         }}
-                        aria-label="Pflanzenstats anzeigen"
+                        aria-label="Pflanzenstatus ein- oder ausklappen"
                       >
                         <Leaf className="w-4 h-4 md:w-5 md:h-5 text-white" />
                         <span className="font-bold text-white tracking-wide">{overallPlantHealth}%</span>
                       </button>
 
-                      <AnimatePresence>
-                        {showHealthStatsPanel && (
-                          <motion.div
-                            initial={{ opacity: 0, y: -6 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -6 }}
-                            transition={{ duration: 0.16, ease: "easeOut" }}
-                            className="absolute left-0 right-0 top-[calc(100%+0.45rem)] z-20 grid grid-cols-3 gap-2"
-                          >
-                            {healthStats.map((stat) => (
-                              <div
-                                key={stat.id}
-                                className="h-11 md:h-12 rounded-2xl border border-[#f0e5a5]/45 backdrop-blur-sm flex items-center justify-center"
-                                style={{
-                                  background: `linear-gradient(135deg, ${stat.color}cc 0%, ${stat.color}88 100%)`,
-                                }}
-                              >
-                                <span className="font-semibold text-white text-[11px] md:text-xs tracking-wide">{stat.label}: {stat.value}%</span>
-                              </div>
-                            ))}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                      <div
+                        className="h-11 md:h-12 rounded-2xl border border-[#f0e5a5]/45 backdrop-blur-sm flex items-center gap-2 px-3"
+                        style={{
+                          background: `linear-gradient(135deg, ${currentZoneColor}cc 0%, ${currentZoneColor}88 100%)`,
+                        }}
+                      >
+                        <ZoneIcon className="w-4 h-4 md:w-5 md:h-5 text-white" />
+                        <span className="font-semibold text-white truncate">
+                          {isLoadingZone ? "..." : activeZoneMeta?.label || "Leer"}
+                        </span>
+                      </div>
                     </div>
 
-                    <div
-                      className="h-11 md:h-12 rounded-2xl border border-[#f0e5a5]/45 backdrop-blur-sm flex items-center gap-2 px-3"
-                      style={{
-                        background: `linear-gradient(135deg, ${currentZoneColor}cc 0%, ${currentZoneColor}88 100%)`,
-                      }}
-                    >
-                      <ZoneIcon className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                      <span className="font-semibold text-white truncate">
-                        {isLoadingZone ? "..." : activeZoneMeta?.label || "Leer"}
-                      </span>
-                    </div>
+                    <AnimatePresence>
+                      {showHealthStatsPanel && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -6 }}
+                          transition={{ duration: 0.16, ease: "easeOut" }}
+                          className="space-y-2"
+                        >
+                          {healthStats.map((stat) => (
+                            <div key={stat.id} className="space-y-1">
+                              <div className="flex items-center justify-between text-[11px] md:text-xs text-stone-100/90">
+                                <span className="font-semibold uppercase tracking-wide">{stat.label}</span>
+                                <span className="font-bold">{stat.value}%</span>
+                              </div>
+                              <div className="h-2 rounded-full bg-black/35 border border-white/10 overflow-hidden">
+                                <div
+                                  className="h-full rounded-full transition-all duration-500"
+                                  style={{
+                                    width: `${stat.value}%`,
+                                    background: `linear-gradient(90deg, ${stat.color} 0%, rgba(255,255,255,0.78) 100%)`,
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
 
                   <div className="relative mx-auto w-[16rem] h-[16rem] md:w-[19rem] md:h-[19rem]">
-                    <div className="absolute top-2 right-1 rounded-full bg-emerald-700/90 border border-emerald-300/60 px-3 py-1 text-xs md:text-sm font-bold">
-                      Samen {playerSeeds}
-                    </div>
-
                     <div className="absolute inset-7 rounded-full border border-[#f0e5a5]/35 bg-gradient-to-b from-emerald-100/25 to-emerald-900/45 backdrop-blur-sm shadow-[inset_0_0_30px_rgba(190,242,100,0.15)]" />
                     <div className="absolute inset-0 flex items-center justify-center">
                       <Leaf className="w-20 h-20 md:w-24 md:h-24 text-lime-200 drop-shadow-[0_0_24px_rgba(190,242,100,0.6)]" />
@@ -1035,6 +1037,10 @@ export default function Home() {
                     ))}
                   </div>
 
+                  <div className="mt-4 w-full h-10 rounded-2xl border border-[#f0e5a5]/45 bg-emerald-700/30 backdrop-blur-sm flex items-center justify-center text-xs md:text-sm font-semibold text-lime-100/90">
+                    Samen {playerSeeds}
+                  </div>
+
                   <motion.button
                     onClick={() => navigate(createPageUrl('Scanner'))}
                     className="mt-5 w-full h-14 md:h-16 rounded-2xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 flex items-center justify-center gap-3 text-lg md:text-2xl font-semibold tracking-wide shadow-[0_8px_24px_rgba(34,197,94,0.3)]"
@@ -1052,7 +1058,7 @@ export default function Home() {
                       <button
                         key={item.label}
                         onClick={item.onClick}
-                        className="rounded-2xl border border-[#f0e5a5]/28 bg-black/35 hover:bg-black/50 transition-colors py-3 md:py-4 flex flex-col items-center gap-1"
+                        className="rounded-2xl border border-[#d7cf9c]/65 bg-black/35 hover:bg-black/50 transition-colors py-3 md:py-4 flex flex-col items-center gap-1"
                       >
                         <item.icon className="w-5 h-5 md:w-6 md:h-6 text-lime-100" />
                         <span className="text-xs md:text-sm font-semibold">{item.label}</span>
