@@ -1367,9 +1367,9 @@ export default function Home() {
                   </section>
                 ) : (
                   <div className="h-full flex flex-col gap-[clamp(0.5rem,1.2vh,1rem)]">
-                    <section data-ui="home-plant-hero-section" className="flex-1 min-h-0 rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)]">
-                  <div ref={healthStatsPanelRef} className="mb-[clamp(0.5rem,1.2vh,0.75rem)]">
-                    <div className="relative mx-auto w-[clamp(12.5rem,58vw,19rem)] h-[clamp(12.5rem,58vw,19rem)]">
+                    <section data-ui="home-plant-hero-section" className="flex-1 min-h-0 rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col">
+                  <div ref={healthStatsPanelRef} className="flex-1 min-h-0 flex items-center justify-center">
+                    <div className="relative w-auto h-full max-h-[19rem] max-w-full min-h-[12.5rem] aspect-square mx-auto">
                       <button
                         type="button"
                         onClick={() => setShowHealthStatsPanel((prev) => !prev)}
