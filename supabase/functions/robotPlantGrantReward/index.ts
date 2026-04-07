@@ -56,6 +56,7 @@ type RewardBreakdown = {
   careMultiplier: number;
   energyMultiplier: number;
   streakMultiplier: number;
+  firstScanOfDayMultiplier: number;
   preStreakReward: number;
   finalReward: number;
 };
@@ -79,6 +80,7 @@ const REWARD_FORMULA_CONFIG = {
   streakMultiplier: { min: 1, max: 7 },
   careMultiplier: { min: 1, max: 2 },
   energyMultiplier: { min: 1, max: 2 },
+  firstScanOfDayMultiplier: { min: 1, max: 1.5, default: 1 },
   absoluteMinReward: 1,
   absoluteMaxReward: 350,
 };
@@ -176,6 +178,7 @@ const computeScanRewardBreakdown = ({
   streakDays,
   isInActiveZone,
   rarity,
+  isFirstScanOfDay,
 }: {
   eventSource: string;
   duplicateScanCount: number;
@@ -185,6 +188,7 @@ const computeScanRewardBreakdown = ({
   streakDays: number;
   isInActiveZone: boolean;
   rarity: string | null;
+  isFirstScanOfDay?: boolean;
 }): RewardBreakdown => {
   const baseReward = REWARD_FORMULA_CONFIG.baseByEvent[eventSource as keyof typeof REWARD_FORMULA_CONFIG.baseByEvent] ?? 0;
   const zoneMultiplier = isInActiveZone
@@ -210,9 +214,12 @@ const computeScanRewardBreakdown = ({
     REWARD_FORMULA_CONFIG.streakMultiplier.min,
     REWARD_FORMULA_CONFIG.streakMultiplier.max,
   );
+  const firstScanOfDayMultiplier = isFirstScanOfDay
+    ? REWARD_FORMULA_CONFIG.firstScanOfDayMultiplier.max
+    : REWARD_FORMULA_CONFIG.firstScanOfDayMultiplier.default;
 
   const rawPreStreak =
-    baseReward * zoneMultiplier * rarityMultiplier * noveltyMultiplier * careMultiplier * energyMultiplier;
+    baseReward * zoneMultiplier * rarityMultiplier * noveltyMultiplier * careMultiplier * energyMultiplier * firstScanOfDayMultiplier;
   const preStreakReward = clamp(
     Math.round(rawPreStreak),
     REWARD_FORMULA_CONFIG.absoluteMinReward,
@@ -231,6 +238,7 @@ const computeScanRewardBreakdown = ({
     careMultiplier: roundMultiplier(careMultiplier),
     energyMultiplier: roundMultiplier(energyMultiplier),
     streakMultiplier: roundMultiplier(streakMultiplier),
+    firstScanOfDayMultiplier: roundMultiplier(firstScanOfDayMultiplier),
     preStreakReward,
     finalReward,
   };
@@ -332,6 +340,17 @@ async function tryResolveScanRewardContext(
     isInActiveZone = !!matchingZone;
   }
 
+  // Check if this is the first scan of the day for this user
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const { data: todayScans, error: todayScansError } = await adminClient
+    .from("UserPlantDiscovery")
+    .select("id", { count: "exact", head: true })
+    .eq("auth_id", authId)
+    .gte("discovered_date", `${today}T00:00:00`)
+    .lt("discovered_date", `${today}T23:59:59`);
+
+  const isFirstScanOfDay = (todayScans?.length ?? 0) === 0;
+
   const rewardDetails = computeScanRewardBreakdown({
     eventSource,
     duplicateScanCount,
@@ -341,6 +360,7 @@ async function tryResolveScanRewardContext(
     streakDays: Number(robotPlantState?.streak_days ?? ROBOT_PLANT_DEFAULT_STATE.streak_days),
     isInActiveZone,
     rarity: plant.rarity,
+    isFirstScanOfDay,
   });
 
   return {

@@ -42,6 +42,7 @@ const buildRewardSteps = (rewardDetails, isInActiveZone) => {
   pushPreStreakStep("novelty", "Neuheit", rewardDetails.noveltyMultiplier);
   pushPreStreakStep("care", "Pflege", rewardDetails.careMultiplier);
   pushPreStreakStep("energy", "Energie", rewardDetails.energyMultiplier);
+  pushPreStreakStep("firstScan", "First Scan", rewardDetails.firstScanOfDayMultiplier);
 
   if (preStreakSteps.length > 0) {
     preStreakSteps[preStreakSteps.length - 1].result = rewardDetails.preStreakReward;

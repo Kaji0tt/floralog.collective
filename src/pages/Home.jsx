@@ -1450,7 +1450,7 @@ export default function Home() {
 
                       <div className="h-5 w-px bg-[#f0e5a5]/35" />
 
-                      <div className="flex items-center gap-1.5 text-amber-100/95 min-w-0 justify-end">
+                      <div className="flex items-center gap-1.5 text-amber-100/95 min-w-0 justify-start">
                         <Zap className="w-4 h-4 text-amber-300" />
                         <span className="truncate">
                           Streak {formatMultiplier(streakMultiplier)} · Zone {formatMultiplier(zoneMultiplier)}

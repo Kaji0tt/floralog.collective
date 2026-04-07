@@ -201,7 +201,7 @@ export default function Scanner() {
     return getLocationString(location);
   };
 
-  const buildScanRewardFeedback = async ({ eventSource, duplicateScanCount, eventReference, location, rarity }) => {
+  const buildScanRewardFeedback = async ({ eventSource, duplicateScanCount, eventReference, location, rarity, isFirstScanOfDay = false }) => {
     if (!user?.id) {
       return { rewardDetails: null, activeZone: null };
     }
@@ -214,6 +214,7 @@ export default function Scanner() {
         duplicate_scan_count_client_hint: duplicateScanCount,
         rarity_client_hint: rarity,
         discovery_location_client_hint: getLocationString(location),
+        is_first_scan_of_day_client_hint: isFirstScanOfDay,
       },
     });
 
@@ -761,6 +762,13 @@ export default function Scanner() {
 
     console.log("  ✅ alreadyDiscovered:", alreadyDiscovered);
 
+    // Bestimme, ob dies der erste Scan des Tages ist
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const isFirstScanOfDay = !currentDiscoveries.some((d) => {
+      const discDate = new Date(d.discovered_date).toISOString().slice(0, 10);
+      return discDate === today;
+    });
+
     const newDiscovery = await Query.UserPlantDiscovery.create({
       auth_id: user.id,
       created_by_id: user.id,
@@ -783,6 +791,7 @@ export default function Scanner() {
         eventReference: newDiscovery.id,
         location: discoveryLocation,
         rarity: plant?.rarity || aiData?.rarity || null,
+        isFirstScanOfDay,
       });
       rewardDetails = rewardFeedback.rewardDetails;
       activeZone = rewardFeedback.activeZone;
@@ -830,6 +839,14 @@ export default function Scanner() {
     const discoveryLocation = await resolveCoordinatesForDiscovery();
     const locationString = getLocationString(discoveryLocation);
 
+    // Bestimme, ob dies der erste Scan des Tages ist
+    const currentDiscoveriesForNewPlant = await Query.UserPlantDiscovery.filter({ auth_id: user.id });
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const isFirstScanOfDay = !currentDiscoveriesForNewPlant.some((d) => {
+      const discDate = new Date(d.discovered_date).toISOString().slice(0, 10);
+      return discDate === today;
+    });
+
     try {
       const { data, error } = await supabase.functions.invoke('createGlobalPlant', {
         body: {
@@ -873,6 +890,7 @@ export default function Scanner() {
           eventReference: newDiscoveryId,
           location: discoveryLocation,
           rarity: newPlant?.rarity || plantData?.rarity || null,
+          isFirstScanOfDay,
         });
         rewardDetails = rewardFeedback.rewardDetails;
         activeZone = rewardFeedback.activeZone;

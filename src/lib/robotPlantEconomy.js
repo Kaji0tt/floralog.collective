@@ -97,6 +97,12 @@ export const computeStreakMultiplier = (streakDays = 0) => {
   );
 };
 
+export const computeFirstScanOfDayMultiplier = (isFirstScanOfDay = false) => {
+  return isFirstScanOfDay
+    ? REWARD_FORMULA_CONFIG.firstScanOfDayMultiplier.max
+    : REWARD_FORMULA_CONFIG.firstScanOfDayMultiplier.default;
+};
+
 export const computeRobotPlantRewardBreakdown = ({
   eventSource,
   dataQualityValue = ROBOT_PLANT_VALUES.dataQuality.initial,
@@ -106,6 +112,7 @@ export const computeRobotPlantRewardBreakdown = ({
   streakDays = 0,
   isInActiveZone = true,
   rarity = null,
+  isFirstScanOfDay = false,
 }) => {
   const baseReward = REWARD_FORMULA_CONFIG.baseByEvent[eventSource] ?? 0;
 
@@ -121,6 +128,7 @@ export const computeRobotPlantRewardBreakdown = ({
       careMultiplier: 1,
       energyMultiplier: 1,
       streakMultiplier: 1,
+      firstScanOfDayMultiplier: 1,
       preStreakReward: 0,
       finalReward: 0,
     };
@@ -144,6 +152,7 @@ export const computeRobotPlantRewardBreakdown = ({
       careMultiplier: 1,
       energyMultiplier: 1,
       streakMultiplier: 1,
+      firstScanOfDayMultiplier: 1,
       preStreakReward: reward,
       finalReward: reward,
     };
@@ -155,9 +164,10 @@ export const computeRobotPlantRewardBreakdown = ({
   const careMultiplier = computeCareMultiplier(careValue);
   const energyMultiplier = computeEnergyMultiplier(energyValue);
   const streakMultiplier = computeStreakMultiplier(streakDays);
+  const firstScanOfDayMultiplier = computeFirstScanOfDayMultiplier(isFirstScanOfDay);
 
   const rawPreStreakReward =
-    baseReward * zoneMultiplier * rarityMultiplier * noveltyMultiplier * careMultiplier * energyMultiplier;
+    baseReward * zoneMultiplier * rarityMultiplier * noveltyMultiplier * careMultiplier * energyMultiplier * firstScanOfDayMultiplier;
   const preStreakReward = clamp(
     roundReward(rawPreStreakReward),
     REWARD_FORMULA_CONFIG.absoluteMinReward,
@@ -176,6 +186,7 @@ export const computeRobotPlantRewardBreakdown = ({
     careMultiplier: roundMultiplier(careMultiplier),
     energyMultiplier: roundMultiplier(energyMultiplier),
     streakMultiplier: roundMultiplier(streakMultiplier),
+    firstScanOfDayMultiplier: roundMultiplier(firstScanOfDayMultiplier),
     preStreakReward,
     finalReward,
   };

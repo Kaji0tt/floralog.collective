@@ -95,6 +95,11 @@ export const REWARD_FORMULA_CONFIG = Object.freeze({
     max: 2,
     default: 1,
   },
+  firstScanOfDayMultiplier: {
+    min: 1,
+    max: 1.5,
+    default: 1,
+  },
   absoluteMinReward: 1,
   absoluteMaxReward: 350,
 });
