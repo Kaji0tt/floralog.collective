@@ -7,7 +7,7 @@ import { getRobotPlantDailyZones } from "@/api/robotPlantService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Camera, Loader2, Leaf, Settings, Plus, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, Minus, ArrowLeft, RefreshCw, Map as MapIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MapContainer, TileLayer, Circle, useMap } from "react-leaflet";
+import mapboxgl from "mapbox-gl";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
@@ -20,7 +20,7 @@ import { updateQuestProgress } from "@/components/utils/questProgress";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getWeekNumber, getMonthString, getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
-import "leaflet/dist/leaflet.css";
+import "mapbox-gl/dist/mapbox-gl.css";
 
 const THEME_MAP_COLORS = {
   forest: "#007a3f",
@@ -36,54 +36,234 @@ const THEME_MAP_META = {
   meadow: { label: "Meadow", Icon: Flower2, color: "#84cc16" },
 };
 
-const MAP_TILESETS = {
-  positron: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "";
+
+/**
+ * @param {{ lat: number; lng: number; radiusM: number; points?: number }} params
+ */
+const toCirclePolygon = (params) => {
+  const { lat, lng, radiusM, points = 48 } = params;
+  const earthRadiusM = 6371000;
+  const latRad = (lat * Math.PI) / 180;
+  const angularDistance = radiusM / earthRadiusM;
+  const coordinates = [];
+
+  for (let i = 0; i <= points; i += 1) {
+    const bearing = (2 * Math.PI * i) / points;
+    const pointLat = Math.asin(
+      Math.sin(latRad) * Math.cos(angularDistance) +
+      Math.cos(latRad) * Math.sin(angularDistance) * Math.cos(bearing)
+    );
+    const pointLng =
+      (lng * Math.PI) / 180 +
+      Math.atan2(
+        Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(latRad),
+        Math.cos(angularDistance) - Math.sin(latRad) * Math.sin(pointLat)
+      );
+
+    coordinates.push([
+      (pointLng * 180) / Math.PI,
+      (pointLat * 180) / Math.PI,
+    ]);
+  }
+
+  return coordinates;
 };
 
 /**
  * @param {{
- *   zones?: Array<{ centerLat: number | string; centerLng: number | string }>;
+ *   zones?: Array<{ centerLat: number | string; centerLng: number | string; radiusM?: number | string; theme?: string; zoneKey?: string; id?: string }>;
  *   userLocation?: { lat?: number; lng?: number } | null;
  *   fallbackCenter?: { lat?: number; lng?: number } | null;
+ *   onTokenError?: (message: string) => void;
  * }} props
  */
-function HeroZoneMapViewport(props) {
-  const map = useMap();
+function HeroZoneMap3D(props) {
+  const mapContainerRef = useRef(null);
+  /** @type {React.MutableRefObject<mapboxgl.Map | null>} */
+  const mapRef = useRef(null);
   const zones = Array.isArray(props?.zones) ? props.zones : [];
   const userLocation = props?.userLocation || null;
   const fallbackCenter = props?.fallbackCenter || null;
+  const onTokenError = typeof props?.onTokenError === "function" ? props.onTokenError : null;
 
   useEffect(() => {
-    /** @type {Array<[number, number]>} */
-    const points = [];
-    for (const zone of zones) {
-      const lat = Number(zone.centerLat);
-      const lng = Number(zone.centerLng);
-      if (Number.isFinite(lat) && Number.isFinite(lng)) {
-        points.push([lat, lng]);
-      }
+    if (mapRef.current || !mapContainerRef.current) return;
+
+    if (!MAPBOX_ACCESS_TOKEN) {
+      onTokenError?.("Mapbox Token fehlt. Setze VITE_MAPBOX_ACCESS_TOKEN in .env.local.");
+      return;
     }
 
-    const userLat = Number(userLocation?.lat);
     const userLng = Number(userLocation?.lng);
-    if (Number.isFinite(userLat) && Number.isFinite(userLng)) {
-      points.push([userLat, userLng]);
-    }
+    const userLat = Number(userLocation?.lat);
 
-    const centerLat = Number.isFinite(userLat)
-      ? userLat
-      : Number(points[0]?.[0] ?? fallbackCenter?.lat);
-    const centerLng = Number.isFinite(userLng)
+    const initialLng = Number.isFinite(userLng)
       ? userLng
-      : Number(points[0]?.[1] ?? fallbackCenter?.lng);
+      : Number(fallbackCenter?.lng);
+    const initialLat = Number.isFinite(userLat)
+      ? userLat
+      : Number(fallbackCenter?.lat);
 
-    if (Number.isFinite(centerLat) && Number.isFinite(centerLng)) {
-      const zoom = points.length > 3 ? 12 : points.length > 0 ? 13 : 14;
-      map.setView([centerLat, centerLng], zoom);
+    if (!Number.isFinite(initialLng) || !Number.isFinite(initialLat)) {
+      onTokenError?.("Karte konnte nicht initialisiert werden (fehlender Startpunkt).");
+      return;
     }
-  }, [map, zones, userLocation, fallbackCenter]);
 
-  return null;
+    mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
+
+    const map = new mapboxgl.Map({
+      container: mapContainerRef.current,
+      style: "mapbox://styles/mapbox/standard",
+      config: {
+        basemap: {
+          theme: "default",
+          show3dObjects: true,
+        },
+      },
+      center: [initialLng, initialLat],
+      zoom: 13,
+      pitch: 58,
+      bearing: -18,
+      antialias: true,
+    });
+
+    mapRef.current = map;
+
+    map.on("error", (event) => {
+      const status = /** @type {any} */ (event)?.error?.status;
+      if (status === 401 || status === 403) {
+        onTokenError?.("Mapbox Zugriff verweigert. Bitte Token und Allowed URLs pruefen.");
+      }
+    });
+
+    return () => {
+      map.remove();
+      mapRef.current = null;
+    };
+  }, [fallbackCenter?.lat, fallbackCenter?.lng, onTokenError, userLocation?.lat, userLocation?.lng]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const updateMapData = () => {
+      const userLng = Number(userLocation?.lng);
+      const userLat = Number(userLocation?.lat);
+
+      const targetLng = Number.isFinite(userLng)
+        ? userLng
+        : Number(fallbackCenter?.lng);
+      const targetLat = Number.isFinite(userLat)
+        ? userLat
+        : Number(fallbackCenter?.lat);
+
+      if (Number.isFinite(targetLng) && Number.isFinite(targetLat)) {
+        map.easeTo({ center: [targetLng, targetLat], zoom: 13, pitch: 58, bearing: -18, duration: 600 });
+      }
+
+      const zoneFeatures = zones
+        .map((zone) => {
+          const lat = Number(zone.centerLat);
+          const lng = Number(zone.centerLng);
+          const radiusM = Number(zone.radiusM || 0);
+          if (!Number.isFinite(lat) || !Number.isFinite(lng) || radiusM <= 0) {
+            return null;
+          }
+
+          const theme = typeof zone.theme === "string" ? zone.theme : "meadow";
+          const color = THEME_MAP_COLORS[/** @type {"forest"|"urban"|"water"|"meadow"} */ (theme)] || "#84cc16";
+          return {
+            type: "Feature",
+            geometry: {
+              type: "Polygon",
+              coordinates: [toCirclePolygon({ lat, lng, radiusM })],
+            },
+            properties: {
+              id: zone.zoneKey || zone.id || `${lat}-${lng}`,
+              color,
+            },
+          };
+        })
+        .filter(Boolean);
+
+      const zoneGeoJson = /** @type {any} */ ({
+        type: "FeatureCollection",
+        features: zoneFeatures,
+      });
+
+      const zoneSource = /** @type {any} */ (map.getSource("hero-zones"));
+      if (zoneSource) {
+        zoneSource.setData(zoneGeoJson);
+      } else {
+        map.addSource("hero-zones", {
+          type: "geojson",
+          data: /** @type {any} */ (zoneGeoJson),
+        });
+
+        map.addLayer({
+          id: "hero-zones-fill",
+          type: "fill",
+          source: "hero-zones",
+          paint: {
+            "fill-color": ["get", "color"],
+            "fill-opacity": 0.22,
+          },
+        });
+
+        map.addLayer({
+          id: "hero-zones-line",
+          type: "line",
+          source: "hero-zones",
+          paint: {
+            "line-color": ["get", "color"],
+            "line-width": 2,
+            "line-opacity": 0.9,
+          },
+        });
+      }
+
+      const userGeoJson = /** @type {any} */ ({
+        type: "FeatureCollection",
+        features: Number.isFinite(userLng) && Number.isFinite(userLat)
+          ? [{
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [userLng, userLat] },
+            properties: {},
+          }]
+          : [],
+      });
+
+      const userSource = /** @type {any} */ (map.getSource("hero-user"));
+      if (userSource) {
+        userSource.setData(userGeoJson);
+      } else {
+        map.addSource("hero-user", {
+          type: "geojson",
+          data: /** @type {any} */ (userGeoJson),
+        });
+        map.addLayer({
+          id: "hero-user-point",
+          type: "circle",
+          source: "hero-user",
+          paint: {
+            "circle-radius": 6,
+            "circle-color": "#38bdf8",
+            "circle-stroke-width": 2,
+            "circle-stroke-color": "#111827",
+          },
+        });
+      }
+    };
+
+    if (map.isStyleLoaded()) {
+      updateMapData();
+    } else {
+      map.once("style.load", updateMapData);
+    }
+  }, [fallbackCenter?.lat, fallbackCenter?.lng, userLocation?.lat, userLocation?.lng, zones]);
+
+  return <div ref={mapContainerRef} className="absolute inset-0 z-0" />;
 }
 
 export default function Home() {
@@ -1075,63 +1255,12 @@ export default function Home() {
               <div className="flex-1 min-h-0 py-4">
                 {showHeroZoneMap ? (
                   <section className="relative h-full rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm overflow-hidden">
-                    <div className="absolute inset-0 z-0">
-                      <MapContainer
-                        center={heroMapCenter}
-                        zoom={13}
-                        style={{ height: "100%", width: "100%" }}
-                        className="z-0"
-                        zoomControl={false}
-                        attributionControl={false}
-                      >
-                        <TileLayer
-                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                          url={MAP_TILESETS.positron}
-                        />
-                        <HeroZoneMapViewport
-                          zones={heroZones}
-                          userLocation={cachedLocation}
-                          fallbackCenter={{ lat: heroMapCenter[0], lng: heroMapCenter[1] }}
-                        />
-
-                        {heroZones.map((zone) => {
-                          const lat = Number(zone.centerLat);
-                          const lng = Number(zone.centerLng);
-                          const radiusM = Number(zone.radiusM || 0);
-                          if (!Number.isFinite(lat) || !Number.isFinite(lng) || radiusM <= 0) {
-                            return null;
-                          }
-
-                          const color = THEME_MAP_COLORS[zone.theme] || "#84cc16";
-                          return (
-                            <Circle
-                              key={`${zone.zoneKey || zone.id}-${zone.theme}`}
-                              center={[lat, lng]}
-                              radius={radiusM}
-                              pathOptions={{
-                                color,
-                                fillColor: color,
-                                fillOpacity: 0.2,
-                                weight: 2,
-                              }}
-                            />
-                          );
-                        })}
-
-                        {Number.isFinite(cachedLocation?.lat) && Number.isFinite(cachedLocation?.lng) && (
-                          <Circle
-                            center={[cachedLocation.lat, cachedLocation.lng]}
-                            radius={16}
-                            pathOptions={{
-                              color: "#111827",
-                              fillColor: "#38bdf8",
-                              fillOpacity: 0.9,
-                              weight: 2,
-                            }}
-                          />
-                        )}
-                      </MapContainer>
-                    </div>
+                    <HeroZoneMap3D
+                      zones={heroZones}
+                      userLocation={cachedLocation}
+                      fallbackCenter={{ lat: heroMapCenter[0], lng: heroMapCenter[1] }}
+                      onTokenError={(message) => setZoneMapError(message)}
+                    />
 
                     <div className="pointer-events-none absolute inset-x-0 top-0 h-20 z-[1100] bg-gradient-to-b from-black/60 to-transparent" />
 
