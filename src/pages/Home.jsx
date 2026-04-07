@@ -1480,20 +1480,12 @@ export default function Home() {
                             <h3 className="font-semibold text-amber-300">Multiplikatoren</h3>
                             <div className="space-y-2.5 text-xs">
                               <div className="flex flex-col gap-0.5">
-                                <span className="text-amber-300 font-semibold">🔥 Streak:</span>
-                                <span className="text-amber-50/70">x{formatMultiplier(streakMultiplier)} - Basierend auf deine Scan-Strähne (1-7x)</span>
+                                <span className="text-amber-300 font-semibold">🔥 Streak: <strong>{formatMultiplier(streakMultiplier)}</strong></span>
+                                <span className="text-amber-50/70">Basierend auf deine Scan-Strähne (1-7x)</span>
                               </div>
                               <div className="flex flex-col gap-0.5">
-                                <span className="text-amber-300 font-semibold">📍 Zone:</span>
-                                <span className="text-amber-50/70">x{formatMultiplier(zoneMultiplier)} - 1-1.75x je nach Datenqualität</span>
-                              </div>
-                              <div className="flex flex-col gap-0.5">
-                                <span className="text-amber-300 font-semibold">⭐ Rarität:</span>
-                                <span className="text-amber-50/70">1-3x - Je seltener die Pflanze</span>
-                              </div>
-                              <div className="flex flex-col gap-0.5">
-                                <span className="text-amber-300 font-semibold">📉 Neuheit:</span>
-                                <span className="text-amber-50/70">0.2-1x - Mit jedem Duplikat-Scan reduziert</span>
+                                <span className="text-amber-300 font-semibold">📍 Zone: <strong>{formatMultiplier(zoneMultiplier)}</strong></span>
+                                <span className="text-amber-50/70">1-1.75x je nach Datenqualität</span>
                               </div>
                               <div className="flex flex-col gap-0.5">
                                 <span className="text-amber-300 font-semibold">💚 Pflege:</span>
@@ -1506,6 +1498,14 @@ export default function Home() {
                               <div className="flex flex-col gap-0.5">
                                 <span className="text-amber-300 font-semibold">🌅 Tagesbonus:</span>
                                 <span className="text-amber-50/70">1.5x - Für den ersten Scan des Tages</span>
+                              </div>
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-amber-300 font-semibold">⭐ Rarität:</span>
+                                <span className="text-amber-50/70">Scan abhängig - Je seltener die Pflanze</span>
+                              </div>
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-amber-300 font-semibold">📉 Neuheit:</span>
+                                <span className="text-amber-50/70">Scan abhängig - Mit jedem Duplikat-Scan reduziert</span>
                               </div>
                             </div>
                           </div>
