@@ -1301,7 +1301,7 @@ export default function Home() {
                   <div className="h-full flex flex-col justify-between">
                     <section data-ui="home-plant-hero-section" className="rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm px-4 py-5 md:px-6 md:py-6">
                   <div ref={healthStatsPanelRef} className="mb-3">
-                    <div data-ui="home-plant-hero-stage" className="relative mx-auto w-full h-[16rem] md:h-[19rem]">
+                    <div data-ui="home-plant-hero-stage" className="relative mx-auto w-[16rem] h-[16rem] md:w-[19rem] md:h-[19rem]">
                       <button
                         type="button"
                         onClick={() => setShowHealthStatsPanel((prev) => !prev)}
@@ -1335,7 +1335,7 @@ export default function Home() {
 
                       <div
                         data-ui="home-plant-health-status-subcontainer"
-                        className="absolute inset-x-0 top-[4.6rem] md:top-[5.2rem] bottom-0 px-1 md:px-2"
+                        className="absolute inset-x-0 top-[4.8rem] md:top-[5.4rem] bottom-0"
                       >
                         <AnimatePresence mode="wait">
                           {showHealthStatsPanel ? (
@@ -1377,9 +1377,9 @@ export default function Home() {
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: -6 }}
                               transition={{ duration: 0.16, ease: "easeOut" }}
-                              className="relative h-full max-w-[16rem] md:max-w-[19rem] mx-auto"
+                              className="absolute inset-0"
                             >
-                              <div className="absolute inset-0 rounded-full border border-[#f0e5a5]/35 bg-gradient-to-b from-emerald-100/25 to-emerald-900/45 backdrop-blur-sm shadow-[inset_0_0_30px_rgba(190,242,100,0.15)]" />
+                              <div className="absolute inset-7 rounded-full border border-[#f0e5a5]/35 bg-gradient-to-b from-emerald-100/25 to-emerald-900/45 backdrop-blur-sm shadow-[inset_0_0_30px_rgba(190,242,100,0.15)]" />
                               <div className="absolute inset-0 flex items-center justify-center">
                                 <Leaf className="w-20 h-20 md:w-24 md:h-24 text-lime-200 drop-shadow-[0_0_24px_rgba(190,242,100,0.6)]" />
                               </div>
