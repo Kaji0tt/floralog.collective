@@ -1442,7 +1442,7 @@ export default function Home() {
                   </div>
 
                   <div className="mt-4 w-full h-10 rounded-2xl border border-[#f0e5a5]/45 bg-gradient-to-r from-emerald-900/45 via-black/30 to-emerald-900/45 backdrop-blur-sm px-3">
-                    <div className="h-full w-full flex items-center justify-between text-xs md:text-sm font-semibold">
+                    <div className="h-full w-full flex items-center justify-start gap-1.5 text-xs md:text-sm font-semibold">
                       <div className="flex items-center gap-1.5 text-lime-100/95 min-w-0">
                         <Leaf className="w-4 h-4 text-lime-200" />
                         <span className="truncate">{playerSeeds}</span>
@@ -1450,7 +1450,7 @@ export default function Home() {
 
                       <div className="h-5 w-px bg-[#f0e5a5]/35" />
 
-                      <div className="flex items-center gap-1.5 text-amber-100/95 min-w-0 justify-start">
+                      <div className="flex items-center gap-1.5 text-amber-100/95 min-w-0">
                         <Zap className="w-4 h-4 text-amber-300" />
                         <span className="truncate">
                           Streak {formatMultiplier(streakMultiplier)} · Zone {formatMultiplier(zoneMultiplier)}
