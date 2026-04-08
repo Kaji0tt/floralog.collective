@@ -269,7 +269,7 @@ function HeroZoneMap3D(props) {
     }
   }, [fallbackCenter?.lat, fallbackCenter?.lng, userLocation?.lat, userLocation?.lng, zones]);
 
-  return <div ref={mapContainerRef} className="absolute inset-0 z-0" />;
+  return <div ref={mapContainerRef} className="h-full w-full z-0" />;
 }
 
 export default function Home() {
@@ -1348,9 +1348,9 @@ export default function Home() {
                 </button>
               </div>
 
-              <div className="flex-1 min-h-0 py-[clamp(0.5rem,1.5vh,1rem)]" data-ui="home-content-stack">
+              <div className="relative flex-1 min-h-0 overflow-hidden py-[clamp(0.5rem,1.5vh,1rem)]" data-ui="home-content-stack">
                 {showHeroZoneMap ? (
-                  <section className="relative h-full rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm overflow-hidden">
+                  <section className="relative h-full max-h-full rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm overflow-hidden">
                     <HeroZoneMap3D
                       zones={heroZones}
                       userLocation={cachedLocation}
