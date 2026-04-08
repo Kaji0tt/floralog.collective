@@ -5,10 +5,9 @@ import { upsertUserProfile } from "@/api/authService";
 import { executeMigration } from "@/api/migrationService";
 import { getRobotPlantDailyZones } from "@/api/robotPlantService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Camera, Loader2, Leaf, Settings, Plus, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, ArrowLeft, RefreshCw, Map as MapIcon, Zap, Home as HomeIcon, List } from "lucide-react";
+import { Camera, Loader2, Leaf, Plus, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, ArrowLeft, RefreshCw, Map as MapIcon, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import mapboxgl from "mapbox-gl";
-import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -25,11 +24,13 @@ import { Button } from "@/components/ui/button";
 import { updateQuestProgress } from "@/components/utils/questProgress";
 import Collection from "./Collection";
 import SettingsPanel from "@/components/settings/SettingsPanel";
+import HomeHeaderBar from "@/components/navigation/HomeHeaderBar";
+import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
-import { getWeekNumber, getMonthString, getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
+import { getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 const THEME_MAP_COLORS = {
@@ -362,10 +363,12 @@ export default function Home() {
   const [showEmbeddedCollection, setShowEmbeddedCollection] = useState(false);
   const [showEmbeddedSettings, setShowEmbeddedSettings] = useState(false);
   const [embeddedCollectionPublicPanelOpen, setEmbeddedCollectionPublicPanelOpen] = useState(false);
+  const [embeddedSelectedCollectionId, setEmbeddedSelectedCollectionId] = useState("global");
 
   useEffect(() => {
     if (!showEmbeddedCollection) {
       setEmbeddedCollectionPublicPanelOpen(false);
+      setEmbeddedSelectedCollectionId("global");
     }
   }, [showEmbeddedCollection]);
   const [uiTheme, setUiTheme] = useState(() => {
@@ -1213,6 +1216,7 @@ export default function Home() {
         setShowEmbeddedCollection(true);
         setShowEmbeddedSettings(false);
         setEmbeddedCollectionPublicPanelOpen(false);
+        setEmbeddedSelectedCollectionId("global");
         setShowHeroZoneMap(false);
         setShowHealthStatsPanel(false);
       },
@@ -1406,24 +1410,11 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
-      <div className="fixed inset-0 overflow-hidden">
-        <div
-          className="absolute inset-0"
-          style={user?.background_image_url ? {
-            backgroundImage: `url(${user.background_image_url})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-          } : user?.background_color ? {
-            background: `linear-gradient(160deg, ${getRgbaFromRgb(user.background_color, 1)} 0%, ${getRgbaFromRgb(user.background_color, 0.55)} 100%)`,
-          } : {
-            background: isLightUi
-              ? 'radial-gradient(circle at top, rgb(255, 248, 220) 0%, rgb(244, 231, 187) 52%, rgb(236, 217, 156) 100%)'
-              : 'radial-gradient(circle at top, rgb(167, 243, 208) 0%, rgb(22, 101, 52) 60%, rgb(10, 30, 18) 100%)',
-          }}
-        />
-        <div className={`absolute inset-0 ${isLightUi ? "backdrop-blur-[2px] bg-white/20" : "backdrop-blur-3xl"}`} />
-
-        <div className="relative z-10 h-full w-full p-3 md:p-6 flex items-start justify-center">
+      <HomeBackgroundShell
+        user={user}
+        isLightUi={isLightUi}
+        getRgbaFromRgb={getRgbaFromRgb}
+      >
           <motion.div
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1452,88 +1443,43 @@ export default function Home() {
             <div className={`absolute inset-0 pointer-events-none rounded-[2rem] border ${isLightUi ? "border-[#f4e6b7]/85" : "border-[#f0e5a5]/30"}`} />
 
             <div className={`relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6 ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
-              <div className={`flex items-start justify-between gap-3 pb-3 border-b ${isLightUi ? "border-[#b99a48]/30" : "border-[#f0e5a5]/20"}`}>
-                <div className="min-w-0">
-                  {showEmbeddedCollection ? (
-                    <div className="flex items-baseline gap-2 min-w-0">
-                      <h1 className="font-bold leading-tight text-2xl md:text-3xl truncate" title="Kollektionen">
-                        Kollektionen
-                      </h1>
-                    </div>
-                  ) : showEmbeddedSettings ? (
-                    <div className="flex items-baseline gap-2 min-w-0">
-                      <h1 className="font-bold leading-tight text-2xl md:text-3xl truncate" title="Einstellungen">
-                        Einstellungen
-                      </h1>
-                    </div>
-                  ) : (
-                    <div className="flex items-baseline gap-2 min-w-0">
-                      <h1
-                        className="font-bold leading-tight truncate"
-                        style={{ fontSize: getNameFontSize(getDisplayName()) }}
-                        title={getDisplayName()}
-                      >
-                        {getDisplayName()}
-                      </h1>
-                      <p className={`${isLightUi ? "text-stone-700/90" : "text-stone-200/85"} text-base md:text-lg whitespace-nowrap truncate`}>
-                        {user.selected_title || user.title || 'Pflanzen-Entdecker'}
-                      </p>
-                    </div>
-                  )}
-                  <div className="hidden mt-1 h-8 items-center gap-1" aria-hidden="true">
-                    <span className="w-8 h-8 rounded-full border border-white/25 bg-white/10" />
-                    <span className="w-8 h-8 rounded-full border border-white/25 bg-white/10" />
-                    <span className="w-8 h-8 rounded-full border border-white/25 bg-white/10" />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  {showEmbeddedCollection && (
-                    <button
-                      type="button"
-                      onClick={() => setEmbeddedCollectionPublicPanelOpen((prev) => !prev)}
-                      className={`w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors ${isLightUi ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80" : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"}`}
-                      aria-label={embeddedCollectionPublicPanelOpen ? "Öffentliche Kollektionen schließen" : "Öffentliche Kollektionen anzeigen"}
-                      aria-pressed={embeddedCollectionPublicPanelOpen}
-                    >
-                      <List className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (showEmbeddedCollection) {
-                        setShowEmbeddedCollection(false);
-                        setEmbeddedCollectionPublicPanelOpen(false);
-                        return;
-                      }
-                      if (showEmbeddedSettings) {
-                        setShowEmbeddedSettings(false);
-                        return;
-                      }
-                      setShowEmbeddedSettings(true);
-                      setShowHeroZoneMap(false);
-                      setShowHealthStatsPanel(false);
-                    }}
-                    className={`w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors ${isLightUi ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80" : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"}`}
-                    aria-label={(showEmbeddedCollection || showEmbeddedSettings) ? "Zur Home-Ansicht" : "Einstellungen"}
-                  >
-                    {(showEmbeddedCollection || showEmbeddedSettings) ? (
-                      <HomeIcon className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
-                    ) : (
-                      <Settings className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
-                    )}
-                  </button>
-                </div>
-              </div>
+              <HomeHeaderBar
+                isLightUi={isLightUi}
+                showEmbeddedCollection={showEmbeddedCollection}
+                showEmbeddedSettings={showEmbeddedSettings}
+                embeddedCollectionPublicPanelOpen={embeddedCollectionPublicPanelOpen}
+                displayName={getDisplayName()}
+                displayNameFontSize={getNameFontSize(getDisplayName())}
+                userTitle={user?.selected_title || user?.title || "Pflanzen-Entdecker"}
+                onTogglePublicCollections={() => setEmbeddedCollectionPublicPanelOpen((prev) => !prev)}
+                onPrimaryAction={() => {
+                  if (showEmbeddedCollection) {
+                    setShowEmbeddedCollection(false);
+                    setEmbeddedCollectionPublicPanelOpen(false);
+                    setEmbeddedSelectedCollectionId("global");
+                    return;
+                  }
+                  if (showEmbeddedSettings) {
+                    setShowEmbeddedSettings(false);
+                    return;
+                  }
+                  setShowEmbeddedSettings(true);
+                  setShowHeroZoneMap(false);
+                  setShowHealthStatsPanel(false);
+                }}
+              />
 
               <div className="relative flex flex-1 min-h-0 flex-col overflow-hidden py-[clamp(0.5rem,1.5vh,1rem)]" data-ui="home-content-stack">
                 {showEmbeddedCollection ? (
                   <Collection
                     embedded
-                    onRequestClose={() => setShowEmbeddedCollection(false)}
+                    onRequestClose={() => {
+                      setShowEmbeddedCollection(false);
+                      setEmbeddedSelectedCollectionId("global");
+                    }}
                     uiTheme={uiTheme}
+                    initialCollectionId={embeddedSelectedCollectionId}
+                    onSelectedCollectionIdChange={setEmbeddedSelectedCollectionId}
                     showPublicCollectionsPanel={embeddedCollectionPublicPanelOpen}
                     onShowPublicCollectionsPanelChange={setEmbeddedCollectionPublicPanelOpen}
                   />
@@ -1956,8 +1902,7 @@ export default function Home() {
             <span className="opacity-70">•</span>
             <button onClick={() => navigate(createPageUrl('News'))} className="hover:opacity-80 transition-opacity">News</button>
           </div>
-        </div>
-      </div>
+      </HomeBackgroundShell>
     </>
   );
 }

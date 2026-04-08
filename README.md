@@ -41,6 +41,19 @@ Die 4 Buttons unten.
 7. home-footer-links
 Spenden/Impressum/News.
 
+## Architecture update (Single Source Richtung)
+
+- Home ist der visuelle Host und besitzt Hintergrund/Shell über `HomeBackgroundShell`.
+- Die Header-Logik ist als wiederverwendbare Komponente `HomeHeaderBar` extrahiert.
+- `Collection` ist als Route-Datei nur noch ein dünner Wrapper (`src/pages/Collection.jsx`).
+- Die eigentliche Collection-Feature-Implementierung lebt in `src/components/collection/CollectionFeatureRoot.jsx`.
+- Teilbereiche sind weiter aufgeteilt in:
+	- `CollectionScreen` (Hauptansicht)
+	- `PublicCollectionScreen` (öffentliche/User-Kollektionen)
+	- `useCollectionViewState` (Filter-, Auswahl- und Scroll-ViewState)
+
+Damit gibt es eine zentrale fachliche Quelle für die Collection-Logik, während Route und Home nur noch orchestrieren.
+
 ## Additional pages (high-level grouping)
 
 - **Friends / Social**
