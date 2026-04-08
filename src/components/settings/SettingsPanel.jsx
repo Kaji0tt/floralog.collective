@@ -246,13 +246,21 @@ export default function SettingsPanel({ user, onUserUpdated, uiTheme = "dark", o
   return (
     <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
       <Dialog open={showBackgroundSelector} onOpenChange={setShowBackgroundSelector}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-[#121b16] border border-[#f0e5a5]/35 text-stone-100">
+        <DialogContent className={`max-w-4xl max-h-[80vh] overflow-y-auto border ${
+          uiTheme === 'light'
+            ? 'bg-white text-stone-800 border-[#c8ac62]/40'
+            : 'bg-[#121b16] border-[#f0e5a5]/35 text-stone-100'
+        }`}>
           <DialogHeader>
-            <DialogTitle className="text-stone-100">Hintergrund auswaehlen</DialogTitle>
+            <DialogTitle className={uiTheme === 'light' ? 'text-stone-800' : 'text-stone-100'}>Hintergrund auswaehlen</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <button
-              className="w-full py-2 text-sm border border-[#f0e5a5]/30 rounded-lg text-stone-200 hover:bg-white/5"
+              className={`w-full py-2 text-sm border rounded-lg ${
+                uiTheme === 'light'
+                  ? 'border-[#c8ac62]/30 text-stone-700 hover:bg-stone-100/50'
+                  : 'border-[#f0e5a5]/30 text-stone-200 hover:bg-white/5'
+              }`}
               onClick={() => {
                 handleRemoveBackground();
                 handleRemoveColor();
@@ -264,13 +272,17 @@ export default function SettingsPanel({ user, onUserUpdated, uiTheme = "dark", o
             <div>
               <button
                 onClick={() => setCollapsedSections((p) => ({ ...p, colors: !p.colors }))}
-                className="w-full flex items-center justify-between p-3 bg-black/25 rounded-lg border border-[#f0e5a5]/20 hover:bg-black/35 transition-colors mb-3"
+                className={`w-full flex items-center justify-between p-3 rounded-lg border transition-colors mb-3 ${
+                  uiTheme === 'light'
+                    ? 'bg-stone-100/30 border-[#c8ac62]/20 hover:bg-stone-100/50'
+                    : 'bg-black/25 border-[#f0e5a5]/20 hover:bg-black/35'
+                }`}
               >
-                <h3 className="text-sm font-semibold text-stone-100">Einfarbiger Hintergrund</h3>
+                <h3 className={`text-sm font-semibold ${uiTheme === 'light' ? 'text-stone-800' : 'text-stone-100'}`}>Einfarbiger Hintergrund</h3>
                 {collapsedSections.colors ? (
-                  <ChevronDown className="w-5 h-5 text-stone-300" />
+                  <ChevronDown className={`w-5 h-5 ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-300'}`} />
                 ) : (
-                  <ChevronUp className="w-5 h-5 text-stone-300" />
+                  <ChevronUp className={`w-5 h-5 ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-300'}`} />
                 )}
               </button>
               {!collapsedSections.colors && (
@@ -317,13 +329,17 @@ export default function SettingsPanel({ user, onUserUpdated, uiTheme = "dark", o
               <div>
                 <button
                   onClick={() => setCollapsedSections((p) => ({ ...p, presets: !p.presets }))}
-                  className="w-full flex items-center justify-between p-3 bg-black/25 rounded-lg border border-[#f0e5a5]/20 hover:bg-black/35 transition-colors mb-3"
+                  className={`w-full flex items-center justify-between p-3 rounded-lg border transition-colors mb-3 ${
+                    uiTheme === 'light'
+                      ? 'bg-stone-100/30 border-[#c8ac62]/20 hover:bg-stone-100/50'
+                      : 'bg-black/25 border-[#f0e5a5]/20 hover:bg-black/35'
+                  }`}
                 >
-                  <h3 className="text-sm font-semibold text-stone-100">Vorgefertigte Hintergruende</h3>
+                  <h3 className={`text-sm font-semibold ${uiTheme === 'light' ? 'text-stone-800' : 'text-stone-100'}`}>Vorgefertigte Hintergruende</h3>
                   {collapsedSections.presets ? (
-                    <ChevronDown className="w-5 h-5 text-stone-300" />
+                    <ChevronDown className={`w-5 h-5 ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-300'}`} />
                   ) : (
-                    <ChevronUp className="w-5 h-5 text-stone-300" />
+                    <ChevronUp className={`w-5 h-5 ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-300'}`} />
                   )}
                 </button>
                 {!collapsedSections.presets && (
@@ -378,13 +394,17 @@ export default function SettingsPanel({ user, onUserUpdated, uiTheme = "dark", o
               <div>
                 <button
                   onClick={() => setCollapsedSections((p) => ({ ...p, scans: !p.scans }))}
-                  className="w-full flex items-center justify-between p-3 bg-black/25 rounded-lg border border-[#f0e5a5]/20 hover:bg-black/35 transition-colors mb-3"
+                  className={`w-full flex items-center justify-between p-3 rounded-lg border transition-colors mb-3 ${
+                    uiTheme === 'light'
+                      ? 'bg-stone-100/30 border-[#c8ac62]/20 hover:bg-stone-100/50'
+                      : 'bg-black/25 border-[#f0e5a5]/20 hover:bg-black/35'
+                  }`}
                 >
-                  <h3 className="text-sm font-semibold text-stone-100">Pflanzenbild als Hintergrund</h3>
+                  <h3 className={`text-sm font-semibold ${uiTheme === 'light' ? 'text-stone-800' : 'text-stone-100'}`}>Pflanzenbild als Hintergrund</h3>
                   {collapsedSections.scans ? (
-                    <ChevronDown className="w-5 h-5 text-stone-300" />
+                    <ChevronDown className={`w-5 h-5 ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-300'}`} />
                   ) : (
-                    <ChevronUp className="w-5 h-5 text-stone-300" />
+                    <ChevronUp className={`w-5 h-5 ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-300'}`} />
                   )}
                 </button>
                 {!collapsedSections.scans && (
@@ -413,18 +433,30 @@ export default function SettingsPanel({ user, onUserUpdated, uiTheme = "dark", o
         </DialogContent>
       </Dialog>
 
-      <div className="flex-1 min-h-0 overflow-y-auto rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm">
+      <div className={`flex-1 min-h-0 overflow-y-auto rounded-3xl border backdrop-blur-sm ${
+        uiTheme === 'light'
+          ? 'border-[#c0a860]/30 bg-white/40'
+          : 'border-[#f0e5a5]/25 bg-black/25'
+      }`}>
         <div className="px-3 py-3 space-y-2">
-          <p className="text-[10px] uppercase tracking-widest text-stone-500 px-1">Profil</p>
+          <p className={`text-[10px] uppercase tracking-widest px-1 ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-500'}`}>Profil</p>
 
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/5 border border-[#f0e5a5]/10">
+          <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${
+            uiTheme === 'light'
+              ? 'bg-stone-100/20 border-[#c8ac62]/15'
+              : 'bg-white/5 border-[#f0e5a5]/10'
+          }`}>
             <div className="flex-1 min-w-0">
               {isEditingName ? (
                 <div className="flex items-center gap-1.5">
                   <Input
                     value={editedName}
                     onChange={(e) => setEditedName(e.target.value)}
-                    className="h-7 text-sm bg-black/30 border-[#f0e5a5]/30 text-stone-100 placeholder:text-stone-400 px-2"
+                    className={`h-7 text-sm px-2 ${
+                      uiTheme === 'light'
+                        ? 'bg-stone-100/50 border-[#c8ac62]/30 text-stone-800 placeholder:text-stone-500'
+                        : 'bg-black/30 border-[#f0e5a5]/30 text-stone-100 placeholder:text-stone-400'
+                    }`}
                     maxLength={50}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") handleSaveName();
@@ -457,30 +489,38 @@ export default function SettingsPanel({ user, onUserUpdated, uiTheme = "dark", o
                   <span className="text-sm font-semibold text-stone-100 truncate">{getDisplayName()}</span>
                   <button
                     onClick={() => setIsEditingName(true)}
-                    className="w-5 h-5 rounded flex items-center justify-center hover:bg-white/10 transition-colors flex-shrink-0"
+                    className={`w-5 h-5 rounded flex items-center justify-center transition-colors flex-shrink-0 ${uiTheme === 'light' ? 'hover:bg-stone-200/30' : 'hover:bg-white/10'}`}
                     aria-label="Name bearbeiten"
                   >
-                    <Edit2 className="w-3 h-3 text-stone-400" />
+                    <Edit2 className={`w-3 h-3 ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-400'}`} />
                   </button>
                 </div>
               )}
-              <p className="text-xs text-stone-500 truncate leading-snug">
+              <p className={`text-xs truncate leading-snug ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-500'}`}>
                 {user?.selected_title || user?.title || "Pflanzen-Entdecker"}
               </p>
             </div>
           </div>
 
-          <div className="px-3 py-2.5 rounded-xl bg-white/5 border border-[#f0e5a5]/10">
+          <div className={`px-3 py-2.5 rounded-xl border ${
+            uiTheme === 'light'
+              ? 'bg-stone-100/20 border-[#c8ac62]/15'
+              : 'bg-white/5 border-[#f0e5a5]/10'
+          }`}>
             <div className="flex items-center gap-2 mb-1.5">
-              <ImageIcon className="w-3.5 h-3.5 text-[#f0e5a5]/70" />
-              <p className="text-xs text-stone-400">Hintergrund</p>
+              <ImageIcon className={`w-3.5 h-3.5 ${uiTheme === 'light' ? 'text-amber-700/60' : 'text-[#f0e5a5]/70'}`} />
+              <p className={`text-xs ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-400'}`}>Hintergrund</p>
             </div>
             <button
               onClick={() => setShowBackgroundSelector(true)}
-              className="w-full rounded-lg border border-[#f0e5a5]/25 bg-black/20 p-2.5 flex items-center justify-between hover:bg-black/35 transition-colors"
+              className={`w-full rounded-lg border p-2.5 flex items-center justify-between transition-colors ${
+                uiTheme === 'light'
+                  ? 'border-[#c8ac62]/25 bg-stone-100/30 hover:bg-stone-100/50'
+                  : 'border-[#f0e5a5]/25 bg-black/20 hover:bg-black/35'
+              }`}
             >
-              <span className="text-sm text-stone-200 text-left">Neuen Hintergrund waehlen</span>
-              <div className="h-8 w-14 rounded-md overflow-hidden border border-[#f0e5a5]/30 bg-stone-800/40">
+              <span className={`text-sm text-left ${uiTheme === 'light' ? 'text-stone-700' : 'text-stone-200'}`}>Neuen Hintergrund waehlen</span>
+              <div className={`h-8 w-14 rounded-md overflow-hidden border ${uiTheme === 'light' ? 'border-[#c8ac62]/30 bg-stone-200/40' : 'border-[#f0e5a5]/30 bg-stone-800/40'}`}>
                 {user?.background_image_url ? (
                   <img src={user.background_image_url} alt="Aktueller Hintergrund" className="h-full w-full object-cover" />
                 ) : (
@@ -490,17 +530,21 @@ export default function SettingsPanel({ user, onUserUpdated, uiTheme = "dark", o
             </button>
           </div>
 
-          <div className="px-3 py-2.5 rounded-xl bg-white/5 border border-[#f0e5a5]/10">
+          <div className={`px-3 py-2.5 rounded-xl border ${
+            uiTheme === 'light'
+              ? 'bg-stone-100/20 border-[#c8ac62]/15'
+              : 'bg-white/5 border-[#f0e5a5]/10'
+          }`}>
             <div className="flex items-center gap-2 mb-1.5">
-              <Star className="w-3.5 h-3.5 text-[#f0e5a5]/60" />
-              <p className="text-xs text-stone-400">Aktiver Titel</p>
+              <Star className={`w-3.5 h-3.5 ${uiTheme === 'light' ? 'text-amber-700/50' : 'text-[#f0e5a5]/60'}`} />
+              <p className={`text-xs ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-400'}`}>Aktiver Titel</p>
             </div>
             <Select
               value={user?.selected_title || "default"}
               onValueChange={(v) => updateUserMutation.mutate({ selected_title: v === "default" ? null : v })}
               disabled={updateUserMutation.isPending}
             >
-              <SelectTrigger className="h-8 text-sm bg-black/30 border-[#f0e5a5]/25 text-stone-100">
+              <SelectTrigger className={`h-8 text-sm ${uiTheme === 'light' ? 'bg-stone-100/40 border-[#c8ac62]/25 text-stone-800' : 'bg-black/30 border-[#f0e5a5]/25 text-stone-100'}`}>
                 <SelectValue>
                   <span>{user?.selected_title || "Pflanzen-Entdecker"}</span>
                 </SelectValue>
@@ -517,13 +561,17 @@ export default function SettingsPanel({ user, onUserUpdated, uiTheme = "dark", o
             </Select>
           </div>
 
-          <p className="text-[10px] uppercase tracking-widest text-stone-500 px-1 pt-1">Darstellung</p>
+          <p className={`text-[10px] uppercase tracking-widest px-1 pt-1 ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-500'}`}>Darstellung</p>
 
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/5 border border-[#f0e5a5]/10">
-            <Sun className="w-4 h-4 text-[#f0e5a5]/70 flex-shrink-0" />
+          <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${
+            uiTheme === 'light'
+              ? 'bg-stone-100/20 border-[#c8ac62]/15'
+              : 'bg-white/5 border-[#f0e5a5]/10'
+          }`}>
+            <Sun className={`w-4 h-4 flex-shrink-0 ${uiTheme === 'light' ? 'text-amber-700/70' : 'text-[#f0e5a5]/70'}`} />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-stone-100 leading-snug">Helle Anzeige</p>
-              <p className="text-xs text-stone-400 leading-snug">Invertiert dunkle und goldene Akzente in ein helles Interface.</p>
+              <p className={`text-sm font-medium leading-snug ${uiTheme === 'light' ? 'text-stone-800' : 'text-stone-100'}`}>Helle Anzeige</p>
+              <p className={`text-xs leading-snug ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-400'}`}>Invertiert dunkle und goldene Akzente in ein helles Interface.</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
               <input
@@ -536,12 +584,16 @@ export default function SettingsPanel({ user, onUserUpdated, uiTheme = "dark", o
             </label>
           </div>
 
-          <p className="text-[10px] uppercase tracking-widest text-stone-500 px-1 pt-1">Datenschutz</p>
+          <p className={`text-[10px] uppercase tracking-widest px-1 pt-1 ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-500'}`}>Datenschutz</p>
 
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/5 border border-[#f0e5a5]/10">
+          <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${
+            uiTheme === 'light'
+              ? 'bg-stone-100/20 border-[#c8ac62]/15'
+              : 'bg-white/5 border-[#f0e5a5]/10'
+          }`}>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-stone-100 leading-snug">Weekly Tracking</p>
-              <p className="text-xs text-stone-400 leading-snug">Scans in woechentlichen Challenges teilen</p>
+              <p className={`text-sm font-medium leading-snug ${uiTheme === 'light' ? 'text-stone-800' : 'text-stone-100'}`}>Weekly Tracking</p>
+              <p className={`text-xs leading-snug ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-400'}`}>Scans in woechentlichen Challenges teilen</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
               <input
@@ -554,10 +606,14 @@ export default function SettingsPanel({ user, onUserUpdated, uiTheme = "dark", o
             </label>
           </div>
 
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/5 border border-[#f0e5a5]/10">
+          <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${
+            uiTheme === 'light'
+              ? 'bg-stone-100/20 border-[#c8ac62]/15'
+              : 'bg-white/5 border-[#f0e5a5]/10'
+          }`}>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-stone-100 leading-snug">Lokales Tracking</p>
-              <p className="text-xs text-stone-400 leading-snug">Scans im lokalen Tab zeigen (20 km)</p>
+              <p className={`text-sm font-medium leading-snug ${uiTheme === 'light' ? 'text-stone-800' : 'text-stone-100'}`}>Lokales Tracking</p>
+              <p className={`text-xs leading-snug ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-400'}`}>Scans im lokalen Tab zeigen (20 km)</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
               <input
@@ -570,34 +626,46 @@ export default function SettingsPanel({ user, onUserUpdated, uiTheme = "dark", o
             </label>
           </div>
 
-          <p className="text-[10px] uppercase tracking-widest text-stone-500 px-1 pt-1">Benachrichtigungen und Standort</p>
+          <p className={`text-[10px] uppercase tracking-widest px-1 pt-1 ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-500'}`}>Benachrichtigungen und Standort</p>
 
-          <div className="rounded-xl bg-white/5 border border-[#f0e5a5]/10 overflow-hidden p-2">
+          <div className={`rounded-xl border overflow-hidden p-2 ${uiTheme === 'light' ? 'bg-stone-100/20 border-[#c8ac62]/15' : 'bg-white/5 border-[#f0e5a5]/10'}`}>
             <NotificationManager user={user} showInProfile />
           </div>
 
-          <div className="rounded-xl bg-white/5 border border-[#f0e5a5]/10 overflow-hidden p-2">
+          <div className={`rounded-xl border overflow-hidden p-2 ${uiTheme === 'light' ? 'bg-stone-100/20 border-[#c8ac62]/15' : 'bg-white/5 border-[#f0e5a5]/10'}`}>
             <LocationManager showInProfile />
           </div>
 
-          <p className="text-[10px] uppercase tracking-widest text-stone-500 px-1 pt-1">Konto</p>
+          <p className={`text-[10px] uppercase tracking-widest px-1 pt-1 ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-500'}`}>Konto</p>
 
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/5 border border-[#f0e5a5]/10">
-            <Mail className="w-4 h-4 text-stone-400 flex-shrink-0" />
+          <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${
+            uiTheme === 'light'
+              ? 'bg-stone-100/20 border-[#c8ac62]/15'
+              : 'bg-white/5 border-[#f0e5a5]/10'
+          }`}>
+            <Mail className={`w-4 h-4 flex-shrink-0 ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-400'}`} />
             <div className="min-w-0">
-              <p className="text-[11px] text-stone-500">E-Mail</p>
-              <p className="text-sm text-stone-200 truncate">{user?.email}</p>
+              <p className={`text-[11px] ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-500'}`}>E-Mail</p>
+              <p className={`text-sm truncate ${uiTheme === 'light' ? 'text-stone-700' : 'text-stone-200'}`}>{user?.email}</p>
             </div>
           </div>
 
-          <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-blue-950/40 border border-blue-500/20 text-[11px] text-blue-200">
-            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-blue-400" />
+          <div className={`flex items-start gap-2 px-3 py-2.5 rounded-xl border text-[11px] ${
+            uiTheme === 'light'
+              ? 'bg-blue-100/40 border-blue-300/30 text-blue-800'
+              : 'bg-blue-950/40 border-blue-500/20 text-blue-200'
+          }`}>
+            <AlertCircle className={`w-3.5 h-3.5 flex-shrink-0 mt-0.5 ${uiTheme === 'light' ? 'text-blue-700' : 'text-blue-400'}`} />
             <span>Passwort und E-Mail werden ueber dein Supabase-Konto verwaltet.</span>
           </div>
 
           <button
             onClick={() => navigate(createPageUrl("ResetAccount"))}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-orange-400/30 bg-orange-900/20 text-orange-200 text-sm font-medium hover:bg-orange-900/35 transition-colors"
+            className={`w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-sm font-medium transition-colors ${
+              uiTheme === 'light'
+                ? 'border-orange-300/40 bg-orange-100/40 text-orange-800 hover:bg-orange-100/55'
+                : 'border-orange-400/30 bg-orange-900/20 text-orange-200 hover:bg-orange-900/35'
+            }`}
           >
             <RotateCcw className="w-4 h-4" />
             Account zuruecksetzen
@@ -605,7 +673,11 @@ export default function SettingsPanel({ user, onUserUpdated, uiTheme = "dark", o
 
           <button
             onClick={() => signOut()}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-red-400/30 bg-red-900/20 text-red-200 text-sm font-medium hover:bg-red-900/35 transition-colors mb-1"
+            className={`w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-sm font-medium transition-colors mb-1 ${
+              uiTheme === 'light'
+                ? 'border-red-300/40 bg-red-100/40 text-red-800 hover:bg-red-100/55'
+                : 'border-red-400/30 bg-red-900/20 text-red-200 hover:bg-red-900/35'
+            }`}
           >
             <LogOut className="w-4 h-4" />
             Abmelden
