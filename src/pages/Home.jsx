@@ -1181,6 +1181,16 @@ export default function Home() {
     );
   });
   const dailyBonusMultiplier = computeFirstScanOfDayMultiplier(!hasScanToday);
+  const knownNextScanMultiplier =
+    streakMultiplier * zoneMultiplier * careMultiplier * energyMultiplier * dailyBonusMultiplier;
+  const noveltyMinMultiplier = 0.2;
+  const noveltyMaxMultiplier = 1;
+  const rarityMinMultiplier = 1;
+  const rarityMaxMultiplier = 3;
+  const nextScanMinMultiplier =
+    knownNextScanMultiplier * noveltyMinMultiplier * rarityMinMultiplier;
+  const nextScanMaxMultiplier =
+    knownNextScanMultiplier * noveltyMaxMultiplier * rarityMaxMultiplier;
 
   const formatMultiplier = (value) => {
     const safeValue = Number.isFinite(value) ? value : 1;
@@ -1780,21 +1790,30 @@ export default function Home() {
                             <div className={`h-5 w-px ${isLightUi ? "bg-[#c8ac62]/40" : "bg-[#f0e5a5]/35"}`} />
                             <Zap className={`w-4 h-4 ${isLightUi ? "text-amber-700" : "text-amber-300"}`} />
                             <span className="truncate">
-                              Streak {formatMultiplier(streakMultiplier)} · Zone {formatMultiplier(zoneMultiplier)}
+                              Nächster Scan {formatMultiplier(knownNextScanMultiplier)}
                             </span>
                           </div>
                         </PopoverTrigger>
                         <PopoverContent align="end" className="w-72 bg-emerald-950/95 border-amber-600/40 text-amber-50/90">
                           <div className="space-y-4">
                             <h3 className="font-semibold text-amber-300">Multiplikatoren</h3>
+                            <div className="rounded-lg border border-amber-600/30 bg-black/20 p-2.5 text-xs space-y-1.5">
+                              <div className="text-amber-300 font-semibold">Aktuell bekannter Faktor für den nächsten Scan</div>
+                              <div className="text-amber-50/90">
+                                {formatMultiplier(streakMultiplier)} × {formatMultiplier(zoneMultiplier)} × {formatMultiplier(careMultiplier)} × {formatMultiplier(energyMultiplier)} × {formatMultiplier(dailyBonusMultiplier)} = <strong>{formatMultiplier(knownNextScanMultiplier)}</strong>
+                              </div>
+                              <div className="text-amber-50/70">
+                                Mit scanabhängigen Faktoren (Neuheit + Rarität) ergibt sich ein möglicher Bereich von <strong>{formatMultiplier(nextScanMinMultiplier)}</strong> bis <strong>{formatMultiplier(nextScanMaxMultiplier)}</strong>.
+                              </div>
+                            </div>
                             <div className="space-y-2.5 text-xs">
                               <div className="flex flex-col gap-0.5">
                                 <span className="text-amber-300 font-semibold">🔥 Streak: <strong>{formatMultiplier(streakMultiplier)}</strong></span>
-                                <span className="text-amber-50/70">Basierend auf deine Scan-Strähne (1-7x)</span>
+                                <span className="text-amber-50/70">Basierend auf deiner Scan-Serie (1-7x)</span>
                               </div>
                               <div className="flex flex-col gap-0.5">
                                 <span className="text-amber-300 font-semibold">📍 Zone: <strong>{formatMultiplier(zoneMultiplier)}</strong></span>
-                                <span className="text-amber-50/70">Start x1.5, pro weiterem Scan in der Zone -0.2 (bis Floor)</span>
+                                <span className="text-amber-50/70">Start x1.5, pro weiterem Scan in derselben Zone -0.2 (bis x0.5)</span>
                               </div>
                               <div className="flex flex-col gap-0.5">
                                 <span className="text-amber-300 font-semibold">💚 Pflege:<strong>{formatMultiplier(careMultiplier)}</strong></span>
@@ -1802,19 +1821,19 @@ export default function Home() {
                               </div>
                               <div className="flex flex-col gap-0.5">
                                 <span className="text-amber-300 font-semibold">⚡ Energie:<strong>{formatMultiplier(energyMultiplier)}</strong></span>
-                                <span className="text-amber-50/70">1-2x - Je höher die Energie der Pflanze</span>
+                                <span className="text-amber-50/70">1-2x - Energie skaliert direkt den Reward</span>
                               </div>
                               <div className="flex flex-col gap-0.5">
                                 <span className="text-amber-300 font-semibold">🌅 Tagesbonus:<strong>{formatMultiplier(dailyBonusMultiplier)}</strong></span>
-                                <span className="text-amber-50/70">2x bis zum ersten Scan des Tages, danach x1</span>
+                                <span className="text-amber-50/70">Erster Scan des Tages: x2, danach x1</span>
                               </div>
                               <div className="flex flex-col gap-0.5">
-                                <span className="text-amber-300 font-semibold">⭐ Rarität:<strong>Scan abhängig</strong></span>
-                                <span className="text-amber-50/70">- 1-3x, Je seltener die Pflanze</span>
+                                <span className="text-amber-300 font-semibold">⭐ Rarität: <strong>x1 bis x3</strong></span>
+                                <span className="text-amber-50/70">Scanabhängig: häufig x1, gelegentlich x2, selten x3</span>
                               </div>
                               <div className="flex flex-col gap-0.5">
-                                <span className="text-amber-300 font-semibold">📉 Neuheit:<strong>Scan abhängig</strong></span>
-                                <span className="text-amber-50/70">Scan abhängig - Mit jedem Duplikat-Scan reduziert</span>
+                                <span className="text-amber-300 font-semibold">📉 Neuheit: <strong>x1 bis x0.2</strong></span>
+                                <span className="text-amber-50/70">Scanabhängig: sinkt pro Duplikat derselben Pflanze</span>
                               </div>
                             </div>
                           </div>
