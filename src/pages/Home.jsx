@@ -1348,9 +1348,9 @@ export default function Home() {
                 </button>
               </div>
 
-              <div className="relative flex-1 min-h-0 overflow-hidden py-[clamp(0.5rem,1.5vh,1rem)]" data-ui="home-content-stack">
+              <div className="relative flex flex-1 min-h-0 flex-col overflow-hidden py-[clamp(0.5rem,1.5vh,1rem)]" data-ui="home-content-stack">
                 {showHeroZoneMap ? (
-                  <section className="relative h-full max-h-full rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm overflow-hidden">
+                  <section className="relative flex-1 min-h-0 rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm overflow-hidden">
                     <HeroZoneMap3D
                       zones={heroZones}
                       userLocation={cachedLocation}
@@ -1393,7 +1393,7 @@ export default function Home() {
                     </div>
                   </section>
                 ) : (
-                  <section data-ui="home-plant-hero-section" className="h-full min-h-0 rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col">
+                  <section data-ui="home-plant-hero-section" className="flex-1 min-h-0 rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col">
                   <div ref={healthStatsPanelRef} className="flex-1 min-h-0 flex items-center justify-center">
                     <div
                       className="relative mx-auto"
