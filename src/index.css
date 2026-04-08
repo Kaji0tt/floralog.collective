@@ -156,3 +156,32 @@ button:focus-visible {
     @apply bg-background text-foreground;
   }
 }
+
+/* Hero zone map popup styling */
+.hero-zone-popup .mapboxgl-popup-content {
+  background: rgba(10, 10, 20, 0.92);
+  border: 1px solid rgba(240, 229, 165, 0.3);
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+}
+
+.hero-zone-popup .mapboxgl-popup-tip {
+  border-top-color: rgba(10, 10, 20, 0.92);
+}
+
+.hero-zone-popup.mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip {
+  border-top-color: rgba(10, 10, 20, 0.92);
+}
+
+.hero-zone-popup.mapboxgl-popup-anchor-top .mapboxgl-popup-tip {
+  border-bottom-color: rgba(10, 10, 20, 0.92);
+}
+
+.hero-zone-popup .mapboxgl-popup-close-button {
+  color: rgba(240, 229, 165, 0.6);
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px 8px;
+}
