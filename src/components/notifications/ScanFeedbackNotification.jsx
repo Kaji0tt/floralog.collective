@@ -34,6 +34,24 @@ const buildRewardSteps = (rewardDetails, isInActiveZone) => {
     });
   };
 
+  const pushAdditiveStep = (id, label, delta) => {
+    if (!delta) {
+      return;
+    }
+
+    runningReward += delta;
+    preStreakSteps.push({
+      id,
+      label,
+      delta,
+      result: Math.round(runningReward),
+      positive: delta > 0,
+      displayValue: `${delta > 0 ? "+" : ""}${delta}`,
+    });
+  };
+
+  pushAdditiveStep("health", rewardDetails.healthStateLabel || "Zustand", rewardDetails.healthStateBonus);
+
   if (isInActiveZone) {
     pushPreStreakStep("zone", "Zone", rewardDetails.zoneMultiplier);
   }
@@ -41,7 +59,6 @@ const buildRewardSteps = (rewardDetails, isInActiveZone) => {
   pushPreStreakStep("rarity", "Raritaet", rewardDetails.rarityMultiplier);
   pushPreStreakStep("novelty", "Neuheit", rewardDetails.noveltyMultiplier);
   pushPreStreakStep("care", "Pflege", rewardDetails.careMultiplier);
-  pushPreStreakStep("energy", "Energie", rewardDetails.energyMultiplier);
   pushPreStreakStep("firstScan", "First Scan", rewardDetails.firstScanOfDayMultiplier);
 
   if (preStreakSteps.length > 0) {
@@ -372,7 +389,7 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
                               }`}
                               aria-hidden="true"
                             >
-                              x{formatMultiplier(step.multiplier)}
+                              {step.displayValue || `x${formatMultiplier(step.multiplier)}`}
                             </motion.span>
                           )}
 
@@ -391,7 +408,7 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
                               step.positive ? "text-lime-300" : isActive ? "text-amber-200" : "text-rose-500"
                             }`}
                           >
-                            x{formatMultiplier(step.multiplier)}
+                            {step.displayValue || `x${formatMultiplier(step.multiplier)}`}
                           </motion.span>
                         </div>
                       </motion.div>

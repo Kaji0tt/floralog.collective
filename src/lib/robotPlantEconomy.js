@@ -1,7 +1,7 @@
 import {
   REWARD_FORMULA_CONFIG,
   ROBOT_PLANT_EVENT_SOURCES,
-  ROBOT_PLANT_DATA_QUALITY_RULES,
+  ROBOT_PLANT_HEALTH_STATES,
   ROBOT_PLANT_VALUES,
   ROBOT_PLANT_CARE_RULES,
   ROBOT_PLANT_GAIN_RULES,
@@ -64,7 +64,6 @@ export const computeZoneMultiplierFromScanCount = (scanCountInZoneToday = 0) => 
 };
 
 export const computeZoneMultiplier = ({
-  dataQualityValue,
   isInActiveZone = true,
   scanCountInZoneToday = null,
 }) => {
@@ -76,11 +75,7 @@ export const computeZoneMultiplier = ({
     return computeZoneMultiplierFromScanCount(scanCountInZoneToday);
   }
 
-  return clamp(
-    Number(dataQualityValue ?? REWARD_FORMULA_CONFIG.zoneMultiplier.start),
-    REWARD_FORMULA_CONFIG.zoneMultiplier.min,
-    REWARD_FORMULA_CONFIG.zoneMultiplier.max
-  );
+  return REWARD_FORMULA_CONFIG.zoneMultiplier.start;
 };
 
 export const computeNoveltyMultiplier = (duplicateScanCount = 0) => {
@@ -105,12 +100,51 @@ export const computeCareMultiplier = (careValue = ROBOT_PLANT_VALUES.care.initia
   );
 };
 
-export const computeEnergyMultiplier = (energyValue = ROBOT_PLANT_VALUES.energy.initial) => {
-  return lerpMultiplier(
-    energyValue,
-    REWARD_FORMULA_CONFIG.energyMultiplier.min,
-    REWARD_FORMULA_CONFIG.energyMultiplier.max
+export const computeOverallPlantHealth = ({
+  energyValue = ROBOT_PLANT_VALUES.energy.initial,
+  dataQualityValue = ROBOT_PLANT_VALUES.dataQuality.initial,
+  careValue = ROBOT_PLANT_VALUES.care.initial,
+}) => {
+  const safeEnergy = clamp(Number(energyValue ?? 0), 0, 100);
+  const safeDataQuality = clamp(Number(dataQualityValue ?? 0), 0, 100);
+  const safeCare = clamp(Number(careValue ?? 0), 0, 100);
+
+  if (safeEnergy <= 0 || safeDataQuality <= 0 || safeCare <= 0) {
+    return 0;
+  }
+
+  return roundReward(3 / (1 / safeEnergy + 1 / safeDataQuality + 1 / safeCare));
+};
+
+export const computePlantHealthState = ({
+  overallPlantHealth = null,
+  energyValue = ROBOT_PLANT_VALUES.energy.initial,
+  dataQualityValue = ROBOT_PLANT_VALUES.dataQuality.initial,
+  careValue = ROBOT_PLANT_VALUES.care.initial,
+} = {}) => {
+  const resolvedOverallPlantHealth =
+    overallPlantHealth === null || overallPlantHealth === undefined
+      ? computeOverallPlantHealth({ energyValue, dataQualityValue, careValue })
+      : clamp(Number(overallPlantHealth ?? 0), 0, 100);
+
+  return (
+    ROBOT_PLANT_HEALTH_STATES.find((state) => resolvedOverallPlantHealth >= state.minOverallHealth) ||
+    ROBOT_PLANT_HEALTH_STATES[ROBOT_PLANT_HEALTH_STATES.length - 1]
   );
+};
+
+export const computeHealthStateScanBonus = ({
+  overallPlantHealth = null,
+  energyValue = ROBOT_PLANT_VALUES.energy.initial,
+  dataQualityValue = ROBOT_PLANT_VALUES.dataQuality.initial,
+  careValue = ROBOT_PLANT_VALUES.care.initial,
+} = {}) => {
+  return computePlantHealthState({
+    overallPlantHealth,
+    energyValue,
+    dataQualityValue,
+    careValue,
+  }).scanEventBonus;
 };
 
 export const computeStreakMultiplier = (streakDays = 0) => {
@@ -179,10 +213,10 @@ export const computeScaledZoneRadius = ({ baseRadiusM, energyValue = ROBOT_PLANT
 
 export const computeRobotPlantRewardBreakdown = ({
   eventSource,
-  dataQualityValue = ROBOT_PLANT_VALUES.dataQuality.initial,
   duplicateScanCount = 0,
-  careValue = ROBOT_PLANT_VALUES.care.initial,
   energyValue = ROBOT_PLANT_VALUES.energy.initial,
+  dataQualityValue = ROBOT_PLANT_VALUES.dataQuality.initial,
+  careValue = ROBOT_PLANT_VALUES.care.initial,
   streakDays = 0,
   isInActiveZone = true,
   rarity = null,
@@ -196,11 +230,13 @@ export const computeRobotPlantRewardBreakdown = ({
       isScanReward: false,
       isInActiveZone: false,
       baseReward: 0,
+      adjustedBaseReward: 0,
+      healthStateLabel: computePlantHealthState({ energyValue, dataQualityValue, careValue }).label,
+      healthStateBonus: 0,
       zoneMultiplier: 1,
       rarityMultiplier: 1,
       noveltyMultiplier: 1,
       careMultiplier: 1,
-      energyMultiplier: 1,
       streakMultiplier: 1,
       firstScanOfDayMultiplier: 1,
       preStreakReward: 0,
@@ -220,11 +256,13 @@ export const computeRobotPlantRewardBreakdown = ({
       isScanReward: false,
       isInActiveZone: false,
       baseReward,
+      adjustedBaseReward: reward,
+      healthStateLabel: computePlantHealthState({ energyValue, dataQualityValue, careValue }).label,
+      healthStateBonus: 0,
       zoneMultiplier: 1,
       rarityMultiplier: 1,
       noveltyMultiplier: 1,
       careMultiplier: 1,
-      energyMultiplier: 1,
       streakMultiplier: 1,
       firstScanOfDayMultiplier: 1,
       preStreakReward: reward,
@@ -232,16 +270,18 @@ export const computeRobotPlantRewardBreakdown = ({
     };
   }
 
-  const zoneMultiplier = computeZoneMultiplier({ dataQualityValue, isInActiveZone });
+  const zoneMultiplier = computeZoneMultiplier({ isInActiveZone });
   const rarityMultiplier = computeRarityMultiplier(rarity);
   const noveltyMultiplier = computeNoveltyMultiplier(duplicateScanCount);
   const careMultiplier = computeCareMultiplier(careValue);
-  const energyMultiplier = computeEnergyMultiplier(energyValue);
+  const healthState = computePlantHealthState({ energyValue, dataQualityValue, careValue });
+  const healthStateBonus = healthState.scanEventBonus;
+  const adjustedBaseReward = baseReward + healthStateBonus;
   const streakMultiplier = computeStreakMultiplier(streakDays);
   const firstScanOfDayMultiplier = computeFirstScanOfDayMultiplier(isFirstScanOfDay);
 
   const rawPreStreakReward =
-    baseReward * zoneMultiplier * rarityMultiplier * noveltyMultiplier * careMultiplier * energyMultiplier * firstScanOfDayMultiplier;
+    adjustedBaseReward * zoneMultiplier * rarityMultiplier * noveltyMultiplier * careMultiplier * firstScanOfDayMultiplier;
   const preStreakReward = clamp(
     roundReward(rawPreStreakReward),
     REWARD_FORMULA_CONFIG.absoluteMinReward,
@@ -254,11 +294,13 @@ export const computeRobotPlantRewardBreakdown = ({
     isScanReward: true,
     isInActiveZone,
     baseReward,
+    adjustedBaseReward,
+    healthStateLabel: healthState.label,
+    healthStateBonus,
     zoneMultiplier: roundMultiplier(zoneMultiplier),
     rarityMultiplier,
     noveltyMultiplier: roundMultiplier(noveltyMultiplier),
     careMultiplier: roundMultiplier(careMultiplier),
-    energyMultiplier: roundMultiplier(energyMultiplier),
     streakMultiplier: roundMultiplier(streakMultiplier),
     firstScanOfDayMultiplier: roundMultiplier(firstScanOfDayMultiplier),
     preStreakReward,
@@ -268,20 +310,20 @@ export const computeRobotPlantRewardBreakdown = ({
 
 export const computeRobotPlantReward = ({
   eventSource,
-  dataQualityValue = ROBOT_PLANT_VALUES.dataQuality.initial,
   duplicateScanCount = 0,
-  careValue = ROBOT_PLANT_VALUES.care.initial,
   energyValue = ROBOT_PLANT_VALUES.energy.initial,
+  dataQualityValue = ROBOT_PLANT_VALUES.dataQuality.initial,
+  careValue = ROBOT_PLANT_VALUES.care.initial,
   streakDays = 0,
   isInActiveZone = true,
   rarity = null,
 }) => {
   return computeRobotPlantRewardBreakdown({
     eventSource,
-    dataQualityValue,
     duplicateScanCount,
-    careValue,
     energyValue,
+    dataQualityValue,
+    careValue,
     streakDays,
     isInActiveZone,
     rarity,
@@ -311,34 +353,6 @@ export const buildDecayDelta = ({ hoursSinceLastDecay = 24, decayReduction = 0 }
   });
 
   return delta;
-};
-
-export const computeDataQualityDeltaFromZoneDiversity = ({
-  hasVisitedZoneToday,
-  hasVisitedThemeToday,
-  distinctThemeCountToday,
-  accumulatedDailyDataQualityDelta = 0,
-}) => {
-  const rules = ROBOT_PLANT_DATA_QUALITY_RULES;
-
-  let delta = 0;
-
-  delta += hasVisitedZoneToday ? rules.repeatedZoneDelta : rules.newZoneDelta;
-  delta += hasVisitedThemeToday ? rules.repeatedThemeDelta : rules.newThemeDelta;
-
-  if (
-    !hasVisitedThemeToday &&
-    distinctThemeCountToday + 1 >= rules.distinctThemesForVarietyBonus
-  ) {
-    delta += rules.varietyBonusDelta;
-  }
-
-  const remainingBudget = Math.max(
-    0,
-    rules.maxDailyDataQualityFromZones - accumulatedDailyDataQualityDelta
-  );
-
-  return clamp(delta, 0, remainingBudget);
 };
 
 export const applyGainBoostToDelta = (deltaValue = 0, careValue = ROBOT_PLANT_VALUES.care.initial) => {

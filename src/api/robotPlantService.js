@@ -59,9 +59,9 @@ export const estimateRewardForEvent = ({
   eventSource = ROBOT_PLANT_EVENT_SOURCES.scan,
   duplicateScanCount,
   streakDays,
+  energyValue,
   dataQualityValue,
   careValue,
-  energyValue,
   isInActiveZone,
   rarity,
 }) => {
@@ -69,9 +69,9 @@ export const estimateRewardForEvent = ({
     eventSource,
     duplicateScanCount,
     streakDays,
+    energyValue,
     dataQualityValue,
     careValue,
-    energyValue,
     isInActiveZone,
     rarity,
   });
@@ -91,10 +91,10 @@ export const getScanRewardDetails = async ({
     duplicateScanCount,
     isInActiveZone,
     rarity,
-    dataQualityValue: robotPlantState?.dataQuality,
-    careValue: robotPlantState?.care,
     energyValue: robotPlantState?.energy,
-    streakDays: robotPlantState?.streakDays,
+    dataQualityValue: robotPlantState?.dataQuality ?? robotPlantState?.data_quality,
+    careValue: robotPlantState?.care,
+    streakDays: robotPlantState?.streakDays ?? robotPlantState?.streak_days,
   });
 };
 

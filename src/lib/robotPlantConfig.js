@@ -6,7 +6,6 @@ export const ROBOT_PLANT_VALUES = {
     max: 100,
     initial: 70,
     decayPerDay: 5,
-    inactivityExtraDecayPerDay: 8,
     warningThreshold: 35,
     criticalThreshold: 20,
   },
@@ -31,6 +30,39 @@ export const ROBOT_PLANT_VALUES = {
     criticalThreshold: 16,
   },
 };
+
+export const ROBOT_PLANT_HEALTH_STATES = Object.freeze([
+  {
+    minOverallHealth: 90,
+    label: "Kraeftig",
+    color: "#166534",
+    scanEventBonus: 50,
+  },
+  {
+    minOverallHealth: 70,
+    label: "Vital",
+    color: "#22c55e",
+    scanEventBonus: 30,
+  },
+  {
+    minOverallHealth: 45,
+    label: "Stabil",
+    color: "#e6d111",
+    scanEventBonus: 15,
+  },
+  {
+    minOverallHealth: 25,
+    label: "Schwach",
+    color: "#f97316",
+    scanEventBonus: 5,
+  },
+  {
+    minOverallHealth: 0,
+    label: "Kritisch",
+    color: "#dc2626",
+    scanEventBonus: 0,
+  },
+]);
 
 export const ROBOT_PLANT_EVENT_SOURCES = Object.freeze({
   scan: "scan",
@@ -90,11 +122,6 @@ export const REWARD_FORMULA_CONFIG = Object.freeze({
   careMultiplier: {
     min: 0.5,
     max: 1.5,
-    default: 1,
-  },
-  energyMultiplier: {
-    min: 1,
-    max: 2,
     default: 1,
   },
   firstScanOfDayMultiplier: {
@@ -178,17 +205,6 @@ export const ROBOT_PLANT_GEO_ZONE_CONFIG = Object.freeze({
     water: 0.2,
     meadow: 0.2,
   },
-});
-
-export const ROBOT_PLANT_DATA_QUALITY_RULES = Object.freeze({
-  newThemeDelta: 4,
-  newZoneDelta: 2,
-  repeatedThemeDelta: 0,
-  repeatedZoneDelta: 0,
-  distinctThemesForVarietyBonus: 3,
-  varietyBonusDelta: 3,
-  maxDailyDataQualityFromZones: 16,
-  dataQualityOnlyInActiveZone: true,
 });
 
 export const ROBOT_PLANT_CARE_RULES = Object.freeze({

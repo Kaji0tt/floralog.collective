@@ -17,8 +17,9 @@ import { getNameFontSize } from "@/lib/utils";
 import { getCachedLocation } from "@/lib/locationSync";
 import {
   computeCareMultiplier,
-  computeEnergyMultiplier,
   computeFirstScanOfDayMultiplier,
+  computeOverallPlantHealth,
+  computePlantHealthState,
 } from "@/lib/robotPlantEconomy";
 import { Button } from "@/components/ui/button";
 import { updateQuestProgress } from "@/components/utils/questProgress";
@@ -48,7 +49,7 @@ const THEME_MAP_META = {
 const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "";
 
 const HEALTH_TOOLTIP_TEXT = {
-  energy: "Energie beeinflusst deine Zonenanzahl direkt und skaliert die Zonengroesse.",
+  energy: "Energie bestimmt Zonenanzahl, taegliche Rerolls, Zonengroesse und den taeglichen Energiegewinn aus gelaufener Scan-Distanz.",
   "data-quality": "Datenqualitaet steigt nur bei Scans innerhalb einer aktiven Zone.",
   care: "Pflege wirkt direkt als Multiplikator (0.5 bis 1.5). Ab 90% boosten Gains doppelt.",
 };
@@ -1114,22 +1115,19 @@ export default function Home() {
   const safeDataQuality = Math.max(0, Math.min(100, dataQualityValue));
   const safeCare = Math.max(0, Math.min(100, careValue));
 
-  const overallPlantHealth =
-    safeEnergy <= 0 || safeDataQuality <= 0 || safeCare <= 0
-      ? 0
-      : Math.round(
-          3 /
-            (1 / safeEnergy + 1 / safeDataQuality + 1 / safeCare)
-        );
+  const overallPlantHealth = computeOverallPlantHealth({
+    energyValue: safeEnergy,
+    dataQualityValue: safeDataQuality,
+    careValue: safeCare,
+  });
 
-  const plantHealthState =
-    overallPlantHealth < 25
-      ? { label: "Kritisch", color: "#dc2626" }
-      : overallPlantHealth < 45
-        ? { label: "Schwach", color: "#f97316" }
-        : overallPlantHealth < 70
-          ? { label: "Stabil", color: "#f59e0b" }
-          : { label: "Vital", color: "#22c55e" };
+  const plantHealthState = computePlantHealthState({
+    overallPlantHealth,
+    energyValue: safeEnergy,
+    dataQualityValue: safeDataQuality,
+    careValue: safeCare,
+  });
+  const healthStateBonus = Number(plantHealthState?.scanEventBonus ?? 0);
 
   const currentZoneColor = activeZone
     ? THEME_MAP_COLORS[activeZone.theme] || "#84cc16"
@@ -1166,7 +1164,6 @@ export default function Home() {
     : 1.5;
 
   const careMultiplier = computeCareMultiplier(safeCare);
-  const energyMultiplier = computeEnergyMultiplier(safeEnergy);
 
   const hasScanToday = userDiscoveries.some((discovery) => {
     const rawDate = discovery?.created_date || discovery?.discovered_date || discovery?.updated_date;
@@ -1182,7 +1179,7 @@ export default function Home() {
   });
   const dailyBonusMultiplier = computeFirstScanOfDayMultiplier(!hasScanToday);
   const knownNextScanMultiplier =
-    streakMultiplier * zoneMultiplier * careMultiplier * energyMultiplier * dailyBonusMultiplier;
+    streakMultiplier * zoneMultiplier * careMultiplier * dailyBonusMultiplier;
   const noveltyMinMultiplier = 0.2;
   const noveltyMaxMultiplier = 1;
   const rarityMinMultiplier = 1;
@@ -1191,6 +1188,8 @@ export default function Home() {
     knownNextScanMultiplier * noveltyMinMultiplier * rarityMinMultiplier;
   const nextScanMaxMultiplier =
     knownNextScanMultiplier * noveltyMaxMultiplier * rarityMaxMultiplier;
+  const nextScanMinReward = Math.round((10 + healthStateBonus) * nextScanMinMultiplier);
+  const nextScanMaxReward = Math.round((50 + healthStateBonus) * nextScanMaxMultiplier);
 
   const formatMultiplier = (value) => {
     const safeValue = Number.isFinite(value) ? value : 1;
@@ -1664,6 +1663,14 @@ export default function Home() {
                             className="absolute inset-0 px-0 pt-[5.5rem] md:pt-[5.8rem] flex flex-col justify-start"
                           >
                             <div className="space-y-2.5 w-full">
+                              <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-[11px] md:text-xs text-stone-100/90">
+                                <div className="font-semibold uppercase tracking-wide text-stone-50">
+                                  {plantHealthState.label}
+                                </div>
+                                <div className="text-stone-200/80">
+                                  Gesundheitsbonus auf Scan-Events: <strong>+{healthStateBonus}</strong>
+                                </div>
+                              </div>
                               {healthStats.map((stat) => (
                                 <div key={stat.id} className="space-y-1">
                                   <div className="flex items-center justify-between text-[11px] md:text-xs text-stone-100/90">
@@ -1800,13 +1807,26 @@ export default function Home() {
                             <div className="rounded-lg border border-amber-600/30 bg-black/20 p-2.5 text-xs space-y-1.5">
                               <div className="text-amber-300 font-semibold">Aktuell bekannter Faktor für den nächsten Scan</div>
                               <div className="text-amber-50/90">
-                                {formatMultiplier(streakMultiplier)} × {formatMultiplier(zoneMultiplier)} × {formatMultiplier(careMultiplier)} × {formatMultiplier(energyMultiplier)} × {formatMultiplier(dailyBonusMultiplier)} = <strong>{formatMultiplier(knownNextScanMultiplier)}</strong>
+                                Zustand <strong>{plantHealthState.label}</strong> gibt aktuell <strong>+{healthStateBonus}</strong> auf alle Scan-Events.
+                              </div>
+                              <div className="text-amber-50/90">
+                                {formatMultiplier(streakMultiplier)} × {formatMultiplier(zoneMultiplier)} × {formatMultiplier(careMultiplier)} × {formatMultiplier(dailyBonusMultiplier)} = <strong>{formatMultiplier(knownNextScanMultiplier)}</strong>
                               </div>
                               <div className="text-amber-50/70">
                                 Mit scanabhängigen Faktoren (Neuheit + Rarität) ergibt sich ein möglicher Bereich von <strong>{formatMultiplier(nextScanMinMultiplier)}</strong> bis <strong>{formatMultiplier(nextScanMaxMultiplier)}</strong>.
                               </div>
+                              <div className="text-amber-50/70">
+                                Das entspricht aktuell grob <strong>{nextScanMinReward}</strong> bis <strong>{nextScanMaxReward}</strong> Seeds, je nach Scan-Typ und scanabhängigen Faktoren.
+                              </div>
+                              <div className="text-amber-50/60">
+                                Energie gehoert nicht zur Reward-Formel. Sie steuert Zonenanzahl, Rerolls, Zonengroesse und taegliche Energie-Gains.
+                              </div>
                             </div>
                             <div className="space-y-2.5 text-xs">
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-amber-300 font-semibold">🌿 Zustand: <strong>{plantHealthState.label}</strong> (+{healthStateBonus})</span>
+                                <span className="text-amber-50/70">Kritisch +0, Schwach +5, Stabil +15, Vital +30, Kraeftig +50</span>
+                              </div>
                               <div className="flex flex-col gap-0.5">
                                 <span className="text-amber-300 font-semibold">🔥 Streak: <strong>{formatMultiplier(streakMultiplier)}</strong></span>
                                 <span className="text-amber-50/70">Basierend auf deiner Scan-Serie (1-7x)</span>
@@ -1818,10 +1838,6 @@ export default function Home() {
                               <div className="flex flex-col gap-0.5">
                                 <span className="text-amber-300 font-semibold">💚 Pflege:<strong>{formatMultiplier(careMultiplier)}</strong></span>
                                 <span className="text-amber-50/70">0.5-1.5x - Direkter Einfluss aus dem Care-Wert</span>
-                              </div>
-                              <div className="flex flex-col gap-0.5">
-                                <span className="text-amber-300 font-semibold">⚡ Energie:<strong>{formatMultiplier(energyMultiplier)}</strong></span>
-                                <span className="text-amber-50/70">1-2x - Energie skaliert direkt den Reward</span>
                               </div>
                               <div className="flex flex-col gap-0.5">
                                 <span className="text-amber-300 font-semibold">🌅 Tagesbonus:<strong>{formatMultiplier(dailyBonusMultiplier)}</strong></span>

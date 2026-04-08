@@ -6,9 +6,9 @@ This document defines the v1 gameplay contract for the Robot Plant core loop.
 
 The robot plant uses three user-maintained values in range 0..100:
 
-- energy: Operational capacity. Falls over time and stronger during inactivity. Increases by regular scans and quest completions (user, weekly, monthly). Acts as a meta multiplier for rewards and the effectiveness of Data Quality and Care bonuses.
-- dataQuality: Signal quality and diversity. Increases via new species/genus, rare finds, and scans across different zones in the same day. Decreases from repetitive scanning patterns (same plant, same coordinates, same zone).
-- care: Maintenance state of shell/control loop. Falls without care interactions (watering/fertilizing). Increases by care-item actions, sharing scans, weekly challenge participation, and likes received on weekly challenge posts.
+- energy: Operational capacity. Falls over time. It controls daily zone count, zone rerolls, and zone size scaling. It also grows from scan movement distance with a daily cap.
+- dataQuality: Scan quality state. It increases only through scans inside an active zone, using the current zone multiplier as gain value. Outside active zones it does not increase. It currently decays only through daily value decay.
+- care: Maintenance state of shell/control loop. Falls without care interactions (watering/fertilizing). Increases by care-item actions (watering/fertilizing). Also recieved increases by likes on shared scans.
 
 Default state:
 
@@ -42,17 +42,26 @@ Canonical event sources used by backend and frontend:
 
 Reward seeds for scan events are calculated as:
 
-reward = base(scanType) * zoneMultiplier * noveltyMultiplier * careMultiplier * energyMultiplier * streakMultiplier
+reward = (base(scanType) + healthStateBonus) * zoneMultiplier * noveltyMultiplier * careMultiplier * firstScanOfDayMultiplier * streakMultiplier
 
 Rules:
 
 - Multipliers are only applied to scan, new_scan, and new_global_scan.
 - zoneMultiplier only applies while the user is inside an active zone.
-- zoneMultiplier is derived from RobotPlant.dataQuality.
+- zoneMultiplier starts at 1.5 for a fresh zone and drops by 0.2 for each further scan in the same zone on the same day, with a floor at 0.5.
 - noveltyMultiplier drops by 0.2 for each prior scan of the same plant and floors at 0.2.
 - careMultiplier is derived from RobotPlant.care.
-- energyMultiplier is derived from RobotPlant.energy and never drops below 1.0.
+- healthStateBonus is derived from the overall robot plant health state.
+- firstScanOfDayMultiplier is x2 only for the first scan of the day, otherwise x1.
 - streakMultiplier is applied last, is capped at x7, and bypasses absoluteMaxReward.
+
+Health states and additive scan bonuses:
+
+- Kritisch: +0
+- Schwach: +5
+- Stabil: +15
+- Vital: +30
+- Kraeftig (ab 90 Gesamtgesundheit): +50
 
 ## Wallet Ledger (What it means)
 
@@ -67,19 +76,19 @@ Phase 2 implementation uses a server-side RPC and Edge Function for payout execu
 
 Formula constraints:
 
-- zoneMultiplier: 1.0..1.75
+- zoneMultiplier: 0.5..1.5
 - noveltyMultiplier: 0.2..1.0
-- careMultiplier: 1.0..2.0
-- energyMultiplier: 1.0..2.0
+- careMultiplier: 0.5..1.5
 - absolute min reward (for positive-base events): 1
 - absolute max reward before streak: 350
 - streakMultiplier: 1.0..7.0
 - rarityMultiplier: 1.0..3.0
+- firstScanOfDayMultiplier: 1.0..2.0
 
 Current base values:
 
 - scan: 10
-- new_scan: 20
+- new_scan: 30
 - new_global_scan: 50
 - user_quest_completion: 22
 - weekly_quest_completion: 30
@@ -102,11 +111,11 @@ Reward presentation after successful scans:
 
 Daily decay defaults:
 
-- energy: 5 per day (+ inactivity extra decay)
-- dataQuality: 3 per day (with stronger behavior-based penalties for repetitive scanning)
-- care: 8 per day (if no watering/fertilizing maintenance)
+- energy: 5 per day
+- dataQuality: 5 per day
+- care: 5 per day
 
-Decay is reduced by active anti-decay effects from shop items.
+Decay is reduced by care thresholds and temporary fertilizer effects.
 
 ## Shop Effects (initial)
 

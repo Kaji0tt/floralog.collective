@@ -52,11 +52,13 @@ type RewardBreakdown = {
   isScanReward: boolean;
   isInActiveZone: boolean;
   baseReward: number;
+  adjustedBaseReward: number;
+  healthStateLabel: string;
+  healthStateBonus: number;
   zoneMultiplier: number;
   rarityMultiplier: number;
   noveltyMultiplier: number;
   careMultiplier: number;
-  energyMultiplier: number;
   streakMultiplier: number;
   firstScanOfDayMultiplier: number;
   preStreakReward: number;
@@ -87,11 +89,18 @@ const REWARD_FORMULA_CONFIG = {
   noveltyMultiplier: { min: 0.2, max: 1, decrementPerDuplicateScan: 0.2 },
   streakMultiplier: { min: 1, max: 7 },
   careMultiplier: { min: 0.5, max: 1.5 },
-  energyMultiplier: { min: 1, max: 2 },
   firstScanOfDayMultiplier: { min: 1, max: 2, default: 1 },
   absoluteMinReward: 1,
   absoluteMaxReward: 350,
 };
+
+const ROBOT_PLANT_HEALTH_STATES = [
+  { minOverallHealth: 90, label: "Kraeftig", scanEventBonus: 50 },
+  { minOverallHealth: 70, label: "Vital", scanEventBonus: 30 },
+  { minOverallHealth: 45, label: "Stabil", scanEventBonus: 15 },
+  { minOverallHealth: 25, label: "Schwach", scanEventBonus: 5 },
+  { minOverallHealth: 0, label: "Kritisch", scanEventBonus: 0 },
+] as const;
 
 const ENERGY_GAIN_CONFIG = {
   metersPerPoint: 100,
@@ -149,6 +158,42 @@ const lerpMultiplier = (value: number, min: number, max: number): number => {
 const computeCareMultiplier = (careValue: number): number => {
   const safeCare = clamp(Number(careValue ?? 0), 0, 100);
   return clamp(0.5 + safeCare / 100, REWARD_FORMULA_CONFIG.careMultiplier.min, REWARD_FORMULA_CONFIG.careMultiplier.max);
+};
+
+const computeOverallPlantHealth = ({
+  energyValue,
+  dataQualityValue,
+  careValue,
+}: {
+  energyValue: number;
+  dataQualityValue: number;
+  careValue: number;
+}): number => {
+  const safeEnergy = clamp(Number(energyValue ?? 0), 0, 100);
+  const safeDataQuality = clamp(Number(dataQualityValue ?? 0), 0, 100);
+  const safeCare = clamp(Number(careValue ?? 0), 0, 100);
+
+  if (safeEnergy <= 0 || safeDataQuality <= 0 || safeCare <= 0) {
+    return 0;
+  }
+
+  return Math.round(3 / (1 / safeEnergy + 1 / safeDataQuality + 1 / safeCare));
+};
+
+const computePlantHealthState = ({
+  energyValue,
+  dataQualityValue,
+  careValue,
+}: {
+  energyValue: number;
+  dataQualityValue: number;
+  careValue: number;
+}) => {
+  const overallPlantHealth = computeOverallPlantHealth({ energyValue, dataQualityValue, careValue });
+  return (
+    ROBOT_PLANT_HEALTH_STATES.find((state) => overallPlantHealth >= state.minOverallHealth) ??
+    ROBOT_PLANT_HEALTH_STATES[ROBOT_PLANT_HEALTH_STATES.length - 1]
+  );
 };
 
 const computeZoneMultiplierFromScanCount = (scanCountInZoneToday: number): number => {
@@ -212,8 +257,9 @@ const getDistanceBetweenCoordinatesM = (
 const computeScanRewardBreakdown = ({
   eventSource,
   duplicateScanCount,
-  careValue,
   energyValue,
+  dataQualityValue,
+  careValue,
   streakDays,
   isInActiveZone,
   rarity,
@@ -222,8 +268,9 @@ const computeScanRewardBreakdown = ({
 }: {
   eventSource: string;
   duplicateScanCount: number;
-  careValue: number;
   energyValue: number;
+  dataQualityValue: number;
+  careValue: number;
   streakDays: number;
   isInActiveZone: boolean;
   rarity: string | null;
@@ -231,6 +278,11 @@ const computeScanRewardBreakdown = ({
   zoneMultiplier: number;
 }): RewardBreakdown => {
   const baseReward = REWARD_FORMULA_CONFIG.baseByEvent[eventSource as keyof typeof REWARD_FORMULA_CONFIG.baseByEvent] ?? 0;
+  const healthState = computePlantHealthState({
+    energyValue,
+    dataQualityValue,
+    careValue,
+  });
   const effectiveZoneMultiplier = isInActiveZone
     ? clamp(zoneMultiplier, REWARD_FORMULA_CONFIG.zoneMultiplier.min, REWARD_FORMULA_CONFIG.zoneMultiplier.max)
     : REWARD_FORMULA_CONFIG.zoneMultiplier.default;
@@ -244,11 +296,8 @@ const computeScanRewardBreakdown = ({
     REWARD_FORMULA_CONFIG.noveltyMultiplier.max,
   );
   const careMultiplier = computeCareMultiplier(careValue);
-  const energyMultiplier = lerpMultiplier(
-    energyValue,
-    REWARD_FORMULA_CONFIG.energyMultiplier.min,
-    REWARD_FORMULA_CONFIG.energyMultiplier.max,
-  );
+  const healthStateBonus = healthState.scanEventBonus;
+  const adjustedBaseReward = baseReward + healthStateBonus;
   const streakMultiplier = clamp(
     streakDays <= 1 ? 1 : streakDays,
     REWARD_FORMULA_CONFIG.streakMultiplier.min,
@@ -259,7 +308,7 @@ const computeScanRewardBreakdown = ({
     : REWARD_FORMULA_CONFIG.firstScanOfDayMultiplier.default;
 
   const rawPreStreak =
-    baseReward * effectiveZoneMultiplier * rarityMultiplier * noveltyMultiplier * careMultiplier * energyMultiplier * firstScanOfDayMultiplier;
+    adjustedBaseReward * effectiveZoneMultiplier * rarityMultiplier * noveltyMultiplier * careMultiplier * firstScanOfDayMultiplier;
   const preStreakReward = clamp(
     Math.round(rawPreStreak),
     REWARD_FORMULA_CONFIG.absoluteMinReward,
@@ -272,11 +321,13 @@ const computeScanRewardBreakdown = ({
     isScanReward: true,
     isInActiveZone,
     baseReward,
+    adjustedBaseReward,
+    healthStateLabel: healthState.label,
+    healthStateBonus,
     zoneMultiplier: roundMultiplier(effectiveZoneMultiplier),
     rarityMultiplier,
     noveltyMultiplier: roundMultiplier(noveltyMultiplier),
     careMultiplier: roundMultiplier(careMultiplier),
-    energyMultiplier: roundMultiplier(energyMultiplier),
     streakMultiplier: roundMultiplier(streakMultiplier),
     firstScanOfDayMultiplier: roundMultiplier(firstScanOfDayMultiplier),
     preStreakReward,
@@ -428,6 +479,8 @@ async function tryResolveScanRewardContext(
   const isFirstScanOfDay = Number(todayScanCount ?? 0) <= 1;
 
   const careValue = Number(robotPlantState?.care ?? ROBOT_PLANT_DEFAULT_STATE.care);
+  const energyValue = Number(robotPlantState?.energy ?? ROBOT_PLANT_DEFAULT_STATE.energy);
+  const dataQualityValue = Number(robotPlantState?.data_quality ?? ROBOT_PLANT_DEFAULT_STATE.data_quality);
   const gainBoost = computeGainBoostFromCare(careValue);
 
   let derivedEnergyDelta = 0;
@@ -469,8 +522,9 @@ async function tryResolveScanRewardContext(
   const rewardDetails = computeScanRewardBreakdown({
     eventSource,
     duplicateScanCount,
+    energyValue,
+    dataQualityValue,
     careValue,
-    energyValue: Number(robotPlantState?.energy ?? ROBOT_PLANT_DEFAULT_STATE.energy),
     streakDays: Number(robotPlantState?.streak_days ?? ROBOT_PLANT_DEFAULT_STATE.streak_days),
     isInActiveZone,
     rarity: plant.rarity,
