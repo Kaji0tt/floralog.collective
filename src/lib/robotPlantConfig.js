@@ -5,7 +5,7 @@ export const ROBOT_PLANT_VALUES = {
     min: 0,
     max: 100,
     initial: 70,
-    decayPerDay: 6,
+    decayPerDay: 5,
     inactivityExtraDecayPerDay: 8,
     warningThreshold: 35,
     criticalThreshold: 20,
@@ -16,7 +16,7 @@ export const ROBOT_PLANT_VALUES = {
     min: 0,
     max: 100,
     initial: 65,
-    decayPerDay: 4,
+    decayPerDay: 5,
     warningThreshold: 32,
     criticalThreshold: 18,
   },
@@ -26,7 +26,7 @@ export const ROBOT_PLANT_VALUES = {
     min: 0,
     max: 100,
     initial: 72,
-    decayPerDay: 7,
+    decayPerDay: 5,
     warningThreshold: 30,
     criticalThreshold: 16,
   },
@@ -53,7 +53,7 @@ export const ROBOT_PLANT_EVENT_SOURCES = Object.freeze({
 export const REWARD_FORMULA_CONFIG = Object.freeze({
   baseByEvent: {
     [ROBOT_PLANT_EVENT_SOURCES.scan]: 10,
-    [ROBOT_PLANT_EVENT_SOURCES.newScan]: 20,
+    [ROBOT_PLANT_EVENT_SOURCES.newScan]: 30,
     [ROBOT_PLANT_EVENT_SOURCES.newGlobalScan]: 50,
     [ROBOT_PLANT_EVENT_SOURCES.userQuestCompletion]: 22,
     [ROBOT_PLANT_EVENT_SOURCES.weeklyQuestCompletion]: 30,
@@ -69,9 +69,11 @@ export const REWARD_FORMULA_CONFIG = Object.freeze({
     [ROBOT_PLANT_EVENT_SOURCES.shopBoost]: 0,
   },
   zoneMultiplier: {
-    min: 1,
-    max: 1.75,
+    min: 0.5,
+    max: 1.5,
     default: 1,
+    start: 1.5,
+    decrementPerAdditionalScan: 0.2,
   },
   noveltyMultiplier: {
     min: 0.2,
@@ -86,8 +88,8 @@ export const REWARD_FORMULA_CONFIG = Object.freeze({
     capDays: 7,
   },
   careMultiplier: {
-    min: 1,
-    max: 2,
+    min: 0.5,
+    max: 1.5,
     default: 1,
   },
   energyMultiplier: {
@@ -97,7 +99,7 @@ export const REWARD_FORMULA_CONFIG = Object.freeze({
   },
   firstScanOfDayMultiplier: {
     min: 1,
-    max: 1.5,
+    max: 2,
     default: 1,
   },
   absoluteMinReward: 1,
@@ -107,24 +109,35 @@ export const REWARD_FORMULA_CONFIG = Object.freeze({
 export const ROBOT_PLANT_GEO_ZONE_CONFIG = Object.freeze({
   // Basic Zone Parameters
   enabled: true,
-  dailyZoneCountMin: 3,
-  dailyZoneCountMax: 5,
+  dailyZoneCountMin: 0,
+  dailyZoneCountMax: 8,
   searchRadiusM: 2500,
   themes: ["forest", "urban", "water", "meadow"],
   
-  // Zone Size (applies to non-polygon fallback)
-  zoneRadiusMinM: 180,
-  zoneRadiusMaxM: 320,
-  
-  // Polygon-specific (new in Phase 3.2)
-  usePolygonGeometry: true,
-  polygonBufferM: 50, // Buffer around source OSM polygon
-  themeSpecificRadii: {
-    forest: { minM: 100, maxM: 180 },
-    water: { minM: 60, maxM: 120 },
-    urban: { minM: 90, maxM: 160 },
-    meadow: { minM: 80, maxM: 140 },
-  },
+  // Zone Size (circle-based zones)
+  zoneRadiusMinM: 50,
+  zoneRadiusMaxM: 500,
+  zoneBaseMultiplier: 1.5,
+  zoneMultiplierFloor: 0.5,
+  zoneMultiplierStepDownPerAdditionalScan: 0.2,
+
+  // Energy based zone budget
+  zoneCountByEnergyBand: [
+    { min: 0, max: 9, zoneCount: 0 },
+    { min: 10, max: 19, zoneCount: 1 },
+    { min: 20, max: 29, zoneCount: 2 },
+    { min: 30, max: 39, zoneCount: 3 },
+    { min: 40, max: 49, zoneCount: 4 },
+    { min: 50, max: 59, zoneCount: 5 },
+    { min: 60, max: 69, zoneCount: 6 },
+    { min: 70, max: 79, zoneCount: 7 },
+    { min: 80, max: 100, zoneCount: 8 },
+  ],
+  rerollsByEnergyBand: [
+    { min: 80, max: 89, rerolls: 1 },
+    { min: 90, max: 99, rerolls: 3 },
+    { min: 100, max: 100, rerolls: 5 },
+  ],
   
   // OSM Query Parameters
   classificationRadiusM: 120, // Reduced from 400 for tighter matching
@@ -142,7 +155,6 @@ export const ROBOT_PLANT_GEO_ZONE_CONFIG = Object.freeze({
   candidateAttempts: 10,
   sourceFeaturesPerThemeMin: 1,
   sourceFeaturesPerThemeMax: 2,
-  minimumPolygonAreaM2: 500, // Skip very tiny features
   confidenceMin: 0.6,
   
   // Theme Weighting
@@ -176,6 +188,27 @@ export const ROBOT_PLANT_DATA_QUALITY_RULES = Object.freeze({
   distinctThemesForVarietyBonus: 3,
   varietyBonusDelta: 3,
   maxDailyDataQualityFromZones: 16,
+  dataQualityOnlyInActiveZone: true,
+});
+
+export const ROBOT_PLANT_CARE_RULES = Object.freeze({
+  gainBoostThreshold: 90,
+  gainBoostMultiplier: 2,
+  decayReductionByCareThreshold: [
+    { min: 100, reduction: 0.8 },
+    { min: 90, reduction: 0.5 },
+    { min: 80, reduction: 0.25 },
+  ],
+});
+
+export const ROBOT_PLANT_GAIN_RULES = Object.freeze({
+  energy: {
+    metersPerPoint: 100,
+    maxPerDay: 15,
+  },
+  care: {
+    wateringByRepeatIndex: [3, 2, 1],
+  },
 });
 
 export const ROBOT_PLANT_SHOP_EFFECTS = Object.freeze({

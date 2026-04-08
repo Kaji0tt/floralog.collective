@@ -21,7 +21,7 @@ import {
 } from "@/lib/locationSync";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { MapContainer, TileLayer, Marker, Popup, Circle, CircleMarker, useMap, GeoJSON } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Circle, CircleMarker, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import MobileBackButton from "../components/navigation/MobileBackButton";
@@ -1430,34 +1430,7 @@ export default function Quests() {
                       .map((zone) => {
                       const color = THEME_MAP_COLORS[zone.theme] || "#718096";
                       const zoneLabel = `${zone.title || zone.theme} • x${Number(zone.bonusMultiplier || 1).toFixed(2)}`;
-                      
-                      // Phase 3.2: Support für GeoJSON-Geometrie wenn vorhanden
-                      if (zone.geometry) {
-                        try {
-                          const geojson = typeof zone.geometry === 'string' ? JSON.parse(zone.geometry) : zone.geometry;
-                          return (
-                            <GeoJSON
-                              key={zone.id || zone.zoneKey}
-                              data={geojson}
-                              style={{
-                                color,
-                                fillColor: color,
-                                fillOpacity: 0.2,
-                                weight: 2,
-                              }}
-                              onEachFeature={(feature, layer) => {
-                                layer.bindPopup(
-                                  `<div class="text-sm"><p class="font-bold">${zoneLabel}</p><p class="text-stone-600">Theme: ${zone.theme}</p></div>`
-                                );
-                              }}
-                            />
-                          );
-                        } catch (_err) {
-                          // Fallback auf Circle bei GeoJSON-Fehler
-                        }
-                      }
-                      
-                      // Fallback: Circle (klassisch)
+
                       return (
                         <Circle
                           key={zone.id || zone.zoneKey}

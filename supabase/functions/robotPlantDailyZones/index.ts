@@ -234,27 +234,70 @@ function pickThemeByWeightedProbability(
   return validThemes[validThemes.length - 1];
 }
 
+const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
+
+const computeZoneCountFromEnergy = (energyValue: number): number => {
+  const safeEnergy = clamp(Number(energyValue ?? 0), 0, 100);
+  if (safeEnergy < 10) return 0;
+  return Math.min(8, Math.floor(safeEnergy / 10));
+};
+
+const computeZoneRerollsFromEnergy = (energyValue: number): number => {
+  const safeEnergy = clamp(Number(energyValue ?? 0), 0, 100);
+  if (safeEnergy >= 100) return 5;
+  if (safeEnergy >= 90) return 3;
+  if (safeEnergy >= 80) return 1;
+  return 0;
+};
+
+const pickZoneRadius = (energyValue: number, rng: () => number): number => {
+  const baseMin = 50;
+  const baseMax = 500;
+  const safeEnergy = clamp(Number(energyValue ?? 0), 0, 100);
+  const base = baseMin + Math.round(rng() * (baseMax - baseMin));
+  return Math.round(base * (1 + safeEnergy / 100));
+};
+
+const scoreZoneSet = (zones: GeneratedZone[], centerLat: number, centerLng: number): number => {
+  if (zones.length === 0) return -Infinity;
+  const themes = new Set(zones.map((zone) => zone.theme));
+  const totalDistance = zones.reduce(
+    (acc, zone) => acc + distanceMeters(centerLat, centerLng, zone.centerLat, zone.centerLng),
+    0,
+  );
+
+  // Weighted for broad theme coverage and nearby zones.
+  return themes.size * 1000 + zones.length * 120 - totalDistance / 300;
+};
+
 /**
  * Select best zones from available raster cells
- * Strategy: Pick 1-2 best zones per theme based on:
- * 1. Distance from center (nearer = better)
- * 2. Theme confidence (higher = better)
- * 3. No overlaps
  */
 function selectBestZones(
   cells: RasterCell[],
   centerLat: number,
   centerLng: number,
-  options?: { randomize?: boolean; seed?: number; maxDistanceM?: number; fallbackCells?: RasterCell[] },
+  options?: {
+    randomize?: boolean;
+    seed?: number;
+    maxDistanceM?: number;
+    fallbackCells?: RasterCell[];
+    targetZoneCount?: number;
+    energyValue?: number;
+  },
 ): GeneratedZone[] {
   const MIN_THEME_CONFIDENCE = 0.1;
-  const GRID_CELL_SIZE_M = 707;
-  const ZONE_RADIUS_M = Math.round(GRID_CELL_SIZE_M / 2);
   const randomize = options?.randomize === true;
   const maxDistanceM = options?.maxDistanceM ?? PLAYER_RADIUS_M;
   const fallbackCells = options?.fallbackCells || [];
-  const rng = randomize ? createSeededRng(options?.seed ?? Date.now()) : null;
-  const themePickRng = rng || Math.random;
+  const rng = randomize ? createSeededRng(options?.seed ?? Date.now()) : Math.random;
+  const themePickRng = rng;
+  const targetZoneCount = Math.max(0, Number(options?.targetZoneCount ?? 0));
+  const energyValue = Number(options?.energyValue ?? 0);
+
+  if (targetZoneCount <= 0) {
+    return [];
+  }
 
   const candidatesByTheme: Record<ZoneTheme, ThemeCandidate[]> = {
     forest: [],
@@ -263,7 +306,6 @@ function selectBestZones(
     meadow: [],
   };
 
-  // Expand each cell into theme-specific candidates using probability and theme anchor point.
   for (const cell of cells) {
     const themeScores = cell.theme_scores || {};
     const anchorPoints = cell.theme_anchor_points || {};
@@ -271,7 +313,6 @@ function selectBestZones(
     const availableThemes = (Object.keys(themeScores) as ZoneTheme[])
       .filter((theme) => (themeScores[theme] || 0) >= MIN_THEME_CONFIDENCE);
 
-    // Backward-compatible fallback for old rows that do not have multi-theme fields yet.
     if (availableThemes.length === 0) {
       const fallbackDistance = distanceMeters(centerLat, centerLng, cell.center_lat, cell.center_lng);
       if (fallbackDistance > maxDistanceM) continue;
@@ -304,20 +345,16 @@ function selectBestZones(
     });
   }
 
-  // Sort each theme by: higher probability, closer distance, stronger evidence.
   for (const theme of Object.keys(candidatesByTheme) as ZoneTheme[]) {
     candidatesByTheme[theme].sort((a, b) => {
       const distA = distanceMeters(centerLat, centerLng, a.lat, a.lng);
       const distB = distanceMeters(centerLat, centerLng, b.lat, b.lng);
       if (distA !== distB) return distA - distB;
-
       if (b.probability !== a.probability) return b.probability - a.probability;
-
       return b.osmElementCount - a.osmElementCount;
     });
 
-    // For force-regeneration, randomize among top-quality candidates to avoid identical sets.
-    if (rng && candidatesByTheme[theme].length > 1) {
+    if (randomize && candidatesByTheme[theme].length > 1) {
       const topWindowSize = Math.min(8, candidatesByTheme[theme].length);
       const topWindow = candidatesByTheme[theme].slice(0, topWindowSize);
       shuffleInPlace(topWindow, rng);
@@ -327,56 +364,51 @@ function selectBestZones(
 
   const selectedZones: GeneratedZone[] = [];
   const dayKey = toDayKey();
+  const themes: ZoneTheme[] = ["forest", "water", "urban", "meadow"];
+  const maxPerTheme = Math.max(1, Math.ceil(targetZoneCount / themes.length) + 1);
+  const themeCount: Record<ZoneTheme, number> = { forest: 0, water: 0, urban: 0, meadow: 0 };
 
-  /**
-   * Check if a candidate zone would overlap with any already-selected zone
-   */
-  const overlapsExisting = (lat: number, lng: number): boolean => {
+  const overlapsExisting = (lat: number, lng: number, radiusM: number): boolean => {
     for (const zone of selectedZones) {
       const dist = distanceMeters(lat, lng, zone.centerLat, zone.centerLng);
-      const minSeparation = ZONE_RADIUS_M + ZONE_RADIUS_M; // No overlapping radii
+      const minSeparation = zone.radiusM + radiusM;
       if (dist < minSeparation) {
-        console.log(`[ZoneOverlap] Candidate at (${lat.toFixed(4)}, ${lng.toFixed(4)}) overlaps existing zone at (${zone.centerLat.toFixed(4)}, ${zone.centerLng.toFixed(4)}) [dist=${dist.toFixed(0)}m < ${minSeparation}m]`);
         return true;
       }
     }
     return false;
   };
 
-  // Selection policy:
-  // 1) Ensure at least one zone per theme where possible.
-  // 2) Fill up to TARGET_ZONE_COUNT with balanced extra zones.
-  const themes: ZoneTheme[] = ["forest", "water", "urban", "meadow"];
-  const TARGET_ZONE_COUNT = 8;
-  const MAX_PER_THEME = 2; // 4 themes * 2 = up to 8 zones
-  const themeCount: Record<ZoneTheme, number> = { forest: 0, water: 0, urban: 0, meadow: 0 };
+  const addZoneCandidate = (candidate: ThemeCandidate, suffix: string): boolean => {
+    const radiusM = pickZoneRadius(energyValue, rng);
+    if (overlapsExisting(candidate.lat, candidate.lng, radiusM)) return false;
 
-  // Pass 1: minimum coverage (1 per theme if candidates are available and non-overlapping)
+    selectedZones.push({
+      id: candidate.cellId,
+      theme: candidate.theme,
+      centerLat: candidate.lat,
+      centerLng: candidate.lng,
+      radiusM,
+      zoneKey: `${dayKey}-${candidate.theme}-${candidate.cellId.substring(0, 8)}-${suffix}`,
+      confidence: candidate.probability,
+      bonusMultiplier: 1.5,
+    });
+    themeCount[candidate.theme] += 1;
+    return true;
+  };
+
   for (const theme of themes) {
     const themeCandidates = candidatesByTheme[theme];
     if (themeCandidates.length === 0) continue;
 
     for (const candidate of themeCandidates) {
       if (themeCount[theme] >= 1) break;
-      if (!overlapsExisting(candidate.lat, candidate.lng)) {
-        selectedZones.push({
-          id: candidate.cellId,
-          theme: candidate.theme,
-          centerLat: candidate.lat,
-          centerLng: candidate.lng,
-          radiusM: ZONE_RADIUS_M,
-          zoneKey: `${dayKey}-${candidate.theme}-${candidate.cellId.substring(0, 8)}`,
-          confidence: candidate.probability,
-          bonusMultiplier: 1.1,
-        });
-        themeCount[theme] += 1;
-        console.log(`[ZoneSelection] Selected ${theme} zone at (${candidate.lat.toFixed(4)}, ${candidate.lng.toFixed(4)}) with confidence ${candidate.probability.toFixed(2)}`);
+      if (addZoneCandidate(candidate, "base")) {
         break;
       }
     }
   }
 
-  // Pass 2: fill up to TARGET_ZONE_COUNT with remaining best candidates, balanced by theme caps.
   type ScoredCandidate = ThemeCandidate & { distanceToPlayer: number };
   const allCandidates: ScoredCandidate[] = [];
   for (const theme of themes) {
@@ -394,38 +426,19 @@ function selectBestZones(
     return b.osmElementCount - a.osmElementCount;
   });
 
-  if (rng && allCandidates.length > 1) {
-    const topWindowSize = Math.min(24, allCandidates.length);
-    const topWindow = allCandidates.slice(0, topWindowSize);
-    shuffleInPlace(topWindow, rng);
-    allCandidates.splice(0, topWindowSize, ...topWindow);
-  }
-
   const alreadySelectedKeys = new Set(selectedZones.map((z) => `${z.id}:${z.theme}`));
   for (const candidate of allCandidates) {
-    if (selectedZones.length >= TARGET_ZONE_COUNT) break;
+    if (selectedZones.length >= targetZoneCount) break;
     const candidateKey = `${candidate.cellId}:${candidate.theme}`;
     if (alreadySelectedKeys.has(candidateKey)) continue;
-    if (themeCount[candidate.theme] >= MAX_PER_THEME) continue;
-    if (overlapsExisting(candidate.lat, candidate.lng)) continue;
+    if (themeCount[candidate.theme] >= maxPerTheme) continue;
 
-    selectedZones.push({
-      id: candidate.cellId,
-      theme: candidate.theme,
-      centerLat: candidate.lat,
-      centerLng: candidate.lng,
-      radiusM: ZONE_RADIUS_M,
-      zoneKey: `${dayKey}-${candidate.theme}-${candidate.cellId.substring(0, 8)}-${selectedZones.length}`,
-      confidence: candidate.probability,
-      bonusMultiplier: 1.1,
-    });
-    themeCount[candidate.theme] += 1;
-    alreadySelectedKeys.add(candidateKey);
+    if (addZoneCandidate(candidate, String(selectedZones.length))) {
+      alreadySelectedKeys.add(candidateKey);
+    }
   }
 
-  // If OSM-valid cells are sparse or clustered far away, fill remaining slots with
-  // nearest computed cells as low-confidence meadow zones to keep gameplay near player.
-  if (selectedZones.length < TARGET_ZONE_COUNT && fallbackCells.length > 0) {
+  if (selectedZones.length < targetZoneCount && fallbackCells.length > 0) {
     const fallbackCandidates = fallbackCells
       .map((cell) => ({
         cell,
@@ -435,25 +448,60 @@ function selectBestZones(
       .sort((a, b) => a.distanceToPlayer - b.distanceToPlayer);
 
     for (const entry of fallbackCandidates) {
-      if (selectedZones.length >= TARGET_ZONE_COUNT) break;
-      if (overlapsExisting(entry.cell.center_lat, entry.cell.center_lng)) continue;
+      if (selectedZones.length >= targetZoneCount) break;
+
+      const radiusM = pickZoneRadius(energyValue, rng);
+      if (overlapsExisting(entry.cell.center_lat, entry.cell.center_lng, radiusM)) continue;
 
       selectedZones.push({
         id: entry.cell.id,
         theme: "meadow",
         centerLat: entry.cell.center_lat,
         centerLng: entry.cell.center_lng,
-        radiusM: ZONE_RADIUS_M,
+        radiusM,
         zoneKey: `${dayKey}-fallback-${entry.cell.id.substring(0, 8)}-${selectedZones.length}`,
         confidence: 0.12,
-        bonusMultiplier: 1.0,
+        bonusMultiplier: 1.5,
       });
     }
   }
 
-  console.log(`[ZoneSelection] Selected ${selectedZones.length} zones from ${cells.length} available raster cells (target=${TARGET_ZONE_COUNT})`);
   return selectedZones;
 }
+
+const buildBestZoneSetWithRerolls = (
+  cells: RasterCell[],
+  centerLat: number,
+  centerLng: number,
+  options: {
+    randomize?: boolean;
+    seed?: number;
+    maxDistanceM?: number;
+    fallbackCells?: RasterCell[];
+    targetZoneCount: number;
+    energyValue: number;
+    rerolls: number;
+  },
+): GeneratedZone[] => {
+  const attempts = Math.max(1, options.rerolls + 1);
+  let bestZones: GeneratedZone[] = [];
+  let bestScore = -Infinity;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const zones = selectBestZones(cells, centerLat, centerLng, {
+      ...options,
+      seed: (options.seed ?? Date.now()) + attempt,
+      randomize: true,
+    });
+    const score = scoreZoneSet(zones, centerLat, centerLng);
+    if (score > bestScore) {
+      bestScore = score;
+      bestZones = zones;
+    }
+  }
+
+  return bestZones;
+};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -526,6 +574,9 @@ Deno.serve(async (req) => {
 
     const hasProvidedPos = Number.isFinite(providedLat) && Number.isFinite(providedLng);
     const robot = robots as any;
+    const currentEnergy = clamp(Number(robot?.energy ?? 70), 0, 100);
+    const targetZoneCount = computeZoneCountFromEnergy(currentEnergy);
+    const rerolls = computeZoneRerollsFromEnergy(currentEnergy);
     const hasStoredPos =
       robot &&
       Number.isFinite(Number(robot.last_valid_geo_lat)) &&
@@ -556,6 +607,27 @@ Deno.serve(async (req) => {
     const dayKey = toDayKey();
     const authKeySuffix = authId.replace(/-/g, "");
     const queryStartTime = Date.now();
+
+    if (targetZoneCount <= 0) {
+      const { error: clearZonesError } = await adminClient
+        .from("RobotPlantZone")
+        .delete()
+        .eq("day_generated", dayKey)
+        .like("zone_key", `%:${authKeySuffix}`)
+        .in("theme", ["forest", "urban", "water", "meadow"]);
+
+      if (clearZonesError) {
+        console.error("[robotPlantDailyZones] Failed to clear zones for low energy", clearZonesError);
+      }
+
+      return jsonResponse({
+        success: true,
+        cached: false,
+        rasterBased: true,
+        queryDurationMs: 0,
+        zones: [],
+      });
+    }
 
     if (forceRegenerate && !isAdmin) {
       const { data: existingRegen, error: regenCheckError } = await adminClient
@@ -617,7 +689,7 @@ Deno.serve(async (req) => {
         .like("zone_key", `%:${authKeySuffix}`)
         .in("theme", ["forest", "urban", "water", "meadow"]);
 
-      if (!existError && Array.isArray(existing) && existing.length >= 4) {
+      if (!existError && Array.isArray(existing) && existing.length >= targetZoneCount) {
         console.log(`[robotPlantDailyZones] Returning ${existing.length} cached zones for today`);
         return jsonResponse({
           success: true,
@@ -629,7 +701,6 @@ Deno.serve(async (req) => {
             centerLng: z.center_lng,
             radiusM: z.radius_m,
             zoneKey: z.zone_key,
-            geometry: z.geometry || null,
             bonusMultiplier: z.zone_bonus_multiplier || 1.0,
           })),
         });
@@ -748,13 +819,16 @@ Deno.serve(async (req) => {
       }, 503);
     }
 
-    // Select best zones from available cells
+    // Select best zones from available cells based on current energy budget.
     const regenerationSeed = Date.now();
-    const selectedZones = selectBestZones(cells, baseLat, baseLng, {
-      randomize: forceRegenerate,
+    const selectedZones = buildBestZoneSetWithRerolls(cells, baseLat, baseLng, {
+      randomize: true,
       seed: regenerationSeed,
       maxDistanceM: PLAYER_RADIUS_M,
       fallbackCells,
+      targetZoneCount,
+      energyValue: currentEnergy,
+      rerolls,
     });
 
     // Insert generated zones into RobotPlantZone table
@@ -769,8 +843,6 @@ Deno.serve(async (req) => {
       is_active: true,
       valid_from: new Date().toISOString(),
       valid_to: new Date(Date.now() + 86400000).toISOString(),
-      osm_id: `raster-${zone.id}`,
-      source_polygon_confidence: zone.confidence,
       day_generated: dayKey,
     }));
 
@@ -847,7 +919,6 @@ Deno.serve(async (req) => {
         centerLng: z.center_lng,
         radiusM: z.radius_m,
         zoneKey: z.zone_key,
-        geometry: z.geometry || null,
         bonusMultiplier: z.zone_bonus_multiplier || 1.0,
       })),
     });

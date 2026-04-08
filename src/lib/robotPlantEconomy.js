@@ -3,6 +3,9 @@ import {
   ROBOT_PLANT_EVENT_SOURCES,
   ROBOT_PLANT_DATA_QUALITY_RULES,
   ROBOT_PLANT_VALUES,
+  ROBOT_PLANT_CARE_RULES,
+  ROBOT_PLANT_GAIN_RULES,
+  ROBOT_PLANT_GEO_ZONE_CONFIG,
   clampRobotPlantValue,
 } from "@/lib/robotPlantConfig";
 
@@ -47,13 +50,34 @@ export const computeRarityMultiplier = (rarity) => {
   return NORMALIZED_RARITY_MULTIPLIERS[normalizedRarity] ?? 1;
 };
 
-export const computeZoneMultiplier = ({ dataQualityValue, isInActiveZone = true }) => {
+export const computeZoneMultiplierFromScanCount = (scanCountInZoneToday = 0) => {
+  const safeCount = Math.max(0, Number(scanCountInZoneToday ?? 0));
+  const decremented =
+    REWARD_FORMULA_CONFIG.zoneMultiplier.start -
+    safeCount * REWARD_FORMULA_CONFIG.zoneMultiplier.decrementPerAdditionalScan;
+
+  return clamp(
+    decremented,
+    REWARD_FORMULA_CONFIG.zoneMultiplier.min,
+    REWARD_FORMULA_CONFIG.zoneMultiplier.max
+  );
+};
+
+export const computeZoneMultiplier = ({
+  dataQualityValue,
+  isInActiveZone = true,
+  scanCountInZoneToday = null,
+}) => {
   if (!isInActiveZone) {
     return REWARD_FORMULA_CONFIG.zoneMultiplier.default;
   }
 
-  return lerpMultiplier(
-    dataQualityValue,
+  if (scanCountInZoneToday !== null && scanCountInZoneToday !== undefined) {
+    return computeZoneMultiplierFromScanCount(scanCountInZoneToday);
+  }
+
+  return clamp(
+    Number(dataQualityValue ?? REWARD_FORMULA_CONFIG.zoneMultiplier.start),
     REWARD_FORMULA_CONFIG.zoneMultiplier.min,
     REWARD_FORMULA_CONFIG.zoneMultiplier.max
   );
@@ -73,8 +97,9 @@ export const computeNoveltyMultiplier = (duplicateScanCount = 0) => {
 };
 
 export const computeCareMultiplier = (careValue = ROBOT_PLANT_VALUES.care.initial) => {
-  return lerpMultiplier(
-    careValue,
+  const safeCare = clamp(Number(careValue ?? 0), 0, 100);
+  return clamp(
+    0.5 + safeCare / 100,
     REWARD_FORMULA_CONFIG.careMultiplier.min,
     REWARD_FORMULA_CONFIG.careMultiplier.max
   );
@@ -101,6 +126,55 @@ export const computeFirstScanOfDayMultiplier = (isFirstScanOfDay = false) => {
   return isFirstScanOfDay
     ? REWARD_FORMULA_CONFIG.firstScanOfDayMultiplier.max
     : REWARD_FORMULA_CONFIG.firstScanOfDayMultiplier.default;
+};
+
+export const computeDailyFirstScanMultiplier = (isFirstScanOfDay = false) => {
+  return computeFirstScanOfDayMultiplier(isFirstScanOfDay);
+};
+
+export const computeDecayReductionFromCare = (careValue = ROBOT_PLANT_VALUES.care.initial) => {
+  const safeCare = clamp(Number(careValue ?? 0), 0, 100);
+  for (const threshold of ROBOT_PLANT_CARE_RULES.decayReductionByCareThreshold) {
+    if (safeCare >= threshold.min) {
+      return threshold.reduction;
+    }
+  }
+  return 0;
+};
+
+export const computeGainBoostFromCare = (careValue = ROBOT_PLANT_VALUES.care.initial) => {
+  const safeCare = clamp(Number(careValue ?? 0), 0, 100);
+  return safeCare >= ROBOT_PLANT_CARE_RULES.gainBoostThreshold
+    ? ROBOT_PLANT_CARE_RULES.gainBoostMultiplier
+    : 1;
+};
+
+export const computeDailyEnergyGainFromMeters = (meters = 0) => {
+  const safeMeters = Math.max(0, Number(meters ?? 0));
+  const points = Math.floor(safeMeters / ROBOT_PLANT_GAIN_RULES.energy.metersPerPoint);
+  return clamp(points, 0, ROBOT_PLANT_GAIN_RULES.energy.maxPerDay);
+};
+
+export const computeDailyEnergyZoneBudget = (energyValue = ROBOT_PLANT_VALUES.energy.initial) => {
+  const safeEnergy = clamp(Number(energyValue ?? 0), 0, 100);
+  const band = ROBOT_PLANT_GEO_ZONE_CONFIG.zoneCountByEnergyBand.find(
+    (entry) => safeEnergy >= entry.min && safeEnergy <= entry.max
+  );
+  return band?.zoneCount ?? ROBOT_PLANT_GEO_ZONE_CONFIG.dailyZoneCountMin;
+};
+
+export const computeZoneRerollsFromEnergy = (energyValue = ROBOT_PLANT_VALUES.energy.initial) => {
+  const safeEnergy = clamp(Number(energyValue ?? 0), 0, 100);
+  const band = ROBOT_PLANT_GEO_ZONE_CONFIG.rerollsByEnergyBand.find(
+    (entry) => safeEnergy >= entry.min && safeEnergy <= entry.max
+  );
+  return band?.rerolls ?? 0;
+};
+
+export const computeScaledZoneRadius = ({ baseRadiusM, energyValue = ROBOT_PLANT_VALUES.energy.initial }) => {
+  const safeRadius = Math.max(0, Number(baseRadiusM ?? 0));
+  const safeEnergy = clamp(Number(energyValue ?? 0), 0, 100);
+  return Math.round(safeRadius * (1 + safeEnergy / 100));
 };
 
 export const computeRobotPlantRewardBreakdown = ({
@@ -265,4 +339,9 @@ export const computeDataQualityDeltaFromZoneDiversity = ({
   );
 
   return clamp(delta, 0, remainingBudget);
+};
+
+export const applyGainBoostToDelta = (deltaValue = 0, careValue = ROBOT_PLANT_VALUES.care.initial) => {
+  const boost = computeGainBoostFromCare(careValue);
+  return Math.round(Number(deltaValue ?? 0) * boost);
 };

@@ -40,9 +40,11 @@ type RobotPlantStateRow = {
 
 type ZoneRow = {
   id: string;
+  zone_key: string | null;
   center_lat: number | null;
   center_lng: number | null;
   radius_m: number | null;
+  zone_bonus_multiplier: number | null;
 };
 
 type RewardBreakdown = {
@@ -64,7 +66,13 @@ type RewardBreakdown = {
 type ScanRewardContext = {
   eventSource: string;
   duplicateScanCount: number;
+  discovery: DiscoveryRow;
+  robotPlantState: RobotPlantStateRow | null;
   rewardDetails: RewardBreakdown;
+  derivedEnergyDelta: number;
+  derivedDataQualityDelta: number;
+  matchedZoneId: string | null;
+  nextZoneMultiplier: number | null;
 };
 
 const SCAN_EVENT_SOURCES = new Set(["scan", "new_scan", "new_global_scan"]);
@@ -72,17 +80,27 @@ const SCAN_EVENT_SOURCES = new Set(["scan", "new_scan", "new_global_scan"]);
 const REWARD_FORMULA_CONFIG = {
   baseByEvent: {
     scan: 10,
-    new_scan: 20,
+    new_scan: 30,
     new_global_scan: 50,
   },
-  zoneMultiplier: { min: 1, max: 1.75, default: 1 },
+  zoneMultiplier: { min: 0.5, max: 1.5, default: 1, start: 1.5, decrementPerAdditionalScan: 0.2 },
   noveltyMultiplier: { min: 0.2, max: 1, decrementPerDuplicateScan: 0.2 },
   streakMultiplier: { min: 1, max: 7 },
-  careMultiplier: { min: 1, max: 2 },
+  careMultiplier: { min: 0.5, max: 1.5 },
   energyMultiplier: { min: 1, max: 2 },
   firstScanOfDayMultiplier: { min: 1, max: 2, default: 1 },
   absoluteMinReward: 1,
   absoluteMaxReward: 350,
+};
+
+const ENERGY_GAIN_CONFIG = {
+  metersPerPoint: 100,
+  maxPerDay: 15,
+};
+
+const CARE_GAIN_BOOST_CONFIG = {
+  threshold: 90,
+  multiplier: 2,
 };
 
 const ROBOT_PLANT_DEFAULT_STATE = {
@@ -126,6 +144,28 @@ const roundMultiplier = (value: number): number => Math.round(value * 100) / 100
 const lerpMultiplier = (value: number, min: number, max: number): number => {
   const safeValue = clamp(Number(value ?? 0), 0, 100);
   return min + (safeValue / 100) * (max - min);
+};
+
+const computeCareMultiplier = (careValue: number): number => {
+  const safeCare = clamp(Number(careValue ?? 0), 0, 100);
+  return clamp(0.5 + safeCare / 100, REWARD_FORMULA_CONFIG.careMultiplier.min, REWARD_FORMULA_CONFIG.careMultiplier.max);
+};
+
+const computeZoneMultiplierFromScanCount = (scanCountInZoneToday: number): number => {
+  const safeCount = Math.max(0, Number(scanCountInZoneToday ?? 0));
+  const decremented = REWARD_FORMULA_CONFIG.zoneMultiplier.start - safeCount * REWARD_FORMULA_CONFIG.zoneMultiplier.decrementPerAdditionalScan;
+  return clamp(decremented, REWARD_FORMULA_CONFIG.zoneMultiplier.min, REWARD_FORMULA_CONFIG.zoneMultiplier.max);
+};
+
+const computeGainBoostFromCare = (careValue: number): number => {
+  const safeCare = clamp(Number(careValue ?? 0), 0, 100);
+  return safeCare >= CARE_GAIN_BOOST_CONFIG.threshold ? CARE_GAIN_BOOST_CONFIG.multiplier : 1;
+};
+
+const computeDailyEnergyGainFromMeters = (meters: number): number => {
+  const safeMeters = Math.max(0, Number(meters ?? 0));
+  const points = Math.floor(safeMeters / ENERGY_GAIN_CONFIG.metersPerPoint);
+  return clamp(points, 0, ENERGY_GAIN_CONFIG.maxPerDay);
 };
 
 const normalizeRarityKey = (rarity: string | null | undefined): string =>
@@ -172,27 +212,27 @@ const getDistanceBetweenCoordinatesM = (
 const computeScanRewardBreakdown = ({
   eventSource,
   duplicateScanCount,
-  dataQualityValue,
   careValue,
   energyValue,
   streakDays,
   isInActiveZone,
   rarity,
   isFirstScanOfDay,
+  zoneMultiplier,
 }: {
   eventSource: string;
   duplicateScanCount: number;
-  dataQualityValue: number;
   careValue: number;
   energyValue: number;
   streakDays: number;
   isInActiveZone: boolean;
   rarity: string | null;
   isFirstScanOfDay?: boolean;
+  zoneMultiplier: number;
 }): RewardBreakdown => {
   const baseReward = REWARD_FORMULA_CONFIG.baseByEvent[eventSource as keyof typeof REWARD_FORMULA_CONFIG.baseByEvent] ?? 0;
-  const zoneMultiplier = isInActiveZone
-    ? lerpMultiplier(dataQualityValue, REWARD_FORMULA_CONFIG.zoneMultiplier.min, REWARD_FORMULA_CONFIG.zoneMultiplier.max)
+  const effectiveZoneMultiplier = isInActiveZone
+    ? clamp(zoneMultiplier, REWARD_FORMULA_CONFIG.zoneMultiplier.min, REWARD_FORMULA_CONFIG.zoneMultiplier.max)
     : REWARD_FORMULA_CONFIG.zoneMultiplier.default;
   const rarityMultiplier = computeRarityMultiplier(rarity);
   const noveltyRaw =
@@ -203,7 +243,7 @@ const computeScanRewardBreakdown = ({
     REWARD_FORMULA_CONFIG.noveltyMultiplier.min,
     REWARD_FORMULA_CONFIG.noveltyMultiplier.max,
   );
-  const careMultiplier = lerpMultiplier(careValue, REWARD_FORMULA_CONFIG.careMultiplier.min, REWARD_FORMULA_CONFIG.careMultiplier.max);
+  const careMultiplier = computeCareMultiplier(careValue);
   const energyMultiplier = lerpMultiplier(
     energyValue,
     REWARD_FORMULA_CONFIG.energyMultiplier.min,
@@ -219,7 +259,7 @@ const computeScanRewardBreakdown = ({
     : REWARD_FORMULA_CONFIG.firstScanOfDayMultiplier.default;
 
   const rawPreStreak =
-    baseReward * zoneMultiplier * rarityMultiplier * noveltyMultiplier * careMultiplier * energyMultiplier * firstScanOfDayMultiplier;
+    baseReward * effectiveZoneMultiplier * rarityMultiplier * noveltyMultiplier * careMultiplier * energyMultiplier * firstScanOfDayMultiplier;
   const preStreakReward = clamp(
     Math.round(rawPreStreak),
     REWARD_FORMULA_CONFIG.absoluteMinReward,
@@ -232,7 +272,7 @@ const computeScanRewardBreakdown = ({
     isScanReward: true,
     isInActiveZone,
     baseReward,
-    zoneMultiplier: roundMultiplier(zoneMultiplier),
+    zoneMultiplier: roundMultiplier(effectiveZoneMultiplier),
     rarityMultiplier,
     noveltyMultiplier: roundMultiplier(noveltyMultiplier),
     careMultiplier: roundMultiplier(careMultiplier),
@@ -315,17 +355,21 @@ async function tryResolveScanRewardContext(
     .eq("auth_id", authId)
     .maybeSingle<RobotPlantStateRow>();
 
-  let isInActiveZone = false;
+  const dayKey = new Date().toISOString().slice(0, 10);
+  const authKeySuffix = authId.replace(/-/g, "");
   const discoveryCoordinates = parseDiscoveryLocation(discovery.discovery_location);
+
+  let isInActiveZone = false;
+  let matchedZone: ZoneRow | null = null;
   if (discoveryCoordinates) {
-    const dayKey = new Date().toISOString().slice(0, 10);
     const { data: zones } = await adminClient
       .from("RobotPlantZone")
-      .select("id, center_lat, center_lng, radius_m")
+      .select("id, zone_key, center_lat, center_lng, radius_m, zone_bonus_multiplier")
       .eq("is_active", true)
-      .eq("day_generated", dayKey);
+      .eq("day_generated", dayKey)
+      .like("zone_key", `%:${authKeySuffix}`);
 
-    const matchingZone = (zones || [])
+    matchedZone = (zones || [])
       .filter((zone): zone is ZoneRow => Number.isFinite(Number(zone.center_lat)) && Number.isFinite(Number(zone.center_lng)))
       .map((zone) => ({
         ...zone,
@@ -335,12 +379,21 @@ async function tryResolveScanRewardContext(
         }),
       }))
       .filter((zone) => zone.distanceM <= Number(zone.radius_m ?? 150))
-      .sort((left, right) => left.distanceM - right.distanceM)[0];
+      .sort((left, right) => left.distanceM - right.distanceM)[0] || null;
 
-    isInActiveZone = !!matchingZone;
+    isInActiveZone = !!matchedZone;
   }
 
-  // Check if this is the first scan of the UTC day for this user
+  const zoneMultiplier = isInActiveZone
+    ? clamp(
+        Number(matchedZone?.zone_bonus_multiplier ?? REWARD_FORMULA_CONFIG.zoneMultiplier.start),
+        REWARD_FORMULA_CONFIG.zoneMultiplier.min,
+        REWARD_FORMULA_CONFIG.zoneMultiplier.max,
+      )
+    : REWARD_FORMULA_CONFIG.zoneMultiplier.default;
+
+  // Check if this is the first scan of the UTC day for this user.
+  // The discovery usually exists already, so <=1 still means first scan.
   const now = new Date();
   const utcDayStart = new Date(Date.UTC(
     now.getUTCFullYear(),
@@ -372,24 +425,80 @@ async function tryResolveScanRewardContext(
     throw new Error(`Failed to load today's scan count: ${todayScansError.message}`);
   }
 
-  const isFirstScanOfDay = Number(todayScanCount ?? 0) === 0;
+  const isFirstScanOfDay = Number(todayScanCount ?? 0) <= 1;
+
+  const careValue = Number(robotPlantState?.care ?? ROBOT_PLANT_DEFAULT_STATE.care);
+  const gainBoost = computeGainBoostFromCare(careValue);
+
+  let derivedEnergyDelta = 0;
+  if (discoveryCoordinates) {
+    const { data: todayDiscoveries, error: todayDiscoveriesError } = await adminClient
+      .from("UserPlantDiscovery")
+      .select("id, discovery_location, discovered_date")
+      .eq("auth_id", authId)
+      .gte("discovered_date", utcDayStart.toISOString())
+      .lt("discovered_date", utcNextDayStart.toISOString())
+      .order("discovered_date", { ascending: true });
+
+    if (todayDiscoveriesError) {
+      throw new Error(`Failed to load today's discoveries: ${todayDiscoveriesError.message}`);
+    }
+
+    const computeDailyMeters = (rows: Array<{ id: string; discovery_location: string | null; discovered_date: string | null }>) => {
+      const points = rows
+        .map((row) => parseDiscoveryLocation(row.discovery_location))
+        .filter((coords): coords is { lat: number; lng: number } => !!coords);
+
+      if (points.length < 2) return 0;
+
+      let total = 0;
+      for (let i = 1; i < points.length; i += 1) {
+        total += getDistanceBetweenCoordinatesM(points[i - 1], points[i]);
+      }
+
+      return total;
+    };
+
+    const beforeRows = (todayDiscoveries || []).filter((row) => row.id !== discovery.id);
+    const beforeEnergy = computeDailyEnergyGainFromMeters(computeDailyMeters(beforeRows));
+    const afterEnergy = computeDailyEnergyGainFromMeters(computeDailyMeters(todayDiscoveries || []));
+
+    derivedEnergyDelta = Math.max(0, afterEnergy - beforeEnergy);
+  }
 
   const rewardDetails = computeScanRewardBreakdown({
     eventSource,
     duplicateScanCount,
-    dataQualityValue: Number(robotPlantState?.data_quality ?? ROBOT_PLANT_DEFAULT_STATE.data_quality),
-    careValue: Number(robotPlantState?.care ?? ROBOT_PLANT_DEFAULT_STATE.care),
+    careValue,
     energyValue: Number(robotPlantState?.energy ?? ROBOT_PLANT_DEFAULT_STATE.energy),
     streakDays: Number(robotPlantState?.streak_days ?? ROBOT_PLANT_DEFAULT_STATE.streak_days),
     isInActiveZone,
     rarity: plant.rarity,
     isFirstScanOfDay,
+    zoneMultiplier,
   });
+
+  const derivedDataQualityDelta = isInActiveZone ? Math.round(zoneMultiplier * gainBoost) : 0;
+  const boostedEnergyDelta = Math.round(derivedEnergyDelta * gainBoost);
+
+  const nextZoneMultiplier = isInActiveZone
+    ? clamp(
+        zoneMultiplier - REWARD_FORMULA_CONFIG.zoneMultiplier.decrementPerAdditionalScan,
+        REWARD_FORMULA_CONFIG.zoneMultiplier.min,
+        REWARD_FORMULA_CONFIG.zoneMultiplier.max,
+      )
+    : null;
 
   return {
     eventSource,
     duplicateScanCount,
+    discovery,
+    robotPlantState,
     rewardDetails,
+    derivedEnergyDelta: boostedEnergyDelta,
+    derivedDataQualityDelta,
+    matchedZoneId: matchedZone?.id || null,
+    nextZoneMultiplier,
   };
 }
 
@@ -465,6 +574,9 @@ Deno.serve(async (req) => {
 
     let effectiveEventSource = requestedEventSource;
     let effectiveAmount = requestedAmount;
+    let effectiveEnergyDelta = energyDelta;
+    let effectiveDataQualityDelta = dataQualityDelta;
+    let effectiveCareDelta = careDelta;
     let rewardDetails: RewardBreakdown | null = null;
 
     let scanContext: ScanRewardContext | null = null;
@@ -483,11 +595,17 @@ Deno.serve(async (req) => {
       effectiveEventSource = scanContext.eventSource;
       rewardDetails = scanContext.rewardDetails;
       effectiveAmount = rewardDetails.finalReward;
+      effectiveEnergyDelta = scanContext.derivedEnergyDelta;
+      effectiveDataQualityDelta = scanContext.derivedDataQualityDelta;
+      effectiveCareDelta = 0;
       metadata = {
         ...metadata,
         reward_breakdown: rewardDetails,
         duplicate_scan_count: scanContext.duplicateScanCount,
         reward_computed_server_side: true,
+        derived_energy_delta: effectiveEnergyDelta,
+        derived_data_quality_delta: effectiveDataQualityDelta,
+        zone_scan_applied: scanContext.matchedZoneId,
       };
     } else if (!Number.isFinite(effectiveAmount) || effectiveAmount < 0) {
       return jsonResponse({ error: "amount must be a number >= 0" }, 400);
@@ -498,9 +616,9 @@ Deno.serve(async (req) => {
       p_event_source: effectiveEventSource,
       p_event_reference: eventReference,
       p_amount: Math.round(effectiveAmount),
-      p_energy_delta: Math.round(energyDelta),
-      p_data_quality_delta: Math.round(dataQualityDelta),
-      p_care_delta: Math.round(careDelta),
+      p_energy_delta: Math.round(effectiveEnergyDelta),
+      p_data_quality_delta: Math.round(effectiveDataQualityDelta),
+      p_care_delta: Math.round(effectiveCareDelta),
       p_metadata: metadata,
     });
 
@@ -510,6 +628,17 @@ Deno.serve(async (req) => {
     }
 
     const result = Array.isArray(data) ? data[0] : data;
+
+    if (scanContext?.matchedZoneId && Number.isFinite(scanContext.nextZoneMultiplier)) {
+      const { error: zoneUpdateError } = await adminClient
+        .from("RobotPlantZone")
+        .update({ zone_bonus_multiplier: scanContext.nextZoneMultiplier })
+        .eq("id", scanContext.matchedZoneId);
+
+      if (zoneUpdateError) {
+        console.warn("[robotPlantGrantReward] zone multiplier update failed", zoneUpdateError);
+      }
+    }
 
     return jsonResponse({ ok: true, result, rewardDetails, eventSource: effectiveEventSource }, 200);
   } catch (error) {

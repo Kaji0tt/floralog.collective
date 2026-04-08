@@ -454,7 +454,6 @@ export async function initializeGeoRasterCells(
           grid_lng_idx: cell.grid_lng_idx,
           center_lat: cell.center_lat,
           center_lng: cell.center_lng,
-          geometry: `POINT(${cell.center_lng} ${cell.center_lat})`,
           theme: cell.theme,
           theme_confidence: cell.theme_confidence,
           dominant_osm_tags: cell.dominant_osm_tags,

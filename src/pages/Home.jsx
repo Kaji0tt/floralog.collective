@@ -27,6 +27,7 @@ import SettingsPanel from "@/components/settings/SettingsPanel";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import { getWeekNumber, getMonthString, getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
 import "mapbox-gl/dist/mapbox-gl.css";
 
@@ -45,6 +46,12 @@ const THEME_MAP_META = {
 };
 
 const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "";
+
+const HEALTH_TOOLTIP_TEXT = {
+  energy: "Energie beeinflusst deine Zonenanzahl direkt und skaliert die Zonengroesse.",
+  "data-quality": "Datenqualitaet steigt nur bei Scans innerhalb einer aktiven Zone.",
+  care: "Pflege wirkt direkt als Multiplikator (0.5 bis 1.5). Ab 90% boosten Gains doppelt.",
+};
 
 /**
  * @param {{ lat: number; lng: number; radiusM: number; points?: number }} params
@@ -80,7 +87,7 @@ const toCirclePolygon = (params) => {
 
 /**
  * @param {{
- *   zones?: Array<{ centerLat: number | string; centerLng: number | string; radiusM?: number | string; theme?: string; zoneKey?: string; id?: string }>;
+ *   zones?: Array<{ centerLat: number | string; centerLng: number | string; radiusM?: number | string; theme?: string; zoneKey?: string; id?: string; bonusMultiplier?: number | string; zoneBonusMultiplier?: number | string; zone_bonus_multiplier?: number | string }>;
  *   userLocation?: { lat?: number; lng?: number } | null;
  *   fallbackCenter?: { lat?: number; lng?: number } | null;
  *   onTokenError?: (message: string) => void;
@@ -182,6 +189,11 @@ function HeroZoneMap3D(props) {
           const theme = typeof zone.theme === "string" ? zone.theme : "meadow";
           const color = THEME_MAP_COLORS[/** @type {"forest"|"urban"|"water"|"meadow"} */ (theme)] || "#84cc16";
           const themeLabel = THEME_MAP_META[/** @type {"forest"|"urban"|"water"|"meadow"} */ (theme)]?.label || theme;
+          const zoneMultiplierCandidate = Number(
+            zone.bonusMultiplier ?? zone.zoneBonusMultiplier ?? zone.zone_bonus_multiplier ?? 1.5
+          );
+          const zoneMultiplier = Number.isFinite(zoneMultiplierCandidate) ? zoneMultiplierCandidate : 1.5;
+
           return {
             type: "Feature",
             geometry: {
@@ -194,6 +206,7 @@ function HeroZoneMap3D(props) {
               theme,
               themeLabel,
               radiusM,
+              zoneMultiplier,
             },
           };
         })
@@ -238,10 +251,11 @@ function HeroZoneMap3D(props) {
           const feature = e.features?.[0];
           if (!feature) return;
 
-          const props = feature.properties;
+          const props = feature.properties || {};
           const themeLabel = props.themeLabel || props.theme || "Zone";
           const color = props.color || "#84cc16";
           const radiusDisplay = props.radiusM ? `${Math.round(props.radiusM)} m` : "";
+          const zoneMultiplier = Number(props.zoneMultiplier || 1.5);
 
           const popupHtml = `
             <div style="font-family:sans-serif;min-width:170px;max-width:220px;padding:4px 2px;">
@@ -251,10 +265,10 @@ function HeroZoneMap3D(props) {
               </div>
               <div style="font-size:12px;color:#d6d3d1;line-height:1.5;">
                 <div style="margin-bottom:4px;">
-                  <span style="color:#86efac;font-weight:600;">Multiplikator:</span> 1× – 1.75×
+                  <span style="color:#86efac;font-weight:600;">Multiplikator:</span> x${zoneMultiplier.toFixed(2)}
                 </div>
                 <div style="margin-bottom:4px;color:#a8a29e;">
-                  Skaliert mit deiner Datenqualität.
+                  Startet bei x1.50 und sinkt pro weiterem Scan in dieser Zone.
                 </div>
                 ${radiusDisplay ? `<div style="color:#a8a29e;">Radius: ${radiusDisplay}</div>` : ""}
               </div>
@@ -1145,11 +1159,11 @@ export default function Home() {
   const streakMultiplier = Math.max(1, Math.min(7, streakDays <= 1 ? 1 : streakDays));
 
   const zoneMultiplierCandidate = Number(
-    activeZone?.bonusMultiplier ?? activeZone?.zoneBonusMultiplier ?? activeZone?.zone_bonus_multiplier ?? 1
+    activeZone?.bonusMultiplier ?? activeZone?.zoneBonusMultiplier ?? activeZone?.zone_bonus_multiplier ?? 1.5
   );
   const zoneMultiplier = Number.isFinite(zoneMultiplierCandidate) && zoneMultiplierCandidate > 0
     ? zoneMultiplierCandidate
-    : 1;
+    : 1.5;
 
   const careMultiplier = computeCareMultiplier(safeCare);
   const energyMultiplier = computeEnergyMultiplier(safeEnergy);
@@ -1643,7 +1657,19 @@ export default function Home() {
                               {healthStats.map((stat) => (
                                 <div key={stat.id} className="space-y-1">
                                   <div className="flex items-center justify-between text-[11px] md:text-xs text-stone-100/90">
-                                    <span className="font-semibold uppercase tracking-wide">{stat.label}</span>
+                                    <LockedTooltip
+                                      content={
+                                        <span className="text-xs leading-relaxed">{HEALTH_TOOLTIP_TEXT[stat.id] || "Wert der Robopflanze"}</span>
+                                      }
+                                    >
+                                      <button
+                                        type="button"
+                                        className="font-semibold uppercase tracking-wide underline decoration-dotted underline-offset-2"
+                                        aria-label={`${stat.label} Info`}
+                                      >
+                                        {stat.label}
+                                      </button>
+                                    </LockedTooltip>
                                     <span className="font-bold">{stat.value}%</span>
                                   </div>
                                   <div className="h-2 rounded-full overflow-hidden bg-black/35 border border-black/25">
@@ -1768,11 +1794,11 @@ export default function Home() {
                               </div>
                               <div className="flex flex-col gap-0.5">
                                 <span className="text-amber-300 font-semibold">📍 Zone: <strong>{formatMultiplier(zoneMultiplier)}</strong></span>
-                                <span className="text-amber-50/70">1-1.75x je nach Datenqualität</span>
+                                <span className="text-amber-50/70">Start x1.5, pro weiterem Scan in der Zone -0.2 (bis Floor)</span>
                               </div>
                               <div className="flex flex-col gap-0.5">
                                 <span className="text-amber-300 font-semibold">💚 Pflege:<strong>{formatMultiplier(careMultiplier)}</strong></span>
-                                <span className="text-amber-50/70">1-2x - Je höher der Care-Level</span>
+                                <span className="text-amber-50/70">0.5-1.5x - Direkter Einfluss aus dem Care-Wert</span>
                               </div>
                               <div className="flex flex-col gap-0.5">
                                 <span className="text-amber-300 font-semibold">⚡ Energie:<strong>{formatMultiplier(energyMultiplier)}</strong></span>
