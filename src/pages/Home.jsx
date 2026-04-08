@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { updateQuestProgress } from "@/components/utils/questProgress";
 import Collection from "./Collection";
+import SettingsPanel from "@/components/settings/SettingsPanel";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -299,6 +300,7 @@ export default function Home() {
 
   const [scanFeedback, setScanFeedback] = useState(null);
   const [showEmbeddedCollection, setShowEmbeddedCollection] = useState(false);
+  const [showEmbeddedSettings, setShowEmbeddedSettings] = useState(false);
 
   // Migration states
   const [isMigrating, setIsMigrating] = useState(false);
@@ -540,21 +542,33 @@ export default function Home() {
     runQuestProgressUpdate();
   }, [user?.id]);
 
-  // Consume scan feedback from navigation state exactly once per navigation
+  // Consume transient navigation state exactly once per navigation
   useEffect(() => {
-    if (location.state && location.state.scanFeedback) {
-      // Show feedback from navigation state
+    if (!location.state) return;
+
+    const hasScanFeedback = Boolean(location.state.scanFeedback);
+    const shouldOpenSettings = Boolean(location.state.openSettings);
+
+    if (!hasScanFeedback && !shouldOpenSettings) return;
+
+    if (hasScanFeedback) {
       setScanFeedback(location.state.scanFeedback);
-
-      // Remove scanFeedback from history state so it won't re-trigger
-      const { scanFeedback: _ignored, ...restState } = location.state;
-      const nextState = Object.keys(restState).length > 0 ? restState : null;
-
-      navigate(location.pathname + location.search, {
-        replace: true,
-        state: nextState,
-      });
     }
+
+    if (shouldOpenSettings) {
+      setShowEmbeddedSettings(true);
+      setShowEmbeddedCollection(false);
+      setShowHeroZoneMap(false);
+      setShowHealthStatsPanel(false);
+    }
+
+    const { scanFeedback: _ignoredFeedback, openSettings: _ignoredOpenSettings, ...restState } = location.state;
+    const nextState = Object.keys(restState).length > 0 ? restState : null;
+
+    navigate(location.pathname + location.search, {
+      replace: true,
+      state: nextState,
+    });
   }, [location, navigate]);
 
   // Auto-execute migration if pending (user came from SetPassword page)
@@ -1112,6 +1126,7 @@ export default function Home() {
       icon: Leaf,
       onClick: () => {
         setShowEmbeddedCollection(true);
+        setShowEmbeddedSettings(false);
         setShowHeroZoneMap(false);
         setShowHealthStatsPanel(false);
       },
@@ -1331,6 +1346,12 @@ export default function Home() {
                         Kollektionen
                       </h1>
                     </div>
+                  ) : showEmbeddedSettings ? (
+                    <div className="flex items-baseline gap-2 min-w-0">
+                      <h1 className="font-bold leading-tight text-2xl md:text-3xl truncate" title="Einstellungen">
+                        Einstellungen
+                      </h1>
+                    </div>
                   ) : (
                     <div className="flex items-baseline gap-2 min-w-0">
                       <h1
@@ -1359,12 +1380,18 @@ export default function Home() {
                       setShowEmbeddedCollection(false);
                       return;
                     }
-                    navigate(createPageUrl('Profile'));
+                    if (showEmbeddedSettings) {
+                      setShowEmbeddedSettings(false);
+                      return;
+                    }
+                    setShowEmbeddedSettings(true);
+                    setShowHeroZoneMap(false);
+                    setShowHealthStatsPanel(false);
                   }}
                   className="w-11 h-11 rounded-full border border-[#f0e5a5]/35 bg-black/30 backdrop-blur-md flex items-center justify-center hover:bg-black/45 transition-colors"
-                  aria-label={showEmbeddedCollection ? "Zur Home-Ansicht" : "Einstellungen"}
+                  aria-label={(showEmbeddedCollection || showEmbeddedSettings) ? "Zur Home-Ansicht" : "Einstellungen"}
                 >
-                  {showEmbeddedCollection ? (
+                  {(showEmbeddedCollection || showEmbeddedSettings) ? (
                     <HomeIcon className="w-5 h-5 text-[#f0e5a5]" />
                   ) : (
                     <Settings className="w-5 h-5 text-[#f0e5a5]" />
@@ -1377,6 +1404,11 @@ export default function Home() {
                   <Collection
                     embedded
                     onRequestClose={() => setShowEmbeddedCollection(false)}
+                  />
+                ) : showEmbeddedSettings ? (
+                  <SettingsPanel
+                    user={user}
+                    onUserUpdated={(freshUser) => setUser(freshUser)}
                   />
                 ) : showHeroZoneMap ? (
                   <section className="relative flex-1 min-h-0 rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm overflow-hidden">
