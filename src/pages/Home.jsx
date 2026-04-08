@@ -1487,6 +1487,7 @@ export default function Home() {
                   <Collection
                     embedded
                     onRequestClose={() => setShowEmbeddedCollection(false)}
+                    uiTheme={uiTheme}
                   />
                 ) : showEmbeddedSettings ? (
                   <SettingsPanel

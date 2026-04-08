@@ -17,10 +17,12 @@ export default function SearchSortBar({
   showDiscoveredToggle = false,
   discoveredFilter = "all",
   onDiscoveredFilterChange,
+  uiTheme = "dark",
 }) {
   const [isOpen, setIsOpen] = useState(initialOpen);
   const headerRef = useRef(null);
   const searchQueryRef = useRef(searchQuery);
+  const isLightUi = uiTheme === "light";
 
   useEffect(() => {
     searchQueryRef.current = searchQuery;
@@ -83,13 +85,15 @@ export default function SearchSortBar({
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className={`relative flex items-center bg-black/40 border border-[#f0e5a5]/35 backdrop-blur-sm rounded-full h-8 overflow-hidden transition-all duration-200 ease-out shrink-0 ${
+          className={`relative flex items-center border backdrop-blur-sm rounded-full h-8 overflow-hidden transition-all duration-200 ease-out shrink-0 ${
+            isLightUi ? "bg-white/70 border-[#c8ac62]/35" : "bg-black/40 border-[#f0e5a5]/35"
+          } ${
             isOpen ? "flex-[0.55] min-w-[140px] px-3" : "w-8 justify-center"
           }`}
           aria-label="Suche öffnen"
         >
           <Search
-            className={`w-4 h-4 text-[#f0e5a5] transition-all duration-200 ease-out ${
+            className={`w-4 h-4 transition-all duration-200 ease-out ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"} ${
               isOpen ? "mr-2 flex-shrink-0" : ""
             }`}
           />
@@ -98,7 +102,7 @@ export default function SearchSortBar({
             value={searchQuery}
             onChange={(e) => onSearchQueryChange?.(e.target.value)}
             placeholder={placeholder}
-            className={`bg-transparent border-0 outline-none text-[11px] placeholder:text-stone-300/70 text-stone-100 transition-all duration-200 ease-out ${
+            className={`bg-transparent border-0 outline-none text-[11px] transition-all duration-200 ease-out ${isLightUi ? "placeholder:text-stone-500/80 text-stone-800" : "placeholder:text-stone-300/70 text-stone-100"} ${
               isOpen
                 ? "w-full opacity-100"
                 : "w-0 opacity-0 pointer-events-none"
@@ -109,7 +113,7 @@ export default function SearchSortBar({
 
       {showSortControls && (
         <div
-          className="flex items-center rounded-full bg-black/30 border border-[#f0e5a5]/30 p-0.5 text-[11px] overflow-x-auto scrollbar-hide transition-all duration-200 ease-out flex-1 min-w-0 backdrop-blur-sm"
+          className={"flex items-center rounded-full p-0.5 text-[11px] overflow-x-auto scrollbar-hide transition-all duration-200 ease-out flex-1 min-w-0 backdrop-blur-sm border " + (isLightUi ? "bg-white/60 border-[#c8ac62]/30" : "bg-black/30 border-[#f0e5a5]/30")}
         >
           {Array.isArray(sortOptions) && sortOptions.map((opt) => (
             <button
@@ -117,8 +121,8 @@ export default function SearchSortBar({
               type="button"
               className={`flex-1 px-2 py-1 rounded-full whitespace-nowrap text-center ${
                 sortValue === opt.value
-                  ? "bg-black/60 border border-[#f0e5a5]/55 text-[#f7f0c1]"
-                  : "text-stone-200/85 hover:bg-black/35"
+                  ? (isLightUi ? "bg-white/90 border border-[#c8ac62]/55 text-[#8f6b22]" : "bg-black/60 border border-[#f0e5a5]/55 text-[#f7f0c1]")
+                  : (isLightUi ? "text-stone-700 hover:bg-white/65" : "text-stone-200/85 hover:bg-black/35")
               }`}
               onClick={() => onSortChange?.(opt.value)}
             >
@@ -130,7 +134,7 @@ export default function SearchSortBar({
             <button
               type="button"
               onClick={handleToggleDiscovered}
-              className="ml-1 px-2 py-1 rounded-full bg-black/45 border border-[#f0e5a5]/45 text-[10px] text-stone-100 hover:bg-black/60 flex items-center gap-1"
+              className={"ml-1 px-2 py-1 rounded-full border text-[10px] hover:bg-black/60 flex items-center gap-1 " + (isLightUi ? "bg-white/85 border-[#c8ac62]/45 text-stone-700 hover:bg-white" : "bg-black/45 border-[#f0e5a5]/45 text-stone-100")}
               aria-label={`Filter: ${discoveredLabel}`}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-300" />
