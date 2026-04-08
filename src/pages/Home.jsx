@@ -1451,7 +1451,11 @@ export default function Home() {
                     onUiThemeChange={setUiTheme}
                   />
                 ) : showHeroZoneMap ? (
-                  <section className="relative flex-1 min-h-0 rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm overflow-hidden">
+                  <section className={`relative flex-1 min-h-0 rounded-3xl border overflow-hidden ${
+                    isLightUi
+                      ? "border-[#c0a860]/50 bg-white/45 backdrop-blur-2xl"
+                      : "border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm"
+                  }`}>
                     <HeroZoneMap3D
                       zones={heroZones}
                       userLocation={cachedLocation}
@@ -1459,15 +1463,27 @@ export default function Home() {
                       onTokenError={(message) => setZoneMapError(message)}
                     />
 
-                    <div className="pointer-events-none absolute inset-x-0 top-0 h-20 z-[1100] bg-gradient-to-b from-black/60 to-transparent" />
+                    <div className={`pointer-events-none absolute inset-x-0 top-0 h-20 z-[1100] ${
+                      isLightUi
+                        ? "bg-gradient-to-b from-white/20 to-transparent"
+                        : "bg-gradient-to-b from-black/60 to-transparent"
+                    }`} />
 
-                    <div className="absolute left-4 top-4 z-[1200] rounded-xl border border-[#f0e5a5]/35 bg-black/55 backdrop-blur-sm px-3 py-1.5 text-[11px] md:text-xs font-semibold text-stone-100 flex items-center gap-1.5">
+                    <div className={`absolute left-4 top-4 z-[1200] rounded-xl border backdrop-blur-sm px-3 py-1.5 text-[11px] md:text-xs font-semibold flex items-center gap-1.5 ${
+                      isLightUi
+                        ? "border-[#c8ac62]/50 bg-white/55 text-stone-800"
+                        : "border-[#f0e5a5]/35 bg-black/55 text-stone-100"
+                    }`}>
                       <MapIcon className="w-3.5 h-3.5" />
                       Zonen: {heroZones.length}
                     </div>
 
                     {zoneMapError && (
-                      <div className="absolute left-4 right-4 top-16 z-[1200] rounded-xl border border-red-300/50 bg-red-900/55 backdrop-blur-sm px-3 py-2 text-[11px] md:text-xs font-medium text-red-100">
+                      <div className={`absolute left-4 right-4 top-16 z-[1200] rounded-xl border backdrop-blur-sm px-3 py-2 text-[11px] md:text-xs font-medium ${
+                        isLightUi
+                          ? "border-red-400/40 bg-red-200/65 text-red-800"
+                          : "border-red-300/50 bg-red-900/55 text-red-100"
+                      }`}>
                         {zoneMapError}
                       </div>
                     )}
@@ -1476,7 +1492,11 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={() => setShowHeroZoneMap(false)}
-                        className="h-10 px-3 rounded-xl border border-[#f0e5a5]/45 bg-black/55 backdrop-blur-sm flex items-center gap-2 text-xs md:text-sm font-semibold text-stone-100"
+                        className={`h-10 px-3 rounded-xl border backdrop-blur-sm flex items-center gap-2 text-xs md:text-sm font-semibold ${
+                          isLightUi
+                            ? "border-[#c8ac62]/55 bg-white/60 text-stone-800 hover:bg-white/70"
+                            : "border-[#f0e5a5]/45 bg-black/55 text-stone-100 hover:bg-black/70"
+                        } transition-colors`}
                       >
                         <ArrowLeft className="w-4 h-4" />
                         Zurück
@@ -1486,7 +1506,11 @@ export default function Home() {
                         type="button"
                         onClick={handleRegenerateZones}
                         disabled={isRegeneratingZones || isLoadingZone}
-                        className="h-10 px-3 rounded-xl border border-[#f0e5a5]/45 bg-black/55 backdrop-blur-sm flex items-center gap-2 text-xs md:text-sm font-semibold text-stone-100 disabled:opacity-60"
+                        className={`h-10 px-3 rounded-xl border backdrop-blur-sm flex items-center gap-2 text-xs md:text-sm font-semibold disabled:opacity-60 ${
+                          isLightUi
+                            ? "border-[#c8ac62]/55 bg-white/60 text-stone-800 hover:bg-white/70"
+                            : "border-[#f0e5a5]/45 bg-black/55 text-stone-100 hover:bg-black/70"
+                        } transition-colors`}
                       >
                         {isRegeneratingZones ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                         Neu
@@ -1494,7 +1518,11 @@ export default function Home() {
                     </div>
                   </section>
                 ) : (
-                  <section data-ui="home-plant-hero-section" className="flex-1 min-h-0 rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col">
+                  <section data-ui="home-plant-hero-section" className={`flex-1 min-h-0 rounded-3xl border px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col ${
+                    isLightUi
+                      ? "border-[#c0a860]/50 bg-white/45 backdrop-blur-2xl"
+                      : "border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm"
+                  }`}>
                   <div ref={healthStatsPanelRef} className="flex-1 min-h-0 flex items-center justify-center">
                     <div
                       className="relative mx-auto"
@@ -1509,14 +1537,20 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={() => setShowHealthStatsPanel((prev) => !prev)}
-                        className="absolute left-0 md:left-2 top-5 md:top-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border border-[#f0e5a5]/40 backdrop-blur-sm flex flex-col items-center justify-center"
+                        className={`absolute left-0 md:left-2 top-5 md:top-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${
+                          isLightUi
+                            ? "border-[#c8ac62]/60"
+                            : "border-[#f0e5a5]/40"
+                        }`}
                         style={{
-                          background: `linear-gradient(135deg, ${plantHealthState.color}7a 0%, ${plantHealthState.color}4d 100%)`,
+                          background: isLightUi
+                            ? `linear-gradient(135deg, ${plantHealthState.color}35 0%, ${plantHealthState.color}15 100%)`
+                            : `linear-gradient(135deg, ${plantHealthState.color}7a 0%, ${plantHealthState.color}4d 100%)`,
                         }}
                         aria-label="Pflanzenstatus ein- oder ausklappen"
                       >
-                        <Leaf className="w-4 h-4 text-white/90" />
-                        <span className="font-bold text-white text-[11px] md:text-xs leading-none mt-0.5">{overallPlantHealth}%</span>
+                        <Leaf className={`w-4 h-4 ${isLightUi ? "text-stone-700" : "text-white/90"}`} />
+                        <span className={`font-bold text-[11px] md:text-xs leading-none mt-0.5 ${isLightUi ? "text-stone-800" : "text-white"}`}>{overallPlantHealth}%</span>
                       </button>
 
                       <button
@@ -1526,13 +1560,19 @@ export default function Home() {
                           setShowHealthStatsPanel(false);
                         }}
                         aria-label="Zonenkarte in Plant-Hero öffnen"
-                        className="absolute right-0 md:right-2 top-5 md:top-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border border-[#f0e5a5]/40 backdrop-blur-sm flex flex-col items-center justify-center"
+                        className={`absolute right-0 md:right-2 top-5 md:top-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${
+                          isLightUi
+                            ? "border-[#c8ac62]/60"
+                            : "border-[#f0e5a5]/40"
+                        }`}
                         style={{
-                          background: `linear-gradient(135deg, ${currentZoneColor}7a 0%, ${currentZoneColor}4d 100%)`,
+                          background: isLightUi
+                            ? `linear-gradient(135deg, ${currentZoneColor}35 0%, ${currentZoneColor}15 100%)`
+                            : `linear-gradient(135deg, ${currentZoneColor}7a 0%, ${currentZoneColor}4d 100%)`,
                         }}
                       >
-                        <ZoneIcon className="w-4 h-4 text-white/90" />
-                        <span className="font-semibold text-white text-[11px] md:text-xs leading-none mt-0.5 truncate max-w-[85%]">
+                        <ZoneIcon className={`w-4 h-4 ${isLightUi ? "text-stone-700" : "text-white/90"}`} />
+                        <span className={`font-semibold text-[11px] md:text-xs leading-none mt-0.5 truncate max-w-[85%] ${isLightUi ? "text-stone-800" : "text-white"}`}>
                           {isLoadingZone ? "..." : activeZoneMeta?.label || "Leer"}
                         </span>
                       </button>
@@ -1577,10 +1617,18 @@ export default function Home() {
                             className="absolute inset-0"
                           >
                             <div
-                              className="absolute left-1/2 top-1/2 w-[82%] -translate-x-1/2 -translate-y-1/2 aspect-square rounded-full border border-[#f0e5a5]/35 bg-gradient-to-b from-emerald-100/25 to-emerald-900/45 backdrop-blur-sm shadow-[inset_0_0_30px_rgba(190,242,100,0.15)]"
+                              className={`absolute left-1/2 top-1/2 w-[82%] -translate-x-1/2 -translate-y-1/2 aspect-square rounded-full border backdrop-blur-sm shadow-[inset_0_0_30px_rgba(190,242,100,0.15)] ${
+                                isLightUi
+                                  ? "border-[#b8d4a8]/55 bg-gradient-to-b from-emerald-50/75 to-emerald-100/45"
+                                  : "border-[#f0e5a5]/35 bg-gradient-to-b from-emerald-100/25 to-emerald-900/45"
+                              }`}
                             />
                             <div className="absolute inset-0 flex items-center justify-center">
-                              <Leaf className="w-20 h-20 md:w-24 md:h-24 text-lime-200 drop-shadow-[0_0_24px_rgba(190,242,100,0.6)]" />
+                              <Leaf className={`w-20 h-20 md:w-24 md:h-24 drop-shadow-[0_0_24px_rgba(190,242,100,0.6)] ${
+                                isLightUi
+                                  ? "text-emerald-600"
+                                  : "text-lime-200"
+                              }`} />
                             </div>
 
                             <div className="absolute left-1/2 top-1/2 w-[82%] aspect-square -translate-x-1/2 -translate-y-1/2">
@@ -1593,7 +1641,11 @@ export default function Home() {
                                 <button
                                   key={`slot-${index}`}
                                   type="button"
-                                  className={`absolute ${position} w-12 h-12 md:w-14 md:h-14 rounded-2xl border border-[#f0e5a5]/45 bg-black/35 backdrop-blur-sm flex items-center justify-center text-[#f0e5a5] hover:bg-black/50 transition-colors`}
+                                  className={`absolute ${position} w-12 h-12 md:w-14 md:h-14 rounded-2xl border backdrop-blur-sm flex items-center justify-center transition-colors ${
+                                    isLightUi
+                                      ? "border-[#c8ac62]/55 bg-white/50 text-stone-700 hover:bg-white/65"
+                                      : "border-[#f0e5a5]/45 bg-black/35 text-[#f0e5a5] hover:bg-black/50"
+                                  }`}
                                   aria-label={`Plus Slot ${index + 1}`}
                                 >
                                   <Plus className="w-6 h-6" />
@@ -1608,14 +1660,24 @@ export default function Home() {
                   </div>
 
                   <div
-                    className="mt-[clamp(0.5rem,1.2vh,1rem)] w-full rounded-2xl border border-[#f0e5a5]/45 bg-gradient-to-r from-emerald-900/45 via-black/30 to-emerald-900/45 backdrop-blur-sm px-[clamp(0.625rem,2vw,0.875rem)]"
+                    className={`mt-[clamp(0.5rem,1.2vh,1rem)] w-full rounded-2xl border backdrop-blur-sm px-[clamp(0.625rem,2vw,0.875rem)] ${
+                      isLightUi
+                        ? "border-[#c8ac62]/45 bg-gradient-to-r from-emerald-100/50 via-white/40 to-emerald-100/50"
+                        : "border-[#f0e5a5]/45 bg-gradient-to-r from-emerald-900/45 via-black/30 to-emerald-900/45"
+                    }`}
                     style={{ height: `${(2.4 * controlsScale).toFixed(2)}rem` }}
                   >
-                    <div className="h-full w-full flex items-center justify-between text-xs md:text-sm font-semibold">
+                    <div className={`h-full w-full flex items-center justify-between text-xs md:text-sm font-semibold ${
+                      isLightUi ? "text-stone-700" : ""
+                    }`}>
                       <Popover open={showSeedsTooltip} onOpenChange={setShowSeedsTooltip}>
                         <PopoverTrigger asChild>
-                          <div className="flex items-center gap-1.5 text-lime-100/95 min-w-0 cursor-pointer hover:text-lime-100 transition-colors">
-                            <Leaf className="w-4 h-4 text-lime-200" />
+                          <div className={`flex items-center gap-1.5 min-w-0 cursor-pointer transition-colors ${
+                            isLightUi
+                              ? "text-stone-700 hover:text-stone-800"
+                              : "text-lime-100/95 hover:text-lime-100"
+                          }`}>
+                            <Leaf className={`w-4 h-4 ${isLightUi ? "text-emerald-600" : "text-lime-200"}`} />
                             <span className="truncate">{playerSeeds}</span>
                           </div>
                         </PopoverTrigger>
@@ -1632,9 +1694,13 @@ export default function Home() {
 
                       <Popover open={showMultiplierTooltip} onOpenChange={setShowMultiplierTooltip}>
                         <PopoverTrigger asChild>
-                          <div className="flex items-center gap-1.5 text-amber-100/95 min-w-0 cursor-pointer hover:text-amber-100 transition-colors">
-                            <div className="h-5 w-px bg-[#f0e5a5]/35" />
-                            <Zap className="w-4 h-4 text-amber-300" />
+                          <div className={`flex items-center gap-1.5 min-w-0 cursor-pointer transition-colors ${
+                            isLightUi
+                              ? "text-stone-700 hover:text-stone-800"
+                              : "text-amber-100/95 hover:text-amber-100"
+                          }`}>
+                            <div className={`h-5 w-px ${isLightUi ? "bg-[#c8ac62]/40" : "bg-[#f0e5a5]/35"}`} />
+                            <Zap className={`w-4 h-4 ${isLightUi ? "text-amber-700" : "text-amber-300"}`} />
                             <span className="truncate">
                               Streak {formatMultiplier(streakMultiplier)} · Zone {formatMultiplier(zoneMultiplier)}
                             </span>
@@ -1681,7 +1747,11 @@ export default function Home() {
 
                   <motion.button
                     onClick={() => navigate(createPageUrl('Scanner'))}
-                    className="mt-[clamp(0.625rem,1.6vh,1.25rem)] w-full rounded-2xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 flex items-center justify-center font-semibold tracking-wide shadow-[0_8px_24px_rgba(34,197,94,0.3)]"
+                    className={`mt-[clamp(0.625rem,1.6vh,1.25rem)] w-full rounded-2xl border flex items-center justify-center font-semibold tracking-wide transition-shadow ${
+                      isLightUi
+                        ? "border-emerald-400/50 bg-gradient-to-r from-emerald-500/85 via-emerald-400/75 to-emerald-500/85 text-white shadow-[0_8px_24px_rgba(34,197,94,0.2)] hover:shadow-[0_12px_32px_rgba(34,197,94,0.35)]"
+                        : "border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 text-white shadow-[0_8px_24px_rgba(34,197,94,0.3)]"
+                    }`}
                     style={{
                       height: `${(3.35 * controlsScale).toFixed(2)}rem`,
                       gap: `${(0.56 * controlsScale).toFixed(2)}rem`,
