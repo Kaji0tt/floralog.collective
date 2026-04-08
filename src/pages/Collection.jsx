@@ -6,7 +6,7 @@ import { getCurrentUser } from "@/api/userApi";
 import { createPageUrl } from "@/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
-import { Leaf, PencilLine, SlidersHorizontal, Minus, Plus, Home } from "lucide-react";
+import { Leaf, PencilLine, SlidersHorizontal, Minus, Plus, Home, ArrowLeft } from "lucide-react";
 import GenusCard from "../components/collection/GenusCard";
 import HintDialog from "../components/collection/HintDialog";
 import SearchSortBar from "../components/collection/SearchSortBar";
@@ -76,7 +76,7 @@ const getAverageColor = (imageUrl) => {
 };
 
 
-export default function Collection() {
+export default function Collection({ embedded = false, onRequestClose = null }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -707,15 +707,22 @@ export default function Collection() {
     ? userCollections.find((uc) => uc.collection_id === selectedCollection.id)
     : null;
   const isFollowingSelected = !!userCollectionLinkForSelected && !isOwnerOfSelected;
+  const handleBack = () => {
+    if (embedded && typeof onRequestClose === "function") {
+      onRequestClose();
+      return;
+    }
+    navigate(createPageUrl("Home"));
+  };
 
   return (
-    <div className="fixed inset-0 overflow-hidden" data-ui="home-page-shell">
-      <div className="absolute inset-0" style={pageShellBackgroundStyle} />
-      <div className="absolute inset-0 backdrop-blur-3xl" />
-      <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-black/35 to-black/55" />
+    <div className={embedded ? "h-full min-h-0" : "fixed inset-0 overflow-hidden"} data-ui="home-page-shell">
+      {!embedded && <div className="absolute inset-0" style={pageShellBackgroundStyle} />}
+      {!embedded && <div className="absolute inset-0 backdrop-blur-3xl" />}
+      {!embedded && <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-black/35 to-black/55" />}
 
-      <div className="relative z-10 h-full w-full p-3 md:p-6 flex items-start justify-center">
-        <div className="relative h-[calc(100%-1.50rem)] md:h-[calc(100%-1.50rem)] w-full max-w-md md:max-w-3xl rounded-[2rem] overflow-hidden border border-[#d7cf9c]/65 shadow-[0_20px_80px_rgba(0,0,0,0.55)]">
+      <div className={embedded ? "relative z-10 h-full w-full" : "relative z-10 h-full w-full p-3 md:p-6 flex items-start justify-center"}>
+        <div className={embedded ? "relative h-full w-full rounded-3xl overflow-hidden border border-[#d7cf9c]/45 shadow-[0_12px_40px_rgba(0,0,0,0.35)]" : "relative h-[calc(100%-1.50rem)] md:h-[calc(100%-1.50rem)] w-full max-w-md md:max-w-3xl rounded-[2rem] overflow-hidden border border-[#d7cf9c]/65 shadow-[0_20px_80px_rgba(0,0,0,0.55)]"}>
           <div
             className="absolute inset-0"
             style={user?.background_image_url ? {
@@ -738,11 +745,11 @@ export default function Collection() {
 
               <button
                 type="button"
-                onClick={() => navigate(createPageUrl("Home"))}
+                onClick={handleBack}
                 className="w-11 h-11 rounded-full border border-[#f0e5a5]/35 bg-black/30 backdrop-blur-md flex items-center justify-center hover:bg-black/45 transition-colors shrink-0"
-                aria-label="Zur Home Seite"
+                aria-label={embedded ? "Zurück zur Home-Ansicht" : "Zur Home Seite"}
               >
-                <Home className="w-5 h-5 text-[#f0e5a5]" />
+                {embedded ? <ArrowLeft className="w-5 h-5 text-[#f0e5a5]" /> : <Home className="w-5 h-5 text-[#f0e5a5]" />}
               </button>
             </div>
 

@@ -22,6 +22,7 @@ import {
 } from "@/lib/robotPlantEconomy";
 import { Button } from "@/components/ui/button";
 import { updateQuestProgress } from "@/components/utils/questProgress";
+import Collection from "./Collection";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -297,6 +298,7 @@ export default function Home() {
   const [showMultiplierTooltip, setShowMultiplierTooltip] = useState(false);
 
   const [scanFeedback, setScanFeedback] = useState(null);
+  const [showEmbeddedCollection, setShowEmbeddedCollection] = useState(false);
 
   // Migration states
   const [isMigrating, setIsMigrating] = useState(false);
@@ -1108,7 +1110,11 @@ export default function Home() {
     {
       label: "Kollektion",
       icon: Leaf,
-      onClick: () => navigate(createPageUrl("Collection")),
+      onClick: () => {
+        setShowEmbeddedCollection(true);
+        setShowHeroZoneMap(false);
+        setShowHealthStatsPanel(false);
+      },
       gradientClass: "bg-gradient-to-b from-[#2b4a3a]/78 via-[#1a2f25]/92 to-[#0b1713]/96",
       shadowStyle: "inset 0 1px 0 rgba(214,255,230,0.2), inset 0 -12px 18px rgba(0,0,0,0.46), 0 8px 16px rgba(0,0,0,0.32)",
     },
@@ -1349,7 +1355,12 @@ export default function Home() {
               </div>
 
               <div className="relative flex flex-1 min-h-0 flex-col overflow-hidden py-[clamp(0.5rem,1.5vh,1rem)]" data-ui="home-content-stack">
-                {showHeroZoneMap ? (
+                {showEmbeddedCollection ? (
+                  <Collection
+                    embedded
+                    onRequestClose={() => setShowEmbeddedCollection(false)}
+                  />
+                ) : showHeroZoneMap ? (
                   <section className="relative flex-1 min-h-0 rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm overflow-hidden">
                     <HeroZoneMap3D
                       zones={heroZones}
