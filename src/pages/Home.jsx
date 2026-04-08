@@ -301,6 +301,10 @@ export default function Home() {
   const [scanFeedback, setScanFeedback] = useState(null);
   const [showEmbeddedCollection, setShowEmbeddedCollection] = useState(false);
   const [showEmbeddedSettings, setShowEmbeddedSettings] = useState(false);
+  const [uiTheme, setUiTheme] = useState(() => {
+    const stored = localStorage.getItem("home-ui-theme");
+    return stored === "light" ? "light" : "dark";
+  });
 
   // Migration states
   const [isMigrating, setIsMigrating] = useState(false);
@@ -526,6 +530,10 @@ export default function Home() {
       window.removeEventListener('userUpdated', handleUserUpdate);
     };
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem("home-ui-theme", uiTheme);
+  }, [uiTheme]);
 
   // Beim Öffnen der Home-Seite einmalig Quest-Fortschritt aktualisieren
   useEffect(() => {
@@ -1120,6 +1128,8 @@ export default function Home() {
     return `x${safeValue.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1")}`;
   };
 
+  const isLightUi = uiTheme === "light";
+
   const navItems = [
     {
       label: "Kollektion",
@@ -1130,36 +1140,56 @@ export default function Home() {
         setShowHeroZoneMap(false);
         setShowHealthStatsPanel(false);
       },
-      gradientClass: "bg-gradient-to-b from-[#2b4a3a]/78 via-[#1a2f25]/92 to-[#0b1713]/96",
-      shadowStyle: "inset 0 1px 0 rgba(214,255,230,0.2), inset 0 -12px 18px rgba(0,0,0,0.46), 0 8px 16px rgba(0,0,0,0.32)",
+      gradientClass: isLightUi
+        ? "bg-gradient-to-b from-[#f8f1cf]/95 via-[#efe3b3]/95 to-[#e4d591]/95"
+        : "bg-gradient-to-b from-[#2b4a3a]/78 via-[#1a2f25]/92 to-[#0b1713]/96",
+      shadowStyle: isLightUi
+        ? "inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -12px 18px rgba(133,105,40,0.22), 0 8px 16px rgba(133,105,40,0.24)"
+        : "inset 0 1px 0 rgba(214,255,230,0.2), inset 0 -12px 18px rgba(0,0,0,0.46), 0 8px 16px rgba(0,0,0,0.32)",
     },
     {
       label: "Quests",
       icon: Scroll,
       onClick: () => navigate(createPageUrl("Quests")),
-      gradientClass: "bg-gradient-to-b from-[#4f3d2b]/78 via-[#2f2118]/92 to-[#16100c]/96",
-      shadowStyle: "inset 0 1px 0 rgba(255,236,205,0.18), inset 0 -12px 18px rgba(0,0,0,0.48), 0 8px 16px rgba(0,0,0,0.32)",
+      gradientClass: isLightUi
+        ? "bg-gradient-to-b from-[#f9e8c7]/95 via-[#f1d8a1]/95 to-[#e7c47d]/95"
+        : "bg-gradient-to-b from-[#4f3d2b]/78 via-[#2f2118]/92 to-[#16100c]/96",
+      shadowStyle: isLightUi
+        ? "inset 0 1px 0 rgba(255,255,255,0.86), inset 0 -12px 18px rgba(157,94,34,0.22), 0 8px 16px rgba(157,94,34,0.24)"
+        : "inset 0 1px 0 rgba(255,236,205,0.18), inset 0 -12px 18px rgba(0,0,0,0.48), 0 8px 16px rgba(0,0,0,0.32)",
     },
     {
       label: "Social",
       icon: Users,
       onClick: () => navigate(createPageUrl("Friends")),
-      gradientClass: "bg-gradient-to-b from-[#29435a]/78 via-[#172a3f]/92 to-[#0c151f]/96",
-      shadowStyle: "inset 0 1px 0 rgba(210,235,255,0.18), inset 0 -12px 18px rgba(0,0,0,0.5), 0 8px 16px rgba(0,0,0,0.34)",
+      gradientClass: isLightUi
+        ? "bg-gradient-to-b from-[#e3edf8]/95 via-[#cfe1f4]/95 to-[#bad3ec]/95"
+        : "bg-gradient-to-b from-[#29435a]/78 via-[#172a3f]/92 to-[#0c151f]/96",
+      shadowStyle: isLightUi
+        ? "inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -12px 18px rgba(42,90,146,0.16), 0 8px 16px rgba(42,90,146,0.2)"
+        : "inset 0 1px 0 rgba(210,235,255,0.18), inset 0 -12px 18px rgba(0,0,0,0.5), 0 8px 16px rgba(0,0,0,0.34)",
     },
     {
       label: "Shop",
       icon: ShoppingBag,
       onClick: () => navigate(createPageUrl("Shop")),
-      gradientClass: "bg-gradient-to-b from-[#5a3823]/78 via-[#3a2316]/92 to-[#1b1009]/96",
-      shadowStyle: "inset 0 1px 0 rgba(255,224,188,0.18), inset 0 -12px 18px rgba(0,0,0,0.48), 0 8px 16px rgba(0,0,0,0.34)",
+      gradientClass: isLightUi
+        ? "bg-gradient-to-b from-[#f7e3d1]/95 via-[#efcfb0]/95 to-[#e7b98c]/95"
+        : "bg-gradient-to-b from-[#5a3823]/78 via-[#3a2316]/92 to-[#1b1009]/96",
+      shadowStyle: isLightUi
+        ? "inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -12px 18px rgba(122,74,37,0.22), 0 8px 16px rgba(122,74,37,0.22)"
+        : "inset 0 1px 0 rgba(255,224,188,0.18), inset 0 -12px 18px rgba(0,0,0,0.48), 0 8px 16px rgba(0,0,0,0.34)",
     },
   ];
 
-  const footerTextColor = averageColor
+  const footerTextColor = isLightUi
+    ? "rgba(66, 52, 23, 0.9)"
+    : averageColor
     ? (isColorDark(averageColor) ? "rgba(245, 245, 244, 0.7)" : "rgba(28,25,23,0.8)")
     : "rgba(245, 245, 244, 0.7)";
-  const footerTextShadow = averageColor && isColorDark(averageColor)
+  const footerTextShadow = isLightUi
+    ? "0 1px 8px rgba(255,255,255,0.45)"
+    : averageColor && isColorDark(averageColor)
     ? "0 2px 8px rgba(0,0,0,0.7)"
     : "0 1px 5px rgba(255,255,255,0.35)";
 
@@ -1310,10 +1340,12 @@ export default function Home() {
           } : user?.background_color ? {
             background: `linear-gradient(160deg, ${getRgbaFromRgb(user.background_color, 1)} 0%, ${getRgbaFromRgb(user.background_color, 0.55)} 100%)`,
           } : {
-            background: 'radial-gradient(circle at top, rgb(167, 243, 208) 0%, rgb(22, 101, 52) 60%, rgb(10, 30, 18) 100%)',
+            background: isLightUi
+              ? 'radial-gradient(circle at top, rgb(255, 248, 220) 0%, rgb(244, 231, 187) 52%, rgb(236, 217, 156) 100%)'
+              : 'radial-gradient(circle at top, rgb(167, 243, 208) 0%, rgb(22, 101, 52) 60%, rgb(10, 30, 18) 100%)',
           }}
         />
-        <div className="absolute inset-0 backdrop-blur-3xl" />
+        <div className={`absolute inset-0 ${isLightUi ? "backdrop-blur-[2px] bg-white/20" : "backdrop-blur-3xl"}`} />
 
         <div className="relative z-10 h-full w-full p-3 md:p-6 flex items-start justify-center">
           <motion.div
@@ -1321,24 +1353,30 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, ease: 'easeOut' }}
             data-ui="home-main-content-shell"
-            className="relative h-[calc(100%-1.50rem)] md:h-[calc(100%-1.50rem)] w-full max-w-md md:max-w-3xl rounded-[2rem] overflow-hidden border border-[#d7cf9c]/65 shadow-[0_20px_80px_rgba(0,0,0,0.55)]"
+            className={`relative h-[calc(100%-1.50rem)] md:h-[calc(100%-1.50rem)] w-full max-w-md md:max-w-3xl rounded-[2rem] overflow-hidden border ${isLightUi ? "border-[#dfc98b]/75 shadow-[0_20px_64px_rgba(160,125,45,0.22)]" : "border-[#d7cf9c]/65 shadow-[0_20px_80px_rgba(0,0,0,0.55)]"}`}
           >
             <div
               className="absolute inset-0"
               style={user?.background_image_url ? {
-                backgroundImage: `linear-gradient(180deg, rgba(19,37,24,0.42) 0%, rgba(12,20,15,0.66) 100%), url(${user.background_image_url})`,
+                backgroundImage: isLightUi
+                  ? `linear-gradient(180deg, rgba(255,246,210,0.65) 0%, rgba(244,230,181,0.75) 100%), url(${user.background_image_url})`
+                  : `linear-gradient(180deg, rgba(19,37,24,0.42) 0%, rgba(12,20,15,0.66) 100%), url(${user.background_image_url})`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
               } : user?.background_color ? {
-                background: `linear-gradient(180deg, ${getRgbaFromRgb(user.background_color, 0.28)} 0%, rgba(14, 22, 16, 0.74) 100%)`,
+                background: isLightUi
+                  ? `linear-gradient(180deg, ${getRgbaFromRgb(user.background_color, 0.25)} 0%, rgba(255, 249, 225, 0.9) 100%)`
+                  : `linear-gradient(180deg, ${getRgbaFromRgb(user.background_color, 0.28)} 0%, rgba(14, 22, 16, 0.74) 100%)`,
               } : {
-                background: 'linear-gradient(180deg, rgba(126, 171, 98, 0.45) 0%, rgba(10, 22, 15, 0.78) 100%)',
+                background: isLightUi
+                  ? 'linear-gradient(180deg, rgba(255, 248, 221, 0.92) 0%, rgba(243, 229, 183, 0.9) 100%)'
+                  : 'linear-gradient(180deg, rgba(126, 171, 98, 0.45) 0%, rgba(10, 22, 15, 0.78) 100%)',
               }}
             />
-            <div className="absolute inset-0 border border-[#f0e5a5]/30 pointer-events-none rounded-[2rem]" />
+            <div className={`absolute inset-0 pointer-events-none rounded-[2rem] border ${isLightUi ? "border-[#f4e6b7]/85" : "border-[#f0e5a5]/30"}`} />
 
-            <div className="relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6 text-stone-100">
-              <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#f0e5a5]/20">
+            <div className={`relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6 ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
+              <div className={`flex items-start justify-between gap-3 pb-3 border-b ${isLightUi ? "border-[#b99a48]/30" : "border-[#f0e5a5]/20"}`}>
                 <div className="min-w-0">
                   {showEmbeddedCollection ? (
                     <div className="flex items-baseline gap-2 min-w-0">
@@ -1361,7 +1399,7 @@ export default function Home() {
                       >
                         {getDisplayName()}
                       </h1>
-                      <p className="text-stone-200/85 text-base md:text-lg whitespace-nowrap truncate">
+                      <p className={`${isLightUi ? "text-stone-700/90" : "text-stone-200/85"} text-base md:text-lg whitespace-nowrap truncate`}>
                         {user.selected_title || user.title || 'Pflanzen-Entdecker'}
                       </p>
                     </div>
@@ -1388,13 +1426,13 @@ export default function Home() {
                     setShowHeroZoneMap(false);
                     setShowHealthStatsPanel(false);
                   }}
-                  className="w-11 h-11 rounded-full border border-[#f0e5a5]/35 bg-black/30 backdrop-blur-md flex items-center justify-center hover:bg-black/45 transition-colors"
+                  className={`w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors ${isLightUi ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80" : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"}`}
                   aria-label={(showEmbeddedCollection || showEmbeddedSettings) ? "Zur Home-Ansicht" : "Einstellungen"}
                 >
                   {(showEmbeddedCollection || showEmbeddedSettings) ? (
-                    <HomeIcon className="w-5 h-5 text-[#f0e5a5]" />
+                    <HomeIcon className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
                   ) : (
-                    <Settings className="w-5 h-5 text-[#f0e5a5]" />
+                    <Settings className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
                   )}
                 </button>
               </div>
@@ -1409,6 +1447,8 @@ export default function Home() {
                   <SettingsPanel
                     user={user}
                     onUserUpdated={(freshUser) => setUser(freshUser)}
+                    uiTheme={uiTheme}
+                    onUiThemeChange={setUiTheme}
                   />
                 ) : showHeroZoneMap ? (
                   <section className="relative flex-1 min-h-0 rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm overflow-hidden">

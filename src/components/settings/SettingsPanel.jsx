@@ -1,13 +1,12 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { Query } from "@/api/entities";
 import { updateCurrentUserProfile, getCurrentUser } from "@/api/userApi";
 import { upsertUserProfile, signOut } from "@/api/authService";
-import { uploadFile } from "@/api/storage";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  Camera, Loader2, Leaf, LogOut, Mail, AlertCircle, RotateCcw,
+  LogOut, Mail, AlertCircle, RotateCcw,
   Star, Image as ImageIcon, Edit2, CheckCircle, X,
-  ChevronDown, ChevronUp, Lock,
+  ChevronDown, ChevronUp, Lock, Sun,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -21,14 +20,17 @@ import NotificationManager from "@/components/notifications/NotificationManager"
 import LocationManager from "@/components/notifications/LocationManager";
 
 /**
- * @param {{ user: any, onUserUpdated: (user: any) => void }} props
+ * @param {{
+ *  user: any,
+ *  onUserUpdated: (user: any) => void,
+ *  uiTheme?: "dark" | "light",
+ *  onUiThemeChange?: (theme: "dark" | "light") => void,
+ * }} props
  */
-export default function SettingsPanel({ user, onUserUpdated }) {
+export default function SettingsPanel({ user, onUserUpdated, uiTheme = "dark", onUiThemeChange }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const fileInputRef = useRef(null);
 
-  const [uploadingImage, setUploadingImage] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(user?.display_name || user?.full_name || "");
   const [showBackgroundSelector, setShowBackgroundSelector] = useState(false);
@@ -43,8 +45,6 @@ export default function SettingsPanel({ user, onUserUpdated }) {
       setEditedName(user?.display_name || user?.full_name || "");
     }
   }, [user?.display_name, user?.full_name, isEditingName]);
-
-  // — Queries (will reuse React Query cache from Home when available) —
 
   const { data: userDiscoveries = [] } = useQuery({
     queryKey: ["userDiscoveries", user?.id],
@@ -92,12 +92,10 @@ export default function SettingsPanel({ user, onUserUpdated }) {
     staleTime: Infinity,
   });
 
-  // — Derived stats for unlock conditions —
   const scannedPlantsCount = userDiscoveries.length;
   const uniqueSpeciesCount = new Set(userDiscoveries.map((d) => d.plant_id)).size;
   const weeklyQuestParticipations = new Set(userWeeklyQuests.map((q) => q.active_week)).size;
 
-  // — Mutation —
   const updateUserMutation = useMutation({
     mutationFn: (data) => updateCurrentUserProfile(data),
     onSuccess: async () => {
@@ -109,7 +107,7 @@ export default function SettingsPanel({ user, onUserUpdated }) {
       await updatePublicProfile(freshUser);
     },
     onError: (error) => {
-      console.error("❌ Fehler beim Update:", error);
+      console.error("Fehler beim Update:", error);
       alert(`Fehler beim Speichern: ${error.message}`);
       setIsEditingName(false);
     },
@@ -123,7 +121,6 @@ export default function SettingsPanel({ user, onUserUpdated }) {
         full_name: userData.full_name,
         title: userData.title,
         selected_title: userData.selected_title,
-        avatar_url: userData.avatar_url,
         background_image_url: userData.background_image_url,
         background_color: userData.background_color,
       });
@@ -140,13 +137,23 @@ export default function SettingsPanel({ user, onUserUpdated }) {
         try {
           const canvas = document.createElement("canvas");
           const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve(null);
+            return;
+          }
           canvas.width = 50;
           canvas.height = 50;
           ctx.drawImage(img, 0, 0, 50, 50);
           const d = ctx.getImageData(0, 0, 50, 50).data;
-          let r = 0, g = 0, b = 0, n = 0;
+          let r = 0;
+          let g = 0;
+          let b = 0;
+          let n = 0;
           for (let i = 0; i < d.length; i += 16) {
-            r += d[i]; g += d[i + 1]; b += d[i + 2]; n++;
+            r += d[i];
+            g += d[i + 1];
+            b += d[i + 2];
+            n += 1;
           }
           resolve(`rgb(${Math.floor(r / n)}, ${Math.floor(g / n)}, ${Math.floor(b / n)})`);
         } catch {
@@ -157,30 +164,22 @@ export default function SettingsPanel({ user, onUserUpdated }) {
       img.src = imageUrl;
     });
 
-  const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setUploadingImage(true);
-    try {
-      const { file_url } = await uploadFile({ file });
-      await updateUserMutation.mutateAsync({ avatar_url: file_url });
-    } catch (error) {
-      console.error("Fehler beim Hochladen:", error);
-      alert(`Fehler: ${error.message}`);
-    }
-    setUploadingImage(false);
-  };
-
   const handleSaveName = async () => {
     const trimmed = editedName.trim();
-    if (!trimmed) { alert("Bitte gib einen Namen ein."); return; }
+    if (!trimmed) {
+      alert("Bitte gib einen Namen ein.");
+      return;
+    }
     const current = user?.display_name || user?.full_name;
-    if (trimmed === current) { setIsEditingName(false); return; }
+    if (trimmed === current) {
+      setIsEditingName(false);
+      return;
+    }
     await updateUserMutation.mutateAsync({ display_name: trimmed });
   };
 
   const handleSetBackground = async (imageUrl, precomputedColor = null) => {
-    const color = precomputedColor || await getAverageColor(imageUrl);
+    const color = precomputedColor || (await getAverageColor(imageUrl));
     await updateUserMutation.mutateAsync({ background_image_url: imageUrl, background_color: color });
     setShowBackgroundSelector(false);
     localStorage.setItem("hasChangedBackground", "true");
@@ -204,7 +203,6 @@ export default function SettingsPanel({ user, onUserUpdated }) {
 
   const getDisplayName = () => user?.display_name || user?.full_name || "Spieler";
 
-  // — Title options —
   const achievementTitleOptions = userAchievements
     .map((ua) => achievements.find((a) => a.id === ua.achievement_id)?.title_reward)
     .filter(Boolean);
@@ -222,10 +220,11 @@ export default function SettingsPanel({ user, onUserUpdated }) {
 
   const titleMap = new Map();
   achievementTitleOptions.forEach((t) => titleMap.set(t, { value: t, label: t }));
-  rewardTitleOptions.forEach((o) => { if (!titleMap.has(o.value)) titleMap.set(o.value, o); });
+  rewardTitleOptions.forEach((o) => {
+    if (!titleMap.has(o.value)) titleMap.set(o.value, o);
+  });
   const titleOptions = Array.from(titleMap.values());
 
-  // — Color sets for backgrounds —
   const colorRows = [
     {
       threshold: 5,
@@ -246,30 +245,33 @@ export default function SettingsPanel({ user, onUserUpdated }) {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-      {/* Background Selector Dialog */}
       <Dialog open={showBackgroundSelector} onOpenChange={setShowBackgroundSelector}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-[#121b16] border border-[#f0e5a5]/35 text-stone-100">
           <DialogHeader>
-            <DialogTitle>Hintergrund auswählen</DialogTitle>
+            <DialogTitle className="text-stone-100">Hintergrund auswaehlen</DialogTitle>
           </DialogHeader>
-          <div className="space-y-6">
+          <div className="space-y-4">
             <button
-              className="w-full py-2 text-sm border border-stone-200 rounded-lg text-stone-600 hover:bg-stone-50"
-              onClick={() => { handleRemoveBackground(); handleRemoveColor(); }}
+              className="w-full py-2 text-sm border border-[#f0e5a5]/30 rounded-lg text-stone-200 hover:bg-white/5"
+              onClick={() => {
+                handleRemoveBackground();
+                handleRemoveColor();
+              }}
             >
               Hintergrund entfernen
             </button>
 
-            {/* Einfarbige Hintergründe */}
             <div>
               <button
                 onClick={() => setCollapsedSections((p) => ({ ...p, colors: !p.colors }))}
-                className="w-full flex items-center justify-between p-3 bg-stone-50 rounded-lg hover:bg-stone-100 transition-colors mb-3"
+                className="w-full flex items-center justify-between p-3 bg-black/25 rounded-lg border border-[#f0e5a5]/20 hover:bg-black/35 transition-colors mb-3"
               >
-                <h3 className="text-sm font-semibold text-stone-900">Einfarbiger Hintergrund</h3>
-                {collapsedSections.colors
-                  ? <ChevronDown className="w-5 h-5 text-stone-600" />
-                  : <ChevronUp className="w-5 h-5 text-stone-600" />}
+                <h3 className="text-sm font-semibold text-stone-100">Einfarbiger Hintergrund</h3>
+                {collapsedSections.colors ? (
+                  <ChevronDown className="w-5 h-5 text-stone-300" />
+                ) : (
+                  <ChevronUp className="w-5 h-5 text-stone-300" />
+                )}
               </button>
               {!collapsedSections.colors && (
                 <div className="space-y-4">
@@ -277,7 +279,7 @@ export default function SettingsPanel({ user, onUserUpdated }) {
                     const isUnlocked = scannedPlantsCount >= row.threshold;
                     return (
                       <div key={row.threshold}>
-                        <p className="text-xs text-stone-600 mb-2">Freischaltung {row.label}</p>
+                        <p className="text-xs text-stone-400 mb-2">Freischaltung {row.label}</p>
                         <div className="grid grid-cols-4 gap-3">
                           {row.colors.map((color) => (
                             <LockedTooltip
@@ -290,14 +292,14 @@ export default function SettingsPanel({ user, onUserUpdated }) {
                                 onClick={() => isUnlocked && handleSetColor(color)}
                                 className={`aspect-square rounded-lg border-2 relative ${
                                   isUnlocked
-                                    ? "border-stone-200 hover:border-stone-400 hover:scale-110"
-                                    : "border-stone-400 cursor-not-allowed"
+                                    ? "border-stone-300/40 hover:border-[#f0e5a5]/60 hover:scale-110"
+                                    : "border-stone-500 cursor-not-allowed"
                                 } transition-all`}
                                 style={{ backgroundColor: color }}
                               >
                                 {!isUnlocked && (
-                                  <div className="absolute inset-0 flex items-center justify-center rounded-lg">
-                                    <Lock className="w-12 h-12 text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]" />
+                                  <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/35">
+                                    <Lock className="w-8 h-8 text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]" />
                                   </div>
                                 )}
                               </button>
@@ -311,17 +313,18 @@ export default function SettingsPanel({ user, onUserUpdated }) {
               )}
             </div>
 
-            {/* Reward-Hintergründe */}
             {allRewards.filter((r) => r.type === "background").length > 0 && (
               <div>
                 <button
                   onClick={() => setCollapsedSections((p) => ({ ...p, presets: !p.presets }))}
-                  className="w-full flex items-center justify-between p-3 bg-stone-50 rounded-lg hover:bg-stone-100 transition-colors mb-3"
+                  className="w-full flex items-center justify-between p-3 bg-black/25 rounded-lg border border-[#f0e5a5]/20 hover:bg-black/35 transition-colors mb-3"
                 >
-                  <h3 className="text-sm font-semibold text-stone-900">Vorgefertigte Hintergründe</h3>
-                  {collapsedSections.presets
-                    ? <ChevronDown className="w-5 h-5 text-stone-600" />
-                    : <ChevronUp className="w-5 h-5 text-stone-600" />}
+                  <h3 className="text-sm font-semibold text-stone-100">Vorgefertigte Hintergruende</h3>
+                  {collapsedSections.presets ? (
+                    <ChevronDown className="w-5 h-5 text-stone-300" />
+                  ) : (
+                    <ChevronUp className="w-5 h-5 text-stone-300" />
+                  )}
                 </button>
                 {!collapsedSections.presets && (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -330,14 +333,15 @@ export default function SettingsPanel({ user, onUserUpdated }) {
                       .map((reward) => {
                         const isUnlocked = userRewards.some((ur) => ur.reward_id === reward.id);
                         let tooltipText = "";
-                        if (reward.requires_donor) tooltipText = "Nur für Unterstützer – spende, um diesen Hintergrund freizuschalten! 💚";
-                        else if (reward.requires_referrals) tooltipText = `Werbe ${reward.requires_referrals} Freund${reward.requires_referrals > 1 ? "e" : ""}! 🌱`;
-                        else if (reward.requires_rare_plants) tooltipText = `Entdecke ${reward.requires_rare_plants} seltene Pflanze${reward.requires_rare_plants > 1 ? "n" : ""}! 🌟`;
-                        else if (reward.requires_weekly_quests) tooltipText = `Nimm an ${reward.requires_weekly_quests} wöchentlichen Quests teil! (${weeklyQuestParticipations}/${reward.requires_weekly_quests})`;
+                        if (reward.requires_donor) tooltipText = "Nur fuer Unterstuetzer freischaltbar.";
+                        else if (reward.requires_referrals) tooltipText = `Werbe ${reward.requires_referrals} Freund${reward.requires_referrals > 1 ? "e" : ""}.`;
+                        else if (reward.requires_rare_plants) tooltipText = `Entdecke ${reward.requires_rare_plants} seltene Pflanze${reward.requires_rare_plants > 1 ? "n" : ""}.`;
+                        else if (reward.requires_weekly_quests) tooltipText = `Nimm an ${reward.requires_weekly_quests} Wochenquests teil (${weeklyQuestParticipations}/${reward.requires_weekly_quests}).`;
                         else if (reward.requires_quest) {
-                          const q = quests.find((q) => q.id === reward.requires_quest);
-                          tooltipText = q ? `Löse Quest "${q.title}" ein! 🎯` : "Schließe eine Quest ab! 🎯";
+                          const q = quests.find((quest) => quest.id === reward.requires_quest);
+                          tooltipText = q ? `Loese Quest \"${q.title}\" ein.` : "Schliesse eine Quest ab.";
                         }
+
                         return (
                           <LockedTooltip
                             key={reward.id}
@@ -347,18 +351,18 @@ export default function SettingsPanel({ user, onUserUpdated }) {
                               onClick={() => isUnlocked && handleSetBackground(reward.value, reward.color)}
                               className={`relative aspect-square rounded-lg overflow-hidden border-2 ${
                                 isUnlocked
-                                  ? "border-amber-300 hover:border-amber-500"
-                                  : "border-stone-400 cursor-not-allowed"
+                                  ? "border-[#f0e5a5]/45 hover:border-[#f0e5a5]/80"
+                                  : "border-stone-500 cursor-not-allowed"
                               } transition-colors group`}
                             >
                               <img src={reward.value} alt={reward.display_name} className="w-full h-full object-cover" />
-                              <div className={`absolute inset-0 ${isUnlocked ? "group-hover:bg-black/20" : "bg-black/40"} transition-colors`} />
-                              <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-1 text-center">
+                              <div className={`absolute inset-0 ${isUnlocked ? "group-hover:bg-black/20" : "bg-black/45"} transition-colors`} />
+                              <div className="absolute bottom-0 left-0 right-0 bg-black/65 text-stone-100 text-xs p-1 text-center">
                                 {reward.display_name}
                               </div>
                               {!isUnlocked && (
                                 <div className="absolute inset-0 flex items-center justify-center">
-                                  <Lock className="w-12 h-12 text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]" />
+                                  <Lock className="w-8 h-8 text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]" />
                                 </div>
                               )}
                             </button>
@@ -370,22 +374,23 @@ export default function SettingsPanel({ user, onUserUpdated }) {
               </div>
             )}
 
-            {/* Pflanzenbild als Hintergrund (ab 50 Arten) */}
             {uniqueSpeciesCount >= 50 && (
               <div>
                 <button
                   onClick={() => setCollapsedSections((p) => ({ ...p, scans: !p.scans }))}
-                  className="w-full flex items-center justify-between p-3 bg-stone-50 rounded-lg hover:bg-stone-100 transition-colors mb-3"
+                  className="w-full flex items-center justify-between p-3 bg-black/25 rounded-lg border border-[#f0e5a5]/20 hover:bg-black/35 transition-colors mb-3"
                 >
-                  <h3 className="text-sm font-semibold text-stone-900">Pflanzenbild als Hintergrund</h3>
-                  {collapsedSections.scans
-                    ? <ChevronDown className="w-5 h-5 text-stone-600" />
-                    : <ChevronUp className="w-5 h-5 text-stone-600" />}
+                  <h3 className="text-sm font-semibold text-stone-100">Pflanzenbild als Hintergrund</h3>
+                  {collapsedSections.scans ? (
+                    <ChevronDown className="w-5 h-5 text-stone-300" />
+                  ) : (
+                    <ChevronUp className="w-5 h-5 text-stone-300" />
+                  )}
                 </button>
                 {!collapsedSections.scans && (
                   <>
-                    <p className="text-xs text-stone-600 mb-3">
-                      ✅ Freigeschaltet! Du hast {uniqueSpeciesCount} verschiedene Arten entdeckt.
+                    <p className="text-xs text-stone-400 mb-3">
+                      Freigeschaltet: Du hast {uniqueSpeciesCount} verschiedene Arten entdeckt.
                     </p>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       {userDiscoveries
@@ -394,7 +399,7 @@ export default function SettingsPanel({ user, onUserUpdated }) {
                           <button
                             key={discovery.id}
                             onClick={() => handleSetBackground(discovery.image_url)}
-                            className="relative aspect-square rounded-lg overflow-hidden border-2 border-stone-200 hover:border-green-500 transition-colors group"
+                            className="relative aspect-square rounded-lg overflow-hidden border-2 border-stone-300/40 hover:border-[#f0e5a5]/80 transition-colors group"
                           >
                             <img src={discovery.image_url} alt="Scan" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                           </button>
@@ -408,40 +413,11 @@ export default function SettingsPanel({ user, onUserUpdated }) {
         </DialogContent>
       </Dialog>
 
-      {/* Hidden file input */}
-      <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-
-      {/* Settings content */}
       <div className="flex-1 min-h-0 overflow-y-auto rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm">
         <div className="px-3 py-3 space-y-2">
-
-          {/* ── Profil ── */}
           <p className="text-[10px] uppercase tracking-widest text-stone-500 px-1">Profil</p>
 
-          {/* Avatar + Name + Background */}
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/5 border border-[#f0e5a5]/10">
-            {/* Avatar */}
-            <div className="relative group flex-shrink-0">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-600 to-emerald-700 flex items-center justify-center overflow-hidden ring-1 ring-white/20">
-                {user?.avatar_url ? (
-                  <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  <Leaf className="w-5 h-5 text-white" />
-                )}
-              </div>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="absolute inset-0 bg-black/55 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                disabled={uploadingImage}
-                aria-label="Profilbild hochladen"
-              >
-                {uploadingImage
-                  ? <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
-                  : <Camera className="w-3.5 h-3.5 text-white" />}
-              </button>
-            </div>
-
-            {/* Name */}
             <div className="flex-1 min-w-0">
               {isEditingName ? (
                 <div className="flex items-center gap-1.5">
@@ -467,7 +443,10 @@ export default function SettingsPanel({ user, onUserUpdated }) {
                     <CheckCircle className="w-3.5 h-3.5 text-white" />
                   </button>
                   <button
-                    onClick={() => { setIsEditingName(false); setEditedName(user?.display_name || user?.full_name || ""); }}
+                    onClick={() => {
+                      setIsEditingName(false);
+                      setEditedName(user?.display_name || user?.full_name || "");
+                    }}
                     className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0"
                   >
                     <X className="w-3.5 h-3.5 text-stone-300" />
@@ -489,18 +468,28 @@ export default function SettingsPanel({ user, onUserUpdated }) {
                 {user?.selected_title || user?.title || "Pflanzen-Entdecker"}
               </p>
             </div>
+          </div>
 
-            {/* Background selector button */}
+          <div className="px-3 py-2.5 rounded-xl bg-white/5 border border-[#f0e5a5]/10">
+            <div className="flex items-center gap-2 mb-1.5">
+              <ImageIcon className="w-3.5 h-3.5 text-[#f0e5a5]/70" />
+              <p className="text-xs text-stone-400">Hintergrund</p>
+            </div>
             <button
               onClick={() => setShowBackgroundSelector(true)}
-              className="w-9 h-9 rounded-xl border border-[#f0e5a5]/20 bg-black/20 flex items-center justify-center hover:bg-black/35 transition-colors flex-shrink-0"
-              title="Hintergrund ändern"
+              className="w-full rounded-lg border border-[#f0e5a5]/25 bg-black/20 p-2.5 flex items-center justify-between hover:bg-black/35 transition-colors"
             >
-              <ImageIcon className="w-4 h-4 text-[#f0e5a5]/70" />
+              <span className="text-sm text-stone-200 text-left">Neuen Hintergrund waehlen</span>
+              <div className="h-8 w-14 rounded-md overflow-hidden border border-[#f0e5a5]/30 bg-stone-800/40">
+                {user?.background_image_url ? (
+                  <img src={user.background_image_url} alt="Aktueller Hintergrund" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full" style={{ background: user?.background_color || "linear-gradient(120deg, #374151, #111827)" }} />
+                )}
+              </div>
             </button>
           </div>
 
-          {/* Title selector */}
           <div className="px-3 py-2.5 rounded-xl bg-white/5 border border-[#f0e5a5]/10">
             <div className="flex items-center gap-2 mb-1.5">
               <Star className="w-3.5 h-3.5 text-[#f0e5a5]/60" />
@@ -522,27 +511,37 @@ export default function SettingsPanel({ user, onUserUpdated }) {
                   <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                 ))}
                 {titleOptions.length === 0 && (
-                  <div className="p-3 text-xs text-center text-stone-500">
-                    Noch keine Titel freigeschaltet
-                  </div>
+                  <div className="p-3 text-xs text-center text-stone-500">Noch keine Titel freigeschaltet</div>
                 )}
               </SelectContent>
             </Select>
-            {titleOptions.length === 0 && (
-              <p className="text-[11px] text-stone-500 mt-1.5 leading-snug">
-                💡 Schalte Erfolge oder besondere Rewards frei, um Titel zu erhalten.
-              </p>
-            )}
           </div>
 
-          {/* ── Datenschutz ── */}
+          <p className="text-[10px] uppercase tracking-widest text-stone-500 px-1 pt-1">Darstellung</p>
+
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/5 border border-[#f0e5a5]/10">
+            <Sun className="w-4 h-4 text-[#f0e5a5]/70 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-stone-100 leading-snug">Helle Anzeige</p>
+              <p className="text-xs text-stone-400 leading-snug">Invertiert dunkle und goldene Akzente in ein helles Interface.</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+              <input
+                type="checkbox"
+                checked={uiTheme === "light"}
+                onChange={(e) => onUiThemeChange?.(e.target.checked ? "light" : "dark")}
+                className="sr-only peer"
+              />
+              <div className="relative w-10 h-[22px] bg-stone-600 rounded-full peer peer-checked:bg-amber-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:after:translate-x-full" />
+            </label>
+          </div>
+
           <p className="text-[10px] uppercase tracking-widest text-stone-500 px-1 pt-1">Datenschutz</p>
 
-          {/* Weekly Tracking */}
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/5 border border-[#f0e5a5]/10">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-stone-100 leading-snug">Weekly Tracking</p>
-              <p className="text-xs text-stone-400 leading-snug">Scans in wöchentlichen Challenges teilen</p>
+              <p className="text-xs text-stone-400 leading-snug">Scans in woechentlichen Challenges teilen</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
               <input
@@ -555,7 +554,6 @@ export default function SettingsPanel({ user, onUserUpdated }) {
             </label>
           </div>
 
-          {/* Local Tracking */}
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/5 border border-[#f0e5a5]/10">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-stone-100 leading-snug">Lokales Tracking</p>
@@ -572,21 +570,18 @@ export default function SettingsPanel({ user, onUserUpdated }) {
             </label>
           </div>
 
-          {/* ── Benachrichtigungen ── */}
-          <p className="text-[10px] uppercase tracking-widest text-stone-500 px-1 pt-1">Benachrichtigungen & Standort</p>
+          <p className="text-[10px] uppercase tracking-widest text-stone-500 px-1 pt-1">Benachrichtigungen und Standort</p>
 
-          <div className="rounded-xl bg-white/5 border border-[#f0e5a5]/10 overflow-hidden">
+          <div className="rounded-xl bg-white/5 border border-[#f0e5a5]/10 overflow-hidden p-2">
             <NotificationManager user={user} showInProfile />
           </div>
 
-          <div className="rounded-xl bg-white/5 border border-[#f0e5a5]/10 overflow-hidden">
+          <div className="rounded-xl bg-white/5 border border-[#f0e5a5]/10 overflow-hidden p-2">
             <LocationManager showInProfile />
           </div>
 
-          {/* ── Konto ── */}
           <p className="text-[10px] uppercase tracking-widest text-stone-500 px-1 pt-1">Konto</p>
 
-          {/* Email */}
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/5 border border-[#f0e5a5]/10">
             <Mail className="w-4 h-4 text-stone-400 flex-shrink-0" />
             <div className="min-w-0">
@@ -595,22 +590,19 @@ export default function SettingsPanel({ user, onUserUpdated }) {
             </div>
           </div>
 
-          {/* Info */}
           <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-blue-950/40 border border-blue-500/20 text-[11px] text-blue-200">
             <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-blue-400" />
-            <span>Passwort und E-Mail werden über dein Supabase-Konto verwaltet.</span>
+            <span>Passwort und E-Mail werden ueber dein Supabase-Konto verwaltet.</span>
           </div>
 
-          {/* Reset Account */}
           <button
             onClick={() => navigate(createPageUrl("ResetAccount"))}
             className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-orange-400/30 bg-orange-900/20 text-orange-200 text-sm font-medium hover:bg-orange-900/35 transition-colors"
           >
             <RotateCcw className="w-4 h-4" />
-            Account zurücksetzen
+            Account zuruecksetzen
           </button>
 
-          {/* Sign Out */}
           <button
             onClick={() => signOut()}
             className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-red-400/30 bg-red-900/20 text-red-200 text-sm font-medium hover:bg-red-900/35 transition-colors mb-1"
@@ -618,7 +610,6 @@ export default function SettingsPanel({ user, onUserUpdated }) {
             <LogOut className="w-4 h-4" />
             Abmelden
           </button>
-
         </div>
       </div>
     </div>

@@ -74,13 +74,18 @@ export default function LocationManager({ showInProfile = false }) {
   if (showInProfile) {
     const status = getStatusLabel();
     const isGranted = permissionState === "granted";
+    const statusColorClass = status.className
+      .replace("text-red-700", "text-red-300")
+      .replace("text-amber-700", "text-amber-300")
+      .replace("text-green-700", "text-green-300")
+      .replace("text-stone-600", "text-stone-400");
 
     return (
       <div className="space-y-2">
-        <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg border border-stone-200">
+        <div className="flex items-center justify-between p-3 bg-transparent rounded-lg border border-[#f0e5a5]/15">
           <div>
-            <p className="font-semibold text-stone-900">Standortermittlung</p>
-            <p className="text-xs text-stone-600">
+            <p className="font-semibold text-stone-100">Standortermittlung</p>
+            <p className="text-xs text-stone-400">
               Aktiviere den Standort für lokale Pflanzenfunde und Karte.
             </p>
           </div>
@@ -101,14 +106,14 @@ export default function LocationManager({ showInProfile = false }) {
               className="sr-only peer"
               disabled={isLoading || permissionState === "denied"}
             />
-            <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+            <div className="w-11 h-6 bg-stone-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300/40 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
           </label>
         </div>
-        <p className={`text-xs ${status.className}`}>{status.text}</p>
+        <p className={`text-xs ${statusColorClass}`}>{status.text}</p>
         <Button
           onClick={checkLocationStatus}
           variant="ghost"
-          className="w-full text-xs text-stone-600"
+          className="w-full text-xs text-stone-300 hover:text-stone-100 hover:bg-white/5"
           disabled={isLoading}
         >
           Status neu prüfen
