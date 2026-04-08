@@ -5,7 +5,7 @@ import { upsertUserProfile } from "@/api/authService";
 import { executeMigration } from "@/api/migrationService";
 import { getRobotPlantDailyZones } from "@/api/robotPlantService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Camera, Loader2, Leaf, Settings, Plus, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, ArrowLeft, RefreshCw, Map as MapIcon, Zap, Home as HomeIcon } from "lucide-react";
+import { Camera, Loader2, Leaf, Settings, Plus, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, ArrowLeft, RefreshCw, Map as MapIcon, Zap, Home as HomeIcon, List } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import mapboxgl from "mapbox-gl";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
@@ -361,6 +361,13 @@ export default function Home() {
   const [scanFeedback, setScanFeedback] = useState(null);
   const [showEmbeddedCollection, setShowEmbeddedCollection] = useState(false);
   const [showEmbeddedSettings, setShowEmbeddedSettings] = useState(false);
+  const [embeddedCollectionPublicPanelOpen, setEmbeddedCollectionPublicPanelOpen] = useState(false);
+
+  useEffect(() => {
+    if (!showEmbeddedCollection) {
+      setEmbeddedCollectionPublicPanelOpen(false);
+    }
+  }, [showEmbeddedCollection]);
   const [uiTheme, setUiTheme] = useState(() => {
     const stored = localStorage.getItem("home-ui-theme");
     return stored === "light" ? "light" : "dark";
@@ -1205,6 +1212,7 @@ export default function Home() {
       onClick: () => {
         setShowEmbeddedCollection(true);
         setShowEmbeddedSettings(false);
+        setEmbeddedCollectionPublicPanelOpen(false);
         setShowHeroZoneMap(false);
         setShowHealthStatsPanel(false);
       },
@@ -1479,30 +1487,45 @@ export default function Home() {
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (showEmbeddedCollection) {
-                      setShowEmbeddedCollection(false);
-                      return;
-                    }
-                    if (showEmbeddedSettings) {
-                      setShowEmbeddedSettings(false);
-                      return;
-                    }
-                    setShowEmbeddedSettings(true);
-                    setShowHeroZoneMap(false);
-                    setShowHealthStatsPanel(false);
-                  }}
-                  className={`w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors ${isLightUi ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80" : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"}`}
-                  aria-label={(showEmbeddedCollection || showEmbeddedSettings) ? "Zur Home-Ansicht" : "Einstellungen"}
-                >
-                  {(showEmbeddedCollection || showEmbeddedSettings) ? (
-                    <HomeIcon className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
-                  ) : (
-                    <Settings className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+                <div className="flex items-center gap-2 shrink-0">
+                  {showEmbeddedCollection && (
+                    <button
+                      type="button"
+                      onClick={() => setEmbeddedCollectionPublicPanelOpen((prev) => !prev)}
+                      className={`w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors ${isLightUi ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80" : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"}`}
+                      aria-label={embeddedCollectionPublicPanelOpen ? "Öffentliche Kollektionen schließen" : "Öffentliche Kollektionen anzeigen"}
+                      aria-pressed={embeddedCollectionPublicPanelOpen}
+                    >
+                      <List className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+                    </button>
                   )}
-                </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (showEmbeddedCollection) {
+                        setShowEmbeddedCollection(false);
+                        setEmbeddedCollectionPublicPanelOpen(false);
+                        return;
+                      }
+                      if (showEmbeddedSettings) {
+                        setShowEmbeddedSettings(false);
+                        return;
+                      }
+                      setShowEmbeddedSettings(true);
+                      setShowHeroZoneMap(false);
+                      setShowHealthStatsPanel(false);
+                    }}
+                    className={`w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors ${isLightUi ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80" : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"}`}
+                    aria-label={(showEmbeddedCollection || showEmbeddedSettings) ? "Zur Home-Ansicht" : "Einstellungen"}
+                  >
+                    {(showEmbeddedCollection || showEmbeddedSettings) ? (
+                      <HomeIcon className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+                    ) : (
+                      <Settings className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div className="relative flex flex-1 min-h-0 flex-col overflow-hidden py-[clamp(0.5rem,1.5vh,1rem)]" data-ui="home-content-stack">
@@ -1511,6 +1534,8 @@ export default function Home() {
                     embedded
                     onRequestClose={() => setShowEmbeddedCollection(false)}
                     uiTheme={uiTheme}
+                    showPublicCollectionsPanel={embeddedCollectionPublicPanelOpen}
+                    onShowPublicCollectionsPanelChange={setEmbeddedCollectionPublicPanelOpen}
                   />
                 ) : showEmbeddedSettings ? (
                   <SettingsPanel

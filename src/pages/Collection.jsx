@@ -115,7 +115,13 @@ const toRgba = (colorValue, opacity) => {
 };
 
 
-export default function Collection({ embedded = false, onRequestClose = null, uiTheme }) {
+export default function Collection({
+  embedded = false,
+  onRequestClose = null,
+  uiTheme,
+  showPublicCollectionsPanel: externalShowPublicCollectionsPanel,
+  onShowPublicCollectionsPanelChange = null,
+}) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -129,7 +135,7 @@ export default function Collection({ embedded = false, onRequestClose = null, ui
   const [averageColor, setAverageColor] = useState(null);
   const [selectedCollectionId, setSelectedCollectionId] = useState("global");
   const [sortChipsOpen, setSortChipsOpen] = useState(true);
-  const [showPublicCollectionsPanel, setShowPublicCollectionsPanel] = useState(false);
+  const [showPublicCollectionsPanelState, setShowPublicCollectionsPanelState] = useState(false);
   const [communitySearchQuery, setCommunitySearchQuery] = useState("");
   const [communitySort, setCommunitySort] = useState("newest");
   const listScrollContainerRef = useRef(null);
@@ -156,6 +162,25 @@ export default function Collection({ embedded = false, onRequestClose = null, ui
     return "dark";
   });
   const isLightUi = resolvedUiTheme === "light";
+  const showPublicCollectionsPanel =
+    typeof externalShowPublicCollectionsPanel === "boolean"
+      ? externalShowPublicCollectionsPanel
+      : showPublicCollectionsPanelState;
+
+  const setPublicCollectionsPanelOpen = (nextOrUpdater) => {
+    const nextValue =
+      typeof nextOrUpdater === "function"
+        ? nextOrUpdater(showPublicCollectionsPanel)
+        : nextOrUpdater;
+
+    if (typeof externalShowPublicCollectionsPanel !== "boolean") {
+      setShowPublicCollectionsPanelState(Boolean(nextValue));
+    }
+
+    if (typeof onShowPublicCollectionsPanelChange === "function") {
+      onShowPublicCollectionsPanelChange(Boolean(nextValue));
+    }
+  };
 
   useEffect(() => {
     if (uiTheme === "light" || uiTheme === "dark") {
@@ -874,7 +899,7 @@ export default function Collection({ embedded = false, onRequestClose = null, ui
   const isHeroSegmentOpen = selectedCollectionFilters.heroSegmentOpen !== false;
   const isCollectionTogglePending = followMutation.isPending || unfollowMutation.isPending;
   const handleOpenPublicCollection = (collectionId) => {
-    setShowPublicCollectionsPanel(false);
+    setPublicCollectionsPanelOpen(false);
     setSelectedCollectionId(collectionId);
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set("collectionId", collectionId);
@@ -1009,7 +1034,7 @@ export default function Collection({ embedded = false, onRequestClose = null, ui
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     type="button"
-                    onClick={() => setShowPublicCollectionsPanel((prev) => !prev)}
+                    onClick={() => setPublicCollectionsPanelOpen((prev) => !prev)}
                     className="w-11 h-11 rounded-full border border-[#f0e5a5]/35 bg-black/30 backdrop-blur-md flex items-center justify-center hover:bg-black/45 transition-colors shrink-0"
                     aria-label={showPublicCollectionsPanel ? "Öffentliche Kollektionen schließen" : "Öffentliche Kollektionen anzeigen"}
                     aria-pressed={showPublicCollectionsPanel}
