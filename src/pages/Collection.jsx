@@ -6,7 +6,7 @@ import { getCurrentUser } from "@/api/userApi";
 import { createPageUrl } from "@/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
-import { Leaf, PencilLine, SlidersHorizontal, Minus, Plus, Home, ArrowLeft } from "lucide-react";
+import { Leaf, PencilLine, SlidersHorizontal, Minus, Plus, Home } from "lucide-react";
 import GenusCard from "../components/collection/GenusCard";
 import HintDialog from "../components/collection/HintDialog";
 import SearchSortBar from "../components/collection/SearchSortBar";
@@ -738,20 +738,22 @@ export default function Collection({ embedded = false, onRequestClose = null }) 
           <div className="absolute inset-0 border border-[#f0e5a5]/30 pointer-events-none rounded-[2rem]" />
 
           <div className="relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6 text-stone-100">
-            <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#f0e5a5]/20" data-ui="home-header-bar">
-              <div className="min-w-0">
-                <h1 className="font-bold leading-tight text-2xl md:text-3xl">Kollektionen</h1>
-              </div>
+            {!embedded && (
+              <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#f0e5a5]/20" data-ui="home-header-bar">
+                <div className="min-w-0">
+                  <h1 className="font-bold leading-tight text-2xl md:text-3xl">Kollektionen</h1>
+                </div>
 
-              <button
-                type="button"
-                onClick={handleBack}
-                className="w-11 h-11 rounded-full border border-[#f0e5a5]/35 bg-black/30 backdrop-blur-md flex items-center justify-center hover:bg-black/45 transition-colors shrink-0"
-                aria-label={embedded ? "Zurück zur Home-Ansicht" : "Zur Home Seite"}
-              >
-                {embedded ? <ArrowLeft className="w-5 h-5 text-[#f0e5a5]" /> : <Home className="w-5 h-5 text-[#f0e5a5]" />}
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  className="w-11 h-11 rounded-full border border-[#f0e5a5]/35 bg-black/30 backdrop-blur-md flex items-center justify-center hover:bg-black/45 transition-colors shrink-0"
+                  aria-label="Zur Home Seite"
+                >
+                  <Home className="w-5 h-5 text-[#f0e5a5]" />
+                </button>
+              </div>
+            )}
 
             <HintDialog
               genus={selectedGenus}

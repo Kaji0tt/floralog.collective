@@ -5,7 +5,7 @@ import { upsertUserProfile } from "@/api/authService";
 import { executeMigration } from "@/api/migrationService";
 import { getRobotPlantDailyZones } from "@/api/robotPlantService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Camera, Loader2, Leaf, Settings, Plus, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, ArrowLeft, RefreshCw, Map as MapIcon, Zap } from "lucide-react";
+import { Camera, Loader2, Leaf, Settings, Plus, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, ArrowLeft, RefreshCw, Map as MapIcon, Zap, Home as HomeIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import mapboxgl from "mapbox-gl";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
@@ -1325,18 +1325,26 @@ export default function Home() {
             <div className="relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6 text-stone-100">
               <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#f0e5a5]/20">
                 <div className="min-w-0">
-                  <div className="flex items-baseline gap-2 min-w-0">
-                    <h1
-                      className="font-bold leading-tight truncate"
-                      style={{ fontSize: getNameFontSize(getDisplayName()) }}
-                      title={getDisplayName()}
-                    >
-                      {getDisplayName()}
-                    </h1>
-                    <p className="text-stone-200/85 text-base md:text-lg whitespace-nowrap truncate">
-                      {user.selected_title || user.title || 'Pflanzen-Entdecker'}
-                    </p>
-                  </div>
+                  {showEmbeddedCollection ? (
+                    <div className="flex items-baseline gap-2 min-w-0">
+                      <h1 className="font-bold leading-tight text-2xl md:text-3xl truncate" title="Kollektionen">
+                        Kollektionen
+                      </h1>
+                    </div>
+                  ) : (
+                    <div className="flex items-baseline gap-2 min-w-0">
+                      <h1
+                        className="font-bold leading-tight truncate"
+                        style={{ fontSize: getNameFontSize(getDisplayName()) }}
+                        title={getDisplayName()}
+                      >
+                        {getDisplayName()}
+                      </h1>
+                      <p className="text-stone-200/85 text-base md:text-lg whitespace-nowrap truncate">
+                        {user.selected_title || user.title || 'Pflanzen-Entdecker'}
+                      </p>
+                    </div>
+                  )}
                   <div className="hidden mt-1 h-8 items-center gap-1" aria-hidden="true">
                     <span className="w-8 h-8 rounded-full border border-white/25 bg-white/10" />
                     <span className="w-8 h-8 rounded-full border border-white/25 bg-white/10" />
@@ -1346,11 +1354,21 @@ export default function Home() {
 
                 <button
                   type="button"
-                  onClick={() => navigate(createPageUrl('Profile'))}
+                  onClick={() => {
+                    if (showEmbeddedCollection) {
+                      setShowEmbeddedCollection(false);
+                      return;
+                    }
+                    navigate(createPageUrl('Profile'));
+                  }}
                   className="w-11 h-11 rounded-full border border-[#f0e5a5]/35 bg-black/30 backdrop-blur-md flex items-center justify-center hover:bg-black/45 transition-colors"
-                  aria-label="Einstellungen"
+                  aria-label={showEmbeddedCollection ? "Zur Home-Ansicht" : "Einstellungen"}
                 >
-                  <Settings className="w-5 h-5 text-[#f0e5a5]" />
+                  {showEmbeddedCollection ? (
+                    <HomeIcon className="w-5 h-5 text-[#f0e5a5]" />
+                  ) : (
+                    <Settings className="w-5 h-5 text-[#f0e5a5]" />
+                  )}
                 </button>
               </div>
 
