@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Query } from "@/api/entities";
 import { createUserNotification, getUserDisplayName } from "@/api/notificationService";
 import { getCurrentUser } from "@/api/userApi";
 import { createPageUrl } from "@/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Badge } from "@/components/ui/badge";
-import { Leaf, PencilLine, SlidersHorizontal, Minus, Plus, Home } from "lucide-react";
+import { Leaf, PencilLine, SlidersHorizontal, Minus, Plus, Home, List } from "lucide-react";
 import GenusCard from "../components/collection/GenusCard";
 import HintDialog from "../components/collection/HintDialog";
 import SearchSortBar from "../components/collection/SearchSortBar";
@@ -76,6 +75,45 @@ const getAverageColor = (imageUrl) => {
   });
 };
 
+const parseColorToRgbTriplet = (value) => {
+  if (!value || typeof value !== "string") return null;
+  const trimmed = value.trim();
+
+  const rgbMatch = trimmed.match(/^rgba?\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+  if (rgbMatch) {
+    return {
+      r: Math.max(0, Math.min(255, Number.parseInt(rgbMatch[1], 10))),
+      g: Math.max(0, Math.min(255, Number.parseInt(rgbMatch[2], 10))),
+      b: Math.max(0, Math.min(255, Number.parseInt(rgbMatch[3], 10))),
+    };
+  }
+
+  const hex = trimmed.replace(/^#/, "");
+  if (hex.length === 3 && /^[0-9a-f]{3}$/i.test(hex)) {
+    return {
+      r: Number.parseInt(hex[0] + hex[0], 16),
+      g: Number.parseInt(hex[1] + hex[1], 16),
+      b: Number.parseInt(hex[2] + hex[2], 16),
+    };
+  }
+  if (hex.length === 6 && /^[0-9a-f]{6}$/i.test(hex)) {
+    return {
+      r: Number.parseInt(hex.slice(0, 2), 16),
+      g: Number.parseInt(hex.slice(2, 4), 16),
+      b: Number.parseInt(hex.slice(4, 6), 16),
+    };
+  }
+
+  return null;
+};
+
+const toRgba = (colorValue, opacity) => {
+  const rgb = parseColorToRgbTriplet(colorValue);
+  if (!rgb) return null;
+  const safeOpacity = Number.isFinite(opacity) ? Math.max(0, Math.min(1, opacity)) : 1;
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${safeOpacity})`;
+};
+
 
 export default function Collection({ embedded = false, onRequestClose = null, uiTheme }) {
   const queryClient = useQueryClient();
@@ -91,6 +129,9 @@ export default function Collection({ embedded = false, onRequestClose = null, ui
   const [averageColor, setAverageColor] = useState(null);
   const [selectedCollectionId, setSelectedCollectionId] = useState("global");
   const [sortChipsOpen, setSortChipsOpen] = useState(true);
+  const [showPublicCollectionsPanel, setShowPublicCollectionsPanel] = useState(false);
+  const [communitySearchQuery, setCommunitySearchQuery] = useState("");
+  const [communitySort, setCommunitySort] = useState("newest");
   const listScrollContainerRef = useRef(null);
   const restoredScrollForCollectionRef = useRef(null);
   const collectionViewStateRef = useRef(readCollectionViewState());
@@ -299,6 +340,11 @@ export default function Collection({ embedded = false, onRequestClose = null, ui
   const { data: visibleCollections = [] } = useQuery({
     queryKey: ["visibleCollections"],
     queryFn: () => Query.Collection.list(),
+  });
+
+  const { data: publicProfiles = [] } = useQuery({
+    queryKey: ["collectionPublicProfiles"],
+    queryFn: () => Query.PublicProfile.list(),
   });
 
   const { data: ownedCollections = [] } = useQuery({
@@ -743,7 +789,184 @@ export default function Collection({ embedded = false, onRequestClose = null, ui
     ...DEFAULT_COLLECTION_FILTERS,
     ...(filterSettingsByCollection[selectedCollectionKey] || {}),
   };
+  const allPublicCollections = (visibleCollections || []).filter((c) => c.is_public);
+  const collectionItemsByCollectionId = (allCollectionItems || []).reduce((acc, item) => {
+    if (!item?.collection_id) return acc;
+    if (!acc[item.collection_id]) acc[item.collection_id] = [];
+    acc[item.collection_id].push(item);
+    return acc;
+  }, {});
+  const discoveredPlantIds = new Set(
+    (userDiscoveries || []).map((d) => d.plant_id).filter(Boolean)
+  );
+  const publicCollectionsWithMeta = allPublicCollections.map((c) => {
+    const ownerProfile = (publicProfiles || []).find((p) => p.auth_id === c.auth_id);
+    const ownerNameForCard =
+      ownerProfile?.display_name ||
+      ownerProfile?.full_name ||
+      ownerProfile?.user_email ||
+      "Unbekannt";
+
+    const itemsForCollection = collectionItemsByCollectionId[c.id] || [];
+    const totalRequired = itemsForCollection.length;
+    let discoveredRequired = 0;
+
+    itemsForCollection.forEach((item) => {
+      let isDiscovered = false;
+
+      if (item.plant_id) {
+        isDiscovered = discoveredPlantIds.has(item.plant_id);
+      } else if (item.genus_id) {
+        const targetGenus = (genera || []).find((g) => g.id === item.genus_id);
+        if (targetGenus) {
+          isDiscovered = (plants || []).some(
+            (p) =>
+              p.genus_category === targetGenus.category &&
+              p.genus_number === targetGenus.category_dex_number &&
+              discoveredPlantIds.has(p.id)
+          );
+        }
+      }
+
+      if (isDiscovered) discoveredRequired += 1;
+    });
+
+    const isOwnCollection = !!user?.id && c.auth_id === user.id;
+    const userCollectionLink = userCollections.find((uc) => uc.collection_id === c.id) || null;
+    const isFollowing = !!userCollectionLink && !isOwnCollection;
+
+    return {
+      ...c,
+      ownerNameForCard,
+      itemsCount: totalRequired,
+      followersCount: c.followers_count ?? 0,
+      progress: {
+        discovered: discoveredRequired,
+        total: totalRequired,
+      },
+      isOwnCollection,
+      userCollectionLink,
+      isFollowing,
+    };
+  });
+
+  const normalizedCommunitySearch = communitySearchQuery.trim().toLowerCase();
+  let filteredPublicCollections = [...publicCollectionsWithMeta];
+  if (normalizedCommunitySearch) {
+    filteredPublicCollections = filteredPublicCollections.filter((c) => {
+      const inTitle = (c.title || "").toLowerCase().includes(normalizedCommunitySearch);
+      const inDesc = (c.description || "").toLowerCase().includes(normalizedCommunitySearch);
+      const inOwner = (c.ownerNameForCard || "").toLowerCase().includes(normalizedCommunitySearch);
+      return inTitle || inDesc || inOwner;
+    });
+  }
+  if (communitySort === "title") {
+    filteredPublicCollections.sort((a, b) => (a.title || "").localeCompare(b.title || "", "de"));
+  } else if (communitySort === "followers") {
+    filteredPublicCollections.sort((a, b) => (b.followersCount || 0) - (a.followersCount || 0));
+  } else if (communitySort === "items") {
+    filteredPublicCollections.sort((a, b) => (b.itemsCount || 0) - (a.itemsCount || 0));
+  } else {
+    filteredPublicCollections.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  }
+  const followedPublicCollections = filteredPublicCollections.filter((c) => c.isFollowing);
+  const discoverablePublicCollections = filteredPublicCollections.filter((c) => !c.isFollowing);
   const isHeroSegmentOpen = selectedCollectionFilters.heroSegmentOpen !== false;
+  const isCollectionTogglePending = followMutation.isPending || unfollowMutation.isPending;
+  const handleOpenPublicCollection = (collectionId) => {
+    setShowPublicCollectionsPanel(false);
+    setSelectedCollectionId(collectionId);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("collectionId", collectionId);
+    nextParams.delete("from");
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const renderPublicCollectionCard = (collectionEntry) => {
+    const accent = collectionEntry.background_color || "rgb(34,197,94)";
+    const accentSoftBg = toRgba(accent, isLightUi ? 0.13 : 0.2) || (isLightUi ? "rgba(34,197,94,0.13)" : "rgba(34,197,94,0.2)");
+    const accentLine = toRgba(accent, isLightUi ? 0.55 : 0.62) || (isLightUi ? "rgba(34,197,94,0.55)" : "rgba(34,197,94,0.62)");
+
+    return (
+      <div key={collectionEntry.id} className="w-full">
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => handleOpenPublicCollection(collectionEntry.id)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              handleOpenPublicCollection(collectionEntry.id);
+            }
+          }}
+          className={"relative overflow-hidden rounded-2xl border backdrop-blur-md px-3 py-3 cursor-pointer transition-all hover:translate-y-[-1px] " + (isLightUi
+            ? "bg-white/78 border-[#c8ac62]/35 hover:bg-white/86"
+            : "bg-black/36 border-[#f0e5a5]/30 hover:bg-black/48")}
+        >
+          <div className="absolute left-0 top-0 h-full w-1" style={{ background: accentLine }} />
+          <div className="absolute left-0 top-0 h-full w-16" style={{ background: `linear-gradient(90deg, ${accentSoftBg} 0%, transparent 100%)` }} />
+
+          <div className="relative z-10 flex items-center justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className={"text-[11px] mb-0.5 truncate flex items-center gap-1.5 " + (isLightUi ? "text-stone-700" : "text-stone-300")}>
+                {!collectionEntry.isOwnCollection && (
+                  <button
+                    type="button"
+                    disabled={isCollectionTogglePending}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (collectionEntry.isFollowing && collectionEntry.userCollectionLink) {
+                        unfollowMutation.mutate(collectionEntry.userCollectionLink.id);
+                        return;
+                      }
+                      if (!collectionEntry.isFollowing) {
+                        followMutation.mutate(collectionEntry.id);
+                      }
+                    }}
+                    aria-label={collectionEntry.isFollowing ? "Abo beenden" : "Abonnieren"}
+                    className={"shrink-0 w-4 h-4 rounded-full border flex items-center justify-center transition-colors disabled:opacity-60 " + (collectionEntry.isFollowing
+                      ? (isLightUi
+                        ? "bg-emerald-50/95 border-emerald-300 text-emerald-700 hover:bg-emerald-100"
+                        : "bg-emerald-950/60 border-emerald-300/60 text-emerald-200 hover:bg-emerald-900/70")
+                      : (isLightUi
+                        ? "bg-white/85 border-[#c8ac62]/45 text-[#8f6b22] hover:bg-white"
+                        : "bg-black/45 border-[#f0e5a5]/35 text-[#f0e5a5] hover:bg-black/60"))}
+                  >
+                    {collectionEntry.isFollowing ? <Minus className="w-2.5 h-2.5" /> : <Plus className="w-2.5 h-2.5" />}
+                  </button>
+                )}
+                <span className="truncate">{collectionEntry.ownerNameForCard}</span>
+              </div>
+
+              <div className={"text-sm font-semibold truncate mb-0.5 " + (isLightUi ? "text-stone-900" : "text-[#f8f4d6]")}>
+                {collectionEntry.title}
+              </div>
+
+              <div className={"text-[11px] font-medium mb-0.5 " + (isLightUi ? "text-emerald-700" : "text-emerald-300")}>
+                Fortschritt: {collectionEntry.progress.discovered}/{collectionEntry.progress.total}
+              </div>
+
+              {collectionEntry.description && (
+                <div className={"text-[11px] line-clamp-2 " + (isLightUi ? "text-stone-600" : "text-stone-300/90")}>
+                  {collectionEntry.description}
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col items-end gap-1 text-[11px] flex-shrink-0">
+              <div className={"rounded-full px-2 py-0.5 border " + (isLightUi ? "bg-white/75 border-[#c8ac62]/35 text-stone-700" : "bg-black/45 border-[#f0e5a5]/30 text-stone-100")}>
+                {collectionEntry.itemsCount} Pflanzen
+              </div>
+              <div className={"rounded-full px-2 py-0.5 border " + (isLightUi ? "bg-white/75 border-[#c8ac62]/35 text-stone-700" : "bg-black/45 border-[#f0e5a5]/30 text-stone-100")}>
+                {collectionEntry.followersCount} Follower
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const handleBack = () => {
     if (embedded && typeof onRequestClose === "function") {
       onRequestClose();
@@ -783,14 +1006,25 @@ export default function Collection({ embedded = false, onRequestClose = null, ui
                   <h1 className="font-bold leading-tight text-2xl md:text-3xl">Kollektionen</h1>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleBack}
-                  className="w-11 h-11 rounded-full border border-[#f0e5a5]/35 bg-black/30 backdrop-blur-md flex items-center justify-center hover:bg-black/45 transition-colors shrink-0"
-                  aria-label="Zur Home Seite"
-                >
-                  <Home className="w-5 h-5 text-[#f0e5a5]" />
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowPublicCollectionsPanel((prev) => !prev)}
+                    className="w-11 h-11 rounded-full border border-[#f0e5a5]/35 bg-black/30 backdrop-blur-md flex items-center justify-center hover:bg-black/45 transition-colors shrink-0"
+                    aria-label={showPublicCollectionsPanel ? "Öffentliche Kollektionen schließen" : "Öffentliche Kollektionen anzeigen"}
+                    aria-pressed={showPublicCollectionsPanel}
+                  >
+                    <List className="w-5 h-5 text-[#f0e5a5]" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className="w-11 h-11 rounded-full border border-[#f0e5a5]/35 bg-black/30 backdrop-blur-md flex items-center justify-center hover:bg-black/45 transition-colors shrink-0"
+                    aria-label="Zur Home Seite"
+                  >
+                    <Home className="w-5 h-5 text-[#f0e5a5]" />
+                  </button>
+                </div>
               </div>
             )}
 
@@ -801,6 +1035,80 @@ export default function Collection({ embedded = false, onRequestClose = null, ui
             />
 
             <div className="flex-1 min-h-0 py-[clamp(0.5rem,1.5vh,1rem)] flex flex-col gap-3" data-ui={embedded ? "collection-content-stack" : "home-content-stack"}>
+          {showPublicCollectionsPanel ? (
+            <>
+              <div className="shrink-0">
+                <SearchSortBar
+                  placeholder="Titel, Beschreibung oder Owner durchsuchen..."
+                  searchQuery={communitySearchQuery}
+                  onSearchQueryChange={setCommunitySearchQuery}
+                  sortOptions={[
+                    { value: "newest", label: "Neu" },
+                    { value: "title", label: "Titel" },
+                    { value: "followers", label: "Follower" },
+                    { value: "items", label: "Pflanzen" },
+                  ]}
+                  sortValue={communitySort}
+                  onSortChange={setCommunitySort}
+                  uiTheme={resolvedUiTheme}
+                />
+              </div>
+
+              <div
+                className="relative flex-1 min-h-0 overflow-y-auto pb-2"
+                style={{
+                  WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
+                  maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
+                }}
+              >
+                {!allPublicCollections.length ? (
+                  <div className="text-center py-16 px-3" style={{ paddingTop: listTopFadePx, paddingBottom: listBottomFadePx }}>
+                    <div className={"w-20 h-20 rounded-full border mx-auto mb-4 flex items-center justify-center " + (isLightUi ? "bg-white/75 border-[#c8ac62]/35" : "bg-black/45 border-[#f0e5a5]/30")}>
+                      <Leaf className={"w-10 h-10 " + (isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]")} />
+                    </div>
+                    <h3 className={"text-base font-semibold mb-1 " + (isLightUi ? "text-stone-900" : "text-[#f8f4d6]")}>
+                      Noch keine öffentlichen Kollektionen
+                    </h3>
+                    <p className={"text-[12px] max-w-sm mx-auto " + (isLightUi ? "text-stone-600" : "text-stone-300/90")}>
+                      Markiere deine Kollektionen als öffentlich, damit andere sie hier entdecken können.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3" style={{ paddingTop: listTopFadePx, paddingBottom: listBottomFadePx }}>
+                    {followedPublicCollections.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="px-1">
+                          <h3 className={"text-xs font-semibold uppercase tracking-wide " + (isLightUi ? "text-emerald-800" : "text-emerald-300")}>
+                            Deine Abos
+                          </h3>
+                        </div>
+                        <div className="space-y-2">
+                          {followedPublicCollections.map((c) => renderPublicCollectionCard(c))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <div className="px-1">
+                        <h3 className={"text-xs font-semibold uppercase tracking-wide " + (isLightUi ? "text-stone-700" : "text-stone-300")}>
+                          Oeffentliche Kollektionen
+                        </h3>
+                      </div>
+                      <div className="space-y-2">
+                        {discoverablePublicCollections.length > 0 ? (
+                          discoverablePublicCollections.map((c) => renderPublicCollectionCard(c))
+                        ) : (
+                          <div className={"text-center py-6 rounded-xl border border-dashed text-[12px] " + (isLightUi ? "bg-white/60 border-[#c8ac62]/35 text-stone-600" : "bg-black/28 border-[#f0e5a5]/30 text-stone-300") }>
+                            Aktuell keine weiteren öffentlichen Kollektionen.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
           <div className="shrink-0 space-y-3">
             {/* Horizontale Kollektionen-Chips + Neuerstellen-Button */}
             {!isQuestCollectionView && (ownedCollections.length + followedCollections.length > 0) && (
@@ -1076,8 +1384,10 @@ export default function Collection({ embedded = false, onRequestClose = null, ui
               </div>
             )}
           </div>
+          )}
 
           {/* Collection Grid */}
+          {!showPublicCollectionsPanel && (
           <div
             ref={listScrollContainerRef}
             onScroll={handleCollectionListScroll}
@@ -1114,6 +1424,7 @@ export default function Collection({ embedded = false, onRequestClose = null, ui
               </div>
             )}
           </div>
+          )}
         </div>
           </div>
         </div>
