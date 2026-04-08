@@ -17,6 +17,7 @@ import SetPassword from '@/pages/SetPassword';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
 import GuestLoginModal from '@/components/GuestLoginModal';
+import HomeShellLoader from '@/components/navigation/HomeShellLoader';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -31,11 +32,7 @@ const AuthenticatedApp = () => {
 
   // Show loading spinner while checking auth
   if (isLoadingAuth) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
-      </div>
-    );
+    return <HomeShellLoader />;
   }
 
   // Handle authentication errors

@@ -3,13 +3,14 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Query } from "@/api/entities";
 import { createUserNotification, getUserDisplayName } from "@/api/notificationService";
 import { getCurrentUser } from "@/api/userApi";
+import { createPageUrl } from "@/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Leaf, PencilLine, SlidersHorizontal, Minus, Plus } from "lucide-react";
+import { Leaf, PencilLine, SlidersHorizontal, Minus, Plus, Home } from "lucide-react";
 import GenusCard from "../components/collection/GenusCard";
-import MobileBackButton from "../components/navigation/MobileBackButton";
 import HintDialog from "../components/collection/HintDialog";
 import SearchSortBar from "../components/collection/SearchSortBar";
+import HomeShellLoader from "../components/navigation/HomeShellLoader";
 
 const COLLECTION_FILTERS_STORAGE_KEY = "collection_filters_by_collection_v1";
 const COLLECTION_VIEW_STATE_STORAGE_KEY = "collection_view_state_v1";
@@ -638,24 +639,11 @@ export default function Collection() {
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 overflow-hidden" data-ui="home-page-shell">
-        <div
-          className="absolute inset-0"
-          style={user?.background_image_url ? {
-            backgroundImage: `url(${user.background_image_url})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          } : user?.background_color ? {
-            background: `linear-gradient(160deg, ${user.background_color} 0%, rgba(12, 20, 15, 0.88) 100%)`,
-          } : {
-            background: "radial-gradient(circle at top, rgb(167, 243, 208) 0%, rgb(22, 101, 52) 60%, rgb(10, 30, 18) 100%)",
-          }}
-        />
-        <div className="absolute inset-0 bg-black/30" />
-        <div className="relative z-10 flex h-full items-center justify-center">
-          <Leaf className="w-12 h-12 text-[#f0e5a5] animate-spin" />
-        </div>
-      </div>
+      <HomeShellLoader
+        backgroundImageUrl={user?.background_image_url || null}
+        backgroundColor={user?.background_color || null}
+        showProfileCard
+      />
     );
   }
 
@@ -723,22 +711,40 @@ export default function Collection() {
   return (
     <div className="fixed inset-0 overflow-hidden" data-ui="home-page-shell">
       <div className="absolute inset-0" style={pageShellBackgroundStyle} />
+      <div className="absolute inset-0 backdrop-blur-3xl" />
       <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-black/35 to-black/55" />
 
       <div className="relative z-10 h-full w-full p-3 md:p-6 flex items-start justify-center">
-        <div className="relative h-[calc(100%-1.50rem)] w-full max-w-md md:max-w-7xl rounded-[2rem] overflow-hidden border border-[#d7cf9c]/55 shadow-[0_20px_80px_rgba(0,0,0,0.5)]">
+        <div className="relative h-[calc(100%-1.50rem)] md:h-[calc(100%-1.50rem)] w-full max-w-md md:max-w-3xl rounded-[2rem] overflow-hidden border border-[#d7cf9c]/65 shadow-[0_20px_80px_rgba(0,0,0,0.55)]">
           <div
             className="absolute inset-0"
-            style={activeBackgroundColor ? {
-              background: `linear-gradient(180deg, ${getRgbaFromRgb(activeBackgroundColor, 0.2)} 0%, rgba(10, 16, 12, 0.78) 100%)`,
+            style={user?.background_image_url ? {
+              backgroundImage: `linear-gradient(180deg, rgba(19,37,24,0.42) 0%, rgba(12,20,15,0.66) 100%), url(${user.background_image_url})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            } : user?.background_color ? {
+              background: `linear-gradient(180deg, ${getRgbaFromRgb(user.background_color, 0.28)} 0%, rgba(14, 22, 16, 0.74) 100%)`,
             } : {
-              background: "linear-gradient(180deg, rgba(18, 30, 22, 0.45) 0%, rgba(8, 14, 10, 0.86) 100%)",
+              background: "linear-gradient(180deg, rgba(126, 171, 98, 0.45) 0%, rgba(10, 22, 15, 0.78) 100%)",
             }}
           />
-          <div className="absolute inset-0 border border-[#f0e5a5]/25 pointer-events-none rounded-[2rem]" />
+          <div className="absolute inset-0 border border-[#f0e5a5]/30 pointer-events-none rounded-[2rem]" />
 
-          <div className="relative z-10 h-full px-4 md:px-8 py-4 md:py-6 text-stone-100">
-            <MobileBackButton />
+          <div className="relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6 text-stone-100">
+            <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#f0e5a5]/20" data-ui="home-header-bar">
+              <div className="min-w-0">
+                <h1 className="font-bold leading-tight text-2xl md:text-3xl">Kollektionen</h1>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => navigate(createPageUrl("Home"))}
+                className="w-11 h-11 rounded-full border border-[#f0e5a5]/35 bg-black/30 backdrop-blur-md flex items-center justify-center hover:bg-black/45 transition-colors shrink-0"
+                aria-label="Zur Home Seite"
+              >
+                <Home className="w-5 h-5 text-[#f0e5a5]" />
+              </button>
+            </div>
 
             <HintDialog
               genus={selectedGenus}
@@ -746,7 +752,7 @@ export default function Collection() {
               onClose={() => setShowHintDialog(false)}
             />
 
-            <div className="h-full pt-0 flex flex-col gap-3">
+            <div className="flex-1 min-h-0 py-[clamp(0.5rem,1.5vh,1rem)] flex flex-col gap-3" data-ui="home-content-stack">
           <div className="shrink-0 space-y-3">
             {/* Horizontale Kollektionen-Chips + Neuerstellen-Button */}
             {!isQuestCollectionView && (ownedCollections.length + followedCollections.length > 0) && (
