@@ -181,6 +181,7 @@ function HeroZoneMap3D(props) {
 
           const theme = typeof zone.theme === "string" ? zone.theme : "meadow";
           const color = THEME_MAP_COLORS[/** @type {"forest"|"urban"|"water"|"meadow"} */ (theme)] || "#84cc16";
+          const themeLabel = THEME_MAP_META[/** @type {"forest"|"urban"|"water"|"meadow"} */ (theme)]?.label || theme;
           return {
             type: "Feature",
             geometry: {
@@ -190,6 +191,9 @@ function HeroZoneMap3D(props) {
             properties: {
               id: zone.zoneKey || zone.id || `${lat}-${lng}`,
               color,
+              theme,
+              themeLabel,
+              radiusM,
             },
           };
         })
@@ -228,6 +232,47 @@ function HeroZoneMap3D(props) {
             "line-width": 2,
             "line-opacity": 0.9,
           },
+        });
+
+        map.on("click", "hero-zones-fill", (e) => {
+          const feature = e.features?.[0];
+          if (!feature) return;
+
+          const props = feature.properties;
+          const themeLabel = props.themeLabel || props.theme || "Zone";
+          const color = props.color || "#84cc16";
+          const radiusDisplay = props.radiusM ? `${Math.round(props.radiusM)} m` : "";
+
+          const popupHtml = `
+            <div style="font-family:sans-serif;min-width:170px;max-width:220px;padding:4px 2px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};flex-shrink:0;"></span>
+                <strong style="font-size:14px;color:#fde68a;">${themeLabel} Zone</strong>
+              </div>
+              <div style="font-size:12px;color:#d6d3d1;line-height:1.5;">
+                <div style="margin-bottom:4px;">
+                  <span style="color:#86efac;font-weight:600;">Multiplikator:</span> 1× – 1.75×
+                </div>
+                <div style="margin-bottom:4px;color:#a8a29e;">
+                  Skaliert mit deiner Datenqualität.
+                </div>
+                ${radiusDisplay ? `<div style="color:#a8a29e;">Radius: ${radiusDisplay}</div>` : ""}
+              </div>
+            </div>
+          `;
+
+          new mapboxgl.Popup({ closeButton: true, maxWidth: "240px", className: "hero-zone-popup" })
+            .setLngLat(e.lngLat)
+            .setHTML(popupHtml)
+            .addTo(map);
+        });
+
+        map.on("mouseenter", "hero-zones-fill", () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
+
+        map.on("mouseleave", "hero-zones-fill", () => {
+          map.getCanvas().style.cursor = "";
         });
       }
 
