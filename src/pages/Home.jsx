@@ -25,6 +25,7 @@ import { updateQuestProgress } from "@/components/utils/questProgress";
 import Collection from "./Collection";
 import SettingsPanel from "@/components/settings/SettingsPanel";
 import HomeHeaderBar from "@/components/navigation/HomeHeaderBar";
+import HomeBottomNavigation from "@/components/navigation/HomeBottomNavigation";
 import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -1856,39 +1857,11 @@ export default function Home() {
                 )}
               </div>
 
-              <div data-ui="home-bottom-nav" className="mt-[clamp(0.5rem,1.2vh,1rem)]">
-                <div
-                  className="grid grid-cols-4"
-                  style={{ gap: `${(0.46 * controlsScale).toFixed(2)}rem` }}
-                >
-                  {navItems.map((item) => (
-                    <button
-                      key={item.label}
-                      onClick={item.onClick}
-                      className={`rounded-2xl border border-[#f0e5a5]/45 ${item.gradientClass} hover:brightness-105 active:translate-y-px transition-all flex flex-col items-center backdrop-blur-[2px]`}
-                      style={{
-                        boxShadow: item.shadowStyle,
-                        paddingBlock: `${(0.72 * controlsScale).toFixed(2)}rem`,
-                        gap: `${(0.2 * controlsScale).toFixed(2)}rem`,
-                      }}
-                    >
-                      <item.icon
-                        className="text-lime-100"
-                        style={{
-                          width: `${(1.2 * controlsScale).toFixed(2)}rem`,
-                          height: `${(1.2 * controlsScale).toFixed(2)}rem`,
-                        }}
-                      />
-                      <span
-                        className="home-tight-vh-label font-semibold"
-                        style={{ fontSize: `${(0.78 * controlsScale).toFixed(2)}rem` }}
-                      >
-                        {item.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <HomeBottomNavigation
+                navItems={navItems}
+                isLightUi={isLightUi}
+                controlsScale={controlsScale}
+              />
             </div>
           </motion.div>
 
