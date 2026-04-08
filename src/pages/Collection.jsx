@@ -20,6 +20,7 @@ const DEFAULT_COLLECTION_FILTERS = {
   collectionSort: "index",
   discoveredFilter: "all",
   sortChipsOpen: true,
+  heroSegmentOpen: true,
 };
 
 const CATEGORY_CHIPS = [
@@ -175,6 +176,20 @@ export default function Collection({ embedded = false, onRequestClose = null }) 
   }, [selectedCollectionId]);
 
   const handleCollectionChipSelect = (nextCollectionId) => {
+    const currentKey = selectedCollectionId || "global";
+    const nextKey = nextCollectionId || "global";
+
+    if (nextKey === currentKey) {
+      const currentConfig = {
+        ...DEFAULT_COLLECTION_FILTERS,
+        ...(filterSettingsByCollection[currentKey] || {}),
+      };
+      saveFiltersForCollection(currentKey, {
+        heroSegmentOpen: !currentConfig.heroSegmentOpen,
+      });
+      return;
+    }
+
     setSelectedCollectionId(nextCollectionId);
 
     const nextParams = new URLSearchParams(searchParams);
@@ -708,6 +723,12 @@ export default function Collection({ embedded = false, onRequestClose = null }) 
     ? userCollections.find((uc) => uc.collection_id === selectedCollection.id)
     : null;
   const isFollowingSelected = !!userCollectionLinkForSelected && !isOwnerOfSelected;
+  const selectedCollectionKey = selectedCollectionId || "global";
+  const selectedCollectionFilters = {
+    ...DEFAULT_COLLECTION_FILTERS,
+    ...(filterSettingsByCollection[selectedCollectionKey] || {}),
+  };
+  const isHeroSegmentOpen = selectedCollectionFilters.heroSegmentOpen !== false;
   const handleBack = () => {
     if (embedded && typeof onRequestClose === "function") {
       onRequestClose();
@@ -838,153 +859,155 @@ export default function Collection({ embedded = false, onRequestClose = null }) 
             )}
 
             {/* Hero-Kachel */}
-            <div
-              className="rounded-2xl border shadow-sm p-3 flex flex-col gap-3 bg-black/35 backdrop-blur-sm"
-              style={{
-                borderColor: "rgba(240,229,165,0.35)",
-              }}
-            >
-              <div className="space-y-1">
-                <div className="flex items-center justify-between gap-2">
-                  <h1 className="text-lg font-bold text-[#f8f4d6] leading-tight flex-1 min-w-0 truncate">
-                    {heroTitle}
-                  </h1>
-                  {!isQuestCollectionView && (ownedCollections.length + followedCollections.length === 0) && (
-                    <button
-                      type="button"
-                      onClick={() => navigate("/CollectionEditor")}
-                      className="shrink-0 w-8 h-8 rounded-full bg-black/45 border border-[#f0e5a5]/40 text-[#f0e5a5] flex items-center justify-center shadow-sm hover:bg-black/60 transition-colors"
-                      aria-label="Neue Kollektion anlegen"
-                    >
-                      <span className="text-lg leading-none">+</span>
-                    </button>
-                  )}
-                  {selectedCollection && !isQuestCollectionView && (
-                    <div className="shrink-0 flex items-center gap-1.5">
-                      {(selectedCollection.followers_count ?? 0) > 0 && (
-                        <div
-                          className="p-1 rounded-full border bg-black/45 text-stone-100 flex items-center justify-center text-[10px] font-bold border-sky-300/70"
-                          title={`${selectedCollection.followers_count} Follower`}
-                        >
-                          {selectedCollection.followers_count}
-                        </div>
-                      )}
+            {isHeroSegmentOpen && (
+              <div
+                className="rounded-2xl border shadow-sm p-3 flex flex-col gap-3 bg-black/35 backdrop-blur-sm"
+                style={{
+                  borderColor: "rgba(240,229,165,0.35)",
+                }}
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <h1 className="text-lg font-bold text-[#f8f4d6] leading-tight flex-1 min-w-0 truncate">
+                      {heroTitle}
+                    </h1>
+                    {!isQuestCollectionView && (ownedCollections.length + followedCollections.length === 0) && (
+                      <button
+                        type="button"
+                        onClick={() => navigate("/CollectionEditor")}
+                        className="shrink-0 w-8 h-8 rounded-full bg-black/45 border border-[#f0e5a5]/40 text-[#f0e5a5] flex items-center justify-center shadow-sm hover:bg-black/60 transition-colors"
+                        aria-label="Neue Kollektion anlegen"
+                      >
+                        <span className="text-lg leading-none">+</span>
+                      </button>
+                    )}
+                    {selectedCollection && !isQuestCollectionView && (
+                      <div className="shrink-0 flex items-center gap-1.5">
+                        {(selectedCollection.followers_count ?? 0) > 0 && (
+                          <div
+                            className="p-1 rounded-full border bg-black/45 text-stone-100 flex items-center justify-center text-[10px] font-bold border-sky-300/70"
+                            title={`${selectedCollection.followers_count} Follower`}
+                          >
+                            {selectedCollection.followers_count}
+                          </div>
+                        )}
 
-                      {selectedCollection.is_public && !isOwnerOfSelected && (
+                        {selectedCollection.is_public && !isOwnerOfSelected && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isFollowingSelected && userCollectionLinkForSelected) {
+                                unfollowMutation.mutate(userCollectionLinkForSelected.id);
+                              } else if (!isFollowingSelected) {
+                                followMutation.mutate(selectedCollection.id);
+                              }
+                            }}
+                            disabled={followMutation.isPending || unfollowMutation.isPending}
+                            className={
+                              isFollowingSelected
+                                ? "shrink-0 p-1 rounded-full border bg-black/45 text-stone-100 hover:bg-black/60 border-red-300/80 transition-colors disabled:opacity-60"
+                                : "shrink-0 p-1 rounded-full border bg-black/45 text-stone-100 hover:bg-black/60 border-emerald-300/80 transition-colors disabled:opacity-60"
+                            }
+                            aria-label={isFollowingSelected ? "Abo beenden" : "Abonnieren"}
+                          >
+                            {isFollowingSelected ? <Minus className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                          </button>
+                        )}
+
+                        {isOwnerOfSelected && (
+                          <button
+                            type="button"
+                            onClick={() => navigate("/CollectionEditor?id=" + selectedCollection.id)}
+                            className="shrink-0 p-1.5 rounded-full bg-black/45 text-[#f0e5a5] hover:bg-black/60 border border-[#f0e5a5]/35 transition-colors"
+                            aria-label="Kollektion bearbeiten"
+                          >
+                            <PencilLine className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {selectedCollection?.description && (
+                    <p className="text-[11px] text-stone-200/90 max-h-[4.5em] overflow-y-auto leading-snug rounded focus:outline-none focus:ring-1 focus:ring-[#f0e5a5]/40" tabIndex={0}>
+                      {selectedCollection.description}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3 mt-1">
+                  <div className="flex-1 space-y-1">
+                    <div className="flex items-center justify-between text-[10px] text-stone-200/90">
+                      <div className="flex items-center gap-1">
+                        <span>Fortschritt</span>
+                        {heroStats.total > 0 && (
+                          <span className="text-[10px] text-stone-300/90">
+                            ({heroStats.discovered}/{heroStats.total})
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span>{heroProgressPercent}%</span>
+                        {CATEGORY_CHIPS.map((categoryChip) => {
+                          const isActive = activeCategory === categoryChip.value;
+                          return (
+                            <button
+                              key={categoryChip.value}
+                              type="button"
+                              onClick={() => {
+                                const nextCategory = isActive ? null : categoryChip.value;
+                                setActiveCategory(nextCategory);
+                                saveFiltersForCollection(selectedCollectionId, { activeCategory: nextCategory });
+                              }}
+                              className={
+                                "p-1 rounded-full border transition-colors " +
+                                (isActive
+                                  ? "bg-black/55 text-[#f0e5a5] border-[#f0e5a5]/70"
+                                  : "bg-black/35 text-stone-100 border-white/30 hover:bg-black/55")
+                              }
+                              aria-label={categoryChip.value + (isActive ? " deaktivieren" : " filtern")}
+                              aria-pressed={isActive}
+                            >
+                              <span className="text-[11px] leading-none">{categoryChip.emoji}</span>
+                            </button>
+                          );
+                        })}
                         <button
                           type="button"
                           onClick={() => {
-                            if (isFollowingSelected && userCollectionLinkForSelected) {
-                              unfollowMutation.mutate(userCollectionLinkForSelected.id);
-                            } else if (!isFollowingSelected) {
-                              followMutation.mutate(selectedCollection.id);
-                            }
+                            setSortChipsOpen((prev) => {
+                              const next = !prev;
+                              saveFiltersForCollection(selectedCollectionId, { sortChipsOpen: next });
+                              return next;
+                            });
                           }}
-                          disabled={followMutation.isPending || unfollowMutation.isPending}
                           className={
-                            isFollowingSelected
-                              ? "shrink-0 p-1 rounded-full border bg-black/45 text-stone-100 hover:bg-black/60 border-red-300/80 transition-colors disabled:opacity-60"
-                              : "shrink-0 p-1 rounded-full border bg-black/45 text-stone-100 hover:bg-black/60 border-emerald-300/80 transition-colors disabled:opacity-60"
+                            "p-1 rounded-full transition-colors " +
+                            (sortChipsOpen
+                              ? "bg-black/60 text-[#f0e5a5]"
+                              : "bg-black/40 text-stone-100 hover:bg-black/60")
                           }
-                          aria-label={isFollowingSelected ? "Abo beenden" : "Abonnieren"}
+                          aria-label={sortChipsOpen ? "Suche und Sortierung ausblenden" : "Suche und Sortierung einblenden"}
                         >
-                          {isFollowingSelected ? <Minus className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                          <SlidersHorizontal className="w-3 h-3" />
                         </button>
-                      )}
-
-                      {isOwnerOfSelected && (
-                        <button
-                          type="button"
-                          onClick={() => navigate("/CollectionEditor?id=" + selectedCollection.id)}
-                          className="shrink-0 p-1.5 rounded-full bg-black/45 text-[#f0e5a5] hover:bg-black/60 border border-[#f0e5a5]/35 transition-colors"
-                          aria-label="Kollektion bearbeiten"
-                        >
-                          <PencilLine className="w-3 h-3" />
-                        </button>
-                      )}
+                      </div>
                     </div>
-                  )}
-                </div>
-                {selectedCollection?.description && (
-                  <p className="text-[11px] text-stone-200/90 max-h-[4.5em] overflow-y-auto leading-snug rounded focus:outline-none focus:ring-1 focus:ring-[#f0e5a5]/40" tabIndex={0}>
-                    {selectedCollection.description}
-                  </p>
-                )}
-              </div>
-
-              <div className="flex items-center gap-3 mt-1">
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center justify-between text-[10px] text-stone-200/90">
-                    <div className="flex items-center gap-1">
-                      <span>Fortschritt</span>
-                      {heroStats.total > 0 && (
-                        <span className="text-[10px] text-stone-300/90">
-                          ({heroStats.discovered}/{heroStats.total})
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span>{heroProgressPercent}%</span>
-                      {CATEGORY_CHIPS.map((categoryChip) => {
-                        const isActive = activeCategory === categoryChip.value;
-                        return (
-                          <button
-                            key={categoryChip.value}
-                            type="button"
-                            onClick={() => {
-                              const nextCategory = isActive ? null : categoryChip.value;
-                              setActiveCategory(nextCategory);
-                              saveFiltersForCollection(selectedCollectionId, { activeCategory: nextCategory });
-                            }}
-                            className={
-                              "p-1 rounded-full border transition-colors " +
-                              (isActive
-                                ? "bg-black/55 text-[#f0e5a5] border-[#f0e5a5]/70"
-                                : "bg-black/35 text-stone-100 border-white/30 hover:bg-black/55")
-                            }
-                            aria-label={categoryChip.value + (isActive ? " deaktivieren" : " filtern")}
-                            aria-pressed={isActive}
-                          >
-                            <span className="text-[11px] leading-none">{categoryChip.emoji}</span>
-                          </button>
-                        );
-                      })}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSortChipsOpen((prev) => {
-                            const next = !prev;
-                            saveFiltersForCollection(selectedCollectionId, { sortChipsOpen: next });
-                            return next;
-                          });
+                    <div className="w-full h-2 bg-black/40 rounded-full overflow-hidden border border-white/10">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: heroProgressPercent + "%",
+                          background: activeBackgroundColor
+                            ? `linear-gradient(90deg, ${getLighterColor(activeBackgroundColor)} 0%, ${activeBackgroundColor} 100%)`
+                            : "linear-gradient(90deg, rgb(74, 222, 128) 0%, rgb(34, 197, 94) 100%)",
                         }}
-                        className={
-                          "p-1 rounded-full transition-colors " +
-                          (sortChipsOpen
-                            ? "bg-black/60 text-[#f0e5a5]"
-                            : "bg-black/40 text-stone-100 hover:bg-black/60")
-                        }
-                        aria-label={sortChipsOpen ? "Suche und Sortierung ausblenden" : "Suche und Sortierung einblenden"}
-                      >
-                        <SlidersHorizontal className="w-3 h-3" />
-                      </button>
+                      />
                     </div>
-                  </div>
-                  <div className="w-full h-2 bg-black/40 rounded-full overflow-hidden border border-white/10">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: heroProgressPercent + "%",
-                        background: activeBackgroundColor
-                          ? `linear-gradient(90deg, ${getLighterColor(activeBackgroundColor)} 0%, ${activeBackgroundColor} 100%)`
-                          : "linear-gradient(90deg, rgb(74, 222, 128) 0%, rgb(34, 197, 94) 100%)",
-                      }}
-                    />
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Suche und Sortierchips per Icon ein/ausblendbar */}
             {sortChipsOpen && (
