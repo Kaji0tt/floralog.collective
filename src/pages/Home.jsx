@@ -1453,9 +1453,12 @@ export default function Home() {
                 ) : showHeroZoneMap ? (
                   <section className={`relative flex-1 min-h-0 rounded-3xl border overflow-hidden ${
                     isLightUi
-                      ? "border-[#c0a860]/50 bg-white/45 backdrop-blur-2xl"
+                      ? "border-[#c0a860]/50 backdrop-blur-xl"
                       : "border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm"
-                  }`}>
+                  }`}
+                  style={isLightUi ? {
+                    background: 'linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.1) 40%, rgba(255,255,255,0) 70%, rgba(255,255,255,0.05) 100%)'
+                  } : {}}>
                     <HeroZoneMap3D
                       zones={heroZones}
                       userLocation={cachedLocation}
@@ -1520,9 +1523,12 @@ export default function Home() {
                 ) : (
                   <section data-ui="home-plant-hero-section" className={`flex-1 min-h-0 rounded-3xl border px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col ${
                     isLightUi
-                      ? "border-[#c0a860]/50 bg-white/45 backdrop-blur-2xl"
+                      ? "border-[#c0a860]/50 backdrop-blur-xl"
                       : "border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm"
-                  }`}>
+                  }`}
+                  style={isLightUi ? {
+                    background: 'linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.15) 35%, rgba(255,255,255,0) 65%, rgba(255,255,255,0.1) 100%)'
+                  } : {}}>
                   <div ref={healthStatsPanelRef} className="flex-1 min-h-0 flex items-center justify-center">
                     <div
                       className="relative mx-auto"
