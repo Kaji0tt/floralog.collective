@@ -716,28 +716,30 @@ export default function Collection({ embedded = false, onRequestClose = null }) 
   };
 
   return (
-    <div className={embedded ? "h-full min-h-0" : "fixed inset-0 overflow-hidden"} data-ui="home-page-shell">
+    <div className={embedded ? "h-full min-h-0" : "fixed inset-0 overflow-hidden"} data-ui={embedded ? "collection-embedded-root" : "home-page-shell"}>
       {!embedded && <div className="absolute inset-0" style={pageShellBackgroundStyle} />}
       {!embedded && <div className="absolute inset-0 backdrop-blur-3xl" />}
       {!embedded && <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-black/35 to-black/55" />}
 
-      <div className={embedded ? "relative z-10 h-full w-full" : "relative z-10 h-full w-full p-3 md:p-6 flex items-start justify-center"}>
-        <div className={embedded ? "relative h-full w-full rounded-3xl overflow-hidden border border-[#d7cf9c]/45 shadow-[0_12px_40px_rgba(0,0,0,0.35)]" : "relative h-[calc(100%-1.50rem)] md:h-[calc(100%-1.50rem)] w-full max-w-md md:max-w-3xl rounded-[2rem] overflow-hidden border border-[#d7cf9c]/65 shadow-[0_20px_80px_rgba(0,0,0,0.55)]"}>
-          <div
-            className="absolute inset-0"
-            style={user?.background_image_url ? {
-              backgroundImage: `linear-gradient(180deg, rgba(19,37,24,0.42) 0%, rgba(12,20,15,0.66) 100%), url(${user.background_image_url})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            } : user?.background_color ? {
-              background: `linear-gradient(180deg, ${getRgbaFromRgb(user.background_color, 0.28)} 0%, rgba(14, 22, 16, 0.74) 100%)`,
-            } : {
-              background: "linear-gradient(180deg, rgba(126, 171, 98, 0.45) 0%, rgba(10, 22, 15, 0.78) 100%)",
-            }}
-          />
-          <div className="absolute inset-0 border border-[#f0e5a5]/30 pointer-events-none rounded-[2rem]" />
+      <div className={embedded ? "h-full w-full" : "relative z-10 h-full w-full p-3 md:p-6 flex items-start justify-center"}>
+        <div className={embedded ? "h-full w-full" : "relative h-[calc(100%-1.50rem)] md:h-[calc(100%-1.50rem)] w-full max-w-md md:max-w-3xl rounded-[2rem] overflow-hidden border border-[#d7cf9c]/65 shadow-[0_20px_80px_rgba(0,0,0,0.55)]"}>
+          {!embedded && (
+            <div
+              className="absolute inset-0"
+              style={user?.background_image_url ? {
+                backgroundImage: `linear-gradient(180deg, rgba(19,37,24,0.42) 0%, rgba(12,20,15,0.66) 100%), url(${user.background_image_url})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              } : user?.background_color ? {
+                background: `linear-gradient(180deg, ${getRgbaFromRgb(user.background_color, 0.28)} 0%, rgba(14, 22, 16, 0.74) 100%)`,
+              } : {
+                background: "linear-gradient(180deg, rgba(126, 171, 98, 0.45) 0%, rgba(10, 22, 15, 0.78) 100%)",
+              }}
+            />
+          )}
+          {!embedded && <div className="absolute inset-0 border border-[#f0e5a5]/30 pointer-events-none rounded-[2rem]" />}
 
-          <div className="relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6 text-stone-100">
+          <div className={embedded ? "h-full flex flex-col text-stone-100" : "relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6 text-stone-100"}>
             {!embedded && (
               <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#f0e5a5]/20" data-ui="home-header-bar">
                 <div className="min-w-0">
@@ -761,7 +763,7 @@ export default function Collection({ embedded = false, onRequestClose = null }) 
               onClose={() => setShowHintDialog(false)}
             />
 
-            <div className="flex-1 min-h-0 py-[clamp(0.5rem,1.5vh,1rem)] flex flex-col gap-3" data-ui="home-content-stack">
+            <div className="flex-1 min-h-0 py-[clamp(0.5rem,1.5vh,1rem)] flex flex-col gap-3" data-ui={embedded ? "collection-content-stack" : "home-content-stack"}>
           <div className="shrink-0 space-y-3">
             {/* Horizontale Kollektionen-Chips + Neuerstellen-Button */}
             {!isQuestCollectionView && (ownedCollections.length + followedCollections.length > 0) && (
