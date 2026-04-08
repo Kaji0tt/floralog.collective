@@ -1393,8 +1393,7 @@ export default function Home() {
                     </div>
                   </section>
                 ) : (
-                  <div className="h-full flex flex-col gap-[clamp(0.5rem,1.2vh,1rem)]">
-                    <section data-ui="home-plant-hero-section" className="flex-1 min-h-0 rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col">
+                  <section data-ui="home-plant-hero-section" className="h-full min-h-0 rounded-3xl border border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col">
                   <div ref={healthStatsPanelRef} className="flex-1 min-h-0 flex items-center justify-center">
                     <div
                       className="relative mx-auto"
@@ -1599,42 +1598,41 @@ export default function Home() {
                     Scannen
                   </motion.button>
                   </section>
-
-                  <div data-ui="home-bottom-nav" className="mt-[clamp(0.5rem,1.2vh,1rem)]">
-                    <div
-                      className="grid grid-cols-4"
-                      style={{ gap: `${(0.46 * controlsScale).toFixed(2)}rem` }}
-                    >
-                      {navItems.map((item) => (
-                        <button
-                          key={item.label}
-                          onClick={item.onClick}
-                          className={`rounded-2xl border border-[#f0e5a5]/45 ${item.gradientClass} hover:brightness-105 active:translate-y-px transition-all flex flex-col items-center backdrop-blur-[2px]`}
-                          style={{
-                            boxShadow: item.shadowStyle,
-                            paddingBlock: `${(0.72 * controlsScale).toFixed(2)}rem`,
-                            gap: `${(0.2 * controlsScale).toFixed(2)}rem`,
-                          }}
-                        >
-                          <item.icon
-                            className="text-lime-100"
-                            style={{
-                              width: `${(1.2 * controlsScale).toFixed(2)}rem`,
-                              height: `${(1.2 * controlsScale).toFixed(2)}rem`,
-                            }}
-                          />
-                          <span
-                            className="home-tight-vh-label font-semibold"
-                            style={{ fontSize: `${(0.78 * controlsScale).toFixed(2)}rem` }}
-                          >
-                            {item.label}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
                 )}
+              </div>
+
+              <div data-ui="home-bottom-nav" className="mt-[clamp(0.5rem,1.2vh,1rem)]">
+                <div
+                  className="grid grid-cols-4"
+                  style={{ gap: `${(0.46 * controlsScale).toFixed(2)}rem` }}
+                >
+                  {navItems.map((item) => (
+                    <button
+                      key={item.label}
+                      onClick={item.onClick}
+                      className={`rounded-2xl border border-[#f0e5a5]/45 ${item.gradientClass} hover:brightness-105 active:translate-y-px transition-all flex flex-col items-center backdrop-blur-[2px]`}
+                      style={{
+                        boxShadow: item.shadowStyle,
+                        paddingBlock: `${(0.72 * controlsScale).toFixed(2)}rem`,
+                        gap: `${(0.2 * controlsScale).toFixed(2)}rem`,
+                      }}
+                    >
+                      <item.icon
+                        className="text-lime-100"
+                        style={{
+                          width: `${(1.2 * controlsScale).toFixed(2)}rem`,
+                          height: `${(1.2 * controlsScale).toFixed(2)}rem`,
+                        }}
+                      />
+                      <span
+                        className="home-tight-vh-label font-semibold"
+                        style={{ fontSize: `${(0.78 * controlsScale).toFixed(2)}rem` }}
+                      >
+                        {item.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </motion.div>
