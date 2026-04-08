@@ -700,6 +700,7 @@ export default function Collection({ embedded = false, onRequestClose = null }) 
     ? selectedCollection.title
     : ownerName + "'s Floralog";
   const listTopFadePx = 12;
+  const listBottomFadePx = 18;
   const chipRightFadePx = 24;
   const isOwnerOfSelected =
     !!selectedCollection && !!user?.id && selectedCollection.auth_id === user.id;
@@ -1023,8 +1024,8 @@ export default function Collection({ embedded = false, onRequestClose = null }) 
             onScroll={handleCollectionListScroll}
             className="relative flex-1 min-h-0 overflow-y-auto pb-20"
             style={{
-              WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black 100%)`,
-              maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black 100%)`,
+              WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
+              maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
             }}
           >
             {filteredGenera.length === 0 ? (
@@ -1037,7 +1038,7 @@ export default function Collection({ embedded = false, onRequestClose = null }) 
                 </h3>
               </div>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2" style={{ paddingTop: listTopFadePx }}>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2" style={{ paddingTop: listTopFadePx, paddingBottom: listBottomFadePx }}>
                 {sortedGenera.map((genus) => (
                   <GenusCard
                     key={genus.id}

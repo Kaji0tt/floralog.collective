@@ -83,13 +83,13 @@ export default function SearchSortBar({
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className={`relative flex items-center bg-stone-100 border border-stone-200 shadow-sm rounded-full h-8 overflow-hidden transition-all duration-200 ease-out shrink-0 ${
+          className={`relative flex items-center bg-black/40 border border-[#f0e5a5]/35 backdrop-blur-sm rounded-full h-8 overflow-hidden transition-all duration-200 ease-out shrink-0 ${
             isOpen ? "flex-[0.55] min-w-[140px] px-3" : "w-8 justify-center"
           }`}
           aria-label="Suche öffnen"
         >
           <Search
-            className={`w-4 h-4 text-stone-600 transition-all duration-200 ease-out ${
+            className={`w-4 h-4 text-[#f0e5a5] transition-all duration-200 ease-out ${
               isOpen ? "mr-2 flex-shrink-0" : ""
             }`}
           />
@@ -98,7 +98,7 @@ export default function SearchSortBar({
             value={searchQuery}
             onChange={(e) => onSearchQueryChange?.(e.target.value)}
             placeholder={placeholder}
-            className={`bg-transparent border-0 outline-none text-[11px] placeholder:text-stone-400 text-stone-900 transition-all duration-200 ease-out ${
+            className={`bg-transparent border-0 outline-none text-[11px] placeholder:text-stone-300/70 text-stone-100 transition-all duration-200 ease-out ${
               isOpen
                 ? "w-full opacity-100"
                 : "w-0 opacity-0 pointer-events-none"
@@ -109,7 +109,7 @@ export default function SearchSortBar({
 
       {showSortControls && (
         <div
-          className="flex items-center rounded-full bg-stone-100 p-0.5 text-[11px] overflow-x-auto scrollbar-hide transition-all duration-200 ease-out flex-1 min-w-0"
+          className="flex items-center rounded-full bg-black/30 border border-[#f0e5a5]/30 p-0.5 text-[11px] overflow-x-auto scrollbar-hide transition-all duration-200 ease-out flex-1 min-w-0 backdrop-blur-sm"
         >
           {Array.isArray(sortOptions) && sortOptions.map((opt) => (
             <button
@@ -117,8 +117,8 @@ export default function SearchSortBar({
               type="button"
               className={`flex-1 px-2 py-1 rounded-full whitespace-nowrap text-center ${
                 sortValue === opt.value
-                  ? "bg-white shadow text-stone-900"
-                  : "text-stone-500"
+                  ? "bg-black/60 border border-[#f0e5a5]/55 text-[#f7f0c1]"
+                  : "text-stone-200/85 hover:bg-black/35"
               }`}
               onClick={() => onSortChange?.(opt.value)}
             >
@@ -130,10 +130,10 @@ export default function SearchSortBar({
             <button
               type="button"
               onClick={handleToggleDiscovered}
-              className="ml-1 px-2 py-1 rounded-full bg-white/70 text-[10px] text-stone-600 hover:bg-white shadow flex items-center gap-1"
+              className="ml-1 px-2 py-1 rounded-full bg-black/45 border border-[#f0e5a5]/45 text-[10px] text-stone-100 hover:bg-black/60 flex items-center gap-1"
               aria-label={`Filter: ${discoveredLabel}`}
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-300" />
               <span>{discoveredLabel}</span>
             </button>
           )}
