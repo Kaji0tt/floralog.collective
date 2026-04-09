@@ -11,7 +11,6 @@ export default function HomeHeaderBar({
   showEmbeddedSettings,
   embeddedCollectionPublicPanelOpen,
   displayName,
-  displayNameFontSize,
   userTitle,
   onTogglePublicCollections,
   onOpenEmbeddedFriendsAddDialog,
@@ -42,8 +41,7 @@ export default function HomeHeaderBar({
         ) : (
           <div className="min-w-0">
             <h1
-              className="font-bold leading-tight truncate"
-              style={{ fontSize: displayNameFontSize }}
+              className="font-bold leading-tight text-2xl md:text-3xl truncate"
               title={displayName}
             >
               {displayName}

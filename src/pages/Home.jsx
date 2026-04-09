@@ -1590,7 +1590,6 @@ export default function Home() {
                 showEmbeddedSettings={showEmbeddedSettings}
                 embeddedCollectionPublicPanelOpen={embeddedCollectionPublicPanelOpen}
                 displayName={getDisplayName()}
-                displayNameFontSize={getNameFontSize(getDisplayName())}
                 userTitle={user?.selected_title || user?.title || "Pflanzen-Entdecker"}
                 onTogglePublicCollections={() => setEmbeddedCollectionPublicPanelOpen((prev) => !prev)}
                 onOpenEmbeddedFriendsAddDialog={() => setEmbeddedFriendsAddDialogNonce((prev) => prev + 1)}
