@@ -58,6 +58,8 @@ const HEALTH_TOOLTIP_TEXT = {
   care: "Pflege wirkt direkt als Multiplikator (0.5 bis 1.5). Ab 90% boosten Gains doppelt.",
 };
 
+const MULTIPLIER_SWIPE_THRESHOLD_PX = 36;
+
 /**
  * @param {{ lat: number; lng: number; radiusM: number; points?: number }} params
  */
@@ -361,6 +363,8 @@ export default function Home() {
 
   const [showSeedsTooltip, setShowSeedsTooltip] = useState(false);
   const [showMultiplierTooltip, setShowMultiplierTooltip] = useState(false);
+  const [activeMultiplierIndex, setActiveMultiplierIndex] = useState(0);
+  const multiplierTouchStartXRef = useRef(null);
 
   const [scanFeedback, setScanFeedback] = useState(null);
   const [showEmbeddedCollection, setShowEmbeddedCollection] = useState(false);
@@ -1220,6 +1224,93 @@ export default function Home() {
     return `x${safeValue.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1")}`;
   };
 
+  const multiplierItems = [
+    {
+      id: "streak",
+      title: "🔥 Streak",
+      value: formatMultiplier(streakMultiplier),
+      description: "Basierend auf deiner Scan-Serie (x1 bis x7).",
+    },
+    {
+      id: "zone",
+      title: "📍 Zone",
+      value: formatMultiplier(zoneMultiplier),
+      description: "Start x1.5, pro weiterem Scan in derselben Zone -0.2 (bis x0.5).",
+    },
+    {
+      id: "care",
+      title: "💚 Pflege",
+      value: formatMultiplier(careMultiplier),
+      description: "Direkter Einfluss aus dem Care-Wert (x0.5 bis x1.5).",
+    },
+    {
+      id: "daily",
+      title: "🌅 Tagesbonus",
+      value: formatMultiplier(dailyBonusMultiplier),
+      description: "Erster Scan des Tages x2, danach x1.",
+    },
+    {
+      id: "rarity",
+      title: "⭐ Raritaet",
+      value: "x1 bis x3",
+      description: "Scanabhaengig: haeufig x1, gelegentlich x2, selten x3.",
+    },
+    {
+      id: "novelty",
+      title: "📉 Neuheit",
+      value: "x1 bis x0.2",
+      description: "Scanabhaengig: sinkt pro Duplikat derselben Pflanze.",
+    },
+  ];
+
+  const activeMultiplierItem =
+    multiplierItems[activeMultiplierIndex] ?? multiplierItems[0];
+
+  const handleMultiplierTooltipOpenChange = (nextOpen) => {
+    setShowMultiplierTooltip(nextOpen);
+    if (nextOpen) {
+      setActiveMultiplierIndex(0);
+      multiplierTouchStartXRef.current = null;
+    }
+  };
+
+  const showPreviousMultiplier = () => {
+    setActiveMultiplierIndex((prevIndex) => {
+      if (!multiplierItems.length) return 0;
+      return (prevIndex - 1 + multiplierItems.length) % multiplierItems.length;
+    });
+  };
+
+  const showNextMultiplier = () => {
+    setActiveMultiplierIndex((prevIndex) => {
+      if (!multiplierItems.length) return 0;
+      return (prevIndex + 1) % multiplierItems.length;
+    });
+  };
+
+  const handleMultiplierTouchStart = (event) => {
+    if (!event.changedTouches?.length) return;
+    multiplierTouchStartXRef.current = event.changedTouches[0].clientX;
+  };
+
+  const handleMultiplierTouchEnd = (event) => {
+    if (!event.changedTouches?.length) return;
+    const startX = multiplierTouchStartXRef.current;
+    multiplierTouchStartXRef.current = null;
+    if (!Number.isFinite(startX)) return;
+
+    const endX = event.changedTouches[0].clientX;
+    const deltaX = endX - startX;
+    if (Math.abs(deltaX) < MULTIPLIER_SWIPE_THRESHOLD_PX) return;
+
+    if (deltaX < 0) {
+      showNextMultiplier();
+      return;
+    }
+
+    showPreviousMultiplier();
+  };
+
   const isLightUi = uiTheme === "light";
 
   const navItems = [
@@ -1840,7 +1931,7 @@ export default function Home() {
                         </PopoverContent>
                       </Popover>
 
-                      <Popover open={showMultiplierTooltip} onOpenChange={setShowMultiplierTooltip}>
+                      <Popover open={showMultiplierTooltip} onOpenChange={handleMultiplierTooltipOpenChange}>
                         <PopoverTrigger asChild>
                           <div className={`flex items-center gap-1.5 min-w-0 cursor-pointer transition-colors ${
                             isLightUi
@@ -1855,54 +1946,49 @@ export default function Home() {
                           </div>
                         </PopoverTrigger>
                         <PopoverContent align="end" className="w-72 bg-emerald-950/95 border-amber-600/40 text-amber-50/90">
-                          <div className="space-y-4">
+                          <div className="space-y-3">
                             <h3 className="font-semibold text-amber-300">Multiplikatoren</h3>
-                            <div className="rounded-lg border border-amber-600/30 bg-black/20 p-2.5 text-xs space-y-1.5">
-                              <div className="text-amber-300 font-semibold">Aktuell bekannter Faktor für den nächsten Scan</div>
-                              <div className="text-amber-50/90">
-                                Zustand <strong>{plantHealthState.label}</strong> gibt aktuell <strong>+{healthStateBonus}</strong> auf alle Scan-Events.
+                            <div
+                              className="rounded-lg border border-amber-600/30 bg-black/20 p-3 text-xs space-y-2"
+                              onTouchStart={handleMultiplierTouchStart}
+                              onTouchEnd={handleMultiplierTouchEnd}
+                            >
+                              <div className="text-amber-300 font-semibold">
+                                {activeMultiplierItem.title}: <strong>{activeMultiplierItem.value}</strong>
                               </div>
+                              <div className="text-amber-50/80 min-h-[2.5rem]">
+                                {activeMultiplierItem.description}
+                              </div>
+                              <div className="flex items-center justify-center gap-2 pt-0.5">
+                                {multiplierItems.map((item, index) => (
+                                  <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => setActiveMultiplierIndex(index)}
+                                    aria-label={`Multiplikator ${index + 1} von ${multiplierItems.length} anzeigen`}
+                                    className={
+                                      "h-2.5 w-2.5 rounded-full transition-colors " +
+                                      (index === activeMultiplierIndex
+                                        ? "bg-amber-300"
+                                        : "bg-amber-100/35 hover:bg-amber-100/60")
+                                    }
+                                  />
+                                ))}
+                              </div>
+                              <div className="text-[11px] text-amber-50/55 text-center">
+                                Wische nach links/rechts oder tippe auf die Punkte.
+                              </div>
+                            </div>
+                            <div className="rounded-lg border border-amber-600/25 bg-black/20 p-2.5 text-xs space-y-1">
+                              <div className="text-amber-300 font-semibold">Aktuell bekannter Gesamtfaktor</div>
                               <div className="text-amber-50/90">
                                 {formatMultiplier(streakMultiplier)} × {formatMultiplier(zoneMultiplier)} × {formatMultiplier(careMultiplier)} × {formatMultiplier(dailyBonusMultiplier)} = <strong>{formatMultiplier(knownNextScanMultiplier)}</strong>
                               </div>
                               <div className="text-amber-50/70">
-                                Mit scanabhängigen Faktoren (Neuheit + Rarität) ergibt sich ein möglicher Bereich von <strong>{formatMultiplier(nextScanMinMultiplier)}</strong> bis <strong>{formatMultiplier(nextScanMaxMultiplier)}</strong>.
+                                Zustand <strong>{plantHealthState.label}</strong> gibt aktuell <strong>+{healthStateBonus}</strong> auf alle Scan-Events.
                               </div>
-                              <div className="text-amber-50/70">
-                                Das entspricht aktuell grob <strong>{nextScanMinReward}</strong> bis <strong>{nextScanMaxReward}</strong> Seeds, je nach Scan-Typ und scanabhängigen Faktoren.
-                              </div>
-                              <div className="text-amber-50/60">
-                                Energie gehoert nicht zur Reward-Formel. Sie steuert Zonenanzahl, Rerolls, Zonengroesse und taegliche Energie-Gains.
-                              </div>
-                            </div>
-                            <div className="space-y-2.5 text-xs">
-                              <div className="flex flex-col gap-0.5">
-                                <span className="text-amber-300 font-semibold">🌿 Zustand: <strong>{plantHealthState.label}</strong> (+{healthStateBonus})</span>
-                                <span className="text-amber-50/70">Kritisch +0, Schwach +5, Stabil +15, Vital +30, Kraeftig +50</span>
-                              </div>
-                              <div className="flex flex-col gap-0.5">
-                                <span className="text-amber-300 font-semibold">🔥 Streak: <strong>{formatMultiplier(streakMultiplier)}</strong></span>
-                                <span className="text-amber-50/70">Basierend auf deiner Scan-Serie (1-7x)</span>
-                              </div>
-                              <div className="flex flex-col gap-0.5">
-                                <span className="text-amber-300 font-semibold">📍 Zone: <strong>{formatMultiplier(zoneMultiplier)}</strong></span>
-                                <span className="text-amber-50/70">Start x1.5, pro weiterem Scan in derselben Zone -0.2 (bis x0.5)</span>
-                              </div>
-                              <div className="flex flex-col gap-0.5">
-                                <span className="text-amber-300 font-semibold">💚 Pflege:<strong>{formatMultiplier(careMultiplier)}</strong></span>
-                                <span className="text-amber-50/70">0.5-1.5x - Direkter Einfluss aus dem Care-Wert</span>
-                              </div>
-                              <div className="flex flex-col gap-0.5">
-                                <span className="text-amber-300 font-semibold">🌅 Tagesbonus:<strong>{formatMultiplier(dailyBonusMultiplier)}</strong></span>
-                                <span className="text-amber-50/70">Erster Scan des Tages: x2, danach x1</span>
-                              </div>
-                              <div className="flex flex-col gap-0.5">
-                                <span className="text-amber-300 font-semibold">⭐ Rarität: <strong>x1 bis x3</strong></span>
-                                <span className="text-amber-50/70">Scanabhängig: häufig x1, gelegentlich x2, selten x3</span>
-                              </div>
-                              <div className="flex flex-col gap-0.5">
-                                <span className="text-amber-300 font-semibold">📉 Neuheit: <strong>x1 bis x0.2</strong></span>
-                                <span className="text-amber-50/70">Scanabhängig: sinkt pro Duplikat derselben Pflanze</span>
+                              <div className="text-amber-50/65">
+                                Mit Neuheit und Raritaet liegt der Bereich bei <strong>{formatMultiplier(nextScanMinMultiplier)}</strong> bis <strong>{formatMultiplier(nextScanMaxMultiplier)}</strong> (~{nextScanMinReward}-{nextScanMaxReward} Seeds).
                               </div>
                             </div>
                           </div>
