@@ -1,5 +1,5 @@
-import Friends from "@/pages/Friends";
+import { useFriendsFeatureContent } from "@/components/friends/hooks/useFriendsFeatureContent";
 
 export default function FriendsFeatureRoot(props) {
-  return <Friends {...props} />;
+  return useFriendsFeatureContent(props);
 }

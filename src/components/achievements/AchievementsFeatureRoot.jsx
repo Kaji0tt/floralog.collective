@@ -1,5 +1,5 @@
-import Achievements from "@/pages/Achievements";
+import { useAchievementsFeatureContent } from "@/components/achievements/hooks/useAchievementsFeatureContent";
 
 export default function AchievementsFeatureRoot(props) {
-  return <Achievements {...props} />;
+  return useAchievementsFeatureContent(props);
 }
