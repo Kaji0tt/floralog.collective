@@ -77,7 +77,6 @@ export function useAchievementsFeatureContent({
   const [newAchievements, setNewAchievements] = useState([]);
   const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
   const [showCompleted, setShowCompleted] = useState(true);
-  const [activeQuestSubCategory, setActiveQuestSubCategory] = useState("global");
 
   useEffect(() => {
     const loadUser = async () => {
@@ -895,25 +894,9 @@ export function useAchievementsFeatureContent({
       active: completedQuests.length,
       total: completedQuests.length,
     },
-  ].filter((chip) => chip.id === "global" || chip.id === "history" || chip.total > 0);
+  ].filter((chip) => chip.total > 0 || chip.id === "global");
 
-  const filterQuestsBySubCategory = (questList) => {
-    if (activeQuestSubCategory === "global") return questList;
-    if (activeQuestSubCategory === "history") return questList;
-    return questList.filter((quest) => quest.type === activeQuestSubCategory);
-  };
-
-  const activeQuestsForDisplay =
-    activeQuestSubCategory === "history"
-      ? []
-      : filterQuestsBySubCategory(activeQuests);
-  const completedQuestsForDisplay =
-    activeQuestSubCategory === "history"
-      ? completedQuests
-      : filterQuestsBySubCategory(completedQuests);
   const hasAnyQuestData = activeQuests.length > 0 || completedQuests.length > 0;
-  const hasVisibleQuestData =
-    activeQuestsForDisplay.length > 0 || completedQuestsForDisplay.length > 0;
 
   // Prüfe ob es einlösbare Quests gibt
   const hasRedeemableQuests = activeQuests.some((q) => q.isCompleted);
@@ -1385,53 +1368,6 @@ export function useAchievementsFeatureContent({
           {/* Aufgaben Tab */}
           <TabsContent value="quests" className={questsContentClass} style={embedded ? undefined : embeddedContentMaskStyle}>
             <div className={`max-w-6xl mx-auto ${embedded ? "h-full min-h-0 flex flex-col gap-3" : "space-y-4"}`}>
-              <div className="shrink-0 relative flex items-center gap-2">
-                <div
-                  className="-mx-4 px-4 pb-0 flex-1 flex gap-2 overflow-x-auto scrollbar-hide pr-6"
-                  style={{
-                    WebkitMaskImage:
-                      "linear-gradient(to right, black 0px, black calc(100% - " +
-                      chipRightFadePx +
-                      "px), transparent 100%)",
-                    maskImage:
-                      "linear-gradient(to right, black 0px, black calc(100% - " +
-                      chipRightFadePx +
-                      "px), transparent 100%)",
-                  }}
-                >
-                  {questSubCategoryChips.map((chip) => {
-                    const isActive = activeQuestSubCategory === chip.id;
-                    return (
-                      <button
-                        key={chip.id}
-                        type="button"
-                        onClick={() => setActiveQuestSubCategory(chip.id)}
-                        className={
-                          "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors " +
-                          (isActive
-                            ? (isLightUi
-                              ? "bg-white/90 text-[#8f6b22] shadow-sm"
-                              : "bg-black/55 text-[#f7f0c1] shadow-sm")
-                            : (isLightUi
-                              ? "bg-white/55 text-stone-700 hover:bg-white/75"
-                              : "bg-black/35 text-stone-200 hover:bg-black/50"))
-                        }
-                        style={{
-                          borderColor: isActive
-                            ? (isLightUi ? "rgba(200,172,98,0.70)" : "rgba(240,229,165,0.75)")
-                            : (isLightUi ? "rgba(200,172,98,0.35)" : "rgba(255,255,255,0.3)"),
-                        }}
-                      >
-                        <span className="font-medium">{chip.title}</span>
-                        <span className={"text-[10px] " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
-                          {chip.active}/{chip.total || "–"}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
               <div
                 className={`relative ${embedded ? "flex-1 min-h-0 overflow-y-auto pb-20" : "pb-2"}`}
                 style={embedded ? {
@@ -1439,10 +1375,55 @@ export function useAchievementsFeatureContent({
                   maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
                 } : undefined}
               >
+                <div className={`sticky top-0 z-20 -mx-4 px-4 pb-2 ${isLightUi ? "bg-white/35" : "bg-black/18"} backdrop-blur-sm`}>
+                  <div
+                    className="flex gap-2 overflow-x-auto scrollbar-hide pr-6"
+                    style={{
+                      WebkitMaskImage:
+                        "linear-gradient(to right, black 0px, black calc(100% - " +
+                        chipRightFadePx +
+                        "px), transparent 100%)",
+                      maskImage:
+                        "linear-gradient(to right, black 0px, black calc(100% - " +
+                        chipRightFadePx +
+                        "px), transparent 100%)",
+                    }}
+                  >
+                    {questSubCategoryChips.map((chip, chipIndex) => {
+                      const isPrimary = chipIndex === 0;
+                      return (
+                        <div
+                          key={chip.id}
+                          className={
+                            "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap " +
+                            (isPrimary
+                              ? (isLightUi
+                                ? "bg-white/90 text-[#8f6b22] shadow-sm"
+                                : "bg-black/55 text-[#f7f0c1] shadow-sm")
+                              : (isLightUi
+                                ? "bg-white/55 text-stone-700"
+                                : "bg-black/35 text-stone-200"))
+                          }
+                          style={{
+                            borderColor: isPrimary
+                              ? (isLightUi ? "rgba(200,172,98,0.70)" : "rgba(240,229,165,0.75)")
+                              : (isLightUi ? "rgba(200,172,98,0.35)" : "rgba(255,255,255,0.3)"),
+                          }}
+                        >
+                          <span className="font-medium">{chip.title}</span>
+                          <span className={"text-[10px] " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
+                            {chip.active}/{chip.total || "–"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div className="space-y-6" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
-                  {activeQuestsForDisplay.length > 0 && (
+                  {activeQuests.length > 0 && (
                     <div className="grid md:grid-cols-2 gap-4">
-                      {activeQuestsForDisplay.map((quest, index) => {
+                      {activeQuests.map((quest, index) => {
                         const rawProgress = quest.progress || 0;
                         const target = quest.required_discoveries || 0;
                         const displayProgress = target > 0 ? Math.min(rawProgress, target) : rawProgress;
@@ -1542,7 +1523,7 @@ export function useAchievementsFeatureContent({
                     </div>
                   )}
 
-                  {completedQuestsForDisplay.length > 0 && (
+                  {completedQuests.length > 0 && (
                     <div className="space-y-3">
                       <button
                         type="button"
@@ -1558,7 +1539,7 @@ export function useAchievementsFeatureContent({
 
                       {showCompleted && (
                         <div className="grid md:grid-cols-2 gap-4">
-                          {completedQuestsForDisplay.map((quest, index) => {
+                          {completedQuests.map((quest, index) => {
                             const rawProgress = quest.progress || 0;
                             const target = quest.required_discoveries || 0;
                             const displayProgress = target > 0 ? Math.min(rawProgress, target) : rawProgress;
@@ -1638,15 +1619,6 @@ export function useAchievementsFeatureContent({
                     </div>
                   )}
 
-                  {hasAnyQuestData && !hasVisibleQuestData && (
-                    <div className="text-center py-20">
-                      <div className={`rounded-2xl p-8 max-w-md mx-auto border backdrop-blur-md ${isLightUi ? "bg-white/80 border-stone-200" : "bg-black/35 border-[#f0e5a5]/35"}`}>
-                        <Target className={`w-16 h-16 mx-auto mb-4 ${isLightUi ? "text-stone-400" : "text-[#f0e5a5]/65"}`} />
-                        <h3 className={`text-xl font-bold mb-2 ${isLightUi ? "text-stone-900" : "text-[#f8f4d6]"}`}>Keine Aufgaben in dieser Kategorie</h3>
-                        <p className={isLightUi ? "text-stone-600" : "text-stone-300"}>Wähle eine andere Sub-Kategorie, um weitere Aufgaben zu sehen.</p>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
