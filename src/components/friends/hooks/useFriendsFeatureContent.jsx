@@ -966,7 +966,7 @@ Viel Spaß beim Entdecken! 🌿`;
                 </div>
               )}
 
-              <div className="px-2 py-2 border-t border-stone-200/60">
+              <div className={`px-2 py-2 ${embedded ? "" : "border-t border-stone-200/60"}`}>
                 <div className="grid grid-cols-3 gap-2 min-w-0">
                   {moduleChips.map((chip) => {
                     const isPrimary = activeTab === chip.id;

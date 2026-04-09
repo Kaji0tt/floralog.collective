@@ -1420,6 +1420,7 @@ export default function Home() {
 
   const embeddedSubtitle = embeddedHeaderMeta?.subtitle || null;
   const embeddedInfoLabel = embeddedHeaderMeta?.infoLabel || null;
+  const shouldDockEmbeddedChipHeader = showEmbeddedAchievements || showEmbeddedFriends;
 
   const handleRegenerateZones = async () => {
     if (isRegeneratingZones || !user?.id) return;
@@ -1631,7 +1632,10 @@ export default function Home() {
                 }}
               />
 
-              <div className="relative flex flex-1 min-h-0 flex-col overflow-hidden py-[clamp(0.5rem,1.5vh,1rem)]" data-ui="home-content-stack">
+              <div
+                className={`relative flex flex-1 min-h-0 flex-col overflow-hidden ${shouldDockEmbeddedChipHeader ? "pt-0 pb-[clamp(0.5rem,1.5vh,1rem)]" : "py-[clamp(0.5rem,1.5vh,1rem)]"}`}
+                data-ui="home-content-stack"
+              >
                 {showEmbeddedCollection ? (
                   <Collection
                     embedded
