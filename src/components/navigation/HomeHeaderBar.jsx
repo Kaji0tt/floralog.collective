@@ -1,4 +1,4 @@
-import { Home as HomeIcon, List, Settings } from "lucide-react";
+import { Home as HomeIcon, List, Plus, Settings } from "lucide-react";
 
 export default function HomeHeaderBar({
   isLightUi,
@@ -7,12 +7,14 @@ export default function HomeHeaderBar({
   embeddedInfoLabel,
   hasEmbeddedView,
   showEmbeddedCollection,
+  showEmbeddedFriends,
   showEmbeddedSettings,
   embeddedCollectionPublicPanelOpen,
   displayName,
   displayNameFontSize,
   userTitle,
   onTogglePublicCollections,
+  onOpenEmbeddedFriendsAddDialog,
   onPrimaryAction,
 }) {
   const resolvedEmbeddedTitle = embeddedTitle || (showEmbeddedCollection
@@ -80,6 +82,17 @@ export default function HomeHeaderBar({
             aria-pressed={embeddedCollectionPublicPanelOpen}
           >
             <List className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+          </button>
+        )}
+
+        {showEmbeddedFriends && (
+          <button
+            type="button"
+            onClick={onOpenEmbeddedFriendsAddDialog}
+            className={`w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors ${isLightUi ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80" : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"}`}
+            aria-label="Freund hinzufuegen"
+          >
+            <Plus className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
           </button>
         )}
 

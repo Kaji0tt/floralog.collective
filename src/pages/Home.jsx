@@ -372,6 +372,7 @@ export default function Home() {
   const [showEmbeddedAchievements, setShowEmbeddedAchievements] = useState(false);
   const [showEmbeddedFriends, setShowEmbeddedFriends] = useState(false);
   const [embeddedHeaderMeta, setEmbeddedHeaderMeta] = useState(null);
+  const [embeddedFriendsAddDialogNonce, setEmbeddedFriendsAddDialogNonce] = useState(0);
   const [embeddedCollectionPublicPanelOpen, setEmbeddedCollectionPublicPanelOpen] = useState(false);
   const [embeddedSelectedCollectionId, setEmbeddedSelectedCollectionId] = useState("global");
 
@@ -1597,12 +1598,14 @@ export default function Home() {
                 embeddedInfoLabel={embeddedInfoLabel}
                 hasEmbeddedView={hasEmbeddedView}
                 showEmbeddedCollection={showEmbeddedCollection}
+                showEmbeddedFriends={showEmbeddedFriends}
                 showEmbeddedSettings={showEmbeddedSettings}
                 embeddedCollectionPublicPanelOpen={embeddedCollectionPublicPanelOpen}
                 displayName={getDisplayName()}
                 displayNameFontSize={getNameFontSize(getDisplayName())}
                 userTitle={user?.selected_title || user?.title || "Pflanzen-Entdecker"}
                 onTogglePublicCollections={() => setEmbeddedCollectionPublicPanelOpen((prev) => !prev)}
+                onOpenEmbeddedFriendsAddDialog={() => setEmbeddedFriendsAddDialogNonce((prev) => prev + 1)}
                 onPrimaryAction={() => {
                   if (showEmbeddedCollection) {
                     setShowEmbeddedCollection(false);
@@ -1655,6 +1658,7 @@ export default function Home() {
                     isLightUi={isLightUi}
                     onRequestClose={() => setShowEmbeddedFriends(false)}
                     onHeaderMetaChange={setEmbeddedHeaderMeta}
+                    openAddFriendDialogNonce={embeddedFriendsAddDialogNonce}
                   />
                 ) : showEmbeddedSettings ? (
                   <SettingsPanel

@@ -58,6 +58,7 @@ export function useFriendsFeatureContent({
   embedded = false,
   isLightUi,
   onHeaderMetaChange,
+  openAddFriendDialogNonce = 0,
   onRequestClose: _onRequestClose = null,
 }) {
   const queryClient = useQueryClient();
@@ -70,6 +71,14 @@ export function useFriendsFeatureContent({
   const [averageColor, setAverageColor] = useState(null);
   const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "friends");
   const [showAddFriendDialog, setShowAddFriendDialog] = useState(false);
+
+  useEffect(() => {
+    if (!embedded) return;
+    if (openAddFriendDialogNonce > 0) {
+      setActiveTab("friends");
+      setShowAddFriendDialog(true);
+    }
+  }, [embedded, openAddFriendDialogNonce]);
 
   useEffect(() => {
     const allowedTabs = new Set(["friends", "news", "explorer"]);
