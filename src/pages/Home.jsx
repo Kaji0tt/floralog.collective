@@ -27,6 +27,8 @@ import SettingsPanel from "@/components/settings/SettingsPanel";
 import HomeHeaderBar from "@/components/navigation/HomeHeaderBar";
 import HomeBottomNavigation from "@/components/navigation/HomeBottomNavigation";
 import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
+import AchievementsFeatureRoot from "@/components/achievements/AchievementsFeatureRoot";
+import FriendsFeatureRoot from "@/components/friends/FriendsFeatureRoot";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -363,6 +365,8 @@ export default function Home() {
   const [scanFeedback, setScanFeedback] = useState(null);
   const [showEmbeddedCollection, setShowEmbeddedCollection] = useState(false);
   const [showEmbeddedSettings, setShowEmbeddedSettings] = useState(false);
+  const [showEmbeddedAchievements, setShowEmbeddedAchievements] = useState(false);
+  const [showEmbeddedFriends, setShowEmbeddedFriends] = useState(false);
   const [embeddedCollectionPublicPanelOpen, setEmbeddedCollectionPublicPanelOpen] = useState(false);
   const [embeddedSelectedCollectionId, setEmbeddedSelectedCollectionId] = useState("global");
 
@@ -637,6 +641,8 @@ export default function Home() {
     if (shouldOpenSettings) {
       setShowEmbeddedSettings(true);
       setShowEmbeddedCollection(false);
+      setShowEmbeddedAchievements(false);
+      setShowEmbeddedFriends(false);
       setShowHeroZoneMap(false);
       setShowHealthStatsPanel(false);
     }
@@ -1216,6 +1222,8 @@ export default function Home() {
       onClick: () => {
         setShowEmbeddedCollection(true);
         setShowEmbeddedSettings(false);
+        setShowEmbeddedAchievements(false);
+        setShowEmbeddedFriends(false);
         setEmbeddedCollectionPublicPanelOpen(false);
         setEmbeddedSelectedCollectionId("global");
         setShowHeroZoneMap(false);
@@ -1229,9 +1237,18 @@ export default function Home() {
         : "inset 0 1px 0 rgba(214,255,230,0.2), inset 0 -12px 18px rgba(0,0,0,0.46), 0 8px 16px rgba(0,0,0,0.32)",
     },
     {
-      label: "Quests",
+      label: "Erfolge",
       icon: Scroll,
-      onClick: () => navigate(createPageUrl("Quests")),
+      onClick: () => {
+        setShowEmbeddedCollection(false);
+        setShowEmbeddedSettings(false);
+        setShowEmbeddedAchievements(true);
+        setShowEmbeddedFriends(false);
+        setEmbeddedCollectionPublicPanelOpen(false);
+        setEmbeddedSelectedCollectionId("global");
+        setShowHeroZoneMap(false);
+        setShowHealthStatsPanel(false);
+      },
       gradientClass: isLightUi
         ? "bg-gradient-to-b from-[#f9e8c7]/95 via-[#f1d8a1]/95 to-[#e7c47d]/95"
         : "bg-gradient-to-b from-[#4f3d2b]/78 via-[#2f2118]/92 to-[#16100c]/96",
@@ -1242,7 +1259,16 @@ export default function Home() {
     {
       label: "Social",
       icon: Users,
-      onClick: () => navigate(createPageUrl("Friends")),
+      onClick: () => {
+        setShowEmbeddedCollection(false);
+        setShowEmbeddedSettings(false);
+        setShowEmbeddedAchievements(false);
+        setShowEmbeddedFriends(true);
+        setEmbeddedCollectionPublicPanelOpen(false);
+        setEmbeddedSelectedCollectionId("global");
+        setShowHeroZoneMap(false);
+        setShowHealthStatsPanel(false);
+      },
       gradientClass: isLightUi
         ? "bg-gradient-to-b from-[#e3edf8]/95 via-[#cfe1f4]/95 to-[#bad3ec]/95"
         : "bg-gradient-to-b from-[#29435a]/78 via-[#172a3f]/92 to-[#0c151f]/96",
@@ -1273,6 +1299,22 @@ export default function Home() {
     : averageColor && isColorDark(averageColor)
     ? "0 2px 8px rgba(0,0,0,0.7)"
     : "0 1px 5px rgba(255,255,255,0.35)";
+
+  const hasEmbeddedView =
+    showEmbeddedCollection ||
+    showEmbeddedSettings ||
+    showEmbeddedAchievements ||
+    showEmbeddedFriends;
+
+  const embeddedTitle = showEmbeddedCollection
+    ? "Kollektionen"
+    : showEmbeddedSettings
+      ? "Einstellungen"
+      : showEmbeddedAchievements
+        ? "Erfolge"
+        : showEmbeddedFriends
+          ? "Social"
+          : null;
 
   const handleRegenerateZones = async () => {
     if (isRegeneratingZones || !user?.id) return;
@@ -1446,6 +1488,8 @@ export default function Home() {
             <div className={`relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6 ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
               <HomeHeaderBar
                 isLightUi={isLightUi}
+                embeddedTitle={embeddedTitle}
+                hasEmbeddedView={hasEmbeddedView}
                 showEmbeddedCollection={showEmbeddedCollection}
                 showEmbeddedSettings={showEmbeddedSettings}
                 embeddedCollectionPublicPanelOpen={embeddedCollectionPublicPanelOpen}
@@ -1462,6 +1506,14 @@ export default function Home() {
                   }
                   if (showEmbeddedSettings) {
                     setShowEmbeddedSettings(false);
+                    return;
+                  }
+                  if (showEmbeddedAchievements) {
+                    setShowEmbeddedAchievements(false);
+                    return;
+                  }
+                  if (showEmbeddedFriends) {
+                    setShowEmbeddedFriends(false);
                     return;
                   }
                   setShowEmbeddedSettings(true);
@@ -1484,6 +1536,10 @@ export default function Home() {
                     showPublicCollectionsPanel={embeddedCollectionPublicPanelOpen}
                     onShowPublicCollectionsPanelChange={setEmbeddedCollectionPublicPanelOpen}
                   />
+                ) : showEmbeddedAchievements ? (
+                  <AchievementsFeatureRoot embedded onRequestClose={() => setShowEmbeddedAchievements(false)} />
+                ) : showEmbeddedFriends ? (
+                  <FriendsFeatureRoot embedded onRequestClose={() => setShowEmbeddedFriends(false)} />
                 ) : showEmbeddedSettings ? (
                   <SettingsPanel
                     user={user}

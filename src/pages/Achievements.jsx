@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Query } from "@/api/entities";
 import { createUserNotification } from "@/api/notificationService";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Lock, Leaf, Target, CheckCircle2, XCircle, Gift } from "lucide-react";
+import { Trophy, Leaf, Target, CheckCircle2, Gift, BarChart3, Users } from "lucide-react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -17,11 +17,11 @@ import MobileBackButton from "../components/navigation/MobileBackButton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { AnimatePresence } from "framer-motion";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
-import { getWeekNumber, getMonthString, getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
+import { getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
 import { updateQuestProgress } from "@/components/utils/questProgress";
 
 const getAverageColor = (imageUrl) => {
@@ -58,16 +58,17 @@ const getAverageColor = (imageUrl) => {
   });
 };
 
-export default function Achievements() {
+export default function Achievements({ embedded = false, onRequestClose: _onRequestClose = null }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [user, setUser] = useState(null);
   const [showTitleDialog, setShowTitleDialog] = useState(false);
   const [selectedAchievement, setSelectedAchievement] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
-  const [activeTab, setActiveTab] = useState("quests");
-  const [questFilter, setQuestFilter] = useState("exploration");
+  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "quests");
+  const [questFilter, setQuestFilter] = useState(() => searchParams.get("filter") || "exploration");
   const [questFeedback, setQuestFeedback] = useState(null);
   const [newAchievements, setNewAchievements] = useState([]);
   const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
@@ -80,6 +81,20 @@ export default function Achievements() {
     };
     loadUser();
   }, []);
+
+  useEffect(() => {
+    const allowedTabs = new Set(["quests", "achievements", "stats"]);
+    if (!allowedTabs.has(activeTab)) {
+      setActiveTab("quests");
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    const allowedFilters = new Set(["exploration", "weekly", "monthly"]);
+    if (!allowedFilters.has(questFilter)) {
+      setQuestFilter("exploration");
+    }
+  }, [questFilter]);
 
   // Beim Öffnen der Achievements-Seite einmalig Quest-Fortschritt aktualisieren
   useEffect(() => {
@@ -225,6 +240,25 @@ export default function Achievements() {
     queryKey: ['userDiscoveries', user?.id],
     queryFn: () => Query.UserPlantDiscovery.filter({ auth_id: user?.id }),
     enabled: !!user?.id
+  });
+
+  const { data: allDiscoveries = [] } = useQuery({
+    queryKey: ['allDiscoveries'],
+    queryFn: () => Query.UserPlantDiscovery.list('-created_date', 1500),
+    staleTime: 60 * 1000,
+  });
+
+  const { data: allProfiles = [] } = useQuery({
+    queryKey: ['allProfilesForStats'],
+    queryFn: () => Query.PublicProfile.list(),
+    staleTime: 60 * 1000,
+  });
+
+  const { data: allFriendRecords = [] } = useQuery({
+    queryKey: ['allFriendRecordsForStats', user?.email],
+    queryFn: () => Query.Friend.list(),
+    enabled: !!user?.email,
+    staleTime: 15 * 1000,
   });
 
   // Echtzeit-Subscriptions für UserAchievements
@@ -933,6 +967,128 @@ export default function Achievements() {
     );
   };
 
+  const ownEmailLower = user?.email?.toLowerCase() || "";
+  const ownAuthId = user?.id || null;
+
+  const discoveryDate = (entry) => {
+    const raw = entry?.created_date || entry?.discovered_date || entry?.updated_date;
+    if (!raw) return null;
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
+  const monthKey = (value) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}`;
+  const nowDate = new Date();
+  const currentMonthKey = monthKey(nowDate);
+  const previousMonthDate = new Date(nowDate.getFullYear(), nowDate.getMonth() - 1, 1);
+  const previousMonthKey = monthKey(previousMonthDate);
+
+  const ownDiscoveriesList = (userDiscoveries || []).filter((entry) => !!discoveryDate(entry));
+  const totalScans = ownDiscoveriesList.length;
+
+  const speciesCountMap = new Map();
+  const genusCountMap = new Map();
+  const scanMonthCountMap = new Map();
+  const activeDaysSet = new Set();
+
+  ownDiscoveriesList.forEach((entry) => {
+    const plant = plants.find((plantItem) => plantItem.id === entry.plant_id);
+    if (plant?.species_name) {
+      speciesCountMap.set(plant.species_name, (speciesCountMap.get(plant.species_name) || 0) + 1);
+    }
+    if (plant) {
+      const genus = genera.find(
+        (genusItem) =>
+          genusItem.category === plant.genus_category &&
+          genusItem.category_dex_number === plant.genus_number
+      );
+      if (genus?.genus_name) {
+        genusCountMap.set(genus.genus_name, (genusCountMap.get(genus.genus_name) || 0) + 1);
+      }
+    }
+
+    const parsed = discoveryDate(entry);
+    if (parsed) {
+      scanMonthCountMap.set(monthKey(parsed), (scanMonthCountMap.get(monthKey(parsed)) || 0) + 1);
+      activeDaysSet.add(parsed.toISOString().slice(0, 10));
+    }
+  });
+
+  const topSpeciesEntry = Array.from(speciesCountMap.entries()).sort((a, b) => b[1] - a[1])[0] || null;
+  const topGenusEntry = Array.from(genusCountMap.entries()).sort((a, b) => b[1] - a[1])[0] || null;
+  const currentMonthScans = scanMonthCountMap.get(currentMonthKey) || 0;
+  const previousMonthScans = scanMonthCountMap.get(previousMonthKey) || 0;
+  const monthTrendDelta = currentMonthScans - previousMonthScans;
+
+  const acceptedFriendEmailsLower = new Set();
+  (allFriendRecords || []).forEach((record) => {
+    if (record.status !== "accepted") return;
+    const sentBy = record.request_sent_by?.toLowerCase();
+    const sentTo = record.request_sent_to?.toLowerCase();
+    if (!sentBy || !sentTo || !ownEmailLower) return;
+
+    if (sentBy === ownEmailLower) {
+      acceptedFriendEmailsLower.add(sentTo);
+    }
+    if (sentTo === ownEmailLower) {
+      acceptedFriendEmailsLower.add(sentBy);
+    }
+  });
+
+  const profileByEmail = new Map(
+    (allProfiles || [])
+      .filter((profile) => !!profile.user_email)
+      .map((profile) => [profile.user_email.toLowerCase(), profile])
+  );
+
+  const socialEmailSet = new Set([ownEmailLower, ...Array.from(acceptedFriendEmailsLower)]);
+  const socialScanCounts = new Map();
+
+  (allDiscoveries || []).forEach((entry) => {
+    const email = (entry.user || entry.created_by || entry.user_email || "").toLowerCase();
+    const entryAuth = entry.auth_id || null;
+    const isOwnByAuth = !!ownAuthId && !!entryAuth && ownAuthId === entryAuth;
+    const isOwnByEmail = !!ownEmailLower && ownEmailLower === email;
+
+    let participantKey = "";
+    if (isOwnByAuth || isOwnByEmail) {
+      participantKey = ownEmailLower;
+    } else if (socialEmailSet.has(email)) {
+      participantKey = email;
+    }
+
+    if (!participantKey || !discoveryDate(entry)) return;
+    socialScanCounts.set(participantKey, (socialScanCounts.get(participantKey) || 0) + 1);
+  });
+
+  const socialRanking = Array.from(socialScanCounts.entries())
+    .map(([email, scans]) => {
+      const profile = profileByEmail.get(email);
+      return {
+        email,
+        scans,
+        name:
+          profile?.display_name ||
+          profile?.full_name ||
+          (email === ownEmailLower ? (user?.display_name || user?.full_name || user?.email) : email),
+      };
+    })
+    .sort((a, b) => b.scans - a.scans);
+
+  const ownRank = socialRanking.findIndex((entry) => entry.email === ownEmailLower) + 1;
+
+  const topSpeciesList = Array.from(speciesCountMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
+  const tabsHeaderClass = embedded
+    ? "sticky top-0 z-30 bg-white shadow-sm border-b border-stone-200"
+    : "fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200";
+
+  const achievementsContentClass = embedded ? "pt-4 px-4 pb-4" : "pt-36 px-4 pb-4";
+  const statsContentClass = embedded ? "pt-4 px-4 pb-4" : "pt-36 px-4 pb-4";
+  const questsContentClass = embedded ? "pt-4 px-4 pb-4" : "pt-44 px-4 pb-4";
+
   return (
     <>
       {renderQuestFeedbackOverlay()}
@@ -952,26 +1108,42 @@ export default function Achievements() {
           />
         )}
       </AnimatePresence>
-      {/* Fixer Hintergrund */}
-      <div
-        className="fixed inset-0 -z-10"
-        style={{
-          background: averageColor ?
-          `linear-gradient(135deg, ${getLighterColor(averageColor)} 0%, ${averageColor} 50%, ${getDarkerColor(averageColor)} 100%)` :
-          'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
-        }} />
+      {!embedded && (
+        <div
+          className="fixed inset-0 -z-10"
+          style={{
+            background: averageColor ?
+            `linear-gradient(135deg, ${getLighterColor(averageColor)} 0%, ${averageColor} 50%, ${getDarkerColor(averageColor)} 100%)` :
+            'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
+          }}
+        />
+      )}
 
       
       {/* Scrollbarer Content */}
-      <div className="min-h-screen">
-        <MobileBackButton />
+      <div className={embedded ? "h-full min-h-0 overflow-y-auto" : "min-h-screen"}>
+        {!embedded && <MobileBackButton />}
       
       <div className="w-full">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200">
+          <div className={tabsHeaderClass}>
             <div className="max-w-7xl mx-auto">
-              <TabsList className="grid w-full grid-cols-2 bg-white h-12 rounded-none border-0">
-                <TabsTrigger value="quests" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm relative">
+              <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <h1 className="text-xl sm:text-2xl font-bold text-stone-900 truncate">
+                    {activeTab === "quests" ? "Aufgaben" : activeTab === "achievements" ? "Erfolge" : "Statistik"}
+                  </h1>
+                  <p className="text-xs text-stone-600 truncate">
+                    {activeTab === "stats" ? "Deine Scan-Insights und Vergleich mit Freunden" : "Dein Fortschritt im Ueberblick"}
+                  </p>
+                </div>
+                <Badge className="bg-stone-800 text-white text-[10px] px-2 py-1 shrink-0">
+                  {activeTab === "quests" ? `${activeQuests.length} aktiv` : activeTab === "achievements" ? `${unlockedCount}/${achievements.length}` : `${totalScans} Scans`}
+                </Badge>
+              </div>
+
+              <TabsList className="w-full bg-white rounded-none border-0 h-auto px-2 pb-2 flex items-center gap-2 overflow-x-auto justify-start">
+                <TabsTrigger value="quests" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold rounded-full text-xs sm:text-sm relative min-w-max px-3 py-2">
                   <div className="flex items-center gap-1">
                     <Target className="w-3 h-3 sm:w-4 sm:h-4" />
                     <span>Aufgaben</span>
@@ -980,13 +1152,16 @@ export default function Achievements() {
                     <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="achievements" className="data-[state=active]:bg-amber-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
+                <TabsTrigger value="achievements" className="data-[state=active]:bg-amber-600 data-[state=active]:text-white font-semibold rounded-full text-xs sm:text-sm min-w-max px-3 py-2">
                   <div className="flex items-center gap-1">
                     <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />
                     <span>Erfolge</span>
-                    {user.selected_title &&
-                      <span className="hidden sm:inline text-[10px] opacity-70">• {user.selected_title}</span>
-                      }
+                  </div>
+                </TabsTrigger>
+                <TabsTrigger value="stats" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white font-semibold rounded-full text-xs sm:text-sm min-w-max px-3 py-2">
+                  <div className="flex items-center gap-1">
+                    <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span>Statistik</span>
                   </div>
                 </TabsTrigger>
               </TabsList>
@@ -1035,7 +1210,7 @@ export default function Achievements() {
           </div>
 
           {/* Erfolge Tab */}
-          <TabsContent value="achievements" className="pt-14 px-4 pb-4">
+          <TabsContent value="achievements" className={achievementsContentClass}>
 
             <div className="max-w-6xl mx-auto">
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1132,8 +1307,103 @@ export default function Achievements() {
             </div>
           </TabsContent>
 
+          <TabsContent value="stats" className={statsContentClass}>
+            <div className="max-w-6xl mx-auto space-y-4">
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
+                <Card className="border border-emerald-200 bg-white/90 backdrop-blur-sm">
+                  <CardContent className="p-4">
+                    <p className="text-xs uppercase tracking-wide text-stone-500">Gesamt-Scans</p>
+                    <p className="text-2xl font-bold text-emerald-700 mt-1">{totalScans}</p>
+                    <p className="text-xs text-stone-500 mt-1">{activeDaysSet.size} aktive Tage</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="border border-blue-200 bg-white/90 backdrop-blur-sm">
+                  <CardContent className="p-4">
+                    <p className="text-xs uppercase tracking-wide text-stone-500">Haeufigster Scan</p>
+                    <p className="text-sm font-bold text-stone-900 mt-1 truncate">{topSpeciesEntry?.[0] || "Noch keine Daten"}</p>
+                    <p className="text-xs text-blue-700 mt-1">{topSpeciesEntry ? `${topSpeciesEntry[1]}x gescannt` : "Scanne mehr Pflanzen"}</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="border border-purple-200 bg-white/90 backdrop-blur-sm">
+                  <CardContent className="p-4">
+                    <p className="text-xs uppercase tracking-wide text-stone-500">Top-Genus</p>
+                    <p className="text-sm font-bold text-stone-900 mt-1 truncate">{topGenusEntry?.[0] || "Noch keine Daten"}</p>
+                    <p className="text-xs text-purple-700 mt-1">{topGenusEntry ? `${topGenusEntry[1]}x gescannt` : "Scanne mehr Pflanzen"}</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="border border-amber-200 bg-white/90 backdrop-blur-sm">
+                  <CardContent className="p-4">
+                    <p className="text-xs uppercase tracking-wide text-stone-500">Monats-Trend</p>
+                    <p className="text-2xl font-bold text-stone-900 mt-1">{currentMonthScans}</p>
+                    <p className={`text-xs mt-1 ${monthTrendDelta >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                      {monthTrendDelta >= 0 ? "+" : ""}{monthTrendDelta} vs. letzter Monat
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid lg:grid-cols-2 gap-4">
+                <Card className="border border-stone-200 bg-white/90 backdrop-blur-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4 text-emerald-600" />
+                      Deine Top 5 Scan-Arten
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {topSpeciesList.length === 0 && (
+                      <p className="text-sm text-stone-500">Noch keine Scans verfuegbar.</p>
+                    )}
+                    {topSpeciesList.map(([speciesName, count], index) => (
+                      <div key={speciesName} className="flex items-center justify-between rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-stone-900 truncate">#{index + 1} {speciesName}</p>
+                        </div>
+                        <Badge className="bg-emerald-600 text-white">{count}x</Badge>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+
+                <Card className="border border-stone-200 bg-white/90 backdrop-blur-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Users className="w-4 h-4 text-indigo-600" />
+                      Social Vergleich (Scans)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2">
+                      <p className="text-xs text-indigo-700">Dein Rang</p>
+                      <p className="text-lg font-bold text-indigo-900">
+                        {ownRank > 0 ? `#${ownRank} von ${socialRanking.length}` : "Noch kein Rang"}
+                      </p>
+                    </div>
+
+                    {socialRanking.length === 0 && (
+                      <p className="text-sm text-stone-500">Noch keine Vergleichsdaten verfuegbar.</p>
+                    )}
+
+                    {socialRanking.slice(0, 5).map((entry, index) => (
+                      <div
+                        key={entry.email}
+                        className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.email === ownEmailLower ? "border-emerald-300 bg-emerald-50" : "border-stone-200 bg-stone-50"}`}
+                      >
+                        <p className="text-sm font-semibold text-stone-900 truncate">#{index + 1} {entry.name}</p>
+                        <Badge className={entry.email === ownEmailLower ? "bg-emerald-600 text-white" : "bg-stone-800 text-white"}>{entry.scans}x</Badge>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+
           {/* Aufgaben Tab */}
-          <TabsContent value="quests" className="pt-20 px-4 pb-4">
+          <TabsContent value="quests" className={questsContentClass}>
             <div className="max-w-6xl mx-auto space-y-6">
 
               {/* Aktive Quests */}

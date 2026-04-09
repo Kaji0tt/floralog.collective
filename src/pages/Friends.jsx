@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Query } from "@/api/entities";
 import { createUserNotification } from "@/api/notificationService";
 import { sendFriendRequest, removeFriendship, respondToFriendRequest } from "@/api/friendService";
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { UserPlus, Users, Loader2, Mail, Check, X, Bell, ChevronRight, UserMinus, Leaf, Trophy, Share2, Plus, Heart, UserCheck } from "lucide-react";
+import { UserPlus, Users, Loader2, Check, X, Bell, ChevronRight, UserMinus, Leaf, Trophy, Share2, Plus, Heart, UserCheck, BookOpenText, Clock } from "lucide-react";
 import { motion } from "framer-motion";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
@@ -54,7 +54,7 @@ const getAverageColor = (imageUrl) => {
   });
 };
 
-export default function Friends() {
+export default function Friends({ embedded = false, onRequestClose: _onRequestClose = null }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -65,6 +65,13 @@ export default function Friends() {
   const [averageColor, setAverageColor] = useState(null);
   const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "friends");
   const [showAddFriendDialog, setShowAddFriendDialog] = useState(false);
+
+  useEffect(() => {
+    const allowedTabs = new Set(["friends", "news", "explorer"]);
+    if (!allowedTabs.has(activeTab)) {
+      setActiveTab("friends");
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -719,6 +726,77 @@ Viel Spaß beim Entdecken! 🌿`;
     };
   };
 
+  const ownEmailLower = user?.email?.toLowerCase() || "";
+  const friendEmailSet = new Set(
+    friends
+      .map((entry) => {
+        const isCurrentUserSender = entry.request_sent_by?.toLowerCase() === ownEmailLower;
+        return isCurrentUserSender ? entry.request_sent_to?.toLowerCase() : entry.request_sent_by?.toLowerCase();
+      })
+      .filter(Boolean)
+  );
+
+  const profileByEmail = new Map(
+    (allPublicProfiles || [])
+      .filter((profile) => !!profile.user_email)
+      .map((profile) => [profile.user_email.toLowerCase(), profile])
+  );
+
+  const getDiscoveryEmailLower = (entry) =>
+    (entry.user || entry.created_by || entry.user_email || "").toLowerCase();
+
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const acceptedEmailSet = new Set([ownEmailLower, ...Array.from(friendEmailSet)]);
+
+  const recentDiscoveries = (allDiscoveries || [])
+    .filter((entry) => {
+      const entryEmail = getDiscoveryEmailLower(entry);
+      if (!entryEmail || !acceptedEmailSet.has(entryEmail)) return false;
+      const date = new Date(entry.created_date || entry.discovered_date || entry.updated_date || 0);
+      if (Number.isNaN(date.getTime())) return false;
+      return date >= thirtyDaysAgo;
+    })
+    .sort((a, b) =>
+      new Date(b.created_date || b.discovered_date || b.updated_date || 0).getTime() -
+      new Date(a.created_date || a.discovered_date || a.updated_date || 0).getTime()
+    );
+
+  const seenPlantKeys = new Set();
+  const explorerLogEntries = [];
+
+  recentDiscoveries.forEach((entry) => {
+    const entryEmail = getDiscoveryEmailLower(entry);
+    const key = `${entryEmail}::${entry.plant_id}`;
+    if (seenPlantKeys.has(key)) return;
+    seenPlantKeys.add(key);
+
+    const scansBySameUserPlant = recentDiscoveries.filter((candidate) => {
+      return getDiscoveryEmailLower(candidate) === entryEmail && candidate.plant_id === entry.plant_id;
+    });
+
+    const plant = allPlants.find((plantItem) => plantItem.id === entry.plant_id);
+    const profile = profileByEmail.get(entryEmail);
+
+    explorerLogEntries.push({
+      id: entry.id,
+      discovery: entry,
+      plant,
+      actorEmail: entryEmail,
+      actorName: profile?.display_name || profile?.full_name || entryEmail,
+      actorAvatar: profile?.avatar_url || null,
+      scanCount: scansBySameUserPlant.length,
+      timestamp: new Date(entry.created_date || entry.discovered_date || entry.updated_date || Date.now()),
+    });
+  });
+
+  const tabsHeaderClass = embedded
+    ? "sticky top-0 z-30 bg-white shadow-sm border-b border-stone-200"
+    : "fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200";
+
+  const friendsContentClass = embedded ? "pt-4 px-2 pb-4" : "pt-36 px-2 pb-4";
+  const newsContentClass = embedded ? "pt-4 px-2 pb-4" : "pt-36 px-2 pb-4";
+  const explorerContentClass = embedded ? "pt-4 px-2 pb-4" : "pt-36 px-2 pb-4";
+
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50">
@@ -729,19 +807,20 @@ Viel Spaß beim Entdecken! 🌿`;
 
   return (
     <>
-      {/* Fixer Hintergrund */}
-      <div 
-        className="fixed inset-0 -z-10"
-        style={{
-          background: averageColor ?
-          `linear-gradient(135deg, ${getLighterColor(averageColor)} 0%, ${averageColor} 50%, ${getDarkerColor(averageColor)} 100%)` :
-          'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
-        }}
-      />
+      {!embedded && (
+        <div 
+          className="fixed inset-0 -z-10"
+          style={{
+            background: averageColor ?
+            `linear-gradient(135deg, ${getLighterColor(averageColor)} 0%, ${averageColor} 50%, ${getDarkerColor(averageColor)} 100%)` :
+            'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
+          }}
+        />
+      )}
       
       {/* Scrollbarer Content */}
-      <div className="min-h-screen p-4 md:p-8 overflow-x-hidden">
-        <MobileBackButton />
+      <div className={embedded ? "h-full min-h-0 overflow-y-auto overflow-x-hidden" : "min-h-screen p-4 md:p-8 overflow-x-hidden"}>
+        {!embedded && <MobileBackButton />}
 
       <AnimatePresence>
         {newAchievements.length > 0 && currentAchievementIndex < newAchievements.length &&
@@ -759,20 +838,38 @@ Viel Spaß beim Entdecken! 🌿`;
         }
       </AnimatePresence>
 
-      <div className="max-w-4xl mx-auto w-full overflow-hidden">
+      <div className={`${embedded ? "w-full" : "max-w-4xl mx-auto"} w-full overflow-hidden`}>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {/* Tabs Header - Fixed am oberen Bildschirmrand */}
-          <div className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200">
+          <div className={tabsHeaderClass}>
             <div className="max-w-4xl mx-auto">
-              <div className="flex items-center justify-between px-2">
-                <TabsList className="flex-1 grid grid-cols-2 bg-white h-12 rounded-none border-0">
-                  <TabsTrigger value="friends" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
+              <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <h1 className="text-xl sm:text-2xl font-bold text-stone-900 truncate">
+                    {activeTab === "friends" ? "Social" : activeTab === "news" ? "Neuigkeiten" : "Forscher Log"}
+                  </h1>
+                  <p className="text-xs text-stone-600 truncate">
+                    {activeTab === "explorer" ? "Scans aus den letzten 30 Tagen" : "Dein Freundesbereich"}
+                  </p>
+                </div>
+                <Badge className="bg-stone-800 text-white text-[10px] px-2 py-1 shrink-0">
+                  {activeTab === "friends" ? `${friends.length} Freunde` : activeTab === "news" ? `${unreadNewsCount} neu` : `${explorerLogEntries.length} Eintraege`}
+                </Badge>
+              </div>
+
+              <div className="flex items-center justify-between px-2 pb-2 gap-2">
+                <TabsList className="flex-1 bg-white h-auto rounded-none border-0 flex items-center gap-2 overflow-x-auto justify-start">
+                  <TabsTrigger value="friends" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white font-semibold rounded-full text-xs sm:text-sm min-w-max px-3 py-2">
                     <Users className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                    Meine Freunde ({friends.length})
+                    Freunde ({friends.length})
                   </TabsTrigger>
-                  <TabsTrigger value="news" className="data-[state=active]:bg-pink-600 data-[state=active]:text-white font-semibold rounded-lg mx-0.5 text-xs sm:text-sm">
+                  <TabsTrigger value="news" className="data-[state=active]:bg-pink-600 data-[state=active]:text-white font-semibold rounded-full text-xs sm:text-sm min-w-max px-3 py-2">
                     <Bell className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                    Neuigkeiten ({unreadNewsCount})
+                    News ({unreadNewsCount})
+                  </TabsTrigger>
+                  <TabsTrigger value="explorer" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white font-semibold rounded-full text-xs sm:text-sm min-w-max px-3 py-2">
+                    <BookOpenText className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                    Forscher Log
                   </TabsTrigger>
                 </TabsList>
                 {activeTab === "friends" && (
@@ -785,13 +882,11 @@ Viel Spaß beim Entdecken! 🌿`;
                   </Button>
                 )}
               </div>
-
-
             </div>
           </div>
 
           {/* Friends Tab Content */}
-          <TabsContent value="friends" className="pt-14 px-2 pb-4">
+          <TabsContent value="friends" className={friendsContentClass}>
             {/* Freundschaftsanfragen */}
             {pendingRequests.length > 0 &&
             <motion.div
@@ -973,7 +1068,7 @@ Viel Spaß beim Entdecken! 🌿`;
           </TabsContent>
 
           {/* News Tab Content */}
-          <TabsContent value="news" className="pt-14 px-2 pb-4">
+          <TabsContent value="news" className={newsContentClass}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1090,6 +1185,84 @@ Viel Spaß beim Entdecken! 🌿`;
                       </motion.div>
                     );
                   })}
+                </div>
+              )}
+            </motion.div>
+          </TabsContent>
+
+          <TabsContent value="explorer" className={explorerContentClass}>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+            >
+              {explorerLogEntries.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 max-w-md mx-auto border border-stone-200 shadow-lg">
+                    <BookOpenText className="w-16 h-16 text-stone-300 mx-auto mb-4" />
+                    <p className="text-stone-600 text-lg font-semibold mb-2">
+                      Noch kein Forscher-Log
+                    </p>
+                    <p className="text-stone-500">
+                      Scans von dir und deinen Freunden erscheinen hier.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {explorerLogEntries.map((entry, index) => (
+                    <motion.div
+                      key={entry.id}
+                      initial={{ opacity: 0, scale: 0.94 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: index * 0.02 }}
+                    >
+                      <Card className="border border-stone-200 hover:border-emerald-300 hover:shadow-md transition-all bg-white overflow-hidden">
+                        {entry.discovery?.image_url && (
+                          <div className="aspect-square overflow-hidden bg-stone-100">
+                            <img
+                              src={entry.discovery.image_url}
+                              alt={entry.plant?.species_name || "Scan"}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
+                        <CardContent className="p-2 space-y-1">
+                          <p className="text-xs font-bold text-stone-900 truncate">
+                            {entry.plant?.species_name || "Unbekannte Pflanze"}
+                          </p>
+                          <button
+                            onClick={() => {
+                              if (entry.actorEmail && entry.actorEmail !== ownEmailLower) {
+                                navigate(createPageUrl(`FriendProfile?email=${entry.actorEmail}`));
+                              }
+                            }}
+                            className="flex items-center gap-1 w-full text-left hover:opacity-80 transition-opacity"
+                          >
+                            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-green-500 to-green-600 overflow-hidden flex items-center justify-center text-white text-[10px] font-bold">
+                              {entry.actorAvatar ? (
+                                <img src={entry.actorAvatar} alt={entry.actorName} className="w-full h-full object-cover" />
+                              ) : (
+                                entry.actorName?.charAt(0)?.toUpperCase() || "?"
+                              )}
+                            </div>
+                            <p className="text-[11px] text-stone-700 truncate">{entry.actorName}</p>
+                          </button>
+                          <div className="flex items-center justify-between text-[10px] text-stone-500">
+                            <span className="inline-flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {formatDistanceToNow(entry.timestamp, { addSuffix: true, locale: de })}
+                            </span>
+                            {entry.scanCount > 1 && (
+                              <Badge className="bg-emerald-600 text-white text-[10px] px-1.5 py-0">
+                                {entry.scanCount}x
+                              </Badge>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
                 </div>
               )}
             </motion.div>

@@ -2,6 +2,8 @@ import { Home as HomeIcon, List, Settings } from "lucide-react";
 
 export default function HomeHeaderBar({
   isLightUi,
+  embeddedTitle,
+  hasEmbeddedView,
   showEmbeddedCollection,
   showEmbeddedSettings,
   embeddedCollectionPublicPanelOpen,
@@ -11,19 +13,21 @@ export default function HomeHeaderBar({
   onTogglePublicCollections,
   onPrimaryAction,
 }) {
+  const resolvedEmbeddedTitle = embeddedTitle || (showEmbeddedCollection
+    ? "Kollektionen"
+    : showEmbeddedSettings
+      ? "Einstellungen"
+      : null);
+
+  const isEmbeddedMode = Boolean(hasEmbeddedView || showEmbeddedCollection || showEmbeddedSettings || resolvedEmbeddedTitle);
+
   return (
     <div className={`flex items-start justify-between gap-3 pb-3 border-b ${isLightUi ? "border-[#b99a48]/30" : "border-[#f0e5a5]/20"}`}>
       <div className="min-w-0">
-        {showEmbeddedCollection ? (
+        {resolvedEmbeddedTitle ? (
           <div className="flex items-baseline gap-2 min-w-0">
-            <h1 className="font-bold leading-tight text-2xl md:text-3xl truncate" title="Kollektionen">
-              Kollektionen
-            </h1>
-          </div>
-        ) : showEmbeddedSettings ? (
-          <div className="flex items-baseline gap-2 min-w-0">
-            <h1 className="font-bold leading-tight text-2xl md:text-3xl truncate" title="Einstellungen">
-              Einstellungen
+            <h1 className="font-bold leading-tight text-2xl md:text-3xl truncate" title={resolvedEmbeddedTitle}>
+              {resolvedEmbeddedTitle}
             </h1>
           </div>
         ) : (
@@ -64,9 +68,9 @@ export default function HomeHeaderBar({
           type="button"
           onClick={onPrimaryAction}
           className={`w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors ${isLightUi ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80" : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"}`}
-          aria-label={(showEmbeddedCollection || showEmbeddedSettings) ? "Zur Home-Ansicht" : "Einstellungen"}
+          aria-label={isEmbeddedMode ? "Zur Home-Ansicht" : "Einstellungen"}
         >
-          {(showEmbeddedCollection || showEmbeddedSettings) ? (
+          {isEmbeddedMode ? (
             <HomeIcon className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
           ) : (
             <Settings className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
