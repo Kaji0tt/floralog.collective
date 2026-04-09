@@ -5,7 +5,7 @@ import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Leaf, Target, CheckCircle2, Gift, BarChart3, Users } from "lucide-react";
+import { Trophy, Leaf, Target, CheckCircle2, Gift, Users } from "lucide-react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -687,9 +687,22 @@ export function useAchievementsFeatureContent({
     }
   };
 
-  // Sortiere Achievements nach Rarität (niedrigste zuerst)
+  // Sortiere Achievements: zuerst freigeschaltet, danach gesperrt.
+  // Innerhalb der Gruppen bleibt die Reihenfolge nach Rarität und Achievement-Nummer stabil.
   const sortedAchievements = [...achievements].sort((a, b) => {
-    return getRarityValue(a.rarity) - getRarityValue(b.rarity);
+    const aUnlocked = userAchievements.some((ua) => ua.achievement_id === a.id);
+    const bUnlocked = userAchievements.some((ua) => ua.achievement_id === b.id);
+
+    if (aUnlocked !== bUnlocked) {
+      return aUnlocked ? -1 : 1;
+    }
+
+    const rarityDelta = getRarityValue(a.rarity) - getRarityValue(b.rarity);
+    if (rarityDelta !== 0) {
+      return rarityDelta;
+    }
+
+    return Number(a.achievement_number || 0) - Number(b.achievement_number || 0);
   });
 
   const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
@@ -992,10 +1005,6 @@ export function useAchievementsFeatureContent({
 
   const ownRank = socialRanking.findIndex((entry) => entry.email === ownEmailLower) + 1;
 
-  const topSpeciesList = Array.from(speciesCountMap.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
-
   const moduleChips = [
     {
       id: "quests",
@@ -1068,7 +1077,7 @@ export function useAchievementsFeatureContent({
   const rankingDefaultClass = isLightUi
     ? "border-stone-200 bg-stone-50"
     : "border-[#f0e5a5]/25 bg-stone-900/30";
-  const rankingDefaultBadgeClass = isLightUi ? "bg-stone-800 text-white" : "bg-stone-200 text-stone-900";
+  const rankingDefaultBadgeClass = isLightUi ? "bg-stone-800 text-white" : "bg-stone-700 text-stone-50 border border-stone-500/60";
 
   return (
     <>
@@ -1329,36 +1338,7 @@ export function useAchievementsFeatureContent({
                 </Card>
               </div>
 
-              <div className="grid lg:grid-cols-2 gap-4">
-                <Card className={`${statsCardBaseClass} ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
-                  <CardHeader className="pb-2">
-                    <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
-                      <BarChart3 className={`w-4 h-4 ${isLightUi ? "text-emerald-600" : "text-emerald-300"}`} />
-                      Deine Top 5 Scan-Arten
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {topSpeciesList.length === 0 && (
-                      <p className={`text-sm ${statsBodyClass}`}>Noch keine Scans verfuegbar.</p>
-                    )}
-                    {topSpeciesList.map(([speciesName, count], index) => (
-                      <div
-                        key={speciesName}
-                        className={`flex items-center justify-between rounded-lg border px-3 py-2 ${
-                          isLightUi
-                            ? "border-stone-200 bg-stone-50"
-                            : "border-[#f0e5a5]/20 bg-stone-900/35"
-                        }`}
-                      >
-                        <div className="min-w-0">
-                          <p className={`text-sm font-semibold truncate ${statsTitleClass}`}>#{index + 1} {speciesName}</p>
-                        </div>
-                        <Badge className={isLightUi ? "bg-emerald-600 text-white" : "bg-emerald-300 text-stone-900"}>{count}x</Badge>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-
+              <div className="grid grid-cols-1 gap-4">
                 <Card className={`${statsCardBaseClass} ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
                   <CardHeader className="pb-2">
                     <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
@@ -1384,7 +1364,7 @@ export function useAchievementsFeatureContent({
                         className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.email === ownEmailLower ? rankingHighlightClass : rankingDefaultClass}`}
                       >
                         <p className={`text-sm font-semibold truncate ${statsTitleClass}`}>#{index + 1} {entry.name}</p>
-                        <Badge className={entry.email === ownEmailLower ? (isLightUi ? "bg-emerald-600 text-white" : "bg-emerald-300 text-stone-900") : rankingDefaultBadgeClass}>{entry.scans}x</Badge>
+                        <Badge className={entry.email === ownEmailLower ? (isLightUi ? "bg-emerald-600 text-white" : "bg-emerald-700 text-white border border-emerald-400/60") : rankingDefaultBadgeClass}>{entry.scans}x</Badge>
                       </div>
                     ))}
                   </CardContent>
