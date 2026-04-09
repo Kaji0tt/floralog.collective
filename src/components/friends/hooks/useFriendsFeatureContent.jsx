@@ -4,7 +4,7 @@ import { createUserNotification } from "@/api/notificationService";
 import { sendFriendRequest, removeFriendship, respondToFriendRequest } from "@/api/friendService";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -803,6 +803,20 @@ Viel Spaß beim Entdecken! 🌿`;
     });
   });
 
+  const friendCards = friends
+    .map((friendEntry) => ({
+      friend: friendEntry,
+      friendData: getFriendData(friendEntry),
+    }))
+    .filter((entry) => !!entry.friendData);
+
+  const pendingRequestsCount = pendingRequests.length;
+  const activeFriendsCount = friendCards.filter((entry) => !!entry.friendData.lastActivity).length;
+  const explorerContributorsCount = new Set(
+    explorerLogEntries.map((entry) => entry.actorEmail).filter(Boolean)
+  ).size;
+  const latestExplorerEntry = explorerLogEntries[0] || null;
+
   const tabsHeaderClass = embedded
     ? `sticky top-0 z-40 backdrop-blur-sm border-b ${isLightUi ? "bg-white/70 border-[#b99a48]/30" : "bg-black/20 border-[#f0e5a5]/20"}`
     : "fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200";
@@ -810,6 +824,34 @@ Viel Spaß beim Entdecken! 🌿`;
   const friendsContentClass = embedded ? "mt-0 px-2 pb-20 flex-1 min-h-0 overflow-y-auto overflow-x-hidden" : "pt-36 px-2 pb-4";
   const newsContentClass = embedded ? "mt-0 px-2 pb-20 flex-1 min-h-0 overflow-y-auto overflow-x-hidden" : "pt-36 px-2 pb-4";
   const explorerContentClass = embedded ? "mt-0 px-2 pb-20 flex-1 min-h-0 overflow-y-auto overflow-x-hidden" : "pt-36 px-2 pb-4";
+  const listTopFadePx = 12;
+  const listBottomFadePx = 18;
+  const embeddedContentMaskStyle = embedded ? {
+    WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
+    maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
+  } : undefined;
+
+  const sectionSurfaceClass = isLightUi
+    ? "rounded-[1.5rem] border border-[#d9c48a]/45 bg-white/72 backdrop-blur-xl shadow-[0_14px_32px_rgba(162,129,48,0.12)]"
+    : "rounded-[1.5rem] border border-[#f0e5a5]/25 bg-black/30 backdrop-blur-md shadow-[0_16px_34px_rgba(0,0,0,0.3)]";
+  const nestedCardClass = isLightUi
+    ? "rounded-[1.15rem] border border-stone-200/80 bg-white/88 backdrop-blur-sm"
+    : "rounded-[1.15rem] border border-[#f0e5a5]/18 bg-stone-950/35 backdrop-blur-sm";
+  const statTileClass = isLightUi
+    ? "rounded-2xl border border-[#d8c17f]/35 bg-white/80 px-4 py-3 backdrop-blur-sm"
+    : "rounded-2xl border border-[#f0e5a5]/20 bg-black/28 px-4 py-3 backdrop-blur-sm";
+  const titleTextClass = isLightUi ? "text-stone-900" : "text-stone-100";
+  const bodyTextClass = isLightUi ? "text-stone-600" : "text-stone-300/90";
+  const mutedTextClass = isLightUi ? "text-stone-500" : "text-stone-400/80";
+  const faintTextClass = isLightUi ? "text-stone-400" : "text-stone-500/80";
+  const interactiveHoverClass = isLightUi
+    ? "hover:border-[#c9ab59]/55 hover:shadow-[0_10px_24px_rgba(162,129,48,0.16)]"
+    : "hover:border-[#f0e5a5]/30 hover:bg-stone-950/45 hover:shadow-[0_12px_28px_rgba(0,0,0,0.28)]";
+  const accentBadgeClass = isLightUi
+    ? "bg-[#8f6b22] text-white"
+    : "bg-[#f0e5a5] text-stone-900";
+  const summaryValueClass = isLightUi ? "text-stone-900" : "text-stone-50";
+  const summaryLabelClass = isLightUi ? "text-stone-500" : "text-stone-300/75";
 
   const moduleChips = [
     {
@@ -857,8 +899,8 @@ Viel Spaß beim Entdecken! 🌿`;
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50">
-        <Leaf className="w-12 h-12 text-green-600 animate-spin" />
+      <div className={embedded ? "flex h-full min-h-0 items-center justify-center bg-transparent" : "flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50"}>
+        <Leaf className={`w-12 h-12 animate-spin ${embedded ? (isLightUi ? "text-emerald-700" : "text-[#f0e5a5]") : "text-green-600"}`} />
       </div>);
 
   }
@@ -995,210 +1037,249 @@ Viel Spaß beim Entdecken! 🌿`;
           </div>
 
           {/* Friends Tab Content */}
-          <TabsContent value="friends" className={friendsContentClass}>
-            <div>
-              {/* Freundschaftsanfragen */}
-              {pendingRequests.length > 0 &&
-              <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="mb-2">
+          <TabsContent value="friends" className={friendsContentClass} style={embeddedContentMaskStyle}>
+            <div className="max-w-5xl mx-auto space-y-4" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className={statTileClass}>
+                  <p className={`text-[11px] uppercase tracking-[0.18em] ${summaryLabelClass}`}>Netzwerk</p>
+                  <p className={`text-2xl font-bold mt-1 ${summaryValueClass}`}>{friendCards.length}</p>
+                  <p className={`text-xs mt-1 ${mutedTextClass}`}>Freunde insgesamt</p>
+                </div>
+                <div className={statTileClass}>
+                  <p className={`text-[11px] uppercase tracking-[0.18em] ${summaryLabelClass}`}>Anfragen</p>
+                  <p className={`text-2xl font-bold mt-1 ${summaryValueClass}`}>{pendingRequestsCount}</p>
+                  <p className={`text-xs mt-1 ${mutedTextClass}`}>Warten auf deine Antwort</p>
+                </div>
+                <div className={statTileClass}>
+                  <p className={`text-[11px] uppercase tracking-[0.18em] ${summaryLabelClass}`}>Aktivität</p>
+                  <p className={`text-2xl font-bold mt-1 ${summaryValueClass}`}>{activeFriendsCount}</p>
+                  <p className={`text-xs mt-1 ${mutedTextClass}`}>Freunde mit letzter Aktivität</p>
+                </div>
+              </div>
 
-                <Card className="border-2 border-amber-200 shadow-lg bg-white">
-                  <CardHeader className="border-b border-amber-100 bg-amber-50 p-4">
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <Bell className="w-5 h-5 text-amber-600" />
-                      Freundschaftsanfragen
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4">
-                    <div className="space-y-3">
-                      {pendingRequests.map((request, index) => {
+              {pendingRequestsCount > 0 && (
+                <motion.section
+                  initial={{ opacity: 0, y: -16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35 }}
+                  className={`${sectionSurfaceClass} p-4 md:p-5`}
+                >
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div>
+                      <div className={`flex items-center gap-2 ${titleTextClass}`}>
+                        <Bell className={`w-4 h-4 ${isLightUi ? "text-amber-700" : "text-amber-300"}`} />
+                        <h3 className="text-base font-semibold">Freundschaftsanfragen</h3>
+                      </div>
+                      <p className={`text-sm mt-1 ${bodyTextClass}`}>Neue Kontakte warten auf deine Entscheidung.</p>
+                    </div>
+                    <Badge className={accentBadgeClass}>{pendingRequestsCount}</Badge>
+                  </div>
+
+                  <div className="space-y-3">
+                    {pendingRequests.map((request, index) => {
                       const requesterData = getFriendData(request);
                       if (!requesterData) return null;
 
                       return (
                         <motion.div
                           key={request.id}
-                          initial={{ opacity: 0, x: -20 }}
+                          initial={{ opacity: 0, x: -16 }}
                           animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.1 }}>
-
-                            <Card className="border-2 border-stone-200 bg-white">
-                              <CardContent className="p-4">
-                                <div className="flex items-center justify-between flex-wrap gap-3">
-                                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                                    <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden flex-shrink-0">
-                                      {requesterData?.avatar_url ?
-                                    <img src={requesterData.avatar_url} alt={requesterData.name} className="w-full h-full object-cover" /> :
-
-                                    requesterData.name?.[0]?.toUpperCase() || '?'
-                                    }
-                                    </div>
-                                    <div className="min-w-0">
-                                      <div className="font-bold text-stone-900 truncate">{requesterData.name}</div>
-                                      <div className="text-sm text-stone-600">möchte dein Freund sein</div>
-                                    </div>
-                                  </div>
-                                  <div className="flex gap-2 flex-shrink-0">
-                                    <Button
-                                    size="sm"
-                                    onClick={() => acceptFriendRequestMutation.mutate(request)}
-                                    disabled={acceptFriendRequestMutation.isPending}
-                                    className="bg-green-600 hover:bg-green-700">
-
-                                      <Check className="w-4 h-4 mr-1" />
-                                      Annehmen
-                                    </Button>
-                                    <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => rejectFriendRequestMutation.mutate(request)}
-                                    disabled={rejectFriendRequestMutation.isPending}
-                                    className="border-2 border-red-300 text-red-600 hover:bg-red-50">
-
-                                      <X className="w-4 h-4 mr-1" />
-                                      Ablehnen
-                                    </Button>
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          </motion.div>);
-
-                    })}
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            }
-
-              {/* Freundesliste */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3, duration: 0.5 }}
-                className="space-y-2">
-
-                {friends.length === 0 ?
-                <div className="text-center py-12">
-                    <Users className="w-16 h-16 text-stone-300 mx-auto mb-4" />
-                    <p className="text-stone-600 text-lg font-semibold mb-2">
-                      Noch keine Freunde
-                    </p>
-                    <p className="text-stone-500">
-                      Füge Freunde hinzu, um ihre Sammlungen zu sehen!
-                    </p>
-                  </div> :
-
-                <div className="grid gap-2">
-                  {friends.map((friend, index) => {
-                  const friendData = getFriendData(friend);
-                  if (!friendData) return null;
-
-                  return (
-                    <motion.div
-                      key={friend.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.05 }}>
-
-                        <Card className="border shadow-sm hover:border-purple-300 hover:shadow-md transition-all bg-white group rounded-lg">
-                          <CardContent className="p-2">
-                            <button
-                            onClick={() => navigate(createPageUrl(`FriendProfile?email=${friendData.email}`))}
-                            className="flex items-start gap-2 w-full text-left min-w-0">
-
-                            <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-base shadow-md overflow-hidden flex-shrink-0">
-                              {friendData.avatar_url ?
-                            <img src={friendData.avatar_url} alt={friendData.name} className="w-full h-full object-cover" /> :
-
-                            friendData.name?.[0]?.toUpperCase() || friendData.email?.[0]?.toUpperCase()
-                            }
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              {/* Obere Zeile: Name + Icons */}
-                              <div className="flex items-center justify-between gap-1 min-w-0">
-                                <div className="font-bold text-stone-900 group-hover:text-green-600 transition-colors truncate text-sm flex-1 min-w-0">
-                                  {friendData.name}
-                                </div>
-                                <div className="flex items-center gap-1 flex-shrink-0">
-                                  <ChevronRight className="w-4 h-4 text-stone-400 flex-shrink-0" />
-                                  <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (confirm(`Möchtest du ${friendData.name} wirklich entfernen?`)) {
-                                      removeFriendMutation.mutate(friendData);
-                                    }
-                                  }}
-                                  disabled={removeFriendMutation.isPending}
-                                  className="text-red-600 hover:bg-red-50 w-6 h-6 p-0 flex-shrink-0">
-
-                                    <UserMinus className="w-3 h-3" />
-                                  </Button>
-                                </div>
+                          transition={{ delay: index * 0.06 }}
+                          className={`${nestedCardClass} p-3 md:p-4`}
+                        >
+                          <div className="flex items-center justify-between gap-3 flex-wrap">
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-lg shadow-md bg-gradient-to-br from-emerald-500 to-emerald-700 flex-shrink-0">
+                                {requesterData.avatar_url ? (
+                                  <img src={requesterData.avatar_url} alt={requesterData.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  requesterData.name?.[0]?.toUpperCase() || "?"
+                                )}
                               </div>
-                              {/* Letzte Aktivität */}
-                              {friendData.lastActivity &&
-                            <div className="text-xs text-stone-500 flex items-center gap-1 mt-0.5 min-w-0">
-                                  {friendData.lastActivity.type === 'discovery' && friendData.lastActivity.plant &&
-                              <>
-                                      <Leaf className="w-3 h-3 text-green-600 flex-shrink-0" />
-                                      <span className="truncate flex-1 min-w-0">
-                                        {friendData.lastActivity.plant.species_name}
-                                      </span>
-                                    </>
-                              }
-                                  {friendData.lastActivity.type === 'achievement' && friendData.lastActivity.achievement &&
-                              <>
-                                      <Trophy className="w-3 h-3 text-amber-600 flex-shrink-0" />
-                                      <span className="truncate flex-1 min-w-0">
-                                        {friendData.lastActivity.achievement.title}
-                                      </span>
-                                    </>
-                              }
-                                  <span className="text-stone-400 flex-shrink-0 whitespace-nowrap text-[10px]">
-                                    · {formatDistanceToNow(new Date(friendData.lastActivity.date), { addSuffix: false, locale: de })}
+                              <div className="min-w-0">
+                                <p className={`font-semibold truncate ${titleTextClass}`}>{requesterData.name}</p>
+                                <p className={`text-sm truncate ${bodyTextClass}`}>möchte dein Netzwerk erweitern</p>
+                                <p className={`text-xs mt-1 truncate ${mutedTextClass}`}>{requesterData.title}</p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2 flex-wrap">
+                              <Button
+                                size="sm"
+                                onClick={() => acceptFriendRequestMutation.mutate(request)}
+                                disabled={acceptFriendRequestMutation.isPending}
+                                className="bg-emerald-600 hover:bg-emerald-700"
+                              >
+                                <Check className="w-4 h-4 mr-1" />
+                                Annehmen
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => rejectFriendRequestMutation.mutate(request)}
+                                disabled={rejectFriendRequestMutation.isPending}
+                                className={isLightUi ? "border-red-300 text-red-600 hover:bg-red-50" : "border-red-400/50 text-red-200 hover:bg-red-500/10"}
+                              >
+                                <X className="w-4 h-4 mr-1" />
+                                Ablehnen
+                              </Button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </motion.section>
+              )}
+
+              <motion.section
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, delay: 0.05 }}
+                className={`${sectionSurfaceClass} p-4 md:p-5`}
+              >
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div>
+                    <div className={`flex items-center gap-2 ${titleTextClass}`}>
+                      <Users className={`w-4 h-4 ${isLightUi ? "text-emerald-700" : "text-emerald-300"}`} />
+                      <h3 className="text-base font-semibold">Dein Netzwerk</h3>
+                    </div>
+                    <p className={`text-sm mt-1 ${bodyTextClass}`}>Freunde, letzte Aktivitaeten und schneller Zugriff auf Profile.</p>
+                  </div>
+                  <Badge className={accentBadgeClass}>{friendCards.length}</Badge>
+                </div>
+
+                {friendCards.length === 0 ? (
+                  <div className={`${nestedCardClass} px-5 py-10 text-center`}>
+                    <Users className={`w-14 h-14 mx-auto mb-4 ${isLightUi ? "text-stone-300" : "text-stone-500"}`} />
+                    <p className={`text-lg font-semibold mb-2 ${titleTextClass}`}>Noch keine Freunde</p>
+                    <p className={`text-sm ${bodyTextClass}`}>Füge Freunde hinzu, um ihre Sammlungen, Erfolge und Scans zu sehen.</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-3">
+                    {friendCards.map(({ friend, friendData }, index) => (
+                      <motion.div
+                        key={friend.id}
+                        initial={{ opacity: 0, x: -16 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.04 }}
+                        className={`${nestedCardClass} ${interactiveHoverClass} p-3 md:p-4 transition-all`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <button
+                            onClick={() => navigate(createPageUrl(`FriendProfile?email=${friendData.email}`))}
+                            className="flex items-start gap-3 flex-1 min-w-0 text-left"
+                          >
+                            <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-lg shadow-md bg-gradient-to-br from-emerald-500 to-emerald-700 flex-shrink-0">
+                              {friendData.avatar_url ? (
+                                <img src={friendData.avatar_url} alt={friendData.name} className="w-full h-full object-cover" />
+                              ) : (
+                                friendData.name?.[0]?.toUpperCase() || friendData.email?.[0]?.toUpperCase()
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                                <p className={`font-semibold truncate ${titleTextClass}`}>{friendData.name}</p>
+                                <Badge className={isLightUi ? "bg-emerald-100 text-emerald-800 border border-emerald-200" : "bg-emerald-500/12 text-emerald-200 border border-emerald-300/30"}>
+                                  {friendData.title}
+                                </Badge>
+                              </div>
+                              <div className={`flex items-center gap-1.5 mt-1 ${bodyTextClass} min-w-0`}>
+                                <span className="truncate">{friendData.email}</span>
+                                <ChevronRight className={`w-3.5 h-3.5 flex-shrink-0 ${faintTextClass}`} />
+                              </div>
+                              {friendData.lastActivity ? (
+                                <div className={`mt-2 flex items-center gap-2 text-xs min-w-0 ${mutedTextClass}`}>
+                                  {friendData.lastActivity.type === "discovery" && friendData.lastActivity.plant ? (
+                                    <Leaf className={`w-3.5 h-3.5 flex-shrink-0 ${isLightUi ? "text-emerald-600" : "text-emerald-300"}`} />
+                                  ) : (
+                                    <Trophy className={`w-3.5 h-3.5 flex-shrink-0 ${isLightUi ? "text-amber-600" : "text-amber-300"}`} />
+                                  )}
+                                  <span className="truncate">
+                                    {friendData.lastActivity.type === "discovery"
+                                      ? friendData.lastActivity.plant?.species_name || "Neuer Scan"
+                                      : friendData.lastActivity.achievement?.title || "Neuer Erfolg"}
+                                  </span>
+                                  <span className={`flex-shrink-0 ${faintTextClass}`}>
+                                    {formatDistanceToNow(new Date(friendData.lastActivity.date), { addSuffix: true, locale: de })}
                                   </span>
                                 </div>
-                            }
+                              ) : (
+                                <p className={`text-xs mt-2 ${mutedTextClass}`}>Noch keine letzte Aktivitaet sichtbar.</p>
+                              )}
                             </div>
-                            </button>
-                          </CardContent>
-                        </Card>
-                      </motion.div>);
-
-                  })}
+                          </button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => {
+                              if (confirm(`Möchtest du ${friendData.name} wirklich entfernen?`)) {
+                                removeFriendMutation.mutate(friendData);
+                              }
+                            }}
+                            disabled={removeFriendMutation.isPending}
+                            className={isLightUi ? "text-red-600 hover:bg-red-50 w-8 h-8 p-0" : "text-red-300 hover:bg-red-500/10 w-8 h-8 p-0"}
+                          >
+                            <UserMinus className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </motion.div>
+                    ))}
                   </div>
-                }
-              </motion.div>
+                )}
+              </motion.section>
             </div>
           </TabsContent>
 
           {/* News Tab Content */}
-          <TabsContent value="news" className={newsContentClass}>
+          <TabsContent value="news" className={newsContentClass} style={embeddedContentMaskStyle}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
+              className="max-w-5xl mx-auto space-y-4"
+              style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}
             >
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className={statTileClass}>
+                  <p className={`text-[11px] uppercase tracking-[0.18em] ${summaryLabelClass}`}>Neu</p>
+                  <p className={`text-2xl font-bold mt-1 ${summaryValueClass}`}>{unreadNewsCount}</p>
+                  <p className={`text-xs mt-1 ${mutedTextClass}`}>Ungelesene Meldungen</p>
+                </div>
+                <div className={statTileClass}>
+                  <p className={`text-[11px] uppercase tracking-[0.18em] ${summaryLabelClass}`}>Feed</p>
+                  <p className={`text-2xl font-bold mt-1 ${summaryValueClass}`}>{userNews.length}</p>
+                  <p className={`text-xs mt-1 ${mutedTextClass}`}>Eintraege insgesamt</p>
+                </div>
+                <div className={statTileClass}>
+                  <p className={`text-[11px] uppercase tracking-[0.18em] ${summaryLabelClass}`}>Anfragen</p>
+                  <p className={`text-2xl font-bold mt-1 ${summaryValueClass}`}>{pendingRequestsCount}</p>
+                  <p className={`text-xs mt-1 ${mutedTextClass}`}>Offene Freundschaftsanfragen</p>
+                </div>
+              </div>
+
               {userNews.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 max-w-md mx-auto border border-stone-200 shadow-lg">
-                    <Bell className="w-16 h-16 text-stone-300 mx-auto mb-4" />
-                    <p className="text-stone-600 text-lg font-semibold mb-2">
+                <div className={`${sectionSurfaceClass} px-5 py-10 text-center`}>
+                  <Bell className={`w-16 h-16 mx-auto mb-4 ${isLightUi ? "text-stone-300" : "text-stone-500"}`} />
+                  <p className={`text-lg font-semibold mb-2 ${titleTextClass}`}>
                       Noch keine Neuigkeiten
-                    </p>
-                    <p className="text-stone-500">
-                      Hier siehst du, was in deinem Freundeskreis passiert.
-                    </p>
-                  </div>
+                  </p>
+                  <p className={bodyTextClass}>Hier siehst du, was in deinem Freundeskreis passiert.</p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <section className={`${sectionSurfaceClass} p-4 md:p-5`}>
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div>
+                      <div className={`flex items-center gap-2 ${titleTextClass}`}>
+                        <Bell className={`w-4 h-4 ${isLightUi ? "text-blue-700" : "text-blue-300"}`} />
+                        <h3 className="text-base font-semibold">Aktivitaetsfeed</h3>
+                      </div>
+                      <p className={`text-sm mt-1 ${bodyTextClass}`}>Achievements, Likes, Anfragen und Sammlungs-Updates auf einen Blick.</p>
+                    </div>
+                    <Badge className={accentBadgeClass}>{unreadNewsCount} neu</Badge>
+                  </div>
+
+                <div className="space-y-3">
                   {userNews.map((newsItem, index) => {
                     const meta = getNewsMeta(newsItem.notification_type);
                     const Icon = meta.icon;
@@ -1220,13 +1301,13 @@ Viel Spaß beim Entdecken! 🌿`;
                         transition={{ delay: index * 0.04 }}
                       >
                         <Card
-                          className={`border shadow-sm hover:shadow-md transition-all cursor-pointer ${newsItem.seen ? 'bg-white border-stone-200' : meta.card}`}
+                          className={`${nestedCardClass} ${interactiveHoverClass} transition-all cursor-pointer ${newsItem.seen ? "" : (isLightUi ? "border-emerald-200 bg-emerald-50/65" : "border-emerald-300/30 bg-emerald-500/10")}`}
                           onClick={() => openNewsEntry(newsItem)}
                         >
                           <CardContent className="p-3">
                             <div className="flex items-start gap-3">
                               <div className="relative w-10 h-10 flex-shrink-0">
-                                <div className={`w-10 h-10 rounded-full overflow-hidden border border-stone-200 ${newsItem.seen ? 'bg-stone-100' : 'bg-white'} flex items-center justify-center`}>
+                                <div className={`w-10 h-10 rounded-full overflow-hidden border ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/20"} ${newsItem.seen ? (isLightUi ? 'bg-stone-100' : 'bg-stone-900/55') : (isLightUi ? 'bg-white' : 'bg-stone-950/70')} flex items-center justify-center`}>
                                   {actor.avatarUrl ? (
                                     <img
                                       src={actor.avatarUrl}
@@ -1234,27 +1315,30 @@ Viel Spaß beim Entdecken! 🌿`;
                                       className="w-full h-full object-cover"
                                     />
                                   ) : (
-                                    <span className="text-xs font-semibold text-stone-700">{avatarFallback}</span>
+                                    <span className={`text-xs font-semibold ${isLightUi ? "text-stone-700" : "text-stone-100"}`}>{avatarFallback}</span>
                                   )}
                                 </div>
-                                <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white border border-stone-200 flex items-center justify-center">
+                                <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border flex items-center justify-center ${isLightUi ? "bg-white border-stone-200" : "bg-stone-950 border-[#f0e5a5]/20"}`}>
                                   <Icon className={`w-3 h-3 ${meta.accent}`} />
                                 </div>
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-stone-900 truncate">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  {!newsItem.seen && <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />}
+                                  <p className={`text-sm font-semibold truncate ${titleTextClass}`}>
                                   {newsItem.title || 'Neuigkeit'}
-                                </p>
-                                <p className="text-[11px] text-stone-500 mt-0.5 truncate">
+                                  </p>
+                                </div>
+                                <p className={`text-[11px] mt-0.5 truncate ${mutedTextClass}`}>
                                   von {actor.name}
                                 </p>
-                                <p className="text-xs text-stone-600 mt-0.5 line-clamp-2">
+                                <p className={`text-xs mt-1 line-clamp-2 ${bodyTextClass}`}>
                                   {newsItem.message}
                                 </p>
                                 {!!newsItem.description && (
-                                  <p className="text-[11px] text-stone-500 mt-1 truncate">{newsItem.description}</p>
+                                  <p className={`text-[11px] mt-1 truncate ${mutedTextClass}`}>{newsItem.description}</p>
                                 )}
-                                <p className="text-[10px] text-stone-400 mt-1">
+                                <p className={`text-[10px] mt-2 ${faintTextClass}`}>
                                   {formatDistanceToNow(new Date(newsItem.created_date || newsItem.created_at || new Date().toISOString()), {
                                     addSuffix: true,
                                     locale: de,
@@ -1274,7 +1358,7 @@ Viel Spaß beim Entdecken! 🌿`;
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      className="h-7 px-2 border-red-300 text-red-600 hover:bg-red-50"
+                                      className={isLightUi ? "h-7 px-2 border-red-300 text-red-600 hover:bg-red-50" : "h-7 px-2 border-red-400/50 text-red-200 hover:bg-red-500/10"}
                                       disabled={acceptFriendRequestMutation.isPending || rejectFriendRequestMutation.isPending}
                                       onClick={(event) => handleFriendRequestActionFromNews(event, newsItem, 'reject')}
                                     >
@@ -1284,12 +1368,9 @@ Viel Spaß beim Entdecken! 🌿`;
                                   </div>
                                 )}
                                 {showFriendRequestResolvedHint && (
-                                  <p className="text-[11px] text-stone-500 mt-2">Diese Anfrage wurde bereits beantwortet.</p>
+                                  <p className={`text-[11px] mt-2 ${mutedTextClass}`}>Diese Anfrage wurde bereits beantwortet.</p>
                                 )}
                               </div>
-                              {!newsItem.seen && (
-                                <div className="w-2.5 h-2.5 bg-green-500 rounded-full mt-1 flex-shrink-0" />
-                              )}
                             </div>
                           </CardContent>
                         </Card>
@@ -1297,30 +1378,63 @@ Viel Spaß beim Entdecken! 🌿`;
                     );
                   })}
                 </div>
+                </section>
               )}
             </motion.div>
           </TabsContent>
 
-          <TabsContent value="explorer" className={explorerContentClass}>
+          <TabsContent value="explorer" className={explorerContentClass} style={embeddedContentMaskStyle}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
+              className="max-w-5xl mx-auto space-y-4"
+              style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}
             >
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className={statTileClass}>
+                  <p className={`text-[11px] uppercase tracking-[0.18em] ${summaryLabelClass}`}>Log</p>
+                  <p className={`text-2xl font-bold mt-1 ${summaryValueClass}`}>{explorerLogEntries.length}</p>
+                  <p className={`text-xs mt-1 ${mutedTextClass}`}>Eintraege der letzten 30 Tage</p>
+                </div>
+                <div className={statTileClass}>
+                  <p className={`text-[11px] uppercase tracking-[0.18em] ${summaryLabelClass}`}>Explorer</p>
+                  <p className={`text-2xl font-bold mt-1 ${summaryValueClass}`}>{explorerContributorsCount}</p>
+                  <p className={`text-xs mt-1 ${mutedTextClass}`}>Mitwirkende Personen</p>
+                </div>
+                <div className={statTileClass}>
+                  <p className={`text-[11px] uppercase tracking-[0.18em] ${summaryLabelClass}`}>Zuletzt</p>
+                  <p className={`text-sm font-semibold mt-2 ${summaryValueClass}`}>
+                    {latestExplorerEntry
+                      ? formatDistanceToNow(latestExplorerEntry.timestamp, { addSuffix: true, locale: de })
+                      : "Noch leer"}
+                  </p>
+                  <p className={`text-xs mt-1 ${mutedTextClass}`}>Letzter sichtbarer Scan</p>
+                </div>
+              </div>
+
               {explorerLogEntries.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 max-w-md mx-auto border border-stone-200 shadow-lg">
-                    <BookOpenText className="w-16 h-16 text-stone-300 mx-auto mb-4" />
-                    <p className="text-stone-600 text-lg font-semibold mb-2">
+                <div className={`${sectionSurfaceClass} px-5 py-10 text-center`}>
+                  <BookOpenText className={`w-16 h-16 mx-auto mb-4 ${isLightUi ? "text-stone-300" : "text-stone-500"}`} />
+                  <p className={`text-lg font-semibold mb-2 ${titleTextClass}`}>
                       Noch kein Forscher-Log
-                    </p>
-                    <p className="text-stone-500">
-                      Scans von dir und deinen Freunden erscheinen hier.
-                    </p>
-                  </div>
+                  </p>
+                  <p className={bodyTextClass}>Scans von dir und deinen Freunden erscheinen hier.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                <section className={`${sectionSurfaceClass} p-4 md:p-5`}>
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div>
+                      <div className={`flex items-center gap-2 ${titleTextClass}`}>
+                        <BookOpenText className={`w-4 h-4 ${isLightUi ? "text-emerald-700" : "text-emerald-300"}`} />
+                        <h3 className="text-base font-semibold">Forscher Log</h3>
+                      </div>
+                      <p className={`text-sm mt-1 ${bodyTextClass}`}>Ein visuelles Journal der letzten Scans in deinem Netzwerk.</p>
+                    </div>
+                    <Badge className={accentBadgeClass}>{explorerLogEntries.length}</Badge>
+                  </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {explorerLogEntries.map((entry, index) => (
                     <motion.div
                       key={entry.id}
@@ -1328,27 +1442,38 @@ Viel Spaß beim Entdecken! 🌿`;
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: index * 0.02 }}
                     >
-                      <Card className="border border-stone-200 hover:border-emerald-300 hover:shadow-md transition-all bg-white overflow-hidden">
-                        {entry.discovery?.image_url && (
-                          <div className="aspect-square overflow-hidden bg-stone-100">
+                      <Card className={`${nestedCardClass} ${interactiveHoverClass} transition-all overflow-hidden`}>
+                        {entry.discovery?.image_url ? (
+                          <div className={`aspect-[4/3] overflow-hidden ${isLightUi ? "bg-stone-100" : "bg-stone-900/60"}`}>
                             <img
                               src={entry.discovery.image_url}
                               alt={entry.plant?.species_name || "Scan"}
                               className="w-full h-full object-cover"
                             />
                           </div>
+                        ) : (
+                          <div className={`aspect-[4/3] flex items-center justify-center ${isLightUi ? "bg-gradient-to-br from-emerald-50 to-stone-100" : "bg-gradient-to-br from-emerald-500/10 to-stone-950/60"}`}>
+                            <Leaf className={`w-10 h-10 ${isLightUi ? "text-emerald-500" : "text-emerald-300"}`} />
+                          </div>
                         )}
-                        <CardContent className="p-2 space-y-1">
-                          <p className="text-xs font-bold text-stone-900 truncate">
+                        <CardContent className="p-3 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className={`text-sm font-bold truncate ${titleTextClass}`}>
                             {entry.plant?.species_name || "Unbekannte Pflanze"}
-                          </p>
+                            </p>
+                            {entry.scanCount > 1 && (
+                              <Badge className={isLightUi ? "bg-emerald-600 text-white" : "bg-emerald-300 text-stone-900"}>
+                                {entry.scanCount}x
+                              </Badge>
+                            )}
+                          </div>
                           <button
                             onClick={() => {
                               if (entry.actorEmail && entry.actorEmail !== ownEmailLower) {
                                 navigate(createPageUrl(`FriendProfile?email=${entry.actorEmail}`));
                               }
                             }}
-                            className="flex items-center gap-1 w-full text-left hover:opacity-80 transition-opacity"
+                            className={`flex items-center gap-2 w-full text-left transition-opacity ${entry.actorEmail && entry.actorEmail !== ownEmailLower ? "hover:opacity-80" : "cursor-default"}`}
                           >
                             <div className="w-5 h-5 rounded-full bg-gradient-to-br from-green-500 to-green-600 overflow-hidden flex items-center justify-center text-white text-[10px] font-bold">
                               {entry.actorAvatar ? (
@@ -1357,24 +1482,24 @@ Viel Spaß beim Entdecken! 🌿`;
                                 entry.actorName?.charAt(0)?.toUpperCase() || "?"
                               )}
                             </div>
-                            <p className="text-[11px] text-stone-700 truncate">{entry.actorName}</p>
+                            <div className="min-w-0">
+                              <p className={`text-[11px] font-medium truncate ${titleTextClass}`}>{entry.actorName}</p>
+                              <p className={`text-[10px] truncate ${mutedTextClass}`}>hat diesen Scan eingetragen</p>
+                            </div>
                           </button>
-                          <div className="flex items-center justify-between text-[10px] text-stone-500">
+                          <div className={`flex items-center justify-between text-[10px] ${mutedTextClass}`}>
                             <span className="inline-flex items-center gap-1">
                               <Clock className="w-3 h-3" />
                               {formatDistanceToNow(entry.timestamp, { addSuffix: true, locale: de })}
                             </span>
-                            {entry.scanCount > 1 && (
-                              <Badge className="bg-emerald-600 text-white text-[10px] px-1.5 py-0">
-                                {entry.scanCount}x
-                              </Badge>
-                            )}
+                            <span className={faintTextClass}>30 Tage Fenster</span>
                           </div>
                         </CardContent>
                       </Card>
                     </motion.div>
                   ))}
                 </div>
+                </section>
               )}
             </motion.div>
           </TabsContent>

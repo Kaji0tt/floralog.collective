@@ -5,7 +5,7 @@ import { createUserNotification, getUserDisplayName } from "@/api/notificationSe
 import { getCurrentUser } from "@/api/userApi";
 import { createPageUrl } from "@/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Home, List } from "lucide-react";
+import { Home, List, Leaf } from "lucide-react";
 import HintDialog from "./HintDialog";
 import CollectionScreen from "./CollectionScreen";
 import PublicCollectionScreen from "./PublicCollectionScreen";
@@ -546,11 +546,17 @@ export default function CollectionFeatureRoot({
 
   if (isLoading) {
     return (
-      <HomeShellLoader
-        backgroundImageUrl={user?.background_image_url || null}
-        backgroundColor={user?.background_color || null}
-        showProfileCard
-      />
+      embedded ? (
+        <div className="flex h-full min-h-0 items-center justify-center bg-transparent">
+          <Leaf className="w-12 h-12 animate-spin text-[#f0e5a5]" />
+        </div>
+      ) : (
+        <HomeShellLoader
+          backgroundImageUrl={user?.background_image_url || null}
+          backgroundColor={user?.background_color || null}
+          showProfileCard
+        />
+      )
     );
   }
 
