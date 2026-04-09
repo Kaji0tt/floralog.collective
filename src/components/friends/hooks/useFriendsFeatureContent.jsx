@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { UserPlus, Users, Loader2, Check, X, Bell, ChevronRight, UserMinus, Leaf, Trophy, Share2, Plus, Heart, UserCheck, BookOpenText, Clock } from "lucide-react";
+import { UserPlus, Users, Loader2, Check, X, Bell, UserMinus, Leaf, Trophy, Share2, Plus, Heart, UserCheck, BookOpenText, Clock } from "lucide-react";
 import { motion } from "framer-motion";
 import { checkAndUnlockAchievements } from "@/components/achievements/achievementChecker";
 import AchievementNotification from "@/components/achievements/AchievementNotification";
@@ -811,11 +811,6 @@ Viel Spaß beim Entdecken! 🌿`;
     .filter((entry) => !!entry.friendData);
 
   const pendingRequestsCount = pendingRequests.length;
-  const activeFriendsCount = friendCards.filter((entry) => !!entry.friendData.lastActivity).length;
-  const explorerContributorsCount = new Set(
-    explorerLogEntries.map((entry) => entry.actorEmail).filter(Boolean)
-  ).size;
-  const latestExplorerEntry = explorerLogEntries[0] || null;
 
   const tabsHeaderClass = embedded
     ? `sticky top-0 z-40 backdrop-blur-sm border-b ${isLightUi ? "bg-white/70 border-[#b99a48]/30" : "bg-black/20 border-[#f0e5a5]/20"}`
@@ -837,9 +832,6 @@ Viel Spaß beim Entdecken! 🌿`;
   const nestedCardClass = isLightUi
     ? "rounded-[1.15rem] border border-stone-200/80 bg-white/88 backdrop-blur-sm"
     : "rounded-[1.15rem] border border-[#f0e5a5]/18 bg-stone-950/35 backdrop-blur-sm";
-  const statTileClass = isLightUi
-    ? "rounded-2xl border border-[#d8c17f]/35 bg-white/80 px-4 py-3 backdrop-blur-sm"
-    : "rounded-2xl border border-[#f0e5a5]/20 bg-black/28 px-4 py-3 backdrop-blur-sm";
   const titleTextClass = isLightUi ? "text-stone-900" : "text-stone-100";
   const bodyTextClass = isLightUi ? "text-stone-600" : "text-stone-300/90";
   const mutedTextClass = isLightUi ? "text-stone-500" : "text-stone-400/80";
@@ -850,8 +842,6 @@ Viel Spaß beim Entdecken! 🌿`;
   const accentBadgeClass = isLightUi
     ? "bg-[#8f6b22] text-white"
     : "bg-[#f0e5a5] text-stone-900";
-  const summaryValueClass = isLightUi ? "text-stone-900" : "text-stone-50";
-  const summaryLabelClass = isLightUi ? "text-stone-500" : "text-stone-300/75";
 
   const moduleChips = [
     {
@@ -1039,23 +1029,6 @@ Viel Spaß beim Entdecken! 🌿`;
           {/* Friends Tab Content */}
           <TabsContent value="friends" className={friendsContentClass} style={embeddedContentMaskStyle}>
             <div className="max-w-5xl mx-auto space-y-4" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className={statTileClass}>
-                  <p className={`text-[11px] uppercase tracking-[0.18em] ${summaryLabelClass}`}>Netzwerk</p>
-                  <p className={`text-2xl font-bold mt-1 ${summaryValueClass}`}>{friendCards.length}</p>
-                  <p className={`text-xs mt-1 ${mutedTextClass}`}>Freunde insgesamt</p>
-                </div>
-                <div className={statTileClass}>
-                  <p className={`text-[11px] uppercase tracking-[0.18em] ${summaryLabelClass}`}>Anfragen</p>
-                  <p className={`text-2xl font-bold mt-1 ${summaryValueClass}`}>{pendingRequestsCount}</p>
-                  <p className={`text-xs mt-1 ${mutedTextClass}`}>Warten auf deine Antwort</p>
-                </div>
-                <div className={statTileClass}>
-                  <p className={`text-[11px] uppercase tracking-[0.18em] ${summaryLabelClass}`}>Aktivität</p>
-                  <p className={`text-2xl font-bold mt-1 ${summaryValueClass}`}>{activeFriendsCount}</p>
-                  <p className={`text-xs mt-1 ${mutedTextClass}`}>Freunde mit letzter Aktivität</p>
-                </div>
-              </div>
 
               {pendingRequestsCount > 0 && (
                 <motion.section
@@ -1163,66 +1136,56 @@ Viel Spaß beim Entdecken! 🌿`;
                         initial={{ opacity: 0, x: -16 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: index * 0.04 }}
-                        className={`${nestedCardClass} ${interactiveHoverClass} p-3 md:p-4 transition-all`}
+                        className={`${nestedCardClass} ${interactiveHoverClass} p-3 md:p-4 transition-all flex items-center justify-between gap-3`}
                       >
-                        <div className="flex items-start gap-3">
-                          <button
-                            onClick={() => navigate(createPageUrl(`FriendProfile?email=${friendData.email}`))}
-                            className="flex items-start gap-3 flex-1 min-w-0 text-left"
-                          >
-                            <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-lg shadow-md bg-gradient-to-br from-emerald-500 to-emerald-700 flex-shrink-0">
-                              {friendData.avatar_url ? (
-                                <img src={friendData.avatar_url} alt={friendData.name} className="w-full h-full object-cover" />
-                              ) : (
-                                friendData.name?.[0]?.toUpperCase() || friendData.email?.[0]?.toUpperCase()
-                              )}
+                        <button
+                          onClick={() => navigate(createPageUrl(`FriendProfile?email=${friendData.email}`))}
+                          className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                        >
+                          <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-sm shadow-md bg-gradient-to-br from-emerald-500 to-emerald-700 flex-shrink-0">
+                            {friendData.avatar_url ? (
+                              <img src={friendData.avatar_url} alt={friendData.name} className="w-full h-full object-cover" />
+                            ) : (
+                              friendData.name?.[0]?.toUpperCase() || friendData.email?.[0]?.toUpperCase()
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                              <p className={`font-semibold truncate ${titleTextClass}`}>{friendData.name}</p>
+                              <Badge className={isLightUi ? "bg-stone-100 text-stone-700 border border-stone-200 text-[10px]" : "bg-stone-800/50 text-stone-200 border border-stone-700/60 text-[10px]"}>
+                                {friendData.title}
+                              </Badge>
                             </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                                <p className={`font-semibold truncate ${titleTextClass}`}>{friendData.name}</p>
-                                <Badge className={isLightUi ? "bg-emerald-100 text-emerald-800 border border-emerald-200" : "bg-emerald-500/12 text-emerald-200 border border-emerald-300/30"}>
-                                  {friendData.title}
-                                </Badge>
+                            <p className={`text-xs truncate ${bodyTextClass}`}>{friendData.email}</p>
+                            {friendData.lastActivity && (
+                              <div className={`mt-1 flex items-center gap-1 text-[10px] min-w-0 ${mutedTextClass}`}>
+                                {friendData.lastActivity.type === "discovery" ? (
+                                  <Leaf className={`w-3 h-3 flex-shrink-0 ${isLightUi ? "text-emerald-600" : "text-emerald-300"}`} />
+                                ) : (
+                                  <Trophy className={`w-3 h-3 flex-shrink-0 ${isLightUi ? "text-amber-600" : "text-amber-300"}`} />
+                                )}
+                                <span className="truncate">
+                                  {friendData.lastActivity.type === "discovery"
+                                    ? friendData.lastActivity.plant?.species_name || "Neuer Scan"
+                                    : friendData.lastActivity.achievement?.title || "Neuer Erfolg"}
+                                </span>
                               </div>
-                              <div className={`flex items-center gap-1.5 mt-1 ${bodyTextClass} min-w-0`}>
-                                <span className="truncate">{friendData.email}</span>
-                                <ChevronRight className={`w-3.5 h-3.5 flex-shrink-0 ${faintTextClass}`} />
-                              </div>
-                              {friendData.lastActivity ? (
-                                <div className={`mt-2 flex items-center gap-2 text-xs min-w-0 ${mutedTextClass}`}>
-                                  {friendData.lastActivity.type === "discovery" && friendData.lastActivity.plant ? (
-                                    <Leaf className={`w-3.5 h-3.5 flex-shrink-0 ${isLightUi ? "text-emerald-600" : "text-emerald-300"}`} />
-                                  ) : (
-                                    <Trophy className={`w-3.5 h-3.5 flex-shrink-0 ${isLightUi ? "text-amber-600" : "text-amber-300"}`} />
-                                  )}
-                                  <span className="truncate">
-                                    {friendData.lastActivity.type === "discovery"
-                                      ? friendData.lastActivity.plant?.species_name || "Neuer Scan"
-                                      : friendData.lastActivity.achievement?.title || "Neuer Erfolg"}
-                                  </span>
-                                  <span className={`flex-shrink-0 ${faintTextClass}`}>
-                                    {formatDistanceToNow(new Date(friendData.lastActivity.date), { addSuffix: true, locale: de })}
-                                  </span>
-                                </div>
-                              ) : (
-                                <p className={`text-xs mt-2 ${mutedTextClass}`}>Noch keine letzte Aktivitaet sichtbar.</p>
-                              )}
-                            </div>
-                          </button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => {
-                              if (confirm(`Möchtest du ${friendData.name} wirklich entfernen?`)) {
-                                removeFriendMutation.mutate(friendData);
-                              }
-                            }}
-                            disabled={removeFriendMutation.isPending}
-                            className={isLightUi ? "text-red-600 hover:bg-red-50 w-8 h-8 p-0" : "text-red-300 hover:bg-red-500/10 w-8 h-8 p-0"}
-                          >
-                            <UserMinus className="w-4 h-4" />
-                          </Button>
-                        </div>
+                            )}
+                          </div>
+                        </button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            if (confirm(`Möchtest du ${friendData.name} wirklich entfernen?`)) {
+                              removeFriendMutation.mutate(friendData);
+                            }
+                          }}
+                          disabled={removeFriendMutation.isPending}
+                          className={isLightUi ? "text-red-600 hover:bg-red-50 w-8 h-8 p-0 flex-shrink-0" : "text-red-300 hover:bg-red-500/10 w-8 h-8 p-0 flex-shrink-0"}
+                        >
+                          <UserMinus className="w-4 h-4" />
+                        </Button>
                       </motion.div>
                     ))}
                   </div>
@@ -1240,24 +1203,6 @@ Viel Spaß beim Entdecken! 🌿`;
               className="max-w-5xl mx-auto space-y-4"
               style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}
             >
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className={statTileClass}>
-                  <p className={`text-[11px] uppercase tracking-[0.18em] ${summaryLabelClass}`}>Neu</p>
-                  <p className={`text-2xl font-bold mt-1 ${summaryValueClass}`}>{unreadNewsCount}</p>
-                  <p className={`text-xs mt-1 ${mutedTextClass}`}>Ungelesene Meldungen</p>
-                </div>
-                <div className={statTileClass}>
-                  <p className={`text-[11px] uppercase tracking-[0.18em] ${summaryLabelClass}`}>Feed</p>
-                  <p className={`text-2xl font-bold mt-1 ${summaryValueClass}`}>{userNews.length}</p>
-                  <p className={`text-xs mt-1 ${mutedTextClass}`}>Eintraege insgesamt</p>
-                </div>
-                <div className={statTileClass}>
-                  <p className={`text-[11px] uppercase tracking-[0.18em] ${summaryLabelClass}`}>Anfragen</p>
-                  <p className={`text-2xl font-bold mt-1 ${summaryValueClass}`}>{pendingRequestsCount}</p>
-                  <p className={`text-xs mt-1 ${mutedTextClass}`}>Offene Freundschaftsanfragen</p>
-                </div>
-              </div>
-
               {userNews.length === 0 ? (
                 <div className={`${sectionSurfaceClass} px-5 py-10 text-center`}>
                   <Bell className={`w-16 h-16 mx-auto mb-4 ${isLightUi ? "text-stone-300" : "text-stone-500"}`} />
@@ -1391,28 +1336,6 @@ Viel Spaß beim Entdecken! 🌿`;
               className="max-w-5xl mx-auto space-y-4"
               style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}
             >
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className={statTileClass}>
-                  <p className={`text-[11px] uppercase tracking-[0.18em] ${summaryLabelClass}`}>Log</p>
-                  <p className={`text-2xl font-bold mt-1 ${summaryValueClass}`}>{explorerLogEntries.length}</p>
-                  <p className={`text-xs mt-1 ${mutedTextClass}`}>Eintraege der letzten 30 Tage</p>
-                </div>
-                <div className={statTileClass}>
-                  <p className={`text-[11px] uppercase tracking-[0.18em] ${summaryLabelClass}`}>Explorer</p>
-                  <p className={`text-2xl font-bold mt-1 ${summaryValueClass}`}>{explorerContributorsCount}</p>
-                  <p className={`text-xs mt-1 ${mutedTextClass}`}>Mitwirkende Personen</p>
-                </div>
-                <div className={statTileClass}>
-                  <p className={`text-[11px] uppercase tracking-[0.18em] ${summaryLabelClass}`}>Zuletzt</p>
-                  <p className={`text-sm font-semibold mt-2 ${summaryValueClass}`}>
-                    {latestExplorerEntry
-                      ? formatDistanceToNow(latestExplorerEntry.timestamp, { addSuffix: true, locale: de })
-                      : "Noch leer"}
-                  </p>
-                  <p className={`text-xs mt-1 ${mutedTextClass}`}>Letzter sichtbarer Scan</p>
-                </div>
-              </div>
-
               {explorerLogEntries.length === 0 ? (
                 <div className={`${sectionSurfaceClass} px-5 py-10 text-center`}>
                   <BookOpenText className={`w-16 h-16 mx-auto mb-4 ${isLightUi ? "text-stone-300" : "text-stone-500"}`} />
