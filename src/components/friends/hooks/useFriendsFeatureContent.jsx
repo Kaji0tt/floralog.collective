@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { UserPlus, Users, Loader2, Check, X, Bell, ChevronRight, UserMinus, Leaf, Trophy, Share2, Plus, Heart, UserCheck, BookOpenText, Clock } from "lucide-react";
 import { motion } from "framer-motion";
@@ -803,6 +803,7 @@ Viel Spaß beim Entdecken! 🌿`;
   const explorerContentClass = embedded ? "pt-3 px-2 pb-4" : "pt-36 px-2 pb-4";
   const listTopFadePx = 12;
   const listBottomFadePx = 18;
+  const chipRightFadePx = 24;
   const embeddedBottomSafePx = 80;
   const embeddedContentMaskStyle = embedded ? {
     WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
@@ -810,6 +811,27 @@ Viel Spaß beim Entdecken! 🌿`;
     paddingTop: listTopFadePx,
     paddingBottom: embeddedBottomSafePx,
   } : undefined;
+
+  const moduleChips = [
+    {
+      id: "friends",
+      title: "Freunde",
+      active: friends.length,
+      total: friends.length,
+    },
+    {
+      id: "news",
+      title: "News",
+      active: unreadNewsCount,
+      total: userNews.length,
+    },
+    {
+      id: "explorer",
+      title: "Forscher Log",
+      active: explorerLogEntries.length,
+      total: explorerLogEntries.length,
+    },
+  ];
 
   useEffect(() => {
     if (!embedded || typeof onHeaderMetaChange !== "function") return;
@@ -928,20 +950,50 @@ Viel Spaß beim Entdecken! 🌿`;
               )}
 
               <div className="flex items-center justify-between px-2 py-2 gap-2 border-t border-stone-200/60">
-                <TabsList className={`flex-1 h-auto rounded-none border-0 flex items-center gap-2 overflow-x-auto justify-start ${embedded ? "bg-transparent" : "bg-white"}`}>
-                  <TabsTrigger value="friends" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white font-semibold rounded-full text-xs sm:text-sm min-w-max px-3 py-2">
-                    <Users className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                    Freunde ({friends.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="news" className="data-[state=active]:bg-pink-600 data-[state=active]:text-white font-semibold rounded-full text-xs sm:text-sm min-w-max px-3 py-2">
-                    <Bell className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                    News ({unreadNewsCount})
-                  </TabsTrigger>
-                  <TabsTrigger value="explorer" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white font-semibold rounded-full text-xs sm:text-sm min-w-max px-3 py-2">
-                    <BookOpenText className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                    Forscher Log
-                  </TabsTrigger>
-                </TabsList>
+                <div
+                  className="flex-1 flex items-center gap-2 overflow-x-auto scrollbar-hide pr-6"
+                  style={{
+                    WebkitMaskImage:
+                      "linear-gradient(to right, black 0px, black calc(100% - " +
+                      chipRightFadePx +
+                      "px), transparent 100%)",
+                    maskImage:
+                      "linear-gradient(to right, black 0px, black calc(100% - " +
+                      chipRightFadePx +
+                      "px), transparent 100%)",
+                  }}
+                >
+                  {moduleChips.map((chip) => {
+                    const isPrimary = activeTab === chip.id;
+                    return (
+                      <button
+                        key={chip.id}
+                        type="button"
+                        onClick={() => setActiveTab(chip.id)}
+                        className={
+                          "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors " +
+                          (isPrimary
+                            ? (isLightUi
+                              ? "bg-white/90 text-[#8f6b22] shadow-sm"
+                              : "bg-black/55 text-[#f7f0c1] shadow-sm")
+                            : (isLightUi
+                              ? "bg-white/55 text-stone-700 hover:bg-white/75"
+                              : "bg-black/35 text-stone-200 hover:bg-black/50"))
+                        }
+                        style={{
+                          borderColor: isPrimary
+                            ? (isLightUi ? "rgba(200,172,98,0.70)" : "rgba(240,229,165,0.75)")
+                            : (isLightUi ? "rgba(200,172,98,0.35)" : "rgba(255,255,255,0.3)"),
+                        }}
+                      >
+                        <span className="font-medium">{chip.title}</span>
+                        <span className={"text-[10px] " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
+                          {chip.active}/{chip.total || "–"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
                 {activeTab === "friends" && (
                   <Button
                     onClick={() => setShowAddFriendDialog(true)}

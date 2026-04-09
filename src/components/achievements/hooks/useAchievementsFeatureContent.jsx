@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle } from "lucide-react";
 import MobileBackButton from "@/components/navigation/MobileBackButton";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { AnimatePresence } from "framer-motion";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -857,44 +857,26 @@ export function useAchievementsFeatureContent({
     return new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime();
   });
 
-  const questSubCategoryChips = [
+  const moduleChips = [
     {
-      id: "global",
-      title: "Global",
+      id: "quests",
+      title: "Aufgaben",
       active: activeQuests.length,
       total: activeQuests.length + completedQuests.length,
     },
     {
-      id: "regular",
-      title: "Standard",
-      active: activeQuests.filter((quest) => quest.type === "regular").length,
-      total:
-        activeQuests.filter((quest) => quest.type === "regular").length +
-        completedQuests.filter((quest) => quest.type === "regular").length,
+      id: "achievements",
+      title: "Erfolge",
+      active: unlockedCount,
+      total: achievements.length,
     },
     {
-      id: "weekly",
-      title: "Wöchentlich",
-      active: activeQuests.filter((quest) => quest.type === "weekly").length,
-      total:
-        activeQuests.filter((quest) => quest.type === "weekly").length +
-        completedQuests.filter((quest) => quest.type === "weekly").length,
+      id: "stats",
+      title: "Statistik",
+      active: totalScans,
+      total: totalScans,
     },
-    {
-      id: "monthly",
-      title: "Monatlich",
-      active: activeQuests.filter((quest) => quest.type === "monthly").length,
-      total:
-        activeQuests.filter((quest) => quest.type === "monthly").length +
-        completedQuests.filter((quest) => quest.type === "monthly").length,
-    },
-    {
-      id: "history",
-      title: "Historie",
-      active: completedQuests.length,
-      total: completedQuests.length,
-    },
-  ].filter((chip) => chip.total > 0 || chip.id === "global");
+  ];
 
   const hasAnyQuestData = activeQuests.length > 0 || completedQuests.length > 0;
 
@@ -1041,7 +1023,7 @@ export function useAchievementsFeatureContent({
 
   const achievementsContentClass = embedded ? "px-4" : "pt-36 px-4 pb-4";
   const statsContentClass = embedded ? "px-4" : "pt-36 px-4 pb-4";
-  const questsContentClass = embedded ? "px-4 h-full min-h-0" : "pt-44 px-4 pb-4";
+  const questsContentClass = embedded ? "mt-0 px-4 h-full min-h-0" : "pt-44 px-4 pb-4";
   const listTopFadePx = 12;
   const listBottomFadePx = 18;
   const chipRightFadePx = 24;
@@ -1145,30 +1127,55 @@ export function useAchievementsFeatureContent({
                   </Badge>
                 </div>
               )}
-
-              <TabsList className={`w-full rounded-none border-0 h-auto px-2 py-2 flex items-center gap-2 overflow-x-auto justify-start ${embedded ? "bg-transparent" : "bg-white"}`}>
-                <TabsTrigger value="quests" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold rounded-full text-xs sm:text-sm relative min-w-max px-3 py-2">
-                  <div className="flex items-center gap-1">
-                    <Target className="w-3 h-3 sm:w-4 sm:h-4" />
-                    <span>Aufgaben</span>
-                  </div>
-                  {showQuestNotification && (
-                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="achievements" className="data-[state=active]:bg-amber-600 data-[state=active]:text-white font-semibold rounded-full text-xs sm:text-sm min-w-max px-3 py-2">
-                  <div className="flex items-center gap-1">
-                    <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />
-                    <span>Erfolge</span>
-                  </div>
-                </TabsTrigger>
-                <TabsTrigger value="stats" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white font-semibold rounded-full text-xs sm:text-sm min-w-max px-3 py-2">
-                  <div className="flex items-center gap-1">
-                    <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4" />
-                    <span>Statistik</span>
-                  </div>
-                </TabsTrigger>
-              </TabsList>
+              <div className={`w-full px-2 py-2 ${embedded ? "bg-transparent" : "bg-white"}`}>
+                <div
+                  className="flex items-center gap-2 overflow-x-auto scrollbar-hide pr-6"
+                  style={{
+                    WebkitMaskImage:
+                      "linear-gradient(to right, black 0px, black calc(100% - " +
+                      chipRightFadePx +
+                      "px), transparent 100%)",
+                    maskImage:
+                      "linear-gradient(to right, black 0px, black calc(100% - " +
+                      chipRightFadePx +
+                      "px), transparent 100%)",
+                  }}
+                >
+                  {moduleChips.map((chip) => {
+                    const isPrimary = activeTab === chip.id;
+                    return (
+                      <button
+                        key={chip.id}
+                        type="button"
+                        onClick={() => setActiveTab(chip.id)}
+                        className={
+                          "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors " +
+                          (isPrimary
+                            ? (isLightUi
+                              ? "bg-white/90 text-[#8f6b22] shadow-sm"
+                              : "bg-black/55 text-[#f7f0c1] shadow-sm")
+                            : (isLightUi
+                              ? "bg-white/55 text-stone-700 hover:bg-white/75"
+                              : "bg-black/35 text-stone-200 hover:bg-black/50"))
+                        }
+                        style={{
+                          borderColor: isPrimary
+                            ? (isLightUi ? "rgba(200,172,98,0.70)" : "rgba(240,229,165,0.75)")
+                            : (isLightUi ? "rgba(200,172,98,0.35)" : "rgba(255,255,255,0.3)"),
+                        }}
+                      >
+                        <span className="font-medium">{chip.title}</span>
+                        <span className={"text-[10px] " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
+                          {chip.active}/{chip.total || "–"}
+                        </span>
+                        {chip.id === "quests" && showQuestNotification && (
+                          <span className="w-2 h-2 rounded-full bg-red-500 border border-white/70" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
               
             </div>
           </div>
@@ -1375,50 +1382,28 @@ export function useAchievementsFeatureContent({
                   maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
                 } : undefined}
               >
-                <div className={`sticky top-0 z-20 -mx-4 px-4 pb-2 ${isLightUi ? "bg-white/35" : "bg-black/18"} backdrop-blur-sm`}>
-                  <div
-                    className="flex gap-2 overflow-x-auto scrollbar-hide pr-6"
-                    style={{
-                      WebkitMaskImage:
-                        "linear-gradient(to right, black 0px, black calc(100% - " +
-                        chipRightFadePx +
-                        "px), transparent 100%)",
-                      maskImage:
-                        "linear-gradient(to right, black 0px, black calc(100% - " +
-                        chipRightFadePx +
-                        "px), transparent 100%)",
-                    }}
-                  >
-                    {questSubCategoryChips.map((chip, chipIndex) => {
-                      const isPrimary = chipIndex === 0;
-                      return (
-                        <div
-                          key={chip.id}
-                          className={
-                            "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap " +
-                            (isPrimary
-                              ? (isLightUi
-                                ? "bg-white/90 text-[#8f6b22] shadow-sm"
-                                : "bg-black/55 text-[#f7f0c1] shadow-sm")
-                              : (isLightUi
-                                ? "bg-white/55 text-stone-700"
-                                : "bg-black/35 text-stone-200"))
-                          }
-                          style={{
-                            borderColor: isPrimary
-                              ? (isLightUi ? "rgba(200,172,98,0.70)" : "rgba(240,229,165,0.75)")
-                              : (isLightUi ? "rgba(200,172,98,0.35)" : "rgba(255,255,255,0.3)"),
-                          }}
-                        >
-                          <span className="font-medium">{chip.title}</span>
-                          <span className={"text-[10px] " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
-                            {chip.active}/{chip.total || "–"}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                {embedded && (
+                  <>
+                    <div
+                      className="pointer-events-none absolute left-0 right-0 top-0 z-20"
+                      style={{
+                        height: Math.max(16, listTopFadePx * 2),
+                        background: isLightUi
+                          ? "linear-gradient(to bottom, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0) 100%)"
+                          : "linear-gradient(to bottom, rgba(8,10,9,0.78) 0%, rgba(8,10,9,0) 100%)",
+                      }}
+                    />
+                    <div
+                      className="pointer-events-none absolute left-0 right-0 bottom-0 z-20"
+                      style={{
+                        height: Math.max(28, listBottomFadePx * 2),
+                        background: isLightUi
+                          ? "linear-gradient(to top, rgba(255,255,255,0.84) 0%, rgba(255,255,255,0) 100%)"
+                          : "linear-gradient(to top, rgba(8,10,9,0.88) 0%, rgba(8,10,9,0) 100%)",
+                      }}
+                    />
+                  </>
+                )}
 
                 <div className="space-y-6" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
                   {activeQuests.length > 0 && (
