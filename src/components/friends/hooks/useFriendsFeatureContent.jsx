@@ -810,12 +810,6 @@ Viel Spaß beim Entdecken! 🌿`;
   const friendsContentClass = embedded ? "mt-0 px-2 pb-20 flex-1 min-h-0 overflow-y-auto overflow-x-hidden" : "pt-36 px-2 pb-4";
   const newsContentClass = embedded ? "mt-0 px-2 pb-20 flex-1 min-h-0 overflow-y-auto overflow-x-hidden" : "pt-36 px-2 pb-4";
   const explorerContentClass = embedded ? "mt-0 px-2 pb-20 flex-1 min-h-0 overflow-y-auto overflow-x-hidden" : "pt-36 px-2 pb-4";
-  const listTopFadePx = 12;
-  const listBottomFadePx = 18;
-  const embeddedContentMaskStyle = embedded ? {
-    WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
-    maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
-  } : undefined;
 
   const moduleChips = [
     {
@@ -1001,8 +995,8 @@ Viel Spaß beim Entdecken! 🌿`;
           </div>
 
           {/* Friends Tab Content */}
-          <TabsContent value="friends" className={friendsContentClass} style={embeddedContentMaskStyle}>
-            <div style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
+          <TabsContent value="friends" className={friendsContentClass}>
+            <div>
               {/* Freundschaftsanfragen */}
               {pendingRequests.length > 0 &&
               <motion.div
@@ -1185,12 +1179,11 @@ Viel Spaß beim Entdecken! 🌿`;
           </TabsContent>
 
           {/* News Tab Content */}
-          <TabsContent value="news" className={newsContentClass} style={embeddedContentMaskStyle}>
+          <TabsContent value="news" className={newsContentClass}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}
             >
               {userNews.length === 0 ? (
                 <div className="text-center py-12">
@@ -1308,12 +1301,11 @@ Viel Spaß beim Entdecken! 🌿`;
             </motion.div>
           </TabsContent>
 
-          <TabsContent value="explorer" className={explorerContentClass} style={embeddedContentMaskStyle}>
+          <TabsContent value="explorer" className={explorerContentClass}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
-              style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}
             >
               {explorerLogEntries.length === 0 ? (
                 <div className="text-center py-12">
