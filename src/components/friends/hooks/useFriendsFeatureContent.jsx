@@ -939,14 +939,26 @@ Viel Spaß beim Entdecken! 🌿`;
                       {activeTab === "explorer" ? "Scans aus den letzten 30 Tagen" : "Dein Freundesbereich"}
                     </p>
                   </div>
-                  <Badge className="bg-stone-800 text-white text-[10px] px-2 py-1 shrink-0">
-                    {activeTab === "friends" ? `${friends.length} Freunde` : activeTab === "news" ? `${unreadNewsCount} neu` : `${explorerLogEntries.length} Eintraege`}
-                  </Badge>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {activeTab === "friends" && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAddFriendDialog(true)}
+                        className="w-11 h-11 rounded-full border border-[#f0e5a5]/35 bg-black/30 backdrop-blur-md flex items-center justify-center hover:bg-black/45 transition-colors shrink-0"
+                        aria-label="Freund hinzufügen"
+                      >
+                        <Plus className="w-5 h-5 text-[#f0e5a5]" />
+                      </button>
+                    )}
+                    <Badge className="bg-stone-800 text-white text-[10px] px-2 py-1 shrink-0">
+                      {activeTab === "friends" ? `${friends.length} Freunde` : activeTab === "news" ? `${unreadNewsCount} neu` : `${explorerLogEntries.length} Eintraege`}
+                    </Badge>
+                  </div>
                 </div>
               )}
 
-              <div className="flex items-center justify-between px-2 py-2 gap-2 border-t border-stone-200/60">
-                <div className="flex-1 grid grid-cols-3 gap-2 min-w-0">
+              <div className="px-2 py-2 border-t border-stone-200/60">
+                <div className="grid grid-cols-3 gap-2 min-w-0">
                   {moduleChips.map((chip) => {
                     const isPrimary = activeTab === chip.id;
                     return (
@@ -975,15 +987,6 @@ Viel Spaß beim Entdecken! 🌿`;
                     );
                   })}
                 </div>
-                {activeTab === "friends" && (
-                  <Button
-                    onClick={() => setShowAddFriendDialog(true)}
-                    size="icon"
-                    className="bg-green-600 hover:bg-green-700 ml-2 w-10 h-10 rounded-full flex-shrink-0"
-                  >
-                    <Plus className="w-5 h-5" />
-                  </Button>
-                )}
               </div>
             </div>
           </div>
