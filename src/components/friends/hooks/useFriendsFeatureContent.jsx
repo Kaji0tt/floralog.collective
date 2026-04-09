@@ -839,6 +839,9 @@ Viel Spaß beim Entdecken! 🌿`;
   const interactiveHoverClass = isLightUi
     ? "hover:border-[#c9ab59]/55 hover:shadow-[0_10px_24px_rgba(162,129,48,0.16)]"
     : "hover:border-[#f0e5a5]/30 hover:bg-stone-950/45 hover:shadow-[0_12px_28px_rgba(0,0,0,0.28)]";
+  const friendTileClass = isLightUi
+    ? "rounded-[1rem] border border-[#c6a54e]/35 bg-white/70"
+    : "rounded-[1rem] border border-[#f0e5a5]/18 bg-stone-950/28";
   const accentBadgeClass = isLightUi
     ? "bg-[#8f6b22] text-white"
     : "bg-[#f0e5a5] text-stone-900";
@@ -1129,20 +1132,20 @@ Viel Spaß beim Entdecken! 🌿`;
                     <p className={`text-sm ${bodyTextClass}`}>Füge Freunde hinzu, um ihre Sammlungen, Erfolge und Scans zu sehen.</p>
                   </div>
                 ) : (
-                  <div className="grid gap-3">
+                  <div className="grid gap-2.5">
                     {friendCards.map(({ friend, friendData }, index) => (
                       <motion.div
                         key={friend.id}
                         initial={{ opacity: 0, x: -16 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: index * 0.04 }}
-                        className={`${nestedCardClass} ${interactiveHoverClass} p-3 md:p-4 transition-all flex items-center justify-between gap-3`}
+                        className={`${friendTileClass} ${interactiveHoverClass} w-full max-w-full overflow-hidden p-2.5 md:p-3 transition-all flex items-center justify-between gap-2.5`}
                       >
                         <button
                           onClick={() => navigate(createPageUrl(`FriendProfile?email=${friendData.email}`))}
-                          className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                          className="flex items-center gap-2.5 flex-1 min-w-0 max-w-full text-left"
                         >
-                          <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-sm shadow-md bg-gradient-to-br from-emerald-500 to-emerald-700 flex-shrink-0">
+                          <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-sm shadow-md bg-gradient-to-br from-emerald-500 to-emerald-700 flex-shrink-0">
                             {friendData.avatar_url ? (
                               <img src={friendData.avatar_url} alt={friendData.name} className="w-full h-full object-cover" />
                             ) : (
@@ -1150,11 +1153,8 @@ Viel Spaß beim Entdecken! 🌿`;
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                            <div className="flex items-center gap-2 min-w-0">
                               <p className={`font-semibold truncate ${titleTextClass}`}>{friendData.name}</p>
-                              <Badge className={isLightUi ? "bg-stone-100 text-stone-700 border border-stone-200 text-[10px]" : "bg-stone-800/50 text-stone-200 border border-stone-700/60 text-[10px]"}>
-                                {friendData.title}
-                              </Badge>
                             </div>
                             <p className={`text-xs truncate ${bodyTextClass}`}>{friendData.email}</p>
                             {friendData.lastActivity && (
