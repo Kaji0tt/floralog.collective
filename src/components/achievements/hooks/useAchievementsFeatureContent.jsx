@@ -857,27 +857,6 @@ export function useAchievementsFeatureContent({
     return new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime();
   });
 
-  const moduleChips = [
-    {
-      id: "quests",
-      title: "Aufgaben",
-      active: activeQuests.length,
-      total: activeQuests.length + completedQuests.length,
-    },
-    {
-      id: "achievements",
-      title: "Erfolge",
-      active: unlockedCount,
-      total: achievements.length,
-    },
-    {
-      id: "stats",
-      title: "Statistik",
-      active: totalScans,
-      total: totalScans,
-    },
-  ];
-
   const hasAnyQuestData = activeQuests.length > 0 || completedQuests.length > 0;
 
   // Prüfe ob es einlösbare Quests gibt
@@ -1016,6 +995,27 @@ export function useAchievementsFeatureContent({
   const topSpeciesList = Array.from(speciesCountMap.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
+
+  const moduleChips = [
+    {
+      id: "quests",
+      title: "Aufgaben",
+      active: activeQuests.length,
+      total: activeQuests.length + completedQuests.length,
+    },
+    {
+      id: "achievements",
+      title: "Erfolge",
+      active: unlockedCount,
+      total: achievements.length,
+    },
+    {
+      id: "stats",
+      title: "Statistik",
+      active: totalScans,
+      total: totalScans,
+    },
+  ];
 
   const tabsHeaderClass = embedded
     ? `sticky top-0 z-40 backdrop-blur-sm border-b ${isLightUi ? "bg-white/70 border-[#b99a48]/30" : "bg-black/20 border-[#f0e5a5]/20"}`
