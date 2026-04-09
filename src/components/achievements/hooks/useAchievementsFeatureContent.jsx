@@ -1040,6 +1040,35 @@ export function useAchievementsFeatureContent({
   const questTitleClass = isLightUi ? "text-stone-900" : "text-stone-100";
   const questBodyClass = isLightUi ? "text-stone-600" : "text-stone-300/90";
   const questMetaClass = isLightUi ? "text-stone-500" : "text-stone-300/80";
+  const achievementUnlockedCardClass = isLightUi
+    ? "border-amber-300 bg-gradient-to-br from-white/90 to-amber-50/90 backdrop-blur-md hover:shadow-md"
+    : "border-[#f0e5a5]/40 bg-gradient-to-br from-[#2d2418]/90 via-[#1c1710]/88 to-[#12100b]/92 backdrop-blur-md hover:shadow-[0_8px_20px_rgba(0,0,0,0.35)]";
+  const achievementLockedCardClass = isLightUi
+    ? "border-stone-200 bg-stone-50/80 backdrop-blur-sm opacity-60"
+    : "border-[#f0e5a5]/25 bg-black/35 backdrop-blur-sm opacity-70";
+  const achievementTitleClass = isLightUi ? "text-stone-900" : "text-stone-100";
+  const achievementMutedTextClass = isLightUi ? "text-stone-600" : "text-stone-300/90";
+  const achievementLockedTitleClass = isLightUi ? "text-stone-500" : "text-stone-400/75";
+  const achievementLockedMutedTextClass = isLightUi ? "text-stone-400" : "text-stone-500/75";
+  const achievementRewardClass = isLightUi
+    ? "bg-amber-50 text-amber-700"
+    : "bg-amber-400/10 text-amber-200";
+  const achievementLockedRewardClass = isLightUi
+    ? "bg-stone-100 text-stone-400"
+    : "bg-stone-700/35 text-stone-400";
+  const statsCardBaseClass = isLightUi
+    ? "border bg-white/90 backdrop-blur-sm"
+    : "border bg-black/35 backdrop-blur-sm";
+  const statsLabelClass = isLightUi ? "text-stone-500" : "text-stone-300/80";
+  const statsTitleClass = isLightUi ? "text-stone-900" : "text-stone-100";
+  const statsBodyClass = isLightUi ? "text-stone-500" : "text-stone-300/80";
+  const rankingHighlightClass = isLightUi
+    ? "border-emerald-300 bg-emerald-50"
+    : "border-emerald-300/55 bg-emerald-500/15";
+  const rankingDefaultClass = isLightUi
+    ? "border-stone-200 bg-stone-50"
+    : "border-[#f0e5a5]/25 bg-stone-900/30";
+  const rankingDefaultBadgeClass = isLightUi ? "bg-stone-800 text-white" : "bg-stone-200 text-stone-900";
 
   return (
     <>
@@ -1181,10 +1210,10 @@ export function useAchievementsFeatureContent({
                         transition={{ delay: index * 0.05 }}>
 
                 <Card className={`border shadow-sm transition-all duration-300 ${
-                        isUnlocked ?
-                        'border-amber-300 bg-gradient-to-br from-white/90 to-amber-50/90 backdrop-blur-md hover:shadow-md' :
-                        'border-stone-200 bg-stone-50/80 backdrop-blur-sm opacity-60'}`
-                        }>
+                  isUnlocked
+                  ? achievementUnlockedCardClass
+                  : achievementLockedCardClass}`
+                  }>
                   <CardContent className="p-3">
                     <div className="flex items-start gap-2">
                       <div className={`text-2xl ${isUnlocked ? '' : 'grayscale opacity-30'} flex-shrink-0`}>
@@ -1199,16 +1228,16 @@ export function useAchievementsFeatureContent({
                                   <Trophy className="w-3 h-3 text-amber-500" />
                                   }
                         </div>
-                        <h3 className={`text-sm font-bold mb-1 ${isUnlocked ? 'text-stone-900' : 'text-stone-500'}`}>
+                        <h3 className={`text-sm font-bold mb-1 ${isUnlocked ? achievementTitleClass : achievementLockedTitleClass}`}>
                           {achievement.title}
                         </h3>
-                        <p className={`text-xs mb-1 ${isUnlocked ? 'text-stone-600' : 'text-stone-400'}`}>
+                        <p className={`text-xs mb-1 ${isUnlocked ? achievementMutedTextClass : achievementLockedMutedTextClass}`}>
                           {achievement.description}
                         </p>
 
                         {achievementReward && (
                           <div className={`flex items-center gap-1 text-xs mt-2 px-2 py-1 rounded-lg ${
-                            isUnlocked ? 'bg-amber-50 text-amber-700' : 'bg-stone-100 text-stone-400'
+                            isUnlocked ? achievementRewardClass : achievementLockedRewardClass
                           }`}>
                             <Gift className="w-3 h-3" />
                             <span className="font-semibold">{achievementReward.display_name}</span>
@@ -1245,10 +1274,14 @@ export function useAchievementsFeatureContent({
                   })}
 
                 {sortedAchievements.length === 0 &&
-                  <Card className="border-2 border-stone-200 bg-white/80 backdrop-blur-md">
+                  <Card className={`border-2 backdrop-blur-md ${
+                    isLightUi
+                      ? "border-stone-200 bg-white/80"
+                      : "border-[#f0e5a5]/25 bg-black/35"
+                  }`}>
                     <CardContent className="p-12 text-center">
-                      <Trophy className="w-16 h-16 text-stone-400 mx-auto mb-4" />
-                      <h3 className="text-xl font-bold text-stone-900 mb-2">
+                      <Trophy className={`w-16 h-16 mx-auto mb-4 ${isLightUi ? "text-stone-400" : "text-stone-500"}`} />
+                      <h3 className={`text-xl font-bold mb-2 ${statsTitleClass}`}>
                         Noch keine Erfolge verfügbar
                       </h3>
                     </CardContent>
@@ -1261,35 +1294,35 @@ export function useAchievementsFeatureContent({
           <TabsContent value="stats" className={statsContentClass} style={embeddedContentMaskStyle}>
             <div className="max-w-6xl mx-auto space-y-4" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
-                <Card className="border border-emerald-200 bg-white/90 backdrop-blur-sm">
+                <Card className={`${statsCardBaseClass} ${isLightUi ? "border-emerald-200" : "border-emerald-300/35"}`}>
                   <CardContent className="p-4">
-                    <p className="text-xs uppercase tracking-wide text-stone-500">Gesamt-Scans</p>
-                    <p className="text-2xl font-bold text-emerald-700 mt-1">{totalScans}</p>
-                    <p className="text-xs text-stone-500 mt-1">{activeDaysSet.size} aktive Tage</p>
+                    <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>Gesamt-Scans</p>
+                    <p className={`text-2xl font-bold mt-1 ${isLightUi ? "text-emerald-700" : "text-emerald-300"}`}>{totalScans}</p>
+                    <p className={`text-xs mt-1 ${statsBodyClass}`}>{activeDaysSet.size} aktive Tage</p>
                   </CardContent>
                 </Card>
 
-                <Card className="border border-blue-200 bg-white/90 backdrop-blur-sm">
+                <Card className={`${statsCardBaseClass} ${isLightUi ? "border-blue-200" : "border-blue-300/35"}`}>
                   <CardContent className="p-4">
-                    <p className="text-xs uppercase tracking-wide text-stone-500">Haeufigster Scan</p>
-                    <p className="text-sm font-bold text-stone-900 mt-1 truncate">{topSpeciesEntry?.[0] || "Noch keine Daten"}</p>
-                    <p className="text-xs text-blue-700 mt-1">{topSpeciesEntry ? `${topSpeciesEntry[1]}x gescannt` : "Scanne mehr Pflanzen"}</p>
+                    <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>Haeufigster Scan</p>
+                    <p className={`text-sm font-bold mt-1 truncate ${statsTitleClass}`}>{topSpeciesEntry?.[0] || "Noch keine Daten"}</p>
+                    <p className={`text-xs mt-1 ${isLightUi ? "text-blue-700" : "text-blue-300"}`}>{topSpeciesEntry ? `${topSpeciesEntry[1]}x gescannt` : "Scanne mehr Pflanzen"}</p>
                   </CardContent>
                 </Card>
 
-                <Card className="border border-purple-200 bg-white/90 backdrop-blur-sm">
+                <Card className={`${statsCardBaseClass} ${isLightUi ? "border-purple-200" : "border-purple-300/35"}`}>
                   <CardContent className="p-4">
-                    <p className="text-xs uppercase tracking-wide text-stone-500">Top-Genus</p>
-                    <p className="text-sm font-bold text-stone-900 mt-1 truncate">{topGenusEntry?.[0] || "Noch keine Daten"}</p>
-                    <p className="text-xs text-purple-700 mt-1">{topGenusEntry ? `${topGenusEntry[1]}x gescannt` : "Scanne mehr Pflanzen"}</p>
+                    <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>Top-Genus</p>
+                    <p className={`text-sm font-bold mt-1 truncate ${statsTitleClass}`}>{topGenusEntry?.[0] || "Noch keine Daten"}</p>
+                    <p className={`text-xs mt-1 ${isLightUi ? "text-purple-700" : "text-purple-300"}`}>{topGenusEntry ? `${topGenusEntry[1]}x gescannt` : "Scanne mehr Pflanzen"}</p>
                   </CardContent>
                 </Card>
 
-                <Card className="border border-amber-200 bg-white/90 backdrop-blur-sm">
+                <Card className={`${statsCardBaseClass} ${isLightUi ? "border-amber-200" : "border-amber-300/35"}`}>
                   <CardContent className="p-4">
-                    <p className="text-xs uppercase tracking-wide text-stone-500">Monats-Trend</p>
-                    <p className="text-2xl font-bold text-stone-900 mt-1">{currentMonthScans}</p>
-                    <p className={`text-xs mt-1 ${monthTrendDelta >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                    <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>Monats-Trend</p>
+                    <p className={`text-2xl font-bold mt-1 ${statsTitleClass}`}>{currentMonthScans}</p>
+                    <p className={`text-xs mt-1 ${monthTrendDelta >= 0 ? (isLightUi ? "text-emerald-700" : "text-emerald-300") : (isLightUi ? "text-rose-700" : "text-rose-300")}`}>
                       {monthTrendDelta >= 0 ? "+" : ""}{monthTrendDelta} vs. letzter Monat
                     </p>
                   </CardContent>
@@ -1297,54 +1330,61 @@ export function useAchievementsFeatureContent({
               </div>
 
               <div className="grid lg:grid-cols-2 gap-4">
-                <Card className="border border-stone-200 bg-white/90 backdrop-blur-sm">
+                <Card className={`${statsCardBaseClass} ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <BarChart3 className="w-4 h-4 text-emerald-600" />
+                    <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
+                      <BarChart3 className={`w-4 h-4 ${isLightUi ? "text-emerald-600" : "text-emerald-300"}`} />
                       Deine Top 5 Scan-Arten
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
                     {topSpeciesList.length === 0 && (
-                      <p className="text-sm text-stone-500">Noch keine Scans verfuegbar.</p>
+                      <p className={`text-sm ${statsBodyClass}`}>Noch keine Scans verfuegbar.</p>
                     )}
                     {topSpeciesList.map(([speciesName, count], index) => (
-                      <div key={speciesName} className="flex items-center justify-between rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
+                      <div
+                        key={speciesName}
+                        className={`flex items-center justify-between rounded-lg border px-3 py-2 ${
+                          isLightUi
+                            ? "border-stone-200 bg-stone-50"
+                            : "border-[#f0e5a5]/20 bg-stone-900/35"
+                        }`}
+                      >
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-stone-900 truncate">#{index + 1} {speciesName}</p>
+                          <p className={`text-sm font-semibold truncate ${statsTitleClass}`}>#{index + 1} {speciesName}</p>
                         </div>
-                        <Badge className="bg-emerald-600 text-white">{count}x</Badge>
+                        <Badge className={isLightUi ? "bg-emerald-600 text-white" : "bg-emerald-300 text-stone-900"}>{count}x</Badge>
                       </div>
                     ))}
                   </CardContent>
                 </Card>
 
-                <Card className="border border-stone-200 bg-white/90 backdrop-blur-sm">
+                <Card className={`${statsCardBaseClass} ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Users className="w-4 h-4 text-indigo-600" />
+                    <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
+                      <Users className={`w-4 h-4 ${isLightUi ? "text-indigo-600" : "text-indigo-300"}`} />
                       Social Vergleich (Scans)
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2">
-                      <p className="text-xs text-indigo-700">Dein Rang</p>
-                      <p className="text-lg font-bold text-indigo-900">
+                    <div className={`rounded-lg border px-3 py-2 ${isLightUi ? "border-indigo-200 bg-indigo-50" : "border-indigo-300/40 bg-indigo-500/10"}`}>
+                      <p className={`text-xs ${isLightUi ? "text-indigo-700" : "text-indigo-200"}`}>Dein Rang</p>
+                      <p className={`text-lg font-bold ${isLightUi ? "text-indigo-900" : "text-indigo-100"}`}>
                         {ownRank > 0 ? `#${ownRank} von ${socialRanking.length}` : "Noch kein Rang"}
                       </p>
                     </div>
 
                     {socialRanking.length === 0 && (
-                      <p className="text-sm text-stone-500">Noch keine Vergleichsdaten verfuegbar.</p>
+                      <p className={`text-sm ${statsBodyClass}`}>Noch keine Vergleichsdaten verfuegbar.</p>
                     )}
 
                     {socialRanking.slice(0, 5).map((entry, index) => (
                       <div
                         key={entry.email}
-                        className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.email === ownEmailLower ? "border-emerald-300 bg-emerald-50" : "border-stone-200 bg-stone-50"}`}
+                        className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.email === ownEmailLower ? rankingHighlightClass : rankingDefaultClass}`}
                       >
-                        <p className="text-sm font-semibold text-stone-900 truncate">#{index + 1} {entry.name}</p>
-                        <Badge className={entry.email === ownEmailLower ? "bg-emerald-600 text-white" : "bg-stone-800 text-white"}>{entry.scans}x</Badge>
+                        <p className={`text-sm font-semibold truncate ${statsTitleClass}`}>#{index + 1} {entry.name}</p>
+                        <Badge className={entry.email === ownEmailLower ? (isLightUi ? "bg-emerald-600 text-white" : "bg-emerald-300 text-stone-900") : rankingDefaultBadgeClass}>{entry.scans}x</Badge>
                       </div>
                     ))}
                   </CardContent>
