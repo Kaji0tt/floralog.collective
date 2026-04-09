@@ -77,6 +77,7 @@ export function useAchievementsFeatureContent({
   const [newAchievements, setNewAchievements] = useState([]);
   const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
   const [showCompleted, setShowCompleted] = useState(true);
+  const [activeQuestSubCategory, setActiveQuestSubCategory] = useState("global");
 
   useEffect(() => {
     const loadUser = async () => {
@@ -857,6 +858,63 @@ export function useAchievementsFeatureContent({
     return new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime();
   });
 
+  const questSubCategoryChips = [
+    {
+      id: "global",
+      title: "Global",
+      active: activeQuests.length,
+      total: activeQuests.length + completedQuests.length,
+    },
+    {
+      id: "regular",
+      title: "Standard",
+      active: activeQuests.filter((quest) => quest.type === "regular").length,
+      total:
+        activeQuests.filter((quest) => quest.type === "regular").length +
+        completedQuests.filter((quest) => quest.type === "regular").length,
+    },
+    {
+      id: "weekly",
+      title: "Wöchentlich",
+      active: activeQuests.filter((quest) => quest.type === "weekly").length,
+      total:
+        activeQuests.filter((quest) => quest.type === "weekly").length +
+        completedQuests.filter((quest) => quest.type === "weekly").length,
+    },
+    {
+      id: "monthly",
+      title: "Monatlich",
+      active: activeQuests.filter((quest) => quest.type === "monthly").length,
+      total:
+        activeQuests.filter((quest) => quest.type === "monthly").length +
+        completedQuests.filter((quest) => quest.type === "monthly").length,
+    },
+    {
+      id: "history",
+      title: "Historie",
+      active: completedQuests.length,
+      total: completedQuests.length,
+    },
+  ].filter((chip) => chip.id === "global" || chip.id === "history" || chip.total > 0);
+
+  const filterQuestsBySubCategory = (questList) => {
+    if (activeQuestSubCategory === "global") return questList;
+    if (activeQuestSubCategory === "history") return questList;
+    return questList.filter((quest) => quest.type === activeQuestSubCategory);
+  };
+
+  const activeQuestsForDisplay =
+    activeQuestSubCategory === "history"
+      ? []
+      : filterQuestsBySubCategory(activeQuests);
+  const completedQuestsForDisplay =
+    activeQuestSubCategory === "history"
+      ? completedQuests
+      : filterQuestsBySubCategory(completedQuests);
+  const hasAnyQuestData = activeQuests.length > 0 || completedQuests.length > 0;
+  const hasVisibleQuestData =
+    activeQuestsForDisplay.length > 0 || completedQuestsForDisplay.length > 0;
+
   // Prüfe ob es einlösbare Quests gibt
   const hasRedeemableQuests = activeQuests.some((q) => q.isCompleted);
   const showQuestNotification = hasRedeemableQuests;
@@ -1000,9 +1058,10 @@ export function useAchievementsFeatureContent({
 
   const achievementsContentClass = embedded ? "px-4" : "pt-36 px-4 pb-4";
   const statsContentClass = embedded ? "px-4" : "pt-36 px-4 pb-4";
-  const questsContentClass = embedded ? "px-4" : "pt-44 px-4 pb-4";
+  const questsContentClass = embedded ? "px-4 h-full min-h-0" : "pt-44 px-4 pb-4";
   const listTopFadePx = 12;
   const listBottomFadePx = 18;
+  const chipRightFadePx = 24;
   const embeddedBottomSafePx = 80;
   const embeddedContentMaskStyle = embedded ? {
     WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
@@ -1324,289 +1383,272 @@ export function useAchievementsFeatureContent({
           </TabsContent>
 
           {/* Aufgaben Tab */}
-          <TabsContent value="quests" className={questsContentClass} style={embeddedContentMaskStyle}>
-            <div className="max-w-6xl mx-auto space-y-6">
-
-              {/* Aktive Quests */}
-              {activeQuests.length > 0 &&
-
-                <div className="grid md:grid-cols-2 gap-4">
-                    {activeQuests.map((quest, index) => {
-                    const rawProgress = quest.progress || 0;
-                    const target = quest.required_discoveries || 0;
-                    const displayProgress = target > 0 ? Math.min(rawProgress, target) : rawProgress;
-                    const progressPercentage = target > 0 ?
-                    Math.min(100, (rawProgress / target) * 100) :
-                    0;
-
+          <TabsContent value="quests" className={questsContentClass} style={embedded ? undefined : embeddedContentMaskStyle}>
+            <div className={`max-w-6xl mx-auto ${embedded ? "h-full min-h-0 flex flex-col gap-3" : "space-y-4"}`}>
+              <div className="shrink-0 relative flex items-center gap-2">
+                <div
+                  className="-mx-4 px-4 pb-0 flex-1 flex gap-2 overflow-x-auto scrollbar-hide pr-6"
+                  style={{
+                    WebkitMaskImage:
+                      "linear-gradient(to right, black 0px, black calc(100% - " +
+                      chipRightFadePx +
+                      "px), transparent 100%)",
+                    maskImage:
+                      "linear-gradient(to right, black 0px, black calc(100% - " +
+                      chipRightFadePx +
+                      "px), transparent 100%)",
+                  }}
+                >
+                  {questSubCategoryChips.map((chip) => {
+                    const isActive = activeQuestSubCategory === chip.id;
                     return (
-                      <motion.div
-                        key={quest.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.05 }}>
+                      <button
+                        key={chip.id}
+                        type="button"
+                        onClick={() => setActiveQuestSubCategory(chip.id)}
+                        className={
+                          "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors " +
+                          (isActive
+                            ? (isLightUi
+                              ? "bg-white/90 text-[#8f6b22] shadow-sm"
+                              : "bg-black/55 text-[#f7f0c1] shadow-sm")
+                            : (isLightUi
+                              ? "bg-white/55 text-stone-700 hover:bg-white/75"
+                              : "bg-black/35 text-stone-200 hover:bg-black/50"))
+                        }
+                        style={{
+                          borderColor: isActive
+                            ? (isLightUi ? "rgba(200,172,98,0.70)" : "rgba(240,229,165,0.75)")
+                            : (isLightUi ? "rgba(200,172,98,0.35)" : "rgba(255,255,255,0.3)"),
+                        }}
+                      >
+                        <span className="font-medium">{chip.title}</span>
+                        <span className={"text-[10px] " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
+                          {chip.active}/{chip.total || "–"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
-                          <Card className={`border-2 shadow-sm backdrop-blur-sm hover:shadow-md transition-all ${questCardSurfaceClass} ${questBorderClass(quest)}`}>
-                            <CardContent className="p-3">
-                              <div className="flex items-start gap-2">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                              quest.isCompleted ? 'bg-gradient-to-br from-green-500 to-green-600' :
-                              quest.type === 'weekly' ? 'bg-gradient-to-br from-emerald-500 to-emerald-600' :
-                              quest.type === 'monthly' ? 'bg-gradient-to-br from-purple-500 to-purple-600' :
-                              quest.type === 'collection' ? 'bg-gradient-to-br from-indigo-500 to-indigo-600' :
-                              'bg-gradient-to-br from-blue-500 to-blue-600'}`
-                              }>
-                                  {quest.isCompleted ?
-                                <CheckCircle2 className="w-4 h-4 text-white" /> :
-                                quest.type === 'collection' ?
-                                <span className="text-sm">{quest.icon_emoji || '🗺️'}</span> :
+              <div
+                className={`relative ${embedded ? "flex-1 min-h-0 overflow-y-auto pb-20" : "pb-2"}`}
+                style={embedded ? {
+                  WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
+                  maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
+                } : undefined}
+              >
+                <div className="space-y-6" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
+                  {activeQuestsForDisplay.length > 0 && (
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {activeQuestsForDisplay.map((quest, index) => {
+                        const rawProgress = quest.progress || 0;
+                        const target = quest.required_discoveries || 0;
+                        const displayProgress = target > 0 ? Math.min(rawProgress, target) : rawProgress;
+                        const progressPercentage = target > 0 ? Math.min(100, (rawProgress / target) * 100) : 0;
 
-                                <Target className="w-4 h-4 text-white" />
-                                }
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-1 mb-1 flex-wrap">
-                                    {quest.isCompleted &&
-                                  <Badge className="bg-green-600 text-white text-[10px] px-1 py-0">
-                                        ✓ Abgeschlossen
-                                      </Badge>
-                                  }
-                                    {quest.type === 'weekly' &&
-                                  <Badge className="bg-emerald-600 text-white text-[10px] px-1 py-0">
-                                        📅 Wöchentlich
-                                      </Badge>
-                                  }
-                                    {quest.type === 'monthly' &&
-                                  <Badge className="bg-purple-600 text-white text-[10px] px-1 py-0">
-                                        📆 Monatlich
-                                      </Badge>
-                                  }
-                                    {quest.type === 'collection' &&
-                                  <Badge className="bg-indigo-600 text-white text-[10px] px-1 py-0">
-                                        🗺️ Sammlung
-                                      </Badge>
-                                  }
-                                    {quest.category && quest.category !== "Alle" &&
-                                  <Badge className={`text-[10px] px-1 py-0 ${
-                                  quest.category === "Bäume" ? "bg-green-600" :
-                                  quest.category === "Sträucher" ? "bg-emerald-600" :
-                                  "bg-pink-600"} text-white`
+                        return (
+                          <motion.div
+                            key={quest.id}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                          >
+                            <Card className={`relative overflow-hidden border-2 shadow-sm backdrop-blur-sm hover:shadow-md transition-all ${questCardSurfaceClass} ${questBorderClass(quest)}`}>
+                              <div className="absolute inset-0 bg-black/35 pointer-events-none" />
+                              <CardContent className="relative z-10 p-3">
+                                <div className="flex items-start gap-2">
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                    quest.isCompleted ? "bg-gradient-to-br from-green-500 to-green-600" :
+                                    quest.type === "weekly" ? "bg-gradient-to-br from-emerald-500 to-emerald-600" :
+                                    quest.type === "monthly" ? "bg-gradient-to-br from-purple-500 to-purple-600" :
+                                    quest.type === "collection" ? "bg-gradient-to-br from-indigo-500 to-indigo-600" :
+                                    "bg-gradient-to-br from-blue-500 to-blue-600"}`
                                   }>
-                                        {quest.category}
-                                      </Badge>
-                                  }
+                                    {quest.isCompleted ? <CheckCircle2 className="w-4 h-4 text-white" /> : quest.type === "collection" ? <span className="text-sm">{quest.icon_emoji || "🗺️"}</span> : <Target className="w-4 h-4 text-white" />}
                                   </div>
-                                  <h3 className={`text-sm font-bold mb-1 ${questTitleClass}`}>
-                                    {quest.title}
-                                  </h3>
-                                  <p className={`text-xs mb-2 ${questBodyClass}`}>
-                                    {quest.description}
-                                  </p>
-                                  {renderQuestTargetBadges(quest)}
-                                  
-                                  {quest.required_discoveries &&
-                                <div className="space-y-1 mb-2">
-                                      <div className="flex items-center justify-between text-xs">
-                                        <span className={questMetaClass}>Fortschritt</span>
-                                        <span className="font-bold text-blue-700">
-                                          {displayProgress} / {quest.required_discoveries}
-                                        </span>
-                                      </div>
-                                      <Progress value={progressPercentage} className="h-1.5" />
-                                    </div>
-                                }
-
-                                  {quest.isCompleted &&
-                                  <div className={`space-y-2 pt-2 border-t ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
-                                      {quest.rewardData && (
-                                        <div className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 rounded-lg px-2 py-1">
-                                          <Gift className="w-3 h-3" />
-                                          <span className="font-semibold">{quest.rewardData.display_name}</span>
-                                        </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1 mb-1 flex-wrap">
+                                      {quest.isCompleted && <Badge className="bg-green-600 text-white text-[10px] px-1 py-0">✓ Abgeschlossen</Badge>}
+                                      {quest.type === "weekly" && <Badge className="bg-emerald-600 text-white text-[10px] px-1 py-0">📅 Wöchentlich</Badge>}
+                                      {quest.type === "monthly" && <Badge className="bg-purple-600 text-white text-[10px] px-1 py-0">📆 Monatlich</Badge>}
+                                      {quest.type === "collection" && <Badge className="bg-indigo-600 text-white text-[10px] px-1 py-0">🗺️ Sammlung</Badge>}
+                                      {quest.category && quest.category !== "Alle" && (
+                                        <Badge className={`text-[10px] px-1 py-0 ${quest.category === "Bäume" ? "bg-green-600" : quest.category === "Sträucher" ? "bg-emerald-600" : "bg-pink-600"} text-white`}>
+                                          {quest.category}
+                                        </Badge>
                                       )}
-                                      <div className="flex items-center justify-between">
-                                        {quest.completedAt && (
-                                          <span className={`text-[11px] ${questMetaClass}`}>
-                                            Abgeschlossen am {format(new Date(quest.completedAt), 'dd.MM.yyyy', { locale: de })}
-                                          </span>
-                                        )}
-                                        <div className="flex justify-end flex-1">
-                                          {quest.canRedeem ? (
-                                            <Button
-                                              onClick={() => {
-                                                // Prüfe ob das die erste Quest ist
-                                                const allCompletedQuests = [...userQuests, ...userWeeklyQuests, ...userMonthlyQuests, ...userCollectionQuests].filter(q => q.redeemed);
-                                                const isFirstQuest = allCompletedQuests.length === 0;
+                                    </div>
+                                    <h3 className={`text-sm font-bold mb-1 ${questTitleClass}`}>{quest.title}</h3>
+                                    <p className={`text-xs mb-2 ${questBodyClass}`}>{quest.description}</p>
+                                    {renderQuestTargetBadges(quest)}
 
-                                                redeemQuestMutation.mutate({
-                                                  userQuestId: quest.userQuestId,
-                                                  questType: quest.type,
-                                                  rewardName: quest.rewardData?.name,
-                                                  isFirstQuest: isFirstQuest,
-                                                  questTitle: quest.title
-                                                });
-                                              }}
-                                              disabled={redeemQuestMutation.isPending}
-                                              size="sm"
-                                              className="h-7 text-xs bg-green-600 hover:bg-green-700"
-                                            >
-                                              Einlösen
-                                            </Button>
-                                          ) : (
-                                            <span className={`text-[11px] italic ${questMetaClass}`}>
-                                              Bereits eingelöst
-                                            </span>
+                                    {quest.required_discoveries && (
+                                      <div className="space-y-1 mb-2">
+                                        <div className="flex items-center justify-between text-xs">
+                                          <span className={questMetaClass}>Fortschritt</span>
+                                          <span className="font-bold text-blue-700">{displayProgress} / {quest.required_discoveries}</span>
+                                        </div>
+                                        <Progress value={progressPercentage} className="h-1.5" />
+                                      </div>
+                                    )}
+
+                                    {quest.isCompleted && (
+                                      <div className={`space-y-2 pt-2 border-t ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
+                                        {quest.rewardData && (
+                                          <div className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 rounded-lg px-2 py-1">
+                                            <Gift className="w-3 h-3" />
+                                            <span className="font-semibold">{quest.rewardData.display_name}</span>
+                                          </div>
+                                        )}
+                                        <div className="flex items-center justify-between">
+                                          {quest.completedAt && <span className={`text-[11px] ${questMetaClass}`}>Abgeschlossen am {format(new Date(quest.completedAt), "dd.MM.yyyy", { locale: de })}</span>}
+                                          <div className="flex justify-end flex-1">
+                                            {quest.canRedeem ? (
+                                              <Button
+                                                onClick={() => {
+                                                  const allCompletedQuests = [...userQuests, ...userWeeklyQuests, ...userMonthlyQuests, ...userCollectionQuests].filter((q) => q.redeemed);
+                                                  const isFirstQuest = allCompletedQuests.length === 0;
+
+                                                  redeemQuestMutation.mutate({
+                                                    userQuestId: quest.userQuestId,
+                                                    questType: quest.type,
+                                                    rewardName: quest.rewardData?.name,
+                                                    isFirstQuest,
+                                                    questTitle: quest.title,
+                                                  });
+                                                }}
+                                                disabled={redeemQuestMutation.isPending}
+                                                size="sm"
+                                                className="h-7 text-xs bg-green-600 hover:bg-green-700"
+                                              >
+                                                Einlösen
+                                              </Button>
+                                            ) : (
+                                              <span className={`text-[11px] italic ${questMetaClass}`}>Bereits eingelöst</span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {completedQuestsForDisplay.length > 0 && (
+                    <div className="space-y-3">
+                      <button
+                        type="button"
+                        className="flex items-center justify-between w-full text-left"
+                        onClick={() => setShowCompleted((prev) => !prev)}
+                        style={{
+                          color: averageColor && isColorDark(averageColor) ? "rgb(250, 250, 249)" : "rgb(28, 25, 23)",
+                        }}
+                      >
+                        <h3 className="text-sm font-semibold">Abgeschlossene Aufgaben</h3>
+                        <span className="text-xs opacity-80">{showCompleted ? "▾" : "▸"}</span>
+                      </button>
+
+                      {showCompleted && (
+                        <div className="grid md:grid-cols-2 gap-4">
+                          {completedQuestsForDisplay.map((quest, index) => {
+                            const rawProgress = quest.progress || 0;
+                            const target = quest.required_discoveries || 0;
+                            const displayProgress = target > 0 ? Math.min(rawProgress, target) : rawProgress;
+                            const progressPercentage = target > 0 ? Math.min(100, (rawProgress / target) * 100) : 0;
+
+                            return (
+                              <motion.div
+                                key={`${quest.type}-${quest.userQuestId || quest.id}-${index}`}
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: index * 0.03 }}
+                              >
+                                <Card className={`relative overflow-hidden border-2 shadow-sm backdrop-blur-sm transition-all opacity-70 ${questCardSurfaceClass} ${questBorderClass(quest)}`}>
+                                  <div className="absolute inset-0 bg-black/35 pointer-events-none" />
+                                  <CardContent className="relative z-10 p-3">
+                                    <div className="flex items-start gap-2">
+                                      <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-stone-400">
+                                        <CheckCircle2 className="w-4 h-4 text-white" />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1 mb-1 flex-wrap">
+                                          <Badge className="bg-stone-500 text-white text-[10px] px-1 py-0">✓ Abgeschlossen</Badge>
+                                          {quest.type === "weekly" && <Badge className="bg-emerald-600 text-white text-[10px] px-1 py-0">📅 Wöchentlich</Badge>}
+                                          {quest.type === "monthly" && <Badge className="bg-purple-600 text-white text-[10px] px-1 py-0">📆 Monatlich</Badge>}
+                                          {quest.type === "collection" && <Badge className="bg-indigo-600 text-white text-[10px] px-1 py-0">🗺️ Sammlung</Badge>}
+                                          {quest.category && quest.category !== "Alle" && (
+                                            <Badge className={`text-[10px] px-1 py-0 ${quest.category === "Bäume" ? "bg-green-600" : quest.category === "Sträucher" ? "bg-emerald-600" : "bg-pink-600"} text-white`}>
+                                              {quest.category}
+                                            </Badge>
                                           )}
                                         </div>
+                                        <h3 className={`text-sm font-bold mb-1 ${questTitleClass}`}>{quest.title}</h3>
+                                        <p className={`text-xs mb-2 ${questBodyClass}`}>{quest.description}</p>
+                                        {renderQuestTargetBadges(quest)}
+
+                                        {quest.required_discoveries && (
+                                          <div className="space-y-1 mb-2">
+                                            <div className="flex items-center justify-between text-xs">
+                                              <span className={questMetaClass}>Fortschritt</span>
+                                              <span className="font-bold text-blue-700">{displayProgress} / {quest.required_discoveries}</span>
+                                            </div>
+                                            <Progress value={progressPercentage} className="h-1.5" />
+                                          </div>
+                                        )}
+
+                                        <div className={`space-y-1 pt-2 border-t ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
+                                          {quest.rewardData && (
+                                            <div className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 rounded-lg px-2 py-1">
+                                              <Gift className="w-3 h-3" />
+                                              <span className="font-semibold">{quest.rewardData.display_name}</span>
+                                            </div>
+                                          )}
+                                          <div className="flex items-center justify-between">
+                                            {quest.completedAt && <span className={`text-[11px] ${questMetaClass}`}>Abgeschlossen am {format(new Date(quest.completedAt), "dd.MM.yyyy", { locale: de })}</span>}
+                                            <span className={`text-[11px] italic ${questMetaClass}`}>Bereits eingelöst</span>
+                                          </div>
+                                        </div>
                                       </div>
                                     </div>
-                                  }
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </motion.div>);
+                                  </CardContent>
+                                </Card>
+                              </motion.div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-                  })}
-                  </div>
+                  {!hasAnyQuestData && (
+                    <div className="text-center py-20">
+                      <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 max-w-md mx-auto border border-stone-200 shadow-lg">
+                        <Target className="w-16 h-16 text-stone-400 mx-auto mb-4" />
+                        <h3 className="text-xl font-bold text-stone-900 mb-2">Keine aktiven Aufgaben</h3>
+                        <p className="text-stone-600">Alle Aufgaben bereits eingelöst!</p>
+                      </div>
+                    </div>
+                  )}
 
-                }
-
-              {/* Historie: Abgeschlossene Quests */}
-              {completedQuests.length > 0 && (
-                <div className="space-y-3">
-                  <button
-                    type="button"
-                    className="flex items-center justify-between w-full text-left"
-                    onClick={() => setShowCompleted(prev => !prev)}
-                    style={{
-                      color: averageColor && isColorDark(averageColor) ? 'rgb(250, 250, 249)' : 'rgb(28, 25, 23)'
-                    }}
-                  >
-                    <h3 className="text-sm font-semibold">
-                      Abgeschlossene Aufgaben
-                    </h3>
-                    <span className="text-xs opacity-80">
-                      {showCompleted ? '▾' : '▸'}
-                    </span>
-                  </button>
-
-                  {showCompleted && (
-                  <div className="grid md:grid-cols-2 gap-4">
-                    {completedQuests.map((quest, index) => {
-                      const rawProgress = quest.progress || 0;
-                      const target = quest.required_discoveries || 0;
-                      const displayProgress = target > 0 ? Math.min(rawProgress, target) : rawProgress;
-                      const progressPercentage = target > 0 ?
-                      Math.min(100, (rawProgress / target) * 100) :
-                      0;
-
-                      return (
-                        <motion.div
-                          key={`${quest.type}-${quest.userQuestId || quest.id}-${index}`}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.03 }}>
-
-                          <Card className={`border-2 shadow-sm backdrop-blur-sm transition-all opacity-70 ${questCardSurfaceClass} ${questBorderClass(quest)}`}>
-                            <CardContent className="p-3">
-                              <div className="flex items-start gap-2">
-                                <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-stone-400">
-                                  <CheckCircle2 className="w-4 h-4 text-white" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-1 mb-1 flex-wrap">
-                                    <Badge className="bg-stone-500 text-white text-[10px] px-1 py-0">
-                                      ✓ Abgeschlossen
-                                    </Badge>
-                                    {quest.type === 'weekly' && (
-                                      <Badge className="bg-emerald-600 text-white text-[10px] px-1 py-0">
-                                        📅 Wöchentlich
-                                      </Badge>
-                                    )}
-                                    {quest.type === 'monthly' && (
-                                      <Badge className="bg-purple-600 text-white text-[10px] px-1 py-0">
-                                        📆 Monatlich
-                                      </Badge>
-                                    )}
-                                    {quest.type === 'collection' && (
-                                      <Badge className="bg-indigo-600 text-white text-[10px] px-1 py-0">
-                                        🗺️ Sammlung
-                                      </Badge>
-                                    )}
-                                    {quest.category && quest.category !== 'Alle' && (
-                                      <Badge className={`text-[10px] px-1 py-0 ${
-                                      quest.category === 'Bäume' ? 'bg-green-600' :
-                                      quest.category === 'Sträucher' ? 'bg-emerald-600' :
-                                      'bg-pink-600'} text-white`
-                                      }>
-                                        {quest.category}
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  <h3 className={`text-sm font-bold mb-1 ${questTitleClass}`}>
-                                    {quest.title}
-                                  </h3>
-                                  <p className={`text-xs mb-2 ${questBodyClass}`}>
-                                    {quest.description}
-                                  </p>
-                                  {renderQuestTargetBadges(quest)}
-
-                                  {quest.required_discoveries && (
-                                    <div className="space-y-1 mb-2">
-                                      <div className="flex items-center justify-between text-xs">
-                                        <span className={questMetaClass}>Fortschritt</span>
-                                        <span className="font-bold text-blue-700">
-                                          {displayProgress} / {quest.required_discoveries}
-                                        </span>
-                                      </div>
-                                      <Progress value={progressPercentage} className="h-1.5" />
-                                    </div>
-                                  )}
-
-                                  <div className={`space-y-1 pt-2 border-t ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
-                                    {quest.rewardData && (
-                                      <div className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 rounded-lg px-2 py-1">
-                                        <Gift className="w-3 h-3" />
-                                        <span className="font-semibold">{quest.rewardData.display_name}</span>
-                                      </div>
-                                    )}
-                                    <div className="flex items-center justify-between">
-                                      {quest.completedAt && (
-                                        <span className={`text-[11px] ${questMetaClass}`}>
-                                          Abgeschlossen am {format(new Date(quest.completedAt), 'dd.MM.yyyy', { locale: de })}
-                                        </span>
-                                      )}
-                                      <span className={`text-[11px] italic ${questMetaClass}`}>
-                                        Bereits eingelöst
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </motion.div>
-                      );
-                    })}
-                  </div>
+                  {hasAnyQuestData && !hasVisibleQuestData && (
+                    <div className="text-center py-20">
+                      <div className={`rounded-2xl p-8 max-w-md mx-auto border backdrop-blur-md ${isLightUi ? "bg-white/80 border-stone-200" : "bg-black/35 border-[#f0e5a5]/35"}`}>
+                        <Target className={`w-16 h-16 mx-auto mb-4 ${isLightUi ? "text-stone-400" : "text-[#f0e5a5]/65"}`} />
+                        <h3 className={`text-xl font-bold mb-2 ${isLightUi ? "text-stone-900" : "text-[#f8f4d6]"}`}>Keine Aufgaben in dieser Kategorie</h3>
+                        <p className={isLightUi ? "text-stone-600" : "text-stone-300"}>Wähle eine andere Sub-Kategorie, um weitere Aufgaben zu sehen.</p>
+                      </div>
+                    </div>
                   )}
                 </div>
-              )}
-
-              {activeQuests.length === 0 && completedQuests.length === 0 &&
-                <div className="text-center py-20">
-                  <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 max-w-md mx-auto border border-stone-200 shadow-lg">
-                    <Target className="w-16 h-16 text-stone-400 mx-auto mb-4" />
-                    <h3 className="text-xl font-bold text-stone-900 mb-2">
-                      Keine aktiven Aufgaben
-                    </h3>
-                    <p className="text-stone-600">
-                      Alle Aufgaben bereits eingelöst!
-                    </p>
-                  </div>
-                </div>
-                }
+              </div>
             </div>
           </TabsContent>
         </Tabs>
