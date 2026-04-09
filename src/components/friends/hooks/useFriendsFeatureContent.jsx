@@ -798,17 +798,14 @@ Viel Spaß beim Entdecken! 🌿`;
     ? `sticky top-0 z-40 backdrop-blur-sm border-b ${isLightUi ? "bg-white/70 border-[#b99a48]/30" : "bg-black/20 border-[#f0e5a5]/20"}`
     : "fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200";
 
-  const friendsContentClass = embedded ? "pt-3 px-2 pb-4" : "pt-36 px-2 pb-4";
-  const newsContentClass = embedded ? "pt-3 px-2 pb-4" : "pt-36 px-2 pb-4";
-  const explorerContentClass = embedded ? "pt-3 px-2 pb-4" : "pt-36 px-2 pb-4";
+  const friendsContentClass = embedded ? "mt-0 px-2 pb-20 flex-1 min-h-0 overflow-y-auto overflow-x-hidden" : "pt-36 px-2 pb-4";
+  const newsContentClass = embedded ? "mt-0 px-2 pb-20 flex-1 min-h-0 overflow-y-auto overflow-x-hidden" : "pt-36 px-2 pb-4";
+  const explorerContentClass = embedded ? "mt-0 px-2 pb-20 flex-1 min-h-0 overflow-y-auto overflow-x-hidden" : "pt-36 px-2 pb-4";
   const listTopFadePx = 12;
   const listBottomFadePx = 18;
-  const embeddedBottomSafePx = 80;
   const embeddedContentMaskStyle = embedded ? {
     WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
     maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
-    paddingTop: listTopFadePx,
-    paddingBottom: embeddedBottomSafePx,
   } : undefined;
 
   const moduleChips = [
@@ -907,7 +904,7 @@ Viel Spaß beim Entdecken! 🌿`;
       <div
         data-embedded-module="friends"
         data-theme={isLightUi ? "light" : "dark"}
-        className={embedded ? "h-full min-h-0 overflow-y-auto overflow-x-hidden" : "min-h-screen p-4 md:p-8 overflow-x-hidden"}
+        className={embedded ? "h-full min-h-0 overflow-hidden" : "min-h-screen p-4 md:p-8 overflow-x-hidden"}
       >
         {!embedded && <MobileBackButton />}
 
@@ -927,10 +924,10 @@ Viel Spaß beim Entdecken! 🌿`;
         }
       </AnimatePresence>
 
-      <div className={`${embedded ? "w-full" : "max-w-4xl mx-auto"} w-full`}>
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <div className={`${embedded ? "w-full h-full min-h-0 flex flex-col" : "max-w-4xl mx-auto"} w-full`}>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className={embedded ? "w-full h-full min-h-0 flex flex-col" : "w-full"}>
           {/* Tabs Header - Fixed am oberen Bildschirmrand */}
-          <div className={tabsHeaderClass}>
+          <div className={`${tabsHeaderClass} ${embedded ? "shrink-0" : ""}`}>
             <div className="max-w-4xl mx-auto">
               {!embedded && (
                 <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-3">
@@ -993,118 +990,119 @@ Viel Spaß beim Entdecken! 🌿`;
 
           {/* Friends Tab Content */}
           <TabsContent value="friends" className={friendsContentClass} style={embeddedContentMaskStyle}>
-            {/* Freundschaftsanfragen */}
-            {pendingRequests.length > 0 &&
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="mb-2">
+            <div style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
+              {/* Freundschaftsanfragen */}
+              {pendingRequests.length > 0 &&
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="mb-2">
 
-              <Card className="border-2 border-amber-200 shadow-lg bg-white">
-                <CardHeader className="border-b border-amber-100 bg-amber-50 p-4">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Bell className="w-5 h-5 text-amber-600" />
-                    Freundschaftsanfragen
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4">
-                  <div className="space-y-3">
-                    {pendingRequests.map((request, index) => {
-                    const requesterData = getFriendData(request);
-                    if (!requesterData) return null;
+                <Card className="border-2 border-amber-200 shadow-lg bg-white">
+                  <CardHeader className="border-b border-amber-100 bg-amber-50 p-4">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Bell className="w-5 h-5 text-amber-600" />
+                      Freundschaftsanfragen
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4">
+                    <div className="space-y-3">
+                      {pendingRequests.map((request, index) => {
+                      const requesterData = getFriendData(request);
+                      if (!requesterData) return null;
 
-                    return (
-                      <motion.div
-                        key={request.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.1 }}>
+                      return (
+                        <motion.div
+                          key={request.id}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.1 }}>
 
-                          <Card className="border-2 border-stone-200 bg-white">
-                            <CardContent className="p-4">
-                              <div className="flex items-center justify-between flex-wrap gap-3">
-                                <div className="flex items-center gap-3 flex-1 min-w-0">
-                                  <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden flex-shrink-0">
-                                    {requesterData?.avatar_url ?
-                                  <img src={requesterData.avatar_url} alt={requesterData.name} className="w-full h-full object-cover" /> :
+                            <Card className="border-2 border-stone-200 bg-white">
+                              <CardContent className="p-4">
+                                <div className="flex items-center justify-between flex-wrap gap-3">
+                                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                                    <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden flex-shrink-0">
+                                      {requesterData?.avatar_url ?
+                                    <img src={requesterData.avatar_url} alt={requesterData.name} className="w-full h-full object-cover" /> :
 
-                                  requesterData.name?.[0]?.toUpperCase() || '?'
-                                  }
+                                    requesterData.name?.[0]?.toUpperCase() || '?'
+                                    }
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="font-bold text-stone-900 truncate">{requesterData.name}</div>
+                                      <div className="text-sm text-stone-600">möchte dein Freund sein</div>
+                                    </div>
                                   </div>
-                                  <div className="min-w-0">
-                                    <div className="font-bold text-stone-900 truncate">{requesterData.name}</div>
-                                    <div className="text-sm text-stone-600">möchte dein Freund sein</div>
+                                  <div className="flex gap-2 flex-shrink-0">
+                                    <Button
+                                    size="sm"
+                                    onClick={() => acceptFriendRequestMutation.mutate(request)}
+                                    disabled={acceptFriendRequestMutation.isPending}
+                                    className="bg-green-600 hover:bg-green-700">
+
+                                      <Check className="w-4 h-4 mr-1" />
+                                      Annehmen
+                                    </Button>
+                                    <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => rejectFriendRequestMutation.mutate(request)}
+                                    disabled={rejectFriendRequestMutation.isPending}
+                                    className="border-2 border-red-300 text-red-600 hover:bg-red-50">
+
+                                      <X className="w-4 h-4 mr-1" />
+                                      Ablehnen
+                                    </Button>
                                   </div>
                                 </div>
-                                <div className="flex gap-2 flex-shrink-0">
-                                  <Button
-                                  size="sm"
-                                  onClick={() => acceptFriendRequestMutation.mutate(request)}
-                                  disabled={acceptFriendRequestMutation.isPending}
-                                  className="bg-green-600 hover:bg-green-700">
+                              </CardContent>
+                            </Card>
+                          </motion.div>);
 
-                                    <Check className="w-4 h-4 mr-1" />
-                                    Annehmen
-                                  </Button>
-                                  <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => rejectFriendRequestMutation.mutate(request)}
-                                  disabled={rejectFriendRequestMutation.isPending}
-                                  className="border-2 border-red-300 text-red-600 hover:bg-red-50">
+                    })}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            }
 
-                                    <X className="w-4 h-4 mr-1" />
-                                    Ablehnen
-                                  </Button>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </motion.div>);
+              {/* Freundesliste */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.5 }}
+                className="space-y-2">
 
-                  })}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          }
+                {friends.length === 0 ?
+                <div className="text-center py-12">
+                    <Users className="w-16 h-16 text-stone-300 mx-auto mb-4" />
+                    <p className="text-stone-600 text-lg font-semibold mb-2">
+                      Noch keine Freunde
+                    </p>
+                    <p className="text-stone-500">
+                      Füge Freunde hinzu, um ihre Sammlungen zu sehen!
+                    </p>
+                  </div> :
 
-            {/* Freundesliste */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.5 }}
-              className="space-y-2">
+                <div className="grid gap-2">
+                  {friends.map((friend, index) => {
+                  const friendData = getFriendData(friend);
+                  if (!friendData) return null;
 
-              {friends.length === 0 ?
-              <div className="text-center py-12">
-                  <Users className="w-16 h-16 text-stone-300 mx-auto mb-4" />
-                  <p className="text-stone-600 text-lg font-semibold mb-2">
-                    Noch keine Freunde
-                  </p>
-                  <p className="text-stone-500">
-                    Füge Freunde hinzu, um ihre Sammlungen zu sehen!
-                  </p>
-                </div> :
+                  return (
+                    <motion.div
+                      key={friend.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.05 }}>
 
-              <div className="grid gap-2">
-                {friends.map((friend, index) => {
-                const friendData = getFriendData(friend);
-                if (!friendData) return null;
-
-                return (
-                  <motion.div
-                    key={friend.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.05 }}>
-
-                      <Card className="border shadow-sm hover:border-purple-300 hover:shadow-md transition-all bg-white group rounded-lg">
-                        <CardContent className="p-2">
-                          <button
-                          onClick={() => navigate(createPageUrl(`FriendProfile?email=${friendData.email}`))}
-                          className="flex items-start gap-2 w-full text-left min-w-0">
+                        <Card className="border shadow-sm hover:border-purple-300 hover:shadow-md transition-all bg-white group rounded-lg">
+                          <CardContent className="p-2">
+                            <button
+                            onClick={() => navigate(createPageUrl(`FriendProfile?email=${friendData.email}`))}
+                            className="flex items-start gap-2 w-full text-left min-w-0">
 
                             <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-base shadow-md overflow-hidden flex-shrink-0">
                               {friendData.avatar_url ?
@@ -1162,15 +1160,16 @@ Viel Spaß beim Entdecken! 🌿`;
                                 </div>
                             }
                             </div>
-                          </button>
-                        </CardContent>
-                      </Card>
-                    </motion.div>);
+                            </button>
+                          </CardContent>
+                        </Card>
+                      </motion.div>);
 
-                })}
-                </div>
-              }
-            </motion.div>
+                  })}
+                  </div>
+                }
+              </motion.div>
+            </div>
           </TabsContent>
 
           {/* News Tab Content */}
@@ -1179,6 +1178,7 @@ Viel Spaß beim Entdecken! 🌿`;
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
+              style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}
             >
               {userNews.length === 0 ? (
                 <div className="text-center py-12">
@@ -1301,6 +1301,7 @@ Viel Spaß beim Entdecken! 🌿`;
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
+              style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}
             >
               {explorerLogEntries.length === 0 ? (
                 <div className="text-center py-12">

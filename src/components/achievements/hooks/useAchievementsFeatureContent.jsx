@@ -1021,17 +1021,14 @@ export function useAchievementsFeatureContent({
     ? `sticky top-0 z-40 backdrop-blur-sm border-b ${isLightUi ? "bg-white/70 border-[#b99a48]/30" : "bg-black/20 border-[#f0e5a5]/20"}`
     : "fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200";
 
-  const achievementsContentClass = embedded ? "px-4" : "pt-36 px-4 pb-4";
-  const statsContentClass = embedded ? "px-4" : "pt-36 px-4 pb-4";
-  const questsContentClass = embedded ? "mt-0 px-4 h-full min-h-0" : "pt-44 px-4 pb-4";
+  const achievementsContentClass = embedded ? "mt-0 px-4 pb-20 flex-1 min-h-0 overflow-y-auto" : "pt-36 px-4 pb-4";
+  const statsContentClass = embedded ? "mt-0 px-4 pb-20 flex-1 min-h-0 overflow-y-auto" : "pt-36 px-4 pb-4";
+  const questsContentClass = embedded ? "mt-0 px-4 pb-20 flex-1 min-h-0 overflow-y-auto" : "pt-44 px-4 pb-4";
   const listTopFadePx = 12;
   const listBottomFadePx = 18;
-  const embeddedBottomSafePx = 80;
   const embeddedContentMaskStyle = embedded ? {
     WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
     maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
-    paddingTop: listTopFadePx,
-    paddingBottom: embeddedBottomSafePx,
   } : undefined;
 
   const questCardSurfaceClass = isLightUi ? "bg-white/95" : "bg-[#171a17]/88";
@@ -1103,13 +1100,13 @@ export function useAchievementsFeatureContent({
       <div
         data-embedded-module="achievements"
         data-theme={isLightUi ? "light" : "dark"}
-        className={embedded ? "h-full min-h-0 overflow-y-auto" : "min-h-screen"}
+        className={embedded ? "h-full min-h-0 overflow-hidden" : "min-h-screen"}
       >
         {!embedded && <MobileBackButton />}
       
-      <div className="w-full">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className={tabsHeaderClass}>
+      <div className={embedded ? "w-full h-full min-h-0 flex flex-col" : "w-full"}>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className={embedded ? "w-full h-full min-h-0 flex flex-col" : "w-full"}>
+          <div className={`${tabsHeaderClass} ${embedded ? "shrink-0" : ""}`}>
             <div className="max-w-7xl mx-auto">
               {!embedded && (
                 <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-3">
@@ -1167,7 +1164,7 @@ export function useAchievementsFeatureContent({
           {/* Erfolge Tab */}
           <TabsContent value="achievements" className={achievementsContentClass} style={embeddedContentMaskStyle}>
 
-            <div className="max-w-6xl mx-auto">
+            <div className="max-w-6xl mx-auto" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {sortedAchievements.map((achievement, index) => {
                     const isUnlocked = userAchievements.some((ua) => ua.achievement_id === achievement.id);
@@ -1262,7 +1259,7 @@ export function useAchievementsFeatureContent({
           </TabsContent>
 
           <TabsContent value="stats" className={statsContentClass} style={embeddedContentMaskStyle}>
-            <div className="max-w-6xl mx-auto space-y-4">
+            <div className="max-w-6xl mx-auto space-y-4" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
                 <Card className="border border-emerald-200 bg-white/90 backdrop-blur-sm">
                   <CardContent className="p-4">
@@ -1357,39 +1354,8 @@ export function useAchievementsFeatureContent({
           </TabsContent>
 
           {/* Aufgaben Tab */}
-          <TabsContent value="quests" className={questsContentClass} style={embedded ? undefined : embeddedContentMaskStyle}>
-            <div className={`max-w-6xl mx-auto ${embedded ? "h-full min-h-0 flex flex-col gap-3" : "space-y-4"}`}>
-              <div
-                className={`relative ${embedded ? "flex-1 min-h-0 overflow-y-auto pb-20" : "pb-2"}`}
-                style={embedded ? {
-                  WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
-                  maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
-                } : undefined}
-              >
-                {embedded && (
-                  <>
-                    <div
-                      className="pointer-events-none absolute left-0 right-0 top-0 z-20"
-                      style={{
-                        height: Math.max(16, listTopFadePx * 2),
-                        background: isLightUi
-                          ? "linear-gradient(to bottom, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0) 100%)"
-                          : "linear-gradient(to bottom, rgba(8,10,9,0.78) 0%, rgba(8,10,9,0) 100%)",
-                      }}
-                    />
-                    <div
-                      className="pointer-events-none absolute left-0 right-0 bottom-0 z-20"
-                      style={{
-                        height: Math.max(28, listBottomFadePx * 2),
-                        background: isLightUi
-                          ? "linear-gradient(to top, rgba(255,255,255,0.84) 0%, rgba(255,255,255,0) 100%)"
-                          : "linear-gradient(to top, rgba(8,10,9,0.88) 0%, rgba(8,10,9,0) 100%)",
-                      }}
-                    />
-                  </>
-                )}
-
-                <div className="space-y-6" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
+          <TabsContent value="quests" className={questsContentClass} style={embeddedContentMaskStyle}>
+            <div className={`max-w-6xl mx-auto ${embedded ? "space-y-6" : "space-y-4"}`} style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
                   {activeQuests.length > 0 && (
                     <div className="grid md:grid-cols-2 gap-4">
                       {activeQuests.map((quest, index) => {
@@ -1588,8 +1554,6 @@ export function useAchievementsFeatureContent({
                     </div>
                   )}
 
-                </div>
-              </div>
             </div>
           </TabsContent>
         </Tabs>
