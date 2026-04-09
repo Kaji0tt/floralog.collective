@@ -40,7 +40,7 @@ export default function HomeHeaderBar({
             )}
           </div>
         ) : (
-          <div className="flex items-baseline gap-2 min-w-0">
+          <div className="min-w-0">
             <h1
               className="font-bold leading-tight truncate"
               style={{ fontSize: displayNameFontSize }}
@@ -48,7 +48,7 @@ export default function HomeHeaderBar({
             >
               {displayName}
             </h1>
-            <p className={`${isLightUi ? "text-stone-700/90" : "text-stone-200/85"} text-base md:text-lg whitespace-nowrap truncate`}>
+            <p className={`${isLightUi ? "text-stone-700/90" : "text-stone-200/85"} text-sm md:text-base truncate mt-0.5`}>
               {userTitle || "Pflanzen-Entdecker"}
             </p>
           </div>
