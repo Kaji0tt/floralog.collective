@@ -604,7 +604,6 @@ export default function CollectionFeatureRoot({
     : ownerName + "'s Floralog";
   const listTopFadePx = 12;
   const listBottomFadePx = 18;
-  const chipRightFadePx = 24;
   const isOwnerOfSelected =
     !!selectedCollection && !!user?.id && selectedCollection.auth_id === user.id;
   const userCollectionLinkForSelected = selectedCollection
@@ -808,13 +807,13 @@ export default function CollectionFeatureRoot({
               onOpenCollection={handleOpenPublicCollection}
               onToggleFollow={handlePublicCollectionFollowToggle}
               isCollectionTogglePending={isCollectionTogglePending}
+              onCreateCollection={() => navigate("/CollectionEditor")}
             />
           ) : (
             <CollectionScreen
               isQuestCollectionView={isQuestCollectionView}
               ownedCollections={ownedCollections}
               followedCollections={followedCollections}
-              chipRightFadePx={chipRightFadePx}
               getCollectionStats={getCollectionStats}
               selectedCollectionId={selectedCollectionId}
               onCollectionChipSelect={handleCollectionChipSelect}

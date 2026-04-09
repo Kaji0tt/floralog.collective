@@ -55,6 +55,7 @@ export default function PublicCollectionScreen({
   onOpenCollection,
   onToggleFollow,
   isCollectionTogglePending,
+  onCreateCollection,
 }) {
   const renderCollectionCard = (collectionEntry) => {
     const accent = collectionEntry.background_color || "rgb(34,197,94)";
@@ -146,7 +147,7 @@ export default function PublicCollectionScreen({
   };
 
   return (
-    <>
+    <div className="relative flex-1 min-h-0 flex flex-col gap-3">
       <div className="shrink-0">
         <SearchSortBar
           placeholder="Titel, Beschreibung oder Owner durchsuchen..."
@@ -165,7 +166,7 @@ export default function PublicCollectionScreen({
       </div>
 
       <div
-        className="relative flex-1 min-h-0 overflow-y-auto pb-2"
+        className="relative flex-1 min-h-0 overflow-y-auto pb-20"
         style={{
           WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
           maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
@@ -217,6 +218,20 @@ export default function PublicCollectionScreen({
           </div>
         )}
       </div>
-    </>
+
+      <button
+        type="button"
+        onClick={onCreateCollection}
+        className={
+          "absolute bottom-2 right-0 z-20 w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors shadow-sm " +
+          (isLightUi
+            ? "bg-white/85 border-[#c8ac62]/40 text-[#8f6b22] hover:bg-white"
+            : "bg-black/30 border-[#f0e5a5]/35 text-[#f0e5a5] hover:bg-black/45")
+        }
+        aria-label="Neue Kollektion anlegen"
+      >
+        <span className="text-xl leading-none">+</span>
+      </button>
+    </div>
   );
 }

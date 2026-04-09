@@ -12,7 +12,6 @@ export default function CollectionScreen({
   isQuestCollectionView,
   ownedCollections,
   followedCollections,
-  chipRightFadePx,
   getCollectionStats,
   selectedCollectionId,
   onCollectionChipSelect,
@@ -58,19 +57,9 @@ export default function CollectionScreen({
     <>
       <div className="shrink-0 space-y-3">
         {!isQuestCollectionView && (ownedCollections.length + followedCollections.length > 0) && (
-          <div className="relative flex items-center gap-2">
+          <div className="-mx-4 px-4 pb-0 flex gap-2 overflow-x-auto scrollbar-hide">
             <div
-              className="-mx-4 px-4 pb-0 flex-1 flex gap-2 overflow-x-auto scrollbar-hide pr-6"
-              style={{
-                WebkitMaskImage:
-                  "linear-gradient(to right, black 0px, black calc(100% - " +
-                  chipRightFadePx +
-                  "px), transparent 100%)",
-                maskImage:
-                  "linear-gradient(to right, black 0px, black calc(100% - " +
-                  chipRightFadePx +
-                  "px), transparent 100%)",
-              }}
+              className="flex gap-2"
             >
               {(() => {
                 const followedCollectionsChips = followedCollections.map((collectionEntry) => ({
@@ -119,17 +108,6 @@ export default function CollectionScreen({
                 });
               })()}
             </div>
-
-            <button
-              type="button"
-              onClick={onCreateCollection}
-              className={"shrink-0 w-8 h-8 rounded-full border flex items-center justify-center shadow-sm transition-colors " + (isLightUi
-                ? "bg-white/75 border-[#c8ac62]/45 text-[#8f6b22] hover:bg-white"
-                : "bg-black/45 border-[#f0e5a5]/40 text-[#f0e5a5] hover:bg-black/60")}
-              aria-label="Neue Kollektion anlegen"
-            >
-              <span className="text-lg leading-none">+</span>
-            </button>
           </div>
         )}
 
