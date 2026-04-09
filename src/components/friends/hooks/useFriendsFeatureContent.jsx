@@ -801,6 +801,15 @@ Viel Spaß beim Entdecken! 🌿`;
   const friendsContentClass = embedded ? "pt-3 px-2 pb-4" : "pt-36 px-2 pb-4";
   const newsContentClass = embedded ? "pt-3 px-2 pb-4" : "pt-36 px-2 pb-4";
   const explorerContentClass = embedded ? "pt-3 px-2 pb-4" : "pt-36 px-2 pb-4";
+  const listTopFadePx = 12;
+  const listBottomFadePx = 18;
+  const embeddedBottomSafePx = 80;
+  const embeddedContentMaskStyle = embedded ? {
+    WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
+    maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
+    paddingTop: listTopFadePx,
+    paddingBottom: embeddedBottomSafePx,
+  } : undefined;
 
   useEffect(() => {
     if (!embedded || typeof onHeaderMetaChange !== "function") return;
@@ -878,10 +887,6 @@ Viel Spaß beim Entdecken! 🌿`;
         data-embedded-module="friends"
         data-theme={isLightUi ? "light" : "dark"}
         className={embedded ? "h-full min-h-0 overflow-y-auto overflow-x-hidden" : "min-h-screen p-4 md:p-8 overflow-x-hidden"}
-        style={embedded ? {
-          WebkitMaskImage: "linear-gradient(to bottom, transparent 0px, black 14px, black calc(100% - 18px), transparent 100%)",
-          maskImage: "linear-gradient(to bottom, transparent 0px, black 14px, black calc(100% - 18px), transparent 100%)",
-        } : undefined}
       >
         {!embedded && <MobileBackButton />}
 
@@ -901,7 +906,7 @@ Viel Spaß beim Entdecken! 🌿`;
         }
       </AnimatePresence>
 
-      <div className={`${embedded ? "w-full" : "max-w-4xl mx-auto"} w-full overflow-x-hidden`}>
+      <div className={`${embedded ? "w-full" : "max-w-4xl mx-auto"} w-full`}>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {/* Tabs Header - Fixed am oberen Bildschirmrand */}
           <div className={tabsHeaderClass}>
@@ -951,7 +956,7 @@ Viel Spaß beim Entdecken! 🌿`;
           </div>
 
           {/* Friends Tab Content */}
-          <TabsContent value="friends" className={friendsContentClass}>
+          <TabsContent value="friends" className={friendsContentClass} style={embeddedContentMaskStyle}>
             {/* Freundschaftsanfragen */}
             {pendingRequests.length > 0 &&
             <motion.div
@@ -1133,7 +1138,7 @@ Viel Spaß beim Entdecken! 🌿`;
           </TabsContent>
 
           {/* News Tab Content */}
-          <TabsContent value="news" className={newsContentClass}>
+          <TabsContent value="news" className={newsContentClass} style={embeddedContentMaskStyle}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1255,7 +1260,7 @@ Viel Spaß beim Entdecken! 🌿`;
             </motion.div>
           </TabsContent>
 
-          <TabsContent value="explorer" className={explorerContentClass}>
+          <TabsContent value="explorer" className={explorerContentClass} style={embeddedContentMaskStyle}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}

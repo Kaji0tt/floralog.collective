@@ -998,9 +998,28 @@ export function useAchievementsFeatureContent({
     ? `sticky top-0 z-40 backdrop-blur-sm border-b ${isLightUi ? "bg-white/70 border-[#b99a48]/30" : "bg-black/20 border-[#f0e5a5]/20"}`
     : "fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200";
 
-  const achievementsContentClass = embedded ? "pt-3 px-4 pb-4" : "pt-36 px-4 pb-4";
-  const statsContentClass = embedded ? "pt-3 px-4 pb-4" : "pt-36 px-4 pb-4";
-  const questsContentClass = embedded ? "pt-3 px-4 pb-4" : "pt-44 px-4 pb-4";
+  const achievementsContentClass = embedded ? "px-4" : "pt-36 px-4 pb-4";
+  const statsContentClass = embedded ? "px-4" : "pt-36 px-4 pb-4";
+  const questsContentClass = embedded ? "px-4" : "pt-44 px-4 pb-4";
+  const listTopFadePx = 12;
+  const listBottomFadePx = 18;
+  const embeddedBottomSafePx = 80;
+  const embeddedContentMaskStyle = embedded ? {
+    WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
+    maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
+    paddingTop: listTopFadePx,
+    paddingBottom: embeddedBottomSafePx,
+  } : undefined;
+
+  const questCardSurfaceClass = isLightUi ? "bg-white/95" : "bg-[#171a17]/88";
+  const questBorderClass = (quest) => {
+    if (quest.type === "weekly") return isLightUi ? "border-emerald-600/65" : "border-emerald-300/70";
+    if (quest.type === "monthly") return isLightUi ? "border-purple-600/65" : "border-purple-300/70";
+    return isLightUi ? "border-stone-300/80" : "border-[#f0e5a5]/35";
+  };
+  const questTitleClass = isLightUi ? "text-stone-900" : "text-stone-100";
+  const questBodyClass = isLightUi ? "text-stone-600" : "text-stone-300/90";
+  const questMetaClass = isLightUi ? "text-stone-500" : "text-stone-300/80";
 
   return (
     <>
@@ -1062,10 +1081,6 @@ export function useAchievementsFeatureContent({
         data-embedded-module="achievements"
         data-theme={isLightUi ? "light" : "dark"}
         className={embedded ? "h-full min-h-0 overflow-y-auto" : "min-h-screen"}
-        style={embedded ? {
-          WebkitMaskImage: "linear-gradient(to bottom, transparent 0px, black 14px, black calc(100% - 18px), transparent 100%)",
-          maskImage: "linear-gradient(to bottom, transparent 0px, black 14px, black calc(100% - 18px), transparent 100%)",
-        } : undefined}
       >
         {!embedded && <MobileBackButton />}
       
@@ -1117,7 +1132,7 @@ export function useAchievementsFeatureContent({
           </div>
 
           {/* Erfolge Tab */}
-          <TabsContent value="achievements" className={achievementsContentClass}>
+          <TabsContent value="achievements" className={achievementsContentClass} style={embeddedContentMaskStyle}>
 
             <div className="max-w-6xl mx-auto">
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1213,7 +1228,7 @@ export function useAchievementsFeatureContent({
             </div>
           </TabsContent>
 
-          <TabsContent value="stats" className={statsContentClass}>
+          <TabsContent value="stats" className={statsContentClass} style={embeddedContentMaskStyle}>
             <div className="max-w-6xl mx-auto space-y-4">
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
                 <Card className="border border-emerald-200 bg-white/90 backdrop-blur-sm">
@@ -1309,7 +1324,7 @@ export function useAchievementsFeatureContent({
           </TabsContent>
 
           {/* Aufgaben Tab */}
-          <TabsContent value="quests" className={questsContentClass}>
+          <TabsContent value="quests" className={questsContentClass} style={embeddedContentMaskStyle}>
             <div className="max-w-6xl mx-auto space-y-6">
 
               {/* Aktive Quests */}
@@ -1331,13 +1346,7 @@ export function useAchievementsFeatureContent({
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: index * 0.05 }}>
 
-                          <Card className={`border shadow-sm bg-white/90 backdrop-blur-md hover:shadow-md transition-all ${
-                        quest.isCompleted ?
-                        'border-green-400 bg-gradient-to-br from-green-50/50 to-white' :
-                        quest.type === 'weekly' ? 'border-emerald-400 bg-gradient-to-br from-emerald-50/50 to-white' :
-                        quest.type === 'monthly' ? 'border-purple-400 bg-gradient-to-br from-purple-50/50 to-white' :
-                        'border-stone-200 bg-white'}`
-                        }>
+                          <Card className={`border-2 shadow-sm backdrop-blur-sm hover:shadow-md transition-all ${questCardSurfaceClass} ${questBorderClass(quest)}`}>
                             <CardContent className="p-3">
                               <div className="flex items-start gap-2">
                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
@@ -1387,10 +1396,10 @@ export function useAchievementsFeatureContent({
                                       </Badge>
                                   }
                                   </div>
-                                  <h3 className="text-sm font-bold text-stone-900 mb-1">
+                                  <h3 className={`text-sm font-bold mb-1 ${questTitleClass}`}>
                                     {quest.title}
                                   </h3>
-                                  <p className="text-xs text-stone-600 mb-2">
+                                  <p className={`text-xs mb-2 ${questBodyClass}`}>
                                     {quest.description}
                                   </p>
                                   {renderQuestTargetBadges(quest)}
@@ -1398,7 +1407,7 @@ export function useAchievementsFeatureContent({
                                   {quest.required_discoveries &&
                                 <div className="space-y-1 mb-2">
                                       <div className="flex items-center justify-between text-xs">
-                                        <span className="text-stone-500">Fortschritt</span>
+                                        <span className={questMetaClass}>Fortschritt</span>
                                         <span className="font-bold text-blue-700">
                                           {displayProgress} / {quest.required_discoveries}
                                         </span>
@@ -1408,7 +1417,7 @@ export function useAchievementsFeatureContent({
                                 }
 
                                   {quest.isCompleted &&
-                                  <div className="space-y-2 pt-2 border-t border-stone-200">
+                                  <div className={`space-y-2 pt-2 border-t ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
                                       {quest.rewardData && (
                                         <div className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 rounded-lg px-2 py-1">
                                           <Gift className="w-3 h-3" />
@@ -1417,7 +1426,7 @@ export function useAchievementsFeatureContent({
                                       )}
                                       <div className="flex items-center justify-between">
                                         {quest.completedAt && (
-                                          <span className="text-[11px] text-stone-500">
+                                          <span className={`text-[11px] ${questMetaClass}`}>
                                             Abgeschlossen am {format(new Date(quest.completedAt), 'dd.MM.yyyy', { locale: de })}
                                           </span>
                                         )}
@@ -1444,7 +1453,7 @@ export function useAchievementsFeatureContent({
                                               Einlösen
                                             </Button>
                                           ) : (
-                                            <span className="text-[11px] text-stone-500 italic">
+                                            <span className={`text-[11px] italic ${questMetaClass}`}>
                                               Bereits eingelöst
                                             </span>
                                           )}
@@ -1499,7 +1508,7 @@ export function useAchievementsFeatureContent({
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: index * 0.03 }}>
 
-                          <Card className={`border shadow-sm border-stone-200 bg-stone-50/80 backdrop-blur-sm opacity-60 transition-all`}>
+                          <Card className={`border-2 shadow-sm backdrop-blur-sm transition-all opacity-70 ${questCardSurfaceClass} ${questBorderClass(quest)}`}>
                             <CardContent className="p-3">
                               <div className="flex items-start gap-2">
                                 <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-stone-400">
@@ -1535,10 +1544,10 @@ export function useAchievementsFeatureContent({
                                       </Badge>
                                     )}
                                   </div>
-                                  <h3 className="text-sm font-bold text-stone-900 mb-1">
+                                  <h3 className={`text-sm font-bold mb-1 ${questTitleClass}`}>
                                     {quest.title}
                                   </h3>
-                                  <p className="text-xs text-stone-600 mb-2">
+                                  <p className={`text-xs mb-2 ${questBodyClass}`}>
                                     {quest.description}
                                   </p>
                                   {renderQuestTargetBadges(quest)}
@@ -1546,7 +1555,7 @@ export function useAchievementsFeatureContent({
                                   {quest.required_discoveries && (
                                     <div className="space-y-1 mb-2">
                                       <div className="flex items-center justify-between text-xs">
-                                        <span className="text-stone-500">Fortschritt</span>
+                                        <span className={questMetaClass}>Fortschritt</span>
                                         <span className="font-bold text-blue-700">
                                           {displayProgress} / {quest.required_discoveries}
                                         </span>
@@ -1555,7 +1564,7 @@ export function useAchievementsFeatureContent({
                                     </div>
                                   )}
 
-                                  <div className="space-y-1 pt-2 border-t border-stone-200">
+                                  <div className={`space-y-1 pt-2 border-t ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
                                     {quest.rewardData && (
                                       <div className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 rounded-lg px-2 py-1">
                                         <Gift className="w-3 h-3" />
@@ -1564,11 +1573,11 @@ export function useAchievementsFeatureContent({
                                     )}
                                     <div className="flex items-center justify-between">
                                       {quest.completedAt && (
-                                        <span className="text-[11px] text-stone-500">
+                                        <span className={`text-[11px] ${questMetaClass}`}>
                                           Abgeschlossen am {format(new Date(quest.completedAt), 'dd.MM.yyyy', { locale: de })}
                                         </span>
                                       )}
-                                      <span className="text-[11px] text-stone-500 italic">
+                                      <span className={`text-[11px] italic ${questMetaClass}`}>
                                         Bereits eingelöst
                                       </span>
                                     </div>
