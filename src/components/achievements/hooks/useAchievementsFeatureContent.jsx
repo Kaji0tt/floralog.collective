@@ -882,12 +882,12 @@ export function useAchievementsFeatureContent({
     return (
       <div className="flex flex-wrap gap-1.5 mb-2">
         {quest.target_species_name && (
-          <Badge variant="outline" className="border-2 border-emerald-500 text-emerald-700 font-bold">
+            <Badge variant="outline" className={`border-2 ${questTargetBadgeClass} font-bold`}>
             🎯 Ziel: {quest.target_species_name}
           </Badge>
         )}
         {quest.target_genus_name && !quest.target_species_name && (
-          <Badge variant="outline" className="border-2 border-emerald-500 text-emerald-700 font-bold">
+            <Badge variant="outline" className={`border-2 ${questTargetBadgeClass} font-bold`}>
             🎯 Ziel: {quest.target_genus_name}
           </Badge>
         )}
@@ -1049,7 +1049,26 @@ export function useAchievementsFeatureContent({
   const questTitleClass = isLightUi ? "text-stone-900" : "text-stone-100";
   const questBodyClass = isLightUi ? "text-stone-600" : "text-stone-300/90";
   const questMetaClass = isLightUi ? "text-stone-500" : "text-stone-300/80";
-  const achievementUnlockedCardClass = isLightUi
+    const questIconClass = (quest) => {
+      if (quest.isCompleted) return isLightUi ? "bg-gradient-to-br from-green-500 to-green-600" : "bg-gradient-to-br from-green-800 to-green-900";
+      if (quest.type === "weekly") return isLightUi ? "bg-gradient-to-br from-emerald-500 to-emerald-600" : "bg-gradient-to-br from-emerald-800 to-emerald-900";
+      if (quest.type === "monthly") return isLightUi ? "bg-gradient-to-br from-purple-500 to-purple-600" : "bg-gradient-to-br from-purple-800 to-purple-900";
+      if (quest.type === "collection") return isLightUi ? "bg-gradient-to-br from-indigo-500 to-indigo-600" : "bg-gradient-to-br from-indigo-800 to-indigo-900";
+      return isLightUi ? "bg-gradient-to-br from-blue-500 to-blue-600" : "bg-gradient-to-br from-blue-800 to-blue-900";
+    };
+    const questCompletedBadgeClass = isLightUi ? "bg-green-600 text-white" : "bg-green-900/80 text-green-200";
+    const questWeeklyBadgeClass = isLightUi ? "bg-emerald-600 text-white" : "bg-emerald-900/80 text-emerald-200";
+    const questMonthlyBadgeClass = isLightUi ? "bg-purple-600 text-white" : "bg-purple-900/80 text-purple-200";
+    const questCollectionBadgeClass = isLightUi ? "bg-indigo-600 text-white" : "bg-indigo-900/80 text-indigo-200";
+    const questCategoryBadgeClass = (category) => {
+      if (isLightUi) return category === "Bäume" ? "bg-green-600 text-white" : category === "Sträucher" ? "bg-emerald-600 text-white" : "bg-pink-600 text-white";
+      return category === "Bäume" ? "bg-green-900/80 text-green-200" : category === "Sträucher" ? "bg-emerald-900/80 text-emerald-200" : "bg-pink-900/80 text-pink-200";
+    };
+    const questProgressTextClass = isLightUi ? "text-blue-700" : "text-blue-300";
+    const questRewardBlockClass = isLightUi ? "text-amber-700 bg-amber-50" : "text-amber-300 bg-amber-900/30";
+    const questRedeemBtnClass = isLightUi ? "bg-green-600 hover:bg-green-700" : "bg-green-800 hover:bg-green-900";
+    const questTargetBadgeClass = isLightUi ? "border-emerald-500 text-emerald-700" : "border-emerald-700/60 text-emerald-400";
+    const achievementUnlockedCardClass = isLightUi
     ? "border-amber-300 bg-gradient-to-br from-white/90 to-amber-50/90 backdrop-blur-md hover:shadow-md"
     : "border-[#f0e5a5]/40 bg-gradient-to-br from-[#2d2418]/90 via-[#1c1710]/88 to-[#12100b]/92 backdrop-blur-md hover:shadow-[0_8px_20px_rgba(0,0,0,0.35)]";
   const achievementLockedCardClass = isLightUi
@@ -1395,23 +1414,17 @@ export function useAchievementsFeatureContent({
                               <div className="absolute inset-0 bg-black/35 pointer-events-none" />
                               <CardContent className="relative z-10 p-3">
                                 <div className="flex items-start gap-2">
-                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                    quest.isCompleted ? "bg-gradient-to-br from-green-500 to-green-600" :
-                                    quest.type === "weekly" ? "bg-gradient-to-br from-emerald-500 to-emerald-600" :
-                                    quest.type === "monthly" ? "bg-gradient-to-br from-purple-500 to-purple-600" :
-                                    quest.type === "collection" ? "bg-gradient-to-br from-indigo-500 to-indigo-600" :
-                                    "bg-gradient-to-br from-blue-500 to-blue-600"}`
-                                  }>
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${questIconClass(quest)}`}>
                                     {quest.isCompleted ? <CheckCircle2 className="w-4 h-4 text-white" /> : quest.type === "collection" ? <span className="text-sm">{quest.icon_emoji || "🗺️"}</span> : <Target className="w-4 h-4 text-white" />}
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-1 mb-1 flex-wrap">
-                                      {quest.isCompleted && <Badge className="bg-green-600 text-white text-[10px] px-1 py-0">✓ Abgeschlossen</Badge>}
-                                      {quest.type === "weekly" && <Badge className="bg-emerald-600 text-white text-[10px] px-1 py-0">📅 Wöchentlich</Badge>}
-                                      {quest.type === "monthly" && <Badge className="bg-purple-600 text-white text-[10px] px-1 py-0">📆 Monatlich</Badge>}
-                                      {quest.type === "collection" && <Badge className="bg-indigo-600 text-white text-[10px] px-1 py-0">🗺️ Sammlung</Badge>}
+                                        {quest.isCompleted && <Badge className={`${questCompletedBadgeClass} text-[10px] px-1 py-0`}>✓ Abgeschlossen</Badge>}
+                                        {quest.type === "weekly" && <Badge className={`${questWeeklyBadgeClass} text-[10px] px-1 py-0`}>📅 Wöchentlich</Badge>}
+                                        {quest.type === "monthly" && <Badge className={`${questMonthlyBadgeClass} text-[10px] px-1 py-0`}>📆 Monatlich</Badge>}
+                                        {quest.type === "collection" && <Badge className={`${questCollectionBadgeClass} text-[10px] px-1 py-0`}>🗺️ Sammlung</Badge>}
                                       {quest.category && quest.category !== "Alle" && (
-                                        <Badge className={`text-[10px] px-1 py-0 ${quest.category === "Bäume" ? "bg-green-600" : quest.category === "Sträucher" ? "bg-emerald-600" : "bg-pink-600"} text-white`}>
+                                          <Badge className={`text-[10px] px-1 py-0 ${questCategoryBadgeClass(quest.category)}`}>
                                           {quest.category}
                                         </Badge>
                                       )}
@@ -1424,7 +1437,7 @@ export function useAchievementsFeatureContent({
                                       <div className="space-y-1 mb-2">
                                         <div className="flex items-center justify-between text-xs">
                                           <span className={questMetaClass}>Fortschritt</span>
-                                          <span className="font-bold text-blue-700">{displayProgress} / {quest.required_discoveries}</span>
+                                            <span className={`font-bold ${questProgressTextClass}`}>{displayProgress} / {quest.required_discoveries}</span>
                                         </div>
                                         <Progress value={progressPercentage} className="h-1.5" />
                                       </div>
@@ -1433,7 +1446,7 @@ export function useAchievementsFeatureContent({
                                     {quest.isCompleted && (
                                       <div className={`space-y-2 pt-2 border-t ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
                                         {quest.rewardData && (
-                                          <div className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 rounded-lg px-2 py-1">
+                                            <div className={`flex items-center gap-1 text-xs ${questRewardBlockClass} rounded-lg px-2 py-1`}>
                                             <Gift className="w-3 h-3" />
                                             <span className="font-semibold">{quest.rewardData.display_name}</span>
                                           </div>
@@ -1457,7 +1470,7 @@ export function useAchievementsFeatureContent({
                                                 }}
                                                 disabled={redeemQuestMutation.isPending}
                                                 size="sm"
-                                                className="h-7 text-xs bg-green-600 hover:bg-green-700"
+                                                  className={`h-7 text-xs ${questRedeemBtnClass}`}
                                               >
                                                 Einlösen
                                               </Button>
@@ -1517,11 +1530,11 @@ export function useAchievementsFeatureContent({
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-1 mb-1 flex-wrap">
                                           <Badge className="bg-stone-500 text-white text-[10px] px-1 py-0">✓ Abgeschlossen</Badge>
-                                          {quest.type === "weekly" && <Badge className="bg-emerald-600 text-white text-[10px] px-1 py-0">📅 Wöchentlich</Badge>}
-                                          {quest.type === "monthly" && <Badge className="bg-purple-600 text-white text-[10px] px-1 py-0">📆 Monatlich</Badge>}
-                                          {quest.type === "collection" && <Badge className="bg-indigo-600 text-white text-[10px] px-1 py-0">🗺️ Sammlung</Badge>}
+                                            {quest.type === "weekly" && <Badge className={`${questWeeklyBadgeClass} text-[10px] px-1 py-0`}>📅 Wöchentlich</Badge>}
+                                            {quest.type === "monthly" && <Badge className={`${questMonthlyBadgeClass} text-[10px] px-1 py-0`}>📆 Monatlich</Badge>}
+                                            {quest.type === "collection" && <Badge className={`${questCollectionBadgeClass} text-[10px] px-1 py-0`}>🗺️ Sammlung</Badge>}
                                           {quest.category && quest.category !== "Alle" && (
-                                            <Badge className={`text-[10px] px-1 py-0 ${quest.category === "Bäume" ? "bg-green-600" : quest.category === "Sträucher" ? "bg-emerald-600" : "bg-pink-600"} text-white`}>
+                                              <Badge className={`text-[10px] px-1 py-0 ${questCategoryBadgeClass(quest.category)}`}>
                                               {quest.category}
                                             </Badge>
                                           )}
@@ -1534,7 +1547,7 @@ export function useAchievementsFeatureContent({
                                           <div className="space-y-1 mb-2">
                                             <div className="flex items-center justify-between text-xs">
                                               <span className={questMetaClass}>Fortschritt</span>
-                                              <span className="font-bold text-blue-700">{displayProgress} / {quest.required_discoveries}</span>
+                                                <span className={`font-bold ${questProgressTextClass}`}>{displayProgress} / {quest.required_discoveries}</span>
                                             </div>
                                             <Progress value={progressPercentage} className="h-1.5" />
                                           </div>
@@ -1542,7 +1555,7 @@ export function useAchievementsFeatureContent({
 
                                         <div className={`space-y-1 pt-2 border-t ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
                                           {quest.rewardData && (
-                                            <div className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 rounded-lg px-2 py-1">
+                                              <div className={`flex items-center gap-1 text-xs ${questRewardBlockClass} rounded-lg px-2 py-1`}>
                                               <Gift className="w-3 h-3" />
                                               <span className="font-semibold">{quest.rewardData.display_name}</span>
                                             </div>

@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Query } from "@/api/entities";
 import { updateCurrentUserProfile, getCurrentUser } from "@/api/userApi";
 import { upsertUserProfile, signOut } from "@/api/authService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  LogOut, Mail, AlertCircle, RotateCcw,
+  LogOut, Mail, Heart, FileText,
   Star, Image as ImageIcon, Edit2, CheckCircle, X,
   ChevronDown, ChevronUp, Lock, Sun,
 } from "lucide-react";
@@ -650,25 +650,16 @@ export default function SettingsPanel({ user, onUserUpdated, uiTheme = "dark", o
             </div>
           </div>
 
-          <div className={`flex items-start gap-2 px-3 py-2.5 rounded-xl border text-[11px] ${
-            uiTheme === 'light'
-              ? 'bg-blue-100/40 border-blue-300/30 text-blue-800'
-              : 'bg-blue-950/40 border-blue-500/20 text-blue-200'
-          }`}>
-            <AlertCircle className={`w-3.5 h-3.5 flex-shrink-0 mt-0.5 ${uiTheme === 'light' ? 'text-blue-700' : 'text-blue-400'}`} />
-            <span>Passwort und E-Mail werden ueber dein Supabase-Konto verwaltet.</span>
-          </div>
-
           <button
-            onClick={() => navigate(createPageUrl("ResetAccount"))}
+            onClick={() => navigate(createPageUrl("Donate"))}
             className={`w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-sm font-medium transition-colors ${
               uiTheme === 'light'
-                ? 'border-orange-300/40 bg-orange-100/40 text-orange-800 hover:bg-orange-100/55'
-                : 'border-orange-400/30 bg-orange-900/20 text-orange-200 hover:bg-orange-900/35'
+                ? 'border-green-400/40 bg-green-100/40 text-green-800 hover:bg-green-100/55'
+                : 'border-green-500/30 bg-green-900/20 text-green-300 hover:bg-green-900/35'
             }`}
           >
-            <RotateCcw className="w-4 h-4" />
-            Account zuruecksetzen
+            <Heart className="w-4 h-4" />
+            Spenden
           </button>
 
           <button
@@ -681,6 +672,17 @@ export default function SettingsPanel({ user, onUserUpdated, uiTheme = "dark", o
           >
             <LogOut className="w-4 h-4" />
             Abmelden
+          </button>
+          <button
+            onClick={() => navigate(createPageUrl("Impressum"))}
+            className={`w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-sm font-medium transition-colors mb-1 ${
+              uiTheme === 'light'
+                ? 'border-blue-400/40 bg-blue-100/40 text-blue-800 hover:bg-blue-100/55'
+                : 'border-blue-500/30 bg-blue-900/20 text-blue-300 hover:bg-blue-900/35'
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            Impressum
           </button>
         </div>
       </div>

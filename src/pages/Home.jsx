@@ -851,9 +851,9 @@ export default function Home() {
         setActiveZone(inRangeZone || null);
       } catch (error) {
         console.warn("[Home] Konnte aktive Zone nicht laden:", error?.message || error);
+        setZoneMapError("Zonen konnten nicht geladen werden.");
         setHeroZones([]);
         setActiveZone(null);
-        setZoneMapError("Zonen konnten nicht geladen werden.");
       } finally {
         setIsLoadingZone(false);
       }
@@ -863,8 +863,6 @@ export default function Home() {
   }, [user?.id]);
 
   useEffect(() => {
-    if (!showHealthStatsPanel) return;
-
     const handleOutside = (event) => {
       if (healthStatsPanelRef.current && !healthStatsPanelRef.current.contains(event.target)) {
         setShowHealthStatsPanel(false);
@@ -1390,17 +1388,6 @@ export default function Home() {
         : "inset 0 1px 0 rgba(255,224,188,0.18), inset 0 -12px 18px rgba(0,0,0,0.48), 0 8px 16px rgba(0,0,0,0.34)",
     },
   ];
-
-  const footerTextColor = isLightUi
-    ? "rgba(66, 52, 23, 0.9)"
-    : averageColor
-    ? (isColorDark(averageColor) ? "rgba(245, 245, 244, 0.7)" : "rgba(28,25,23,0.8)")
-    : "rgba(245, 245, 244, 0.7)";
-  const footerTextShadow = isLightUi
-    ? "0 1px 8px rgba(255,255,255,0.45)"
-    : averageColor && isColorDark(averageColor)
-    ? "0 2px 8px rgba(0,0,0,0.7)"
-    : "0 1px 5px rgba(255,255,255,0.35)";
 
   const hasEmbeddedView =
     showEmbeddedCollection ||
@@ -2040,16 +2027,6 @@ export default function Home() {
             </div>
           </motion.div>
 
-          <div
-            className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex justify-center gap-3 text-sm font-medium"
-            style={{ color: footerTextColor, textShadow: footerTextShadow }}
-          >
-            <button onClick={() => navigate(createPageUrl('Donate'))} className="hover:opacity-80 transition-opacity">Spenden</button>
-            <span className="opacity-70">•</span>
-            <button onClick={() => navigate(createPageUrl('Impressum'))} className="hover:opacity-80 transition-opacity">Impressum</button>
-            <span className="opacity-70">•</span>
-            <button onClick={() => navigate(createPageUrl('News'))} className="hover:opacity-80 transition-opacity">News</button>
-          </div>
       </HomeBackgroundShell>
     </>
   );

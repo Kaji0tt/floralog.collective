@@ -223,14 +223,14 @@ export default function PublicCollectionScreen({
         type="button"
         onClick={onCreateCollection}
         className={
-          "absolute bottom-2 right-0 z-20 w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors shadow-sm " +
+          "absolute bottom-2 left-1/2 -translate-x-1/2 z-20 w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors shadow-sm " +
           (isLightUi
             ? "bg-white/85 border-[#c8ac62]/40 text-[#8f6b22] hover:bg-white"
             : "bg-black/30 border-[#f0e5a5]/35 text-[#f0e5a5] hover:bg-black/45")
         }
         aria-label="Neue Kollektion anlegen"
       >
-        <span className="text-xl leading-none">+</span>
+        <Plus className="w-5 h-5" strokeWidth={2.3} />
       </button>
     </div>
   );

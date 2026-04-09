@@ -838,13 +838,13 @@ Viel Spaß beim Entdecken! 🌿`;
   const faintTextClass = isLightUi ? "text-stone-400" : "text-stone-500/80";
   const interactiveHoverClass = isLightUi
     ? "hover:border-[#c9ab59]/55 hover:shadow-[0_10px_24px_rgba(162,129,48,0.16)]"
-    : "hover:border-[#f0e5a5]/30 hover:bg-stone-950/45 hover:shadow-[0_12px_28px_rgba(0,0,0,0.28)]";
+    : "hover:border-[#e3c97b]/60 hover:bg-stone-950/42 hover:shadow-[0_12px_28px_rgba(0,0,0,0.28)]";
   const friendTileClass = isLightUi
     ? "rounded-[1rem] border border-[#c6a54e]/35 bg-white/70"
-    : "rounded-[1rem] border border-[#f0e5a5]/18 bg-stone-950/28";
+    : "rounded-[1rem] border border-[#d6b665]/45 bg-stone-950/26 shadow-[inset_0_0_0_1px_rgba(214,182,101,0.14)]";
   const accentBadgeClass = isLightUi
     ? "bg-[#8f6b22] text-white"
-    : "bg-[#f0e5a5] text-stone-900";
+    : "border border-[#d6b665]/55 bg-[#2b2412]/72 text-[#f6e7b7]";
 
   const moduleChips = [
     {
