@@ -1359,21 +1359,21 @@ export function useAchievementsFeatureContent({
           {/* Aufgaben Tab */}
           <TabsContent value="quests" className={questsContentClass} style={embedded ? undefined : embeddedContentMaskStyle}>
             <div className={`max-w-6xl mx-auto ${embedded ? "h-full min-h-0 flex flex-col gap-3" : "space-y-4"}`}>
-              <div className={`relative rounded-2xl border backdrop-blur-sm ${embedded ? "flex-1 min-h-0 overflow-hidden" : "overflow-hidden"} ${isLightUi ? "border-[#c8ac62]/35 bg-white/35" : "border-[#f0e5a5]/25 bg-black/20"}`}>
-                <div
-                  className={`relative ${embedded ? "h-full min-h-0 overflow-y-auto pb-20" : "max-h-[70vh] overflow-y-auto pb-6"}`}
-                  style={{
-                    WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
-                    maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
-                  }}
-                >
+              <div
+                className={`relative ${embedded ? "flex-1 min-h-0 overflow-y-auto pb-20" : "pb-2"}`}
+                style={embedded ? {
+                  WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
+                  maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
+                } : undefined}
+              >
+                {embedded && (
                   <>
                     <div
                       className="pointer-events-none absolute left-0 right-0 top-0 z-20"
                       style={{
                         height: Math.max(16, listTopFadePx * 2),
                         background: isLightUi
-                          ? "linear-gradient(to bottom, rgba(255,255,255,0.78) 0%, rgba(255,255,255,0) 100%)"
+                          ? "linear-gradient(to bottom, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0) 100%)"
                           : "linear-gradient(to bottom, rgba(8,10,9,0.78) 0%, rgba(8,10,9,0) 100%)",
                       }}
                     />
@@ -1382,13 +1382,14 @@ export function useAchievementsFeatureContent({
                       style={{
                         height: Math.max(28, listBottomFadePx * 2),
                         background: isLightUi
-                          ? "linear-gradient(to top, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0) 100%)"
+                          ? "linear-gradient(to top, rgba(255,255,255,0.84) 0%, rgba(255,255,255,0) 100%)"
                           : "linear-gradient(to top, rgba(8,10,9,0.88) 0%, rgba(8,10,9,0) 100%)",
                       }}
                     />
                   </>
+                )}
 
-                <div className="space-y-6" style={{ paddingTop: listTopFadePx, paddingBottom: listBottomFadePx }}>
+                <div className="space-y-6" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
                   {activeQuests.length > 0 && (
                     <div className="grid md:grid-cols-2 gap-4">
                       {activeQuests.map((quest, index) => {
@@ -1589,7 +1590,6 @@ export function useAchievementsFeatureContent({
 
                 </div>
               </div>
-            </div>
             </div>
           </TabsContent>
         </Tabs>
