@@ -803,7 +803,6 @@ Viel Spaß beim Entdecken! 🌿`;
   const explorerContentClass = embedded ? "pt-3 px-2 pb-4" : "pt-36 px-2 pb-4";
   const listTopFadePx = 12;
   const listBottomFadePx = 18;
-  const chipRightFadePx = 24;
   const embeddedBottomSafePx = 80;
   const embeddedContentMaskStyle = embedded ? {
     WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
@@ -950,19 +949,7 @@ Viel Spaß beim Entdecken! 🌿`;
               )}
 
               <div className="flex items-center justify-between px-2 py-2 gap-2 border-t border-stone-200/60">
-                <div
-                  className="flex-1 flex items-center gap-2 overflow-x-auto scrollbar-hide pr-6"
-                  style={{
-                    WebkitMaskImage:
-                      "linear-gradient(to right, black 0px, black calc(100% - " +
-                      chipRightFadePx +
-                      "px), transparent 100%)",
-                    maskImage:
-                      "linear-gradient(to right, black 0px, black calc(100% - " +
-                      chipRightFadePx +
-                      "px), transparent 100%)",
-                  }}
-                >
+                <div className="flex-1 grid grid-cols-3 gap-2 min-w-0">
                   {moduleChips.map((chip) => {
                     const isPrimary = activeTab === chip.id;
                     return (
@@ -971,7 +958,7 @@ Viel Spaß beim Entdecken! 🌿`;
                         type="button"
                         onClick={() => setActiveTab(chip.id)}
                         className={
-                          "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors " +
+                          "flex items-center justify-center gap-2 px-2 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors min-w-0 " +
                           (isPrimary
                             ? (isLightUi
                               ? "bg-white/90 text-[#8f6b22] shadow-sm"
@@ -986,10 +973,7 @@ Viel Spaß beim Entdecken! 🌿`;
                             : (isLightUi ? "rgba(200,172,98,0.35)" : "rgba(255,255,255,0.3)"),
                         }}
                       >
-                        <span className="font-medium">{chip.title}</span>
-                        <span className={"text-[10px] " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
-                          {chip.active}/{chip.total || "–"}
-                        </span>
+                        <span className="font-medium truncate">{chip.title}</span>
                       </button>
                     );
                   })}

@@ -1026,7 +1026,6 @@ export function useAchievementsFeatureContent({
   const questsContentClass = embedded ? "mt-0 px-4 h-full min-h-0" : "pt-44 px-4 pb-4";
   const listTopFadePx = 12;
   const listBottomFadePx = 18;
-  const chipRightFadePx = 24;
   const embeddedBottomSafePx = 80;
   const embeddedContentMaskStyle = embedded ? {
     WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
@@ -1128,19 +1127,7 @@ export function useAchievementsFeatureContent({
                 </div>
               )}
               <div className={`w-full px-2 py-2 ${embedded ? "bg-transparent" : "bg-white"}`}>
-                <div
-                  className="flex items-center gap-2 overflow-x-auto scrollbar-hide pr-6"
-                  style={{
-                    WebkitMaskImage:
-                      "linear-gradient(to right, black 0px, black calc(100% - " +
-                      chipRightFadePx +
-                      "px), transparent 100%)",
-                    maskImage:
-                      "linear-gradient(to right, black 0px, black calc(100% - " +
-                      chipRightFadePx +
-                      "px), transparent 100%)",
-                  }}
-                >
+                <div className="grid grid-cols-3 gap-2 min-w-0">
                   {moduleChips.map((chip) => {
                     const isPrimary = activeTab === chip.id;
                     return (
@@ -1149,7 +1136,7 @@ export function useAchievementsFeatureContent({
                         type="button"
                         onClick={() => setActiveTab(chip.id)}
                         className={
-                          "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors " +
+                          "flex items-center justify-center gap-2 px-2 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors min-w-0 " +
                           (isPrimary
                             ? (isLightUi
                               ? "bg-white/90 text-[#8f6b22] shadow-sm"
@@ -1164,10 +1151,7 @@ export function useAchievementsFeatureContent({
                             : (isLightUi ? "rgba(200,172,98,0.35)" : "rgba(255,255,255,0.3)"),
                         }}
                       >
-                        <span className="font-medium">{chip.title}</span>
-                        <span className={"text-[10px] " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
-                          {chip.active}/{chip.total || "–"}
-                        </span>
+                        <span className="font-medium truncate">{chip.title}</span>
                         {chip.id === "quests" && showQuestNotification && (
                           <span className="w-2 h-2 rounded-full bg-red-500 border border-white/70" />
                         )}
@@ -1375,21 +1359,21 @@ export function useAchievementsFeatureContent({
           {/* Aufgaben Tab */}
           <TabsContent value="quests" className={questsContentClass} style={embedded ? undefined : embeddedContentMaskStyle}>
             <div className={`max-w-6xl mx-auto ${embedded ? "h-full min-h-0 flex flex-col gap-3" : "space-y-4"}`}>
-              <div
-                className={`relative ${embedded ? "flex-1 min-h-0 overflow-y-auto pb-20" : "pb-2"}`}
-                style={embedded ? {
-                  WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
-                  maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
-                } : undefined}
-              >
-                {embedded && (
+              <div className={`relative rounded-2xl border backdrop-blur-sm ${embedded ? "flex-1 min-h-0 overflow-hidden" : "overflow-hidden"} ${isLightUi ? "border-[#c8ac62]/35 bg-white/35" : "border-[#f0e5a5]/25 bg-black/20"}`}>
+                <div
+                  className={`relative ${embedded ? "h-full min-h-0 overflow-y-auto pb-20" : "max-h-[70vh] overflow-y-auto pb-6"}`}
+                  style={{
+                    WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
+                    maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
+                  }}
+                >
                   <>
                     <div
                       className="pointer-events-none absolute left-0 right-0 top-0 z-20"
                       style={{
                         height: Math.max(16, listTopFadePx * 2),
                         background: isLightUi
-                          ? "linear-gradient(to bottom, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0) 100%)"
+                          ? "linear-gradient(to bottom, rgba(255,255,255,0.78) 0%, rgba(255,255,255,0) 100%)"
                           : "linear-gradient(to bottom, rgba(8,10,9,0.78) 0%, rgba(8,10,9,0) 100%)",
                       }}
                     />
@@ -1398,14 +1382,13 @@ export function useAchievementsFeatureContent({
                       style={{
                         height: Math.max(28, listBottomFadePx * 2),
                         background: isLightUi
-                          ? "linear-gradient(to top, rgba(255,255,255,0.84) 0%, rgba(255,255,255,0) 100%)"
+                          ? "linear-gradient(to top, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0) 100%)"
                           : "linear-gradient(to top, rgba(8,10,9,0.88) 0%, rgba(8,10,9,0) 100%)",
                       }}
                     />
                   </>
-                )}
 
-                <div className="space-y-6" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
+                <div className="space-y-6" style={{ paddingTop: listTopFadePx, paddingBottom: listBottomFadePx }}>
                   {activeQuests.length > 0 && (
                     <div className="grid md:grid-cols-2 gap-4">
                       {activeQuests.map((quest, index) => {
@@ -1606,6 +1589,7 @@ export function useAchievementsFeatureContent({
 
                 </div>
               </div>
+            </div>
             </div>
           </TabsContent>
         </Tabs>
