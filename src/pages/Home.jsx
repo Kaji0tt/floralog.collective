@@ -1633,7 +1633,7 @@ export default function Home() {
               />
 
               <div
-                className={`relative flex flex-1 min-h-0 flex-col overflow-hidden ${shouldDockEmbeddedChipHeader ? "pt-0 pb-[clamp(0.5rem,1.5vh,1rem)]" : "py-[clamp(0.5rem,1.5vh,1rem)]"}`}
+                className={`relative flex flex-1 min-h-0 flex-col overflow-hidden ${shouldDockEmbeddedChipHeader ? "py-0" : "py-[clamp(0.5rem,1.5vh,1rem)]"}`}
                 data-ui="home-content-stack"
               >
                 {showEmbeddedCollection ? (
