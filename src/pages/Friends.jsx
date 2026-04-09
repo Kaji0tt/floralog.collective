@@ -54,7 +54,12 @@ const getAverageColor = (imageUrl) => {
   });
 };
 
-export default function Friends({ embedded = false, onRequestClose: _onRequestClose = null }) {
+export default function Friends({
+  embedded = false,
+  isLightUi,
+  onHeaderMetaChange,
+  onRequestClose: _onRequestClose = null,
+}) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -790,12 +795,35 @@ Viel Spaß beim Entdecken! 🌿`;
   });
 
   const tabsHeaderClass = embedded
-    ? "sticky top-0 z-30 bg-white shadow-sm border-b border-stone-200"
+    ? `sticky top-0 z-30 backdrop-blur-sm border-b ${isLightUi ? "bg-white/70 border-[#b99a48]/30" : "bg-black/20 border-[#f0e5a5]/20"}`
     : "fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200";
 
   const friendsContentClass = embedded ? "pt-4 px-2 pb-4" : "pt-36 px-2 pb-4";
   const newsContentClass = embedded ? "pt-4 px-2 pb-4" : "pt-36 px-2 pb-4";
   const explorerContentClass = embedded ? "pt-4 px-2 pb-4" : "pt-36 px-2 pb-4";
+
+  useEffect(() => {
+    if (!embedded || typeof onHeaderMetaChange !== "function") return;
+
+    const infoLabel = activeTab === "friends"
+      ? `${friends.length} Freunde`
+      : activeTab === "news"
+        ? `${unreadNewsCount} Neuigkeiten`
+        : `${explorerLogEntries.length} Log-Eintraege`;
+
+    onHeaderMetaChange({
+      title: activeTab === "friends" ? "Social" : activeTab === "news" ? "Neuigkeiten" : "Forscher Log",
+      subtitle: activeTab === "explorer" ? "Scans aus den letzten 30 Tagen" : "Dein Freundesbereich",
+      infoLabel,
+    });
+  }, [
+    embedded,
+    onHeaderMetaChange,
+    activeTab,
+    friends.length,
+    unreadNewsCount,
+    explorerLogEntries.length,
+  ]);
 
   if (!user) {
     return (
@@ -807,6 +835,33 @@ Viel Spaß beim Entdecken! 🌿`;
 
   return (
     <>
+      {embedded && isLightUi === false && (
+        <style>{`
+          [data-embedded-module="friends"][data-theme="dark"] .bg-white,
+          [data-embedded-module="friends"][data-theme="dark"] .bg-white\/80,
+          [data-embedded-module="friends"][data-theme="dark"] .bg-white\/90,
+          [data-embedded-module="friends"][data-theme="dark"] .bg-stone-50,
+          [data-embedded-module="friends"][data-theme="dark"] .bg-stone-100,
+          [data-embedded-module="friends"][data-theme="dark"] .bg-stone-50\/80 {
+            background-color: rgba(20, 20, 20, 0.62) !important;
+          }
+          [data-embedded-module="friends"][data-theme="dark"] .text-stone-900 {
+            color: rgb(245 245 244) !important;
+          }
+          [data-embedded-module="friends"][data-theme="dark"] .text-stone-700,
+          [data-embedded-module="friends"][data-theme="dark"] .text-stone-600,
+          [data-embedded-module="friends"][data-theme="dark"] .text-stone-500,
+          [data-embedded-module="friends"][data-theme="dark"] .text-stone-400 {
+            color: rgb(214 211 209) !important;
+          }
+          [data-embedded-module="friends"][data-theme="dark"] .border-stone-200,
+          [data-embedded-module="friends"][data-theme="dark"] .border-stone-300,
+          [data-embedded-module="friends"][data-theme="dark"] .border-amber-100 {
+            border-color: rgba(240, 229, 165, 0.28) !important;
+          }
+        `}</style>
+      )}
+
       {!embedded && (
         <div 
           className="fixed inset-0 -z-10"
@@ -819,7 +874,11 @@ Viel Spaß beim Entdecken! 🌿`;
       )}
       
       {/* Scrollbarer Content */}
-      <div className={embedded ? "h-full min-h-0 overflow-y-auto overflow-x-hidden" : "min-h-screen p-4 md:p-8 overflow-x-hidden"}>
+      <div
+        data-embedded-module="friends"
+        data-theme={isLightUi ? "light" : "dark"}
+        className={embedded ? "h-full min-h-0 overflow-y-auto overflow-x-hidden" : "min-h-screen p-4 md:p-8 overflow-x-hidden"}
+      >
         {!embedded && <MobileBackButton />}
 
       <AnimatePresence>
@@ -843,22 +902,24 @@ Viel Spaß beim Entdecken! 🌿`;
           {/* Tabs Header - Fixed am oberen Bildschirmrand */}
           <div className={tabsHeaderClass}>
             <div className="max-w-4xl mx-auto">
-              <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <h1 className="text-xl sm:text-2xl font-bold text-stone-900 truncate">
-                    {activeTab === "friends" ? "Social" : activeTab === "news" ? "Neuigkeiten" : "Forscher Log"}
-                  </h1>
-                  <p className="text-xs text-stone-600 truncate">
-                    {activeTab === "explorer" ? "Scans aus den letzten 30 Tagen" : "Dein Freundesbereich"}
-                  </p>
+              {!embedded && (
+                <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <h1 className="text-xl sm:text-2xl font-bold text-stone-900 truncate">
+                      {activeTab === "friends" ? "Social" : activeTab === "news" ? "Neuigkeiten" : "Forscher Log"}
+                    </h1>
+                    <p className="text-xs text-stone-600 truncate">
+                      {activeTab === "explorer" ? "Scans aus den letzten 30 Tagen" : "Dein Freundesbereich"}
+                    </p>
+                  </div>
+                  <Badge className="bg-stone-800 text-white text-[10px] px-2 py-1 shrink-0">
+                    {activeTab === "friends" ? `${friends.length} Freunde` : activeTab === "news" ? `${unreadNewsCount} neu` : `${explorerLogEntries.length} Eintraege`}
+                  </Badge>
                 </div>
-                <Badge className="bg-stone-800 text-white text-[10px] px-2 py-1 shrink-0">
-                  {activeTab === "friends" ? `${friends.length} Freunde` : activeTab === "news" ? `${unreadNewsCount} neu` : `${explorerLogEntries.length} Eintraege`}
-                </Badge>
-              </div>
+              )}
 
               <div className="flex items-center justify-between px-2 pb-2 gap-2">
-                <TabsList className="flex-1 bg-white h-auto rounded-none border-0 flex items-center gap-2 overflow-x-auto justify-start">
+                <TabsList className={`flex-1 h-auto rounded-none border-0 flex items-center gap-2 overflow-x-auto justify-start ${embedded ? "bg-transparent" : "bg-white"}`}>
                   <TabsTrigger value="friends" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white font-semibold rounded-full text-xs sm:text-sm min-w-max px-3 py-2">
                     <Users className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                     Freunde ({friends.length})

@@ -367,6 +367,7 @@ export default function Home() {
   const [showEmbeddedSettings, setShowEmbeddedSettings] = useState(false);
   const [showEmbeddedAchievements, setShowEmbeddedAchievements] = useState(false);
   const [showEmbeddedFriends, setShowEmbeddedFriends] = useState(false);
+  const [embeddedHeaderMeta, setEmbeddedHeaderMeta] = useState(null);
   const [embeddedCollectionPublicPanelOpen, setEmbeddedCollectionPublicPanelOpen] = useState(false);
   const [embeddedSelectedCollectionId, setEmbeddedSelectedCollectionId] = useState("global");
 
@@ -376,6 +377,12 @@ export default function Home() {
       setEmbeddedSelectedCollectionId("global");
     }
   }, [showEmbeddedCollection]);
+
+  useEffect(() => {
+    if (!showEmbeddedAchievements && !showEmbeddedFriends) {
+      setEmbeddedHeaderMeta(null);
+    }
+  }, [showEmbeddedAchievements, showEmbeddedFriends]);
   const [uiTheme, setUiTheme] = useState(() => {
     const stored = localStorage.getItem("home-ui-theme");
     return stored === "light" ? "light" : "dark";
@@ -1224,6 +1231,7 @@ export default function Home() {
         setShowEmbeddedSettings(false);
         setShowEmbeddedAchievements(false);
         setShowEmbeddedFriends(false);
+        setEmbeddedHeaderMeta(null);
         setEmbeddedCollectionPublicPanelOpen(false);
         setEmbeddedSelectedCollectionId("global");
         setShowHeroZoneMap(false);
@@ -1244,6 +1252,7 @@ export default function Home() {
         setShowEmbeddedSettings(false);
         setShowEmbeddedAchievements(true);
         setShowEmbeddedFriends(false);
+        setEmbeddedHeaderMeta(null);
         setEmbeddedCollectionPublicPanelOpen(false);
         setEmbeddedSelectedCollectionId("global");
         setShowHeroZoneMap(false);
@@ -1264,6 +1273,7 @@ export default function Home() {
         setShowEmbeddedSettings(false);
         setShowEmbeddedAchievements(false);
         setShowEmbeddedFriends(true);
+        setEmbeddedHeaderMeta(null);
         setEmbeddedCollectionPublicPanelOpen(false);
         setEmbeddedSelectedCollectionId("global");
         setShowHeroZoneMap(false);
@@ -1311,10 +1321,13 @@ export default function Home() {
     : showEmbeddedSettings
       ? "Einstellungen"
       : showEmbeddedAchievements
-        ? "Erfolge"
+        ? (embeddedHeaderMeta?.title || "Erfolge")
         : showEmbeddedFriends
-          ? "Social"
+          ? (embeddedHeaderMeta?.title || "Social")
           : null;
+
+  const embeddedSubtitle = embeddedHeaderMeta?.subtitle || null;
+  const embeddedInfoLabel = embeddedHeaderMeta?.infoLabel || null;
 
   const handleRegenerateZones = async () => {
     if (isRegeneratingZones || !user?.id) return;
@@ -1489,6 +1502,8 @@ export default function Home() {
               <HomeHeaderBar
                 isLightUi={isLightUi}
                 embeddedTitle={embeddedTitle}
+                embeddedSubtitle={embeddedSubtitle}
+                embeddedInfoLabel={embeddedInfoLabel}
                 hasEmbeddedView={hasEmbeddedView}
                 showEmbeddedCollection={showEmbeddedCollection}
                 showEmbeddedSettings={showEmbeddedSettings}
@@ -1537,9 +1552,19 @@ export default function Home() {
                     onShowPublicCollectionsPanelChange={setEmbeddedCollectionPublicPanelOpen}
                   />
                 ) : showEmbeddedAchievements ? (
-                  <AchievementsFeatureRoot embedded onRequestClose={() => setShowEmbeddedAchievements(false)} />
+                  <AchievementsFeatureRoot
+                    embedded
+                    isLightUi={isLightUi}
+                    onRequestClose={() => setShowEmbeddedAchievements(false)}
+                    onHeaderMetaChange={setEmbeddedHeaderMeta}
+                  />
                 ) : showEmbeddedFriends ? (
-                  <FriendsFeatureRoot embedded onRequestClose={() => setShowEmbeddedFriends(false)} />
+                  <FriendsFeatureRoot
+                    embedded
+                    isLightUi={isLightUi}
+                    onRequestClose={() => setShowEmbeddedFriends(false)}
+                    onHeaderMetaChange={setEmbeddedHeaderMeta}
+                  />
                 ) : showEmbeddedSettings ? (
                   <SettingsPanel
                     user={user}

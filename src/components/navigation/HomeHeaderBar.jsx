@@ -3,6 +3,8 @@ import { Home as HomeIcon, List, Settings } from "lucide-react";
 export default function HomeHeaderBar({
   isLightUi,
   embeddedTitle,
+  embeddedSubtitle,
+  embeddedInfoLabel,
   hasEmbeddedView,
   showEmbeddedCollection,
   showEmbeddedSettings,
@@ -25,10 +27,15 @@ export default function HomeHeaderBar({
     <div className={`flex items-start justify-between gap-3 pb-3 border-b ${isLightUi ? "border-[#b99a48]/30" : "border-[#f0e5a5]/20"}`}>
       <div className="min-w-0">
         {resolvedEmbeddedTitle ? (
-          <div className="flex items-baseline gap-2 min-w-0">
+          <div className="min-w-0">
             <h1 className="font-bold leading-tight text-2xl md:text-3xl truncate" title={resolvedEmbeddedTitle}>
               {resolvedEmbeddedTitle}
             </h1>
+            {embeddedSubtitle && (
+              <p className={`${isLightUi ? "text-stone-700/90" : "text-stone-200/85"} text-sm md:text-base truncate mt-0.5`}>
+                {embeddedSubtitle}
+              </p>
+            )}
           </div>
         ) : (
           <div className="flex items-baseline gap-2 min-w-0">
@@ -52,6 +59,18 @@ export default function HomeHeaderBar({
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
+        {!!embeddedInfoLabel && isEmbeddedMode && (
+          <span
+            className={`hidden sm:inline-flex items-center h-9 rounded-full border px-3 text-xs font-semibold ${
+              isLightUi
+                ? "border-[#c8ac62]/55 bg-white/65 text-[#8f6b22]"
+                : "border-[#f0e5a5]/35 bg-black/30 text-[#f0e5a5]"
+            }`}
+          >
+            {embeddedInfoLabel}
+          </span>
+        )}
+
         {showEmbeddedCollection && (
           <button
             type="button"

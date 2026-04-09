@@ -58,7 +58,12 @@ const getAverageColor = (imageUrl) => {
   });
 };
 
-export default function Achievements({ embedded = false, onRequestClose: _onRequestClose = null }) {
+export default function Achievements({
+  embedded = false,
+  isLightUi,
+  onHeaderMetaChange,
+  onRequestClose: _onRequestClose = null,
+}) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
@@ -594,6 +599,34 @@ export default function Achievements({ embedded = false, onRequestClose: _onRequ
     }
   };
 
+  const unlockedCount = achievements.filter((a) =>
+    userAchievements.some((ua) => ua.achievement_id === a.id)
+  ).length;
+
+  useEffect(() => {
+    if (!embedded || typeof onHeaderMetaChange !== "function") return;
+
+    const infoLabel = activeTab === "quests"
+      ? `${questFilter === "exploration" ? "Erkundung" : questFilter === "weekly" ? "Woechentlich" : "Monatlich"}`
+      : activeTab === "achievements"
+        ? `${unlockedCount}/${achievements.length} Erfolge`
+        : `${userDiscoveries.length} Scans`;
+
+    onHeaderMetaChange({
+      title: activeTab === "quests" ? "Aufgaben" : activeTab === "achievements" ? "Erfolge" : "Statistik",
+      subtitle: activeTab === "stats" ? "Deine Scan-Insights und Vergleich mit Freunden" : "Dein Fortschritt im Ueberblick",
+      infoLabel,
+    });
+  }, [
+    embedded,
+    onHeaderMetaChange,
+    activeTab,
+    questFilter,
+    unlockedCount,
+    achievements.length,
+    userDiscoveries.length,
+  ]);
+
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50">
@@ -601,10 +634,6 @@ export default function Achievements({ embedded = false, onRequestClose: _onRequ
       </div>);
 
   }
-
-  const unlockedCount = achievements.filter((a) =>
-  userAchievements.some((ua) => ua.achievement_id === a.id)
-  ).length;
 
   const getRarityColor = (rarity) => {
     switch (rarity) {
@@ -1082,7 +1111,7 @@ export default function Achievements({ embedded = false, onRequestClose: _onRequ
     .slice(0, 5);
 
   const tabsHeaderClass = embedded
-    ? "sticky top-0 z-30 bg-white shadow-sm border-b border-stone-200"
+    ? `sticky top-0 z-30 backdrop-blur-sm border-b ${isLightUi ? "bg-white/70 border-[#b99a48]/30" : "bg-black/20 border-[#f0e5a5]/20"}`
     : "fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200";
 
   const achievementsContentClass = embedded ? "pt-4 px-4 pb-4" : "pt-36 px-4 pb-4";
@@ -1091,6 +1120,30 @@ export default function Achievements({ embedded = false, onRequestClose: _onRequ
 
   return (
     <>
+      {embedded && isLightUi === false && (
+        <style>{`
+          [data-embedded-module="achievements"][data-theme="dark"] .bg-white,
+          [data-embedded-module="achievements"][data-theme="dark"] .bg-white\/80,
+          [data-embedded-module="achievements"][data-theme="dark"] .bg-white\/90,
+          [data-embedded-module="achievements"][data-theme="dark"] .bg-stone-50,
+          [data-embedded-module="achievements"][data-theme="dark"] .bg-stone-50\/80 {
+            background-color: rgba(20, 20, 20, 0.62) !important;
+          }
+          [data-embedded-module="achievements"][data-theme="dark"] .text-stone-900 {
+            color: rgb(245 245 244) !important;
+          }
+          [data-embedded-module="achievements"][data-theme="dark"] .text-stone-700,
+          [data-embedded-module="achievements"][data-theme="dark"] .text-stone-600,
+          [data-embedded-module="achievements"][data-theme="dark"] .text-stone-500 {
+            color: rgb(214 211 209) !important;
+          }
+          [data-embedded-module="achievements"][data-theme="dark"] .border-stone-200,
+          [data-embedded-module="achievements"][data-theme="dark"] .border-stone-300 {
+            border-color: rgba(240, 229, 165, 0.28) !important;
+          }
+        `}</style>
+      )}
+
       {renderQuestFeedbackOverlay()}
       {/* Overlay für frisch freigeschaltete Achievements (analog Scanner / Friends) */}
       <AnimatePresence>
@@ -1121,28 +1174,34 @@ export default function Achievements({ embedded = false, onRequestClose: _onRequ
 
       
       {/* Scrollbarer Content */}
-      <div className={embedded ? "h-full min-h-0 overflow-y-auto" : "min-h-screen"}>
+      <div
+        data-embedded-module="achievements"
+        data-theme={isLightUi ? "light" : "dark"}
+        className={embedded ? "h-full min-h-0 overflow-y-auto" : "min-h-screen"}
+      >
         {!embedded && <MobileBackButton />}
       
       <div className="w-full">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className={tabsHeaderClass}>
             <div className="max-w-7xl mx-auto">
-              <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <h1 className="text-xl sm:text-2xl font-bold text-stone-900 truncate">
-                    {activeTab === "quests" ? "Aufgaben" : activeTab === "achievements" ? "Erfolge" : "Statistik"}
-                  </h1>
-                  <p className="text-xs text-stone-600 truncate">
-                    {activeTab === "stats" ? "Deine Scan-Insights und Vergleich mit Freunden" : "Dein Fortschritt im Ueberblick"}
-                  </p>
+              {!embedded && (
+                <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <h1 className="text-xl sm:text-2xl font-bold text-stone-900 truncate">
+                      {activeTab === "quests" ? "Aufgaben" : activeTab === "achievements" ? "Erfolge" : "Statistik"}
+                    </h1>
+                    <p className="text-xs text-stone-600 truncate">
+                      {activeTab === "stats" ? "Deine Scan-Insights und Vergleich mit Freunden" : "Dein Fortschritt im Ueberblick"}
+                    </p>
+                  </div>
+                  <Badge className="bg-stone-800 text-white text-[10px] px-2 py-1 shrink-0">
+                    {activeTab === "quests" ? `${activeQuests.length} aktiv` : activeTab === "achievements" ? `${unlockedCount}/${achievements.length}` : `${totalScans} Scans`}
+                  </Badge>
                 </div>
-                <Badge className="bg-stone-800 text-white text-[10px] px-2 py-1 shrink-0">
-                  {activeTab === "quests" ? `${activeQuests.length} aktiv` : activeTab === "achievements" ? `${unlockedCount}/${achievements.length}` : `${totalScans} Scans`}
-                </Badge>
-              </div>
+              )}
 
-              <TabsList className="w-full bg-white rounded-none border-0 h-auto px-2 pb-2 flex items-center gap-2 overflow-x-auto justify-start">
+              <TabsList className={`w-full rounded-none border-0 h-auto px-2 pb-2 flex items-center gap-2 overflow-x-auto justify-start ${embedded ? "bg-transparent" : "bg-white"}`}>
                 <TabsTrigger value="quests" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold rounded-full text-xs sm:text-sm relative min-w-max px-3 py-2">
                   <div className="flex items-center gap-1">
                     <Target className="w-3 h-3 sm:w-4 sm:h-4" />
