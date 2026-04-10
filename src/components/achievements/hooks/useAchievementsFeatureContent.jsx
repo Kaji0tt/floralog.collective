@@ -1594,22 +1594,22 @@ export function useAchievementsFeatureContent({
 
       {/* Title Selection Dialog */}
       <Dialog open={showTitleDialog} onOpenChange={setShowTitleDialog}>
-        <DialogContent>
+        <DialogContent className={!isLightUi ? "bg-[#1a1d1a] border-[#f0e5a5]/20" : ""}>
           <DialogHeader>
-            <DialogTitle>Titel ausrüsten</DialogTitle>
+            <DialogTitle className={!isLightUi ? "text-stone-100" : ""}>Titel ausrüsten</DialogTitle>
           </DialogHeader>
           <div className="py-4">
-            <p className="text-stone-700 mb-4">
-              Möchtest du den Titel <strong className="text-purple-700">"{selectedAchievement?.selectedReward?.value}"</strong> ausrüsten?
+            <p className={`mb-4 ${!isLightUi ? "text-stone-300" : "text-stone-700"}`}>
+              Möchtest du den Titel <strong className={!isLightUi ? "text-purple-300" : "text-purple-700"}>"{selectedAchievement?.selectedReward?.value}"</strong> ausrüsten?
             </p>
-            <p className="text-sm text-stone-500 mb-6">
+            <p className={`text-sm mb-6 ${!isLightUi ? "text-stone-400" : "text-stone-500"}`}>
               Dieser Titel wird in deinem Profil und auf der Startseite angezeigt.
             </p>
             <div className="flex gap-3">
               <Button
                   variant="outline"
                   onClick={() => setShowTitleDialog(false)}
-                  className="flex-1">
+                  className={`flex-1 ${!isLightUi ? "border-stone-600 text-stone-300 hover:bg-stone-800" : ""}`}>
 
                 Abbrechen
               </Button>

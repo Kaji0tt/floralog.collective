@@ -1432,17 +1432,17 @@ Viel Spaß beim Entdecken! 🌿`;
 
       {/* Add Friend Dialog */}
       <Dialog open={showAddFriendDialog} onOpenChange={setShowAddFriendDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className={`max-w-md ${!isLightUi ? "bg-[#1a1d1a] border-[#f0e5a5]/20" : ""}`}>
           <DialogHeader>
-            <DialogTitle>Freund hinzufügen oder einladen</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className={!isLightUi ? "text-stone-100" : ""}>Freund hinzufügen oder einladen</DialogTitle>
+            <DialogDescription className={!isLightUi ? "text-stone-400" : ""}>
               Wähle eine Option aus
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-4">
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-stone-900">Freundschaftsanfrage senden</h3>
-              <p className="text-xs text-stone-600">
+              <h3 className={`text-sm font-semibold ${!isLightUi ? "text-stone-200" : "text-stone-900"}`}>Freundschaftsanfrage senden</h3>
+              <p className={`text-xs ${!isLightUi ? "text-stone-400" : "text-stone-600"}`}>
                 Sende eine Anfrage an jemanden, der bereits die App nutzt
               </p>
               <div className="flex gap-2">
@@ -1451,7 +1451,7 @@ Viel Spaß beim Entdecken! 🌿`;
                   value={friendEmail}
                   onChange={(e) => setFriendEmail(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSendRequest()}
-                  className="border-2 border-stone-200 flex-1"
+                  className={`border-2 flex-1 ${!isLightUi ? "border-stone-600 bg-stone-800/60 text-stone-100 placeholder:text-stone-500" : "border-stone-200"}`}
                 />
                 <Button
                   onClick={() => {
@@ -1472,9 +1472,9 @@ Viel Spaß beim Entdecken! 🌿`;
               </div>
             </div>
 
-            <div className="border-t border-stone-200 pt-4">
-              <h3 className="text-sm font-semibold text-stone-900 mb-2">Freund einladen</h3>
-              <p className="text-xs text-stone-600 mb-3">
+            <div className={`border-t pt-4 ${!isLightUi ? "border-stone-700" : "border-stone-200"}`}>
+              <h3 className={`text-sm font-semibold mb-2 ${!isLightUi ? "text-stone-200" : "text-stone-900"}`}>Freund einladen</h3>
+              <p className={`text-xs mb-3 ${!isLightUi ? "text-stone-400" : "text-stone-600"}`}>
                 Erstelle einen Einladungslink und teile ihn per WhatsApp, SMS oder E-Mail
               </p>
               <Button
@@ -1507,7 +1507,7 @@ Viel Spaß beim Entdecken! 🌿`;
                   }
                 }}
                 variant="outline"
-                className="w-full border-2 border-blue-300 text-blue-700 hover:bg-blue-50"
+                className={`w-full border-2 ${!isLightUi ? "border-blue-700/60 text-blue-300 hover:bg-blue-900/20" : "border-blue-300 text-blue-700 hover:bg-blue-50"}`}
               >
                 <Share2 className="w-4 h-4 mr-2" />
                 Einladungslink kopieren

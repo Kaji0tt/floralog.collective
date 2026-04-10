@@ -8,7 +8,7 @@ import { Loader2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Query } from "@/api/entities";
 
-export default function EditGenusDialog({ genus, isOpen, onClose }) {
+export default function EditGenusDialog({ genus, isOpen, onClose, isLightUi = true }) {
   const queryClient = useQueryClient();
   const [genusName, setGenusName] = useState("");
   const [description, setDescription] = useState("");
@@ -60,14 +60,17 @@ export default function EditGenusDialog({ genus, isOpen, onClose }) {
 
   if (!genus) return null;
 
+  const inputClass = `border-2 focus:border-green-500 ${!isLightUi ? "border-stone-600 bg-stone-800/60 text-stone-100 placeholder:text-stone-500" : "border-stone-200"}`;
+  const labelClass = `font-semibold ${!isLightUi ? "text-stone-200" : ""}`;
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md w-[95vw] sm:w-full">
+      <DialogContent className={`max-w-md w-[95vw] sm:w-full ${!isLightUi ? "bg-[#1a1d1a] border-[#f0e5a5]/20" : ""}`}>
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-stone-900">
+          <DialogTitle className={`text-xl font-bold ${!isLightUi ? "text-stone-100" : "text-stone-900"}`}>
             Gattung bearbeiten
           </DialogTitle>
-          <DialogDescription className="text-sm text-stone-600">
+          <DialogDescription className={`text-sm ${!isLightUi ? "text-stone-400" : "text-stone-600"}`}>
             Passe den Namen und weitere Informationen dieser Gattung an
           </DialogDescription>
         </DialogHeader>
@@ -75,7 +78,7 @@ export default function EditGenusDialog({ genus, isOpen, onClose }) {
         <div className="space-y-4">
           {/* Deutscher Name */}
           <div className="space-y-2">
-            <Label htmlFor="genus-name" className="font-semibold">
+            <Label htmlFor="genus-name" className={labelClass}>
               Deutscher Name *
             </Label>
             <Input
@@ -83,13 +86,13 @@ export default function EditGenusDialog({ genus, isOpen, onClose }) {
               value={genusName}
               onChange={(e) => setGenusName(e.target.value)}
               placeholder="z.B. Eiche"
-              className="border-2 border-stone-200 focus:border-green-500"
+              className={inputClass}
             />
           </div>
 
           {/* Wissenschaftlicher Name */}
           <div className="space-y-2">
-            <Label htmlFor="scientific-genus" className="font-semibold">
+            <Label htmlFor="scientific-genus" className={labelClass}>
               Wissenschaftlicher Name
             </Label>
             <Input
@@ -97,13 +100,13 @@ export default function EditGenusDialog({ genus, isOpen, onClose }) {
               value={scientificGenus}
               onChange={(e) => setScientificGenus(e.target.value)}
               placeholder="z.B. Quercus"
-              className="border-2 border-stone-200 focus:border-green-500"
+              className={inputClass}
             />
           </div>
 
           {/* Familie */}
           <div className="space-y-2">
-            <Label htmlFor="family" className="font-semibold">
+            <Label htmlFor="family" className={labelClass}>
               Familie
             </Label>
             <Input
@@ -111,13 +114,13 @@ export default function EditGenusDialog({ genus, isOpen, onClose }) {
               value={family}
               onChange={(e) => setFamily(e.target.value)}
               placeholder="z.B. Fagaceae"
-              className="border-2 border-stone-200 focus:border-green-500"
+              className={inputClass}
             />
           </div>
 
           {/* Beschreibung */}
           <div className="space-y-2">
-            <Label htmlFor="description" className="font-semibold">
+            <Label htmlFor="description" className={labelClass}>
               Beschreibung
             </Label>
             <Textarea
@@ -125,13 +128,13 @@ export default function EditGenusDialog({ genus, isOpen, onClose }) {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Kurze Beschreibung der Gattung..."
-              className="border-2 border-stone-200 focus:border-green-500 min-h-24 resize-none"
+              className={`${inputClass} min-h-24 resize-none`}
             />
           </div>
 
           {/* Hinweis */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-xs text-blue-900">
+          <div className={`border rounded-lg p-3 ${!isLightUi ? "bg-blue-900/20 border-blue-700/40" : "bg-blue-50 border-blue-200"}`}>
+            <p className={`text-xs ${!isLightUi ? "text-blue-200" : "text-blue-900"}`}>
               💡 <strong>Hinweis:</strong> Diese Änderungen werden auch in den Kollektionen aktualisiert.
             </p>
           </div>
@@ -156,15 +159,15 @@ export default function EditGenusDialog({ genus, isOpen, onClose }) {
               onClick={handleClose}
               disabled={updateMutation.isPending}
               variant="outline"
-              className="flex-1"
+              className={`flex-1 ${!isLightUi ? "border-stone-600 text-stone-300 hover:bg-stone-800" : ""}`}
             >
               Abbrechen
             </Button>
           </div>
 
           {updateMutation.isError && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-xs text-red-900">
+            <div className={`border rounded-lg p-3 ${!isLightUi ? "bg-red-900/20 border-red-700/40" : "bg-red-50 border-red-200"}`}>
+              <p className={`text-xs ${!isLightUi ? "text-red-300" : "text-red-900"}`}>
                 ❌ Fehler: {updateMutation.error?.message || "Speichern fehlgeschlagen"}
               </p>
             </div>

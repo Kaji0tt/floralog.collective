@@ -167,7 +167,7 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
                       transform: "rotateY(180deg)"
                     }}
                   >
-                    <p className="font-bold text-stone-700 break-words text-xs">
+                    <p className={"font-bold break-words text-xs " + (isLightUi ? "text-stone-700" : "text-stone-200")}>
                       {genus.genus_name}
                     </p>
                   </motion.div>
@@ -180,7 +180,7 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
             <div className="space-y-1">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
-                  <h3 className={`font-bold break-words text-xs leading-tight ${discovered ? (isLightUi ? 'text-stone-900' : 'text-stone-100') : (isLightUi ? 'text-stone-500' : 'text-stone-400')}`}>
+                  <h3 className={`font-bold break-words text-xs leading-tight ${discovered ? (isLightUi ? 'text-stone-900' : 'text-stone-100') : (isLightUi ? 'text-stone-500' : 'text-stone-300')}`}>
                     {discovered ? genus.genus_name : '???'}
                   </h3>
                 </div>
@@ -208,6 +208,7 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
         genus={genus}
         isOpen={isEditOpen}
         onClose={() => setIsEditOpen(false)}
+        isLightUi={isLightUi}
       />
     </>
   );

@@ -607,6 +607,19 @@ Deno.serve(async (req) => {
     const dayKey = toDayKey();
     const authKeySuffix = authId.replace(/-/g, "");
     const queryStartTime = Date.now();
+    const zoneThemes = ["forest", "urban", "water", "meadow"];
+
+    // Keep only today's cache rows for this user and purge stale day-bound cache rows.
+    const { error: staleCacheCleanupError } = await adminClient
+      .from("RobotPlantZone")
+      .delete()
+      .like("zone_key", `%:${authKeySuffix}`)
+      .in("theme", zoneThemes)
+      .or(`day_generated.is.null,day_generated.neq.${dayKey}`);
+
+    if (staleCacheCleanupError) {
+      console.warn("[robotPlantDailyZones] Failed to cleanup stale cache rows (non-fatal):", staleCacheCleanupError);
+    }
 
     if (targetZoneCount <= 0) {
       const { error: clearZonesError } = await adminClient
@@ -614,7 +627,7 @@ Deno.serve(async (req) => {
         .delete()
         .eq("day_generated", dayKey)
         .like("zone_key", `%:${authKeySuffix}`)
-        .in("theme", ["forest", "urban", "water", "meadow"]);
+        .in("theme", zoneThemes);
 
       if (clearZonesError) {
         console.error("[robotPlantDailyZones] Failed to clear zones for low energy", clearZonesError);
@@ -652,12 +665,12 @@ Deno.serve(async (req) => {
 
     // Force regeneration should fully replace today's zones.
     if (forceRegenerate) {
+      // Clear all cached zone rows for this user before regenerating.
       const { error: deleteUserScopedError } = await adminClient
         .from("RobotPlantZone")
         .delete()
-        .eq("day_generated", dayKey)
         .like("zone_key", `%:${authKeySuffix}`)
-        .in("theme", ["forest", "urban", "water", "meadow"]);
+        .in("theme", zoneThemes);
 
       if (deleteUserScopedError) {
         console.error("[robotPlantDailyZones] Failed to clear user-scoped zones for force regeneration:", deleteUserScopedError);
@@ -671,7 +684,7 @@ Deno.serve(async (req) => {
         .eq("day_generated", dayKey)
         .like("zone_key", `${dayKey}-%`)
         .not("zone_key", "like", "%:%")
-        .in("theme", ["forest", "urban", "water", "meadow"]);
+        .in("theme", zoneThemes);
 
       if (deleteLegacyError) {
         console.warn("[robotPlantDailyZones] Legacy zone cleanup failed (non-fatal):", deleteLegacyError);
@@ -687,9 +700,9 @@ Deno.serve(async (req) => {
         .select("*")
         .eq("day_generated", dayKey)
         .like("zone_key", `%:${authKeySuffix}`)
-        .in("theme", ["forest", "urban", "water", "meadow"]);
+        .in("theme", zoneThemes);
 
-      if (!existError && Array.isArray(existing) && existing.length >= targetZoneCount) {
+      if (!existError && Array.isArray(existing) && existing.length > 0) {
         console.log(`[robotPlantDailyZones] Returning ${existing.length} cached zones for today`);
         return jsonResponse({
           success: true,

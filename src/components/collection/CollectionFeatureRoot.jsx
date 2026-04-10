@@ -788,6 +788,7 @@ export default function CollectionFeatureRoot({
               genus={selectedGenus}
               isOpen={showHintDialog}
               onClose={() => setShowHintDialog(false)}
+              isLightUi={isLightUi}
             />
 
             <div className="flex-1 min-h-0 py-[clamp(0.5rem,1.5vh,1rem)] flex flex-col gap-3" data-ui={embedded ? "collection-content-stack" : "home-content-stack"}>
