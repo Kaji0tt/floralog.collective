@@ -601,20 +601,20 @@ export default function Home() {
     queryClient.refetchQueries({ queryKey: ['allDiscoveries'] });
     queryClient.refetchQueries({ queryKey: ['robotPlantState'] });
     
-    // NICHT mehr hier - Rewards werden nur beim Scannen/Quest-Completion geprÃ¼ft
+    // NICHT mehr hier - Rewards werden nur beim Scannen/Quest-Completion geprüft
   };
 
   useEffect(() => {
     loadUserData();
 
-    // Subscription fÃ¼r User-Updates (z.B. aus WelcomeNameDialog)
+    // Subscription für User-Updates (z.B. aus WelcomeNameDialog)
     const unsubscribe = Query.PublicProfile.subscribe((event) => {
       if (event.type === 'update') {
         loadUserData();
       }
     });
 
-    // Custom Event Listener fÃ¼r User-Updates vom Layout
+    // Custom Event Listener für User-Updates vom Layout
     const handleUserUpdate = (event) => {
       const updatedUser = event.detail;
       setUser(updatedUser);
@@ -639,7 +639,7 @@ export default function Home() {
     localStorage.setItem("home-ui-theme", uiTheme);
   }, [uiTheme]);
 
-  // Beim Ã–ffnen der Home-Seite einmalig Quest-Fortschritt aktualisieren
+  // Beim Öffnen der Home-Seite einmalig Quest-Fortschritt aktualisieren
   useEffect(() => {
     const runQuestProgressUpdate = async () => {
       if (!user?.id) return;
@@ -718,7 +718,7 @@ export default function Home() {
     }
   }, [user]); // Only depend on user, not isMigrating!
 
-  // PrÃ¼fe ob Scanner-Highlight angezeigt werden soll
+  // Prüfe ob Scanner-Highlight angezeigt werden soll
   useEffect(() => {
     if (!user || isLoadingDiscoveries) return;
     const hasDisplayName = user.display_name;
@@ -738,7 +738,7 @@ export default function Home() {
       await updatePublicProfile(freshUser);
     },
     onError: (error) => {
-      console.error("âŒ Fehler beim Update:", error);
+      console.error("❌ Fehler beim Update:", error);
       alert(`Fehler beim Speichern: ${error.message}`);
     }
   });
@@ -1119,7 +1119,7 @@ export default function Home() {
 
   const getRgbaFromRgb = (rgbString, opacity) => {
     if (!rgbString) return null;
-    // Fallback: Wenn opacity ungÃ¼ltig ist, auf 1 setzen
+    // Fallback: Wenn opacity ungültig ist, auf 1 setzen
     const safeOpacity = (typeof opacity === 'number' && opacity >= 0 && opacity <= 1) ? opacity : 1;
     const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
     if (!match) return rgbString;
@@ -1247,37 +1247,37 @@ export default function Home() {
   const multiplierItems = [
     {
       id: "streak",
-      title: "ðŸ”¥ Streak",
+      title: "🔥 Streak",
       value: formatMultiplier(streakMultiplier),
       description: "Basierend auf deiner Scan-Serie (x1 bis x7).",
     },
     {
       id: "zone",
-      title: "ðŸ“ Zone",
+      title: "📍 Zone",
       value: formatMultiplier(zoneMultiplier),
       description: "Start x1.5, pro weiterem Scan in derselben Zone -0.2 (bis x0.5).",
     },
     {
       id: "care",
-      title: "ðŸ’š Pflege",
+      title: "💚 Pflege",
       value: formatMultiplier(careMultiplier),
       description: "Direkter Einfluss aus dem Care-Wert (x0.5 bis x1.5).",
     },
     {
       id: "daily",
-      title: "ðŸŒ… Tagesbonus",
+      title: "🌅 Tagesbonus",
       value: formatMultiplier(dailyBonusMultiplier),
       description: "Erster Scan des Tages x2, danach x1.",
     },
     {
       id: "rarity",
-      title: "â­ Raritaet",
+      title: "⭐ Rarität",
       value: "x1 bis x3",
       description: "Scanabhaengig: haeufig x1, gelegentlich x2, selten x3.",
     },
     {
       id: "novelty",
-      title: "ðŸ“‰ Neuheit",
+      title: "📉 Neuheit",
       value: "x1 bis x0.2",
       description: "Scanabhaengig: sinkt pro Duplikat derselben Pflanze.",
     },
@@ -1537,7 +1537,7 @@ export default function Home() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Loader2 className="w-5 h-5 animate-spin text-green-600" />
-              Migration lÃ¤uft...
+              Migration läuft...
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
@@ -1584,7 +1584,7 @@ export default function Home() {
                 variant="outline"
                 className="w-full"
               >
-                SchlieÃŸen
+                Schließen
               </Button>
             )}
           </div>
@@ -1843,7 +1843,7 @@ export default function Home() {
                           setShowHeroZoneMap(true);
                           setShowHealthStatsPanel(false);
                         }}
-                        aria-label="Zonenkarte in Plant-Hero Ã¶ffnen"
+                        aria-label="Zonenkarte in Plant-Hero öffnen"
                         className={`absolute right-0 md:right-2 top-5 md:top-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${
                           isLightUi
                             ? "border-[#c8ac62]/60"
@@ -1989,9 +1989,9 @@ export default function Home() {
                           <div className="space-y-2">
                             <h3 className="font-semibold text-lime-200">Samen</h3>
                             <p className="text-xs text-amber-50/70">
-                              Werden verwendet um neue Items zu freischalten, welche die Pflanzepflege erleichtern. Voraussichtlich werden auch Cosmetics verfÃ¼gbar sein. Die genaue Verwendung wird noch definiert.
+                              Werden verwendet um neue Items zu freischalten, welche die Pflanzepflege erleichtern. Voraussichtlich werden auch Cosmetics verfügbar sein. Die genaue Verwendung wird noch definiert.
                             </p>
-                            <p className="text-xs text-amber-100/50 italic">ðŸ’¡ Status: In Entwicklung</p>
+                            <p className="text-xs text-amber-100/50 italic">💡 Status: In Entwicklung</p>
                           </div>
                         </PopoverContent>
                       </Popover>
@@ -2006,7 +2006,7 @@ export default function Home() {
                             <div className={`h-5 w-px ${isLightUi ? "bg-[#c8ac62]/40" : "bg-[#f0e5a5]/35"}`} />
                             <Zap className={`w-4 h-4 ${isLightUi ? "text-amber-700" : "text-amber-300"}`} />
                             <span className="truncate">
-                              NÃ¤chster Scan {formatMultiplier(knownNextScanMultiplier)}
+                              Nächster Scan {formatMultiplier(knownNextScanMultiplier)}
                             </span>
                           </div>
                         </PopoverTrigger>
@@ -2047,7 +2047,7 @@ export default function Home() {
                             <div className="rounded-lg border border-amber-600/25 bg-black/20 p-2.5 text-xs space-y-1">
                               <div className="text-amber-300 font-semibold">Aktuell bekannter Gesamtfaktor</div>
                               <div className="text-amber-50/90">
-                                {formatMultiplier(streakMultiplier)} Ã— {formatMultiplier(zoneMultiplier)} Ã— {formatMultiplier(careMultiplier)} Ã— {formatMultiplier(dailyBonusMultiplier)} = <strong>{formatMultiplier(knownNextScanMultiplier)}</strong>
+                                {formatMultiplier(streakMultiplier)} × {formatMultiplier(zoneMultiplier)} × {formatMultiplier(careMultiplier)} × {formatMultiplier(dailyBonusMultiplier)} = <strong>{formatMultiplier(knownNextScanMultiplier)}</strong>
                               </div>
                               <div className="text-amber-50/70">
                                 Zustand <strong>{plantHealthState.label}</strong> gibt aktuell <strong>+{healthStateBonus}</strong> auf alle Scan-Events.
