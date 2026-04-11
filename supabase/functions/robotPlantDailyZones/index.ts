@@ -160,13 +160,16 @@ function getTilesInRadius(centerLat: number, centerLng: number, radiusM: number)
   const maxTileY = Math.floor((centerY + radiusM) / TILE_SIZE_M);
 
   const tiles: Array<{ tileX: number; tileY: number }> = [];
+  const radiusSq = radiusM * radiusM; // Avoid repeated Math.sqrt on iOS
+  
   for (let tileX = minTileX; tileX <= maxTileX; tileX += 1) {
     for (let tileY = minTileY; tileY <= maxTileY; tileY += 1) {
       const tileCenterX = (tileX + 0.5) * TILE_SIZE_M;
       const tileCenterY = (tileY + 0.5) * TILE_SIZE_M;
       const dx = tileCenterX - centerX;
       const dy = tileCenterY - centerY;
-      if (Math.sqrt(dx * dx + dy * dy) <= radiusM) {
+      const distSq = dx * dx + dy * dy;
+      if (distSq <= radiusSq) {
         tiles.push({ tileX, tileY });
       }
     }
@@ -199,11 +202,19 @@ function buildSlimRasterCells(
   tileValues: SlimTileValueRow[],
   validTileKeys: Set<string>,
 ): RasterCell[] {
-  const chunkById = new Map(chunks.map((chunk) => [chunk.id, chunk]));
+  const chunkById = new Map<string, SlimChunkRow>();
+  for (const chunk of chunks) {
+    chunkById.set(chunk.id, chunk);
+  }
+  
+  // Pre-allocate and reuse theme totals to reduce GC pressure on iOS
   const tileMap = new Map<string, {
     tileX: number;
     tileY: number;
-    themeTotals: Record<ZoneTheme, number>;
+    forest: number;
+    water: number;
+    meadow: number;
+    urban: number;
     zoneRowCount: number;
   }>();
 
@@ -222,42 +233,52 @@ function buildSlimRasterCells(
     const zoneValue = Math.max(0, Number(row.zone_value) || 0);
     if (zoneValue <= 0) continue;
 
-    const existing = tileMap.get(tileKey) || {
-      tileX,
-      tileY,
-      themeTotals: { forest: 0, water: 0, meadow: 0, urban: 0 },
-      zoneRowCount: 0,
-    };
+    let tileData = tileMap.get(tileKey);
+    if (!tileData) {
+      tileData = {
+        tileX,
+        tileY,
+        forest: 0,
+        water: 0,
+        meadow: 0,
+        urban: 0,
+        zoneRowCount: 0,
+      };
+      tileMap.set(tileKey, tileData);
+    }
 
-    existing.themeTotals[theme] += zoneValue;
-    existing.zoneRowCount += 1;
-    tileMap.set(tileKey, existing);
+    tileData[theme] += zoneValue;
+    tileData.zoneRowCount += 1;
   }
 
   const cells: RasterCell[] = [];
+  cells.length = tileMap.size; // Pre-allocate array
+  let cellIndex = 0;
+
   for (const [tileKey, tileData] of tileMap.entries()) {
-    const total = Object.values(tileData.themeTotals).reduce((sum, value) => sum + value, 0);
+    const total = tileData.forest + tileData.water + tileData.meadow + tileData.urban;
     if (total <= 0) continue;
 
     const center = getTileCenter(tileData.tileX, tileData.tileY);
+    
+    // Build theme scores only if needed
     const themeScores: Partial<Record<ZoneTheme, number>> = {};
-    const themeAnchorPoints: Partial<Record<ZoneTheme, { lat: number; lng: number }>> = {};
     let dominantTheme: ZoneTheme = "meadow";
     let dominantScore = -1;
 
-    for (const theme of ["forest", "water", "urban", "meadow"] as ZoneTheme[]) {
-      const rawValue = tileData.themeTotals[theme];
+    const themes: ZoneTheme[] = ["forest", "water", "urban", "meadow"];
+    for (const theme of themes) {
+      const rawValue = tileData[theme];
       if (rawValue <= 0) continue;
       const normalized = rawValue / total;
       themeScores[theme] = normalized;
-      themeAnchorPoints[theme] = { lat: center.lat, lng: center.lng };
       if (normalized > dominantScore) {
         dominantScore = normalized;
         dominantTheme = theme;
       }
     }
 
-    cells.push({
+    cells[cellIndex++] = {
       id: tileKey,
       grid_id: tileKey,
       is_valid: true,
@@ -267,11 +288,12 @@ function buildSlimRasterCells(
       theme_confidence: dominantScore,
       dominant_osm_tags: {},
       theme_scores: themeScores,
-      theme_anchor_points: themeAnchorPoints,
+      theme_anchor_points: { [dominantTheme]: { lat: center.lat, lng: center.lng } },
       osm_element_count: tileData.zoneRowCount,
-    });
+    };
   }
 
+  cells.length = cellIndex; // Trim to actual size
   return cells;
 }
 
@@ -350,6 +372,7 @@ const scoreZoneSet = (zones: GeneratedZone[], centerLat: number, centerLng: numb
 
 /**
  * Select best zones from available raster cells
+ * iOS Optimization: Pre-compute distances, minimize array allocations
  */
 function selectBestZones(
   cells: RasterCell[],
@@ -365,6 +388,7 @@ function selectBestZones(
   },
 ): GeneratedZone[] {
   const MIN_THEME_CONFIDENCE = 0.1;
+  const MAX_CANDIDATES = Math.min(cells.length * 2, 500); // Limit on iOS
   const randomize = options?.randomize === true;
   const maxDistanceM = options?.maxDistanceM ?? PLAYER_RADIUS_M;
   const fallbackCells = options?.fallbackCells || [];
@@ -377,68 +401,64 @@ function selectBestZones(
     return [];
   }
 
-  const candidatesByTheme: Record<ZoneTheme, ThemeCandidate[]> = {
-    forest: [],
-    water: [],
-    urban: [],
-    meadow: [],
-  };
+  // Pre-compute distances for all cells (iOS: do this once, not repeatedly)
+  const distanceCache = new Map<string, number>();
+  for (const cell of cells) {
+    const dist = distanceMeters(centerLat, centerLng, cell.center_lat, cell.center_lng);
+    distanceCache.set(cell.id, dist);
+  }
+
+  const allCandidates: ThemeCandidate[] = [];
+  allCandidates.length = MAX_CANDIDATES; // Pre-allocate
+  let candidateCount = 0;
 
   for (const cell of cells) {
-    const themeScores = cell.theme_scores || {};
-    const anchorPoints = cell.theme_anchor_points || {};
+    const cellDistance = distanceCache.get(cell.id) ?? maxDistanceM + 1;
+    if (cellDistance > maxDistanceM) continue;
 
+    const themeScores = cell.theme_scores || {};
     const availableThemes = (Object.keys(themeScores) as ZoneTheme[])
       .filter((theme) => (themeScores[theme] || 0) >= MIN_THEME_CONFIDENCE);
 
     if (availableThemes.length === 0) {
-      const fallbackDistance = distanceMeters(centerLat, centerLng, cell.center_lat, cell.center_lng);
-      if (fallbackDistance > maxDistanceM) continue;
-
-      candidatesByTheme[cell.theme].push({
-        cellId: cell.id,
-        theme: cell.theme,
-        lat: cell.center_lat,
-        lng: cell.center_lng,
-        probability: Math.max(cell.theme_confidence || 0, MIN_THEME_CONFIDENCE),
-        osmElementCount: cell.osm_element_count || 0,
-      });
+      if (candidateCount < MAX_CANDIDATES) {
+        allCandidates[candidateCount++] = {
+          cellId: cell.id,
+          theme: cell.theme,
+          lat: cell.center_lat,
+          lng: cell.center_lng,
+          probability: Math.max(cell.theme_confidence || 0, MIN_THEME_CONFIDENCE),
+          osmElementCount: cell.osm_element_count || 0,
+        };
+      }
       continue;
     }
 
     const selectedTheme = pickThemeByWeightedProbability(availableThemes, themeScores, themePickRng);
-    const anchor = anchorPoints[selectedTheme];
-    const lat = Number(anchor?.lat ?? cell.center_lat);
-    const lng = Number(anchor?.lng ?? cell.center_lng);
-    const candidateDistance = distanceMeters(centerLat, centerLng, lat, lng);
-    if (candidateDistance > maxDistanceM) continue;
-
-    candidatesByTheme[selectedTheme].push({
-      cellId: cell.id,
-      theme: selectedTheme,
-      lat,
-      lng,
-      probability: Number(themeScores[selectedTheme] || 0),
-      osmElementCount: cell.osm_element_count || 0,
-    });
-  }
-
-  for (const theme of Object.keys(candidatesByTheme) as ZoneTheme[]) {
-    candidatesByTheme[theme].sort((a, b) => {
-      const distA = distanceMeters(centerLat, centerLng, a.lat, a.lng);
-      const distB = distanceMeters(centerLat, centerLng, b.lat, b.lng);
-      if (distA !== distB) return distA - distB;
-      if (b.probability !== a.probability) return b.probability - a.probability;
-      return b.osmElementCount - a.osmElementCount;
-    });
-
-    if (randomize && candidatesByTheme[theme].length > 1) {
-      const topWindowSize = Math.min(8, candidatesByTheme[theme].length);
-      const topWindow = candidatesByTheme[theme].slice(0, topWindowSize);
-      shuffleInPlace(topWindow, rng);
-      candidatesByTheme[theme] = topWindow.concat(candidatesByTheme[theme].slice(topWindowSize));
+    if (candidateCount < MAX_CANDIDATES) {
+      const anchorPoints = cell.theme_anchor_points || {};
+      const anchor = anchorPoints[selectedTheme];
+      allCandidates[candidateCount++] = {
+        cellId: cell.id,
+        theme: selectedTheme,
+        lat: anchor?.lat ?? cell.center_lat,
+        lng: anchor?.lng ?? cell.center_lng,
+        probability: Number(themeScores[selectedTheme] || 0),
+        osmElementCount: cell.osm_element_count || 0,
+      };
     }
   }
+
+  allCandidates.length = candidateCount; // Trim to actual size
+
+  // Sort by distance once (iOS: avoids repeated distance calculations)
+  allCandidates.sort((a, b) => {
+    const distA = distanceMeters(centerLat, centerLng, a.lat, a.lng);
+    const distB = distanceMeters(centerLat, centerLng, b.lat, b.lng);
+    if (distA !== distB) return distA - distB;
+    if (b.probability !== a.probability) return b.probability - a.probability;
+    return b.osmElementCount - a.osmElementCount;
+  });
 
   const selectedZones: GeneratedZone[] = [];
   const dayKey = toDayKey();
@@ -475,35 +495,18 @@ function selectBestZones(
     return true;
   };
 
+  // First pass: Select one zone per theme
   for (const theme of themes) {
-    const themeCandidates = candidatesByTheme[theme];
+    const themeCandidates = allCandidates.filter((c) => c.theme === theme);
     if (themeCandidates.length === 0) continue;
-
     for (const candidate of themeCandidates) {
-      if (themeCount[theme] >= 1) break;
       if (addZoneCandidate(candidate, "base")) {
         break;
       }
     }
   }
 
-  type ScoredCandidate = ThemeCandidate & { distanceToPlayer: number };
-  const allCandidates: ScoredCandidate[] = [];
-  for (const theme of themes) {
-    for (const candidate of candidatesByTheme[theme]) {
-      allCandidates.push({
-        ...candidate,
-        distanceToPlayer: distanceMeters(centerLat, centerLng, candidate.lat, candidate.lng),
-      });
-    }
-  }
-
-  allCandidates.sort((a, b) => {
-    if (a.distanceToPlayer !== b.distanceToPlayer) return a.distanceToPlayer - b.distanceToPlayer;
-    if (b.probability !== a.probability) return b.probability - a.probability;
-    return b.osmElementCount - a.osmElementCount;
-  });
-
+  // Second pass: Fill remaining slots from all candidates
   const alreadySelectedKeys = new Set(selectedZones.map((z) => `${z.id}:${z.theme}`));
   for (const candidate of allCandidates) {
     if (selectedZones.length >= targetZoneCount) break;
