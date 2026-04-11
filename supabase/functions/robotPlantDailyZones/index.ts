@@ -344,8 +344,8 @@ const computeZoneCountFromEnergy = (energyValue: number): number => {
 
 const computeZoneRerollsFromEnergy = (energyValue: number): number => {
   const safeEnergy = clamp(Number(energyValue ?? 0), 0, 100);
-  if (safeEnergy >= 100) return 5;
-  if (safeEnergy >= 90) return 3;
+  if (safeEnergy >= 100) return 4;
+  if (safeEnergy >= 90) return 2;
   if (safeEnergy >= 80) return 1;
   return 0;
 };
@@ -653,9 +653,67 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Failed to load robot plant" }, 500);
     }
 
-    const hasProvidedPos = Number.isFinite(providedLat) && Number.isFinite(providedLng);
     const robot = robots as any;
-    const currentEnergy = clamp(Number(robot?.energy ?? 70), 0, 100);
+    const dayKey = toDayKey();
+
+    // === DAILY DECAY TICK ===
+    // Order: 1) snapshot pre-decay reroll bonus, 2) apply decay, 3) use post-decay energy for zones
+    let currentEnergy = clamp(Number(robot?.energy ?? 70), 0, 100);
+    let currentCare = clamp(Number(robot?.care ?? 72), 0, 100);
+    let currentDq = clamp(Number(robot?.data_quality ?? 65), 0, 100);
+
+    const lastDecayAt = robot?.last_decay_at ? new Date(robot.last_decay_at) : null;
+    const lastDecayDayKey = lastDecayAt ? toDayKey(lastDecayAt) : null;
+    const isNewDay = lastDecayDayKey !== dayKey;
+
+    // Pre-decay snapshot: compute bonus rerolls BEFORE energy drops
+    const preDecayBonusRerolls = computeZoneRerollsFromEnergy(currentEnergy); // 0/1/2/4
+    const totalRerollsGrantedToday = 1 + preDecayBonusRerolls; // 1 free base + energy bonus
+
+    if (isNewDay && !isAdmin) {
+      const hoursSinceLastDecay = lastDecayAt
+        ? Math.max(24, (Date.now() - lastDecayAt.getTime()) / 3600000)
+        : 24;
+      const dayFactor = Math.min(hoursSinceLastDecay / 24, 30); // cap backfill at 30 days
+
+      // Care-based decay reduction (mirrors robotPlantEconomy.js computeDecayReductionFromCare)
+      const decayReduction =
+        currentCare >= 100 ? 0.8 :
+        currentCare >= 90 ? 0.5 :
+        currentCare >= 80 ? 0.25 : 0;
+
+      const energyDecay = Math.round(5 * dayFactor * (1 - decayReduction));
+      const dqDecay = Math.round(5 * dayFactor * (1 - decayReduction));
+      const careDecay = Math.round(5 * dayFactor * (1 - decayReduction));
+      const newEnergy = clamp(currentEnergy - energyDecay, 0, 100);
+      const newDq = clamp(currentDq - dqDecay, 0, 100);
+      const newCare = clamp(currentCare - careDecay, 0, 100);
+
+      const { error: decayUpdateError } = await adminClient
+        .from("RobotPlant")
+        .update({
+          energy: newEnergy,
+          data_quality: newDq,
+          care: newCare,
+          last_decay_at: new Date().toISOString(),
+        })
+        .eq("auth_id", authId);
+
+      if (decayUpdateError) {
+        console.warn("[robotPlantDailyZones] Decay update failed (non-fatal):", decayUpdateError);
+      } else {
+        console.log(
+          `[robotPlantDailyZones] Decay tick: E:${currentEnergy}→${newEnergy} DQ:${currentDq}→${newDq} C:${currentCare}→${newCare}` +
+          ` (factor:${dayFactor.toFixed(2)}, careReduction:${decayReduction}, preDecayBonusRerolls:+${preDecayBonusRerolls})`,
+        );
+        currentEnergy = newEnergy;
+        currentDq = newDq;
+        currentCare = newCare;
+      }
+    }
+
+    // Post-decay values used for zone budget
+    const hasProvidedPos = Number.isFinite(providedLat) && Number.isFinite(providedLng);
     const targetZoneCount = computeZoneCountFromEnergy(currentEnergy);
     const rerolls = computeZoneRerollsFromEnergy(currentEnergy);
     const hasStoredPos =
@@ -685,7 +743,6 @@ Deno.serve(async (req) => {
       console.error("[robotPlantDailyZones] Upsert error:", upsertError);
     }
 
-    const dayKey = toDayKey();
     const authKeySuffix = authId.replace(/-/g, "");
     const queryStartTime = Date.now();
     const zoneThemes = ["forest", "urban", "water", "meadow"];
@@ -724,24 +781,42 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (forceRegenerate && !isAdmin) {
-      const { data: existingRegen, error: regenCheckError } = await adminClient
+    // === LOAD GENERATION LOG (multi-reroll tracking) ===
+    const { data: genLog } = await adminClient
+      .from("RobotPlantZoneGenerationLog")
+      .select("*")
+      .eq("auth_id", authId)
+      .eq("day_key", dayKey)
+      .maybeSingle();
+
+    // Use stored rerolls_granted_today if available (preserves pre-decay snapshot), else compute now
+    const rerollsGrantedToday: number | null = !isAdmin
+      ? (genLog?.rerolls_granted_today ?? totalRerollsGrantedToday)
+      : null;
+    const rerollsUsedToday = !isAdmin ? (genLog?.reroll_count ?? 0) : 0;
+    const rerollsRemaining: number | null = rerollsGrantedToday !== null
+      ? Math.max(0, rerollsGrantedToday - rerollsUsedToday)
+      : null;
+
+    // On new day: ensure generation log exists with today's pre-decay reroll grant
+    if (isNewDay && !isAdmin && !genLog) {
+      await adminClient
         .from("RobotPlantZoneGenerationLog")
-        .select("id")
-        .eq("auth_id", authId)
-        .eq("day_key", dayKey)
-        .maybeSingle();
+        .upsert({
+          auth_id: authId,
+          day_key: dayKey,
+          rerolls_granted_today: totalRerollsGrantedToday,
+          reroll_count: 0,
+        }, { onConflict: "auth_id,day_key" });
+    }
 
-      if (regenCheckError) {
-        console.error("[robotPlantDailyZones] Failed to check daily regeneration limit:", regenCheckError);
-        return jsonResponse({ error: "Failed to validate regeneration limit" }, 500);
-      }
-
-      if (existingRegen?.id) {
+    if (forceRegenerate && !isAdmin) {
+      if (rerollsRemaining !== null && rerollsRemaining <= 0) {
         return jsonResponse({
           success: false,
-          error: "Zonen-Neugenerierung ist fuer normale Nutzer nur 1x pro Tag verfuegbar.",
+          error: "Keine Rerolls mehr verfuegbar fuer heute.",
           rateLimited: true,
+          rerollsRemainingToday: 0,
         }, 200);
       }
     }
@@ -790,6 +865,7 @@ Deno.serve(async (req) => {
         return jsonResponse({
           success: true,
           cached: true,
+          rerollsRemainingToday: rerollsRemaining,
           zones: existing.map((z) => ({
             id: z.id,
             theme: z.theme,
@@ -924,6 +1000,8 @@ Deno.serve(async (req) => {
         .upsert({
           auth_id: authId,
           day_key: dayKey,
+          rerolls_granted_today: rerollsGrantedToday ?? totalRerollsGrantedToday,
+          reroll_count: rerollsUsedToday + 1,
           search_radius_m: searchRadiusM,
           candidate_count_by_theme: themeCounts,
           selected_zone_count: selectedZones.length,
@@ -963,6 +1041,7 @@ Deno.serve(async (req) => {
       cached: false,
       rasterBased: false,
       osmSlimBased: true,
+      rerollsRemainingToday: isAdmin ? null : Math.max(0, (rerollsGrantedToday ?? totalRerollsGrantedToday) - (rerollsUsedToday + 1)),
       queryDurationMs: queryDuration,
       zones: (insertedZones || []).map((z) => ({
         id: z.id,

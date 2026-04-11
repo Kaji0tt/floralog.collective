@@ -363,6 +363,7 @@ export default function Home() {
   const [activeZone, setActiveZone] = useState(null);
   const [isLoadingZone, setIsLoadingZone] = useState(false);
   const [isRegeneratingZones, setIsRegeneratingZones] = useState(false);
+  const [zoneRerollsRemaining, setZoneRerollsRemaining] = useState(null);
   const [showHeroZoneMap, setShowHeroZoneMap] = useState(false);
   const [zoneMapError, setZoneMapError] = useState(null);
   const [showHealthStatsPanel, setShowHealthStatsPanel] = useState(false);
@@ -843,6 +844,9 @@ export default function Home() {
         });
 
         setHeroZones(daily?.zones || []);
+        if (daily?.rerollsRemainingToday !== undefined && daily?.rerollsRemainingToday !== null) {
+          setZoneRerollsRemaining(daily.rerollsRemainingToday);
+        }
 
         const inRangeZone = (daily?.zones || [])
           .map((zone) => {
@@ -1439,6 +1443,9 @@ export default function Home() {
 
       const zones = daily?.zones || [];
       setHeroZones(zones);
+      if (daily?.rerollsRemainingToday !== undefined && daily?.rerollsRemainingToday !== null) {
+        setZoneRerollsRemaining(daily.rerollsRemainingToday);
+      }
 
       const inRangeZone = zones
         .map((zone) => {
@@ -1457,6 +1464,9 @@ export default function Home() {
     } catch (error) {
       const message = error?.message || "Zonen konnten nicht neu generiert werden.";
       console.warn("[Home] Zone regeneration failed:", message);
+      if (error?.rateLimited) {
+        setZoneRerollsRemaining(0);
+      }
       
       // If regeneration failed (e.g., rate limited), try to load cached zones anyway
       if (heroZones.length === 0) {
@@ -1751,7 +1761,7 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={handleRegenerateZones}
-                        disabled={isRegeneratingZones || isLoadingZone}
+                        disabled={isRegeneratingZones || isLoadingZone || (!isAdminUser && zoneRerollsRemaining === 0)}
                         className={`h-10 px-3 rounded-xl border backdrop-blur-sm flex items-center gap-2 text-xs md:text-sm font-semibold disabled:opacity-60 ${
                           isLightUi
                             ? "border-[#c8ac62]/55 bg-white/60 text-stone-800 hover:bg-white/70"
@@ -1759,7 +1769,7 @@ export default function Home() {
                         } transition-colors`}
                       >
                         {isRegeneratingZones ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                        Neu
+                        {(!isAdminUser && zoneRerollsRemaining !== null) ? `Neu (${zoneRerollsRemaining})` : "Neu"}
                       </button>
                     </div>
                   </section>

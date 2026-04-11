@@ -182,12 +182,15 @@ export const getRobotPlantDailyZones = async ({ latitude, longitude, forceRegene
   if (!data?.success || !Array.isArray(data?.zones)) {
     const errMsg = data?.error || "Failed to load daily zones";
     console.error("[getRobotPlantDailyZones] Error response:", errMsg);
-    throw new Error(errMsg);
+    const err = new Error(errMsg);
+    err.rateLimited = data?.rateLimited === true;
+    throw err;
   }
 
   return {
     generated: data.cached === false,
     dayKey: data.dayKey,
     zones: data.zones || [],
+    rerollsRemainingToday: data.rerollsRemainingToday ?? null,
   };
 };

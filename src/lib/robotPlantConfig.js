@@ -162,8 +162,8 @@ export const ROBOT_PLANT_GEO_ZONE_CONFIG = Object.freeze({
   ],
   rerollsByEnergyBand: [
     { min: 80, max: 89, rerolls: 1 },
-    { min: 90, max: 99, rerolls: 3 },
-    { min: 100, max: 100, rerolls: 5 },
+    { min: 90, max: 99, rerolls: 2 },
+    { min: 100, max: 100, rerolls: 4 },
   ],
   
   // OSM Query Parameters
