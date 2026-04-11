@@ -741,7 +741,8 @@ Deno.serve(async (req) => {
         return jsonResponse({
           success: false,
           error: "Zonen-Neugenerierung ist fuer normale Nutzer nur 1x pro Tag verfuegbar.",
-        }, 429);
+          rateLimited: true,
+        }, 200);
       }
     }
 
