@@ -27,6 +27,32 @@ export default function LocationManager({ showInProfile = false }) {
     }
   };
 
+  // Called by "Status neu prüfen" button – verifies by actually requesting the
+  // position instead of relying solely on the Permissions API, which returns
+  // "prompt" on iOS Safari and some other browsers even after the user has
+  // already granted access, causing the toggle to flip off erroneously.
+  const verifyLocationStatus = () => {
+    setIsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (_position) => {
+        setPermissionState("granted");
+        setIsLoading(false);
+      },
+      (error) => {
+        if (error.code === error.PERMISSION_DENIED) {
+          setPermissionState("denied");
+          setIsLoading(false);
+        } else {
+          // Timeout or position unavailable – permission may still be granted
+          // but GPS is currently inaccessible. Fall back to the Permissions API
+          // so we at least show the correct "granted/denied" state.
+          checkLocationStatus().finally(() => setIsLoading(false));
+        }
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+    );
+  };
+
   const requestLocation = () => {
     setIsLoading(true);
     navigator.geolocation.getCurrentPosition(
@@ -111,7 +137,7 @@ export default function LocationManager({ showInProfile = false }) {
         </div>
         <p className={`text-xs ${statusColorClass}`}>{status.text}</p>
         <Button
-          onClick={checkLocationStatus}
+          onClick={verifyLocationStatus}
           variant="ghost"
           className="w-full text-xs text-stone-300 hover:text-stone-100 hover:bg-white/5"
           disabled={isLoading}
