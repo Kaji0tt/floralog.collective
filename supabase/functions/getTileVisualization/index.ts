@@ -41,6 +41,23 @@ interface TileData {
   dominantTheme: string;
 }
 
+interface SlimChunkRow {
+  id: string;
+  chunk_x: number;
+  chunk_y: number;
+}
+
+interface SlimTileValueRow {
+  chunk_id: string;
+  tile_local_x: number;
+  tile_local_y: number;
+  zone_type: number;
+  zone_value: number;
+}
+
+const DB_PAGE_SIZE = 1000;
+const CHUNK_ID_BATCH_SIZE = 150;
+
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
     status,
@@ -121,6 +138,85 @@ function getTilesInRadius(centerLat: number, centerLng: number, radiusM: number)
   return tiles;
 }
 
+async function fetchChunksInBounds(
+  adminClient: ReturnType<typeof createClient>,
+  minChunkX: number,
+  maxChunkX: number,
+  minChunkY: number,
+  maxChunkY: number,
+): Promise<{ rows: SlimChunkRow[]; error: unknown | null }> {
+  const allRows: SlimChunkRow[] = [];
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await adminClient
+      .from("OSMTileChunkLite")
+      .select("id, chunk_x, chunk_y")
+      .eq("dataset_version", DATASET_VERSION)
+      .gte("chunk_x", minChunkX)
+      .lte("chunk_x", maxChunkX)
+      .gte("chunk_y", minChunkY)
+      .lte("chunk_y", maxChunkY)
+      .order("chunk_x", { ascending: true })
+      .order("chunk_y", { ascending: true })
+      .range(offset, offset + DB_PAGE_SIZE - 1);
+
+    if (error) {
+      return { rows: [], error };
+    }
+
+    const pageRows = (data || []) as SlimChunkRow[];
+    allRows.push(...pageRows);
+
+    if (pageRows.length < DB_PAGE_SIZE) {
+      break;
+    }
+
+    offset += DB_PAGE_SIZE;
+  }
+
+  return { rows: allRows, error: null };
+}
+
+async function fetchTileValuesForChunkIds(
+  adminClient: ReturnType<typeof createClient>,
+  chunkIds: string[],
+): Promise<{ rows: SlimTileValueRow[]; error: unknown | null }> {
+  const allRows: SlimTileValueRow[] = [];
+
+  for (let i = 0; i < chunkIds.length; i += CHUNK_ID_BATCH_SIZE) {
+    const batchIds = chunkIds.slice(i, i + CHUNK_ID_BATCH_SIZE);
+    let offset = 0;
+
+    while (true) {
+      const { data, error } = await adminClient
+        .from("OSMTileValue")
+        .select("chunk_id, tile_local_x, tile_local_y, zone_type, zone_value")
+        .in("chunk_id", batchIds)
+        .order("chunk_id", { ascending: true })
+        .order("tile_local_x", { ascending: true })
+        .order("tile_local_y", { ascending: true })
+        .order("zone_type", { ascending: true })
+        .range(offset, offset + DB_PAGE_SIZE - 1);
+
+      if (error) {
+        return { rows: [], error };
+      }
+
+      const pageRows = (data || []) as SlimTileValueRow[];
+      allRows.push(...pageRows);
+
+      if (pageRows.length < DB_PAGE_SIZE) {
+        break;
+      }
+
+      offset += DB_PAGE_SIZE;
+    }
+  }
+
+  return { rows: allRows, error: null };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -186,21 +282,20 @@ Deno.serve(async (req) => {
     const maxChunkY = Math.max(...searchTiles.map((tile) => Math.floor(tile.tileY / CHUNK_SIZE_TILES)));
 
     // Query chunks
-    const { data: chunkRows, error: chunkError } = await adminClient
-      .from("OSMTileChunkLite")
-      .select("id, chunk_x, chunk_y")
-      .eq("dataset_version", DATASET_VERSION)
-      .gte("chunk_x", minChunkX)
-      .lte("chunk_x", maxChunkX)
-      .gte("chunk_y", minChunkY)
-      .lte("chunk_y", maxChunkY);
+    const { rows: chunkRows, error: chunkError } = await fetchChunksInBounds(
+      adminClient,
+      minChunkX,
+      maxChunkX,
+      minChunkY,
+      maxChunkY,
+    );
 
     if (chunkError) {
       console.error("[getTileVisualization] Chunk query error:", chunkError);
       return jsonResponse({ error: "Failed to query chunks" }, 500);
     }
 
-    const chunks = chunkRows || [];
+    const chunks = chunkRows;
     if (chunks.length === 0) {
       return jsonResponse({ success: true, tiles: [] });
     }
@@ -208,16 +303,17 @@ Deno.serve(async (req) => {
     const chunkById = new Map(chunks.map((c) => [c.id, c]));
     const chunkIds = chunks.map((c) => c.id);
 
-    // Query tile values
-    const { data: tileValueRows, error: tileValueError } = await adminClient
-      .from("OSMTileValue")
-      .select("chunk_id, tile_local_x, tile_local_y, zone_type, zone_value")
-      .in("chunk_id", chunkIds);
+    const { rows: tileValueRows, error: tileValueError } = await fetchTileValuesForChunkIds(
+      adminClient,
+      chunkIds,
+    );
 
     if (tileValueError) {
       console.error("[getTileVisualization] Tile value query error:", tileValueError);
       return jsonResponse({ error: "Failed to query tile values" }, 500);
     }
+
+    console.log(`[getTileVisualization] Fetched ${chunks.length} chunks and ${tileValueRows.length} tile-value rows (paginated)`);
 
     // Aggregate tiles by theme
     const tileMap = new Map<string, {
@@ -232,7 +328,7 @@ Deno.serve(async (req) => {
     }>();
 
     const validSearchTileKeys = new Set(searchTiles.map((t) => `${t.tileX}:${t.tileY}`));
-    for (const row of tileValueRows || []) {
+    for (const row of tileValueRows) {
       const chunk = chunkById.get(row.chunk_id);
       if (!chunk) continue;
 

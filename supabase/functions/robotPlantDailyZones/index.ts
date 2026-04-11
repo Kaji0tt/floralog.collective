@@ -56,6 +56,9 @@ interface SlimTileValueRow {
   zone_value: number;
 }
 
+const DB_PAGE_SIZE = 1000;
+const CHUNK_ID_BATCH_SIZE = 150;
+
 interface GeneratedZone {
   id: string;
   theme: ZoneTheme;
@@ -295,6 +298,85 @@ function buildSlimRasterCells(
 
   cells.length = cellIndex; // Trim to actual size
   return cells;
+}
+
+async function fetchChunksInBounds(
+  adminClient: ReturnType<typeof createClient>,
+  minChunkX: number,
+  maxChunkX: number,
+  minChunkY: number,
+  maxChunkY: number,
+): Promise<{ rows: SlimChunkRow[]; error: unknown | null }> {
+  const allRows: SlimChunkRow[] = [];
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await adminClient
+      .from("OSMTileChunkLite")
+      .select("id, chunk_x, chunk_y, tile_count")
+      .eq("dataset_version", DATASET_VERSION)
+      .gte("chunk_x", minChunkX)
+      .lte("chunk_x", maxChunkX)
+      .gte("chunk_y", minChunkY)
+      .lte("chunk_y", maxChunkY)
+      .order("chunk_x", { ascending: true })
+      .order("chunk_y", { ascending: true })
+      .range(offset, offset + DB_PAGE_SIZE - 1);
+
+    if (error) {
+      return { rows: [], error };
+    }
+
+    const pageRows = (data || []) as SlimChunkRow[];
+    allRows.push(...pageRows);
+
+    if (pageRows.length < DB_PAGE_SIZE) {
+      break;
+    }
+
+    offset += DB_PAGE_SIZE;
+  }
+
+  return { rows: allRows, error: null };
+}
+
+async function fetchTileValuesForChunkIds(
+  adminClient: ReturnType<typeof createClient>,
+  chunkIds: string[],
+): Promise<{ rows: SlimTileValueRow[]; error: unknown | null }> {
+  const allRows: SlimTileValueRow[] = [];
+
+  for (let i = 0; i < chunkIds.length; i += CHUNK_ID_BATCH_SIZE) {
+    const batchIds = chunkIds.slice(i, i + CHUNK_ID_BATCH_SIZE);
+    let offset = 0;
+
+    while (true) {
+      const { data, error } = await adminClient
+        .from("OSMTileValue")
+        .select("chunk_id, tile_local_x, tile_local_y, zone_type, zone_value")
+        .in("chunk_id", batchIds)
+        .order("chunk_id", { ascending: true })
+        .order("tile_local_x", { ascending: true })
+        .order("tile_local_y", { ascending: true })
+        .order("zone_type", { ascending: true })
+        .range(offset, offset + DB_PAGE_SIZE - 1);
+
+      if (error) {
+        return { rows: [], error };
+      }
+
+      const pageRows = (data || []) as SlimTileValueRow[];
+      allRows.push(...pageRows);
+
+      if (pageRows.length < DB_PAGE_SIZE) {
+        break;
+      }
+
+      offset += DB_PAGE_SIZE;
+    }
+  }
+
+  return { rows: allRows, error: null };
 }
 
 function createSeededRng(seed: number): () => number {
@@ -892,21 +974,20 @@ Deno.serve(async (req) => {
     const minChunkY = Math.min(...searchTiles.map((tile) => Math.floor(tile.tileY / CHUNK_SIZE_TILES)));
     const maxChunkY = Math.max(...searchTiles.map((tile) => Math.floor(tile.tileY / CHUNK_SIZE_TILES)));
 
-    const { data: chunkRows, error: chunkError } = await adminClient
-      .from("OSMTileChunkLite")
-      .select("id, chunk_x, chunk_y, tile_count")
-      .eq("dataset_version", DATASET_VERSION)
-      .gte("chunk_x", minChunkX)
-      .lte("chunk_x", maxChunkX)
-      .gte("chunk_y", minChunkY)
-      .lte("chunk_y", maxChunkY);
+    const { rows: chunkRows, error: chunkError } = await fetchChunksInBounds(
+      adminClient,
+      minChunkX,
+      maxChunkX,
+      minChunkY,
+      maxChunkY,
+    );
 
     if (chunkError) {
       console.error("[robotPlantDailyZones] Chunk query error:", chunkError);
       return jsonResponse({ error: "Failed to query OSM chunks" }, 500);
     }
 
-    const chunks = (chunkRows || []) as SlimChunkRow[];
+    const chunks = chunkRows;
     if (chunks.length === 0) {
       return jsonResponse({
         success: false,
@@ -916,17 +997,21 @@ Deno.serve(async (req) => {
     }
 
     const chunkIds = chunks.map((chunk) => chunk.id);
-    const { data: tileValueRows, error: tileValueError } = await adminClient
-      .from("OSMTileValue")
-      .select("chunk_id, tile_local_x, tile_local_y, zone_type, zone_value")
-      .in("chunk_id", chunkIds);
+    const { rows: tileValueRows, error: tileValueError } = await fetchTileValuesForChunkIds(
+      adminClient,
+      chunkIds,
+    );
 
     if (tileValueError) {
       console.error("[robotPlantDailyZones] Tile value query error:", tileValueError);
       return jsonResponse({ error: "Failed to query OSM tile values" }, 500);
     }
 
-    const rasterRows = buildSlimRasterCells(chunks, (tileValueRows || []) as SlimTileValueRow[], validTileKeys);
+    console.log(
+      `[robotPlantDailyZones] Fetched ${chunks.length} chunks and ${tileValueRows.length} tile-value rows (paginated)`
+    );
+
+    const rasterRows = buildSlimRasterCells(chunks, tileValueRows, validTileKeys);
     const cells = rasterRows.filter((row) => row.is_valid === true) as RasterCell[];
     const fallbackCells: RasterCell[] = [];
     const nearestValidDistance = cells.length > 0
@@ -934,7 +1019,7 @@ Deno.serve(async (req) => {
       : null;
 
     console.log(
-      `[robotPlantDailyZones] Found ${cells.length} usable slim OSM tiles from ${chunks.length} chunks and ${(tileValueRows || []).length} tile-value rows` +
+      `[robotPlantDailyZones] Found ${cells.length} usable slim OSM tiles from ${chunks.length} chunks and ${tileValueRows.length} tile-value rows` +
       (nearestValidDistance !== null ? ` (nearest valid=${Math.round(nearestValidDistance)}m)` : ""),
     );
 

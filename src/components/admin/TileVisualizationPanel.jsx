@@ -14,6 +14,12 @@ const THEME_COLORS = {
   wetlands: "#14b8a6",
 };
 
+const formatPercent = (value) =>
+  Number(value || 0).toLocaleString("de-DE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
 /**
  * Admin-only tile visualization overlay for Mapbox
  * Shows OSM tiles with their dominant themes highlighted
@@ -166,9 +172,9 @@ export function TileVisualizationPanel({ map, userLocation, authId, isAdmin, ope
                               style={{
                                 backgroundColor: THEME_COLORS[theme],
                               }}
-                              title={`${theme}: ${pct}%`}
+                              title={`${theme}: ${formatPercent(pct)}%`}
                             >
-                              {pct}%
+                              {theme} {formatPercent(pct)}%
                             </span>
                           )
                         ))}
