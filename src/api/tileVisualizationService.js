@@ -1,4 +1,4 @@
-import { supabaseClient } from "@/api/supabaseClient";
+import { supabase } from "@/api/supabaseClient";
 
 export async function getTileVisualization(
   authId,
@@ -6,7 +6,7 @@ export async function getTileVisualization(
   longitude,
   radiusM = 2000
 ) {
-  const sessionResult = await supabaseClient.auth.getSession();
+  const sessionResult = await supabase.auth.getSession();
   const accessToken = sessionResult?.data?.session?.access_token;
 
   if (!accessToken) {
