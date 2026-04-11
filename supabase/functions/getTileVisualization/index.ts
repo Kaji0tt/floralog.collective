@@ -70,6 +70,25 @@ function getTileCoordinates(lat: number, lng: number): { tileX: number; tileY: n
   };
 }
 
+function getThemeName(zoneType: number): "forest" | "water" | "meadow" | "urban" | "beach" | "wetlands" {
+  switch (zoneType) {
+    case 0:
+      return "forest";
+    case 1:
+      return "water";
+    case 2:
+      return "meadow";
+    case 3:
+      return "urban";
+    case 4:
+      return "beach";
+    case 5:
+      return "wetlands";
+    default:
+      return "meadow";
+  }
+}
+
 function getTileCenter(tileX: number, tileY: number): { lat: number; lng: number } {
   const centerX = (tileX + 0.5) * TILE_SIZE_M;
   const centerY = (tileY + 0.5) * TILE_SIZE_M;
@@ -192,7 +211,8 @@ Deno.serve(async (req) => {
     // Query tile values
     const { data: tileValueRows, error: tileValueError } = await adminClient
       .from("OSMTileValue")
-      .select("chunk_id, tile_local_x, tile_local_y, zone_type, zone_value");
+      .select("chunk_id, tile_local_x, tile_local_y, zone_type, zone_value")
+      .in("chunk_id", chunkIds);
 
     if (tileValueError) {
       console.error("[getTileVisualization] Tile value query error:", tileValueError);
@@ -212,8 +232,6 @@ Deno.serve(async (req) => {
     }>();
 
     const validSearchTileKeys = new Set(searchTiles.map((t) => `${t.tileX}:${t.tileY}`));
-    const themeNames = ["forest", "water", "meadow", "urban", "beach", "wetlands"];
-
     for (const row of tileValueRows || []) {
       const chunk = chunkById.get(row.chunk_id);
       if (!chunk) continue;
@@ -225,7 +243,7 @@ Deno.serve(async (req) => {
       if (!validSearchTileKeys.has(tileKey)) continue;
 
       const zoneType = Number(row.zone_type) || 0;
-      const zoneName = themeNames[zoneType] || "meadow";
+      const zoneName = getThemeName(zoneType);
       const zoneValue = Math.max(0, Number(row.zone_value) || 0);
 
       if (zoneValue <= 0) continue;
@@ -245,7 +263,26 @@ Deno.serve(async (req) => {
         tileMap.set(tileKey, tileData);
       }
 
-      tileData[zoneName] += zoneValue;
+      switch (zoneName) {
+        case "forest":
+          tileData.forest += zoneValue;
+          break;
+        case "water":
+          tileData.water += zoneValue;
+          break;
+        case "meadow":
+          tileData.meadow += zoneValue;
+          break;
+        case "urban":
+          tileData.urban += zoneValue;
+          break;
+        case "beach":
+          tileData.beach += zoneValue;
+          break;
+        case "wetlands":
+          tileData.wetlands += zoneValue;
+          break;
+      }
     }
 
     // Build response

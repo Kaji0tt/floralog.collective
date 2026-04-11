@@ -29,6 +29,7 @@ import HomeBottomNavigation from "@/components/navigation/HomeBottomNavigation";
 import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
 import AchievementsFeatureRoot from "@/components/achievements/AchievementsFeatureRoot";
 import FriendsFeatureRoot from "@/components/friends/FriendsFeatureRoot";
+import { TileVisualizationPanel } from "@/components/admin/TileVisualizationPanel";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -98,6 +99,7 @@ const toCirclePolygon = (params) => {
  *   userLocation?: { lat?: number; lng?: number } | null;
  *   fallbackCenter?: { lat?: number; lng?: number } | null;
  *   onTokenError?: (message: string) => void;
+ *   onMapReady?: (map: mapboxgl.Map | null) => void;
  * }} props
  */
 function HeroZoneMap3D(props) {
@@ -151,6 +153,9 @@ function HeroZoneMap3D(props) {
     });
 
     mapRef.current = map;
+    if (typeof props?.onMapReady === "function") {
+      props.onMapReady(map);
+    }
 
     map.on("error", (event) => {
       const status = /** @type {any} */ (event)?.error?.status;
@@ -162,6 +167,9 @@ function HeroZoneMap3D(props) {
     return () => {
       map.remove();
       mapRef.current = null;
+      if (typeof props?.onMapReady === "function") {
+        props.onMapReady(null);
+      }
     };
   }, [fallbackCenter?.lat, fallbackCenter?.lng, onTokenError, userLocation?.lat, userLocation?.lng]);
 
@@ -360,6 +368,7 @@ export default function Home() {
   const [showHealthStatsPanel, setShowHealthStatsPanel] = useState(false);
   const healthStatsPanelRef = useRef(null);
   const [heroStageSizePx, setHeroStageSizePx] = useState(0);
+  const [heroMapInstance, setHeroMapInstance] = useState(null);
 
   const [showSeedsTooltip, setShowSeedsTooltip] = useState(false);
   const [showMultiplierTooltip, setShowMultiplierTooltip] = useState(false);
@@ -1167,6 +1176,7 @@ export default function Home() {
       : [51.1657, 10.4515];
 
   const activeZoneMeta = activeZone?.theme ? THEME_MAP_META[activeZone.theme] : null;
+  const isAdminUser = user?.role === "admin";
   const ZoneIcon = activeZoneMeta?.Icon || MapPin;
   const healthStats = [
     { id: "energy", label: "Energie", value: Math.round(safeEnergy), color: "#10b981" },
@@ -1671,6 +1681,14 @@ export default function Home() {
                       userLocation={cachedLocation}
                       fallbackCenter={{ lat: heroMapCenter[0], lng: heroMapCenter[1] }}
                       onTokenError={(message) => setZoneMapError(message)}
+                      onMapReady={setHeroMapInstance}
+                    />
+
+                    <TileVisualizationPanel
+                      map={heroMapInstance}
+                      userLocation={cachedLocation}
+                      authId={user?.id}
+                      isAdmin={isAdminUser}
                     />
 
                     <div className={`pointer-events-none absolute inset-x-0 top-0 h-20 z-[1100] ${

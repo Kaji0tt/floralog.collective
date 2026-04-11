@@ -1,18 +1,25 @@
 import { supabaseClient } from "@/api/supabaseClient";
 
 export async function getTileVisualization(
-  authId: string,
-  latitude: number,
-  longitude: number,
+  authId,
+  latitude,
+  longitude,
   radiusM = 2000
 ) {
+  const sessionResult = await supabaseClient.auth.getSession();
+  const accessToken = sessionResult?.data?.session?.access_token;
+
+  if (!accessToken) {
+    throw new Error("Not authenticated");
+  }
+
   const response = await fetch(
     `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/getTileVisualization`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${(await supabaseClient.auth.getSession()).data.session?.access_token}`,
+        Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify({
         authId,

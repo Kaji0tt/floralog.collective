@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { getTileVisualization } from "@/api/tileVisualizationService";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -266,7 +266,7 @@ function renderTilesOnMap(map, tiles, tileSize = 100) {
       type: "fill",
       source: "tiles",
       paint: {
-        "fill-color": ["feature-state", "themeColor", ["get", "themeColor"]],
+        "fill-color": ["get", "themeColor"],
         "fill-opacity": 0.2,
       },
     },
@@ -290,7 +290,12 @@ function renderTilesOnMap(map, tiles, tileSize = 100) {
     const feature = e.features[0];
     if (feature) {
       const props = feature.properties;
-      const themes = JSON.parse(props.themes || "{}");
+      let themes = {};
+      try {
+        themes = typeof props.themes === "string" ? JSON.parse(props.themes) : (props.themes || {});
+      } catch {
+        themes = {};
+      }
       const themesText = Object.entries(themes)
         .filter(([_, v]) => v > 0)
         .map(([k, v]) => `${k}: ${v}%`)
