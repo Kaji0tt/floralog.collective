@@ -106,16 +106,22 @@ function HeroZoneMap3D(props) {
   const mapContainerRef = useRef(null);
   /** @type {React.MutableRefObject<mapboxgl.Map | null>} */
   const mapRef = useRef(null);
+  /** @type {React.MutableRefObject<((message: string) => void) | null>} */
+  const onTokenErrorRef = useRef(null);
   const zones = Array.isArray(props?.zones) ? props.zones : [];
   const userLocation = props?.userLocation || null;
   const fallbackCenter = props?.fallbackCenter || null;
   const onTokenError = typeof props?.onTokenError === "function" ? props.onTokenError : null;
 
   useEffect(() => {
+    onTokenErrorRef.current = onTokenError;
+  }, [onTokenError]);
+
+  useEffect(() => {
     if (mapRef.current || !mapContainerRef.current) return;
 
     if (!MAPBOX_ACCESS_TOKEN) {
-      onTokenError?.("Mapbox Token fehlt. Setze VITE_MAPBOX_ACCESS_TOKEN in .env.local.");
+      onTokenErrorRef.current?.("Mapbox Token fehlt. Setze VITE_MAPBOX_ACCESS_TOKEN in .env.local.");
       return;
     }
 
@@ -130,7 +136,7 @@ function HeroZoneMap3D(props) {
       : Number(fallbackCenter?.lat);
 
     if (!Number.isFinite(initialLng) || !Number.isFinite(initialLat)) {
-      onTokenError?.("Karte konnte nicht initialisiert werden (fehlender Startpunkt).");
+      onTokenErrorRef.current?.("Karte konnte nicht initialisiert werden (fehlender Startpunkt).");
       return;
     }
 
@@ -160,7 +166,7 @@ function HeroZoneMap3D(props) {
     map.on("error", (event) => {
       const status = /** @type {any} */ (event)?.error?.status;
       if (status === 401 || status === 403) {
-        onTokenError?.("Mapbox Zugriff verweigert. Bitte Token und Allowed URLs pruefen.");
+        onTokenErrorRef.current?.("Mapbox Zugriff verweigert. Bitte Token und Allowed URLs pruefen.");
       }
     });
 
@@ -171,7 +177,7 @@ function HeroZoneMap3D(props) {
         props.onMapReady(null);
       }
     };
-  }, [fallbackCenter?.lat, fallbackCenter?.lng, onTokenError, userLocation?.lat, userLocation?.lng]);
+  }, []);
 
   useEffect(() => {
     const map = mapRef.current;
