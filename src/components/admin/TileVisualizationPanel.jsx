@@ -17,9 +17,15 @@ const THEME_COLORS = {
 /**
  * Admin-only tile visualization overlay for Mapbox
  * Shows OSM tiles with their dominant themes highlighted
+ *
+ * When `open` and `onOpenChange` are provided the component is controlled
+ * externally and the built-in toggle button is hidden.
  */
-export function TileVisualizationPanel({ map, userLocation, authId, isAdmin }) {
-  const [isVisible, setIsVisible] = useState(false);
+export function TileVisualizationPanel({ map, userLocation, authId, isAdmin, open, onOpenChange }) {
+  const isControlled = open !== undefined && onOpenChange !== undefined;
+  const [internalVisible, setInternalVisible] = useState(false);
+  const isVisible = isControlled ? open : internalVisible;
+  const setIsVisible = isControlled ? onOpenChange : setInternalVisible;
   const [isLoading, setIsLoading] = useState(false);
   const [tiles, setTiles] = useState([]);
   const [error, setError] = useState(null);
@@ -67,16 +73,18 @@ export function TileVisualizationPanel({ map, userLocation, authId, isAdmin }) {
 
   return (
     <>
-      <Button
-        onClick={() => setIsVisible(!isVisible)}
-        variant="outline"
-        size="sm"
-        className="absolute bottom-4 right-4 z-10 gap-2"
-        title="Admin: Toggle tile visualization"
-      >
-        {isVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-        <Grid3x3 className="w-4 h-4" />
-      </Button>
+      {!isControlled && (
+        <Button
+          onClick={() => setIsVisible(!isVisible)}
+          variant="outline"
+          size="sm"
+          className="absolute bottom-4 right-4 z-10 gap-2"
+          title="Admin: Toggle tile visualization"
+        >
+          {isVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          <Grid3x3 className="w-4 h-4" />
+        </Button>
+      )}
 
       <Dialog open={isVisible} onOpenChange={setIsVisible}>
         <DialogContent className="max-w-md">

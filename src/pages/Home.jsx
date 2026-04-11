@@ -5,7 +5,7 @@ import { upsertUserProfile } from "@/api/authService";
 import { executeMigration } from "@/api/migrationService";
 import { getRobotPlantDailyZones } from "@/api/robotPlantService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Camera, Loader2, Leaf, Plus, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, ArrowLeft, RefreshCw, Map as MapIcon, Zap } from "lucide-react";
+import { Camera, Loader2, Leaf, Plus, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, ArrowLeft, RefreshCw, Map as MapIcon, Zap, Bug } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import mapboxgl from "mapbox-gl";
 import AchievementNotification from "../components/achievements/AchievementNotification";
@@ -370,6 +370,7 @@ export default function Home() {
   const healthStatsPanelRef = useRef(null);
   const [heroStageSizePx, setHeroStageSizePx] = useState(0);
   const [heroMapInstance, setHeroMapInstance] = useState(null);
+  const [showDebugZonePanel, setShowDebugZonePanel] = useState(false);
 
   const [showSeedsTooltip, setShowSeedsTooltip] = useState(false);
   const [showMultiplierTooltip, setShowMultiplierTooltip] = useState(false);
@@ -1717,6 +1718,8 @@ export default function Home() {
                       userLocation={cachedLocation}
                       authId={user?.id}
                       isAdmin={isAdminUser}
+                      open={showDebugZonePanel}
+                      onOpenChange={setShowDebugZonePanel}
                     />
 
                     <div className={`pointer-events-none absolute inset-x-0 top-0 h-20 z-[1100] ${
@@ -1755,8 +1758,24 @@ export default function Home() {
                         } transition-colors`}
                       >
                         <ArrowLeft className="w-4 h-4" />
-                        ZurÃ¼ck
+                        Zurück
                       </button>
+
+                      {isAdminUser && (
+                        <button
+                          type="button"
+                          onClick={() => setShowDebugZonePanel(true)}
+                          className={`h-10 px-3 rounded-xl border backdrop-blur-sm flex items-center gap-2 text-xs md:text-sm font-semibold ${
+                            isLightUi
+                              ? "border-amber-400/60 bg-amber-50/70 text-amber-800 hover:bg-amber-100/80"
+                              : "border-amber-400/50 bg-amber-900/40 text-amber-200 hover:bg-amber-900/60"
+                          } transition-colors`}
+                          title="Admin: Debug Zone Overlay"
+                        >
+                          <Bug className="w-4 h-4" />
+                          Debug-Zone
+                        </button>
+                      )}
 
                       <button
                         type="button"
