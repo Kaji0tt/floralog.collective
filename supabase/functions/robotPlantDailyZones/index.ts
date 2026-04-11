@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getBoundsForGridRange, getGridCellCenter, GRID_RESOLUTION, initializeGeoRasterCells } from "../_shared/geoRaster.ts";
+import proj4 from "https://esm.sh/proj4@2.15.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,12 +7,17 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// Phase 4: Raster-Based Zone Generation
-// Uses pre-computed GeoRasterCell grid instead of live Overpass API calls
-// Guarantees <100ms response time with consistent data quality
+// Phase 5: Slim OSM tile-based zone generation
+// Reads directly from OSMTileChunkLite + OSMTileValue instead of GeoRasterCell.
 
 type ZoneTheme = "forest" | "urban" | "water" | "meadow";
 const PLAYER_RADIUS_M = 3500;
+const TILE_SIZE_M = 100;
+const CHUNK_SIZE_TILES = 10;
+const DATASET_VERSION = "osm_de_2026_04_10";
+const EPSG_3035 = "+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +datum=ETRS89 +units=m +no_defs +type=crs";
+
+proj4.defs("EPSG:3035", EPSG_3035);
 
 interface RequestBody {
   authId?: string;
@@ -34,6 +39,21 @@ interface RasterCell {
   theme_scores?: Partial<Record<ZoneTheme, number>>;
   theme_anchor_points?: Partial<Record<ZoneTheme, { lat: number; lng: number }>>;
   osm_element_count?: number;
+}
+
+interface SlimChunkRow {
+  id: string;
+  chunk_x: number;
+  chunk_y: number;
+  tile_count: number;
+}
+
+interface SlimTileValueRow {
+  chunk_id: string;
+  tile_local_x: number;
+  tile_local_y: number;
+  zone_type: number;
+  zone_value: number;
 }
 
 interface GeneratedZone {
@@ -108,93 +128,151 @@ function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number):
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-/**
- * Calculate grid cell coordinates from latitude/longitude
- * Grid cell size: ~707m per side (0.5km² area)
- * Grid resolution: ~0.00636° per cell
- */
-function getGridCellCoordinates(lat: number, lng: number): { latIdx: number; lngIdx: number } {
+function lngLatToMetric(lng: number, lat: number): { x: number; y: number } {
+  const [x, y] = proj4("EPSG:4326", "EPSG:3035", [lng, lat]);
+  return { x, y };
+}
+
+function metricToLngLat(x: number, y: number): { lat: number; lng: number } {
+  const [lng, lat] = proj4("EPSG:3035", "EPSG:4326", [x, y]);
+  return { lat, lng };
+}
+
+function getTileCoordinates(lat: number, lng: number): { tileX: number; tileY: number } {
+  const { x, y } = lngLatToMetric(lng, lat);
   return {
-    latIdx: Math.floor(lat / GRID_RESOLUTION),
-    lngIdx: Math.floor(lng / GRID_RESOLUTION),
+    tileX: Math.floor(x / TILE_SIZE_M),
+    tileY: Math.floor(y / TILE_SIZE_M),
   };
 }
 
-/**
- * Get all grid cell indices within a search radius
- */
-function getGridCellsInRadius(centerLat: number, centerLng: number, radiusM: number): Array<{ latIdx: number; lngIdx: number }> {
-  const radiusInDegrees = radiusM / 111000; // Rough conversion: 1° ≈ 111km
-  
-  const centerCell = getGridCellCoordinates(centerLat, centerLng);
-  const cellOffset = Math.ceil(radiusInDegrees / GRID_RESOLUTION);
-  
-  const cells: Array<{ latIdx: number; lngIdx: number }> = [];
-  for (let latIdx = centerCell.latIdx - cellOffset; latIdx <= centerCell.latIdx + cellOffset; latIdx++) {
-    for (let lngIdx = centerCell.lngIdx - cellOffset; lngIdx <= centerCell.lngIdx + cellOffset; lngIdx++) {
-      const center = getGridCellCenter(latIdx, lngIdx);
-      if (distanceMeters(centerLat, centerLng, center.lat, center.lng) <= radiusM) {
-        cells.push({ latIdx, lngIdx });
+function getTileCenter(tileX: number, tileY: number): { lat: number; lng: number } {
+  const centerX = (tileX + 0.5) * TILE_SIZE_M;
+  const centerY = (tileY + 0.5) * TILE_SIZE_M;
+  return metricToLngLat(centerX, centerY);
+}
+
+function getTilesInRadius(centerLat: number, centerLng: number, radiusM: number): Array<{ tileX: number; tileY: number }> {
+  const { x: centerX, y: centerY } = lngLatToMetric(centerLng, centerLat);
+  const minTileX = Math.floor((centerX - radiusM) / TILE_SIZE_M);
+  const maxTileX = Math.floor((centerX + radiusM) / TILE_SIZE_M);
+  const minTileY = Math.floor((centerY - radiusM) / TILE_SIZE_M);
+  const maxTileY = Math.floor((centerY + radiusM) / TILE_SIZE_M);
+
+  const tiles: Array<{ tileX: number; tileY: number }> = [];
+  for (let tileX = minTileX; tileX <= maxTileX; tileX += 1) {
+    for (let tileY = minTileY; tileY <= maxTileY; tileY += 1) {
+      const tileCenterX = (tileX + 0.5) * TILE_SIZE_M;
+      const tileCenterY = (tileY + 0.5) * TILE_SIZE_M;
+      const dx = tileCenterX - centerX;
+      const dy = tileCenterY - centerY;
+      if (Math.sqrt(dx * dx + dy * dy) <= radiusM) {
+        tiles.push({ tileX, tileY });
       }
     }
   }
+
+  return tiles;
+}
+
+function getThemeForZoneType(zoneType: number): ZoneTheme | null {
+  switch (zoneType) {
+    case 0:
+      return "forest";
+    case 1:
+      return "water";
+    case 2:
+      return "meadow";
+    case 3:
+      return "urban";
+    case 4:
+      return "water";
+    case 5:
+      return "water";
+    default:
+      return null;
+  }
+}
+
+function buildSlimRasterCells(
+  chunks: SlimChunkRow[],
+  tileValues: SlimTileValueRow[],
+  validTileKeys: Set<string>,
+): RasterCell[] {
+  const chunkById = new Map(chunks.map((chunk) => [chunk.id, chunk]));
+  const tileMap = new Map<string, {
+    tileX: number;
+    tileY: number;
+    themeTotals: Record<ZoneTheme, number>;
+    zoneRowCount: number;
+  }>();
+
+  for (const row of tileValues) {
+    const chunk = chunkById.get(row.chunk_id);
+    if (!chunk) continue;
+
+    const tileX = chunk.chunk_x * CHUNK_SIZE_TILES + Number(row.tile_local_x);
+    const tileY = chunk.chunk_y * CHUNK_SIZE_TILES + Number(row.tile_local_y);
+    const tileKey = `${tileX}:${tileY}`;
+    if (!validTileKeys.has(tileKey)) continue;
+
+    const theme = getThemeForZoneType(Number(row.zone_type));
+    if (!theme) continue;
+
+    const zoneValue = Math.max(0, Number(row.zone_value) || 0);
+    if (zoneValue <= 0) continue;
+
+    const existing = tileMap.get(tileKey) || {
+      tileX,
+      tileY,
+      themeTotals: { forest: 0, water: 0, meadow: 0, urban: 0 },
+      zoneRowCount: 0,
+    };
+
+    existing.themeTotals[theme] += zoneValue;
+    existing.zoneRowCount += 1;
+    tileMap.set(tileKey, existing);
+  }
+
+  const cells: RasterCell[] = [];
+  for (const [tileKey, tileData] of tileMap.entries()) {
+    const total = Object.values(tileData.themeTotals).reduce((sum, value) => sum + value, 0);
+    if (total <= 0) continue;
+
+    const center = getTileCenter(tileData.tileX, tileData.tileY);
+    const themeScores: Partial<Record<ZoneTheme, number>> = {};
+    const themeAnchorPoints: Partial<Record<ZoneTheme, { lat: number; lng: number }>> = {};
+    let dominantTheme: ZoneTheme = "meadow";
+    let dominantScore = -1;
+
+    for (const theme of ["forest", "water", "urban", "meadow"] as ZoneTheme[]) {
+      const rawValue = tileData.themeTotals[theme];
+      if (rawValue <= 0) continue;
+      const normalized = rawValue / total;
+      themeScores[theme] = normalized;
+      themeAnchorPoints[theme] = { lat: center.lat, lng: center.lng };
+      if (normalized > dominantScore) {
+        dominantScore = normalized;
+        dominantTheme = theme;
+      }
+    }
+
+    cells.push({
+      id: tileKey,
+      grid_id: tileKey,
+      is_valid: true,
+      theme: dominantTheme,
+      center_lat: center.lat,
+      center_lng: center.lng,
+      theme_confidence: dominantScore,
+      dominant_osm_tags: {},
+      theme_scores: themeScores,
+      theme_anchor_points: themeAnchorPoints,
+      osm_element_count: tileData.zoneRowCount,
+    });
+  }
+
   return cells;
-}
-
-function toGridId(latIdx: number, lngIdx: number): string {
-  return `${latIdx}_${lngIdx}`;
-}
-
-function getMissingGridRegions(missingCells: Array<{ latIdx: number; lngIdx: number }>):
-  Array<{ minLatIdx: number; maxLatIdx: number; minLngIdx: number; maxLngIdx: number }> {
-  if (missingCells.length === 0) return [];
-
-  const keySet = new Set(missingCells.map((c) => toGridId(c.latIdx, c.lngIdx)));
-  const visited = new Set<string>();
-  const regions: Array<{ minLatIdx: number; maxLatIdx: number; minLngIdx: number; maxLngIdx: number }> = [];
-
-  const neighbors = [
-    [-1, 0],
-    [1, 0],
-    [0, -1],
-    [0, 1],
-  ];
-
-  for (const cell of missingCells) {
-    const startKey = toGridId(cell.latIdx, cell.lngIdx);
-    if (visited.has(startKey)) continue;
-
-    let minLatIdx = cell.latIdx;
-    let maxLatIdx = cell.latIdx;
-    let minLngIdx = cell.lngIdx;
-    let maxLngIdx = cell.lngIdx;
-
-    const queue: Array<{ latIdx: number; lngIdx: number }> = [cell];
-    visited.add(startKey);
-
-    while (queue.length > 0) {
-      const current = queue.shift()!;
-
-      minLatIdx = Math.min(minLatIdx, current.latIdx);
-      maxLatIdx = Math.max(maxLatIdx, current.latIdx);
-      minLngIdx = Math.min(minLngIdx, current.lngIdx);
-      maxLngIdx = Math.max(maxLngIdx, current.lngIdx);
-
-      for (const [dLat, dLng] of neighbors) {
-        const nextLatIdx = current.latIdx + dLat;
-        const nextLngIdx = current.lngIdx + dLng;
-        const nextKey = toGridId(nextLatIdx, nextLngIdx);
-
-        if (!keySet.has(nextKey) || visited.has(nextKey)) continue;
-        visited.add(nextKey);
-        queue.push({ latIdx: nextLatIdx, lngIdx: nextLngIdx });
-      }
-    }
-
-    regions.push({ minLatIdx, maxLatIdx, minLngIdx, maxLngIdx });
-  }
-
-  return regions;
 }
 
 function createSeededRng(seed: number): () => number {
@@ -636,7 +714,8 @@ Deno.serve(async (req) => {
       return jsonResponse({
         success: true,
         cached: false,
-        rasterBased: true,
+        rasterBased: false,
+        osmSlimBased: true,
         queryDurationMs: 0,
         zones: [],
       });
@@ -720,114 +799,69 @@ Deno.serve(async (req) => {
       }
     }
 
-    // === RASTER-BASED ZONE GENERATION ===
-    console.log(`[robotPlantDailyZones] Generating zones from raster grid for (${baseLat}, ${baseLng})`);
+    // === SLIM OSM TILE-BASED ZONE GENERATION ===
+    console.log(`[robotPlantDailyZones] Generating zones from slim OSM tiles for (${baseLat}, ${baseLng})`);
 
     const searchRadiusM = PLAYER_RADIUS_M;
-    const cellIndices = getGridCellsInRadius(baseLat, baseLng, searchRadiusM);
-    console.log(`[robotPlantDailyZones] Searching ${cellIndices.length} grid cells within ${searchRadiusM}m radius`);
+    const searchTiles = getTilesInRadius(baseLat, baseLng, searchRadiusM);
+    console.log(`[robotPlantDailyZones] Searching ${searchTiles.length} OSM tiles within ${searchRadiusM}m radius`);
 
-    // Build bounding box range query (much more efficient than per-cell OR conditions)
-    const minLatIdx = Math.min(...cellIndices.map(c => c.latIdx));
-    const maxLatIdx = Math.max(...cellIndices.map(c => c.latIdx));
-    const minLngIdx = Math.min(...cellIndices.map(c => c.lngIdx));
-    const maxLngIdx = Math.max(...cellIndices.map(c => c.lngIdx));
+    const validTileKeys = new Set(searchTiles.map((tile) => `${tile.tileX}:${tile.tileY}`));
+    const minChunkX = Math.min(...searchTiles.map((tile) => Math.floor(tile.tileX / CHUNK_SIZE_TILES)));
+    const maxChunkX = Math.max(...searchTiles.map((tile) => Math.floor(tile.tileX / CHUNK_SIZE_TILES)));
+    const minChunkY = Math.min(...searchTiles.map((tile) => Math.floor(tile.tileY / CHUNK_SIZE_TILES)));
+    const maxChunkY = Math.max(...searchTiles.map((tile) => Math.floor(tile.tileY / CHUNK_SIZE_TILES)));
 
-    const fetchRasterCells = async (): Promise<RasterCell[]> => {
-      const { data: rasterCells, error: rasterError } = await adminClient
-        .from("GeoRasterCell")
-        .select("id, grid_id, is_valid, theme, center_lat, center_lng, theme_confidence, dominant_osm_tags, theme_scores, theme_anchor_points, osm_element_count")
-        .gte("grid_lat_idx", minLatIdx)
-        .lte("grid_lat_idx", maxLatIdx)
-        .gte("grid_lng_idx", minLngIdx)
-        .lte("grid_lng_idx", maxLngIdx);
+    const { data: chunkRows, error: chunkError } = await adminClient
+      .from("OSMTileChunkLite")
+      .select("id, chunk_x, chunk_y, tile_count")
+      .eq("dataset_version", DATASET_VERSION)
+      .gte("chunk_x", minChunkX)
+      .lte("chunk_x", maxChunkX)
+      .gte("chunk_y", minChunkY)
+      .lte("chunk_y", maxChunkY);
 
-      if (rasterError) {
-        console.error("[robotPlantDailyZones] Raster query error:", rasterError);
-        throw new Error("Failed to query raster grid");
-      }
-
-      return (rasterCells || []) as RasterCell[];
-    };
-
-    let rasterRows: RasterCell[];
-    try {
-      rasterRows = await fetchRasterCells();
-    } catch (fetchError) {
-      const errMsg = fetchError instanceof Error ? fetchError.message : String(fetchError);
-      return jsonResponse({ error: errMsg }, 500);
+    if (chunkError) {
+      console.error("[robotPlantDailyZones] Chunk query error:", chunkError);
+      return jsonResponse({ error: "Failed to query OSM chunks" }, 500);
     }
 
-    const existingGridIds = new Set(rasterRows.map((row) => row.grid_id));
-    let missingCells = cellIndices.filter((cell) => !existingGridIds.has(toGridId(cell.latIdx, cell.lngIdx)));
-    let missingInitFailed = false;
-
-    if (missingCells.length > 0) {
-      const regions = getMissingGridRegions(missingCells);
-      const regionsSortedByDistance = [...regions].sort((a, b) => {
-        const centerA = getGridCellCenter(
-          Math.floor((a.minLatIdx + a.maxLatIdx) / 2),
-          Math.floor((a.minLngIdx + a.maxLngIdx) / 2),
-        );
-        const centerB = getGridCellCenter(
-          Math.floor((b.minLatIdx + b.maxLatIdx) / 2),
-          Math.floor((b.minLngIdx + b.maxLngIdx) / 2),
-        );
-        const distA = distanceMeters(baseLat, baseLng, centerA.lat, centerA.lng);
-        const distB = distanceMeters(baseLat, baseLng, centerB.lat, centerB.lng);
-        return distA - distB;
-      });
-
-      console.log(`[robotPlantDailyZones] Found ${missingCells.length} uncomputed cells in ${regions.length} missing region(s). Triggering on-demand initialization from near to far.`);
-
-      try {
-        for (const [index, region] of regionsSortedByDistance.entries()) {
-          const bbox = getBoundsForGridRange(region.minLatIdx, region.maxLatIdx, region.minLngIdx, region.maxLngIdx);
-          const initResult = await initializeGeoRasterCells(adminClient, bbox, {
-            forceRefresh: false,
-            trigger: `robotPlantDailyZones:${authId}:missing-region-${index + 1}/${regionsSortedByDistance.length}`,
-          });
-          console.log(`[robotPlantDailyZones] Initialized missing region ${index + 1}/${regionsSortedByDistance.length} with ${initResult.cellsCreated} cells in ${initResult.durationMs}ms`);
-        }
-      } catch (initError) {
-        const initMessage = initError instanceof Error ? initError.message : String(initError);
-        missingInitFailed = true;
-        console.warn("[robotPlantDailyZones] On-demand raster initialization for missing cells failed, continuing with existing cells:", initMessage);
-      }
-
-      try {
-        rasterRows = await fetchRasterCells();
-      } catch (fetchError) {
-        const errMsg = fetchError instanceof Error ? fetchError.message : String(fetchError);
-        if (!missingInitFailed) {
-          return jsonResponse({ error: errMsg }, 500);
-        }
-        console.warn("[robotPlantDailyZones] Raster refresh after failed initialization also failed; using previously loaded rows:", errMsg);
-      }
-
-      const refreshedGridIds = new Set(rasterRows.map((row) => row.grid_id));
-      missingCells = cellIndices.filter((cell) => !refreshedGridIds.has(toGridId(cell.latIdx, cell.lngIdx)));
-      if (missingCells.length > 0) {
-        console.warn(`[robotPlantDailyZones] ${missingCells.length} cells are still uncomputed after on-demand initialization.`);
-      }
+    const chunks = (chunkRows || []) as SlimChunkRow[];
+    if (chunks.length === 0) {
+      return jsonResponse({
+        success: false,
+        error: "No precomputed OSM chunk data available for this location.",
+        zones: [],
+      }, 503);
     }
 
+    const chunkIds = chunks.map((chunk) => chunk.id);
+    const { data: tileValueRows, error: tileValueError } = await adminClient
+      .from("OSMTileValue")
+      .select("chunk_id, tile_local_x, tile_local_y, zone_type, zone_value")
+      .in("chunk_id", chunkIds);
+
+    if (tileValueError) {
+      console.error("[robotPlantDailyZones] Tile value query error:", tileValueError);
+      return jsonResponse({ error: "Failed to query OSM tile values" }, 500);
+    }
+
+    const rasterRows = buildSlimRasterCells(chunks, (tileValueRows || []) as SlimTileValueRow[], validTileKeys);
     const cells = rasterRows.filter((row) => row.is_valid === true) as RasterCell[];
-    const fallbackCells = rasterRows.filter((row) => row.is_valid !== true) as RasterCell[];
+    const fallbackCells: RasterCell[] = [];
     const nearestValidDistance = cells.length > 0
       ? Math.min(...cells.map((cell) => distanceMeters(baseLat, baseLng, cell.center_lat, cell.center_lng)))
       : null;
 
     console.log(
-      `[robotPlantDailyZones] Found ${cells.length} valid raster cells and ${rasterRows.length} computed cells in search range` +
+      `[robotPlantDailyZones] Found ${cells.length} usable slim OSM tiles from ${chunks.length} chunks and ${(tileValueRows || []).length} tile-value rows` +
       (nearestValidDistance !== null ? ` (nearest valid=${Math.round(nearestValidDistance)}m)` : ""),
     );
 
     if (cells.length === 0) {
-      console.warn(`[robotPlantDailyZones] Raster initialization completed, but no usable raster cells were available near (${baseLat}, ${baseLng}).`);
       return jsonResponse({
         success: false,
-        error: "No usable geo-raster data available for this location after initialization.",
+        error: "No usable precomputed OSM tile data available for this location.",
         zones: [],
       }, 503);
     }
@@ -923,7 +957,8 @@ Deno.serve(async (req) => {
     return jsonResponse({
       success: true,
       cached: false,
-      rasterBased: true,
+      rasterBased: false,
+      osmSlimBased: true,
       queryDurationMs: queryDuration,
       zones: (insertedZones || []).map((z) => ({
         id: z.id,

@@ -1,12 +1,16 @@
 # Deployment Checklist – Raster Grid System
 
+⚠️ **NOTE: This checklist documents the DEPRECATED GeoRasterCell system.** 
+The system has been migrated to slim OSM database (OSMTileChunkLite + OSMTileValue) as of April 2026.
+See `robotPlantDailyZones` function for current implementation.
+
 ## Pre-Deployment
 
 - [ ] Backup your database (recommended)
-- [ ] Review migration file: `migrations/021_create_geo_raster_grid.sql`
-- [ ] Review new functions:
-  - [ ] `supabase/functions/robotPlantDailyZones/index.ts` (updated)
-  - [ ] `supabase/functions/initializeGeoRasterGrid/index.ts` (new)
+- [ ] Review migration file: `migrations/021_create_geo_raster_grid.sql` (DEPRECATED)
+- [ ] Review functions:
+  - [ ] `supabase/functions/robotPlantDailyZones/index.ts` (NOW uses OSMTileChunkLite + OSMTileValue)
+  - [ ] `supabase/functions/initializeGeoRasterGrid/index.ts` (DEPRECATED - no longer in use)
 - [ ] Ensure you have admin access to Supabase project
 
 ## Phase 1: Database Setup
@@ -24,11 +28,11 @@ supabase migration up
 1. Go to Supabase Dashboard → SQL Editor
 2. Copy-paste the SQL from `migrations/021_create_geo_raster_grid.sql`
 3. Execute the migration
-4. Verify tables were created:
-   - [ ] `GeoRasterCell` table exists
-   - [ ] `RasterCellQueryLog` table exists
-   - [ ] Indexes created
-   - [ ] RLS policies in place
+4. Verify tables were created: (NOTE: GeoRasterCell system is DEPRECATED)
+   - [ ] ~~`GeoRasterCell` table exists~~ (DEPRECATED - replaced by OSMTileChunkLite)
+   - [ ] ~~`RasterCellQueryLog` table exists~~ (DEPRECATED - no longer needed)
+   - [ ] Indexes created (DEPRECATED)
+   - [ ] RLS policies in place (DEPRECATED)
 
 ## Phase 2: Environment Configuration
 
@@ -55,9 +59,9 @@ npx supabase functions deploy initializeGeoRasterGrid
 # Verify deployment in Supabase dashboard → Functions
 ```
 
-- [ ] `robotPlantDailyZones` deployed successfully
-- [ ] `initializeGeoRasterGrid` deployed successfully
-- [ ] Both show in Functions list in dashboard
+- [ ] `robotPlantDailyZones` deployed successfully (NOW uses slim OSM database)
+- [ ] ~~`initializeGeoRasterGrid` deployed successfully~~ (DEPRECATED - do not deploy)
+- [ ] `robotPlantDailyZones` shows in Functions list in dashboard
 
 ## Phase 4: Initialize Raster Grid
 

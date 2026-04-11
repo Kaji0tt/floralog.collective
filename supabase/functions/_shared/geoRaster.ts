@@ -1,3 +1,23 @@
+/**
+ * ⚠️ DEPRECATED MODULE
+ *
+ * This module implements the old GeoRasterCell-based zone generation system.
+ * It has been completely replaced by the slim OSM database architecture (OSMTileChunkLite + OSMTileValue).
+ *
+ * The new system uses:
+ * - EPSG:3035 coordinate transformation (instead of grid indices)
+ * - Direct tile-based queries (instead of grid cell manipulation)
+ * - Pre-computed slim OSM data (instead of on-demand Overpass API initialization)
+ *
+ * Migration date: April 2026
+ * New implementation: supabase/functions/robotPlantDailyZones/index.ts
+ *
+ * DO NOT USE THIS MODULE IN NEW CODE.
+ * Existing code using this module should be refactored to use OSMTileChunkLite/OSMTileValue.
+ *
+ * This module is kept only for archive/reference purposes.
+ */
+
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 export interface BoundingBox {

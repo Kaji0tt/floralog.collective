@@ -1,55 +1,75 @@
 # Raster-Grid Implementation Summary
 
-## What Changed
+⚠️ **DEPRECATED: This document describes the old GeoRasterCell system (April 2026 or earlier).**
 
-### 1. **Database Schema** (`migrations/021_create_geo_raster_grid.sql`)
-- Created `GeoRasterCell` table: stores 0.5km² grid cells with OSM-derived theme classification
-- Created `RasterCellQueryLog` table: tracks query performance metrics
-- Added spatial indexes and RLS policies for fast, secure queries
+The system has been completely migrated to **slim OSM database architecture** (OSMTileChunkLite + OSMTileValue).
+See [OSM_TILES_SLIM_GUIDE.md](OSM_TILES_SLIM_GUIDE.md) for current implementation details.
 
-### 2. **Runtime Function** (`supabase/functions/robotPlantDailyZones/index.ts`)
+---
 
-**Old approach:**
+## What Changed (DEPRECATED - Historical Reference Only)
+
+### 1. **Database Schema** (`migrations/021_create_geo_raster_grid.sql`) - DEPRECATED
+- Created ~~`GeoRasterCell`~~ table: stores 0.5km² grid cells with OSM-derived theme classification (REPLACED)
+- Created ~~`RasterCellQueryLog`~~ table: tracks query performance metrics (NO LONGER NEEDED)
+- Added spatial indexes and RLS policies for fast, secure queries (REPLACED)
+
+### 2. **Runtime Function** (`supabase/functions/robotPlantDailyZones/index.ts`) - DEPRECATED APPROACH REPLACED
+
+**Old approach (DEPRECATED):**
 - Made 4 live Overpass API calls per request (2500m radius)
 - Risk of timeout, rate limits, network failures
 - Variable response time: 2-30+ seconds (or timeout)
+- Used pre-computed `GeoRasterCell` table from database
 
-**New approach:**
-- Queries pre-computed `GeoRasterCell` table from database
-- Fast, predictable: <100ms guaranteed
-- No external API dependencies during runtime
+**Current approach (slim OSM, April 2026+):**
+- Queries pre-computed `OSMTileChunkLite` + `OSMTileValue` tables
+- Uses EPSG:3035 projection (meter-based grid)
+- 100m tile resolution with 10×10 chunk grouping
+- Fast, predictable: <100ms typical for 3.5km radius
+- No grid cell manipulation or on-demand initialization
 
 **Key changes:**
 ```typescript
-// OLD:
-const candidates = await queryOverpassForTheme(lat, lng, radiusM, theme);
-
-// NEW:
+// OLD (GeoRasterCell):
 const rasterCells = await adminClient
   .from("GeoRasterCell")
   .select("...")
   .or(gridConditions)
   .eq("is_valid", true);
+
+// NEW (slim OSM):
+const { data: chunkRows } = await adminClient
+  .from("OSMTileChunkLite")
+  .select("id, chunk_x, chunk_y, tile_count")
+  .eq("dataset_version", DATASET_VERSION)
+  .gte("chunk_x", minChunkX)
+  .lte("chunk_x", maxChunkX);
 ```
 
-### 3. **Data Initialization** (`supabase/functions/initializeGeoRasterGrid/index.ts`)
-- New function to populate the raster grid
-- Queries Overpass API **once per region** (offline initialization)
-- Classifies cells based on dominant OSM tags
-- Upserts into `GeoRasterCell` table
+### 3. **Data Initialization** (`supabase/functions/initializeGeoRasterGrid/index.ts`) - DEPRECATED
+- Function to populate the raster grid (NO LONGER USED)
+- Was: Queries Overpass API **once per region** (offline initialization)
+- Was: Classifies cells based on dominant OSM tags
+- Was: Upserts into ~~`GeoRasterCell`~~ table (REPLACED by bulk OSM data import)
 
-### 4. **Configuration** (`supabase/config.toml`)
-- Registered new `initializeGeoRasterGrid` function
+### 4. **Data Pipeline** (current, slim OSM)
+- `data/pipeline/build_osm_tiles_slim.py`: Extracts tile zones from PostGIS database
+- `data/pipeline/upload_osm_tiles_slim.py`: Bulk imports to OSMTileChunkLite + OSMTileValue
+- Dataset: Pre-computed Germany OSM data (osm_de_2026_04_10)
 
-## Implementation Details
+### 5. **Configuration** (`supabase/config.toml`)
+- Registered functions: `robotPlantDailyZones` (active), ~~`initializeGeoRasterGrid`~~ (DEPRECATED)
 
-### Grid System
+## Implementation Details (DEPRECATED - Historical Reference)
+
+### Old Grid System (GeoRasterCell) - DEPRECATED
 - **Cell size:** ~0.5km² (707m per side)
 - **Grid resolution:** 0.00636° per cell
 - **Coordinate system:** Degree-based (latitude/longitude indices)
 - **Indexing:** `grid_id = "{lat_idx}_{lng_idx}"` (unique)
 
-### Zone Selection Algorithm
+### Old Zone Selection Algorithm (DEPRECATED)
 1. Calculate grid cells within 5km radius of user
 2. Query all valid cells from database
 3. Group cells by theme (forest, water, urban, meadow)
@@ -58,9 +78,9 @@ const rasterCells = await adminClient
 6. Check for overlaps (min separation = radius₁ + radius₂)
 7. Return 3-4 non-overlapping zones
 
-### Classification Logic
+### Old Classification Logic (DEPRECATED)
 ```javascript
-// OSM tags → Theme + Confidence
+// OSM tags → Theme + Confidence (GeoRasterCell - no longer used)
 
 natural=forest → forest (0.9)
 landuse=forest → forest (0.9)
@@ -75,6 +95,13 @@ leisure=park → meadow (0.85)
 natural=meadow → meadow (0.85)
 ```
 
+### Current System (slim OSM)
+See [OSM_TILES_SLIM_GUIDE.md](OSM_TILES_SLIM_GUIDE.md) for:
+- Tile grid architecture (100m × 100m tiles, 10×10 chunk grouping)
+- EPSG:3035 coordinate transformation
+- Zone type enumeration (0-5: forest, water, meadow, urban, beach, wetlands)
+- Query patterns and performance characteristics
+
 ## What Stays the Same
 
 ✅ Frontend: No changes needed
@@ -83,50 +110,44 @@ natural=meadow → meadow (0.85)
 ✅ `RobotPlantZone` table: Still used for storing generated zones
 ✅ User experience: Faster, more reliable zones
 
-## How to Deploy
+## Deployment (DEPRECATED - Historic Reference)
 
-### Step 1: Database Migration
+⚠️ The following steps were used with the old GeoRasterCell system. They are **no longer needed** with the slim OSM architecture.
+
+For current deployment, see [OSM_TILES_SLIM_GUIDE.md](OSM_TILES_SLIM_GUIDE.md).
+
+### Old Step 1: Database Migration (DEPRECATED)
 ```bash
 supabase migration up
 ```
-Or if using hosted Supabase, run migration manually via dashboard.
 
-### Step 2: Deploy Functions
+### Old Step 2: Deploy Functions (DEPRECATED)
 ```bash
-npx supabase functions deploy robotPlantDailyZones
-npx supabase functions deploy initializeGeoRasterGrid
+npx supabase functions deploy robotPlantDailyZones  # Still needed, but new implementation
+# DO NOT DEPLOY: initializeGeoRasterGrid (no longer used)
 ```
 
-### Step 3: Set Environment Variables
-In Supabase project settings, add:
+### Old Step 3: Environment Variables (DEPRECATED)
 ```
-ADMIN_SECRET=<random-secure-string>
+ADMIN_SECRET=<random-secure-string>  # No longer needed
 ```
 
-### Step 4: Initialize Raster Grid
+### Old Step 4: Initialize Raster Grid (DEPRECATED - DO NOT RUN)
 ```bash
-# Option A: Use the provided script
-bash scripts/init-raster-grid-kiel.sh
-
-# Option B: Manual curl
+# DO NOT RUN - this function is deprecated
 curl -X POST https://PROJECT.supabase.co/functions/v1/initializeGeoRasterGrid \
-  -H "Content-Type: application/json" \
-  -d '{
-    "bounds": {"north": 54.5, "south": 54.15, "east": 10.35, "west": 9.9},
-    "adminKey": "YOUR_ADMIN_SECRET",
-    "forceRefresh": false
-  }'
+  ...
 ```
 
-## Testing Checklist
+## Testing Checklist (DEPRECATED)
 
-- [ ] Migration deployed successfully
-- [ ] Both functions deployed without errors
-- [ ] `GeoRasterCell` table has data (>100 rows)
-- [ ] Open map in app, click "Standort ermitteln"
-- [ ] Zones appear within 1-2 seconds
-- [ ] Console logs show `rasterBased: true` and `queryDurationMs: <100`
-- [ ] Check `RasterCellQueryLog` for metrics
+- ❌ ~~Migration deployed successfully~~ (no longer needed)
+- ✅ `robotPlantDailyZones` deployed with new slim OSM implementation
+- ❌ ~~`GeoRasterCell` table has data~~ (replaced by OSMTileChunkLite/OSMTileValue)
+- ✅ Open map in app, click "Standort ermitteln"
+- ✅ Zones appear within 1-2 seconds (typically <100ms)
+- ✅ Check console logs for `osmSlimBased: true`
+- ❌ ~~Check `RasterCellQueryLog`~~ (no longer exists)
 
 ## Performance Expectations
 
