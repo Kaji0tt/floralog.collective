@@ -224,6 +224,49 @@ export const listRobotPlantActiveEffects = async (authId) => {
   return Array.isArray(effects) ? effects : [];
 };
 
+export const getRobotPlantDailyCareStatus = async (authId) => {
+  const fallback = {
+    dayKey: new Date().toISOString().slice(0, 10),
+    wateringCountToday: 0,
+    wateringLimitPerDay: 3,
+    remainingWatersToday: 3,
+  };
+
+  if (!authId) return fallback;
+
+  const dayKey = new Date().toISOString().slice(0, 10);
+  const { data, error } = await supabase
+    .from("RobotPlantDailyCareAction")
+    .select("watering_count")
+    .eq("auth_id", authId)
+    .eq("day_key", dayKey)
+    .maybeSingle();
+
+  if (error) {
+    const message = String(error?.message || "").toLowerCase();
+    const missingTable =
+      error?.code === "PGRST201" ||
+      error?.code === "PGRST301" ||
+      error?.code === "42P01" ||
+      message.includes("does not exist") ||
+      message.includes("not found");
+
+    if (missingTable) {
+      return fallback;
+    }
+
+    throw error;
+  }
+
+  const wateringCountToday = Math.max(0, Math.min(3, Number(data?.watering_count ?? 0)));
+  return {
+    dayKey,
+    wateringCountToday,
+    wateringLimitPerDay: 3,
+    remainingWatersToday: Math.max(0, 3 - wateringCountToday),
+  };
+};
+
 export const purchaseRobotPlantShopItem = async ({ itemId, quantity = 1, eventReference = null }) => {
   const { authId } = await getCurrentAuthContext();
 

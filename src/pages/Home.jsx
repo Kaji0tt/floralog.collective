@@ -8,6 +8,7 @@ import {
   listRobotPlantShopItems,
   listRobotPlantInventory,
   listRobotPlantActiveEffects,
+  getRobotPlantDailyCareStatus,
   purchaseRobotPlantShopItem,
   useRobotPlantInventoryItem,
   waterRobotPlant,
@@ -672,6 +673,15 @@ export default function Home() {
     refetchOnWindowFocus: true,
   });
 
+  const { data: robotPlantDailyCareStatus = null } = useQuery({
+    queryKey: ['robotPlantDailyCareStatus', user?.id],
+    queryFn: () => getRobotPlantDailyCareStatus(user?.id),
+    enabled: !!user?.id,
+    initialData: null,
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
   const purchaseShopItemMutation = useMutation({
     mutationFn: ({ itemId }) => purchaseRobotPlantShopItem({ itemId, quantity: 1 }),
     onSuccess: async (result) => {
@@ -717,6 +727,7 @@ export default function Home() {
       }
 
       await queryClient.invalidateQueries({ queryKey: ['robotPlantState'] });
+      await queryClient.invalidateQueries({ queryKey: ['robotPlantDailyCareStatus'] });
     },
     onError: () => {
       setCareActionMessage('Giessen fehlgeschlagen.');
@@ -1421,8 +1432,9 @@ export default function Home() {
     0
   );
 
-  const WATER_COLOR = "#2b6cb0";
-  const fertilizerButtonColor = activeDecayEffects.length > 0 ? "#22c55e" : "#a3830e";
+  const wateringCountToday = Math.max(0, Number(robotPlantDailyCareStatus?.wateringCountToday ?? 0));
+  const wateringLimitPerDay = Math.max(1, Number(robotPlantDailyCareStatus?.wateringLimitPerDay ?? 3));
+  const remainingWatersToday = Math.max(0, Number(robotPlantDailyCareStatus?.remainingWatersToday ?? (wateringLimitPerDay - wateringCountToday)));
 
   const filteredShopItems = robotPlantShopItems.filter((item) => {
     if (shopCategory === "all") return true;
@@ -2515,6 +2527,50 @@ export default function Home() {
                                   </div>
                                 </div>
                               ))}
+
+                              <div className="pt-1.5">
+                                <div className={`rounded-xl border px-3 py-2 space-y-2 ${
+                                  isLightUi
+                                    ? "border-[#c8ac62]/45 bg-white/40 text-stone-700"
+                                    : "border-[#f0e5a5]/35 bg-black/28 text-stone-100"
+                                }`}>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={handleWaterPlantClick}
+                                      disabled={waterPlantMutation.isPending || remainingWatersToday <= 0}
+                                      className={`h-9 px-3 rounded-lg border text-[11px] md:text-xs font-semibold disabled:opacity-60 ${
+                                        isLightUi
+                                          ? "border-[#c8ac62]/55 bg-white/60 text-stone-800"
+                                          : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
+                                      }`}
+                                    >
+                                      Giessen
+                                    </button>
+                                    <span className="text-[11px] md:text-xs opacity-90">
+                                      Heute {wateringCountToday}/{wateringLimitPerDay}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={handleFertilizerSlotClick}
+                                      disabled={useInventoryItemMutation.isPending}
+                                      className={`h-9 px-3 rounded-lg border text-[11px] md:text-xs font-semibold disabled:opacity-60 ${
+                                        isLightUi
+                                          ? "border-[#c8ac62]/55 bg-white/60 text-stone-800"
+                                          : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
+                                      }`}
+                                    >
+                                      Duenger
+                                    </button>
+                                    <span className="text-[11px] md:text-xs opacity-90">
+                                      Aktiv: {activeDecayEffects.length} | Reduktion: {Math.round(activeDecayPercent * 100)}%
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                           </motion.div>
                         ) : (
@@ -2564,47 +2620,6 @@ export default function Home() {
                               ))}
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={handleWaterPlantClick}
-                              disabled={waterPlantMutation.isPending}
-                              className={`absolute left-0 md:left-2 bottom-5 md:bottom-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center disabled:opacity-60 ${
-                                isLightUi
-                                  ? "border-[#c8ac62]/60"
-                                  : "border-[#f0e5a5]/40"
-                              }`}
-                              style={{
-                                background: isLightUi
-                                  ? `linear-gradient(135deg, ${WATER_COLOR}35 0%, ${WATER_COLOR}15 100%)`
-                                  : `linear-gradient(135deg, ${WATER_COLOR}7a 0%, ${WATER_COLOR}4d 100%)`,
-                              }}
-                              aria-label="Pflanze giessen"
-                            >
-                              <Waves className={`w-4 h-4 ${isLightUi ? "text-stone-700" : "text-white/90"}`} />
-                              <span className={`font-semibold text-[11px] md:text-xs leading-none mt-0.5 ${isLightUi ? "text-stone-800" : "text-white"}`}>Giessen</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={handleFertilizerSlotClick}
-                              disabled={useInventoryItemMutation.isPending}
-                              className={`absolute right-0 md:right-2 bottom-5 md:bottom-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center disabled:opacity-60 ${
-                                isLightUi
-                                  ? "border-[#c8ac62]/60"
-                                  : "border-[#f0e5a5]/40"
-                              }`}
-                              style={{
-                                background: isLightUi
-                                  ? `linear-gradient(135deg, ${fertilizerButtonColor}35 0%, ${fertilizerButtonColor}15 100%)`
-                                  : `linear-gradient(135deg, ${fertilizerButtonColor}7a 0%, ${fertilizerButtonColor}4d 100%)`,
-                              }}
-                              aria-label="Duenger-Slot"
-                            >
-                              <Flower2 className={`w-4 h-4 ${isLightUi ? "text-stone-700" : "text-white/90"}`} />
-                              <span className={`font-semibold text-[11px] md:text-xs leading-none mt-0.5 truncate max-w-[85%] ${isLightUi ? "text-stone-800" : "text-white"}`}>
-                                {activeDecayEffects.length > 0 ? "Aktiv" : "Duenger"}
-                              </span>
-                            </button>
                           </motion.div>
                         )}
                       </AnimatePresence>
