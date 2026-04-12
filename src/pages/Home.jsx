@@ -70,7 +70,8 @@ const HEALTH_TOOLTIP_TEXT = {
 
 const MULTIPLIER_SWIPE_THRESHOLD_PX = 36;
 
-const GUEST_SECTION_COUNT = 4;
+const GUEST_SECTION_COUNT = 5;
+const NEARBY_DISCOVERY_RADIUS_METERS = 2000;
 
 /** @param {number} seed */
 const seededRandom = (seed) => {
@@ -101,6 +102,33 @@ const buildGuestPreviewZones = (latitude, longitude) => {
       zone_bonus_multiplier: 1.5,
     };
   });
+};
+
+/** @param {string | null | undefined} location */
+const parseDiscoveryCoordinates = (location) => {
+  if (!location || typeof location !== "string") return null;
+  const coordPattern = /(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)/;
+  const match = location.match(coordPattern);
+  if (!match) return null;
+
+  const lat = Number(match[1]);
+  const lng = Number(match[2]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { lat, lng };
+};
+
+const calculateDistanceMetersRaw = (lat1, lon1, lat2, lon2) => {
+  const R = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
 /**
@@ -140,6 +168,7 @@ const toCirclePolygon = (params) => {
  *   zones?: Array<{ centerLat: number | string; centerLng: number | string; radiusM?: number | string; theme?: string; zoneKey?: string; id?: string; bonusMultiplier?: number | string; zoneBonusMultiplier?: number | string; zone_bonus_multiplier?: number | string }>;
  *   userLocation?: { lat?: number; lng?: number } | null;
  *   fallbackCenter?: { lat?: number; lng?: number } | null;
+ *   discoveryPoints?: Array<{ lat: number; lng: number }>;
  *   onTokenError?: (message: string) => void;
  *   onMapReady?: (map: mapboxgl.Map | null) => void;
  * }} props
@@ -151,6 +180,7 @@ function HeroZoneMap3D(props) {
   /** @type {React.MutableRefObject<((message: string) => void) | null>} */
   const onTokenErrorRef = useRef(null);
   const zones = Array.isArray(props?.zones) ? props.zones : [];
+  const discoveryPoints = Array.isArray(props?.discoveryPoints) ? props.discoveryPoints : [];
   const userLocation = props?.userLocation || null;
   const fallbackCenter = props?.fallbackCenter || null;
   const onTokenError = typeof props?.onTokenError === "function" ? props.onTokenError : null;
@@ -384,6 +414,45 @@ function HeroZoneMap3D(props) {
           },
         });
       }
+
+      const discoveryGeoJson = /** @type {any} */ ({
+        type: "FeatureCollection",
+        features: discoveryPoints
+          .filter((point) => Number.isFinite(point?.lat) && Number.isFinite(point?.lng))
+          .map((point, index) => ({
+            type: "Feature",
+            geometry: {
+              type: "Point",
+              coordinates: [Number(point.lng), Number(point.lat)],
+            },
+            properties: {
+              id: `discovery-${index}`,
+            },
+          })),
+      });
+
+      const discoverySource = /** @type {any} */ (map.getSource("hero-discoveries"));
+      if (discoverySource) {
+        discoverySource.setData(discoveryGeoJson);
+      } else {
+        map.addSource("hero-discoveries", {
+          type: "geojson",
+          data: discoveryGeoJson,
+        });
+
+        map.addLayer({
+          id: "hero-discovery-points",
+          type: "circle",
+          source: "hero-discoveries",
+          paint: {
+            "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 2, 16, 4],
+            "circle-color": "#16a34a",
+            "circle-opacity": 0.92,
+            "circle-stroke-width": 1,
+            "circle-stroke-color": "#dcfce7",
+          },
+        });
+      }
     };
 
     if (map.isStyleLoaded()) {
@@ -391,7 +460,7 @@ function HeroZoneMap3D(props) {
     } else {
       map.once("style.load", updateMapData);
     }
-  }, [fallbackCenter?.lat, fallbackCenter?.lng, userLocation?.lat, userLocation?.lng, zones]);
+  }, [discoveryPoints, fallbackCenter?.lat, fallbackCenter?.lng, userLocation?.lat, userLocation?.lng, zones]);
 
   return <div ref={mapContainerRef} className="h-full w-full z-0" />;
 }
@@ -419,6 +488,9 @@ export default function Home() {
   const [guestLocation, setGuestLocation] = useState(null);
   const [isGeneratingGuestZones, setIsGeneratingGuestZones] = useState(false);
   const [guestZoneError, setGuestZoneError] = useState(null);
+  const [showGuestZoneMap, setShowGuestZoneMap] = useState(false);
+  const [showGuestVisionDialog, setShowGuestVisionDialog] = useState(false);
+  const [showGuestGrowDialog, setShowGuestGrowDialog] = useState(false);
   const [showHealthStatsPanel, setShowHealthStatsPanel] = useState(false);
   const healthStatsPanelRef = useRef(null);
   const guestScrollRef = useRef(null);
@@ -968,16 +1040,7 @@ export default function Home() {
   }, [user?.background_image_url, user?.background_color]);
 
   const calculateDistanceMeters = (lat1, lon1, lat2, lon2) => {
-    const R = 6371000;
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return calculateDistanceMetersRaw(lat1, lon1, lat2, lon2);
   };
 
   useEffect(() => {
@@ -1090,6 +1153,20 @@ export default function Home() {
 
   const totalScanCount = allDiscoveries.length;
   const latestCollections = publicCollections.slice(0, 2);
+  const guestNearbyDiscoveryPoints = guestLocation
+    ? allDiscoveries
+        .map((entry) => parseDiscoveryCoordinates(entry?.discovery_location))
+        .filter(Boolean)
+        .filter((point) => {
+          const distanceM = calculateDistanceMetersRaw(
+            guestLocation.lat,
+            guestLocation.lng,
+            point.lat,
+            point.lng
+          );
+          return Number.isFinite(distanceM) && distanceM <= NEARBY_DISCOVERY_RADIUS_METERS;
+        })
+    : [];
 
   const scrollGuestSectionTo = (targetIndex) => {
     const container = guestScrollRef.current;
@@ -1108,38 +1185,59 @@ export default function Home() {
     setGuestSectionIndex(Math.max(0, Math.min(GUEST_SECTION_COUNT - 1, nextIndex)));
   };
 
+  const requestGuestLocation = () => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation wird von diesem Browser nicht unterstuetzt.'));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+        },
+        (error) => reject(error),
+        {
+          enableHighAccuracy: false,
+          timeout: 12000,
+          maximumAge: 60000,
+        }
+      );
+    });
+  };
+
   const handleGuestGenerateZones = async () => {
     if (isGeneratingGuestZones) return;
-
-    if (!navigator.geolocation) {
-      setGuestZoneError('Geolocation wird von diesem Browser nicht unterstuetzt.');
-      return;
-    }
 
     setIsGeneratingGuestZones(true);
     setGuestZoneError(null);
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const nextLocation = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        };
-        setGuestLocation(nextLocation);
-        setGuestZones(buildGuestPreviewZones(nextLocation.lat, nextLocation.lng));
-        setIsGeneratingGuestZones(false);
-      },
-      (error) => {
-        const message = error?.message || 'Standort konnte nicht geladen werden.';
-        setGuestZoneError(message);
-        setIsGeneratingGuestZones(false);
-      },
-      {
-        enableHighAccuracy: false,
-        timeout: 12000,
-        maximumAge: 60000,
-      }
-    );
+    try {
+      const nextLocation = await requestGuestLocation();
+      setGuestLocation(nextLocation);
+      setGuestZones(buildGuestPreviewZones(nextLocation.lat, nextLocation.lng));
+      return nextLocation;
+    } catch (error) {
+      const message = error?.message || 'Standort konnte nicht geladen werden.';
+      setGuestZoneError(message);
+      return null;
+    } finally {
+      setIsGeneratingGuestZones(false);
+    }
+  };
+
+  const handleGuestExploreZones = async () => {
+    let locationForMap = guestLocation;
+    if (!locationForMap || !Number.isFinite(locationForMap.lat) || !Number.isFinite(locationForMap.lng)) {
+      locationForMap = await handleGuestGenerateZones();
+    }
+
+    if (locationForMap) {
+      setShowGuestZoneMap(true);
+    }
   };
 
   if (isLoadingUser) {
@@ -1164,222 +1262,332 @@ export default function Home() {
           <div className="absolute inset-0 pointer-events-none rounded-[2rem] border border-[#f0e5a5]/30" />
 
           <div className="relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6 text-stone-100">
-            <div className="flex items-center justify-between rounded-2xl border border-[#f0e5a5]/30 bg-black/25 px-4 py-3 backdrop-blur-sm">
-              <div>
-                <p className="text-xs uppercase tracking-[0.22em] text-lime-200/80">Floralog</p>
-                <h1 className="text-lg font-semibold text-stone-100">Augmented Discovery fuer echte Naturmomente</h1>
-              </div>
-              <Leaf className="w-6 h-6 text-lime-200" />
+            <div className="rounded-2xl border border-[#f0e5a5]/30 bg-black/25 px-4 py-3 backdrop-blur-sm">
+              <p className="text-xs uppercase tracking-[0.22em] text-lime-200/80">Floralog</p>
+              <h1 className="text-lg font-semibold text-stone-100">Finde Schaetze vor der Tuer.</h1>
             </div>
 
-            <div
-              ref={guestScrollRef}
-              onScroll={handleGuestScroll}
-              className="relative flex flex-1 min-h-0 flex-col overflow-y-auto snap-y snap-mandatory scroll-smooth mt-3 rounded-3xl border border-[#f0e5a5]/25 bg-black/20 backdrop-blur-sm"
-              data-ui="home-content-stack"
-            >
-              <section className="relative min-h-full snap-start p-5 md:p-7 flex flex-col justify-between gap-5">
-                <div className="space-y-4">
-                  <p className="text-xs md:text-sm uppercase tracking-[0.18em] text-amber-200/75">Bereich 1/4</p>
-                  <h2 className="text-3xl md:text-4xl font-bold leading-tight text-stone-100">
-                    Entdecke Pflanzen in deinem Alltag und erlebe Natur als Spielwelt.
-                  </h2>
-                  <p className="text-sm md:text-base text-stone-200/90 max-w-xl">
-                    Floralog verbindet botanische Entdeckung, Community und Gamification zu einem Erlebnis: Scannen, verstehen, sammeln und gemeinsam die lokale Natur kartieren.
-                  </p>
-                  <div className="inline-flex items-center rounded-full border border-emerald-300/40 bg-emerald-900/35 px-3 py-1.5 text-xs md:text-sm text-emerald-100">
-                    Fang mit uns an, unsere Wurzeln neu zu entdecken.
-                  </div>
-                </div>
+            {showGuestZoneMap ? (
+              <section className="mt-3 relative flex-1 min-h-0 rounded-3xl border overflow-hidden border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm">
+                <HeroZoneMap3D
+                  zones={guestZones}
+                  userLocation={guestLocation}
+                  fallbackCenter={guestLocation ? { lat: guestLocation.lat, lng: guestLocation.lng } : { lat: 51.1657, lng: 10.4515 }}
+                  discoveryPoints={guestNearbyDiscoveryPoints}
+                  onTokenError={(message) => setGuestZoneError(message)}
+                />
 
-                <div className="space-y-3">
-                  <div className="rounded-2xl border border-[#f0e5a5]/30 bg-black/30 px-4 py-3 text-sm text-stone-200">
-                    Social Proof: {activeCollectorsThisWeek} aktive Sammler diese Woche.
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={() => navigate('/register')}
-                      className="rounded-xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 py-3 font-semibold text-white hover:brightness-110"
-                    >
-                      Kostenlos registrieren
-                    </button>
-                    <button
-                      onClick={() => navigate('/login')}
-                      className="rounded-xl border border-[#f0e5a5]/35 bg-black/35 py-3 font-semibold text-stone-100 hover:bg-black/50"
-                    >
-                      Anmelden
-                    </button>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => scrollGuestSectionTo(1)}
-                  className="absolute bottom-4 right-4 h-11 w-11 rounded-full border border-[#f0e5a5]/45 bg-black/45 flex items-center justify-center text-stone-100 hover:bg-black/60"
-                  aria-label="Zum naechsten Bereich"
-                >
-                  <ChevronUp className="w-5 h-5 rotate-180" />
-                </button>
-              </section>
-
-              <section className="relative min-h-full snap-start p-5 md:p-7 flex flex-col gap-4">
-                <p className="text-xs md:text-sm uppercase tracking-[0.18em] text-amber-200/75">Bereich 2/4</p>
-                <h3 className="text-2xl md:text-3xl font-bold text-stone-100">Deine Robopflanze wartet auf frische Daten der Natur in deinem Umfeld.</h3>
-                <p className="text-sm md:text-base text-stone-200/90">
-                  Teste das Interaktionsmuster schon als Gast: Vorschau-Zonen um deinen Standort laden und erleben, wie die Robo-Logik im Spiel funktioniert.
-                </p>
-
-                <div className="grid md:grid-cols-2 gap-4 min-h-0 flex-1">
-                  <div className="rounded-2xl border border-[#f0e5a5]/30 bg-black/30 p-4 flex items-center justify-center">
-                    <img
-                      src="/UserPlant1.png"
-                      alt="Robo-Pflanze Vorschau"
-                      className="max-h-64 w-auto object-contain drop-shadow-[0_0_24px_rgba(190,242,100,0.45)]"
-                    />
-                  </div>
-                  <div className="rounded-2xl border border-[#f0e5a5]/30 bg-black/30 p-3 min-h-[260px] md:min-h-0 relative overflow-hidden">
-                    {guestZones.length > 0 && guestLocation ? (
-                      <HeroZoneMap3D
-                        zones={guestZones}
-                        userLocation={guestLocation}
-                        fallbackCenter={{ lat: guestLocation.lat, lng: guestLocation.lng }}
-                        onTokenError={(message) => setGuestZoneError(message)}
-                      />
-                    ) : (
-                      <div className="h-full w-full flex items-center justify-center text-center text-xs md:text-sm text-stone-300 px-4">
-                        Noch keine Vorschau-Zonen geladen. Tippe auf den Button, um Zonen in deiner Umgebung zu erzeugen.
-                      </div>
-                    )}
-                  </div>
+                <div className="absolute left-4 top-4 z-[1200] rounded-xl border border-[#f0e5a5]/35 bg-black/55 px-3 py-1.5 text-[11px] md:text-xs font-semibold text-stone-100">
+                  Funde im Umkreis (2km): {guestNearbyDiscoveryPoints.length}
                 </div>
 
                 {guestZoneError && (
-                  <div className="rounded-xl border border-red-300/45 bg-red-900/40 px-3 py-2 text-xs md:text-sm text-red-100">
+                  <div className="absolute left-4 right-4 top-16 z-[1200] rounded-xl border border-red-300/50 bg-red-900/55 px-3 py-2 text-[11px] md:text-xs font-medium text-red-100">
                     {guestZoneError}
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="absolute left-4 right-4 bottom-4 z-[1200] flex items-center justify-between gap-2">
                   <button
                     type="button"
-                    onClick={handleGuestGenerateZones}
-                    disabled={isGeneratingGuestZones}
-                    className="rounded-xl border border-[#f0e5a5]/35 bg-black/35 py-3 font-semibold text-stone-100 disabled:opacity-60 hover:bg-black/50"
+                    onClick={() => setShowGuestZoneMap(false)}
+                    className="h-10 px-3 rounded-xl border border-[#f0e5a5]/45 bg-black/55 text-stone-100 hover:bg-black/70 transition-colors flex items-center gap-2 text-xs md:text-sm font-semibold"
                   >
-                    {isGeneratingGuestZones ? 'Erzeuge Zonen...' : 'Zonen jetzt generieren'}
-                  </button>
-                  <button
-                    onClick={() => navigate('/Scanner')}
-                    className="rounded-xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 py-3 font-semibold text-white hover:brightness-110"
-                  >
-                    Scan testen
+                    <ArrowLeft className="w-4 h-4" />
+                    Zurueck
                   </button>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => scrollGuestSectionTo(2)}
-                  className="absolute bottom-4 right-4 h-11 w-11 rounded-full border border-[#f0e5a5]/45 bg-black/45 flex items-center justify-center text-stone-100 hover:bg-black/60"
-                  aria-label="Zum naechsten Bereich"
-                >
-                  <ChevronUp className="w-5 h-5 rotate-180" />
-                </button>
               </section>
-
-              <section className="relative min-h-full snap-start p-5 md:p-7 flex flex-col gap-4">
-                <p className="text-xs md:text-sm uppercase tracking-[0.18em] text-amber-200/75">Bereich 3/4</p>
-                <h3 className="text-2xl md:text-3xl font-bold text-stone-100">Community und Kollektionen</h3>
-                <p className="text-sm md:text-base text-stone-200/90">
-                  Sei einer der ersten und teste mit uns Augmented Discovery.
-                </p>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="rounded-2xl border border-[#f0e5a5]/30 bg-black/35 px-4 py-4">
-                    <div className="text-xs uppercase tracking-wide text-stone-300">Aktive Sammler diese Woche</div>
-                    <div className="text-3xl font-bold text-lime-200 mt-1">{activeCollectorsThisWeek}</div>
+            ) : (
+              <div
+                ref={guestScrollRef}
+                onScroll={handleGuestScroll}
+                className="relative flex flex-1 min-h-0 flex-col overflow-y-auto snap-y snap-mandatory scroll-smooth mt-3 rounded-3xl border border-[#f0e5a5]/25 bg-black/20 backdrop-blur-sm"
+                data-ui="home-content-stack"
+              >
+                <section className="relative h-full min-h-full snap-start p-5 md:p-7 flex flex-col justify-between gap-5 overflow-y-auto pr-2">
+                  <div className="space-y-4">
+                    <p className="text-xs md:text-sm uppercase tracking-[0.18em] text-amber-200/75">Einstieg</p>
+                    <h2 className="text-3xl md:text-4xl font-bold leading-tight text-stone-100">Natur neu entdecken.</h2>
+                    <p className="text-sm md:text-base text-stone-200/90 max-w-xl">
+                      Scanne Pflanzen in deiner Umgebung. Entdecke Schaetze im Alltag und zuechte dir einen eigenen Natur-Begleiter.
+                    </p>
+                    <div className="inline-flex items-center rounded-full border border-emerald-300/40 bg-emerald-900/35 px-3 py-1.5 text-xs md:text-sm text-emerald-100">
+                      Starte jetzt - halte deinen ersten Fund fest.
+                    </div>
                   </div>
-                  <div className="rounded-2xl border border-[#f0e5a5]/30 bg-black/35 px-4 py-4">
-                    <div className="text-xs uppercase tracking-wide text-stone-300">Bereits entdeckte Arten</div>
-                    <div className="text-3xl font-bold text-emerald-200 mt-1">{discoveredSpeciesCountTotal}</div>
-                  </div>
-                  <div className="rounded-2xl border border-[#f0e5a5]/30 bg-black/35 px-4 py-4">
-                    <div className="text-xs uppercase tracking-wide text-stone-300">Scans insgesamt</div>
-                    <div className="text-3xl font-bold text-amber-200 mt-1">{totalScanCount}</div>
-                  </div>
-                </div>
 
-                <div className="rounded-2xl border border-[#f0e5a5]/30 bg-black/35 p-4">
-                  <h4 className="text-lg font-semibold text-stone-100 mb-3">Neueste Nutzerkollektionen</h4>
-                  <div className="space-y-2">
-                    {latestCollections.length === 0 ? (
-                      <div className="text-sm text-stone-300">Noch keine oeffentlichen Kollektionen verfuegbar.</div>
-                    ) : (
-                      latestCollections.map((collection) => (
-                        <button
-                          key={collection.id}
-                          type="button"
-                          onClick={() => navigate(`${createPageUrl('Collection')}?collectionId=${collection.id}`)}
-                          className="w-full text-left rounded-xl border border-[#f0e5a5]/30 bg-black/25 px-3 py-2 hover:bg-black/45"
-                        >
-                          <div className="font-semibold text-stone-100">{collection.title || 'Unbenannte Kollektion'}</div>
-                          <div className="text-xs text-stone-300">von {collection.display_name || 'Community'}</div>
-                        </button>
-                      ))
-                    )}
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => navigate('/register')}
+                      className="w-full rounded-xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 py-3 font-semibold text-white hover:brightness-110"
+                    >
+                      Kostenlos starten
+                    </button>
+                    <button
+                      onClick={() => navigate('/login')}
+                      className="w-full rounded-xl border border-[#f0e5a5]/35 bg-black/35 py-3 font-semibold text-stone-100 hover:bg-black/50"
+                    >
+                      Anmelden
+                    </button>
                   </div>
-                </div>
 
-                <button
-                  type="button"
-                  onClick={() => scrollGuestSectionTo(3)}
-                  className="absolute bottom-4 right-4 h-11 w-11 rounded-full border border-[#f0e5a5]/45 bg-black/45 flex items-center justify-center text-stone-100 hover:bg-black/60"
-                  aria-label="Zum naechsten Bereich"
-                >
-                  <ChevronUp className="w-5 h-5 rotate-180" />
-                </button>
-              </section>
+                  <button type="button" onClick={() => scrollGuestSectionTo(1)} className="absolute bottom-4 right-4 h-11 w-11 rounded-full border border-[#f0e5a5]/45 bg-black/45 flex items-center justify-center text-stone-100 hover:bg-black/60" aria-label="Zum naechsten Bereich">
+                    <ChevronUp className="w-5 h-5 rotate-180" />
+                  </button>
+                </section>
 
-              <section className="relative min-h-full snap-start p-5 md:p-7 flex flex-col justify-between gap-5">
-                <div className="space-y-4">
-                  <p className="text-xs md:text-sm uppercase tracking-[0.18em] text-amber-200/75">Bereich 4/4</p>
-                  <h3 className="text-3xl md:text-4xl font-bold text-stone-100 leading-tight">
-                    Trete uns bei, entdecke Pflanzen und gewinne Naturwissen in deinem Alltag zurueck.
-                  </h3>
+                <section className="relative h-full min-h-full snap-start p-5 md:p-7 flex flex-col gap-4 overflow-y-auto pr-2">
+                  <p className="text-xs md:text-sm uppercase tracking-[0.18em] text-amber-200/75">Core Loop</p>
+                  <h3 className="text-2xl md:text-3xl font-bold text-stone-100">Jede Entdeckung laesst deine Pflanze wachsen.</h3>
                   <p className="text-sm md:text-base text-stone-200/90">
-                    Teste zuerst einen Scan. Nach der Scan-Animation zeigen wir dir den naechsten Schritt, um den Fund dauerhaft zu speichern.
+                    Scanne Pflanzen in deiner Umgebung und verwandle die Natur in Fortschritt. Deine Robopflanze entwickelt sich mit jedem Fund weiter. Und wer weiss - vielleicht wartet hinter der ein oder anderen Pflanze ja ein wahrer Schatz.
+                  </p>
+
+                  <div className="rounded-2xl border border-[#f0e5a5]/30 bg-black/30 p-4 flex items-center justify-center min-h-[220px]">
+                    <img src="/UserPlant1.png" alt="Robo-Pflanze" className="max-h-60 w-auto object-contain drop-shadow-[0_0_24px_rgba(190,242,100,0.45)]" />
+                  </div>
+
+                  {guestZoneError && (
+                    <div className="rounded-xl border border-red-300/45 bg-red-900/40 px-3 py-2 text-xs md:text-sm text-red-100">
+                      {guestZoneError}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button onClick={() => navigate('/Scanner')} className="rounded-xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 py-3 font-semibold text-white hover:brightness-110">
+                      Scan testen
+                    </button>
+                    <button type="button" onClick={handleGuestExploreZones} disabled={isGeneratingGuestZones} className="rounded-xl border border-[#f0e5a5]/35 bg-black/35 py-3 font-semibold text-stone-100 disabled:opacity-60 hover:bg-black/50">
+                      {isGeneratingGuestZones ? 'Lade Zone...' : 'Zone erkunden'}
+                    </button>
+                  </div>
+
+                  <button type="button" onClick={() => scrollGuestSectionTo(2)} className="absolute bottom-4 right-4 h-11 w-11 rounded-full border border-[#f0e5a5]/45 bg-black/45 flex items-center justify-center text-stone-100 hover:bg-black/60" aria-label="Zum naechsten Bereich">
+                    <ChevronUp className="w-5 h-5 rotate-180" />
+                  </button>
+                </section>
+
+                <section className="relative h-full min-h-full snap-start p-5 md:p-7 flex flex-col justify-between gap-4 overflow-y-auto pr-2">
+                  <div className="space-y-4">
+                    <p className="text-xs md:text-sm uppercase tracking-[0.18em] text-amber-200/75">Vision</p>
+                    <h3 className="text-2xl md:text-3xl font-bold text-stone-100">Die Natur aus den Augen verloren?</h3>
+                    <p className="text-sm md:text-base text-stone-200/90">
+                      Die Natur ist uns wichtig. Aber wir schauen mehr auf Bildschirme als ins Gruen. Im Alltag uebersehen wir viele kleine Schaetze, ohne es zu wissen. Spielerisch nutzt Floralog die Faszination des Bildschirms, um den Blick fuer das Alltaegliche in Heimat und Natur wieder zu schaerfen.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <button onClick={() => setShowGuestVisionDialog(true)} className="rounded-xl border border-[#f0e5a5]/35 bg-black/35 py-3 font-semibold text-stone-100 hover:bg-black/50">
+                      Erfahre mehr zur Vision
+                    </button>
+                    <button onClick={() => setShowGuestGrowDialog(true)} className="rounded-xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 py-3 font-semibold text-white hover:brightness-110">
+                      Hilf Floralog beim Wachsen
+                    </button>
+                  </div>
+
+                  <button type="button" onClick={() => scrollGuestSectionTo(3)} className="absolute bottom-4 right-4 h-11 w-11 rounded-full border border-[#f0e5a5]/45 bg-black/45 flex items-center justify-center text-stone-100 hover:bg-black/60" aria-label="Zum naechsten Bereich">
+                    <ChevronUp className="w-5 h-5 rotate-180" />
+                  </button>
+                </section>
+
+                <section className="relative h-full min-h-full snap-start p-5 md:p-7 flex flex-col gap-4 overflow-y-auto pr-2">
+                  <p className="text-xs md:text-sm uppercase tracking-[0.18em] text-amber-200/75">Community</p>
+                  <h3 className="text-2xl md:text-3xl font-bold text-stone-100">Werde Teil der ersten Entdecker</h3>
+                  <p className="text-sm md:text-base text-stone-200/90">Floralog steht am Anfang - und genau jetzt kannst du mitgestalten, was daraus wird.</p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="rounded-2xl border border-[#f0e5a5]/30 bg-black/35 px-4 py-4">
+                      <div className="text-xs uppercase tracking-wide text-stone-300">Entdecker diese Woche</div>
+                      <div className="text-3xl font-bold text-lime-200 mt-1">{activeCollectorsThisWeek}</div>
+                    </div>
+                    <div className="rounded-2xl border border-[#f0e5a5]/30 bg-black/35 px-4 py-4">
+                      <div className="text-xs uppercase tracking-wide text-stone-300">Gefundene Pflanzen</div>
+                      <div className="text-3xl font-bold text-emerald-200 mt-1">{discoveredSpeciesCountTotal}</div>
+                    </div>
+                    <div className="rounded-2xl border border-[#f0e5a5]/30 bg-black/35 px-4 py-4">
+                      <div className="text-xs uppercase tracking-wide text-stone-300">Scans insgesamt</div>
+                      <div className="text-3xl font-bold text-amber-200 mt-1">{totalScanCount}</div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-[#f0e5a5]/30 bg-black/35 p-4 space-y-3">
+                    <h4 className="text-lg font-semibold text-stone-100">Was andere gerade entdecken</h4>
+                    <div className="grid gap-2">
+                      {latestCollections.length === 0 ? (
+                        <>
+                          <div className="rounded-xl border border-[#f0e5a5]/30 bg-black/25 px-3 py-2 font-semibold text-stone-100">Achtung Giftig 🌿</div>
+                          <div className="rounded-xl border border-[#f0e5a5]/30 bg-black/25 px-3 py-2 font-semibold text-stone-100">Gesunde Kueche 🥗</div>
+                        </>
+                      ) : (
+                        latestCollections.map((collection, index) => (
+                          <button
+                            key={collection.id}
+                            type="button"
+                            onClick={() => navigate(`${createPageUrl('Collection')}?collectionId=${collection.id}`)}
+                            className="w-full text-left rounded-xl border border-[#f0e5a5]/30 bg-black/25 px-3 py-2 hover:bg-black/45"
+                          >
+                            <div className="font-semibold text-stone-100">{collection.title || (index === 0 ? 'Achtung Giftig 🌿' : 'Gesunde Kueche 🥗')}</div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                    <div className="text-xs text-stone-300">Lass dich inspirieren oder starte deine eigene Sammlung.</div>
+                  </div>
+
+                  <button type="button" onClick={() => scrollGuestSectionTo(4)} className="absolute bottom-4 right-4 h-11 w-11 rounded-full border border-[#f0e5a5]/45 bg-black/45 flex items-center justify-center text-stone-100 hover:bg-black/60" aria-label="Zum naechsten Bereich">
+                    <ChevronUp className="w-5 h-5 rotate-180" />
+                  </button>
+                </section>
+
+                <section className="relative h-full min-h-full snap-start p-5 md:p-7 flex flex-col justify-between gap-5 overflow-y-auto pr-2">
+                  <div className="space-y-4">
+                    <p className="text-xs md:text-sm uppercase tracking-[0.18em] text-amber-200/75">Call to Action</p>
+                    <h3 className="text-3xl md:text-4xl font-bold text-stone-100 leading-tight">Mach deinen naechsten Spaziergang zur Entdeckung</h3>
+                    <p className="text-sm md:text-base text-stone-200/90">Teste den Scan direkt. Wenn du weitermachen willst, speichere deine Funde und lass deine Pflanze wachsen.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <button onClick={() => navigate('/Scanner')} className="rounded-xl border border-[#f0e5a5]/35 bg-black/35 py-3 font-semibold text-stone-100 hover:bg-black/50">Scan testen</button>
+                    <button onClick={() => navigate('/register')} className="rounded-xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 py-3 font-semibold text-white hover:brightness-110">Kostenlos registrieren</button>
+                    <button onClick={() => navigate('/login')} className="rounded-xl border border-[#f0e5a5]/35 bg-black/35 py-3 font-semibold text-stone-100 hover:bg-black/50">Anmelden</button>
+                  </div>
+
+                  <div className="flex items-center justify-center gap-2 text-xs text-stone-300">
+                    <span className={`h-2 w-2 rounded-full ${guestSectionIndex >= 0 ? 'bg-emerald-300' : 'bg-stone-500/60'}`} />
+                    <span className={`h-2 w-2 rounded-full ${guestSectionIndex >= 1 ? 'bg-emerald-300' : 'bg-stone-500/60'}`} />
+                    <span className={`h-2 w-2 rounded-full ${guestSectionIndex >= 2 ? 'bg-emerald-300' : 'bg-stone-500/60'}`} />
+                    <span className={`h-2 w-2 rounded-full ${guestSectionIndex >= 3 ? 'bg-emerald-300' : 'bg-stone-500/60'}`} />
+                    <span className={`h-2 w-2 rounded-full ${guestSectionIndex >= 4 ? 'bg-emerald-300' : 'bg-stone-500/60'}`} />
+                  </div>
+                </section>
+              </div>
+            )}
+          </div>
+
+          <Dialog open={showGuestGrowDialog} onOpenChange={setShowGuestGrowDialog}>
+            <DialogContent className="sm:max-w-2xl max-h-[82vh] overflow-y-auto rounded-3xl border border-lime-200/35 bg-black/40 backdrop-blur-xl text-stone-100 shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
+              <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-emerald-950/20 to-black/45 pointer-events-none" />
+              <div className="absolute inset-0 border border-lime-200/25 rounded-3xl pointer-events-none" />
+              <div className="relative z-10 space-y-4">
+                <DialogHeader>
+                  <DialogTitle className="text-lime-300">Hilf Floralog beim Wachsen</DialogTitle>
+                </DialogHeader>
+
+                <div className="space-y-4 text-sm md:text-base text-stone-200 leading-relaxed">
+                  <p className="text-xs uppercase tracking-widest text-lime-300/80">🌱 Für Entdecker, Lernende &amp; Neugierige</p>
+                  <p className="text-amber-200 font-semibold">Werde Teil von Floralog von Anfang an</p>
+
+                  <p>
+                    Floralog lebt von Menschen, die ihre Umgebung neu entdecken wollen.
+                    Du kannst uns schon jetzt unterstützen – ganz einfach, indem du spielst, Pflanzen scannst und uns Feedback gibst.
+                  </p>
+                  <p>
+                    Jede Entdeckung hilft, das System besser zu machen.
+                    Jede Rückmeldung fließt direkt in die Weiterentwicklung ein.
+                  </p>
+                  <p>So wächst Floralog Schritt für Schritt – gemeinsam mit dir.</p>
+
+                  <p className="text-stone-300 text-xs md:text-sm">
+                    <span className="font-medium text-stone-200">Optional (finanziell):</span> Wenn du die Idee darüber hinaus unterstützen möchtest, kannst du Floralog auch finanziell helfen:{' '}
+                    <button
+                      onClick={() => { setShowGuestGrowDialog(false); navigate(createPageUrl('Donate')); }}
+                      className="underline underline-offset-2 text-lime-300 hover:text-lime-200"
+                    >
+                      mit einer Spende
+                    </button>
+                    {' '}oder einem Founder's Pack <span className="text-stone-500">(yet to come)</span>.
+                  </p>
+
+                  <hr className="border-lime-200/20 my-1" />
+
+                  <p className="text-xs uppercase tracking-widest text-lime-300/80">🤝 Für Partner, Unternehmen &amp; Unterstützer</p>
+                  <p className="text-amber-200 font-semibold">Wachsen Sie mit Floralog</p>
+
+                  <p>
+                    Floralog verbindet digitale Interaktion mit realer Natur und schafft einen neuen Zugang zu Pflanzen, Wissen und Umgebung.
+                  </p>
+                  <p>Mit steigender Nutzung entstehen laufende Kosten – unter anderem für:</p>
+                  <ul className="list-disc list-inside space-y-1 text-stone-300">
+                    <li>Pflanzenidentifikation</li>
+                    <li>Generierung von Inhalten</li>
+                    <li>Karten- und Infrastrukturdienste</li>
+                  </ul>
+                  <p className="text-stone-300">
+                    Unser Ansatz ist bewusst skalierend („Pay as you go"):{' '}
+                    <span className="text-stone-100">Floralog wächst mit seiner Community.</span>
+                  </p>
+                  <p>Wir suchen Partner, die diesen Weg begleiten möchten – z.{'\u202f'}B. aus den Bereichen:</p>
+                  <ul className="list-disc list-inside space-y-1 text-stone-300">
+                    <li>Pflanzenhandel</li>
+                    <li>Bildung</li>
+                    <li>Nachhaltigkeit</li>
+                    <li>Umwelt &amp; Forschung</li>
+                  </ul>
+                  <p className="text-stone-300">
+                    Interesse an einer Zusammenarbeit oder Förderung?{' '}
+                    <span className="text-stone-100">Wir freuen uns über Ihre Nachricht.</span>
                   </p>
                 </div>
+              </div>
+            </DialogContent>
+          </Dialog>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <button
-                    onClick={() => navigate('/Scanner')}
-                    className="rounded-xl border border-[#f0e5a5]/35 bg-black/35 py-3 font-semibold text-stone-100 hover:bg-black/50"
-                  >
-                    Scan testen
-                  </button>
-                  <button
-                    onClick={() => navigate('/register')}
-                    className="rounded-xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 py-3 font-semibold text-white hover:brightness-110"
-                  >
-                    Kostenlos registrieren
-                  </button>
-                  <button
-                    onClick={() => navigate('/login')}
-                    className="rounded-xl border border-[#f0e5a5]/35 bg-black/35 py-3 font-semibold text-stone-100 hover:bg-black/50"
-                  >
-                    Anmelden
-                  </button>
-                </div>
+          <Dialog open={showGuestVisionDialog} onOpenChange={setShowGuestVisionDialog}>
+            <DialogContent className="sm:max-w-2xl max-h-[82vh] overflow-y-auto rounded-3xl border border-[#f0e5a5]/35 bg-black/40 backdrop-blur-xl text-stone-100 shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
+              <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-emerald-950/20 to-black/45 pointer-events-none" />
+              <div className="absolute inset-0 border border-[#f0e5a5]/25 rounded-3xl pointer-events-none" />
+              <div className="relative z-10 space-y-4">
+                <DialogHeader>
+                  <DialogTitle className="text-emerald-300">Mehr zur Vision</DialogTitle>
+                </DialogHeader>
 
-                <div className="flex items-center justify-center gap-2 text-xs text-stone-300">
-                  <span className={`h-2 w-2 rounded-full ${guestSectionIndex >= 0 ? 'bg-emerald-300' : 'bg-stone-500/60'}`} />
-                  <span className={`h-2 w-2 rounded-full ${guestSectionIndex >= 1 ? 'bg-emerald-300' : 'bg-stone-500/60'}`} />
-                  <span className={`h-2 w-2 rounded-full ${guestSectionIndex >= 2 ? 'bg-emerald-300' : 'bg-stone-500/60'}`} />
-                  <span className={`h-2 w-2 rounded-full ${guestSectionIndex >= 3 ? 'bg-emerald-300' : 'bg-stone-500/60'}`} />
+                <div className="space-y-4 text-sm md:text-base text-stone-200 leading-relaxed">
+                  <p className="text-amber-200 font-semibold">Schau mal, was da waechst!</p>
+
+                  <p>
+                    Floralog nutzt die Faszination fuer den Bildschirm, um den Blick fuer die eigene Umgebung neu zu schaerfen. Waehrend das Wissen zur Natur Ihrer Heimat fuer fruehere Generationen ganz selbstverstaendlich war, ist vieles von diesem Wissen mit der Zeit verloren gegangen.
+                  </p>
+
+                  <p>
+                    Heute sind wir oft von digitalen Welten umgeben und uebersehen dabei die kleinen Schaetze direkt vor unserer Haustuer. Doch wenn wir genauer hinsehen, entdecken wir: Da ist mehr, als wir denken.
+                  </p>
+
+                  <p className="text-amber-200 font-semibold">Unser Spieltrieb ist der beste Lehrer</p>
+
+                  <p>
+                    Im Spiel lernen wir die Welt kennen. Wir probieren aus, entdecken Zusammenhaenge und erschaffen unsere eigenen Geschichten.
+                  </p>
+
+                  <p>
+                    Genau hier setzt Floralog an: Es verbindet die Neugier und Motivation aus digitalen Erlebnissen mit der realen Welt vor deiner Tuer.
+                  </p>
+
+                  <p>
+                    Statt trockener Theorie entsteht ein lebendiger Zugang zur Natur, getragen von Entdeckung, Fortschritt und dem Gefuehl, selbst etwas aufzubauen.
+                  </p>
+
+                  <p className="text-amber-200 font-semibold">Wachstum, das verbindet</p>
+
+                  <p>
+                    Jede Entdeckung hat einen Effekt: Deine eigene, kleine Robopflanze waechst mit dir.
+                  </p>
+
+                  <p>
+                    Sie entwickelt sich weiter, reagiert auf deine Aktivitaet und begleitet dich auf deinen Streifzuegen durch die Natur. Manchmal stellt sie Fragen, erinnert dich an vergangene Funde oder fordert dich auf, noch einmal genauer hinzusehen.
+                  </p>
+
+                  <p>
+                    So werden Spaziergaenge zu kleinen Expeditionen. Und aus einzelnen Beobachtungen entsteht nach und nach ein tieferes Verstaendnis fuer die Welt um dich herum.
+                  </p>
+
+                  <p>
+                    Fast beilaufig entsteht dabei etwas, das lange gefehlt hat: Ein neuer Blick auf die eigene Umgebung und die Wertschaetzung fuer das, was dort waechst.
+                  </p>
                 </div>
-              </section>
-            </div>
-          </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </motion.div>
       </HomeBackgroundShell>
     );
@@ -1628,6 +1836,20 @@ export default function Home() {
     ? THEME_MAP_COLORS[activeZone.theme] || "#84cc16"
     : "#6b7280";
   const cachedLocation = getCachedLocation();
+  const nearbyDiscoveryPoints = Number.isFinite(cachedLocation?.lat) && Number.isFinite(cachedLocation?.lng)
+    ? allDiscoveries
+        .map((entry) => parseDiscoveryCoordinates(entry?.discovery_location))
+        .filter(Boolean)
+        .filter((point) => {
+          const distanceM = calculateDistanceMetersRaw(
+            cachedLocation.lat,
+            cachedLocation.lng,
+            point.lat,
+            point.lng
+          );
+          return Number.isFinite(distanceM) && distanceM <= NEARBY_DISCOVERY_RADIUS_METERS;
+        })
+    : [];
   const heroMapCenter = Number.isFinite(cachedLocation?.lat) && Number.isFinite(cachedLocation?.lng)
     ? [cachedLocation.lat, cachedLocation.lng]
     : heroZones[0]
@@ -2333,6 +2555,7 @@ export default function Home() {
                       zones={heroZones}
                       userLocation={cachedLocation}
                       fallbackCenter={{ lat: heroMapCenter[0], lng: heroMapCenter[1] }}
+                      discoveryPoints={nearbyDiscoveryPoints}
                       onTokenError={(message) => setZoneMapError(message)}
                       onMapReady={setHeroMapInstance}
                     />
@@ -2358,7 +2581,7 @@ export default function Home() {
                         : "border-[#f0e5a5]/35 bg-black/55 text-stone-100"
                     }`}>
                       <MapIcon className="w-3.5 h-3.5" />
-                      Zonen: {heroZones.length}
+                      Zonen: {heroZones.length} | Funde: {nearbyDiscoveryPoints.length}
                     </div>
 
                     {zoneMapError && (

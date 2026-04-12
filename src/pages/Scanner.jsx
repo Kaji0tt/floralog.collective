@@ -1269,10 +1269,10 @@ export default function Scanner() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-emerald-300">
                 <Sparkles className="w-6 h-6" />
-                Jetzt registrieren und Scan speichern
+                Speichere deine Entdeckung
               </DialogTitle>
               <DialogDescription className="text-base pt-4 text-stone-200">
-                Dein Testscan war erfolgreich. Erstelle jetzt ein kostenloses Konto, damit dein Fund dauerhaft in deiner Sammlung bleibt.
+                Du hast eine Pflanze gefunden. Erstelle ein kostenloses Konto, damit sie Teil deiner Sammlung wird und deine Pflanze weiter wachsen kann.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="gap-2 sm:gap-0">
