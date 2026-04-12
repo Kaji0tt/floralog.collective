@@ -1102,6 +1102,9 @@ export default function Home() {
     0
   );
 
+  const WATER_COLOR = "#2b6cb0";
+  const fertilizerButtonColor = activeDecayEffects.length > 0 ? "#22c55e" : "#a3830e";
+
   const filteredShopItems = robotPlantShopItems.filter((item) => {
     if (shopCategory === "all") return true;
     return item.item_type === shopCategory;
@@ -2222,45 +2225,47 @@ export default function Home() {
                               }`} />
                             </div>
 
-                            <div
-                              className={`absolute left-1/2 bottom-0 w-[84%] aspect-[2.6/1] -translate-x-1/2 translate-y-1/3 rounded-full border backdrop-blur-sm px-3 md:px-4 flex items-center justify-between ${
+                            <button
+                              type="button"
+                              onClick={handleWaterPlantClick}
+                              disabled={waterPlantMutation.isPending}
+                              className={`absolute left-0 md:left-2 bottom-5 md:bottom-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center disabled:opacity-60 ${
                                 isLightUi
-                                  ? "border-[#c8ac62]/50 bg-white/45"
-                                  : "border-[#f0e5a5]/35 bg-black/35"
+                                  ? "border-[#c8ac62]/60"
+                                  : "border-[#f0e5a5]/40"
                               }`}
+                              style={{
+                                background: isLightUi
+                                  ? `linear-gradient(135deg, ${WATER_COLOR}35 0%, ${WATER_COLOR}15 100%)`
+                                  : `linear-gradient(135deg, ${WATER_COLOR}7a 0%, ${WATER_COLOR}4d 100%)`,
+                              }}
+                              aria-label="Pflanze giessen"
                             >
-                              <button
-                                type="button"
-                                onClick={handleWaterPlantClick}
-                                disabled={waterPlantMutation.isPending}
-                                className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center transition-colors disabled:opacity-60 ${
-                                  isLightUi
-                                    ? "border-[#c8ac62]/55 bg-white/60 text-stone-700 hover:bg-white/75"
-                                    : "border-[#f0e5a5]/45 bg-black/40 text-[#f0e5a5] hover:bg-black/55"
-                                }`}
-                                aria-label="Pflanze giessen"
-                              >
-                                <Waves className="w-4 h-4" />
-                                <span className="text-[10px] md:text-[11px] font-semibold mt-0.5">Giessen</span>
-                              </button>
+                              <Waves className={`w-4 h-4 ${isLightUi ? "text-stone-700" : "text-white/90"}`} />
+                              <span className={`font-semibold text-[11px] md:text-xs leading-none mt-0.5 ${isLightUi ? "text-stone-800" : "text-white"}`}>Giessen</span>
+                            </button>
 
-                              <button
-                                type="button"
-                                onClick={handleFertilizerSlotClick}
-                                disabled={useInventoryItemMutation.isPending}
-                                className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center transition-colors disabled:opacity-60 ${
-                                  isLightUi
-                                    ? "border-[#c8ac62]/55 bg-white/60 text-stone-700 hover:bg-white/75"
-                                    : "border-[#f0e5a5]/45 bg-black/40 text-[#f0e5a5] hover:bg-black/55"
-                                }`}
-                                aria-label="Duenger-Slot"
-                              >
-                                <Flower2 className="w-4 h-4" />
-                                <span className="text-[10px] md:text-[11px] font-semibold mt-0.5">
-                                  {activeDecayEffects.length > 0 ? "Aktiv" : "Duenger"}
-                                </span>
-                              </button>
-                            </div>
+                            <button
+                              type="button"
+                              onClick={handleFertilizerSlotClick}
+                              disabled={useInventoryItemMutation.isPending}
+                              className={`absolute right-0 md:right-2 bottom-5 md:bottom-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center disabled:opacity-60 ${
+                                isLightUi
+                                  ? "border-[#c8ac62]/60"
+                                  : "border-[#f0e5a5]/40"
+                              }`}
+                              style={{
+                                background: isLightUi
+                                  ? `linear-gradient(135deg, ${fertilizerButtonColor}35 0%, ${fertilizerButtonColor}15 100%)`
+                                  : `linear-gradient(135deg, ${fertilizerButtonColor}7a 0%, ${fertilizerButtonColor}4d 100%)`,
+                              }}
+                              aria-label="Duenger-Slot"
+                            >
+                              <Flower2 className={`w-4 h-4 ${isLightUi ? "text-stone-700" : "text-white/90"}`} />
+                              <span className={`font-semibold text-[11px] md:text-xs leading-none mt-0.5 truncate max-w-[85%] ${isLightUi ? "text-stone-800" : "text-white"}`}>
+                                {activeDecayEffects.length > 0 ? "Aktiv" : "Duenger"}
+                              </span>
+                            </button>
                           </motion.div>
                         )}
                       </AnimatePresence>
