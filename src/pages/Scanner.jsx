@@ -16,8 +16,8 @@ import ScanResults from "../components/scanner/ScanResults";
 import CameraCapture from "../components/scanner/CameraCapture";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
+import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
 import { AnimatePresence, motion } from "framer-motion";
-import { useAuth } from "@/lib/AuthContext";
 
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import { Check } from "lucide-react";
@@ -96,9 +96,10 @@ export default function Scanner() {
   const [showGlobalFloralogModal, setShowGlobalFloralogModal] = useState(false);
   const [newPlantName, setNewPlantName] = useState("");
   const [globalScanFeedback, setGlobalScanFeedback] = useState(null);
+  const [guestScanFeedback, setGuestScanFeedback] = useState(null);
+  const [showGuestRegisterDialog, setShowGuestRegisterDialog] = useState(false);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { requireAuth } = useAuth();
 
   useEffect(() => {
     const loadUser = async () => {
@@ -970,6 +971,8 @@ export default function Scanner() {
     setShowConfirmDialog(false);
     setShowRateLimitDialog(false);
     setShowCamera(false);
+    setGuestScanFeedback(null);
+    setShowGuestRegisterDialog(false);
   };
 
   const handleConfirmSave = async () => {
@@ -979,8 +982,6 @@ export default function Scanner() {
       setShowBlockedResultDialog(true);
       return;
     }
-
-    setIsSavingPlant(true);
 
     try {
       const { plant, imageUrl, allResults = [] } = pendingScanData;
@@ -996,6 +997,32 @@ export default function Scanner() {
       if (!selectedPlant) {
         throw new Error("Kein Scan-Ergebnis zum Speichern gefunden.");
       }
+
+      if (!user?.id) {
+        setShowConfirmDialog(false);
+        setPendingScanData(null);
+        setGuestScanFeedback({
+          type: "newDiscovery",
+          plantName: selectedPlant.species_name,
+          isInActiveZone: true,
+          rewardDetails: {
+            baseReward: 12,
+            preStreakReward: 18,
+            finalReward: 18,
+            healthStateLabel: "Preview",
+            healthStateBonus: 0,
+            zoneMultiplier: 1.5,
+            rarityMultiplier: 1,
+            noveltyMultiplier: 1,
+            careMultiplier: 1,
+            firstScanOfDayMultiplier: 1,
+            streakMultiplier: 1,
+          },
+        });
+        return;
+      }
+
+      setIsSavingPlant(true);
 
       if (selectedPlant.inDatabase) {
         // Pflanze existiert bereits im Floralog
@@ -1047,7 +1074,9 @@ export default function Scanner() {
       console.error("Fehler beim Bestätigen des Speicherns:", error);
       alert("Fehler beim Speichern der Pflanze. Bitte versuche es erneut.");
     } finally {
-      setIsSavingPlant(false);
+      if (user?.id) {
+        setIsSavingPlant(false);
+      }
     }
   };
 
@@ -1232,6 +1261,45 @@ export default function Scanner() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={showGuestRegisterDialog} onOpenChange={setShowGuestRegisterDialog}>
+        <DialogContent className="sm:max-w-md overflow-hidden rounded-3xl border border-[#f0e5a5]/35 bg-black/40 backdrop-blur-xl text-stone-100 shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
+          <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-emerald-950/20 to-black/45 pointer-events-none" />
+          <div className="absolute inset-0 border border-[#f0e5a5]/25 rounded-3xl pointer-events-none" />
+          <div className="relative z-10">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-emerald-300">
+                <Sparkles className="w-6 h-6" />
+                Jetzt registrieren und Scan speichern
+              </DialogTitle>
+              <DialogDescription className="text-base pt-4 text-stone-200">
+                Dein Testscan war erfolgreich. Erstelle jetzt ein kostenloses Konto, damit dein Fund dauerhaft in deiner Sammlung bleibt.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={() => setShowGuestRegisterDialog(false)}
+                className="border-[#f0e5a5]/35 bg-black/35 text-stone-100 hover:bg-black/55"
+              >
+                Spaeter
+              </Button>
+              <Button
+                onClick={() => navigate(createPageUrl("Register"))}
+                className="border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 hover:brightness-110"
+              >
+                Kostenlos registrieren
+              </Button>
+              <Button
+                onClick={() => navigate(createPageUrl("Login"))}
+                className="border border-[#f0e5a5]/35 bg-black/35 hover:bg-black/55"
+              >
+                Anmelden
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Blockiertes Ergebnis Dialog */}
       <Dialog open={showBlockedResultDialog} onOpenChange={setShowBlockedResultDialog}>
         <DialogContent className="sm:max-w-md overflow-hidden rounded-3xl border border-[#f0e5a5]/35 bg-black/40 backdrop-blur-xl text-stone-100 shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
@@ -1372,6 +1440,18 @@ export default function Scanner() {
         }
       </AnimatePresence>
 
+      <AnimatePresence>
+        {guestScanFeedback && (
+          <ScanFeedbackNotification
+            feedback={guestScanFeedback}
+            onComplete={() => {
+              setGuestScanFeedback(null);
+              setShowGuestRegisterDialog(true);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
       <div className="w-full">
         {!scanning && !matchedPlant && !showCamera &&
         <Card 
@@ -1379,7 +1459,7 @@ export default function Scanner() {
         >
             <CardContent className="p-6 md:p-8 bg-gradient-to-b from-black/30 via-emerald-950/15 to-black/35">
               <button
-              onClick={() => { if (requireAuth()) setShowCamera(true); }}
+              onClick={() => setShowCamera(true)}
               className="w-full group relative overflow-hidden rounded-2xl bg-black/40 backdrop-blur-md border border-[#f0e5a5]/35 p-8 hover:bg-black/50 shadow-lg hover:shadow-xl transition-all duration-300">
 
                 <div className="flex flex-col items-center">
