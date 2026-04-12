@@ -62,7 +62,7 @@ export default function CollectionFeatureRoot({
   showPublicCollectionsPanel: externalShowPublicCollectionsPanel,
   onShowPublicCollectionsPanelChange = null,
 }) {
-  const { isLightUi } = useUiTheme();
+  const { isLightUi, uiTheme } = useUiTheme();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -96,7 +96,6 @@ export default function CollectionFeatureRoot({
     }
   };
 
-  useEffect(() => {
   const {
     activeCategory,
     setActiveCategory,
@@ -782,7 +781,7 @@ export default function CollectionFeatureRoot({
           {showPublicCollectionsPanel ? (
             <PublicCollectionScreen
               isLightUi={isLightUi}
-              uiTheme={resolvedUiTheme}
+              uiTheme={uiTheme}
               listTopFadePx={listTopFadePx}
               listBottomFadePx={listBottomFadePx}
               allPublicCollections={allPublicCollections}
@@ -856,7 +855,7 @@ export default function CollectionFeatureRoot({
               userDiscoveries={userDiscoveries}
               plants={plants}
               currentUser={currentUser}
-              uiTheme={resolvedUiTheme}
+              uiTheme={uiTheme}
             />
           )}
         </div>
