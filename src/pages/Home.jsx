@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Query } from "@/api/entities";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { upsertUserProfile } from "@/api/authService";
@@ -14,9 +14,8 @@ import {
   waterRobotPlant,
 } from "@/api/robotPlantService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Camera, Loader2, Leaf, Plus, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, ArrowLeft, RefreshCw, Map as MapIcon, Zap, Bug, ChevronUp } from "lucide-react";
+import { Camera, Loader2, Leaf, Plus, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, ArrowLeft, RefreshCw, Map as MapIcon, Zap, Bug } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import mapboxgl from "mapbox-gl";
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -29,6 +28,7 @@ import {
   computeOverallPlantHealth,
   computePlantHealthState,
 } from "@/lib/robotPlantEconomy";
+import { calculateDistanceMetersRaw, NEARBY_DISCOVERY_RADIUS_METERS, parseDiscoveryCoordinates } from "@/lib/discoveryMap";
 import { Button } from "@/components/ui/button";
 import { updateQuestProgress } from "@/components/utils/questProgress";
 import Collection from "./Collection";
@@ -36,15 +36,17 @@ import SettingsPanel from "@/components/settings/SettingsPanel";
 import HomeHeaderBar from "@/components/navigation/HomeHeaderBar";
 import HomeBottomNavigation from "@/components/navigation/HomeBottomNavigation";
 import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
+import GuestHomeFlow from "@/components/home/GuestHomeFlow";
+import ShopEmbeddedView from "@/components/home/ShopEmbeddedView";
+import PlantHeroHealthPanel from "@/components/home/PlantHeroHealthPanel";
 import AchievementsFeatureRoot from "@/components/achievements/AchievementsFeatureRoot";
 import FriendsFeatureRoot from "@/components/friends/FriendsFeatureRoot";
 import { TileVisualizationPanel } from "@/components/admin/TileVisualizationPanel";
+import MapboxZoneMap from "@/components/map/MapboxZoneMap";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import { getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
-import "mapbox-gl/dist/mapbox-gl.css";
 
 const THEME_MAP_COLORS = {
   forest: "#007a3f",
@@ -62,408 +64,9 @@ const THEME_MAP_META = {
 
 const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "";
 
-const HEALTH_TOOLTIP_TEXT = {
-  energy: "Energie bestimmt Zonenanzahl, taegliche Rerolls, Zonengroesse und den taeglichen Energiegewinn aus gelaufener Scan-Distanz.",
-  "data-quality": "Datenqualitaet steigt nur bei Scans innerhalb einer aktiven Zone.",
-  care: "Pflege wirkt direkt als Multiplikator (0.5 bis 1.5). Ab 90% boosten Gains doppelt.",
-};
+
 
 const MULTIPLIER_SWIPE_THRESHOLD_PX = 36;
-
-const GUEST_SECTION_COUNT = 5;
-const NEARBY_DISCOVERY_RADIUS_METERS = 2000;
-
-/** @param {number} seed */
-const seededRandom = (seed) => {
-  const value = Math.sin(seed) * 10000;
-  return value - Math.floor(value);
-};
-
-/** @param {number} latitude @param {number} longitude */
-const buildGuestPreviewZones = (latitude, longitude) => {
-  const themes = ["forest", "urban", "water", "meadow"];
-  const daySeed = Number(new Date().toISOString().slice(0, 10).replace(/-/g, ""));
-
-  return themes.map((theme, index) => {
-    const baseSeed = daySeed + index * 97 + Math.round(latitude * 1000) + Math.round(longitude * 1000);
-    const distanceM = 180 + Math.round(seededRandom(baseSeed) * 340);
-    const bearing = seededRandom(baseSeed + 11) * Math.PI * 2;
-    const radiusM = 90 + Math.round(seededRandom(baseSeed + 29) * 180);
-    const latOffset = (distanceM * Math.cos(bearing)) / 111320;
-    const lngOffset = (distanceM * Math.sin(bearing)) / (111320 * Math.cos((latitude * Math.PI) / 180));
-
-    return {
-      id: `guest-zone-${index}`,
-      zoneKey: `guest-zone-${index}`,
-      theme,
-      radiusM,
-      centerLat: latitude + latOffset,
-      centerLng: longitude + lngOffset,
-      zone_bonus_multiplier: 1.5,
-    };
-  });
-};
-
-/** @param {string | null | undefined} location */
-const parseDiscoveryCoordinates = (location) => {
-  if (!location || typeof location !== "string") return null;
-  const coordPattern = /(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)/;
-  const match = location.match(coordPattern);
-  if (!match) return null;
-
-  const lat = Number(match[1]);
-  const lng = Number(match[2]);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
-  return { lat, lng };
-};
-
-const calculateDistanceMetersRaw = (lat1, lon1, lat2, lon2) => {
-  const R = 6371000;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-};
-
-/**
- * @param {{ lat: number; lng: number; radiusM: number; points?: number }} params
- */
-const toCirclePolygon = (params) => {
-  const { lat, lng, radiusM, points = 48 } = params;
-  const earthRadiusM = 6371000;
-  const latRad = (lat * Math.PI) / 180;
-  const angularDistance = radiusM / earthRadiusM;
-  const coordinates = [];
-
-  for (let i = 0; i <= points; i += 1) {
-    const bearing = (2 * Math.PI * i) / points;
-    const pointLat = Math.asin(
-      Math.sin(latRad) * Math.cos(angularDistance) +
-      Math.cos(latRad) * Math.sin(angularDistance) * Math.cos(bearing)
-    );
-    const pointLng =
-      (lng * Math.PI) / 180 +
-      Math.atan2(
-        Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(latRad),
-        Math.cos(angularDistance) - Math.sin(latRad) * Math.sin(pointLat)
-      );
-
-    coordinates.push([
-      (pointLng * 180) / Math.PI,
-      (pointLat * 180) / Math.PI,
-    ]);
-  }
-
-  return coordinates;
-};
-
-/**
- * @param {{
- *   zones?: Array<{ centerLat: number | string; centerLng: number | string; radiusM?: number | string; theme?: string; zoneKey?: string; id?: string; bonusMultiplier?: number | string; zoneBonusMultiplier?: number | string; zone_bonus_multiplier?: number | string }>;
- *   userLocation?: { lat?: number; lng?: number } | null;
- *   fallbackCenter?: { lat?: number; lng?: number } | null;
- *   discoveryPoints?: Array<{ lat: number; lng: number }>;
- *   onTokenError?: (message: string) => void;
- *   onMapReady?: (map: mapboxgl.Map | null) => void;
- * }} props
- */
-function HeroZoneMap3D(props) {
-  const mapContainerRef = useRef(null);
-  /** @type {React.MutableRefObject<mapboxgl.Map | null>} */
-  const mapRef = useRef(null);
-  /** @type {React.MutableRefObject<((message: string) => void) | null>} */
-  const onTokenErrorRef = useRef(null);
-  const zones = Array.isArray(props?.zones) ? props.zones : [];
-  const discoveryPoints = Array.isArray(props?.discoveryPoints) ? props.discoveryPoints : [];
-  const userLocation = props?.userLocation || null;
-  const fallbackCenter = props?.fallbackCenter || null;
-  const onTokenError = typeof props?.onTokenError === "function" ? props.onTokenError : null;
-
-  useEffect(() => {
-    onTokenErrorRef.current = onTokenError;
-  }, [onTokenError]);
-
-  useEffect(() => {
-    if (mapRef.current || !mapContainerRef.current) return;
-
-    if (!MAPBOX_ACCESS_TOKEN) {
-      onTokenErrorRef.current?.("Mapbox Token fehlt. Setze VITE_MAPBOX_ACCESS_TOKEN in .env.local.");
-      return;
-    }
-
-    const userLng = Number(userLocation?.lng);
-    const userLat = Number(userLocation?.lat);
-
-    const initialLng = Number.isFinite(userLng)
-      ? userLng
-      : Number(fallbackCenter?.lng);
-    const initialLat = Number.isFinite(userLat)
-      ? userLat
-      : Number(fallbackCenter?.lat);
-
-    if (!Number.isFinite(initialLng) || !Number.isFinite(initialLat)) {
-      onTokenErrorRef.current?.("Karte konnte nicht initialisiert werden (fehlender Startpunkt).");
-      return;
-    }
-
-    mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
-
-    const map = new mapboxgl.Map({
-      container: mapContainerRef.current,
-      style: "mapbox://styles/mapbox/standard",
-      config: {
-        basemap: {
-          theme: "default",
-          show3dObjects: true,
-        },
-      },
-      center: [initialLng, initialLat],
-      zoom: 13,
-      pitch: 58,
-      bearing: -18,
-      antialias: true,
-    });
-
-    mapRef.current = map;
-    if (typeof props?.onMapReady === "function") {
-      props.onMapReady(map);
-    }
-
-    map.on("error", (event) => {
-      const status = /** @type {any} */ (event)?.error?.status;
-      if (status === 401 || status === 403) {
-        onTokenErrorRef.current?.("Mapbox Zugriff verweigert. Bitte Token und Allowed URLs pruefen.");
-      }
-    });
-
-    return () => {
-      map.remove();
-      mapRef.current = null;
-      if (typeof props?.onMapReady === "function") {
-        props.onMapReady(null);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    const updateMapData = () => {
-      const userLng = Number(userLocation?.lng);
-      const userLat = Number(userLocation?.lat);
-
-      const targetLng = Number.isFinite(userLng)
-        ? userLng
-        : Number(fallbackCenter?.lng);
-      const targetLat = Number.isFinite(userLat)
-        ? userLat
-        : Number(fallbackCenter?.lat);
-
-      if (Number.isFinite(targetLng) && Number.isFinite(targetLat)) {
-        map.easeTo({ center: [targetLng, targetLat], zoom: 13, pitch: 58, bearing: -18, duration: 600 });
-      }
-
-      const zoneFeatures = zones
-        .map((zone) => {
-          const lat = Number(zone.centerLat);
-          const lng = Number(zone.centerLng);
-          const radiusM = Number(zone.radiusM || 0);
-          if (!Number.isFinite(lat) || !Number.isFinite(lng) || radiusM <= 0) {
-            return null;
-          }
-
-          const theme = typeof zone.theme === "string" ? zone.theme : "meadow";
-          const color = THEME_MAP_COLORS[/** @type {"forest"|"urban"|"water"|"meadow"} */ (theme)] || "#84cc16";
-          const themeLabel = THEME_MAP_META[/** @type {"forest"|"urban"|"water"|"meadow"} */ (theme)]?.label || theme;
-          const zoneMultiplierCandidate = Number(
-            zone.bonusMultiplier ?? zone.zoneBonusMultiplier ?? zone.zone_bonus_multiplier ?? 1.5
-          );
-          const zoneMultiplier = Number.isFinite(zoneMultiplierCandidate) ? zoneMultiplierCandidate : 1.5;
-
-          return {
-            type: "Feature",
-            geometry: {
-              type: "Polygon",
-              coordinates: [toCirclePolygon({ lat, lng, radiusM })],
-            },
-            properties: {
-              id: zone.zoneKey || zone.id || `${lat}-${lng}`,
-              color,
-              theme,
-              themeLabel,
-              radiusM,
-              zoneMultiplier,
-            },
-          };
-        })
-        .filter(Boolean);
-
-      const zoneGeoJson = /** @type {any} */ ({
-        type: "FeatureCollection",
-        features: zoneFeatures,
-      });
-
-      const zoneSource = /** @type {any} */ (map.getSource("hero-zones"));
-      if (zoneSource) {
-        zoneSource.setData(zoneGeoJson);
-      } else {
-        map.addSource("hero-zones", {
-          type: "geojson",
-          data: /** @type {any} */ (zoneGeoJson),
-        });
-
-        map.addLayer({
-          id: "hero-zones-fill",
-          type: "fill",
-          source: "hero-zones",
-          paint: {
-            "fill-color": ["get", "color"],
-            "fill-opacity": 0.22,
-          },
-        });
-
-        map.addLayer({
-          id: "hero-zones-line",
-          type: "line",
-          source: "hero-zones",
-          paint: {
-            "line-color": ["get", "color"],
-            "line-width": 2,
-            "line-opacity": 0.9,
-          },
-        });
-
-        map.on("click", "hero-zones-fill", (e) => {
-          const feature = e.features?.[0];
-          if (!feature) return;
-
-          const props = feature.properties || {};
-          const themeLabel = props.themeLabel || props.theme || "Zone";
-          const color = props.color || "#84cc16";
-          const radiusDisplay = props.radiusM ? `${Math.round(props.radiusM)} m` : "";
-          const zoneMultiplier = Number(props.zoneMultiplier || 1.5);
-
-          const popupHtml = `
-            <div style="font-family:sans-serif;min-width:170px;max-width:220px;padding:4px 2px;">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};flex-shrink:0;"></span>
-                <strong style="font-size:14px;color:#fde68a;">${themeLabel} Zone</strong>
-              </div>
-              <div style="font-size:12px;color:#d6d3d1;line-height:1.5;">
-                <div style="margin-bottom:4px;">
-                  <span style="color:#86efac;font-weight:600;">Multiplikator:</span> x${zoneMultiplier.toFixed(2)}
-                </div>
-                <div style="margin-bottom:4px;color:#a8a29e;">
-                  Startet bei x1.50 und sinkt pro weiterem Scan in dieser Zone.
-                </div>
-                ${radiusDisplay ? `<div style="color:#a8a29e;">Radius: ${radiusDisplay}</div>` : ""}
-              </div>
-            </div>
-          `;
-
-          new mapboxgl.Popup({ closeButton: true, maxWidth: "240px", className: "hero-zone-popup" })
-            .setLngLat(e.lngLat)
-            .setHTML(popupHtml)
-            .addTo(map);
-        });
-
-        map.on("mouseenter", "hero-zones-fill", () => {
-          map.getCanvas().style.cursor = "pointer";
-        });
-
-        map.on("mouseleave", "hero-zones-fill", () => {
-          map.getCanvas().style.cursor = "";
-        });
-      }
-
-      const userGeoJson = /** @type {any} */ ({
-        type: "FeatureCollection",
-        features: Number.isFinite(userLng) && Number.isFinite(userLat)
-          ? [{
-            type: "Feature",
-            geometry: { type: "Point", coordinates: [userLng, userLat] },
-            properties: {},
-          }]
-          : [],
-      });
-
-      const userSource = /** @type {any} */ (map.getSource("hero-user"));
-      if (userSource) {
-        userSource.setData(userGeoJson);
-      } else {
-        map.addSource("hero-user", {
-          type: "geojson",
-          data: /** @type {any} */ (userGeoJson),
-        });
-        map.addLayer({
-          id: "hero-user-point",
-          type: "circle",
-          source: "hero-user",
-          paint: {
-            "circle-radius": 6,
-            "circle-color": "#38bdf8",
-            "circle-stroke-width": 2,
-            "circle-stroke-color": "#111827",
-          },
-        });
-      }
-
-      const discoveryGeoJson = /** @type {any} */ ({
-        type: "FeatureCollection",
-        features: discoveryPoints
-          .filter((point) => Number.isFinite(point?.lat) && Number.isFinite(point?.lng))
-          .map((point, index) => ({
-            type: "Feature",
-            geometry: {
-              type: "Point",
-              coordinates: [Number(point.lng), Number(point.lat)],
-            },
-            properties: {
-              id: `discovery-${index}`,
-            },
-          })),
-      });
-
-      const discoverySource = /** @type {any} */ (map.getSource("hero-discoveries"));
-      if (discoverySource) {
-        discoverySource.setData(discoveryGeoJson);
-      } else {
-        map.addSource("hero-discoveries", {
-          type: "geojson",
-          data: discoveryGeoJson,
-        });
-
-        map.addLayer({
-          id: "hero-discovery-points",
-          type: "circle",
-          source: "hero-discoveries",
-          paint: {
-            "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 2, 16, 4],
-            "circle-color": "#16a34a",
-            "circle-opacity": 0.92,
-            "circle-stroke-width": 1,
-            "circle-stroke-color": "#dcfce7",
-          },
-        });
-      }
-    };
-
-    if (map.isStyleLoaded()) {
-      updateMapData();
-    } else {
-      map.once("style.load", updateMapData);
-    }
-  }, [discoveryPoints, fallbackCenter?.lat, fallbackCenter?.lng, userLocation?.lat, userLocation?.lng, zones]);
-
-  return <div ref={mapContainerRef} className="h-full w-full z-0" />;
-}
 
 export default function Home() {
   const navigate = useNavigate();
@@ -483,17 +86,8 @@ export default function Home() {
   const [zoneRerollsRemaining, setZoneRerollsRemaining] = useState(null);
   const [showHeroZoneMap, setShowHeroZoneMap] = useState(false);
   const [zoneMapError, setZoneMapError] = useState(null);
-  const [guestSectionIndex, setGuestSectionIndex] = useState(0);
-  const [guestZones, setGuestZones] = useState([]);
-  const [guestLocation, setGuestLocation] = useState(null);
-  const [isGeneratingGuestZones, setIsGeneratingGuestZones] = useState(false);
-  const [guestZoneError, setGuestZoneError] = useState(null);
-  const [showGuestZoneMap, setShowGuestZoneMap] = useState(false);
-  const [showGuestVisionDialog, setShowGuestVisionDialog] = useState(false);
-  const [showGuestGrowDialog, setShowGuestGrowDialog] = useState(false);
   const [showHealthStatsPanel, setShowHealthStatsPanel] = useState(false);
   const healthStatsPanelRef = useRef(null);
-  const guestScrollRef = useRef(null);
   const [heroStageSizePx, setHeroStageSizePx] = useState(0);
   const [heroMapInstance, setHeroMapInstance] = useState(null);
   const [showDebugZonePanel, setShowDebugZonePanel] = useState(false);
@@ -820,20 +414,20 @@ export default function Home() {
     queryClient.refetchQueries({ queryKey: ['allDiscoveries'] });
     queryClient.refetchQueries({ queryKey: ['robotPlantState'] });
     
-    // NICHT mehr hier - Rewards werden nur beim Scannen/Quest-Completion geprüft
+    // NICHT mehr hier - Rewards werden nur beim Scannen/Quest-Completion gepr�ft
   };
 
   useEffect(() => {
     loadUserData();
 
-    // Subscription für User-Updates (z.B. aus WelcomeNameDialog)
+    // Subscription f�r User-Updates (z.B. aus WelcomeNameDialog)
     const unsubscribe = Query.PublicProfile.subscribe((event) => {
       if (event.type === 'update') {
         loadUserData();
       }
     });
 
-    // Custom Event Listener für User-Updates vom Layout
+    // Custom Event Listener f�r User-Updates vom Layout
     const handleUserUpdate = (event) => {
       const updatedUser = event.detail;
       setUser(updatedUser);
@@ -858,7 +452,7 @@ export default function Home() {
     localStorage.setItem("home-ui-theme", uiTheme);
   }, [uiTheme]);
 
-  // Beim Öffnen der Home-Seite einmalig Quest-Fortschritt aktualisieren
+  // Beim �ffnen der Home-Seite einmalig Quest-Fortschritt aktualisieren
   useEffect(() => {
     const runQuestProgressUpdate = async () => {
       if (!user?.id) return;
@@ -938,7 +532,7 @@ export default function Home() {
     }
   }, [user]); // Only depend on user, not isMigrating!
 
-  // Prüfe ob Scanner-Highlight angezeigt werden soll
+  // Pr�fe ob Scanner-Highlight angezeigt werden soll
   useEffect(() => {
     if (!user || isLoadingDiscoveries) return;
     const hasDisplayName = user.display_name;
@@ -958,7 +552,7 @@ export default function Home() {
       await updatePublicProfile(freshUser);
     },
     onError: (error) => {
-      console.error("❌ Fehler beim Update:", error);
+      console.error("? Fehler beim Update:", error);
       alert(`Fehler beim Speichern: ${error.message}`);
     }
   });
@@ -1134,112 +728,6 @@ export default function Home() {
 
   const isLoadingCriticalData = isLoadingDiscoveries || isLoadingQuests || isLoadingAchievements || isLoadingFriends || isLoadingWeeklyQuests || isLoadingMonthlyQuests || isLoadingCollectionQuests;
 
-  const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-  const activeCollectorsThisWeek = new Set(
-    allDiscoveries
-      .filter((entry) => {
-        const rawDate = entry?.created_date || entry?.discovered_date || entry?.updated_date;
-        if (!rawDate) return false;
-        const timestamp = new Date(rawDate).getTime();
-        return Number.isFinite(timestamp) && timestamp >= sevenDaysAgo;
-      })
-      .map((entry) => entry?.auth_id || entry?.created_by_id || entry?.user || entry?.created_by)
-      .filter(Boolean)
-  ).size;
-
-  const discoveredSpeciesCountTotal = new Set(
-    allDiscoveries.map((entry) => entry?.plant_id).filter(Boolean)
-  ).size;
-
-  const totalScanCount = allDiscoveries.length;
-  const latestCollections = publicCollections.slice(0, 2);
-  const guestNearbyDiscoveryPoints = guestLocation
-    ? allDiscoveries
-        .map((entry) => parseDiscoveryCoordinates(entry?.discovery_location))
-        .filter(Boolean)
-        .filter((point) => {
-          const distanceM = calculateDistanceMetersRaw(
-            guestLocation.lat,
-            guestLocation.lng,
-            point.lat,
-            point.lng
-          );
-          return Number.isFinite(distanceM) && distanceM <= NEARBY_DISCOVERY_RADIUS_METERS;
-        })
-    : [];
-
-  const scrollGuestSectionTo = (targetIndex) => {
-    const container = guestScrollRef.current;
-    if (!container) return;
-    const clamped = Math.max(0, Math.min(GUEST_SECTION_COUNT - 1, targetIndex));
-    container.scrollTo({
-      top: container.clientHeight * clamped,
-      behavior: 'smooth',
-    });
-  };
-
-  const handleGuestScroll = (event) => {
-    const container = event.currentTarget;
-    if (!container || container.clientHeight <= 0) return;
-    const nextIndex = Math.round(container.scrollTop / container.clientHeight);
-    setGuestSectionIndex(Math.max(0, Math.min(GUEST_SECTION_COUNT - 1, nextIndex)));
-  };
-
-  const requestGuestLocation = () => {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error('Geolocation wird von diesem Browser nicht unterstuetzt.'));
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          resolve({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          });
-        },
-        (error) => reject(error),
-        {
-          enableHighAccuracy: false,
-          timeout: 12000,
-          maximumAge: 60000,
-        }
-      );
-    });
-  };
-
-  const handleGuestGenerateZones = async () => {
-    if (isGeneratingGuestZones) return;
-
-    setIsGeneratingGuestZones(true);
-    setGuestZoneError(null);
-
-    try {
-      const nextLocation = await requestGuestLocation();
-      setGuestLocation(nextLocation);
-      setGuestZones(buildGuestPreviewZones(nextLocation.lat, nextLocation.lng));
-      return nextLocation;
-    } catch (error) {
-      const message = error?.message || 'Standort konnte nicht geladen werden.';
-      setGuestZoneError(message);
-      return null;
-    } finally {
-      setIsGeneratingGuestZones(false);
-    }
-  };
-
-  const handleGuestExploreZones = async () => {
-    let locationForMap = guestLocation;
-    if (!locationForMap || !Number.isFinite(locationForMap.lat) || !Number.isFinite(locationForMap.lng)) {
-      locationForMap = await handleGuestGenerateZones();
-    }
-
-    if (locationForMap) {
-      setShowGuestZoneMap(true);
-    }
-  };
-
   if (isLoadingUser) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50">
@@ -1249,348 +737,7 @@ export default function Home() {
   }
 
   if (!user) {
-    return (
-      <HomeBackgroundShell user={null} isLightUi={false} getRgbaFromRgb={() => null}>
-        <motion.div
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45, ease: 'easeOut' }}
-          data-ui="home-main-content-shell-guest"
-          className="relative h-full w-full max-w-md md:max-w-3xl rounded-[2rem] overflow-hidden border border-[#d7cf9c]/65 shadow-[0_20px_80px_rgba(0,0,0,0.55)]"
-        >
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(126,171,98,0.45)_0%,rgba(10,22,15,0.78)_100%)]" />
-          <div className="absolute inset-0 pointer-events-none rounded-[2rem] border border-[#f0e5a5]/30" />
-
-          <div className="relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6 text-stone-100">
-            <div className="rounded-2xl border border-[#f0e5a5]/30 bg-black/25 px-4 py-3 backdrop-blur-sm">
-              <p className="text-xs uppercase tracking-[0.22em] text-lime-200/80">Floralog</p>
-              <h1 className="text-lg font-semibold text-stone-100">Finde Schaetze vor der Tuer.</h1>
-            </div>
-
-            {showGuestZoneMap ? (
-              <section className="mt-3 relative flex-1 min-h-0 rounded-3xl border overflow-hidden border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm">
-                <HeroZoneMap3D
-                  zones={guestZones}
-                  userLocation={guestLocation}
-                  fallbackCenter={guestLocation ? { lat: guestLocation.lat, lng: guestLocation.lng } : { lat: 51.1657, lng: 10.4515 }}
-                  discoveryPoints={guestNearbyDiscoveryPoints}
-                  onTokenError={(message) => setGuestZoneError(message)}
-                />
-
-                <div className="absolute left-4 top-4 z-[1200] rounded-xl border border-[#f0e5a5]/35 bg-black/55 px-3 py-1.5 text-[11px] md:text-xs font-semibold text-stone-100">
-                  Funde im Umkreis (2km): {guestNearbyDiscoveryPoints.length}
-                </div>
-
-                {guestZoneError && (
-                  <div className="absolute left-4 right-4 top-16 z-[1200] rounded-xl border border-red-300/50 bg-red-900/55 px-3 py-2 text-[11px] md:text-xs font-medium text-red-100">
-                    {guestZoneError}
-                  </div>
-                )}
-
-                <div className="absolute left-4 right-4 bottom-4 z-[1200] flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowGuestZoneMap(false)}
-                    className="h-10 px-3 rounded-xl border border-[#f0e5a5]/45 bg-black/55 text-stone-100 hover:bg-black/70 transition-colors flex items-center gap-2 text-xs md:text-sm font-semibold"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                    Zurueck
-                  </button>
-                </div>
-              </section>
-            ) : (
-              <div
-                ref={guestScrollRef}
-                onScroll={handleGuestScroll}
-                className="relative flex flex-1 min-h-0 flex-col overflow-y-auto snap-y snap-mandatory scroll-smooth mt-3 rounded-3xl border border-[#f0e5a5]/25 bg-black/20 backdrop-blur-sm"
-                data-ui="home-content-stack"
-              >
-                <section className="relative h-full min-h-full snap-start p-5 md:p-7 flex flex-col justify-between gap-5 overflow-y-auto pr-2">
-                  <div className="space-y-4">
-                    <p className="text-xs md:text-sm uppercase tracking-[0.18em] text-amber-200/75">Einstieg</p>
-                    <h2 className="text-3xl md:text-4xl font-bold leading-tight text-stone-100">Natur neu entdecken.</h2>
-                    <p className="text-sm md:text-base text-stone-200/90 max-w-xl">
-                      Scanne Pflanzen in deiner Umgebung. Entdecke Schaetze im Alltag und zuechte dir einen eigenen Natur-Begleiter.
-                    </p>
-                    <div className="inline-flex items-center rounded-full border border-emerald-300/40 bg-emerald-900/35 px-3 py-1.5 text-xs md:text-sm text-emerald-100">
-                      Starte jetzt - halte deinen ersten Fund fest.
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <button
-                      onClick={() => navigate('/register')}
-                      className="w-full rounded-xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 py-3 font-semibold text-white hover:brightness-110"
-                    >
-                      Kostenlos starten
-                    </button>
-                    <button
-                      onClick={() => navigate('/login')}
-                      className="w-full rounded-xl border border-[#f0e5a5]/35 bg-black/35 py-3 font-semibold text-stone-100 hover:bg-black/50"
-                    >
-                      Anmelden
-                    </button>
-                  </div>
-
-                  <button type="button" onClick={() => scrollGuestSectionTo(1)} className="absolute bottom-4 right-4 h-11 w-11 rounded-full border border-[#f0e5a5]/45 bg-black/45 flex items-center justify-center text-stone-100 hover:bg-black/60" aria-label="Zum naechsten Bereich">
-                    <ChevronUp className="w-5 h-5 rotate-180" />
-                  </button>
-                </section>
-
-                <section className="relative h-full min-h-full snap-start p-5 md:p-7 flex flex-col gap-4 overflow-y-auto pr-2">
-                  <p className="text-xs md:text-sm uppercase tracking-[0.18em] text-amber-200/75">Core Loop</p>
-                  <h3 className="text-2xl md:text-3xl font-bold text-stone-100">Jede Entdeckung laesst deine Pflanze wachsen.</h3>
-                  <p className="text-sm md:text-base text-stone-200/90">
-                    Scanne Pflanzen in deiner Umgebung und verwandle die Natur in Fortschritt. Deine Robopflanze entwickelt sich mit jedem Fund weiter. Und wer weiss - vielleicht wartet hinter der ein oder anderen Pflanze ja ein wahrer Schatz.
-                  </p>
-
-                  <div className="rounded-2xl border border-[#f0e5a5]/30 bg-black/30 p-4 flex items-center justify-center min-h-[220px]">
-                    <img src="/UserPlant1.png" alt="Robo-Pflanze" className="max-h-60 w-auto object-contain drop-shadow-[0_0_24px_rgba(190,242,100,0.45)]" />
-                  </div>
-
-                  {guestZoneError && (
-                    <div className="rounded-xl border border-red-300/45 bg-red-900/40 px-3 py-2 text-xs md:text-sm text-red-100">
-                      {guestZoneError}
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <button onClick={() => navigate('/Scanner')} className="rounded-xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 py-3 font-semibold text-white hover:brightness-110">
-                      Scan testen
-                    </button>
-                    <button type="button" onClick={handleGuestExploreZones} disabled={isGeneratingGuestZones} className="rounded-xl border border-[#f0e5a5]/35 bg-black/35 py-3 font-semibold text-stone-100 disabled:opacity-60 hover:bg-black/50">
-                      {isGeneratingGuestZones ? 'Lade Zone...' : 'Zone erkunden'}
-                    </button>
-                  </div>
-
-                  <button type="button" onClick={() => scrollGuestSectionTo(2)} className="absolute bottom-4 right-4 h-11 w-11 rounded-full border border-[#f0e5a5]/45 bg-black/45 flex items-center justify-center text-stone-100 hover:bg-black/60" aria-label="Zum naechsten Bereich">
-                    <ChevronUp className="w-5 h-5 rotate-180" />
-                  </button>
-                </section>
-
-                <section className="relative h-full min-h-full snap-start p-5 md:p-7 flex flex-col justify-between gap-4 overflow-y-auto pr-2">
-                  <div className="space-y-4">
-                    <p className="text-xs md:text-sm uppercase tracking-[0.18em] text-amber-200/75">Vision</p>
-                    <h3 className="text-2xl md:text-3xl font-bold text-stone-100">Die Natur aus den Augen verloren?</h3>
-                    <p className="text-sm md:text-base text-stone-200/90">
-                      Die Natur ist uns wichtig. Aber wir schauen mehr auf Bildschirme als ins Gruen. Im Alltag uebersehen wir viele kleine Schaetze, ohne es zu wissen. Spielerisch nutzt Floralog die Faszination des Bildschirms, um den Blick fuer das Alltaegliche in Heimat und Natur wieder zu schaerfen.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <button onClick={() => setShowGuestVisionDialog(true)} className="rounded-xl border border-[#f0e5a5]/35 bg-black/35 py-3 font-semibold text-stone-100 hover:bg-black/50">
-                      Erfahre mehr zur Vision
-                    </button>
-                    <button onClick={() => setShowGuestGrowDialog(true)} className="rounded-xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 py-3 font-semibold text-white hover:brightness-110">
-                      Hilf Floralog beim Wachsen
-                    </button>
-                  </div>
-
-                  <button type="button" onClick={() => scrollGuestSectionTo(3)} className="absolute bottom-4 right-4 h-11 w-11 rounded-full border border-[#f0e5a5]/45 bg-black/45 flex items-center justify-center text-stone-100 hover:bg-black/60" aria-label="Zum naechsten Bereich">
-                    <ChevronUp className="w-5 h-5 rotate-180" />
-                  </button>
-                </section>
-
-                <section className="relative h-full min-h-full snap-start p-5 md:p-7 flex flex-col gap-4 overflow-y-auto pr-2">
-                  <p className="text-xs md:text-sm uppercase tracking-[0.18em] text-amber-200/75">Community</p>
-                  <h3 className="text-2xl md:text-3xl font-bold text-stone-100">Werde Teil der ersten Entdecker</h3>
-                  <p className="text-sm md:text-base text-stone-200/90">Floralog steht am Anfang - und genau jetzt kannst du mitgestalten, was daraus wird.</p>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="rounded-2xl border border-[#f0e5a5]/30 bg-black/35 px-4 py-4">
-                      <div className="text-xs uppercase tracking-wide text-stone-300">Entdecker diese Woche</div>
-                      <div className="text-3xl font-bold text-lime-200 mt-1">{activeCollectorsThisWeek}</div>
-                    </div>
-                    <div className="rounded-2xl border border-[#f0e5a5]/30 bg-black/35 px-4 py-4">
-                      <div className="text-xs uppercase tracking-wide text-stone-300">Gefundene Pflanzen</div>
-                      <div className="text-3xl font-bold text-emerald-200 mt-1">{discoveredSpeciesCountTotal}</div>
-                    </div>
-                    <div className="rounded-2xl border border-[#f0e5a5]/30 bg-black/35 px-4 py-4">
-                      <div className="text-xs uppercase tracking-wide text-stone-300">Scans insgesamt</div>
-                      <div className="text-3xl font-bold text-amber-200 mt-1">{totalScanCount}</div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-[#f0e5a5]/30 bg-black/35 p-4 space-y-3">
-                    <h4 className="text-lg font-semibold text-stone-100">Was andere gerade entdecken</h4>
-                    <div className="grid gap-2">
-                      {latestCollections.length === 0 ? (
-                        <>
-                          <div className="rounded-xl border border-[#f0e5a5]/30 bg-black/25 px-3 py-2 font-semibold text-stone-100">Achtung Giftig 🌿</div>
-                          <div className="rounded-xl border border-[#f0e5a5]/30 bg-black/25 px-3 py-2 font-semibold text-stone-100">Gesunde Kueche 🥗</div>
-                        </>
-                      ) : (
-                        latestCollections.map((collection, index) => (
-                          <button
-                            key={collection.id}
-                            type="button"
-                            onClick={() => navigate(`${createPageUrl('Collection')}?collectionId=${collection.id}`)}
-                            className="w-full text-left rounded-xl border border-[#f0e5a5]/30 bg-black/25 px-3 py-2 hover:bg-black/45"
-                          >
-                            <div className="font-semibold text-stone-100">{collection.title || (index === 0 ? 'Achtung Giftig 🌿' : 'Gesunde Kueche 🥗')}</div>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                    <div className="text-xs text-stone-300">Lass dich inspirieren oder starte deine eigene Sammlung.</div>
-                  </div>
-
-                  <button type="button" onClick={() => scrollGuestSectionTo(4)} className="absolute bottom-4 right-4 h-11 w-11 rounded-full border border-[#f0e5a5]/45 bg-black/45 flex items-center justify-center text-stone-100 hover:bg-black/60" aria-label="Zum naechsten Bereich">
-                    <ChevronUp className="w-5 h-5 rotate-180" />
-                  </button>
-                </section>
-
-                <section className="relative h-full min-h-full snap-start p-5 md:p-7 flex flex-col justify-between gap-5 overflow-y-auto pr-2">
-                  <div className="space-y-4">
-                    <p className="text-xs md:text-sm uppercase tracking-[0.18em] text-amber-200/75">Call to Action</p>
-                    <h3 className="text-3xl md:text-4xl font-bold text-stone-100 leading-tight">Mach deinen naechsten Spaziergang zur Entdeckung</h3>
-                    <p className="text-sm md:text-base text-stone-200/90">Teste den Scan direkt. Wenn du weitermachen willst, speichere deine Funde und lass deine Pflanze wachsen.</p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <button onClick={() => navigate('/Scanner')} className="rounded-xl border border-[#f0e5a5]/35 bg-black/35 py-3 font-semibold text-stone-100 hover:bg-black/50">Scan testen</button>
-                    <button onClick={() => navigate('/register')} className="rounded-xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 py-3 font-semibold text-white hover:brightness-110">Kostenlos registrieren</button>
-                    <button onClick={() => navigate('/login')} className="rounded-xl border border-[#f0e5a5]/35 bg-black/35 py-3 font-semibold text-stone-100 hover:bg-black/50">Anmelden</button>
-                  </div>
-
-                  <div className="flex items-center justify-center gap-2 text-xs text-stone-300">
-                    <span className={`h-2 w-2 rounded-full ${guestSectionIndex >= 0 ? 'bg-emerald-300' : 'bg-stone-500/60'}`} />
-                    <span className={`h-2 w-2 rounded-full ${guestSectionIndex >= 1 ? 'bg-emerald-300' : 'bg-stone-500/60'}`} />
-                    <span className={`h-2 w-2 rounded-full ${guestSectionIndex >= 2 ? 'bg-emerald-300' : 'bg-stone-500/60'}`} />
-                    <span className={`h-2 w-2 rounded-full ${guestSectionIndex >= 3 ? 'bg-emerald-300' : 'bg-stone-500/60'}`} />
-                    <span className={`h-2 w-2 rounded-full ${guestSectionIndex >= 4 ? 'bg-emerald-300' : 'bg-stone-500/60'}`} />
-                  </div>
-                </section>
-              </div>
-            )}
-          </div>
-
-          <Dialog open={showGuestGrowDialog} onOpenChange={setShowGuestGrowDialog}>
-            <DialogContent className="sm:max-w-2xl max-h-[82vh] overflow-y-auto rounded-3xl border border-lime-200/35 bg-black/40 backdrop-blur-xl text-stone-100 shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
-              <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-emerald-950/20 to-black/45 pointer-events-none" />
-              <div className="absolute inset-0 border border-lime-200/25 rounded-3xl pointer-events-none" />
-              <div className="relative z-10 space-y-4">
-                <DialogHeader>
-                  <DialogTitle className="text-lime-300">Hilf Floralog beim Wachsen</DialogTitle>
-                </DialogHeader>
-
-                <div className="space-y-4 text-sm md:text-base text-stone-200 leading-relaxed">
-                  <p className="text-xs uppercase tracking-widest text-lime-300/80">🌱 Für Entdecker, Lernende &amp; Neugierige</p>
-                  <p className="text-amber-200 font-semibold">Werde Teil von Floralog von Anfang an</p>
-
-                  <p>
-                    Floralog lebt von Menschen, die ihre Umgebung neu entdecken wollen.
-                    Du kannst uns schon jetzt unterstützen – ganz einfach, indem du spielst, Pflanzen scannst und uns Feedback gibst.
-                  </p>
-                  <p>
-                    Jede Entdeckung hilft, das System besser zu machen.
-                    Jede Rückmeldung fließt direkt in die Weiterentwicklung ein.
-                  </p>
-                  <p>So wächst Floralog Schritt für Schritt – gemeinsam mit dir.</p>
-
-                  <p className="text-stone-300 text-xs md:text-sm">
-                    <span className="font-medium text-stone-200">Optional (finanziell):</span> Wenn du die Idee darüber hinaus unterstützen möchtest, kannst du Floralog auch finanziell helfen:{' '}
-                    <button
-                      onClick={() => { setShowGuestGrowDialog(false); navigate(createPageUrl('Donate')); }}
-                      className="underline underline-offset-2 text-lime-300 hover:text-lime-200"
-                    >
-                      mit einer Spende
-                    </button>
-                    {' '}oder einem Founder's Pack <span className="text-stone-500">(yet to come)</span>.
-                  </p>
-
-                  <hr className="border-lime-200/20 my-1" />
-
-                  <p className="text-xs uppercase tracking-widest text-lime-300/80">🤝 Für Partner, Unternehmen &amp; Unterstützer</p>
-                  <p className="text-amber-200 font-semibold">Wachsen Sie mit Floralog</p>
-
-                  <p>
-                    Floralog verbindet digitale Interaktion mit realer Natur und schafft einen neuen Zugang zu Pflanzen, Wissen und Umgebung.
-                  </p>
-                  <p>Mit steigender Nutzung entstehen laufende Kosten – unter anderem für:</p>
-                  <ul className="list-disc list-inside space-y-1 text-stone-300">
-                    <li>Pflanzenidentifikation</li>
-                    <li>Generierung von Inhalten</li>
-                    <li>Karten- und Infrastrukturdienste</li>
-                  </ul>
-                  <p className="text-stone-300">
-                    Unser Ansatz ist bewusst skalierend („Pay as you go"):{' '}
-                    <span className="text-stone-100">Floralog wächst mit seiner Community.</span>
-                  </p>
-                  <p>Wir suchen Partner, die diesen Weg begleiten möchten – z.{'\u202f'}B. aus den Bereichen:</p>
-                  <ul className="list-disc list-inside space-y-1 text-stone-300">
-                    <li>Pflanzenhandel</li>
-                    <li>Bildung</li>
-                    <li>Nachhaltigkeit</li>
-                    <li>Umwelt &amp; Forschung</li>
-                  </ul>
-                  <p className="text-stone-300">
-                    Interesse an einer Zusammenarbeit oder Förderung?{' '}
-                    <span className="text-stone-100">Wir freuen uns über Ihre Nachricht.</span>
-                  </p>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-
-          <Dialog open={showGuestVisionDialog} onOpenChange={setShowGuestVisionDialog}>
-            <DialogContent className="sm:max-w-2xl max-h-[82vh] overflow-y-auto rounded-3xl border border-[#f0e5a5]/35 bg-black/40 backdrop-blur-xl text-stone-100 shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
-              <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-emerald-950/20 to-black/45 pointer-events-none" />
-              <div className="absolute inset-0 border border-[#f0e5a5]/25 rounded-3xl pointer-events-none" />
-              <div className="relative z-10 space-y-4">
-                <DialogHeader>
-                  <DialogTitle className="text-emerald-300">Mehr zur Vision</DialogTitle>
-                </DialogHeader>
-
-                <div className="space-y-4 text-sm md:text-base text-stone-200 leading-relaxed">
-                  <p className="text-amber-200 font-semibold">Schau mal, was da waechst!</p>
-
-                  <p>
-                    Floralog nutzt die Faszination fuer den Bildschirm, um den Blick fuer die eigene Umgebung neu zu schaerfen. Waehrend das Wissen zur Natur Ihrer Heimat fuer fruehere Generationen ganz selbstverstaendlich war, ist vieles von diesem Wissen mit der Zeit verloren gegangen.
-                  </p>
-
-                  <p>
-                    Heute sind wir oft von digitalen Welten umgeben und uebersehen dabei die kleinen Schaetze direkt vor unserer Haustuer. Doch wenn wir genauer hinsehen, entdecken wir: Da ist mehr, als wir denken.
-                  </p>
-
-                  <p className="text-amber-200 font-semibold">Unser Spieltrieb ist der beste Lehrer</p>
-
-                  <p>
-                    Im Spiel lernen wir die Welt kennen. Wir probieren aus, entdecken Zusammenhaenge und erschaffen unsere eigenen Geschichten.
-                  </p>
-
-                  <p>
-                    Genau hier setzt Floralog an: Es verbindet die Neugier und Motivation aus digitalen Erlebnissen mit der realen Welt vor deiner Tuer.
-                  </p>
-
-                  <p>
-                    Statt trockener Theorie entsteht ein lebendiger Zugang zur Natur, getragen von Entdeckung, Fortschritt und dem Gefuehl, selbst etwas aufzubauen.
-                  </p>
-
-                  <p className="text-amber-200 font-semibold">Wachstum, das verbindet</p>
-
-                  <p>
-                    Jede Entdeckung hat einen Effekt: Deine eigene, kleine Robopflanze waechst mit dir.
-                  </p>
-
-                  <p>
-                    Sie entwickelt sich weiter, reagiert auf deine Aktivitaet und begleitet dich auf deinen Streifzuegen durch die Natur. Manchmal stellt sie Fragen, erinnert dich an vergangene Funde oder fordert dich auf, noch einmal genauer hinzusehen.
-                  </p>
-
-                  <p>
-                    So werden Spaziergaenge zu kleinen Expeditionen. Und aus einzelnen Beobachtungen entsteht nach und nach ein tieferes Verstaendnis fuer die Welt um dich herum.
-                  </p>
-
-                  <p>
-                    Fast beilaufig entsteht dabei etwas, das lange gefehlt hat: Ein neuer Blick auf die eigene Umgebung und die Wertschaetzung fuer das, was dort waechst.
-                  </p>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </motion.div>
-      </HomeBackgroundShell>
-    );
+    return <GuestHomeFlow allDiscoveries={allDiscoveries} publicCollections={publicCollections} />;
   }
 
   const discoveredGenera = genera.filter(g => {
@@ -1775,7 +922,7 @@ export default function Home() {
 
   const getRgbaFromRgb = (rgbString, opacity) => {
     if (!rgbString) return null;
-    // Fallback: Wenn opacity ungültig ist, auf 1 setzen
+    // Fallback: Wenn opacity ung�ltig ist, auf 1 setzen
     const safeOpacity = (typeof opacity === 'number' && opacity >= 0 && opacity <= 1) ? opacity : 1;
     const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
     if (!match) return rgbString;
@@ -1917,37 +1064,37 @@ export default function Home() {
   const multiplierItems = [
     {
       id: "streak",
-      title: "🔥 Streak",
+      title: "?? Streak",
       value: formatMultiplier(streakMultiplier),
       description: "Basierend auf deiner Scan-Serie (x1 bis x7).",
     },
     {
       id: "zone",
-      title: "📍 Zone",
+      title: "?? Zone",
       value: formatMultiplier(zoneMultiplier),
       description: "Start x1.5, pro weiterem Scan in derselben Zone -0.2 (bis x0.5).",
     },
     {
       id: "care",
-      title: "💚 Pflege",
+      title: "?? Pflege",
       value: formatMultiplier(careMultiplier),
       description: "Direkter Einfluss aus dem Care-Wert (x0.5 bis x1.5).",
     },
     {
       id: "daily",
-      title: "🌅 Tagesbonus",
+      title: "?? Tagesbonus",
       value: formatMultiplier(dailyBonusMultiplier),
       description: "Erster Scan des Tages x2, danach x1.",
     },
     {
       id: "rarity",
-      title: "⭐ Rarität",
+      title: "? Rarit�t",
       value: "x1 bis x3",
       description: "Scanabhaengig: haeufig x1, gelegentlich x2, selten x3.",
     },
     {
       id: "novelty",
-      title: "📉 Neuheit",
+      title: "?? Neuheit",
       value: "x1 bis x0.2",
       description: "Scanabhaengig: sinkt pro Duplikat derselben Pflanze.",
     },
@@ -2254,7 +1401,7 @@ export default function Home() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Loader2 className="w-5 h-5 animate-spin text-green-600" />
-              Migration läuft...
+              Migration l�uft...
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
@@ -2301,7 +1448,7 @@ export default function Home() {
                 variant="outline"
                 className="w-full"
               >
-                Schließen
+                Schlie�en
               </Button>
             )}
           </div>
@@ -2418,123 +1565,21 @@ export default function Home() {
                     openAddFriendDialogNonce={embeddedFriendsAddDialogNonce}
                   />
                 ) : showEmbeddedShop ? (
-                  <section className={`flex-1 min-h-0 rounded-3xl border px-4 py-4 overflow-hidden flex flex-col ${
-                    isLightUi
-                      ? "border-[#c0a860]/50 backdrop-blur-xl"
-                      : "border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm"
-                  }`}>
-                    <div className="flex items-center justify-between gap-3 mb-3">
-                      <div className="text-xs md:text-sm font-semibold">
-                        Samen: {playerSeeds}
-                      </div>
-                      {!!careActionMessage && (
-                        <div className={`text-[11px] md:text-xs px-2 py-1 rounded-lg border ${
-                          isLightUi
-                            ? "bg-white/55 border-[#c8ac62]/50 text-stone-700"
-                            : "bg-black/40 border-[#f0e5a5]/45 text-stone-100"
-                        }`}>
-                          {careActionMessage}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {[
-                        { key: "fertilizer", label: "Duenger" },
-                        { key: "accessory", label: "Accessoires" },
-                        { key: "background", label: "Hintergruende" },
-                        { key: "all", label: "Alle" },
-                      ].map((category) => (
-                        <button
-                          key={category.key}
-                          type="button"
-                          onClick={() => setShopCategory(category.key)}
-                          className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-colors ${
-                            shopCategory === category.key
-                              ? (isLightUi
-                                ? "bg-[#f1e2b8] border-[#c8ac62] text-stone-800"
-                                : "bg-[#3b2a18] border-[#f0e5a5]/50 text-amber-100")
-                              : (isLightUi
-                                ? "bg-white/45 border-[#c8ac62]/45 text-stone-700"
-                                : "bg-black/30 border-[#f0e5a5]/35 text-stone-100")
-                          }`}
-                        >
-                          {category.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="min-h-0 flex-1 overflow-y-auto pr-1 space-y-2">
-                      {filteredShopItems.length === 0 ? (
-                        <div className="text-xs opacity-80">Keine Items in dieser Kategorie.</div>
-                      ) : filteredShopItems.map((item) => {
-                        const owned = inventoryByItemId[item.id] || 0;
-                        const isBusy = purchaseShopItemMutation.isPending || useInventoryItemMutation.isPending;
-                        const canUse = owned > 0 && Number(item.effect_value || 0) > 0 && Number(item.duration_hours || 0) > 0;
-
-                        return (
-                          <div
-                            key={item.id}
-                            className={`rounded-2xl border p-3 ${
-                              isLightUi
-                                ? "border-[#c8ac62]/45 bg-white/45"
-                                : "border-[#f0e5a5]/35 bg-black/25"
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <div className="text-sm font-semibold">{item.title}</div>
-                                <div className="text-[11px] opacity-75 mt-0.5">{item.description || ""}</div>
-                              </div>
-                              <div className="text-xs font-bold">{item.seed_cost} Samen</div>
-                            </div>
-                            <div className="mt-2 text-[11px] opacity-80">
-                              Besitz: {owned}
-                              {Number(item.effect_value || 0) > 0 && Number(item.duration_hours || 0) > 0
-                                ? ` | Effekt: -${Math.round(Number(item.effect_value) * 100)}% Decay fuer ${item.duration_hours}h`
-                                : " | Platzhalter-Item"}
-                            </div>
-                            <div className="mt-3 flex items-center gap-2">
-                              <button
-                                type="button"
-                                disabled={isBusy || playerSeeds < Number(item.seed_cost || 0)}
-                                onClick={() => purchaseShopItemMutation.mutate({ itemId: item.id })}
-                                className={`h-8 px-3 rounded-lg text-xs font-semibold border disabled:opacity-60 ${
-                                  isLightUi
-                                    ? "border-[#c8ac62]/55 bg-white/65 text-stone-800"
-                                    : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
-                                }`}
-                              >
-                                Kaufen
-                              </button>
-                              {canUse && (
-                                <button
-                                  type="button"
-                                  disabled={isBusy}
-                                  onClick={() => useInventoryItemMutation.mutate({ itemId: item.id })}
-                                  className={`h-8 px-3 rounded-lg text-xs font-semibold border disabled:opacity-60 ${
-                                    isLightUi
-                                      ? "border-emerald-500/50 bg-emerald-100/70 text-emerald-900"
-                                      : "border-emerald-400/40 bg-emerald-900/35 text-emerald-100"
-                                  }`}
-                                >
-                                  Im Slot aktivieren
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className={`mt-3 rounded-xl border px-3 py-2 text-[11px] md:text-xs ${
-                      isLightUi
-                        ? "border-[#c8ac62]/45 bg-white/50 text-stone-700"
-                        : "border-[#f0e5a5]/35 bg-black/35 text-stone-100"
-                    }`}>
-                      Aktive Duenger-Effekte: {activeDecayEffects.length} | Gesamtreduktion: {Math.round(activeDecayPercent * 100)}%
-                    </div>
-                  </section>
+                  <ShopEmbeddedView
+                    isLightUi={isLightUi}
+                    playerSeeds={playerSeeds}
+                    careActionMessage={careActionMessage}
+                    shopCategory={shopCategory}
+                    onShopCategoryChange={setShopCategory}
+                    filteredShopItems={filteredShopItems}
+                    inventoryByItemId={inventoryByItemId}
+                    onPurchase={(itemId) => purchaseShopItemMutation.mutate({ itemId })}
+                    onUseItem={(itemId) => useInventoryItemMutation.mutate({ itemId })}
+                    isPurchasePending={purchaseShopItemMutation.isPending}
+                    isUseItemPending={useInventoryItemMutation.isPending}
+                    activeDecayEffects={activeDecayEffects}
+                    activeDecayPercent={activeDecayPercent}
+                  />
                 ) : showEmbeddedSettings ? (
                   <SettingsPanel
                     user={user}
@@ -2551,7 +1596,7 @@ export default function Home() {
                   style={isLightUi ? {
                     background: 'linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.1) 40%, rgba(255,255,255,0) 70%, rgba(255,255,255,0.05) 100%)'
                   } : {}}>
-                    <HeroZoneMap3D
+                    <MapboxZoneMap
                       zones={heroZones}
                       userLocation={cachedLocation}
                       fallbackCenter={{ lat: heroMapCenter[0], lng: heroMapCenter[1] }}
@@ -2605,7 +1650,7 @@ export default function Home() {
                         } transition-colors`}
                       >
                         <ArrowLeft className="w-4 h-4" />
-                        Zurück
+                        Zur�ck
                       </button>
 
                       {isAdminUser && (
@@ -2684,7 +1729,7 @@ export default function Home() {
                           setShowHeroZoneMap(true);
                           setShowHealthStatsPanel(false);
                         }}
-                        aria-label="Zonenkarte in Plant-Hero öffnen"
+                        aria-label="Zonenkarte in Plant-Hero �ffnen"
                         className={`absolute right-0 md:right-2 top-5 md:top-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${
                           isLightUi
                             ? "border-[#c8ac62]/60"
@@ -2704,89 +1749,21 @@ export default function Home() {
 
                       <AnimatePresence mode="wait">
                         {showHealthStatsPanel ? (
-                          <motion.div
-                            key="hero-stats"
-                            initial={{ opacity: 0, y: 6 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -6 }}
-                            transition={{ duration: 0.16, ease: "easeOut" }}
-                            className="absolute inset-0 px-0 pt-[5.5rem] md:pt-[5.8rem] flex flex-col justify-start"
-                          >
-                            <div className={`w-full rounded-2xl border px-3 py-3 space-y-2.5 ${
-                              isLightUi
-                                ? "border-[#c8ac62]/45 bg-white/36 text-stone-700"
-                                : "border-[#f0e5a5]/35 bg-black/28 text-stone-100"
-                            }`}>
-                              <div className="text-[11px] md:text-xs">
-                                <div className={`font-semibold uppercase tracking-wide ${isLightUi ? "text-stone-800" : "text-stone-50"}`}>
-                                  {plantHealthState.label}
-                                </div>
-                                <div className={isLightUi ? "text-stone-700/85" : "text-stone-200/80"}>
-                                  Gesundheitsbonus auf Scan-Events: <strong>+{healthStateBonus}</strong>
-                                </div>
-                              </div>
-
-                              {healthStats.map((stat) => (
-                                <div key={stat.id} className="space-y-1">
-                                  <div className={`flex items-center justify-between text-[11px] md:text-xs ${isLightUi ? "text-stone-700" : "text-stone-100/90"}`}>
-                                    <LockedTooltip
-                                      content={
-                                        <span className="text-xs leading-relaxed">{HEALTH_TOOLTIP_TEXT[stat.id] || "Wert der Robopflanze"}</span>
-                                      }
-                                    >
-                                      <button
-                                        type="button"
-                                        className="font-semibold uppercase tracking-wide underline decoration-dotted underline-offset-2"
-                                        aria-label={`${stat.label} Info`}
-                                      >
-                                        {stat.label}
-                                      </button>
-                                    </LockedTooltip>
-                                    <span className="font-bold">{stat.value}%</span>
-                                  </div>
-                                  <div className="h-2 rounded-full overflow-hidden bg-black/35 border border-black/25">
-                                    <div
-                                      className="h-full rounded-full transition-all duration-500"
-                                      style={{
-                                        width: `${stat.value}%`,
-                                        background: `linear-gradient(90deg, ${stat.color} 0%, rgba(255,255,255,0.78) 100%)`,
-                                      }}
-                                    />
-                                  </div>
-                                </div>
-                              ))}
-
-                              <div className="grid grid-cols-2 gap-2 pt-1">
-                                <button
-                                  type="button"
-                                  onClick={handleWaterPlantClick}
-                                  disabled={waterPlantMutation.isPending || remainingWatersToday <= 0}
-                                  className={`h-14 rounded-xl border flex flex-col items-center justify-center disabled:opacity-60 ${
-                                    isLightUi
-                                      ? "border-[#c8ac62]/55 bg-white/60 text-stone-800"
-                                      : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
-                                  }`}
-                                >
-                                  <span className="text-[11px] md:text-xs font-semibold leading-none">Gießen</span>
-                                  <span className="text-[10px] md:text-[11px] mt-1 leading-none opacity-90">{wateringCountToday}/{wateringLimitPerDay}</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={handleFertilizerSlotClick}
-                                  disabled={useInventoryItemMutation.isPending}
-                                  className={`h-14 rounded-xl border flex flex-col items-center justify-center disabled:opacity-60 ${
-                                    isLightUi
-                                      ? "border-[#c8ac62]/55 bg-white/60 text-stone-800"
-                                      : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
-                                  }`}
-                                >
-                                  <span className="text-[11px] md:text-xs font-semibold leading-none">Dünger</span>
-                                  <span className="text-[10px] md:text-[11px] mt-1 leading-none opacity-90">{activeDecayEffects.length} | {Math.round(activeDecayPercent * 100)}%</span>
-                                </button>
-                              </div>
-                            </div>
-                          </motion.div>
+                          <PlantHeroHealthPanel
+                            isLightUi={isLightUi}
+                            plantHealthState={plantHealthState}
+                            healthStateBonus={healthStateBonus}
+                            healthStats={healthStats}
+                            wateringCountToday={wateringCountToday}
+                            wateringLimitPerDay={wateringLimitPerDay}
+                            remainingWatersToday={remainingWatersToday}
+                            isWateringPending={waterPlantMutation.isPending}
+                            isFertilizerPending={useInventoryItemMutation.isPending}
+                            activeDecayEffects={activeDecayEffects}
+                            activeDecayPercent={activeDecayPercent}
+                            onWaterPlant={handleWaterPlantClick}
+                            onFertilizerSlot={handleFertilizerSlotClick}
+                          />
                         ) : (
                           <motion.div
                             key="hero-plant"
@@ -2867,9 +1844,9 @@ export default function Home() {
                           <div className="space-y-2">
                             <h3 className="font-semibold text-lime-200">Samen</h3>
                             <p className="text-xs text-amber-50/70">
-                              Werden verwendet um neue Items zu freischalten, welche die Pflanzepflege erleichtern. Voraussichtlich werden auch Cosmetics verfügbar sein. Die genaue Verwendung wird noch definiert.
+                              Werden verwendet um neue Items zu freischalten, welche die Pflanzepflege erleichtern. Voraussichtlich werden auch Cosmetics verf�gbar sein. Die genaue Verwendung wird noch definiert.
                             </p>
-                            <p className="text-xs text-amber-100/50 italic">💡 Status: In Entwicklung</p>
+                            <p className="text-xs text-amber-100/50 italic">?? Status: In Entwicklung</p>
                           </div>
                         </PopoverContent>
                       </Popover>
@@ -2884,7 +1861,7 @@ export default function Home() {
                             <div className={`h-5 w-px ${isLightUi ? "bg-[#c8ac62]/40" : "bg-[#f0e5a5]/35"}`} />
                             <Zap className={`w-4 h-4 ${isLightUi ? "text-amber-700" : "text-amber-300"}`} />
                             <span className="truncate">
-                              Nächster Scan {formatMultiplier(knownNextScanMultiplier)}
+                              N�chster Scan {formatMultiplier(knownNextScanMultiplier)}
                             </span>
                           </div>
                         </PopoverTrigger>
@@ -2925,7 +1902,7 @@ export default function Home() {
                             <div className="rounded-lg border border-amber-600/25 bg-black/20 p-2.5 text-xs space-y-1">
                               <div className="text-amber-300 font-semibold">Aktuell bekannter Gesamtfaktor</div>
                               <div className="text-amber-50/90">
-                                {formatMultiplier(streakMultiplier)} × {formatMultiplier(zoneMultiplier)} × {formatMultiplier(careMultiplier)} × {formatMultiplier(dailyBonusMultiplier)} = <strong>{formatMultiplier(knownNextScanMultiplier)}</strong>
+                                {formatMultiplier(streakMultiplier)} � {formatMultiplier(zoneMultiplier)} � {formatMultiplier(careMultiplier)} � {formatMultiplier(dailyBonusMultiplier)} = <strong>{formatMultiplier(knownNextScanMultiplier)}</strong>
                               </div>
                               <div className="text-amber-50/70">
                                 Zustand <strong>{plantHealthState.label}</strong> gibt aktuell <strong>+{healthStateBonus}</strong> auf alle Scan-Events.
@@ -2979,4 +1956,5 @@ export default function Home() {
     </>
   );
 }
+
 
