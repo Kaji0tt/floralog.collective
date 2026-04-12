@@ -11,6 +11,7 @@ import CollectionScreen from "./CollectionScreen";
 import PublicCollectionScreen from "./PublicCollectionScreen";
 import HomeShellLoader from "../navigation/HomeShellLoader";
 import useCollectionViewState, { DEFAULT_COLLECTION_FILTERS } from "./hooks/useCollectionViewState";
+import { useUiTheme } from "@/lib/UiThemeContext";
 
 const CATEGORY_CHIPS = [
   { value: "Bäume", emoji: "🌳" },
@@ -56,12 +57,12 @@ const getAverageColor = (imageUrl) => {
 export default function CollectionFeatureRoot({
   embedded = false,
   onRequestClose = null,
-  uiTheme,
   initialCollectionId = "global",
   onSelectedCollectionIdChange = null,
   showPublicCollectionsPanel: externalShowPublicCollectionsPanel,
   onShowPublicCollectionsPanelChange = null,
 }) {
+  const { isLightUi } = useUiTheme();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -75,15 +76,6 @@ export default function CollectionFeatureRoot({
   const isRouteMode = !embedded;
   const isQuestCollectionView =
     isRouteMode && searchParams.get("from") === "quests" && !!searchParams.get("collectionId");
-  const [resolvedUiTheme, setResolvedUiTheme] = useState(() => {
-    if (uiTheme === "light" || uiTheme === "dark") return uiTheme;
-    if (typeof window !== "undefined") {
-      const stored = window.localStorage.getItem("home-ui-theme");
-      if (stored === "light" || stored === "dark") return stored;
-    }
-    return "dark";
-  });
-  const isLightUi = resolvedUiTheme === "light";
   const showPublicCollectionsPanel =
     typeof externalShowPublicCollectionsPanel === "boolean"
       ? externalShowPublicCollectionsPanel
@@ -105,11 +97,6 @@ export default function CollectionFeatureRoot({
   };
 
   useEffect(() => {
-    if (uiTheme === "light" || uiTheme === "dark") {
-      setResolvedUiTheme(uiTheme);
-    }
-  }, [uiTheme]);
-
   const {
     activeCategory,
     setActiveCategory,

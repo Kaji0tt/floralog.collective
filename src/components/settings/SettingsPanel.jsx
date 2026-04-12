@@ -18,18 +18,12 @@ import {
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import NotificationManager from "@/components/notifications/NotificationManager";
 import LocationManager from "@/components/notifications/LocationManager";
+import { useUiTheme } from "@/lib/UiThemeContext";
 
-/**
- * @param {{
- *  user: any,
- *  onUserUpdated: (user: any) => void,
- *  uiTheme?: "dark" | "light",
- *  onUiThemeChange?: (theme: "dark" | "light") => void,
- * }} props
- */
-export default function SettingsPanel({ user, onUserUpdated, uiTheme = "dark", onUiThemeChange }) {
+export default function SettingsPanel({ user, onUserUpdated }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { uiTheme, setUiTheme } = useUiTheme();
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(user?.display_name || user?.full_name || "");
@@ -577,7 +571,7 @@ export default function SettingsPanel({ user, onUserUpdated, uiTheme = "dark", o
               <input
                 type="checkbox"
                 checked={uiTheme === "light"}
-                onChange={(e) => onUiThemeChange?.(e.target.checked ? "light" : "dark")}
+                onChange={(e) => setUiTheme(e.target.checked ? "light" : "dark")}
                 className="sr-only peer"
               />
               <div className="relative w-10 h-[22px] bg-stone-600 rounded-full peer peer-checked:bg-amber-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:after:translate-x-full" />

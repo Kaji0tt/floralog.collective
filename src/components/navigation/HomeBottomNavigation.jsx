@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useUiTheme } from "@/lib/UiThemeContext";
 
 export default function HomeBottomNavigation({
   navItems,
-  isLightUi,
   controlsScale,
 }) {
+  const { isLightUi } = useUiTheme();
   const [isNavVisible, setIsNavVisible] = useState(true);
 
   const toggleNavVisibility = () => {

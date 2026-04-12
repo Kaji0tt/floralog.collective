@@ -23,6 +23,7 @@ import { checkAndUnlockAchievements } from "@/components/achievements/achievemen
 import AchievementNotification from "@/components/achievements/AchievementNotification";
 import { getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
 import { updateQuestProgress } from "@/components/utils/questProgress";
+import { useUiTheme } from "@/lib/UiThemeContext";
 
 const getAverageColor = (imageUrl) => {
   return new Promise((resolve) => {
@@ -60,10 +61,10 @@ const getAverageColor = (imageUrl) => {
 
 export function useAchievementsFeatureContent({
   embedded = false,
-  isLightUi,
   onHeaderMetaChange,
   onRequestClose: _onRequestClose = null,
 }) {
+  const { isLightUi } = useUiTheme();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();

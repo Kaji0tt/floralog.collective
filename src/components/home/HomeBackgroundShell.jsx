@@ -1,4 +1,7 @@
-export default function HomeBackgroundShell({ user, isLightUi, getRgbaFromRgb, children }) {
+import { useUiTheme } from "@/lib/UiThemeContext";
+
+export default function HomeBackgroundShell({ user, getRgbaFromRgb, children }) {
+  const { isLightUi } = useUiTheme();
   return (
     <div className="fixed inset-0 overflow-hidden">
       <div

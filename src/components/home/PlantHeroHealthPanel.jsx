@@ -1,6 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
+import { useUiTheme } from "@/lib/UiThemeContext";
 
 const HEALTH_TOOLTIP_TEXT = {
   energy:
@@ -11,7 +12,6 @@ const HEALTH_TOOLTIP_TEXT = {
 };
 
 export default function PlantHeroHealthPanel({
-  isLightUi,
   plantHealthState,
   healthStateBonus,
   healthStats,
@@ -25,6 +25,7 @@ export default function PlantHeroHealthPanel({
   onWaterPlant,
   onFertilizerSlot,
 }) {
+  const { isLightUi } = useUiTheme();
   return (
     <motion.div
       key="hero-stats"

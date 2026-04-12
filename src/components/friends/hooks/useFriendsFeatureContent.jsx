@@ -19,6 +19,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import MobileBackButton from "@/components/navigation/MobileBackButton";
 import { formatDistanceToNow } from "date-fns";
 import { de } from "date-fns/locale";
+import { useUiTheme } from "@/lib/UiThemeContext";
 
 const getAverageColor = (imageUrl) => {
   return new Promise((resolve) => {
@@ -56,11 +57,11 @@ const getAverageColor = (imageUrl) => {
 
 export function useFriendsFeatureContent({
   embedded = false,
-  isLightUi,
   onHeaderMetaChange,
   openAddFriendDialogNonce = 0,
   onRequestClose: _onRequestClose = null,
 }) {
+  const { isLightUi } = useUiTheme();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();

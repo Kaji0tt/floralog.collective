@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import { Query } from "@/api/entities";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { upsertUserProfile } from "@/api/authService";
@@ -9,7 +9,6 @@ import {
   listRobotPlantInventory,
   listRobotPlantActiveEffects,
   getRobotPlantDailyCareStatus,
-  purchaseRobotPlantShopItem,
   useRobotPlantInventoryItem,
   waterRobotPlant,
 } from "@/api/robotPlantService";
@@ -32,12 +31,12 @@ import { calculateDistanceMetersRaw, NEARBY_DISCOVERY_RADIUS_METERS, parseDiscov
 import { Button } from "@/components/ui/button";
 import { updateQuestProgress } from "@/components/utils/questProgress";
 import Collection from "./Collection";
-import SettingsPanel from "@/components/settings/SettingsPanel";
+import SettingsFeatureRoot from "@/components/settings/SettingsFeatureRoot";
 import HomeHeaderBar from "@/components/navigation/HomeHeaderBar";
 import HomeBottomNavigation from "@/components/navigation/HomeBottomNavigation";
 import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
 import GuestHomeFlow from "@/components/home/GuestHomeFlow";
-import ShopEmbeddedView from "@/components/home/ShopEmbeddedView";
+import ShopFeatureRoot from "@/components/shop/ShopFeatureRoot";
 import PlantHeroHealthPanel from "@/components/home/PlantHeroHealthPanel";
 import AchievementsFeatureRoot from "@/components/achievements/AchievementsFeatureRoot";
 import FriendsFeatureRoot from "@/components/friends/FriendsFeatureRoot";
@@ -47,6 +46,7 @@ import MapboxZoneMap from "@/components/map/MapboxZoneMap";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
+import { useUiTheme } from "@/lib/UiThemeContext";
 
 const THEME_MAP_COLORS = {
   forest: "#007a3f",
@@ -72,6 +72,7 @@ export default function Home() {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
+  const { isLightUi } = useUiTheme();
   const [user, setUser] = useState(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [newAchievements, setNewAchievements] = useState([]);
@@ -98,12 +99,8 @@ export default function Home() {
   const multiplierTouchStartXRef = useRef(null);
 
   const [scanFeedback, setScanFeedback] = useState(null);
-  const [showEmbeddedCollection, setShowEmbeddedCollection] = useState(false);
-  const [showEmbeddedSettings, setShowEmbeddedSettings] = useState(false);
-  const [showEmbeddedAchievements, setShowEmbeddedAchievements] = useState(false);
-  const [showEmbeddedFriends, setShowEmbeddedFriends] = useState(false);
-  const [showEmbeddedShop, setShowEmbeddedShop] = useState(false);
-  const [shopCategory, setShopCategory] = useState("fertilizer");
+  const [activePanel, setActivePanel] = useState(null);
+  const [shopOpenCategory, setShopOpenCategory] = useState("fertilizer");
   const [careActionMessage, setCareActionMessage] = useState(null);
   const [embeddedHeaderMeta, setEmbeddedHeaderMeta] = useState(null);
   const [embeddedFriendsAddDialogNonce, setEmbeddedFriendsAddDialogNonce] = useState(0);
@@ -111,21 +108,17 @@ export default function Home() {
   const [embeddedSelectedCollectionId, setEmbeddedSelectedCollectionId] = useState("global");
 
   useEffect(() => {
-    if (!showEmbeddedCollection) {
+    if (activePanel !== "collection") {
       setEmbeddedCollectionPublicPanelOpen(false);
       setEmbeddedSelectedCollectionId("global");
     }
-  }, [showEmbeddedCollection]);
+  }, [activePanel]);
 
   useEffect(() => {
-    if (!showEmbeddedAchievements && !showEmbeddedFriends && !showEmbeddedShop) {
+    if (!["achievements", "friends", "shop"].includes(activePanel)) {
       setEmbeddedHeaderMeta(null);
     }
-  }, [showEmbeddedAchievements, showEmbeddedFriends, showEmbeddedShop]);
-  const [uiTheme, setUiTheme] = useState(() => {
-    const stored = localStorage.getItem("home-ui-theme");
-    return stored === "light" ? "light" : "dark";
-  });
+  }, [activePanel]);
 
   // Migration states
   const [isMigrating, setIsMigrating] = useState(false);
@@ -348,24 +341,6 @@ export default function Home() {
     refetchOnWindowFocus: true,
   });
 
-  const purchaseShopItemMutation = useMutation({
-    mutationFn: ({ itemId }) => purchaseRobotPlantShopItem({ itemId, quantity: 1 }),
-    onSuccess: async (result) => {
-      if (!result?.applied) {
-        setCareActionMessage(result?.error_code === 'insufficient_balance'
-          ? 'Nicht genug Samen fuer diesen Kauf.'
-          : 'Kauf konnte nicht abgeschlossen werden.');
-        return;
-      }
-      setCareActionMessage('Item gekauft.');
-      await queryClient.invalidateQueries({ queryKey: ['robotPlantState'] });
-      await queryClient.invalidateQueries({ queryKey: ['robotPlantInventory'] });
-    },
-    onError: () => {
-      setCareActionMessage('Kauf fehlgeschlagen.');
-    },
-  });
-
   const useInventoryItemMutation = useMutation({
     mutationFn: ({ itemId }) => useRobotPlantInventoryItem({ itemId }),
     onSuccess: async (result) => {
@@ -414,20 +389,20 @@ export default function Home() {
     queryClient.refetchQueries({ queryKey: ['allDiscoveries'] });
     queryClient.refetchQueries({ queryKey: ['robotPlantState'] });
     
-    // NICHT mehr hier - Rewards werden nur beim Scannen/Quest-Completion gepr�ft
+    // NICHT mehr hier - Rewards werden nur beim Scannen/Quest-Completion geprüft
   };
 
   useEffect(() => {
     loadUserData();
 
-    // Subscription f�r User-Updates (z.B. aus WelcomeNameDialog)
+    // Subscription für User-Updates (z.B. aus WelcomeNameDialog)
     const unsubscribe = Query.PublicProfile.subscribe((event) => {
       if (event.type === 'update') {
         loadUserData();
       }
     });
 
-    // Custom Event Listener f�r User-Updates vom Layout
+    // Custom Event Listener für User-Updates vom Layout
     const handleUserUpdate = (event) => {
       const updatedUser = event.detail;
       setUser(updatedUser);
@@ -448,11 +423,7 @@ export default function Home() {
     };
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("home-ui-theme", uiTheme);
-  }, [uiTheme]);
-
-  // Beim �ffnen der Home-Seite einmalig Quest-Fortschritt aktualisieren
+  // Beim Öffnen der Home-Seite einmalig Quest-Fortschritt aktualisieren
   useEffect(() => {
     const runQuestProgressUpdate = async () => {
       if (!user?.id) return;
@@ -481,11 +452,7 @@ export default function Home() {
     }
 
     if (shouldOpenSettings) {
-      setShowEmbeddedSettings(true);
-      setShowEmbeddedCollection(false);
-      setShowEmbeddedAchievements(false);
-      setShowEmbeddedFriends(false);
-      setShowEmbeddedShop(false);
+      setActivePanel("settings");
       setShowHeroZoneMap(false);
       setShowHealthStatsPanel(false);
     }
@@ -532,7 +499,7 @@ export default function Home() {
     }
   }, [user]); // Only depend on user, not isMigrating!
 
-  // Pr�fe ob Scanner-Highlight angezeigt werden soll
+  // Prüfe ob Scanner-Highlight angezeigt werden soll
   useEffect(() => {
     if (!user || isLoadingDiscoveries) return;
     const hasDisplayName = user.display_name;
@@ -791,11 +758,6 @@ export default function Home() {
   const wateringLimitPerDay = Math.max(1, Number(robotPlantDailyCareStatus?.wateringLimitPerDay ?? 3));
   const remainingWatersToday = Math.max(0, Number(robotPlantDailyCareStatus?.remainingWatersToday ?? (wateringLimitPerDay - wateringCountToday)));
 
-  const filteredShopItems = robotPlantShopItems.filter((item) => {
-    if (shopCategory === "all") return true;
-    return item.item_type === shopCategory;
-  });
-
   const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
   const currentMonthlyQuest = getCurrentMonthlyQuest(monthlyQuests);
 
@@ -922,7 +884,7 @@ export default function Home() {
 
   const getRgbaFromRgb = (rgbString, opacity) => {
     if (!rgbString) return null;
-    // Fallback: Wenn opacity ung�ltig ist, auf 1 setzen
+    // Fallback: Wenn opacity ungültig ist, auf 1 setzen
     const safeOpacity = (typeof opacity === 'number' && opacity >= 0 && opacity <= 1) ? opacity : 1;
     const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
     if (!match) return rgbString;
@@ -1064,37 +1026,37 @@ export default function Home() {
   const multiplierItems = [
     {
       id: "streak",
-      title: "?? Streak",
+      title: "🔥 Streak",
       value: formatMultiplier(streakMultiplier),
       description: "Basierend auf deiner Scan-Serie (x1 bis x7).",
     },
     {
       id: "zone",
-      title: "?? Zone",
+      title: "📍 Zone",
       value: formatMultiplier(zoneMultiplier),
       description: "Start x1.5, pro weiterem Scan in derselben Zone -0.2 (bis x0.5).",
     },
     {
       id: "care",
-      title: "?? Pflege",
+      title: "🌿 Pflege",
       value: formatMultiplier(careMultiplier),
       description: "Direkter Einfluss aus dem Care-Wert (x0.5 bis x1.5).",
     },
     {
       id: "daily",
-      title: "?? Tagesbonus",
+      title: "☀️ Tagesbonus",
       value: formatMultiplier(dailyBonusMultiplier),
       description: "Erster Scan des Tages x2, danach x1.",
     },
     {
       id: "rarity",
-      title: "? Rarit�t",
+      title: "⭐ Rarität",
       value: "x1 bis x3",
       description: "Scanabhaengig: haeufig x1, gelegentlich x2, selten x3.",
     },
     {
       id: "novelty",
-      title: "?? Neuheit",
+      title: "✨ Neuheit",
       value: "x1 bis x0.2",
       description: "Scanabhaengig: sinkt pro Duplikat derselben Pflanze.",
     },
@@ -1148,21 +1110,12 @@ export default function Home() {
     showPreviousMultiplier();
   };
 
-  const isLightUi = uiTheme === "light";
-
   const navItems = [
     {
       label: "Kollektion",
       icon: Leaf,
       onClick: () => {
-        setShowEmbeddedCollection(true);
-        setShowEmbeddedSettings(false);
-        setShowEmbeddedAchievements(false);
-        setShowEmbeddedFriends(false);
-        setShowEmbeddedShop(false);
-        setEmbeddedHeaderMeta(null);
-        setEmbeddedCollectionPublicPanelOpen(false);
-        setEmbeddedSelectedCollectionId("global");
+        setActivePanel("collection");
         setShowHeroZoneMap(false);
         setShowHealthStatsPanel(false);
       },
@@ -1177,14 +1130,7 @@ export default function Home() {
       label: "Erfolge",
       icon: Scroll,
       onClick: () => {
-        setShowEmbeddedCollection(false);
-        setShowEmbeddedSettings(false);
-        setShowEmbeddedAchievements(true);
-        setShowEmbeddedFriends(false);
-        setShowEmbeddedShop(false);
-        setEmbeddedHeaderMeta(null);
-        setEmbeddedCollectionPublicPanelOpen(false);
-        setEmbeddedSelectedCollectionId("global");
+        setActivePanel("achievements");
         setShowHeroZoneMap(false);
         setShowHealthStatsPanel(false);
       },
@@ -1199,14 +1145,7 @@ export default function Home() {
       label: "Social",
       icon: Users,
       onClick: () => {
-        setShowEmbeddedCollection(false);
-        setShowEmbeddedSettings(false);
-        setShowEmbeddedAchievements(false);
-        setShowEmbeddedFriends(true);
-        setShowEmbeddedShop(false);
-        setEmbeddedHeaderMeta(null);
-        setEmbeddedCollectionPublicPanelOpen(false);
-        setEmbeddedSelectedCollectionId("global");
+        setActivePanel("friends");
         setShowHeroZoneMap(false);
         setShowHealthStatsPanel(false);
       },
@@ -1221,15 +1160,8 @@ export default function Home() {
       label: "Shop",
       icon: ShoppingBag,
       onClick: () => {
-        setShowEmbeddedCollection(false);
-        setShowEmbeddedSettings(false);
-        setShowEmbeddedAchievements(false);
-        setShowEmbeddedFriends(false);
-        setShowEmbeddedShop(true);
-        setShopCategory("fertilizer");
-        setEmbeddedHeaderMeta(null);
-        setEmbeddedCollectionPublicPanelOpen(false);
-        setEmbeddedSelectedCollectionId("global");
+        setShopOpenCategory("fertilizer");
+        setActivePanel("shop");
         setShowHeroZoneMap(false);
         setShowHealthStatsPanel(false);
       },
@@ -1242,25 +1174,18 @@ export default function Home() {
     },
   ];
 
-  const hasEmbeddedView =
-    showEmbeddedCollection ||
-    showEmbeddedSettings ||
-    showEmbeddedAchievements ||
-    showEmbeddedFriends;
 
-  const embeddedTitle = showEmbeddedCollection
-    ? "Kollektionen"
-    : showEmbeddedSettings
-      ? "Einstellungen"
-      : showEmbeddedAchievements
-        ? (embeddedHeaderMeta?.title || "Erfolge")
-        : showEmbeddedFriends
-          ? (embeddedHeaderMeta?.title || "Social")
-          : null;
+  const embeddedTitle =
+    activePanel === "collection" ? "Kollektionen" :
+    activePanel === "settings" ? "Einstellungen" :
+    activePanel === "shop" ? (embeddedHeaderMeta?.title || "Shop") :
+    activePanel === "achievements" ? (embeddedHeaderMeta?.title || "Erfolge") :
+    activePanel === "friends" ? (embeddedHeaderMeta?.title || "Social") :
+    null;
 
   const embeddedSubtitle = embeddedHeaderMeta?.subtitle || null;
   const embeddedInfoLabel = embeddedHeaderMeta?.infoLabel || null;
-  const shouldDockEmbeddedChipHeader = showEmbeddedAchievements || showEmbeddedFriends;
+  const shouldDockEmbeddedChipHeader = activePanel === "achievements" || activePanel === "friends";
 
   const handleRegenerateZones = async () => {
     if (isRegeneratingZones || !user?.id) return;
@@ -1329,16 +1254,9 @@ export default function Home() {
     }
   };
 
-  const openEmbeddedShop = (category = "fertilizer") => {
-    setShowEmbeddedCollection(false);
-    setShowEmbeddedSettings(false);
-    setShowEmbeddedAchievements(false);
-    setShowEmbeddedFriends(false);
-    setShowEmbeddedShop(true);
-    setShopCategory(category);
-    setEmbeddedHeaderMeta(null);
-    setEmbeddedCollectionPublicPanelOpen(false);
-    setEmbeddedSelectedCollectionId("global");
+  const openShop = (category = "fertilizer") => {
+    setShopOpenCategory(category);
+    setActivePanel("shop");
     setShowHeroZoneMap(false);
     setShowHealthStatsPanel(false);
   };
@@ -1353,7 +1271,7 @@ export default function Home() {
     const bestOwnedFertilizer = ownedFertilizerItems[0];
 
     if (!bestOwnedFertilizer) {
-      openEmbeddedShop("fertilizer");
+      openShop("fertilizer");
       setCareActionMessage("Kein Duenger im Inventar. Kaufe zuerst im Shop.");
       return;
     }
@@ -1401,7 +1319,7 @@ export default function Home() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Loader2 className="w-5 h-5 animate-spin text-green-600" />
-              Migration l�uft...
+              Migration läuft...
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
@@ -1448,7 +1366,7 @@ export default function Home() {
                 variant="outline"
                 className="w-full"
               >
-                Schlie�en
+                Schließen
               </Button>
             )}
           </div>
@@ -1457,7 +1375,6 @@ export default function Home() {
 
       <HomeBackgroundShell
         user={user}
-        isLightUi={isLightUi}
         getRgbaFromRgb={getRgbaFromRgb}
       >
           <motion.div
@@ -1489,44 +1406,25 @@ export default function Home() {
 
             <div className={`relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6 ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
               <HomeHeaderBar
-                isLightUi={isLightUi}
+                activePanel={activePanel}
                 embeddedTitle={embeddedTitle}
                 embeddedSubtitle={embeddedSubtitle}
                 embeddedInfoLabel={embeddedInfoLabel}
-                hasEmbeddedView={hasEmbeddedView}
-                showEmbeddedCollection={showEmbeddedCollection}
-                showEmbeddedFriends={showEmbeddedFriends}
-                showEmbeddedSettings={showEmbeddedSettings}
                 embeddedCollectionPublicPanelOpen={embeddedCollectionPublicPanelOpen}
                 displayName={getDisplayName()}
                 userTitle={user?.selected_title || user?.title || "Pflanzen-Entdecker"}
                 onTogglePublicCollections={() => setEmbeddedCollectionPublicPanelOpen((prev) => !prev)}
                 onOpenEmbeddedFriendsAddDialog={() => setEmbeddedFriendsAddDialogNonce((prev) => prev + 1)}
                 onPrimaryAction={() => {
-                  if (showEmbeddedCollection) {
-                    setShowEmbeddedCollection(false);
+                  if (activePanel === "collection") {
                     setEmbeddedCollectionPublicPanelOpen(false);
                     setEmbeddedSelectedCollectionId("global");
+                  }
+                  if (activePanel !== null) {
+                    setActivePanel(null);
                     return;
                   }
-                  if (showEmbeddedSettings) {
-                    setShowEmbeddedSettings(false);
-                    return;
-                  }
-                  if (showEmbeddedAchievements) {
-                    setShowEmbeddedAchievements(false);
-                    return;
-                  }
-                  if (showEmbeddedFriends) {
-                    setShowEmbeddedFriends(false);
-                    return;
-                  }
-                  if (showEmbeddedShop) {
-                    setShowEmbeddedShop(false);
-                    return;
-                  }
-                  setShowEmbeddedSettings(true);
-                  setShowEmbeddedShop(false);
+                  setActivePanel("settings");
                   setShowHeroZoneMap(false);
                   setShowHealthStatsPanel(false);
                 }}
@@ -1536,56 +1434,41 @@ export default function Home() {
                 className={`relative flex flex-1 min-h-0 flex-col overflow-hidden ${shouldDockEmbeddedChipHeader ? "py-0" : "py-[clamp(0.5rem,1.5vh,1rem)]"}`}
                 data-ui="home-content-stack"
               >
-                {showEmbeddedCollection ? (
+                {activePanel === "collection" ? (
                   <Collection
                     embedded
                     onRequestClose={() => {
-                      setShowEmbeddedCollection(false);
+                      setActivePanel(null);
                       setEmbeddedSelectedCollectionId("global");
                     }}
-                    uiTheme={uiTheme}
                     initialCollectionId={embeddedSelectedCollectionId}
                     onSelectedCollectionIdChange={setEmbeddedSelectedCollectionId}
                     showPublicCollectionsPanel={embeddedCollectionPublicPanelOpen}
                     onShowPublicCollectionsPanelChange={setEmbeddedCollectionPublicPanelOpen}
                   />
-                ) : showEmbeddedAchievements ? (
+                ) : activePanel === "achievements" ? (
                   <AchievementsFeatureRoot
                     embedded
-                    isLightUi={isLightUi}
-                    onRequestClose={() => setShowEmbeddedAchievements(false)}
+                    onRequestClose={() => setActivePanel(null)}
                     onHeaderMetaChange={setEmbeddedHeaderMeta}
                   />
-                ) : showEmbeddedFriends ? (
+                ) : activePanel === "friends" ? (
                   <FriendsFeatureRoot
                     embedded
-                    isLightUi={isLightUi}
-                    onRequestClose={() => setShowEmbeddedFriends(false)}
+                    onRequestClose={() => setActivePanel(null)}
                     onHeaderMetaChange={setEmbeddedHeaderMeta}
                     openAddFriendDialogNonce={embeddedFriendsAddDialogNonce}
                   />
-                ) : showEmbeddedShop ? (
-                  <ShopEmbeddedView
-                    isLightUi={isLightUi}
+                ) : activePanel === "shop" ? (
+                  <ShopFeatureRoot
+                    embedded
                     playerSeeds={playerSeeds}
-                    careActionMessage={careActionMessage}
-                    shopCategory={shopCategory}
-                    onShopCategoryChange={setShopCategory}
-                    filteredShopItems={filteredShopItems}
-                    inventoryByItemId={inventoryByItemId}
-                    onPurchase={(itemId) => purchaseShopItemMutation.mutate({ itemId })}
-                    onUseItem={(itemId) => useInventoryItemMutation.mutate({ itemId })}
-                    isPurchasePending={purchaseShopItemMutation.isPending}
-                    isUseItemPending={useInventoryItemMutation.isPending}
-                    activeDecayEffects={activeDecayEffects}
-                    activeDecayPercent={activeDecayPercent}
+                    initialCategory={shopOpenCategory}
                   />
-                ) : showEmbeddedSettings ? (
-                  <SettingsPanel
+                ) : activePanel === "settings" ? (
+                  <SettingsFeatureRoot
                     user={user}
                     onUserUpdated={(freshUser) => setUser(freshUser)}
-                    uiTheme={uiTheme}
-                    onUiThemeChange={setUiTheme}
                   />
                 ) : showHeroZoneMap ? (
                   <section className={`relative flex-1 min-h-0 rounded-3xl border overflow-hidden ${
@@ -1650,7 +1533,7 @@ export default function Home() {
                         } transition-colors`}
                       >
                         <ArrowLeft className="w-4 h-4" />
-                        Zur�ck
+                        Zurück
                       </button>
 
                       {isAdminUser && (
@@ -1729,7 +1612,7 @@ export default function Home() {
                           setShowHeroZoneMap(true);
                           setShowHealthStatsPanel(false);
                         }}
-                        aria-label="Zonenkarte in Plant-Hero �ffnen"
+                        aria-label="Zonenkarte in Plant-Hero öffnen"
                         className={`absolute right-0 md:right-2 top-5 md:top-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${
                           isLightUi
                             ? "border-[#c8ac62]/60"
@@ -1750,7 +1633,6 @@ export default function Home() {
                       <AnimatePresence mode="wait">
                         {showHealthStatsPanel ? (
                           <PlantHeroHealthPanel
-                            isLightUi={isLightUi}
                             plantHealthState={plantHealthState}
                             healthStateBonus={healthStateBonus}
                             healthStats={healthStats}
@@ -1798,7 +1680,7 @@ export default function Home() {
                                 <button
                                   key={slot.key}
                                   type="button"
-                                  onClick={() => openEmbeddedShop("accessory")}
+                                  onClick={() => openShop("accessory")}
                                   className={`pointer-events-auto absolute ${slot.className} z-[9] w-11 h-11 md:w-12 md:h-12 rounded-2xl border backdrop-blur-sm flex items-center justify-center transition-colors ${
                                     isLightUi
                                       ? "border-[#c8ac62]/55 bg-white/52 text-stone-700 hover:bg-white/68"
@@ -1844,9 +1726,9 @@ export default function Home() {
                           <div className="space-y-2">
                             <h3 className="font-semibold text-lime-200">Samen</h3>
                             <p className="text-xs text-amber-50/70">
-                              Werden verwendet um neue Items zu freischalten, welche die Pflanzepflege erleichtern. Voraussichtlich werden auch Cosmetics verf�gbar sein. Die genaue Verwendung wird noch definiert.
+                              Werden verwendet um neue Items zu freischalten, welche die Pflanzepflege erleichtern. Voraussichtlich werden auch Cosmetics verfügbar sein. Die genaue Verwendung wird noch definiert.
                             </p>
-                            <p className="text-xs text-amber-100/50 italic">?? Status: In Entwicklung</p>
+                            <p className="text-xs text-amber-100/50 italic">🔧 Status: In Entwicklung</p>
                           </div>
                         </PopoverContent>
                       </Popover>
@@ -1861,7 +1743,7 @@ export default function Home() {
                             <div className={`h-5 w-px ${isLightUi ? "bg-[#c8ac62]/40" : "bg-[#f0e5a5]/35"}`} />
                             <Zap className={`w-4 h-4 ${isLightUi ? "text-amber-700" : "text-amber-300"}`} />
                             <span className="truncate">
-                              N�chster Scan {formatMultiplier(knownNextScanMultiplier)}
+                              Nächster Scan {formatMultiplier(knownNextScanMultiplier)}
                             </span>
                           </div>
                         </PopoverTrigger>
@@ -1902,7 +1784,7 @@ export default function Home() {
                             <div className="rounded-lg border border-amber-600/25 bg-black/20 p-2.5 text-xs space-y-1">
                               <div className="text-amber-300 font-semibold">Aktuell bekannter Gesamtfaktor</div>
                               <div className="text-amber-50/90">
-                                {formatMultiplier(streakMultiplier)} � {formatMultiplier(zoneMultiplier)} � {formatMultiplier(careMultiplier)} � {formatMultiplier(dailyBonusMultiplier)} = <strong>{formatMultiplier(knownNextScanMultiplier)}</strong>
+                                {formatMultiplier(streakMultiplier)} × {formatMultiplier(zoneMultiplier)} × {formatMultiplier(careMultiplier)} × {formatMultiplier(dailyBonusMultiplier)} = <strong>{formatMultiplier(knownNextScanMultiplier)}</strong>
                               </div>
                               <div className="text-amber-50/70">
                                 Zustand <strong>{plantHealthState.label}</strong> gibt aktuell <strong>+{healthStateBonus}</strong> auf alle Scan-Events.
@@ -1946,7 +1828,6 @@ export default function Home() {
 
               <HomeBottomNavigation
                 navItems={navItems}
-                isLightUi={isLightUi}
                 controlsScale={controlsScale}
               />
             </div>

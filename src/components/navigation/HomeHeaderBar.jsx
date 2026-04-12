@@ -1,14 +1,11 @@
 import { Home as HomeIcon, List, Plus, Settings } from "lucide-react";
+import { useUiTheme } from "@/lib/UiThemeContext";
 
 export default function HomeHeaderBar({
-  isLightUi,
+  activePanel,
   embeddedTitle,
   embeddedSubtitle,
   embeddedInfoLabel,
-  hasEmbeddedView,
-  showEmbeddedCollection,
-  showEmbeddedFriends,
-  showEmbeddedSettings,
   embeddedCollectionPublicPanelOpen,
   displayName,
   userTitle,
@@ -16,13 +13,16 @@ export default function HomeHeaderBar({
   onOpenEmbeddedFriendsAddDialog,
   onPrimaryAction,
 }) {
+  const { isLightUi } = useUiTheme();
+  const showEmbeddedCollection = activePanel === "collection";
+  const showEmbeddedFriends = activePanel === "friends";
+  const isEmbeddedMode = activePanel !== null;
+
   const resolvedEmbeddedTitle = embeddedTitle || (showEmbeddedCollection
     ? "Kollektionen"
-    : showEmbeddedSettings
+    : activePanel === "settings"
       ? "Einstellungen"
       : null);
-
-  const isEmbeddedMode = Boolean(hasEmbeddedView || showEmbeddedCollection || showEmbeddedSettings || resolvedEmbeddedTitle);
 
   return (
     <div className={`flex items-start justify-between gap-3 pb-3 border-b ${isLightUi ? "border-[#b99a48]/30" : "border-[#f0e5a5]/20"}`}>
