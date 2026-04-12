@@ -13,7 +13,7 @@ import {
   waterRobotPlant,
 } from "@/api/robotPlantService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Camera, Loader2, Leaf, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, ArrowLeft, RefreshCw, Map as MapIcon, Zap, Bug } from "lucide-react";
+import { Camera, Loader2, Leaf, Plus, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, ArrowLeft, RefreshCw, Map as MapIcon, Zap, Bug } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import mapboxgl from "mapbox-gl";
 import AchievementNotification from "../components/achievements/AchievementNotification";
@@ -2220,6 +2220,29 @@ export default function Home() {
                                   ? "text-emerald-600"
                                   : "text-lime-200"
                               }`} />
+                            </div>
+
+                            <div className="absolute left-1/2 top-1/2 w-[82%] aspect-square -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+                              {[
+                                { key: "left", className: "left-0 top-1/2 -translate-x-1/2 -translate-y-1/2" },
+                                { key: "right", className: "right-0 top-1/2 translate-x-1/2 -translate-y-1/2" },
+                                { key: "top", className: "left-1/2 top-0 -translate-x-1/2 -translate-y-1/2" },
+                                { key: "bottom", className: "left-1/2 bottom-0 -translate-x-1/2 translate-y-1/2" },
+                              ].map((slot) => (
+                                <button
+                                  key={slot.key}
+                                  type="button"
+                                  onClick={() => openEmbeddedShop("accessory")}
+                                  className={`pointer-events-auto absolute ${slot.className} z-[9] w-11 h-11 md:w-12 md:h-12 rounded-2xl border backdrop-blur-sm flex items-center justify-center transition-colors ${
+                                    isLightUi
+                                      ? "border-[#c8ac62]/55 bg-white/52 text-stone-700 hover:bg-white/68"
+                                      : "border-[#f0e5a5]/45 bg-black/35 text-[#f0e5a5] hover:bg-black/50"
+                                  }`}
+                                  aria-label={`Accessoire Slot ${slot.key}`}
+                                >
+                                  <Plus className="w-5 h-5" />
+                                </button>
+                              ))}
                             </div>
 
                             <button
