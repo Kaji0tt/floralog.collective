@@ -1546,8 +1546,7 @@ export default function Home() {
     showEmbeddedCollection ||
     showEmbeddedSettings ||
     showEmbeddedAchievements ||
-    showEmbeddedFriends ||
-    showEmbeddedShop;
+    showEmbeddedFriends;
 
   const embeddedTitle = showEmbeddedCollection
     ? "Kollektionen"
@@ -1557,13 +1556,11 @@ export default function Home() {
         ? (embeddedHeaderMeta?.title || "Erfolge")
         : showEmbeddedFriends
           ? (embeddedHeaderMeta?.title || "Social")
-          : showEmbeddedShop
-            ? "Shop"
           : null;
 
   const embeddedSubtitle = embeddedHeaderMeta?.subtitle || null;
   const embeddedInfoLabel = embeddedHeaderMeta?.infoLabel || null;
-  const shouldDockEmbeddedChipHeader = showEmbeddedAchievements || showEmbeddedFriends || showEmbeddedShop;
+  const shouldDockEmbeddedChipHeader = showEmbeddedAchievements || showEmbeddedFriends;
 
   const handleRegenerateZones = async () => {
     if (isRegeneratingZones || !user?.id) return;
