@@ -2489,18 +2489,23 @@ export default function Home() {
                             transition={{ duration: 0.16, ease: "easeOut" }}
                             className="absolute inset-0 px-0 pt-[5.5rem] md:pt-[5.8rem] flex flex-col justify-start"
                           >
-                            <div className="space-y-2.5 w-full">
-                              <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-[11px] md:text-xs text-stone-100/90">
-                                <div className="font-semibold uppercase tracking-wide text-stone-50">
+                            <div className={`w-full rounded-2xl border px-3 py-3 space-y-2.5 ${
+                              isLightUi
+                                ? "border-[#c8ac62]/45 bg-white/36 text-stone-700"
+                                : "border-[#f0e5a5]/35 bg-black/28 text-stone-100"
+                            }`}>
+                              <div className="text-[11px] md:text-xs">
+                                <div className={`font-semibold uppercase tracking-wide ${isLightUi ? "text-stone-800" : "text-stone-50"}`}>
                                   {plantHealthState.label}
                                 </div>
-                                <div className="text-stone-200/80">
+                                <div className={isLightUi ? "text-stone-700/85" : "text-stone-200/80"}>
                                   Gesundheitsbonus auf Scan-Events: <strong>+{healthStateBonus}</strong>
                                 </div>
                               </div>
+
                               {healthStats.map((stat) => (
                                 <div key={stat.id} className="space-y-1">
-                                  <div className="flex items-center justify-between text-[11px] md:text-xs text-stone-100/90">
+                                  <div className={`flex items-center justify-between text-[11px] md:text-xs ${isLightUi ? "text-stone-700" : "text-stone-100/90"}`}>
                                     <LockedTooltip
                                       content={
                                         <span className="text-xs leading-relaxed">{HEALTH_TOOLTIP_TEXT[stat.id] || "Wert der Robopflanze"}</span>
@@ -2528,48 +2533,34 @@ export default function Home() {
                                 </div>
                               ))}
 
-                              <div className="pt-1.5">
-                                <div className={`rounded-xl border px-3 py-2 space-y-2 ${
-                                  isLightUi
-                                    ? "border-[#c8ac62]/45 bg-white/40 text-stone-700"
-                                    : "border-[#f0e5a5]/35 bg-black/28 text-stone-100"
-                                }`}>
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={handleWaterPlantClick}
-                                      disabled={waterPlantMutation.isPending || remainingWatersToday <= 0}
-                                      className={`h-9 px-3 rounded-lg border text-[11px] md:text-xs font-semibold disabled:opacity-60 ${
-                                        isLightUi
-                                          ? "border-[#c8ac62]/55 bg-white/60 text-stone-800"
-                                          : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
-                                      }`}
-                                    >
-                                      Giessen
-                                    </button>
-                                    <span className="text-[11px] md:text-xs opacity-90">
-                                      Heute {wateringCountToday}/{wateringLimitPerDay}
-                                    </span>
-                                  </div>
+                              <div className="grid grid-cols-2 gap-2 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={handleWaterPlantClick}
+                                  disabled={waterPlantMutation.isPending || remainingWatersToday <= 0}
+                                  className={`h-14 rounded-xl border flex flex-col items-center justify-center disabled:opacity-60 ${
+                                    isLightUi
+                                      ? "border-[#c8ac62]/55 bg-white/60 text-stone-800"
+                                      : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
+                                  }`}
+                                >
+                                  <span className="text-[11px] md:text-xs font-semibold leading-none">Gießen</span>
+                                  <span className="text-[10px] md:text-[11px] mt-1 leading-none opacity-90">{wateringCountToday}/{wateringLimitPerDay}</span>
+                                </button>
 
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={handleFertilizerSlotClick}
-                                      disabled={useInventoryItemMutation.isPending}
-                                      className={`h-9 px-3 rounded-lg border text-[11px] md:text-xs font-semibold disabled:opacity-60 ${
-                                        isLightUi
-                                          ? "border-[#c8ac62]/55 bg-white/60 text-stone-800"
-                                          : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
-                                      }`}
-                                    >
-                                      Duenger
-                                    </button>
-                                    <span className="text-[11px] md:text-xs opacity-90">
-                                      Aktiv: {activeDecayEffects.length} | Reduktion: {Math.round(activeDecayPercent * 100)}%
-                                    </span>
-                                  </div>
-                                </div>
+                                <button
+                                  type="button"
+                                  onClick={handleFertilizerSlotClick}
+                                  disabled={useInventoryItemMutation.isPending}
+                                  className={`h-14 rounded-xl border flex flex-col items-center justify-center disabled:opacity-60 ${
+                                    isLightUi
+                                      ? "border-[#c8ac62]/55 bg-white/60 text-stone-800"
+                                      : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
+                                  }`}
+                                >
+                                  <span className="text-[11px] md:text-xs font-semibold leading-none">Dünger</span>
+                                  <span className="text-[10px] md:text-[11px] mt-1 leading-none opacity-90">{activeDecayEffects.length} | {Math.round(activeDecayPercent * 100)}%</span>
+                                </button>
                               </div>
                             </div>
                           </motion.div>
