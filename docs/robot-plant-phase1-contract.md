@@ -123,6 +123,31 @@ Decay is reduced by care thresholds and temporary fertilizer effects.
 - anti_decay_medium: 7d, decay reduction 0.25
 - bonus_boost_small: 24h, reward boost 0.15
 
+## Current V1 Implementation Scope (2026-04)
+
+- Shop is embedded in Home and uses RobotPlantShopItem + RobotPlantUserInventory.
+- Initial catalog contains:
+	- Duenger (fertilizer_basic, decay reduction 0.15 for 12h)
+	- Langzeitduenger (fertilizer_longterm, decay reduction 0.25 for 24h)
+	- Accessoire Platzhalter (no gameplay effect yet)
+	- Hintergrund Platzhalter (no gameplay effect yet)
+- Purchase is server-side and atomic via RPC: robot_plant_purchase_item.
+- Item activation is server-side via RPC: robot_plant_use_inventory_item.
+- Gießen is server-side via RPC: robot_plant_water_plant.
+
+Watering rules in v1:
+
+- Max 3 actions per UTC day per user.
+- Care gains per action sequence: +3, +2, +1.
+- No seed cost for watering.
+
+Plant Hero controls in v1:
+
+- Existing top controls remain: Health (left), Zone (right).
+- New mirrored lower control circle:
+	- left: Giessen
+	- right: Duenger slot
+
 ## Technical References
 
 - src/lib/robotPlantConfig.js

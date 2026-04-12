@@ -3,9 +3,17 @@ import { Query } from "@/api/entities";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { upsertUserProfile } from "@/api/authService";
 import { executeMigration } from "@/api/migrationService";
-import { getRobotPlantDailyZones } from "@/api/robotPlantService";
+import {
+  getRobotPlantDailyZones,
+  listRobotPlantShopItems,
+  listRobotPlantInventory,
+  listRobotPlantActiveEffects,
+  purchaseRobotPlantShopItem,
+  useRobotPlantInventoryItem,
+  waterRobotPlant,
+} from "@/api/robotPlantService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Camera, Loader2, Leaf, Plus, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, ArrowLeft, RefreshCw, Map as MapIcon, Zap, Bug } from "lucide-react";
+import { Camera, Loader2, Leaf, ShoppingBag, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, ArrowLeft, RefreshCw, Map as MapIcon, Zap, Bug } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import mapboxgl from "mapbox-gl";
 import AchievementNotification from "../components/achievements/AchievementNotification";
@@ -388,6 +396,9 @@ export default function Home() {
   const [showEmbeddedSettings, setShowEmbeddedSettings] = useState(false);
   const [showEmbeddedAchievements, setShowEmbeddedAchievements] = useState(false);
   const [showEmbeddedFriends, setShowEmbeddedFriends] = useState(false);
+  const [showEmbeddedShop, setShowEmbeddedShop] = useState(false);
+  const [shopCategory, setShopCategory] = useState("fertilizer");
+  const [careActionMessage, setCareActionMessage] = useState(null);
   const [embeddedHeaderMeta, setEmbeddedHeaderMeta] = useState(null);
   const [embeddedFriendsAddDialogNonce, setEmbeddedFriendsAddDialogNonce] = useState(0);
   const [embeddedCollectionPublicPanelOpen, setEmbeddedCollectionPublicPanelOpen] = useState(false);
@@ -401,10 +412,10 @@ export default function Home() {
   }, [showEmbeddedCollection]);
 
   useEffect(() => {
-    if (!showEmbeddedAchievements && !showEmbeddedFriends) {
+    if (!showEmbeddedAchievements && !showEmbeddedFriends && !showEmbeddedShop) {
       setEmbeddedHeaderMeta(null);
     }
-  }, [showEmbeddedAchievements, showEmbeddedFriends]);
+  }, [showEmbeddedAchievements, showEmbeddedFriends, showEmbeddedShop]);
   const [uiTheme, setUiTheme] = useState(() => {
     const stored = localStorage.getItem("home-ui-theme");
     return stored === "light" ? "light" : "dark";
@@ -587,6 +598,84 @@ export default function Home() {
     refetchOnWindowFocus: true,
   });
 
+  const { data: robotPlantShopItems = [] } = useQuery({
+    queryKey: ['robotPlantShopItems'],
+    queryFn: () => listRobotPlantShopItems(),
+    enabled: !!user?.id,
+    initialData: [],
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: robotPlantInventory = [] } = useQuery({
+    queryKey: ['robotPlantInventory', user?.id],
+    queryFn: () => listRobotPlantInventory(user?.id),
+    enabled: !!user?.id,
+    initialData: [],
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: robotPlantActiveEffects = [] } = useQuery({
+    queryKey: ['robotPlantActiveEffects', user?.id],
+    queryFn: () => listRobotPlantActiveEffects(user?.id),
+    enabled: !!user?.id,
+    initialData: [],
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
+  const purchaseShopItemMutation = useMutation({
+    mutationFn: ({ itemId }) => purchaseRobotPlantShopItem({ itemId, quantity: 1 }),
+    onSuccess: async (result) => {
+      if (!result?.applied) {
+        setCareActionMessage(result?.error_code === 'insufficient_balance'
+          ? 'Nicht genug Samen fuer diesen Kauf.'
+          : 'Kauf konnte nicht abgeschlossen werden.');
+        return;
+      }
+      setCareActionMessage('Item gekauft.');
+      await queryClient.invalidateQueries({ queryKey: ['robotPlantState'] });
+      await queryClient.invalidateQueries({ queryKey: ['robotPlantInventory'] });
+    },
+    onError: () => {
+      setCareActionMessage('Kauf fehlgeschlagen.');
+    },
+  });
+
+  const useInventoryItemMutation = useMutation({
+    mutationFn: ({ itemId }) => useRobotPlantInventoryItem({ itemId }),
+    onSuccess: async (result) => {
+      if (!result?.applied) {
+        setCareActionMessage('Aktivierung fehlgeschlagen.');
+        return;
+      }
+
+      setCareActionMessage('Duenger aktiviert.');
+      await queryClient.invalidateQueries({ queryKey: ['robotPlantInventory'] });
+      await queryClient.invalidateQueries({ queryKey: ['robotPlantActiveEffects'] });
+    },
+    onError: () => {
+      setCareActionMessage('Aktivierung fehlgeschlagen.');
+    },
+  });
+
+  const waterPlantMutation = useMutation({
+    mutationFn: () => waterRobotPlant(),
+    onSuccess: async (result) => {
+      if (!result?.applied) {
+        setCareActionMessage('Heute wurde bereits 3x gegossen.');
+      } else {
+        setCareActionMessage(`Gegossen: +${result?.care_delta ?? 0} Pflege (${result?.remaining_waters_today ?? 0} uebrig)`);
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['robotPlantState'] });
+    },
+    onError: () => {
+      setCareActionMessage('Giessen fehlgeschlagen.');
+    },
+  });
+
 
 
   const loadUserData = async () => {
@@ -672,6 +761,7 @@ export default function Home() {
       setShowEmbeddedCollection(false);
       setShowEmbeddedAchievements(false);
       setShowEmbeddedFriends(false);
+      setShowEmbeddedShop(false);
       setShowHeroZoneMap(false);
       setShowHealthStatsPanel(false);
     }
@@ -992,6 +1082,30 @@ export default function Home() {
     0,
     Math.min(100, Number(robotPlantState?.care ?? robotPlantState?.care_value ?? 0))
   );
+
+  const inventoryByItemId = Object.fromEntries(
+    robotPlantInventory.map((entry) => [entry.item_id, entry.quantity || 0])
+  );
+
+  const fertilizerItems = robotPlantShopItems.filter((item) => item.item_type === "fertilizer");
+  const ownedFertilizerItems = fertilizerItems
+    .map((item) => ({ ...item, ownedQuantity: inventoryByItemId[item.id] || 0 }))
+    .filter((item) => item.ownedQuantity > 0)
+    .sort((a, b) => Number(b.effect_value || 0) - Number(a.effect_value || 0));
+
+  const activeDecayEffects = robotPlantActiveEffects
+    .filter((effect) => effect.effect_type === "decay_reduction")
+    .sort((a, b) => new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime());
+
+  const activeDecayPercent = activeDecayEffects.reduce(
+    (acc, effect) => acc + Number(effect.effect_value || 0),
+    0
+  );
+
+  const filteredShopItems = robotPlantShopItems.filter((item) => {
+    if (shopCategory === "all") return true;
+    return item.item_type === shopCategory;
+  });
 
   const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
   const currentMonthlyQuest = getCurrentMonthlyQuest(monthlyQuests);
@@ -1342,6 +1456,7 @@ export default function Home() {
         setShowEmbeddedSettings(false);
         setShowEmbeddedAchievements(false);
         setShowEmbeddedFriends(false);
+        setShowEmbeddedShop(false);
         setEmbeddedHeaderMeta(null);
         setEmbeddedCollectionPublicPanelOpen(false);
         setEmbeddedSelectedCollectionId("global");
@@ -1363,6 +1478,7 @@ export default function Home() {
         setShowEmbeddedSettings(false);
         setShowEmbeddedAchievements(true);
         setShowEmbeddedFriends(false);
+        setShowEmbeddedShop(false);
         setEmbeddedHeaderMeta(null);
         setEmbeddedCollectionPublicPanelOpen(false);
         setEmbeddedSelectedCollectionId("global");
@@ -1384,6 +1500,7 @@ export default function Home() {
         setShowEmbeddedSettings(false);
         setShowEmbeddedAchievements(false);
         setShowEmbeddedFriends(true);
+        setShowEmbeddedShop(false);
         setEmbeddedHeaderMeta(null);
         setEmbeddedCollectionPublicPanelOpen(false);
         setEmbeddedSelectedCollectionId("global");
@@ -1400,7 +1517,19 @@ export default function Home() {
     {
       label: "Shop",
       icon: ShoppingBag,
-      onClick: () => navigate(createPageUrl("Shop")),
+      onClick: () => {
+        setShowEmbeddedCollection(false);
+        setShowEmbeddedSettings(false);
+        setShowEmbeddedAchievements(false);
+        setShowEmbeddedFriends(false);
+        setShowEmbeddedShop(true);
+        setShopCategory("fertilizer");
+        setEmbeddedHeaderMeta(null);
+        setEmbeddedCollectionPublicPanelOpen(false);
+        setEmbeddedSelectedCollectionId("global");
+        setShowHeroZoneMap(false);
+        setShowHealthStatsPanel(false);
+      },
       gradientClass: isLightUi
         ? "bg-gradient-to-b from-[#f7e3d1]/95 via-[#efcfb0]/95 to-[#e7b98c]/95"
         : "bg-gradient-to-b from-[#5a3823]/78 via-[#3a2316]/92 to-[#1b1009]/96",
@@ -1414,7 +1543,8 @@ export default function Home() {
     showEmbeddedCollection ||
     showEmbeddedSettings ||
     showEmbeddedAchievements ||
-    showEmbeddedFriends;
+    showEmbeddedFriends ||
+    showEmbeddedShop;
 
   const embeddedTitle = showEmbeddedCollection
     ? "Kollektionen"
@@ -1424,11 +1554,13 @@ export default function Home() {
         ? (embeddedHeaderMeta?.title || "Erfolge")
         : showEmbeddedFriends
           ? (embeddedHeaderMeta?.title || "Social")
+          : showEmbeddedShop
+            ? "Shop"
           : null;
 
   const embeddedSubtitle = embeddedHeaderMeta?.subtitle || null;
   const embeddedInfoLabel = embeddedHeaderMeta?.infoLabel || null;
-  const shouldDockEmbeddedChipHeader = showEmbeddedAchievements || showEmbeddedFriends;
+  const shouldDockEmbeddedChipHeader = showEmbeddedAchievements || showEmbeddedFriends || showEmbeddedShop;
 
   const handleRegenerateZones = async () => {
     if (isRegeneratingZones || !user?.id) return;
@@ -1495,6 +1627,38 @@ export default function Home() {
     } finally {
       setIsRegeneratingZones(false);
     }
+  };
+
+  const openEmbeddedShop = (category = "fertilizer") => {
+    setShowEmbeddedCollection(false);
+    setShowEmbeddedSettings(false);
+    setShowEmbeddedAchievements(false);
+    setShowEmbeddedFriends(false);
+    setShowEmbeddedShop(true);
+    setShopCategory(category);
+    setEmbeddedHeaderMeta(null);
+    setEmbeddedCollectionPublicPanelOpen(false);
+    setEmbeddedSelectedCollectionId("global");
+    setShowHeroZoneMap(false);
+    setShowHealthStatsPanel(false);
+  };
+
+  const handleWaterPlantClick = () => {
+    setCareActionMessage(null);
+    waterPlantMutation.mutate();
+  };
+
+  const handleFertilizerSlotClick = () => {
+    setCareActionMessage(null);
+    const bestOwnedFertilizer = ownedFertilizerItems[0];
+
+    if (!bestOwnedFertilizer) {
+      openEmbeddedShop("fertilizer");
+      setCareActionMessage("Kein Duenger im Inventar. Kaufe zuerst im Shop.");
+      return;
+    }
+
+    useInventoryItemMutation.mutate({ itemId: bestOwnedFertilizer.id });
   };
 
   return (
@@ -1657,7 +1821,12 @@ export default function Home() {
                     setShowEmbeddedFriends(false);
                     return;
                   }
+                  if (showEmbeddedShop) {
+                    setShowEmbeddedShop(false);
+                    return;
+                  }
                   setShowEmbeddedSettings(true);
+                  setShowEmbeddedShop(false);
                   setShowHeroZoneMap(false);
                   setShowHealthStatsPanel(false);
                 }}
@@ -1695,6 +1864,124 @@ export default function Home() {
                     onHeaderMetaChange={setEmbeddedHeaderMeta}
                     openAddFriendDialogNonce={embeddedFriendsAddDialogNonce}
                   />
+                ) : showEmbeddedShop ? (
+                  <section className={`flex-1 min-h-0 rounded-3xl border px-4 py-4 overflow-hidden flex flex-col ${
+                    isLightUi
+                      ? "border-[#c0a860]/50 backdrop-blur-xl"
+                      : "border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm"
+                  }`}>
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <div className="text-xs md:text-sm font-semibold">
+                        Samen: {playerSeeds}
+                      </div>
+                      {!!careActionMessage && (
+                        <div className={`text-[11px] md:text-xs px-2 py-1 rounded-lg border ${
+                          isLightUi
+                            ? "bg-white/55 border-[#c8ac62]/50 text-stone-700"
+                            : "bg-black/40 border-[#f0e5a5]/45 text-stone-100"
+                        }`}>
+                          {careActionMessage}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {[
+                        { key: "fertilizer", label: "Duenger" },
+                        { key: "accessory", label: "Accessoires" },
+                        { key: "background", label: "Hintergruende" },
+                        { key: "all", label: "Alle" },
+                      ].map((category) => (
+                        <button
+                          key={category.key}
+                          type="button"
+                          onClick={() => setShopCategory(category.key)}
+                          className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-colors ${
+                            shopCategory === category.key
+                              ? (isLightUi
+                                ? "bg-[#f1e2b8] border-[#c8ac62] text-stone-800"
+                                : "bg-[#3b2a18] border-[#f0e5a5]/50 text-amber-100")
+                              : (isLightUi
+                                ? "bg-white/45 border-[#c8ac62]/45 text-stone-700"
+                                : "bg-black/30 border-[#f0e5a5]/35 text-stone-100")
+                          }`}
+                        >
+                          {category.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="min-h-0 flex-1 overflow-y-auto pr-1 space-y-2">
+                      {filteredShopItems.length === 0 ? (
+                        <div className="text-xs opacity-80">Keine Items in dieser Kategorie.</div>
+                      ) : filteredShopItems.map((item) => {
+                        const owned = inventoryByItemId[item.id] || 0;
+                        const isBusy = purchaseShopItemMutation.isPending || useInventoryItemMutation.isPending;
+                        const canUse = owned > 0 && Number(item.effect_value || 0) > 0 && Number(item.duration_hours || 0) > 0;
+
+                        return (
+                          <div
+                            key={item.id}
+                            className={`rounded-2xl border p-3 ${
+                              isLightUi
+                                ? "border-[#c8ac62]/45 bg-white/45"
+                                : "border-[#f0e5a5]/35 bg-black/25"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <div className="text-sm font-semibold">{item.title}</div>
+                                <div className="text-[11px] opacity-75 mt-0.5">{item.description || ""}</div>
+                              </div>
+                              <div className="text-xs font-bold">{item.seed_cost} Samen</div>
+                            </div>
+                            <div className="mt-2 text-[11px] opacity-80">
+                              Besitz: {owned}
+                              {Number(item.effect_value || 0) > 0 && Number(item.duration_hours || 0) > 0
+                                ? ` | Effekt: -${Math.round(Number(item.effect_value) * 100)}% Decay fuer ${item.duration_hours}h`
+                                : " | Platzhalter-Item"}
+                            </div>
+                            <div className="mt-3 flex items-center gap-2">
+                              <button
+                                type="button"
+                                disabled={isBusy || playerSeeds < Number(item.seed_cost || 0)}
+                                onClick={() => purchaseShopItemMutation.mutate({ itemId: item.id })}
+                                className={`h-8 px-3 rounded-lg text-xs font-semibold border disabled:opacity-60 ${
+                                  isLightUi
+                                    ? "border-[#c8ac62]/55 bg-white/65 text-stone-800"
+                                    : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
+                                }`}
+                              >
+                                Kaufen
+                              </button>
+                              {canUse && (
+                                <button
+                                  type="button"
+                                  disabled={isBusy}
+                                  onClick={() => useInventoryItemMutation.mutate({ itemId: item.id })}
+                                  className={`h-8 px-3 rounded-lg text-xs font-semibold border disabled:opacity-60 ${
+                                    isLightUi
+                                      ? "border-emerald-500/50 bg-emerald-100/70 text-emerald-900"
+                                      : "border-emerald-400/40 bg-emerald-900/35 text-emerald-100"
+                                  }`}
+                                >
+                                  Im Slot aktivieren
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className={`mt-3 rounded-xl border px-3 py-2 text-[11px] md:text-xs ${
+                      isLightUi
+                        ? "border-[#c8ac62]/45 bg-white/50 text-stone-700"
+                        : "border-[#f0e5a5]/35 bg-black/35 text-stone-100"
+                    }`}>
+                      Aktive Duenger-Effekte: {activeDecayEffects.length} | Gesamtreduktion: {Math.round(activeDecayPercent * 100)}%
+                    </div>
+                  </section>
                 ) : showEmbeddedSettings ? (
                   <SettingsPanel
                     user={user}
@@ -1935,26 +2222,44 @@ export default function Home() {
                               }`} />
                             </div>
 
-                            <div className="absolute left-1/2 top-1/2 w-[82%] aspect-square -translate-x-1/2 -translate-y-1/2">
-                              {[
-                                'left-0 top-1/2 -translate-x-1/2 -translate-y-1/2',
-                                'right-0 top-1/2 translate-x-1/2 -translate-y-1/2',
-                                'left-1/2 top-0 -translate-x-1/2 -translate-y-1/2',
-                                'left-1/2 bottom-0 -translate-x-1/2 translate-y-1/2',
-                              ].map((position, index) => (
-                                <button
-                                  key={`slot-${index}`}
-                                  type="button"
-                                  className={`absolute ${position} w-12 h-12 md:w-14 md:h-14 rounded-2xl border backdrop-blur-sm flex items-center justify-center transition-colors ${
-                                    isLightUi
-                                      ? "border-[#c8ac62]/55 bg-white/50 text-stone-700 hover:bg-white/65"
-                                      : "border-[#f0e5a5]/45 bg-black/35 text-[#f0e5a5] hover:bg-black/50"
-                                  }`}
-                                  aria-label={`Plus Slot ${index + 1}`}
-                                >
-                                  <Plus className="w-6 h-6" />
-                                </button>
-                              ))}
+                            <div
+                              className={`absolute left-1/2 bottom-0 w-[84%] aspect-[2.6/1] -translate-x-1/2 translate-y-1/3 rounded-full border backdrop-blur-sm px-3 md:px-4 flex items-center justify-between ${
+                                isLightUi
+                                  ? "border-[#c8ac62]/50 bg-white/45"
+                                  : "border-[#f0e5a5]/35 bg-black/35"
+                              }`}
+                            >
+                              <button
+                                type="button"
+                                onClick={handleWaterPlantClick}
+                                disabled={waterPlantMutation.isPending}
+                                className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center transition-colors disabled:opacity-60 ${
+                                  isLightUi
+                                    ? "border-[#c8ac62]/55 bg-white/60 text-stone-700 hover:bg-white/75"
+                                    : "border-[#f0e5a5]/45 bg-black/40 text-[#f0e5a5] hover:bg-black/55"
+                                }`}
+                                aria-label="Pflanze giessen"
+                              >
+                                <Waves className="w-4 h-4" />
+                                <span className="text-[10px] md:text-[11px] font-semibold mt-0.5">Giessen</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={handleFertilizerSlotClick}
+                                disabled={useInventoryItemMutation.isPending}
+                                className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center transition-colors disabled:opacity-60 ${
+                                  isLightUi
+                                    ? "border-[#c8ac62]/55 bg-white/60 text-stone-700 hover:bg-white/75"
+                                    : "border-[#f0e5a5]/45 bg-black/40 text-[#f0e5a5] hover:bg-black/55"
+                                }`}
+                                aria-label="Duenger-Slot"
+                              >
+                                <Flower2 className="w-4 h-4" />
+                                <span className="text-[10px] md:text-[11px] font-semibold mt-0.5">
+                                  {activeDecayEffects.length > 0 ? "Aktiv" : "Duenger"}
+                                </span>
+                              </button>
                             </div>
                           </motion.div>
                         )}

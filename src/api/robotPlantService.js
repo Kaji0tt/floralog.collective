@@ -194,3 +194,80 @@ export const getRobotPlantDailyZones = async ({ latitude, longitude, forceRegene
     rerollsRemainingToday: data.rerollsRemainingToday ?? null,
   };
 };
+
+export const listRobotPlantShopItems = async () => {
+  const items = await Query.RobotPlantShopItem.list("created_at");
+  return Array.isArray(items) ? items : [];
+};
+
+export const listRobotPlantInventory = async (authId) => {
+  if (!authId) return [];
+  const inventory = await Query.RobotPlantUserInventory.filter({ auth_id: authId });
+  return Array.isArray(inventory) ? inventory : [];
+};
+
+export const listRobotPlantActiveEffects = async (authId) => {
+  if (!authId) return [];
+  const nowIso = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("RobotPlantActiveEffect")
+    .select("*")
+    .eq("auth_id", authId)
+    .gt("expires_at", nowIso)
+    .order("expires_at", { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  const effects = data || [];
+  return Array.isArray(effects) ? effects : [];
+};
+
+export const purchaseRobotPlantShopItem = async ({ itemId, quantity = 1, eventReference = null }) => {
+  const { authId } = await getCurrentAuthContext();
+
+  const { data, error } = await supabase.rpc("robot_plant_purchase_item", {
+    p_auth_id: authId,
+    p_item_id: itemId,
+    p_quantity: quantity,
+    p_event_reference: eventReference,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return Array.isArray(data) ? data[0] : data;
+};
+
+export const useRobotPlantInventoryItem = async ({ itemId, eventReference = null }) => {
+  const { authId } = await getCurrentAuthContext();
+
+  const { data, error } = await supabase.rpc("robot_plant_use_inventory_item", {
+    p_auth_id: authId,
+    p_item_id: itemId,
+    p_event_reference: eventReference,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return Array.isArray(data) ? data[0] : data;
+};
+
+export const waterRobotPlant = async ({ eventReference = null } = {}) => {
+  const { authId } = await getCurrentAuthContext();
+
+  const { data, error } = await supabase.rpc("robot_plant_water_plant", {
+    p_auth_id: authId,
+    p_event_reference: eventReference,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return Array.isArray(data) ? data[0] : data;
+};
