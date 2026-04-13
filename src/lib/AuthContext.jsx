@@ -7,6 +7,9 @@ import {
   signOut as supabaseSignOut 
 } from '@/api/authService';
 
+const getTodayKey = () => new Date().toISOString().slice(0, 10);
+const getZoneGenerationStorageKey = (authId) => `robotPlantZoneDay:${authId}`;
+
 
 const AuthContext = createContext(null);
 
@@ -17,6 +20,7 @@ export const AuthProvider = ({ children }) => {
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [authError, setAuthError] = useState(null);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
+  const [zoneGenerationDay, setZoneGenerationDay] = useState(null);
 
   useEffect(() => {
     // Fallback timeout: if auth doesn't respond in 3 seconds, stop loading
@@ -34,6 +38,8 @@ export const AuthProvider = ({ children }) => {
         // User signed in
         setUser(session.user);
         setIsAuthenticated(true);
+        const storedZoneDay = localStorage.getItem(getZoneGenerationStorageKey(session.user.id));
+        setZoneGenerationDay(storedZoneDay || null);
 
         // Load user profile
         try {
@@ -74,6 +80,7 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
         setProfile(null);
         setIsAuthenticated(false);
+        setZoneGenerationDay(null);
       }
 
       setIsLoadingAuth(false);
@@ -88,10 +95,14 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async (shouldRedirect = true) => {
     try {
+      if (user?.id) {
+        localStorage.removeItem(getZoneGenerationStorageKey(user.id));
+      }
       await supabaseSignOut();
       setUser(null);
       setProfile(null);
       setIsAuthenticated(false);
+      setZoneGenerationDay(null);
       
       if (shouldRedirect) {
         window.location.href = '/';
@@ -121,6 +132,20 @@ export const AuthProvider = ({ children }) => {
     setLoginModalOpen(false);
   };
 
+  const setZoneGenerationDayForUser = (dayKey) => {
+    if (!user?.id || !dayKey) return;
+    localStorage.setItem(getZoneGenerationStorageKey(user.id), dayKey);
+    setZoneGenerationDay(dayKey);
+  };
+
+  const clearZoneGenerationDayForUser = () => {
+    if (!user?.id) return;
+    localStorage.removeItem(getZoneGenerationStorageKey(user.id));
+    setZoneGenerationDay(null);
+  };
+
+  const hasCalledZoneGenerationToday = zoneGenerationDay === getTodayKey();
+
   /**
    * Require authentication. If the user is not authenticated, open the login modal
    * and return false. Otherwise return true.
@@ -146,7 +171,11 @@ export const AuthProvider = ({ children }) => {
       loginModalOpen,
       openLoginModal,
       closeLoginModal,
-      requireAuth
+      requireAuth,
+      zoneGenerationDay,
+      hasCalledZoneGenerationToday,
+      setZoneGenerationDayForUser,
+      clearZoneGenerationDayForUser
     }}>
       {children}
     </AuthContext.Provider>

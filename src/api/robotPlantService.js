@@ -152,13 +152,63 @@ export const initializeGeoRasterGrid = async ({ bounds, forceRefresh = false }) 
   return data;
 };
 
-export const getRobotPlantDailyZones = async ({ latitude, longitude, forceRegenerate = false }) => {
+const ROBOT_PLANT_ZONE_ERROR_MESSAGES = {
+  AUTH_DAY_KEY_REQUIRED: "Die Tagesfreigabe fuer die Zonengenerierung fehlt. Bitte lade die Seite neu.",
+  INITIAL_FORCE_REGENERATE_NOT_ALLOWED: "Die erste Zonengenerierung des Tages darf nicht als Reroll gestartet werden.",
+  REROLL_REQUIRES_FORCE_REGENERATE: "Ein Reroll ist nur ueber den Neu-Button moeglich.",
+  INITIAL_ALREADY_CALLED_TODAY: "Die Tageszonen wurden heute bereits initial geladen.",
+  INITIAL_ALREADY_COMPLETED_TODAY: "Die Tageszonen wurden heute bereits erzeugt.",
+  REROLL_REQUIRES_INITIAL_TODAY: "Ein Reroll ist erst moeglich, nachdem die Tageszonen einmal geladen wurden.",
+  REROLL_MISSING_BASE_ZONES: "Es gibt noch keine Tageszonen als Basis fuer einen Reroll.",
+};
+
+/**
+ * @typedef {{
+ *   code?: keyof typeof ROBOT_PLANT_ZONE_ERROR_MESSAGES | string | null,
+ *   error?: string | null,
+ *   rateLimited?: boolean,
+ *   rerollsRemainingToday?: number | null,
+ * }} RobotPlantZoneErrorPayload
+ */
+
+/**
+ * @param {RobotPlantZoneErrorPayload | null | undefined} payload
+ * @param {string} fallbackMessage
+ */
+function createRobotPlantZoneError(payload, fallbackMessage) {
+  const errorCode = payload?.code || null;
+  const zoneErrorMessagesByCode = /** @type {Record<string, string>} */ (ROBOT_PLANT_ZONE_ERROR_MESSAGES);
+  const resolvedMessage =
+    (typeof errorCode === "string" && errorCode in zoneErrorMessagesByCode
+      ? zoneErrorMessagesByCode[errorCode]
+      : null) || payload?.error || fallbackMessage;
+
+  const err = /** @type {Error & { code?: string | null, rateLimited?: boolean, rerollsRemainingToday?: number | null }} */ (
+    new Error(resolvedMessage)
+  );
+  err.code = typeof errorCode === "string" ? errorCode : null;
+  err.rateLimited = payload?.rateLimited === true;
+  err.rerollsRemainingToday = payload?.rerollsRemainingToday ?? null;
+  return err;
+}
+
+export const getRobotPlantDailyZones = async ({
+  latitude,
+  longitude,
+  forceRegenerate = false,
+  authDayKey = null,
+  mode = "initial",
+}) => {
   const { authId, userEmail } = await getCurrentAuthContext();
+  const effectiveAuthDayKey = authDayKey || "1970-01-01";
+  const effectiveMode = mode === "reroll" ? "reroll" : "initial";
 
   console.log("[getRobotPlantDailyZones] Calling function with:", {
     latitude,
     longitude,
     forceRegenerate,
+    authDayKey: effectiveAuthDayKey,
+    mode: effectiveMode,
     authId: authId?.substring(0, 8) + "...",
   });
 
@@ -169,22 +219,32 @@ export const getRobotPlantDailyZones = async ({ latitude, longitude, forceRegene
       latitude,
       longitude,
       forceRegenerate,
+      authDayKey: effectiveAuthDayKey,
+      mode: effectiveMode,
     },
   });
 
   if (error) {
     console.error("[getRobotPlantDailyZones] Function error:", error);
-    throw error;
+    let responsePayload = null;
+    try {
+      responsePayload = await error.context?.json?.();
+    } catch (_parseError) {
+      responsePayload = null;
+    }
+
+    if (responsePayload) {
+      throw createRobotPlantZoneError(responsePayload, "Zonen konnten nicht geladen werden.");
+    }
+
+    throw new Error(error.message || "Zonen konnten nicht geladen werden.");
   }
 
   console.log("[getRobotPlantDailyZones] Response:", { success: data?.success, cached: data?.cached, zoneCount: data?.zones?.length });
 
   if (!data?.success || !Array.isArray(data?.zones)) {
-    const errMsg = data?.error || "Failed to load daily zones";
-    console.error("[getRobotPlantDailyZones] Error response:", errMsg);
-    const err = new Error(errMsg);
-    err.rateLimited = data?.rateLimited === true;
-    throw err;
+    console.error("[getRobotPlantDailyZones] Error response:", data?.error || "Failed to load daily zones");
+    throw createRobotPlantZoneError(data, "Zonen konnten nicht geladen werden.");
   }
 
   return {

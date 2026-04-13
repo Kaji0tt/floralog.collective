@@ -22,6 +22,8 @@ proj4.defs("EPSG:3035", EPSG_3035);
 interface RequestBody {
   authId?: string;
   userEmail?: string | null;
+  authDayKey?: string;
+  mode?: "initial" | "reroll";
   latitude?: number;
   longitude?: number;
   forceRegenerate?: boolean;
@@ -706,6 +708,8 @@ Deno.serve(async (req) => {
     const body = (await req.json()) as RequestBody;
     const authId = String(body.authId || "").trim();
     const providedEmail = normalizeEmail(body.userEmail);
+    const authDayKey = String(body.authDayKey || "").trim();
+    const callMode: "initial" | "reroll" = body.mode === "reroll" ? "reroll" : "initial";
 
     if (!isUuid(authId)) {
       return jsonResponse({ error: "authId required" }, 400);
@@ -747,6 +751,46 @@ Deno.serve(async (req) => {
 
     const robot = robots as any;
     const dayKey = toDayKey();
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(authDayKey)) {
+      return jsonResponse({
+        success: false,
+        error: "authDayKey required",
+        code: "AUTH_DAY_KEY_REQUIRED",
+      }, 400);
+    }
+
+    if (callMode === "initial" && forceRegenerate) {
+      return jsonResponse({
+        success: false,
+        error: "Initial mode cannot force regenerate.",
+        code: "INITIAL_FORCE_REGENERATE_NOT_ALLOWED",
+      }, 400);
+    }
+
+    if (callMode === "reroll" && !forceRegenerate) {
+      return jsonResponse({
+        success: false,
+        error: "Reroll mode requires forceRegenerate=true.",
+        code: "REROLL_REQUIRES_FORCE_REGENERATE",
+      }, 400);
+    }
+
+    if (callMode === "initial" && authDayKey === dayKey) {
+      return jsonResponse({
+        success: false,
+        error: "Daily initial call already completed today.",
+        code: "INITIAL_ALREADY_CALLED_TODAY",
+      }, 409);
+    }
+
+    if (callMode === "reroll" && authDayKey !== dayKey) {
+      return jsonResponse({
+        success: false,
+        error: "Reroll requires a successful initial call today.",
+        code: "REROLL_REQUIRES_INITIAL_TODAY",
+      }, 409);
+    }
 
     // === DAILY DECAY TICK ===
     // Order: 1) snapshot pre-decay reroll bonus, 2) apply decay, 3) use post-decay energy for zones
@@ -838,6 +882,35 @@ Deno.serve(async (req) => {
     const authKeySuffix = authId.replace(/-/g, "");
     const queryStartTime = Date.now();
     const zoneThemes = ["forest", "urban", "water", "meadow"];
+
+    const { data: todaysExistingZones, error: todaysExistingError } = await adminClient
+      .from("RobotPlantZone")
+      .select("id")
+      .eq("day_generated", dayKey)
+      .like("zone_key", `%:${authKeySuffix}`)
+      .in("theme", zoneThemes)
+      .limit(1);
+
+    if (todaysExistingError) {
+      console.error("[robotPlantDailyZones] Failed to check today's existing zones:", todaysExistingError);
+      return jsonResponse({ error: "Failed to validate daily zone call" }, 500);
+    }
+
+    if (callMode === "initial" && Array.isArray(todaysExistingZones) && todaysExistingZones.length > 0) {
+      return jsonResponse({
+        success: false,
+        error: "Daily initial call already completed today.",
+        code: "INITIAL_ALREADY_COMPLETED_TODAY",
+      }, 409);
+    }
+
+    if (callMode === "reroll" && (!Array.isArray(todaysExistingZones) || todaysExistingZones.length === 0)) {
+      return jsonResponse({
+        success: false,
+        error: "Reroll requires existing zones for today.",
+        code: "REROLL_MISSING_BASE_ZONES",
+      }, 409);
+    }
 
     // Keep only today's cache rows for this user and purge stale day-bound cache rows.
     const { error: staleCacheCleanupError } = await adminClient

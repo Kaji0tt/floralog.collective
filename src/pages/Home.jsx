@@ -47,6 +47,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
 import { useUiTheme } from "@/lib/UiThemeContext";
+import { useAuth } from "@/lib/AuthContext";
 
 const THEME_MAP_COLORS = {
   forest: "#007a3f",
@@ -73,6 +74,11 @@ export default function Home() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const { isLightUi } = useUiTheme();
+  const {
+    zoneGenerationDay,
+    hasCalledZoneGenerationToday,
+    setZoneGenerationDayForUser,
+  } = useAuth();
   const [user, setUser] = useState(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [newAchievements, setNewAchievements] = useState([]);
@@ -604,9 +610,66 @@ export default function Home() {
     return calculateDistanceMetersRaw(lat1, lon1, lat2, lon2);
   };
 
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const getDailyZoneStorageKey = (authId) => `robotPlantDailyZones:${authId}:${todayKey}`;
+
+  const persistDailyZoneSnapshot = (authId, zones, rerollsRemainingToday) => {
+    if (!authId) return;
+    localStorage.setItem(
+      getDailyZoneStorageKey(authId),
+      JSON.stringify({ zones: Array.isArray(zones) ? zones : [], rerollsRemainingToday: rerollsRemainingToday ?? null }),
+    );
+  };
+
+  const readDailyZoneSnapshot = (authId) => {
+    if (!authId) return null;
+    try {
+      const raw = localStorage.getItem(getDailyZoneStorageKey(authId));
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed?.zones)) return null;
+      return {
+        zones: parsed.zones,
+        rerollsRemainingToday: parsed.rerollsRemainingToday ?? null,
+      };
+    } catch {
+      return null;
+    }
+  };
+
   useEffect(() => {
     const loadZoneForHero = async () => {
       if (!user?.id) return;
+      if (hasCalledZoneGenerationToday) {
+        const cachedSnapshot = readDailyZoneSnapshot(user.id);
+        if (cachedSnapshot) {
+          const zones = cachedSnapshot.zones || [];
+          setHeroZones(zones);
+          if (cachedSnapshot.rerollsRemainingToday !== null) {
+            setZoneRerollsRemaining(cachedSnapshot.rerollsRemainingToday);
+          }
+
+          const location = getCachedLocation();
+          const inRangeZone = (zones || [])
+            .map((zone) => {
+              const dist = calculateDistanceMeters(
+                location?.lat,
+                location?.lng,
+                Number(zone.centerLat),
+                Number(zone.centerLng)
+              );
+              return { ...zone, distanceM: dist };
+            })
+            .filter((zone) => Number.isFinite(zone.distanceM) && zone.distanceM <= Number(zone.radiusM || 0))
+            .sort((a, b) => a.distanceM - b.distanceM)[0];
+
+          setActiveZone(inRangeZone || null);
+        }
+
+        console.log("[Home] Daily initial zone call already done - using local snapshot");
+        return;
+      }
+
       const location = getCachedLocation();
       if (!Number.isFinite(location?.lat) || !Number.isFinite(location?.lng)) {
         setHeroZones([]);
@@ -620,7 +683,12 @@ export default function Home() {
         const daily = await getRobotPlantDailyZones({
           latitude: location.lat,
           longitude: location.lng,
+          authDayKey: zoneGenerationDay,
+          mode: "initial",
         });
+
+        setZoneGenerationDayForUser(todayKey);
+        persistDailyZoneSnapshot(user.id, daily?.zones || [], daily?.rerollsRemainingToday ?? null);
 
         setHeroZones(daily?.zones || []);
         if (daily?.rerollsRemainingToday !== undefined && daily?.rerollsRemainingToday !== null) {
@@ -652,7 +720,7 @@ export default function Home() {
     };
 
     loadZoneForHero();
-  }, [user?.id]);
+  }, [user?.id, hasCalledZoneGenerationToday, zoneGenerationDay, setZoneGenerationDayForUser, todayKey]);
 
   useEffect(() => {
     const handleOutside = (event) => {
@@ -1189,6 +1257,10 @@ export default function Home() {
 
   const handleRegenerateZones = async () => {
     if (isRegeneratingZones || !user?.id) return;
+    if (!hasCalledZoneGenerationToday) {
+      setZoneMapError("Bitte zuerst die Tageszonen initial laden.");
+      return;
+    }
 
     const location = getCachedLocation();
     if (!Number.isFinite(location?.lat) || !Number.isFinite(location?.lng)) {
@@ -1203,7 +1275,12 @@ export default function Home() {
         latitude: location.lat,
         longitude: location.lng,
         forceRegenerate: true,
+        authDayKey: zoneGenerationDay,
+        mode: "reroll",
       });
+
+      setZoneGenerationDayForUser(todayKey);
+      persistDailyZoneSnapshot(user.id, daily?.zones || [], daily?.rerollsRemainingToday ?? null);
 
       const zones = daily?.zones || [];
       setHeroZones(zones);
@@ -1231,23 +1308,7 @@ export default function Home() {
       if (error?.rateLimited) {
         setZoneRerollsRemaining(0);
       }
-      
-      // If regeneration failed (e.g., rate limited), try to load cached zones anyway
-      if (heroZones.length === 0) {
-        try {
-          console.log("[Home] Attempting to load cached zones after regeneration failure...");
-          const cached = await getRobotPlantDailyZones({
-            latitude: location.lat,
-            longitude: location.lng,
-            forceRegenerate: false,
-          });
-          const zones = cached?.zones || [];
-          setHeroZones(zones);
-        } catch (cachedError) {
-          console.error("[Home] Failed to load cached zones after regeneration failure:", cachedError);
-        }
-      }
-      
+
       setZoneMapError(String(message));
     } finally {
       setIsRegeneratingZones(false);
@@ -1555,7 +1616,7 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={handleRegenerateZones}
-                        disabled={isRegeneratingZones || isLoadingZone || (!isAdminUser && zoneRerollsRemaining === 0)}
+                        disabled={!hasCalledZoneGenerationToday || isRegeneratingZones || isLoadingZone || (!isAdminUser && zoneRerollsRemaining === 0)}
                         className={`h-10 px-3 rounded-xl border backdrop-blur-sm flex items-center gap-2 text-xs md:text-sm font-semibold disabled:opacity-60 ${
                           isLightUi
                             ? "border-[#c8ac62]/55 bg-white/60 text-stone-800 hover:bg-white/70"

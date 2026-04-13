@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
@@ -11,7 +12,13 @@ import MobileBackButton from "../components/navigation/MobileBackButton";
 const DEFAULT_CENTER = { lat: 51.1657, lng: 10.4515 };
 
 export default function Map() {
+  const [searchParams] = useSearchParams();
   const [user, setUser] = useState(null);
+
+  const urlLat = parseFloat(searchParams.get("lat") ?? "");
+  const urlLng = parseFloat(searchParams.get("lng") ?? "");
+  const urlCenter = Number.isFinite(urlLat) && Number.isFinite(urlLng) ? { lat: urlLat, lng: urlLng } : null;
+
   const [userLocation, setUserLocation] = useState(null);
   const [gettingLocation, setGettingLocation] = useState(false);
   const [mapError, setMapError] = useState(null);
@@ -37,7 +44,7 @@ export default function Map() {
     [allDiscoveries]
   );
 
-  const mapCenter = userLocation || DEFAULT_CENTER;
+  const mapCenter = userLocation || urlCenter || DEFAULT_CENTER;
   const title = user?.display_name || user?.full_name || "Floralog Karte";
 
   const handleGetLocation = () => {
@@ -122,7 +129,7 @@ export default function Map() {
               <div className="rounded-xl border border-[#f0e5a5]/30 bg-black/55 px-3 py-2 text-xs font-semibold text-stone-100 backdrop-blur-sm">
                 <div className="flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-lime-300" />
-                  <span>Zentrum: {userLocation ? "Dein Standort" : "Deutschland"}</span>
+                  <span>Zentrum: {userLocation ? "Dein Standort" : urlCenter ? "URL-Koordinaten" : "Deutschland"}</span>
                 </div>
               </div>
 
