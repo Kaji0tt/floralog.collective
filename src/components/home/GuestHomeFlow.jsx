@@ -83,7 +83,7 @@ export default function GuestHomeFlow({ allDiscoveries = [], publicCollections =
     if (!guestLocation) return [];
 
     return allDiscoveries
-      .map((entry) => {
+    .map((entry) => {
         const coords = parseDiscoveryCoordinates(entry?.discovery_location);
         if (!coords) return null;
 
@@ -184,7 +184,7 @@ export default function GuestHomeFlow({ allDiscoveries = [], publicCollections =
         <div className="relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6 text-stone-100">
           <div className="rounded-2xl border border-[#f0e5a5]/30 bg-black/25 px-4 py-3 backdrop-blur-sm">
             <p className="text-xs uppercase tracking-[0.22em] text-lime-200/80">Floralog</p>
-            <h1 className="text-lg font-semibold text-stone-100">Finde Schaetze vor der Tuer.</h1>
+            <h1 className="text-lg font-semibold text-stone-100">Dein Naturbegleiter.</h1>
           </div>
 
           {showGuestZoneMap ? (
