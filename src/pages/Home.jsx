@@ -1305,8 +1305,13 @@ export default function Home() {
     } catch (error) {
       const message = error?.message || "Zonen konnten nicht neu generiert werden.";
       console.warn("[Home] Zone regeneration failed:", message);
-      if (error?.rateLimited) {
-        setZoneRerollsRemaining(0);
+      const nextRerollsRemaining = Number.isFinite(Number(error?.rerollsRemainingToday))
+        ? Math.max(0, Number(error.rerollsRemainingToday))
+        : (error?.rateLimited ? 0 : null);
+
+      if (nextRerollsRemaining !== null) {
+        setZoneRerollsRemaining(nextRerollsRemaining);
+        persistDailyZoneSnapshot(user.id, heroZones, nextRerollsRemaining);
       }
 
       setZoneMapError(String(message));

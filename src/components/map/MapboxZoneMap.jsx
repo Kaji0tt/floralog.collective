@@ -319,6 +319,11 @@ export default function MapboxZoneMap({
           },
         });
       }
+
+      // Keep discovery markers visually below the player marker.
+      if (map.getLayer("hero-discovery-points") && map.getLayer("hero-user-point")) {
+        map.moveLayer("hero-discovery-points", "hero-user-point");
+      }
     };
 
     if (map.isStyleLoaded()) {
