@@ -1079,6 +1079,11 @@ export default function Home() {
 
           const entryEmailUser = typeof entry?.user === "string" ? entry.user.toLowerCase() : null;
           const entryEmailCreatedBy = typeof entry?.created_by === "string" ? entry.created_by.toLowerCase() : null;
+          const entryAuthId = entry?.auth_id || entry?.created_by_id || "";
+          const isOwnDiscovery =
+            (entryAuthId && user?.id && entryAuthId === user.id) ||
+            (entryEmailUser && user?.email && entryEmailUser === user.email.toLowerCase()) ||
+            (entryEmailCreatedBy && user?.email && entryEmailCreatedBy === user.email.toLowerCase());
           const discoveryUser = allUsers.find((candidate) => {
             if (candidate?.auth_id && (candidate.auth_id === entry?.auth_id || candidate.auth_id === entry?.created_by_id)) {
               return true;
@@ -1088,13 +1093,12 @@ export default function Home() {
             return candidateEmail === entryEmailUser || candidateEmail === entryEmailCreatedBy;
           });
 
-          const scannerName =
+          const scannerNameFromProfile =
             discoveryUser?.display_name ||
             discoveryUser?.full_name ||
-            discoveryUser?.user_email ||
-            entry?.user ||
-            entry?.created_by ||
-            "Unbekannt";
+            "";
+          const scannerNameFromOwnProfile = user?.display_name || user?.full_name || "";
+          const scannerName = (scannerNameFromProfile || (isOwnDiscovery ? scannerNameFromOwnProfile : "") || "Unbekannt").trim();
 
           return {
             lat: coords.lat,
@@ -1106,6 +1110,7 @@ export default function Home() {
             scannerEmail: discoveryUser?.user_email || entry?.user || entry?.created_by || "",
             scannerAuthId: discoveryUser?.auth_id || entry?.auth_id || entry?.created_by_id || "",
             plantName: plant?.species_name || "Unbekannte Pflanze",
+            plantId: plant?.id || entry?.plant_id || "",
             genusId: plant?.genus_id || "",
             likedByCurrentUser: likedDiscoveryIdSet.has(entry?.id),
             discoveredAt: entry?.created_date || entry?.discovered_date || entry?.updated_date || null,
@@ -1415,11 +1420,24 @@ export default function Home() {
     }
   };
 
-  const handleDiscoveryImageClick = ({ discoveryId, scannerEmail, genusId }) => {
-    if (!discoveryId || !genusId) return;
+  const handleDiscoveryImageClick = ({ discoveryId, scannerEmail, genusId, plantId }) => {
+    if (!discoveryId) return;
+
+    const resolvedPlantId =
+      plantId ||
+      allDiscoveries.find((entry) => entry?.id === discoveryId)?.plant_id ||
+      "";
+    const resolvedGenusId =
+      genusId ||
+      plants.find((candidate) => candidate?.id === resolvedPlantId)?.genus_id ||
+      "";
+    if (!resolvedGenusId) {
+      setZoneMapError("Scan konnte nicht geoeffnet werden (fehlende Genus-Zuordnung).");
+      return;
+    }
 
     const params = new URLSearchParams();
-    params.set("id", genusId);
+    params.set("id", resolvedGenusId);
     if (scannerEmail && scannerEmail.toLowerCase() !== (user?.email || "").toLowerCase()) {
       params.set("email", scannerEmail);
     }

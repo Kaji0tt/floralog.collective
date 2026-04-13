@@ -53,7 +53,7 @@ const buildDiscoveryPopupHtml = (properties) => {
       ${mediaHtml}
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
         <div style="min-width:0;">
-          <div style="font-size:12px;font-weight:700;color:#f5f5f4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${plantName}</div>
+          <button type="button" data-popup-action="open-scan" style="padding:0;border:0;background:transparent;display:block;max-width:100%;font-size:12px;font-weight:700;color:#f5f5f4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;text-align:left;">${plantName}</button>
           <div style="font-size:10px;color:#cbd5e1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${dateLabel} · ${scannerDisplayName}</div>
         </div>
         <button type="button" title="Like" aria-label="Like" data-popup-action="toggle-like" style="border:1px solid rgba(240,229,165,0.26);background:rgba(0,0,0,0.25);color:#fda4af;border-radius:999px;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;line-height:1;cursor:pointer;">${isLiked ? "♥" : "♡"}</button>
@@ -74,14 +74,17 @@ const openDiscoveryPopup = ({ map, event, feature, onDiscoveryImageClick, onDisc
   const popupRoot = popup.getElement();
   if (!popupRoot) return;
 
-  const imageButton = popupRoot.querySelector('[data-popup-action="open-scan"]');
-  if (imageButton && typeof onDiscoveryImageClick === "function") {
-    imageButton.addEventListener("click", () => {
-      onDiscoveryImageClick({
-        discoveryId: properties?.discoveryId || "",
-        scannerAuthId: properties?.scannerAuthId || "",
-        scannerEmail: properties?.scannerEmail || "",
-        genusId: properties?.genusId || "",
+  const openScanButtons = popupRoot.querySelectorAll('[data-popup-action="open-scan"]');
+  if (openScanButtons.length > 0 && typeof onDiscoveryImageClick === "function") {
+    openScanButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        onDiscoveryImageClick({
+          discoveryId: properties?.discoveryId || "",
+          scannerAuthId: properties?.scannerAuthId || "",
+          scannerEmail: properties?.scannerEmail || "",
+          genusId: properties?.genusId || "",
+          plantId: properties?.plantId || "",
+        });
       });
     });
   }
@@ -420,6 +423,7 @@ export default function MapboxZoneMap({
               scannerEmail: point?.scannerEmail || "",
               scannerAuthId: point?.scannerAuthId || "",
               plantName: point?.plantName || "Unbekannte Pflanze",
+              plantId: point?.plantId || "",
               genusId: point?.genusId || "",
               likedByCurrentUser: String(point?.likedByCurrentUser === true),
               discoveredAt: point?.discoveredAt || "",
