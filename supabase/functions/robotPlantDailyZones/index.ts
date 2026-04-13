@@ -379,6 +379,16 @@ async function fetchTileValuesForChunkIds(
   return { rows: allRows, error: null };
 }
 
+function hashStrToInt(s: string): number {
+  // FNV-1a 32-bit — fast, deterministic, good distribution
+  let hash = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) {
+    hash ^= s.charCodeAt(i);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+  return hash >>> 0;
+}
+
 function createSeededRng(seed: number): () => number {
   let t = seed >>> 0;
   return () => {
@@ -1032,7 +1042,12 @@ Deno.serve(async (req) => {
     }
 
     // Select best zones from available cells based on current energy budget.
-    const regenerationSeed = Date.now();
+    // For normal loads: deterministic seed so concurrent calls (Layout warmup + Home load)
+    // always generate the same zones → same zone_keys → upsert dedup is effective.
+    // For force-regenerate: random seed per reroll so the user gets fresh zones.
+    const regenerationSeed = forceRegenerate
+      ? Date.now() + (rerollsUsedToday + 1) * 31337
+      : hashStrToInt(`${dayKey}:${authId}`);
     const selectedZones = buildBestZoneSetWithRerolls(cells, baseLat, baseLng, {
       randomize: true,
       seed: regenerationSeed,

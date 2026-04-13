@@ -875,11 +875,11 @@ Viel Spaß beim Entdecken! 🌿`;
       ? `${friends.length} Freunde`
       : activeTab === "news"
         ? `${unreadNewsCount} Neuigkeiten`
-        : `${explorerLogEntries.length} Log-Eintraege`;
+        : `${explorerLogEntries.length} Log-Einträge`;
 
     onHeaderMetaChange({
       title: activeTab === "friends" ? "Social" : activeTab === "news" ? "Neuigkeiten" : "Forscher Log",
-      subtitle: activeTab === "explorer" ? "Scans aus den letzten 30 Tagen" : "Dein Freundesbereich",
+      subtitle: activeTab === "explorer" ? "Scans der letzten 30 Tage" : "Dein Freundesbereich",
       infoLabel,
     });
   }, [
@@ -1353,7 +1353,7 @@ Viel Spaß beim Entdecken! 🌿`;
                         <BookOpenText className={`w-4 h-4 ${isLightUi ? "text-emerald-700" : "text-emerald-300"}`} />
                         <h3 className="text-base font-semibold">Forscher Log</h3>
                       </div>
-                      <p className={`text-sm mt-1 ${bodyTextClass}`}>Ein visuelles Journal der letzten Scans in deinem Netzwerk.</p>
+                      <p className={`text-sm mt-1 ${bodyTextClass}`}>Ein visuelles Journal der letzten Scans.</p>
                     </div>
                     <Badge className={accentBadgeClass}>{explorerLogEntries.length}</Badge>
                   </div>
