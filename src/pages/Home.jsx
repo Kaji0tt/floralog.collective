@@ -1102,7 +1102,7 @@ export default function Home() {
       id: "zone",
       title: "📍 Zone",
       value: formatMultiplier(zoneMultiplier),
-      description: "Start x1.5, pro weiterem Scan in derselben Zone -0.2 (bis x0.5).",
+      description: "Start x1.5, pro weiterem Scan in derselben Zone -0.1 (bis x1.0, kein Penalty).",
     },
     {
       id: "care",

@@ -101,11 +101,11 @@ export const REWARD_FORMULA_CONFIG = Object.freeze({
     [ROBOT_PLANT_EVENT_SOURCES.shopBoost]: 0,
   },
   zoneMultiplier: {
-    min: 0.5,
+    min: 1,
     max: 1.5,
     default: 1,
     start: 1.5,
-    decrementPerAdditionalScan: 0.2,
+    decrementPerAdditionalScan: 0.1,
   },
   noveltyMultiplier: {
     min: 0.2,
@@ -145,8 +145,8 @@ export const ROBOT_PLANT_GEO_ZONE_CONFIG = Object.freeze({
   zoneRadiusMinM: 50,
   zoneRadiusMaxM: 500,
   zoneBaseMultiplier: 1.5,
-  zoneMultiplierFloor: 0.5,
-  zoneMultiplierStepDownPerAdditionalScan: 0.2,
+  zoneMultiplierFloor: 1,
+  zoneMultiplierStepDownPerAdditionalScan: 0.1,
 
   // Energy based zone budget
   zoneCountByEnergyBand: [

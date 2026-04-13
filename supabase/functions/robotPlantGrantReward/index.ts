@@ -85,7 +85,7 @@ const REWARD_FORMULA_CONFIG = {
     new_scan: 30,
     new_global_scan: 50,
   },
-  zoneMultiplier: { min: 0.5, max: 1.5, default: 1, start: 1.5, decrementPerAdditionalScan: 0.2 },
+  zoneMultiplier: { min: 1, max: 1.5, default: 1, start: 1.5, decrementPerAdditionalScan: 0.1 },
   noveltyMultiplier: { min: 0.2, max: 1, decrementPerDuplicateScan: 0.2 },
   streakMultiplier: { min: 1, max: 7 },
   careMultiplier: { min: 0.5, max: 1.5 },
