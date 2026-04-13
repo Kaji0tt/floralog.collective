@@ -170,25 +170,25 @@ export default function GuestHomeFlow({ allDiscoveries = [], publicCollections =
   };
 
   return (
-    <HomeBackgroundShell user={null} isLightUi={false} getRgbaFromRgb={() => null}>
+    <HomeBackgroundShell user={null} backgroundVariant="guest" getRgbaFromRgb={() => null}>
       <motion.div
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, ease: "easeOut" }}
         data-ui="home-main-content-shell-guest"
-        className="relative h-full w-full max-w-md md:max-w-3xl rounded-[2rem] overflow-hidden border border-[#d7cf9c]/65 shadow-[0_20px_80px_rgba(0,0,0,0.55)]"
+        className="relative h-full w-full max-w-md md:max-w-3xl rounded-[2rem] overflow-hidden border border-[#d7cf9c]/65 shadow-[0_20px_60px_rgba(77,92,26,0.24)]"
       >
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(126,171,98,0.45)_0%,rgba(10,22,15,0.78)_100%)]" />
-        <div className="absolute inset-0 pointer-events-none rounded-[2rem] border border-[#f0e5a5]/30" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,244,193,0.22)_0%,rgba(218,233,161,0.16)_34%,rgba(65,102,53,0.32)_100%)]" />
+        <div className="absolute inset-0 pointer-events-none rounded-[2rem] border border-[#fff3bf]/35" />
 
         <div className="relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6 text-stone-100">
-          <div className="rounded-2xl border border-[#f0e5a5]/30 bg-black/25 px-4 py-3 backdrop-blur-sm">
-            <p className="text-xs uppercase tracking-[0.22em] text-lime-200/80">Floralog</p>
-            <h1 className="text-lg font-semibold text-stone-100">Dein Naturbegleiter.</h1>
+          <div className="rounded-2xl border border-[#fff3bf]/45 bg-[rgba(66,84,32,0.18)] px-4 py-3 backdrop-blur-sm">
+            <p className="text-xs uppercase tracking-[0.22em] text-[#f6f3c7]">Floralog</p>
+            <h1 className="text-lg font-semibold text-[#f9f6e8]">Dein Naturbegleiter.</h1>
           </div>
 
           {showGuestZoneMap ? (
-            <section className="mt-3 relative flex-1 min-h-0 rounded-3xl border overflow-hidden border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm">
+            <section className="mt-3 relative flex-1 min-h-0 rounded-3xl border overflow-hidden border-[#fff3bf]/35 bg-[rgba(66,84,32,0.18)] backdrop-blur-sm">
               <MapboxZoneMap
                 zones={guestZones}
                 userLocation={guestLocation}
@@ -197,7 +197,7 @@ export default function GuestHomeFlow({ allDiscoveries = [], publicCollections =
                 onTokenError={setGuestZoneError}
               />
 
-              <div className="absolute left-4 top-4 z-[1200] rounded-xl border border-[#f0e5a5]/35 bg-black/55 px-3 py-1.5 text-[11px] md:text-xs font-semibold text-stone-100">
+              <div className="absolute left-4 top-4 z-[1200] rounded-xl border border-[#fff3bf]/40 bg-[rgba(48,65,25,0.52)] px-3 py-1.5 text-[11px] md:text-xs font-semibold text-stone-100">
                 Funde im Umkreis (2km): {guestNearbyDiscoveryPoints.length}
               </div>
 
@@ -211,7 +211,7 @@ export default function GuestHomeFlow({ allDiscoveries = [], publicCollections =
                 <button
                   type="button"
                   onClick={() => setShowGuestZoneMap(false)}
-                  className="h-10 px-3 rounded-xl border border-[#f0e5a5]/45 bg-black/55 text-stone-100 hover:bg-black/70 transition-colors flex items-center gap-2 text-xs md:text-sm font-semibold"
+                  className="h-10 px-3 rounded-xl border border-[#fff3bf]/45 bg-[rgba(48,65,25,0.52)] text-stone-100 hover:bg-[rgba(48,65,25,0.66)] transition-colors flex items-center gap-2 text-xs md:text-sm font-semibold"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   Zurueck
@@ -222,7 +222,7 @@ export default function GuestHomeFlow({ allDiscoveries = [], publicCollections =
             <div
               ref={guestScrollRef}
               onScroll={handleGuestScroll}
-              className="relative flex flex-1 min-h-0 flex-col overflow-y-auto snap-y snap-mandatory scroll-smooth mt-3 rounded-3xl border border-[#f0e5a5]/25 bg-black/20 backdrop-blur-sm"
+              className="relative flex flex-1 min-h-0 flex-col overflow-y-auto snap-y snap-mandatory scroll-smooth mt-3 rounded-3xl border border-[#fff3bf]/35 bg-[rgba(66,84,32,0.16)] backdrop-blur-sm"
               data-ui="home-content-stack"
             >
               <section className="relative h-full min-h-full snap-start p-5 md:p-7 flex flex-col justify-between gap-5 overflow-y-auto pr-2">
