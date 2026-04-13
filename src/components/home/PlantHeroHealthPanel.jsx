@@ -15,6 +15,7 @@ export default function PlantHeroHealthPanel({
   plantHealthState,
   healthStateBonus,
   healthStats,
+  isLoading = false,
   wateringCountToday,
   wateringLimitPerDay,
   remainingWatersToday,
@@ -26,6 +27,8 @@ export default function PlantHeroHealthPanel({
   onFertilizerSlot,
 }) {
   const { isLightUi } = useUiTheme();
+  const safeHealthStats = Array.isArray(healthStats) ? healthStats : [];
+
   return (
     <motion.div
       key="hero-stats"
@@ -51,11 +54,11 @@ export default function PlantHeroHealthPanel({
             {plantHealthState.label}
           </div>
           <div className={isLightUi ? "text-stone-700/85" : "text-stone-200/80"}>
-            Gesundheitsbonus auf Scan-Events: <strong>+{healthStateBonus}</strong>
+            Gesundheitsbonus auf Scan-Events: <strong>{isLoading ? "..." : `+${healthStateBonus}`}</strong>
           </div>
         </div>
 
-        {healthStats.map((stat) => (
+        {safeHealthStats.map((stat) => (
           <div key={stat.id} className="space-y-1">
             <div
               className={`flex items-center justify-between text-[11px] md:text-xs ${
@@ -77,14 +80,16 @@ export default function PlantHeroHealthPanel({
                   {stat.label}
                 </button>
               </LockedTooltip>
-              <span className="font-bold">{stat.value}%</span>
+              <span className="font-bold">{isLoading ? "..." : `${stat.value}%`}</span>
             </div>
             <div className="h-2 rounded-full overflow-hidden bg-black/35 border border-black/25">
               <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{
-                  width: `${stat.value}%`,
-                  background: `linear-gradient(90deg, ${stat.color} 0%, rgba(255,255,255,0.78) 100%)`,
+                  width: `${isLoading ? 35 : stat.value}%`,
+                  background: isLoading
+                    ? "linear-gradient(90deg, #6b7280 0%, rgba(255,255,255,0.78) 100%)"
+                    : `linear-gradient(90deg, ${stat.color} 0%, rgba(255,255,255,0.78) 100%)`,
                 }}
               />
             </div>
@@ -95,7 +100,7 @@ export default function PlantHeroHealthPanel({
           <button
             type="button"
             onClick={onWaterPlant}
-            disabled={isWateringPending || remainingWatersToday <= 0}
+            disabled={isLoading || isWateringPending || remainingWatersToday <= 0}
             className={`h-14 rounded-xl border flex flex-col items-center justify-center disabled:opacity-60 ${
               isLightUi
                 ? "border-[#c8ac62]/55 bg-white/60 text-stone-800"
@@ -106,14 +111,14 @@ export default function PlantHeroHealthPanel({
               Gießen
             </span>
             <span className="text-[10px] md:text-[11px] mt-1 leading-none opacity-90">
-              {wateringCountToday}/{wateringLimitPerDay}
+              {isLoading ? "..." : `${wateringCountToday}/${wateringLimitPerDay}`}
             </span>
           </button>
 
           <button
             type="button"
             onClick={onFertilizerSlot}
-            disabled={isFertilizerPending}
+            disabled={isLoading || isFertilizerPending}
             className={`h-14 rounded-xl border flex flex-col items-center justify-center disabled:opacity-60 ${
               isLightUi
                 ? "border-[#c8ac62]/55 bg-white/60 text-stone-800"
@@ -124,7 +129,7 @@ export default function PlantHeroHealthPanel({
               Dünger
             </span>
             <span className="text-[10px] md:text-[11px] mt-1 leading-none opacity-90">
-              {activeDecayEffects.length} | {Math.round(activeDecayPercent * 100)}%
+              {isLoading ? "..." : `${activeDecayEffects.length} | ${Math.round(activeDecayPercent * 100)}%`}
             </span>
           </button>
         </div>

@@ -93,6 +93,7 @@ export default function Home() {
   const [zoneRerollsRemaining, setZoneRerollsRemaining] = useState(null);
   const [showHeroZoneMap, setShowHeroZoneMap] = useState(false);
   const [zoneMapError, setZoneMapError] = useState(null);
+  const [hasResolvedZoneBootstrap, setHasResolvedZoneBootstrap] = useState(false);
   const [showHealthStatsPanel, setShowHealthStatsPanel] = useState(false);
   const healthStatsPanelRef = useRef(null);
   const [heroStageSizePx, setHeroStageSizePx] = useState(0);
@@ -299,7 +300,10 @@ export default function Home() {
     refetchOnWindowFocus: false,
   });
 
-  const { data: robotPlantState = null } = useQuery({
+  const {
+    data: robotPlantState = null,
+    isFetched: isRobotPlantStateFetched,
+  } = useQuery({
     queryKey: ['robotPlantState', user?.id],
     queryFn: async () => {
       const rows = await Query.RobotPlant.filter({ auth_id: user?.id });
@@ -638,8 +642,20 @@ export default function Home() {
   };
 
   useEffect(() => {
+    let isCancelled = false;
+
     const loadZoneForHero = async () => {
-      if (!user?.id) return;
+      if (!user?.id) {
+        if (!isCancelled) {
+          setHasResolvedZoneBootstrap(true);
+        }
+        return;
+      }
+
+      if (!isCancelled) {
+        setHasResolvedZoneBootstrap(false);
+      }
+
       if (hasCalledZoneGenerationToday) {
         const cachedSnapshot = readDailyZoneSnapshot(user.id);
         if (cachedSnapshot) {
@@ -666,6 +682,10 @@ export default function Home() {
           setActiveZone(inRangeZone || null);
         }
 
+        if (!isCancelled) {
+          setHasResolvedZoneBootstrap(true);
+        }
+
         console.log("[Home] Daily initial zone call already done - using local snapshot");
         return;
       }
@@ -674,6 +694,9 @@ export default function Home() {
       if (!Number.isFinite(location?.lat) || !Number.isFinite(location?.lng)) {
         setHeroZones([]);
         setActiveZone(null);
+        if (!isCancelled) {
+          setHasResolvedZoneBootstrap(true);
+        }
         return;
       }
 
@@ -716,10 +739,17 @@ export default function Home() {
         setActiveZone(null);
       } finally {
         setIsLoadingZone(false);
+        if (!isCancelled) {
+          setHasResolvedZoneBootstrap(true);
+        }
       }
     };
 
     loadZoneForHero();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [user?.id, hasCalledZoneGenerationToday, zoneGenerationDay, setZoneGenerationDayForUser, todayKey]);
 
   useEffect(() => {
@@ -759,7 +789,7 @@ export default function Home() {
 
     window.addEventListener("resize", updateHeroStageSize);
     return () => window.removeEventListener("resize", updateHeroStageSize);
-  }, [showHeroZoneMap]);
+  }, [showHeroZoneMap, showHealthStatsPanel]);
 
   const isLoadingCriticalData = isLoadingDiscoveries || isLoadingQuests || isLoadingAchievements || isLoadingFriends || isLoadingWeeklyQuests || isLoadingMonthlyQuests || isLoadingCollectionQuests;
 
@@ -786,6 +816,8 @@ export default function Home() {
     0,
     Number(robotPlantState?.wallet_balance ?? robotPlantState?.walletBalance ?? 0)
   );
+
+  const isPlantHealthPending = Boolean(user?.id) && !isRobotPlantStateFetched;
 
   const energyValue = Math.max(
     0,
@@ -1007,9 +1039,15 @@ export default function Home() {
     dataQualityValue: safeDataQuality,
     careValue: safeCare,
   });
-  const healthStateBonus = Number(plantHealthState?.scanEventBonus ?? 0);
+  const resolvedPlantHealthState = isPlantHealthPending
+    ? { label: "Status wird geladen", color: "#6b7280", scanEventBonus: 0 }
+    : plantHealthState;
+  const healthStateBonus = Number(resolvedPlantHealthState?.scanEventBonus ?? 0);
+  const displayedOverallPlantHealth = isPlantHealthPending ? null : overallPlantHealth;
 
-  const currentZoneColor = activeZone
+  const currentZoneColor = !hasResolvedZoneBootstrap
+    ? "#6b7280"
+    : activeZone
     ? THEME_MAP_COLORS[activeZone.theme] || "#84cc16"
     : "#6b7280";
   const cachedLocation = getCachedLocation();
@@ -1642,15 +1680,19 @@ export default function Home() {
                   style={isLightUi ? {
                     background: 'linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.15) 35%, rgba(255,255,255,0) 65%, rgba(255,255,255,0.1) 100%)'
                   } : {}}>
-                  <div ref={healthStatsPanelRef} className="flex-1 min-h-0 flex items-center justify-center">
+                  <div ref={healthStatsPanelRef} className="flex-1 min-h-0 flex items-start justify-center pt-[clamp(0.2rem,1vh,0.5rem)]">
                     <div
                       className="relative mx-auto"
                       style={{
-                        width: heroStageSizePx > 0 ? `${heroStageSizePx}px` : "100%",
-                        height: heroStageSizePx > 0 ? `${heroStageSizePx}px` : "100%",
+                        width: showHealthStatsPanel
+                          ? "100%"
+                          : (heroStageSizePx > 0 ? `${heroStageSizePx}px` : "100%"),
+                        height: showHealthStatsPanel
+                          ? "100%"
+                          : (heroStageSizePx > 0 ? `${heroStageSizePx}px` : "100%"),
                         maxWidth: "100%",
                         maxHeight: "100%",
-                        aspectRatio: "1 / 1",
+                        aspectRatio: showHealthStatsPanel ? undefined : "1 / 1",
                       }}
                     >
                       <button
@@ -1663,13 +1705,15 @@ export default function Home() {
                         }`}
                         style={{
                           background: isLightUi
-                            ? `linear-gradient(135deg, ${plantHealthState.color}35 0%, ${plantHealthState.color}15 100%)`
-                            : `linear-gradient(135deg, ${plantHealthState.color}7a 0%, ${plantHealthState.color}4d 100%)`,
+                            ? `linear-gradient(135deg, ${resolvedPlantHealthState.color}35 0%, ${resolvedPlantHealthState.color}15 100%)`
+                            : `linear-gradient(135deg, ${resolvedPlantHealthState.color}7a 0%, ${resolvedPlantHealthState.color}4d 100%)`,
                         }}
                         aria-label="Pflanzenstatus ein- oder ausklappen"
                       >
                         <Leaf className={`w-4 h-4 ${isLightUi ? "text-stone-700" : "text-white/90"}`} />
-                        <span className={`font-bold text-[11px] md:text-xs leading-none mt-0.5 ${isLightUi ? "text-stone-800" : "text-white"}`}>{overallPlantHealth}%</span>
+                        <span className={`font-bold text-[11px] md:text-xs leading-none mt-0.5 ${isLightUi ? "text-stone-800" : "text-white"}`}>
+                          {displayedOverallPlantHealth === null ? "..." : `${displayedOverallPlantHealth}%`}
+                        </span>
                       </button>
 
                       <button
@@ -1692,16 +1736,17 @@ export default function Home() {
                       >
                         <ZoneIcon className={`w-4 h-4 ${isLightUi ? "text-stone-700" : "text-white/90"}`} />
                         <span className={`font-semibold text-[11px] md:text-xs leading-none mt-0.5 truncate max-w-[85%] ${isLightUi ? "text-stone-800" : "text-white"}`}>
-                          {isLoadingZone ? "..." : activeZoneMeta?.label || "Leer"}
+                          {(!hasResolvedZoneBootstrap || isLoadingZone) ? "..." : activeZoneMeta?.label || "Leer"}
                         </span>
                       </button>
 
                       <AnimatePresence mode="wait">
                         {showHealthStatsPanel ? (
                           <PlantHeroHealthPanel
-                            plantHealthState={plantHealthState}
+                            plantHealthState={resolvedPlantHealthState}
                             healthStateBonus={healthStateBonus}
                             healthStats={healthStats}
+                            isLoading={isPlantHealthPending}
                             wateringCountToday={wateringCountToday}
                             wateringLimitPerDay={wateringLimitPerDay}
                             remainingWatersToday={remainingWatersToday}
@@ -1853,7 +1898,7 @@ export default function Home() {
                                 {formatMultiplier(streakMultiplier)} × {formatMultiplier(zoneMultiplier)} × {formatMultiplier(careMultiplier)} × {formatMultiplier(dailyBonusMultiplier)} = <strong>{formatMultiplier(knownNextScanMultiplier)}</strong>
                               </div>
                               <div className="text-amber-50/70">
-                                Zustand <strong>{plantHealthState.label}</strong> gibt aktuell <strong>+{healthStateBonus}</strong> auf alle Scan-Events.
+                                Zustand <strong>{resolvedPlantHealthState.label}</strong> gibt aktuell <strong>+{healthStateBonus}</strong> auf alle Scan-Events.
                               </div>
                               <div className="text-amber-50/65">
                                 Mit Neuheit und Raritaet liegt der Bereich bei <strong>{formatMultiplier(nextScanMinMultiplier)}</strong> bis <strong>{formatMultiplier(nextScanMaxMultiplier)}</strong> (~{nextScanMinReward}-{nextScanMaxReward} Seeds).
