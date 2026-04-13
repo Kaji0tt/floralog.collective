@@ -3,6 +3,8 @@ import { Query } from "@/api/entities";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { upsertUserProfile } from "@/api/authService";
 import { executeMigration } from "@/api/migrationService";
+import { createUserNotification } from "@/api/notificationService";
+import { supabase } from "@/api/supabaseClient";
 import {
   getRobotPlantDailyZones,
   listRobotPlantShopItems,
@@ -266,6 +268,15 @@ export default function Home() {
     initialData: [],
     staleTime: Infinity,
     refetchOnWindowFocus: false,
+  });
+
+  const { data: scanLikes = [] } = useQuery({
+    queryKey: ['scanLikesAll'],
+    queryFn: () => Query.ScanLike.list('-created_date'),
+    initialData: [],
+    staleTime: 60 * 1000,
+    enabled: !!user?.email,
+    refetchOnWindowFocus: true,
   });
 
   const { data: allUsers = [] } = useQuery({
@@ -1051,11 +1062,20 @@ export default function Home() {
     ? THEME_MAP_COLORS[activeZone.theme] || "#84cc16"
     : "#6b7280";
   const cachedLocation = getCachedLocation();
+  const currentUserEmailLower = (user?.email || "").toLowerCase();
+  const likedDiscoveryIdSet = new Set(
+    (scanLikes || [])
+      .filter((like) => like?.discovery_id && like?.liked_by?.toLowerCase() === currentUserEmailLower)
+      .map((like) => like.discovery_id)
+  );
+
   const nearbyDiscoveryPoints = Number.isFinite(cachedLocation?.lat) && Number.isFinite(cachedLocation?.lng)
     ? allDiscoveries
         .map((entry) => {
           const coords = parseDiscoveryCoordinates(entry?.discovery_location);
           if (!coords) return null;
+
+          const plant = plants.find((candidate) => candidate.id === entry?.plant_id);
 
           const entryEmailUser = typeof entry?.user === "string" ? entry.user.toLowerCase() : null;
           const entryEmailCreatedBy = typeof entry?.created_by === "string" ? entry.created_by.toLowerCase() : null;
@@ -1082,6 +1102,12 @@ export default function Home() {
             discoveryId: entry?.id || null,
             imageUrl: entry?.image_url || "",
             scannerName,
+            scannerDisplayName: scannerName,
+            scannerEmail: discoveryUser?.user_email || entry?.user || entry?.created_by || "",
+            scannerAuthId: discoveryUser?.auth_id || entry?.auth_id || entry?.created_by_id || "",
+            plantName: plant?.species_name || "Unbekannte Pflanze",
+            genusId: plant?.genus_id || "",
+            likedByCurrentUser: likedDiscoveryIdSet.has(entry?.id),
             discoveredAt: entry?.created_date || entry?.discovered_date || entry?.updated_date || null,
           };
         })
@@ -1389,6 +1415,93 @@ export default function Home() {
     }
   };
 
+  const handleDiscoveryImageClick = ({ discoveryId, scannerEmail, genusId }) => {
+    if (!discoveryId || !genusId) return;
+
+    const params = new URLSearchParams();
+    params.set("id", genusId);
+    if (scannerEmail && scannerEmail.toLowerCase() !== (user?.email || "").toLowerCase()) {
+      params.set("email", scannerEmail);
+    }
+    params.set("discoveryId", discoveryId);
+    navigate(createPageUrl(`GenusDetail?${params.toString()}`));
+  };
+
+  const handleDiscoveryLike = async ({
+    discoveryId,
+    scannerAuthId,
+    scannerEmail,
+    plantName,
+    genusId,
+    nextLiked,
+  }) => {
+    if (!user?.email || !discoveryId) {
+      setZoneMapError("Bitte einloggen, um Scans zu liken.");
+      return false;
+    }
+
+    const ownEmailLower = user.email.toLowerCase();
+    const existingLike = (scanLikes || []).find(
+      (like) => like.discovery_id === discoveryId && like.liked_by?.toLowerCase() === ownEmailLower
+    );
+    const currentlyLiked = Boolean(existingLike);
+
+    if (nextLiked === currentlyLiked) {
+      return currentlyLiked;
+    }
+
+    if (nextLiked) {
+      await Query.ScanLike.create({
+        discovery_id: discoveryId,
+        liked_by: user.email,
+        liked_date: new Date().toISOString(),
+        auth_id: user.id,
+        created_by: user.email,
+      });
+
+      const isOwnDiscovery = scannerEmail && scannerEmail.toLowerCase() === ownEmailLower;
+      if (!isOwnDiscovery) {
+        const actionParams = new URLSearchParams();
+        if (genusId) actionParams.set("id", genusId);
+        if (scannerEmail) actionParams.set("email", scannerEmail);
+        actionParams.set("discoveryId", discoveryId);
+
+        await Promise.allSettled([
+          createUserNotification({
+            authId: scannerAuthId || null,
+            userEmail: scannerEmail || null,
+            notificationType: "scan_liked",
+            title: "❤️ Neuer Like",
+            message: `${user.display_name || user.full_name || user.email} gefällt dein Scan ${plantName ? `(${plantName})` : ""}.`,
+            actionUrl: `GenusDetail?${actionParams.toString()}`,
+            displayLocation: "banner",
+            createdBy: user.email,
+          }),
+          scannerAuthId
+            ? supabase.functions.invoke("robotPlantGrantReward", {
+                body: {
+                  authId: scannerAuthId,
+                  userEmail: scannerEmail || null,
+                  eventSource: "scan_like_received",
+                  eventReference: discoveryId,
+                  amount: 5,
+                  metadata: {
+                    source: "home_map_popup_like",
+                    likedBy: user.email,
+                  },
+                },
+              })
+            : Promise.resolve(),
+        ]);
+      }
+    } else if (existingLike?.id) {
+      await Query.ScanLike.delete(existingLike.id);
+    }
+
+    await queryClient.invalidateQueries({ queryKey: ["scanLikesAll"] });
+    return nextLiked;
+  };
+
   const openShop = (category = "fertilizer") => {
     setShopOpenCategory(category);
     setActivePanel("shop");
@@ -1619,6 +1732,9 @@ export default function Home() {
                       userLocation={cachedLocation}
                       fallbackCenter={{ lat: heroMapCenter[0], lng: heroMapCenter[1] }}
                       discoveryPoints={nearbyDiscoveryPoints}
+                      onDiscoveryImageClick={handleDiscoveryImageClick}
+                      onDiscoveryLike={handleDiscoveryLike}
+                      allowDiscoveryLike={!!user?.id}
                       onTokenError={(message) => setZoneMapError(message)}
                       onMapReady={setHeroMapInstance}
                     />

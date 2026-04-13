@@ -39,12 +39,13 @@ const formatDiscoveryDate = (rawDate) => {
 
 const buildDiscoveryPopupHtml = (properties) => {
   const imageUrl = typeof properties?.imageUrl === "string" ? properties.imageUrl : "";
-  const scannerName = escapeHtml(properties?.scannerName || "Unbekannt");
+  const scannerDisplayName = escapeHtml(properties?.scannerDisplayName || properties?.scannerName || "Unbekannt");
   const dateLabel = escapeHtml(formatDiscoveryDate(properties?.discoveredAt));
-  const discoveryId = escapeHtml(properties?.discoveryId || "");
+  const plantName = escapeHtml(properties?.plantName || "Unbekannte Pflanze");
+  const isLiked = String(properties?.likedByCurrentUser || "") === "true";
 
   const mediaHtml = imageUrl
-    ? `<img src="${escapeHtml(imageUrl)}" alt="Scan" style="width:100%;height:76px;object-fit:cover;border-radius:8px;border:1px solid rgba(240,229,165,0.22);margin-bottom:8px;" />`
+    ? `<button type="button" data-popup-action="open-scan" style="padding:0;border:0;background:transparent;display:block;width:100%;cursor:pointer;"><img src="${escapeHtml(imageUrl)}" alt="Scan" style="width:100%;height:76px;object-fit:cover;border-radius:8px;border:1px solid rgba(240,229,165,0.22);margin-bottom:8px;" /></button>`
     : `<div style="width:100%;height:76px;border-radius:8px;border:1px solid rgba(240,229,165,0.18);margin-bottom:8px;background:linear-gradient(135deg,rgba(34,197,94,0.18),rgba(21,128,61,0.12));display:flex;align-items:center;justify-content:center;color:rgba(214,211,209,0.82);font-size:11px;">Kein Bild</div>`;
 
   return `
@@ -52,22 +53,75 @@ const buildDiscoveryPopupHtml = (properties) => {
       ${mediaHtml}
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
         <div style="min-width:0;">
-          <div style="font-size:12px;font-weight:700;color:#f5f5f4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${scannerName}</div>
-          <div style="font-size:10px;color:#cbd5e1;">${dateLabel}</div>
+          <div style="font-size:12px;font-weight:700;color:#f5f5f4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${plantName}</div>
+          <div style="font-size:10px;color:#cbd5e1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${dateLabel} · ${scannerDisplayName}</div>
         </div>
-        <button type="button" title="Like" aria-label="Like" data-discovery-id="${discoveryId}" style="border:1px solid rgba(240,229,165,0.26);background:rgba(0,0,0,0.25);color:#fda4af;border-radius:999px;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;line-height:1;cursor:pointer;">♡</button>
+        <button type="button" title="Like" aria-label="Like" data-popup-action="toggle-like" style="border:1px solid rgba(240,229,165,0.26);background:rgba(0,0,0,0.25);color:#fda4af;border-radius:999px;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;line-height:1;cursor:pointer;">${isLiked ? "♥" : "♡"}</button>
       </div>
     </div>
   `;
 };
 
-const openDiscoveryPopup = (map, event, feature) => {
+const openDiscoveryPopup = ({ map, event, feature, onDiscoveryImageClick, onDiscoveryLike, allowDiscoveryLike }) => {
   if (!feature) return;
-  const popupHtml = buildDiscoveryPopupHtml(feature.properties || {});
-  new mapboxgl.Popup({ closeButton: true, maxWidth: "210px", className: "hero-discovery-popup" })
+  const properties = feature.properties || {};
+  const popupHtml = buildDiscoveryPopupHtml(properties);
+  const popup = new mapboxgl.Popup({ closeButton: true, maxWidth: "210px", className: "hero-discovery-popup" })
     .setLngLat(event.lngLat)
     .setHTML(popupHtml)
     .addTo(map);
+
+  const popupRoot = popup.getElement();
+  if (!popupRoot) return;
+
+  const imageButton = popupRoot.querySelector('[data-popup-action="open-scan"]');
+  if (imageButton && typeof onDiscoveryImageClick === "function") {
+    imageButton.addEventListener("click", () => {
+      onDiscoveryImageClick({
+        discoveryId: properties?.discoveryId || "",
+        scannerAuthId: properties?.scannerAuthId || "",
+        scannerEmail: properties?.scannerEmail || "",
+        genusId: properties?.genusId || "",
+      });
+    });
+  }
+
+  const likeButton = popupRoot.querySelector('[data-popup-action="toggle-like"]');
+  if (!likeButton) return;
+
+  const setLikeButtonState = (liked) => {
+    likeButton.textContent = liked ? "♥" : "♡";
+  };
+
+  const canLike = allowDiscoveryLike === true && typeof onDiscoveryLike === "function";
+  likeButton.disabled = !canLike;
+  if (!canLike) {
+    likeButton.style.opacity = "0.55";
+    likeButton.style.cursor = "default";
+    return;
+  }
+
+  likeButton.addEventListener("click", async () => {
+    const currentlyLiked = String(properties?.likedByCurrentUser || "") === "true";
+    const nextLiked = !currentlyLiked;
+    likeButton.disabled = true;
+    try {
+      const resolvedLiked = await onDiscoveryLike({
+        discoveryId: properties?.discoveryId || "",
+        scannerAuthId: properties?.scannerAuthId || "",
+        scannerEmail: properties?.scannerEmail || "",
+        scannerDisplayName: properties?.scannerDisplayName || "",
+        plantName: properties?.plantName || "",
+        genusId: properties?.genusId || "",
+        nextLiked,
+      });
+      const finalLiked = typeof resolvedLiked === "boolean" ? resolvedLiked : nextLiked;
+      properties.likedByCurrentUser = String(finalLiked);
+      setLikeButtonState(finalLiked);
+    } finally {
+      likeButton.disabled = false;
+    }
+  });
 };
 
 const toCirclePolygon = ({ lat, lng, radiusM, points = 48 }) => {
@@ -102,6 +156,9 @@ export default function MapboxZoneMap({
   discoveryPoints = [],
   onTokenError = null,
   onMapReady = null,
+  onDiscoveryImageClick = null,
+  onDiscoveryLike = null,
+  allowDiscoveryLike = true,
   className = "h-full w-full z-0",
 }) {
   const mapContainerRef = useRef(null);
@@ -359,6 +416,12 @@ export default function MapboxZoneMap({
               discoveryId: point?.discoveryId || "",
               imageUrl: point?.imageUrl || "",
               scannerName: point?.scannerName || "Unbekannt",
+              scannerDisplayName: point?.scannerDisplayName || point?.scannerName || "Unbekannt",
+              scannerEmail: point?.scannerEmail || "",
+              scannerAuthId: point?.scannerAuthId || "",
+              plantName: point?.plantName || "Unbekannte Pflanze",
+              genusId: point?.genusId || "",
+              likedByCurrentUser: String(point?.likedByCurrentUser === true),
               discoveredAt: point?.discoveredAt || "",
             },
           })),
@@ -401,7 +464,14 @@ export default function MapboxZoneMap({
 
         map.on("click", "hero-discovery-hit", (event) => {
           const feature = event.features?.[0];
-          openDiscoveryPopup(map, event, feature);
+          openDiscoveryPopup({
+            map,
+            event,
+            feature,
+            onDiscoveryImageClick,
+            onDiscoveryLike,
+            allowDiscoveryLike,
+          });
         });
 
         map.on("mouseenter", "hero-discovery-hit", () => {
@@ -428,7 +498,17 @@ export default function MapboxZoneMap({
     }
 
     map.once("style.load", updateMapData);
-  }, [discoveryPoints, fallbackCenter?.lat, fallbackCenter?.lng, userLocation?.lat, userLocation?.lng, zones]);
+  }, [
+    allowDiscoveryLike,
+    discoveryPoints,
+    fallbackCenter?.lat,
+    fallbackCenter?.lng,
+    onDiscoveryImageClick,
+    onDiscoveryLike,
+    userLocation?.lat,
+    userLocation?.lng,
+    zones,
+  ]);
 
   return <div ref={mapContainerRef} className={className} />;
 }

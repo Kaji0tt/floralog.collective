@@ -21,6 +21,7 @@ export default function GenusDetail() {
   const urlParams = new URLSearchParams(window.location.search);
   const genusId = urlParams.get('id');
   const friendEmail = urlParams.get('email'); // NEU: Prüfe ob wir im Freundes-Kontext sind
+  const targetDiscoveryId = urlParams.get('discoveryId');
   const [speakingPlantId, setSpeakingPlantId] = useState(null);
   const [imageIndexes, setImageIndexes] = useState({});
   const [flippedPlants, setFlippedPlants] = useState({});
@@ -33,6 +34,7 @@ export default function GenusDetail() {
   const [averageColor, setAverageColor] = useState(null);
   const geocodePendingRef = useRef(new Set());
   const geocodeByCoordsRef = useRef({});
+  const deepLinkAppliedRef = useRef(false);
 
   const getDiscoveryTimestamp = (discovery) => {
     const raw = discovery?.discovered_date || discovery?.created_date || discovery?.created_at;
@@ -366,6 +368,23 @@ export default function GenusDetail() {
     };
   });
   const discoveredSpecies = genusPlants.filter(p => p.discovered);
+
+  useEffect(() => {
+    if (!targetDiscoveryId || deepLinkAppliedRef.current) return;
+    if (!Array.isArray(genusPlants) || genusPlants.length === 0) return;
+
+    const matchingPlant = genusPlants.find((plant) =>
+      Array.isArray(plant.allDiscoveries) && plant.allDiscoveries.some((discovery) => discovery.id === targetDiscoveryId)
+    );
+    if (!matchingPlant) return;
+
+    const targetIndex = matchingPlant.allDiscoveries.findIndex((discovery) => discovery.id === targetDiscoveryId);
+    if (targetIndex < 0) return;
+
+    setExpandedPlant(matchingPlant);
+    setImageIndexes((prev) => ({ ...prev, [matchingPlant.id]: targetIndex }));
+    deepLinkAppliedRef.current = true;
+  }, [genusPlants, targetDiscoveryId]);
 
   // Removed myGenusImages calculation as it was only for the icon selection dialog
 
