@@ -11,8 +11,8 @@ import {
   parseDiscoveryCoordinates,
 } from "@/lib/discoveryMap";
 
-// Hero background - the forest creature image
-const HERO_BG = "https://github.com/user-attachments/assets/9acb2621-3c3d-4efc-b157-60db3671bad4";
+// Hero background - forest scene bundled as local asset
+const HERO_BG = new URL("../../assets/hero-forest-bg.svg", import.meta.url).href;
 
 // Seed-based pseudo-random for deterministic particle positions
 const sr = (seed) => { const v = Math.sin(seed * 9301 + 49297) * 233280; return v - Math.floor(v); };

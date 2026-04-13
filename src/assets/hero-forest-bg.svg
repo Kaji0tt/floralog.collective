@@ -1,0 +1,159 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1600" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <!-- Sky/clearing glow -->
+    <radialGradient id="skyGlow" cx="50%" cy="22%" r="40%" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#a8d8a8" stop-opacity="1"/>
+      <stop offset="25%"  stop-color="#5aad6a" stop-opacity="0.9"/>
+      <stop offset="55%"  stop-color="#1c6832" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#071810" stop-opacity="1"/>
+    </radialGradient>
+    <!-- Deep forest dark base -->
+    <linearGradient id="forestBase" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%"   stop-color="#0d2f18"/>
+      <stop offset="40%"  stop-color="#071810"/>
+      <stop offset="100%" stop-color="#030d07"/>
+    </linearGradient>
+    <!-- Center atmospheric light -->
+    <radialGradient id="centerLight" cx="50%" cy="30%" r="30%" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#d4f5c0" stop-opacity="0.25"/>
+      <stop offset="50%"  stop-color="#78c878" stop-opacity="0.1"/>
+      <stop offset="100%" stop-color="#1e5c30" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Side darkness (dense forest) -->
+    <linearGradient id="leftShadow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="#020c05" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#020c05" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="rightShadow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="#020c05" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#020c05" stop-opacity="0.9"/>
+    </linearGradient>
+    <!-- Forest floor fade -->
+    <linearGradient id="floorFade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#030d07" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#010705" stop-opacity="1"/>
+    </linearGradient>
+    <filter id="blur1" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
+    <filter id="blur2" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="8"/>
+    </filter>
+    <filter id="blur3" x="-5%" y="-5%" width="110%" height="110%">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
+  </defs>
+
+  <!-- Base forest background -->
+  <rect width="1000" height="1600" fill="url(#forestBase)"/>
+
+  <!-- Sky/clearing atmospheric glow -->
+  <ellipse cx="500" cy="310" rx="520" ry="360" fill="url(#skyGlow)" filter="url(#blur1)"/>
+
+  <!-- Bright center clearing glow -->
+  <ellipse cx="500" cy="340" rx="260" ry="200" fill="url(#centerLight)" filter="url(#blur2)"/>
+
+  <!-- Background tree layer (farthest, misty) -->
+  <!-- Left trees back -->
+  <rect x="-10" y="180" width="60" height="500" rx="8" fill="#0d3018" opacity="0.5"/>
+  <polygon points="20,120 60,180 -20,180" fill="#0e3519" opacity="0.5"/>
+  <polygon points="20,60 70,180 -30,180" fill="#0c2e15" opacity="0.4"/>
+
+  <rect x="80" y="220" width="50" height="460" rx="6" fill="#0b2c15" opacity="0.55"/>
+  <polygon points="105,160 145,220 65,220" fill="#0d3318" opacity="0.55"/>
+  <polygon points="105,100 155,220 55,220" fill="#0b2e14" opacity="0.45"/>
+
+  <!-- Right trees back -->
+  <rect x="950" y="190" width="60" height="510" rx="8" fill="#0d3018" opacity="0.5"/>
+  <polygon points="980,130 1020,190 940,190" fill="#0e3519" opacity="0.5"/>
+  <polygon points="980,70 1030,190 930,190" fill="#0c2e15" opacity="0.4"/>
+
+  <rect x="870" y="210" width="50" height="470" rx="6" fill="#0b2c15" opacity="0.55"/>
+  <polygon points="895,150 935,210 855,210" fill="#0d3318" opacity="0.55"/>
+  <polygon points="895,90 945,210 845,210" fill="#0b2e14" opacity="0.45"/>
+
+  <!-- Middle tree layer -->
+  <!-- Left cluster -->
+  <rect x="-20" y="300" width="80" height="700" rx="10" fill="#082410" opacity="0.7"/>
+  <polygon points="20,220 80,300 -40,300" fill="#0a2c12" opacity="0.7"/>
+  <polygon points="20,140 90,300 -50,300" fill="#082410" opacity="0.6"/>
+  <polygon points="20,80 95,300 -55,300" fill="#061e0d" opacity="0.5"/>
+
+  <rect x="120" y="340" width="65" height="650" rx="8" fill="#072210" opacity="0.65"/>
+  <polygon points="153,260 203,340 103,340" fill="#092812" opacity="0.65"/>
+  <polygon points="153,185 213,340 93,340" fill="#072010" opacity="0.55"/>
+
+  <rect x="200" y="380" width="55" height="620" rx="7" fill="#062010" opacity="0.6"/>
+  <polygon points="228,305 268,380 188,380" fill="#082612" opacity="0.6"/>
+  <polygon points="228,230 278,380 178,380" fill="#061e0e" opacity="0.5"/>
+
+  <!-- Right cluster -->
+  <rect x="940" y="300" width="80" height="700" rx="10" fill="#082410" opacity="0.7"/>
+  <polygon points="980,220 1040,300 920,300" fill="#0a2c12" opacity="0.7"/>
+  <polygon points="980,140 1050,300 910,300" fill="#082410" opacity="0.6"/>
+  <polygon points="980,80 1055,300 905,300" fill="#061e0d" opacity="0.5"/>
+
+  <rect x="815" y="340" width="65" height="650" rx="8" fill="#072210" opacity="0.65"/>
+  <polygon points="848,260 898,340 798,340" fill="#092812" opacity="0.65"/>
+  <polygon points="848,185 908,340 788,340" fill="#072010" opacity="0.55"/>
+
+  <rect x="745" y="380" width="55" height="620" rx="7" fill="#062010" opacity="0.6"/>
+  <polygon points="773,305 813,380 733,380" fill="#082612" opacity="0.6"/>
+  <polygon points="773,230 823,380 723,380" fill="#061e0e" opacity="0.5"/>
+
+  <!-- Foreground tree layer (darkest, closest) -->
+  <!-- Left foreground -->
+  <rect x="-30" y="480" width="100" height="1200" rx="12" fill="#041509" opacity="0.88"/>
+  <polygon points="20,370 100,480 -60,480" fill="#051a0b" opacity="0.85"/>
+  <polygon points="20,270 110,480 -70,480" fill="#04170a" opacity="0.75"/>
+  <polygon points="20,180 115,480 -75,480" fill="#031408" opacity="0.65"/>
+
+  <rect x="140" y="540" width="80" height="1100" rx="10" fill="#03130a" opacity="0.82"/>
+  <polygon points="180,430 240,540 120,540" fill="#04180c" opacity="0.8"/>
+  <polygon points="180,330 250,540 110,540" fill="#03150a" opacity="0.7"/>
+
+  <rect x="270" y="600" width="70" height="1050" rx="9" fill="#03120a" opacity="0.75"/>
+  <polygon points="305,500 360,600 250,600" fill="#04160c" opacity="0.73"/>
+  <polygon points="305,405 370,600 240,600" fill="#03140a" opacity="0.63"/>
+
+  <!-- Right foreground -->
+  <rect x="930" y="480" width="100" height="1200" rx="12" fill="#041509" opacity="0.88"/>
+  <polygon points="980,370 1060,480 900,480" fill="#051a0b" opacity="0.85"/>
+  <polygon points="980,270 1070,480 890,480" fill="#04170a" opacity="0.75"/>
+  <polygon points="980,180 1075,480 885,480" fill="#031408" opacity="0.65"/>
+
+  <rect x="780" y="540" width="80" height="1100" rx="10" fill="#03130a" opacity="0.82"/>
+  <polygon points="820,430 880,540 760,540" fill="#04180c" opacity="0.8"/>
+  <polygon points="820,330 890,540 750,540" fill="#03150a" opacity="0.7"/>
+
+  <rect x="660" y="600" width="70" height="1050" rx="9" fill="#03120a" opacity="0.75"/>
+  <polygon points="695,500 750,600 640,600" fill="#04160c" opacity="0.73"/>
+  <polygon points="695,405 760,600 630,600" fill="#03140a" opacity="0.63"/>
+
+  <!-- Foliage canopy clusters -->
+  <!-- Left canopy -->
+  <ellipse cx="20"  cy="340" rx="130" ry="90" fill="#072010" opacity="0.6" filter="url(#blur3)"/>
+  <ellipse cx="155" cy="390" rx="110" ry="75" fill="#061e0f" opacity="0.55" filter="url(#blur3)"/>
+  <ellipse cx="290" cy="450" rx="100" ry="65" fill="#051c0e" opacity="0.5" filter="url(#blur3)"/>
+
+  <!-- Right canopy -->
+  <ellipse cx="980" cy="340" rx="130" ry="90" fill="#072010" opacity="0.6" filter="url(#blur3)"/>
+  <ellipse cx="845" cy="390" rx="110" ry="75" fill="#061e0f" opacity="0.55" filter="url(#blur3)"/>
+  <ellipse cx="710" cy="450" rx="100" ry="65" fill="#051c0e" opacity="0.5" filter="url(#blur3)"/>
+
+  <!-- Forest floor undergrowth -->
+  <ellipse cx="150" cy="1560" rx="300" ry="80" fill="#02100a" opacity="0.9"/>
+  <ellipse cx="850" cy="1560" rx="300" ry="80" fill="#02100a" opacity="0.9"/>
+  <ellipse cx="500" cy="1590" rx="500" ry="60" fill="#010a05" opacity="0.95"/>
+
+  <!-- Side shadows to darken edges -->
+  <rect x="0" y="0" width="250" height="1600" fill="url(#leftShadow)"/>
+  <rect x="750" y="0" width="250" height="1600" fill="url(#rightShadow)"/>
+
+  <!-- Floor fade at bottom -->
+  <rect x="0" y="1200" width="1000" height="400" fill="url(#floorFade)"/>
+
+  <!-- Atmospheric mist in the clearing -->
+  <ellipse cx="500" cy="440" rx="200" ry="80" fill="#7dd87d" opacity="0.04" filter="url(#blur1)"/>
+  <ellipse cx="500" cy="380" rx="160" ry="60" fill="#aedcae" opacity="0.05" filter="url(#blur1)"/>
+</svg>
