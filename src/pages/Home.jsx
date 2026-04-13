@@ -1053,7 +1053,38 @@ export default function Home() {
   const cachedLocation = getCachedLocation();
   const nearbyDiscoveryPoints = Number.isFinite(cachedLocation?.lat) && Number.isFinite(cachedLocation?.lng)
     ? allDiscoveries
-        .map((entry) => parseDiscoveryCoordinates(entry?.discovery_location))
+        .map((entry) => {
+          const coords = parseDiscoveryCoordinates(entry?.discovery_location);
+          if (!coords) return null;
+
+          const entryEmailUser = typeof entry?.user === "string" ? entry.user.toLowerCase() : null;
+          const entryEmailCreatedBy = typeof entry?.created_by === "string" ? entry.created_by.toLowerCase() : null;
+          const discoveryUser = allUsers.find((candidate) => {
+            if (candidate?.auth_id && (candidate.auth_id === entry?.auth_id || candidate.auth_id === entry?.created_by_id)) {
+              return true;
+            }
+            if (!candidate?.user_email) return false;
+            const candidateEmail = candidate.user_email.toLowerCase();
+            return candidateEmail === entryEmailUser || candidateEmail === entryEmailCreatedBy;
+          });
+
+          const scannerName =
+            discoveryUser?.display_name ||
+            discoveryUser?.full_name ||
+            discoveryUser?.user_email ||
+            entry?.user ||
+            entry?.created_by ||
+            "Unbekannt";
+
+          return {
+            lat: coords.lat,
+            lng: coords.lng,
+            discoveryId: entry?.id || null,
+            imageUrl: entry?.image_url || "",
+            scannerName,
+            discoveredAt: entry?.created_date || entry?.discovered_date || entry?.updated_date || null,
+          };
+        })
         .filter(Boolean)
         .filter((point) => {
           const distanceM = calculateDistanceMetersRaw(

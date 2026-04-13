@@ -185,3 +185,31 @@ button:focus-visible {
   line-height: 1;
   padding: 4px 8px;
 }
+
+.hero-discovery-popup .mapboxgl-popup-content {
+  background: rgba(10, 10, 20, 0.94);
+  border: 1px solid rgba(240, 229, 165, 0.26);
+  border-radius: 12px;
+  padding: 8px 9px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+}
+
+.hero-discovery-popup .mapboxgl-popup-tip {
+  border-top-color: rgba(10, 10, 20, 0.94);
+}
+
+.hero-discovery-popup.mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip {
+  border-top-color: rgba(10, 10, 20, 0.94);
+}
+
+.hero-discovery-popup.mapboxgl-popup-anchor-top .mapboxgl-popup-tip {
+  border-bottom-color: rgba(10, 10, 20, 0.94);
+}
+
+.hero-discovery-popup .mapboxgl-popup-close-button {
+  color: rgba(240, 229, 165, 0.58);
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 7px;
+}

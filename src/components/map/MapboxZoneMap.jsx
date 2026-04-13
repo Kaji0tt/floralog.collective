@@ -18,6 +18,58 @@ const THEME_MAP_LABELS = {
 
 const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "";
 
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+const formatDiscoveryDate = (rawDate) => {
+  if (!rawDate) return "Kein Datum";
+  const parsed = new Date(rawDate);
+  if (Number.isNaN(parsed.getTime())) return "Kein Datum";
+  return parsed.toLocaleDateString("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+};
+
+const buildDiscoveryPopupHtml = (properties) => {
+  const imageUrl = typeof properties?.imageUrl === "string" ? properties.imageUrl : "";
+  const scannerName = escapeHtml(properties?.scannerName || "Unbekannt");
+  const dateLabel = escapeHtml(formatDiscoveryDate(properties?.discoveredAt));
+  const discoveryId = escapeHtml(properties?.discoveryId || "");
+
+  const mediaHtml = imageUrl
+    ? `<img src="${escapeHtml(imageUrl)}" alt="Scan" style="width:100%;height:76px;object-fit:cover;border-radius:8px;border:1px solid rgba(240,229,165,0.22);margin-bottom:8px;" />`
+    : `<div style="width:100%;height:76px;border-radius:8px;border:1px solid rgba(240,229,165,0.18);margin-bottom:8px;background:linear-gradient(135deg,rgba(34,197,94,0.18),rgba(21,128,61,0.12));display:flex;align-items:center;justify-content:center;color:rgba(214,211,209,0.82);font-size:11px;">Kein Bild</div>`;
+
+  return `
+    <div style="font-family:sans-serif;min-width:152px;max-width:190px;padding:2px 1px;">
+      ${mediaHtml}
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <div style="min-width:0;">
+          <div style="font-size:12px;font-weight:700;color:#f5f5f4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${scannerName}</div>
+          <div style="font-size:10px;color:#cbd5e1;">${dateLabel}</div>
+        </div>
+        <button type="button" title="Like" aria-label="Like" data-discovery-id="${discoveryId}" style="border:1px solid rgba(240,229,165,0.26);background:rgba(0,0,0,0.25);color:#fda4af;border-radius:999px;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;line-height:1;cursor:pointer;">♡</button>
+      </div>
+    </div>
+  `;
+};
+
+const openDiscoveryPopup = (map, event, feature) => {
+  if (!feature) return;
+  const popupHtml = buildDiscoveryPopupHtml(feature.properties || {});
+  new mapboxgl.Popup({ closeButton: true, maxWidth: "210px", className: "hero-discovery-popup" })
+    .setLngLat(event.lngLat)
+    .setHTML(popupHtml)
+    .addTo(map);
+};
+
 const toCirclePolygon = ({ lat, lng, radiusM, points = 48 }) => {
   const earthRadiusM = 6371000;
   const latRad = (lat * Math.PI) / 180;
@@ -208,6 +260,17 @@ export default function MapboxZoneMap({
         });
 
         map.on("click", "hero-zones-fill", (event) => {
+          const discoveryNearClick = map.queryRenderedFeatures(
+            [
+              [event.point.x - 8, event.point.y - 8],
+              [event.point.x + 8, event.point.y + 8],
+            ],
+            { layers: ["hero-discovery-hit", "hero-discovery-points"] }
+          );
+          if (discoveryNearClick.length > 0) {
+            return;
+          }
+
           const feature = event.features?.[0];
           if (!feature) return;
 
@@ -293,6 +356,10 @@ export default function MapboxZoneMap({
             },
             properties: {
               id: `discovery-${index}`,
+              discoveryId: point?.discoveryId || "",
+              imageUrl: point?.imageUrl || "",
+              scannerName: point?.scannerName || "Unbekannt",
+              discoveredAt: point?.discoveredAt || "",
             },
           })),
       };
@@ -311,18 +378,47 @@ export default function MapboxZoneMap({
           type: "circle",
           source: "hero-discoveries",
           paint: {
-            "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 2, 16, 4],
+            "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 3, 14, 5, 17, 9, 20, 13],
             "circle-color": "#16a34a",
             "circle-opacity": 0.92,
             "circle-stroke-width": 1,
             "circle-stroke-color": "#dcfce7",
           },
         });
+
+        map.addLayer({
+          id: "hero-discovery-hit",
+          type: "circle",
+          source: "hero-discoveries",
+          paint: {
+            "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 9, 14, 12, 17, 17, 20, 22],
+            "circle-color": "#000000",
+            "circle-opacity": 0,
+            "circle-stroke-width": 0,
+            "circle-stroke-opacity": 0,
+          },
+        });
+
+        map.on("click", "hero-discovery-hit", (event) => {
+          const feature = event.features?.[0];
+          openDiscoveryPopup(map, event, feature);
+        });
+
+        map.on("mouseenter", "hero-discovery-hit", () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
+
+        map.on("mouseleave", "hero-discovery-hit", () => {
+          map.getCanvas().style.cursor = "";
+        });
       }
 
       // Keep discovery markers visually below the player marker.
       if (map.getLayer("hero-discovery-points") && map.getLayer("hero-user-point")) {
         map.moveLayer("hero-discovery-points", "hero-user-point");
+      }
+      if (map.getLayer("hero-discovery-hit") && map.getLayer("hero-user-point")) {
+        map.moveLayer("hero-discovery-hit", "hero-user-point");
       }
     };
 

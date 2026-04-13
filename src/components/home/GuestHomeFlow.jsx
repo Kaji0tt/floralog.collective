@@ -83,7 +83,19 @@ export default function GuestHomeFlow({ allDiscoveries = [], publicCollections =
     if (!guestLocation) return [];
 
     return allDiscoveries
-      .map((entry) => parseDiscoveryCoordinates(entry?.discovery_location))
+      .map((entry) => {
+        const coords = parseDiscoveryCoordinates(entry?.discovery_location);
+        if (!coords) return null;
+
+        return {
+          lat: coords.lat,
+          lng: coords.lng,
+          discoveryId: entry?.id || null,
+          imageUrl: entry?.image_url || "",
+          scannerName: entry?.user || entry?.created_by || "Unbekannt",
+          discoveredAt: entry?.created_date || entry?.discovered_date || entry?.updated_date || null,
+        };
+      })
       .filter(Boolean)
       .filter((point) => {
         const distanceM = calculateDistanceMetersRaw(
