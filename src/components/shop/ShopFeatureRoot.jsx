@@ -181,7 +181,7 @@ export default function ShopFeatureRoot({ embedded = true, playerSeeds = 0, init
                 <div className="mt-2 text-[11px] opacity-80">
                   Besitz: {owned}
                   {Number(item.effect_value || 0) > 0 && Number(item.duration_hours || 0) > 0
-                    ? ` | Effekt: -${Math.round(Number(item.effect_value) * 100)}% Decay fuer ${item.duration_hours}h`
+                    ? ` | Effekt: -${Math.round(Number(item.effect_value) * 100)}% auf Tages-Decay fuer ${item.duration_hours}h`
                     : " | Platzhalter-Item"}
                 </div>
                 <div className="mt-3 flex items-center gap-2">
@@ -225,7 +225,7 @@ export default function ShopFeatureRoot({ embedded = true, playerSeeds = 0, init
             : "border-[#f0e5a5]/35 bg-black/35 text-stone-100"
         }`}
       >
-        Aktive Duenger-Effekte: {activeDecayEffects.length} | Gesamtreduktion:{" "}
+        Aktive Duenger-Effekte: {activeDecayEffects.length} | Reduktion auf Tages-Decay:{" "}
         {Math.round(activeDecayPercent * 100)}%
       </div>
     </section>

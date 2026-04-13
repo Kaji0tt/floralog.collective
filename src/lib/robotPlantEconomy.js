@@ -166,13 +166,7 @@ export const computeDailyFirstScanMultiplier = (isFirstScanOfDay = false) => {
   return computeFirstScanOfDayMultiplier(isFirstScanOfDay);
 };
 
-export const computeDecayReductionFromCare = (careValue = ROBOT_PLANT_VALUES.care.initial) => {
-  const safeCare = clamp(Number(careValue ?? 0), 0, 100);
-  for (const threshold of ROBOT_PLANT_CARE_RULES.decayReductionByCareThreshold) {
-    if (safeCare >= threshold.min) {
-      return threshold.reduction;
-    }
-  }
+export const computeDecayReductionFromCare = () => {
   return 0;
 };
 
@@ -342,14 +336,25 @@ export const applyRobotPlantDelta = (state, delta) => {
   return nextState;
 };
 
-export const buildDecayDelta = ({ hoursSinceLastDecay = 24, decayReduction = 0 }) => {
+export const buildDecayDelta = ({
+  hoursSinceLastDecay = 24,
+  decayReduction = 0,
+  overallHealth = (ROBOT_PLANT_VALUES.energy.initial + ROBOT_PLANT_VALUES.dataQuality.initial + ROBOT_PLANT_VALUES.care.initial) / 3,
+}) => {
   const safeReduction = clamp(decayReduction, 0, 0.9);
   const dayFactor = Math.max(0, hoursSinceLastDecay) / 24;
+  const safeOverallHealth = clamp(
+    Number(overallHealth),
+    0,
+    100
+  );
+  const baseDailyDecay = Math.max(1, Math.floor(safeOverallHealth / 10));
+  const effectiveDecay = Math.max(1, Math.round(baseDailyDecay * dayFactor * (1 - safeReduction)));
   const delta = {};
 
   Object.entries(ROBOT_PLANT_VALUES).forEach(([key, config]) => {
-    const effectiveDecay = config.decayPerDay * dayFactor * (1 - safeReduction);
-    delta[key] = -Math.round(effectiveDecay);
+    if (!config) return;
+    delta[key] = -effectiveDecay;
   });
 
   return delta;

@@ -430,6 +430,11 @@ function pickThemeByWeightedProbability(
 
 const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
 
+const computeOverallHealth = (energyValue: number, dataQualityValue: number, careValue: number): number => {
+  const avg = (clamp(Number(energyValue ?? 0), 0, 100) + clamp(Number(dataQualityValue ?? 0), 0, 100) + clamp(Number(careValue ?? 0), 0, 100)) / 3;
+  return clamp(Math.floor(avg), 0, 100);
+};
+
 const computeZoneCountFromEnergy = (energyValue: number): number => {
   const safeEnergy = clamp(Number(energyValue ?? 0), 0, 100);
   if (safeEnergy < 10) return 0;
@@ -806,21 +811,38 @@ Deno.serve(async (req) => {
     const preDecayBonusRerolls = computeZoneRerollsFromEnergy(currentEnergy); // 0/1/2/4
     const totalRerollsGrantedToday = 1 + preDecayBonusRerolls; // 1 free base + energy bonus
 
-    if (isNewDay && !isAdmin) {
+    if (isNewDay) {
       const hoursSinceLastDecay = lastDecayAt
         ? Math.max(24, (Date.now() - lastDecayAt.getTime()) / 3600000)
         : 24;
       const dayFactor = Math.min(hoursSinceLastDecay / 24, 30); // cap backfill at 30 days
 
-      // Care-based decay reduction (mirrors robotPlantEconomy.js computeDecayReductionFromCare)
-      const decayReduction =
-        currentCare >= 100 ? 0.8 :
-        currentCare >= 90 ? 0.5 :
-        currentCare >= 80 ? 0.25 : 0;
+      const overallHealthPreDecay = computeOverallHealth(currentEnergy, currentDq, currentCare);
+      const baseDailyDecay = Math.max(1, Math.floor(overallHealthPreDecay / 10));
+      const nowIso = new Date().toISOString();
+      let activeDecayReduction = 0;
 
-      const energyDecay = Math.round(5 * dayFactor * (1 - decayReduction));
-      const dqDecay = Math.round(5 * dayFactor * (1 - decayReduction));
-      const careDecay = Math.round(5 * dayFactor * (1 - decayReduction));
+      const { data: activeDecayEffects, error: activeDecayEffectsError } = await adminClient
+        .from("RobotPlantActiveEffect")
+        .select("effect_value")
+        .eq("auth_id", authId)
+        .eq("effect_type", "decay_reduction")
+        .gt("expires_at", nowIso);
+
+      if (activeDecayEffectsError) {
+        console.warn("[robotPlantDailyZones] Failed to load active decay-reduction effects (non-fatal):", activeDecayEffectsError);
+      } else {
+        const summedReduction = (activeDecayEffects || []).reduce(
+          (acc, effect) => acc + Number(effect?.effect_value || 0),
+          0,
+        );
+        activeDecayReduction = clamp(summedReduction, 0, 0.9);
+      }
+
+      const effectiveDecay = Math.max(1, Math.round(baseDailyDecay * dayFactor * (1 - activeDecayReduction)));
+      const energyDecay = effectiveDecay;
+      const dqDecay = effectiveDecay;
+      const careDecay = effectiveDecay;
       const newEnergy = clamp(currentEnergy - energyDecay, 0, 100);
       const newDq = clamp(currentDq - dqDecay, 0, 100);
       const newCare = clamp(currentCare - careDecay, 0, 100);
@@ -840,7 +862,7 @@ Deno.serve(async (req) => {
       } else {
         console.log(
           `[robotPlantDailyZones] Decay tick: E:${currentEnergy}→${newEnergy} DQ:${currentDq}→${newDq} C:${currentCare}→${newCare}` +
-          ` (factor:${dayFactor.toFixed(2)}, careReduction:${decayReduction}, preDecayBonusRerolls:+${preDecayBonusRerolls})`,
+          ` (overallPre:${overallHealthPreDecay}, baseDailyDecay:${baseDailyDecay}, factor:${dayFactor.toFixed(2)}, fertilizerReduction:${activeDecayReduction}, preDecayBonusRerolls:+${preDecayBonusRerolls})`,
         );
         currentEnergy = newEnergy;
         currentDq = newDq;
