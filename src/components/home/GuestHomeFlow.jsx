@@ -415,6 +415,13 @@ export default function GuestHomeFlow() {
     setAuthModalOpen(true);
   };
 
+  const closeAuthModal = () => {
+    setAuthModalOpen(false);
+    setAuthError(null);
+    setAuthSuccess(null);
+    setAuthLoading(false);
+  };
+
   /** @param {React.ChangeEvent<HTMLInputElement>} event */
   const handleAuthChange = (event) => {
     const { name, value } = event.target;
@@ -434,9 +441,13 @@ export default function GuestHomeFlow() {
 
     try {
       if (authMode === "login") {
-        await signIn(authForm.email, authForm.password);
-        setAuthModalOpen(false);
-        navigate("/");
+        const signInResult = await signIn(authForm.email, authForm.password);
+        if (!signInResult?.session) {
+          throw new Error("Anmeldung fehlgeschlagen. Bitte pruefe deine Zugangsdaten.");
+        }
+
+        closeAuthModal();
+        window.location.assign("/");
         return;
       }
 
@@ -503,7 +514,7 @@ export default function GuestHomeFlow() {
           backgroundImage: `url(${GUEST_MG_IMAGE_URL})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
-          transform: `translate3d(${(tiltOffset.x * 0.4).toFixed(2)}px, ${(tiltOffset.y * 0.4).toFixed(2)}px, 0) scale(1.14)`,
+          transform: `translate3d(${(tiltOffset.x * 0.3).toFixed(2)}px, ${(tiltOffset.y * 0.3).toFixed(2)}px, 0) scale(1.08)`,
           willChange: "transform",
         }}
       />
@@ -529,7 +540,7 @@ export default function GuestHomeFlow() {
           backgroundImage: `url(${GUEST_FG_IMAGE_URL})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
-          transform: `translate3d(${(tiltOffset.x * 0.7).toFixed(2)}px, ${(tiltOffset.y * 0.7).toFixed(2)}px, 0) scale(1.2)`,
+          transform: `translate3d(${(tiltOffset.x * 0.7).toFixed(2)}px, ${(tiltOffset.y * 0.7).toFixed(2)}px, 0) scale(1.16)`,
           willChange: "transform",
         }}
       />
@@ -669,14 +680,17 @@ export default function GuestHomeFlow() {
 
       {authModalOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-[2px]" onClick={() => setAuthModalOpen(false)} />
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-[2px]" onClick={closeAuthModal} />
 
-          <div className="relative z-10 w-full max-w-[92vw] sm:max-w-md rounded-3xl border border-amber-100/30 bg-[linear-gradient(180deg,rgba(10,24,16,0.95)_0%,rgba(6,16,10,0.96)_100%)] text-stone-100 shadow-[0_28px_90px_rgba(0,0,0,0.62)] backdrop-blur-xl p-5">
+          <div
+            className="relative z-10 w-full max-w-[92vw] sm:max-w-md rounded-3xl border border-amber-100/30 bg-[linear-gradient(180deg,rgba(10,24,16,0.95)_0%,rgba(6,16,10,0.96)_100%)] text-stone-100 shadow-[0_28px_90px_rgba(0,0,0,0.62)] backdrop-blur-xl p-5 pointer-events-auto"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="absolute inset-0 rounded-3xl border border-amber-100/15 pointer-events-none" />
 
             <button
               type="button"
-              onClick={() => setAuthModalOpen(false)}
+              onClick={closeAuthModal}
               className="absolute right-4 top-3 text-stone-400 hover:text-stone-100"
             >
               ✕
