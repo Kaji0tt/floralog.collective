@@ -6,55 +6,80 @@ import { createPageUrl } from "@/utils";
 
 const BACKGROUND_IMAGE_URL = new URL("../../../FunnelBackground.png", import.meta.url).href;
 const FIREFLY_COUNT = 18;
-const SHOW_DURATION_MS = 1400;
+const SHOW_DURATION_MS = 3200;
 const SHOW_DURATION_S = SHOW_DURATION_MS / 1000;
 
+/**
+ * @param {number} index
+ */
 function useFirefly(index) {
-  const [state, setState] = useState({ visible: false, x: 50, y: 30, size: 4 });
+  const [state, setState] = useState({
+    visible: false,
+    x: 50,
+    y: 30,
+    size: 10,
+    driftX: 0,
+    driftY: 0,
+    glow: 1,
+  });
   const mountedRef = useRef(true);
 
   useEffect(() => {
     mountedRef.current = true;
+    /** @type {ReturnType<typeof setTimeout> | undefined} */
     let timeoutId;
 
     const run = () => {
       if (!mountedRef.current) return;
       setState({
         visible: true,
-        x: 12 + Math.random() * 70,
-        y: 8 + Math.random() * 50,
-        size: 2.5 + Math.random() * 4,
+        x: 14 + Math.random() * 66,
+        y: 8 + Math.random() * 48,
+        size: 8 + Math.random() * 10,
+        driftX: -10 + Math.random() * 20,
+        driftY: -18 - Math.random() * 20,
+        glow: 0.85 + Math.random() * 0.9,
       });
       timeoutId = setTimeout(() => {
         if (!mountedRef.current) return;
-        setState(prev => ({ ...prev, visible: false }));
-        const nextDelay = 1600 + Math.random() * 2800;
+        setState((prev) => ({ ...prev, visible: false }));
+        const nextDelay = 900 + Math.random() * 2200;
         timeoutId = setTimeout(run, nextDelay);
       }, SHOW_DURATION_MS);
     };
 
-    const initialDelay = index * 260 + Math.random() * 900;
+    const initialDelay = index * 180 + Math.random() * 700;
     timeoutId = setTimeout(run, initialDelay);
 
     return () => {
       mountedRef.current = false;
-      clearTimeout(timeoutId);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     };
   }, [index]);
 
   return state;
 }
 
+/**
+ * @param {{ index: number }} props
+ */
 function FireflyParticle({ index }) {
-  const { visible, x, y, size } = useFirefly(index);
+  const { visible, x, y, size, driftX, driftY, glow } = useFirefly(index);
 
   return (
     <AnimatePresence>
       {visible && (
         <motion.div
           key={`${x.toFixed(1)}-${y.toFixed(1)}`}
-          initial={{ opacity: 0, scale: 0.15 }}
-          animate={{ opacity: [0, 1, 0.85, 0] }}
+          initial={{ opacity: 0, scale: 0.25, x: 0, y: 0 }}
+          animate={{
+            opacity: [0, 0.9, 1, 0.75, 0],
+            scale: [0.45, 1, 1.18, 0.9],
+            x: [0, driftX * 0.45, driftX],
+            y: [0, driftY * 0.55, driftY],
+          }}
           transition={{ duration: SHOW_DURATION_S, ease: "easeInOut" }}
           className="absolute rounded-full pointer-events-none"
           style={{
@@ -64,8 +89,9 @@ function FireflyParticle({ index }) {
             height: `${size}px`,
             transform: "translate(-50%, -50%)",
             background:
-              "radial-gradient(circle, rgba(255,242,90,1) 0%, rgba(255,210,40,0.5) 50%, transparent 100%)",
-            boxShadow: `0 0 ${size * 3}px rgba(255,220,50,0.95), 0 0 ${size * 6}px rgba(255,200,30,0.45)`,
+              "radial-gradient(circle, rgba(255,251,170,1) 0%, rgba(255,229,98,0.95) 28%, rgba(255,196,45,0.5) 60%, transparent 100%)",
+            boxShadow: `0 0 ${size * 1.6}px rgba(255,248,170,0.95), 0 0 ${size * 4.6}px rgba(255,215,72,${glow}), 0 0 ${size * 8}px rgba(255,184,28,0.38)`,
+            filter: `blur(${Math.max(0.15, size * 0.025)}px)`,
           }}
         />
       )}
@@ -108,20 +134,32 @@ export default function GuestHomeFlow() {
       {/* Title â€“ top */}
       <div className="absolute top-0 left-0 right-0 z-20 flex flex-col items-center pt-10 md:pt-14 px-4">
         <h1
-          className="font-bold text-stone-50 uppercase drop-shadow-[0_2px_24px_rgba(0,0,0,0.65)]"
+          className="font-bold uppercase text-center whitespace-nowrap"
           style={{
-            fontSize: "clamp(2.8rem, 11vw, 5.5rem)",
-            letterSpacing: "0.36em",
+            width: "90vw",
+            maxWidth: "90vw",
+            fontSize: "clamp(2.1rem, 8.5vw, 5.5rem)",
+            letterSpacing: "clamp(0.18em, 0.55vw, 0.36em)",
+            lineHeight: 1,
+            color: "transparent",
+            backgroundImage:
+              "linear-gradient(180deg, rgba(252,248,227,0.98) 0%, rgba(224,235,203,0.98) 34%, rgba(184,209,148,0.98) 68%, rgba(240,214,150,0.96) 100%)",
+            WebkitBackgroundClip: "text",
+            backgroundClip: "text",
+            WebkitTextStroke: "2px rgba(245,223,160,0.78)",
+            textShadow:
+              "0 0 10px rgba(255,242,196,0.18), 0 2px 22px rgba(0,0,0,0.48), 0 0 36px rgba(209,182,88,0.14)",
           }}
         >
           FLORALOG
         </h1>
         <p
-          className="text-amber-100/90 font-medium drop-shadow-[0_1px_10px_rgba(0,0,0,0.8)]"
+          className="mt-2 rounded-full border border-amber-100/30 bg-black/18 px-4 py-1.5 text-amber-50/95 font-medium backdrop-blur-[2px]"
           style={{
             fontSize: "clamp(0.85rem, 3vw, 1.05rem)",
             letterSpacing: "0.1em",
-            marginTop: "0.35rem",
+            textShadow: "0 0 10px rgba(255,244,180,0.45), 0 1px 12px rgba(0,0,0,0.72)",
+            boxShadow: "0 0 0 1px rgba(255,241,186,0.08), 0 8px 24px rgba(0,0,0,0.18)",
           }}
         >
           Dein Naturbegleiter

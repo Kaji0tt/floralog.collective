@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Query } from "@/api/entities";
 import { updateCurrentUserProfile, getCurrentUser } from "@/api/userApi";
-import { upsertUserProfile, signOut } from "@/api/authService";
+import { upsertUserProfile } from "@/api/authService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   LogOut, Mail, Heart, FileText,
@@ -19,11 +19,13 @@ import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import NotificationManager from "@/components/notifications/NotificationManager";
 import LocationManager from "@/components/notifications/LocationManager";
 import { useUiTheme } from "@/lib/UiThemeContext";
+import { useAuth } from "@/lib/AuthContext";
 
 export default function SettingsPanel({ user, onUserUpdated }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { uiTheme, setUiTheme } = useUiTheme();
+  const { logout } = useAuth();
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(user?.display_name || user?.full_name || "");
@@ -657,7 +659,7 @@ export default function SettingsPanel({ user, onUserUpdated }) {
           </button>
 
           <button
-            onClick={() => signOut()}
+            onClick={() => logout()}
             className={`w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-sm font-medium transition-colors mb-1 ${
               uiTheme === 'light'
                 ? 'border-red-300/40 bg-red-100/40 text-red-800 hover:bg-red-100/55'
