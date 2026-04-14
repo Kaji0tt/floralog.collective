@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
 const BACKGROUND_IMAGE_URL = new URL("../../../FunnelBackground.png", import.meta.url).href;
-const FIREFLY_COUNT = 18;
+const FIREFLY_COUNT = 36;
 
 /**
  * @param {number} min
