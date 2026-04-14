@@ -1,8 +1,10 @@
 ﻿import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera } from "lucide-react";
+import { Camera, Mail, Lock, User, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { signIn, signUp } from "@/api/authService";
+import { checkLegacyUser, upsertLegacyUserFromRegistration } from "@/api/migrationService";
 
 const GUEST_BG_IMAGE_URL = new URL("../../../guestfunnel-bg.png", import.meta.url).href;
 const GUEST_MG_IMAGE_URL = new URL("../../../guestfunnel-mg.png", import.meta.url).href;
@@ -245,6 +247,17 @@ export default function GuestHomeFlow() {
   const [displayedSnapIndex, setDisplayedSnapIndex] = useState(0);
   const [contentTransitionPhase, setContentTransitionPhase] = useState("idle");
   const [tiltOffset, setTiltOffset] = useState({ x: 0, y: 0 });
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState("login");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState(/** @type {string | null} */ (null));
+  const [authSuccess, setAuthSuccess] = useState(/** @type {string | null} */ (null));
+  const [authForm, setAuthForm] = useState({
+    email: "",
+    password: "",
+    confirmPassword: "",
+    username: "",
+  });
 
   useEffect(() => {
     if (activeSnapIndex === displayedSnapIndex) {
@@ -394,6 +407,80 @@ export default function GuestHomeFlow() {
   const secondPanelOpacity = getPanelOpacity(1);
   const leafTwitch = useLeafTwitch();
 
+  /** @param {"login" | "register"} mode */
+  const openAuthModal = (mode) => {
+    setAuthError(null);
+    setAuthSuccess(null);
+    setAuthMode(mode);
+    setAuthModalOpen(true);
+  };
+
+  /** @param {React.ChangeEvent<HTMLInputElement>} event */
+  const handleAuthChange = (event) => {
+    const { name, value } = event.target;
+    setAuthForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+    setAuthError(null);
+  };
+
+  /** @param {React.FormEvent<HTMLFormElement>} event */
+  const handleAuthSubmit = async (event) => {
+    event.preventDefault();
+    setAuthError(null);
+    setAuthSuccess(null);
+    setAuthLoading(true);
+
+    try {
+      if (authMode === "login") {
+        await signIn(authForm.email, authForm.password);
+        setAuthModalOpen(false);
+        navigate("/");
+        return;
+      }
+
+      if (!authForm.username.trim()) {
+        throw new Error("Name ist erforderlich");
+      }
+
+      if (authForm.password !== authForm.confirmPassword) {
+        throw new Error("Passwoerter stimmen nicht ueberein");
+      }
+
+      if (authForm.password.length < 6) {
+        throw new Error("Passwort muss mindestens 6 Zeichen lang sein");
+      }
+
+      const legacyUser = await checkLegacyUser(authForm.email);
+      if (legacyUser) {
+        throw new Error("Diese E-Mail existiert bereits. Bitte melde dich an oder nutze die Migration.");
+      }
+
+      const signUpResult = await signUp(authForm.email, authForm.password, authForm.username);
+      await upsertLegacyUserFromRegistration({
+        email: authForm.email,
+        displayName: authForm.username,
+        authId: signUpResult?.user?.id || null,
+      });
+
+      setAuthSuccess("Fast geschafft: Bitte bestaetige jetzt deine E-Mail und melde dich danach an.");
+      setAuthMode("login");
+      setAuthForm((prev) => ({
+        ...prev,
+        password: "",
+        confirmPassword: "",
+      }));
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : "Anmeldung fehlgeschlagen. Bitte versuche es erneut.";
+      setAuthError(message);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   const panelFadeDuration = contentTransitionPhase === "fading-out"
     ? CONTENT_FADE_OUT_MS / 1000
     : CONTENT_FADE_IN_MS / 1000;
@@ -437,7 +524,7 @@ export default function GuestHomeFlow() {
       </div>
 
       <div
-        className="absolute inset-0 z-[14] pointer-events-none"
+        className="absolute inset-0 z-[110] pointer-events-none"
         style={{
           backgroundImage: `url(${GUEST_FG_IMAGE_URL})`,
           backgroundSize: "cover",
@@ -448,7 +535,7 @@ export default function GuestHomeFlow() {
       />
 
       <div
-        className="absolute inset-0 z-[15] pointer-events-none"
+        className="absolute inset-0 z-[111] pointer-events-none"
         style={{
           transform: `translate3d(${(tiltOffset.x * 0.95).toFixed(2)}px, ${(tiltOffset.y * 0.95).toFixed(2)}px, 0) scale(1.24)`,
           willChange: "transform",
@@ -460,7 +547,7 @@ export default function GuestHomeFlow() {
           aria-hidden="true"
           className="absolute right-[-2vw] md:right-[-1vw]"
           style={{
-            top: "17%",
+            top: "25%",
             width: "clamp(144px, 26vw, 296px)",
             height: "auto",
             transformOrigin: "88% 12%",
@@ -539,7 +626,7 @@ export default function GuestHomeFlow() {
               </motion.button>
 
               <button
-                onClick={() => navigate("/register")}
+                onClick={() => openAuthModal("register")}
                 className="font-bold text-amber-200 hover:text-amber-100 transition-colors drop-shadow-[0_1px_8px_rgba(0,0,0,0.9)]"
                 style={{
                   fontSize: "clamp(1rem, 4vw, 1.2rem)",
@@ -550,7 +637,7 @@ export default function GuestHomeFlow() {
               </button>
 
               <button
-                onClick={() => navigate("/login")}
+                onClick={() => openAuthModal("login")}
                 className="font-medium text-stone-300/80 hover:text-stone-200 transition-colors drop-shadow-[0_1px_6px_rgba(0,0,0,0.8)]"
                 style={{
                   fontSize: "clamp(0.85rem, 3vw, 1rem)",
@@ -579,6 +666,149 @@ export default function GuestHomeFlow() {
           </div>
         </div>
       </div>
+
+      {authModalOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-[2px]" onClick={() => setAuthModalOpen(false)} />
+
+          <div className="relative z-10 w-full max-w-[92vw] sm:max-w-md rounded-3xl border border-amber-100/30 bg-[linear-gradient(180deg,rgba(10,24,16,0.95)_0%,rgba(6,16,10,0.96)_100%)] text-stone-100 shadow-[0_28px_90px_rgba(0,0,0,0.62)] backdrop-blur-xl p-5">
+            <div className="absolute inset-0 rounded-3xl border border-amber-100/15 pointer-events-none" />
+
+            <button
+              type="button"
+              onClick={() => setAuthModalOpen(false)}
+              className="absolute right-4 top-3 text-stone-400 hover:text-stone-100"
+            >
+              ✕
+            </button>
+
+            <div className="relative z-10">
+              <h3 className="text-xl font-semibold text-amber-50">
+                {authMode === "login" ? "Anmelden" : "Kostenlos registrieren"}
+              </h3>
+              <p className="text-sm text-stone-300 mt-1">
+                {authMode === "login"
+                  ? "Melde dich an und sichere deinen Fortschritt in Floralog."
+                  : "Erstelle deinen Account und starte direkt mit deinem Naturbegleiter."}
+              </p>
+            </div>
+
+            <div className="relative z-10 mt-4 flex items-center gap-2 rounded-xl border border-amber-100/20 bg-black/25 p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode("login");
+                  setAuthError(null);
+                  setAuthSuccess(null);
+                }}
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+                  authMode === "login" ? "bg-emerald-500/80 text-white" : "text-stone-300 hover:text-stone-100"
+                }`}
+              >
+                Anmelden
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode("register");
+                  setAuthError(null);
+                  setAuthSuccess(null);
+                }}
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+                  authMode === "register" ? "bg-emerald-500/80 text-white" : "text-stone-300 hover:text-stone-100"
+                }`}
+              >
+                Registrieren
+              </button>
+            </div>
+
+            <form onSubmit={handleAuthSubmit} className="relative z-10 space-y-3 mt-4">
+              {authSuccess && (
+                <div className="rounded-xl border border-emerald-300/35 bg-emerald-900/30 px-3 py-2 text-sm text-emerald-100 flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <span>{authSuccess}</span>
+                </div>
+              )}
+
+              {authError && (
+                <div className="rounded-xl border border-red-300/35 bg-red-900/30 px-3 py-2 text-sm text-red-100 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <span>{authError}</span>
+                </div>
+              )}
+
+              {authMode === "register" && (
+                <label className="block space-y-1">
+                  <span className="text-xs uppercase tracking-[0.14em] text-amber-100/75 flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> Name</span>
+                  <input
+                    name="username"
+                    type="text"
+                    value={authForm.username}
+                    onChange={handleAuthChange}
+                    disabled={authLoading}
+                    required
+                    className="w-full rounded-xl border border-amber-100/25 bg-black/35 px-3 py-2.5 text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/55"
+                    placeholder="Dein Name"
+                  />
+                </label>
+              )}
+
+              <label className="block space-y-1">
+                <span className="text-xs uppercase tracking-[0.14em] text-amber-100/75 flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> E-Mail</span>
+                <input
+                  name="email"
+                  type="email"
+                  value={authForm.email}
+                  onChange={handleAuthChange}
+                  disabled={authLoading}
+                  required
+                  className="w-full rounded-xl border border-amber-100/25 bg-black/35 px-3 py-2.5 text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/55"
+                  placeholder="deine@email.de"
+                />
+              </label>
+
+              <label className="block space-y-1">
+                <span className="text-xs uppercase tracking-[0.14em] text-amber-100/75 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5" /> Passwort</span>
+                <input
+                  name="password"
+                  type="password"
+                  value={authForm.password}
+                  onChange={handleAuthChange}
+                  disabled={authLoading}
+                  required
+                  className="w-full rounded-xl border border-amber-100/25 bg-black/35 px-3 py-2.5 text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/55"
+                  placeholder="••••••••"
+                />
+              </label>
+
+              {authMode === "register" && (
+                <label className="block space-y-1">
+                  <span className="text-xs uppercase tracking-[0.14em] text-amber-100/75 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5" /> Passwort bestaetigen</span>
+                  <input
+                    name="confirmPassword"
+                    type="password"
+                    value={authForm.confirmPassword}
+                    onChange={handleAuthChange}
+                    disabled={authLoading}
+                    required
+                    className="w-full rounded-xl border border-amber-100/25 bg-black/35 px-3 py-2.5 text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/55"
+                    placeholder="••••••••"
+                  />
+                </label>
+              )}
+
+              <button
+                type="submit"
+                disabled={authLoading}
+                className="w-full rounded-xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/85 via-emerald-500/75 to-emerald-700/85 py-2.5 text-white font-semibold hover:brightness-110 disabled:opacity-60 transition-all flex items-center justify-center gap-2"
+              >
+                {authLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                {authMode === "login" ? "Anmelden" : "Jetzt registrieren"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
