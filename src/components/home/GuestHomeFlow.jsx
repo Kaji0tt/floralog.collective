@@ -460,8 +460,8 @@ export default function GuestHomeFlow() {
           aria-hidden="true"
           className="absolute right-[-2vw] md:right-[-1vw]"
           style={{
-            top: "36%",
-            width: "clamp(72px, 13vw, 148px)",
+            top: "17%",
+            width: "clamp(144px, 26vw, 296px)",
             height: "auto",
             transformOrigin: "88% 12%",
             filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.18))",
