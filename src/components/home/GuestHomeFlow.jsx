@@ -234,7 +234,8 @@ function useLeafTwitch() {
 
 export default function GuestHomeFlow() {
   const navigate = useNavigate();
-  const snapContainerRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+  const gestureLockRef = useRef(false);
+  const touchStartYRef = useRef(/** @type {number | null} */ (null));
   const [activeSnapIndex, setActiveSnapIndex] = useState(0);
   const [displayedSnapIndex, setDisplayedSnapIndex] = useState(0);
   const [contentTransitionPhase, setContentTransitionPhase] = useState("idle");
@@ -266,13 +267,62 @@ export default function GuestHomeFlow() {
     };
   }, [activeSnapIndex, displayedSnapIndex]);
 
-  /** @param {React.UIEvent<HTMLDivElement>} event */
-  const handleSnapScroll = (event) => {
-    const container = event.currentTarget;
-    const sectionHeight = Math.max(1, container.clientHeight);
-    const nextIndex = Math.round(container.scrollTop / sectionHeight);
-    setActiveSnapIndex(clamp(nextIndex, 0, SNAP_SECTION_COUNT - 1));
-    setParallaxScrollTop(container.scrollTop);
+  /** @param {number} direction */
+  const triggerSnapStep = (direction) => {
+    if (gestureLockRef.current) {
+      return;
+    }
+
+    const nextIndex = clamp(activeSnapIndex + direction, 0, SNAP_SECTION_COUNT - 1);
+    if (nextIndex === activeSnapIndex) {
+      return;
+    }
+
+    gestureLockRef.current = true;
+    setActiveSnapIndex(nextIndex);
+    setParallaxScrollTop(nextIndex * 320);
+
+    window.setTimeout(() => {
+      gestureLockRef.current = false;
+    }, 540);
+  };
+
+  /** @param {React.WheelEvent<HTMLDivElement>} event */
+  const handleGestureWheel = (event) => {
+    if (Math.abs(event.deltaY) < 10) {
+      return;
+    }
+
+    event.preventDefault();
+    triggerSnapStep(event.deltaY > 0 ? 1 : -1);
+  };
+
+  /** @param {React.TouchEvent<HTMLDivElement>} event */
+  const handleGestureTouchStart = (event) => {
+    touchStartYRef.current = event.touches[0]?.clientY ?? null;
+  };
+
+  /** @param {React.TouchEvent<HTMLDivElement>} event */
+  const handleGestureTouchMove = (event) => {
+    event.preventDefault();
+  };
+
+  /** @param {React.TouchEvent<HTMLDivElement>} event */
+  const handleGestureTouchEnd = (event) => {
+    const startY = touchStartYRef.current;
+    const endY = event.changedTouches[0]?.clientY;
+    touchStartYRef.current = null;
+
+    if (startY == null || endY == null) {
+      return;
+    }
+
+    const deltaY = startY - endY;
+    if (Math.abs(deltaY) < 26) {
+      return;
+    }
+
+    triggerSnapStep(deltaY > 0 ? 1 : -1);
   };
 
   /** @param {number} panelIndex */
@@ -402,16 +452,13 @@ export default function GuestHomeFlow() {
         className="absolute inset-x-0 bottom-0 z-30 px-4"
         style={{ top: "57%" }}
       >
-        <div className="relative flex h-full w-full justify-center overflow-visible">
-          <div
-            ref={snapContainerRef}
-            onScroll={handleSnapScroll}
-            className="absolute inset-0 mx-auto h-full w-full max-w-2xl overflow-y-auto snap-y snap-mandatory scroll-smooth opacity-0 touch-pan-y"
-          >
-            <section className="h-full min-h-full snap-start" />
-            <section className="h-full min-h-full snap-start" />
-          </div>
-
+        <div
+          className="relative flex h-full w-full justify-center overflow-visible overscroll-none touch-none"
+          onWheel={handleGestureWheel}
+          onTouchStart={handleGestureTouchStart}
+          onTouchMove={handleGestureTouchMove}
+          onTouchEnd={handleGestureTouchEnd}
+        >
           <div
             className="relative h-full w-full max-w-2xl overflow-visible pointer-events-none"
           >
@@ -466,15 +513,11 @@ export default function GuestHomeFlow() {
               transition={{ duration: panelFadeDuration, ease: "easeInOut" }}
               style={{ pointerEvents: displayedSnapIndex === 1 && secondPanelOpacity > 0.01 ? "auto" : "none" }}
             >
-              <div className="w-full max-w-xl rounded-3xl border border-amber-100/20 bg-black/24 px-5 py-5 backdrop-blur-[2px]">
+              <div className="w-[70vw] max-w-[420px] rounded-3xl border border-amber-100/20 bg-black/24 px-4 py-4 backdrop-blur-[2px] overflow-hidden">
                 <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-100/80">Floralog</p>
-                <h2 className="mt-2 text-xl md:text-2xl font-semibold text-stone-100">Natur neu entdecken, spielerisch im Alltag.</h2>
-                <p className="mt-3 text-sm md:text-base leading-relaxed text-stone-200/92">
-                  Floralog verbindet Scanner, Entdeckergeist und echtes Naturwissen. Du lernst Pflanzen direkt vor deiner Haustuer kennen,
-                  dokumentierst Funde und entwickelst Schritt fuer Schritt deinen eigenen Naturbegleiter weiter.
-                </p>
-                <p className="mt-3 text-sm md:text-base leading-relaxed text-stone-200/88">
-                  Wische wieder nach unten fuer den schnellen Einstieg oder scrolle weiter, um tiefer in Vision und Features einzutauchen.
+                <h2 className="mt-2 text-lg md:text-xl font-semibold text-stone-100 leading-tight">Natur spielerisch im Alltag entdecken.</h2>
+                <p className="mt-2 text-sm md:text-base leading-relaxed text-stone-200/92">
+                  Scanne Pflanzen, sammle Funde und entwickle deinen Naturbegleiter Schritt fuer Schritt weiter.
                 </p>
               </div>
             </motion.div>
