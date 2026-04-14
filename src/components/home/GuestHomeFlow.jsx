@@ -12,6 +12,10 @@ const FIREFLY_COUNT = 36;
 const SNAP_SECTION_COUNT = 2;
 const CONTENT_FADE_OUT_MS = 240;
 const CONTENT_FADE_IN_MS = 360;
+const TILT_MAX_HORIZONTAL_DEG = 22;
+const TILT_MAX_VERTICAL_DEG = 28;
+const TILT_OFFSET_MAX_X = 38;
+const TILT_OFFSET_MAX_Y = 34;
 
 /**
  * @param {number} min
@@ -236,10 +240,11 @@ export default function GuestHomeFlow() {
   const navigate = useNavigate();
   const gestureLockRef = useRef(false);
   const touchStartYRef = useRef(/** @type {number | null} */ (null));
+  const orientationPermissionRequestedRef = useRef(false);
   const [activeSnapIndex, setActiveSnapIndex] = useState(0);
   const [displayedSnapIndex, setDisplayedSnapIndex] = useState(0);
   const [contentTransitionPhase, setContentTransitionPhase] = useState("idle");
-  const [parallaxScrollTop, setParallaxScrollTop] = useState(0);
+  const [tiltOffset, setTiltOffset] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     if (activeSnapIndex === displayedSnapIndex) {
@@ -267,6 +272,47 @@ export default function GuestHomeFlow() {
     };
   }, [activeSnapIndex, displayedSnapIndex]);
 
+  useEffect(() => {
+    /** @param {number} gamma */
+    const toTiltX = (gamma) => {
+      const normalized = clamp(gamma / TILT_MAX_HORIZONTAL_DEG, -1, 1);
+      return normalized * TILT_OFFSET_MAX_X;
+    };
+
+    /** @param {number} beta */
+    const toTiltY = (beta) => {
+      const centered = clamp((beta - 35) / TILT_MAX_VERTICAL_DEG, -1, 1);
+      return centered * TILT_OFFSET_MAX_Y;
+    };
+
+    /** @param {DeviceOrientationEvent} event */
+    const handleDeviceOrientation = (event) => {
+      const nextX = toTiltX(event.gamma ?? 0);
+      const nextY = toTiltY(event.beta ?? 35);
+      setTiltOffset({ x: nextX, y: nextY });
+    };
+
+    /** @param {MouseEvent} event */
+    const handleMouseMove = (event) => {
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight / 2;
+      const normalizedX = clamp((event.clientX - centerX) / Math.max(centerX, 1), -1, 1);
+      const normalizedY = clamp((event.clientY - centerY) / Math.max(centerY, 1), -1, 1);
+      setTiltOffset({
+        x: normalizedX * TILT_OFFSET_MAX_X,
+        y: normalizedY * TILT_OFFSET_MAX_Y,
+      });
+    };
+
+    window.addEventListener("deviceorientation", handleDeviceOrientation);
+    window.addEventListener("mousemove", handleMouseMove);
+
+    return () => {
+      window.removeEventListener("deviceorientation", handleDeviceOrientation);
+      window.removeEventListener("mousemove", handleMouseMove);
+    };
+  }, []);
+
   /** @param {number} direction */
   const triggerSnapStep = (direction) => {
     if (gestureLockRef.current) {
@@ -280,7 +326,6 @@ export default function GuestHomeFlow() {
 
     gestureLockRef.current = true;
     setActiveSnapIndex(nextIndex);
-    setParallaxScrollTop(nextIndex * 320);
 
     window.setTimeout(() => {
       gestureLockRef.current = false;
@@ -299,6 +344,17 @@ export default function GuestHomeFlow() {
 
   /** @param {React.TouchEvent<HTMLDivElement>} event */
   const handleGestureTouchStart = (event) => {
+    if (!orientationPermissionRequestedRef.current) {
+      orientationPermissionRequestedRef.current = true;
+      /** @type {{ requestPermission?: () => Promise<"granted" | "denied"> }} */
+      const orientationCtor = /** @type {any} */ (window.DeviceOrientationEvent);
+      if (orientationCtor && typeof orientationCtor.requestPermission === "function") {
+        orientationCtor.requestPermission().catch(() => {
+          // Ignore permission errors; fallback remains pointer-based movement.
+        });
+      }
+    }
+
     touchStartYRef.current = event.touches[0]?.clientY ?? null;
   };
 
@@ -343,15 +399,14 @@ export default function GuestHomeFlow() {
     : CONTENT_FADE_IN_MS / 1000;
 
   return (
-    <div className="fixed inset-0 overflow-hidden">
+    <div className="fixed inset-0 overflow-hidden bg-[#141a12]">
       <div
         className="absolute inset-0 z-0"
         style={{
           backgroundImage: `url(${GUEST_BG_IMAGE_URL})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
-          transform: `translate3d(0, ${(-parallaxScrollTop * 0.12).toFixed(2)}px, 0)`,
-          willChange: "transform",
+          willChange: "auto",
         }}
       />
 
@@ -361,7 +416,7 @@ export default function GuestHomeFlow() {
           backgroundImage: `url(${GUEST_MG_IMAGE_URL})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
-          transform: `translate3d(0, ${(-parallaxScrollTop * 0.24).toFixed(2)}px, 0)`,
+          transform: `translate3d(${(tiltOffset.x * 0.55).toFixed(2)}px, ${(tiltOffset.y * 0.55).toFixed(2)}px, 0) scale(1.16)`,
           willChange: "transform",
         }}
       />
@@ -387,7 +442,7 @@ export default function GuestHomeFlow() {
           backgroundImage: `url(${GUEST_FG_IMAGE_URL})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
-          transform: `translate3d(0, ${(-parallaxScrollTop * 0.36).toFixed(2)}px, 0)`,
+          transform: `translate3d(${(tiltOffset.x * 0.95).toFixed(2)}px, ${(tiltOffset.y * 0.95).toFixed(2)}px, 0) scale(1.24)`,
           willChange: "transform",
         }}
       />
@@ -395,7 +450,7 @@ export default function GuestHomeFlow() {
       <div
         className="absolute inset-0 z-[15] pointer-events-none"
         style={{
-          transform: `translate3d(0, ${(-parallaxScrollTop * 0.36).toFixed(2)}px, 0)`,
+          transform: `translate3d(${(tiltOffset.x * 0.95).toFixed(2)}px, ${(tiltOffset.y * 0.95).toFixed(2)}px, 0) scale(1.24)`,
           willChange: "transform",
         }}
       >
