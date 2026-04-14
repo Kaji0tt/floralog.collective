@@ -813,7 +813,7 @@ export default function Home() {
   }
 
   if (!user) {
-    return <GuestHomeFlow allDiscoveries={allDiscoveries} publicCollections={publicCollections} />;
+    return <GuestHomeFlow />;
   }
 
   const discoveredGenera = genera.filter(g => {
