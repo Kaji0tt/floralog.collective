@@ -16,8 +16,8 @@ const CONTENT_FADE_OUT_MS = 240;
 const CONTENT_FADE_IN_MS = 360;
 const TILT_MAX_HORIZONTAL_DEG = 22;
 const TILT_MAX_VERTICAL_DEG = 28;
-const TILT_OFFSET_MAX_X = 38;
-const TILT_OFFSET_MAX_Y = 34;
+const TILT_OFFSET_MAX_X = 24;
+const TILT_OFFSET_MAX_Y = 20;
 
 /**
  * @param {number} min
@@ -503,7 +503,7 @@ export default function GuestHomeFlow() {
           backgroundImage: `url(${GUEST_MG_IMAGE_URL})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
-          transform: `translate3d(${(tiltOffset.x * 0.55).toFixed(2)}px, ${(tiltOffset.y * 0.55).toFixed(2)}px, 0) scale(1.16)`,
+          transform: `translate3d(${(tiltOffset.x * 0.4).toFixed(2)}px, ${(tiltOffset.y * 0.4).toFixed(2)}px, 0) scale(1.14)`,
           willChange: "transform",
         }}
       />
@@ -529,7 +529,7 @@ export default function GuestHomeFlow() {
           backgroundImage: `url(${GUEST_FG_IMAGE_URL})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
-          transform: `translate3d(${(tiltOffset.x * 0.95).toFixed(2)}px, ${(tiltOffset.y * 0.95).toFixed(2)}px, 0) scale(1.24)`,
+          transform: `translate3d(${(tiltOffset.x * 0.7).toFixed(2)}px, ${(tiltOffset.y * 0.7).toFixed(2)}px, 0) scale(1.2)`,
           willChange: "transform",
         }}
       />
@@ -537,7 +537,7 @@ export default function GuestHomeFlow() {
       <div
         className="absolute inset-0 z-[111] pointer-events-none"
         style={{
-          transform: `translate3d(${(tiltOffset.x * 0.95).toFixed(2)}px, ${(tiltOffset.y * 0.95).toFixed(2)}px, 0) scale(1.24)`,
+          transform: `translate3d(${(tiltOffset.x * 0.7).toFixed(2)}px, ${(tiltOffset.y * 0.7).toFixed(2)}px, 0) scale(1.2)`,
           willChange: "transform",
         }}
       >
