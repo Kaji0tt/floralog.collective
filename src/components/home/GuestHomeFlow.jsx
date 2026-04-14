@@ -7,6 +7,7 @@ import { createPageUrl } from "@/utils";
 const GUEST_BG_IMAGE_URL = new URL("../../../guestfunnel-bg.png", import.meta.url).href;
 const GUEST_MG_IMAGE_URL = new URL("../../../guestfunnel-mg.png", import.meta.url).href;
 const GUEST_FG_IMAGE_URL = new URL("../../../guestfunnel-fg.png", import.meta.url).href;
+const SINGLE_LEAF_IMAGE_URL = new URL("../../../singleleaf.png", import.meta.url).href;
 const FIREFLY_COUNT = 36;
 const SNAP_SECTION_COUNT = 2;
 const CONTENT_FADE_OUT_MS = 240;
@@ -189,9 +190,53 @@ function FireflyParticle({ index }) {
   );
 }
 
+function useLeafTwitch() {
+  const [twitch, setTwitch] = useState({
+    shiftX: 0,
+    shiftY: 0,
+    rotate: 0,
+    scale: 1,
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    /** @type {ReturnType<typeof setTimeout> | undefined} */
+    let timeoutId;
+
+    const schedule = () => {
+      timeoutId = setTimeout(() => {
+        if (!isMounted) {
+          return;
+        }
+
+        const rotate = randomBetween(-7, 7);
+        const shiftX = randomBetween(-4, 3);
+        const shiftY = randomBetween(-2, 2);
+        const scale = randomBetween(0.985, 1.03);
+
+        setTwitch({ shiftX, shiftY, rotate, scale });
+        schedule();
+      }, randomBetween(4500, 12000));
+    };
+
+    schedule();
+
+    return () => {
+      isMounted = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, []);
+
+  return twitch;
+}
+
 export default function GuestHomeFlow() {
   const navigate = useNavigate();
-  const snapContainerRef = useRef(null);
+  const snapContainerRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+  const gestureLockRef = useRef(false);
+  const touchStartYRef = useRef(/** @type {number | null} */ (null));
   const [activeSnapIndex, setActiveSnapIndex] = useState(0);
   const [displayedSnapIndex, setDisplayedSnapIndex] = useState(0);
   const [contentTransitionPhase, setContentTransitionPhase] = useState("idle");
@@ -232,6 +277,66 @@ export default function GuestHomeFlow() {
     setParallaxScrollTop(container.scrollTop);
   };
 
+  /** @param {number} nextIndex */
+  const scrollToSnapIndex = (nextIndex) => {
+    const container = snapContainerRef.current;
+    if (!container) {
+      return;
+    }
+
+    const clampedIndex = clamp(nextIndex, 0, SNAP_SECTION_COUNT - 1);
+    const nextScrollTop = clampedIndex * container.clientHeight;
+    container.scrollTo({ top: nextScrollTop, behavior: "smooth" });
+    setActiveSnapIndex(clampedIndex);
+  };
+
+  /** @param {number} direction */
+  const triggerSnapStep = (direction) => {
+    if (gestureLockRef.current) {
+      return;
+    }
+
+    gestureLockRef.current = true;
+    scrollToSnapIndex(activeSnapIndex + direction);
+
+    window.setTimeout(() => {
+      gestureLockRef.current = false;
+    }, 520);
+  };
+
+  /** @param {React.WheelEvent<HTMLDivElement>} event */
+  const handleContentWheel = (event) => {
+    if (Math.abs(event.deltaY) < 12) {
+      return;
+    }
+
+    event.preventDefault();
+    triggerSnapStep(event.deltaY > 0 ? 1 : -1);
+  };
+
+  /** @param {React.TouchEvent<HTMLDivElement>} event */
+  const handleContentTouchStart = (event) => {
+    touchStartYRef.current = event.touches[0]?.clientY ?? null;
+  };
+
+  /** @param {React.TouchEvent<HTMLDivElement>} event */
+  const handleContentTouchEnd = (event) => {
+    const startY = touchStartYRef.current;
+    const endY = event.changedTouches[0]?.clientY;
+    touchStartYRef.current = null;
+
+    if (startY == null || endY == null) {
+      return;
+    }
+
+    const deltaY = startY - endY;
+    if (Math.abs(deltaY) < 28) {
+      return;
+    }
+
+    triggerSnapStep(deltaY > 0 ? 1 : -1);
+  };
+
   /** @param {number} panelIndex */
   const getPanelOpacity = (panelIndex) => (
     displayedSnapIndex === panelIndex
@@ -243,6 +348,7 @@ export default function GuestHomeFlow() {
 
   const firstPanelOpacity = getPanelOpacity(0);
   const secondPanelOpacity = getPanelOpacity(1);
+  const leafTwitch = useLeafTwitch();
 
   const panelFadeDuration = contentTransitionPhase === "fading-out"
     ? CONTENT_FADE_OUT_MS / 1000
@@ -298,6 +404,36 @@ export default function GuestHomeFlow() {
         }}
       />
 
+      <div
+        className="absolute inset-0 z-[15] pointer-events-none"
+        style={{
+          transform: `translate3d(0, ${(-parallaxScrollTop * 0.36).toFixed(2)}px, 0)`,
+          willChange: "transform",
+        }}
+      >
+        <motion.img
+          src={SINGLE_LEAF_IMAGE_URL}
+          alt=""
+          aria-hidden="true"
+          className="absolute right-[-2vw] md:right-[-1vw]"
+          style={{
+            top: "36%",
+            width: "clamp(72px, 13vw, 148px)",
+            height: "auto",
+            transformOrigin: "88% 12%",
+            filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.18))",
+          }}
+          initial={false}
+          animate={{
+            x: [0, leafTwitch.shiftX * 0.45, leafTwitch.shiftX, leafTwitch.shiftX * -0.3, 0],
+            y: [0, leafTwitch.shiftY * 0.4, leafTwitch.shiftY, leafTwitch.shiftY * -0.15, 0],
+            rotate: [0, leafTwitch.rotate * 0.4, leafTwitch.rotate, leafTwitch.rotate * -0.24, 0],
+            scale: [1, leafTwitch.scale, 1 + (leafTwitch.scale - 1) * 0.35, 1],
+          }}
+          transition={{ duration: 0.78, ease: "easeInOut" }}
+        />
+      </div>
+
       <div className="absolute top-0 left-0 right-0 z-20 flex flex-col items-center pt-10 md:pt-14 px-4">
         <h1
           className="font-bold text-stone-50 uppercase text-center whitespace-nowrap drop-shadow-[0_2px_24px_rgba(0,0,0,0.65)]"
@@ -338,7 +474,12 @@ export default function GuestHomeFlow() {
             <section className="h-full min-h-full snap-start" />
           </div>
 
-          <div className="relative h-full w-full max-w-2xl overflow-visible">
+          <div
+            className="relative h-full w-full max-w-2xl overflow-visible"
+            onWheel={handleContentWheel}
+            onTouchStart={handleContentTouchStart}
+            onTouchEnd={handleContentTouchEnd}
+          >
             <motion.div
               className="absolute inset-x-0 top-0 flex flex-col items-center gap-5 pt-[11%] md:pt-[10%]"
               animate={{ opacity: firstPanelOpacity }}
