@@ -235,8 +235,6 @@ function useLeafTwitch() {
 export default function GuestHomeFlow() {
   const navigate = useNavigate();
   const snapContainerRef = useRef(/** @type {HTMLDivElement | null} */ (null));
-  const gestureLockRef = useRef(false);
-  const touchStartYRef = useRef(/** @type {number | null} */ (null));
   const [activeSnapIndex, setActiveSnapIndex] = useState(0);
   const [displayedSnapIndex, setDisplayedSnapIndex] = useState(0);
   const [contentTransitionPhase, setContentTransitionPhase] = useState("idle");
@@ -275,66 +273,6 @@ export default function GuestHomeFlow() {
     const nextIndex = Math.round(container.scrollTop / sectionHeight);
     setActiveSnapIndex(clamp(nextIndex, 0, SNAP_SECTION_COUNT - 1));
     setParallaxScrollTop(container.scrollTop);
-  };
-
-  /** @param {number} nextIndex */
-  const scrollToSnapIndex = (nextIndex) => {
-    const container = snapContainerRef.current;
-    if (!container) {
-      return;
-    }
-
-    const clampedIndex = clamp(nextIndex, 0, SNAP_SECTION_COUNT - 1);
-    const nextScrollTop = clampedIndex * container.clientHeight;
-    container.scrollTo({ top: nextScrollTop, behavior: "smooth" });
-    setActiveSnapIndex(clampedIndex);
-  };
-
-  /** @param {number} direction */
-  const triggerSnapStep = (direction) => {
-    if (gestureLockRef.current) {
-      return;
-    }
-
-    gestureLockRef.current = true;
-    scrollToSnapIndex(activeSnapIndex + direction);
-
-    window.setTimeout(() => {
-      gestureLockRef.current = false;
-    }, 520);
-  };
-
-  /** @param {React.WheelEvent<HTMLDivElement>} event */
-  const handleContentWheel = (event) => {
-    if (Math.abs(event.deltaY) < 12) {
-      return;
-    }
-
-    event.preventDefault();
-    triggerSnapStep(event.deltaY > 0 ? 1 : -1);
-  };
-
-  /** @param {React.TouchEvent<HTMLDivElement>} event */
-  const handleContentTouchStart = (event) => {
-    touchStartYRef.current = event.touches[0]?.clientY ?? null;
-  };
-
-  /** @param {React.TouchEvent<HTMLDivElement>} event */
-  const handleContentTouchEnd = (event) => {
-    const startY = touchStartYRef.current;
-    const endY = event.changedTouches[0]?.clientY;
-    touchStartYRef.current = null;
-
-    if (startY == null || endY == null) {
-      return;
-    }
-
-    const deltaY = startY - endY;
-    if (Math.abs(deltaY) < 28) {
-      return;
-    }
-
-    triggerSnapStep(deltaY > 0 ? 1 : -1);
   };
 
   /** @param {number} panelIndex */
@@ -468,17 +406,14 @@ export default function GuestHomeFlow() {
           <div
             ref={snapContainerRef}
             onScroll={handleSnapScroll}
-            className="absolute inset-0 mx-auto h-full w-full max-w-2xl overflow-y-auto snap-y snap-mandatory scroll-smooth opacity-0"
+            className="absolute inset-0 mx-auto h-full w-full max-w-2xl overflow-y-auto snap-y snap-mandatory scroll-smooth opacity-0 touch-pan-y"
           >
             <section className="h-full min-h-full snap-start" />
             <section className="h-full min-h-full snap-start" />
           </div>
 
           <div
-            className="relative h-full w-full max-w-2xl overflow-visible"
-            onWheel={handleContentWheel}
-            onTouchStart={handleContentTouchStart}
-            onTouchEnd={handleContentTouchEnd}
+            className="relative h-full w-full max-w-2xl overflow-visible pointer-events-none"
           >
             <motion.div
               className="absolute inset-x-0 top-0 flex flex-col items-center gap-5 pt-[11%] md:pt-[10%]"
