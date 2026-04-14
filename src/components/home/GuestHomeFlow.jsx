@@ -74,16 +74,20 @@ function useFirefly(index) {
 
     const run = () => {
       if (!mountedRef.current) return;
-      const sizeMultiplier = randomBetween(0.2, 1);
-      const durationS = clamp(randomNormal(2.5, 0.9), 1, 5);
+      const verticalBias = Math.pow(Math.random(), 1.85);
+      const spawnY = 8 + verticalBias * 48;
+      const sizeMultiplier = randomBetween(0.2 + verticalBias * 0.55, 1);
+      const durationS = clamp(randomNormal(2.5, 0.9), 3, 7);
       const pulseTimeA = randomBetween(0.16, 0.46);
       const pulseTimeB = clamp(randomBetween(0.54, 0.9), pulseTimeA + 0.16, 0.93);
+      const baseSizeMin = 3 + verticalBias * 5;
+      const baseSizeMax = 6 + verticalBias * 9.5;
 
       setState({
         visible: true,
         x: 14 + Math.random() * 66,
-        y: 8 + Math.random() * 48,
-        size: (5 + Math.random() * 8.5) * sizeMultiplier,
+        y: spawnY,
+        size: randomBetween(baseSizeMin, baseSizeMax) * sizeMultiplier,
         driftX1: randomBetween(-4.8, 4.8),
         driftY1: randomBetween(-4.8, 4.8),
         driftX2: randomBetween(-8.4, 8.4),
