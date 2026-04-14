@@ -134,21 +134,13 @@ export default function GuestHomeFlow() {
       {/* Title â€“ top */}
       <div className="absolute top-0 left-0 right-0 z-20 flex flex-col items-center pt-10 md:pt-14 px-4">
         <h1
-          className="font-bold uppercase text-center whitespace-nowrap"
+          className="font-bold text-stone-50 uppercase text-center whitespace-nowrap drop-shadow-[0_2px_24px_rgba(0,0,0,0.65)]"
           style={{
             width: "90vw",
             maxWidth: "90vw",
             fontSize: "clamp(2.1rem, 8.5vw, 5.5rem)",
             letterSpacing: "clamp(0.18em, 0.55vw, 0.36em)",
             lineHeight: 1,
-            color: "transparent",
-            backgroundImage:
-              "linear-gradient(180deg, rgba(252,248,227,0.98) 0%, rgba(224,235,203,0.98) 34%, rgba(184,209,148,0.98) 68%, rgba(240,214,150,0.96) 100%)",
-            WebkitBackgroundClip: "text",
-            backgroundClip: "text",
-            WebkitTextStroke: "2px rgba(245,223,160,0.78)",
-            textShadow:
-              "0 0 10px rgba(255,242,196,0.18), 0 2px 22px rgba(0,0,0,0.48), 0 0 36px rgba(209,182,88,0.14)",
           }}
         >
           FLORALOG
