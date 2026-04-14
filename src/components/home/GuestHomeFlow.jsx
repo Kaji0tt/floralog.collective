@@ -4,7 +4,9 @@ import { Camera } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
-const BACKGROUND_IMAGE_URL = new URL("../../../FunnelBackground.png", import.meta.url).href;
+const GUEST_BG_IMAGE_URL = new URL("../../../guestfunnel-bg.png", import.meta.url).href;
+const GUEST_MG_IMAGE_URL = new URL("../../../guestfunnel-mg.png", import.meta.url).href;
+const GUEST_FG_IMAGE_URL = new URL("../../../guestfunnel-fg.png", import.meta.url).href;
 const FIREFLY_COUNT = 36;
 
 /**
@@ -186,22 +188,48 @@ function FireflyParticle({ index }) {
 
 export default function GuestHomeFlow() {
   const navigate = useNavigate();
+  const snapContainerRef = useRef(null);
+  const [activeSnapIndex, setActiveSnapIndex] = useState(0);
+  const [parallaxScrollTop, setParallaxScrollTop] = useState(0);
+
+  /** @param {React.UIEvent<HTMLDivElement>} event */
+  const handleSnapScroll = (event) => {
+    const container = event.currentTarget;
+    const sectionHeight = Math.max(1, container.clientHeight);
+    const nextIndex = Math.round(container.scrollTop / sectionHeight);
+    setActiveSnapIndex(clamp(nextIndex, 0, 1));
+    setParallaxScrollTop(container.scrollTop);
+  };
 
   return (
     <div className="fixed inset-0 overflow-hidden">
-      {/* Background image */}
+      {/* Parallax layer - background */}
       <div
-        className="absolute inset-0"
+        className="absolute inset-0 z-0"
         style={{
-          backgroundImage: `url(${BACKGROUND_IMAGE_URL})`,
+          backgroundImage: `url(${GUEST_BG_IMAGE_URL})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
+          transform: `translate3d(0, ${(-parallaxScrollTop * 0.12).toFixed(2)}px, 0)`,
+          willChange: "transform",
         }}
       />
 
-      {/* Bottom gradient overlay for CTA readability */}
+      {/* Parallax layer - middle ground */}
       <div
-        className="absolute inset-x-0 bottom-0 pointer-events-none"
+        className="absolute inset-0 z-[6]"
+        style={{
+          backgroundImage: `url(${GUEST_MG_IMAGE_URL})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          transform: `translate3d(0, ${(-parallaxScrollTop * 0.24).toFixed(2)}px, 0)`,
+          willChange: "transform",
+        }}
+      />
+
+      {/* Bottom gradient overlay for content readability */}
+      <div
+        className="absolute inset-x-0 bottom-0 pointer-events-none z-[16]"
         style={{
           height: "48%",
           background:
@@ -209,14 +237,26 @@ export default function GuestHomeFlow() {
         }}
       />
 
-      {/* Firefly particles â€“ upper bright area of image */}
-      <div className="absolute inset-0 pointer-events-none z-10">
+      {/* Firefly particles - above MG, below FG */}
+      <div className="absolute inset-0 pointer-events-none z-[10]">
         {Array.from({ length: FIREFLY_COUNT }, (_, i) => (
           <FireflyParticle key={i} index={i} />
         ))}
       </div>
 
-      {/* Title â€“ top */}
+      {/* Parallax layer - foreground (covers particles for depth) */}
+      <div
+        className="absolute inset-0 z-[14] pointer-events-none"
+        style={{
+          backgroundImage: `url(${GUEST_FG_IMAGE_URL})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          transform: `translate3d(0, ${(-parallaxScrollTop * 0.36).toFixed(2)}px, 0)`,
+          willChange: "transform",
+        }}
+      />
+
+      {/* Title - top */}
       <div className="absolute top-0 left-0 right-0 z-20 flex flex-col items-center pt-10 md:pt-14 px-4">
         <h1
           className="font-bold text-stone-50 uppercase text-center whitespace-nowrap drop-shadow-[0_2px_24px_rgba(0,0,0,0.65)]"
@@ -243,52 +283,82 @@ export default function GuestHomeFlow() {
         </p>
       </div>
 
-      {/* Content container â€“ starts below creature and reaches the ground */}
+      {/* Content container - starts below creature and reaches the ground */}
       <div
-        className="absolute inset-x-0 bottom-0 z-20 px-4"
+        className="absolute inset-x-0 bottom-0 z-30 px-4"
         style={{ top: "57%" }}
       >
         <div className="flex h-full w-full justify-center">
-          <div className="flex w-full max-w-2xl flex-col items-center gap-5 pt-[11%] md:pt-[10%]">
-            {/* Scan button â€“ same visual as Home.jsx */}
-            <motion.button
-              onClick={() => navigate(createPageUrl("Scanner"))}
-              className="rounded-2xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 text-white font-semibold tracking-wide flex items-center justify-center gap-3 shadow-[0_8px_24px_rgba(34,197,94,0.35)] hover:brightness-110 transition-all"
-              style={{
-                width: "70vw",
-                maxWidth: "420px",
-                height: "3.25rem",
-                fontSize: "1.1rem",
-              }}
-              whileTap={{ scale: 0.97 }}
-            >
-              <Camera className="w-5 h-5" />
-              Scan starten
-            </motion.button>
+          <div
+            ref={snapContainerRef}
+            onScroll={handleSnapScroll}
+            className="h-full w-full max-w-2xl overflow-y-auto snap-y snap-mandatory scroll-smooth"
+          >
+            <section className="h-full min-h-full snap-start px-1">
+              <motion.div
+                className="flex h-full w-full flex-col items-center gap-5 pt-[11%] md:pt-[10%]"
+                animate={activeSnapIndex === 0 ? { opacity: 1, y: 0 } : { opacity: 0, y: -26 }}
+                transition={{ duration: 0.38, ease: "easeOut" }}
+              >
+                {/* Scan button - same visual as Home.jsx */}
+                <motion.button
+                  onClick={() => navigate(createPageUrl("Scanner"))}
+                  className="rounded-2xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 text-white font-semibold tracking-wide flex items-center justify-center gap-3 shadow-[0_8px_24px_rgba(34,197,94,0.35)] hover:brightness-110 transition-all"
+                  style={{
+                    width: "70vw",
+                    maxWidth: "420px",
+                    height: "3.25rem",
+                    fontSize: "1.1rem",
+                  }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  <Camera className="w-5 h-5" />
+                  Scan starten
+                </motion.button>
 
-            {/* Register â€“ prominent text link */}
-            <button
-              onClick={() => navigate("/register")}
-              className="font-bold text-amber-200 hover:text-amber-100 transition-colors drop-shadow-[0_1px_8px_rgba(0,0,0,0.9)]"
-              style={{
-                fontSize: "clamp(1rem, 4vw, 1.2rem)",
-                letterSpacing: "0.04em",
-              }}
-            >
-              Kostenlos registrieren
-            </button>
+                <button
+                  onClick={() => navigate("/register")}
+                  className="font-bold text-amber-200 hover:text-amber-100 transition-colors drop-shadow-[0_1px_8px_rgba(0,0,0,0.9)]"
+                  style={{
+                    fontSize: "clamp(1rem, 4vw, 1.2rem)",
+                    letterSpacing: "0.04em",
+                  }}
+                >
+                  Kostenlos registrieren
+                </button>
 
-            {/* Login â€“ subtle text link */}
-            <button
-              onClick={() => navigate("/login")}
-              className="font-medium text-stone-300/80 hover:text-stone-200 transition-colors drop-shadow-[0_1px_6px_rgba(0,0,0,0.8)]"
-              style={{
-                fontSize: "clamp(0.85rem, 3vw, 1rem)",
-                letterSpacing: "0.03em",
-              }}
-            >
-              Anmelden
-            </button>
+                <button
+                  onClick={() => navigate("/login")}
+                  className="font-medium text-stone-300/80 hover:text-stone-200 transition-colors drop-shadow-[0_1px_6px_rgba(0,0,0,0.8)]"
+                  style={{
+                    fontSize: "clamp(0.85rem, 3vw, 1rem)",
+                    letterSpacing: "0.03em",
+                  }}
+                >
+                  Anmelden
+                </button>
+              </motion.div>
+            </section>
+
+            <section className="h-full min-h-full snap-start px-1">
+              <motion.div
+                className="flex h-full w-full flex-col items-center pt-[11%] md:pt-[10%]"
+                animate={activeSnapIndex === 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: 26 }}
+                transition={{ duration: 0.42, ease: "easeOut" }}
+              >
+                <div className="w-full max-w-xl rounded-3xl border border-amber-100/20 bg-black/24 px-5 py-5 backdrop-blur-[2px]">
+                  <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-100/80">Floralog</p>
+                  <h2 className="mt-2 text-xl md:text-2xl font-semibold text-stone-100">Natur neu entdecken, spielerisch im Alltag.</h2>
+                  <p className="mt-3 text-sm md:text-base leading-relaxed text-stone-200/92">
+                    Floralog verbindet Scanner, Entdeckergeist und echtes Naturwissen. Du lernst Pflanzen direkt vor deiner Haustuer kennen,
+                    dokumentierst Funde und entwickelst Schritt fuer Schritt deinen eigenen Naturbegleiter weiter.
+                  </p>
+                  <p className="mt-3 text-sm md:text-base leading-relaxed text-stone-200/88">
+                    Wische wieder nach unten fuer den schnellen Einstieg oder scrolle weiter, um tiefer in Vision und Features einzutauchen.
+                  </p>
+                </div>
+              </motion.div>
+            </section>
           </div>
         </div>
       </div>
