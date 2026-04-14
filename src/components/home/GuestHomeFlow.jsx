@@ -576,25 +576,35 @@ export default function GuestHomeFlow() {
       </div>
 
       <div className="absolute top-0 left-0 right-0 z-20 flex flex-col items-center pt-10 md:pt-14 px-4">
-        <h1
-          className="font-bold text-stone-50 uppercase text-center whitespace-nowrap drop-shadow-[0_2px_24px_rgba(0,0,0,0.65)]"
-          style={{
-            width: "95vw",
-            maxWidth: "95vw",
-            fontSize: "clamp(2.1rem, 8.9vw, 5.5rem)",
-            letterSpacing: "clamp(0.2em, 0.62vw, 0.4em)",
-            lineHeight: 1,
-          }}
-        >
-          FLORALOG
-        </h1>
+        <div className="relative w-[95vw] max-w-[95vw] flex justify-center">
+          <div
+            className="absolute inset-x-auto top-1/2 -translate-y-1/2 rounded-full border border-amber-100/30 bg-black/18 backdrop-blur-[2px]"
+            style={{
+              width: "min(74vw, 760px)",
+              height: "clamp(2.8rem, 7.4vw, 4.4rem)",
+              boxShadow: "0 0 0 1px rgba(255,241,186,0.08), 0 8px 24px rgba(0,0,0,0.18)",
+            }}
+            aria-hidden="true"
+          />
+          <h1
+            className="relative font-bold text-stone-50 uppercase text-center whitespace-nowrap drop-shadow-[0_2px_24px_rgba(0,0,0,0.65)]"
+            style={{
+              width: "95vw",
+              maxWidth: "95vw",
+              fontSize: "clamp(2.1rem, 8.9vw, 5.5rem)",
+              letterSpacing: "clamp(0.2em, 0.62vw, 0.4em)",
+              lineHeight: 1,
+            }}
+          >
+            FLORALOG
+          </h1>
+        </div>
         <p
-          className="mt-2 rounded-full border border-amber-100/30 bg-black/18 px-4 py-1.5 text-amber-50/95 font-medium backdrop-blur-[2px]"
+          className="mt-2 px-2 text-amber-50/95 font-medium"
           style={{
             fontSize: "clamp(0.85rem, 3vw, 1.05rem)",
             letterSpacing: "0.1em",
-            textShadow: "0 0 10px rgba(255,244,180,0.45), 0 1px 12px rgba(0,0,0,0.72)",
-            boxShadow: "0 0 0 1px rgba(255,241,186,0.08), 0 8px 24px rgba(0,0,0,0.18)",
+            textShadow: "0 3px 0 rgba(0,0,0,0.92), 0 8px 18px rgba(0,0,0,0.95), 0 14px 34px rgba(0,0,0,0.9)",
           }}
         >
           Dein Naturbegleiter
@@ -603,7 +613,7 @@ export default function GuestHomeFlow() {
 
       <div
         className="absolute inset-x-0 bottom-0 z-30 px-4"
-        style={{ top: "57%" }}
+        style={{ top: "50%" }}
       >
         <div
           className="relative flex h-full w-full justify-center overflow-visible overscroll-none touch-none"
