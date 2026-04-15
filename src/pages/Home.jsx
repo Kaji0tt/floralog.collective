@@ -1629,27 +1629,27 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, ease: 'easeOut' }}
             data-ui="home-main-content-shell"
-            className={`relative h-full w-full max-w-md md:max-w-3xl rounded-[2rem] overflow-hidden border ${isLightUi ? "border-[#dfc98b]/75 shadow-[0_20px_64px_rgba(160,125,45,0.22)]" : "border-[#d7cf9c]/65 shadow-[0_20px_80px_rgba(0,0,0,0.55)]"}`}
+            className={`relative h-full w-full max-w-md md:max-w-3xl rounded-[2rem] overflow-hidden border ${isLightUi ? "border-white/65 shadow-[0_20px_64px_rgba(0,0,0,0.14)]" : "border-[#d7cf9c]/65 shadow-[0_20px_80px_rgba(0,0,0,0.55)]"}`}
           >
             <div
               className="absolute inset-0"
               style={user?.background_image_url ? {
                 backgroundImage: isLightUi
-                  ? `linear-gradient(180deg, rgba(255,246,210,0.65) 0%, rgba(244,230,181,0.75) 100%), url(${user.background_image_url})`
+                  ? `linear-gradient(180deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.28) 100%), url(${user.background_image_url})`
                   : `linear-gradient(180deg, rgba(19,37,24,0.42) 0%, rgba(12,20,15,0.66) 100%), url(${user.background_image_url})`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
               } : user?.background_color ? {
                 background: isLightUi
-                  ? `linear-gradient(180deg, ${getRgbaFromRgb(user.background_color, 0.25)} 0%, rgba(255, 249, 225, 0.9) 100%)`
+                  ? `linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.38) 100%)`
                   : `linear-gradient(180deg, ${getRgbaFromRgb(user.background_color, 0.28)} 0%, rgba(14, 22, 16, 0.74) 100%)`,
               } : {
                 background: isLightUi
-                  ? 'linear-gradient(180deg, rgba(255, 248, 221, 0.92) 0%, rgba(243, 229, 183, 0.9) 100%)'
+                  ? 'linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.38) 100%)'
                   : 'linear-gradient(180deg, rgba(126, 171, 98, 0.45) 0%, rgba(10, 22, 15, 0.78) 100%)',
               }}
             />
-            <div className={`absolute inset-0 pointer-events-none rounded-[2rem] border ${isLightUi ? "border-[#f4e6b7]/85" : "border-[#f0e5a5]/30"}`} />
+            <div className={`absolute inset-0 pointer-events-none rounded-[2rem] border ${isLightUi ? "border-white/70" : "border-[#f0e5a5]/30"}`} />
 
             <div className={`relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6 ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
               <HomeHeaderBar

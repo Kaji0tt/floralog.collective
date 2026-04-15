@@ -18,7 +18,7 @@ export default function HomeBackgroundShell({ user, getRgbaFromRgb, children }) 
             : "radial-gradient(circle at top, rgb(223, 224, 127) 0%, rgb(67, 146, 96) 60%, rgb(53, 90, 68) 100%)",
         }}
       />
-      <div className={`absolute inset-0 ${isLightUi ? "backdrop-blur-[2px] bg-white/20" : "backdrop-blur-3xl"}`} />
+      <div className={`absolute inset-0 backdrop-blur-3xl ${isLightUi ? "bg-white/15" : ""}`} />
 
       <div className="relative z-10 h-full w-full p-3 md:p-6 flex items-start justify-center">
         {children}
