@@ -9,7 +9,7 @@ import { useFriendData } from "@/components/friends/hooks/useFriendData";
 import FriendExperienceShell from "@/components/friends/FriendExperienceShell";
 import { computeOverallPlantHealth, computePlantHealthState } from "@/lib/robotPlantEconomy";
 import { motion } from "framer-motion";
-import { Leaf, UserPlus, Clock, Map as MapIcon, Plus, Zap } from "lucide-react";
+import { Leaf, UserPlus, Clock, Heart, Plus, Zap } from "lucide-react";
 
 export default function FriendProfile() {
   const navigate = useNavigate();
@@ -194,7 +194,7 @@ export default function FriendProfile() {
                 />
               </div>
 
-              <div className="absolute left-1/2 top-1/2 w-[84%] -translate-x-1/2 -translate-y-1/2">
+              <div className="absolute left-1/2 top-1/2 w-[84%] aspect-square -translate-x-1/2 -translate-y-1/2 pointer-events-none">
                 {[
                   { key: "left", className: "left-0 top-1/2 -translate-x-1/2 -translate-y-1/2" },
                   { key: "right", className: "right-0 top-1/2 translate-x-1/2 -translate-y-1/2" },
@@ -204,7 +204,7 @@ export default function FriendProfile() {
                   <button
                     key={slot.key}
                     type="button"
-                    className={`absolute ${slot.className} z-[9] w-11 h-11 md:w-12 md:h-12 rounded-2xl border backdrop-blur-sm flex items-center justify-center transition-colors ${
+                    className={`pointer-events-auto absolute ${slot.className} z-[9] w-11 h-11 md:w-12 md:h-12 rounded-2xl border backdrop-blur-sm flex items-center justify-center transition-colors ${
                       isLightUi
                         ? "border-[#c8ac62]/55 bg-white/52 text-stone-700"
                         : "border-[#f0e5a5]/45 bg-black/35 text-[#f0e5a5]"
@@ -246,19 +246,20 @@ export default function FriendProfile() {
         <div className={`rounded-xl p-3 backdrop-blur-sm ${cardBase}`}>
           {isFriend ? (
             <button
-              onClick={() => navigate(createPageUrl("Map"))}
-              className={`flex items-center justify-center gap-2 w-full font-semibold transition-opacity hover:opacity-80 ${textPrimary}`}
+              onClick={() => alert("Share a Scan kommt bald.")}
+              className={`w-full rounded-2xl border flex items-center justify-center font-semibold tracking-wide transition-shadow ${
+                isLightUi
+                  ? "border-red-400/50 bg-gradient-to-r from-red-500/85 via-rose-400/75 to-red-500/85 text-white shadow-[0_8px_24px_rgba(239,68,68,0.2)] hover:shadow-[0_12px_32px_rgba(239,68,68,0.35)]"
+                  : "border-red-200/35 bg-gradient-to-r from-red-700/80 via-rose-500/70 to-red-700/80 text-white shadow-[0_8px_24px_rgba(239,68,68,0.3)]"
+              }`}
+              style={{
+                height: "3.35rem",
+                gap: "0.56rem",
+                fontSize: "1.05rem",
+              }}
             >
-              <div
-                className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md ${
-                  isLightUi
-                    ? "bg-gradient-to-br from-emerald-500 to-green-600"
-                    : "bg-gradient-to-br from-emerald-700 to-green-800"
-                }`}
-              >
-                <MapIcon className="w-4 h-4 text-white" />
-              </div>
-              <span>Zur Karte</span>
+              <Heart className="w-5 h-5" />
+              Share a Scan
             </button>
           ) : hasPendingRequest ? (
             <button

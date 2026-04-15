@@ -3,7 +3,7 @@ import { useUiTheme } from "@/lib/UiThemeContext";
 export default function HomeBackgroundShell({ user, getRgbaFromRgb, children }) {
   const { isLightUi } = useUiTheme();
   return (
-    <div className="fixed inset-x-0 top-0 h-[var(--app-dvh)] overflow-hidden">
+    <div className="fixed inset-0 overflow-hidden">
       <div
         className="absolute inset-0"
         style={user?.background_image_url ? {
