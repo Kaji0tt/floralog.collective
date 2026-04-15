@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Query } from "@/api/entities";
 import { useUiTheme } from "@/lib/UiThemeContext";
@@ -151,7 +151,7 @@ export default function FriendCollection() {
       isLoading={contentLoading}
       accessDenied={!isFriend && !isLoading}
     >
-      <div className="h-full overflow-hidden flex flex-col gap-2">
+      <div className="h-full overflow-hidden flex flex-col gap-3 p-[clamp(0.75rem,2vw,1.25rem)] pb-[clamp(1rem,2.5vh,1.5rem)]">
         {/* Hero progress card */}
         <div className={`shrink-0 rounded-2xl p-3 ${cardSurface}`}>
           <div className="flex items-center gap-3">
@@ -217,7 +217,7 @@ export default function FriendCollection() {
           </div>
 
           {filtersOpen && (
-            <div className="mt-2">
+            <div className="mt-3">
               <SearchSortBar
                 searchQuery={searchQuery}
                 onSearchQueryChange={setSearchQuery}
@@ -241,7 +241,7 @@ export default function FriendCollection() {
 
         {/* Scrollable genus grid */}
         <div
-          className="relative flex-1 min-h-0 overflow-y-auto pb-2"
+          className="relative flex-1 min-h-0 overflow-y-auto pb-1"
           style={{
             WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black 100%)`,
             maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black 100%)`,

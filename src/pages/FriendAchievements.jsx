@@ -1,4 +1,3 @@
-import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Query } from "@/api/entities";
 import { useUiTheme } from "@/lib/UiThemeContext";
@@ -85,13 +84,13 @@ export default function FriendAchievements() {
       isLoading={isLoading}
       accessDenied={!isFriend && !isLoading}
     >
-      <div className="h-full overflow-y-auto pb-2">
+      <div className="h-full overflow-y-auto p-[clamp(0.75rem,2vw,1.25rem)] pb-[clamp(1rem,2.5vh,1.5rem)] space-y-3">
         {/* Progress header */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className={`rounded-2xl p-3 mb-3 flex items-center gap-3 ${cardSurface}`}
+          className={`rounded-2xl p-3 flex items-center gap-3 ${cardSurface}`}
         >
           <div
             className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
@@ -111,7 +110,7 @@ export default function FriendAchievements() {
         </motion.div>
 
         {/* Achievement cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {unlockedAchievements.map((achievement, index) => {
             const userAchievement = userAchievements.find(
               (ua) => ua.achievement_id === achievement.id

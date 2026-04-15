@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Query } from "@/api/entities";
@@ -106,7 +106,7 @@ export default function FriendFriendsList() {
       isLoading={isLoading}
       accessDenied={!isFriend && !isLoading}
     >
-      <div className="h-full overflow-y-auto pb-2">
+      <div className="h-full overflow-y-auto p-[clamp(0.75rem,2vw,1.25rem)] pb-[clamp(1rem,2.5vh,1.5rem)]">
         {friends.length === 0 ? (
           <div className={`rounded-2xl p-10 text-center ${cardBase}`}>
             <Users className={`w-12 h-12 mx-auto mb-3 ${textMuted}`} />
@@ -119,7 +119,7 @@ export default function FriendFriendsList() {
             </p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {friends.map((record, index) => {
               const data = getFriendData(record);
               if (!data) return null;
