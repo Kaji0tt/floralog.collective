@@ -16,15 +16,16 @@ export default function PlantHeroHealthPanel({
   healthStateBonus,
   healthStats,
   isLoading = false,
-  wateringCountToday,
-  wateringLimitPerDay,
-  remainingWatersToday,
-  isWateringPending,
-  isFertilizerPending,
-  activeDecayEffects,
-  activeDecayPercent,
-  onWaterPlant,
-  onFertilizerSlot,
+  wateringCountToday = 0,
+  wateringLimitPerDay = 0,
+  remainingWatersToday = 0,
+  isWateringPending = false,
+  isFertilizerPending = false,
+  activeDecayEffects = [],
+  activeDecayPercent = 0,
+  onWaterPlant = () => {},
+  onFertilizerSlot = () => {},
+  showCareActions = true,
 }) {
   const { isLightUi } = useUiTheme();
   const safeHealthStats = Array.isArray(healthStats) ? healthStats : [];
@@ -96,43 +97,45 @@ export default function PlantHeroHealthPanel({
           </div>
         ))}
 
-        <div className="grid grid-cols-2 gap-2 pt-1">
-          <button
-            type="button"
-            onClick={onWaterPlant}
-            disabled={isLoading || isWateringPending || remainingWatersToday <= 0}
-            className={`h-14 rounded-xl border flex flex-col items-center justify-center disabled:opacity-60 ${
-              isLightUi
-                ? "border-[#c8ac62]/55 bg-white/60 text-stone-800"
-                : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
-            }`}
-          >
-            <span className="text-[11px] md:text-xs font-semibold leading-none">
-              Gießen
-            </span>
-            <span className="text-[10px] md:text-[11px] mt-1 leading-none opacity-90">
-              {isLoading ? "..." : `${wateringCountToday}/${wateringLimitPerDay}`}
-            </span>
-          </button>
+        {showCareActions && (
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onWaterPlant}
+              disabled={isLoading || isWateringPending || remainingWatersToday <= 0}
+              className={`h-14 rounded-xl border flex flex-col items-center justify-center disabled:opacity-60 ${
+                isLightUi
+                  ? "border-[#c8ac62]/55 bg-white/60 text-stone-800"
+                  : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
+              }`}
+            >
+              <span className="text-[11px] md:text-xs font-semibold leading-none">
+                Gießen
+              </span>
+              <span className="text-[10px] md:text-[11px] mt-1 leading-none opacity-90">
+                {isLoading ? "..." : `${wateringCountToday}/${wateringLimitPerDay}`}
+              </span>
+            </button>
 
-          <button
-            type="button"
-            onClick={onFertilizerSlot}
-            disabled={isLoading || isFertilizerPending}
-            className={`h-14 rounded-xl border flex flex-col items-center justify-center disabled:opacity-60 ${
-              isLightUi
-                ? "border-[#c8ac62]/55 bg-white/60 text-stone-800"
-                : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
-            }`}
-          >
-            <span className="text-[11px] md:text-xs font-semibold leading-none">
-              Dünger
-            </span>
-            <span className="text-[10px] md:text-[11px] mt-1 leading-none opacity-90">
-              {isLoading ? "..." : `${activeDecayEffects.length} | ${Math.round(activeDecayPercent * 100)}%`}
-            </span>
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={onFertilizerSlot}
+              disabled={isLoading || isFertilizerPending}
+              className={`h-14 rounded-xl border flex flex-col items-center justify-center disabled:opacity-60 ${
+                isLightUi
+                  ? "border-[#c8ac62]/55 bg-white/60 text-stone-800"
+                  : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
+              }`}
+            >
+              <span className="text-[11px] md:text-xs font-semibold leading-none">
+                Dünger
+              </span>
+              <span className="text-[10px] md:text-[11px] mt-1 leading-none opacity-90">
+                {isLoading ? "..." : `${activeDecayEffects.length} | ${Math.round(activeDecayPercent * 100)}%`}
+              </span>
+            </button>
+          </div>
+        )}
       </div>
     </motion.div>
   );
