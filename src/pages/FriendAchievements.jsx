@@ -1,337 +1,224 @@
-import React, { useState, useEffect } from "react";
-import { Query } from "@/api/entities";
-import { getCurrentUser } from "@/api/userApi";
+import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Trophy, Lock, Leaf } from "lucide-react";
+import { Query } from "@/api/entities";
+import { useUiTheme } from "@/lib/UiThemeContext";
+import { useFriendData } from "@/components/friends/hooks/useFriendData";
+import FriendExperienceShell from "@/components/friends/FriendExperienceShell";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import MobileBackButton from "../components/navigation/MobileBackButton";
+import { Trophy, Lock } from "lucide-react";
 
 export default function FriendAchievements() {
-  const navigate = useNavigate();
-  const [friendUser, setFriendUser] = useState(null);
-  const [copiedMessage, setCopiedMessage] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [isNotFriend, setIsNotFriend] = useState(false);
-  
-  const urlParams = new URLSearchParams(window.location.search);
-  const friendEmail = urlParams.get('email');
+  const { isLightUi } = useUiTheme();
 
-  useEffect(() => {
-    const loadCurrentUser = async () => {
-      const user = await getCurrentUser();
-      setCurrentUser(user);
-    };
-    loadCurrentUser();
-  }, []);
-  useEffect(() => {
-    const loadFriendUser = async () => {
-      if (!friendEmail || !currentUser?.email) return;
-      
-      // Prüfe Freundschaftsstatus
-      const allFriends = await Query.Friend.list();
-      const currentEmailLower = currentUser.email.toLowerCase();
-      const friendEmailLower = friendEmail.toLowerCase();
-      
-      const friendship = allFriends.find(f =>
-        ((f.request_sent_by?.toLowerCase() === currentEmailLower && 
-          f.request_sent_to?.toLowerCase() === friendEmailLower) ||
-         (f.request_sent_by?.toLowerCase() === friendEmailLower && 
-          f.request_sent_to?.toLowerCase() === currentEmailLower)) &&
-        f.status === 'accepted'
-      );
-      
-      if (!friendship) {
-        setIsNotFriend(true);
-        return;
-      }
-      
-      // Versuche PublicProfile zu laden
-      const profiles = await Query.PublicProfile.list();
-      const profile = profiles.find(p => p.user_email?.toLowerCase() === friendEmail?.toLowerCase());
-      
-      if (profile) {
-        setFriendUser(profile);
-      } else {
-        // Fallback, if no public profile is found
-        setFriendUser({
-          email: friendEmail,
-          full_name: friendEmail,
-          display_name: friendEmail,
-          level: 1,
-          avatar_url: null,
-          selected_title: "Unbekannter Freund"
-        });
-      }
-    };
-    if (friendEmail) {
-      loadFriendUser();
-    }
-  }, [friendEmail, currentUser?.email]);
+  const urlParams = new URLSearchParams(window.location.search);
+  const friendEmail = urlParams.get("email");
+
+  const { friendUser, isFriend, isLoading, averageColor } =
+    useFriendData(friendEmail);
 
   const { data: achievements = [] } = useQuery({
-    queryKey: ['achievements'],
-    queryFn: () => Query.Achievement.list('achievement_number'),
+    queryKey: ["achievements"],
+    queryFn: () => Query.Achievement.list("achievement_number"),
   });
 
   const { data: userAchievements = [] } = useQuery({
-    queryKey: ['userAchievements', friendUser?.auth_id],
+    queryKey: ["userAchievements", friendUser?.auth_id],
     queryFn: () => Query.UserAchievement.filter({ auth_id: friendUser.auth_id }),
     enabled: !!friendUser?.auth_id,
   });
 
-  if (isNotFriend) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md text-center border-2 border-red-200">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Trophy className="w-8 h-8 text-red-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-stone-900 mb-2">Zugriff verweigert</h2>
-          <p className="text-stone-600 mb-6">
-            Du musst mit dieser Person befreundet sein, um ihre Erfolge zu sehen.
-          </p>
-          <button
-            onClick={() => navigate(createPageUrl("Friends"))}
-            className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold shadow-md transition-all"
-          >
-            Zurück zu Freunden
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!friendUser) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50">
-        <Leaf className="w-12 h-12 text-green-600 animate-spin" />
-      </div>
-    );
-  }
-
+  // ── Rarity helpers ───────────────────────────────────────────────────────────
   const getRarityColor = (rarity) => {
-    switch(rarity) {
+    switch (rarity) {
       case "Ungewöhnlich": return "bg-green-500";
-      case "Selten": return "bg-blue-500";
-      case "Episch": return "bg-purple-500";
-      case "Legendär": return "bg-amber-500";
-      default: return "bg-gray-500";
+      case "Selten":       return "bg-blue-500";
+      case "Episch":       return "bg-purple-500";
+      case "Legendär":     return "bg-amber-500";
+      default:             return "bg-stone-400";
     }
   };
 
-  // Sortiere Achievements nach Rarität (niedrigste zuerst)
   const getRarityValue = (rarity) => {
-    switch(rarity) {
+    switch (rarity) {
       case "Ungewöhnlich": return 1;
-      case "Selten": return 2;
-      case "Episch": return 3;
-      case "Legendär": return 4;
-      default: return 0;
+      case "Selten":       return 2;
+      case "Episch":       return 3;
+      case "Legendär":     return 4;
+      default:             return 0;
     }
   };
 
-  const sortedAchievements = [...achievements].sort((a, b) => {
-    return getRarityValue(a.rarity) - getRarityValue(b.rarity);
-  });
-
-  const unlockedAchievements = sortedAchievements.filter(a => 
-    userAchievements.some(ua => ua.achievement_id === a.id)
+  const sortedAchievements = [...achievements].sort(
+    (a, b) => getRarityValue(a.rarity) - getRarityValue(b.rarity)
   );
-  const lockedAchievements = sortedAchievements.filter(a => 
-    !userAchievements.some(ua => ua.achievement_id === a.id)
+  const unlockedAchievements = sortedAchievements.filter((a) =>
+    userAchievements.some((ua) => ua.achievement_id === a.id)
   );
-
+  const lockedAchievements = sortedAchievements.filter(
+    (a) => !userAchievements.some((ua) => ua.achievement_id === a.id)
+  );
   const unlockedCount = unlockedAchievements.length;
   const totalAchievements = achievements.length;
-  // const achievementProgressPercentage = totalAchievements > 0 ? (unlockedCount / totalAchievements) * 100 : 0; // Not used in current render
+
+  // ── Style tokens ─────────────────────────────────────────────────────────────
+  const cardSurface = isLightUi
+    ? "bg-white/65 border border-[#c8ac62]/35 backdrop-blur-md"
+    : "bg-black/30 border border-[#f0e5a5]/20 backdrop-blur-md";
+  const cardUnlocked = isLightUi
+    ? "bg-amber-50/70 border border-amber-300/60 backdrop-blur-md"
+    : "bg-amber-900/20 border border-amber-400/30 backdrop-blur-md";
+  const cardLocked = isLightUi
+    ? "bg-stone-100/60 border border-stone-300/50 backdrop-blur-md opacity-55"
+    : "bg-stone-800/20 border border-stone-600/30 backdrop-blur-md opacity-55";
+  const textPrimary = isLightUi ? "text-stone-900" : "text-stone-100";
+  const textSecondary = isLightUi ? "text-stone-600" : "text-stone-300";
+  const textMuted = isLightUi ? "text-stone-500" : "text-stone-400";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4 md:p-8">
-      <MobileBackButton backUrl={createPageUrl(`FriendProfile?email=${friendEmail}`)} />
-      
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex flex-col items-center relative mb-4">
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(window.location.href);
-                setCopiedMessage(true);
-                setTimeout(() => setCopiedMessage(false), 2000);
-              }}
-              className="flex items-center justify-center gap-4 p-2 rounded-lg hover:bg-stone-100 transition-colors duration-200 cursor-pointer"
-            >
-              <div className="w-16 h-16 bg-gradient-to-br from-green-600 to-emerald-600 rounded-full flex items-center justify-center overflow-hidden shadow-lg">
-                {friendUser.avatar_url ? (
-                  <img src={friendUser.avatar_url} alt={friendUser.display_name || friendUser.full_name} className="w-full h-full object-cover" />
-                ) : (
-                  <Leaf className="w-8 h-8 text-white" />
-                )}
-              </div>
-              <div className="text-left">
-                <h1 className="text-3xl md:text-4xl font-bold text-stone-900">
-                  {friendUser.display_name || friendUser.full_name}'s Erfolge
-                </h1>
-                <p className="text-lg text-stone-600">
-                  Level {friendUser.level || 1} • {friendUser.selected_title || friendUser.title || "Pflanzen-Anfänger"}
-                </p>
-              </div>
-            </button>
-            {copiedMessage && (
-              <Badge className="mt-2 bg-green-500 text-white shadow-sm">
-                Link kopiert!
-              </Badge>
-            )}
+    <FriendExperienceShell
+      friendUser={friendUser}
+      activeTab="achievements"
+      friendEmail={friendEmail}
+      averageColor={averageColor}
+      isLoading={isLoading}
+      accessDenied={!isFriend && !isLoading}
+    >
+      <div className="h-full overflow-y-auto pb-2">
+        {/* Progress header */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className={`rounded-2xl p-3 mb-3 flex items-center gap-3 ${cardSurface}`}
+        >
+          <div
+            className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+              isLightUi ? "bg-amber-100" : "bg-amber-900/40"
+            }`}
+          >
+            <Trophy
+              className={`w-5 h-5 ${isLightUi ? "text-amber-600" : "text-amber-400"}`}
+            />
           </div>
-          
-          <div className="inline-flex items-center gap-3 bg-white px-6 py-3 rounded-xl shadow-sm border border-amber-200">
-            <Trophy className="w-6 h-6 text-amber-600" />
-            <div className="text-left">
-              <div className="text-2xl font-bold text-amber-600">{unlockedCount} / {totalAchievements}</div>
-              <div className="text-sm font-medium text-stone-600">Erfolge freigeschaltet</div>
+          <div>
+            <div className={`text-xl font-bold ${isLightUi ? "text-amber-700" : "text-amber-400"}`}>
+              {unlockedCount} / {totalAchievements}
             </div>
+            <div className={`text-xs ${textSecondary}`}>Erfolge freigeschaltet</div>
           </div>
-        </div>
+        </motion.div>
 
-        {/* Achievements Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Freigeschaltete Achievements */}
+        {/* Achievement cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {unlockedAchievements.map((achievement, index) => {
-            const userAchievement = userAchievements.find(ua => ua.achievement_id === achievement.id);
-            
+            const userAchievement = userAchievements.find(
+              (ua) => ua.achievement_id === achievement.id
+            );
             return (
               <motion.div
                 key={achievement.id}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
+                transition={{ delay: index * 0.04 }}
+                className={`rounded-2xl p-4 ${cardUnlocked}`}
               >
-                <Card className="border-2 border-amber-300 bg-gradient-to-br from-white to-amber-50 shadow-md hover:shadow-xl transition-all duration-300">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="text-4xl">{achievement.icon_emoji}</div>
-                          <div>
-                            <Badge className={`${getRarityColor(achievement.rarity)} text-white font-semibold text-xs`}>
-                              {achievement.rarity}
-                            </Badge>
-                          </div>
-                        </div>
-                        <CardTitle className="text-xl mb-2 text-stone-900">
-                          {achievement.title}
-                        </CardTitle>
-                        <p className="text-sm text-stone-600">
-                          {achievement.description}
-                        </p>
-                      </div>
-                      <div className="ml-3 w-10 h-10 bg-amber-500 rounded-full flex items-center justify-center shadow-md">
-                        <Trophy className="w-6 h-6 text-white" />
+                <div className="flex items-start gap-3">
+                  <div className="text-3xl flex-shrink-0">{achievement.icon_emoji}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span
+                        className={`text-[10px] font-semibold text-white px-2 py-0.5 rounded-full ${getRarityColor(achievement.rarity)}`}
+                      >
+                        {achievement.rarity}
+                      </span>
+                      <div
+                        className={`ml-auto w-6 h-6 rounded-full flex items-center justify-center ${
+                          isLightUi ? "bg-amber-400" : "bg-amber-600"
+                        }`}
+                      >
+                        <Trophy className="w-3 h-3 text-white" />
                       </div>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="text-sm">
-                        <span className="text-stone-700 font-semibold">
-                          {achievement.requirement}
-                        </span>
-                      </div>
-                      
-                      {achievement.title_reward && (
-                        <div className="pt-2 border-t border-stone-200">
-                          <p className="text-xs text-purple-700 font-semibold">
-                            ⭐ Titel: "{achievement.title_reward}"
-                          </p>
-                        </div>
-                      )}
-
-                      {userAchievement && (
-                        <div className="pt-2 border-t border-stone-200">
-                          <p className="text-xs text-stone-500">
-                            Freigeschaltet am {format(new Date(userAchievement.unlocked_date), "d. MMMM yyyy", { locale: de })}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+                    <h3 className={`font-bold text-base mb-0.5 ${textPrimary}`}>
+                      {achievement.title}
+                    </h3>
+                    <p className={`text-xs mb-1 ${textSecondary}`}>
+                      {achievement.description}
+                    </p>
+                    <p className={`text-xs font-semibold ${textMuted}`}>
+                      {achievement.requirement}
+                    </p>
+                    {achievement.title_reward && (
+                      <p className={`text-xs mt-1 ${isLightUi ? "text-purple-700" : "text-purple-300"}`}>
+                        ⭐ Titel: „{achievement.title_reward}"
+                      </p>
+                    )}
+                    {userAchievement?.unlocked_date && (
+                      <p className={`text-[10px] mt-1 ${textMuted}`}>
+                        Freigeschaltet am{" "}
+                        {format(new Date(userAchievement.unlocked_date), "d. MMMM yyyy", {
+                          locale: de,
+                        })}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </motion.div>
             );
           })}
 
-          {/* Gesperrte Achievements */}
           {lockedAchievements.map((achievement, index) => (
             <motion.div
               key={achievement.id}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: (unlockedAchievements.length + index) * 0.05 }}
+              transition={{ delay: (unlockedCount + index) * 0.04 }}
+              className={`rounded-2xl p-4 ${cardLocked}`}
             >
-              <Card className="border-2 border-stone-200 bg-stone-50 opacity-60 shadow-md">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="text-4xl grayscale opacity-30">{achievement.icon_emoji}</div>
-                        <div>
-                          <Badge className="bg-stone-400 text-white font-semibold text-xs">
-                            {achievement.rarity}
-                          </Badge>
-                        </div>
-                      </div>
-                      <CardTitle className="text-xl mb-2 text-stone-500">
-                        {achievement.title}
-                      </CardTitle>
-                      <p className="text-sm text-stone-400">
-                        {achievement.description}
-                      </p>
-                    </div>
-                    <div className="ml-3 w-10 h-10 bg-stone-300 rounded-full flex items-center justify-center">
-                      <Lock className="w-5 h-5 text-stone-500" />
+              <div className="flex items-start gap-3">
+                <div className="text-3xl flex-shrink-0 grayscale opacity-40">
+                  {achievement.icon_emoji}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-semibold text-white px-2 py-0.5 rounded-full bg-stone-400">
+                      {achievement.rarity}
+                    </span>
+                    <div className="ml-auto w-6 h-6 rounded-full bg-stone-400/60 flex items-center justify-center">
+                      <Lock className="w-3 h-3 text-white/70" />
                     </div>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="text-sm">
-                      <span className="text-stone-500 font-semibold">
-                        {achievement.requirement}
-                      </span>
-                    </div>
-                    
-                    {achievement.title_reward && (
-                      <div className="pt-2 border-t border-stone-200">
-                        <p className="text-xs text-stone-400 font-semibold">
-                          ⭐ Titel: "{achievement.title_reward}"
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                  <h3 className={`font-bold text-base mb-0.5 ${textSecondary}`}>
+                    {achievement.title}
+                  </h3>
+                  <p className={`text-xs mb-1 ${textMuted}`}>
+                    {achievement.description}
+                  </p>
+                  <p className={`text-xs font-semibold ${textMuted}`}>
+                    {achievement.requirement}
+                  </p>
+                  {achievement.title_reward && (
+                    <p className={`text-xs mt-1 ${textMuted}`}>
+                      ⭐ Titel: „{achievement.title_reward}"
+                    </p>
+                  )}
+                </div>
+              </div>
             </motion.div>
           ))}
         </div>
 
         {sortedAchievements.length === 0 && (
-          <Card className="border-2 border-stone-200 bg-white">
-            <CardContent className="p-12 text-center">
-              <Trophy className="w-16 h-16 text-stone-400 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-stone-900 mb-2">
-                Noch keine Erfolge verfügbar
-              </h3>
-            </CardContent>
-          </Card>
+          <div className={`rounded-2xl p-12 text-center ${cardSurface}`}>
+            <Trophy className={`w-12 h-12 mx-auto mb-3 ${textMuted}`} />
+            <p className={`font-semibold ${textSecondary}`}>
+              Noch keine Erfolge verfügbar
+            </p>
+          </div>
         )}
       </div>
-    </div>
+    </FriendExperienceShell>
   );
 }
-

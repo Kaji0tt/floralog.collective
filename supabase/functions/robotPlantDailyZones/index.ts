@@ -781,13 +781,7 @@ Deno.serve(async (req) => {
       }, 400);
     }
 
-    if (callMode === "initial" && authDayKey === dayKey) {
-      return jsonResponse({
-        success: false,
-        error: "Daily initial call already completed today.",
-        code: "INITIAL_ALREADY_CALLED_TODAY",
-      }, 409);
-    }
+    // Initial calls are idempotent: if today's zones already exist, return cached zones later.
 
     if (callMode === "reroll" && authDayKey !== dayKey) {
       return jsonResponse({
@@ -918,13 +912,8 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Failed to validate daily zone call" }, 500);
     }
 
-    if (callMode === "initial" && Array.isArray(todaysExistingZones) && todaysExistingZones.length > 0) {
-      return jsonResponse({
-        success: false,
-        error: "Daily initial call already completed today.",
-        code: "INITIAL_ALREADY_COMPLETED_TODAY",
-      }, 409);
-    }
+    // Initial calls are allowed even when zones already exist for today.
+    // The existing-zone cache path below will return today's zones.
 
     if (callMode === "reroll" && (!Array.isArray(todaysExistingZones) || todaysExistingZones.length === 0)) {
       return jsonResponse({

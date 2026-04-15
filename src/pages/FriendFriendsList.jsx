@@ -1,278 +1,199 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { Query } from "@/api/entities";
-import { getCurrentUser } from "@/api/userApi";
-import { useQuery } from "@tanstack/react-query";
-import { useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Users, Star, ChevronRight, ArrowLeft, Leaf } from "lucide-react";
-import { motion } from "framer-motion";
+import React, { useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { Query } from "@/api/entities";
 import { createPageUrl } from "@/utils";
-import MobileBackButton from "../components/navigation/MobileBackButton";
+import { useUiTheme } from "@/lib/UiThemeContext";
+import { useFriendData } from "@/components/friends/hooks/useFriendData";
+import FriendExperienceShell from "@/components/friends/FriendExperienceShell";
+import { motion } from "framer-motion";
+import { useEffect } from "react";
+import { Users, Star, ChevronRight, Leaf } from "lucide-react";
 
 export default function FriendFriendsList() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [friendUser, setFriendUser] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [copiedMessage, setCopiedMessage] = useState(false);
-  const [isNotFriend, setIsNotFriend] = useState(false);
-  
+  const { isLightUi } = useUiTheme();
+
   const urlParams = new URLSearchParams(window.location.search);
-  const friendEmail = urlParams.get('email');
+  const friendEmail = urlParams.get("email");
 
-  useEffect(() => {
-    const loadCurrentUser = async () => {
-      const user = await getCurrentUser();
-      setCurrentUser(user);
-    };
-    loadCurrentUser();
-  }, []);
+  const {
+    friendUser,
+    currentUser,
+    isFriend,
+    isLoading,
+    averageColor,
+  } = useFriendData(friendEmail);
 
-  useEffect(() => {
-    const loadFriendUser = async () => {
-      if (!friendEmail || !currentUser?.email) return;
-      
-      // Prüfe Freundschaftsstatus
-      const allFriends = await Query.Friend.list();
-      const currentEmailLower = currentUser.email.toLowerCase();
-      const friendEmailLower = friendEmail.toLowerCase();
-      
-      const friendship = allFriends.find(f =>
-        ((f.request_sent_by?.toLowerCase() === currentEmailLower && 
-          f.request_sent_to?.toLowerCase() === friendEmailLower) ||
-         (f.request_sent_by?.toLowerCase() === friendEmailLower && 
-          f.request_sent_to?.toLowerCase() === currentEmailLower)) &&
-        f.status === 'accepted'
-      );
-      
-      if (!friendship) {
-        setIsNotFriend(true);
-        return;
-      }
-      
-      const profiles = await Query.PublicProfile.list();
-      const profile = profiles.find(p => p.user_email?.toLowerCase() === friendEmail?.toLowerCase());
-      
-      if (profile) {
-        setFriendUser(profile);
-      } else {
-        setFriendUser({
-          email: friendEmail,
-          full_name: friendEmail,
-          display_name: friendEmail,
-          level: 1
-        });
-      }
-    };
-    if (friendEmail) {
-      loadFriendUser();
-    }
-  }, [friendEmail, currentUser?.email]);
-
+  // Subscribe to real-time Friend changes
   useEffect(() => {
     if (!friendEmail) return;
-
     const unsubscribe = Query.Friend.subscribe((event) => {
-      if (event.type === 'create' || event.type === 'update' || event.type === 'delete') {
-        queryClient.invalidateQueries({ queryKey: ['allFriendRecords'] });
+      if (["create", "update", "delete"].includes(event.type)) {
+        queryClient.invalidateQueries({ queryKey: ["allFriendRecords"] });
       }
     });
-
     return unsubscribe;
   }, [friendEmail, queryClient]);
 
   const { data: allFriendRecords = [] } = useQuery({
-    queryKey: ['allFriendRecords'],
+    queryKey: ["allFriendRecords"],
     queryFn: () => Query.Friend.list(),
-    enabled: !!friendEmail && !!currentUser?.email,
+    enabled: !!friendEmail,
   });
 
   const friends = useMemo(() => {
     if (!friendEmail) return [];
-    const friendEmailLower = friendEmail.toLowerCase();
-
-    return allFriendRecords.filter((f) =>
-      (f.request_sent_by?.toLowerCase() === friendEmailLower ||
-        f.request_sent_to?.toLowerCase() === friendEmailLower) &&
-      f.status === 'accepted'
+    const emailL = friendEmail.toLowerCase();
+    return allFriendRecords.filter(
+      (f) =>
+        (f.request_sent_by?.toLowerCase() === emailL ||
+          f.request_sent_to?.toLowerCase() === emailL) &&
+        f.status === "accepted"
     );
   }, [allFriendRecords, friendEmail]);
 
   const { data: allPublicProfiles = [] } = useQuery({
-    queryKey: ['allPublicProfiles'],
+    queryKey: ["allPublicProfiles"],
     queryFn: () => Query.PublicProfile.list(),
   });
 
-  if (isNotFriend) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4">
-        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl p-8 max-w-md text-center border-2 border-red-200">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Users className="w-8 h-8 text-red-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-stone-900 mb-2">Zugriff verweigert</h2>
-          <p className="text-stone-600 mb-6">
-            Du musst mit dieser Person befreundet sein, um ihre Freundesliste zu sehen.
-          </p>
-          <button
-            onClick={() => navigate(createPageUrl("Friends"))}
-            className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold shadow-md transition-all"
-          >
-            Zurück zu Freunden
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!friendUser) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50">
-        <Leaf className="w-12 h-12 text-green-600 animate-spin" />
-      </div>
-    );
-  }
-
-  const getFriendData = (friendEntry) => {
+  const getFriendData = (record) => {
     if (!friendEmail) return null;
-
-    const otherEmail = friendEntry.request_sent_by?.toLowerCase() === friendEmail.toLowerCase()
-      ? friendEntry.request_sent_to
-      : friendEntry.request_sent_by;
-    
-    const friendProfile = allPublicProfiles.find(p => p.user_email?.toLowerCase() === otherEmail?.toLowerCase());
-
+    const otherEmail =
+      record.request_sent_by?.toLowerCase() === friendEmail.toLowerCase()
+        ? record.request_sent_to
+        : record.request_sent_by;
+    const profile = allPublicProfiles.find(
+      (p) => p.user_email?.toLowerCase() === otherEmail?.toLowerCase()
+    );
     return {
-      id: friendEntry.id,
+      id: record.id,
       email: otherEmail,
-      name: friendProfile?.display_name || friendProfile?.full_name || otherEmail,
-      avatar_url: friendProfile?.avatar_url,
-      level: friendProfile?.level || 1,
-      title: friendProfile?.selected_title || friendProfile?.title || "Pflanzen-Anfänger"
+      name: profile?.display_name || profile?.full_name || otherEmail,
+      avatar_url: profile?.avatar_url,
+      level: profile?.level || 1,
+      title: profile?.selected_title || profile?.title || "Pflanzen-Anfänger",
     };
   };
 
-  const handleFriendClick = (friendData) => {
-    // Prüfe ob es der eigene User ist
-    if (currentUser && friendData.email?.toLowerCase() === currentUser.email?.toLowerCase()) {
+  const handleFriendClick = (data) => {
+    if (currentUser && data.email?.toLowerCase() === currentUser.email?.toLowerCase()) {
       navigate(createPageUrl("Home"));
     } else {
-      navigate(createPageUrl(`FriendProfile?email=${friendData.email}`));
+      navigate(createPageUrl(`FriendProfile?email=${data.email}`));
     }
   };
 
+  // ── Style tokens ─────────────────────────────────────────────────────────────
+  const cardBase = isLightUi
+    ? "bg-white/65 border border-[#c8ac62]/35 backdrop-blur-md"
+    : "bg-black/30 border border-[#f0e5a5]/20 backdrop-blur-md";
+  const cardSelf = isLightUi
+    ? "bg-emerald-50/70 border border-emerald-300/60 backdrop-blur-md"
+    : "bg-emerald-900/20 border border-emerald-400/30 backdrop-blur-md";
+  const textPrimary = isLightUi ? "text-stone-900" : "text-stone-100";
+  const textSecondary = isLightUi ? "text-stone-600" : "text-stone-300";
+  const textMuted = isLightUi ? "text-stone-500" : "text-stone-400";
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-50 to-green-50 p-4 md:p-8">
-      <MobileBackButton backUrl={createPageUrl(`FriendProfile?email=${friendEmail}`)} />
-      
-      <div className="max-w-4xl mx-auto">
-        {/* Back Button - nur Desktop */}
-        <Button
-          variant="ghost"
-          onClick={() => navigate(createPageUrl(`FriendProfile?email=${friendEmail}`))}
-          className="mb-6 bg-white/80 backdrop-blur-md hover:bg-white/90 text-stone-900 font-semibold border border-stone-200 hidden md:inline-flex"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Zurück zum Profil
-        </Button>
-
-        <div className="text-center mb-8">
-          <div className="flex flex-col items-center relative mb-4">
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(window.location.href);
-                setCopiedMessage(true);
-                setTimeout(() => setCopiedMessage(false), 2000);
-              }}
-              className="flex items-center justify-center gap-4 p-2 rounded-lg hover:bg-stone-100 transition-colors duration-200 cursor-pointer"
-            >
-              <div className="w-16 h-16 bg-gradient-to-br from-green-600 to-emerald-600 rounded-full flex items-center justify-center overflow-hidden shadow-lg">
-                {friendUser.avatar_url ? (
-                  <img src={friendUser.avatar_url} alt={friendUser.full_name} className="w-full h-full object-cover" />
-                ) : (
-                  <Leaf className="w-8 h-8 text-white" />
-                )}
-              </div>
-              <div className="text-left">
-                <h1 className="text-3xl md:text-4xl font-bold text-stone-900">
-                  {friendUser.display_name || friendUser.full_name}'s Freunde
-                </h1>
-                <p className="text-lg text-stone-600">
-                  Level {friendUser.level || 1} • {friendUser.selected_title || friendUser.title || "Pflanzen-Anfänger"}
-                </p>
-              </div>
-            </button>
-            {copiedMessage && (
-              <Badge className="mt-2 bg-green-500 text-white shadow-sm">
-                Link kopiert!
-              </Badge>
-            )}
-          </div>
-        </div>
-
+    <FriendExperienceShell
+      friendUser={friendUser}
+      activeTab="friends"
+      friendEmail={friendEmail}
+      averageColor={averageColor}
+      isLoading={isLoading}
+      accessDenied={!isFriend && !isLoading}
+    >
+      <div className="h-full overflow-y-auto pb-2">
         {friends.length === 0 ? (
-          <div className="text-center py-12">
-            <Users className="w-16 h-16 text-stone-300 mx-auto mb-4" />
-            <p className="text-stone-600 text-lg font-semibold mb-2">
+          <div className={`rounded-2xl p-10 text-center ${cardBase}`}>
+            <Users className={`w-12 h-12 mx-auto mb-3 ${textMuted}`} />
+            <p className={`font-semibold mb-1 ${textSecondary}`}>
               Noch keine Freunde
             </p>
-            <p className="text-stone-500">
-              {friendUser.display_name || friendUser.full_name} hat noch keine Freunde hinzugefügt
+            <p className={`text-sm ${textMuted}`}>
+              {friendUser?.display_name || friendUser?.full_name || friendEmail} hat noch
+              keine Freunde hinzugefügt.
             </p>
           </div>
         ) : (
-          <div className="grid gap-3 max-w-2xl mx-auto">
-            {friends.map((friend, index) => {
-              const friendData = getFriendData(friend);
-              if (!friendData) return null;
-
-              const isCurrentUser = currentUser && friendData.email?.toLowerCase() === currentUser.email?.toLowerCase();
+          <div className="space-y-2">
+            {friends.map((record, index) => {
+              const data = getFriendData(record);
+              if (!data) return null;
+              const isSelf =
+                currentUser &&
+                data.email?.toLowerCase() === currentUser.email?.toLowerCase();
 
               return (
-                <motion.div
-                  key={friend.id}
-                  initial={{ opacity: 0, x: -20 }}
+                <motion.button
+                  key={record.id}
+                  onClick={() => handleFriendClick(data)}
+                  initial={{ opacity: 0, x: -16 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
+                  transition={{ delay: index * 0.04 }}
+                  className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all group text-left ${
+                    isSelf ? cardSelf : cardBase
+                  }`}
                 >
-                  <Card className={`border-2 ${isCurrentUser ? 'border-green-300 bg-green-50/80' : 'border-stone-200 bg-white/80'} backdrop-blur-sm hover:border-purple-300 hover:shadow-md transition-all group`}>
-                    <CardContent className="p-4">
-                      <button
-                        onClick={() => handleFriendClick(friendData)}
-                        className="flex items-center gap-3 w-full text-left"
-                      >
-                        <div className={`w-12 h-12 bg-gradient-to-br ${isCurrentUser ? 'from-green-500 to-green-600' : 'from-purple-500 to-purple-600'} rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden flex-shrink-0`}>
-                          {friendData.avatar_url ? (
-                            <img src={friendData.avatar_url} alt={friendData.name} className="w-full h-full object-cover" />
-                          ) : (
-                            friendData.name?.[0]?.toUpperCase() || friendData.email?.[0]?.toUpperCase()
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-bold text-stone-900 group-hover:text-purple-600 transition-colors truncate flex items-center gap-2">
-                            {friendData.name}
-                            {isCurrentUser && (
-                              <Badge className="bg-green-600 text-white text-xs">Du</Badge>
-                            )}
-                          </div>
-                          <div className="text-sm text-stone-600 flex items-center">
-                            <Star className="w-3 h-3 mr-1 text-amber-500 flex-shrink-0" />
-                            <span className="truncate">Level {friendData.level} • {friendData.title}</span>
-                          </div>
-                        </div>
-                        <ChevronRight className="w-5 h-5 text-stone-400 group-hover:text-purple-600 group-hover:translate-x-1 transition-all flex-shrink-0" />
-                      </button>
-                    </CardContent>
-                  </Card>
-                </motion.div>
+                  <div
+                    className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-base shadow-md overflow-hidden flex-shrink-0 ${
+                      isSelf
+                        ? "bg-gradient-to-br from-emerald-500 to-emerald-600"
+                        : isLightUi
+                        ? "bg-gradient-to-br from-stone-500 to-stone-600"
+                        : "bg-gradient-to-br from-stone-600 to-stone-700"
+                    }`}
+                  >
+                    {data.avatar_url ? (
+                      <img
+                        src={data.avatar_url}
+                        alt={data.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-white">
+                        {data.name?.[0]?.toUpperCase() || data.email?.[0]?.toUpperCase() || (
+                          <Leaf className="w-5 h-5 text-white" />
+                        )}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className={`font-bold truncate flex items-center gap-2 ${textPrimary}`}>
+                      {data.name}
+                      {isSelf && (
+                        <span
+                          className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                            isLightUi
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-emerald-900/40 text-emerald-300"
+                          }`}
+                        >
+                          Du
+                        </span>
+                      )}
+                    </div>
+                    <div className={`text-xs flex items-center gap-1 mt-0.5 ${textSecondary}`}>
+                      <Star className="w-3 h-3 text-amber-500 flex-shrink-0" />
+                      <span className="truncate">
+                        Level {data.level} • {data.title}
+                      </span>
+                    </div>
+                  </div>
+
+                  <ChevronRight
+                    className={`w-4 h-4 flex-shrink-0 transition-transform group-hover:translate-x-1 ${textMuted}`}
+                  />
+                </motion.button>
               );
             })}
           </div>
         )}
       </div>
-    </div>
+    </FriendExperienceShell>
   );
 }

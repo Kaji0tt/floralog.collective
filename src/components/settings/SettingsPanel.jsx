@@ -109,6 +109,10 @@ export default function SettingsPanel({ user, onUserUpdated }) {
     },
   });
 
+  const updateUiThemeMutation = useMutation({
+    mutationFn: (theme) => upsertUserProfile(user?.id, { ui_theme: theme }),
+  });
+
   const updatePublicProfile = async (userData) => {
     try {
       await upsertUserProfile(userData.id, {
@@ -573,7 +577,11 @@ export default function SettingsPanel({ user, onUserUpdated }) {
               <input
                 type="checkbox"
                 checked={uiTheme === "light"}
-                onChange={(e) => setUiTheme(e.target.checked ? "light" : "dark")}
+                onChange={(e) => {
+                  const newTheme = e.target.checked ? "light" : "dark";
+                  setUiTheme(newTheme);
+                  updateUiThemeMutation.mutate(newTheme);
+                }}
                 className="sr-only peer"
               />
               <div className="relative w-10 h-[22px] bg-stone-600 rounded-full peer peer-checked:bg-amber-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:after:translate-x-full" />

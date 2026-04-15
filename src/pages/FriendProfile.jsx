@@ -1,232 +1,93 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { Query } from "@/api/entities";
 import { createUserNotification } from "@/api/notificationService";
 import { sendFriendRequest } from "@/api/friendService";
-import { getCurrentUser } from "@/api/userApi";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { getNameFontSize } from "@/lib/utils";
-import MobileBackButton from "../components/navigation/MobileBackButton"; // Added import
-import { Camera, BookOpen, Trophy, Target, Users, ChevronRight, Star, ArrowLeft, Lock, Map as MapIcon, Heart, UserPlus, Clock, Leaf } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useUiTheme } from "@/lib/UiThemeContext";
+import { useFriendData } from "@/components/friends/hooks/useFriendData";
+import FriendExperienceShell from "@/components/friends/FriendExperienceShell";
 import { motion } from "framer-motion";
-
-const getAverageColor = (imageUrl) => {
-  return new Promise((resolve) => {
-    const img = new window.Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const size = 50;
-        canvas.width = size;
-        canvas.height = size;
-        ctx.drawImage(img, 0, 0, size, size);
-        const imageData = ctx.getImageData(0, 0, size, size);
-        const data = imageData.data;
-        let r = 0, g = 0, b = 0, count = 0;
-        for (let i = 0; i < data.length; i += 16) {
-          r += data[i];
-          g += data[i + 1];
-          b += data[i + 2];
-          count++;
-        }
-        r = Math.floor(r / count);
-        g = Math.floor(g / count);
-        b = Math.floor(b / count);
-        resolve(`rgb(${r}, ${g}, ${b})`);
-      } catch (error) {
-        resolve(null);
-      }
-    };
-    img.onerror = () => resolve(null);
-    img.src = imageUrl;
-  });
-};
+import { Leaf, Trophy, Target, Users, Map as MapIcon, UserPlus, Clock, Scroll } from "lucide-react";
 
 export default function FriendProfile() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [friendUser, setFriendUser] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [averageColor, setAverageColor] = useState(null);
-  
+  const { isLightUi } = useUiTheme();
+
   const urlParams = new URLSearchParams(window.location.search);
-  const friendEmail = urlParams.get('email');
+  const friendEmail = urlParams.get("email");
 
-  useEffect(() => {
-    const loadCurrentUser = async () => {
-      const user = await getCurrentUser();
-      setCurrentUser(user);
-    };
-    loadCurrentUser();
-  }, []);
+  const {
+    friendUser,
+    currentUser,
+    isFriend,
+    hasPendingRequest,
+    averageColor,
+    isLoading,
+  } = useFriendData(friendEmail);
 
-  // Lade Friend-Record um Grunddaten zu bekommen
-  const { data: friendRecord } = useQuery({
-    queryKey: ['friendRecord', friendEmail, currentUser?.email],
-    queryFn: async () => {
-      if (!friendEmail || !currentUser?.email) return null;
-      const allFriends = await Query.Friend.list();
-      
-      // Finde den Friend-Eintrag zwischen mir und dem Freund
-      return allFriends.find(f =>
-        ((f.request_sent_by?.toLowerCase() === currentUser.email?.toLowerCase() && 
-          f.request_sent_to?.toLowerCase() === friendEmail?.toLowerCase()) ||
-         (f.request_sent_by?.toLowerCase() === friendEmail?.toLowerCase() && 
-          f.request_sent_to?.toLowerCase() === currentUser.email?.toLowerCase())) &&
-        f.status === 'accepted'
-      );
-    },
-    enabled: !!friendEmail && !!currentUser?.email,
-  });
-
-  // Lade PublicProfile (jeder kann das sehen!)
-  const { data: publicProfile } = useQuery({
-    queryKey: ['publicProfile', friendEmail],
-    queryFn: async () => {
-      if (!friendEmail) return null;
-      const profiles = await Query.PublicProfile.list();
-      return profiles.find(p => p.user_email?.toLowerCase() === friendEmail.toLowerCase());
-    },
-    enabled: !!friendEmail,
-    staleTime: 30000, // 30 Sekunden Cache
-  });
-
-  // Setze friendUser aus den verfügbaren Daten
-  useEffect(() => {
-    if (!friendEmail) {
-      setFriendUser(null); 
-      return;
-    }
-
-    if (publicProfile) {
-      // Nutze PublicProfile Daten, wenn verfügbar
-      setFriendUser(publicProfile);
-    } else if (friendRecord) {
-      // Fallback auf Friend-Record, wenn kein PublicProfile aber anerkannter Freund
-      setFriendUser({
-        email: friendEmail,
-        full_name: friendRecord.friend_name || friendEmail,
-        display_name: friendRecord.friend_name || friendEmail,
-        level: 1,
-        xp: 0,
-        title: "Pflanzen-Anfänger",
-        selected_title: null,
-        avatar_url: null
-      });
-    } else {
-        // If there's an email but no accepted friend record AND no public profile,
-        // it means they are not accepted friends and don't have a public profile.
-        // Set a minimal user to avoid a permanent loading state or error,
-        // but note that most dependent queries will fail or be empty.
-        setFriendUser({
-            email: friendEmail,
-            full_name: friendEmail,
-            display_name: friendEmail,
-            level: 1, 
-            xp: 0, 
-            title: "Unbekannter", 
-            selected_title: null, 
-            avatar_url: null 
-        });
-    }
-  }, [publicProfile, friendRecord, friendEmail]);
-
+  // ── Extra data queries ────────────────────────────────────────────────────────
   const { data: plants = [] } = useQuery({
-    queryKey: ['plants'],
+    queryKey: ["plants"],
     queryFn: () => Query.Plant.list(),
-    staleTime: 60000, // 1 Minute Cache
+    staleTime: 60_000,
   });
 
   const { data: genera = [] } = useQuery({
-    queryKey: ['genera'],
+    queryKey: ["genera"],
     queryFn: () => Query.PlantGenus.list(),
-    staleTime: 300000, // 5 Minuten Cache
+    staleTime: 300_000,
   });
 
   const { data: quests = [] } = useQuery({
-    queryKey: ['quests'],
-    queryFn: () => Query.Quest.list('quest_number'),
+    queryKey: ["quests"],
+    queryFn: () => Query.Quest.list("quest_number"),
   });
 
   const { data: userQuests = [] } = useQuery({
-    queryKey: ['userQuests', friendEmail],
+    queryKey: ["userQuests", friendEmail],
     queryFn: () => Query.UserQuest.filter({ created_by: friendEmail }),
     enabled: !!friendEmail,
   });
 
   const { data: userAchievements = [] } = useQuery({
-    queryKey: ['userAchievements', friendEmail],
+    queryKey: ["userAchievements", friendEmail],
     queryFn: () => Query.UserAchievement.filter({ created_by: friendEmail }),
     enabled: !!friendEmail,
   });
 
-  const { data: achievements = [] } = useQuery({
-    queryKey: ['achievements'],
-    queryFn: () => Query.Achievement.list('achievement_number'),
-  });
-
   const { data: friends = [] } = useQuery({
-    queryKey: ['friends', friendEmail],
+    queryKey: ["friends", friendEmail],
     queryFn: async () => {
       if (!friendEmail) return [];
       const allFriends = await Query.Friend.list();
-      
-      // Freunde in beide Richtungen - nutze die richtigen Felder
-      return allFriends.filter(f => 
-        ((f.request_sent_by?.toLowerCase() === friendEmail.toLowerCase() || 
-          f.request_sent_to?.toLowerCase() === friendEmail.toLowerCase()) && 
-        f.status === 'accepted')
+      return allFriends.filter(
+        (f) =>
+          (f.request_sent_by?.toLowerCase() === friendEmail.toLowerCase() ||
+            f.request_sent_to?.toLowerCase() === friendEmail.toLowerCase()) &&
+          f.status === "accepted"
       );
     },
     enabled: !!friendEmail,
-    staleTime: 10000, // 10 Sekunden Cache
-  });
-
-  // Prüfe ob ich mit diesem User bereits befreundet bin
-  const { data: myFriendship } = useQuery({
-    queryKey: ['myFriendship', currentUser?.email, friendEmail],
-    queryFn: async () => {
-      if (!currentUser?.email || !friendEmail) return null;
-      const allFriends = await Query.Friend.list();
-      const currentEmailLower = currentUser.email.toLowerCase();
-      const friendEmailLower = friendEmail.toLowerCase();
-      
-      return allFriends.find(f =>
-        ((f.request_sent_by?.toLowerCase() === currentEmailLower && 
-          f.request_sent_to?.toLowerCase() === friendEmailLower) ||
-         (f.request_sent_by?.toLowerCase() === friendEmailLower && 
-          f.request_sent_to?.toLowerCase() === currentEmailLower))
-      );
-    },
-    enabled: !!currentUser?.email && !!friendEmail,
-    staleTime: 10000, // 10 Sekunden Cache
+    staleTime: 10_000,
   });
 
   const { data: friendDiscoveries = [] } = useQuery({
-    queryKey: ['friendDiscoveries', friendUser?.auth_id],
-    queryFn: async () => {
-      if (!friendUser?.auth_id) {
-        return [];
-      }
-      return Query.UserPlantDiscovery.filter({ auth_id: friendUser.auth_id });
-    },
+    queryKey: ["friendDiscoveries", friendUser?.auth_id],
+    queryFn: () => Query.UserPlantDiscovery.filter({ auth_id: friendUser.auth_id }),
     enabled: !!friendUser?.auth_id,
-    staleTime: 30000, // 30 Sekunden Cache
+    staleTime: 30_000,
   });
 
+  // ── Send friend-request mutation ─────────────────────────────────────────────
   const sendFriendRequestMutation = useMutation({
     mutationFn: async () => {
       await sendFriendRequest(friendEmail);
-
-      const senderName = currentUser.display_name || currentUser.full_name || currentUser.email;
-
+      const senderName =
+        currentUser?.display_name || currentUser?.full_name || currentUser?.email;
       try {
         await createUserNotification({
           authId: friendUser?.auth_id,
@@ -236,326 +97,238 @@ export default function FriendProfile() {
           message: `${senderName} hat dir eine Freundschaftsanfrage gesendet.`,
           actionUrl: "Friends",
           displayLocation: "banner",
-          createdBy: currentUser.email,
+          createdBy: currentUser?.email,
         });
-      } catch (notificationError) {
-        console.error("[FriendProfile] Failed to create friend request notification:", notificationError);
+      } catch (err) {
+        console.error("[FriendProfile] notification error:", err);
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['myFriendship'] });
-      alert(`Freundschaftsanfrage an ${friendUser?.display_name || friendEmail} gesendet! ✅`);
+      queryClient.invalidateQueries({ queryKey: ["myFriendship"] });
     },
-    onError: (error) => {
-      alert(`Fehler beim Senden der Anfrage: ${error.message}`);
+    onError: (err) => {
+      alert(`Fehler beim Senden der Anfrage: ${err.message}`);
     },
   });
 
-  // Lieblingsscan-/Lieblingspflanzen-Anzeige wurde aus dem Spiel entfernt
-
-  useEffect(() => {
-    // Bevorzuge die bereits vorcomputete Hintergrundfarbe aus dem PublicProfile,
-    // um CORS-Probleme beim Canvas-Zugriff auf externe Bilder zu vermeiden.
-    if (friendUser?.background_color) {
-      setAverageColor(friendUser.background_color);
-    } else if (friendUser?.background_image_url) {
-      getAverageColor(friendUser.background_image_url).then(color => {
-        if (color) setAverageColor(color);
-      });
-    } else {
-      setAverageColor(null);
-    }
-  }, [friendUser?.background_image_url, friendUser?.background_color]);
-
-  const isFriend = myFriendship && myFriendship.status === 'accepted';
-  const hasPendingRequest = myFriendship && myFriendship.status === 'pending';
-
-  if (!friendUser || !currentUser) { // Updated loading condition
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50">
-        <Leaf className="w-12 h-12 text-green-600 animate-spin" />
-      </div>
+  // ── Derived stats ────────────────────────────────────────────────────────────
+  const discoveredGenera = genera.filter((g) => {
+    const genusPlants = plants.filter(
+      (p) =>
+        p.genus_category === g.category &&
+        p.genus_number === g.category_dex_number
     );
-  }
-
-  const discoveredGenera = genera.filter(g => {
-    const genusPlants = plants.filter(p => 
-      p.genus_category === g.category && p.genus_number === g.category_dex_number
-    );
-    return genusPlants.some(p => friendDiscoveries.some(d => d.plant_id === p.id));
+    return genusPlants.some((p) => friendDiscoveries.some((d) => d.plant_id === p.id));
   }).length;
 
-  const availableQuests = quests.filter(q => 
-    !userQuests.some(uq => uq.quest_id === q.id && uq.completed)
+  const availableQuests = quests.filter(
+    (q) => !userQuests.some((uq) => uq.quest_id === q.id && uq.completed)
   ).length;
+
+  // ── Style tokens ─────────────────────────────────────────────────────────────
+  const cardBase = isLightUi
+    ? "bg-white/65 border border-[#c8ac62]/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]"
+    : "bg-black/30 border border-[#f0e5a5]/20 shadow-[inset_0_1px_0_rgba(214,255,230,0.12)]";
+  const textPrimary = isLightUi ? "text-stone-900" : "text-stone-100";
+  const textSecondary = isLightUi ? "text-stone-600" : "text-stone-300";
 
   const statButtons = [
     {
-      icon: BookOpen,
+      icon: Scroll,
       label: "Gattungen",
       value: discoveredGenera,
-      color: "from-green-500 to-green-600",
-      textColor: "text-green-700",
-      bgColor: "bg-green-50",
-      borderColor: "rgb(187, 247, 208)",
-      onClick: () => navigate(createPageUrl(`FriendCollection?email=${friendEmail}`))
+      gradient: isLightUi
+        ? "bg-gradient-to-b from-[#d4f7d4]/95 via-[#b3eab3]/95 to-[#8ad48a]/95"
+        : "bg-gradient-to-b from-[#1a3a2a]/90 via-[#0e2218]/96 to-[#040f09]/99",
+      shadow: isLightUi
+        ? "inset 0 1px 0 rgba(255,255,255,0.9), 0 6px 12px rgba(60,140,60,0.18)"
+        : "inset 0 1px 0 rgba(180,255,200,0.14), 0 6px 12px rgba(0,0,0,0.28)",
+      onClick: isFriend
+        ? () => navigate(createPageUrl(`FriendCollection?email=${friendEmail}`))
+        : null,
     },
     {
       icon: Trophy,
       label: "Erfolge",
       value: userAchievements.length,
-      color: "from-amber-500 to-amber-600",
-      textColor: "text-amber-700",
-      bgColor: "bg-amber-50",
-      borderColor: "rgb(253, 230, 138)",
-      onClick: () => navigate(createPageUrl(`FriendAchievements?email=${friendEmail}`))
+      gradient: isLightUi
+        ? "bg-gradient-to-b from-[#fef3c7]/95 via-[#fde68a]/95 to-[#fbbf24]/95"
+        : "bg-gradient-to-b from-[#3a2e0a]/90 via-[#231c06]/96 to-[#0d0b00]/99",
+      shadow: isLightUi
+        ? "inset 0 1px 0 rgba(255,255,255,0.9), 0 6px 12px rgba(180,130,20,0.18)"
+        : "inset 0 1px 0 rgba(255,230,100,0.14), 0 6px 12px rgba(0,0,0,0.28)",
+      onClick: isFriend
+        ? () => navigate(createPageUrl(`FriendAchievements?email=${friendEmail}`))
+        : null,
     },
     {
       icon: Target,
       label: "Aufgaben",
       value: availableQuests,
-      color: "from-blue-500 to-blue-600",
-      textColor: "text-blue-700",
-      bgColor: "bg-blue-50",
-      borderColor: "rgb(191, 219, 254)",
-      onClick: null
+      gradient: isLightUi
+        ? "bg-gradient-to-b from-[#dbeafe]/95 via-[#bfdbfe]/95 to-[#93c5fd]/95"
+        : "bg-gradient-to-b from-[#0a1e3a]/90 via-[#061025]/96 to-[#020610]/99",
+      shadow: isLightUi
+        ? "inset 0 1px 0 rgba(255,255,255,0.9), 0 6px 12px rgba(60,100,200,0.15)"
+        : "inset 0 1px 0 rgba(150,200,255,0.12), 0 6px 12px rgba(0,0,0,0.28)",
+      onClick: null,
     },
     {
       icon: Users,
       label: "Freunde",
       value: friends.length,
-      color: "from-purple-500 to-purple-600",
-      textColor: "text-purple-700",
-      bgColor: "bg-purple-50",
-      borderColor: "rgb(221, 214, 254)",
-      onClick: () => navigate(createPageUrl(`FriendFriendsList?email=${friendEmail}`))
-    }
+      gradient: isLightUi
+        ? "bg-gradient-to-b from-[#ffedd5]/95 via-[#fed7aa]/95 to-[#fdba74]/95"
+        : "bg-gradient-to-b from-[#3a1a0a]/90 via-[#220e04]/96 to-[#0d0400]/99",
+      shadow: isLightUi
+        ? "inset 0 1px 0 rgba(255,255,255,0.9), 0 6px 12px rgba(180,100,30,0.15)"
+        : "inset 0 1px 0 rgba(255,200,140,0.12), 0 6px 12px rgba(0,0,0,0.28)",
+      onClick: isFriend
+        ? () => navigate(createPageUrl(`FriendFriendsList?email=${friendEmail}`))
+        : null,
+    },
   ];
 
-  const getLighterColor = (rgbString) => {
-    if (!rgbString) return null;
-    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-    if (!match) return rgbString;
-    const r = Math.min(255, Math.floor(parseInt(match[1]) * 1.4));
-    const g = Math.min(255, Math.floor(parseInt(match[2]) * 1.4));
-    const b = Math.min(255, Math.floor(parseInt(match[3]) * 1.4));
-    return `rgb(${r}, ${g}, ${b})`;
-  };
-
-  const getDarkerColor = (rgbString) => {
-    if (!rgbString) return null;
-    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-    if (!match) return rgbString;
-    const r = Math.floor(parseInt(match[1]) * 0.6);
-    const g = Math.floor(parseInt(match[2]) * 0.6);
-    const b = Math.floor(parseInt(match[3]) * 0.6);
-    return `rgb(${r}, ${g}, ${b})`;
-  };
-
-  const getRgbaFromRgb = (rgbString, opacity) => {
-    if (!rgbString) return null;
-    const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-    if (!match) return rgbString;
-    return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${opacity})`;
-  };
+  const friendDisplayName =
+    friendUser?.display_name || friendUser?.full_name || friendEmail;
+  const friendTitle =
+    friendUser?.selected_title || friendUser?.title || "Pflanzen-Entdecker";
 
   return (
-    <>
-      <style>{`
-        :root {
-          --friend-bg-color: ${averageColor || 'rgb(250, 250, 249)'};
-          --friend-bg-color-light: ${averageColor ? getLighterColor(averageColor) : 'rgb(255, 255, 255)'};
-          --friend-bg-color-mid: ${averageColor ? averageColor : 'rgb(236, 253, 245)'};
-          --friend-bg-color-dark: ${averageColor ? getDarkerColor(averageColor) : 'rgb(220, 252, 231)'};
-          --friend-border-color: ${averageColor ? getRgbaFromRgb(averageColor, 0.4) : 'rgb(134, 239, 172)'};
-        }
-      `}</style>
-      <div 
-        className="h-screen w-full box-border p-4 md:p-8 fixed inset-0 overflow-auto"
-        style={{
-          background: averageColor 
-            ? `linear-gradient(135deg, var(--friend-bg-color-light) 0%, var(--friend-bg-color-mid) 50%, var(--friend-bg-color-dark) 100%)`
-            : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
-        }}
-      >
-        <MobileBackButton backUrl={createPageUrl("Friends")} />
-      
-        <div className="max-w-4xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <Card 
-              className="shadow-xl bg-white overflow-hidden"
-              style={{
-                borderWidth: '2px',
-                borderStyle: 'solid',
-                borderColor: averageColor ? 'var(--friend-border-color)' : 'rgb(187, 247, 208)'
-              }}
-            >
-              <CardContent 
-                className="p-6 md:p-8 relative"
-                style={friendUser?.background_image_url ? {
-                  backgroundImage: `linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(0,0,0,0.4) 100%), url(${friendUser.background_image_url})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center'
-                } : friendUser?.background_color ? {
-                  background: `linear-gradient(135deg, ${friendUser.background_color.replace('rgb', 'rgba').replace(')', ', 0.6)')} 0%, ${friendUser.background_color.replace('rgb', 'rgba').replace(')', ', 1)')} 100%)`
-                } : {}}
+    <FriendExperienceShell
+      friendUser={friendUser}
+      activeTab="profile"
+      friendEmail={friendEmail}
+      averageColor={averageColor}
+      isLoading={isLoading}
+      accessDenied={false}
+    >
+      <div className={`h-full overflow-y-auto space-y-3 pb-2 ${textPrimary}`}>
+        {/* Profile hero card */}
+        <motion.div
+          initial={{ opacity: 0, y: -14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+          className={`rounded-2xl backdrop-blur-md p-4 ${cardBase}`}
+        >
+          {/* Avatar + name row */}
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-[clamp(3rem,10vw,4.5rem)] h-[clamp(3rem,10vw,4.5rem)] rounded-xl bg-gradient-to-br from-emerald-600 to-green-700 flex items-center justify-center shadow-xl overflow-hidden ring-2 ring-white/30 flex-shrink-0">
+              {friendUser?.avatar_url ? (
+                <img src={friendUser.avatar_url} alt="Profil" className="w-full h-full object-cover" />
+              ) : (
+                <Leaf className="w-8 h-8 text-white" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <h1
+                className={`font-bold leading-tight truncate ${textPrimary}`}
+                style={{ fontSize: getNameFontSize(friendDisplayName) }}
+                title={friendDisplayName}
               >
-                <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
-                  <div className="w-28 h-28 rounded-2xl bg-white/60 backdrop-blur-md border-2 border-white/40 shadow-lg flex flex-col items-center justify-center text-stone-700">
-                    <Leaf className="w-10 h-10 text-green-600" />
-                    <span className="mt-1 text-[10px] font-semibold uppercase tracking-wide">Pflanzen-Slot</span>
-                  </div>
+                {friendDisplayName}
+              </h1>
+              <p className={`text-sm truncate mt-0.5 ${textSecondary}`}>{friendTitle}</p>
+              {friendUser?.level && (
+                <p className={`text-xs mt-0.5 ${textSecondary}`}>Level {friendUser.level}</p>
+              )}
+            </div>
+          </div>
 
-                  <div className="flex-1 w-full max-w-full min-w-0 bg-white/40 backdrop-blur-md rounded-xl p-5 border-2 border-white/30 shadow-lg">
-                    <div className="flex items-start gap-4 mb-3">
-                      <div className="w-20 h-20 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-xl overflow-hidden ring-2 ring-white/70 backdrop-blur-sm flex-shrink-0">
-                        {friendUser.avatar_url ? (
-                          <img src={friendUser.avatar_url} alt="Profil" className="w-full h-full object-cover" />
-                        ) : (
-                          <Leaf className="w-10 h-10 text-white" />
-                        )}
-                      </div>
+          {/* Stat buttons */}
+          <div className="grid grid-cols-4 gap-2 mb-3">
+            {statButtons.map((stat, i) => (
+              <motion.button
+                key={stat.label}
+                onClick={stat.onClick ?? undefined}
+                disabled={!stat.onClick}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.08 + i * 0.04 }}
+                whileHover={stat.onClick ? { scale: 1.04 } : {}}
+                whileTap={stat.onClick ? { scale: 0.96 } : {}}
+                className={`rounded-xl p-3 flex flex-col items-center gap-1 backdrop-blur-sm transition-all ${stat.gradient} ${!stat.onClick ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
+                style={{ boxShadow: stat.shadow }}
+              >
+                <stat.icon className={`w-5 h-5 ${textPrimary}`} />
+                <span className={`text-lg font-bold leading-none ${textPrimary}`}>{stat.value}</span>
+                <span className={`text-[10px] font-medium hidden sm:block ${textSecondary}`}>{stat.label}</span>
+              </motion.button>
+            ))}
+          </div>
 
-                      <div className="flex-1 min-w-0">
-                    <div className="mb-2 min-w-0 max-w-full">
-                      <h1 
-                        className="block w-full max-w-full min-w-0 font-bold text-stone-900 leading-tight"
-                        style={{
-                          fontSize: getNameFontSize(friendUser.display_name || friendUser.full_name),
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}
-                        title={friendUser.display_name || friendUser.full_name}
-                        key={friendUser.display_name || friendUser.full_name}
-                      >
-                        {friendUser.display_name || friendUser.full_name}
-                      </h1>
-                    </div>
-
-                    <div className="mb-3">
-                      <span className="text-base font-semibold text-stone-700">
-                        {friendUser.selected_title || friendUser.title || "Pflanzen-Anfänger"}
-                      </span>
-                    </div>
-                      </div>
-                    </div>
-                  </div>
+          {/* Action button */}
+          <div
+            className={`rounded-xl p-3 backdrop-blur-sm ${
+              isLightUi
+                ? "bg-white/40 border border-[#c8ac62]/25"
+                : "bg-black/20 border border-[#f0e5a5]/15"
+            }`}
+          >
+            {isFriend ? (
+              <button
+                onClick={() => navigate(createPageUrl("Map"))}
+                className={`flex items-center justify-center gap-2 w-full font-semibold transition-opacity hover:opacity-80 ${textPrimary}`}
+              >
+                <div
+                  className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md ${
+                    isLightUi
+                      ? "bg-gradient-to-br from-emerald-500 to-green-600"
+                      : "bg-gradient-to-br from-emerald-700 to-green-800"
+                  }`}
+                >
+                  <MapIcon className="w-4 h-4 text-white" />
                 </div>
-                <div className="grid grid-cols-4 gap-3 mb-4">
-                  {statButtons.map((stat, index) => (
-                    <motion.button
-                      key={stat.label}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (stat.onClick && isFriend) stat.onClick();
-                      }}
-                      disabled={!stat.onClick || !isFriend}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.1 + index * 0.05 }}
-                      whileHover={{ scale: (stat.onClick && isFriend) ? 1.05 : 1 }}
-                      whileTap={{ scale: (stat.onClick && isFriend) ? 0.95 : 1 }}
-                      className={`bg-white/60 backdrop-blur-md rounded-xl p-3 md:p-4 hover:shadow-lg transition-all duration-300 group ${
-                        (!stat.onClick || !isFriend) ? 'opacity-60 cursor-not-allowed' : ''
-                      }`}
-                      style={{
-                        borderWidth: '2px',
-                        borderStyle: 'solid',
-                        borderColor: averageColor ? 'var(--friend-border-color)' : stat.borderColor
-                      }}
-                    >
-                      <div className="flex flex-col items-center gap-2">
-                        <div className={`w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br ${stat.color} rounded-full flex items-center justify-center shadow-md group-hover:scale-110 transition-transform`}>
-                          <stat.icon className="w-5 h-5 md:w-6 md:h-6 text-white" />
-                        </div>
-                        <div className="text-2xl md:text-3xl font-bold text-stone-700">{stat.value}</div>
-                        <div className="text-xs font-semibold text-stone-600 hidden sm:block">{stat.label}</div>
-                      </div>
-                    </motion.button>
-                    ))}
-                    </div>
+                <span>Zur Karte</span>
+              </button>
+            ) : hasPendingRequest ? (
+              <button
+                disabled
+                className={`flex items-center justify-center gap-2 w-full opacity-55 cursor-not-allowed font-semibold ${textSecondary}`}
+              >
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-stone-400 to-stone-500 flex items-center justify-center shadow-md">
+                  <Clock className="w-4 h-4 text-white" />
+                </div>
+                <span>Anfrage gesendet</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => sendFriendRequestMutation.mutate()}
+                disabled={sendFriendRequestMutation.isPending}
+                className={`flex items-center justify-center gap-2 w-full font-semibold transition-opacity hover:opacity-80 disabled:opacity-50 ${textPrimary}`}
+              >
+                <div
+                  className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md ${
+                    isLightUi
+                      ? "bg-gradient-to-br from-emerald-500 to-green-600"
+                      : "bg-gradient-to-br from-emerald-700 to-green-800"
+                  }`}
+                >
+                  <UserPlus className="w-4 h-4 text-white" />
+                </div>
+                <span>
+                  {sendFriendRequestMutation.isPending ? "Wird gesendet…" : "Freund hinzufügen"}
+                </span>
+              </button>
+            )}
+          </div>
+        </motion.div>
 
-                    {/* Action Button - innerhalb der Profilkarte */}
-                    <div className="mt-4">
-                      <div 
-                        className="bg-white/60 backdrop-blur-md rounded-xl p-4 shadow-md"
-                        style={{
-                          borderWidth: '2px',
-                          borderStyle: 'solid',
-                          borderColor: averageColor ? 'var(--friend-border-color)' : 'rgb(187, 247, 208)'
-                        }}
-                      >
-                        {isFriend ? (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(createPageUrl("Map"));
-                            }}
-                            className="flex items-center justify-center gap-2 hover:opacity-80 transition-opacity w-full"
-                          >
-                            <div 
-                              className="w-10 h-10 rounded-full flex items-center justify-center shadow-md"
-                              style={{
-                                background: averageColor 
-                                  ? `linear-gradient(135deg, var(--friend-bg-color) 0%, var(--friend-bg-color-dark) 100%)`
-                                  : 'linear-gradient(135deg, rgb(34, 197, 94), rgb(22, 163, 74))'
-                              }}
-                            >
-                              <MapIcon className="w-5 h-5 text-white" />
-                            </div>
-                            <span className="font-semibold text-stone-900">Zur Karte</span>
-                          </button>
-                        ) : hasPendingRequest ? (
-                          <button
-                            disabled
-                            className="flex items-center justify-center gap-2 opacity-60 cursor-not-allowed w-full"
-                          >
-                            <div 
-                              className="w-10 h-10 rounded-full flex items-center justify-center shadow-md"
-                              style={{
-                                background: 'linear-gradient(135deg, rgb(156, 163, 175), rgb(107, 114, 128))'
-                              }}
-                            >
-                              <Clock className="w-5 h-5 text-white" />
-                            </div>
-                            <span className="font-semibold text-stone-900">Anfrage gesendet</span>
-                          </button>
-                        ) : (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              sendFriendRequestMutation.mutate();
-                            }}
-                            disabled={sendFriendRequestMutation.isPending}
-                            className="flex items-center justify-center gap-2 hover:opacity-80 transition-opacity w-full disabled:opacity-50"
-                          >
-                            <div 
-                              className="w-10 h-10 rounded-full flex items-center justify-center shadow-md"
-                              style={{
-                                background: 'linear-gradient(135deg, rgb(34, 197, 94), rgb(22, 163, 74))'
-                              }}
-                            >
-                              <UserPlus className="w-5 h-5 text-white" />
-                            </div>
-                            <span className="font-semibold text-stone-900">
-                              {sendFriendRequestMutation.isPending ? 'Wird gesendet...' : 'Freund hinzufügen'}
-                            </span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    </CardContent>
-                    </Card>
-                    </motion.div>
-
-
-        </div>
+        {/* "Not friends yet" hint */}
+        {!isFriend && !hasPendingRequest && !isLoading && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className={`rounded-2xl backdrop-blur-md p-4 text-center ${cardBase}`}
+          >
+            <p className={`text-sm ${textSecondary}`}>
+              Schicke eine Freundschaftsanfrage, um die Erfolge, Sammlungen und Freundesliste von{" "}
+              <span className={`font-semibold ${textPrimary}`}>{friendDisplayName}</span> zu sehen.
+            </p>
+          </motion.div>
+        )}
       </div>
-    </>
+    </FriendExperienceShell>
   );
 }
