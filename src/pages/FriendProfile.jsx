@@ -163,8 +163,8 @@ export default function FriendProfile() {
       isLoading={isLoading}
       accessDenied={false}
     >
-      <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
-        <div className="flex flex-1 min-h-0 flex-col overflow-y-auto p-[clamp(0.75rem,2vw,1.25rem)] gap-3" data-ui="friend-content-stack">
+      <div className="h-full flex min-h-0 flex-col overflow-hidden">
+        <div className="h-full flex flex-1 min-h-0 flex-col overflow-y-auto p-[clamp(0.75rem,2vw,1.25rem)] gap-3" data-ui="friend-content-stack">
           <section className="flex min-h-0 flex-1 flex-col px-[clamp(0.25rem,1vw,0.75rem)] py-[clamp(0.2rem,1vh,0.5rem)]">
             <div ref={healthStatsPanelRef} className="flex-1 min-h-0 flex items-start justify-center pt-[clamp(0.2rem,1vh,0.5rem)]">
               <motion.div
