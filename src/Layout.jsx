@@ -66,7 +66,7 @@ export default function Layout({ children, currentPageName }) {
           scrollbar-width: none;
         }
       `}</style>
-      <div className="min-h-screen w-full overflow-x-hidden">
+      <div className="min-h-[var(--app-dvh)] w-full overflow-x-hidden">
         <main className="flex-1 flex flex-col overflow-x-hidden bg-transparent">
           <div className="flex-1 overflow-auto overflow-x-hidden bg-transparent">
             {children}
