@@ -285,14 +285,14 @@ export default function FriendProfile() {
             </div>
           </section>
 
-          <div className="shrink-0">
+          <div className="min-h-0 flex-1">
             <div
-              className={`w-full rounded-2xl border backdrop-blur-sm px-[clamp(0.625rem,2vw,0.875rem)] ${
+              className={`h-full w-full rounded-2xl border backdrop-blur-sm px-[clamp(0.625rem,2vw,0.875rem)] ${
                 isLightUi
                   ? "border-[#c8ac62]/45 bg-gradient-to-r from-emerald-100/50 via-white/40 to-emerald-100/50"
                   : "border-[#f0e5a5]/45 bg-gradient-to-r from-emerald-900/45 via-black/30 to-emerald-900/45"
               }`}
-              style={{ height: "2.4rem" }}
+              style={{ minHeight: "2.4rem" }}
             >
             <div className={`h-full w-full flex items-center justify-between text-xs md:text-sm font-semibold ${
               isLightUi ? "text-stone-700" : "text-white/95"
@@ -311,17 +311,17 @@ export default function FriendProfile() {
             </div>
           </div>
 
-          <div className="shrink-0">
+          <div className="min-h-0 flex-1">
             {isFriend ? (
               <button
                 onClick={() => alert("Share a Scan kommt bald.")}
-                className={`w-full rounded-2xl border flex items-center justify-center font-semibold tracking-wide transition-shadow ${
+                className={`h-full w-full rounded-2xl border flex items-center justify-center font-semibold tracking-wide transition-shadow ${
                   isLightUi
                     ? "border-red-400/50 bg-gradient-to-r from-red-500/85 via-rose-400/75 to-red-500/85 text-white shadow-[0_8px_24px_rgba(239,68,68,0.2)] hover:shadow-[0_12px_32px_rgba(239,68,68,0.35)]"
                     : "border-red-200/35 bg-gradient-to-r from-red-700/80 via-rose-500/70 to-red-700/80 text-white shadow-[0_8px_24px_rgba(239,68,68,0.3)]"
                 }`}
                 style={{
-                  height: "3.35rem",
+                  minHeight: "3.35rem",
                   gap: "0.56rem",
                   fontSize: "1.05rem",
                 }}
@@ -332,8 +332,8 @@ export default function FriendProfile() {
             ) : hasPendingRequest ? (
               <button
                 disabled
-                className={`w-full flex items-center justify-center gap-2 opacity-55 cursor-not-allowed font-semibold rounded-2xl border ${cardBase} ${textSecondary}`}
-                style={{ height: "3.35rem" }}
+                className={`h-full w-full flex items-center justify-center gap-2 opacity-55 cursor-not-allowed font-semibold rounded-2xl border ${cardBase} ${textSecondary}`}
+                style={{ minHeight: "3.35rem" }}
               >
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-stone-400 to-stone-500 flex items-center justify-center shadow-md">
                   <Clock className="w-4 h-4 text-white" />
@@ -344,8 +344,8 @@ export default function FriendProfile() {
               <button
                 onClick={() => sendFriendRequestMutation.mutate()}
                 disabled={sendFriendRequestMutation.isPending}
-                className={`w-full flex items-center justify-center gap-2 font-semibold transition-opacity hover:opacity-80 disabled:opacity-50 rounded-2xl border ${cardBase} ${textPrimary}`}
-                style={{ height: "3.35rem" }}
+                className={`h-full w-full flex items-center justify-center gap-2 font-semibold transition-opacity hover:opacity-80 disabled:opacity-50 rounded-2xl border ${cardBase} ${textPrimary}`}
+                style={{ minHeight: "3.35rem" }}
               >
                 <div
                   className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md ${
