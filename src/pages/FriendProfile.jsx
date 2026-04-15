@@ -129,7 +129,7 @@ export default function FriendProfile() {
       isLoading={isLoading}
       accessDenied={false}
     >
-      <div className="h-full overflow-y-auto p-[clamp(0.75rem,2vw,1.25rem)] flex flex-col gap-3">
+      <div className="flex flex-1 min-h-0 flex-col overflow-hidden p-[clamp(0.75rem,2vw,1.25rem)] gap-3">
         <section
           className="relative flex-1 min-h-[22rem] rounded-3xl px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col"
         >
@@ -243,53 +243,51 @@ export default function FriendProfile() {
           </div>
         </section>
 
-        <div className={`rounded-xl p-3 backdrop-blur-sm ${cardBase}`}>
-          {isFriend ? (
-            <button
-              onClick={() => alert("Share a Scan kommt bald.")}
-              className={`w-full rounded-2xl border flex items-center justify-center font-semibold tracking-wide transition-shadow ${
+        {isFriend ? (
+          <button
+            onClick={() => alert("Share a Scan kommt bald.")}
+            className={`rounded-2xl border flex items-center justify-center font-semibold tracking-wide transition-shadow ${
+              isLightUi
+                ? "border-red-400/50 bg-gradient-to-r from-red-500/85 via-rose-400/75 to-red-500/85 text-white shadow-[0_8px_24px_rgba(239,68,68,0.2)] hover:shadow-[0_12px_32px_rgba(239,68,68,0.35)]"
+                : "border-red-200/35 bg-gradient-to-r from-red-700/80 via-rose-500/70 to-red-700/80 text-white shadow-[0_8px_24px_rgba(239,68,68,0.3)]"
+            }`}
+            style={{
+              height: "3.35rem",
+              gap: "0.56rem",
+              fontSize: "1.05rem",
+            }}
+          >
+            <Heart className="w-5 h-5" />
+            Share a Scan
+          </button>
+        ) : hasPendingRequest ? (
+          <button
+            disabled
+            className={`flex items-center justify-center gap-2 w-full opacity-55 cursor-not-allowed font-semibold rounded-2xl border ${cardBase} ${textSecondary}`}
+          >
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-stone-400 to-stone-500 flex items-center justify-center shadow-md">
+              <Clock className="w-4 h-4 text-white" />
+            </div>
+            <span>Anfrage gesendet</span>
+          </button>
+        ) : (
+          <button
+            onClick={() => sendFriendRequestMutation.mutate()}
+            disabled={sendFriendRequestMutation.isPending}
+            className={`flex items-center justify-center gap-2 w-full font-semibold transition-opacity hover:opacity-80 disabled:opacity-50 rounded-2xl border ${cardBase} ${textPrimary}`}
+          >
+            <div
+              className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md ${
                 isLightUi
-                  ? "border-red-400/50 bg-gradient-to-r from-red-500/85 via-rose-400/75 to-red-500/85 text-white shadow-[0_8px_24px_rgba(239,68,68,0.2)] hover:shadow-[0_12px_32px_rgba(239,68,68,0.35)]"
-                  : "border-red-200/35 bg-gradient-to-r from-red-700/80 via-rose-500/70 to-red-700/80 text-white shadow-[0_8px_24px_rgba(239,68,68,0.3)]"
+                  ? "bg-gradient-to-br from-emerald-500 to-green-600"
+                  : "bg-gradient-to-br from-emerald-700 to-green-800"
               }`}
-              style={{
-                height: "3.35rem",
-                gap: "0.56rem",
-                fontSize: "1.05rem",
-              }}
             >
-              <Heart className="w-5 h-5" />
-              Share a Scan
-            </button>
-          ) : hasPendingRequest ? (
-            <button
-              disabled
-              className={`flex items-center justify-center gap-2 w-full opacity-55 cursor-not-allowed font-semibold ${textSecondary}`}
-            >
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-stone-400 to-stone-500 flex items-center justify-center shadow-md">
-                <Clock className="w-4 h-4 text-white" />
-              </div>
-              <span>Anfrage gesendet</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => sendFriendRequestMutation.mutate()}
-              disabled={sendFriendRequestMutation.isPending}
-              className={`flex items-center justify-center gap-2 w-full font-semibold transition-opacity hover:opacity-80 disabled:opacity-50 ${textPrimary}`}
-            >
-              <div
-                className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md ${
-                  isLightUi
-                    ? "bg-gradient-to-br from-emerald-500 to-green-600"
-                    : "bg-gradient-to-br from-emerald-700 to-green-800"
-                }`}
-              >
-                <UserPlus className="w-4 h-4 text-white" />
-              </div>
-              <span>{sendFriendRequestMutation.isPending ? "Wird gesendet..." : "Freund hinzufügen"}</span>
-            </button>
-          )}
-        </div>
+              <UserPlus className="w-4 h-4 text-white" />
+            </div>
+            <span>{sendFriendRequestMutation.isPending ? "Wird gesendet..." : "Freund hinzufügen"}</span>
+          </button>
+        )}
 
         {showNoFriendAccessHint && (
           <motion.div
