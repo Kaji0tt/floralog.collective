@@ -1,16 +1,15 @@
-import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Query } from "@/api/entities";
 import { createUserNotification } from "@/api/notificationService";
 import { sendFriendRequest } from "@/api/friendService";
 import { createPageUrl } from "@/utils";
-import { getNameFontSize } from "@/lib/utils";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { useFriendData } from "@/components/friends/hooks/useFriendData";
 import FriendExperienceShell from "@/components/friends/FriendExperienceShell";
+import { computeOverallPlantHealth, computePlantHealthState } from "@/lib/robotPlantEconomy";
 import { motion } from "framer-motion";
-import { Leaf, Trophy, Target, Users, Map as MapIcon, UserPlus, Clock, Scroll } from "lucide-react";
+import { Leaf, UserPlus, Clock, Map as MapIcon } from "lucide-react";
 
 export default function FriendProfile() {
   const navigate = useNavigate();
@@ -29,60 +28,16 @@ export default function FriendProfile() {
     isLoading,
   } = useFriendData(friendEmail);
 
-  // ── Extra data queries ────────────────────────────────────────────────────────
-  const { data: plants = [] } = useQuery({
-    queryKey: ["plants"],
-    queryFn: () => Query.Plant.list(),
-    staleTime: 60_000,
-  });
-
-  const { data: genera = [] } = useQuery({
-    queryKey: ["genera"],
-    queryFn: () => Query.PlantGenus.list(),
-    staleTime: 300_000,
-  });
-
-  const { data: quests = [] } = useQuery({
-    queryKey: ["quests"],
-    queryFn: () => Query.Quest.list("quest_number"),
-  });
-
-  const { data: userQuests = [] } = useQuery({
-    queryKey: ["userQuests", friendEmail],
-    queryFn: () => Query.UserQuest.filter({ created_by: friendEmail }),
-    enabled: !!friendEmail,
-  });
-
-  const { data: userAchievements = [] } = useQuery({
-    queryKey: ["userAchievements", friendEmail],
-    queryFn: () => Query.UserAchievement.filter({ created_by: friendEmail }),
-    enabled: !!friendEmail,
-  });
-
-  const { data: friends = [] } = useQuery({
-    queryKey: ["friends", friendEmail],
+  const { data: friendRobotPlant = null, isFetched: isFriendRobotPlantFetched } = useQuery({
+    queryKey: ["friendRobotPlant", friendUser?.auth_id],
     queryFn: async () => {
-      if (!friendEmail) return [];
-      const allFriends = await Query.Friend.list();
-      return allFriends.filter(
-        (f) =>
-          (f.request_sent_by?.toLowerCase() === friendEmail.toLowerCase() ||
-            f.request_sent_to?.toLowerCase() === friendEmail.toLowerCase()) &&
-          f.status === "accepted"
-      );
+      const rows = await Query.RobotPlant.filter({ auth_id: friendUser?.auth_id });
+      return rows?.[0] || null;
     },
-    enabled: !!friendEmail,
-    staleTime: 10_000,
-  });
-
-  const { data: friendDiscoveries = [] } = useQuery({
-    queryKey: ["friendDiscoveries", friendUser?.auth_id],
-    queryFn: () => Query.UserPlantDiscovery.filter({ auth_id: friendUser.auth_id }),
     enabled: !!friendUser?.auth_id,
     staleTime: 30_000,
   });
 
-  // ── Send friend-request mutation ─────────────────────────────────────────────
   const sendFriendRequestMutation = useMutation({
     mutationFn: async () => {
       await sendFriendRequest(friendEmail);
@@ -111,88 +66,61 @@ export default function FriendProfile() {
     },
   });
 
-  // ── Derived stats ────────────────────────────────────────────────────────────
-  const discoveredGenera = genera.filter((g) => {
-    const genusPlants = plants.filter(
-      (p) =>
-        p.genus_category === g.category &&
-        p.genus_number === g.category_dex_number
-    );
-    return genusPlants.some((p) => friendDiscoveries.some((d) => d.plant_id === p.id));
-  }).length;
+  const isPlantHealthPending = Boolean(friendUser?.auth_id) && !isFriendRobotPlantFetched;
 
-  const availableQuests = quests.filter(
-    (q) => !userQuests.some((uq) => uq.quest_id === q.id && uq.completed)
-  ).length;
+  const energyValue = Math.max(
+    0,
+    Math.min(100, Number(friendRobotPlant?.energy ?? friendRobotPlant?.energy_value ?? 0))
+  );
+  const dataQualityValue = Math.max(
+    0,
+    Math.min(
+      100,
+      Number(
+        friendRobotPlant?.dataQuality ??
+          friendRobotPlant?.data_quality ??
+          friendRobotPlant?.data_quality_value ??
+          0
+      )
+    )
+  );
+  const careValue = Math.max(
+    0,
+    Math.min(100, Number(friendRobotPlant?.care ?? friendRobotPlant?.care_value ?? 0))
+  );
 
-  // ── Style tokens ─────────────────────────────────────────────────────────────
-  const cardBase = isLightUi
-    ? "bg-white/65 border border-[#c8ac62]/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]"
-    : "bg-black/30 border border-[#f0e5a5]/20 shadow-[inset_0_1px_0_rgba(214,255,230,0.12)]";
-  const textPrimary = isLightUi ? "text-stone-900" : "text-stone-100";
-  const textSecondary = isLightUi ? "text-stone-600" : "text-stone-300";
+  const overallPlantHealth = computeOverallPlantHealth({
+    energyValue,
+    dataQualityValue,
+    careValue,
+  });
 
-  const statButtons = [
-    {
-      icon: Scroll,
-      label: "Gattungen",
-      value: discoveredGenera,
-      gradient: isLightUi
-        ? "bg-gradient-to-b from-[#d4f7d4]/95 via-[#b3eab3]/95 to-[#8ad48a]/95"
-        : "bg-gradient-to-b from-[#1a3a2a]/90 via-[#0e2218]/96 to-[#040f09]/99",
-      shadow: isLightUi
-        ? "inset 0 1px 0 rgba(255,255,255,0.9), 0 6px 12px rgba(60,140,60,0.18)"
-        : "inset 0 1px 0 rgba(180,255,200,0.14), 0 6px 12px rgba(0,0,0,0.28)",
-      onClick: isFriend
-        ? () => navigate(createPageUrl(`FriendCollection?email=${friendEmail}`))
-        : null,
-    },
-    {
-      icon: Trophy,
-      label: "Erfolge",
-      value: userAchievements.length,
-      gradient: isLightUi
-        ? "bg-gradient-to-b from-[#fef3c7]/95 via-[#fde68a]/95 to-[#fbbf24]/95"
-        : "bg-gradient-to-b from-[#3a2e0a]/90 via-[#231c06]/96 to-[#0d0b00]/99",
-      shadow: isLightUi
-        ? "inset 0 1px 0 rgba(255,255,255,0.9), 0 6px 12px rgba(180,130,20,0.18)"
-        : "inset 0 1px 0 rgba(255,230,100,0.14), 0 6px 12px rgba(0,0,0,0.28)",
-      onClick: isFriend
-        ? () => navigate(createPageUrl(`FriendAchievements?email=${friendEmail}`))
-        : null,
-    },
-    {
-      icon: Target,
-      label: "Aufgaben",
-      value: availableQuests,
-      gradient: isLightUi
-        ? "bg-gradient-to-b from-[#dbeafe]/95 via-[#bfdbfe]/95 to-[#93c5fd]/95"
-        : "bg-gradient-to-b from-[#0a1e3a]/90 via-[#061025]/96 to-[#020610]/99",
-      shadow: isLightUi
-        ? "inset 0 1px 0 rgba(255,255,255,0.9), 0 6px 12px rgba(60,100,200,0.15)"
-        : "inset 0 1px 0 rgba(150,200,255,0.12), 0 6px 12px rgba(0,0,0,0.28)",
-      onClick: null,
-    },
-    {
-      icon: Users,
-      label: "Freunde",
-      value: friends.length,
-      gradient: isLightUi
-        ? "bg-gradient-to-b from-[#ffedd5]/95 via-[#fed7aa]/95 to-[#fdba74]/95"
-        : "bg-gradient-to-b from-[#3a1a0a]/90 via-[#220e04]/96 to-[#0d0400]/99",
-      shadow: isLightUi
-        ? "inset 0 1px 0 rgba(255,255,255,0.9), 0 6px 12px rgba(180,100,30,0.15)"
-        : "inset 0 1px 0 rgba(255,200,140,0.12), 0 6px 12px rgba(0,0,0,0.28)",
-      onClick: isFriend
-        ? () => navigate(createPageUrl(`FriendFriendsList?email=${friendEmail}`))
-        : null,
-    },
+  const plantHealthState = computePlantHealthState({
+    overallPlantHealth,
+    energyValue,
+    dataQualityValue,
+    careValue,
+  });
+
+  const resolvedPlantHealthState = isPlantHealthPending
+    ? { label: "Status wird geladen", color: "#6b7280", scanEventBonus: 0 }
+    : plantHealthState;
+
+  const displayedOverallPlantHealth = isPlantHealthPending ? null : overallPlantHealth;
+
+  const healthStats = [
+    { id: "energy", label: "Energie", value: Math.round(energyValue), color: "#10b981" },
+    { id: "data-quality", label: "Daten", value: Math.round(dataQualityValue), color: "#06b6d4" },
+    { id: "care", label: "Pflege", value: Math.round(careValue), color: "#f59e0b" },
   ];
 
-  const friendDisplayName =
-    friendUser?.display_name || friendUser?.full_name || friendEmail;
-  const friendTitle =
-    friendUser?.selected_title || friendUser?.title || "Pflanzen-Entdecker";
+  const cardBase = isLightUi
+    ? "bg-white/35 border border-[#c8ac62]/30"
+    : "bg-black/28 border border-[#f0e5a5]/22";
+  const textPrimary = isLightUi ? "text-stone-900" : "text-white";
+  const textSecondary = isLightUi ? "text-stone-700" : "text-stone-200";
+
+  const showNoFriendAccessHint = !isFriend && !hasPendingRequest && !isLoading;
 
   return (
     <FriendExperienceShell
@@ -203,128 +131,161 @@ export default function FriendProfile() {
       isLoading={isLoading}
       accessDenied={false}
     >
-      <div className={`h-full overflow-y-auto space-y-3 pb-2 ${textPrimary}`}>
-        {/* Profile hero card */}
-        <motion.div
-          initial={{ opacity: 0, y: -14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: "easeOut" }}
-          className={`rounded-2xl backdrop-blur-md p-4 ${cardBase}`}
+      <div className="h-full overflow-y-auto p-[clamp(0.75rem,2vw,1.25rem)] flex flex-col gap-3">
+        <section
+          className={`relative flex-1 min-h-[22rem] rounded-3xl border px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col ${
+            isLightUi
+              ? "border-[#c0a860]/50 backdrop-blur-xl"
+              : "border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm"
+          }`}
+          style={
+            isLightUi
+              ? {
+                  background:
+                    "linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.15) 35%, rgba(255,255,255,0) 65%, rgba(255,255,255,0.1) 100%)",
+                }
+              : {}
+          }
         >
-          {/* Avatar + name row */}
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-[clamp(3rem,10vw,4.5rem)] h-[clamp(3rem,10vw,4.5rem)] rounded-xl bg-gradient-to-br from-emerald-600 to-green-700 flex items-center justify-center shadow-xl overflow-hidden ring-2 ring-white/30 flex-shrink-0">
-              {friendUser?.avatar_url ? (
-                <img src={friendUser.avatar_url} alt="Profil" className="w-full h-full object-cover" />
-              ) : (
-                <Leaf className="w-8 h-8 text-white" />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <h1
-                className={`font-bold leading-tight truncate ${textPrimary}`}
-                style={{ fontSize: getNameFontSize(friendDisplayName) }}
-                title={friendDisplayName}
-              >
-                {friendDisplayName}
-              </h1>
-              <p className={`text-sm truncate mt-0.5 ${textSecondary}`}>{friendTitle}</p>
-              {friendUser?.level && (
-                <p className={`text-xs mt-0.5 ${textSecondary}`}>Level {friendUser.level}</p>
-              )}
-            </div>
-          </div>
+          <div className="flex-1 min-h-0 flex items-center justify-center">
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="relative w-full max-w-[22rem] aspect-square"
+            >
+              <div
+                className={`absolute left-1/2 top-1/2 w-[84%] -translate-x-1/2 -translate-y-1/2 aspect-square rounded-full border backdrop-blur-sm shadow-[inset_0_0_30px_rgba(190,242,100,0.15)] ${
+                  isLightUi
+                    ? "border-[#b8d4a8]/55 bg-gradient-to-b from-emerald-50/75 to-emerald-100/45"
+                    : "border-[#f0e5a5]/35 bg-gradient-to-b from-emerald-100/25 to-emerald-900/45"
+                }`}
+              />
 
-          {/* Stat buttons */}
-          <div className="grid grid-cols-4 gap-2 mb-3">
-            {statButtons.map((stat, i) => (
-              <motion.button
-                key={stat.label}
-                onClick={stat.onClick ?? undefined}
-                disabled={!stat.onClick}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.08 + i * 0.04 }}
-                whileHover={stat.onClick ? { scale: 1.04 } : {}}
-                whileTap={stat.onClick ? { scale: 0.96 } : {}}
-                className={`rounded-xl p-3 flex flex-col items-center gap-1 backdrop-blur-sm transition-all ${stat.gradient} ${!stat.onClick ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
-                style={{ boxShadow: stat.shadow }}
-              >
-                <stat.icon className={`w-5 h-5 ${textPrimary}`} />
-                <span className={`text-lg font-bold leading-none ${textPrimary}`}>{stat.value}</span>
-                <span className={`text-[10px] font-medium hidden sm:block ${textSecondary}`}>{stat.label}</span>
-              </motion.button>
-            ))}
-          </div>
-
-          {/* Action button */}
-          <div
-            className={`rounded-xl p-3 backdrop-blur-sm ${
-              isLightUi
-                ? "bg-white/40 border border-[#c8ac62]/25"
-                : "bg-black/20 border border-[#f0e5a5]/15"
-            }`}
-          >
-            {isFriend ? (
-              <button
-                onClick={() => navigate(createPageUrl("Map"))}
-                className={`flex items-center justify-center gap-2 w-full font-semibold transition-opacity hover:opacity-80 ${textPrimary}`}
-              >
-                <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md ${
-                    isLightUi
-                      ? "bg-gradient-to-br from-emerald-500 to-green-600"
-                      : "bg-gradient-to-br from-emerald-700 to-green-800"
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Leaf
+                  className={`w-20 h-20 md:w-24 md:h-24 drop-shadow-[0_0_24px_rgba(190,242,100,0.6)] ${
+                    isLightUi ? "text-emerald-600" : "text-lime-200"
                   }`}
-                >
-                  <MapIcon className="w-4 h-4 text-white" />
-                </div>
-                <span>Zur Karte</span>
-              </button>
-            ) : hasPendingRequest ? (
-              <button
-                disabled
-                className={`flex items-center justify-center gap-2 w-full opacity-55 cursor-not-allowed font-semibold ${textSecondary}`}
-              >
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-stone-400 to-stone-500 flex items-center justify-center shadow-md">
-                  <Clock className="w-4 h-4 text-white" />
-                </div>
-                <span>Anfrage gesendet</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => sendFriendRequestMutation.mutate()}
-                disabled={sendFriendRequestMutation.isPending}
-                className={`flex items-center justify-center gap-2 w-full font-semibold transition-opacity hover:opacity-80 disabled:opacity-50 ${textPrimary}`}
-              >
-                <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md ${
-                    isLightUi
-                      ? "bg-gradient-to-br from-emerald-500 to-green-600"
-                      : "bg-gradient-to-br from-emerald-700 to-green-800"
-                  }`}
-                >
-                  <UserPlus className="w-4 h-4 text-white" />
-                </div>
-                <span>
-                  {sendFriendRequestMutation.isPending ? "Wird gesendet…" : "Freund hinzufügen"}
-                </span>
-              </button>
-            )}
-          </div>
-        </motion.div>
+                />
+              </div>
 
-        {/* "Not friends yet" hint */}
-        {!isFriend && !hasPendingRequest && !isLoading && (
+              <div className="absolute left-1/2 top-1/2 w-[84%] -translate-x-1/2 -translate-y-1/2">
+                <div
+                  className={`absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[4.7rem] h-[3.8rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${
+                    isLightUi ? "border-[#c8ac62]/60" : "border-[#f0e5a5]/40"
+                  }`}
+                  style={{
+                    background: isLightUi
+                      ? `linear-gradient(135deg, ${resolvedPlantHealthState.color}35 0%, ${resolvedPlantHealthState.color}15 100%)`
+                      : `linear-gradient(135deg, ${resolvedPlantHealthState.color}7a 0%, ${resolvedPlantHealthState.color}4d 100%)`,
+                  }}
+                >
+                  <Leaf className={`w-4 h-4 ${isLightUi ? "text-stone-700" : "text-white/90"}`} />
+                  <span className={`font-bold text-xs leading-none mt-0.5 ${isLightUi ? "text-stone-800" : "text-white"}`}>
+                    {displayedOverallPlantHealth === null ? "..." : `${displayedOverallPlantHealth}%`}
+                  </span>
+                </div>
+
+                <div
+                  className={`absolute right-0 top-1/2 translate-x-1/2 -translate-y-1/2 px-3 h-[3.8rem] rounded-2xl border backdrop-blur-sm flex items-center justify-center text-xs font-semibold text-center ${
+                    isLightUi ? "border-[#c8ac62]/60 text-stone-800" : "border-[#f0e5a5]/40 text-white"
+                  }`}
+                  style={{
+                    background: isLightUi
+                      ? `linear-gradient(135deg, ${resolvedPlantHealthState.color}35 0%, ${resolvedPlantHealthState.color}15 100%)`
+                      : `linear-gradient(135deg, ${resolvedPlantHealthState.color}7a 0%, ${resolvedPlantHealthState.color}4d 100%)`,
+                  }}
+                >
+                  {resolvedPlantHealthState.label}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+
+          <div className={`mt-[clamp(0.5rem,1.2vh,1rem)] rounded-2xl p-3 ${cardBase}`}>
+            <div className="grid grid-cols-3 gap-2">
+              {healthStats.map((stat) => (
+                <div key={stat.id} className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className={`text-[11px] font-semibold uppercase tracking-wide ${textSecondary}`}>
+                      {stat.label}
+                    </span>
+                    <span className={`text-xs font-bold ${textPrimary}`}>{isPlantHealthPending ? "..." : `${stat.value}%`}</span>
+                  </div>
+                  <div className="h-2 rounded-full overflow-hidden bg-black/35 border border-black/25">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${isPlantHealthPending ? 35 : stat.value}%`,
+                        background: isPlantHealthPending
+                          ? "linear-gradient(90deg, #6b7280 0%, rgba(255,255,255,0.78) 100%)"
+                          : `linear-gradient(90deg, ${stat.color} 0%, rgba(255,255,255,0.78) 100%)`,
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <div className={`rounded-xl p-3 backdrop-blur-sm ${cardBase}`}>
+          {isFriend ? (
+            <button
+              onClick={() => navigate(createPageUrl("Map"))}
+              className={`flex items-center justify-center gap-2 w-full font-semibold transition-opacity hover:opacity-80 ${textPrimary}`}
+            >
+              <div
+                className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md ${
+                  isLightUi
+                    ? "bg-gradient-to-br from-emerald-500 to-green-600"
+                    : "bg-gradient-to-br from-emerald-700 to-green-800"
+                }`}
+              >
+                <MapIcon className="w-4 h-4 text-white" />
+              </div>
+              <span>Zur Karte</span>
+            </button>
+          ) : hasPendingRequest ? (
+            <button
+              disabled
+              className={`flex items-center justify-center gap-2 w-full opacity-55 cursor-not-allowed font-semibold ${textSecondary}`}
+            >
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-stone-400 to-stone-500 flex items-center justify-center shadow-md">
+                <Clock className="w-4 h-4 text-white" />
+              </div>
+              <span>Anfrage gesendet</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => sendFriendRequestMutation.mutate()}
+              disabled={sendFriendRequestMutation.isPending}
+              className={`flex items-center justify-center gap-2 w-full font-semibold transition-opacity hover:opacity-80 disabled:opacity-50 ${textPrimary}`}
+            >
+              <div
+                className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md ${
+                  isLightUi
+                    ? "bg-gradient-to-br from-emerald-500 to-green-600"
+                    : "bg-gradient-to-br from-emerald-700 to-green-800"
+                }`}
+              >
+                <UserPlus className="w-4 h-4 text-white" />
+              </div>
+              <span>{sendFriendRequestMutation.isPending ? "Wird gesendet..." : "Freund hinzufügen"}</span>
+            </button>
+          )}
+        </div>
+
+        {showNoFriendAccessHint && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
+            transition={{ delay: 0.2 }}
             className={`rounded-2xl backdrop-blur-md p-4 text-center ${cardBase}`}
           >
             <p className={`text-sm ${textSecondary}`}>
-              Schicke eine Freundschaftsanfrage, um die Erfolge, Sammlungen und Freundesliste von{" "}
-              <span className={`font-semibold ${textPrimary}`}>{friendDisplayName}</span> zu sehen.
+              Schicke eine Freundschaftsanfrage, um die Erfolge, Sammlungen und Freundesliste zu sehen.
             </p>
           </motion.div>
         )}

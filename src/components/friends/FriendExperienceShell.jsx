@@ -1,12 +1,11 @@
-import React from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
-import HomeHeaderBar from "@/components/navigation/HomeHeaderBar";
 import HomeBottomNavigation from "@/components/navigation/HomeBottomNavigation";
 import MobileBackButton from "@/components/navigation/MobileBackButton";
 import { getRgbaFromRgb } from "@/lib/friendColorUtils";
+import { getNavButtonStyle, NAV_COLOR_ORDER } from "@/components/navigation/navButtonStyles";
 import { Leaf, Users, Lock, Scroll, BookOpen } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -24,23 +23,6 @@ const TAB_PAGES = {
   collection:   "FriendCollection",
   friends:      "FriendFriendsList",
 };
-
-// ─── Nav button gradient/shadow tokens ────────────────────────────────────────
-const getNavGradient = (isActive, isLightUi) => {
-  if (isActive) {
-    return isLightUi
-      ? "bg-gradient-to-b from-[#f8f1cf]/95 via-[#efe3b3]/95 to-[#e4d591]/95"
-      : "bg-gradient-to-b from-[#2b4a3a]/90 via-[#1a2f25]/96 to-[#0b1713]/99";
-  }
-  return isLightUi
-    ? "bg-gradient-to-b from-[#f8f1cf]/60 via-[#efe3b3]/60 to-[#e4d591]/60"
-    : "bg-gradient-to-b from-[#1e2b22]/70 via-[#131d19]/85 to-[#060d0a]/92";
-};
-
-const getNavShadow = (isActive, isLightUi) =>
-  isLightUi
-    ? `inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -12px 18px rgba(133,105,40,${isActive ? "0.22" : "0.12"}), 0 8px 16px rgba(133,105,40,${isActive ? "0.24" : "0.12"})`
-    : `inset 0 1px 0 rgba(214,255,230,${isActive ? "0.20" : "0.10"}), inset 0 -12px 18px rgba(0,0,0,${isActive ? "0.46" : "0.32"}), 0 8px 16px rgba(0,0,0,${isActive ? "0.32" : "0.2"})`;
 
 // ─── Shell ────────────────────────────────────────────────────────────────────
 /**
@@ -82,6 +64,11 @@ export default function FriendExperienceShell({
   // ── Bottom nav items ─────────────────────────────────────────────────────
   const navItems = FRIEND_TABS.map((tab) => {
     const isActive = tab.id === activeTab;
+    const { gradientClass, shadowStyle } = getNavButtonStyle({
+      palette: NAV_COLOR_ORDER[FRIEND_TABS.findIndex((item) => item.id === tab.id)],
+      isLightUi,
+      isActive,
+    });
     return {
       label:         tab.label,
       icon:          tab.icon,
@@ -90,8 +77,8 @@ export default function FriendExperienceShell({
         if (isActive) return;
         navigate(createPageUrl(`${TAB_PAGES[tab.id]}?email=${encodeURIComponent(friendEmail ?? "")}`));
       },
-      gradientClass: getNavGradient(isActive, isLightUi),
-      shadowStyle:   getNavShadow(isActive, isLightUi),
+      gradientClass,
+      shadowStyle,
     };
   });
 
@@ -171,26 +158,74 @@ export default function FriendExperienceShell({
     <HomeBackgroundShell user={bgUser} getRgbaFromRgb={getRgbaFromRgb}>
       <MobileBackButton backUrl={createPageUrl("Friends")} />
 
-      {/* Same max-width and flex layout as the Home page inner container */}
-      <div className="w-full max-w-md md:max-w-3xl h-full flex flex-col gap-[clamp(0.5rem,1.2vh,1rem)]">
-        {/* Header – reuse HomeHeaderBar with "friend" panel mode */}
-        <HomeHeaderBar
-          activePanel="friend"
-          embeddedTitle={friendDisplayName}
-          embeddedSubtitle={friendTitle}
-          displayName={friendDisplayName}
-          userTitle={friendTitle}
-          onPrimaryAction={() => navigate(createPageUrl("Home"))}
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: "easeOut" }}
+        className={`relative h-full w-full max-w-md md:max-w-3xl rounded-[2rem] overflow-hidden border ${
+          isLightUi
+            ? "border-[#dfc98b]/75 shadow-[0_20px_64px_rgba(160,125,45,0.22)]"
+            : "border-[#d7cf9c]/65 shadow-[0_20px_80px_rgba(0,0,0,0.55)]"
+        }`}
+      >
+        <div
+          className="absolute inset-0"
+          style={bgUser?.background_image_url ? {
+            backgroundImage: isLightUi
+              ? `linear-gradient(180deg, rgba(255,246,210,0.65) 0%, rgba(244,230,181,0.75) 100%), url(${bgUser.background_image_url})`
+              : `linear-gradient(180deg, rgba(19,37,24,0.42) 0%, rgba(12,20,15,0.66) 100%), url(${bgUser.background_image_url})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          } : bgUser?.background_color ? {
+            background: isLightUi
+              ? `linear-gradient(180deg, ${getRgbaFromRgb(bgUser.background_color, 0.25)} 0%, rgba(255, 249, 225, 0.9) 100%)`
+              : `linear-gradient(180deg, ${getRgbaFromRgb(bgUser.background_color, 0.28)} 0%, rgba(14, 22, 16, 0.74) 100%)`,
+          } : {
+            background: isLightUi
+              ? "linear-gradient(180deg, rgba(255, 248, 221, 0.92) 0%, rgba(243, 229, 183, 0.9) 100%)"
+              : "linear-gradient(180deg, rgba(126, 171, 98, 0.45) 0%, rgba(10, 22, 15, 0.78) 100%)",
+          }}
+        />
+        <div
+          className={`absolute inset-0 pointer-events-none rounded-[2rem] border ${
+            isLightUi ? "border-[#f4e6b7]/85" : "border-[#f0e5a5]/30"
+          }`}
         />
 
-        {/* Content – each page controls its own overflow */}
-        <div className="flex-1 min-h-0">
-          {children}
-        </div>
+        <div className="relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6">
+          <header className="shrink-0">
+            <h1 className="text-xl md:text-2xl font-bold leading-tight text-white truncate" title={friendDisplayName}>
+              {friendDisplayName}
+            </h1>
+            <p className="mt-1 text-sm md:text-base text-white/90 truncate" title={friendTitle}>
+              {friendTitle}
+            </p>
+          </header>
 
-        {/* Bottom navigation */}
-        <HomeBottomNavigation navItems={navItems} controlsScale={1} />
-      </div>
+          <div className={`my-[clamp(0.5rem,1.2vh,1rem)] h-px ${isLightUi ? "bg-[#c8ac62]/35" : "bg-[#f0e5a5]/25"}`} />
+
+          <section
+            className={`relative flex-1 min-h-0 rounded-3xl border overflow-hidden ${
+              isLightUi
+                ? "border-[#c0a860]/50 backdrop-blur-xl"
+                : "border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm"
+            }`}
+            style={isLightUi ? {
+              background:
+                "linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.15) 35%, rgba(255,255,255,0) 65%, rgba(255,255,255,0.1) 100%)",
+            } : {}}
+          >
+            <div className="absolute inset-0 pointer-events-none bg-black/18" />
+            <div className="relative z-10 h-full">
+              {children}
+            </div>
+          </section>
+
+          <div className="mt-[clamp(0.5rem,1.2vh,1rem)] shrink-0">
+            <HomeBottomNavigation navItems={navItems} controlsScale={1} />
+          </div>
+        </div>
+      </motion.div>
     </HomeBackgroundShell>
   );
 }

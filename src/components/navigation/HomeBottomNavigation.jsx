@@ -89,7 +89,7 @@ export default function HomeBottomNavigation({
                   }}
                 >
                   <item.icon
-                    className="text-lime-100"
+                    className="text-white"
                     style={{
                       width: `${(1.2 * controlsScale).toFixed(2)}rem`,
                       height: `${(1.2 * controlsScale).toFixed(2)}rem`,

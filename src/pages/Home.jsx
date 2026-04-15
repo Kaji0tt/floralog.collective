@@ -36,6 +36,7 @@ import Collection from "./Collection";
 import SettingsFeatureRoot from "@/components/settings/SettingsFeatureRoot";
 import HomeHeaderBar from "@/components/navigation/HomeHeaderBar";
 import HomeBottomNavigation from "@/components/navigation/HomeBottomNavigation";
+import { getNavButtonStyle } from "@/components/navigation/navButtonStyles";
 import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
 import GuestHomeFlow from "@/components/home/GuestHomeFlow";
 import ShopFeatureRoot from "@/components/shop/ShopFeatureRoot";
@@ -1287,12 +1288,7 @@ export default function Home() {
         setShowHeroZoneMap(false);
         setShowHealthStatsPanel(false);
       },
-      gradientClass: isLightUi
-        ? "bg-gradient-to-b from-[#f8f1cf]/95 via-[#efe3b3]/95 to-[#e4d591]/95"
-        : "bg-gradient-to-b from-[#2b4a3a]/78 via-[#1a2f25]/92 to-[#0b1713]/96",
-      shadowStyle: isLightUi
-        ? "inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -12px 18px rgba(133,105,40,0.22), 0 8px 16px rgba(133,105,40,0.24)"
-        : "inset 0 1px 0 rgba(214,255,230,0.2), inset 0 -12px 18px rgba(0,0,0,0.46), 0 8px 16px rgba(0,0,0,0.32)",
+      ...getNavButtonStyle({ palette: "green", isLightUi }),
     },
     {
       label: "Erfolge",
@@ -1302,12 +1298,7 @@ export default function Home() {
         setShowHeroZoneMap(false);
         setShowHealthStatsPanel(false);
       },
-      gradientClass: isLightUi
-        ? "bg-gradient-to-b from-[#f9e8c7]/95 via-[#f1d8a1]/95 to-[#e7c47d]/95"
-        : "bg-gradient-to-b from-[#4f3d2b]/78 via-[#2f2118]/92 to-[#16100c]/96",
-      shadowStyle: isLightUi
-        ? "inset 0 1px 0 rgba(255,255,255,0.86), inset 0 -12px 18px rgba(157,94,34,0.22), 0 8px 16px rgba(157,94,34,0.24)"
-        : "inset 0 1px 0 rgba(255,236,205,0.18), inset 0 -12px 18px rgba(0,0,0,0.48), 0 8px 16px rgba(0,0,0,0.32)",
+      ...getNavButtonStyle({ palette: "amber", isLightUi }),
     },
     {
       label: "Social",
@@ -1317,12 +1308,7 @@ export default function Home() {
         setShowHeroZoneMap(false);
         setShowHealthStatsPanel(false);
       },
-      gradientClass: isLightUi
-        ? "bg-gradient-to-b from-[#e3edf8]/95 via-[#cfe1f4]/95 to-[#bad3ec]/95"
-        : "bg-gradient-to-b from-[#29435a]/78 via-[#172a3f]/92 to-[#0c151f]/96",
-      shadowStyle: isLightUi
-        ? "inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -12px 18px rgba(42,90,146,0.16), 0 8px 16px rgba(42,90,146,0.2)"
-        : "inset 0 1px 0 rgba(210,235,255,0.18), inset 0 -12px 18px rgba(0,0,0,0.5), 0 8px 16px rgba(0,0,0,0.34)",
+      ...getNavButtonStyle({ palette: "blue", isLightUi }),
     },
     {
       label: "Shop",
@@ -1333,12 +1319,7 @@ export default function Home() {
         setShowHeroZoneMap(false);
         setShowHealthStatsPanel(false);
       },
-      gradientClass: isLightUi
-        ? "bg-gradient-to-b from-[#f7e3d1]/95 via-[#efcfb0]/95 to-[#e7b98c]/95"
-        : "bg-gradient-to-b from-[#5a3823]/78 via-[#3a2316]/92 to-[#1b1009]/96",
-      shadowStyle: isLightUi
-        ? "inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -12px 18px rgba(122,74,37,0.22), 0 8px 16px rgba(122,74,37,0.22)"
-        : "inset 0 1px 0 rgba(255,224,188,0.18), inset 0 -12px 18px rgba(0,0,0,0.48), 0 8px 16px rgba(0,0,0,0.34)",
+      ...getNavButtonStyle({ palette: "orange", isLightUi }),
     },
   ];
 
