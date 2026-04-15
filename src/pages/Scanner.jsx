@@ -203,6 +203,15 @@ export default function Scanner() {
     return getLocationString(location);
   };
 
+  const getIsoDateKey = (value) => {
+    if (!value) return null;
+    const parsedDate = new Date(value);
+    if (Number.isNaN(parsedDate.getTime())) {
+      return null;
+    }
+    return parsedDate.toISOString().slice(0, 10);
+  };
+
   const buildScanRewardFeedback = async ({ eventSource, duplicateScanCount, eventReference, location, rarity, isFirstScanOfDay = false }) => {
     if (!user?.id) {
       return { rewardDetails: null, activeZone: null };
@@ -766,10 +775,7 @@ export default function Scanner() {
 
     // Bestimme, ob dies der erste Scan des Tages ist
     const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-    const isFirstScanOfDay = !currentDiscoveries.some((d) => {
-      const discDate = new Date(d.discovered_date).toISOString().slice(0, 10);
-      return discDate === today;
-    });
+    const isFirstScanOfDay = !currentDiscoveries.some((d) => getIsoDateKey(d.discovered_date) === today);
 
     const newDiscovery = await Query.UserPlantDiscovery.create({
       auth_id: user.id,
@@ -844,10 +850,7 @@ export default function Scanner() {
     // Bestimme, ob dies der erste Scan des Tages ist
     const currentDiscoveriesForNewPlant = await Query.UserPlantDiscovery.filter({ auth_id: user.id });
     const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-    const isFirstScanOfDay = !currentDiscoveriesForNewPlant.some((d) => {
-      const discDate = new Date(d.discovered_date).toISOString().slice(0, 10);
-      return discDate === today;
-    });
+    const isFirstScanOfDay = !currentDiscoveriesForNewPlant.some((d) => getIsoDateKey(d.discovered_date) === today);
 
     try {
       const { data, error } = await supabase.functions.invoke('createGlobalPlant', {
