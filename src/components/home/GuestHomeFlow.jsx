@@ -600,14 +600,14 @@ export default function GuestHomeFlow() {
           </h1>
         </div>
         <p
-          className="mt-2 px-2 text-amber-50/95 font-medium"
+          className="mt-2 px-2 font-medium"
           style={{
             fontSize: "clamp(0.85rem, 3vw, 1.05rem)",
-            letterSpacing: "0.1em",
-            textShadow: "0 3px 0 rgba(0,0,0,0.92), 0 8px 18px rgba(0,0,0,0.95), 0 14px 34px rgba(0,0,0,0.9)",
+            letterSpacing: "0.4em",
+            color: "#34d399",
           }}
         >
-          Dein Naturbegleiter
+          - Naturbegleiter -
         </p>
       </div>
 
