@@ -131,22 +131,13 @@ export default function FriendProfile() {
     >
       <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
         <div className="flex flex-1 min-h-0 flex-col overflow-y-auto p-[clamp(0.75rem,2vw,1.25rem)] gap-3" data-ui="friend-content-stack">
-          <section
-            className="flex-1 min-h-0 rounded-3xl px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] border flex flex-col"
-            style={{
-              borderColor: isLightUi ? "rgba(192, 168, 96, 0.5)" : "rgba(240, 229, 165, 0.25)",
-              background: isLightUi
-                ? "linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.15) 35%, rgba(255,255,255,0) 65%, rgba(255,255,255,0.1) 100%)"
-                : "linear-gradient(180deg, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.25) 100%)",
-              backdropFilter: isLightUi ? "blur(24px)" : "blur(4px)",
-            }}
-          >
-            <div className="flex-1 min-h-0 flex items-center justify-center pt-[clamp(0.2rem,1vh,0.5rem)]">
+          <section className="flex min-h-0 flex-1 flex-col px-[clamp(0.25rem,1vw,0.75rem)] py-[clamp(0.2rem,1vh,0.5rem)]">
+            <div className="flex-1 min-h-0 flex items-center justify-center">
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2, ease: "easeOut" }}
-                className="relative w-full max-w-[22rem] aspect-square"
+                className="relative mx-auto h-full max-h-full max-w-full aspect-square"
               >
                 <button
                   type="button"
@@ -187,7 +178,7 @@ export default function FriendProfile() {
                 </div>
 
                 <div
-                  className={`absolute left-1/2 top-1/2 w-[84%] -translate-x-1/2 -translate-y-1/2 aspect-square rounded-full border backdrop-blur-sm shadow-[inset_0_0_30px_rgba(190,242,100,0.15)] ${
+                  className={`absolute left-1/2 top-1/2 w-[82%] -translate-x-1/2 -translate-y-1/2 aspect-square rounded-full border backdrop-blur-sm shadow-[inset_0_0_30px_rgba(190,242,100,0.15)] ${
                     isLightUi
                       ? "border-[#b8d4a8]/55 bg-gradient-to-b from-emerald-50/75 to-emerald-100/45"
                       : "border-[#f0e5a5]/35 bg-gradient-to-b from-emerald-100/25 to-emerald-900/45"
@@ -202,7 +193,7 @@ export default function FriendProfile() {
                   />
                 </div>
 
-                <div className="absolute left-1/2 top-1/2 w-[84%] aspect-square -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+                <div className="absolute left-1/2 top-1/2 w-[82%] aspect-square -translate-x-1/2 -translate-y-1/2 pointer-events-none">
                   {[
                     { key: "left", className: "left-0 top-1/2 -translate-x-1/2 -translate-y-1/2" },
                     { key: "right", className: "right-0 top-1/2 translate-x-1/2 -translate-y-1/2" },
@@ -227,14 +218,15 @@ export default function FriendProfile() {
             </div>
           </section>
 
-          <div
-            className={`w-full rounded-2xl border backdrop-blur-sm px-[clamp(0.625rem,2vw,0.875rem)] ${
-              isLightUi
-                ? "border-[#c8ac62]/45 bg-gradient-to-r from-emerald-100/50 via-white/40 to-emerald-100/50"
-                : "border-[#f0e5a5]/45 bg-gradient-to-r from-emerald-900/45 via-black/30 to-emerald-900/45"
-            }`}
-            style={{ height: "2.4rem" }}
-          >
+          <div className="min-h-0 flex-1">
+            <div
+              className={`h-full w-full rounded-2xl border backdrop-blur-sm px-[clamp(0.625rem,2vw,0.875rem)] ${
+                isLightUi
+                  ? "border-[#c8ac62]/45 bg-gradient-to-r from-emerald-100/50 via-white/40 to-emerald-100/50"
+                  : "border-[#f0e5a5]/45 bg-gradient-to-r from-emerald-900/45 via-black/30 to-emerald-900/45"
+              }`}
+              style={{ minHeight: "2.4rem" }}
+            >
             <div className={`h-full w-full flex items-center justify-between text-xs md:text-sm font-semibold ${
               isLightUi ? "text-stone-700" : "text-white/95"
             }`}>
@@ -249,53 +241,58 @@ export default function FriendProfile() {
                 <span className="truncate">Status {resolvedPlantHealthState.label}</span>
               </div>
             </div>
+            </div>
           </div>
 
-          {isFriend ? (
-            <button
-              onClick={() => alert("Share a Scan kommt bald.")}
-              className={`rounded-2xl border flex items-center justify-center font-semibold tracking-wide transition-shadow ${
-                isLightUi
-                  ? "border-red-400/50 bg-gradient-to-r from-red-500/85 via-rose-400/75 to-red-500/85 text-white shadow-[0_8px_24px_rgba(239,68,68,0.2)] hover:shadow-[0_12px_32px_rgba(239,68,68,0.35)]"
-                  : "border-red-200/35 bg-gradient-to-r from-red-700/80 via-rose-500/70 to-red-700/80 text-white shadow-[0_8px_24px_rgba(239,68,68,0.3)]"
-              }`}
-              style={{
-                height: "3.35rem",
-                gap: "0.56rem",
-                fontSize: "1.05rem",
-              }}
-            >
-              <Heart className="w-5 h-5" />
-              Share a Scan
-            </button>
-          ) : hasPendingRequest ? (
-            <button
-              disabled
-              className={`flex items-center justify-center gap-2 w-full opacity-55 cursor-not-allowed font-semibold rounded-2xl border ${cardBase} ${textSecondary}`}
-            >
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-stone-400 to-stone-500 flex items-center justify-center shadow-md">
-                <Clock className="w-4 h-4 text-white" />
-              </div>
-              <span>Anfrage gesendet</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => sendFriendRequestMutation.mutate()}
-              disabled={sendFriendRequestMutation.isPending}
-              className={`flex items-center justify-center gap-2 w-full font-semibold transition-opacity hover:opacity-80 disabled:opacity-50 rounded-2xl border ${cardBase} ${textPrimary}`}
-            >
-              <div
-                className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md ${
+          <div className="min-h-0 flex-1">
+            {isFriend ? (
+              <button
+                onClick={() => alert("Share a Scan kommt bald.")}
+                className={`h-full w-full rounded-2xl border flex items-center justify-center font-semibold tracking-wide transition-shadow ${
                   isLightUi
-                    ? "bg-gradient-to-br from-emerald-500 to-green-600"
-                    : "bg-gradient-to-br from-emerald-700 to-green-800"
+                    ? "border-red-400/50 bg-gradient-to-r from-red-500/85 via-rose-400/75 to-red-500/85 text-white shadow-[0_8px_24px_rgba(239,68,68,0.2)] hover:shadow-[0_12px_32px_rgba(239,68,68,0.35)]"
+                    : "border-red-200/35 bg-gradient-to-r from-red-700/80 via-rose-500/70 to-red-700/80 text-white shadow-[0_8px_24px_rgba(239,68,68,0.3)]"
                 }`}
+                style={{
+                  minHeight: "3.35rem",
+                  gap: "0.56rem",
+                  fontSize: "1.05rem",
+                }}
               >
-                <UserPlus className="w-4 h-4 text-white" />
-              </div>
-              <span>{sendFriendRequestMutation.isPending ? "Wird gesendet..." : "Freund hinzuf�gen"}</span>
-            </button>
-          )}
+                <Heart className="w-5 h-5" />
+                Share a Scan
+              </button>
+            ) : hasPendingRequest ? (
+              <button
+                disabled
+                className={`h-full w-full flex items-center justify-center gap-2 opacity-55 cursor-not-allowed font-semibold rounded-2xl border ${cardBase} ${textSecondary}`}
+                style={{ minHeight: "3.35rem" }}
+              >
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-stone-400 to-stone-500 flex items-center justify-center shadow-md">
+                  <Clock className="w-4 h-4 text-white" />
+                </div>
+                <span>Anfrage gesendet</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => sendFriendRequestMutation.mutate()}
+                disabled={sendFriendRequestMutation.isPending}
+                className={`h-full w-full flex items-center justify-center gap-2 font-semibold transition-opacity hover:opacity-80 disabled:opacity-50 rounded-2xl border ${cardBase} ${textPrimary}`}
+                style={{ minHeight: "3.35rem" }}
+              >
+                <div
+                  className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md ${
+                    isLightUi
+                      ? "bg-gradient-to-br from-emerald-500 to-green-600"
+                      : "bg-gradient-to-br from-emerald-700 to-green-800"
+                  }`}
+                >
+                  <UserPlus className="w-4 h-4 text-white" />
+                </div>
+                <span>{sendFriendRequestMutation.isPending ? "Wird gesendet..." : "Freund hinzufuegen"}</span>
+              </button>
+            )}
+          </div>
 
           {showNoFriendAccessHint && (
             <motion.div
