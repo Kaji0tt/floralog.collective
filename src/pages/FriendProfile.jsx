@@ -129,10 +129,11 @@ export default function FriendProfile() {
       isLoading={isLoading}
       accessDenied={false}
     >
-      <div className="flex flex-1 min-h-0 flex-col overflow-hidden p-[clamp(0.75rem,2vw,1.25rem)] gap-3">
-        <section
-          className="relative flex-1 min-h-[22rem] rounded-3xl px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col"
-        >
+      <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
+        <div className="flex flex-1 min-h-0 flex-col overflow-y-auto p-[clamp(0.75rem,2vw,1.25rem)] gap-3" data-ui="friend-content-stack">
+          <section
+            className="relative min-h-[22rem] rounded-3xl px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col"
+          >
           <div className="flex-1 min-h-0 flex items-center justify-center">
             <motion.div
               initial={{ opacity: 0, y: 8 }}
@@ -301,6 +302,7 @@ export default function FriendProfile() {
             </p>
           </motion.div>
         )}
+        </div>
       </div>
     </FriendExperienceShell>
   );
