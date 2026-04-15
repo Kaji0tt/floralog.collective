@@ -96,7 +96,7 @@ export default function HomeBottomNavigation({
                     }}
                   />
                   <span
-                    className="home-tight-vh-label font-semibold"
+                    className={`home-tight-vh-label font-semibold ${isLightUi ? "text-stone-700" : "text-white/95"}`}
                     style={{ fontSize: `${(0.78 * controlsScale).toFixed(2)}rem` }}
                   >
                     {item.label}

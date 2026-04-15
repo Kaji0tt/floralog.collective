@@ -3,10 +3,9 @@ import { createPageUrl } from "@/utils";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
 import HomeBottomNavigation from "@/components/navigation/HomeBottomNavigation";
-import MobileBackButton from "@/components/navigation/MobileBackButton";
 import { getRgbaFromRgb } from "@/lib/friendColorUtils";
 import { getNavButtonStyle, NAV_COLOR_ORDER } from "@/components/navigation/navButtonStyles";
-import { Leaf, Users, Lock, Scroll, BookOpen } from "lucide-react";
+import { Leaf, Users, Lock, Scroll, BookOpen, Home as HomeIcon } from "lucide-react";
 import { motion } from "framer-motion";
 
 // ─── Friend tab definitions ───────────────────────────────────────────────────
@@ -101,7 +100,6 @@ export default function FriendExperienceShell({
   if (accessDenied) {
     return (
       <HomeBackgroundShell user={null} getRgbaFromRgb={getRgbaFromRgb}>
-        <MobileBackButton backUrl={createPageUrl("Friends")} />
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -156,8 +154,6 @@ export default function FriendExperienceShell({
   // ── Normal layout ────────────────────────────────────────────────────────
   return (
     <HomeBackgroundShell user={bgUser} getRgbaFromRgb={getRgbaFromRgb}>
-      <MobileBackButton backUrl={createPageUrl("Friends")} />
-
       <motion.div
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
@@ -193,13 +189,28 @@ export default function FriendExperienceShell({
         />
 
         <div className="relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6">
-          <header className="shrink-0">
-            <h1 className="text-xl md:text-2xl font-bold leading-tight text-white truncate" title={friendDisplayName}>
-              {friendDisplayName}
-            </h1>
-            <p className="mt-1 text-sm md:text-base text-white/90 truncate" title={friendTitle}>
-              {friendTitle}
-            </p>
+          <header className="shrink-0 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-xl md:text-2xl font-bold leading-tight text-white truncate" title={friendDisplayName}>
+                {friendDisplayName}
+              </h1>
+              <p className="mt-1 text-sm md:text-base text-white/90 truncate" title={friendTitle}>
+                {friendTitle}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate(createPageUrl("Home"))}
+              className={`w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors shrink-0 ${
+                isLightUi
+                  ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80"
+                  : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"
+              }`}
+              aria-label="Zur Home-Ansicht"
+            >
+              <HomeIcon className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+            </button>
           </header>
 
           <div className={`my-[clamp(0.5rem,1.2vh,1rem)] h-px ${isLightUi ? "bg-[#c8ac62]/35" : "bg-[#f0e5a5]/25"}`} />

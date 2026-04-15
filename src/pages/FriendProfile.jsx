@@ -9,7 +9,7 @@ import { useFriendData } from "@/components/friends/hooks/useFriendData";
 import FriendExperienceShell from "@/components/friends/FriendExperienceShell";
 import { computeOverallPlantHealth, computePlantHealthState } from "@/lib/robotPlantEconomy";
 import { motion } from "framer-motion";
-import { Leaf, UserPlus, Clock, Map as MapIcon } from "lucide-react";
+import { Leaf, UserPlus, Clock, Map as MapIcon, Plus, Zap } from "lucide-react";
 
 export default function FriendProfile() {
   const navigate = useNavigate();
@@ -107,12 +107,10 @@ export default function FriendProfile() {
     : plantHealthState;
 
   const displayedOverallPlantHealth = isPlantHealthPending ? null : overallPlantHealth;
-
-  const healthStats = [
-    { id: "energy", label: "Energie", value: Math.round(energyValue), color: "#10b981" },
-    { id: "data-quality", label: "Daten", value: Math.round(dataQualityValue), color: "#06b6d4" },
-    { id: "care", label: "Pflege", value: Math.round(careValue), color: "#f59e0b" },
-  ];
+  const friendSeeds = Math.max(
+    0,
+    Number(friendRobotPlant?.wallet_balance ?? friendRobotPlant?.walletBalance ?? 0)
+  );
 
   const cardBase = isLightUi
     ? "bg-white/35 border border-[#c8ac62]/30"
@@ -133,19 +131,7 @@ export default function FriendProfile() {
     >
       <div className="h-full overflow-y-auto p-[clamp(0.75rem,2vw,1.25rem)] flex flex-col gap-3">
         <section
-          className={`relative flex-1 min-h-[22rem] rounded-3xl border px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col ${
-            isLightUi
-              ? "border-[#c0a860]/50 backdrop-blur-xl"
-              : "border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm"
-          }`}
-          style={
-            isLightUi
-              ? {
-                  background:
-                    "linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.15) 35%, rgba(255,255,255,0) 65%, rgba(255,255,255,0.1) 100%)",
-                }
-              : {}
-          }
+          className="relative flex-1 min-h-[22rem] rounded-3xl px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col"
         >
           <div className="flex-1 min-h-0 flex items-center justify-center">
             <motion.div
@@ -154,6 +140,44 @@ export default function FriendProfile() {
               transition={{ duration: 0.2, ease: "easeOut" }}
               className="relative w-full max-w-[22rem] aspect-square"
             >
+              <button
+                type="button"
+                className={`absolute left-0 md:left-2 top-5 md:top-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${
+                  isLightUi
+                    ? "border-[#c8ac62]/60"
+                    : "border-[#f0e5a5]/40"
+                }`}
+                style={{
+                  background: isLightUi
+                    ? `linear-gradient(135deg, ${resolvedPlantHealthState.color}35 0%, ${resolvedPlantHealthState.color}15 100%)`
+                    : `linear-gradient(135deg, ${resolvedPlantHealthState.color}7a 0%, ${resolvedPlantHealthState.color}4d 100%)`,
+                }}
+                aria-label="Pflanzenstatus"
+              >
+                <Leaf className={`w-4 h-4 ${isLightUi ? "text-stone-700" : "text-white/90"}`} />
+                <span className={`font-bold text-[11px] md:text-xs leading-none mt-0.5 ${isLightUi ? "text-stone-800" : "text-white"}`}>
+                  {displayedOverallPlantHealth === null ? "..." : `${displayedOverallPlantHealth}%`}
+                </span>
+              </button>
+
+              <div
+                className={`absolute right-0 md:right-2 top-5 md:top-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${
+                  isLightUi
+                    ? "border-[#c8ac62]/60"
+                    : "border-[#f0e5a5]/40"
+                }`}
+                style={{
+                  background: isLightUi
+                    ? `linear-gradient(135deg, ${resolvedPlantHealthState.color}35 0%, ${resolvedPlantHealthState.color}15 100%)`
+                    : `linear-gradient(135deg, ${resolvedPlantHealthState.color}7a 0%, ${resolvedPlantHealthState.color}4d 100%)`,
+                }}
+                aria-hidden="true"
+              >
+                <span className={`font-semibold text-[11px] md:text-xs leading-none mt-0.5 truncate max-w-[85%] ${isLightUi ? "text-stone-800" : "text-white"}`}>
+                  {resolvedPlantHealthState.label}
+                </span>
+              </div>
+
               <div
                 className={`absolute left-1/2 top-1/2 w-[84%] -translate-x-1/2 -translate-y-1/2 aspect-square rounded-full border backdrop-blur-sm shadow-[inset_0_0_30px_rgba(190,242,100,0.15)] ${
                   isLightUi
@@ -171,61 +195,50 @@ export default function FriendProfile() {
               </div>
 
               <div className="absolute left-1/2 top-1/2 w-[84%] -translate-x-1/2 -translate-y-1/2">
-                <div
-                  className={`absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[4.7rem] h-[3.8rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${
-                    isLightUi ? "border-[#c8ac62]/60" : "border-[#f0e5a5]/40"
-                  }`}
-                  style={{
-                    background: isLightUi
-                      ? `linear-gradient(135deg, ${resolvedPlantHealthState.color}35 0%, ${resolvedPlantHealthState.color}15 100%)`
-                      : `linear-gradient(135deg, ${resolvedPlantHealthState.color}7a 0%, ${resolvedPlantHealthState.color}4d 100%)`,
-                  }}
-                >
-                  <Leaf className={`w-4 h-4 ${isLightUi ? "text-stone-700" : "text-white/90"}`} />
-                  <span className={`font-bold text-xs leading-none mt-0.5 ${isLightUi ? "text-stone-800" : "text-white"}`}>
-                    {displayedOverallPlantHealth === null ? "..." : `${displayedOverallPlantHealth}%`}
-                  </span>
-                </div>
-
-                <div
-                  className={`absolute right-0 top-1/2 translate-x-1/2 -translate-y-1/2 px-3 h-[3.8rem] rounded-2xl border backdrop-blur-sm flex items-center justify-center text-xs font-semibold text-center ${
-                    isLightUi ? "border-[#c8ac62]/60 text-stone-800" : "border-[#f0e5a5]/40 text-white"
-                  }`}
-                  style={{
-                    background: isLightUi
-                      ? `linear-gradient(135deg, ${resolvedPlantHealthState.color}35 0%, ${resolvedPlantHealthState.color}15 100%)`
-                      : `linear-gradient(135deg, ${resolvedPlantHealthState.color}7a 0%, ${resolvedPlantHealthState.color}4d 100%)`,
-                  }}
-                >
-                  {resolvedPlantHealthState.label}
-                </div>
+                {[
+                  { key: "left", className: "left-0 top-1/2 -translate-x-1/2 -translate-y-1/2" },
+                  { key: "right", className: "right-0 top-1/2 translate-x-1/2 -translate-y-1/2" },
+                  { key: "top", className: "left-1/2 top-0 -translate-x-1/2 -translate-y-1/2" },
+                  { key: "bottom", className: "left-1/2 bottom-0 -translate-x-1/2 translate-y-1/2" },
+                ].map((slot) => (
+                  <button
+                    key={slot.key}
+                    type="button"
+                    className={`absolute ${slot.className} z-[9] w-11 h-11 md:w-12 md:h-12 rounded-2xl border backdrop-blur-sm flex items-center justify-center transition-colors ${
+                      isLightUi
+                        ? "border-[#c8ac62]/55 bg-white/52 text-stone-700"
+                        : "border-[#f0e5a5]/45 bg-black/35 text-[#f0e5a5]"
+                    }`}
+                    aria-label={`Accessoire Slot ${slot.key}`}
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                ))}
               </div>
             </motion.div>
           </div>
 
-          <div className={`mt-[clamp(0.5rem,1.2vh,1rem)] rounded-2xl p-3 ${cardBase}`}>
-            <div className="grid grid-cols-3 gap-2">
-              {healthStats.map((stat) => (
-                <div key={stat.id} className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className={`text-[11px] font-semibold uppercase tracking-wide ${textSecondary}`}>
-                      {stat.label}
-                    </span>
-                    <span className={`text-xs font-bold ${textPrimary}`}>{isPlantHealthPending ? "..." : `${stat.value}%`}</span>
-                  </div>
-                  <div className="h-2 rounded-full overflow-hidden bg-black/35 border border-black/25">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{
-                        width: `${isPlantHealthPending ? 35 : stat.value}%`,
-                        background: isPlantHealthPending
-                          ? "linear-gradient(90deg, #6b7280 0%, rgba(255,255,255,0.78) 100%)"
-                          : `linear-gradient(90deg, ${stat.color} 0%, rgba(255,255,255,0.78) 100%)`,
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
+          <div
+            className={`mt-[clamp(0.5rem,1.2vh,1rem)] w-full rounded-2xl border backdrop-blur-sm px-[clamp(0.625rem,2vw,0.875rem)] ${
+              isLightUi
+                ? "border-[#c8ac62]/45 bg-gradient-to-r from-emerald-100/50 via-white/40 to-emerald-100/50"
+                : "border-[#f0e5a5]/45 bg-gradient-to-r from-emerald-900/45 via-black/30 to-emerald-900/45"
+            }`}
+            style={{ height: "2.4rem" }}
+          >
+            <div className={`h-full w-full flex items-center justify-between text-xs md:text-sm font-semibold ${
+              isLightUi ? "text-stone-700" : "text-white/95"
+            }`}>
+              <div className={`flex items-center gap-1.5 min-w-0 ${isLightUi ? "text-stone-700" : "text-lime-100/95"}`}>
+                <Leaf className={`w-4 h-4 ${isLightUi ? "text-emerald-600" : "text-lime-200"}`} />
+                <span className="truncate">Samen {friendSeeds}</span>
+              </div>
+
+              <div className={`flex items-center gap-1.5 min-w-0 ${isLightUi ? "text-stone-700" : "text-amber-100/95"}`}>
+                <div className={`h-5 w-px ${isLightUi ? "bg-[#c8ac62]/40" : "bg-[#f0e5a5]/35"}`} />
+                <Zap className={`w-4 h-4 ${isLightUi ? "text-amber-700" : "text-amber-300"}`} />
+                <span className="truncate">Status {resolvedPlantHealthState.label}</span>
+              </div>
             </div>
           </div>
         </section>
