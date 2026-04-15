@@ -1820,11 +1820,11 @@ export default function Home() {
                 ) : (
                   <section data-ui="home-plant-hero-section" className={`flex-1 min-h-0 rounded-3xl border px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col ${
                     isLightUi
-                      ? "border-[#c0a860]/50 backdrop-blur-xl"
+                      ? "border-[#c0a860]/50 bg-white/25 backdrop-blur-sm"
                       : "border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm"
                   }`}
                   style={isLightUi ? {
-                    background: 'linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.15) 35%, rgba(255,255,255,0) 65%, rgba(255,255,255,0.1) 100%)'
+                    background: 'linear-gradient(180deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.10) 35%, rgba(255,255,255,0) 65%, rgba(255,255,255,0.08) 100%)'
                   } : {}}>
                   <div ref={healthStatsPanelRef} className="flex-1 min-h-0 flex items-start justify-center pt-[clamp(0.2rem,1vh,0.5rem)]">
                     <div
