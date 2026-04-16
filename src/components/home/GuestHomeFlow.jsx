@@ -667,10 +667,10 @@ export default function GuestHomeFlow() {
               style={{ pointerEvents: displayedSnapIndex === 1 && secondPanelOpacity > 0.01 ? "auto" : "none" }}
             >
               <div className="w-[70vw] max-w-[420px] rounded-3xl border border-amber-100/20 bg-black/24 px-4 py-4 backdrop-blur-[2px] overflow-hidden">
-                <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-100/80">Floralog</p>
-                <h2 className="mt-2 text-lg md:text-xl font-semibold text-stone-100 leading-tight">Natur spielerisch im Alltag entdecken.</h2>
-                <p className="mt-2 text-sm md:text-base leading-relaxed text-stone-200/92">
-                  Scanne Pflanzen, sammle Funde und entwickle deinen Naturbegleiter Schritt fuer Schritt weiter.
+                <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-400/90">Florabot</p>
+                <h2 className="mt-2 text-lg md:text-xl font-semibold text-stone-100 leading-tight">Erkundet die Natur</h2>
+                <p className="mt-2 text-sm md:text-base leading-relaxed text-amber-50/95">
+                  Hilf deinem Florabot dabei, die Erde besser zu verstehen. Gehe mit ihm auf die Suche nach einzigartigen Pflanzen und lernt gemeinsam die Besonderheiten unseres Ökosystems kennen.
                 </p>
               </div>
             </motion.div>
