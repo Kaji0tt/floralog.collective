@@ -570,7 +570,7 @@ export default function GuestHomeFlow() {
     { label: "Anzahl aller Scans bisher", value: communityStats ? communityStats.total_scans.toLocaleString("de-DE") : "\u2026" },
   ];
 
-  const infoPanelMotionClass = "absolute inset-x-0 bottom-[4rem] flex flex-col items-center px-2";
+  const infoPanelMotionClass = "absolute inset-x-0 bottom-[4.5rem] flex flex-col items-center px-2";
   const infoPanelCardClass = "w-[70vw] max-w-[420px] rounded-3xl border border-amber-100/20 bg-black/24 px-4 py-4 backdrop-blur-[2px]";
   const infoPanelScrollableCardClass = `${infoPanelCardClass} overflow-hidden max-h-[40vh] md:max-h-[42vh] overflow-y-auto`;
   const infoPanels = [
@@ -596,7 +596,7 @@ export default function GuestHomeFlow() {
       index: 4,
       sectionTitle: "Support the Project 🌱",
       title: "Hilf uns beim Keimen",
-      description: "Floralog steht noch am Anfang. Viel liebevolle Arbeit steckt bereits im Projekt. Du hilfst uns beim Wachsen, indem du die App nutzt, sie teilst und uns Feedback gibst. Wer uns darüber hinaus unterstützen möchte,",
+      description: "Floralog steht noch am Anfang. Hilf uns, indem du die App teilst und Feedback gibst. Wer uns darüber hinaus unterstützen möchte,",
       scrollable: false,
       sectionTitleClass: "text-amber-400/90",
     },
@@ -1072,7 +1072,7 @@ export default function GuestHomeFlow() {
       <AnimatePresence>
         {activeSnapIndex < SNAP_SECTION_COUNT - 1 && (
           <motion.div
-            className="fixed bottom-16 left-1/2 -translate-x-1/2 z-[130] flex justify-center text-stone-100/80 select-none pointer-events-none"
+            className="fixed inset-x-0 bottom-[3.2rem] z-[120] flex justify-center text-stone-100/80 select-none pointer-events-none"
             aria-hidden="true"
             initial={{ opacity: 0, y: 0 }}
             animate={{ opacity: [0.4, 0.8, 0.4], y: [0, 4, 0] }}
