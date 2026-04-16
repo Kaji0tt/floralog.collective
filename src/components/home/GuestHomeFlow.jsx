@@ -9,7 +9,7 @@ const GUEST_MG_IMAGE_URL = new URL("../../../guestfunnel-mg.png", import.meta.ur
 const GUEST_FG_IMAGE_URL = new URL("../../../guestfunnel-fg.png", import.meta.url).href;
 const SINGLE_LEAF_IMAGE_URL = new URL("../../../singleleaf.png", import.meta.url).href;
 const FIREFLY_COUNT = 36;
-const SNAP_SECTION_COUNT = 2;
+const SNAP_SECTION_COUNT = 3;
 const CONTENT_FADE_OUT_MS = 240;
 const CONTENT_FADE_IN_MS = 360;
 const TILT_MAX_HORIZONTAL_DEG = 22;
@@ -404,6 +404,7 @@ export default function GuestHomeFlow() {
 
   const firstPanelOpacity = getPanelOpacity(0);
   const secondPanelOpacity = getPanelOpacity(1);
+  const thirdPanelOpacity = getPanelOpacity(2);
   const leafTwitch = useLeafTwitch();
 
   /** @param {"login" | "register"} mode */
@@ -665,6 +666,22 @@ export default function GuestHomeFlow() {
               initial={false}
               transition={{ duration: panelFadeDuration, ease: "easeInOut" }}
               style={{ pointerEvents: displayedSnapIndex === 1 && secondPanelOpacity > 0.01 ? "auto" : "none" }}
+            >
+              <div className="w-[70vw] max-w-[420px] rounded-3xl border border-amber-100/20 bg-black/24 px-4 py-4 backdrop-blur-[2px] overflow-hidden">
+                <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-400/90">Über Floralog</p>
+                <h2 className="mt-2 text-lg md:text-xl font-semibold text-stone-100 leading-tight">Mit neuem Blick</h2>
+                <p className="mt-2 text-sm md:text-base leading-relaxed text-amber-50/95">
+                  Floralog trainiert spielerisch einen neuen Blick für die Natur im Alltag. Während der Florabot, ein persönlicher Begleiter in Form einer Roboter-Pflanze, auf die Hilfe des Spielers angewiesen ist um zu wachsen, lernt der Spieler selbst seine natürliche Umgebung mit anderen Augen wahrzunehmen.
+                </p>
+              </div>
+            </motion.div>
+
+            <motion.div
+              className="absolute inset-x-0 top-0 flex flex-col items-center pt-[11%] md:pt-[10%]"
+              animate={{ opacity: thirdPanelOpacity }}
+              initial={false}
+              transition={{ duration: panelFadeDuration, ease: "easeInOut" }}
+              style={{ pointerEvents: displayedSnapIndex === 2 && thirdPanelOpacity > 0.01 ? "auto" : "none" }}
             >
               <div className="w-[70vw] max-w-[420px] rounded-3xl border border-amber-100/20 bg-black/24 px-4 py-4 backdrop-blur-[2px] overflow-hidden">
                 <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-400/90">Florabot</p>
