@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Camera, Mail, Lock, User, Loader2, AlertCircle, CheckCircle2, ChevronDown } from "lucide-react";
 import { signIn, signUp } from "@/api/authService";
 import { checkLegacyUser, upsertLegacyUserFromRegistration } from "@/api/migrationService";
+import { supabase } from "@/api/supabaseClient";
 
 const GUEST_BG_IMAGE_URL = new URL("../../../guestfunnel-bg.png", import.meta.url).href;
 const GUEST_MG_IMAGE_URL = new URL("../../../guestfunnel-mg.png", import.meta.url).href;
@@ -16,11 +17,7 @@ const TILT_MAX_HORIZONTAL_DEG = 22;
 const TILT_MAX_VERTICAL_DEG = 28;
 const TILT_OFFSET_MAX_X = 24;
 const TILT_OFFSET_MAX_Y = 20;
-const COMMUNITY_STATS_CARDS = [
-  { label: "Aktive Florabots diese Woche", value: "12.480" },
-  { label: "Entdeckte Arten insgesamt", value: "8.310" },
-  { label: "Anzahl aller Scans bisher", value: "146.920" },
-];
+
 
 /**
  * @param {number} min
@@ -257,8 +254,16 @@ export default function GuestHomeFlow() {
   const [authError, setAuthError] = useState(/** @type {string | null} */ (null));
   const [authSuccess, setAuthSuccess] = useState(/** @type {string | null} */ (null));
   const [communityCardIndex, setCommunityCardIndex] = useState(0);
+  const [communityStats, setCommunityStats] = useState(/** @type {{ active_researchers_this_month: number, total_species: number, total_scans: number } | null} */ (null));
   const communityCardTouchStartXRef = useRef(/** @type {number | null} */ (null));
   const communityCardTouchStartYRef = useRef(/** @type {number | null} */ (null));
+
+  useEffect(() => {
+    supabase.rpc("get_community_stats").then(({ data }) => {
+      if (data) setCommunityStats(data);
+    });
+  }, []);
+
   const [authForm, setAuthForm] = useState({
     email: "",
     password: "",
@@ -445,7 +450,7 @@ export default function GuestHomeFlow() {
     }
 
     const direction = deltaX < 0 ? 1 : -1;
-    setCommunityCardIndex((prev) => clamp(prev + direction, 0, COMMUNITY_STATS_CARDS.length - 1));
+    setCommunityCardIndex((prev) => clamp(prev + direction, 0, 2));
     event.stopPropagation();
   };
 
@@ -552,6 +557,12 @@ export default function GuestHomeFlow() {
   const panelFadeDuration = contentTransitionPhase === "fading-out"
     ? CONTENT_FADE_OUT_MS / 1000
     : CONTENT_FADE_IN_MS / 1000;
+
+  const resolvedStats = [
+    { label: "Aktive Forscher diesen Monat", value: communityStats ? communityStats.active_researchers_this_month.toLocaleString("de-DE") : "\u2026" },
+    { label: "Entdeckte Arten insgesamt", value: communityStats ? communityStats.total_species.toLocaleString("de-DE") : "\u2026" },
+    { label: "Anzahl aller Scans bisher", value: communityStats ? communityStats.total_scans.toLocaleString("de-DE") : "\u2026" },
+  ];
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#141a12]">
@@ -728,7 +739,7 @@ export default function GuestHomeFlow() {
                 <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-100/80">Floralog</p>
                 <h2 className="mt-2 text-lg md:text-xl font-semibold text-stone-100 leading-tight">Mit neuem Blick</h2>
                 <p className="mt-2 text-sm md:text-base leading-relaxed text-amber-50/95">
-                  Floralog unterstützt spielerisch dabei, einen neuen Blick auf die Natur im Alltag zu entwickeln. Auf gemeinsamer Mission mit einem digitalen Begleiter, entwickelt sich ein neues Bewusstsein für die Umgebung.
+                  Floralog unterstützt spielerisch dabei, einen neuen Blick auf die Natur im Alltag zu entwickeln. Auf gemeinsamer Mission mit einem digitalen Begleiter, entwickelt sich ein neues Bewusstsein für die Umwelt.
                 </p>
               </div>
             </motion.div>
@@ -744,7 +755,7 @@ export default function GuestHomeFlow() {
                 <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-100/80">Florabot</p>
                 <h2 className="mt-2 text-lg md:text-xl font-semibold text-stone-100 leading-tight">Erkundet die Natur</h2>
                 <p className="mt-2 text-sm md:text-base leading-relaxed text-amber-50/95">
-                  Hilf deinem KI-Begleiter Florabot dabei, die Erde besser kennenzulernen indem ihr auf gemeinsame Suche nach einzigartigen Pflanzen geht. Lernt gemeinsam die Besonderheiten unseres Ökosystems kennen.
+                  Hilf deinem KI-Begleiter Florabot dabei, die Erde besser kennenzulernen indem ihr auf eine gemeinsame Suche nach einzigartigen Pflanzen geht. Lernt gemeinsam die Besonderheiten unseres Ökosystems kennen.
                 </p>
               </div>
             </motion.div>
@@ -756,48 +767,50 @@ export default function GuestHomeFlow() {
               transition={{ duration: panelFadeDuration, ease: "easeInOut" }}
               style={{ pointerEvents: displayedSnapIndex === 3 && fourthPanelOpacity > 0.01 ? "auto" : "none" }}
             >
-              <div className="w-[70vw] max-w-[420px] rounded-3xl border border-amber-100/20 bg-black/24 px-4 py-4 backdrop-blur-[2px] overflow-hidden max-h-[40vh] md:max-h-[42vh] overflow-y-auto">
-                <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-100/80">Gemeinsam wachsen</p>
-                <h2 className="mt-2 text-lg md:text-xl font-semibold text-stone-100 leading-tight">Werde Teil einer Community</h2>
-                <p className="mt-2 text-sm md:text-base leading-relaxed text-amber-50/95">
-                  Teile deine Funde, vergleiche Beobachtungen und entwickel deinen Florabot weiter.
-                </p>
+              <div className="w-[70vw] max-w-[420px]">
+                <div className="rounded-3xl border border-amber-100/20 bg-black/24 px-4 py-4 backdrop-blur-[2px] max-h-[40vh] md:max-h-[42vh] overflow-y-auto overflow-x-hidden">
+                  <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-100/80">Gemeinsam wachsen</p>
+                  <h2 className="mt-2 text-lg md:text-xl font-semibold text-stone-100 leading-tight">Werde Teil einer Community</h2>
+                  <p className="mt-2 text-sm md:text-base leading-relaxed text-amber-50/95">
+                    Teile deine Funde, vergleiche Beobachtungen, entwickle und entdecke neue Kollektionen.
+                  </p>
 
-                <div className="mt-3">
-                  <div
-                    className="relative overflow-hidden rounded-2xl border border-emerald-200/25 bg-emerald-950/45"
-                    onTouchStart={handleCommunityCardTouchStart}
-                    onTouchMove={handleCommunityCardTouchMove}
-                    onTouchEnd={handleCommunityCardTouchEnd}
-                  >
-                    <motion.div
-                      className="flex"
-                      animate={{ x: `${-communityCardIndex * 100}%` }}
-                      transition={{ duration: 0.28, ease: "easeOut" }}
+                  <div className="mt-3">
+                    <div
+                      className="relative overflow-hidden rounded-2xl border border-emerald-200/25 bg-emerald-950/45"
+                      onTouchStart={handleCommunityCardTouchStart}
+                      onTouchMove={handleCommunityCardTouchMove}
+                      onTouchEnd={handleCommunityCardTouchEnd}
                     >
-                      {COMMUNITY_STATS_CARDS.map((card) => (
-                        <div key={card.label} className="w-full shrink-0 px-3 py-3">
-                          <p className="text-[0.68rem] uppercase tracking-[0.16em] text-amber-100/75">Community-Status</p>
-                          <p className="mt-1 text-xl font-semibold text-amber-50 leading-tight">{card.value}</p>
-                          <p className="mt-1 text-xs md:text-sm text-amber-50/90">{card.label}</p>
-                        </div>
-                      ))}
-                    </motion.div>
+                      <motion.div
+                        className="flex"
+                        animate={{ x: `${-communityCardIndex * 100}%` }}
+                        transition={{ duration: 0.28, ease: "easeOut" }}
+                      >
+                        {resolvedStats.map((card) => (
+                          <div key={card.label} className="w-full shrink-0 px-3 py-3">
+                            <p className="text-[0.68rem] uppercase tracking-[0.16em] text-amber-100/75">Community-Status</p>
+                            <p className="mt-1 text-xl font-semibold text-amber-50 leading-tight">{card.value}</p>
+                            <p className="mt-1 text-xs md:text-sm text-amber-50/90">{card.label}</p>
+                          </div>
+                        ))}
+                      </motion.div>
+                    </div>
                   </div>
+                </div>
 
-                  <div className="mt-2 flex items-center justify-center gap-1.5">
-                    {COMMUNITY_STATS_CARDS.map((card, index) => (
-                      <button
-                        key={card.label}
-                        type="button"
-                        onClick={() => setCommunityCardIndex(index)}
-                        className={`h-1.5 w-1.5 rounded-full transition-all ${
-                          communityCardIndex === index ? "bg-amber-100" : "bg-amber-100/35 hover:bg-amber-100/55"
-                        }`}
-                        aria-label={`Statistik ${index + 1} anzeigen`}
-                      />
-                    ))}
-                  </div>
+                <div className="mt-2 flex items-center justify-center gap-1.5">
+                  {resolvedStats.map((card, index) => (
+                    <button
+                      key={card.label}
+                      type="button"
+                      onClick={() => setCommunityCardIndex(index)}
+                      className={`h-1.5 w-1.5 rounded-full transition-all ${
+                        communityCardIndex === index ? "bg-amber-100" : "bg-amber-100/35 hover:bg-amber-100/55"
+                      }`}
+                      aria-label={`Statistik ${index + 1} anzeigen`}
+                    />
+                  ))}
                 </div>
               </div>
             </motion.div>
