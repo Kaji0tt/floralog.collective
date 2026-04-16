@@ -824,21 +824,24 @@ export default function GuestHomeFlow() {
         </div>
       )}
 
-      <motion.div
-        className="fixed bottom-16 left-1/2 -translate-x-1/2 z-[130] flex justify-center text-stone-100/80 select-none pointer-events-none"
-        aria-hidden="true"
-        animate={{ 
-          y: [0, 4, 0], 
-          opacity: displayedSnapIndex < SNAP_SECTION_COUNT - 1 ? [0.4, 0.8, 0.4] : 0
-        }}
-        transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-        style={{
-          width: "clamp(1rem, 4vw, 1.4rem)",
-          height: "clamp(1rem, 4vw, 1.4rem)",
-        }}
-      >
-        <ChevronDown className="h-full w-full" strokeWidth={2.4} />
-      </motion.div>
+      <AnimatePresence>
+        {displayedSnapIndex < SNAP_SECTION_COUNT - 1 && (
+          <motion.div
+            className="fixed bottom-16 left-1/2 -translate-x-1/2 z-[130] flex justify-center text-stone-100/80 select-none pointer-events-none"
+            aria-hidden="true"
+            initial={{ opacity: 0, y: 0 }}
+            animate={{ opacity: [0.4, 0.8, 0.4], y: [0, 4, 0] }}
+            exit={{ opacity: 0, y: 0 }}
+            transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+            style={{
+              width: "clamp(1rem, 4vw, 1.4rem)",
+              height: "clamp(1rem, 4vw, 1.4rem)",
+            }}
+          >
+            <ChevronDown className="h-full w-full" strokeWidth={2.4} />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div
         className="fixed bottom-0 inset-x-0 z-[130] flex flex-col items-center justify-center py-4"
