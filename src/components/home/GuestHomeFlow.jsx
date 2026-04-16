@@ -674,8 +674,8 @@ export default function GuestHomeFlow() {
                 animate={{ y: [0, 8, 0], opacity: [0.35, 0.75, 0.35] }}
                 transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
                 style={{
-                  width: "clamp(5.8rem, 24vw, 8rem)",
-                  height: "clamp(5.8rem, 24vw, 8rem)",
+                  width: "clamp(3.5rem, 18vw, 6rem)",
+                  height: "clamp(3.5rem, 18vw, 6rem)",
                 }}
               >
                 <ChevronDown className="h-full w-full" strokeWidth={2.4} />
