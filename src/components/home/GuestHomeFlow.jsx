@@ -831,7 +831,6 @@ export default function GuestHomeFlow() {
             aria-hidden="true"
             initial={{ opacity: 0, y: 0 }}
             animate={{ opacity: [0.4, 0.8, 0.4], y: [0, 4, 0] }}
-            exit={{ opacity: 0, y: 0 }}
             transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
             style={{
               width: "clamp(1rem, 4vw, 1.4rem)",
