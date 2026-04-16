@@ -687,7 +687,7 @@ export default function GuestHomeFlow() {
                 <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-400/90">Florabot</p>
                 <h2 className="mt-2 text-lg md:text-xl font-semibold text-stone-100 leading-tight">Erkundet die Natur</h2>
                 <p className="mt-2 text-sm md:text-base leading-relaxed text-amber-50/95">
-                  Hilf deinem Florabot dabei, die Erde besser zu verstehen. Gehe mit ihm auf die Suche nach einzigartigen Pflanzen und lernt gemeinsam die Besonderheiten unseres Ökosystems kennen.
+                  Hilf deinem KI-Begleiter Florabot dabei, die Erde kennenzulernen. Geht zusammen auf die Suche nach einzigartigen Pflanzen und lernt gemeinsam die Besonderheiten unseres Ökosystems kennen.
                 </p>
               </div>
             </motion.div>
