@@ -841,14 +841,10 @@ export default function GuestHomeFlow() {
       </motion.div>
 
       <div
-        className="fixed bottom-0 inset-x-0 z-[130] flex flex-col items-center justify-center py-4 backdrop-blur-sm"
-        style={{
-          background: "rgba(0, 0, 0, 0.25)",
-          borderTop: "1px solid rgba(120, 113, 108, 0.2)",
-        }}
+        className="fixed bottom-0 inset-x-0 z-[130] flex flex-col items-center justify-center py-4"
       >
         <p
-          className="text-center text-stone-100/75 drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)]"
+          className="text-center text-stone-300/40 drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)]"
           style={{
             fontSize: "clamp(0.55rem, 2vw, 0.7rem)",
             letterSpacing: "0.08em",
