@@ -657,6 +657,29 @@ export default function GuestHomeFlow() {
               >
                 Anmelden
               </button>
+
+              <p
+                className="text-center text-stone-300/55 drop-shadow-[0_1px_6px_rgba(0,0,0,0.7)]"
+                style={{
+                  fontSize: "clamp(0.65rem, 2.4vw, 0.78rem)",
+                  letterSpacing: "0.08em",
+                }}
+              >
+                by Floralog Collective, enabled by Pl@ntNet
+              </p>
+
+              <motion.div
+                className="text-stone-200/55 select-none"
+                aria-hidden="true"
+                animate={{ y: [0, 8, 0], opacity: [0.35, 0.75, 0.35] }}
+                transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+                style={{
+                  fontSize: "clamp(1.2rem, 5vw, 1.6rem)",
+                  lineHeight: 1,
+                }}
+              >
+                v
+              </motion.div>
             </motion.div>
 
             <motion.div
