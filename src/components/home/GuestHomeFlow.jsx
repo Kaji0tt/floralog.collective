@@ -604,7 +604,7 @@ export default function GuestHomeFlow() {
           style={{
             fontSize: "clamp(0.85rem, 3vw, 1.05rem)",
             letterSpacing: "0.4em",
-            color: "#d8f0c0",
+            color: "#f5f8f2",
             textShadow:
               "1px 0 0 rgba(0,0,0,0.20), -1px 0 0 rgba(0,0,0,0.20), 0 1px 0 rgba(0,0,0,0.20), 0 -1px 0 rgba(0,0,0,0.20), 0 0 2px rgba(0,0,0,0.20)",
           }}
