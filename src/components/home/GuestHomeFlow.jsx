@@ -825,7 +825,7 @@ export default function GuestHomeFlow() {
       )}
 
       <AnimatePresence>
-        {displayedSnapIndex < SNAP_SECTION_COUNT - 1 && (
+        {activeSnapIndex < SNAP_SECTION_COUNT - 1 && (
           <motion.div
             className="fixed bottom-16 left-1/2 -translate-x-1/2 z-[130] flex justify-center text-stone-100/80 select-none pointer-events-none"
             aria-hidden="true"
