@@ -657,29 +657,6 @@ export default function GuestHomeFlow() {
               >
                 Anmelden
               </button>
-
-              <p
-                className="text-center text-stone-300/55 drop-shadow-[0_1px_6px_rgba(0,0,0,0.7)]"
-                style={{
-                  fontSize: "clamp(0.65rem, 2.4vw, 0.78rem)",
-                  letterSpacing: "0.08em",
-                }}
-              >
-                by Floralog Collective, enabled by Pl@ntNet
-              </p>
-
-              <motion.div
-                className="text-stone-200/55 select-none"
-                aria-hidden="true"
-                animate={{ y: [0, 8, 0], opacity: [0.35, 0.75, 0.35] }}
-                transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-                style={{
-                  width: "clamp(3.5rem, 18vw, 6rem)",
-                  height: "clamp(3.5rem, 18vw, 6rem)",
-                }}
-              >
-                <ChevronDown className="h-full w-full" strokeWidth={2.4} />
-              </motion.div>
             </motion.div>
 
             <motion.div
@@ -846,6 +823,40 @@ export default function GuestHomeFlow() {
           </div>
         </div>
       )}
+
+      <motion.div
+        className="fixed bottom-16 inset-x-0 z-20 flex justify-center text-stone-200/50 select-none pointer-events-none"
+        aria-hidden="true"
+        animate={{ 
+          y: [0, 4, 0], 
+          opacity: displayedSnapIndex < SNAP_SECTION_COUNT - 1 ? [0.3, 0.6, 0.3] : 0
+        }}
+        transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+        style={{
+          width: "clamp(1rem, 4vw, 1.4rem)",
+          height: "clamp(1rem, 4vw, 1.4rem)",
+        }}
+      >
+        <ChevronDown className="h-full w-full" strokeWidth={2.4} />
+      </motion.div>
+
+      <div
+        className="fixed bottom-0 inset-x-0 z-10 flex flex-col items-center justify-center py-4 backdrop-blur-sm"
+        style={{
+          background: "rgba(0, 0, 0, 0.15)",
+          borderTop: "1px solid rgba(120, 113, 108, 0.15)",
+        }}
+      >
+        <p
+          className="text-center text-stone-300/50 drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)]"
+          style={{
+            fontSize: "clamp(0.55rem, 2vw, 0.7rem)",
+            letterSpacing: "0.08em",
+          }}
+        >
+          by Floralog Collective, enabled by Pl@ntNet
+        </p>
+      </div>
     </div>
   );
 }
