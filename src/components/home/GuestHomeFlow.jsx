@@ -10,7 +10,7 @@ const GUEST_MG_IMAGE_URL = new URL("../../../guestfunnel-mg.png", import.meta.ur
 const GUEST_FG_IMAGE_URL = new URL("../../../guestfunnel-fg.png", import.meta.url).href;
 const SINGLE_LEAF_IMAGE_URL = new URL("../../../singleleaf.png", import.meta.url).href;
 const FIREFLY_COUNT = 36;
-const SNAP_SECTION_COUNT = 4;
+const SNAP_SECTION_COUNT = 5;
 const CONTENT_FADE_OUT_MS = 240;
 const CONTENT_FADE_IN_MS = 360;
 const TILT_MAX_HORIZONTAL_DEG = 22;
@@ -467,6 +467,7 @@ export default function GuestHomeFlow() {
   const secondPanelOpacity = getPanelOpacity(1);
   const thirdPanelOpacity = getPanelOpacity(2);
   const fourthPanelOpacity = getPanelOpacity(3);
+  const fifthPanelOpacity = getPanelOpacity(4);
   const leafTwitch = useLeafTwitch();
 
   /** @param {"login" | "register"} mode */
@@ -810,6 +811,22 @@ export default function GuestHomeFlow() {
                     ))}
                   </div>
                 </div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              className="absolute inset-x-0 bottom-[5rem] flex flex-col items-center px-2"
+              animate={{ opacity: fifthPanelOpacity }}
+              initial={false}
+              transition={{ duration: panelFadeDuration, ease: "easeInOut" }}
+              style={{ pointerEvents: displayedSnapIndex === 4 && fifthPanelOpacity > 0.01 ? "auto" : "none" }}
+            >
+              <div className="w-[70vw] max-w-[420px] rounded-3xl border border-amber-100/20 bg-black/24 px-4 py-4 backdrop-blur-[2px]">
+                <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-400/90">Support the Project</p>
+                <h2 className="mt-2 text-lg md:text-xl font-semibold text-stone-100 leading-tight">Hilf uns beim Keimen</h2>
+                <p className="mt-2 text-sm md:text-base leading-relaxed text-amber-50/95">
+                  Floralog steht am Anfang. Und nur durch dich kann es wachsen.
+                </p>
               </div>
             </motion.div>
           </div>
