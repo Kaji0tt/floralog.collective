@@ -761,56 +761,54 @@ export default function GuestHomeFlow() {
             </motion.div>
 
             <motion.div
-              className="absolute inset-x-0 bottom-[7rem] flex flex-col items-center px-2"
+              className="absolute inset-x-0 bottom-[5rem] flex flex-col items-center px-2"
               animate={{ opacity: fourthPanelOpacity }}
               initial={false}
               transition={{ duration: panelFadeDuration, ease: "easeInOut" }}
               style={{ pointerEvents: displayedSnapIndex === 3 && fourthPanelOpacity > 0.01 ? "auto" : "none" }}
             >
-              <div className="w-[70vw] max-w-[420px]">
-                <div className="rounded-3xl border border-amber-100/20 bg-black/24 px-4 py-4 backdrop-blur-[2px] max-h-[40vh] md:max-h-[42vh] overflow-y-auto overflow-x-hidden">
-                  <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-100/80">Gemeinsam wachsen</p>
-                  <h2 className="mt-2 text-lg md:text-xl font-semibold text-stone-100 leading-tight">Werde Teil einer Community</h2>
-                  <p className="mt-2 text-sm md:text-base leading-relaxed text-amber-50/95">
-                    Teile deine Funde, vergleiche Beobachtungen, entwickle und entdecke neue Kollektionen.
-                  </p>
+              <div className="w-[70vw] max-w-[420px] rounded-3xl border border-amber-100/20 bg-black/24 px-4 py-4 backdrop-blur-[2px]">
+                <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-100/80">Gemeinsam wachsen</p>
+                <h2 className="mt-2 text-lg md:text-xl font-semibold text-stone-100 leading-tight">Werde Teil einer Community</h2>
+                <p className="mt-2 text-sm md:text-base leading-relaxed text-amber-50/95">
+                  Teile deine Funde, vergleiche Beobachtungen, entwickle und entdecke neue Kollektionen.
+                </p>
 
-                  <div className="mt-3">
-                    <div
-                      className="relative overflow-hidden rounded-2xl border border-emerald-200/25 bg-emerald-950/45"
-                      onTouchStart={handleCommunityCardTouchStart}
-                      onTouchMove={handleCommunityCardTouchMove}
-                      onTouchEnd={handleCommunityCardTouchEnd}
+                <div className="mt-3">
+                  <div
+                    className="relative overflow-hidden rounded-2xl border border-emerald-200/25 bg-emerald-950/45"
+                    onTouchStart={handleCommunityCardTouchStart}
+                    onTouchMove={handleCommunityCardTouchMove}
+                    onTouchEnd={handleCommunityCardTouchEnd}
+                  >
+                    <motion.div
+                      className="flex"
+                      animate={{ x: `${-communityCardIndex * 100}%` }}
+                      transition={{ duration: 0.28, ease: "easeOut" }}
                     >
-                      <motion.div
-                        className="flex"
-                        animate={{ x: `${-communityCardIndex * 100}%` }}
-                        transition={{ duration: 0.28, ease: "easeOut" }}
-                      >
-                        {resolvedStats.map((card) => (
-                          <div key={card.label} className="w-full shrink-0 px-3 py-3">
-                            <p className="text-[0.68rem] uppercase tracking-[0.16em] text-amber-100/75">Community-Status</p>
-                            <p className="mt-1 text-xl font-semibold text-amber-50 leading-tight">{card.value}</p>
-                            <p className="mt-1 text-xs md:text-sm text-amber-50/90">{card.label}</p>
-                          </div>
-                        ))}
-                      </motion.div>
-                    </div>
+                      {resolvedStats.map((card) => (
+                        <div key={card.label} className="w-full shrink-0 px-3 py-3">
+                          <p className="text-[0.68rem] uppercase tracking-[0.16em] text-amber-100/75">Community-Status</p>
+                          <p className="mt-1 text-xl font-semibold text-amber-50 leading-tight">{card.value}</p>
+                          <p className="mt-1 text-xs md:text-sm text-amber-50/90">{card.label}</p>
+                        </div>
+                      ))}
+                    </motion.div>
                   </div>
-                </div>
 
-                <div className="mt-2 flex items-center justify-center gap-1.5">
-                  {resolvedStats.map((card, index) => (
-                    <button
-                      key={card.label}
-                      type="button"
-                      onClick={() => setCommunityCardIndex(index)}
-                      className={`h-1.5 w-1.5 rounded-full transition-all ${
-                        communityCardIndex === index ? "bg-amber-100" : "bg-amber-100/35 hover:bg-amber-100/55"
-                      }`}
-                      aria-label={`Statistik ${index + 1} anzeigen`}
-                    />
-                  ))}
+                  <div className="mt-2 flex items-center justify-center gap-1.5">
+                    {resolvedStats.map((card, index) => (
+                      <button
+                        key={card.label}
+                        type="button"
+                        onClick={() => setCommunityCardIndex(index)}
+                        className={`h-1.5 w-1.5 rounded-full transition-all ${
+                          communityCardIndex === index ? "bg-amber-100" : "bg-amber-100/35 hover:bg-amber-100/55"
+                        }`}
+                        aria-label={`Statistik ${index + 1} anzeigen`}
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
             </motion.div>
