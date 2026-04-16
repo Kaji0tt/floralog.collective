@@ -39,11 +39,19 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("FLORALOG_URL")
-    const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY")
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || Deno.env.get("FLORALOG_URL")
+    const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
 
     if (!supabaseUrl || !serviceRoleKey) {
-      return new Response(JSON.stringify({ error: "Missing environment variables" }), {
+      return new Response(JSON.stringify({
+        error: "Missing environment variables",
+        details: {
+          hasSupabaseUrl: Boolean(supabaseUrl),
+          hasServiceRoleKey: Boolean(serviceRoleKey),
+          expectedUrlVars: ["SUPABASE_URL", "FLORALOG_URL"],
+          expectedServiceRoleVars: ["SERVICE_ROLE_KEY", "SUPABASE_SERVICE_ROLE_KEY"],
+        },
+      }), {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       })

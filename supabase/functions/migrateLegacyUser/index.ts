@@ -54,8 +54,8 @@ Deno.serve(async (req) => {
 
     console.log("[migrateLegacyUser] ✅ Security checks passed")
 
-    const supabaseUrl = Deno.env.get("FLORALOG_URL")
-    const supabaseServiceRoleKey = Deno.env.get("SERVICE_ROLE_KEY")
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || Deno.env.get("FLORALOG_URL")
+    const supabaseServiceRoleKey = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
 
     console.log("[migrateLegacyUser] Env check - URL:", supabaseUrl ? "✓" : "✗")
     console.log("[migrateLegacyUser] Env check - Service Role Key:", supabaseServiceRoleKey ? "✓" : "✗")
