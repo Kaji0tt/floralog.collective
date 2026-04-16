@@ -605,6 +605,8 @@ export default function GuestHomeFlow() {
             fontSize: "clamp(0.85rem, 3vw, 1.05rem)",
             letterSpacing: "0.4em",
             color: "#39b960",
+            textShadow:
+              "1px 0 0 rgba(0,0,0,0.25), -1px 0 0 rgba(0,0,0,0.25), 0 1px 0 rgba(0,0,0,0.25), 0 -1px 0 rgba(0,0,0,0.25), 0 0 2px rgba(0,0,0,0.25)",
           }}
         >
           - Naturbegleiter -
