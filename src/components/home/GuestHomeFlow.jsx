@@ -1,8 +1,6 @@
 ﻿import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Camera, Mail, Lock, User, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { createPageUrl } from "@/utils";
 import { signIn, signUp } from "@/api/authService";
 import { checkLegacyUser, upsertLegacyUserFromRegistration } from "@/api/migrationService";
 
@@ -86,20 +84,22 @@ function useFirefly(index) {
 
     const run = () => {
       if (!mountedRef.current) return;
-      const verticalBias = Math.pow(Math.random(), 1.85);
-      const spawnY = 8 + verticalBias * 48;
-      const sizeMultiplier = randomBetween(0.2 + verticalBias * 0.55, 1);
+      const spawnInLowerZone = Math.random() < 0.03;
+      const upperZoneBias = Math.pow(Math.random(), 1.7);
+      const spawnY = spawnInLowerZone
+        ? randomBetween(35, 56)
+        : 8 + upperZoneBias * 27;
       const durationS = clamp(randomNormal(2.5, 0.9), 3, 7);
       const pulseTimeA = randomBetween(0.16, 0.46);
       const pulseTimeB = clamp(randomBetween(0.54, 0.9), pulseTimeA + 0.16, 0.93);
-      const baseSizeMin = 3 + verticalBias * 5;
-      const baseSizeMax = 6 + verticalBias * 9.5;
+      const baseSizeMin = 3;
+      const baseSizeMax = 8.5;
 
       setState({
         visible: true,
         x: 14 + Math.random() * 66,
         y: spawnY,
-        size: randomBetween(baseSizeMin, baseSizeMax) * sizeMultiplier,
+        size: randomBetween(baseSizeMin, baseSizeMax),
         driftX1: randomBetween(-4.8, 4.8),
         driftY1: randomBetween(-4.8, 4.8),
         driftX2: randomBetween(-8.4, 8.4),
@@ -239,7 +239,6 @@ function useLeafTwitch() {
 }
 
 export default function GuestHomeFlow() {
-  const navigate = useNavigate();
   const gestureLockRef = useRef(false);
   const touchStartYRef = useRef(/** @type {number | null} */ (null));
   const orientationPermissionRequestedRef = useRef(false);
@@ -634,7 +633,7 @@ export default function GuestHomeFlow() {
               style={{ pointerEvents: displayedSnapIndex === 0 && firstPanelOpacity > 0.01 ? "auto" : "none" }}
             >
               <motion.button
-                onClick={() => navigate(createPageUrl("Scanner"))}
+                onClick={() => openAuthModal("register")}
                 className="rounded-2xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 text-white font-semibold tracking-wide flex items-center justify-center gap-3 shadow-[0_8px_24px_rgba(34,197,94,0.35)] hover:brightness-110 transition-all"
                 style={{
                   width: "70vw",
@@ -645,26 +644,15 @@ export default function GuestHomeFlow() {
                 whileTap={{ scale: 0.97 }}
               >
                 <Camera className="w-5 h-5" />
-                Scan starten
+                Jetzt Sammeln
               </motion.button>
 
               <button
-                onClick={() => openAuthModal("register")}
-                className="font-bold text-amber-200 hover:text-amber-100 transition-colors drop-shadow-[0_1px_8px_rgba(0,0,0,0.9)]"
+                onClick={() => openAuthModal("login")}
+                className="font-normal text-amber-200 hover:text-amber-100 transition-colors drop-shadow-[0_1px_8px_rgba(0,0,0,0.9)]"
                 style={{
                   fontSize: "clamp(1rem, 4vw, 1.2rem)",
                   letterSpacing: "0.04em",
-                }}
-              >
-                Kostenlos registrieren
-              </button>
-
-              <button
-                onClick={() => openAuthModal("login")}
-                className="font-medium text-stone-300/80 hover:text-stone-200 transition-colors drop-shadow-[0_1px_6px_rgba(0,0,0,0.8)]"
-                style={{
-                  fontSize: "clamp(0.85rem, 3vw, 1rem)",
-                  letterSpacing: "0.03em",
                 }}
               >
                 Anmelden
