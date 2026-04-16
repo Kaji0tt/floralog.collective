@@ -1,6 +1,6 @@
 ﻿import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Mail, Lock, User, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Camera, Mail, Lock, User, Loader2, AlertCircle, CheckCircle2, ChevronDown } from "lucide-react";
 import { signIn, signUp } from "@/api/authService";
 import { checkLegacyUser, upsertLegacyUserFromRegistration } from "@/api/migrationService";
 
@@ -674,11 +674,11 @@ export default function GuestHomeFlow() {
                 animate={{ y: [0, 8, 0], opacity: [0.35, 0.75, 0.35] }}
                 transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
                 style={{
-                  fontSize: "clamp(1.2rem, 5vw, 1.6rem)",
-                  lineHeight: 1,
+                  width: "clamp(1.45rem, 6vw, 2rem)",
+                  height: "clamp(1.45rem, 6vw, 2rem)",
                 }}
               >
-                v
+                <ChevronDown className="h-full w-full" strokeWidth={2.4} />
               </motion.div>
             </motion.div>
 
