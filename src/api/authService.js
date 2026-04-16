@@ -5,38 +5,65 @@ const getAuthRedirectBaseUrl = () => {
   return import.meta.env.VITE_APP_URL || window.location.origin;
 };
 
+const looksLikeHtmlResponseError = (error) => {
+  const message = String(error?.message || '').toLowerCase();
+  return (
+    error instanceof SyntaxError
+    || (message.includes('unexpected token') && message.includes('doctype'))
+    || message.includes('is not valid json')
+  );
+};
+
+const normalizeAuthServiceError = (error) => {
+  if (!looksLikeHtmlResponseError(error)) {
+    return error;
+  }
+
+  return new Error(
+    'Auth-Service lieferte HTML statt JSON. Bitte pruefe VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY und moegliche Proxy/Rewrite-Regeln.'
+  );
+};
+
 /**
  * Sign up with email and password
  */
 export const signUp = async (email, password, displayName) => {
   const trimmedDisplayName = displayName?.trim?.() || '';
 
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: {
-        display_name: trimmedDisplayName,
-        full_name: trimmedDisplayName,
-        name: trimmedDisplayName
-      },
-      emailRedirectTo: `${getAuthRedirectBaseUrl()}/login`
-    }
-  });
-  if (error) throw error;
-  return data;
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          display_name: trimmedDisplayName,
+          full_name: trimmedDisplayName,
+          name: trimmedDisplayName
+        },
+        emailRedirectTo: `${getAuthRedirectBaseUrl()}/login`
+      }
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    throw normalizeAuthServiceError(error);
+  }
 };
 
 /**
  * Sign in with email and password
  */
 export const signIn = async (email, password) => {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password
-  });
-  if (error) throw error;
-  return data;
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    throw normalizeAuthServiceError(error);
+  }
 };
 
 /**

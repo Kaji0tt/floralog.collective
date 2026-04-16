@@ -9,6 +9,25 @@ const getAuthRedirectBaseUrl = () => {
 const normalizeEmail = (email) => email?.trim().toLowerCase();
 const baseUserProxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/baseUserProxy`;
 
+const parseProxyResponse = async (response) => {
+  const raw = await response.text();
+  const contentType = response.headers.get('content-type') || '';
+  const isJson = contentType.includes('application/json');
+
+  if (!isJson) {
+    const preview = raw.slice(0, 160).replace(/\s+/g, ' ').trim();
+    throw new Error(
+      `baseUserProxy lieferte kein JSON (status ${response.status}). Antwort beginnt mit: ${preview || '<leer>'}`
+    );
+  }
+
+  try {
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    throw new Error(`baseUserProxy lieferte ungueltiges JSON (status ${response.status}).`);
+  }
+};
+
 const invokeBaseUserProxy = async (action, payload) => {
   const response = await fetch(baseUserProxyUrl, {
     method: 'POST',
@@ -21,7 +40,7 @@ const invokeBaseUserProxy = async (action, payload) => {
     })
   });
 
-  const result = await response.json().catch(() => ({}));
+  const result = await parseProxyResponse(response);
 
   if (!response.ok) {
     throw new Error(result?.error || `baseUserProxy request failed (${response.status})`);
