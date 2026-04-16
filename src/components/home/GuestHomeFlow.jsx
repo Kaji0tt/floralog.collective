@@ -668,10 +668,10 @@ export default function GuestHomeFlow() {
               style={{ pointerEvents: displayedSnapIndex === 1 && secondPanelOpacity > 0.01 ? "auto" : "none" }}
             >
               <div className="w-[70vw] max-w-[420px] rounded-3xl border border-amber-100/20 bg-black/24 px-4 py-4 backdrop-blur-[2px] overflow-hidden">
-                <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-400/90">Über Floralog</p>
+                <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-400/90">Floralog</p>
                 <h2 className="mt-2 text-lg md:text-xl font-semibold text-stone-100 leading-tight">Mit neuem Blick</h2>
                 <p className="mt-2 text-sm md:text-base leading-relaxed text-amber-50/95">
-                  Floralog trainiert spielerisch einen neuen Blick für die Natur im Alltag. Während der Florabot, ein persönlicher Begleiter in Form einer Roboter-Pflanze, auf die Hilfe des Spielers angewiesen ist um zu wachsen, lernt der Spieler selbst seine natürliche Umgebung mit anderen Augen wahrzunehmen.
+                  Floralog trainiert spielerisch einen neuen Blick für die Natur im Alltag. 
                 </p>
               </div>
             </motion.div>
