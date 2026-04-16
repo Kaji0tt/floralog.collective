@@ -606,7 +606,7 @@ export default function GuestHomeFlow() {
             letterSpacing: "0.4em",
             color: "#d8f0c0",
             textShadow:
-              "1px 0 0 rgba(0,0,0,0.25), -1px 0 0 rgba(0,0,0,0.25), 0 1px 0 rgba(0,0,0,0.25), 0 -1px 0 rgba(0,0,0,0.25), 0 0 2px rgba(0,0,0,0.25)",
+              "1px 0 0 rgba(0,0,0,0.20), -1px 0 0 rgba(0,0,0,0.20), 0 1px 0 rgba(0,0,0,0.20), 0 -1px 0 rgba(0,0,0,0.20), 0 0 2px rgba(0,0,0,0.20)",
           }}
         >
           - Naturbegleiter -
