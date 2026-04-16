@@ -825,11 +825,11 @@ export default function GuestHomeFlow() {
       )}
 
       <motion.div
-        className="fixed bottom-16 inset-x-0 z-20 flex justify-center text-stone-200/50 select-none pointer-events-none"
+        className="fixed bottom-16 left-1/2 -translate-x-1/2 z-[130] flex justify-center text-stone-100/80 select-none pointer-events-none"
         aria-hidden="true"
         animate={{ 
           y: [0, 4, 0], 
-          opacity: displayedSnapIndex < SNAP_SECTION_COUNT - 1 ? [0.3, 0.6, 0.3] : 0
+          opacity: displayedSnapIndex < SNAP_SECTION_COUNT - 1 ? [0.4, 0.8, 0.4] : 0
         }}
         transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
         style={{
@@ -841,14 +841,14 @@ export default function GuestHomeFlow() {
       </motion.div>
 
       <div
-        className="fixed bottom-0 inset-x-0 z-10 flex flex-col items-center justify-center py-4 backdrop-blur-sm"
+        className="fixed bottom-0 inset-x-0 z-[130] flex flex-col items-center justify-center py-4 backdrop-blur-sm"
         style={{
-          background: "rgba(0, 0, 0, 0.15)",
-          borderTop: "1px solid rgba(120, 113, 108, 0.15)",
+          background: "rgba(0, 0, 0, 0.25)",
+          borderTop: "1px solid rgba(120, 113, 108, 0.2)",
         }}
       >
         <p
-          className="text-center text-stone-300/50 drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)]"
+          className="text-center text-stone-100/75 drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)]"
           style={{
             fontSize: "clamp(0.55rem, 2vw, 0.7rem)",
             letterSpacing: "0.08em",
