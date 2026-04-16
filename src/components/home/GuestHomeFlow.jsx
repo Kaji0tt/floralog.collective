@@ -463,11 +463,7 @@ export default function GuestHomeFlow() {
       : 0
   );
 
-  const firstPanelOpacity = getPanelOpacity(0);
-  const secondPanelOpacity = getPanelOpacity(1);
-  const thirdPanelOpacity = getPanelOpacity(2);
-  const fourthPanelOpacity = getPanelOpacity(3);
-  const fifthPanelOpacity = getPanelOpacity(4);
+  const panelOpacities = Array.from({ length: SNAP_SECTION_COUNT }, (_, index) => getPanelOpacity(index));
   const leafTwitch = useLeafTwitch();
 
   /** @param {"login" | "register"} mode */
@@ -563,6 +559,38 @@ export default function GuestHomeFlow() {
     { label: "Aktive Forscher diesen Monat", value: communityStats ? communityStats.active_researchers_this_month.toLocaleString("de-DE") : "\u2026" },
     { label: "Entdeckte Arten insgesamt", value: communityStats ? communityStats.total_species.toLocaleString("de-DE") : "\u2026" },
     { label: "Anzahl aller Scans bisher", value: communityStats ? communityStats.total_scans.toLocaleString("de-DE") : "\u2026" },
+  ];
+
+  const infoPanelMotionClass = "absolute inset-x-0 bottom-[4rem] flex flex-col items-center px-2";
+  const infoPanelCardClass = "w-[70vw] max-w-[420px] rounded-3xl border border-amber-100/20 bg-black/24 px-4 py-4 backdrop-blur-[2px]";
+  const infoPanelScrollableCardClass = `${infoPanelCardClass} overflow-hidden max-h-[40vh] md:max-h-[42vh] overflow-y-auto`;
+  const infoPanels = [
+    {
+      index: 1,
+      sectionTitle: "Floralog",
+      title: "Mit neuem Blick",
+      description:
+        "Floralog unterstützt spielerisch dabei, einen neuen Blick auf die Natur im Alltag zu entwickeln. Auf gemeinsamer Mission mit einem digitalen Begleiter, entwickelt sich ein neues Bewusstsein für die Umwelt.",
+      scrollable: true,
+      sectionTitleClass: "text-amber-100/80",
+    },
+    {
+      index: 2,
+      sectionTitle: "Florabot",
+      title: "Erkundet die Natur",
+      description:
+        "Hilf deinem KI-Begleiter Florabot dabei, die Erde besser kennenzulernen indem ihr auf eine gemeinsame Suche nach einzigartigen Pflanzen geht. Lernt gemeinsam die Besonderheiten unseres Ökosystems kennen.",
+      scrollable: true,
+      sectionTitleClass: "text-amber-100/80",
+    },
+    {
+      index: 4,
+      sectionTitle: "Support the Project",
+      title: "Hilf uns beim Keimen",
+      description: "Floralog steht am Anfang. Und nur durch dich kann es wachsen.",
+      scrollable: false,
+      sectionTitleClass: "text-amber-400/90",
+    },
   ];
 
   return (
@@ -698,9 +726,9 @@ export default function GuestHomeFlow() {
           >
             <motion.div
               className="absolute inset-x-0 top-0 flex flex-col items-center gap-5 pt-[11%] md:pt-[10%]"
-              animate={{ opacity: firstPanelOpacity }}
+              animate={{ opacity: panelOpacities[0] }}
               transition={{ duration: panelFadeDuration, ease: "easeInOut" }}
-              style={{ pointerEvents: displayedSnapIndex === 0 && firstPanelOpacity > 0.01 ? "auto" : "none" }}
+              style={{ pointerEvents: displayedSnapIndex === 0 && panelOpacities[0] > 0.01 ? "auto" : "none" }}
             >
               <motion.button
                 onClick={() => openAuthModal("register")}
@@ -729,46 +757,34 @@ export default function GuestHomeFlow() {
               </button>
             </motion.div>
 
-            <motion.div
-              className="absolute inset-x-0 bottom-[7rem] flex flex-col items-center px-2"
-              animate={{ opacity: secondPanelOpacity }}
-              initial={false}
-              transition={{ duration: panelFadeDuration, ease: "easeInOut" }}
-              style={{ pointerEvents: displayedSnapIndex === 1 && secondPanelOpacity > 0.01 ? "auto" : "none" }}
-            >
-              <div className="w-[70vw] max-w-[420px] rounded-3xl border border-amber-100/20 bg-black/24 px-4 py-4 backdrop-blur-[2px] overflow-hidden max-h-[40vh] md:max-h-[42vh] overflow-y-auto">
-                <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-100/80">Floralog</p>
-                <h2 className="mt-2 text-lg md:text-xl font-semibold text-stone-100 leading-tight">Mit neuem Blick</h2>
-                <p className="mt-2 text-sm md:text-base leading-relaxed text-amber-50/95">
-                  Floralog unterstützt spielerisch dabei, einen neuen Blick auf die Natur im Alltag zu entwickeln. Auf gemeinsamer Mission mit einem digitalen Begleiter, entwickelt sich ein neues Bewusstsein für die Umwelt.
-                </p>
-              </div>
-            </motion.div>
+            {infoPanels.map((panel) => (
+              <motion.div
+                key={panel.index}
+                className={infoPanelMotionClass}
+                animate={{ opacity: panelOpacities[panel.index] }}
+                initial={false}
+                transition={{ duration: panelFadeDuration, ease: "easeInOut" }}
+                style={{
+                  pointerEvents:
+                    displayedSnapIndex === panel.index && panelOpacities[panel.index] > 0.01 ? "auto" : "none",
+                }}
+              >
+                <div className={panel.scrollable ? infoPanelScrollableCardClass : infoPanelCardClass}>
+                  <p className={`text-[0.73rem] uppercase tracking-[0.24em] ${panel.sectionTitleClass}`}>{panel.sectionTitle}</p>
+                  <h2 className="mt-2 text-lg md:text-xl font-semibold text-stone-100 leading-tight">{panel.title}</h2>
+                  <p className="mt-2 text-sm md:text-base leading-relaxed text-amber-50/95">{panel.description}</p>
+                </div>
+              </motion.div>
+            ))}
 
             <motion.div
-              className="absolute inset-x-0 bottom-[7rem] flex flex-col items-center px-2"
-              animate={{ opacity: thirdPanelOpacity }}
+              className={infoPanelMotionClass}
+              animate={{ opacity: panelOpacities[3] }}
               initial={false}
               transition={{ duration: panelFadeDuration, ease: "easeInOut" }}
-              style={{ pointerEvents: displayedSnapIndex === 2 && thirdPanelOpacity > 0.01 ? "auto" : "none" }}
+              style={{ pointerEvents: displayedSnapIndex === 3 && panelOpacities[3] > 0.01 ? "auto" : "none" }}
             >
-              <div className="w-[70vw] max-w-[420px] rounded-3xl border border-amber-100/20 bg-black/24 px-4 py-4 backdrop-blur-[2px] overflow-hidden max-h-[40vh] md:max-h-[42vh] overflow-y-auto">
-                <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-100/80">Florabot</p>
-                <h2 className="mt-2 text-lg md:text-xl font-semibold text-stone-100 leading-tight">Erkundet die Natur</h2>
-                <p className="mt-2 text-sm md:text-base leading-relaxed text-amber-50/95">
-                  Hilf deinem KI-Begleiter Florabot dabei, die Erde besser kennenzulernen indem ihr auf eine gemeinsame Suche nach einzigartigen Pflanzen geht. Lernt gemeinsam die Besonderheiten unseres Ökosystems kennen.
-                </p>
-              </div>
-            </motion.div>
-
-            <motion.div
-              className="absolute inset-x-0 bottom-[5rem] flex flex-col items-center px-2"
-              animate={{ opacity: fourthPanelOpacity }}
-              initial={false}
-              transition={{ duration: panelFadeDuration, ease: "easeInOut" }}
-              style={{ pointerEvents: displayedSnapIndex === 3 && fourthPanelOpacity > 0.01 ? "auto" : "none" }}
-            >
-              <div className="w-[70vw] max-w-[420px] rounded-3xl border border-amber-100/20 bg-black/24 px-4 py-4 backdrop-blur-[2px]">
+              <div className={infoPanelCardClass}>
                 <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-100/80">Gemeinsam wachsen</p>
                 <h2 className="mt-2 text-lg md:text-xl font-semibold text-stone-100 leading-tight">Werde Teil einer Community</h2>
                 <p className="mt-2 text-sm md:text-base leading-relaxed text-amber-50/95">
@@ -814,21 +830,6 @@ export default function GuestHomeFlow() {
               </div>
             </motion.div>
 
-            <motion.div
-              className="absolute inset-x-0 bottom-[5rem] flex flex-col items-center px-2"
-              animate={{ opacity: fifthPanelOpacity }}
-              initial={false}
-              transition={{ duration: panelFadeDuration, ease: "easeInOut" }}
-              style={{ pointerEvents: displayedSnapIndex === 4 && fifthPanelOpacity > 0.01 ? "auto" : "none" }}
-            >
-              <div className="w-[70vw] max-w-[420px] rounded-3xl border border-amber-100/20 bg-black/24 px-4 py-4 backdrop-blur-[2px]">
-                <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-400/90">Support the Project</p>
-                <h2 className="mt-2 text-lg md:text-xl font-semibold text-stone-100 leading-tight">Hilf uns beim Keimen</h2>
-                <p className="mt-2 text-sm md:text-base leading-relaxed text-amber-50/95">
-                  Floralog steht am Anfang. Und nur durch dich kann es wachsen.
-                </p>
-              </div>
-            </motion.div>
           </div>
         </div>
       </div>
