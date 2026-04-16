@@ -16,6 +16,11 @@ const TILT_MAX_HORIZONTAL_DEG = 22;
 const TILT_MAX_VERTICAL_DEG = 28;
 const TILT_OFFSET_MAX_X = 24;
 const TILT_OFFSET_MAX_Y = 20;
+const COMMUNITY_STATS_CARDS = [
+  { label: "Aktive Florabots diese Woche", value: "12.480" },
+  { label: "Entdeckte Arten insgesamt", value: "8.310" },
+  { label: "Anzahl aller Scans bisher", value: "146.920" },
+];
 
 /**
  * @param {number} min
@@ -251,6 +256,9 @@ export default function GuestHomeFlow() {
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState(/** @type {string | null} */ (null));
   const [authSuccess, setAuthSuccess] = useState(/** @type {string | null} */ (null));
+  const [communityCardIndex, setCommunityCardIndex] = useState(0);
+  const communityCardTouchStartXRef = useRef(/** @type {number | null} */ (null));
+  const communityCardTouchStartYRef = useRef(/** @type {number | null} */ (null));
   const [authForm, setAuthForm] = useState({
     email: "",
     password: "",
@@ -391,6 +399,54 @@ export default function GuestHomeFlow() {
     }
 
     triggerSnapStep(deltaY > 0 ? 1 : -1);
+  };
+
+  /** @param {React.TouchEvent<HTMLDivElement>} event */
+  const handleCommunityCardTouchStart = (event) => {
+    const touch = event.touches[0];
+    communityCardTouchStartXRef.current = touch?.clientX ?? null;
+    communityCardTouchStartYRef.current = touch?.clientY ?? null;
+    event.stopPropagation();
+  };
+
+  /** @param {React.TouchEvent<HTMLDivElement>} event */
+  const handleCommunityCardTouchMove = (event) => {
+    const startX = communityCardTouchStartXRef.current;
+    const startY = communityCardTouchStartYRef.current;
+    const currentTouch = event.touches[0];
+    if (startX == null || startY == null || !currentTouch) {
+      return;
+    }
+
+    const deltaX = currentTouch.clientX - startX;
+    const deltaY = currentTouch.clientY - startY;
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 8) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  };
+
+  /** @param {React.TouchEvent<HTMLDivElement>} event */
+  const handleCommunityCardTouchEnd = (event) => {
+    const startX = communityCardTouchStartXRef.current;
+    const startY = communityCardTouchStartYRef.current;
+    const endTouch = event.changedTouches[0];
+    communityCardTouchStartXRef.current = null;
+    communityCardTouchStartYRef.current = null;
+
+    if (startX == null || startY == null || !endTouch) {
+      return;
+    }
+
+    const deltaX = endTouch.clientX - startX;
+    const deltaY = endTouch.clientY - startY;
+    if (Math.abs(deltaX) < 38 || Math.abs(deltaX) <= Math.abs(deltaY)) {
+      return;
+    }
+
+    const direction = deltaX < 0 ? 1 : -1;
+    setCommunityCardIndex((prev) => clamp(prev + direction, 0, COMMUNITY_STATS_CARDS.length - 1));
+    event.stopPropagation();
   };
 
   /** @param {number} panelIndex */
@@ -603,13 +659,13 @@ export default function GuestHomeFlow() {
           className="mt-2 px-2 font-medium"
           style={{
             fontSize: "clamp(0.85rem, 3vw, 1.05rem)",
-            letterSpacing: "0.4em",
+            letterSpacing: "0.2em",
             color: "#f5f8f2",
             textShadow:
               "1px 0 0 rgba(0,0,0,0.20), -1px 0 0 rgba(0,0,0,0.20), 0 1px 0 rgba(0,0,0,0.20), 0 -1px 0 rgba(0,0,0,0.20), 0 0 2px rgba(0,0,0,0.20)",
           }}
         >
-          - Naturbegleiter -
+          - Dein Naturbegleiter -
         </p>
       </div>
 
@@ -668,10 +724,10 @@ export default function GuestHomeFlow() {
               style={{ pointerEvents: displayedSnapIndex === 1 && secondPanelOpacity > 0.01 ? "auto" : "none" }}
             >
               <div className="w-[70vw] max-w-[420px] rounded-3xl border border-amber-100/20 bg-black/24 px-4 py-4 backdrop-blur-[2px] overflow-hidden">
-                <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-400/90">Floralog</p>
+                <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-100/80">Floralog</p>
                 <h2 className="mt-2 text-lg md:text-xl font-semibold text-stone-100 leading-tight">Mit neuem Blick</h2>
                 <p className="mt-2 text-sm md:text-base leading-relaxed text-amber-50/95">
-                  Floralog trainiert spielerisch einen neuen Blick für die Natur im Alltag. 
+                  Floralog unterstützt spielerisch dabei, einen neuen Blick auf die Natur im Alltag zu entwickeln. Auf gemeinsamer Mission mit einem digitalen Begleiter, entwickelt sich ein neues Bewusstsein für die Umgebung.
                 </p>
               </div>
             </motion.div>
@@ -684,11 +740,48 @@ export default function GuestHomeFlow() {
               style={{ pointerEvents: displayedSnapIndex === 2 && thirdPanelOpacity > 0.01 ? "auto" : "none" }}
             >
               <div className="w-[70vw] max-w-[420px] rounded-3xl border border-amber-100/20 bg-black/24 px-4 py-4 backdrop-blur-[2px] overflow-hidden">
-                <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-400/90">Florabot</p>
-                <h2 className="mt-2 text-lg md:text-xl font-semibold text-stone-100 leading-tight">Erkundet die Natur</h2>
+                <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-100/80">Gemeinsam wachsen</p>
+                <h2 className="mt-2 text-lg md:text-xl font-semibold text-stone-100 leading-tight">Werde Teil einer Community</h2>
                 <p className="mt-2 text-sm md:text-base leading-relaxed text-amber-50/95">
-                  Hilf deinem KI-Begleiter Florabot dabei, die Erde kennenzulernen. Geht zusammen auf die Suche nach einzigartigen Pflanzen und lernt gemeinsam die Besonderheiten unseres Ökosystems kennen.
+                  Teile deine Funde, vergleiche Beobachtungen und entwickel deinen Florabot weiter.
                 </p>
+
+                <div className="mt-3">
+                  <div
+                    className="relative overflow-hidden rounded-2xl border border-emerald-200/25 bg-emerald-950/45"
+                    onTouchStart={handleCommunityCardTouchStart}
+                    onTouchMove={handleCommunityCardTouchMove}
+                    onTouchEnd={handleCommunityCardTouchEnd}
+                  >
+                    <motion.div
+                      className="flex"
+                      animate={{ x: `${-communityCardIndex * 100}%` }}
+                      transition={{ duration: 0.28, ease: "easeOut" }}
+                    >
+                      {COMMUNITY_STATS_CARDS.map((card) => (
+                        <div key={card.label} className="w-full shrink-0 px-3 py-3">
+                          <p className="text-[0.68rem] uppercase tracking-[0.16em] text-amber-100/75">Community-Status</p>
+                          <p className="mt-1 text-xl font-semibold text-amber-50 leading-tight">{card.value}</p>
+                          <p className="mt-1 text-xs md:text-sm text-amber-50/90">{card.label}</p>
+                        </div>
+                      ))}
+                    </motion.div>
+                  </div>
+
+                  <div className="mt-2 flex items-center justify-center gap-1.5">
+                    {COMMUNITY_STATS_CARDS.map((card, index) => (
+                      <button
+                        key={card.label}
+                        type="button"
+                        onClick={() => setCommunityCardIndex(index)}
+                        className={`h-1.5 w-1.5 rounded-full transition-all ${
+                          communityCardIndex === index ? "bg-amber-100" : "bg-amber-100/35 hover:bg-amber-100/55"
+                        }`}
+                        aria-label={`Statistik ${index + 1} anzeigen`}
+                      />
+                    ))}
+                  </div>
+                </div>
               </div>
             </motion.div>
           </div>
@@ -869,7 +962,7 @@ export default function GuestHomeFlow() {
             letterSpacing: "0.08em",
           }}
         >
-          by Floralog Collective, enabled by Pl@ntNet
+          by Floralog Collective, enabled with Pl@ntNet
         </p>
       </div>
     </div>
