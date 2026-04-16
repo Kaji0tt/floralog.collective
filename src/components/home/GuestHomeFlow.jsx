@@ -249,6 +249,7 @@ export default function GuestHomeFlow() {
   const [contentTransitionPhase, setContentTransitionPhase] = useState("idle");
   const [tiltOffset, setTiltOffset] = useState({ x: 0, y: 0 });
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [supportModalOpen, setSupportModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState("login");
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState(/** @type {string | null} */ (null));
@@ -481,6 +482,14 @@ export default function GuestHomeFlow() {
     setAuthLoading(false);
   };
 
+  const openSupportModal = () => {
+    setSupportModalOpen(true);
+  };
+
+  const closeSupportModal = () => {
+    setSupportModalOpen(false);
+  };
+
   /** @param {React.ChangeEvent<HTMLInputElement>} event */
   const handleAuthChange = (event) => {
     const { name, value } = event.target;
@@ -585,9 +594,9 @@ export default function GuestHomeFlow() {
     },
     {
       index: 4,
-      sectionTitle: "Support the Project",
+      sectionTitle: "Support the Project 🌱",
       title: "Hilf uns beim Keimen",
-      description: "Floralog steht am Anfang. Und nur durch dich kann es wachsen.",
+      description: "Floralog steht noch am Anfang. Viel liebevolle Arbeit steckt bereits im Projekt. Du hilfst uns beim Wachsen, indem du die App nutzt, sie teilst und uns Feedback gibst. Wer uns darüber hinaus unterstützen möchte,",
       scrollable: false,
       sectionTitleClass: "text-amber-400/90",
     },
@@ -773,6 +782,24 @@ export default function GuestHomeFlow() {
                   <p className={`text-[0.73rem] uppercase tracking-[0.24em] ${panel.sectionTitleClass}`}>{panel.sectionTitle}</p>
                   <h2 className="mt-2 text-lg md:text-xl font-semibold text-stone-100 leading-tight">{panel.title}</h2>
                   <p className="mt-2 text-sm md:text-base leading-relaxed text-amber-50/95">{panel.description}</p>
+                  {panel.index === 4 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={openSupportModal}
+                        className="mt-1 text-sm text-stone-200/65 underline decoration-stone-300/45 underline-offset-4 hover:text-stone-100/90 hover:decoration-stone-200/65 transition-colors"
+                      >
+                        schaut hier vorbei
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveSnapIndex(0)}
+                        className="mt-3 inline-flex rounded-xl border border-rose-200/30 bg-rose-500/12 px-3 py-2 text-sm font-medium text-rose-100/90 hover:bg-rose-500/20 hover:text-rose-50 transition-colors"
+                      >
+                        Starte jetzt deine Reise ❤️
+                      </button>
+                    </>
+                  )}
                 </div>
               </motion.div>
             ))}
@@ -976,6 +1003,68 @@ export default function GuestHomeFlow() {
                 {authMode === "login" ? "Anmelden" : "Jetzt registrieren"}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {supportModalOpen && (
+        <div className="fixed inset-0 z-[125] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/72 backdrop-blur-[2px]" onClick={closeSupportModal} />
+
+          <div
+            className="relative z-10 w-full max-w-[92vw] sm:max-w-lg rounded-3xl border border-amber-100/28 bg-[linear-gradient(180deg,rgba(15,25,18,0.95)_0%,rgba(8,16,11,0.96)_100%)] text-stone-100 shadow-[0_28px_90px_rgba(0,0,0,0.62)] backdrop-blur-xl p-5"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="absolute inset-0 rounded-3xl border border-amber-100/12 pointer-events-none" />
+
+            <button
+              type="button"
+              onClick={closeSupportModal}
+              className="absolute right-4 top-3 text-stone-400 hover:text-stone-100"
+            >
+              ✕
+            </button>
+
+            <div className="relative z-10">
+              <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-300/90">Support the Project 🌱</p>
+              <h3 className="mt-2 text-xl font-semibold text-amber-50">Danke, dass du Floralog wachsen lässt</h3>
+              <p className="mt-2 text-sm text-stone-300">
+                Ob als Privatperson oder als Unternehmen: Wir freuen uns über jede Form der Unterstützung.
+              </p>
+            </div>
+
+            <div className="relative z-10 mt-4 grid gap-3">
+              <div className="rounded-2xl border border-emerald-200/20 bg-emerald-900/20 p-3">
+                <p className="text-sm font-semibold text-emerald-100">Für Privatpersonen</p>
+                <p className="mt-1 text-sm text-stone-300">Wenn du Floralog finanziell unterstützen möchtest, freuen wir uns über eine Spende.</p>
+                <a
+                  href="/Donate"
+                  className="mt-2 inline-flex text-sm text-emerald-100/90 underline decoration-emerald-200/50 underline-offset-4 hover:text-emerald-50"
+                >
+                  Zur Spendenseite
+                </a>
+              </div>
+
+              <div className="rounded-2xl border border-amber-200/20 bg-amber-900/15 p-3">
+                <p className="text-sm font-semibold text-amber-100">Für Unternehmen</p>
+                <p className="mt-1 text-sm text-stone-300">Für Kooperationen, Partnerschaften oder gemeinsame Projekte kontaktiere uns direkt.</p>
+                <a
+                  href="mailto:info@floralog.de?subject=Kooperation%20mit%20Floralog"
+                  className="mt-2 inline-flex text-sm text-amber-100/90 underline decoration-amber-200/50 underline-offset-4 hover:text-amber-50"
+                >
+                  Kooperation anfragen
+                </a>
+              </div>
+            </div>
+
+            <div className="relative z-10 mt-4">
+              <a
+                href="mailto:info@floralog.de"
+                className="text-sm text-stone-300/85 underline decoration-stone-300/45 underline-offset-4 hover:text-stone-100"
+              >
+                info@floralog.de
+              </a>
+            </div>
           </div>
         </div>
       )}
