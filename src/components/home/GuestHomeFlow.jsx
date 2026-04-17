@@ -1027,16 +1027,16 @@ export default function GuestHomeFlow() {
 
             <div className="relative z-10">
               <p className="text-[0.73rem] uppercase tracking-[0.24em] text-amber-300/90">Support the Project 🌱</p>
-              <h3 className="mt-2 text-xl font-semibold text-amber-50">Danke, dass du Floralog wachsen lässt</h3>
+              <h3 className="mt-2 text-xl font-semibold text-amber-50">Danke, dass ihr Floralog wachsen lasst</h3>
               <p className="mt-2 text-sm text-stone-300">
-                Ob als Privatperson oder als Unternehmen: Wir freuen uns über jede Form der Unterstützung.
+                Wir freuen uns über jede Form der Unterstützung.
               </p>
             </div>
 
             <div className="relative z-10 mt-4 grid gap-3">
               <div className="rounded-2xl border border-emerald-200/20 bg-emerald-900/20 p-3">
                 <p className="text-sm font-semibold text-emerald-100">Für Privatpersonen</p>
-                <p className="mt-1 text-sm text-stone-300">Wenn du Floralog finanziell unterstützen möchtest, freuen wir uns über eine Spende.</p>
+                <p className="mt-1 text-sm text-stone-300">Wenn ihr Floralog finanziell unterstützen möchtet, freuen wir uns über eine Spende. Damit könnt ihr dabei helfen, Serverkosten und API-Kosten zu decken. Aber am wichtigsten: Ihr zeigt, dass euch Floralog am Herzen liegt. Das ist unbezahlbar.</p>
                 <a
                   href="/Donate"
                   className="mt-2 inline-flex text-sm text-emerald-100/90 underline decoration-emerald-200/50 underline-offset-4 hover:text-emerald-50"
@@ -1047,7 +1047,7 @@ export default function GuestHomeFlow() {
 
               <div className="rounded-2xl border border-amber-200/20 bg-amber-900/15 p-3">
                 <p className="text-sm font-semibold text-amber-100">Für Unternehmen</p>
-                <p className="mt-1 text-sm text-stone-300">Für Kooperationen, Partnerschaften oder gemeinsame Projekte kontaktiere uns direkt.</p>
+                <p className="mt-1 text-sm text-stone-300">Für Kooperationen, Partnerschaften oder gemeinsame Projekte kontaktiert uns direkt.</p>
                 <a
                   href="mailto:info@floralog.de?subject=Kooperation%20mit%20Floralog"
                   className="mt-2 inline-flex text-sm text-amber-100/90 underline decoration-amber-200/50 underline-offset-4 hover:text-amber-50"
@@ -1057,7 +1057,7 @@ export default function GuestHomeFlow() {
               </div>
             </div>
 
-            <div className="relative z-10 mt-4">
+            <div className="relative z-10 mt-4 text-center">
               <a
                 href="mailto:info@floralog.de"
                 className="text-sm text-stone-300/85 underline decoration-stone-300/45 underline-offset-4 hover:text-stone-100"
