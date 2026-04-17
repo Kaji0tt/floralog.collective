@@ -1,6 +1,6 @@
 ﻿import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mail, Lock, User, Loader2, AlertCircle, CheckCircle2, ChevronDown } from "lucide-react";
+import { Camera, Mail, Lock, User, Loader2, AlertCircle, CheckCircle2, ChevronDown } from "lucide-react";
 import { signIn, signUp } from "@/api/authService";
 import { checkLegacyUser, upsertLegacyUserFromRegistration } from "@/api/migrationService";
 import { supabase } from "@/api/supabaseClient";
@@ -740,8 +740,8 @@ export default function GuestHomeFlow() {
               style={{ pointerEvents: displayedSnapIndex === 0 && panelOpacities[0] > 0.01 ? "auto" : "none" }}
             >
               <motion.button
-                onClick={() => openAuthModal("login")}
-                className="rounded-2xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 text-white font-semibold tracking-wide flex items-center justify-center shadow-[0_8px_24px_rgba(34,197,94,0.35)] hover:brightness-110 transition-all"
+                onClick={() => openAuthModal("register")}
+                className="rounded-2xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 text-white font-semibold tracking-wide flex items-center justify-center gap-3 shadow-[0_8px_24px_rgba(34,197,94,0.35)] hover:brightness-110 transition-all"
                 style={{
                   width: "70vw",
                   maxWidth: "420px",
@@ -750,18 +750,19 @@ export default function GuestHomeFlow() {
                 }}
                 whileTap={{ scale: 0.97 }}
               >
-                Anmelden
+                <Camera className="w-5 h-5" />
+                Jetzt Sammeln
               </motion.button>
 
               <button
-                onClick={() => openAuthModal("register")}
+                onClick={() => openAuthModal("login")}
                 className="font-normal text-amber-200 hover:text-amber-100 transition-colors drop-shadow-[0_1px_8px_rgba(0,0,0,0.9)]"
                 style={{
                   fontSize: "clamp(1rem, 4vw, 1.2rem)",
                   letterSpacing: "0.04em",
                 }}
               >
-                Kostenlos Registrieren
+                Anmelden
               </button>
             </motion.div>
 
