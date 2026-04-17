@@ -1045,7 +1045,7 @@ export default function GuestHomeFlow() {
                 <p className="text-sm font-semibold text-emerald-100">Für Privatpersonen</p>
                 <p className="mt-1 text-sm text-stone-300">Wenn du uns finanziell unterstützen möchtest, kannst du dabei helfen, Serverkosten und API-Kosten zu decken. Aber das wichtigste ist: Du zeigst, dass dir Floralog am Herzen liegt.</p>
                 <a
-                  href="/Donate"
+                  href="/Donate?from=guest-funnel"
                   className="mt-2 inline-flex text-sm text-emerald-100/90 underline decoration-emerald-200/50 underline-offset-4 hover:text-emerald-50"
                 >
                   Zur Spendenseite
