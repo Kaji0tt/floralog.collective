@@ -5,15 +5,15 @@ import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
 import HomeBottomNavigation from "@/components/navigation/HomeBottomNavigation";
 import { getRgbaFromRgb } from "@/lib/friendColorUtils";
 import { getNavButtonStyle, NAV_COLOR_ORDER } from "@/components/navigation/navButtonStyles";
-import { Leaf, Users, Lock, Scroll, BookOpen, Home as HomeIcon } from "lucide-react";
+import { Leaf, Users, Lock, Scroll, Home as HomeIcon } from "lucide-react";
 import { motion } from "framer-motion";
 
 // ─── Friend tab definitions ───────────────────────────────────────────────────
 const FRIEND_TABS = [
-  { id: "profile",      label: "Profil",    icon: Leaf   },
+  { id: "collection",   label: "Sammlung",  icon: Leaf },
   { id: "achievements", label: "Erfolge",   icon: Scroll },
-  { id: "collection",   label: "Sammlung",  icon: BookOpen },
-  { id: "friends",      label: "Freunde",   icon: Users  },
+  { id: "friends",      label: "Freunde",   icon: Users },
+  { id: "profile",      label: "Profil",    icon: HomeIcon },
 ];
 
 const TAB_PAGES = {
