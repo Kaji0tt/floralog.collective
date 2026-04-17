@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Query } from "@/api/entities";
 import { createUserNotification } from "@/api/notificationService";
+import { supabase } from "@/api/supabaseClient";
 import { sendFriendRequest, removeFriendship, respondToFriendRequest } from "@/api/friendService";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -163,6 +164,13 @@ export function useFriendsFeatureContent({
       console.log("📊 Geladene Discoveries:", discoveries.length);
       return discoveries;
     }
+  });
+
+  const { data: scanLikes = [] } = useQuery({
+    queryKey: ['scanLikesAll'],
+    queryFn: () => Query.ScanLike.list('-created_date', 2000),
+    enabled: !!user?.email,
+    staleTime: 60 * 1000,
   });
 
   // Lade alle Plants
@@ -485,6 +493,78 @@ Viel Spaß beim Entdecken! 🌿`;
     return `/${path}`;
   };
 
+  const handleExplorerLike = async (entry, nextLiked) => {
+    if (!user?.email || !entry?.id || !entry?.actorEmail || entry.actorEmail === ownEmailLower) {
+      return;
+    }
+
+    const existingLike = scanLikes.find(
+      (like) =>
+        like.discovery_id === entry.id &&
+        like.liked_by?.toLowerCase() === ownEmailLower
+    );
+    const currentlyLiked = Boolean(existingLike);
+
+    if (currentlyLiked === nextLiked) {
+      return;
+    }
+
+    try {
+      if (nextLiked) {
+        await Query.ScanLike.create({
+          discovery_id: entry.id,
+          liked_by: user.email,
+          liked_date: new Date().toISOString(),
+          auth_id: user.id,
+          created_by: user.email,
+        });
+
+        const likerName = user.display_name || user.full_name || user.email;
+        const actionParams = new URLSearchParams();
+        if (entry.plant?.genus_id) actionParams.set("id", entry.plant.genus_id);
+        if (entry.actorEmail) actionParams.set("email", entry.actorEmail);
+        actionParams.set("discoveryId", entry.id);
+
+        await Promise.allSettled([
+          createUserNotification({
+            authId: entry.actorAuthId || null,
+            userEmail: entry.actorEmail || null,
+            notificationType: "scan_liked",
+            title: "❤️ Neuer Like",
+            message: `${likerName} gefällt dein Scan${entry.plant?.species_name ? ` (${entry.plant.species_name})` : ""}.`,
+            actionUrl: entry.plant?.genus_id
+              ? `GenusDetail?${actionParams.toString()}`
+              : "Friends?tab=explorer",
+            displayLocation: "banner",
+            createdBy: user.email,
+          }),
+          entry.actorAuthId
+            ? supabase.functions.invoke("robotPlantGrantReward", {
+                body: {
+                  authId: entry.actorAuthId,
+                  userEmail: entry.actorEmail,
+                  eventSource: "scan_like_received",
+                  eventReference: entry.id,
+                  amount: 5,
+                  metadata: {
+                    source: "friends_explorer_like",
+                    likedBy: user.email,
+                  },
+                },
+              })
+            : Promise.resolve(),
+        ]);
+      } else if (existingLike?.id) {
+        await Query.ScanLike.delete(existingLike.id);
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['scanLikesAll'] });
+    } catch (error) {
+      console.error('[Friends] Failed to toggle explorer like:', error);
+      alert('Like konnte nicht gespeichert werden. Bitte versuche es erneut.');
+    }
+  };
+
   const parseActivityDate = (primary, fallback) => {
     const value = primary || fallback;
     if (!value) return null;
@@ -742,6 +822,17 @@ Viel Spaß beim Entdecken! 🌿`;
   };
 
   const ownEmailLower = user?.email?.toLowerCase() || "";
+  const likedDiscoveryIdSet = new Set(
+    scanLikes
+      .filter((like) => like?.discovery_id && like?.liked_by?.toLowerCase() === ownEmailLower)
+      .map((like) => like.discovery_id)
+  );
+  const likeCountByDiscoveryId = scanLikes.reduce((acc, like) => {
+    if (!like?.discovery_id) return acc;
+    acc.set(like.discovery_id, (acc.get(like.discovery_id) || 0) + 1);
+    return acc;
+  }, new Map());
+
   const friendEmailSet = new Set(
     friends
       .map((entry) => {
@@ -797,9 +888,12 @@ Viel Spaß beim Entdecken! 🌿`;
       discovery: entry,
       plant,
       actorEmail: entryEmail,
+      actorAuthId: profile?.auth_id || entry.auth_id || null,
       actorName: profile?.display_name || profile?.full_name || entryEmail,
       actorAvatar: profile?.avatar_url || null,
       scanCount: scansBySameUserPlant.length,
+      likedByCurrentUser: likedDiscoveryIdSet.has(entry.id),
+      likeCount: likeCountByDiscoveryId.get(entry.id) || 0,
       timestamp: new Date(entry.created_date || entry.discovered_date || entry.updated_date || Date.now()),
     });
   });
@@ -1416,7 +1510,27 @@ Viel Spaß beim Entdecken! 🌿`;
                               <Clock className="w-3 h-3" />
                               {formatDistanceToNow(entry.timestamp, { addSuffix: true, locale: de })}
                             </span>
-                            <span className={faintTextClass}>30 Tage Fenster</span>
+                            {entry.actorEmail && entry.actorEmail !== ownEmailLower ? (
+                              <button
+                                type="button"
+                                onClick={() => handleExplorerLike(entry, !entry.likedByCurrentUser)}
+                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors ${
+                                  entry.likedByCurrentUser
+                                    ? (isLightUi
+                                      ? "border-rose-300 bg-rose-50 text-rose-600"
+                                      : "border-rose-400/60 bg-rose-400/10 text-rose-200")
+                                    : (isLightUi
+                                      ? "border-stone-300 text-stone-500 hover:border-rose-300 hover:text-rose-600"
+                                      : "border-stone-600 text-stone-300 hover:border-rose-400/60 hover:text-rose-200")
+                                }`}
+                                aria-label={entry.likedByCurrentUser ? "Like entfernen" : "Scan liken"}
+                              >
+                                <Heart className={`w-3 h-3 ${entry.likedByCurrentUser ? "fill-current" : ""}`} />
+                                <span>{entry.likeCount}</span>
+                              </button>
+                            ) : (
+                              <span className={faintTextClass}>30 Tage Fenster</span>
+                            )}
                           </div>
                         </CardContent>
                       </Card>

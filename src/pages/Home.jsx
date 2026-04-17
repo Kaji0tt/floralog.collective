@@ -112,6 +112,7 @@ export default function Home() {
   const [activePanel, setActivePanel] = useState(null);
   const [shopOpenCategory, setShopOpenCategory] = useState("fertilizer");
   const [careActionMessage, setCareActionMessage] = useState(null);
+  const [careGainFeedback, setCareGainFeedback] = useState(null);
   const [embeddedHeaderMeta, setEmbeddedHeaderMeta] = useState(null);
   const [embeddedFriendsAddDialogNonce, setEmbeddedFriendsAddDialogNonce] = useState(0);
   const [embeddedCollectionPublicPanelOpen, setEmbeddedCollectionPublicPanelOpen] = useState(false);
@@ -354,7 +355,11 @@ export default function Home() {
     refetchOnWindowFocus: true,
   });
 
-  const { data: robotPlantDailyCareStatus = null } = useQuery({
+  const {
+    data: robotPlantDailyCareStatus = null,
+    isFetching: isRobotPlantDailyCareStatusFetching,
+    refetch: refetchRobotPlantDailyCareStatus,
+  } = useQuery({
     queryKey: ['robotPlantDailyCareStatus', user?.id],
     queryFn: () => getRobotPlantDailyCareStatus(user?.id),
     enabled: !!user?.id,
@@ -385,8 +390,17 @@ export default function Home() {
     onSuccess: async (result) => {
       if (!result?.applied) {
         setCareActionMessage('Heute wurde bereits 3x gegossen.');
+        setCareGainFeedback(null);
       } else {
+        const careDelta = Math.max(0, Number(result?.care_delta ?? 0));
         setCareActionMessage(`Gegossen: +${result?.care_delta ?? 0} Pflege (${result?.remaining_waters_today ?? 0} uebrig)`);
+        if (careDelta > 0) {
+          const feedbackId = Date.now();
+          setCareGainFeedback({ id: feedbackId, delta: careDelta });
+          window.setTimeout(() => {
+            setCareGainFeedback((prev) => (prev?.id === feedbackId ? null : prev));
+          }, 1300);
+        }
       }
 
       await queryClient.invalidateQueries({ queryKey: ['robotPlantState'] });
@@ -781,6 +795,14 @@ export default function Home() {
   }, [showHealthStatsPanel]);
 
   useEffect(() => {
+    if (!showHealthStatsPanel || !user?.id) {
+      return;
+    }
+
+    refetchRobotPlantDailyCareStatus();
+  }, [showHealthStatsPanel, user?.id, refetchRobotPlantDailyCareStatus]);
+
+  useEffect(() => {
     const panel = healthStatsPanelRef.current;
     if (!panel) return;
 
@@ -869,6 +891,7 @@ export default function Home() {
   const wateringCountToday = Math.max(0, Number(robotPlantDailyCareStatus?.wateringCountToday ?? 0));
   const wateringLimitPerDay = Math.max(1, Number(robotPlantDailyCareStatus?.wateringLimitPerDay ?? 3));
   const remainingWatersToday = Math.max(0, Number(robotPlantDailyCareStatus?.remainingWatersToday ?? (wateringLimitPerDay - wateringCountToday)));
+  const isDailyCareStatusLoading = Boolean(user?.id) && (isRobotPlantDailyCareStatusFetching || !robotPlantDailyCareStatus);
 
   const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
   const currentMonthlyQuest = getCurrentMonthlyQuest(monthlyQuests);
@@ -1893,6 +1916,7 @@ export default function Home() {
                             healthStateBonus={healthStateBonus}
                             healthStats={healthStats}
                             isLoading={isPlantHealthPending}
+                            isDailyCareLoading={isDailyCareStatusLoading}
                             wateringCountToday={wateringCountToday}
                             wateringLimitPerDay={wateringLimitPerDay}
                             remainingWatersToday={remainingWatersToday}
@@ -1900,6 +1924,7 @@ export default function Home() {
                             isFertilizerPending={useInventoryItemMutation.isPending}
                             activeDecayEffects={activeDecayEffects}
                             activeDecayPercent={activeDecayPercent}
+                            careGainFeedback={careGainFeedback}
                             onWaterPlant={handleWaterPlantClick}
                             onFertilizerSlot={handleFertilizerSlotClick}
                           />

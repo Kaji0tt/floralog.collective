@@ -443,6 +443,22 @@ export default function GenusDetail() {
     }
   };
 
+  const getRarityBorderColor = (rarity) => {
+    switch (rarity) {
+      case "Extrem Selten":
+        return isLightUi ? "border-red-300" : "border-red-300/70";
+      case "Sehr Selten":
+        return isLightUi ? "border-orange-300" : "border-orange-300/70";
+      case "Selten":
+        return isLightUi ? "border-fuchsia-300" : "border-fuchsia-300/70";
+      case "Gelegentlich":
+        return isLightUi ? "border-green-300" : "border-emerald-300/60";
+      case "Häufig":
+      default:
+        return isLightUi ? "border-stone-300" : "border-stone-500/60";
+    }
+  };
+
   const getRarityStars = (rarity) => {
     switch(rarity) {
       case "Häufig": return "⭐";
@@ -586,7 +602,7 @@ export default function GenusDetail() {
               onClick={() => plant.discovered && setExpandedPlant(plant)}
               className={`border shadow-sm transition-all duration-300 overflow-hidden ${
                 plant.discovered 
-                  ? (isLightUi ? 'border-green-200 hover:shadow-md bg-white cursor-pointer' : 'border-emerald-300/35 hover:shadow-md bg-black/40 cursor-pointer')
+                  ? `${getRarityBorderColor(plant.rarity)} hover:shadow-md ${isLightUi ? 'bg-white cursor-pointer' : 'bg-black/40 cursor-pointer'}`
                   : (isLightUi ? 'border-stone-200 bg-stone-50' : 'border-stone-700/60 bg-black/30')
               }`}
             >

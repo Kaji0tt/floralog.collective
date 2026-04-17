@@ -1,5 +1,5 @@
-import React from "react";
-import { motion } from "framer-motion";
+import React, { useEffect } from "react";
+import { motion, AnimatePresence, useAnimationControls } from "framer-motion";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import { useUiTheme } from "@/lib/UiThemeContext";
 
@@ -16,6 +16,7 @@ export default function PlantHeroHealthPanel({
   healthStateBonus,
   healthStats,
   isLoading = false,
+  isDailyCareLoading = false,
   wateringCountToday = 0,
   wateringLimitPerDay = 0,
   remainingWatersToday = 0,
@@ -23,12 +24,25 @@ export default function PlantHeroHealthPanel({
   isFertilizerPending = false,
   activeDecayEffects = [],
   activeDecayPercent = 0,
+  careGainFeedback = null,
   onWaterPlant = () => {},
   onFertilizerSlot = () => {},
   showCareActions = true,
 }) {
   const { isLightUi } = useUiTheme();
   const safeHealthStats = Array.isArray(healthStats) ? healthStats : [];
+  const wateringPulseControls = useAnimationControls();
+
+  useEffect(() => {
+    if (!careGainFeedback?.id || Number(careGainFeedback?.delta || 0) <= 0) {
+      return;
+    }
+
+    wateringPulseControls.start({
+      scale: [1, 1.06, 0.98, 1],
+      transition: { duration: 0.34, ease: "easeOut" },
+    });
+  }, [careGainFeedback?.id, careGainFeedback?.delta, wateringPulseControls]);
 
   return (
     <motion.div
@@ -62,7 +76,7 @@ export default function PlantHeroHealthPanel({
         {safeHealthStats.map((stat) => (
           <div key={stat.id} className="space-y-1">
             <div
-              className={`flex items-center justify-between text-[11px] md:text-xs ${
+              className={`relative flex items-center justify-between text-[11px] md:text-xs ${
                 isLightUi ? "text-stone-700" : "text-stone-100/90"
               }`}
             >
@@ -82,6 +96,25 @@ export default function PlantHeroHealthPanel({
                 </button>
               </LockedTooltip>
               <span className="font-bold">{isLoading ? "..." : `${stat.value}%`}</span>
+
+              <AnimatePresence>
+                {stat.id === "care" && Number(careGainFeedback?.delta || 0) > 0 && (
+                  <motion.span
+                    key={careGainFeedback?.id}
+                    initial={{ opacity: 0, y: 8, scale: 0.9 }}
+                    animate={{ opacity: 1, y: -10, scale: 1 }}
+                    exit={{ opacity: 0, y: -24, scale: 1.03 }}
+                    transition={{ duration: 0.85, ease: "easeOut" }}
+                    className="absolute right-0 -top-5 text-xs md:text-sm font-bold pointer-events-none"
+                    style={{
+                      color: stat.color,
+                      textShadow: "0 0 12px rgba(245,158,11,0.45)",
+                    }}
+                  >
+                    +{careGainFeedback.delta}
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </div>
             <div className="h-2 rounded-full overflow-hidden bg-black/35 border border-black/25">
               <div
@@ -99,10 +132,11 @@ export default function PlantHeroHealthPanel({
 
         {showCareActions && (
           <div className="grid grid-cols-2 gap-2 pt-1">
-            <button
+            <motion.button
               type="button"
               onClick={onWaterPlant}
-              disabled={isLoading || isWateringPending || remainingWatersToday <= 0}
+              disabled={isLoading || isDailyCareLoading || isWateringPending || remainingWatersToday <= 0}
+              animate={wateringPulseControls}
               className={`h-14 rounded-xl border flex flex-col items-center justify-center disabled:opacity-60 ${
                 isLightUi
                   ? "border-[#c8ac62]/55 bg-white/60 text-stone-800"
@@ -113,9 +147,9 @@ export default function PlantHeroHealthPanel({
                 Gießen
               </span>
               <span className="text-[10px] md:text-[11px] mt-1 leading-none opacity-90">
-                {isLoading ? "..." : `${wateringCountToday}/${wateringLimitPerDay}`}
+                {(isLoading || isDailyCareLoading) ? "..." : `${wateringCountToday}/${wateringLimitPerDay}`}
               </span>
-            </button>
+            </motion.button>
 
             <button
               type="button"
