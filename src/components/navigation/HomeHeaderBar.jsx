@@ -61,7 +61,7 @@ export default function HomeHeaderBar({
       <div className="flex items-center gap-2 shrink-0">
         {!!embeddedInfoLabel && isEmbeddedMode && (
           <span
-            className={`hidden sm:inline-flex items-center h-9 rounded-full border px-3 text-xs font-semibold ${
+            className={`inline-flex items-center h-11 rounded-full border backdrop-blur-md px-3 text-xs font-semibold ${
               isLightUi
                 ? "border-[#c8ac62]/55 bg-white/65 text-[#8f6b22]"
                 : "border-[#f0e5a5]/35 bg-black/30 text-[#f0e5a5]"

@@ -1357,7 +1357,7 @@ export default function Home() {
 
   const embeddedSubtitle = embeddedHeaderMeta?.subtitle || null;
   const embeddedInfoLabel = embeddedHeaderMeta?.infoLabel || null;
-  const shouldDockEmbeddedChipHeader = activePanel === "achievements" || activePanel === "friends";
+  const shouldDockEmbeddedChipHeader = activePanel === "achievements" || activePanel === "friends" || activePanel === "shop";
 
   const handleRegenerateZones = async () => {
     if (isRegeneratingZones || !user?.id) return;

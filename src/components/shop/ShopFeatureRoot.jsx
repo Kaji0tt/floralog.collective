@@ -227,88 +227,52 @@ export default function ShopFeatureRoot({
     onHeaderMetaChange({
       title: "Shop",
       subtitle: currentCategoryMeta.subtitle,
-      infoLabel: `${filteredShopItems.length} Artikel`,
+      infoLabel: `${playerSeeds} Samen`,
     });
-  }, [currentCategoryMeta.subtitle, embedded, filteredShopItems.length, onHeaderMetaChange]);
+  }, [currentCategoryMeta.subtitle, embedded, onHeaderMetaChange, playerSeeds]);
 
   return (
     <section
       data-embedded-module="shop"
       data-theme={isLightUi ? "light" : "dark"}
-      className={`flex-1 min-h-0 rounded-3xl border overflow-hidden flex flex-col ${
-        isLightUi
-          ? "border-[#c0a860]/50 backdrop-blur-xl"
-          : "border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm"
-      }`}
+      className="flex-1 min-h-0 overflow-hidden flex flex-col"
     >
       <div className={`${tabsHeaderClass} shrink-0`}>
-        <div className="w-full">
-          <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className={`text-base md:text-lg font-semibold truncate ${isLightUi ? "text-stone-900" : "text-stone-100"}`}>
-                {currentCategoryMeta.title}
-              </div>
-              <div className={`text-[11px] md:text-xs mt-1 truncate ${isLightUi ? "text-stone-600" : "text-stone-300/80"}`}>
-                {currentCategoryMeta.subtitle}
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Badge className={`${isLightUi ? "bg-stone-800 text-white" : "bg-stone-100 text-stone-900"} text-[10px] px-2 py-1`}>
-                {playerSeeds} Samen
-              </Badge>
-            </div>
-          </div>
-
-          {!!careActionMessage && (
-            <div className="px-4 pb-2">
-              <div
-                className={`text-[11px] md:text-xs px-2.5 py-1.5 rounded-xl border ${
-                  isLightUi
-                    ? "bg-white/55 border-[#c8ac62]/50 text-stone-700"
-                    : "bg-black/40 border-[#f0e5a5]/45 text-stone-100"
-                }`}
-              >
-                {careActionMessage}
-              </div>
-            </div>
-          )}
-
-          <div className={`px-2 pb-2 ${embedded ? "" : "border-t border-stone-200/60"}`}>
-            <div className="overflow-x-auto pb-1">
-              <div className="flex min-w-max gap-2 px-2">
-                {categoryChips.map((chip) => {
-                  const isPrimary = shopCategory === chip.key;
-                  return (
-                    <button
-                      key={chip.key}
-                      type="button"
-                      onClick={() => setShopCategory(chip.key)}
-                      className={
-                        "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors " +
-                        (isPrimary
-                          ? (isLightUi
-                            ? "bg-white/90 text-[#8f6b22] shadow-sm"
-                            : "bg-black/55 text-[#f7f0c1] shadow-sm")
-                          : (isLightUi
-                            ? "bg-white/55 text-stone-700 hover:bg-white/75"
-                            : "bg-black/35 text-stone-200 hover:bg-black/50"))
-                      }
-                      style={{
-                        borderColor: isPrimary
-                          ? (isLightUi ? "rgba(200,172,98,0.70)" : "rgba(240,229,165,0.75)")
-                          : (isLightUi ? "rgba(200,172,98,0.35)" : "rgba(255,255,255,0.3)"),
-                      }}
-                    >
-                      <span className="font-medium">{chip.label}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isPrimary
-                        ? (isLightUi ? "bg-[#f3e4bf] text-[#8f6b22]" : "bg-[#3a2f19] text-[#f7f0c1]")
-                        : (isLightUi ? "bg-stone-100 text-stone-500" : "bg-stone-800 text-stone-300")}`}>
-                        {chip.count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+        <div className="w-full px-2 py-2">
+          <div className="overflow-x-auto pb-1">
+            <div className="flex min-w-max gap-2 px-2">
+              {categoryChips.map((chip) => {
+                const isPrimary = shopCategory === chip.key;
+                return (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    onClick={() => setShopCategory(chip.key)}
+                    className={
+                      "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors " +
+                      (isPrimary
+                        ? (isLightUi
+                          ? "bg-white/90 text-[#8f6b22] shadow-sm"
+                          : "bg-black/55 text-[#f7f0c1] shadow-sm")
+                        : (isLightUi
+                          ? "bg-white/55 text-stone-700 hover:bg-white/75"
+                          : "bg-black/35 text-stone-200 hover:bg-black/50"))
+                    }
+                    style={{
+                      borderColor: isPrimary
+                        ? (isLightUi ? "rgba(200,172,98,0.70)" : "rgba(240,229,165,0.75)")
+                        : (isLightUi ? "rgba(200,172,98,0.35)" : "rgba(255,255,255,0.3)"),
+                    }}
+                  >
+                    <span className="font-medium">{chip.label}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isPrimary
+                      ? (isLightUi ? "bg-[#f3e4bf] text-[#8f6b22]" : "bg-[#3a2f19] text-[#f7f0c1]")
+                      : (isLightUi ? "bg-stone-100 text-stone-500" : "bg-stone-800 text-stone-300")}`}>
+                      {chip.count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -316,28 +280,24 @@ export default function ShopFeatureRoot({
 
       <div className={contentClass} style={contentMaskStyle}>
         <div className="max-w-5xl mx-auto space-y-3" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
-          <div
-            className={`rounded-2xl border px-3 py-2 text-[11px] md:text-xs ${
-              isLightUi
-                ? "border-[#c8ac62]/45 bg-white/50 text-stone-700"
-                : "border-[#f0e5a5]/35 bg-black/35 text-stone-100"
-            }`}
-          >
+          {!!careActionMessage && (
+            <div className={`text-[11px] md:text-xs ${isLightUi ? "text-stone-700" : "text-stone-200/90"}`}>
+              {careActionMessage}
+            </div>
+          )}
+
+          <div className={`text-[11px] md:text-xs ${isLightUi ? "text-stone-700" : "text-stone-200/90"}`}>
             Aktive Duenger-Effekte: {activeDecayEffects.length} | Reduktion auf Tages-Decay: {Math.round(activeDecayPercent * 100)}%
           </div>
 
           {showShopLoadingState ? (
-            <div className={`rounded-[1.4rem] border px-4 py-8 flex flex-col items-center justify-center gap-3 ${
-              isLightUi ? "border-[#d9c48a]/45 bg-white/72" : "border-[#f0e5a5]/25 bg-black/30"
-            }`}>
+            <div className="px-1 py-6 flex flex-col items-center justify-center gap-2 text-center">
               <Loader2 className={`w-6 h-6 animate-spin ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
               <div className={`text-sm font-medium ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Shop wird geladen</div>
               <div className={`text-xs ${isLightUi ? "text-stone-500" : "text-stone-300/80"}`}>Artikel werden aus der Datenbank geladen.</div>
             </div>
           ) : shopItemsError ? (
-            <div className={`rounded-[1.4rem] border px-4 py-8 flex flex-col items-center justify-center gap-3 text-center ${
-              isLightUi ? "border-[#d9c48a]/45 bg-white/72" : "border-[#f0e5a5]/25 bg-black/30"
-            }`}>
+            <div className="px-1 py-6 flex flex-col items-center justify-center gap-3 text-center">
               <ShoppingBag className={`w-6 h-6 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
               <div className={`text-sm font-medium ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Shopdaten konnten nicht geladen werden</div>
               <div className={`text-xs max-w-md ${isLightUi ? "text-stone-500" : "text-stone-300/80"}`}>
@@ -357,9 +317,7 @@ export default function ShopFeatureRoot({
               </button>
             </div>
           ) : filteredShopItems.length === 0 ? (
-            <div className={`rounded-[1.4rem] border px-4 py-8 flex flex-col items-center justify-center gap-3 text-center ${
-              isLightUi ? "border-[#d9c48a]/45 bg-white/72" : "border-[#f0e5a5]/25 bg-black/30"
-            }`}>
+            <div className="px-1 py-6 flex flex-col items-center justify-center gap-2 text-center">
               <Sparkles className={`w-6 h-6 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
               <div className={`text-sm font-medium ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Keine Artikel in dieser Kategorie</div>
               <div className={`text-xs ${isLightUi ? "text-stone-500" : "text-stone-300/80"}`}>
