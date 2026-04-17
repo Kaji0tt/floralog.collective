@@ -79,6 +79,7 @@ export default function ShopFeatureRoot({
   const [careActionMessage, setCareActionMessage] = useState(null);
   const [lastResolvedCategory, setLastResolvedCategory] = useState(initialCategory);
   const [purchaseQuantities, setPurchaseQuantities] = useState({});
+  const [selectedShopItemId, setSelectedShopItemId] = useState(null);
 
   const { data: fallbackUser = null } = useQuery({
     queryKey: ["shopCurrentUser"],
@@ -228,6 +229,14 @@ export default function ShopFeatureRoot({
     return item.item_type === shopCategory;
   });
 
+  useEffect(() => {
+    if (!selectedShopItemId) return;
+    const stillVisible = filteredShopItems.some((item) => item.id === selectedShopItemId);
+    if (!stillVisible) {
+      setSelectedShopItemId(null);
+    }
+  }, [filteredShopItems, selectedShopItemId]);
+
   const activeDecayEffects = robotPlantActiveEffects
     .filter((effect) => effect.effect_type === "decay_reduction")
     .sort((a, b) => new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime());
@@ -364,15 +373,23 @@ export default function ShopFeatureRoot({
               const selectedQuantity = maxAffordable <= 0
                 ? 0
                 : Math.max(1, Math.min(maxAffordable, Number(purchaseQuantities[item.id] || 1)));
+              const isSelectedItem = selectedShopItemId === item.id;
 
               return (
                 <div
                   key={item.id}
-                  className={`relative overflow-hidden rounded-2xl border backdrop-blur-md px-3 py-3 ${
+                  onClick={() => setSelectedShopItemId(item.id)}
+                  className={`relative overflow-hidden rounded-2xl border backdrop-blur-md px-3 py-3 cursor-pointer transition-all duration-200 ease-out will-change-transform ${
                     isLightUi
-                      ? "border-[#c8ac62]/35 bg-white/78 shadow-[0_14px_32px_rgba(162,129,48,0.12)]"
-                      : "border-[#f0e5a5]/30 bg-black/36 shadow-[0_16px_34px_rgba(0,0,0,0.28)]"
-                  }`}
+                      ? "border-[#c8ac62]/35 bg-white/78"
+                      : "border-[#f0e5a5]/30 bg-black/36"
+                  } ${isSelectedItem
+                    ? (isLightUi
+                      ? "border-[#c8ac62]/75 ring-2 ring-[#c8ac62]/70 scale-[1.01] shadow-[0_0_0_1px_rgba(200,172,98,0.25),0_16px_34px_rgba(162,129,48,0.22),0_0_24px_rgba(200,172,98,0.30)]"
+                      : "border-[#f0e5a5]/65 ring-2 ring-[#f0e5a5]/60 scale-[1.01] shadow-[0_0_0_1px_rgba(240,229,165,0.22),0_18px_36px_rgba(0,0,0,0.45),0_0_24px_rgba(240,229,165,0.25)]")
+                    : (isLightUi
+                      ? "shadow-[0_14px_32px_rgba(162,129,48,0.12)]"
+                      : "shadow-[0_16px_34px_rgba(0,0,0,0.28)]")}`}
                 >
                   <div className={`absolute left-0 top-0 h-full w-1 ${isLightUi ? "bg-[#c8ac62]/55" : "bg-[#f0e5a5]/55"}`} />
                   <div
@@ -384,9 +401,20 @@ export default function ShopFeatureRoot({
                     }}
                   />
                   <div
-                    className={`absolute inset-0 ${isLightUi ? "bg-white/18" : "bg-black/16"}`}
-                    style={{ backdropFilter: "blur(6px)" }}
+                    className={`absolute inset-0 ${isSelectedItem ? (isLightUi ? "bg-white/42" : "bg-black/46") : (isLightUi ? "bg-white/30" : "bg-black/30")}`}
+                    style={{ backdropFilter: "blur(10px)" }}
                   />
+                  {isSelectedItem && (
+                    <div
+                      className="absolute inset-0 pointer-events-none"
+                      style={{
+                        background: isLightUi
+                          ? "radial-gradient(circle at 82% 14%, rgba(200,172,98,0.34) 0%, rgba(200,172,98,0.06) 38%, rgba(255,255,255,0) 65%)"
+                          : "radial-gradient(circle at 82% 14%, rgba(240,229,165,0.22) 0%, rgba(240,229,165,0.05) 42%, rgba(0,0,0,0) 68%)",
+                        filter: "blur(8px)",
+                      }}
+                    />
+                  )}
 
                   <div className="relative z-10 flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
@@ -398,6 +426,7 @@ export default function ShopFeatureRoot({
                           <PopoverTrigger asChild>
                             <button
                               type="button"
+                              onClick={(event) => event.stopPropagation()}
                               className={`shrink-0 w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${
                                 isLightUi
                                   ? "bg-white/85 border-[#c8ac62]/45 text-[#8f6b22] hover:bg-white"
@@ -442,69 +471,80 @@ export default function ShopFeatureRoot({
                     </div>
                   </div>
 
-                  <div className="relative z-10 mt-3 flex flex-wrap items-center gap-2">
-                    <div
-                      className={`inline-flex items-center h-[30px] rounded-full border overflow-hidden disabled:opacity-60 ${
-                        isLightUi
-                          ? "border-[#c8ac62]/55 bg-white/65 text-stone-800"
-                          : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        disabled={isBusy || selectedQuantity <= 1}
-                        onClick={() => updatePurchaseQuantity(item.id, selectedQuantity - 1, maxAffordable)}
-                        className={`h-full w-8 text-sm font-semibold disabled:opacity-35 ${
-                          isLightUi ? "hover:bg-white/80" : "hover:bg-black/55"
+                  {isSelectedItem && (
+                    <div className="relative z-10 mt-3 flex flex-wrap items-center justify-between gap-2">
+                      <div
+                        className={`inline-flex items-center h-[30px] rounded-full border overflow-hidden ${
+                          isLightUi
+                            ? "border-[#c8ac62]/55 bg-white/65 text-stone-800"
+                            : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
                         }`}
-                        aria-label={`Menge fuer ${item.title} verringern`}
+                        onClick={(event) => event.stopPropagation()}
                       >
-                        -
-                      </button>
-                      <div className={`h-full min-w-12 px-2 flex items-center justify-center text-[11px] font-semibold border-x ${
-                        isLightUi ? "border-[#c8ac62]/35" : "border-[#f0e5a5]/25"
-                      }`}>
-                        {selectedQuantity}
+                        <button
+                          type="button"
+                          disabled={isBusy || selectedQuantity <= 1}
+                          onClick={() => updatePurchaseQuantity(item.id, selectedQuantity - 1, maxAffordable)}
+                          className={`h-full w-8 text-sm font-semibold disabled:opacity-35 ${
+                            isLightUi ? "hover:bg-white/80" : "hover:bg-black/55"
+                          }`}
+                          aria-label={`Menge fuer ${item.title} verringern`}
+                        >
+                          -
+                        </button>
+                        <div className={`h-full min-w-12 px-2 flex items-center justify-center text-[11px] font-semibold border-x ${
+                          isLightUi ? "border-[#c8ac62]/35" : "border-[#f0e5a5]/25"
+                        }`}>
+                          {selectedQuantity}
+                        </div>
+                        <button
+                          type="button"
+                          disabled={isBusy || maxAffordable <= 0 || selectedQuantity >= maxAffordable}
+                          onClick={() => updatePurchaseQuantity(item.id, selectedQuantity + 1, maxAffordable)}
+                          className={`h-full w-8 text-sm font-semibold disabled:opacity-35 ${
+                            isLightUi ? "hover:bg-white/80" : "hover:bg-black/55"
+                          }`}
+                          aria-label={`Menge fuer ${item.title} erhoehen`}
+                        >
+                          +
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        disabled={isBusy || maxAffordable <= 0 || selectedQuantity >= maxAffordable}
-                        onClick={() => updatePurchaseQuantity(item.id, selectedQuantity + 1, maxAffordable)}
-                        className={`h-full w-8 text-sm font-semibold disabled:opacity-35 ${
-                          isLightUi ? "hover:bg-white/80" : "hover:bg-black/55"
-                        }`}
-                        aria-label={`Menge fuer ${item.title} erhoehen`}
-                      >
-                        +
-                      </button>
+
                       <button
                         type="button"
                         disabled={isBusy || maxAffordable <= 0}
-                        onClick={() => purchaseShopItemMutation.mutate({ itemId: item.id, quantity: selectedQuantity })}
-                        className={`h-full px-3 text-[11px] font-semibold ${
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          purchaseShopItemMutation.mutate({ itemId: item.id, quantity: selectedQuantity });
+                        }}
+                        className={`h-[30px] px-3 rounded-full text-[11px] font-semibold border disabled:opacity-60 ${
                           isLightUi
-                            ? "bg-white/25 hover:bg-white/45"
-                            : "bg-black/15 hover:bg-black/35"
+                            ? "border-[#c8ac62]/55 bg-white/65 text-stone-800 hover:bg-white/85"
+                            : "border-[#f0e5a5]/45 bg-black/40 text-stone-100 hover:bg-black/55"
                         }`}
                       >
                         Kaufen
                       </button>
+
+                      {canUse && (
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            useInventoryItemMutation.mutate({ itemId: item.id });
+                          }}
+                          className={`h-9 px-3 rounded-full text-[11px] font-semibold border disabled:opacity-60 ${
+                            isLightUi
+                              ? "border-emerald-500/50 bg-emerald-100/70 text-emerald-900"
+                              : "border-emerald-400/40 bg-emerald-900/35 text-emerald-100"
+                          }`}
+                        >
+                          Im Slot aktivieren
+                        </button>
+                      )}
                     </div>
-                    {canUse && (
-                      <button
-                        type="button"
-                        disabled={isBusy}
-                        onClick={() => useInventoryItemMutation.mutate({ itemId: item.id })}
-                        className={`h-9 px-3 rounded-full text-[11px] font-semibold border disabled:opacity-60 ${
-                          isLightUi
-                            ? "border-emerald-500/50 bg-emerald-100/70 text-emerald-900"
-                            : "border-emerald-400/40 bg-emerald-900/35 text-emerald-100"
-                        }`}
-                      >
-                        Im Slot aktivieren
-                      </button>
-                    )}
-                  </div>
+                  )}
                 </div>
               );
             })
