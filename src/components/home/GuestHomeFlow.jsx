@@ -620,7 +620,7 @@ export default function GuestHomeFlow() {
           backgroundImage: `url(${GUEST_MG_IMAGE_URL})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
-          transform: `translate3d(${(tiltOffset.x * 0.3).toFixed(2)}px, ${(tiltOffset.y * 0.3).toFixed(2)}px, 0) scale(1.08)`,
+          transform: `translate3d(${(tiltOffset.x * 0.15).toFixed(2)}px, ${(tiltOffset.y * 0.15).toFixed(2)}px, 0) scale(1.08)`,
           willChange: "transform",
         }}
       />
