@@ -593,27 +593,14 @@ export function useAchievementsFeatureContent({
   useEffect(() => {
     if (!embedded || typeof onHeaderMetaChange !== "function") return;
 
-    const infoLabel = activeTab === "quests"
-      ? `${userQuests.length + userWeeklyQuests.length + userMonthlyQuests.length} Quests`
-      : activeTab === "achievements"
-        ? `${unlockedCount}/${achievements.length} Erfolge`
-        : `${userDiscoveries.length} Scans`;
-
     onHeaderMetaChange({
       title: activeTab === "quests" ? "Aufgaben" : activeTab === "achievements" ? "Erfolge" : "Statistik",
       subtitle: activeTab === "stats" ? "Deine Scan-Insights und Vergleich mit Freunden" : "Dein Fortschritt im Ueberblick",
-      infoLabel,
     });
   }, [
     embedded,
     onHeaderMetaChange,
     activeTab,
-    userQuests.length,
-    userWeeklyQuests.length,
-    userMonthlyQuests.length,
-    unlockedCount,
-    achievements.length,
-    userDiscoveries.length,
   ]);
 
   if (!user) {

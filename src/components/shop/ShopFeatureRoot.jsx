@@ -227,9 +227,8 @@ export default function ShopFeatureRoot({
     onHeaderMetaChange({
       title: "Shop",
       subtitle: currentCategoryMeta.subtitle,
-      infoLabel: `${playerSeeds} Samen`,
     });
-  }, [currentCategoryMeta.subtitle, embedded, onHeaderMetaChange, playerSeeds]);
+  }, [currentCategoryMeta.subtitle, embedded, onHeaderMetaChange]);
 
   return (
     <section
@@ -285,10 +284,6 @@ export default function ShopFeatureRoot({
               {careActionMessage}
             </div>
           )}
-
-          <div className={`text-[11px] md:text-xs ${isLightUi ? "text-stone-700" : "text-stone-200/90"}`}>
-            Aktive Duenger-Effekte: {activeDecayEffects.length} | Reduktion auf Tages-Decay: {Math.round(activeDecayPercent * 100)}%
-          </div>
 
           {showShopLoadingState ? (
             <div className="px-1 py-6 flex flex-col items-center justify-center gap-2 text-center">

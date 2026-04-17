@@ -2,10 +2,15 @@ import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUiTheme } from "@/lib/UiThemeContext";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export default function HomeBottomNavigation({
   navItems,
   controlsScale,
+  leftChipLabel = null,
+  rightChipLabel = null,
+  rightChipTooltipTitle = null,
+  rightChipTooltipBody = null,
 }) {
   const { isLightUi } = useUiTheme();
   const [isNavVisible, setIsNavVisible] = useState(true);
@@ -17,7 +22,7 @@ export default function HomeBottomNavigation({
   return (
     <div className="w-full space-y-[clamp(0.5rem,1.2vh,1rem)] select-none touch-none">
       {/* Trennlinie mit Dreieck */}
-      <div className="relative w-full h-px flex items-center justify-center">
+      <div className="relative w-full h-8 flex items-center justify-center">
         {/* Linke Trennlinie */}
         <div
           className={`absolute left-0 h-px flex-1 ${
@@ -53,6 +58,68 @@ export default function HomeBottomNavigation({
             />
           </motion.div>
         </motion.button>
+
+        {leftChipLabel && (
+          <div className="absolute left-0 top-1/2 -translate-y-1/2">
+            <span
+              className={`inline-flex items-center h-8 rounded-full border px-3 text-[11px] font-semibold backdrop-blur-sm ${
+                isLightUi
+                  ? "border-[#c8ac62]/55 bg-white/65 text-[#8f6b22]"
+                  : "border-[#f0e5a5]/35 bg-black/35 text-[#f0e5a5]"
+              }`}
+            >
+              {leftChipLabel}
+            </span>
+          </div>
+        )}
+
+        {rightChipLabel && (
+          <div className="absolute right-0 top-1/2 -translate-y-1/2">
+            {rightChipTooltipBody ? (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className={`inline-flex items-center h-8 rounded-full border px-3 text-[11px] font-semibold backdrop-blur-sm transition-colors ${
+                      isLightUi
+                        ? "border-[#c8ac62]/55 bg-white/65 text-[#8f6b22] hover:bg-white/80"
+                        : "border-[#f0e5a5]/35 bg-black/35 text-[#f0e5a5] hover:bg-black/50"
+                    }`}
+                  >
+                    {rightChipLabel}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="end"
+                  className={isLightUi
+                    ? "w-72 border-[#c8ac62]/55 bg-white/95 text-stone-800"
+                    : "w-72 bg-emerald-950/95 border-amber-600/40 text-amber-50/90"}
+                >
+                  <div className="space-y-2">
+                    {rightChipTooltipTitle && (
+                      <h3 className={`text-sm font-semibold ${isLightUi ? "text-[#8f6b22]" : "text-amber-300"}`}>
+                        {rightChipTooltipTitle}
+                      </h3>
+                    )}
+                    <p className={`text-xs ${isLightUi ? "text-stone-700" : "text-amber-50/80"}`}>
+                      {rightChipTooltipBody}
+                    </p>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            ) : (
+              <span
+                className={`inline-flex items-center h-8 rounded-full border px-3 text-[11px] font-semibold backdrop-blur-sm ${
+                  isLightUi
+                    ? "border-[#c8ac62]/55 bg-white/65 text-[#8f6b22]"
+                    : "border-[#f0e5a5]/35 bg-black/35 text-[#f0e5a5]"
+                }`}
+              >
+                {rightChipLabel}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Rechte Trennlinie */}
         <div

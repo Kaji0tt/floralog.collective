@@ -51,6 +51,19 @@ export default function HomeHeaderBar({
             </p>
           </div>
         )}
+        {!!embeddedInfoLabel && isEmbeddedMode && (
+          <div className="mt-2">
+            <span
+              className={`inline-flex items-center h-7 rounded-full border px-2.5 text-[11px] font-semibold max-w-full ${
+                isLightUi
+                  ? "border-[#c8ac62]/55 bg-white/60 text-[#8f6b22]"
+                  : "border-[#f0e5a5]/35 bg-black/30 text-[#f0e5a5]"
+              }`}
+            >
+              <span className="truncate">{embeddedInfoLabel}</span>
+            </span>
+          </div>
+        )}
         <div className="hidden mt-1 h-8 items-center gap-1" aria-hidden="true">
           <span className="w-8 h-8 rounded-full border border-white/25 bg-white/10" />
           <span className="w-8 h-8 rounded-full border border-white/25 bg-white/10" />
@@ -59,18 +72,6 @@ export default function HomeHeaderBar({
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        {!!embeddedInfoLabel && isEmbeddedMode && (
-          <span
-            className={`inline-flex items-center h-11 rounded-full border backdrop-blur-md px-3 text-xs font-semibold ${
-              isLightUi
-                ? "border-[#c8ac62]/55 bg-white/65 text-[#8f6b22]"
-                : "border-[#f0e5a5]/35 bg-black/30 text-[#f0e5a5]"
-            }`}
-          >
-            {embeddedInfoLabel}
-          </span>
-        )}
-
         {showEmbeddedCollection && (
           <button
             type="button"

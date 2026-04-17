@@ -965,24 +965,14 @@ Viel Spaß beim Entdecken! 🌿`;
   useEffect(() => {
     if (!embedded || typeof onHeaderMetaChange !== "function") return;
 
-    const infoLabel = activeTab === "friends"
-      ? `${friends.length} Freunde`
-      : activeTab === "news"
-        ? `${unreadNewsCount} Neuigkeiten`
-        : `${explorerLogEntries.length} Log-Einträge`;
-
     onHeaderMetaChange({
       title: activeTab === "friends" ? "Social" : activeTab === "news" ? "Neuigkeiten" : "Forscher Log",
       subtitle: activeTab === "explorer" ? "Scans der letzten 30 Tage" : "Dein Freundesbereich",
-      infoLabel,
     });
   }, [
     embedded,
     onHeaderMetaChange,
     activeTab,
-    friends.length,
-    unreadNewsCount,
-    explorerLogEntries.length,
   ]);
 
   if (!user) {
