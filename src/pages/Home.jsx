@@ -1732,6 +1732,8 @@ export default function Home() {
                 ) : activePanel === "shop" ? (
                   <ShopFeatureRoot
                     embedded
+                    authId={user?.id}
+                    onHeaderMetaChange={setEmbeddedHeaderMeta}
                     playerSeeds={playerSeeds}
                     initialCategory={shopOpenCategory}
                   />

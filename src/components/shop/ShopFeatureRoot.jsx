@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   listRobotPlantShopItems,
@@ -7,44 +7,148 @@ import {
   purchaseRobotPlantShopItem,
   useRobotPlantInventoryItem,
 } from "@/api/robotPlantService";
+import { getCurrentUser } from "@/api/userApi";
 import { useUiTheme } from "@/lib/UiThemeContext";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, RefreshCw, Sparkles, ShoppingBag } from "lucide-react";
+
+const KNOWN_CATEGORY_ORDER = ["fertilizer", "accessory", "background"];
+const CATEGORY_META = {
+  fertilizer: {
+    title: "Duenger",
+    subtitle: "Pflege-Boosts fuer deine Pflanze",
+  },
+  accessory: {
+    title: "Accessoires",
+    subtitle: "Kosmetische Extras und Freischaltungen",
+  },
+  background: {
+    title: "Hintergruende",
+    subtitle: "Neue Stimmungen fuer deine Home-Ansicht",
+  },
+  all: {
+    title: "Alle Artikel",
+    subtitle: "Gesamtes Sortiment im Ueberblick",
+  },
+};
+
+const formatCategoryLabel = (value) => {
+  if (!value) return "Sonstiges";
+  const normalized = String(value).trim();
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+};
 
 /**
  * Self-contained shop panel. Follows the same architecture pattern as
  * AchievementsFeatureRoot and FriendsFeatureRoot.
  *
- * @param {{ embedded?: boolean, playerSeeds: number, initialCategory?: string }} props
+ * @param {{ embedded?: boolean, playerSeeds: number, initialCategory?: string, authId?: string | null, onHeaderMetaChange?: Function }} props
  */
-export default function ShopFeatureRoot({ embedded = true, playerSeeds = 0, initialCategory = "fertilizer" }) {
+export default function ShopFeatureRoot({
+  embedded = true,
+  playerSeeds = 0,
+  initialCategory = "fertilizer",
+  authId = null,
+  onHeaderMetaChange,
+}) {
   const { isLightUi } = useUiTheme();
   const queryClient = useQueryClient();
 
   const [shopCategory, setShopCategory] = useState(initialCategory);
   const [careActionMessage, setCareActionMessage] = useState(null);
+  const [lastResolvedCategory, setLastResolvedCategory] = useState(initialCategory);
 
-  const { data: robotPlantShopItems = [] } = useQuery({
+  const { data: fallbackUser = null } = useQuery({
+    queryKey: ["shopCurrentUser"],
+    queryFn: () => getCurrentUser(),
+    enabled: !authId,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const resolvedAuthId = authId || fallbackUser?.id || null;
+
+  const {
+    data: robotPlantShopItems,
+    isPending: isShopItemsPending,
+    isFetching: isShopItemsFetching,
+    error: shopItemsError,
+    refetch: refetchShopItems,
+  } = useQuery({
     queryKey: ["robotPlantShopItems"],
     queryFn: () => listRobotPlantShopItems(),
-    initialData: [],
     staleTime: 60 * 1000,
     refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    retry: 2,
   });
 
   const { data: robotPlantInventory = [] } = useQuery({
-    queryKey: ["robotPlantInventory"],
-    queryFn: () => listRobotPlantInventory(),
-    initialData: [],
+    queryKey: ["robotPlantInventory", resolvedAuthId],
+    queryFn: () => listRobotPlantInventory(resolvedAuthId),
+    enabled: !!resolvedAuthId,
     staleTime: 30 * 1000,
     refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const { data: robotPlantActiveEffects = [] } = useQuery({
-    queryKey: ["robotPlantActiveEffects"],
-    queryFn: () => listRobotPlantActiveEffects(),
-    initialData: [],
+    queryKey: ["robotPlantActiveEffects", resolvedAuthId],
+    queryFn: () => listRobotPlantActiveEffects(resolvedAuthId),
+    enabled: !!resolvedAuthId,
     staleTime: 30 * 1000,
     refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
+
+  const shopItems = Array.isArray(robotPlantShopItems) ? robotPlantShopItems : [];
+
+  useEffect(() => {
+    setShopCategory(initialCategory || "fertilizer");
+  }, [initialCategory]);
+
+  const categoryCounts = shopItems.reduce((acc, item) => {
+    const itemType = item?.item_type || "other";
+    acc[itemType] = (acc[itemType] || 0) + 1;
+    return acc;
+  }, {});
+
+  const dynamicCategories = Object.keys(categoryCounts).filter(
+    (category) => !KNOWN_CATEGORY_ORDER.includes(category)
+  );
+
+  const categoryChips = [
+    ...KNOWN_CATEGORY_ORDER.filter((category) => categoryCounts[category] > 0 || category === initialCategory),
+    ...dynamicCategories,
+    "all",
+  ].map((categoryKey) => ({
+    key: categoryKey,
+    label: CATEGORY_META[categoryKey]?.title || formatCategoryLabel(categoryKey),
+    count: categoryKey === "all"
+      ? shopItems.length
+      : (categoryCounts[categoryKey] || 0),
+  }));
+
+  useEffect(() => {
+    const availableCategories = new Set(categoryChips.map((chip) => chip.key));
+    if (availableCategories.size === 0) return;
+
+    if (!availableCategories.has(shopCategory)) {
+      const fallbackCategory = availableCategories.has(initialCategory)
+        ? initialCategory
+        : categoryChips[0]?.key || "all";
+
+      if (fallbackCategory && fallbackCategory !== lastResolvedCategory) {
+        setShopCategory(fallbackCategory);
+        setLastResolvedCategory(fallbackCategory);
+      }
+      return;
+    }
+
+    if (shopCategory !== lastResolvedCategory) {
+      setLastResolvedCategory(shopCategory);
+    }
+  }, [categoryChips, initialCategory, lastResolvedCategory, shopCategory]);
 
   const purchaseShopItemMutation = useMutation({
     mutationFn: ({ itemId }) => purchaseRobotPlantShopItem({ itemId, quantity: 1 }),
@@ -59,7 +163,7 @@ export default function ShopFeatureRoot({ embedded = true, playerSeeds = 0, init
       }
       setCareActionMessage("Item gekauft.");
       await queryClient.invalidateQueries({ queryKey: ["robotPlantState"] });
-      await queryClient.invalidateQueries({ queryKey: ["robotPlantInventory"] });
+      await queryClient.invalidateQueries({ queryKey: ["robotPlantInventory", resolvedAuthId] });
     },
     onError: () => {
       setCareActionMessage("Kauf fehlgeschlagen.");
@@ -74,8 +178,8 @@ export default function ShopFeatureRoot({ embedded = true, playerSeeds = 0, init
         return;
       }
       setCareActionMessage("Duenger aktiviert.");
-      await queryClient.invalidateQueries({ queryKey: ["robotPlantInventory"] });
-      await queryClient.invalidateQueries({ queryKey: ["robotPlantActiveEffects"] });
+      await queryClient.invalidateQueries({ queryKey: ["robotPlantInventory", resolvedAuthId] });
+      await queryClient.invalidateQueries({ queryKey: ["robotPlantActiveEffects", resolvedAuthId] });
     },
     onError: () => {
       setCareActionMessage("Aktivierung fehlgeschlagen.");
@@ -86,7 +190,7 @@ export default function ShopFeatureRoot({ embedded = true, playerSeeds = 0, init
     robotPlantInventory.map((entry) => [entry.item_id, entry.quantity || 0])
   );
 
-  const filteredShopItems = robotPlantShopItems.filter((item) => {
+  const filteredShopItems = shopItems.filter((item) => {
     if (shopCategory === "all") return true;
     return item.item_type === shopCategory;
   });
@@ -101,132 +205,238 @@ export default function ShopFeatureRoot({ embedded = true, playerSeeds = 0, init
   );
 
   const isBusy = purchaseShopItemMutation.isPending || useInventoryItemMutation.isPending;
+  const showShopLoadingState = isShopItemsPending && shopItems.length === 0;
+  const currentCategoryMeta = CATEGORY_META[shopCategory] || {
+    title: formatCategoryLabel(shopCategory),
+    subtitle: "Artikel in dieser Kategorie",
+  };
+  const tabsHeaderClass = embedded
+    ? `sticky top-0 z-40 backdrop-blur-sm border-b ${isLightUi ? "bg-white/70 border-[#b99a48]/30" : "bg-black/20 border-[#f0e5a5]/20"}`
+    : `sticky top-0 z-40 border-b ${isLightUi ? "bg-white/90 border-stone-200/80 backdrop-blur-xl" : "bg-stone-950/75 border-[#f0e5a5]/20 backdrop-blur-xl"}`;
+  const contentClass = embedded ? "mt-0 px-4 pb-20 flex-1 min-h-0 overflow-y-auto" : "px-4 pb-8 pt-4";
+  const listTopFadePx = 12;
+  const listBottomFadePx = 18;
+  const contentMaskStyle = embedded ? {
+    WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
+    maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
+  } : undefined;
+
+  useEffect(() => {
+    if (!embedded || typeof onHeaderMetaChange !== "function") return;
+
+    onHeaderMetaChange({
+      title: "Shop",
+      subtitle: currentCategoryMeta.subtitle,
+      infoLabel: `${filteredShopItems.length} Artikel`,
+    });
+  }, [currentCategoryMeta.subtitle, embedded, filteredShopItems.length, onHeaderMetaChange]);
 
   return (
     <section
-      className={`flex-1 min-h-0 rounded-3xl border px-4 py-4 overflow-hidden flex flex-col ${
+      data-embedded-module="shop"
+      data-theme={isLightUi ? "light" : "dark"}
+      className={`flex-1 min-h-0 rounded-3xl border overflow-hidden flex flex-col ${
         isLightUi
           ? "border-[#c0a860]/50 backdrop-blur-xl"
           : "border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm"
       }`}
     >
-      <div className="flex items-center justify-between gap-3 mb-3">
-        <div className="text-xs md:text-sm font-semibold">Samen: {playerSeeds}</div>
-        {!!careActionMessage && (
-          <div
-            className={`text-[11px] md:text-xs px-2 py-1 rounded-lg border ${
-              isLightUi
-                ? "bg-white/55 border-[#c8ac62]/50 text-stone-700"
-                : "bg-black/40 border-[#f0e5a5]/45 text-stone-100"
-            }`}
-          >
-            {careActionMessage}
+      <div className={`${tabsHeaderClass} shrink-0`}>
+        <div className="w-full">
+          <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className={`text-base md:text-lg font-semibold truncate ${isLightUi ? "text-stone-900" : "text-stone-100"}`}>
+                {currentCategoryMeta.title}
+              </div>
+              <div className={`text-[11px] md:text-xs mt-1 truncate ${isLightUi ? "text-stone-600" : "text-stone-300/80"}`}>
+                {currentCategoryMeta.subtitle}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Badge className={`${isLightUi ? "bg-stone-800 text-white" : "bg-stone-100 text-stone-900"} text-[10px] px-2 py-1`}>
+                {playerSeeds} Samen
+              </Badge>
+            </div>
           </div>
-        )}
-      </div>
 
-      <div className="flex flex-wrap gap-2 mb-3">
-        {[
-          { key: "fertilizer", label: "Duenger" },
-          { key: "accessory", label: "Accessoires" },
-          { key: "background", label: "Hintergruende" },
-          { key: "all", label: "Alle" },
-        ].map((category) => (
-          <button
-            key={category.key}
-            type="button"
-            onClick={() => setShopCategory(category.key)}
-            className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-colors ${
-              shopCategory === category.key
-                ? isLightUi
-                  ? "bg-[#f1e2b8] border-[#c8ac62] text-stone-800"
-                  : "bg-[#3b2a18] border-[#f0e5a5]/50 text-amber-100"
-                : isLightUi
-                  ? "bg-white/45 border-[#c8ac62]/45 text-stone-700"
-                  : "bg-black/30 border-[#f0e5a5]/35 text-stone-100"
-            }`}
-          >
-            {category.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto pr-1 space-y-2">
-        {filteredShopItems.length === 0 ? (
-          <div className="text-xs opacity-80">Keine Items in dieser Kategorie.</div>
-        ) : (
-          filteredShopItems.map((item) => {
-            const owned = inventoryByItemId[item.id] || 0;
-            const canUse =
-              owned > 0 &&
-              Number(item.effect_value || 0) > 0 &&
-              Number(item.duration_hours || 0) > 0;
-
-            return (
+          {!!careActionMessage && (
+            <div className="px-4 pb-2">
               <div
-                key={item.id}
-                className={`rounded-2xl border p-3 ${
+                className={`text-[11px] md:text-xs px-2.5 py-1.5 rounded-xl border ${
                   isLightUi
-                    ? "border-[#c8ac62]/45 bg-white/45"
-                    : "border-[#f0e5a5]/35 bg-black/25"
+                    ? "bg-white/55 border-[#c8ac62]/50 text-stone-700"
+                    : "bg-black/40 border-[#f0e5a5]/45 text-stone-100"
                 }`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold">{item.title}</div>
-                    <div className="text-[11px] opacity-75 mt-0.5">{item.description || ""}</div>
-                  </div>
-                  <div className="text-xs font-bold">{item.seed_cost} Samen</div>
-                </div>
-                <div className="mt-2 text-[11px] opacity-80">
-                  Besitz: {owned}
-                  {Number(item.effect_value || 0) > 0 && Number(item.duration_hours || 0) > 0
-                    ? ` | Effekt: -${Math.round(Number(item.effect_value) * 100)}% auf Tages-Decay fuer ${item.duration_hours}h`
-                    : " | Platzhalter-Item"}
-                </div>
-                <div className="mt-3 flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={isBusy || playerSeeds < Number(item.seed_cost || 0)}
-                    onClick={() => purchaseShopItemMutation.mutate({ itemId: item.id })}
-                    className={`h-8 px-3 rounded-lg text-xs font-semibold border disabled:opacity-60 ${
-                      isLightUi
-                        ? "border-[#c8ac62]/55 bg-white/65 text-stone-800"
-                        : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
-                    }`}
-                  >
-                    Kaufen
-                  </button>
-                  {canUse && (
-                    <button
-                      type="button"
-                      disabled={isBusy}
-                      onClick={() => useInventoryItemMutation.mutate({ itemId: item.id })}
-                      className={`h-8 px-3 rounded-lg text-xs font-semibold border disabled:opacity-60 ${
-                        isLightUi
-                          ? "border-emerald-500/50 bg-emerald-100/70 text-emerald-900"
-                          : "border-emerald-400/40 bg-emerald-900/35 text-emerald-100"
-                      }`}
-                    >
-                      Im Slot aktivieren
-                    </button>
-                  )}
-                </div>
+                {careActionMessage}
               </div>
-            );
-          })
-        )}
+            </div>
+          )}
+
+          <div className={`px-2 pb-2 ${embedded ? "" : "border-t border-stone-200/60"}`}>
+            <div className="overflow-x-auto pb-1">
+              <div className="flex min-w-max gap-2 px-2">
+                {categoryChips.map((chip) => {
+                  const isPrimary = shopCategory === chip.key;
+                  return (
+                    <button
+                      key={chip.key}
+                      type="button"
+                      onClick={() => setShopCategory(chip.key)}
+                      className={
+                        "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors " +
+                        (isPrimary
+                          ? (isLightUi
+                            ? "bg-white/90 text-[#8f6b22] shadow-sm"
+                            : "bg-black/55 text-[#f7f0c1] shadow-sm")
+                          : (isLightUi
+                            ? "bg-white/55 text-stone-700 hover:bg-white/75"
+                            : "bg-black/35 text-stone-200 hover:bg-black/50"))
+                      }
+                      style={{
+                        borderColor: isPrimary
+                          ? (isLightUi ? "rgba(200,172,98,0.70)" : "rgba(240,229,165,0.75)")
+                          : (isLightUi ? "rgba(200,172,98,0.35)" : "rgba(255,255,255,0.3)"),
+                      }}
+                    >
+                      <span className="font-medium">{chip.label}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isPrimary
+                        ? (isLightUi ? "bg-[#f3e4bf] text-[#8f6b22]" : "bg-[#3a2f19] text-[#f7f0c1]")
+                        : (isLightUi ? "bg-stone-100 text-stone-500" : "bg-stone-800 text-stone-300")}`}>
+                        {chip.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div
-        className={`mt-3 rounded-xl border px-3 py-2 text-[11px] md:text-xs ${
-          isLightUi
-            ? "border-[#c8ac62]/45 bg-white/50 text-stone-700"
-            : "border-[#f0e5a5]/35 bg-black/35 text-stone-100"
-        }`}
-      >
-        Aktive Duenger-Effekte: {activeDecayEffects.length} | Reduktion auf Tages-Decay:{" "}
-        {Math.round(activeDecayPercent * 100)}%
+      <div className={contentClass} style={contentMaskStyle}>
+        <div className="max-w-5xl mx-auto space-y-3" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
+          <div
+            className={`rounded-2xl border px-3 py-2 text-[11px] md:text-xs ${
+              isLightUi
+                ? "border-[#c8ac62]/45 bg-white/50 text-stone-700"
+                : "border-[#f0e5a5]/35 bg-black/35 text-stone-100"
+            }`}
+          >
+            Aktive Duenger-Effekte: {activeDecayEffects.length} | Reduktion auf Tages-Decay: {Math.round(activeDecayPercent * 100)}%
+          </div>
+
+          {showShopLoadingState ? (
+            <div className={`rounded-[1.4rem] border px-4 py-8 flex flex-col items-center justify-center gap-3 ${
+              isLightUi ? "border-[#d9c48a]/45 bg-white/72" : "border-[#f0e5a5]/25 bg-black/30"
+            }`}>
+              <Loader2 className={`w-6 h-6 animate-spin ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+              <div className={`text-sm font-medium ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Shop wird geladen</div>
+              <div className={`text-xs ${isLightUi ? "text-stone-500" : "text-stone-300/80"}`}>Artikel werden aus der Datenbank geladen.</div>
+            </div>
+          ) : shopItemsError ? (
+            <div className={`rounded-[1.4rem] border px-4 py-8 flex flex-col items-center justify-center gap-3 text-center ${
+              isLightUi ? "border-[#d9c48a]/45 bg-white/72" : "border-[#f0e5a5]/25 bg-black/30"
+            }`}>
+              <ShoppingBag className={`w-6 h-6 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+              <div className={`text-sm font-medium ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Shopdaten konnten nicht geladen werden</div>
+              <div className={`text-xs max-w-md ${isLightUi ? "text-stone-500" : "text-stone-300/80"}`}>
+                Statt eines stillen leeren Shops wird der Fehler jetzt sichtbar. Ein erneuter Abruf behebt in der Regel kurzzeitige Supabase-Aussetzer.
+              </div>
+              <button
+                type="button"
+                onClick={() => refetchShopItems()}
+                className={`inline-flex items-center gap-2 h-9 px-3 rounded-xl text-xs font-semibold border ${
+                  isLightUi
+                    ? "border-[#c8ac62]/55 bg-white/65 text-stone-800"
+                    : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
+                }`}
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isShopItemsFetching ? "animate-spin" : ""}`} />
+                Erneut laden
+              </button>
+            </div>
+          ) : filteredShopItems.length === 0 ? (
+            <div className={`rounded-[1.4rem] border px-4 py-8 flex flex-col items-center justify-center gap-3 text-center ${
+              isLightUi ? "border-[#d9c48a]/45 bg-white/72" : "border-[#f0e5a5]/25 bg-black/30"
+            }`}>
+              <Sparkles className={`w-6 h-6 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+              <div className={`text-sm font-medium ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Keine Artikel in dieser Kategorie</div>
+              <div className={`text-xs ${isLightUi ? "text-stone-500" : "text-stone-300/80"}`}>
+                Wechsle auf eine andere Kategorie oder pruefe spaeter erneut.
+              </div>
+            </div>
+          ) : (
+            filteredShopItems.map((item) => {
+              const owned = inventoryByItemId[item.id] || 0;
+              const canUse =
+                owned > 0 &&
+                Number(item.effect_value || 0) > 0 &&
+                Number(item.duration_hours || 0) > 0;
+
+              return (
+                <div
+                  key={item.id}
+                  className={`rounded-[1.4rem] border p-4 ${
+                    isLightUi
+                      ? "border-[#d9c48a]/45 bg-white/72 shadow-[0_14px_32px_rgba(162,129,48,0.12)]"
+                      : "border-[#f0e5a5]/25 bg-black/30 shadow-[0_16px_34px_rgba(0,0,0,0.28)]"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className={`text-sm font-semibold ${isLightUi ? "text-stone-900" : "text-stone-100"}`}>{item.title}</div>
+                      <div className={`text-[11px] mt-1 ${isLightUi ? "text-stone-600" : "text-stone-300/80"}`}>{item.description || ""}</div>
+                    </div>
+                    <Badge className={`${isLightUi ? "bg-[#8f6b22] text-white" : "border border-[#d6b665]/55 bg-[#2b2412]/72 text-[#f6e7b7]"} shrink-0`}>
+                      {item.seed_cost} Samen
+                    </Badge>
+                  </div>
+
+                  <div className={`mt-3 flex flex-wrap items-center gap-2 text-[11px] ${isLightUi ? "text-stone-500" : "text-stone-300/80"}`}>
+                    <span>Besitz: {owned}</span>
+                    {Number(item.effect_value || 0) > 0 && Number(item.duration_hours || 0) > 0 ? (
+                      <span>
+                        Effekt: -{Math.round(Number(item.effect_value) * 100)}% Tages-Decay fuer {item.duration_hours}h
+                      </span>
+                    ) : (
+                      <span>Ohne aktiven Soforteffekt</span>
+                    )}
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={isBusy || playerSeeds < Number(item.seed_cost || 0)}
+                      onClick={() => purchaseShopItemMutation.mutate({ itemId: item.id })}
+                      className={`h-9 px-3 rounded-xl text-xs font-semibold border disabled:opacity-60 ${
+                        isLightUi
+                          ? "border-[#c8ac62]/55 bg-white/65 text-stone-800"
+                          : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
+                      }`}
+                    >
+                      Kaufen
+                    </button>
+                    {canUse && (
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => useInventoryItemMutation.mutate({ itemId: item.id })}
+                        className={`h-9 px-3 rounded-xl text-xs font-semibold border disabled:opacity-60 ${
+                          isLightUi
+                            ? "border-emerald-500/50 bg-emerald-100/70 text-emerald-900"
+                            : "border-emerald-400/40 bg-emerald-900/35 text-emerald-100"
+                        }`}
+                      >
+                        Im Slot aktivieren
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
     </section>
   );
