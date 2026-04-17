@@ -1072,7 +1072,7 @@ export default function GuestHomeFlow() {
       <AnimatePresence>
         {activeSnapIndex < SNAP_SECTION_COUNT - 1 && (
           <motion.div
-            className="fixed inset-x-0 bottom-[3.2rem] z-[120] flex justify-center text-stone-100/80 select-none pointer-events-none"
+            className="fixed left-1/2 bottom-[3.2rem] z-[120] -translate-x-1/2 text-stone-100/80 select-none pointer-events-none"
             aria-hidden="true"
             initial={{ opacity: 0, y: 0 }}
             animate={{ opacity: [0.4, 0.8, 0.4], y: [0, 4, 0] }}
