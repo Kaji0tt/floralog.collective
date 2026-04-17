@@ -58,13 +58,14 @@ export default function PublicCollectionScreen({
   onCreateCollection,
 }) {
   const renderCollectionCard = (collectionEntry) => {
-    const accent = collectionEntry.background_color || "rgb(34,197,94)";
+    const cardIsLightUi = collectionEntry.ownerUiTheme === "light";
+    const accent = collectionEntry.ownerBackgroundColor || collectionEntry.background_color || "rgb(34,197,94)";
     const accentSoftBg =
-      toRgba(accent, isLightUi ? 0.13 : 0.2) ||
-      (isLightUi ? "rgba(34,197,94,0.13)" : "rgba(34,197,94,0.2)");
+      toRgba(accent, cardIsLightUi ? 0.13 : 0.2) ||
+      (cardIsLightUi ? "rgba(34,197,94,0.13)" : "rgba(34,197,94,0.2)");
     const accentLine =
-      toRgba(accent, isLightUi ? 0.55 : 0.62) ||
-      (isLightUi ? "rgba(34,197,94,0.55)" : "rgba(34,197,94,0.62)");
+      toRgba(accent, cardIsLightUi ? 0.55 : 0.62) ||
+      (cardIsLightUi ? "rgba(34,197,94,0.55)" : "rgba(34,197,94,0.62)");
 
     return (
       <div key={collectionEntry.id} className="w-full">
@@ -80,7 +81,7 @@ export default function PublicCollectionScreen({
           }}
           className={
             "relative overflow-hidden rounded-2xl border backdrop-blur-md px-3 py-3 cursor-pointer transition-all hover:translate-y-[-1px] " +
-            (isLightUi
+            (cardIsLightUi
               ? "bg-white/78 border-[#c8ac62]/35 hover:bg-white/86"
               : "bg-black/36 border-[#f0e5a5]/30 hover:bg-black/48")
           }
@@ -90,7 +91,7 @@ export default function PublicCollectionScreen({
 
           <div className="relative z-10 flex items-center justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <div className={"text-[11px] mb-0.5 truncate flex items-center gap-1.5 " + (isLightUi ? "text-stone-700" : "text-stone-300")}>
+              <div className={"text-[11px] mb-0.5 truncate flex items-center gap-1.5 " + (cardIsLightUi ? "text-stone-700" : "text-stone-300")}>
                 {!collectionEntry.isOwnCollection && (
                   <button
                     type="button"
@@ -103,10 +104,10 @@ export default function PublicCollectionScreen({
                     className={
                       "shrink-0 w-4 h-4 rounded-full border flex items-center justify-center transition-colors disabled:opacity-60 " +
                       (collectionEntry.isFollowing
-                        ? (isLightUi
+                        ? (cardIsLightUi
                           ? "bg-emerald-50/95 border-emerald-300 text-emerald-700 hover:bg-emerald-100"
                           : "bg-emerald-950/60 border-emerald-300/60 text-emerald-200 hover:bg-emerald-900/70")
-                        : (isLightUi
+                        : (cardIsLightUi
                           ? "bg-white/85 border-[#c8ac62]/45 text-[#8f6b22] hover:bg-white"
                           : "bg-black/45 border-[#f0e5a5]/35 text-[#f0e5a5] hover:bg-black/60"))
                     }
@@ -117,26 +118,26 @@ export default function PublicCollectionScreen({
                 <span className="truncate">{collectionEntry.ownerNameForCard}</span>
               </div>
 
-              <div className={"text-sm font-semibold truncate mb-0.5 " + (isLightUi ? "text-stone-900" : "text-[#f8f4d6]")}>
+              <div className={"text-sm font-semibold truncate mb-0.5 " + (cardIsLightUi ? "text-stone-900" : "text-[#f8f4d6]")}>
                 {collectionEntry.title}
               </div>
 
-              <div className={"text-[11px] font-medium mb-0.5 " + (isLightUi ? "text-emerald-700" : "text-emerald-300")}>
+              <div className={"text-[11px] font-medium mb-0.5 " + (cardIsLightUi ? "text-emerald-700" : "text-emerald-300")}>
                 Fortschritt: {collectionEntry.progress.discovered}/{collectionEntry.progress.total}
               </div>
 
               {collectionEntry.description && (
-                <div className={"text-[11px] line-clamp-2 " + (isLightUi ? "text-stone-600" : "text-stone-300/90")}>
+                <div className={"text-[11px] line-clamp-2 " + (cardIsLightUi ? "text-stone-600" : "text-stone-300/90")}>
                   {collectionEntry.description}
                 </div>
               )}
             </div>
 
             <div className="flex flex-col items-end gap-1 text-[11px] flex-shrink-0">
-              <div className={"rounded-full px-2 py-0.5 border " + (isLightUi ? "bg-white/75 border-[#c8ac62]/35 text-stone-700" : "bg-black/45 border-[#f0e5a5]/30 text-stone-100")}>
+              <div className={"rounded-full px-2 py-0.5 border " + (cardIsLightUi ? "bg-white/75 border-[#c8ac62]/35 text-stone-700" : "bg-black/45 border-[#f0e5a5]/30 text-stone-100")}>
                 {collectionEntry.itemsCount} Pflanzen
               </div>
-              <div className={"rounded-full px-2 py-0.5 border " + (isLightUi ? "bg-white/75 border-[#c8ac62]/35 text-stone-700" : "bg-black/45 border-[#f0e5a5]/30 text-stone-100")}>
+              <div className={"rounded-full px-2 py-0.5 border " + (cardIsLightUi ? "bg-white/75 border-[#c8ac62]/35 text-stone-700" : "bg-black/45 border-[#f0e5a5]/30 text-stone-100")}>
                 {collectionEntry.followersCount} Follower
               </div>
             </div>

@@ -50,8 +50,9 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
   // Bestimme Rahmenfarbe basierend auf höchster Rarität
   const getBorderColor = () => {
     if (!discovered) return isLightUi ? 'border-stone-300' : 'border-stone-500/55';
-    if (highestRarity >= 3) return isLightUi ? 'border-fuchsia-500/75' : 'border-fuchsia-300/80';
-    if (highestRarity === 2) return isLightUi ? 'border-sky-600/70' : 'border-sky-300/80';
+    if (highestRarity === 4) return isLightUi ? 'border-red-500/80' : 'border-red-300/85';
+    if (highestRarity === 3) return isLightUi ? 'border-orange-500/80' : 'border-orange-300/85';
+    if (highestRarity === 2) return isLightUi ? 'border-fuchsia-500/75' : 'border-fuchsia-300/80';
     if (highestRarity === 1) return isLightUi ? 'border-emerald-600/70' : 'border-emerald-300/80';
     return isLightUi ? 'border-amber-700/55' : 'border-[#f0e5a5]/45';
   };

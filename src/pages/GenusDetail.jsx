@@ -14,10 +14,12 @@ import { de } from "date-fns/locale";
 import { motion } from "framer-motion";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import EditPlantDialog from "../components/collection/EditPlantDialog";
+import { useUiTheme } from "@/lib/UiThemeContext";
 
 export default function GenusDetail() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isLightUi: contextIsLightUi } = useUiTheme();
   const urlParams = new URLSearchParams(window.location.search);
   const genusId = urlParams.get('id');
   const friendEmail = urlParams.get('email'); // NEU: Prüfe ob wir im Freundes-Kontext sind
@@ -131,6 +133,10 @@ export default function GenusDetail() {
     },
     enabled: !!friendEmail,
   });
+
+  const isLightUi = friendEmail
+    ? friendProfile?.ui_theme === "light"
+    : contextIsLightUi;
 
   const { data: userDiscoveries = [], isLoading: discoveriesLoading } = useQuery({
     queryKey: ['userDiscoveries', friendEmail || currentUser?.id],
@@ -430,7 +436,7 @@ export default function GenusDetail() {
     switch(rarity) {
       case "Häufig": return "bg-gray-500";
       case "Gelegentlich": return "bg-green-500"; 
-      case "Selten": return "bg-purple-500";
+      case "Selten": return "bg-fuchsia-500";
       case "Sehr Selten": return "bg-orange-500";
       case "Extrem Selten": return "bg-red-500";
       default: return "bg-gray-500";
@@ -479,8 +485,12 @@ export default function GenusDetail() {
       className="min-h-screen p-4 md:p-8"
       style={{
         background: averageColor 
-          ? `linear-gradient(135deg, ${getLighterColor(averageColor)} 0%, ${averageColor} 50%, ${getDarkerColor(averageColor)} 100%)`
-          : 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
+          ? (isLightUi
+            ? `linear-gradient(135deg, ${getLighterColor(averageColor)} 0%, ${averageColor} 50%, ${getDarkerColor(averageColor)} 100%)`
+            : `linear-gradient(135deg, ${getDarkerColor(averageColor)} 0%, ${averageColor} 55%, ${getLighterColor(averageColor)} 100%)`)
+          : (isLightUi
+            ? 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
+            : 'linear-gradient(to bottom right, rgb(17, 24, 21), rgb(24, 34, 29))')
       }}
     >
       <MobileBackButton backUrl={backUrl} />
@@ -489,14 +499,18 @@ export default function GenusDetail() {
         <Button
           variant="ghost"
           onClick={() => navigate(backUrl)}
-          className="mb-6 bg-white hover:bg-stone-50 text-stone-900 font-semibold shadow-sm border border-stone-200 hidden md:inline-flex" // Hide on mobile, show on desktop
+          className={"mb-6 font-semibold shadow-sm border hidden md:inline-flex " + (isLightUi
+            ? "bg-white hover:bg-stone-50 text-stone-900 border-stone-200"
+            : "bg-black/45 hover:bg-black/60 text-stone-100 border-[#f0e5a5]/35")}
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           {backLabel}
         </Button>
 
         {/* Header Card */}
-        <Card className="mb-6 border-2 border-amber-200 shadow-md bg-white overflow-hidden">
+        <Card className={"mb-6 border-2 shadow-md overflow-hidden " + (isLightUi
+          ? "border-amber-200 bg-white"
+          : "border-[#f0e5a5]/35 bg-black/40 backdrop-blur-sm")}>
           <CardContent className="p-4">
             <div className="flex gap-4">
               {/* Bild links - größer und klickbar */}
@@ -506,11 +520,13 @@ export default function GenusDetail() {
                     src={genusIconUrl}
                     alt={genus.genus_name}
                     onClick={() => setEnlargedImage(genusIconUrl)}
-                    className="w-28 h-28 md:w-32 md:h-32 object-cover rounded-xl shadow-md border-2 border-stone-200 cursor-pointer hover:opacity-90 transition-opacity"
+                    className={"w-28 h-28 md:w-32 md:h-32 object-cover rounded-xl shadow-md border-2 cursor-pointer hover:opacity-90 transition-opacity " + (isLightUi ? "border-stone-200" : "border-stone-700/70")}
                   />
                 ) : (
-                  <div className="w-28 h-28 md:w-32 md:h-32 bg-gradient-to-br from-stone-100 to-stone-200 rounded-xl flex items-center justify-center border-2 border-stone-200">
-                    <Leaf className="w-12 h-12 text-stone-400" />
+                  <div className={"w-28 h-28 md:w-32 md:h-32 rounded-xl flex items-center justify-center border-2 " + (isLightUi
+                    ? "bg-gradient-to-br from-stone-100 to-stone-200 border-stone-200"
+                    : "bg-gradient-to-br from-stone-800/90 to-stone-900 border-stone-700/70")}>
+                    <Leaf className={"w-12 h-12 " + (isLightUi ? "text-stone-400" : "text-stone-500")} />
                   </div>
                 )}
               </div>
@@ -518,30 +534,30 @@ export default function GenusDetail() {
               {/* Info rechts */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <Badge className="bg-stone-800 text-white font-bold text-xs px-2 py-0.5">
+                  <Badge className={"font-bold text-xs px-2 py-0.5 " + (isLightUi ? "bg-stone-800 text-white" : "bg-[#f0e5a5]/20 text-[#f8f1c8] border border-[#f0e5a5]/30")}>
                     {genus.category === "Bäume" && "🌳"}
                     {genus.category === "Sträucher" && "🌿"}
                     {genus.category === "Blumen & Kräuter" && "🌸"}
                     #{String(genus.category_dex_number).padStart(3, '0')}
                   </Badge>
-                  <Badge className="bg-green-600 text-white text-xs px-2 py-0.5">
+                  <Badge className={"text-xs px-2 py-0.5 " + (isLightUi ? "bg-green-600 text-white" : "bg-emerald-600/30 text-emerald-200 border border-emerald-400/35")}>
                     {discoveredSpecies.length}/{genusPlants.length}
                   </Badge>
                 </div>
-                <h1 className="text-xl md:text-2xl font-bold text-stone-900">
+                <h1 className={"text-xl md:text-2xl font-bold " + (isLightUi ? "text-stone-900" : "text-[#f8f4d6]")}>
                   {genus.genus_name}
                 </h1>
-                <p className="text-sm text-stone-600 italic mb-2">
+                <p className={"text-sm italic mb-2 " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
                   {genus.scientific_genus}
                 </p>
                 {genus.family && (
-                  <Badge variant="outline" className="text-xs">{genus.family}</Badge>
+                  <Badge variant="outline" className={"text-xs " + (isLightUi ? "" : "border-stone-500 text-stone-200")}>{genus.family}</Badge>
                 )}
               </div>
             </div>
             
             {genus.description && (
-              <p className="text-sm text-stone-600 mt-3">{genus.description}</p>
+              <p className={"text-sm mt-3 " + (isLightUi ? "text-stone-600" : "text-stone-300")}>{genus.description}</p>
             )}
           </CardContent>
         </Card>
@@ -570,8 +586,8 @@ export default function GenusDetail() {
               onClick={() => plant.discovered && setExpandedPlant(plant)}
               className={`border shadow-sm transition-all duration-300 overflow-hidden ${
                 plant.discovered 
-                  ? 'border-green-200 hover:shadow-md bg-white cursor-pointer' 
-                  : 'border-stone-200 bg-stone-50'
+                  ? (isLightUi ? 'border-green-200 hover:shadow-md bg-white cursor-pointer' : 'border-emerald-300/35 hover:shadow-md bg-black/40 cursor-pointer')
+                  : (isLightUi ? 'border-stone-200 bg-stone-50' : 'border-stone-700/60 bg-black/30')
               }`}
             >
               <CardContent className="p-3">
@@ -584,7 +600,7 @@ export default function GenusDetail() {
                           <img
                             src={plant.allDiscoveries[imageIndexes[plant.id] || 0]?.image_url || plant.userDiscovery.image_url}
                             alt={plant.species_name}
-                            className="w-20 h-20 object-cover rounded-lg shadow-sm border border-stone-200"
+                            className={"w-20 h-20 object-cover rounded-lg shadow-sm border " + (isLightUi ? "border-stone-200" : "border-stone-700/70")}
                           />
                           {plant.allDiscoveries.length > 1 && (
                             <div className="absolute bottom-1 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded-full">
@@ -596,8 +612,8 @@ export default function GenusDetail() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          <h3 className="text-base font-bold text-stone-900 truncate">{plant.species_name}</h3>
-                          <p className="text-xs text-stone-600 italic truncate">{plant.scientific_name}</p>
+                          <h3 className={"text-base font-bold truncate " + (isLightUi ? "text-stone-900" : "text-stone-100")}>{plant.species_name}</h3>
+                          <p className={"text-xs italic truncate " + (isLightUi ? "text-stone-600" : "text-stone-300")}>{plant.scientific_name}</p>
                         </div>
                         <div className="flex gap-1 flex-shrink-0">
                           {currentUser?.role === "admin" && (
@@ -607,13 +623,15 @@ export default function GenusDetail() {
                                 e.stopPropagation();
                                 setEditingPlant(plant);
                               }}
-                              className="shrink-0 p-1.5 rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 hover:text-amber-800 border border-amber-300 transition-colors"
+                              className={"shrink-0 p-1.5 rounded-full border transition-colors " + (isLightUi
+                                ? "bg-amber-100 text-amber-700 hover:bg-amber-200 hover:text-amber-800 border-amber-300"
+                                : "bg-[#f0e5a5]/20 text-[#f0e5a5] hover:bg-[#f0e5a5]/30 border-[#f0e5a5]/45")}
                               aria-label="Art bearbeiten"
                             >
                               <PencilLine className="w-3 h-3" />
                             </button>
                           )}
-                          <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
+                          <CheckCircle2 className={"w-5 h-5 flex-shrink-0 " + (isLightUi ? "text-green-600" : "text-emerald-300")} />
                         </div>
                         </div>
                         {plant.rarity && (
@@ -626,7 +644,7 @@ export default function GenusDetail() {
                           <Link
                             to={createPageUrl(`Map?lat=${plant.userDiscovery.discovery_location.split(',')[0]?.trim()}&lng=${plant.userDiscovery.discovery_location.split(',')[1]?.trim()}`)}
                             onClick={(e) => e.stopPropagation()}
-                            className="flex items-center gap-1 mt-1 text-xs text-green-600 hover:text-green-700"
+                            className={"flex items-center gap-1 mt-1 text-xs " + (isLightUi ? "text-green-600 hover:text-green-700" : "text-emerald-300 hover:text-emerald-200")}
                           >
                             <MapPin className="w-3 h-3" />
                             <span className="truncate">{locationNames[plant.userDiscovery.id] || plant.userDiscovery.discovery_location}</span>
@@ -637,12 +655,14 @@ export default function GenusDetail() {
                     
                     {/* Info Boxes kompakt */}
                     {plant.description && (
-                      <p className="text-xs text-stone-600 line-clamp-2">{plant.description}</p>
+                      <p className={"text-xs line-clamp-2 " + (isLightUi ? "text-stone-600" : "text-stone-300")}>{plant.description}</p>
                     )}
                   </div>
                 ) : (
                   <div 
-                    className="relative h-32 rounded-lg overflow-hidden bg-gradient-to-br from-stone-100 to-stone-200 cursor-pointer flex items-center justify-center"
+                    className={"relative h-32 rounded-lg overflow-hidden cursor-pointer flex items-center justify-center " + (isLightUi
+                      ? "bg-gradient-to-br from-stone-100 to-stone-200"
+                      : "bg-gradient-to-br from-stone-800/80 to-stone-900")}
                     onClick={(e) => {
                       e.stopPropagation();
                       setFlippedPlants(prev => ({ ...prev, [plant.id]: true }));
@@ -651,13 +671,13 @@ export default function GenusDetail() {
                   >
                     {!flippedPlants[plant.id] ? (
                       <div className="text-center">
-                        <Leaf className="w-10 h-10 text-stone-300 mx-auto mb-2" />
-                        <p className="text-xs text-stone-500">{friendEmail ? "Noch nicht entdeckt" : "Tippen für Hinweis"}</p>
+                        <Leaf className={"w-10 h-10 mx-auto mb-2 " + (isLightUi ? "text-stone-300" : "text-stone-500")} />
+                        <p className={"text-xs " + (isLightUi ? "text-stone-500" : "text-stone-300")}>{friendEmail ? "Noch nicht entdeckt" : "Tippen für Hinweis"}</p>
                       </div>
                     ) : (
                       <div className="text-center px-3">
-                        <p className="text-sm font-bold text-stone-700">{plant.species_name}</p>
-                        <p className="text-xs italic text-stone-600">{plant.scientific_name}</p>
+                        <p className={"text-sm font-bold " + (isLightUi ? "text-stone-700" : "text-stone-100")}>{plant.species_name}</p>
+                        <p className={"text-xs italic " + (isLightUi ? "text-stone-600" : "text-stone-300")}>{plant.scientific_name}</p>
                       </div>
                     )}
                     {!friendEmail && (
@@ -669,7 +689,9 @@ export default function GenusDetail() {
                               e.stopPropagation();
                               setEditingPlant(plant);
                             }}
-                            className="shrink-0 p-1.5 rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 hover:text-amber-800 border border-amber-300 transition-colors"
+                              className={"shrink-0 p-1.5 rounded-full border transition-colors " + (isLightUi
+                                ? "bg-amber-100 text-amber-700 hover:bg-amber-200 hover:text-amber-800 border-amber-300"
+                                : "bg-[#f0e5a5]/20 text-[#f0e5a5] hover:bg-[#f0e5a5]/30 border-[#f0e5a5]/45")}
                             aria-label="Art bearbeiten"
                           >
                             <PencilLine className="w-3 h-3" />
@@ -680,7 +702,7 @@ export default function GenusDetail() {
                             e.stopPropagation();
                             window.open(`https://www.google.com/search?q=Wo+finde+ich+${encodeURIComponent(plant.species_name)}`, '_blank');
                           }}
-                          className="w-6 h-6 bg-stone-400 rounded-full flex items-center justify-center hover:bg-stone-500"
+                          className={"w-6 h-6 rounded-full flex items-center justify-center " + (isLightUi ? "bg-stone-400 hover:bg-stone-500" : "bg-stone-600 hover:bg-stone-500")}
                         >
                           <HelpCircle className="w-3 h-3 text-white" />
                         </button>
@@ -700,7 +722,7 @@ export default function GenusDetail() {
             onClick={() => setExpandedPlant(null)}
           >
             <div 
-              className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+              className={"rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto " + (isLightUi ? "bg-white" : "bg-[#141916] border border-[#f0e5a5]/25")}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Großes Bild */}
@@ -729,9 +751,11 @@ export default function GenusDetail() {
                           const newIndex = currentIndex > 0 ? currentIndex - 1 : expandedPlant.allDiscoveries.length - 1;
                           setImageIndexes(prev => ({ ...prev, [expandedPlant.id]: newIndex }));
                         }}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-lg"
+                        className={"absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center shadow-lg " + (isLightUi
+                          ? "bg-white/90 hover:bg-white"
+                          : "bg-black/65 hover:bg-black/80")}
                       >
-                        <ChevronLeft className="w-6 h-6 text-stone-700" />
+                        <ChevronLeft className={"w-6 h-6 " + (isLightUi ? "text-stone-700" : "text-stone-100")} />
                       </button>
                       <button
                         onClick={(e) => {
@@ -740,9 +764,11 @@ export default function GenusDetail() {
                           const newIndex = currentIndex < expandedPlant.allDiscoveries.length - 1 ? currentIndex + 1 : 0;
                           setImageIndexes(prev => ({ ...prev, [expandedPlant.id]: newIndex }));
                         }}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-lg"
+                        className={"absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center shadow-lg " + (isLightUi
+                          ? "bg-white/90 hover:bg-white"
+                          : "bg-black/65 hover:bg-black/80")}
                       >
-                        <ChevronRight className="w-6 h-6 text-stone-700" />
+                        <ChevronRight className={"w-6 h-6 " + (isLightUi ? "text-stone-700" : "text-stone-100")} />
                       </button>
                       <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white text-sm px-3 py-1 rounded-full">
                         {(imageIndexes[expandedPlant.id] || 0) + 1} / {expandedPlant.allDiscoveries.length}
@@ -797,16 +823,19 @@ export default function GenusDetail() {
               <div className="p-4 space-y-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1">
-                    <h2 className="text-xl font-bold text-stone-900">{expandedPlant.species_name}</h2>
-                    <p className="text-sm text-stone-600 italic">{expandedPlant.scientific_name}</p>
+                    <h2 className={"text-xl font-bold " + (isLightUi ? "text-stone-900" : "text-stone-100")}>{expandedPlant.species_name}</h2>
+                    <p className={"text-sm italic " + (isLightUi ? "text-stone-600" : "text-stone-300")}>{expandedPlant.scientific_name}</p>
                   </div>
                   <div className="flex gap-2 flex-shrink-0">
                     <Button
                       onClick={() => speakPlantDescription(expandedPlant)}
                       variant="outline"
                       size="icon"
+                      className={isLightUi ? "" : "border-stone-600 bg-black/40 hover:bg-black/60"}
                     >
-                      {speakingPlantId === expandedPlant.id ? <VolumeX className="w-5 h-5 text-green-600" /> : <Volume2 className="w-5 h-5 text-stone-600" />}
+                      {speakingPlantId === expandedPlant.id
+                        ? <VolumeX className={"w-5 h-5 " + (isLightUi ? "text-green-600" : "text-emerald-300")} />
+                        : <Volume2 className={"w-5 h-5 " + (isLightUi ? "text-stone-600" : "text-stone-200")} />}
                     </Button>
                   </div>
                 </div>
@@ -825,7 +854,9 @@ export default function GenusDetail() {
                   return (
                     <Link
                       to={createPageUrl(`Map?lat=${lat}&lng=${lng}`)}
-                      className="flex items-center gap-2 text-sm text-green-600 hover:text-green-700 bg-green-50 rounded-lg p-2 border border-green-100"
+                      className={"flex items-center gap-2 text-sm rounded-lg p-2 border " + (isLightUi
+                        ? "text-green-600 hover:text-green-700 bg-green-50 border-green-100"
+                        : "text-emerald-300 hover:text-emerald-200 bg-emerald-900/20 border-emerald-700/40")}
                     >
                       <MapPin className="w-4 h-4" />
                       <span>{locationNames[currentDiscovery.id] || coords}</span>
@@ -835,25 +866,25 @@ export default function GenusDetail() {
                 })()}
                 
                 {expandedPlant.description && (
-                  <p className="text-sm text-stone-700">{expandedPlant.description}</p>
+                  <p className={"text-sm " + (isLightUi ? "text-stone-700" : "text-stone-200")}>{expandedPlant.description}</p>
                 )}
                 
                 {expandedPlant.identification_features && (
-                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
-                    <p className="text-xs font-semibold text-blue-900 mb-1">🔍 Erkennungsmerkmale</p>
-                    <p className="text-sm text-stone-700">{expandedPlant.identification_features}</p>
+                  <div className={"border rounded-lg p-3 " + (isLightUi ? "bg-blue-50 border-blue-100" : "bg-blue-900/20 border-blue-700/45")}>
+                    <p className={"text-xs font-semibold mb-1 " + (isLightUi ? "text-blue-900" : "text-blue-200")}>🔍 Erkennungsmerkmale</p>
+                    <p className={"text-sm " + (isLightUi ? "text-stone-700" : "text-stone-200")}>{expandedPlant.identification_features}</p>
                   </div>
                 )}
                 
                 {expandedPlant.fun_fact && (
-                  <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
-                    <p className="text-xs font-semibold text-amber-900 mb-1">💡 Wusstest du?</p>
-                    <p className="text-sm text-stone-700">{expandedPlant.fun_fact}</p>
+                  <div className={"border rounded-lg p-3 " + (isLightUi ? "bg-amber-50 border-amber-100" : "bg-amber-900/20 border-amber-700/45")}>
+                    <p className={"text-xs font-semibold mb-1 " + (isLightUi ? "text-amber-900" : "text-amber-200")}>💡 Wusstest du?</p>
+                    <p className={"text-sm " + (isLightUi ? "text-stone-700" : "text-stone-200")}>{expandedPlant.fun_fact}</p>
                   </div>
                 )}
                 
                 {expandedPlant.discovery_date && (
-                  <p className="text-xs text-stone-500">
+                  <p className={"text-xs " + (isLightUi ? "text-stone-500" : "text-stone-300") }>
                     Entdeckt am: {format(new Date(expandedPlant.discovery_date), "d. MMMM yyyy", { locale: de })}
                   </p>
                 )}
@@ -869,15 +900,15 @@ export default function GenusDetail() {
             onClick={() => setDeleteConfirmDiscoveryId(null)}
           >
             <div 
-              className="bg-white rounded-2xl max-w-md w-full p-6"
+              className={"rounded-2xl max-w-md w-full p-6 " + (isLightUi ? "bg-white" : "bg-[#141916] border border-red-500/30")}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="text-center mb-6">
-                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Trash2 className="w-8 h-8 text-red-600" />
+                <div className={"w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 " + (isLightUi ? "bg-red-100" : "bg-red-900/35 border border-red-500/35")}>
+                  <Trash2 className={"w-8 h-8 " + (isLightUi ? "text-red-600" : "text-red-300")} />
                 </div>
-                <h3 className="text-xl font-bold text-stone-900 mb-2">Scan löschen?</h3>
-                <p className="text-sm text-stone-600">
+                <h3 className={"text-xl font-bold mb-2 " + (isLightUi ? "text-stone-900" : "text-stone-100")}>Scan löschen?</h3>
+                <p className={"text-sm " + (isLightUi ? "text-stone-600" : "text-stone-300") }>
                   Möchtest du diesen Scan wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
                 </p>
               </div>
@@ -885,7 +916,7 @@ export default function GenusDetail() {
                 <Button
                   variant="outline"
                   onClick={() => setDeleteConfirmDiscoveryId(null)}
-                  className="flex-1"
+                  className={"flex-1 " + (isLightUi ? "" : "border-stone-600 bg-black/35 text-stone-100 hover:bg-black/55")}
                 >
                   Abbrechen
                 </Button>

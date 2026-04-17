@@ -272,6 +272,7 @@ export default function FriendCollection() {
                   userDiscoveries={friendDiscoveries}
                   plants={plants}
                   friendEmail={friendEmail}
+                  uiTheme={uiTheme}
                 />
               ))}
             </div>

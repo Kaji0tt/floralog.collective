@@ -62,7 +62,7 @@ export default function CollectionFeatureRoot({
   showPublicCollectionsPanel: externalShowPublicCollectionsPanel,
   onShowPublicCollectionsPanelChange = null,
 }) {
-  const { isLightUi, uiTheme } = useUiTheme();
+  const { isLightUi, uiTheme, pushThemeOverride, popThemeOverride } = useUiTheme();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -326,6 +326,31 @@ export default function CollectionFeatureRoot({
     selectedCollectionId !== 'global'
       ? collectionsById.get(selectedCollectionId) || null
       : null;
+  const selectedCollectionOwnerProfile = selectedCollection
+    ? (publicProfiles || []).find((p) => p.auth_id === selectedCollection.auth_id) || null
+    : null;
+  const selectedCollectionOwnerTheme =
+    selectedCollectionOwnerProfile?.ui_theme === "light" ? "light" : "dark";
+  const shouldUseSelectedOwnerTheme =
+    !!selectedCollection &&
+    !!selectedCollection.is_public &&
+    !!selectedCollection.auth_id &&
+    !!user?.id &&
+    selectedCollection.auth_id !== user.id;
+
+  useEffect(() => {
+    if (!shouldUseSelectedOwnerTheme) return;
+    pushThemeOverride(selectedCollectionOwnerTheme);
+    return () => {
+      popThemeOverride();
+    };
+  }, [
+    shouldUseSelectedOwnerTheme,
+    selectedCollectionOwnerTheme,
+    selectedCollection?.id,
+    pushThemeOverride,
+    popThemeOverride,
+  ]);
 
   const getCollectionStats = (collectionKey) => {
     if (!collectionKey || collectionKey === 'global') {
@@ -514,16 +539,26 @@ export default function CollectionFeatureRoot({
   }, [selectedCollectionId, sortedGenera.length, restoreScrollForCollection]);
 
   useEffect(() => {
-    if (user?.background_color) {
-      setAverageColor(user.background_color);
-    } else if (user?.background_image_url) {
-      getAverageColor(user.background_image_url).then(color => {
+    const backgroundSourceProfile = shouldUseSelectedOwnerTheme
+      ? selectedCollectionOwnerProfile
+      : user;
+
+    if (backgroundSourceProfile?.background_color) {
+      setAverageColor(backgroundSourceProfile.background_color);
+    } else if (backgroundSourceProfile?.background_image_url) {
+      getAverageColor(backgroundSourceProfile.background_image_url).then(color => {
         if (color) setAverageColor(color);
       });
     } else {
       setAverageColor(null);
     }
-  }, [user?.background_image_url, user?.background_color]);
+  }, [
+    shouldUseSelectedOwnerTheme,
+    selectedCollectionOwnerProfile?.background_color,
+    selectedCollectionOwnerProfile?.background_image_url,
+    user?.background_image_url,
+    user?.background_color,
+  ]);
 
   const handleShowHint = (genus) => {
     setSelectedGenus(genus);
@@ -650,6 +685,9 @@ export default function CollectionFeatureRoot({
     return {
       ...c,
       ownerNameForCard,
+      ownerUiTheme: ownerProfile?.ui_theme || null,
+      ownerBackgroundColor: ownerProfile?.background_color || c.background_color || null,
+      ownerBackgroundImageUrl: ownerProfile?.background_image_url || null,
       itemsCount: totalRequired,
       followersCount: c.followers_count ?? 0,
       progress: {
