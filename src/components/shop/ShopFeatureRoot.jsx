@@ -10,7 +10,7 @@ import {
 import { getCurrentUser } from "@/api/userApi";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, RefreshCw, Sparkles, ShoppingBag } from "lucide-react";
+import { Info, Loader2, RefreshCw, Sparkles, ShoppingBag } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const KNOWN_CATEGORY_ORDER = ["fertilizer", "accessory", "background"];
@@ -37,6 +37,26 @@ const formatCategoryLabel = (value) => {
   if (!value) return "Sonstiges";
   const normalized = String(value).trim();
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+};
+
+const getShopItemDetailText = (item) => {
+  const detailParts = [];
+
+  if (item?.description) {
+    detailParts.push(item.description);
+  }
+
+  if (Number(item?.effect_value || 0) > 0 && Number(item?.duration_hours || 0) > 0) {
+    detailParts.push(
+      `Reduziert den taeglichen Verfall deiner Pflanze um ${Math.round(Number(item.effect_value) * 100)}% fuer ${item.duration_hours} Stunden.`
+    );
+  }
+
+  if (detailParts.length === 0) {
+    detailParts.push("Dieses Item erweitert deinen Shop um weitere Pflege- oder Kosmetikoptionen.");
+  }
+
+  return detailParts.join(" ");
 };
 
 /**
@@ -327,46 +347,88 @@ export default function ShopFeatureRoot({
                 owned > 0 &&
                 Number(item.effect_value || 0) > 0 &&
                 Number(item.duration_hours || 0) > 0;
+              const itemDetailText = getShopItemDetailText(item);
 
               return (
                 <div
                   key={item.id}
-                  className={`rounded-[1.4rem] border p-4 ${
+                  className={`relative overflow-hidden rounded-2xl border backdrop-blur-md px-3 py-3 ${
                     isLightUi
-                      ? "border-[#d9c48a]/45 bg-white/72 shadow-[0_14px_32px_rgba(162,129,48,0.12)]"
-                      : "border-[#f0e5a5]/25 bg-black/30 shadow-[0_16px_34px_rgba(0,0,0,0.28)]"
+                      ? "border-[#c8ac62]/35 bg-white/78 shadow-[0_14px_32px_rgba(162,129,48,0.12)]"
+                      : "border-[#f0e5a5]/30 bg-black/36 shadow-[0_16px_34px_rgba(0,0,0,0.28)]"
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className={`text-sm font-semibold ${isLightUi ? "text-stone-900" : "text-stone-100"}`}>{item.title}</div>
-                      <div className={`text-[11px] mt-1 ${isLightUi ? "text-stone-600" : "text-stone-300/80"}`}>{item.description || ""}</div>
+                  <div className={`absolute left-0 top-0 h-full w-1 ${isLightUi ? "bg-[#c8ac62]/55" : "bg-[#f0e5a5]/55"}`} />
+                  <div
+                    className="absolute left-0 top-0 h-full w-16"
+                    style={{
+                      background: isLightUi
+                        ? "linear-gradient(90deg, rgba(200,172,98,0.14) 0%, transparent 100%)"
+                        : "linear-gradient(90deg, rgba(240,229,165,0.14) 0%, transparent 100%)",
+                    }}
+                  />
+
+                  <div className="relative z-10 flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <div className={`text-sm font-semibold truncate ${isLightUi ? "text-stone-900" : "text-[#f8f4d6]"}`}>
+                          {item.title}
+                        </div>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              className={`shrink-0 w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${
+                                isLightUi
+                                  ? "bg-white/85 border-[#c8ac62]/45 text-[#8f6b22] hover:bg-white"
+                                  : "bg-black/45 border-[#f0e5a5]/35 text-[#f0e5a5] hover:bg-black/60"
+                              }`}
+                              aria-label={`Mehr Informationen zu ${item.title}`}
+                            >
+                              <Info className="w-2.5 h-2.5" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent
+                            align="start"
+                            className={isLightUi
+                              ? "w-72 border-[#c8ac62]/55 bg-white/95 text-stone-800"
+                              : "w-72 bg-emerald-950/95 border-amber-600/40 text-amber-50/90"}
+                          >
+                            <div className="space-y-2">
+                              <h3 className={`text-sm font-semibold ${isLightUi ? "text-[#8f6b22]" : "text-amber-300"}`}>
+                                {item.title}
+                              </h3>
+                              <p className={`text-xs ${isLightUi ? "text-stone-700" : "text-amber-50/80"}`}>
+                                {itemDetailText}
+                              </p>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div className={`text-[11px] mt-1 line-clamp-2 ${isLightUi ? "text-stone-600" : "text-stone-300/90"}`}>
+                        {item.description || itemDetailText}
+                      </div>
                     </div>
-                    <Badge className={`${isLightUi ? "bg-[#8f6b22] text-white" : "border border-[#d6b665]/55 bg-[#2b2412]/72 text-[#f6e7b7]"} shrink-0`}>
-                      {item.seed_cost} Samen
-                    </Badge>
+
+                    <div className="flex flex-col items-end gap-1 text-[11px] flex-shrink-0">
+                      <div className={"rounded-full px-2 py-0.5 border " + (isLightUi ? "bg-white/75 border-[#c8ac62]/35 text-stone-700" : "bg-black/45 border-[#f0e5a5]/30 text-stone-100")}>
+                        {item.seed_cost} Samen
+                      </div>
+                      <div className={"rounded-full px-2 py-0.5 border " + (isLightUi ? "bg-white/75 border-[#c8ac62]/35 text-stone-700" : "bg-black/45 border-[#f0e5a5]/30 text-stone-100")}>
+                        Inventar: {owned}
+                      </div>
+                    </div>
                   </div>
 
-                  <div className={`mt-3 flex flex-wrap items-center gap-2 text-[11px] ${isLightUi ? "text-stone-500" : "text-stone-300/80"}`}>
-                    <span>Besitz: {owned}</span>
-                    {Number(item.effect_value || 0) > 0 && Number(item.duration_hours || 0) > 0 ? (
-                      <span>
-                        Effekt: -{Math.round(Number(item.effect_value) * 100)}% Tages-Decay fuer {item.duration_hours}h
-                      </span>
-                    ) : (
-                      <span>Ohne aktiven Soforteffekt</span>
-                    )}
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <div className="relative z-10 mt-3 flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       disabled={isBusy || playerSeeds < Number(item.seed_cost || 0)}
                       onClick={() => purchaseShopItemMutation.mutate({ itemId: item.id })}
-                      className={`h-9 px-3 rounded-xl text-xs font-semibold border disabled:opacity-60 ${
+                      className={`h-10 px-4 rounded-full text-xs font-semibold border disabled:opacity-60 ${
                         isLightUi
-                          ? "border-[#c8ac62]/55 bg-white/65 text-stone-800"
-                          : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
+                          ? "border-[#c8ac62]/55 bg-white/65 text-stone-800 hover:bg-white/80"
+                          : "border-[#f0e5a5]/45 bg-black/40 text-stone-100 hover:bg-black/55"
                       }`}
                     >
                       Kaufen
@@ -376,7 +438,7 @@ export default function ShopFeatureRoot({
                         type="button"
                         disabled={isBusy}
                         onClick={() => useInventoryItemMutation.mutate({ itemId: item.id })}
-                        className={`h-9 px-3 rounded-xl text-xs font-semibold border disabled:opacity-60 ${
+                        className={`h-9 px-3 rounded-full text-[11px] font-semibold border disabled:opacity-60 ${
                           isLightUi
                             ? "border-emerald-500/50 bg-emerald-100/70 text-emerald-900"
                             : "border-emerald-400/40 bg-emerald-900/35 text-emerald-100"
