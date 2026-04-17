@@ -3,7 +3,7 @@ import { supabase } from "@/api/supabaseClient";
 import { getCurrentUser } from "@/api/userApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Heart, Coffee, Leaf as LeafIcon, TreeDeciduous, Loader2, CheckCircle } from "lucide-react";
+import { Heart, Coffee, Leaf as LeafIcon, TreeDeciduous, Sparkles, Loader2, CheckCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import { useToast } from "@/components/ui/use-toast";
