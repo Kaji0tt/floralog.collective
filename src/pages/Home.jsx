@@ -2113,12 +2113,6 @@ export default function Home() {
               <HomeBottomNavigation
                 navItems={navItems}
                 controlsScale={controlsScale}
-                leftChipLabel={activePanel === "shop" ? `${playerSeeds} Samen` : null}
-                rightChipLabel={activePanel === "shop" ? `Aktiver Duenger: ${Math.round(activeDecayPercent * 100)}%` : null}
-                rightChipTooltipTitle={activePanel === "shop" ? "Duenger-Effekt" : null}
-                rightChipTooltipBody={activePanel === "shop"
-                  ? "Duenger reduziert den taeglichen Verfall (Decay) deiner Pflanze. Die Prozentzahl zeigt die aktuell aktive Gesamtreduktion durch laufende Effekte."
-                  : null}
               />
             </div>
           </motion.div>

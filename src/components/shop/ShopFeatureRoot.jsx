@@ -11,6 +11,7 @@ import { getCurrentUser } from "@/api/userApi";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, RefreshCw, Sparkles, ShoppingBag } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const KNOWN_CATEGORY_ORDER = ["fertilizer", "accessory", "background"];
 const CATEGORY_META = {
@@ -213,7 +214,10 @@ export default function ShopFeatureRoot({
   const tabsHeaderClass = embedded
     ? `sticky top-0 z-40 backdrop-blur-sm border-b ${isLightUi ? "bg-white/70 border-[#b99a48]/30" : "bg-black/20 border-[#f0e5a5]/20"}`
     : `sticky top-0 z-40 border-b ${isLightUi ? "bg-white/90 border-stone-200/80 backdrop-blur-xl" : "bg-stone-950/75 border-[#f0e5a5]/20 backdrop-blur-xl"}`;
-  const contentClass = embedded ? "mt-0 px-4 pb-20 flex-1 min-h-0 overflow-y-auto" : "px-4 pb-8 pt-4";
+  const bottomBarClass = embedded
+    ? `shrink-0 backdrop-blur-sm border-t ${isLightUi ? "bg-white/70 border-[#b99a48]/30" : "bg-black/20 border-[#f0e5a5]/20"}`
+    : `shrink-0 border-t ${isLightUi ? "bg-white/90 border-stone-200/80 backdrop-blur-xl" : "bg-stone-950/75 border-[#f0e5a5]/20 backdrop-blur-xl"}`;
+  const contentClass = embedded ? "mt-0 px-4 pb-4 flex-1 min-h-0 overflow-y-auto" : "px-4 pb-8 pt-4";
   const listTopFadePx = 12;
   const listBottomFadePx = 18;
   const contentMaskStyle = embedded ? {
@@ -248,7 +252,7 @@ export default function ShopFeatureRoot({
                     type="button"
                     onClick={() => setShopCategory(chip.key)}
                     className={
-                      "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors " +
+                      "flex items-center justify-center gap-2 px-2 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors min-w-fit " +
                       (isPrimary
                         ? (isLightUi
                           ? "bg-white/90 text-[#8f6b22] shadow-sm"
@@ -263,12 +267,7 @@ export default function ShopFeatureRoot({
                         : (isLightUi ? "rgba(200,172,98,0.35)" : "rgba(255,255,255,0.3)"),
                     }}
                   >
-                    <span className="font-medium">{chip.label}</span>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isPrimary
-                      ? (isLightUi ? "bg-[#f3e4bf] text-[#8f6b22]" : "bg-[#3a2f19] text-[#f7f0c1]")
-                      : (isLightUi ? "bg-stone-100 text-stone-500" : "bg-stone-800 text-stone-300")}`}>
-                      {chip.count}
-                    </span>
+                    <span className="font-medium truncate">{chip.label}</span>
                   </button>
                 );
               })}
@@ -389,6 +388,52 @@ export default function ShopFeatureRoot({
               );
             })
           )}
+        </div>
+      </div>
+
+      <div className={bottomBarClass}>
+        <div className="w-full px-2 py-2">
+          <div className="flex items-center justify-between gap-2 px-2">
+            <span
+              className={`inline-flex items-center h-8 rounded-full border px-3 text-[11px] font-semibold backdrop-blur-sm ${
+                isLightUi
+                  ? "border-[#c8ac62]/55 bg-white/65 text-[#8f6b22]"
+                  : "border-[#f0e5a5]/35 bg-black/35 text-[#f0e5a5]"
+              }`}
+            >
+              {playerSeeds} Samen
+            </span>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className={`inline-flex items-center h-8 rounded-full border px-3 text-[11px] font-semibold backdrop-blur-sm transition-colors ${
+                    isLightUi
+                      ? "border-[#c8ac62]/55 bg-white/65 text-[#8f6b22] hover:bg-white/80"
+                      : "border-[#f0e5a5]/35 bg-black/35 text-[#f0e5a5] hover:bg-black/50"
+                  }`}
+                >
+                  Dünger: {Math.round(activeDecayPercent * 100)}%
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                className={isLightUi
+                  ? "w-72 border-[#c8ac62]/55 bg-white/95 text-stone-800"
+                  : "w-72 bg-emerald-950/95 border-amber-600/40 text-amber-50/90"}
+              >
+                <div className="space-y-2">
+                  <h3 className={`text-sm font-semibold ${isLightUi ? "text-[#8f6b22]" : "text-amber-300"}`}>
+                    Dünger-Effekt
+                  </h3>
+                  <p className={`text-xs ${isLightUi ? "text-stone-700" : "text-amber-50/80"}`}>
+                    Dünger reduziert den täglichen Verfall (Decay) deiner Pflanze. Der Prozentwert zeigt die aktuell aktive Gesamtreduktion durch laufende Effekte.
+                  </p>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
       </div>
     </section>
