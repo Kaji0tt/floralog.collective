@@ -76,8 +76,9 @@ export default function ShopFeatureRoot({
     error: shopItemsError,
     refetch: refetchShopItems,
   } = useQuery({
-    queryKey: ["robotPlantShopItems"],
+    queryKey: ["robotPlantShopItems", resolvedAuthId],
     queryFn: () => listRobotPlantShopItems(),
+    enabled: !!resolvedAuthId,
     staleTime: 60 * 1000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
@@ -206,7 +207,8 @@ export default function ShopFeatureRoot({
   );
 
   const isBusy = purchaseShopItemMutation.isPending || useInventoryItemMutation.isPending;
-  const showShopLoadingState = isShopItemsPending && shopItems.length === 0;
+  const isAuthResolving = !resolvedAuthId;
+  const showShopLoadingState = (isAuthResolving || isShopItemsPending) && shopItems.length === 0;
   const currentCategoryMeta = CATEGORY_META[shopCategory] || {
     title: formatCategoryLabel(shopCategory),
     subtitle: "Artikel in dieser Kategorie",
