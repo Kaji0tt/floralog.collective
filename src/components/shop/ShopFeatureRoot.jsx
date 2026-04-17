@@ -78,6 +78,7 @@ export default function ShopFeatureRoot({
   const [shopCategory, setShopCategory] = useState(initialCategory);
   const [careActionMessage, setCareActionMessage] = useState(null);
   const [lastResolvedCategory, setLastResolvedCategory] = useState(initialCategory);
+  const [purchaseQuantities, setPurchaseQuantities] = useState({});
 
   const { data: fallbackUser = null } = useQuery({
     queryKey: ["shopCurrentUser"],
@@ -173,7 +174,7 @@ export default function ShopFeatureRoot({
   }, [categoryChips, initialCategory, lastResolvedCategory, shopCategory]);
 
   const purchaseShopItemMutation = useMutation({
-    mutationFn: ({ itemId }) => purchaseRobotPlantShopItem({ itemId, quantity: 1 }),
+    mutationFn: ({ itemId, quantity }) => purchaseRobotPlantShopItem({ itemId, quantity }),
     onSuccess: async (result) => {
       if (!result?.applied) {
         setCareActionMessage(
@@ -211,6 +212,16 @@ export default function ShopFeatureRoot({
   const inventoryByItemId = Object.fromEntries(
     robotPlantInventory.map((entry) => [entry.item_id, entry.quantity || 0])
   );
+
+  const updatePurchaseQuantity = (itemId, nextQuantity, maxAffordable) => {
+    const clampedQuantity = maxAffordable <= 0
+      ? 0
+      : Math.max(1, Math.min(maxAffordable, nextQuantity));
+    setPurchaseQuantities((current) => ({
+      ...current,
+      [itemId]: clampedQuantity,
+    }));
+  };
 
   const filteredShopItems = shopItems.filter((item) => {
     if (shopCategory === "all") return true;
@@ -348,6 +359,11 @@ export default function ShopFeatureRoot({
                 Number(item.effect_value || 0) > 0 &&
                 Number(item.duration_hours || 0) > 0;
               const itemDetailText = getShopItemDetailText(item);
+              const seedCost = Math.max(1, Number(item.seed_cost || 0));
+              const maxAffordable = Math.max(0, Math.floor(playerSeeds / seedCost));
+              const selectedQuantity = maxAffordable <= 0
+                ? 0
+                : Math.max(1, Math.min(maxAffordable, Number(purchaseQuantities[item.id] || 1)));
 
               return (
                 <div
@@ -366,6 +382,10 @@ export default function ShopFeatureRoot({
                         ? "linear-gradient(90deg, rgba(200,172,98,0.14) 0%, transparent 100%)"
                         : "linear-gradient(90deg, rgba(240,229,165,0.14) 0%, transparent 100%)",
                     }}
+                  />
+                  <div
+                    className={`absolute inset-0 ${isLightUi ? "bg-white/18" : "bg-black/16"}`}
+                    style={{ backdropFilter: "blur(6px)" }}
                   />
 
                   <div className="relative z-10 flex items-start justify-between gap-3">
@@ -414,25 +434,62 @@ export default function ShopFeatureRoot({
                       <div className={"rounded-full px-2 py-0.5 border " + (isLightUi ? "bg-white/75 border-[#c8ac62]/35 text-stone-700" : "bg-black/45 border-[#f0e5a5]/30 text-stone-100")}>
                         {item.seed_cost} Samen
                       </div>
-                      <div className={"rounded-full px-2 py-0.5 border " + (isLightUi ? "bg-white/75 border-[#c8ac62]/35 text-stone-700" : "bg-black/45 border-[#f0e5a5]/30 text-stone-100")}>
-                        Inventar: {owned}
-                      </div>
+                      {owned >= 1 && (
+                        <div className={"rounded-full px-2 py-0.5 border " + (isLightUi ? "bg-white/75 border-[#c8ac62]/35 text-stone-700" : "bg-black/45 border-[#f0e5a5]/30 text-stone-100")}>
+                          Inventar: {owned}
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   <div className="relative z-10 mt-3 flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={isBusy || playerSeeds < Number(item.seed_cost || 0)}
-                      onClick={() => purchaseShopItemMutation.mutate({ itemId: item.id })}
-                      className={`h-10 px-4 rounded-full text-xs font-semibold border disabled:opacity-60 ${
+                    <div
+                      className={`inline-flex items-center h-[30px] rounded-full border overflow-hidden disabled:opacity-60 ${
                         isLightUi
-                          ? "border-[#c8ac62]/55 bg-white/65 text-stone-800 hover:bg-white/80"
-                          : "border-[#f0e5a5]/45 bg-black/40 text-stone-100 hover:bg-black/55"
+                          ? "border-[#c8ac62]/55 bg-white/65 text-stone-800"
+                          : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
                       }`}
                     >
-                      Kaufen
-                    </button>
+                      <button
+                        type="button"
+                        disabled={isBusy || selectedQuantity <= 1}
+                        onClick={() => updatePurchaseQuantity(item.id, selectedQuantity - 1, maxAffordable)}
+                        className={`h-full w-8 text-sm font-semibold disabled:opacity-35 ${
+                          isLightUi ? "hover:bg-white/80" : "hover:bg-black/55"
+                        }`}
+                        aria-label={`Menge fuer ${item.title} verringern`}
+                      >
+                        -
+                      </button>
+                      <div className={`h-full min-w-12 px-2 flex items-center justify-center text-[11px] font-semibold border-x ${
+                        isLightUi ? "border-[#c8ac62]/35" : "border-[#f0e5a5]/25"
+                      }`}>
+                        {selectedQuantity}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={isBusy || maxAffordable <= 0 || selectedQuantity >= maxAffordable}
+                        onClick={() => updatePurchaseQuantity(item.id, selectedQuantity + 1, maxAffordable)}
+                        className={`h-full w-8 text-sm font-semibold disabled:opacity-35 ${
+                          isLightUi ? "hover:bg-white/80" : "hover:bg-black/55"
+                        }`}
+                        aria-label={`Menge fuer ${item.title} erhoehen`}
+                      >
+                        +
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isBusy || maxAffordable <= 0}
+                        onClick={() => purchaseShopItemMutation.mutate({ itemId: item.id, quantity: selectedQuantity })}
+                        className={`h-full px-3 text-[11px] font-semibold ${
+                          isLightUi
+                            ? "bg-white/25 hover:bg-white/45"
+                            : "bg-black/15 hover:bg-black/35"
+                        }`}
+                      >
+                        Kaufen
+                      </button>
+                    </div>
                     {canUse && (
                       <button
                         type="button"
