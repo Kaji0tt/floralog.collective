@@ -16,13 +16,6 @@ const FRIEND_TABS = [
   { id: "profile",      label: "Profil",    icon: HomeIcon },
 ];
 
-const TAB_PAGES = {
-  profile:      "FriendProfile",
-  achievements: "FriendAchievements",
-  collection:   "FriendCollection",
-  friends:      "FriendFriendsList",
-};
-
 // ─── Shell ────────────────────────────────────────────────────────────────────
 /**
  * FriendExperienceShell
@@ -47,6 +40,7 @@ export default function FriendExperienceShell({
   averageColor,
   isLoading,
   accessDenied,
+  onTabChange,
   children,
 }) {
   const navigate = useNavigate();
@@ -74,7 +68,15 @@ export default function FriendExperienceShell({
       isActive,
       onClick:       () => {
         if (isActive) return;
-        navigate(createPageUrl(`${TAB_PAGES[tab.id]}?email=${encodeURIComponent(friendEmail ?? "")}`));
+        if (typeof onTabChange === "function") {
+          onTabChange(tab.id);
+          return;
+        }
+        navigate(
+          createPageUrl(
+            `FriendProfile?email=${encodeURIComponent(friendEmail ?? "")}&tab=${encodeURIComponent(tab.id)}`
+          )
+        );
       },
       gradientClass,
       shadowStyle,
