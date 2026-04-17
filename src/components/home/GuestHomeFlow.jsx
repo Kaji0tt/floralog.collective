@@ -596,7 +596,7 @@ export default function GuestHomeFlow() {
       index: 4,
       sectionTitle: "Support the Project 🌱",
       title: "Hilf uns beim Keimen",
-      description: "Floralog steht noch am Anfang. Hilf uns, indem du die App teilst und Feedback gibst. Wer uns darüber hinaus unterstützen möchte,",
+      description: "Floralog steht noch am Anfang. Mit jedem Scan und jeder abgeschlossenen Quest hilfst du uns bereits. Wer uns darüber hinaus unterstützen möchte,",
       scrollable: false,
       sectionTitleClass: "text-amber-400/90",
     },
@@ -781,16 +781,23 @@ export default function GuestHomeFlow() {
                 <div className={panel.scrollable ? infoPanelScrollableCardClass : infoPanelCardClass}>
                   <p className={`text-[0.73rem] uppercase tracking-[0.24em] ${panel.sectionTitleClass}`}>{panel.sectionTitle}</p>
                   <h2 className="mt-2 text-lg md:text-xl font-semibold text-stone-100 leading-tight">{panel.title}</h2>
-                  <p className="mt-2 text-sm md:text-base leading-relaxed text-amber-50/95">{panel.description}</p>
-                  {panel.index === 4 && (
-                    <>
+                  {panel.index === 4 ? (
+                    <p className="mt-2 text-sm md:text-base leading-relaxed text-amber-50/95">
+                      {panel.description}{" "}
                       <button
                         type="button"
                         onClick={openSupportModal}
-                        className="mt-1 text-sm text-stone-200/65 underline decoration-stone-300/45 underline-offset-4 hover:text-stone-100/90 hover:decoration-stone-200/65 transition-colors"
+                        className="inline text-sm md:text-base text-stone-200/65 underline decoration-stone-300/45 underline-offset-4 hover:text-stone-100/90 hover:decoration-stone-200/65 transition-colors"
                       >
                         schaut hier vorbei
                       </button>
+                      .
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-sm md:text-base leading-relaxed text-amber-50/95">{panel.description}</p>
+                  )}
+                  {panel.index === 4 && (
+                    <>
                       <button
                         type="button"
                         onClick={() => setActiveSnapIndex(0)}
