@@ -5,7 +5,6 @@ import {
   listRobotPlantInventory,
   listRobotPlantActiveEffects,
   purchaseRobotPlantShopItem,
-  useRobotPlantInventoryItem,
 } from "@/api/robotPlantService";
 import { getCurrentUser } from "@/api/userApi";
 import { useUiTheme } from "@/lib/UiThemeContext";
@@ -194,22 +193,6 @@ export default function ShopFeatureRoot({
     },
   });
 
-  const useInventoryItemMutation = useMutation({
-    mutationFn: ({ itemId }) => useRobotPlantInventoryItem({ itemId }),
-    onSuccess: async (result) => {
-      if (!result?.applied) {
-        setCareActionMessage("Aktivierung fehlgeschlagen.");
-        return;
-      }
-      setCareActionMessage("Duenger aktiviert.");
-      await queryClient.invalidateQueries({ queryKey: ["robotPlantInventory", resolvedAuthId] });
-      await queryClient.invalidateQueries({ queryKey: ["robotPlantActiveEffects", resolvedAuthId] });
-    },
-    onError: () => {
-      setCareActionMessage("Aktivierung fehlgeschlagen.");
-    },
-  });
-
   const inventoryByItemId = Object.fromEntries(
     robotPlantInventory.map((entry) => [entry.item_id, entry.quantity || 0])
   );
@@ -246,7 +229,7 @@ export default function ShopFeatureRoot({
     0
   );
 
-  const isBusy = purchaseShopItemMutation.isPending || useInventoryItemMutation.isPending;
+  const isBusy = purchaseShopItemMutation.isPending;
   const isAuthResolving = !resolvedAuthId;
   const showShopLoadingState = (isAuthResolving || isShopItemsPending) && shopItems.length === 0;
   const currentCategoryMeta = CATEGORY_META[shopCategory] || {
@@ -363,10 +346,6 @@ export default function ShopFeatureRoot({
           ) : (
             filteredShopItems.map((item) => {
               const owned = inventoryByItemId[item.id] || 0;
-              const canUse =
-                owned > 0 &&
-                Number(item.effect_value || 0) > 0 &&
-                Number(item.duration_hours || 0) > 0;
               const itemDetailText = getShopItemDetailText(item);
               const seedCost = Math.max(1, Number(item.seed_cost || 0));
               const maxAffordable = Math.max(0, Math.floor(playerSeeds / seedCost));
@@ -459,13 +438,13 @@ export default function ShopFeatureRoot({
                       </div>
                     </div>
 
-                    <div className="flex flex-col items-end gap-1 text-[11px] flex-shrink-0">
+                    <div className="flex items-center gap-1.5 text-[11px] flex-shrink-0">
                       <div className={"rounded-full px-2 py-0.5 border " + (isLightUi ? "bg-white/75 border-[#c8ac62]/35 text-stone-700" : "bg-black/45 border-[#f0e5a5]/30 text-stone-100")}>
                         {item.seed_cost} Samen
                       </div>
                       {owned >= 1 && (
-                        <div className={"rounded-full px-2 py-0.5 border " + (isLightUi ? "bg-white/75 border-[#c8ac62]/35 text-stone-700" : "bg-black/45 border-[#f0e5a5]/30 text-stone-100")}>
-                          Inventar: {owned}
+                        <div className={"w-6 h-6 rounded-full border text-[10px] font-bold inline-flex items-center justify-center " + (isLightUi ? "bg-white/80 border-[#c8ac62]/45 text-stone-700" : "bg-black/55 border-[#f0e5a5]/35 text-stone-100")}>
+                          {owned}x
                         </div>
                       )}
                     </div>
@@ -526,23 +505,6 @@ export default function ShopFeatureRoot({
                         Kaufen
                       </button>
 
-                      {canUse && (
-                        <button
-                          type="button"
-                          disabled={isBusy}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            useInventoryItemMutation.mutate({ itemId: item.id });
-                          }}
-                          className={`h-9 px-3 rounded-full text-[11px] font-semibold border disabled:opacity-60 ${
-                            isLightUi
-                              ? "border-emerald-500/50 bg-emerald-100/70 text-emerald-900"
-                              : "border-emerald-400/40 bg-emerald-900/35 text-emerald-100"
-                          }`}
-                        >
-                          Im Slot aktivieren
-                        </button>
-                      )}
                     </div>
                   )}
                 </div>
