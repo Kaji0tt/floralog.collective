@@ -214,7 +214,12 @@ export default function Scanner() {
 
   const buildScanRewardFeedback = async ({ eventSource, duplicateScanCount, eventReference, location, rarity, isFirstScanOfDay = false }) => {
     if (!user?.id) {
-      return { rewardDetails: null, activeZone: null };
+      return {
+        rewardDetails: null,
+        activeZone: null,
+        energyDelta: 0,
+        dataQualityDelta: 0,
+      };
     }
 
     const grantResult = await grantRobotPlantRewardServerSide({
@@ -231,8 +236,10 @@ export default function Scanner() {
 
     const rewardDetails = grantResult?.rewardDetails || null;
     const activeZone = rewardDetails?.isInActiveZone ? { serverComputed: true } : null;
+    const energyDelta = Number(grantResult?.energyDelta ?? 0);
+    const dataQualityDelta = Number(grantResult?.dataQualityDelta ?? 0);
 
-    return { rewardDetails, activeZone };
+    return { rewardDetails, activeZone, energyDelta, dataQualityDelta };
   };
 
   const { data: plants = [] } = useQuery({
@@ -792,6 +799,8 @@ export default function Scanner() {
 
     let rewardDetails = null;
     let activeZone = null;
+    let energyDelta = 0;
+    let dataQualityDelta = 0;
     try {
       const rewardFeedback = await buildScanRewardFeedback({
         eventSource,
@@ -803,6 +812,8 @@ export default function Scanner() {
       });
       rewardDetails = rewardFeedback.rewardDetails;
       activeZone = rewardFeedback.activeZone;
+      energyDelta = Number(rewardFeedback.energyDelta ?? 0);
+      dataQualityDelta = Number(rewardFeedback.dataQualityDelta ?? 0);
     } catch (error) {
       console.error("Fehler bei Robot-Plant-Reward-Auszahlung:", error);
     }
@@ -840,7 +851,7 @@ export default function Scanner() {
 
     setScanning(false);
 
-    return { alreadyDiscovered, rewardDetails, activeZone };
+    return { alreadyDiscovered, rewardDetails, activeZone, energyDelta, dataQualityDelta };
   };
 
   const handleAutoAddNewPlant = async (plantData, imageUrl, allResults = []) => {
@@ -888,6 +899,8 @@ export default function Scanner() {
 
       let rewardDetails = null;
       let activeZone = null;
+      let energyDelta = 0;
+      let dataQualityDelta = 0;
       try {
         const rewardFeedback = await buildScanRewardFeedback({
           eventSource: ROBOT_PLANT_EVENT_SOURCES.newGlobalScan,
@@ -899,6 +912,8 @@ export default function Scanner() {
         });
         rewardDetails = rewardFeedback.rewardDetails;
         activeZone = rewardFeedback.activeZone;
+        energyDelta = Number(rewardFeedback.energyDelta ?? 0);
+        dataQualityDelta = Number(rewardFeedback.dataQualityDelta ?? 0);
       } catch (rewardError) {
         console.error("Fehler bei Robot-Plant-Reward-Auszahlung fuer neue Global-Pflanze:", rewardError);
       }
@@ -935,7 +950,7 @@ export default function Scanner() {
       });
       setScanning(false);
 
-      return { newPlant, rewardDetails, activeZone };
+      return { newPlant, rewardDetails, activeZone, energyDelta, dataQualityDelta };
     } catch (error) {
       console.error("Fehler beim Hinzufügen der Pflanze:", error);
       setScanning(false);
@@ -1029,7 +1044,7 @@ export default function Scanner() {
 
       if (selectedPlant.inDatabase) {
         // Pflanze existiert bereits im Floralog
-        const { alreadyDiscovered, rewardDetails, activeZone } = await handleAutoSave(
+        const { alreadyDiscovered, rewardDetails, activeZone, energyDelta, dataQualityDelta } = await handleAutoSave(
           selectedPlant,
           imageUrl,
           selectedPlant.aiData || plant?.aiData,
@@ -1046,6 +1061,8 @@ export default function Scanner() {
               plantName: selectedPlant.species_name,
               rewardDetails,
               isInActiveZone: !!activeZone,
+              energyDelta,
+              dataQualityDelta,
             }
           }
         });
@@ -1060,6 +1077,8 @@ export default function Scanner() {
               plantName: result.newPlant.species_name,
               rewardDetails: result.rewardDetails,
               isInActiveZone: !!result.activeZone,
+              energyDelta: Number(result.energyDelta ?? 0),
+              dataQualityDelta: Number(result.dataQualityDelta ?? 0),
             });
             setShowGlobalFloralogModal(true);
 

@@ -213,6 +213,17 @@ const computeDailyEnergyGainFromMeters = (meters: number): number => {
   return clamp(points, 0, ENERGY_GAIN_CONFIG.maxPerDay);
 };
 
+const computeDataQualityGainFromZoneMultiplier = (zoneMultiplier: number): number => {
+  const safeZoneMultiplier = clamp(
+    Number(zoneMultiplier ?? REWARD_FORMULA_CONFIG.zoneMultiplier.default),
+    REWARD_FORMULA_CONFIG.zoneMultiplier.min,
+    REWARD_FORMULA_CONFIG.zoneMultiplier.max,
+  );
+
+  const derivedGain = Math.round((safeZoneMultiplier - 1) * 10);
+  return Math.max(1, derivedGain);
+};
+
 const normalizeRarityKey = (rarity: string | null | undefined): string =>
   String(rarity ?? "")
     .trim()
@@ -532,7 +543,9 @@ async function tryResolveScanRewardContext(
     zoneMultiplier,
   });
 
-  const derivedDataQualityDelta = isInActiveZone ? Math.round(zoneMultiplier * gainBoost) : 0;
+  const derivedDataQualityDelta = isInActiveZone
+    ? computeDataQualityGainFromZoneMultiplier(zoneMultiplier)
+    : 0;
   const boostedEnergyDelta = Math.round(derivedEnergyDelta * gainBoost);
 
   const nextZoneMultiplier = isInActiveZone
@@ -694,7 +707,17 @@ Deno.serve(async (req) => {
       }
     }
 
-    return jsonResponse({ ok: true, result, rewardDetails, eventSource: effectiveEventSource }, 200);
+    return jsonResponse(
+      {
+        ok: true,
+        result,
+        rewardDetails,
+        eventSource: effectiveEventSource,
+        energyDelta: Math.round(effectiveEnergyDelta),
+        dataQualityDelta: Math.round(effectiveDataQualityDelta),
+      },
+      200,
+    );
   } catch (error) {
     console.error("[robotPlantGrantReward] unexpected error", error);
     return jsonResponse({ error: "Unexpected error" }, 500);

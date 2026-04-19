@@ -85,6 +85,9 @@ const buildRewardSteps = (rewardDetails, isInActiveZone) => {
 export default function ScanFeedbackNotification({ feedback, onComplete }) {
   const rewardDetails = feedback?.rewardDetails || null;
   const isInActiveZone = feedback?.isInActiveZone !== false;
+  const energyDelta = Math.max(0, Number(feedback?.energyDelta ?? 0));
+  const dataQualityDelta = Math.max(0, Number(feedback?.dataQualityDelta ?? 0));
+  const hasResourceGains = energyDelta > 0 || dataQualityDelta > 0;
   const rewardSteps = useMemo(
     () => buildRewardSteps(rewardDetails, isInActiveZone),
     [rewardDetails, isInActiveZone]
@@ -98,6 +101,7 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
   const [activePopStepId, setActivePopStepId] = useState(null);
   const [vibrateCounter, setVibrateCounter] = useState(false);
   const [vibrateMultiplier, setVibrateMultiplier] = useState(false);
+  const [showResourceGains, setShowResourceGains] = useState(false);
 
   useEffect(() => {
     if (!feedback) {
@@ -112,6 +116,7 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
     setActivePopStepId(null);
     setVibrateCounter(false);
     setVibrateMultiplier(false);
+    setShowResourceGains(false);
 
     const timeouts = [];
     let frameId = null;
@@ -127,7 +132,15 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
     };
 
     if (!rewardDetails || rewardSteps.length === 0) {
-      finalize(2500);
+      if (hasResourceGains) {
+        timeouts.push(
+          window.setTimeout(() => {
+            setShowResourceGains(true);
+          }, 900)
+        );
+      }
+
+      finalize(hasResourceGains ? 3000 : 2500);
       return () => {
         timeouts.forEach((timeoutId) => window.clearTimeout(timeoutId));
         if (frameId) {
@@ -158,7 +171,12 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
 
     const runStep = (stepIndex, currentValue) => {
       if (stepIndex >= rewardSteps.length) {
-        finalize(1500);
+        if (hasResourceGains) {
+          setShowResourceGains(true);
+          finalize(2300);
+        } else {
+          finalize(1500);
+        }
         return;
       }
 
@@ -209,7 +227,7 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
         window.cancelAnimationFrame(frameId);
       }
     };
-  }, [feedback, onComplete, rewardDetails, rewardSteps]);
+  }, [feedback, hasResourceGains, onComplete, rewardDetails, rewardSteps]);
 
   if (!feedback) return null;
 
@@ -416,6 +434,34 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
                   })}
                 </div>
               )}
+
+              <AnimatePresence>
+                {showResourceGains && hasResourceGains && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 6 }}
+                    transition={{ duration: 0.24, ease: "easeOut" }}
+                    className="mt-4 rounded-xl border border-emerald-200/25 bg-emerald-950/30 px-3 py-2"
+                  >
+                    <div className="text-[10px] uppercase tracking-[0.2em] text-emerald-200/80">
+                      Zusatzgewinn
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                      {dataQualityDelta > 0 && (
+                        <span className="inline-flex items-center rounded-full border border-cyan-200/35 bg-cyan-500/15 px-2 py-1 font-semibold text-cyan-200">
+                          Datenqualitaet +{dataQualityDelta}
+                        </span>
+                      )}
+                      {energyDelta > 0 && (
+                        <span className="inline-flex items-center rounded-full border border-emerald-200/35 bg-emerald-500/15 px-2 py-1 font-semibold text-emerald-200">
+                          Energie +{energyDelta}
+                        </span>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           )}
         </div>
