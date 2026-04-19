@@ -22,6 +22,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import { Check } from "lucide-react";
 import { createPageUrl } from "@/utils";
+import { cacheLocation, LOCATION_CACHE_MAX_AGE_MS, requestCurrentLocation } from "@/lib/locationSync";
 import {
   grantRobotPlantRewardServerSide,
 } from "@/api/robotPlantService";
@@ -122,50 +123,38 @@ export default function Scanner() {
     }
   }, [locationEnabled]);
 
-  const getUserLocation = () => {
+  const getUserLocation = async () => {
     setGettingLocation(true);
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-          setGettingLocation(false);
-        },
-        (error) => {
-          console.error("Fehler beim Abrufen des Standorts:", error);
-          setGettingLocation(false);
-        }
-      );
-    } else {
+    if (!navigator.geolocation) {
+      setGettingLocation(false);
+      return;
+    }
+
+    try {
+      const location = await requestUserLocation({
+        maximumAge: LOCATION_CACHE_MAX_AGE_MS,
+      });
+      setUserLocation(location);
+      cacheLocation(location);
+    } catch (error) {
+      console.error("Fehler beim Abrufen des Standorts:", error);
+    } finally {
       setGettingLocation(false);
     }
   };
 
-  const requestUserLocation = () => {
+  const requestUserLocation = ({ maximumAge = LOCATION_CACHE_MAX_AGE_MS } = {}) => {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
         reject(new Error("Geolocation wird von diesem Browser nicht unterstützt."));
         return;
       }
 
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          resolve({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-        },
-        (error) => {
-          reject(error);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 12000,
-          maximumAge: 60000
-        }
-      );
+      requestCurrentLocation({
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge,
+      }).then(resolve).catch(reject);
     });
   };
 
@@ -176,19 +165,22 @@ export default function Scanner() {
     return `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
   };
 
-  const resolveCoordinatesForDiscovery = async () => {
+  const resolveCoordinatesForDiscovery = async ({ forceRefresh = false } = {}) => {
     if (!locationEnabled) {
       return null;
     }
 
-    if (userLocation && typeof userLocation.lat === "number" && typeof userLocation.lng === "number") {
+    if (!forceRefresh && userLocation && typeof userLocation.lat === "number" && typeof userLocation.lng === "number") {
       return userLocation;
     }
 
     try {
       setGettingLocation(true);
-      const freshLocation = await requestUserLocation();
+      const freshLocation = await requestUserLocation({
+        maximumAge: forceRefresh ? 0 : LOCATION_CACHE_MAX_AGE_MS,
+      });
       setUserLocation(freshLocation);
+      cacheLocation(freshLocation);
       return freshLocation;
     } catch (error) {
       console.warn("Standort konnte vor dem Speichern nicht ermittelt werden:", error);
@@ -201,6 +193,18 @@ export default function Scanner() {
   const resolveLocationForDiscovery = async () => {
     const location = await resolveCoordinatesForDiscovery();
     return getLocationString(location);
+  };
+
+  const captureScanLocationSnapshot = async () => {
+    const snapshot = await resolveCoordinatesForDiscovery({ forceRefresh: true });
+    if (snapshot && Number.isFinite(snapshot.lat) && Number.isFinite(snapshot.lng)) {
+      return {
+        lat: Number(snapshot.lat),
+        lng: Number(snapshot.lng),
+        capturedAt: new Date().toISOString(),
+      };
+    }
+    return null;
   };
 
   const getIsoDateKey = (value) => {
@@ -449,6 +453,8 @@ export default function Scanner() {
     setLatestDiscoveryId(null);
 
     try {
+      const scanLocationSnapshot = await captureScanLocationSnapshot();
+
       console.log("📤 Starte Upload...");
       updateScanningProgress(0, "📦 Komprimiere Bild fuer eine schnelle Analyse...");
       const { file_url } = await uploadFile({ file });
@@ -718,7 +724,8 @@ export default function Scanner() {
               plant: firstResult,
               imageUrl: file_url,
               allResults: processedResults,
-              isInDatabase: firstResult.inDatabase
+              isInDatabase: firstResult.inDatabase,
+              scanLocationSnapshot,
             });
             setMatchedPlant(firstResult);
             setScanning(false);
@@ -759,8 +766,12 @@ export default function Scanner() {
     }
   };
 
-  const handleAutoSave = async (plant, imageUrl, aiData, allResults = []) => {
-    const discoveryLocation = await resolveCoordinatesForDiscovery();
+  const handleAutoSave = async (plant, imageUrl, aiData, allResults = [], options = {}) => {
+    const snapshot = options?.scanLocationSnapshot;
+    const hasSnapshot = Number.isFinite(snapshot?.lat) && Number.isFinite(snapshot?.lng);
+    const discoveryLocation = hasSnapshot
+      ? { lat: Number(snapshot.lat), lng: Number(snapshot.lng) }
+      : await resolveCoordinatesForDiscovery({ forceRefresh: true });
     const locationString = getLocationString(discoveryLocation);
 
     // Lade aktuelle Discoveries direkt von der DB, nicht vom Cache
@@ -854,8 +865,12 @@ export default function Scanner() {
     return { alreadyDiscovered, rewardDetails, activeZone, energyDelta, dataQualityDelta };
   };
 
-  const handleAutoAddNewPlant = async (plantData, imageUrl, allResults = []) => {
-    const discoveryLocation = await resolveCoordinatesForDiscovery();
+  const handleAutoAddNewPlant = async (plantData, imageUrl, allResults = [], options = {}) => {
+    const snapshot = options?.scanLocationSnapshot;
+    const hasSnapshot = Number.isFinite(snapshot?.lat) && Number.isFinite(snapshot?.lng);
+    const discoveryLocation = hasSnapshot
+      ? { lat: Number(snapshot.lat), lng: Number(snapshot.lng) }
+      : await resolveCoordinatesForDiscovery({ forceRefresh: true });
     const locationString = getLocationString(discoveryLocation);
 
     // Bestimme, ob dies der erste Scan des Tages ist
@@ -1002,7 +1017,7 @@ export default function Scanner() {
     }
 
     try {
-      const { plant, imageUrl, allResults = [] } = pendingScanData;
+      const { plant, imageUrl, allResults = [], scanLocationSnapshot = null } = pendingScanData;
 
       // Aktuell ausgewähltes Ergebnis bestimmen
       const selectedFromResults =
@@ -1048,7 +1063,8 @@ export default function Scanner() {
           selectedPlant,
           imageUrl,
           selectedPlant.aiData || plant?.aiData,
-          allResults
+          allResults,
+          { scanLocationSnapshot }
         );
 
         setShowConfirmDialog(false);
@@ -1069,7 +1085,7 @@ export default function Scanner() {
       } else {
         // Neue Pflanze für das globale Floralog
         try {
-          const result = await handleAutoAddNewPlant(selectedPlant, imageUrl, allResults);
+          const result = await handleAutoAddNewPlant(selectedPlant, imageUrl, allResults, { scanLocationSnapshot });
 
           if (result?.newPlant) {
             setGlobalScanFeedback({

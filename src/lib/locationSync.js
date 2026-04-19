@@ -1,6 +1,7 @@
 const LOCATION_STORAGE_KEY = "floralog:last_location";
 const LOCATION_PERMISSION_KEY = "floralog:location_permission_granted";
 export const LOCATION_UPDATED_EVENT = "floralog:location-updated";
+export const LOCATION_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 
 const isBrowser = () => typeof window !== "undefined";
 
@@ -10,7 +11,7 @@ const toPayload = (lat, lng) => ({
   updatedAt: new Date().toISOString(),
 });
 
-export const getCachedLocation = () => {
+export const getCachedLocation = ({ maxAgeMs } = {}) => {
   if (!isBrowser()) return null;
 
   const raw = window.localStorage.getItem(LOCATION_STORAGE_KEY);
@@ -20,6 +21,17 @@ export const getCachedLocation = () => {
     const parsed = JSON.parse(raw);
     if (!Number.isFinite(parsed?.lat) || !Number.isFinite(parsed?.lng)) {
       return null;
+    }
+
+    if (Number.isFinite(maxAgeMs)) {
+      const updatedAtMs = parsed?.updatedAt ? Date.parse(parsed.updatedAt) : Number.NaN;
+      if (!Number.isFinite(updatedAtMs)) {
+        return null;
+      }
+
+      if (Date.now() - updatedAtMs > maxAgeMs) {
+        return null;
+      }
     }
 
     return {

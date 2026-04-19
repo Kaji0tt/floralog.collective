@@ -22,7 +22,7 @@ import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNo
 import { useNavigate, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { getNameFontSize } from "@/lib/utils";
-import { cacheLocation, getCachedLocation, requestCurrentLocation } from "@/lib/locationSync";
+import { cacheLocation, getCachedLocation, LOCATION_CACHE_MAX_AGE_MS, requestCurrentLocation } from "@/lib/locationSync";
 import {
   computeCareMultiplier,
   computeFirstScanOfDayMultiplier,
@@ -480,9 +480,11 @@ export default function Home() {
     };
 
     warmupLiveLocation();
+    const refreshIntervalId = window.setInterval(warmupLiveLocation, LOCATION_CACHE_MAX_AGE_MS);
 
     return () => {
       cancelled = true;
+      window.clearInterval(refreshIntervalId);
     };
   }, []);
 
@@ -718,7 +720,7 @@ export default function Home() {
             setZoneRerollsRemaining(cachedSnapshot.rerollsRemainingToday);
           }
 
-          let location = getCachedLocation();
+          let location = getCachedLocation({ maxAgeMs: LOCATION_CACHE_MAX_AGE_MS });
           
           // Browser-Kompatibilität: Wenn Cache leer ist, Live-Standort versuchen
           if (!Number.isFinite(location?.lat) || !Number.isFinite(location?.lng)) {
@@ -764,7 +766,7 @@ export default function Home() {
         return;
       }
 
-      let location = getCachedLocation();
+      let location = getCachedLocation({ maxAgeMs: LOCATION_CACHE_MAX_AGE_MS });
       console.log("[Home] Zone load: cached location =", location ? { lat: location.lat, lng: location.lng } : null);
       
       // Browser-Kompatibilität: Wenn Cache leer ist (z.B. Chrome mit neuer Session),
@@ -1159,7 +1161,7 @@ export default function Home() {
     : activeZone
     ? THEME_MAP_COLORS[activeZone.theme] || "#84cc16"
     : "#6b7280";
-  const cachedLocation = getCachedLocation();
+  const cachedLocation = getCachedLocation({ maxAgeMs: LOCATION_CACHE_MAX_AGE_MS });
   const hasLiveCachedLocation = Number.isFinite(cachedLocation?.lat) && Number.isFinite(cachedLocation?.lng);
   const currentUserEmailLower = (user?.email || "").toLowerCase();
   const likedDiscoveryIdSet = new Set(
@@ -1521,6 +1523,47 @@ export default function Home() {
       }
 
       cacheLocation(location);
+
+      // Backend fragen nach aktuellen Zonen für heute
+      try {
+        console.log("[Home] Polling zones from backend when opening zone map");
+        const daily = await getRobotPlantDailyZones({
+          latitude: location.lat,
+          longitude: location.lng,
+          authDayKey: zoneGenerationDay,
+          mode: "initial",
+        });
+
+        // Zonen aktualisieren und cachen
+        const updatedZones = daily?.zones || [];
+        setHeroZones(updatedZones);
+        if (daily?.rerollsRemainingToday !== undefined && daily?.rerollsRemainingToday !== null) {
+          setZoneRerollsRemaining(daily.rerollsRemainingToday);
+        }
+        persistDailyZoneSnapshot(user.id, updatedZones, daily?.rerollsRemainingToday ?? null);
+
+        // Active zone neu berechnen basierend auf aktuellem Standort
+        const inRangeZone = updatedZones
+          .map((zone) => {
+            const dist = calculateDistanceMeters(
+              location.lat,
+              location.lng,
+              Number(zone.centerLat),
+              Number(zone.centerLng)
+            );
+            return { ...zone, distanceM: dist };
+          })
+          .filter((zone) => Number.isFinite(zone.distanceM) && zone.distanceM <= Number(zone.radiusM || 0))
+          .sort((a, b) => a.distanceM - b.distanceM)[0];
+
+        setActiveZone(inRangeZone || null);
+        console.log("[Home] Zones refreshed from backend:", updatedZones.length, "zones");
+      } catch (zoneError) {
+        // Backend-Fehler: Mit gecachten Zonen weitermachen (kein Show-Stopper)
+        console.warn("[Home] Zone polling failed, using cached zones:", zoneError?.message);
+        // heroZones bleibt wie sie ist - wir zeigen trotzdem die Karte mit den gecachten Zonen
+      }
+
       setZoneMapError(null);
       setShowHeroZoneMap(true);
       setShowHealthStatsPanel(false);
