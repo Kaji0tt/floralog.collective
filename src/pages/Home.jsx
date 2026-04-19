@@ -22,7 +22,7 @@ import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNo
 import { useNavigate, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { getNameFontSize } from "@/lib/utils";
-import { getCachedLocation } from "@/lib/locationSync";
+import { cacheLocation, getCachedLocation, requestCurrentLocation } from "@/lib/locationSync";
 import {
   computeCareMultiplier,
   computeFirstScanOfDayMultiplier,
@@ -96,6 +96,7 @@ export default function Home() {
   const [zoneRerollsRemaining, setZoneRerollsRemaining] = useState(null);
   const [showHeroZoneMap, setShowHeroZoneMap] = useState(false);
   const [zoneMapError, setZoneMapError] = useState(null);
+  const [isResolvingHeroMapLocation, setIsResolvingHeroMapLocation] = useState(false);
   const [hasResolvedZoneBootstrap, setHasResolvedZoneBootstrap] = useState(false);
   const [showHealthStatsPanel, setShowHealthStatsPanel] = useState(false);
   const healthStatsPanelRef = useRef(null);
@@ -456,6 +457,32 @@ export default function Home() {
     return () => {
       unsubscribe();
       window.removeEventListener('userUpdated', handleUserUpdate);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const warmupLiveLocation = async () => {
+      try {
+        const location = await requestCurrentLocation({
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0,
+        });
+
+        if (!cancelled && Number.isFinite(location?.lat) && Number.isFinite(location?.lng)) {
+          cacheLocation(location);
+        }
+      } catch {
+        // Silent on app start: map open flow will show explicit error and retry if needed.
+      }
+    };
+
+    warmupLiveLocation();
+
+    return () => {
+      cancelled = true;
     };
   }, []);
 
@@ -1086,6 +1113,7 @@ export default function Home() {
     ? THEME_MAP_COLORS[activeZone.theme] || "#84cc16"
     : "#6b7280";
   const cachedLocation = getCachedLocation();
+  const hasLiveCachedLocation = Number.isFinite(cachedLocation?.lat) && Number.isFinite(cachedLocation?.lng);
   const currentUserEmailLower = (user?.email || "").toLowerCase();
   const likedDiscoveryIdSet = new Set(
     (scanLikes || [])
@@ -1093,7 +1121,7 @@ export default function Home() {
       .map((like) => like.discovery_id)
   );
 
-  const nearbyDiscoveryPoints = Number.isFinite(cachedLocation?.lat) && Number.isFinite(cachedLocation?.lng)
+  const nearbyDiscoveryPoints = hasLiveCachedLocation
     ? allDiscoveries
         .map((entry) => {
           const coords = parseDiscoveryCoordinates(entry?.discovery_location);
@@ -1151,7 +1179,7 @@ export default function Home() {
           return Number.isFinite(distanceM) && distanceM <= NEARBY_DISCOVERY_RADIUS_METERS;
         })
     : [];
-  const heroMapCenter = Number.isFinite(cachedLocation?.lat) && Number.isFinite(cachedLocation?.lng)
+  const heroMapCenter = hasLiveCachedLocation
     ? [cachedLocation.lat, cachedLocation.lng]
     : heroZones[0]
       ? [Number(heroZones[0].centerLat), Number(heroZones[0].centerLng)]
@@ -1366,15 +1394,21 @@ export default function Home() {
       return;
     }
 
-    const location = getCachedLocation();
-    if (!Number.isFinite(location?.lat) || !Number.isFinite(location?.lng)) {
-      setZoneMapError("Standort fehlt. Bitte Standortfreigabe aktivieren.");
-      return;
-    }
-
     setIsRegeneratingZones(true);
     setZoneMapError(null);
     try {
+      const location = await requestCurrentLocation({
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      });
+
+      if (!Number.isFinite(location?.lat) || !Number.isFinite(location?.lng)) {
+        throw new Error("Standort fehlt. Bitte Standortfreigabe aktivieren.");
+      }
+
+      cacheLocation(location);
+
       const daily = await getRobotPlantDailyZones({
         latitude: location.lat,
         longitude: location.lng,
@@ -1421,6 +1455,39 @@ export default function Home() {
       setZoneMapError(String(message));
     } finally {
       setIsRegeneratingZones(false);
+    }
+  };
+
+  const handleOpenHeroZoneMap = async () => {
+    if (isResolvingHeroMapLocation) return;
+
+    setIsResolvingHeroMapLocation(true);
+    try {
+      const location = await requestCurrentLocation({
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      });
+
+      if (!Number.isFinite(location?.lat) || !Number.isFinite(location?.lng)) {
+        throw new Error("Standort konnte nicht geladen werden.");
+      }
+
+      cacheLocation(location);
+      setZoneMapError(null);
+      setShowHeroZoneMap(true);
+      setShowHealthStatsPanel(false);
+    } catch (error) {
+      const deniedByUser = Number(error?.code) === 1;
+      setZoneMapError(
+        deniedByUser
+          ? "Standortfreigabe verweigert. Ohne Live-Standort kann die Zonenkarte nicht geladen werden."
+          : (error?.message || "Standort konnte nicht geladen werden.")
+      );
+      setShowHeroZoneMap(true);
+      setShowHealthStatsPanel(false);
+    } finally {
+      setIsResolvingHeroMapLocation(false);
     }
   };
 
@@ -1751,17 +1818,54 @@ export default function Home() {
                   style={isLightUi ? {
                     background: 'linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.1) 40%, rgba(255,255,255,0) 70%, rgba(255,255,255,0.05) 100%)'
                   } : {}}>
-                    <MapboxZoneMap
-                      zones={heroZones}
-                      userLocation={cachedLocation}
-                      fallbackCenter={{ lat: heroMapCenter[0], lng: heroMapCenter[1] }}
-                      discoveryPoints={nearbyDiscoveryPoints}
-                      onDiscoveryImageClick={handleDiscoveryImageClick}
-                      onDiscoveryLike={handleDiscoveryLike}
-                      allowDiscoveryLike={!!user?.id}
-                      onTokenError={(message) => setZoneMapError(message)}
-                      onMapReady={setHeroMapInstance}
-                    />
+                    {isResolvingHeroMapLocation ? (
+                      <div className="absolute inset-0 flex items-center justify-center px-4">
+                        <div className={`rounded-2xl border px-4 py-3 text-sm flex items-center gap-2 ${
+                          isLightUi
+                            ? "border-[#c8ac62]/50 bg-white/70 text-stone-800"
+                            : "border-[#f0e5a5]/35 bg-black/55 text-stone-100"
+                        }`}>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Live-Standort wird geladen...
+                        </div>
+                      </div>
+                    ) : !hasLiveCachedLocation ? (
+                      <div className="absolute inset-0 flex items-center justify-center px-4">
+                        <div className={`max-w-md rounded-2xl border p-5 text-center ${
+                          isLightUi
+                            ? "border-red-400/45 bg-red-100/75 text-red-800"
+                            : "border-red-300/45 bg-red-950/55 text-red-100"
+                        }`}>
+                          <h3 className="text-base font-semibold mb-2">Zonenkarte nicht verfuegbar</h3>
+                          <p className="text-sm mb-4">
+                            {zoneMapError || "Ohne Live-Standort kann die Zonenkarte nicht geladen werden."}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={handleOpenHeroZoneMap}
+                            className={`h-10 px-4 rounded-xl border text-sm font-semibold ${
+                              isLightUi
+                                ? "border-red-500/50 bg-white/70 text-red-800 hover:bg-white"
+                                : "border-red-300/45 bg-red-900/45 text-red-100 hover:bg-red-900/60"
+                            }`}
+                          >
+                            Standort erneut anfragen
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <MapboxZoneMap
+                        zones={heroZones}
+                        userLocation={cachedLocation}
+                        fallbackCenter={{ lat: heroMapCenter[0], lng: heroMapCenter[1] }}
+                        discoveryPoints={nearbyDiscoveryPoints}
+                        onDiscoveryImageClick={handleDiscoveryImageClick}
+                        onDiscoveryLike={handleDiscoveryLike}
+                        allowDiscoveryLike={!!user?.id}
+                        onTokenError={(message) => setZoneMapError(message)}
+                        onMapReady={setHeroMapInstance}
+                      />
+                    )}
 
                     <TileVisualizationPanel
                       map={heroMapInstance}
@@ -1889,10 +1993,7 @@ export default function Home() {
 
                       <button
                         type="button"
-                        onClick={() => {
-                          setShowHeroZoneMap(true);
-                          setShowHealthStatsPanel(false);
-                        }}
+                        onClick={handleOpenHeroZoneMap}
                         aria-label="Zonenkarte in Plant-Hero öffnen"
                         className={`absolute right-0 md:right-2 top-5 md:top-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${
                           isLightUi

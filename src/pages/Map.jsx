@@ -3,13 +3,13 @@ import { useSearchParams } from "react-router-dom";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
 import MapboxZoneMap from "@/components/map/MapboxZoneMap";
 import { parseDiscoveryCoordinates } from "@/lib/discoveryMap";
+import { cacheLocation, requestCurrentLocation } from "@/lib/locationSync";
 import { AlertCircle, Loader2, MapPin, Navigation } from "lucide-react";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 
-const DEFAULT_CENTER = { lat: 51.1657, lng: 10.4515 };
+const AnyMapboxZoneMap = /** @type {any} */ (MapboxZoneMap);
 
 export default function Map() {
   const [searchParams] = useSearchParams();
@@ -19,9 +19,10 @@ export default function Map() {
   const urlLng = parseFloat(searchParams.get("lng") ?? "");
   const urlCenter = Number.isFinite(urlLat) && Number.isFinite(urlLng) ? { lat: urlLat, lng: urlLng } : null;
 
-  const [userLocation, setUserLocation] = useState(null);
+  const [userLocation, setUserLocation] = useState({ lat: null, lng: null });
   const [gettingLocation, setGettingLocation] = useState(false);
-  const [mapError, setMapError] = useState(null);
+  const [mapError, setMapError] = useState("");
+  const [locationReady, setLocationReady] = useState(false);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -44,36 +45,66 @@ export default function Map() {
     [allDiscoveries]
   );
 
-  const mapCenter = userLocation || urlCenter || DEFAULT_CENTER;
+  const liveLat = Number(userLocation?.lat);
+  const liveLng = Number(userLocation?.lng);
+  const hasUserLocation = Number.isFinite(liveLat) && Number.isFinite(liveLng);
+  const mapCenter = hasUserLocation ? { lat: liveLat, lng: liveLng } : null;
   const title = user?.display_name || user?.full_name || "Floralog Karte";
 
-  const handleGetLocation = () => {
+  const handleGetLocation = async () => {
     if (!navigator.geolocation) {
       setMapError("Geolocation wird von diesem Browser nicht unterstuetzt.");
+      setLocationReady(false);
       return;
     }
 
     setGettingLocation(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setUserLocation({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        });
-        setMapError(null);
-        setGettingLocation(false);
-      },
-      (error) => {
-        setMapError(error?.message || "Standort konnte nicht geladen werden.");
-        setGettingLocation(false);
-      },
-      {
-        enableHighAccuracy: false,
-        timeout: 12000,
-        maximumAge: 60000,
+    try {
+      const location = await requestCurrentLocation({
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      });
+
+      if (!Number.isFinite(location?.lat) || !Number.isFinite(location?.lng)) {
+        throw new Error("Standort konnte nicht geladen werden.");
       }
-    );
+
+      cacheLocation(location);
+
+      setUserLocation({
+        lat: location.lat,
+        lng: location.lng,
+      });
+      setMapError("");
+      setLocationReady(true);
+    } catch (caughtError) {
+      const deniedByUser =
+        typeof caughtError === "object" &&
+        caughtError !== null &&
+        "code" in caughtError &&
+        Number(caughtError.code) === 1;
+      const fallbackMessage = "Standort konnte nicht geladen werden.";
+      const explicitMessage =
+        caughtError instanceof Error
+          ? caughtError.message
+          : (typeof caughtError === "object" && caughtError !== null && "message" in caughtError
+              ? String(caughtError.message)
+              : fallbackMessage);
+      setMapError(
+        deniedByUser
+          ? "Standortfreigabe verweigert. Ohne Live-Standort kann die Karte nicht geladen werden."
+          : (explicitMessage || fallbackMessage)
+      );
+      setLocationReady(false);
+    } finally {
+      setGettingLocation(false);
+    }
   };
+
+  useEffect(() => {
+    handleGetLocation();
+  }, []);
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(52,211,153,0.14),_transparent_38%),linear-gradient(180deg,_#122015_0%,_#0a120d_100%)] text-stone-100">
@@ -91,7 +122,7 @@ export default function Map() {
                 <div className="rounded-xl border border-[#f0e5a5]/25 bg-black/25 px-3 py-2 text-xs font-medium text-stone-200">
                   Funde: {discoveryPoints.length}
                 </div>
-                <Button
+                <button
                   type="button"
                   onClick={handleGetLocation}
                   disabled={gettingLocation}
@@ -99,13 +130,41 @@ export default function Map() {
                 >
                   {gettingLocation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Navigation className="mr-2 h-4 w-4" />}
                   Standort zentrieren
-                </Button>
+                </button>
               </div>
             </div>
           </div>
 
           <div className="relative flex-1 min-h-[70vh]">
-            {isLoading ? (
+            {gettingLocation ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/25">
+                <div className="flex items-center gap-3 rounded-2xl border border-[#f0e5a5]/25 bg-black/35 px-4 py-3 text-sm text-stone-200">
+                  <Loader2 className="h-5 w-5 animate-spin text-lime-300" />
+                  Live-Standort wird abgefragt...
+                </div>
+              </div>
+            ) : !locationReady ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/35 px-4">
+                <div className="max-w-md rounded-2xl border border-red-300/35 bg-red-950/45 p-5 text-center text-red-50 backdrop-blur-sm">
+                  <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-red-200/40 bg-red-900/45">
+                    <AlertCircle className="h-5 w-5" />
+                  </div>
+                  <h2 className="mb-2 text-base font-semibold">Karte nicht verfuegbar</h2>
+                  <p className="mb-4 text-sm text-red-100/95">
+                    {mapError || "Ohne Live-Standort kann die Karte nicht geladen werden."}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleGetLocation}
+                    disabled={gettingLocation}
+                    className="rounded-xl border border-red-200/35 bg-red-700/80 text-white hover:brightness-110"
+                  >
+                    {gettingLocation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Navigation className="mr-2 h-4 w-4" />}
+                    Standort erneut anfragen
+                  </button>
+                </div>
+              </div>
+            ) : isLoading ? (
               <div className="absolute inset-0 flex items-center justify-center bg-black/25">
                 <div className="flex items-center gap-3 rounded-2xl border border-[#f0e5a5]/25 bg-black/35 px-4 py-3 text-sm text-stone-200">
                   <Loader2 className="h-5 w-5 animate-spin text-lime-300" />
@@ -113,12 +172,11 @@ export default function Map() {
                 </div>
               </div>
             ) : (
-              <MapboxZoneMap
+              <AnyMapboxZoneMap
                 zones={[]}
-                userLocation={userLocation}
+                userLocation={hasUserLocation ? mapCenter : null}
                 fallbackCenter={mapCenter}
                 discoveryPoints={discoveryPoints}
-                onTokenError={setMapError}
                 className="h-full w-full"
               />
             )}
@@ -129,7 +187,7 @@ export default function Map() {
               <div className="rounded-xl border border-[#f0e5a5]/30 bg-black/55 px-3 py-2 text-xs font-semibold text-stone-100 backdrop-blur-sm">
                 <div className="flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-lime-300" />
-                  <span>Zentrum: {userLocation ? "Dein Standort" : urlCenter ? "URL-Koordinaten" : "Deutschland"}</span>
+                  <span>Zentrum: {hasUserLocation ? "Dein Standort" : urlCenter ? "URL-Koordinaten" : "Nicht verfuegbar"}</span>
                 </div>
               </div>
 
