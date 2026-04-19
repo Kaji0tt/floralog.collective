@@ -804,10 +804,11 @@ export default function Home() {
       setZoneMapError(null);
       try {
         console.log("[Home] Calling getRobotPlantDailyZones with location:", { lat: location.lat, lng: location.lng });
+        const authDayKeyForRequest = zoneGenerationDay || todayKey;
         const daily = await getRobotPlantDailyZones({
           latitude: location.lat,
           longitude: location.lng,
-          authDayKey: zoneGenerationDay,
+          authDayKey: authDayKeyForRequest,
           mode: "initial",
         });
         console.log("[Home] Daily zones loaded:", daily?.zones?.length || 0, "zones");
@@ -836,7 +837,7 @@ export default function Home() {
         setActiveZone(inRangeZone || null);
       } catch (error) {
         console.warn("[Home] Konnte aktive Zone nicht laden:", error?.message || error);
-        setZoneMapError("Zonen konnten nicht geladen werden.");
+        setZoneMapError(error?.message || "Zonen konnten nicht geladen werden.");
         setHeroZones([]);
         setActiveZone(null);
       } finally {
@@ -1458,11 +1459,12 @@ export default function Home() {
 
       cacheLocation(location);
 
+      const authDayKeyForRequest = zoneGenerationDay || todayKey;
       const daily = await getRobotPlantDailyZones({
         latitude: location.lat,
         longitude: location.lng,
         forceRegenerate: true,
-        authDayKey: zoneGenerationDay,
+        authDayKey: authDayKeyForRequest,
         mode: "reroll",
       });
 
@@ -1527,10 +1529,11 @@ export default function Home() {
       // Backend fragen nach aktuellen Zonen für heute
       try {
         console.log("[Home] Polling zones from backend when opening zone map");
+        const authDayKeyForRequest = zoneGenerationDay || todayKey;
         const daily = await getRobotPlantDailyZones({
           latitude: location.lat,
           longitude: location.lng,
-          authDayKey: zoneGenerationDay,
+          authDayKey: authDayKeyForRequest,
           mode: "initial",
         });
 
