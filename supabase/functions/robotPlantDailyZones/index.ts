@@ -435,17 +435,16 @@ const computeOverallHealth = (energyValue: number, dataQualityValue: number, car
   return clamp(Math.floor(avg), 0, 100);
 };
 
-const computeZoneCountFromEnergy = (energyValue: number): number => {
-  const safeEnergy = clamp(Number(energyValue ?? 0), 0, 100);
-  if (safeEnergy < 10) return 0;
-  return Math.min(8, Math.floor(safeEnergy / 10));
+const computeZoneCountFromDataQuality = (dataQualityValue: number): number => {
+  const safeDataQuality = clamp(Number(dataQualityValue ?? 0), 0, 100);
+  return Math.min(8, Math.max(1, Math.floor(safeDataQuality / 10)));
 };
 
-const computeZoneRerollsFromEnergy = (energyValue: number): number => {
-  const safeEnergy = clamp(Number(energyValue ?? 0), 0, 100);
-  if (safeEnergy >= 100) return 4;
-  if (safeEnergy >= 90) return 2;
-  if (safeEnergy >= 80) return 1;
+const computeZoneRerollsFromCare = (careValue: number): number => {
+  const safeCare = clamp(Number(careValue ?? 0), 0, 100);
+  if (safeCare >= 100) return 4;
+  if (safeCare >= 90) return 2;
+  if (safeCare >= 80) return 1;
   return 0;
 };
 
@@ -801,9 +800,9 @@ Deno.serve(async (req) => {
     const lastDecayDayKey = lastDecayAt ? toDayKey(lastDecayAt) : null;
     const isNewDay = lastDecayDayKey !== dayKey;
 
-    // Pre-decay snapshot: compute bonus rerolls BEFORE energy drops
-    const preDecayBonusRerolls = computeZoneRerollsFromEnergy(currentEnergy); // 0/1/2/4
-    const totalRerollsGrantedToday = 1 + preDecayBonusRerolls; // 1 free base + energy bonus
+    // Pre-decay snapshot: compute bonus rerolls BEFORE care drops
+    const preDecayBonusRerolls = computeZoneRerollsFromCare(currentCare); // 0/1/2/4
+    const totalRerollsGrantedToday = 1 + preDecayBonusRerolls; // 1 free base + care bonus
 
     if (isNewDay) {
       const hoursSinceLastDecay = lastDecayAt
@@ -866,8 +865,8 @@ Deno.serve(async (req) => {
 
     // Post-decay values used for zone budget
     const hasProvidedPos = Number.isFinite(providedLat) && Number.isFinite(providedLng);
-    const targetZoneCount = computeZoneCountFromEnergy(currentEnergy);
-    const rerolls = computeZoneRerollsFromEnergy(currentEnergy);
+    const targetZoneCount = computeZoneCountFromDataQuality(currentDq);
+    const rerolls = computeZoneRerollsFromCare(currentCare);
     const hasStoredPos =
       robot &&
       Number.isFinite(Number(robot.last_valid_geo_lat)) &&

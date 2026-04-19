@@ -5,10 +5,10 @@ import { useUiTheme } from "@/lib/UiThemeContext";
 
 const HEALTH_TOOLTIP_TEXT = {
   energy:
-    "Energie bestimmt Zonenanzahl, taegliche Rerolls, Zonengroesse und den taeglichen Energiegewinn aus gelaufener Scan-Distanz. Der taegliche Decay basiert auf der Gesamtgesundheit vor Decay (floor(Overall/10), mindestens 1).",
+    "Energie bestimmt die Zonengroesse und den taeglichen Energiegewinn aus gelaufener Scan-Distanz. Der taegliche Decay basiert auf der Gesamtgesundheit vor Decay (floor(Overall/10), mindestens 1).",
   "data-quality":
-    "Datenqualitaet steigt nur bei Scans innerhalb einer aktiven Zone: 1. Scan +5, 2. +4, 3. +3, 4. +2, ab dem 5. +1 (Floor) pro Zone und Tag. In einer anderen Zone startet es wieder bei +5. Ausserhalb aktiver Zonen gibt es +0.",
-  care: "Pflege wirkt direkt als Multiplikator (0.5 bis 1.5) auf die Seed-Belohnung. Decay wird nicht direkt durch Pflege reduziert.",
+    "Datenqualitaet bestimmt die Anzahl der taeglichen Zonen (mindestens 1, maximal 8) und steigt nur bei Scans innerhalb einer aktiven Zone: 1. Scan +5, 2. +4, 3. +3, 4. +2, ab dem 5. +1 (Floor) pro Zone und Tag. In einer anderen Zone startet es wieder bei +5. Ausserhalb aktiver Zonen gibt es +0.",
+  care: "Pflege wirkt direkt als Multiplikator (0.5 bis 1.5) auf die Seed-Belohnung, bestimmt die taeglichen Zone-Rerolls (0/1/2/4 bei >=80/>=90/>=100) und steigt bei erhaltenen Likes zusaetzlich um +1 (max. 5x pro Tag). Decay wird nicht direkt durch Pflege reduziert.",
 };
 
 export default function PlantHeroHealthPanel({

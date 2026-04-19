@@ -718,19 +718,40 @@ export default function Home() {
             setZoneRerollsRemaining(cachedSnapshot.rerollsRemainingToday);
           }
 
-          const location = getCachedLocation();
-          const inRangeZone = (zones || [])
-            .map((zone) => {
-              const dist = calculateDistanceMeters(
-                location?.lat,
-                location?.lng,
-                Number(zone.centerLat),
-                Number(zone.centerLng)
-              );
-              return { ...zone, distanceM: dist };
-            })
-            .filter((zone) => Number.isFinite(zone.distanceM) && zone.distanceM <= Number(zone.radiusM || 0))
-            .sort((a, b) => a.distanceM - b.distanceM)[0];
+          let location = getCachedLocation();
+          
+          // Browser-Kompatibilität: Wenn Cache leer ist, Live-Standort versuchen
+          if (!Number.isFinite(location?.lat) || !Number.isFinite(location?.lng)) {
+            try {
+              location = await requestCurrentLocation({
+                enableHighAccuracy: true,
+                timeout: 12000,
+                maximumAge: 0,
+              });
+              if (Number.isFinite(location?.lat) && Number.isFinite(location?.lng)) {
+                cacheLocation(location);
+              }
+            } catch {
+              // Standort optional für Zones-Anzeige, nur für Active Zone calc relevant
+              console.log("[Home] Could not get live location for active zone calc");
+              location = null;
+            }
+          }
+          
+          const inRangeZone = location && Number.isFinite(location?.lat) && Number.isFinite(location?.lng)
+            ? (zones || [])
+                .map((zone) => {
+                  const dist = calculateDistanceMeters(
+                    location.lat,
+                    location.lng,
+                    Number(zone.centerLat),
+                    Number(zone.centerLng)
+                  );
+                  return { ...zone, distanceM: dist };
+                })
+                .filter((zone) => Number.isFinite(zone.distanceM) && zone.distanceM <= Number(zone.radiusM || 0))
+                .sort((a, b) => a.distanceM - b.distanceM)[0]
+            : null;
 
           setActiveZone(inRangeZone || null);
         }
@@ -743,25 +764,51 @@ export default function Home() {
         return;
       }
 
-      const location = getCachedLocation();
+      let location = getCachedLocation();
+      console.log("[Home] Zone load: cached location =", location ? { lat: location.lat, lng: location.lng } : null);
+      
+      // Browser-Kompatibilität: Wenn Cache leer ist (z.B. Chrome mit neuer Session),
+      // Live-Standort anfordern statt gleich abzubrechen
       if (!Number.isFinite(location?.lat) || !Number.isFinite(location?.lng)) {
-        setHeroZones([]);
-        setActiveZone(null);
-        if (!isCancelled) {
-          setHasResolvedZoneBootstrap(true);
+        console.log("[Home] Cached location empty - requesting live location for zone generation");
+        setIsLoadingZone(true);
+        try {
+          location = await requestCurrentLocation({
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 0,
+          });
+          console.log("[Home] Live location acquired:", location ? { lat: location.lat, lng: location.lng } : null);
+          
+          if (Number.isFinite(location?.lat) && Number.isFinite(location?.lng)) {
+            cacheLocation(location);
+          } else {
+            throw new Error("Live location invalid");
+          }
+        } catch (liveLocationError) {
+          console.warn("[Home] Live location request failed:", liveLocationError?.message || liveLocationError);
+          setHeroZones([]);
+          setActiveZone(null);
+          setZoneMapError("Standort nicht verfügbar. Bitte Standortfreigabe aktivieren.");
+          if (!isCancelled) {
+            setHasResolvedZoneBootstrap(true);
+          }
+          setIsLoadingZone(false);
+          return;
         }
-        return;
       }
 
       setIsLoadingZone(true);
       setZoneMapError(null);
       try {
+        console.log("[Home] Calling getRobotPlantDailyZones with location:", { lat: location.lat, lng: location.lng });
         const daily = await getRobotPlantDailyZones({
           latitude: location.lat,
           longitude: location.lng,
           authDayKey: zoneGenerationDay,
           mode: "initial",
         });
+        console.log("[Home] Daily zones loaded:", daily?.zones?.length || 0, "zones");
 
         setZoneGenerationDayForUser(todayKey);
         persistDailyZoneSnapshot(user.id, daily?.zones || [], daily?.rerollsRemainingToday ?? null);

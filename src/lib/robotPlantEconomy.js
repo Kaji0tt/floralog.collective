@@ -3,7 +3,6 @@ import {
   ROBOT_PLANT_EVENT_SOURCES,
   ROBOT_PLANT_HEALTH_STATES,
   ROBOT_PLANT_VALUES,
-  ROBOT_PLANT_CARE_RULES,
   ROBOT_PLANT_GAIN_RULES,
   ROBOT_PLANT_GEO_ZONE_CONFIG,
   clampRobotPlantValue,
@@ -168,13 +167,6 @@ export const computeDailyFirstScanMultiplier = (isFirstScanOfDay = false) => {
 
 export const computeDecayReductionFromCare = () => {
   return 0;
-};
-
-export const computeGainBoostFromCare = (careValue = ROBOT_PLANT_VALUES.care.initial) => {
-  const safeCare = clamp(Number(careValue ?? 0), 0, 100);
-  return safeCare >= ROBOT_PLANT_CARE_RULES.gainBoostThreshold
-    ? ROBOT_PLANT_CARE_RULES.gainBoostMultiplier
-    : 1;
 };
 
 export const computeDailyEnergyGainFromMeters = (meters = 0) => {
@@ -361,6 +353,6 @@ export const buildDecayDelta = ({
 };
 
 export const applyGainBoostToDelta = (deltaValue = 0, careValue = ROBOT_PLANT_VALUES.care.initial) => {
-  const boost = computeGainBoostFromCare(careValue);
-  return Math.round(Number(deltaValue ?? 0) * boost);
+  void careValue;
+  return Math.round(Number(deltaValue ?? 0));
 };

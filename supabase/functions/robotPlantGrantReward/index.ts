@@ -107,11 +107,6 @@ const ENERGY_GAIN_CONFIG = {
   maxPerDay: 15,
 };
 
-const CARE_GAIN_BOOST_CONFIG = {
-  threshold: 90,
-  multiplier: 2,
-};
-
 const ROBOT_PLANT_DEFAULT_STATE = {
   data_quality: 65,
   care: 72,
@@ -129,6 +124,7 @@ const NORMALIZED_RARITY_MULTIPLIERS: Record<string, number> = {
 };
 
 const EARTH_RADIUS_M = 6371000;
+const SCAN_LIKE_CARE_GAIN_DAILY_CAP = 5;
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
@@ -144,6 +140,32 @@ function isUuid(value: string | null | undefined): value is string {
 function normalizeEmail(value: string | null | undefined): string | null {
   const normalized = value?.trim().toLowerCase();
   return normalized || null;
+}
+
+function getUtcDayWindow(date = new Date()): { startIso: string; endIso: string } {
+  const start = new Date(Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+    0,
+    0,
+    0,
+    0,
+  ));
+  const end = new Date(Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate() + 1,
+    0,
+    0,
+    0,
+    0,
+  ));
+
+  return {
+    startIso: start.toISOString(),
+    endIso: end.toISOString(),
+  };
 }
 
 const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
@@ -200,11 +222,6 @@ const computeZoneMultiplierFromScanCount = (scanCountInZoneToday: number): numbe
   const safeCount = Math.max(0, Number(scanCountInZoneToday ?? 0));
   const decremented = REWARD_FORMULA_CONFIG.zoneMultiplier.start - safeCount * REWARD_FORMULA_CONFIG.zoneMultiplier.decrementPerAdditionalScan;
   return clamp(decremented, REWARD_FORMULA_CONFIG.zoneMultiplier.min, REWARD_FORMULA_CONFIG.zoneMultiplier.max);
-};
-
-const computeGainBoostFromCare = (careValue: number): number => {
-  const safeCare = clamp(Number(careValue ?? 0), 0, 100);
-  return safeCare >= CARE_GAIN_BOOST_CONFIG.threshold ? CARE_GAIN_BOOST_CONFIG.multiplier : 1;
 };
 
 const computeDailyEnergyGainFromMeters = (meters: number): number => {
@@ -492,8 +509,6 @@ async function tryResolveScanRewardContext(
   const careValue = Number(robotPlantState?.care ?? ROBOT_PLANT_DEFAULT_STATE.care);
   const energyValue = Number(robotPlantState?.energy ?? ROBOT_PLANT_DEFAULT_STATE.energy);
   const dataQualityValue = Number(robotPlantState?.data_quality ?? ROBOT_PLANT_DEFAULT_STATE.data_quality);
-  const gainBoost = computeGainBoostFromCare(careValue);
-
   let derivedEnergyDelta = 0;
   if (discoveryCoordinates) {
     const { data: todayDiscoveries, error: todayDiscoveriesError } = await adminClient
@@ -546,7 +561,7 @@ async function tryResolveScanRewardContext(
   const derivedDataQualityDelta = isInActiveZone
     ? computeDataQualityGainFromZoneMultiplier(zoneMultiplier)
     : 0;
-  const boostedEnergyDelta = Math.round(derivedEnergyDelta * gainBoost);
+  const finalEnergyDelta = Math.round(derivedEnergyDelta);
 
   const nextZoneMultiplier = isInActiveZone
     ? clamp(
@@ -562,7 +577,7 @@ async function tryResolveScanRewardContext(
     discovery,
     robotPlantState,
     rewardDetails,
-    derivedEnergyDelta: boostedEnergyDelta,
+    derivedEnergyDelta: finalEnergyDelta,
     derivedDataQualityDelta,
     matchedZoneId: matchedZone?.id || null,
     nextZoneMultiplier,
@@ -678,6 +693,33 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "amount must be a number >= 0" }, 400);
     }
 
+    if (effectiveEventSource === "scan_like_received") {
+      const { startIso, endIso } = getUtcDayWindow();
+      const { count: likeRewardsTodayCount, error: likeRewardsTodayError } = await adminClient
+        .from("RobotPlantWalletLedger")
+        .select("id", { count: "exact", head: true })
+        .eq("auth_id", authId)
+        .eq("event_source", "scan_like_received")
+        .gte("created_at", startIso)
+        .lt("created_at", endIso);
+
+      if (likeRewardsTodayError) {
+        console.error("[robotPlantGrantReward] failed to count today's like rewards", likeRewardsTodayError);
+        return jsonResponse({ error: "Failed to validate daily like care limit" }, 500);
+      }
+
+      const likeRewardsToday = Math.max(0, Number(likeRewardsTodayCount ?? 0));
+      const canGrantLikeCare = likeRewardsToday < SCAN_LIKE_CARE_GAIN_DAILY_CAP;
+      effectiveCareDelta = canGrantLikeCare ? 1 : 0;
+
+      metadata = {
+        ...metadata,
+        like_care_delta_applied: effectiveCareDelta,
+        like_care_daily_cap: SCAN_LIKE_CARE_GAIN_DAILY_CAP,
+        like_rewards_today_before_apply: likeRewardsToday,
+      };
+    }
+
     const { data, error } = await adminClient.rpc("robot_plant_grant_reward", {
       p_auth_id: authId,
       p_event_source: effectiveEventSource,
@@ -715,6 +757,7 @@ Deno.serve(async (req) => {
         eventSource: effectiveEventSource,
         energyDelta: Math.round(effectiveEnergyDelta),
         dataQualityDelta: Math.round(effectiveDataQualityDelta),
+        careDelta: Math.round(effectiveCareDelta),
       },
       200,
     );
