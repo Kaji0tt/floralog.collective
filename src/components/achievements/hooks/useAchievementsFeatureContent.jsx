@@ -1210,7 +1210,7 @@ export function useAchievementsFeatureContent({
 
   const achievementsContentClass = embedded ? "mt-0 px-4 pb-20 flex-1 min-h-0 overflow-y-auto" : "pt-36 px-4 pb-4";
   const statsContentClass = embedded ? "mt-0 px-4 pb-20 flex-1 min-h-0 overflow-y-auto" : "pt-36 px-4 pb-4";
-  const questsContentClass = embedded ? "mt-0 px-4 pb-20 flex-1 min-h-0 overflow-y-auto" : "pt-44 px-4 pb-4";
+  const questsContentClass = embedded ? "mt-0 px-4 pb-20 flex-1 min-h-0 overflow-y-auto overflow-x-hidden" : "pt-44 px-4 pb-4 overflow-x-hidden";
   const listTopFadePx = 12;
   const listBottomFadePx = 18;
   const embeddedContentMaskStyle = embedded ? {
@@ -1612,7 +1612,9 @@ export function useAchievementsFeatureContent({
                                       )}
                                     </div>
                                     <h3 className={`text-sm font-bold mb-1 ${questTitleClass}`}>{quest.title}</h3>
-                                    <p className={`text-xs mb-2 ${questBodyClass}`}>{quest.description}</p>
+                                    <div className="mb-2 max-h-16 overflow-y-auto pr-1">
+                                      <p className={`text-xs ${questBodyClass}`}>{quest.description}</p>
+                                    </div>
                                     {renderQuestTargetBadges(quest)}
 
                                     {quest.required_discoveries && (
@@ -1691,7 +1693,7 @@ export function useAchievementsFeatureContent({
                       </button>
 
                       {showCompleted && (
-                        <div className="grid md:grid-cols-2 gap-4">
+                        <div className="grid md:grid-cols-2 gap-4 min-w-0">
                           {completedQuests.map((quest, index) => {
                             const rawProgress = quest.progress || 0;
                             const target = quest.required_discoveries || 0;
@@ -1704,8 +1706,9 @@ export function useAchievementsFeatureContent({
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: index * 0.03 }}
+                                className="min-w-0"
                               >
-                                <Card className={`relative overflow-hidden border-2 shadow-sm backdrop-blur-sm transition-all opacity-70 ${questCardSurfaceClass} ${questBorderClass(quest)}`}>
+                                <Card className={`relative w-full min-w-0 overflow-hidden border-2 shadow-sm backdrop-blur-sm transition-all opacity-70 ${questCardSurfaceClass} ${questBorderClass(quest)}`}>
                                   <div className="absolute inset-0 bg-black/35 pointer-events-none" />
                                   <CardContent className="relative z-10 p-3">
                                     <div className="flex items-start gap-2">
@@ -1725,7 +1728,9 @@ export function useAchievementsFeatureContent({
                                           )}
                                         </div>
                                         <h3 className={`text-sm font-bold mb-1 ${questTitleClass}`}>{quest.title}</h3>
-                                        <p className={`text-xs mb-2 ${questBodyClass}`}>{quest.description}</p>
+                                        <div className="mb-2 max-h-16 overflow-y-auto pr-1">
+                                          <p className={`text-xs ${questBodyClass}`}>{quest.description}</p>
+                                        </div>
                                         {renderQuestTargetBadges(quest)}
 
                                         {quest.required_discoveries && (
