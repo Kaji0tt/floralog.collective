@@ -81,10 +81,12 @@ export default function InventorySlotPickerPopover({
       <PopoverContent
         align="end"
         sideOffset={8}
+        onMouseDown={(event) => event.stopPropagation()}
+        onTouchStart={(event) => event.stopPropagation()}
         className={
           isLightUi
-            ? "w-[18rem] border-[#c8ac62]/60 bg-white/95 text-stone-800"
-            : "w-[18rem] border-[#f0e5a5]/45 bg-black/90 text-stone-100"
+            ? "w-[15rem] rounded-2xl p-3 border-[#c8ac62]/60 bg-white/95 text-stone-800"
+            : "w-[15rem] rounded-2xl p-3 border-[#f0e5a5]/45 bg-black/90 text-stone-100"
         }
       >
         {normalizedItems.length === 0 ? (
@@ -92,19 +94,19 @@ export default function InventorySlotPickerPopover({
             type="button"
             onClick={handleOpenShop}
             className={
-              "w-full text-left text-xs font-medium underline underline-offset-2 transition-colors " +
+              "w-full text-left text-[11px] font-medium underline underline-offset-2 transition-colors " +
               (isLightUi ? "text-stone-700 hover:text-stone-900" : "text-stone-200 hover:text-white")
             }
           >
             {emptyText} {emptyActionLabel}
           </button>
         ) : (
-          <div className="space-y-2">
-            <div className={"text-[11px] " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
+          <div className="space-y-1.5">
+            <div className={"text-[10px] " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
               Wähle einen Dünger aus dem Inventar.
             </div>
 
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-4 gap-1.5">
               {visibleItems.map((item) => {
                 const isActive = activeItemId && item.id === activeItemId;
                 const effectPercent = getEffectPercent(item);
@@ -118,7 +120,7 @@ export default function InventorySlotPickerPopover({
                     disabled={isPending}
                     title={label}
                     className={
-                      "relative h-10 w-10 rounded-lg border flex items-center justify-center transition-colors disabled:opacity-60 " +
+                      "relative h-9 w-9 rounded-xl border flex items-center justify-center transition-colors disabled:opacity-60 " +
                       (isActive
                         ? (isLightUi
                           ? "border-emerald-600/75 bg-emerald-100/85 text-emerald-800"
@@ -132,11 +134,11 @@ export default function InventorySlotPickerPopover({
                     {isPending ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
-                      <Leaf className="w-4 h-4" />
+                      <Leaf className="w-3.5 h-3.5" />
                     )}
 
                     {effectPercent !== null && (
-                      <span className={"absolute -bottom-1 -right-1 h-4 min-w-4 px-1 rounded-full border text-[9px] font-bold leading-4 " + (
+                      <span className={"absolute -bottom-1 -right-1 h-3.5 min-w-3.5 px-1 rounded-full border text-[8px] font-bold leading-[14px] " + (
                         isLightUi
                           ? "border-[#c8ac62]/55 bg-white text-stone-700"
                           : "border-[#f0e5a5]/45 bg-black text-stone-100"
@@ -152,7 +154,7 @@ export default function InventorySlotPickerPopover({
                 <div
                   key={`empty-${index}`}
                   className={
-                    "h-10 w-10 rounded-lg border " +
+                    "h-9 w-9 rounded-xl border " +
                     (isLightUi ? "border-[#c8ac62]/25 bg-white/45" : "border-white/20 bg-black/25")
                   }
                   aria-hidden="true"

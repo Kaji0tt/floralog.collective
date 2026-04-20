@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { Leaf } from "lucide-react";
 import { motion, AnimatePresence, useAnimationControls } from "framer-motion";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import { useUiTheme } from "@/lib/UiThemeContext";
@@ -169,24 +168,18 @@ export default function PlantHeroHealthPanel({
             >
               <button
                 type="button"
-                className={`h-14 rounded-xl border flex items-center justify-between px-2.5 disabled:opacity-60 ${
+                className={`h-14 rounded-xl border flex flex-col items-center justify-center disabled:opacity-60 ${
                   isLightUi
                     ? "border-[#c8ac62]/55 bg-white/60 text-stone-800"
                     : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
                 }`}
               >
-                <div className="w-10 h-10 rounded-lg border flex items-center justify-center">
-                  <Leaf className="w-4 h-4" />
-                </div>
-
-                <div className="flex-1 min-w-0 text-right pl-2">
-                  <span className="block text-[11px] md:text-xs font-semibold leading-none">
-                    Dünger
-                  </span>
-                  <span className="block text-[10px] md:text-[11px] mt-1 leading-none opacity-90">
-                    {isLoading ? "..." : `${activeDecayEffects.length} | ${Math.round(activeDecayPercent * 100)}%`}
-                  </span>
-                </div>
+                <span className="text-[11px] md:text-xs font-semibold leading-none">
+                  Dünger
+                </span>
+                <span className="text-[10px] md:text-[11px] mt-1 leading-none opacity-90">
+                  {isLoading ? "..." : `${activeDecayEffects.length} | ${Math.round(activeDecayPercent * 100)}%`}
+                </span>
               </button>
             </InventorySlotPickerPopover>
           </div>
