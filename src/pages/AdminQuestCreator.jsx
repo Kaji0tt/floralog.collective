@@ -32,6 +32,9 @@ const difficultyOptions = [
   { value: "Schwer", label: "Schwer", color: "bg-red-100 text-red-700" },
 ];
 
+const getDefaultSeedRewardForTab = (tab) =>
+  tab === "weekly" ? 1500 : tab === "monthly" ? 1000 : 500;
+
 export default function AdminQuestCreator() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("quest");
@@ -70,6 +73,7 @@ export default function AdminQuestCreator() {
     targets_operator: "UND",
     target_plants: [],
     xp_reward: 50,
+    seed_reward: getDefaultSeedRewardForTab("quest"),
     icon_emoji: "🗺️",
     is_active: true
   });
@@ -142,7 +146,7 @@ export default function AdminQuestCreator() {
     },
   });
 
-  const resetForm = () => {
+  const resetForm = (tab = activeTab) => {
     setFormData({
       quest_number: "",
       title: "",
@@ -159,6 +163,7 @@ export default function AdminQuestCreator() {
       targets_operator: "UND",
       target_plants: [],
       xp_reward: 50,
+      seed_reward: getDefaultSeedRewardForTab(tab),
       icon_emoji: "🗺️",
       is_active: true
     });
@@ -184,6 +189,7 @@ export default function AdminQuestCreator() {
       targets_operator: quest.targets_operator || "UND",
       target_plants: quest.target_plants || [],
       xp_reward: quest.xp_reward || 50,
+      seed_reward: quest.seed_reward || (activeTab === "weekly" ? 1500 : activeTab === "monthly" ? 1000 : 500),
       icon_emoji: quest.icon_emoji || "🗺️",
       is_active: quest.is_active !== undefined ? quest.is_active : true
     });
@@ -218,6 +224,7 @@ export default function AdminQuestCreator() {
       requirement: formData.requirement,
       category: formData.category,
       required_discoveries: parseInt(formData.required_discoveries) || undefined,
+      seed_reward: parseInt(formData.seed_reward) || (activeTab === "weekly" ? 1500 : activeTab === "monthly" ? 1000 : 500),
     };
 
     // Add reward_name if specified (matches DB schema)
@@ -306,7 +313,7 @@ export default function AdminQuestCreator() {
         </div>
 
         {/* Tab Navigation */}
-        <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); resetForm(); }} className="mb-8">
+        <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); resetForm(v); }} className="mb-8">
           <TabsList className="bg-white border border-stone-200 p-1 h-auto shadow-sm w-full grid grid-cols-4">
             <TabsTrigger
               value="quest"
@@ -404,6 +411,16 @@ export default function AdminQuestCreator() {
                         value={formData.reward}
                         onChange={(e) => setFormData({...formData, reward: e.target.value})}
                         placeholder="z.B. Titel: Waldläufer oder Hintergrund: Forest"
+                      />
+                    </div>
+                    <div>
+                      <Label>Samen-Belohnung *</Label>
+                      <Input
+                        type="number"
+                        value={formData.seed_reward}
+                        onChange={(e) => setFormData({...formData, seed_reward: e.target.value})}
+                        min={1}
+                        required
                       />
                     </div>
                   </>
@@ -896,6 +913,11 @@ export default function AdminQuestCreator() {
                                   {quest.is_active !== undefined && !quest.is_active && (
                                     <Badge className="bg-stone-400 text-white">
                                       Inaktiv
+                                    </Badge>
+                                  )}
+                                  {quest.seed_reward && (
+                                    <Badge className="bg-green-100 text-green-700">
+                                      🌱 {quest.seed_reward} Samen
                                     </Badge>
                                   )}
                                   {quest.reward_name && (

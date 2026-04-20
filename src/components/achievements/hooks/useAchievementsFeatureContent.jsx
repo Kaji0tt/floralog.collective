@@ -23,7 +23,28 @@ import { checkAndUnlockAchievements } from "@/components/achievements/achievemen
 import AchievementNotification from "@/components/achievements/AchievementNotification";
 import { getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
 import { updateQuestProgress } from "@/components/utils/questProgress";
+import { grantRobotPlantRewardServerSide } from "@/api/robotPlantService";
 import { useUiTheme } from "@/lib/UiThemeContext";
+
+/** @type {{ regular: number, weekly: number, monthly: number }} */
+const DEFAULT_QUEST_SEED_REWARD_BY_TYPE = {
+  regular: 500,
+  weekly: 1500,
+  monthly: 1000,
+};
+
+/**
+ * @param {{ questType: string, seedReward: number | string | null | undefined }} params
+ */
+const resolveQuestSeedReward = ({ questType, seedReward }) => {
+  const parsedReward = Number(seedReward ?? 0);
+  if (Number.isFinite(parsedReward) && parsedReward > 0) {
+    return Math.round(parsedReward);
+  }
+  if (questType === "weekly") return DEFAULT_QUEST_SEED_REWARD_BY_TYPE.weekly;
+  if (questType === "monthly") return DEFAULT_QUEST_SEED_REWARD_BY_TYPE.monthly;
+  return DEFAULT_QUEST_SEED_REWARD_BY_TYPE.regular;
+};
 
 const getAverageColor = (imageUrl) => {
   return new Promise((resolve) => {
@@ -457,9 +478,24 @@ export function useAchievementsFeatureContent({
   });
 
   const redeemQuestMutation = useMutation({
-		  mutationFn: async ({ userQuestId, questType, rewardName, isFirstQuest, questTitle }) => {
+		  mutationFn: async ({ userQuestId, questType, rewardName, seedReward, isFirstQuest, questTitle }) => {
       console.log('[QuestRedeem] Starting redeem for:', questType, rewardName);
       const now = new Date().toISOString();
+      const questSeedReward = resolveQuestSeedReward({ questType, seedReward });
+
+      const currentUser = await getCurrentUser();
+
+      await grantRobotPlantRewardServerSide({
+        eventSource: `quest_redeem_${questType}`,
+        eventReference: `${questType}:${userQuestId}`,
+        amount: questSeedReward,
+        metadata: {
+          quest_type: questType,
+          quest_title: questTitle,
+          redeemed_at: now,
+          reward_source: "quest",
+        },
+      });
 
       // Quest einlösen – verwende nur vorhandene Legacy-Felder (redeemed, redeemed_date)
       if (questType === 'regular') {
@@ -487,8 +523,6 @@ export function useAchievementsFeatureContent({
           status: 'redeemed'
         });
       }
-
-      const currentUser = await getCurrentUser();
       
       // DIREKT den Reward freischalten (ohne Achievement-Check) – Fehler hier sollen die Einlösung nicht blockieren
       try {
@@ -544,9 +578,11 @@ export function useAchievementsFeatureContent({
       }
 
       // Setze lokales Quest-Feedback, das als zentriertes Overlay angezeigt wird
-      const rewardLabel = rewardName
+      const bonusRewardLabel = rewardName
         ? (rewards.find(r => r.name === rewardName)?.display_name || rewardName)
         : null;
+      const seedRewardLabel = `${questSeedReward} Samen`;
+      const rewardLabel = bonusRewardLabel ? `${seedRewardLabel} + ${bonusRewardLabel}` : seedRewardLabel;
 
       navigate(location.pathname + location.search, {
         state: {
@@ -730,12 +766,16 @@ export function useAchievementsFeatureContent({
   map((q) => {
     const userQuest = userQuests.find((uq) => uq.quest_id === q.id);
     const reward = rewards.find(r => r.name === q.reward_name);
+    const seedReward = resolveQuestSeedReward({ questType: 'regular', seedReward: q.seed_reward });
+    const rewardDisplayName = reward?.display_name ? `${seedReward} Samen + ${reward.display_name}` : `${seedReward} Samen`;
     return {
       ...q,
       userQuestId: userQuest?.id,
       progress: userQuest?.progress || 0,
       isCompleted: isCompletedStatus(userQuest),
       type: 'regular',
+      seedReward,
+      rewardDisplayName,
       rewardData: reward,
       canRedeem: isCompletedStatus(userQuest) && !isRedeemedStatus(userQuest)
     };
@@ -750,12 +790,16 @@ export function useAchievementsFeatureContent({
   map((q) => {
     const userQuest = userQuests.find((uq) => uq.quest_id === q.id);
     const reward = rewards.find(r => r.name === q.reward_name);
+    const seedReward = resolveQuestSeedReward({ questType: 'regular', seedReward: q.seed_reward });
+    const rewardDisplayName = reward?.display_name ? `${seedReward} Samen + ${reward.display_name}` : `${seedReward} Samen`;
     return {
       ...q,
       userQuestId: userQuest?.id,
       progress: userQuest?.progress || q.required_discoveries || 0,
       isCompleted: true,
       type: 'regular',
+      seedReward,
+      rewardDisplayName,
       rewardData: reward,
       canRedeem: false,
       completedAt: userQuest?.redeemed_date || userQuest?.completed_date
@@ -767,6 +811,10 @@ export function useAchievementsFeatureContent({
   userWeeklyQuests.find((uwq) => uwq.weekly_quest_id === currentWeeklyQuest.id) :
   null;
   const weeklyReward = currentWeeklyQuest ? rewards.find(r => r.name === currentWeeklyQuest.reward_name) : null;
+  const weeklySeedReward = currentWeeklyQuest
+    ? resolveQuestSeedReward({ questType: 'weekly', seedReward: currentWeeklyQuest.seed_reward })
+    : resolveQuestSeedReward({ questType: 'weekly', seedReward: null });
+  const weeklyRewardDisplayName = weeklyReward?.display_name ? `${weeklySeedReward} Samen + ${weeklyReward.display_name}` : `${weeklySeedReward} Samen`;
   const activeWeeklyQuest = currentWeeklyQuest && currentWeeklyUserQuest && isActiveOrCompleted(currentWeeklyUserQuest) && !(currentWeeklyUserQuest.status === 'redeemed' || currentWeeklyUserQuest.redeemed) ?
   {
     ...currentWeeklyQuest,
@@ -774,6 +822,8 @@ export function useAchievementsFeatureContent({
     progress: currentWeeklyUserQuest.progress || 0,
     isCompleted: isCompletedStatus(currentWeeklyUserQuest),
     type: 'weekly',
+    seedReward: weeklySeedReward,
+    rewardDisplayName: weeklyRewardDisplayName,
     rewardData: weeklyReward,
     canRedeem: isCompletedStatus(currentWeeklyUserQuest) && !isRedeemedStatus(currentWeeklyUserQuest)
   } :
@@ -783,6 +833,10 @@ export function useAchievementsFeatureContent({
   userMonthlyQuests.find((umq) => umq.monthly_quest_id === currentMonthlyQuest.id) :
   null;
   const monthlyReward = currentMonthlyQuest ? rewards.find(r => r.name === currentMonthlyQuest.reward_name) : null;
+  const monthlySeedReward = currentMonthlyQuest
+    ? resolveQuestSeedReward({ questType: 'monthly', seedReward: currentMonthlyQuest.seed_reward })
+    : resolveQuestSeedReward({ questType: 'monthly', seedReward: null });
+  const monthlyRewardDisplayName = monthlyReward?.display_name ? `${monthlySeedReward} Samen + ${monthlyReward.display_name}` : `${monthlySeedReward} Samen`;
   const activeMonthlyQuest = currentMonthlyQuest && currentMonthlyUserQuest && isActiveOrCompleted(currentMonthlyUserQuest) && !(currentMonthlyUserQuest.status === 'redeemed' || currentMonthlyUserQuest.redeemed) ?
   {
     ...currentMonthlyQuest,
@@ -790,6 +844,8 @@ export function useAchievementsFeatureContent({
     progress: currentMonthlyUserQuest.progress || 0,
     isCompleted: isCompletedStatus(currentMonthlyUserQuest),
     type: 'monthly',
+    seedReward: monthlySeedReward,
+    rewardDisplayName: monthlyRewardDisplayName,
     rewardData: monthlyReward,
     canRedeem: isCompletedStatus(currentMonthlyUserQuest) && !isRedeemedStatus(currentMonthlyUserQuest)
   } :
@@ -797,6 +853,8 @@ export function useAchievementsFeatureContent({
   // Abgeschlossene & eingelöste wöchentliche Quests (Historie)
   const completedWeeklyQuests = weeklyQuests.flatMap((quest) => {
     const reward = rewards.find(r => r.name === quest.reward_name);
+    const seedReward = resolveQuestSeedReward({ questType: 'weekly', seedReward: quest.seed_reward });
+    const rewardDisplayName = reward?.display_name ? `${seedReward} Samen + ${reward.display_name}` : `${seedReward} Samen`;
     const relatedUserQuests = userWeeklyQuests.filter((uwq) =>
       uwq.weekly_quest_id === quest.id &&
       isCompletedStatus(uwq) &&
@@ -810,6 +868,8 @@ export function useAchievementsFeatureContent({
       required_discoveries: quest.required_discoveries || 0,
       isCompleted: true,
       type: 'weekly',
+      seedReward,
+      rewardDisplayName,
       rewardData: reward,
       canRedeem: false,
       completedAt: uwq.redeemed_date || uwq.completed_date,
@@ -820,6 +880,8 @@ export function useAchievementsFeatureContent({
   // Abgeschlossene & eingelöste monatliche Quests (Historie)
   const completedMonthlyQuests = monthlyQuests.flatMap((quest) => {
     const reward = rewards.find(r => r.name === quest.reward_name);
+    const seedReward = resolveQuestSeedReward({ questType: 'monthly', seedReward: quest.seed_reward });
+    const rewardDisplayName = reward?.display_name ? `${seedReward} Samen + ${reward.display_name}` : `${seedReward} Samen`;
     const relatedUserQuests = userMonthlyQuests.filter((umq) =>
       umq.monthly_quest_id === quest.id &&
       isCompletedStatus(umq) &&
@@ -833,6 +895,8 @@ export function useAchievementsFeatureContent({
       required_discoveries: quest.required_discoveries || 0,
       isCompleted: true,
       type: 'monthly',
+      seedReward,
+      rewardDisplayName,
       rewardData: reward,
       canRedeem: false,
       completedAt: umq.redeemed_date || umq.completed_date,
@@ -1433,10 +1497,10 @@ export function useAchievementsFeatureContent({
 
                                     {quest.isCompleted && (
                                       <div className={`space-y-2 pt-2 border-t ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
-                                        {quest.rewardData && (
+                                        {quest.rewardDisplayName && (
                                             <div className={`flex items-center gap-1 text-xs ${questRewardBlockClass} rounded-lg px-2 py-1`}>
                                             <Gift className="w-3 h-3" />
-                                            <span className="font-semibold">{quest.rewardData.display_name}</span>
+                                            <span className="font-semibold">{quest.rewardDisplayName}</span>
                                           </div>
                                         )}
                                         <div className="flex items-center justify-between">
@@ -1452,6 +1516,7 @@ export function useAchievementsFeatureContent({
                                                     userQuestId: quest.userQuestId,
                                                     questType: quest.type,
                                                     rewardName: quest.rewardData?.name,
+                                                    seedReward: quest.seedReward,
                                                     isFirstQuest,
                                                     questTitle: quest.title,
                                                   });
@@ -1542,10 +1607,10 @@ export function useAchievementsFeatureContent({
                                         )}
 
                                         <div className={`space-y-1 pt-2 border-t ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
-                                          {quest.rewardData && (
+                                          {quest.rewardDisplayName && (
                                               <div className={`flex items-center gap-1 text-xs ${questRewardBlockClass} rounded-lg px-2 py-1`}>
                                               <Gift className="w-3 h-3" />
-                                              <span className="font-semibold">{quest.rewardData.display_name}</span>
+                                              <span className="font-semibold">{quest.rewardDisplayName}</span>
                                             </div>
                                           )}
                                           <div className="flex items-center justify-between">
