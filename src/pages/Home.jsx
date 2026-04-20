@@ -1041,6 +1041,10 @@ export default function Home() {
     (acc, effect) => acc + Number(effect.effect_value || 0),
     0
   );
+  const activeFertilizerItemId = activeDecayEffects[0]?.item_id || null;
+  const fertilizerTitleById = Object.fromEntries(
+    fertilizerItems.map((item) => [item.id, item.title || item.item_key || "Dünger"])
+  );
 
   const wateringCountToday = Math.max(0, Number(robotPlantDailyCareStatus?.wateringCountToday ?? 0));
   const wateringLimitPerDay = Math.max(1, Number(robotPlantDailyCareStatus?.wateringLimitPerDay ?? 3));
@@ -1776,17 +1780,34 @@ export default function Home() {
     waterPlantMutation.mutate();
   };
 
-  const handleFertilizerSlotClick = () => {
+  const handleUseFertilizerItem = (itemId) => {
     setCareActionMessage(null);
-    const bestOwnedFertilizer = ownedFertilizerItems[0];
+    if (!itemId) return;
 
-    if (!bestOwnedFertilizer) {
-      openShop("fertilizer");
-      setCareActionMessage("Kein Duenger im Inventar. Kaufe zuerst im Shop.");
+    if (activeFertilizerItemId && activeFertilizerItemId === itemId) {
+      const currentLabel = fertilizerTitleById[itemId] || "Dünger";
+      setCareActionMessage(`${currentLabel} ist bereits ausgerüstet.`);
       return;
     }
 
-    useInventoryItemMutation.mutate({ itemId: bestOwnedFertilizer.id });
+    if (activeFertilizerItemId && activeFertilizerItemId !== itemId) {
+      const currentLabel = fertilizerTitleById[activeFertilizerItemId] || "Dünger";
+      const nextLabel = fertilizerTitleById[itemId] || "Dünger";
+      const shouldReplace = window.confirm(
+        `${currentLabel} ist bereits ausgerüstet - stattdessen lieber ${nextLabel} anwenden?`
+      );
+
+      if (!shouldReplace) {
+        return;
+      }
+    }
+
+    useInventoryItemMutation.mutate({ itemId });
+  };
+
+  const handleOpenFertilizerShop = () => {
+    openShop("fertilizer");
+    setCareActionMessage("Keine Duenger im Inventar. Kaufe zuerst im Shop.");
   };
 
   return (
@@ -2198,11 +2219,14 @@ export default function Home() {
                             remainingWatersToday={remainingWatersToday}
                             isWateringPending={waterPlantMutation.isPending}
                             isFertilizerPending={useInventoryItemMutation.isPending}
+                            fertilizerInventoryItems={ownedFertilizerItems}
+                            activeFertilizerItemId={activeFertilizerItemId}
                             activeDecayEffects={activeDecayEffects}
                             activeDecayPercent={activeDecayPercent}
                             careGainFeedback={careGainFeedback}
                             onWaterPlant={handleWaterPlantClick}
-                            onFertilizerSlot={handleFertilizerSlotClick}
+                            onUseFertilizerItem={handleUseFertilizerItem}
+                            onOpenFertilizerShop={handleOpenFertilizerShop}
                           />
                         ) : (
                           <motion.div
