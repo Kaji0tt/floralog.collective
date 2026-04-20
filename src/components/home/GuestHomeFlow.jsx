@@ -750,70 +750,67 @@ export default function GuestHomeFlow() {
               transition={{ duration: panelFadeDuration, ease: "easeInOut" }}
               style={{ pointerEvents: displayedSnapIndex === 0 && panelOpacities[0] > 0.01 ? "auto" : "none" }}
             >
+              {/* Anker: hält das Formular oberhalb des Chevrons */}
               <form
                 onSubmit={handleInlineLoginSubmit}
-                className="w-[70vw] max-w-[420px] rounded-3xl border border-amber-100/25 bg-black/22 px-4 py-4 backdrop-blur-[2px] space-y-3"
+                className="w-[70vw] max-w-[380px] space-y-2"
+                style={{ paddingBottom: "clamp(3.5rem, 9vw, 5rem)" }}
               >
                 {loginError && (
-                  <div className="rounded-xl border border-red-300/35 bg-red-900/30 px-3 py-2 text-sm text-red-100 flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <div className="rounded-xl border border-red-300/35 bg-red-900/30 px-3 py-1.5 text-xs text-red-100 flex items-start gap-2 mb-1">
+                    <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
                     <span>{loginError}</span>
                   </div>
                 )}
 
-                <label className="block space-y-1">
-                  <span className="text-xs uppercase tracking-[0.14em] text-amber-100/75 flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> E-Mail</span>
-                  <input
-                    name="email"
-                    type="email"
-                    value={authForm.email}
-                    onChange={handleAuthChange}
-                    disabled={loginLoading}
-                    required
-                    className="w-full rounded-xl border border-amber-100/25 bg-black/35 px-3 py-2.5 text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/55"
-                    placeholder="deine@email.de"
-                  />
-                </label>
+                <input
+                  name="email"
+                  type="email"
+                  value={authForm.email}
+                  onChange={handleAuthChange}
+                  disabled={loginLoading}
+                  required
+                  className="w-full rounded-xl border border-white/10 bg-black/40 px-3 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-1 focus:ring-emerald-400/50"
+                  style={{
+                    height: "2.4rem",
+                    boxShadow: "inset 0 3px 10px rgba(0,0,0,0.55), inset 0 1px 4px rgba(0,0,0,0.4)",
+                  }}
+                  placeholder="E-Mail"
+                />
 
-                <label className="block space-y-1">
-                  <span className="text-xs uppercase tracking-[0.14em] text-amber-100/75 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5" /> Passwort</span>
-                  <input
-                    name="password"
-                    type="password"
-                    value={authForm.password}
-                    onChange={handleAuthChange}
-                    disabled={loginLoading}
-                    required
-                    className="w-full rounded-xl border border-amber-100/25 bg-black/35 px-3 py-2.5 text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/55"
-                    placeholder="••••••••"
-                  />
-                </label>
+                <input
+                  name="password"
+                  type="password"
+                  value={authForm.password}
+                  onChange={handleAuthChange}
+                  disabled={loginLoading}
+                  required
+                  className="w-full rounded-xl border border-white/10 bg-black/40 px-3 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-1 focus:ring-emerald-400/50"
+                  style={{
+                    height: "2.4rem",
+                    boxShadow: "inset 0 3px 10px rgba(0,0,0,0.55), inset 0 1px 4px rgba(0,0,0,0.4)",
+                  }}
+                  placeholder="Passwort"
+                />
 
                 <motion.button
                   type="submit"
                   disabled={loginLoading}
-                  className="w-full rounded-2xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 text-white font-semibold tracking-wide flex items-center justify-center gap-2 shadow-[0_8px_24px_rgba(34,197,94,0.35)] hover:brightness-110 disabled:opacity-60 transition-all"
-                  style={{
-                    height: "3rem",
-                    fontSize: "1.05rem",
-                  }}
+                  className="w-full rounded-xl border border-lime-200/30 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 text-white font-semibold tracking-wide flex items-center justify-center gap-2 shadow-[0_6px_20px_rgba(34,197,94,0.30)] hover:brightness-110 disabled:opacity-60 transition-all"
+                  style={{ height: "2.4rem", fontSize: "0.95rem" }}
                   whileTap={{ scale: 0.97 }}
                 >
-                  {loginLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                  <Camera className="w-5 h-5" />
+                  {loginLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
                   Anmelden
                 </motion.button>
 
                 <button
                   type="button"
                   onClick={openAuthModal}
-                  className="w-full text-center font-normal text-amber-200/85 hover:text-amber-100 transition-colors drop-shadow-[0_1px_8px_rgba(0,0,0,0.9)]"
-                  style={{
-                    fontSize: "clamp(0.92rem, 3.6vw, 1.06rem)",
-                    letterSpacing: "0.04em",
-                  }}
+                  className="w-full text-center font-normal text-stone-400/80 hover:text-stone-200 transition-colors"
+                  style={{ fontSize: "0.82rem", letterSpacing: "0.03em", paddingTop: "0.15rem" }}
                 >
-                  Registrieren
+                  Neu hier? Registrieren
                 </button>
               </form>
             </motion.div>
