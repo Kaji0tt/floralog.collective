@@ -376,25 +376,38 @@ export default function Scanner() {
         );
 
         if (!genus) {
-          // Lade frische Genera-Daten direkt von der DB
-          const allGenera = await Query.PlantGenus.list();
+          const categoryCandidates = newPlant.category === "Blumen"
+            ? ["Blumen", "Blumen & Kräuter"]
+            : [newPlant.category];
 
-          const categoryGenera = allGenera.filter((g) =>
-          g.category === newPlant.category ||
-          newPlant.category === "Blumen" && g.category === "Blumen & Kräuter"
-          );
+          // Retry schützt vor Race Conditions bei parallelem Erstellen neuer Gattungen.
+          for (let attempt = 0; attempt < 3 && !genus; attempt++) {
+            const allGenera = await Query.PlantGenus.list();
+            const categoryGenera = allGenera.filter((g) => categoryCandidates.includes(g.category));
+            const highestNumber = Math.max(
+              0,
+              ...categoryGenera
+                .map((g) => Number(g.category_dex_number || 0))
+                .filter((value) => Number.isFinite(value))
+            );
 
-          // Berechne die nächste Nummer: Anzahl aller Gattungen in dieser Kategorie + 1
-          const nextCategoryDexNumber = categoryGenera.length + 1;
-
-          genus = await createGenusMutation.mutateAsync({
-            category_dex_number: nextCategoryDexNumber,
-            genus_name: newPlant.genus_name,
-            scientific_genus: newPlant.scientific_genus,
-            category: newPlant.category,
-            family: newPlant.family,
-            description: `Gattung der ${newPlant.category}`
-          });
+            try {
+              genus = await createGenusMutation.mutateAsync({
+                category_dex_number: highestNumber + 1,
+                genus_name: newPlant.genus_name,
+                scientific_genus: newPlant.scientific_genus,
+                category: newPlant.category,
+                family: newPlant.family,
+                description: `Gattung der ${newPlant.category}`
+              });
+            } catch (createError) {
+              const message = String(createError?.message || createError || "").toLowerCase();
+              const isConflict = createError?.code === "23505" || message.includes("duplicate key");
+              if (!isConflict || attempt === 2) {
+                throw createError;
+              }
+            }
+          }
         }
 
         const displayName = newPlant.species_name;

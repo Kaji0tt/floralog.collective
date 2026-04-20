@@ -134,43 +134,76 @@ Deno.serve(async (req) => {
     }
 
     const normalize = (s: string | null | undefined) => (s || "").toLowerCase().trim();
+    const categoryCandidates = plant.category === "Blumen"
+      ? ["Blumen", "Blumen & Kräuter"]
+      : [plant.category];
 
     let genus = (allGenera || []).find((g: any) =>
-      normalize(g.genus_name) === normalize(plant.genus_name) ||
-      normalize(g.scientific_genus) === normalize(plant.scientific_genus),
+      categoryCandidates.includes(g.category) && (
+        normalize(g.genus_name) === normalize(plant.genus_name) ||
+        normalize(g.scientific_genus) === normalize(plant.scientific_genus)
+      ),
     );
 
     if (!genus) {
-      const categoryGenera = (allGenera || []).filter((g: any) =>
-        g.category === plant.category ||
-        (plant.category === "Blumen" && g.category === "Blumen & Kräuter"),
-      );
+      let latestGenera = allGenera || [];
 
-      const nextCategoryDexNumber = categoryGenera.length + 1;
+      // Retry loop schützt vor parallelen Inserts bei gleicher Kategorie.
+      for (let attempt = 0; attempt < 5 && !genus; attempt++) {
+        const categoryGenera = latestGenera.filter((g: any) => categoryCandidates.includes(g.category));
+        const maxCategoryDexNumber = categoryGenera.reduce((max: number, item: any) => {
+          const value = Number(item?.category_dex_number ?? 0);
+          return Number.isFinite(value) ? Math.max(max, value) : max;
+        }, 0);
 
-      const { data: insertedGenus, error: insertGenusError } = await adminClient
-        .from("PlantGenus")
-        .insert({
-          id: generateLegacyHexId(),
-          category_dex_number: nextCategoryDexNumber,
-          genus_name: plant.genus_name,
-          scientific_genus: plant.scientific_genus,
-          category: plant.category,
-          family: plant.family,
-          description: `Gattung der ${plant.category}`,
-        })
-        .select("*")
-        .single();
+        const { data: insertedGenus, error: insertGenusError } = await adminClient
+          .from("PlantGenus")
+          .insert({
+            id: generateLegacyHexId(),
+            category_dex_number: maxCategoryDexNumber + 1,
+            genus_name: plant.genus_name,
+            scientific_genus: plant.scientific_genus,
+            category: plant.category,
+            family: plant.family,
+            description: `Gattung der ${plant.category}`,
+          })
+          .select("*")
+          .single();
 
-      if (insertGenusError || !insertedGenus) {
-        console.error("[createGlobalPlant] Failed to insert PlantGenus:", insertGenusError);
-        return new Response(
-          JSON.stringify({ error: "Failed to insert PlantGenus" }),
-          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
+        if (!insertGenusError && insertedGenus) {
+          genus = insertedGenus;
+          break;
+        }
+
+        const isUniqueConflict = String(insertGenusError?.code || "") === "23505";
+        if (!isUniqueConflict || attempt === 4) {
+          console.error("[createGlobalPlant] Failed to insert PlantGenus:", insertGenusError);
+          return new Response(
+            JSON.stringify({ error: "Failed to insert PlantGenus" }),
+            { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
+          );
+        }
+
+        const { data: refreshedGenera, error: refreshError } = await adminClient
+          .from("PlantGenus")
+          .select("*");
+
+        if (refreshError) {
+          console.error("[createGlobalPlant] Failed to refresh PlantGenus after conflict:", refreshError);
+          return new Response(
+            JSON.stringify({ error: "Failed to refresh PlantGenus" }),
+            { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
+          );
+        }
+
+        latestGenera = refreshedGenera || [];
+        genus = latestGenera.find((g: any) =>
+          categoryCandidates.includes(g.category) && (
+            normalize(g.genus_name) === normalize(plant.genus_name) ||
+            normalize(g.scientific_genus) === normalize(plant.scientific_genus)
+          ),
         );
       }
-
-      genus = insertedGenus;
     }
 
     // 2) Pflanze in Plant anlegen

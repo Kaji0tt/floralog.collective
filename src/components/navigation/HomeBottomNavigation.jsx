@@ -81,13 +81,19 @@ export default function HomeBottomNavigation({
                 <button
                   key={item.label}
                   onClick={item.onClick}
-                  className={`rounded-2xl border border-[#f0e5a5]/45 ${item.gradientClass} hover:brightness-105 active:translate-y-px transition-all flex flex-col items-center backdrop-blur-[2px]`}
+                  className={`relative rounded-2xl border border-[#f0e5a5]/45 ${item.gradientClass} hover:brightness-105 active:translate-y-px transition-all flex flex-col items-center backdrop-blur-[2px]`}
                   style={{
                     boxShadow: item.shadowStyle,
                     paddingBlock: `${(0.72 * controlsScale).toFixed(2)}rem`,
                     gap: `${(0.2 * controlsScale).toFixed(2)}rem`,
                   }}
                 >
+                  {item.showNotificationDot && (
+                    <span
+                      className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 border border-white/80"
+                      aria-hidden="true"
+                    />
+                  )}
                   <item.icon
                     className="text-white"
                     style={{

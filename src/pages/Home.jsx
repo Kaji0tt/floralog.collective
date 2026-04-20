@@ -71,6 +71,14 @@ const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "";
 
 
 const MULTIPLIER_SWIPE_THRESHOLD_PX = 36;
+const SOCIAL_NEWS_NOTIFICATION_TYPES = [
+  "gift_received",
+  "collection_followed",
+  "friendship_accepted",
+  "friend_request_received",
+  "friend_achievement",
+  "scan_liked",
+];
 
 export default function Home() {
   const navigate = useNavigate();
@@ -203,6 +211,49 @@ export default function Home() {
     staleTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
+  });
+
+  const { data: pendingFriendRequests = [] } = useQuery({
+    queryKey: ['pendingFriendRequests', user?.email],
+    queryFn: async () => {
+      if (!user?.email) return [];
+      const allFriends = await Query.Friend.list();
+      return allFriends.filter((friendship) =>
+        friendship.request_sent_to?.toLowerCase() === user.email.toLowerCase() &&
+        friendship.status === 'pending'
+      );
+    },
+    enabled: !!user?.email,
+    initialData: [],
+    staleTime: 15000,
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: unreadFriendsNewsCount = 0 } = useQuery({
+    queryKey: ['friendsUnreadNewsCount', user?.id, user?.email],
+    queryFn: async () => {
+      if (!user?.email) return 0;
+
+      const [byAuthId, byEmail] = await Promise.all([
+        user?.id ? Query.UserNotification.filter({ auth_id: user.id }) : Promise.resolve([]),
+        Query.UserNotification.filter({ user_email: user.email }),
+      ]);
+
+      const dedupedMap = new Map();
+      [...byAuthId, ...byEmail].forEach((notification) => {
+        dedupedMap.set(notification.id, notification);
+      });
+
+      return Array.from(dedupedMap.values()).filter(
+        (notification) =>
+          SOCIAL_NEWS_NOTIFICATION_TYPES.includes(notification.notification_type) &&
+          notification.seen !== true
+      ).length;
+    },
+    enabled: !!user?.email,
+    initialData: 0,
+    staleTime: 15000,
+    refetchOnWindowFocus: true,
   });
 
   const { data: userAchievements = [], isLoading: isLoadingAchievements } = useQuery({
@@ -423,6 +474,8 @@ export default function Home() {
     queryClient.refetchQueries({ queryKey: ['plants'] });
     queryClient.refetchQueries({ queryKey: ['genera'] });
     queryClient.refetchQueries({ queryKey: ['friends'] });
+    queryClient.refetchQueries({ queryKey: ['pendingFriendRequests'] });
+    queryClient.refetchQueries({ queryKey: ['friendsUnreadNewsCount'] });
     queryClient.refetchQueries({ queryKey: ['allDiscoveries'] });
     queryClient.refetchQueries({ queryKey: ['robotPlantState'] });
     
@@ -448,6 +501,8 @@ export default function Home() {
       queryClient.refetchQueries({ queryKey: ['plants'] });
       queryClient.refetchQueries({ queryKey: ['genera'] });
       queryClient.refetchQueries({ queryKey: ['friends'] });
+      queryClient.refetchQueries({ queryKey: ['pendingFriendRequests'] });
+      queryClient.refetchQueries({ queryKey: ['friendsUnreadNewsCount'] });
       queryClient.refetchQueries({ queryKey: ['allDiscoveries'] });
       queryClient.refetchQueries({ queryKey: ['robotPlantState'] });
     };
@@ -459,6 +514,28 @@ export default function Home() {
       window.removeEventListener('userUpdated', handleUserUpdate);
     };
   }, []);
+
+  useEffect(() => {
+    if (!user?.email) return;
+
+    const unsubscribeFriend = Query.Friend.subscribe((event) => {
+      if (event.type === 'create' || event.type === 'update' || event.type === 'delete') {
+        queryClient.invalidateQueries({ queryKey: ['friends'] });
+        queryClient.invalidateQueries({ queryKey: ['pendingFriendRequests'] });
+      }
+    });
+
+    const unsubscribeNews = Query.UserNotification.subscribe((event) => {
+      if (event.type === 'create' || event.type === 'update' || event.type === 'delete') {
+        queryClient.invalidateQueries({ queryKey: ['friendsUnreadNewsCount'] });
+      }
+    });
+
+    return () => {
+      unsubscribeFriend?.();
+      unsubscribeNews?.();
+    };
+  }, [user?.email, queryClient]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1046,6 +1123,7 @@ export default function Home() {
 
   const hasRedeemableQuests = [...activeRegularQuests, ...activeCollectionQuests].some(q => q.isCompleted) ||
     (activeWeeklyQuest?.isCompleted) || (activeMonthlyQuest?.isCompleted);
+  const hasSocialNotifications = pendingFriendRequests.length > 0 || unreadFriendsNewsCount > 0;
   const hasNewQuests = availableRegularQuests.length > 0 || availableCollectionQuests.length > 0 ||
     availableWeeklyQuest || availableMonthlyQuest;
 
@@ -1399,6 +1477,7 @@ export default function Home() {
         setShowHeroZoneMap(false);
         setShowHealthStatsPanel(false);
       },
+      showNotificationDot: hasRedeemableQuests,
       ...getNavButtonStyle({ palette: "amber", isLightUi }),
     },
     {
@@ -1409,6 +1488,7 @@ export default function Home() {
         setShowHeroZoneMap(false);
         setShowHealthStatsPanel(false);
       },
+      showNotificationDot: hasSocialNotifications,
       ...getNavButtonStyle({ palette: "blue", isLightUi }),
     },
     {

@@ -250,10 +250,11 @@ export default function GuestHomeFlow() {
   const [tiltOffset, setTiltOffset] = useState({ x: 0, y: 0 });
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [supportModalOpen, setSupportModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState("login");
-  const [authLoading, setAuthLoading] = useState(false);
-  const [authError, setAuthError] = useState(/** @type {string | null} */ (null));
-  const [authSuccess, setAuthSuccess] = useState(/** @type {string | null} */ (null));
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState(/** @type {string | null} */ (null));
+  const [registerLoading, setRegisterLoading] = useState(false);
+  const [registerError, setRegisterError] = useState(/** @type {string | null} */ (null));
+  const [registerSuccess, setRegisterSuccess] = useState(/** @type {string | null} */ (null));
   const [communityCardIndex, setCommunityCardIndex] = useState(0);
   const [communityStats, setCommunityStats] = useState(/** @type {{ active_researchers_this_month: number, total_species: number, total_scans: number } | null} */ (null));
   const communityCardTouchStartXRef = useRef(/** @type {number | null} */ (null));
@@ -467,19 +468,17 @@ export default function GuestHomeFlow() {
   const panelOpacities = Array.from({ length: SNAP_SECTION_COUNT }, (_, index) => getPanelOpacity(index));
   const leafTwitch = useLeafTwitch();
 
-  /** @param {"login" | "register"} mode */
-  const openAuthModal = (mode) => {
-    setAuthError(null);
-    setAuthSuccess(null);
-    setAuthMode(mode);
+  const openAuthModal = () => {
+    setRegisterError(null);
+    setRegisterSuccess(null);
     setAuthModalOpen(true);
   };
 
   const closeAuthModal = () => {
     setAuthModalOpen(false);
-    setAuthError(null);
-    setAuthSuccess(null);
-    setAuthLoading(false);
+    setRegisterError(null);
+    setRegisterSuccess(null);
+    setRegisterLoading(false);
   };
 
   const openSupportModal = () => {
@@ -497,28 +496,41 @@ export default function GuestHomeFlow() {
       ...prev,
       [name]: value,
     }));
-    setAuthError(null);
+    setLoginError(null);
+    setRegisterError(null);
   };
 
   /** @param {React.FormEvent<HTMLFormElement>} event */
-  const handleAuthSubmit = async (event) => {
+  const handleInlineLoginSubmit = async (event) => {
     event.preventDefault();
-    setAuthError(null);
-    setAuthSuccess(null);
-    setAuthLoading(true);
+    setLoginError(null);
+    setLoginLoading(true);
 
     try {
-      if (authMode === "login") {
-        const signInResult = await signIn(authForm.email, authForm.password);
-        if (!signInResult?.session) {
-          throw new Error("Anmeldung fehlgeschlagen. Bitte pruefe deine Zugangsdaten.");
-        }
-
-        closeAuthModal();
-        window.location.assign("/");
-        return;
+      const signInResult = await signIn(authForm.email, authForm.password);
+      if (!signInResult?.session) {
+        throw new Error("Anmeldung fehlgeschlagen. Bitte pruefe deine Zugangsdaten.");
       }
 
+      window.location.assign("/");
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : "Anmeldung fehlgeschlagen. Bitte versuche es erneut.";
+      setLoginError(message);
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  /** @param {React.FormEvent<HTMLFormElement>} event */
+  const handleRegisterSubmit = async (event) => {
+    event.preventDefault();
+    setRegisterError(null);
+    setRegisterSuccess(null);
+    setRegisterLoading(true);
+
+    try {
       if (!authForm.username.trim()) {
         throw new Error("Name ist erforderlich");
       }
@@ -543,8 +555,7 @@ export default function GuestHomeFlow() {
         authId: signUpResult?.user?.id || null,
       });
 
-      setAuthSuccess("Fast geschafft: Bitte bestaetige jetzt deine E-Mail und melde dich danach an.");
-      setAuthMode("login");
+      setRegisterSuccess("Fast geschafft: Bitte bestaetige jetzt deine E-Mail und melde dich danach an.");
       setAuthForm((prev) => ({
         ...prev,
         password: "",
@@ -554,9 +565,9 @@ export default function GuestHomeFlow() {
       const message = error instanceof Error
         ? error.message
         : "Anmeldung fehlgeschlagen. Bitte versuche es erneut.";
-      setAuthError(message);
+      setRegisterError(message);
     } finally {
-      setAuthLoading(false);
+      setRegisterLoading(false);
     }
   };
 
@@ -739,31 +750,72 @@ export default function GuestHomeFlow() {
               transition={{ duration: panelFadeDuration, ease: "easeInOut" }}
               style={{ pointerEvents: displayedSnapIndex === 0 && panelOpacities[0] > 0.01 ? "auto" : "none" }}
             >
-              <motion.button
-                onClick={() => openAuthModal("register")}
-                className="rounded-2xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 text-white font-semibold tracking-wide flex items-center justify-center gap-3 shadow-[0_8px_24px_rgba(34,197,94,0.35)] hover:brightness-110 transition-all"
-                style={{
-                  width: "70vw",
-                  maxWidth: "420px",
-                  height: "3.25rem",
-                  fontSize: "1.1rem",
-                }}
-                whileTap={{ scale: 0.97 }}
+              <form
+                onSubmit={handleInlineLoginSubmit}
+                className="w-[70vw] max-w-[420px] rounded-3xl border border-amber-100/25 bg-black/22 px-4 py-4 backdrop-blur-[2px] space-y-3"
               >
-                <Camera className="w-5 h-5" />
-                Jetzt Sammeln
-              </motion.button>
+                {loginError && (
+                  <div className="rounded-xl border border-red-300/35 bg-red-900/30 px-3 py-2 text-sm text-red-100 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>{loginError}</span>
+                  </div>
+                )}
 
-              <button
-                onClick={() => openAuthModal("login")}
-                className="font-normal text-amber-200 hover:text-amber-100 transition-colors drop-shadow-[0_1px_8px_rgba(0,0,0,0.9)]"
-                style={{
-                  fontSize: "clamp(1rem, 4vw, 1.2rem)",
-                  letterSpacing: "0.04em",
-                }}
-              >
-                Anmelden
-              </button>
+                <label className="block space-y-1">
+                  <span className="text-xs uppercase tracking-[0.14em] text-amber-100/75 flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> E-Mail</span>
+                  <input
+                    name="email"
+                    type="email"
+                    value={authForm.email}
+                    onChange={handleAuthChange}
+                    disabled={loginLoading}
+                    required
+                    className="w-full rounded-xl border border-amber-100/25 bg-black/35 px-3 py-2.5 text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/55"
+                    placeholder="deine@email.de"
+                  />
+                </label>
+
+                <label className="block space-y-1">
+                  <span className="text-xs uppercase tracking-[0.14em] text-amber-100/75 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5" /> Passwort</span>
+                  <input
+                    name="password"
+                    type="password"
+                    value={authForm.password}
+                    onChange={handleAuthChange}
+                    disabled={loginLoading}
+                    required
+                    className="w-full rounded-xl border border-amber-100/25 bg-black/35 px-3 py-2.5 text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/55"
+                    placeholder="••••••••"
+                  />
+                </label>
+
+                <motion.button
+                  type="submit"
+                  disabled={loginLoading}
+                  className="w-full rounded-2xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 text-white font-semibold tracking-wide flex items-center justify-center gap-2 shadow-[0_8px_24px_rgba(34,197,94,0.35)] hover:brightness-110 disabled:opacity-60 transition-all"
+                  style={{
+                    height: "3rem",
+                    fontSize: "1.05rem",
+                  }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  {loginLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <Camera className="w-5 h-5" />
+                  Anmelden
+                </motion.button>
+
+                <button
+                  type="button"
+                  onClick={openAuthModal}
+                  className="w-full text-center font-normal text-amber-200/85 hover:text-amber-100 transition-colors drop-shadow-[0_1px_8px_rgba(0,0,0,0.9)]"
+                  style={{
+                    fontSize: "clamp(0.92rem, 3.6vw, 1.06rem)",
+                    letterSpacing: "0.04em",
+                  }}
+                >
+                  Registrieren
+                </button>
+              </form>
             </motion.div>
 
             {infoPanels.map((panel) => (
@@ -888,74 +940,41 @@ export default function GuestHomeFlow() {
 
             <div className="relative z-10">
               <h3 className="text-xl font-semibold text-amber-50">
-                {authMode === "login" ? "Anmelden" : "Kostenlos registrieren"}
+                Kostenlos registrieren
               </h3>
               <p className="text-sm text-stone-300 mt-1">
-                {authMode === "login"
-                  ? "Melde dich an und sichere deinen Fortschritt in Floralog."
-                  : "Erstelle deinen Account und starte direkt mit deinem Naturbegleiter."}
+                Erstelle deinen Account und starte direkt mit deinem Naturbegleiter.
               </p>
             </div>
 
-            <div className="relative z-10 mt-4 flex items-center gap-2 rounded-xl border border-amber-100/20 bg-black/25 p-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMode("login");
-                  setAuthError(null);
-                  setAuthSuccess(null);
-                }}
-                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
-                  authMode === "login" ? "bg-emerald-500/80 text-white" : "text-stone-300 hover:text-stone-100"
-                }`}
-              >
-                Anmelden
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMode("register");
-                  setAuthError(null);
-                  setAuthSuccess(null);
-                }}
-                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
-                  authMode === "register" ? "bg-emerald-500/80 text-white" : "text-stone-300 hover:text-stone-100"
-                }`}
-              >
-                Registrieren
-              </button>
-            </div>
-
-            <form onSubmit={handleAuthSubmit} className="relative z-10 space-y-3 mt-4">
-              {authSuccess && (
+            <form onSubmit={handleRegisterSubmit} className="relative z-10 space-y-3 mt-4">
+              {registerSuccess && (
                 <div className="rounded-xl border border-emerald-300/35 bg-emerald-900/30 px-3 py-2 text-sm text-emerald-100 flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <span>{authSuccess}</span>
+                  <span>{registerSuccess}</span>
                 </div>
               )}
 
-              {authError && (
+              {registerError && (
                 <div className="rounded-xl border border-red-300/35 bg-red-900/30 px-3 py-2 text-sm text-red-100 flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <span>{authError}</span>
+                  <span>{registerError}</span>
                 </div>
               )}
 
-              {authMode === "register" && (
-                <label className="block space-y-1">
-                  <span className="text-xs uppercase tracking-[0.14em] text-amber-100/75 flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> Name</span>
-                  <input
-                    name="username"
-                    type="text"
-                    value={authForm.username}
-                    onChange={handleAuthChange}
-                    disabled={authLoading}
-                    required
-                    className="w-full rounded-xl border border-amber-100/25 bg-black/35 px-3 py-2.5 text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/55"
-                    placeholder="Dein Name"
-                  />
-                </label>
-              )}
+              <label className="block space-y-1">
+                <span className="text-xs uppercase tracking-[0.14em] text-amber-100/75 flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> Name</span>
+                <input
+                  name="username"
+                  type="text"
+                  value={authForm.username}
+                  onChange={handleAuthChange}
+                  disabled={registerLoading}
+                  required
+                  className="w-full rounded-xl border border-amber-100/25 bg-black/35 px-3 py-2.5 text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/55"
+                  placeholder="Dein Name"
+                />
+              </label>
 
               <label className="block space-y-1">
                 <span className="text-xs uppercase tracking-[0.14em] text-amber-100/75 flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> E-Mail</span>
@@ -964,7 +983,7 @@ export default function GuestHomeFlow() {
                   type="email"
                   value={authForm.email}
                   onChange={handleAuthChange}
-                  disabled={authLoading}
+                  disabled={registerLoading}
                   required
                   className="w-full rounded-xl border border-amber-100/25 bg-black/35 px-3 py-2.5 text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/55"
                   placeholder="deine@email.de"
@@ -978,36 +997,34 @@ export default function GuestHomeFlow() {
                   type="password"
                   value={authForm.password}
                   onChange={handleAuthChange}
-                  disabled={authLoading}
+                  disabled={registerLoading}
                   required
                   className="w-full rounded-xl border border-amber-100/25 bg-black/35 px-3 py-2.5 text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/55"
                   placeholder="••••••••"
                 />
               </label>
 
-              {authMode === "register" && (
-                <label className="block space-y-1">
-                  <span className="text-xs uppercase tracking-[0.14em] text-amber-100/75 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5" /> Passwort bestaetigen</span>
-                  <input
-                    name="confirmPassword"
-                    type="password"
-                    value={authForm.confirmPassword}
-                    onChange={handleAuthChange}
-                    disabled={authLoading}
-                    required
-                    className="w-full rounded-xl border border-amber-100/25 bg-black/35 px-3 py-2.5 text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/55"
-                    placeholder="••••••••"
-                  />
-                </label>
-              )}
+              <label className="block space-y-1">
+                <span className="text-xs uppercase tracking-[0.14em] text-amber-100/75 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5" /> Passwort bestaetigen</span>
+                <input
+                  name="confirmPassword"
+                  type="password"
+                  value={authForm.confirmPassword}
+                  onChange={handleAuthChange}
+                  disabled={registerLoading}
+                  required
+                  className="w-full rounded-xl border border-amber-100/25 bg-black/35 px-3 py-2.5 text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/55"
+                  placeholder="••••••••"
+                />
+              </label>
 
               <button
                 type="submit"
-                disabled={authLoading}
+                disabled={registerLoading}
                 className="w-full rounded-xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/85 via-emerald-500/75 to-emerald-700/85 py-2.5 text-white font-semibold hover:brightness-110 disabled:opacity-60 transition-all flex items-center justify-center gap-2"
               >
-                {authLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                {authMode === "login" ? "Anmelden" : "Jetzt registrieren"}
+                {registerLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                Jetzt registrieren
               </button>
             </form>
           </div>

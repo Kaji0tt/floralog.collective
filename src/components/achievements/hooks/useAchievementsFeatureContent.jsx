@@ -46,6 +46,83 @@ const resolveQuestSeedReward = ({ questType, seedReward }) => {
   return DEFAULT_QUEST_SEED_REWARD_BY_TYPE.regular;
 };
 
+/**
+ * @param {{ reward: { amount: number, questTitle?: string | null } | null, onComplete?: () => void }} props
+ */
+function QuestSeedRewardNotification({ reward, onComplete }) {
+  const [displayAmount, setDisplayAmount] = useState(0);
+
+  useEffect(() => {
+    if (!reward?.amount || reward.amount <= 0) return undefined;
+
+    /** @type {number | null} */
+    let frameId = null;
+    /** @type {number[]} */
+    const timeoutIds = [];
+    const finalAmount = Math.max(0, Math.round(Number(reward.amount || 0)));
+
+    const start = performance.now();
+    const durationMs = 680;
+
+    const tick = (/** @type {number} */ now) => {
+      const progress = Math.min((now - start) / durationMs, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const nextValue = Math.round(finalAmount * eased);
+      setDisplayAmount(nextValue);
+
+      if (progress < 1) {
+        frameId = window.requestAnimationFrame(tick);
+        return;
+      }
+
+      setDisplayAmount(finalAmount);
+    };
+
+    frameId = window.requestAnimationFrame(tick);
+
+    timeoutIds.push(
+      window.setTimeout(() => {
+        if (onComplete) onComplete();
+      }, 1900)
+    );
+
+    return () => {
+      timeoutIds.forEach((id) => window.clearTimeout(id));
+      if (frameId) window.cancelAnimationFrame(frameId);
+    };
+  }, [onComplete, reward]);
+
+  if (!reward?.amount || reward.amount <= 0) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.16 }}
+      className="fixed inset-0 z-50 flex items-start justify-center pt-24 pointer-events-none"
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 18, scale: 0.94 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -10, scale: 0.96 }}
+        transition={{ type: "spring", damping: 18, stiffness: 260 }}
+        className="relative w-[88%] max-w-xs overflow-hidden rounded-2xl border border-emerald-200/45 bg-black/70 px-5 py-4 text-center shadow-[0_20px_55px_rgba(0,0,0,0.55)] backdrop-blur-xl"
+      >
+        <div className="absolute inset-0 bg-gradient-to-b from-emerald-300/10 via-emerald-900/20 to-black/55" />
+        <div className="relative z-10">
+          <div className="text-[11px] uppercase tracking-[0.22em] text-emerald-100/85">Quest Belohnung</div>
+          <div className="mt-2 text-4xl font-black tracking-tight text-emerald-300">+{displayAmount}</div>
+          <div className="text-[11px] uppercase tracking-[0.24em] text-stone-200/90">Seeds</div>
+          {reward?.questTitle && (
+            <div className="mt-2 line-clamp-1 text-[11px] text-stone-300">{reward.questTitle}</div>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 const getAverageColor = (imageUrl) => {
   return new Promise((resolve) => {
     const img = new window.Image();
@@ -96,6 +173,7 @@ export function useAchievementsFeatureContent({
   const [averageColor, setAverageColor] = useState(null);
   const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "quests");
   const [questFeedback, setQuestFeedback] = useState(null);
+  const [seedRewardFeedback, setSeedRewardFeedback] = useState(null);
   const [newAchievements, setNewAchievements] = useState([]);
   const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
   const [showCompleted, setShowCompleted] = useState(true);
@@ -485,7 +563,7 @@ export function useAchievementsFeatureContent({
 
       const currentUser = await getCurrentUser();
 
-      await grantRobotPlantRewardServerSide({
+      const grantResult = await grantRobotPlantRewardServerSide({
         eventSource: `quest_redeem_${questType}`,
         eventReference: `${questType}:${userQuestId}`,
         amount: questSeedReward,
@@ -496,6 +574,30 @@ export function useAchievementsFeatureContent({
           reward_source: "quest",
         },
       });
+
+      const grantedBalance = Number(grantResult?.result?.new_balance ?? grantResult?.result?.newBalance);
+      const grantedEnergy = Number(grantResult?.result?.new_energy ?? grantResult?.result?.newEnergy);
+      const grantedDataQuality = Number(
+        grantResult?.result?.new_data_quality ?? grantResult?.result?.newDataQuality
+      );
+      const grantedCare = Number(grantResult?.result?.new_care ?? grantResult?.result?.newCare);
+
+      if (currentUser?.id) {
+        queryClient.setQueryData(['robotPlantState', currentUser.id], (previousState) => {
+          const safePreviousState =
+            previousState && typeof previousState === 'object'
+              ? previousState
+              : { auth_id: currentUser.id };
+
+          return {
+            ...safePreviousState,
+            ...(Number.isFinite(grantedBalance) ? { wallet_balance: grantedBalance } : {}),
+            ...(Number.isFinite(grantedEnergy) ? { energy: grantedEnergy } : {}),
+            ...(Number.isFinite(grantedDataQuality) ? { data_quality: grantedDataQuality } : {}),
+            ...(Number.isFinite(grantedCare) ? { care: grantedCare } : {}),
+          };
+        });
+      }
 
       // Quest einlösen – verwende nur vorhandene Legacy-Felder (redeemed, redeemed_date)
       if (questType === 'regular') {
@@ -591,6 +693,7 @@ export function useAchievementsFeatureContent({
             type: "questCompleted",
             questTitle,
             rewardName: rewardLabel,
+            seedReward: questSeedReward,
           },
         },
       });
@@ -604,6 +707,7 @@ export function useAchievementsFeatureContent({
       queryClient.invalidateQueries({ queryKey: ['userMonthlyQuests'] });
       queryClient.invalidateQueries({ queryKey: ['userCollectionQuests'] });
       queryClient.invalidateQueries({ queryKey: ['userAchievements'] });
+      queryClient.invalidateQueries({ queryKey: ['robotPlantState'] });
 
       // User neu laden
       const currentUser = await getCurrentUser();
@@ -694,7 +798,29 @@ export function useAchievementsFeatureContent({
       {questFeedback && (
         <ScanFeedbackNotification
           feedback={questFeedback}
-          onComplete={() => setQuestFeedback(null)}
+          onComplete={() => {
+            const seedReward = Math.max(0, Number(questFeedback?.seedReward ?? 0));
+            if (questFeedback?.type === "questCompleted" && seedReward > 0) {
+              window.setTimeout(() => {
+                setSeedRewardFeedback({
+                  amount: Math.round(seedReward),
+                  questTitle: questFeedback?.questTitle || null,
+                });
+              }, 180);
+            }
+            setQuestFeedback(null);
+          }}
+        />
+      )}
+    </AnimatePresence>
+  );
+
+  const renderSeedRewardOverlay = () => (
+    <AnimatePresence>
+      {seedRewardFeedback && (
+        <QuestSeedRewardNotification
+          reward={seedRewardFeedback}
+          onComplete={() => setSeedRewardFeedback(null)}
         />
       )}
     </AnimatePresence>
@@ -1177,6 +1303,7 @@ export function useAchievementsFeatureContent({
       )}
 
       {renderQuestFeedbackOverlay()}
+      {renderSeedRewardOverlay()}
       {/* Overlay für frisch freigeschaltete Achievements (analog Scanner / Friends) */}
       <AnimatePresence>
         {newAchievements.length > 0 && currentAchievementIndex < newAchievements.length && (
@@ -1242,7 +1369,7 @@ export function useAchievementsFeatureContent({
                         type="button"
                         onClick={() => setActiveTab(chip.id)}
                         className={
-                          "flex items-center justify-center gap-2 px-2 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors min-w-0 " +
+                          "relative flex items-center justify-center gap-2 px-2 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors min-w-0 " +
                           (isPrimary
                             ? (isLightUi
                               ? "bg-white/90 text-[#8f6b22] shadow-sm"
@@ -1259,7 +1386,10 @@ export function useAchievementsFeatureContent({
                       >
                         <span className="font-medium truncate">{chip.title}</span>
                         {chip.id === "quests" && showQuestNotification && (
-                          <span className="w-2 h-2 rounded-full bg-red-500 border border-white/70" />
+                          <span
+                            className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 border border-white/80"
+                            aria-hidden="true"
+                          />
                         )}
                       </button>
                     );
@@ -1496,42 +1626,44 @@ export function useAchievementsFeatureContent({
                                     )}
 
                                     {quest.isCompleted && (
-                                      <div className={`space-y-2 pt-2 border-t ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
-                                        {quest.rewardDisplayName && (
-                                            <div className={`flex items-center gap-1 text-xs ${questRewardBlockClass} rounded-lg px-2 py-1`}>
-                                            <Gift className="w-3 h-3" />
-                                            <span className="font-semibold">{quest.rewardDisplayName}</span>
-                                          </div>
-                                        )}
-                                        <div className="flex items-center justify-between">
-                                          {quest.completedAt && <span className={`text-[11px] ${questMetaClass}`}>Abgeschlossen am {format(new Date(quest.completedAt), "dd.MM.yyyy", { locale: de })}</span>}
-                                          <div className="flex justify-end flex-1">
-                                            {quest.canRedeem ? (
-                                              <Button
-                                                onClick={() => {
-                                                  const allCompletedQuests = [...userQuests, ...userWeeklyQuests, ...userMonthlyQuests, ...userCollectionQuests].filter((q) => q.redeemed);
-                                                  const isFirstQuest = allCompletedQuests.length === 0;
+                                      <div className={`space-y-1 pt-1.5 border-t ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
+                                        <div className="flex items-center gap-2">
+                                          {quest.rewardDisplayName && (
+                                            <div className={`min-w-0 flex-1 flex items-center gap-1 rounded-md px-2 py-1 text-[11px] ${questRewardBlockClass}`}>
+                                              <Gift className="w-3 h-3 flex-shrink-0" />
+                                              <span className="truncate font-semibold">{quest.rewardDisplayName}</span>
+                                            </div>
+                                          )}
+                                          {quest.canRedeem ? (
+                                            <Button
+                                              onClick={() => {
+                                                const allCompletedQuests = [...userQuests, ...userWeeklyQuests, ...userMonthlyQuests, ...userCollectionQuests].filter((q) => q.redeemed);
+                                                const isFirstQuest = allCompletedQuests.length === 0;
 
-                                                  redeemQuestMutation.mutate({
-                                                    userQuestId: quest.userQuestId,
-                                                    questType: quest.type,
-                                                    rewardName: quest.rewardData?.name,
-                                                    seedReward: quest.seedReward,
-                                                    isFirstQuest,
-                                                    questTitle: quest.title,
-                                                  });
-                                                }}
-                                                disabled={redeemQuestMutation.isPending}
-                                                size="sm"
-                                                  className={`h-7 text-xs ${questRedeemBtnClass}`}
-                                              >
-                                                Einlösen
-                                              </Button>
-                                            ) : (
-                                              <span className={`text-[11px] italic ${questMetaClass}`}>Bereits eingelöst</span>
-                                            )}
-                                          </div>
+                                                redeemQuestMutation.mutate({
+                                                  userQuestId: quest.userQuestId,
+                                                  questType: quest.type,
+                                                  rewardName: quest.rewardData?.name,
+                                                  seedReward: quest.seedReward,
+                                                  isFirstQuest,
+                                                  questTitle: quest.title,
+                                                });
+                                              }}
+                                              disabled={redeemQuestMutation.isPending}
+                                              size="sm"
+                                              className={`h-6 px-2 text-[11px] ${questRedeemBtnClass}`}
+                                            >
+                                              Einlösen
+                                            </Button>
+                                          ) : (
+                                            <span className={`text-[11px] italic ${questMetaClass}`}>Bereits eingelöst</span>
+                                          )}
                                         </div>
+                                        {quest.completedAt && (
+                                          <span className={`block text-[11px] ${questMetaClass}`}>
+                                            Abgeschlossen am {format(new Date(quest.completedAt), "dd.MM.yyyy", { locale: de })}
+                                          </span>
+                                        )}
                                       </div>
                                     )}
                                   </div>
@@ -1606,17 +1738,21 @@ export function useAchievementsFeatureContent({
                                           </div>
                                         )}
 
-                                        <div className={`space-y-1 pt-2 border-t ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
-                                          {quest.rewardDisplayName && (
-                                              <div className={`flex items-center gap-1 text-xs ${questRewardBlockClass} rounded-lg px-2 py-1`}>
-                                              <Gift className="w-3 h-3" />
-                                              <span className="font-semibold">{quest.rewardDisplayName}</span>
-                                            </div>
-                                          )}
-                                          <div className="flex items-center justify-between">
-                                            {quest.completedAt && <span className={`text-[11px] ${questMetaClass}`}>Abgeschlossen am {format(new Date(quest.completedAt), "dd.MM.yyyy", { locale: de })}</span>}
+                                        <div className={`space-y-1 pt-1.5 border-t ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
+                                          <div className="flex items-center gap-2">
+                                            {quest.rewardDisplayName && (
+                                              <div className={`min-w-0 flex-1 flex items-center gap-1 rounded-md px-2 py-1 text-[11px] ${questRewardBlockClass}`}>
+                                                <Gift className="w-3 h-3 flex-shrink-0" />
+                                                <span className="truncate font-semibold">{quest.rewardDisplayName}</span>
+                                              </div>
+                                            )}
                                             <span className={`text-[11px] italic ${questMetaClass}`}>Bereits eingelöst</span>
                                           </div>
+                                          {quest.completedAt && (
+                                            <span className={`block text-[11px] ${questMetaClass}`}>
+                                              Abgeschlossen am {format(new Date(quest.completedAt), "dd.MM.yyyy", { locale: de })}
+                                            </span>
+                                          )}
                                         </div>
                                       </div>
                                     </div>
