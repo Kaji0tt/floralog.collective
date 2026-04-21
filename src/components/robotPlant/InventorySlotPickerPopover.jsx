@@ -30,11 +30,12 @@ const getEffectPercent = (item) => {
  *  activeItemId?: string | null,
  *  disabled?: boolean,
  *  isPending?: boolean,
+ *  isLoading?: boolean,
  *  isLightUi?: boolean,
  *  emptyText?: string,
  *  emptyActionLabel?: string,
  *  visibleSlots?: number,
- *  onUseItem?: (itemId: string) => void,
+ *  onUseItem?: (itemId: string) => boolean | Promise<boolean>,
  *  onOpenShop?: () => void,
  *  children: import("react").ReactElement
  * }} props
@@ -44,11 +45,12 @@ export default function InventorySlotPickerPopover({
   activeItemId = null,
   disabled = false,
   isPending = false,
+  isLoading = false,
   isLightUi = false,
   emptyText = "Keine Items vorhanden.",
   emptyActionLabel = "Zum Shop ->",
   visibleSlots = DEFAULT_VISIBLE_SLOTS,
-  onUseItem = () => {},
+  onUseItem = () => true,
   onOpenShop = () => {},
   children,
 }) {
@@ -62,10 +64,12 @@ export default function InventorySlotPickerPopover({
   const visibleItems = normalizedItems.slice(0, visibleSlots);
   const missingSlots = Math.max(0, visibleSlots - visibleItems.length);
 
-  const handleUseItem = (itemId) => {
+  const handleUseItem = async (itemId) => {
     if (!itemId || isPending) return;
-    onUseItem(itemId);
-    setOpen(false);
+    const shouldClose = await Promise.resolve(onUseItem(itemId));
+    if (shouldClose !== false) {
+      setOpen(false);
+    }
   };
 
   const handleOpenShop = () => {
@@ -81,15 +85,22 @@ export default function InventorySlotPickerPopover({
       <PopoverContent
         align="end"
         sideOffset={8}
+        onPointerDown={(event) => event.stopPropagation()}
         onMouseDown={(event) => event.stopPropagation()}
         onTouchStart={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
         className={
           isLightUi
             ? "w-[15rem] rounded-2xl p-3 border-[#c8ac62]/60 bg-white/95 text-stone-800"
             : "w-[15rem] rounded-2xl p-3 border-[#f0e5a5]/45 bg-black/90 text-stone-100"
         }
       >
-        {normalizedItems.length === 0 ? (
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-[11px]">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            <span>Inventar wird geladen...</span>
+          </div>
+        ) : normalizedItems.length === 0 ? (
           <button
             type="button"
             onClick={handleOpenShop}

@@ -380,7 +380,7 @@ export default function Home() {
     refetchOnWindowFocus: true,
   });
 
-  const { data: robotPlantShopItems = [] } = useQuery({
+  const { data: robotPlantShopItems = [], isFetching: isRobotPlantShopItemsFetching } = useQuery({
     queryKey: ['robotPlantShopItems'],
     queryFn: () => listRobotPlantShopItems(),
     enabled: !!user?.id,
@@ -389,7 +389,7 @@ export default function Home() {
     refetchOnWindowFocus: true,
   });
 
-  const { data: robotPlantInventory = [] } = useQuery({
+  const { data: robotPlantInventory = [], isFetching: isRobotPlantInventoryFetching } = useQuery({
     queryKey: ['robotPlantInventory', user?.id],
     queryFn: () => listRobotPlantInventory(user?.id),
     enabled: !!user?.id,
@@ -1042,6 +1042,10 @@ export default function Home() {
     0
   );
   const activeFertilizerItemId = activeDecayEffects[0]?.item_id || null;
+  const isFertilizerInventoryLoading =
+    Boolean(user?.id) &&
+    (isRobotPlantShopItemsFetching || isRobotPlantInventoryFetching) &&
+    ownedFertilizerItems.length === 0;
   const fertilizerTitleById = Object.fromEntries(
     fertilizerItems.map((item) => [item.id, item.title || item.item_key || "Dünger"])
   );
@@ -1782,12 +1786,12 @@ export default function Home() {
 
   const handleUseFertilizerItem = (itemId) => {
     setCareActionMessage(null);
-    if (!itemId) return;
+    if (!itemId) return false;
 
     if (activeFertilizerItemId && activeFertilizerItemId === itemId) {
       const currentLabel = fertilizerTitleById[itemId] || "Dünger";
       setCareActionMessage(`${currentLabel} ist bereits ausgerüstet.`);
-      return;
+      return false;
     }
 
     if (activeFertilizerItemId && activeFertilizerItemId !== itemId) {
@@ -1798,11 +1802,12 @@ export default function Home() {
       );
 
       if (!shouldReplace) {
-        return;
+        return false;
       }
     }
 
     useInventoryItemMutation.mutate({ itemId });
+    return true;
   };
 
   const handleOpenFertilizerShop = () => {
@@ -2219,10 +2224,12 @@ export default function Home() {
                             remainingWatersToday={remainingWatersToday}
                             isWateringPending={waterPlantMutation.isPending}
                             isFertilizerPending={useInventoryItemMutation.isPending}
+                            isFertilizerInventoryLoading={isFertilizerInventoryLoading}
                             fertilizerInventoryItems={ownedFertilizerItems}
                             activeFertilizerItemId={activeFertilizerItemId}
                             activeDecayEffects={activeDecayEffects}
                             activeDecayPercent={activeDecayPercent}
+                            careActionMessage={careActionMessage}
                             careGainFeedback={careGainFeedback}
                             onWaterPlant={handleWaterPlantClick}
                             onUseFertilizerItem={handleUseFertilizerItem}

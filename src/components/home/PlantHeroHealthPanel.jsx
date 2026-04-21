@@ -23,10 +23,12 @@ export default function PlantHeroHealthPanel({
   remainingWatersToday = 0,
   isWateringPending = false,
   isFertilizerPending = false,
+  isFertilizerInventoryLoading = false,
   fertilizerInventoryItems = [],
   activeFertilizerItemId = null,
   activeDecayEffects = [],
   activeDecayPercent = 0,
+  careActionMessage = null,
   careGainFeedback = null,
   onWaterPlant = () => {},
   onUseFertilizerItem = () => {},
@@ -160,6 +162,7 @@ export default function PlantHeroHealthPanel({
               activeItemId={activeFertilizerItemId}
               disabled={isLoading || isFertilizerPending}
               isPending={isFertilizerPending}
+              isLoading={isFertilizerInventoryLoading}
               isLightUi={isLightUi}
               emptyText="Keine Dünger vorhanden."
               emptyActionLabel="Zum Shop ->"
@@ -182,6 +185,12 @@ export default function PlantHeroHealthPanel({
                 </span>
               </button>
             </InventorySlotPickerPopover>
+          </div>
+        )}
+
+        {!!careActionMessage && (
+          <div className={`text-[10px] md:text-[11px] ${isLightUi ? "text-stone-700/90" : "text-stone-200/90"}`}>
+            {careActionMessage}
           </div>
         )}
       </div>
