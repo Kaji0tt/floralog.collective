@@ -11,7 +11,7 @@ import {
   listRobotPlantInventory,
   listRobotPlantActiveEffects,
   getRobotPlantDailyCareStatus,
-  useRobotPlantInventoryItem,
+  useRobotPlantInventoryItem as activateRobotPlantInventoryItem,
   waterRobotPlant,
 } from "@/api/robotPlantService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -426,7 +426,7 @@ export default function Home() {
   });
 
   const useInventoryItemMutation = useMutation({
-    mutationFn: ({ itemId }) => useRobotPlantInventoryItem({ itemId }),
+    mutationFn: ({ itemId }) => activateRobotPlantInventoryItem({ itemId }),
     onSuccess: async (result) => {
       if (!result?.applied) {
         const errorCode = String(result?.error_code || "");
@@ -1057,11 +1057,47 @@ export default function Home() {
     .filter((effect) => effect.effect_type === "decay_reduction")
     .sort((a, b) => new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime());
 
-  const activeDecayPercent = activeDecayEffects.reduce(
+  const countRemainingUtcDaySwitches = (expiresAtIso) => {
+    const expiryMs = new Date(expiresAtIso || 0).getTime();
+    if (!Number.isFinite(expiryMs)) return 0;
+
+    const now = new Date();
+    const nextUtcMidnightMs = Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() + 1,
+      0,
+      0,
+      0,
+      0
+    );
+
+    // Effect can only influence decay on daily rollover; if it ends before next rollover, it contributes 0 days.
+    if (expiryMs <= nextUtcMidnightMs) {
+      return 0;
+    }
+
+    return Math.floor((expiryMs - nextUtcMidnightMs) / (24 * 60 * 60 * 1000)) + 1;
+  };
+
+  const decayEffectsWithDaySwitches = activeDecayEffects.map((effect) => ({
+    ...effect,
+    remainingDaySwitches: countRemainingUtcDaySwitches(effect?.expires_at),
+  }));
+
+  const effectiveDecayEffects = decayEffectsWithDaySwitches.filter(
+    (effect) => Number(effect.remainingDaySwitches || 0) > 0
+  );
+
+  const activeDecayPercent = effectiveDecayEffects.reduce(
     (acc, effect) => acc + Number(effect.effect_value || 0),
     0
   );
-  const activeFertilizerItemId = activeDecayEffects[0]?.item_id || null;
+  const activeFertilizerItemId = effectiveDecayEffects[0]?.item_id || null;
+  const activeFertilizerRemainingDays = effectiveDecayEffects.reduce(
+    (maxValue, effect) => Math.max(maxValue, Number(effect.remainingDaySwitches || 0)),
+    0
+  );
   const isFertilizerInventoryLoading =
     Boolean(user?.id) &&
     (isRobotPlantShopItemsPending ||
@@ -2253,6 +2289,7 @@ export default function Home() {
                             isFertilizerInventoryLoading={isFertilizerInventoryLoading}
                             fertilizerInventoryItems={ownedFertilizerItems}
                             activeFertilizerItemId={activeFertilizerItemId}
+                            activeFertilizerRemainingDays={activeFertilizerRemainingDays}
                             activeDecayEffects={activeDecayEffects}
                             activeDecayPercent={activeDecayPercent}
                             careActionMessage={careActionMessage}

@@ -26,6 +26,7 @@ export default function PlantHeroHealthPanel({
   isFertilizerInventoryLoading = false,
   fertilizerInventoryItems = [],
   activeFertilizerItemId = null,
+  activeFertilizerRemainingDays = 0,
   activeDecayEffects = [],
   activeDecayPercent = 0,
   careActionMessage = null,
@@ -181,7 +182,7 @@ export default function PlantHeroHealthPanel({
                   Dünger
                 </span>
                 <span className="text-[10px] md:text-[11px] mt-1 leading-none opacity-90">
-                  {isLoading ? "..." : `${activeDecayEffects.length} | ${Math.round(activeDecayPercent * 100)}%`}
+                  {isLoading ? "..." : `${activeFertilizerRemainingDays} | ${Math.round(activeDecayPercent * 100)}%`}
                 </span>
               </button>
             </InventorySlotPickerPopover>
