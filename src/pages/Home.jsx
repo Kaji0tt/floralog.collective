@@ -380,20 +380,26 @@ export default function Home() {
     refetchOnWindowFocus: true,
   });
 
-  const { data: robotPlantShopItems = [], isFetching: isRobotPlantShopItemsFetching } = useQuery({
-    queryKey: ['robotPlantShopItems'],
+  const {
+    data: robotPlantShopItems = [],
+    isPending: isRobotPlantShopItemsPending,
+    isFetching: isRobotPlantShopItemsFetching,
+  } = useQuery({
+    queryKey: ['robotPlantShopItems', user?.id],
     queryFn: () => listRobotPlantShopItems(),
     enabled: !!user?.id,
-    initialData: [],
     staleTime: 60 * 1000,
     refetchOnWindowFocus: true,
   });
 
-  const { data: robotPlantInventory = [], isFetching: isRobotPlantInventoryFetching } = useQuery({
+  const {
+    data: robotPlantInventory = [],
+    isPending: isRobotPlantInventoryPending,
+    isFetching: isRobotPlantInventoryFetching,
+  } = useQuery({
     queryKey: ['robotPlantInventory', user?.id],
     queryFn: () => listRobotPlantInventory(user?.id),
     enabled: !!user?.id,
-    initialData: [],
     staleTime: 30 * 1000,
     refetchOnWindowFocus: true,
   });
@@ -402,7 +408,6 @@ export default function Home() {
     queryKey: ['robotPlantActiveEffects', user?.id],
     queryFn: () => listRobotPlantActiveEffects(user?.id),
     enabled: !!user?.id,
-    initialData: [],
     staleTime: 30 * 1000,
     refetchOnWindowFocus: true,
   });
@@ -1044,8 +1049,10 @@ export default function Home() {
   const activeFertilizerItemId = activeDecayEffects[0]?.item_id || null;
   const isFertilizerInventoryLoading =
     Boolean(user?.id) &&
-    (isRobotPlantShopItemsFetching || isRobotPlantInventoryFetching) &&
-    ownedFertilizerItems.length === 0;
+    (isRobotPlantShopItemsPending ||
+      isRobotPlantShopItemsFetching ||
+      isRobotPlantInventoryPending ||
+      isRobotPlantInventoryFetching);
   const fertilizerTitleById = Object.fromEntries(
     fertilizerItems.map((item) => [item.id, item.title || item.item_key || "Dünger"])
   );
