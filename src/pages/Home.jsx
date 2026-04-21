@@ -429,6 +429,20 @@ export default function Home() {
     mutationFn: ({ itemId }) => useRobotPlantInventoryItem({ itemId }),
     onSuccess: async (result) => {
       if (!result?.applied) {
+        const errorCode = String(result?.error_code || "");
+        if (errorCode === "inventory_empty") {
+          setCareActionMessage('Dieser Dünger ist im Inventar nicht mehr verfügbar.');
+          await queryClient.invalidateQueries({ queryKey: ['robotPlantInventory'] });
+          return;
+        }
+        if (errorCode === "item_not_found") {
+          setCareActionMessage('Dünger konnte nicht gefunden werden.');
+          return;
+        }
+        if (errorCode === "item_has_no_effect") {
+          setCareActionMessage('Dieses Item hat keinen aktivierbaren Effekt.');
+          return;
+        }
         setCareActionMessage('Aktivierung fehlgeschlagen.');
         return;
       }
@@ -437,8 +451,9 @@ export default function Home() {
       await queryClient.invalidateQueries({ queryKey: ['robotPlantInventory'] });
       await queryClient.invalidateQueries({ queryKey: ['robotPlantActiveEffects'] });
     },
-    onError: () => {
-      setCareActionMessage('Aktivierung fehlgeschlagen.');
+    onError: (error) => {
+      const rawMessage = String(error?.message || '').trim();
+      setCareActionMessage(rawMessage ? `Aktivierung fehlgeschlagen: ${rawMessage}` : 'Aktivierung fehlgeschlagen.');
     },
   });
 
@@ -1791,7 +1806,7 @@ export default function Home() {
     waterPlantMutation.mutate();
   };
 
-  const handleUseFertilizerItem = (itemId) => {
+  const handleUseFertilizerItem = async (itemId) => {
     setCareActionMessage(null);
     if (!itemId) return false;
 
@@ -1813,8 +1828,12 @@ export default function Home() {
       }
     }
 
-    useInventoryItemMutation.mutate({ itemId });
-    return true;
+    try {
+      const result = await useInventoryItemMutation.mutateAsync({ itemId });
+      return Boolean(result?.applied);
+    } catch {
+      return false;
+    }
   };
 
   const handleOpenFertilizerShop = () => {

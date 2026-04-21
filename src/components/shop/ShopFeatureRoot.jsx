@@ -106,7 +106,11 @@ export default function ShopFeatureRoot({
     retry: 2,
   });
 
-  const { data: robotPlantInventory = [] } = useQuery({
+  const {
+    data: robotPlantInventory = [],
+    isPending: isInventoryPending,
+    isFetching: isInventoryFetching,
+  } = useQuery({
     queryKey: ["robotPlantInventory", resolvedAuthId],
     queryFn: () => listRobotPlantInventory(resolvedAuthId),
     enabled: !!resolvedAuthId,
@@ -196,6 +200,7 @@ export default function ShopFeatureRoot({
   const inventoryByItemId = Object.fromEntries(
     robotPlantInventory.map((entry) => [entry.item_id, entry.quantity || 0])
   );
+  const isInventoryLoading = Boolean(resolvedAuthId) && (isInventoryPending || isInventoryFetching);
 
   const updatePurchaseQuantity = (itemId, nextQuantity, maxAffordable) => {
     const clampedQuantity = maxAffordable <= 0
@@ -442,7 +447,11 @@ export default function ShopFeatureRoot({
                       <div className={"rounded-full px-2 py-0.5 border " + (isLightUi ? "bg-white/75 border-[#c8ac62]/35 text-stone-700" : "bg-black/45 border-[#f0e5a5]/30 text-stone-100")}>
                         {item.seed_cost} Samen
                       </div>
-                      {owned >= 1 && (
+                      {isInventoryLoading ? (
+                        <div className={"w-6 h-6 rounded-full border text-[10px] font-bold inline-flex items-center justify-center " + (isLightUi ? "bg-white/80 border-[#c8ac62]/45 text-stone-500" : "bg-black/55 border-[#f0e5a5]/35 text-stone-300")}>
+                          ...
+                        </div>
+                      ) : owned >= 1 && (
                         <div className={"w-6 h-6 rounded-full border text-[10px] font-bold inline-flex items-center justify-center " + (isLightUi ? "bg-white/80 border-[#c8ac62]/45 text-stone-700" : "bg-black/55 border-[#f0e5a5]/35 text-stone-100")}>
                           {owned}x
                         </div>
