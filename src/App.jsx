@@ -19,6 +19,7 @@ import ResetPassword from '@/pages/ResetPassword';
 import GuestLoginModal from '@/components/GuestLoginModal';
 import HomeShellLoader from '@/components/navigation/HomeShellLoader';
 import { UiThemeProvider } from '@/lib/UiThemeContext';
+import OtaUpdateManager from '@/components/OtaUpdateManager';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -98,6 +99,7 @@ function App() {
         </Router>
         <Toaster />
         <VisualEditAgent />
+        <OtaUpdateManager />
       </QueryClientProvider>
     </AuthProvider>
     </UiThemeProvider>
