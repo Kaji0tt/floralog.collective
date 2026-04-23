@@ -20,7 +20,7 @@
 # First-time setup (run once):
 #   cd workers/ota
 #   npx wrangler kv namespace create OTA_KV
-#   npx wrangler r2 bucket create floralog-ota-bundles
+#   npx wrangler r2 bucket create floralog-ota
 #   npx wrangler secret put DEPLOY_SECRET
 #   npx wrangler deploy
 #   # → copy the Worker URL and set VITE_OTA_VERSION_URL in .env.local
@@ -85,7 +85,7 @@ info "SHA-256: $SHA256"
 # ── 5. Upload bundle to R2 ─────────────────────────────────────────────────────
 info "Uploading bundle to R2..."
 (cd "$OTA_WORKER_DIR" && npx wrangler r2 object put \
-  "floralog-ota-bundles/$BUNDLE_FILE" \
+  "floralog-ota/$BUNDLE_FILE" \
   --file="../../$BUNDLE_FILE" \
   --content-type="application/zip")
 success "Bundle uploaded to R2"
@@ -138,3 +138,9 @@ echo "   Version $VERSION is now live at $WORKER_URL/version.json"
 echo ""
 echo "   Devices running an older version will see the update banner"
 echo "   on next app launch."
+
+# ── 9. Write OTA URLs to .env.ota.local ──────────────────────────────────────
+OTA_ENV_FILE=".env.ota.local"
+echo "VITE_OTA_MANIFEST_URL=${WORKER_URL}/version.json" > "$OTA_ENV_FILE"
+echo "VITE_OTA_BUNDLE_URL=$BUNDLE_URL" >> "$OTA_ENV_FILE"
+success ".env.ota.local written with OTA URLs"

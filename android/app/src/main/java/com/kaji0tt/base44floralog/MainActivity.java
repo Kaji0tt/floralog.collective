@@ -4,6 +4,7 @@ import com.getcapacitor.BridgeActivity;
 import android.os.Bundle;
 import android.util.Log;
 import java.io.File;
+import com.base44.floralog.ota.OtaUpdateChecker;
 
 public class MainActivity extends BridgeActivity {
 
@@ -29,5 +30,34 @@ public class MainActivity extends BridgeActivity {
 				otaManager.clearActiveBundle();
 			}
 		}
+
+		// OTA-Update-Check und Anwendung beim Start
+		OtaUpdateChecker.checkForUpdateAndApply(this, new OtaUpdateChecker.OtaUpdateListener() {
+			@Override
+			public void onUpdateAvailable(String version, String url) {
+				Log.i(TAG, "OTA Update verfügbar: Version " + version + ", URL: " + url);
+			}
+
+			@Override
+			public void onNoUpdate() {
+				Log.i(TAG, "Kein OTA-Update verfügbar.");
+			}
+
+			@Override
+			public void onError(Exception e) {
+				Log.e(TAG, "OTA-Update-Check Fehler", e);
+			}
+
+			@Override
+			public void onProgress(String message, int percent) {
+				Log.d(TAG, "OTA Fortschritt: " + message + " (" + percent + "%)");
+			}
+
+			@Override
+			public void onBundleActivated(String version, String path) {
+				Log.i(TAG, "OTA-Bundle aktiviert: " + version + ", Pfad: " + path);
+				// Optional: Neustart oder Hinweis an UI
+			}
+		});
 	}
 }

@@ -1,0 +1,5 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="ota_manifest_url">VITE_OTA_MANIFEST_URL_PLACEHOLDER</string>
+    <string name="ota_bundle_url">VITE_OTA_BUNDLE_URL_PLACEHOLDER</string>
+</resources>
