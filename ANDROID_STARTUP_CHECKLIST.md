@@ -123,7 +123,7 @@ ERROR: Permission denied: android.permission.CAMERA
 ### Logcat Spalten verstehen:
 ```
 [Timestamp] [AppID] [Level] [Tag] [Message]
-04-22 14:35:12 com.kaji0tt.base44floralog I/React: App initialized
+04-22 14:35:12 de.floralog.app I/React: App initialized
                                            ↑       ↑
                                         Level     Tag
 ```

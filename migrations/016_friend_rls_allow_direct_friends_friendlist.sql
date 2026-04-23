@@ -1,7 +1,7 @@
 -- Allow authenticated users to read accepted friendship rows of their direct friends.
 -- Existing policy friend_select_participant only allows rows where the viewer is a participant.
 -- This additional SELECT policy allows use cases like FriendFriendsList:
--- viewer Marie is direct friend of Kaji0tt -> viewer may read accepted Friend rows that include Kaji0tt.
+-- viewer Marie is direct friend of Floralog -> viewer may read accepted Friend rows that include Floralog.
 --
 -- The policy is intentionally limited to accepted friendships only.
 

@@ -69,7 +69,7 @@ public class OtaUpdateChecker {
 
                     // 4. Download Bundle
                     publishProgress("Lade Bundle", 10+"");
-                    com.kaji0tt.base44floralog.OtaManager otaManager = new com.kaji0tt.base44floralog.OtaManager(context);
+                    de.floralog.app.OtaManager otaManager = new de.floralog.app.OtaManager(context);
                     File zipFile = otaManager.downloadBundle(remoteUrl, percent -> publishProgress("Download", 10 + percent/2 + ""));
 
                     // 5. Verifikation

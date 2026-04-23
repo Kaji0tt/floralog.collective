@@ -1,4 +1,4 @@
-package com.kaji0tt.base44floralog;
+package de.floralog.app;
 
 import android.content.Context;
 import android.content.SharedPreferences;
