@@ -336,9 +336,67 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
         <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-emerald-950/15 to-black/45 pointer-events-none" />
         <div className={`absolute -inset-px rounded-2xl opacity-40 blur-xl ${ringClasses}`} />
         <div className="absolute inset-0 border border-[#f0e5a5]/25 rounded-2xl pointer-events-none" />
+
         <div className="relative z-10 flex flex-col items-center w-full">
           <h3 className={`text-lg font-bold mb-1 ${titleClasses}`}>{title}</h3>
           <p className={`text-sm ${messageClasses}`}>{message}</p>
+
+          {/* Button-Bereich unter der Notification */}
+          <div className="flex flex-row gap-3 mt-4 w-full justify-center">
+            <button
+              className="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-xl shadow transition-all focus:outline-none focus:ring-2 focus:ring-green-400"
+              onClick={onComplete}
+              autoFocus
+            >
+              Okay
+            </button>
+            <button
+              className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-5 py-2 rounded-xl shadow transition-all focus:outline-none focus:ring-2 focus:ring-amber-300"
+              onClick={() => setShowShareOptions(true)}
+            >
+              Teilen
+            </button>
+          </div>
+
+          {/* Share-Dialog (Freunde/WhatsApp) */}
+          {showShareOptions && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+              <div className="bg-white rounded-2xl shadow-lg p-6 max-w-xs w-full flex flex-col items-center gap-4">
+                <h4 className="text-lg font-bold mb-2 text-stone-800">Scan teilen</h4>
+                <button
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2 rounded-lg mb-2"
+                  onClick={() => {
+                    setShowShareOptions(false);
+                    if (typeof window !== 'undefined' && window.dispatchEvent) {
+                      window.dispatchEvent(new CustomEvent('openShareScanDialog'));
+                    }
+                  }}
+                >
+                  Ingame-Freunden Bescheid geben
+                </button>
+                <button
+                  className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold px-4 py-2 rounded-lg mb-2"
+                  onClick={() => {
+                    setShowShareOptions(false);
+                    const shareText = `Schau dir meinen Scan an! 🌱`;
+                    const shareUrl = window.location.href;
+                    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText + '\n' + shareUrl)}`;
+                    window.open(whatsappUrl, '_blank');
+                  }}
+                >
+                  Über WhatsApp teilen
+                </button>
+                <button
+                  className="w-full bg-stone-200 hover:bg-stone-300 text-stone-700 font-semibold px-4 py-2 rounded-lg"
+                  onClick={() => setShowShareOptions(false)}
+                >
+                  Abbrechen
+                </button>
+              </div>
+            </div>
+          )}
+// State für Share-Dialog
+const [showShareOptions, setShowShareOptions] = useState(false);
 
           {rewardDetails && (
             <div className="mt-4 w-full rounded-2xl bg-black/35 border border-[#f0e5a5]/30 px-4 py-4 shadow-sm">

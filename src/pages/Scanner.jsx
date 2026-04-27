@@ -73,7 +73,7 @@ export default function Scanner() {
   const [allScanResults, setAllScanResults] = useState([]);
   const [latestDiscoveryId, setLatestDiscoveryId] = useState(null);
   const [imageUrl, setImageUrl] = useState(null);
-  const [showCamera, setShowCamera] = useState(false);
+  const [showCamera, setShowCamera] = useState(true);
   const [user, setUser] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [gettingLocation, setGettingLocation] = useState(false);

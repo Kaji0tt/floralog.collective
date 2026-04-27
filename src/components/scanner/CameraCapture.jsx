@@ -171,40 +171,31 @@ export default function CameraCapture({ onCapture, onClose }) {
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl overflow-hidden rounded-3xl border border-[#f0e5a5]/35 bg-black/40 backdrop-blur-xl text-stone-100 shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
-        <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-emerald-950/20 to-black/45 pointer-events-none" />
-        <div className="absolute inset-0 border border-[#f0e5a5]/25 rounded-3xl pointer-events-none" />
-        <div className="relative z-10 space-y-4">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Camera className="w-5 h-5 text-emerald-300" />
-            Pflanzenfoto aufnehmen
-          </DialogTitle>
-        </DialogHeader>
-        
-        {/* Pflanzenteile-Auswahl */}
-        <div className="space-y-2">
-          <Label className="text-sm font-semibold text-stone-100">
-            Was möchtest du fotografieren?
-          </Label>
-          <Select value={selectedOrgan} onValueChange={setSelectedOrgan}>
-            <SelectTrigger className="border border-[#f0e5a5]/35 bg-black/40 text-stone-100">
-              <SelectValue placeholder="Wähle einen Pflanzenteil" />
-            </SelectTrigger>
-            <SelectContent className="border border-[#f0e5a5]/30 bg-black/90 text-stone-100">
-              {organOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  <div className="flex flex-col items-start">
-                    <span className="font-semibold">{option.label}</span>
-                    <span className="text-xs text-stone-300">{option.description}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <DialogContent className="fixed inset-0 !max-w-full !w-full !h-full !rounded-none !p-0 bg-black/95 flex flex-col justify-between items-stretch z-[100] overflow-hidden">
+        {/* Dropdown oben mit Liquid Glass Effekt */}
+        <div className="absolute top-0 left-0 w-full flex justify-center z-20 p-4">
+          <div className="backdrop-blur-xl bg-black/40 border border-[#f0e5a5]/30 rounded-2xl px-4 py-2 shadow-lg flex flex-col items-center w-full max-w-xs">
+            <Label className="text-sm font-semibold text-stone-100 mb-1">Was möchtest du fotografieren?</Label>
+            <Select value={selectedOrgan} onValueChange={setSelectedOrgan}>
+              <SelectTrigger className="border border-[#f0e5a5]/35 bg-black/40 text-stone-100 rounded-xl">
+                <SelectValue placeholder="Wähle einen Pflanzenteil" />
+              </SelectTrigger>
+              <SelectContent className="border border-[#f0e5a5]/30 bg-black/90 text-stone-100 rounded-xl">
+                {organOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    <div className="flex flex-col items-start">
+                      <span className="font-semibold">{option.label}</span>
+                      <span className="text-xs text-stone-300">{option.description}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        <div className="relative aspect-[4/3] bg-black rounded-2xl overflow-hidden border border-[#f0e5a5]/30 shadow-[0_12px_34px_rgba(0,0,0,0.45)]">
+        {/* Kamera-Viewport */}
+        <div className="relative flex-1 flex items-center justify-center bg-black">
           <video
             ref={videoRef}
             autoPlay
@@ -213,32 +204,26 @@ export default function CameraCapture({ onCapture, onClose }) {
             className="absolute inset-0 w-full h-full object-cover"
           />
           {!isReady && (
-            <div className="absolute inset-0 flex items-center justify-center text-stone-100 bg-black/45">
+            <div className="absolute inset-0 flex items-center justify-center text-stone-100 bg-black/45 z-30">
               <div className="flex items-center gap-2 rounded-xl border border-[#f0e5a5]/25 bg-black/40 px-4 py-2">
                 <Loader2 className="w-6 h-6 animate-spin" />
                 Kamera wird gestartet...
               </div>
             </div>
           )}
-          
           {isCompressing && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-stone-100">
+            <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-stone-100 z-30">
               <div className="flex items-center gap-2 rounded-xl border border-[#f0e5a5]/25 bg-black/45 px-4 py-2">
                 <Loader2 className="w-6 h-6 animate-spin" />
                 Bild wird optimiert...
               </div>
             </div>
           )}
-          
-          <div className="absolute inset-0 border-2 border-emerald-300/50 rounded-2xl pointer-events-none">
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 border-2 border-[#f0e5a5]/75 rounded-xl" />
-          </div>
-
           {/* Kamera-Wechsel-Button */}
           {isReady && (
             <Button
               onClick={switchCamera}
-              className="absolute top-4 right-4 bg-black/60 hover:bg-black/75 text-stone-100 border border-[#f0e5a5]/35 shadow-lg z-10"
+              className="absolute top-4 right-4 bg-black/60 hover:bg-black/75 text-stone-100 border border-[#f0e5a5]/35 shadow-lg z-40"
               size="icon"
               disabled={isCompressing}
             >
@@ -247,29 +232,28 @@ export default function CameraCapture({ onCapture, onClose }) {
           )}
         </div>
 
-        <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={onClose} disabled={isCompressing} className="border-[#f0e5a5]/35 bg-black/35 text-stone-100 hover:bg-black/55">
-            <X className="w-4 h-4 mr-2" />
-            Abbrechen
-          </Button>
-          <Button
-            onClick={capturePhoto}
-            disabled={!isReady || isCompressing}
-            className="border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 hover:brightness-110"
-          >
-            {isCompressing ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Verarbeite...
-              </>
-            ) : (
-              <>
-                <Camera className="w-4 h-4 mr-2" />
-                Aufnehmen
-              </>
-            )}
-          </Button>
-        </div>
+        {/* Aufnahme- und Abbrechen-Button unten */}
+        <div className="relative w-full flex justify-center items-end pb-8 z-40">
+          <div className="flex flex-row gap-6 items-center">
+            {/* Aufnahme-Button groß, grün */}
+            <button
+              onClick={capturePhoto}
+              disabled={!isReady || isCompressing}
+              className="w-20 h-20 rounded-full bg-green-500 hover:bg-green-600 active:bg-green-700 flex items-center justify-center shadow-xl border-4 border-white transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
+              style={{ boxShadow: '0 0 0 8px rgba(16,185,129,0.15)' }}
+            >
+              <Camera className="w-10 h-10 text-white" />
+            </button>
+            {/* Abbrechen-Button kleiner, rund, transparent */}
+            <button
+              onClick={onClose}
+              disabled={isCompressing}
+              className="w-12 h-12 rounded-full bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center border-2 border-red-400/60 text-red-600 transition-all duration-150"
+              style={{ backdropFilter: 'blur(6px)' }}
+            >
+              <X className="w-7 h-7" />
+            </button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

@@ -58,6 +58,15 @@ export default function ScanResults({
       setDiscovery(found);
     };
     loadDiscovery();
+
+    // Listener für Notification-Share-Button
+    const handleOpenShareDialog = () => {
+      setShowShareDialog(true);
+    };
+    window.addEventListener('openShareScanDialog', handleOpenShareDialog);
+    return () => {
+      window.removeEventListener('openShareScanDialog', handleOpenShareDialog);
+    };
   }, [latestDiscoveryId]);
 
   // Wenn allResults leer ist, aber plant vorhanden ist, nutze plant als einziges Ergebnis

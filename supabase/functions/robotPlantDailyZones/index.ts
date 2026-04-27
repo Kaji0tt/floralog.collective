@@ -97,13 +97,17 @@ function normalizeEmail(value: string | null | undefined): string | null {
   return norm || null;
 }
 
+
 function getAllowedOrigins(): string[] {
   return [
     Deno.env.get("FLORALOG_URL"),
     Deno.env.get("SITE_URL"),
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-  ].filter(Boolean) as string[];
+    "capacitor://localhost",
+    "file://",
+    "", // leere Origin für App-Requests ohne Origin-Header
+  ].filter((v) => v !== undefined);
 }
 
 function isAllowedOrigin(origin: string | null): boolean {
