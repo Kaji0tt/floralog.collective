@@ -85,20 +85,15 @@ info "Uploading bundle to R2..."
 (cd "$OTA_WORKER_DIR" && npx wrangler r2 object put \
   "floralog-ota/$BUNDLE_FILE" \
   --file="../../$BUNDLE_FILE" \
-  --content-type="application/zip")
+  --content-type="application/zip" \
+  --remote)
 success "Bundle uploaded to R2"
 
 # ── 6. Derive bundle URL ───────────────────────────────────────────────────────
 
-# Versuche, Worker-URL mit node zu extrahieren (statt jq)
-WORKER_URL="$(cd "$OTA_WORKER_DIR" && \
-  npx wrangler deployments list --json 2>/dev/null | \
-  node -pe 'try{console.log((JSON.parse(require("fs").readFileSync(0,"utf8"))[0]?.url||""))}catch(e){console.log("")}' || true)"
 
-if [[ -z "$WORKER_URL" ]]; then
-  # Fallback: derive URL from account subdomain convention
-  WORKER_URL="https://${OTA_WORKER_NAME}.$(npx wrangler whoami 2>/dev/null | grep -oP '(?<=workers\.dev)[^ ]*' || echo 'YOUR_ACCOUNT').workers.dev"
-fi
+# Feste Worker-URL, damit der Deploy in CI/CD immer funktioniert
+WORKER_URL="https://floralog-ota.green-term-27d0.workers.dev"
 
 BUNDLE_URL="${WORKER_URL}/bundle/${BUNDLE_FILE}"
 info "Bundle URL: $BUNDLE_URL"
