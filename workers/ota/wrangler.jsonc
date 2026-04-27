@@ -6,9 +6,8 @@
   // KV namespace stores the version manifest JSON
   "kv_namespaces": [
     {
-      "binding": "OTA_KV",
-      "id": "REPLACE_WITH_YOUR_KV_NAMESPACE_ID",
-      "preview_id": "REPLACE_WITH_YOUR_KV_PREVIEW_ID"
+      "binding": "OTA",
+      "id": "ac10912f1adf4d65b2592da2e70b9967"
     }
   ],
 
@@ -16,7 +15,7 @@
   "r2_buckets": [
     {
       "binding": "OTA_BUCKET",
-      "bucket_name": "floralog-ota-bundles"
+      "bucket_name": "floralog-ota"
     }
   ]
 }
