@@ -69,9 +69,7 @@ info "Wrote bundle-version.json (version=$VERSION)"
 
 # ── 3. Create ZIP bundle ───────────────────────────────────────────────────────
 info "Creating ZIP bundle: $BUNDLE_FILE"
-(cd "$DIST_DIR" && zip -qr "../$BUNDLE_FILE" . \
-  --exclude "*.DS_Store" \
-  --exclude "__MACOSX/*")
+npx bestzip "$BUNDLE_FILE" "$DIST_DIR/*"
 success "Bundle created ($(du -sh "$BUNDLE_FILE" | cut -f1))"
 
 # ── 4. Compute SHA-256 ─────────────────────────────────────────────────────────
