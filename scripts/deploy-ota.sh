@@ -47,7 +47,7 @@ success() { echo -e "\033[32m✓\033[0m $*"; }
 die()     { echo -e "\033[31m✗\033[0m $*" >&2; exit 1; }
 
 ## jq wird nicht mehr benötigt, stattdessen node
-command -v wrangler &>/dev/null || die "wrangler not found. Install: npm i -g wrangler"
+# wrangler wird jetzt als devDependency über npx verwendet
 
 echo ""
 echo "🌿 FloraLog OTA Deploy"
@@ -99,7 +99,7 @@ WORKER_URL="$(cd "$OTA_WORKER_DIR" && \
 
 if [[ -z "$WORKER_URL" ]]; then
   # Fallback: derive URL from account subdomain convention
-  WORKER_URL="https://${OTA_WORKER_NAME}.$(wrangler whoami 2>/dev/null | grep -oP '(?<=workers\.dev)[^ ]*' || echo 'YOUR_ACCOUNT').workers.dev"
+  WORKER_URL="https://${OTA_WORKER_NAME}.$(npx wrangler whoami 2>/dev/null | grep -oP '(?<=workers\.dev)[^ ]*' || echo 'YOUR_ACCOUNT').workers.dev"
 fi
 
 BUNDLE_URL="${WORKER_URL}/bundle/${BUNDLE_FILE}"
