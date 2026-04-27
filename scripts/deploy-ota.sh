@@ -46,7 +46,7 @@ info()    { echo -e "\033[32m→\033[0m $*"; }
 success() { echo -e "\033[32m✓\033[0m $*"; }
 die()     { echo -e "\033[31m✗\033[0m $*" >&2; exit 1; }
 
-command -v jq       &>/dev/null || die "jq not found. Install: brew install jq"
+## jq wird nicht mehr benötigt, stattdessen node
 command -v wrangler &>/dev/null || die "wrangler not found. Install: npm i -g wrangler"
 
 echo ""
@@ -91,9 +91,11 @@ info "Uploading bundle to R2..."
 success "Bundle uploaded to R2"
 
 # ── 6. Derive bundle URL ───────────────────────────────────────────────────────
+
+# Versuche, Worker-URL mit node zu extrahieren (statt jq)
 WORKER_URL="$(cd "$OTA_WORKER_DIR" && \
   npx wrangler deployments list --json 2>/dev/null | \
-  jq -r '.[0].url // empty' 2>/dev/null || true)"
+  node -pe 'try{console.log((JSON.parse(require("fs").readFileSync(0,"utf8"))[0]?.url||""))}catch(e){console.log("")}' || true)"
 
 if [[ -z "$WORKER_URL" ]]; then
   # Fallback: derive URL from account subdomain convention
@@ -110,12 +112,10 @@ if [[ -z "${OTA_DEPLOY_SECRET:-}" ]]; then
   die "OTA_DEPLOY_SECRET is not set. Export it or add it to .env.deploy"
 fi
 
-MANIFEST=$(jq -n \
-  --arg version    "$VERSION" \
-  --arg bundleUrl  "$BUNDLE_URL" \
-  --arg sha256     "$SHA256" \
-  --arg buildTime  "$BUILD_TIME" \
-  '{ version: $version, bundleUrl: $bundleUrl, sha256: $sha256, buildTime: $buildTime }')
+
+# Manifest-JSON mit node erzeugen (statt jq)
+MANIFEST=$(node -e "console.log(JSON.stringify({version: process.env.VERSION, bundleUrl: process.env.BUNDLE_URL, sha256: process.env.SHA256, buildTime: process.env.BUILD_TIME}))" \
+  VERSION="$VERSION" BUNDLE_URL="$BUNDLE_URL" SHA256="$SHA256" BUILD_TIME="$BUILD_TIME")
 
 HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
   -X PUT "${WORKER_URL}/version.json" \
