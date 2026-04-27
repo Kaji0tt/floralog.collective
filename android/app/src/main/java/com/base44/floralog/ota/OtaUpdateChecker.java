@@ -21,7 +21,7 @@ public class OtaUpdateChecker {
         void onBundleActivated(String version, String path);
     }
 
-    private static final String META_URL = "https://<DEIN_R2_ENDPOINT>/latest.json";
+    private static final String META_URL = "https://floralog-ota.green-term-27d0.workers.dev/version.json?platform=android";
     private static final String LOCAL_META = "ota_latest.json";
 
     public static void checkForUpdateAndApply(Context context, OtaUpdateListener listener) {
