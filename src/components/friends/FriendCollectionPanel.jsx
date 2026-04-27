@@ -147,7 +147,7 @@ export default function FriendCollectionPanel({ friendEmail, friendUser, average
 
   return (
     <div className="h-full overflow-hidden flex flex-col gap-3 p-[clamp(0.75rem,2vw,1.25rem)] pb-[clamp(1rem,2.5vh,1.5rem)]">
-      <div className={`shrink-0 rounded-2xl p-3 ${cardSurface}`}>
+      <div className={`shrink-0 rounded-2xl pt-4 pb-3 px-3 ${cardSurface} overflow-hidden`}>
         <div className="flex items-center gap-3">
           <div className="flex-1 space-y-1">
             <div className="flex items-center justify-between text-[10px]">
