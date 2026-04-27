@@ -105,10 +105,13 @@ if [[ -z "${OTA_DEPLOY_SECRET:-}" ]]; then
   die "OTA_DEPLOY_SECRET is not set. Export it or add it to .env.deploy"
 fi
 
+# Manifest-JSON direkt als Here-String erzeugen (kein node nötig)
+MANIFEST=$(cat <<EOF
+{"version":"${VERSION}","bundleUrl":"${BUNDLE_URL}","sha256":"${SHA256}","buildTime":"${BUILD_TIME}"}
+EOF
+)
 
-# Manifest-JSON mit node erzeugen (statt jq)
-MANIFEST=$(node -e "console.log(JSON.stringify({version: process.env.VERSION, bundleUrl: process.env.BUNDLE_URL, sha256: process.env.SHA256, buildTime: process.env.BUILD_TIME}))" \
-  VERSION="$VERSION" BUNDLE_URL="$BUNDLE_URL" SHA256="$SHA256" BUILD_TIME="$BUILD_TIME")
+info "Manifest: $MANIFEST"
 
 HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
   -X PUT "${WORKER_URL}/version.json" \
@@ -120,6 +123,7 @@ if [[ "$HTTP_STATUS" != "200" ]]; then
   die "Worker returned HTTP $HTTP_STATUS when updating version manifest"
 fi
 success "Version manifest published"
+
 
 # ── 8. Cleanup ─────────────────────────────────────────────────────────────────
 rm -f "$BUNDLE_FILE"
