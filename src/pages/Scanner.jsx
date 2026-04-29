@@ -1503,41 +1503,33 @@ export default function Scanner() {
         )}
       </AnimatePresence>
 
+
       <div className="w-full">
-        {!scanning && !matchedPlant && !showCamera &&
-        <Card 
-          className="overflow-hidden rounded-3xl border border-[#f0e5a5]/30 bg-black/25 backdrop-blur-sm shadow-[0_18px_42px_rgba(0,0,0,0.42)]"
-        >
-            <CardContent className="p-6 md:p-8 bg-gradient-to-b from-black/30 via-emerald-950/15 to-black/35">
-              <button
-              onClick={() => setShowCamera(true)}
-              className="w-full group relative overflow-hidden rounded-2xl bg-black/40 backdrop-blur-md border border-[#f0e5a5]/35 p-8 hover:bg-black/50 shadow-lg hover:shadow-xl transition-all duration-300">
-
-                <div className="flex flex-col items-center">
-                  <div className="w-20 h-20 bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg border border-lime-200/30">
-                    <Camera className="w-10 h-10 text-white" />
-                  </div>
-                  <h3 className="text-2xl font-bold mb-2 text-stone-100">Foto aufnehmen</h3>
-                  <p className="text-stone-200/85 text-base">Mit der Kamera scannen</p>
-                </div>
-              </button>
-
-            </CardContent>
-          </Card>
-        }
-
         {!scanning && !matchedPlant && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="mt-6"
-          >
-          <Card 
-            className="overflow-hidden rounded-3xl border border-[#f0e5a5]/30 bg-black/25 backdrop-blur-sm shadow-[0_18px_42px_rgba(0,0,0,0.42)]"
-          >
+          <Card className="overflow-hidden rounded-3xl border border-[#f0e5a5]/30 bg-black/25 backdrop-blur-sm shadow-[0_18px_42px_rgba(0,0,0,0.42)]">
             <CardContent className="p-6 md:p-8 bg-gradient-to-b from-black/30 via-emerald-950/15 to-black/35">
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+              {showCamera ? (
+                <CameraCapture
+                  onCapture={handleCameraCapture}
+                  onClose={() => setShowCamera(false)}
+                />
+              ) : (
+                <button
+                  onClick={() => setShowCamera(true)}
+                  className="w-full group relative overflow-hidden rounded-2xl bg-black/40 backdrop-blur-md border border-[#f0e5a5]/35 p-8 hover:bg-black/50 shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                  <div className="flex flex-col items-center">
+                    <div className="w-20 h-20 bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg border border-lime-200/30">
+                      <Camera className="w-10 h-10 text-white" />
+                    </div>
+                    <h3 className="text-2xl font-bold mb-2 text-stone-100">Foto aufnehmen</h3>
+                    <p className="text-stone-200/85 text-base">Mit der Kamera scannen</p>
+                  </div>
+                </button>
+              )}
+
+              {/* Location toggle bleibt immer sichtbar */}
+              <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
                 <Button
                   onClick={() => navigate(createPageUrl("Home"))}
                   className="w-full sm:w-auto justify-center border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 hover:brightness-110 text-white font-semibold shadow-[0_8px_24px_rgba(34,197,94,0.3)]"
@@ -1559,7 +1551,7 @@ export default function Scanner() {
                   />
                 </div>
               </div>
-              
+
               {gettingLocation && locationEnabled && (
                 <div className="flex items-center justify-center gap-2 text-sm text-stone-100 mt-4 bg-emerald-900/40 rounded-lg p-3 border border-emerald-200/30">
                   <MapPin className="w-4 h-4 animate-pulse text-emerald-300" />
@@ -1568,7 +1560,6 @@ export default function Scanner() {
               )}
             </CardContent>
           </Card>
-          </motion.div>
         )}
 
         {scanning &&
