@@ -39,6 +39,38 @@ import HomeBottomNavigation from "@/components/navigation/HomeBottomNavigation";
 import { getNavButtonStyle } from "@/components/navigation/navButtonStyles";
 import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
 import GuestHomeFlow from "@/components/home/GuestHomeFlow";
+import { useState as useOtaState, useEffect as useOtaEffect } from "react";
+// OTA-Update-Check: Lies die eingebaute Bundle-Version aus bundle-version.json
+function useOtaEnforceGuestFlow() {
+  const [forceGuest, setForceGuest] = useOtaState(false);
+  useOtaEffect(() => {
+    let cancelled = false;
+    async function checkOta() {
+      try {
+        // Lies die lokale Bundle-Version
+        const res = await fetch('/bundle-version.json', { cache: 'no-store' });
+        const local = await res.json();
+        const localVersion = local?.version;
+        // OTA-Manifest laden
+        const otaUrl = import.meta.env.VITE_OTA_VERSION_URL;
+        if (!otaUrl) return;
+        const otaRes = await fetch(otaUrl, { cache: 'no-store' });
+        const ota = await otaRes.json();
+        const otaVersion = ota?.version;
+        const mandatory = ota?.mandatory === true;
+        // Wenn OTA-Version neuer oder mandatory, dann GuestFlow erzwingen
+        if ((otaVersion && localVersion && otaVersion > localVersion) || mandatory) {
+          if (!cancelled) setForceGuest(true);
+        }
+      } catch (e) {
+        // Im Fehlerfall kein Block
+      }
+    }
+    checkOta();
+    return () => { cancelled = true; };
+  }, []);
+  return forceGuest;
+}
 import ShopFeatureRoot from "@/components/shop/ShopFeatureRoot";
 import PlantHeroHealthPanel from "@/components/home/PlantHeroHealthPanel";
 import AchievementsFeatureRoot from "@/components/achievements/AchievementsFeatureRoot";
@@ -81,6 +113,8 @@ const SOCIAL_NEWS_NOTIFICATION_TYPES = [
 ];
 
 export default function Home() {
+  // OTA-Update-Check
+  const forceGuest = useOtaEnforceGuestFlow();
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -170,7 +204,11 @@ export default function Home() {
     refetchOnReconnect: true,
   });
 
-  // Lieblingsscan-/Lieblingspflanzen-Anzeige wurde aus dem Spiel entfernt
+
+  // OTA: Wenn Update erzwungen, nur GuestHomeFlow anzeigen
+  if (forceGuest) {
+    return <GuestHomeFlow />;
+  }
 
   const { data: quests = [] } = useQuery({
     queryKey: ['quests'],

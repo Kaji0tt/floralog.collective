@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { useNavigate } from 'react-router-dom';
 import { checkForUpdate, downloadAndApplyUpdate } from '@/lib/otaUpdateService';
-import { getBuiltinBundleVersion } from '@/lib/getBuiltinBundleVersion';
 
 /**
  * OtaUpdateManager
@@ -18,39 +16,16 @@ export default function OtaUpdateManager() {
   const [downloading, setDownloading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState(null);
-  const [builtinVersion, setBuiltinVersion] = useState(null);
-  const [checked, setChecked] = useState(false);
-  const navigate = useNavigate();
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
-    // Lade die eingebaute Bundle-Version
-    getBuiltinBundleVersion().then((ver) => {
-      setBuiltinVersion(ver);
-      checkForUpdate().then((m) => {
-        // Wenn kein OTA-Update, fertig
-        if (!m) {
-          setChecked(true);
-          return;
-        }
-        // Wenn OTA-Update mandatory, sofort zum Guest-Funnel
-        if (m.mandatory) {
-          navigate('/guest-funnel');
-          setChecked(true);
-          return;
-        }
-        // Wenn OTA-Version wirklich neuer als eingebaut, Update anzeigen
-        if (ver && m.version > ver) {
-          setManifest(m);
-        }
-        setChecked(true);
-      });
+    checkForUpdate().then((m) => {
+      if (m) setManifest(m);
     });
-  }, [navigate]);
+  }, []);
 
-  // Blockiere App, bis geprüft wurde (optional: Ladeanzeige)
-  if (!checked && !downloading) return null;
+  if (!manifest && !downloading) return null;
 
   const handleInstall = async () => {
     setDownloading(true);
