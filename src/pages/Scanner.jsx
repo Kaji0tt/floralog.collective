@@ -1527,37 +1527,6 @@ export default function Scanner() {
                   </div>
                 </button>
               )}
-
-              {/* Location toggle bleibt immer sichtbar */}
-              <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
-                <Button
-                  onClick={() => navigate(createPageUrl("Home"))}
-                  className="w-full sm:w-auto justify-center border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 hover:brightness-110 text-white font-semibold shadow-[0_8px_24px_rgba(34,197,94,0.3)]"
-                >
-                  <ArrowLeft className="w-5 h-5 mr-2" />
-                  Zurück
-                </Button>
-
-                <div className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-3 rounded-xl px-3 sm:px-4 py-2.5 border border-[#f0e5a5]/35 bg-black/40 min-w-0">
-                  <Label htmlFor="location-toggle" className="text-stone-100 font-semibold cursor-pointer flex items-center gap-2 min-w-0 text-sm sm:text-base">
-                    <MapPin className="w-4 h-4" />
-                    Standort
-                  </Label>
-                  <Switch 
-                    id="location-toggle"
-                    checked={locationEnabled}
-                    onCheckedChange={setLocationEnabled}
-                    className="shrink-0"
-                  />
-                </div>
-              </div>
-
-              {gettingLocation && locationEnabled && (
-                <div className="flex items-center justify-center gap-2 text-sm text-stone-100 mt-4 bg-emerald-900/40 rounded-lg p-3 border border-emerald-200/30">
-                  <MapPin className="w-4 h-4 animate-pulse text-emerald-300" />
-                  <span>Standort wird ermittelt...</span>
-                </div>
-              )}
             </CardContent>
           </Card>
         )}

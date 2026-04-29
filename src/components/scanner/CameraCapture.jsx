@@ -246,8 +246,20 @@ export default function CameraCapture({ onCapture, onClose }) {
         )}
       </div>
 
-      {/* Aufnahme- und Abbrechen-Button unten */}
+      {/* Aufnahme- und Zurück-Button unten */}
       <div className="w-full flex justify-center items-center gap-6 pt-4">
+        {/* Zurück-Button */}
+        <button
+          onClick={onClose}
+          disabled={isCompressing}
+          className="w-14 h-14 rounded-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 flex items-center justify-center shadow-xl border-4 border-white transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
+          style={{ boxShadow: '0 0 0 6px rgba(59,130,246,0.13)' }}
+          aria-label="Zurück"
+        >
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
         {/* Aufnahme-Button groß, grün */}
         <button
           onClick={capturePhoto}
@@ -256,15 +268,6 @@ export default function CameraCapture({ onCapture, onClose }) {
           style={{ boxShadow: '0 0 0 8px rgba(16,185,129,0.15)' }}
         >
           <Camera className="w-10 h-10 text-white" />
-        </button>
-        {/* Abbrechen-Button kleiner, rund, transparent */}
-        <button
-          onClick={onClose}
-          disabled={isCompressing}
-          className="w-12 h-12 rounded-full bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center border-2 border-red-400/60 text-red-600 transition-all duration-150"
-          style={{ backdropFilter: 'blur(6px)' }}
-        >
-          <X className="w-7 h-7" />
         </button>
       </div>
     </div>
