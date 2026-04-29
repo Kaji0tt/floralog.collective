@@ -194,15 +194,18 @@ export default function CameraCapture({ onCapture, onClose }) {
           </div>
         </div>
 
-        {/* Kamera-Viewport */}
-        <div className="relative flex-1 flex items-center justify-center bg-black">
+
+        {/* Kamera-Viewport fullscreen absolut */}
+        <div className="absolute inset-0 w-full h-full bg-black z-10">
           <video
             ref={videoRef}
             autoPlay
             playsInline
             muted
             className="w-full h-full object-cover"
+            style={{ display: 'block' }}
           />
+          {/* Overlays */}
           {!isReady && (
             <div className="absolute inset-0 flex items-center justify-center text-stone-100 bg-black/45 z-30">
               <div className="flex items-center gap-2 rounded-xl border border-[#f0e5a5]/25 bg-black/40 px-4 py-2">
