@@ -201,7 +201,7 @@ export default function CameraCapture({ onCapture, onClose }) {
             autoPlay
             playsInline
             muted
-            className="absolute inset-0 w-full h-full object-cover"
+            className="w-full h-full object-cover"
           />
           {!isReady && (
             <div className="absolute inset-0 flex items-center justify-center text-stone-100 bg-black/45 z-30">
