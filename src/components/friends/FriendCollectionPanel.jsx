@@ -211,11 +211,11 @@ export default function FriendCollectionPanel({ friendEmail, friendUser, average
         </div>
 
         {filtersOpen && (
-          <div className="mt-3">
+          <div className="mt-3 w-full max-w-full overflow-x-auto">
             <SearchSortBar
               searchQuery={searchQuery}
               onSearchQueryChange={setSearchQuery}
-              sortOptions={[
+              sortOptions={[ 
                 { value: "index", label: "Index" },
                 { value: "newest", label: "Neu" },
                 { value: "title", label: "Titel" },
