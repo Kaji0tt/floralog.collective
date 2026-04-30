@@ -1,4 +1,34 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
+// Native Teilen-Funktion mit Screenshot
+async function handleNativeShare(cardRef, plantName) {
+  try {
+    const resultCard = cardRef.current;
+    if (!resultCard) return alert('Fehler: Scan-Ergebnis nicht gefunden.');
+    const html2canvas = (await import('html2canvas')).default;
+    const canvas = await html2canvas(resultCard, { backgroundColor: null, useCORS: true });
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) return alert('Screenshot fehlgeschlagen.');
+    const file = new File([blob], 'floralog-scan.png', { type: 'image/png' });
+    const shareData = {
+      title: 'Mein Floralog Scan',
+      text: `Schau mal, ich habe gerade diese Pflanze mit Floralog gescannt und Samen gesammelt! 🌱\nTeste es selbst: https://floralog.app` + (plantName ? `\nPflanze: ${plantName}` : ''),
+      files: [file]
+    };
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share(shareData);
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'floralog-scan.png';
+      a.click();
+      URL.revokeObjectURL(url);
+      alert('Teilen wird auf diesem Gerät nicht unterstützt. Screenshot wurde heruntergeladen.');
+    }
+  } catch (err) {
+    alert('Teilen fehlgeschlagen: ' + (err?.message || err));
+  }
+}
 import { AnimatePresence, motion } from "framer-motion";
 
 const formatMultiplier = (value) => {
@@ -337,7 +367,8 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
         <div className={`absolute -inset-px rounded-2xl opacity-40 blur-xl ${ringClasses}`} />
         <div className="absolute inset-0 border border-[#f0e5a5]/25 rounded-2xl pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col items-center w-full">
+        const cardRef = useRef(null);
+        <div className="relative z-10 flex flex-col items-center w-full" ref={cardRef}>
           <h3 className={`text-lg font-bold mb-1 ${titleClasses}`}>{title}</h3>
           <p className={`text-sm ${messageClasses}`}>{message}</p>
 
@@ -351,52 +382,18 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
               Okay
             </button>
             <button
-              className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-5 py-2 rounded-xl shadow transition-all focus:outline-none focus:ring-2 focus:ring-amber-300"
-              onClick={() => setShowShareOptions(true)}
+              className="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-5 py-2 rounded-xl shadow transition-all focus:outline-none focus:ring-2 focus:ring-blue-300 flex items-center gap-2"
+              onClick={() => handleNativeShare(cardRef, feedback?.plantName)}
+              title="Teilen"
             >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-white">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-3A2.25 2.25 0 008.25 5.25V9m7.5 6v3.75A2.25 2.25 0 0113.5 21h-3a2.25 2.25 0 01-2.25-2.25V15m10.5-3H17.25m-10.5 0H6.75m7.5 0a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
               Teilen
             </button>
           </div>
 
-          {/* Share-Dialog (Freunde/WhatsApp) */}
-          {showShareOptions && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-              <div className="bg-white rounded-2xl shadow-lg p-6 max-w-xs w-full flex flex-col items-center gap-4">
-                <h4 className="text-lg font-bold mb-2 text-stone-800">Scan teilen</h4>
-                <button
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2 rounded-lg mb-2"
-                  onClick={() => {
-                    setShowShareOptions(false);
-                    if (typeof window !== 'undefined' && window.dispatchEvent) {
-                      window.dispatchEvent(new CustomEvent('openShareScanDialog'));
-                    }
-                  }}
-                >
-                  Ingame-Freunden Bescheid geben
-                </button>
-                <button
-                  className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold px-4 py-2 rounded-lg mb-2"
-                  onClick={() => {
-                    setShowShareOptions(false);
-                    const shareText = `Schau dir meinen Scan an! 🌱`;
-                    const shareUrl = window.location.href;
-                    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText + '\n' + shareUrl)}`;
-                    window.open(whatsappUrl, '_blank');
-                  }}
-                >
-                  Über WhatsApp teilen
-                </button>
-                <button
-                  className="w-full bg-stone-200 hover:bg-stone-300 text-stone-700 font-semibold px-4 py-2 rounded-lg"
-                  onClick={() => setShowShareOptions(false)}
-                >
-                  Abbrechen
-                </button>
-              </div>
-            </div>
-          )}
-// State für Share-Dialog
-const [showShareOptions, setShowShareOptions] = useState(false);
+
 
           {rewardDetails && (
             <div className="mt-4 w-full rounded-2xl bg-black/35 border border-[#f0e5a5]/30 px-4 py-4 shadow-sm">
