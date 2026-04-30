@@ -1504,10 +1504,10 @@ export default function Scanner() {
       </AnimatePresence>
 
 
-      <div className="w-full">
+      <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/95">
         {!scanning && !matchedPlant && (
-          <Card className="overflow-hidden rounded-3xl border border-[#f0e5a5]/30 bg-black/25 backdrop-blur-sm shadow-[0_18px_42px_rgba(0,0,0,0.42)]">
-            <CardContent className="p-6 md:p-8 bg-gradient-to-b from-black/30 via-emerald-950/15 to-black/35">
+          <Card className="w-full h-full max-w-none max-h-none rounded-none border-0 shadow-none bg-transparent flex flex-col">
+            <CardContent className="flex-1 flex flex-col justify-center items-center p-0 m-0 bg-transparent">
               {showCamera ? (
                 <CameraCapture
                   onCapture={handleCameraCapture}
@@ -1516,7 +1516,7 @@ export default function Scanner() {
               ) : (
                 <button
                   onClick={() => setShowCamera(true)}
-                  className="w-full group relative overflow-hidden rounded-2xl bg-black/40 backdrop-blur-md border border-[#f0e5a5]/35 p-8 hover:bg-black/50 shadow-lg hover:shadow-xl transition-all duration-300"
+                  className="w-full h-full flex-1 flex flex-col items-center justify-center group relative overflow-hidden bg-black/40 backdrop-blur-md border border-[#f0e5a5]/35 hover:bg-black/50 transition-all duration-300"
                 >
                   <div className="flex flex-col items-center">
                     <div className="w-20 h-20 bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg border border-lime-200/30">
@@ -1574,12 +1574,7 @@ export default function Scanner() {
           </div>
         }
 
-        {showCamera &&
-        <CameraCapture
-          onCapture={handleCameraCapture}
-          onClose={() => setShowCamera(false)} />
-
-        }
+        // CameraCapture wird nur noch im Card-Container gerendert
       </div>
       </div>
       </motion.div>
