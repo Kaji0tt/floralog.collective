@@ -1227,7 +1227,7 @@ export default function Scanner() {
           --profile-border-color: ${averageColor ? getRgbaFromRgb(averageColor, 0.4) : 'rgb(134, 239, 172)'};
         }
       `}</style>
-      <div className="fixed inset-0 bg-black/95 z-50 flex flex-col items-center justify-center" style={{minHeight:'100dvh',height:'100dvh',width:'100vw',overflow:'hidden'}}>
+      <div className="fixed inset-0 bg-black/95 z-50 flex flex-col items-center justify-center" style={{minHeight:'100dvh',height:'100dvh',width:'100vw',overflow:'auto'}}>
         <div
           className="absolute inset-0"
           style={user?.background_image_url ? {
@@ -1243,13 +1243,13 @@ export default function Scanner() {
           }}
         />
         <div className="absolute inset-0 backdrop-blur-3xl" />
-        <div className="relative z-10 flex flex-col items-center justify-center w-full h-full text-stone-100" style={{minHeight:'100dvh',height:'100dvh',width:'100vw',overflow:'hidden'}}>
+        <div className="relative z-10 flex flex-col items-center justify-center w-full h-full text-stone-100" style={{minHeight:'100dvh',height:'100dvh',width:'100vw',overflow:'auto'}}>
           <motion.div
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, ease: 'easeOut' }}
             className="w-full h-full flex flex-col items-center justify-center"
-            style={{minHeight:'100dvh',height:'100dvh',width:'100vw',overflow:'hidden'}}
+            style={{minHeight:'100dvh',height:'100dvh',width:'100vw',overflow:'auto'}}
           >
             <div className="w-full h-full flex flex-col items-center justify-center">
       {/* Grüner Haken / Ändern Button - nur wenn pendingScanData vorhanden */}
