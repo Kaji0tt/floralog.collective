@@ -546,7 +546,12 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
           <div className="mt-5 flex flex-row gap-3 w-full justify-center">
             <button
               className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-base font-semibold shadow border border-emerald-700 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400"
-              onClick={onComplete}
+              onClick={() => {
+                setShowButtons(false);
+                setTimeout(() => {
+                  if (onComplete) onComplete();
+                }, 50);
+              }}
             >
               Cool!
             </button>
