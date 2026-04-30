@@ -27,29 +27,7 @@ async function handleNativeShare(cardRef, plantName) {
     }
   } catch (err) {
     alert('Teilen fehlgeschlagen: ' + (err?.message || err));
-        </div>
-
-      {/* Buttons unterhalb der Results, erst nach Berechnung anzeigen, dezent */}
-      {(activeStepIndex === rewardSteps.length - 1 || (rewardSteps.length === 0 && showResourceGains)) && (
-        <div className="mt-6 flex flex-row gap-2 w-full justify-center">
-          <button
-            className="px-4 py-1.5 rounded-lg bg-stone-700/80 hover:bg-stone-700 text-stone-200 text-sm font-medium shadow-sm border border-stone-600/40 transition-all focus:outline-none focus:ring-2 focus:ring-stone-400"
-            onClick={onComplete}
-          >
-            Okay
-          </button>
-          <button
-            className="px-4 py-1.5 rounded-lg bg-stone-600/70 hover:bg-stone-700 text-stone-100 text-sm font-medium shadow-sm border border-stone-500/40 flex items-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-stone-400"
-            onClick={() => handleNativeShare(cardRef, feedback?.plantName)}
-            title="Teilen"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-stone-200">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-3A2.25 2.25 0 008.25 5.25V9m7.5 6v3.75A2.25 2.25 0 0113.5 21h-3a2.25 2.25 0 01-2.25-2.25V15m10.5-3H17.25m-10.5 0H6.75m7.5 0a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            Teilen
-          </button>
-        </div>
-      )}
+  }
     if (multiplier === 1) {
       return;
     }
