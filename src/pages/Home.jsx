@@ -1,5 +1,4 @@
-﻿import { useOtaGuestFlow } from "@/lib/OtaGuestFlowContext.jsx";
-import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import { Query } from "@/api/entities";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { upsertUserProfile } from "@/api/authService";
@@ -39,7 +38,39 @@ import HomeHeaderBar from "@/components/navigation/HomeHeaderBar";
 import HomeBottomNavigation from "@/components/navigation/HomeBottomNavigation";
 import { getNavButtonStyle } from "@/components/navigation/navButtonStyles";
 import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
-
+import GuestHomeFlow from "@/components/home/GuestHomeFlow";
+import { useState as useOtaState, useEffect as useOtaEffect } from "react";
+// OTA-Update-Check: Lies die eingebaute Bundle-Version aus bundle-version.json
+function useOtaEnforceGuestFlow() {
+  const [forceGuest, setForceGuest] = useOtaState(false);
+  useOtaEffect(() => {
+    let cancelled = false;
+    async function checkOta() {
+      try {
+        // Lies die lokale Bundle-Version
+        const res = await fetch('/bundle-version.json', { cache: 'no-store' });
+        const local = await res.json();
+        const localVersion = local?.version;
+        // OTA-Manifest laden
+        const otaUrl = import.meta.env.VITE_OTA_VERSION_URL;
+        if (!otaUrl) return;
+        const otaRes = await fetch(otaUrl, { cache: 'no-store' });
+        const ota = await otaRes.json();
+        const otaVersion = ota?.version;
+        const mandatory = ota?.mandatory === true;
+        // Wenn OTA-Version neuer oder mandatory, dann GuestFlow erzwingen
+        if ((otaVersion && localVersion && otaVersion > localVersion) || mandatory) {
+          if (!cancelled) setForceGuest(true);
+        }
+      } catch (e) {
+        // Im Fehlerfall kein Block
+      }
+    }
+    checkOta();
+    return () => { cancelled = true; };
+  }, []);
+  return forceGuest;
+}
 import ShopFeatureRoot from "@/components/shop/ShopFeatureRoot";
 import PlantHeroHealthPanel from "@/components/home/PlantHeroHealthPanel";
 import AchievementsFeatureRoot from "@/components/achievements/AchievementsFeatureRoot";
@@ -82,8 +113,8 @@ const SOCIAL_NEWS_NOTIFICATION_TYPES = [
 ];
 
 export default function Home() {
-  const { forceGuest } = useOtaGuestFlow();
-  const [localForceGuest, setLocalForceGuest] = useState(false);
+  // OTA-Update-Check
+  const forceGuest = useOtaEnforceGuestFlow();
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -175,56 +206,8 @@ export default function Home() {
 
 
   // OTA: Wenn Update erzwungen, nur GuestHomeFlow anzeigen
-  if (forceGuest || localForceGuest) {
+  if (forceGuest) {
     return <GuestHomeFlow />;
-  }
-
-  // Prüfe bei jedem Mount und bei Rückkehr aus dem Hintergrund erneut die OTA-Version
-  useEffect(() => {
-    let cancelled = false;
-    async function checkOta() {
-      try {
-        const res = await fetch('/bundle-version.json', { cache: 'no-store' });
-        const local = await res.json();
-        const localVersion = local?.version;
-        const otaUrl = import.meta.env.VITE_OTA_VERSION_URL;
-        if (!otaUrl) return;
-        const otaRes = await fetch(otaUrl, { cache: 'no-store' });
-        const ota = await otaRes.json();
-        const otaVersion = ota?.version;
-        const mandatory = ota?.mandatory === true;
-        if ((otaVersion && localVersion && compareVersions(otaVersion, localVersion) > 0) || mandatory) {
-          if (!cancelled) setLocalForceGuest(true);
-        }
-      } catch (e) {
-        // Im Fehlerfall kein Block
-      }
-    }
-    checkOta();
-    // Event-Listener für Sichtbarkeitswechsel (Tab-Wechsel, App aus Hintergrund geholt)
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        checkOta();
-      }
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      cancelled = true;
-      document.removeEventListener('visibilitychange', onVisibility);
-    };
-  }, []);
-
-  // Semver-Vergleich wie im Context
-  function compareVersions(a, b) {
-    const pa = a.split('.').map(Number);
-    const pb = b.split('.').map(Number);
-    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-      const na = pa[i] || 0;
-      const nb = pb[i] || 0;
-      if (na > nb) return 1;
-      if (na < nb) return -1;
-    }
-    return 0;
   }
 
   const { data: quests = [] } = useQuery({
