@@ -363,49 +363,25 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
       transition={{ duration: 0.15 }}
       className="fixed inset-0 z-50 flex items-start justify-center pt-20 pointer-events-none"
     >
-      <motion.div
-        variants={variants[String(animationVariant)]}
-        initial="initial"
-        animate="animate"
-        exit="exit"
-        transition={{ type: "spring", damping: 16, stiffness: 260 }}
-        className={`relative pointer-events-auto ${containerClasses} backdrop-blur-xl rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.55)] border px-6 py-4 max-w-sm w-[90%] flex flex-col items-center text-center overflow-hidden`}
-      >
-        <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-emerald-950/15 to-black/45 pointer-events-none" />
-        <div className={`absolute -inset-px rounded-2xl opacity-40 blur-xl ${ringClasses}`} />
-        <div className="absolute inset-0 border border-[#f0e5a5]/25 rounded-2xl pointer-events-none" />
+      <div className="flex flex-col items-center w-full max-w-sm">
+        <motion.div
+          variants={variants[String(animationVariant)]}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          transition={{ type: "spring", damping: 16, stiffness: 260 }}
+          className={`relative pointer-events-auto ${containerClasses} backdrop-blur-xl rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.55)] border px-6 py-4 w-full flex flex-col items-center text-center overflow-hidden`}
+        >
+          <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-emerald-950/15 to-black/45 pointer-events-none" />
+          <div className={`absolute -inset-px rounded-2xl opacity-40 blur-xl ${ringClasses}`} />
+          <div className="absolute inset-0 border border-[#f0e5a5]/25 rounded-2xl pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col items-center w-full" ref={cardRef}>
-          <h3 className={`text-lg font-bold mb-1 ${titleClasses}`}>{title}</h3>
-          <p className={`text-sm ${messageClasses}`}>{message}</p>
+          <div className="relative z-10 flex flex-col items-center w-full" ref={cardRef}>
+            <h3 className={`text-lg font-bold mb-1 ${titleClasses}`}>{title}</h3>
+            <p className={`text-sm ${messageClasses}`}>{message}</p>
 
-          {/* Button-Bereich unter der Notification */}
-          {/* Die Buttons werden jetzt außerhalb der Ergebnis-Kachel gerendert */}
-        {/* Ende Notification-Block, kein zusätzliches schließendes div hier! */}
-
-        {/* Buttons unterhalb der Results, erst nach Berechnung anzeigen, dezent */}
-        {showButtons && (
-          <div className="mt-6 flex flex-row gap-2 w-full justify-center">
-            <button
-              className="px-4 py-1.5 rounded-lg bg-stone-700/80 hover:bg-stone-700 text-stone-200 text-sm font-medium shadow-sm border border-stone-600/40 transition-all focus:outline-none focus:ring-2 focus:ring-stone-400"
-              onClick={onComplete}
-            >
-              Cool!
-            </button>
-            <button
-              className="px-4 py-1.5 rounded-lg bg-stone-600/70 hover:bg-stone-700 text-stone-100 text-sm font-medium shadow-sm border border-stone-500/40 flex items-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-stone-400"
-              onClick={() => handleNativeShare(cardRef, feedback?.plantName)}
-              title="Teilen"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-stone-200">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-3A2.25 2.25 0 008.25 5.25V9m7.5 6v3.75A2.25 2.25 0 0113.5 21h-3a2.25 2.25 0 01-2.25-2.25V15m10.5-3H17.25m-10.5 0H6.75m7.5 0a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              Teilen
-            </button>
+            {/* Hier KEINE Buttons mehr! */}
           </div>
-        )}
-
-
 
           {rewardDetails && (
             <div className="mt-4 w-full rounded-2xl bg-black/35 border border-[#f0e5a5]/30 px-4 py-4 shadow-sm">
@@ -477,6 +453,28 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
                               {step.displayValue || `x${formatMultiplier(step.multiplier)}`}
                             </motion.span>
                           )}
+                          {/* Buttons jetzt außerhalb des Containers, direkt darunter */}
+                          {showButtons && (
+                            <div className="mt-5 flex flex-row gap-3 w-full justify-center">
+                              <button
+                                className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-base font-semibold shadow border border-emerald-700 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                                onClick={onComplete}
+                              >
+                                Cool!
+                              </button>
+                              <button
+                                className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-base font-semibold shadow border border-amber-600 flex items-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-amber-300"
+                                onClick={() => handleNativeShare(cardRef, feedback?.plantName)}
+                                title="Teilen"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-white">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-3A2.25 2.25 0 008.25 5.25V9m7.5 6v3.75A2.25 2.25 0 0113.5 21h-3a2.25 2.25 0 01-2.25-2.25V15m10.5-3H17.25m-10.5 0H6.75m7.5 0a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                Teilen
+                              </button>
+                            </div>
+                          )}
+                        </div>
 
                           <motion.span
                             animate={
