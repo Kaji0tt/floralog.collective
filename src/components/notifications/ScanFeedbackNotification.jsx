@@ -113,6 +113,8 @@ const buildRewardSteps = (rewardDetails, isInActiveZone) => {
 };
 
 export default function ScanFeedbackNotification({ feedback, onComplete }) {
+  // Fix: cardRef muss im Funktions-Scope deklariert werden
+  const cardRef = React.useRef(null);
   const rewardDetails = feedback?.rewardDetails || null;
   const isInActiveZone = feedback?.isInActiveZone !== false;
   const energyDelta = Math.max(0, Number(feedback?.energyDelta ?? 0));
@@ -367,7 +369,6 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
         <div className={`absolute -inset-px rounded-2xl opacity-40 blur-xl ${ringClasses}`} />
         <div className="absolute inset-0 border border-[#f0e5a5]/25 rounded-2xl pointer-events-none" />
 
-        const cardRef = useRef(null);
         <div className="relative z-10 flex flex-col items-center w-full" ref={cardRef}>
           <h3 className={`text-lg font-bold mb-1 ${titleClasses}`}>{title}</h3>
           <p className={`text-sm ${messageClasses}`}>{message}</p>

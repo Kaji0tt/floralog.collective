@@ -30,7 +30,7 @@ export default function ScanResults({
   const [currentResultIndex, setCurrentResultIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isChanging, setIsChanging] = useState(false);
-  // const [showShareDialog, setShowShareDialog] = useState(false);
+  // Share-Dialog State entfernt, solange kein Dialog existiert
   const [user, setUser] = useState(null);
   const [discovery, setDiscovery] = useState(null);
   const navigate = useNavigate();
@@ -290,11 +290,7 @@ export default function ScanResults({
 
     return (
       <div className="relative -top-5">
-        {/* ShareScanDialog entfernt, stattdessen nativer Share-Button */}
-
-        
-
-
+        {/* ShareScanDialog und zugehörigen Event-Listener entfernt, solange kein Dialog existiert */}
 
         <div className="relative flex items-center gap-4 overflow-visible">
           <motion.div
