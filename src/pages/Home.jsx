@@ -152,6 +152,16 @@ export default function Home() {
   const multiplierTouchStartXRef = useRef(null);
 
   const [scanFeedback, setScanFeedback] = useState(null);
+  const scanFeedbackCooldownRef = useRef(false);
+
+  // Cooldown-Schutz: scanFeedback kann nach Schließen für 1 Sekunde nicht erneut gesetzt werden
+  const safeSetScanFeedback = (value) => {
+    if (scanFeedbackCooldownRef.current && value) {
+      // Während Cooldown kein neues Feedback zulassen
+      return;
+    }
+    setScanFeedback(value);
+  };
   const [activePanel, setActivePanel] = useState(null);
   const [shopOpenCategory, setShopOpenCategory] = useState("fertilizer");
   const [careActionMessage, setCareActionMessage] = useState(null);
@@ -1946,8 +1956,11 @@ export default function Home() {
           <ScanFeedbackNotification
             feedback={scanFeedback}
             onComplete={() => {
-              // Retrigger-Schutz: Nur schließen, wenn noch Feedback vorhanden
-              setScanFeedback(prev => (prev ? null : prev));
+              setScanFeedback(null);
+              scanFeedbackCooldownRef.current = true;
+              setTimeout(() => {
+                scanFeedbackCooldownRef.current = false;
+              }, 1000); // 1 Sekunde Cooldown
             }}
           />
         )}
