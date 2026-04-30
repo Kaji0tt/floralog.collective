@@ -1945,7 +1945,10 @@ export default function Home() {
         {scanFeedback && (
           <ScanFeedbackNotification
             feedback={scanFeedback}
-            onComplete={() => setScanFeedback(null)}
+            onComplete={() => {
+              // Retrigger-Schutz: Nur schließen, wenn noch Feedback vorhanden
+              setScanFeedback(prev => (prev ? null : prev));
+            }}
           />
         )}
       </AnimatePresence>
