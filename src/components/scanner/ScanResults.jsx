@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
-import ShareScanDialog from "./ShareScanDialog";
+// import ShareScanDialog from "./ShareScanDialog";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 
@@ -30,7 +30,7 @@ export default function ScanResults({
   const [currentResultIndex, setCurrentResultIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isChanging, setIsChanging] = useState(false);
-  const [showShareDialog, setShowShareDialog] = useState(false);
+  // const [showShareDialog, setShowShareDialog] = useState(false);
   const [user, setUser] = useState(null);
   const [discovery, setDiscovery] = useState(null);
   const navigate = useNavigate();
@@ -59,19 +59,42 @@ export default function ScanResults({
     };
     loadDiscovery();
 
-    // Listener für Notification-Share-Button
-    const handleOpenShareDialog = () => {
-      setShowShareDialog(true);
-    };
-    window.addEventListener('openShareScanDialog', handleOpenShareDialog);
-    return () => {
-      window.removeEventListener('openShareScanDialog', handleOpenShareDialog);
-    };
   }, [latestDiscoveryId]);
 
   // Wenn allResults leer ist, aber plant vorhanden ist, nutze plant als einziges Ergebnis
   const results = allResults.length > 0 ? allResults : plant ? [plant] : [];
   const currentPlant = results[currentResultIndex] || plant;
+
+  // Screenshot und Teilen
+  const handleNativeShare = async () => {
+    try {
+      const resultCard = cardRef.current;
+      if (!resultCard) return alert('Fehler: Scan-Ergebnis nicht gefunden.');
+      const html2canvas = (await import('html2canvas')).default;
+      const canvas = await html2canvas(resultCard, { backgroundColor: null, useCORS: true });
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      if (!blob) return alert('Screenshot fehlgeschlagen.');
+      const file = new File([blob], 'floralog-scan.png', { type: 'image/png' });
+      const shareData = {
+        title: 'Mein Floralog Scan',
+        text: `Schau mal, ich habe gerade diese Pflanze mit Floralog gescannt und Samen gesammelt! 🌱\nTeste es selbst: https://floralog.app` + (currentPlant?.species_name ? `\nPflanze: ${currentPlant.species_name}` : ''),
+        files: [file]
+      };
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share(shareData);
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'floralog-scan.png';
+        a.click();
+        URL.revokeObjectURL(url);
+        alert('Teilen wird auf diesem Gerät nicht unterstützt. Screenshot wurde heruntergeladen.');
+      }
+    } catch (err) {
+      alert('Teilen fehlgeschlagen: ' + (err?.message || err));
+    }
+  };
 
   const hasMultipleResults = results.length > 1;
   const isPrimaryResult = currentResultIndex === 0;
@@ -296,13 +319,7 @@ export default function ScanResults({
 
     return (
       <div className="relative -top-5">
-        {showShareDialog && user && discovery && currentPlant &&
-        <ShareScanDialog
-          open={showShareDialog}
-          onClose={() => setShowShareDialog(false)}
-          discovery={discovery}
-          plant={currentPlant}
-          user={user} />
+        {/* ShareScanDialog entfernt, stattdessen nativer Share-Button */}
 
         }
 
@@ -422,13 +439,16 @@ export default function ScanResults({
                           }
                         </motion.button>
 
-                        {/* Geschenk (Gift) */}
+                        {/* Teilen (Ketten-Symbol) */}
                         <motion.button
-                          onClick={() => setShowShareDialog(true)}
-                          className="w-11 h-11 bg-amber-700 rounded-full flex items-center justify-center shadow-lg hover:bg-amber-800 transition-all border border-amber-200/30"
+                          onClick={handleNativeShare}
+                          className="w-11 h-11 bg-blue-700 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-800 transition-all border border-blue-200/30"
                           whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.95 }}>
-                          <Gift className="w-5 h-5 text-white" />
+                          whileTap={{ scale: 0.95 }}
+                          title="Teilen">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-white">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-3A2.25 2.25 0 008.25 5.25V9m7.5 6v3.75A2.25 2.25 0 0113.5 21h-3a2.25 2.25 0 01-2.25-2.25V15m10.5-3H17.25m-10.5 0H6.75m7.5 0a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
                         </motion.button>
 
                         {/* Erneut Scannen */}
