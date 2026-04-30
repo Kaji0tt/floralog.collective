@@ -292,7 +292,7 @@ export default function ScanResults({
       <div className="relative -top-5">
         {/* ShareScanDialog entfernt, stattdessen nativer Share-Button */}
 
-        }
+        
 
 
 
@@ -317,7 +317,7 @@ export default function ScanResults({
               style={{ x, scale, opacity }}
               className="w-full overflow-visible">
 
-              <Card className="shadow-2xl bg-black/30 overflow-hidden border border-[#f0e5a5]/30 backdrop-blur-sm rounded-3xl max-h-[80vh] overflow-y-auto">
+              <Card className="shadow-2xl bg-black/30 overflow-hidden border border-[#f0e5a5]/30 backdrop-blur-sm rounded-3xl">
                 <CardContent className="p-4 md:p-6 space-y-3 bg-gradient-to-br from-black/35 via-emerald-950/20 to-black/35">
                   {/* Container mit Rarität-Border für Titel und Bild */}
                   <div className={`relative rounded-2xl p-4 border-2 ${getRarityBorderColor(rarity)} ${getRarityBackgroundColor(rarity)}`} style={{ boxShadow: '8px 8px 24px rgba(0, 0, 0, 0.15)' }}>
