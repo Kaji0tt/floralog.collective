@@ -1227,30 +1227,31 @@ export default function Scanner() {
           --profile-border-color: ${averageColor ? getRgbaFromRgb(averageColor, 0.4) : 'rgb(134, 239, 172)'};
         }
       `}</style>
-      <div className="fixed inset-0 overflow-hidden">
-      <div
-        className="absolute inset-0"
-        style={user?.background_image_url ? {
-          backgroundImage: `url(${user.background_image_url})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        } : user?.background_color ? {
-          background: `linear-gradient(160deg, ${getRgbaFromRgb(user.background_color, 1)} 0%, ${getRgbaFromRgb(user.background_color, 0.55)} 100%)`,
-        } : {
-          background: averageColor
-            ? `linear-gradient(135deg, var(--profile-bg-color-light) 0%, var(--profile-bg-color-mid) 50%, var(--profile-bg-color-dark) 100%)`
-            : 'radial-gradient(circle at top, rgb(167, 243, 208) 0%, rgb(22, 101, 52) 60%, rgb(10, 30, 18) 100%)',
-        }}
-      />
-      <div className="absolute inset-0 backdrop-blur-3xl" />
-      <div className="relative z-10 h-full overflow-y-auto p-3 md:p-6 text-stone-100">
-      <motion.div
-        initial={{ opacity: 0, y: 14 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45, ease: 'easeOut' }}
-        className="w-full max-w-4xl mx-auto"
-      >
-      <div className="w-full">
+      <div className="fixed inset-0 bg-black/95 z-50 flex flex-col items-center justify-center" style={{minHeight:'100dvh',height:'100dvh',width:'100vw',overflow:'hidden'}}>
+        <div
+          className="absolute inset-0"
+          style={user?.background_image_url ? {
+            backgroundImage: `url(${user.background_image_url})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          } : user?.background_color ? {
+            background: `linear-gradient(160deg, ${getRgbaFromRgb(user.background_color, 1)} 0%, ${getRgbaFromRgb(user.background_color, 0.55)} 100%)`,
+          } : {
+            background: averageColor
+              ? `linear-gradient(135deg, var(--profile-bg-color-light) 0%, var(--profile-bg-color-mid) 50%, var(--profile-bg-color-dark) 100%)`
+              : 'radial-gradient(circle at top, rgb(167, 243, 208) 0%, rgb(22, 101, 52) 60%, rgb(10, 30, 18) 100%)',
+          }}
+        />
+        <div className="absolute inset-0 backdrop-blur-3xl" />
+        <div className="relative z-10 flex flex-col items-center justify-center w-full h-full text-stone-100" style={{minHeight:'100dvh',height:'100dvh',width:'100vw',overflow:'hidden'}}>
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: 'easeOut' }}
+            className="w-full h-full flex flex-col items-center justify-center"
+            style={{minHeight:'100dvh',height:'100dvh',width:'100vw',overflow:'hidden'}}
+          >
+            <div className="w-full h-full flex flex-col items-center justify-center">
       {/* Grüner Haken / Ändern Button - nur wenn pendingScanData vorhanden */}
       {pendingScanData && !isSavingPlant && (
         <ConfirmButton 

@@ -250,7 +250,15 @@ export default function CameraCapture({ onCapture, onClose }) {
       <div className="w-full flex justify-center items-center gap-6 pt-4">
         {/* Zurück-Button */}
         <button
-          onClick={onClose}
+          onClick={() => {
+            if (typeof window !== 'undefined' && window.location) {
+              window.location.href = '/';
+            } else if (typeof navigate === 'function') {
+              navigate('/');
+            } else {
+              onClose();
+            }
+          }}
           disabled={isCompressing}
           className="w-14 h-14 rounded-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 flex items-center justify-center shadow-xl border-4 border-white transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
           style={{ boxShadow: '0 0 0 6px rgba(59,130,246,0.13)' }}
