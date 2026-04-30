@@ -18,9 +18,12 @@ import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
 import GuestLoginModal from '@/components/GuestLoginModal';
 import HomeShellLoader from '@/components/navigation/HomeShellLoader';
+
 import { UiThemeProvider } from '@/lib/UiThemeContext';
 import OtaUpdateManager from '@/components/OtaUpdateManager';
 import OtaDebugConsole from '@/components/OtaDebugConsole';
+import { OtaGuestFlowProvider, useOtaGuestFlow } from '@/lib/OtaGuestFlowContext.jsx';
+import GuestHomeFlow from '@/components/home/GuestHomeFlow';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -30,15 +33,14 @@ const LayoutWrapper = ({ children, currentPageName }) => Layout ?
   <Layout currentPageName={currentPageName}>{children}</Layout>
   : <>{children}</>;
 
-const AuthenticatedApp = () => {
-  const { isLoadingAuth, authError, isAuthenticated, loginModalOpen, closeLoginModal } = useAuth();
 
-  // Show loading spinner while checking auth
+const AuthenticatedApp = () => {
+  const { isLoadingAuth, authError, loginModalOpen, closeLoginModal } = useAuth();
+  const { forceGuest } = useOtaGuestFlow();
+
   if (isLoadingAuth) {
     return <HomeShellLoader />;
   }
-
-  // Handle authentication errors
   if (authError) {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
@@ -46,8 +48,10 @@ const AuthenticatedApp = () => {
       return <Navigate to="/login" replace />;
     }
   }
-
-  // Render the main app (guests are allowed to browse)
+  // OTA GuestFlow global enforced
+  if (forceGuest) {
+    return <GuestHomeFlow />;
+  }
   return (
     <>
       <GuestLoginModal open={loginModalOpen} onClose={closeLoginModal} />
@@ -75,37 +79,38 @@ const AuthenticatedApp = () => {
 };
 
 
-function App() {
 
+function App() {
   return (
     <UiThemeProvider>
-    <AuthProvider>
-      <QueryClientProvider client={queryClientInstance}>
-        <Router>
-          <NavigationTracker />
-          <Routes>
-            {/* Public Auth Routes - accessible without authentication */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/confirm-email" element={<ConfirmEmail />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/migrate" element={<MigrateLogin />} />
-            <Route path="/migration/login" element={<MigrateLogin />} />
-            <Route path="/migration/set-password" element={<SetPassword />} />
-            
-            {/* Protected App Routes */}
-            <Route path="/*" element={<AuthenticatedApp />} />
-          </Routes>
-        </Router>
-        <Toaster />
-        <VisualEditAgent />
-        <OtaUpdateManager />
-        <OtaDebugConsole />
-      </QueryClientProvider>
-    </AuthProvider>
+      <OtaGuestFlowProvider>
+        <AuthProvider>
+          <QueryClientProvider client={queryClientInstance}>
+            <Router>
+              <NavigationTracker />
+              <Routes>
+                {/* Public Auth Routes - accessible without authentication */}
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/confirm-email" element={<ConfirmEmail />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/migrate" element={<MigrateLogin />} />
+                <Route path="/migration/login" element={<MigrateLogin />} />
+                <Route path="/migration/set-password" element={<SetPassword />} />
+                {/* Protected App Routes */}
+                <Route path="/*" element={<AuthenticatedApp />} />
+              </Routes>
+            </Router>
+            <Toaster />
+            <VisualEditAgent />
+            <OtaUpdateManager />
+            <OtaDebugConsole />
+          </QueryClientProvider>
+        </AuthProvider>
+      </OtaGuestFlowProvider>
     </UiThemeProvider>
-  )
+  );
 }
 
 export default App
