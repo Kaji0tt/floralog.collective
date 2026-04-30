@@ -379,8 +379,6 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
           <div className="relative z-10 flex flex-col items-center w-full" ref={cardRef}>
             <h3 className={`text-lg font-bold mb-1 ${titleClasses}`}>{title}</h3>
             <p className={`text-sm ${messageClasses}`}>{message}</p>
-
-            {/* Hier KEINE Buttons mehr! */}
           </div>
 
           {rewardDetails && (
@@ -453,29 +451,6 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
                               {step.displayValue || `x${formatMultiplier(step.multiplier)}`}
                             </motion.span>
                           )}
-                          {/* Buttons jetzt außerhalb des Containers, direkt darunter */}
-                          {showButtons && (
-                            <div className="mt-5 flex flex-row gap-3 w-full justify-center">
-                              <button
-                                className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-base font-semibold shadow border border-emerald-700 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                                onClick={onComplete}
-                              >
-                                Cool!
-                              </button>
-                              <button
-                                className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-base font-semibold shadow border border-amber-600 flex items-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-amber-300"
-                                onClick={() => handleNativeShare(cardRef, feedback?.plantName)}
-                                title="Teilen"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-white">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-3A2.25 2.25 0 008.25 5.25V9m7.5 6v3.75A2.25 2.25 0 0113.5 21h-3a2.25 2.25 0 01-2.25-2.25V15m10.5-3H17.25m-10.5 0H6.75m7.5 0a3 3 0 11-6 0 3 3 0 016 0z" />
-                                </svg>
-                                Teilen
-                              </button>
-                            </div>
-                          )}
-                        </div>
-
                           <motion.span
                             animate={
                               isActive && step.positive && vibrateMultiplier
@@ -529,45 +504,65 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
               </AnimatePresence>
             </div>
           )}
-        </div>
+          {emojiSet.map((emoji, index) => {
+            const { x, y, targetY } = emojiPositions[index] || { x: 0, y: 40, targetY: 5 };
 
-        {emojiSet.map((emoji, index) => {
-          const { x, y, targetY } = emojiPositions[index] || { x: 0, y: 40, targetY: 5 };
+            let delayBase = 0.12;
+            if (animationVariant === "newDiscovery") delayBase = 0.08;
+            if (animationVariant === "globalNewPlant") delayBase = 0.05;
 
-          let delayBase = 0.12;
-          if (animationVariant === "newDiscovery") delayBase = 0.08;
-          if (animationVariant === "globalNewPlant") delayBase = 0.05;
+            let scaleKeyframes = [0, 1.05, 0.85, 0];
+            if (animationVariant === "rescanned") {
+              scaleKeyframes = [0, 0.95, 0.85, 0];
+            } else if (animationVariant === "globalNewPlant") {
+              scaleKeyframes = [0, 1.3, 0.9, 0];
+            }
 
-          let scaleKeyframes = [0, 1.05, 0.85, 0];
-          if (animationVariant === "rescanned") {
-            scaleKeyframes = [0, 0.95, 0.85, 0];
-          } else if (animationVariant === "globalNewPlant") {
-            scaleKeyframes = [0, 1.3, 0.9, 0];
-          }
-
-          return (
-            <motion.div
-              key={`${emoji}-${index}`}
-              initial={{ opacity: 0, scale: 0, x, y }}
-              animate={{
-                opacity: [0, 1, 1, 0],
-                scale: scaleKeyframes,
-                x,
-                y: [y, (y + targetY) / 2, targetY],
-              }}
-              transition={{
-                duration: animationVariant === "rescanned" ? 0.7 : 1.0,
-                delay: delayBase + index * 0.06,
-                ease: "easeOut",
-              }}
-              className="absolute inset-0 flex items-center justify-center text-xl select-none"
-              style={{ transformOrigin: "center" }}
+            return (
+              <motion.div
+                key={`${emoji}-${index}`}
+                initial={{ opacity: 0, scale: 0, x, y }}
+                animate={{
+                  opacity: [0, 1, 1, 0],
+                  scale: scaleKeyframes,
+                  x,
+                  y: [y, (y + targetY) / 2, targetY],
+                }}
+                transition={{
+                  duration: animationVariant === "rescanned" ? 0.7 : 1.0,
+                  delay: delayBase + index * 0.06,
+                  ease: "easeOut",
+                }}
+                className="absolute inset-0 flex items-center justify-center text-xl select-none"
+                style={{ transformOrigin: "center" }}
+              >
+                <span>{emoji}</span>
+              </motion.div>
+            );
+          })}
+        </motion.div>
+        {/* Buttons jetzt außerhalb des Containers, direkt darunter */}
+        {showButtons && (
+          <div className="mt-5 flex flex-row gap-3 w-full justify-center">
+            <button
+              className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-base font-semibold shadow border border-emerald-700 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              onClick={onComplete}
             >
-              <span>{emoji}</span>
-            </motion.div>
-          );
-        })}
-      </motion.div>
+              Cool!
+            </button>
+            <button
+              className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-base font-semibold shadow border border-amber-600 flex items-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-amber-300"
+              onClick={() => handleNativeShare(cardRef, feedback?.plantName)}
+              title="Teilen"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-white">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-3A2.25 2.25 0 008.25 5.25V9m7.5 6v3.75A2.25 2.25 0 0113.5 21h-3a2.25 2.25 0 01-2.25-2.25V15m10.5-3H17.25m-10.5 0H6.75m7.5 0a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Teilen
+            </button>
+          </div>
+        )}
+      </div>
     </motion.div>
   );
 }
