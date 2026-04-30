@@ -123,7 +123,10 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
   const [activePopStepId, setActivePopStepId] = useState(/** @type string|null */(null));
   const [vibrateCounter, setVibrateCounter] = useState(false);
   const [vibrateMultiplier, setVibrateMultiplier] = useState(false);
+
   const [showResourceGains, setShowResourceGains] = useState(false);
+  // Zeigt die Buttons erst nach Abschluss der Animationen und kurzer Wartezeit
+  const [showButtons, setShowButtons] = useState(false);
 
   useEffect(() => {
     if (!feedback) {
@@ -134,6 +137,7 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
     setPreviousReward(null);
     setIsNegativeSwap(false);
     setActiveStepIndex(-1);
+    setShowButtons(false);
     if (!feedback) return;
     // Zeitgeber-Array leeren
     timeouts.forEach((timeoutId) => window.clearTimeout(timeoutId));
@@ -149,6 +153,7 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
       setVibrateCounter(false);
       setVibrateMultiplier(false);
       setShowResourceGains(false);
+      setShowButtons(false);
       timeouts.push(
         window.setTimeout(() => {
           if (onComplete) {
@@ -166,8 +171,12 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
           }, 900)
         );
       }
-
-      finalize(hasResourceGains ? 3000 : 2500);
+      // Nach kurzer Zeit Buttons einblenden
+      timeouts.push(
+        window.setTimeout(() => {
+          setShowButtons(true);
+        }, 1200)
+      );
       return () => {
         timeouts.forEach((timeoutId) => window.clearTimeout(timeoutId));
         if (frameId) {
@@ -198,11 +207,12 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
 
     const runStep = (stepIndex, currentValue) => {
       if (stepIndex >= rewardSteps.length) {
+        // Nach Abschluss der Multiplikator-Animationen: kurze Pause, dann Buttons einblenden
         if (hasResourceGains) {
           setShowResourceGains(true);
-          finalize(2300);
+          timeouts.push(window.setTimeout(() => setShowButtons(true), 900));
         } else {
-          finalize(1500);
+          timeouts.push(window.setTimeout(() => setShowButtons(true), 600));
         }
         return;
       }
@@ -246,6 +256,7 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
       );
     };
 
+    // Zeige zuerst die Ausgangszahl, dann nach kurzer Pause die Multiplikator-Animationen
     timeouts.push(window.setTimeout(() => runStep(0, rewardDetails.baseReward), 650));
 
     return () => {
@@ -373,7 +384,7 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
         {/* Ende Notification-Block, kein zusätzliches schließendes div hier! */}
 
         {/* Buttons unterhalb der Results, erst nach Berechnung anzeigen, dezent */}
-        {(activeStepIndex === rewardSteps.length - 1 || (rewardSteps.length === 0 && showResourceGains)) && (
+        {showButtons && (
           <div className="mt-6 flex flex-row gap-2 w-full justify-center">
             <button
               className="px-4 py-1.5 rounded-lg bg-stone-700/80 hover:bg-stone-700 text-stone-200 text-sm font-medium shadow-sm border border-stone-600/40 transition-all focus:outline-none focus:ring-2 focus:ring-stone-400"
