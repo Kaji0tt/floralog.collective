@@ -1,4 +1,70 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+// Hilfsfunktionen und Konstanten
+function buildRewardSteps(rewardDetails, isInActiveZone) {
+  if (!rewardDetails) return [];
+  let runningReward = rewardDetails.baseReward ?? 0;
+  const preStreakSteps = [];
+
+  function pushPreStreakStep(id, label, multiplier) {
+    if (multiplier === 1) return;
+    runningReward *= multiplier;
+    preStreakSteps.push({
+      id,
+      label,
+      multiplier,
+      result: Math.round(runningReward),
+      positive: multiplier > 1,
+    });
+  }
+
+  function pushAdditiveStep(id, label, delta) {
+    if (!delta) return;
+    runningReward += delta;
+    preStreakSteps.push({
+      id,
+      label,
+      delta,
+      result: Math.round(runningReward),
+      positive: delta > 0,
+      displayValue: `${delta > 0 ? "+" : ""}${delta}`,
+    });
+  }
+
+  pushAdditiveStep("health", rewardDetails.healthStateLabel || "Zustand", rewardDetails.healthStateBonus);
+  if (isInActiveZone) pushPreStreakStep("zone", "Zone", rewardDetails.zoneMultiplier);
+  pushPreStreakStep("rarity", "Raritaet", rewardDetails.rarityMultiplier);
+  pushPreStreakStep("novelty", "Neuheit", rewardDetails.noveltyMultiplier);
+  pushPreStreakStep("care", "Pflege", rewardDetails.careMultiplier);
+  pushPreStreakStep("firstScan", "First Scan", rewardDetails.firstScanOfDayMultiplier);
+
+  if (preStreakSteps.length > 0) {
+    preStreakSteps[preStreakSteps.length - 1].result = rewardDetails.preStreakReward;
+  }
+  const positivePreStreak = preStreakSteps.filter((step) => step.positive);
+  const negativePreStreak = preStreakSteps.filter((step) => !step.positive);
+  const steps = [...positivePreStreak, ...negativePreStreak];
+  if (rewardDetails.streakMultiplier !== 1) {
+    steps.push({
+      id: "streak",
+      label: "Streak",
+      multiplier: rewardDetails.streakMultiplier,
+      result: rewardDetails.finalReward,
+      positive: rewardDetails.streakMultiplier > 1,
+    });
+  }
+  return steps;
+}
+
+function formatMultiplier(mult) {
+  if (typeof mult !== "number") return "";
+  return mult % 1 === 0 ? mult : mult.toFixed(2);
+}
+
+const COUNTER_OUTLINE_STYLE = {
+  textShadow:
+    "0 1px 0 #000, 0 -1px 0 #000, 1px 0 0 #000, -1px 0 0 #000, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000",
+};
 // Native Teilen-Funktion mit Screenshot
 async function handleNativeShare(cardRef, plantName) {
   try {
@@ -28,10 +94,14 @@ async function handleNativeShare(cardRef, plantName) {
   } catch (err) {
     alert('Teilen fehlgeschlagen: ' + (err?.message || err));
   }
+}
 
 export default function ScanFeedbackNotification({ feedback, onComplete }) {
   // Fix: cardRef muss im Funktions-Scope deklariert werden
   const cardRef = React.useRef(null);
+  // Zeitgeber und AnimationFrame-Referenzen
+  let timeouts = [];
+  let frameId = null;
   const rewardDetails = feedback?.rewardDetails || null;
   const isInActiveZone = feedback?.isInActiveZone !== false;
   const energyDelta = Math.max(0, Number(feedback?.energyDelta ?? 0));
@@ -61,7 +131,11 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
     setPreviousReward(null);
     setIsNegativeSwap(false);
     setActiveStepIndex(-1);
-      if (!feedback) return;
+    if (!feedback) return;
+    // Zeitgeber-Array leeren
+    timeouts.forEach((timeoutId) => window.clearTimeout(timeoutId));
+    timeouts = [];
+    frameId = null;
     const finalize = (delayMs) => {
       setDisplayReward(rewardDetails?.baseReward ?? 0);
       setPreviousReward(null);
@@ -444,6 +518,7 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
             </div>
           )}
         </div>
+      </div>
 
         {emojiSet.map((emoji, index) => {
           const { x, y, targetY } = emojiPositions[index] || { x: 0, y: 40, targetY: 5 };
