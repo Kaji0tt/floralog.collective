@@ -152,12 +152,14 @@ export default function Home() {
   const multiplierTouchStartXRef = useRef(null);
 
   const [scanFeedback, setScanFeedback] = useState(null);
+  const [showScanFeedback, setShowScanFeedback] = useState(false);
   const scanFeedbackCooldownRef = useRef(false);
+  const blockNavigationFeedbackRef = useRef(false);
 
   // Cooldown-Schutz: scanFeedback kann nach Schließen für 1 Sekunde nicht erneut gesetzt werden
   const safeSetScanFeedback = (value) => {
-    if (scanFeedbackCooldownRef.current && value) {
-      // Während Cooldown kein neues Feedback zulassen
+    if ((scanFeedbackCooldownRef.current || blockNavigationFeedbackRef.current) && value) {
+      // Während Cooldown oder Block kein neues Feedback zulassen
       return;
     }
     setScanFeedback(value);
@@ -657,8 +659,9 @@ export default function Home() {
 
     if (!hasScanFeedback && !shouldOpenSettings) return;
 
-    if (hasScanFeedback) {
-      setScanFeedback(location.state.scanFeedback);
+    if (hasScanFeedback && !blockNavigationFeedbackRef.current) {
+      safeSetScanFeedback(location.state.scanFeedback);
+      setShowScanFeedback(true);
     }
 
     if (shouldOpenSettings) {
@@ -1952,15 +1955,18 @@ export default function Home() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {scanFeedback && (
+        {scanFeedback && showScanFeedback && (
           <ScanFeedbackNotification
             feedback={scanFeedback}
             onComplete={() => {
+              setShowScanFeedback(false);
               setScanFeedback(null);
               scanFeedbackCooldownRef.current = true;
+              blockNavigationFeedbackRef.current = true;
               setTimeout(() => {
                 scanFeedbackCooldownRef.current = false;
-              }, 1000); // 1 Sekunde Cooldown
+                blockNavigationFeedbackRef.current = false;
+              }, 1000); // 1 Sekunde Block
             }}
           />
         )}
