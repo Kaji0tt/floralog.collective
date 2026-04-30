@@ -28,67 +28,6 @@ async function handleNativeShare(cardRef, plantName) {
   } catch (err) {
     alert('Teilen fehlgeschlagen: ' + (err?.message || err));
   }
-    if (multiplier === 1) {
-      return;
-    }
-
-    runningReward *= multiplier;
-    preStreakSteps.push({
-      id,
-      label,
-      multiplier,
-      result: Math.round(runningReward),
-      positive: multiplier > 1,
-    });
-  };
-
-  const pushAdditiveStep = (id, label, delta) => {
-    if (!delta) {
-      return;
-    }
-
-    runningReward += delta;
-    preStreakSteps.push({
-      id,
-      label,
-      delta,
-      result: Math.round(runningReward),
-      positive: delta > 0,
-      displayValue: `${delta > 0 ? "+" : ""}${delta}`,
-    });
-  };
-
-  pushAdditiveStep("health", rewardDetails.healthStateLabel || "Zustand", rewardDetails.healthStateBonus);
-
-  if (isInActiveZone) {
-    pushPreStreakStep("zone", "Zone", rewardDetails.zoneMultiplier);
-  }
-
-  pushPreStreakStep("rarity", "Raritaet", rewardDetails.rarityMultiplier);
-  pushPreStreakStep("novelty", "Neuheit", rewardDetails.noveltyMultiplier);
-  pushPreStreakStep("care", "Pflege", rewardDetails.careMultiplier);
-  pushPreStreakStep("firstScan", "First Scan", rewardDetails.firstScanOfDayMultiplier);
-
-  if (preStreakSteps.length > 0) {
-    preStreakSteps[preStreakSteps.length - 1].result = rewardDetails.preStreakReward;
-  }
-
-  const positivePreStreak = preStreakSteps.filter((step) => step.positive);
-  const negativePreStreak = preStreakSteps.filter((step) => !step.positive);
-  const steps = [...positivePreStreak, ...negativePreStreak];
-
-  if (rewardDetails.streakMultiplier !== 1) {
-    steps.push({
-      id: "streak",
-      label: "Streak",
-      multiplier: rewardDetails.streakMultiplier,
-      result: rewardDetails.finalReward,
-      positive: rewardDetails.streakMultiplier > 1,
-    });
-  }
-
-  return steps;
-};
 
 export default function ScanFeedbackNotification({ feedback, onComplete }) {
   // Fix: cardRef muss im Funktions-Scope deklariert werden
