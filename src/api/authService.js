@@ -24,6 +24,11 @@ const normalizeAuthServiceError = (error) => {
   );
 };
 
+const isMissingAuthSessionError = (error) => {
+  const message = String(error?.message || '').toLowerCase();
+  return error?.name === 'AuthSessionMissingError' || message.includes('auth session missing');
+};
+
 /**
  * Sign up with email and password
  */
@@ -119,7 +124,12 @@ export const getSession = async () => {
  */
 export const getCurrentAuthUser = async () => {
   const { data: { user }, error } = await supabase.auth.getUser();
-  if (error) throw error;
+  if (error) {
+    if (isMissingAuthSessionError(error)) {
+      return null;
+    }
+    throw error;
+  }
   return user;
 };
 

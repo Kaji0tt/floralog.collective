@@ -20,6 +20,10 @@ export default function Layout({ children, currentPageName }) {
     try {
       console.log("[Layout] Lade User-Daten...");
       const currentUser = await getCurrentUser();
+      if (!currentUser) {
+        setUser(null);
+        return;
+      }
       console.log("[Layout] User geladen:", {
         email: currentUser.email,
         display_name: currentUser.display_name,
@@ -32,6 +36,7 @@ export default function Layout({ children, currentPageName }) {
       console.log("[Layout] Triggere userUpdated Event");
       window.dispatchEvent(new CustomEvent('userUpdated', { detail: currentUser }));
     } catch (error) {
+      setUser(null);
       console.log("[Layout] User nicht authentifiziert:", error);
     }
   };

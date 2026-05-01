@@ -220,11 +220,6 @@ export default function Home() {
   });
 
 
-  // OTA: Wenn Update erzwungen, nur GuestHomeFlow anzeigen
-  if (forceGuest) {
-    return <GuestHomeFlow />;
-  }
-
   const { data: quests = [] } = useQuery({
     queryKey: ['quests'],
     queryFn: () => Query.Quest.list('quest_number'),
@@ -1063,7 +1058,7 @@ export default function Home() {
     );
   }
 
-  if (!user) {
+  if (forceGuest || !user) {
     return <GuestHomeFlow />;
   }
 
