@@ -102,9 +102,12 @@ function getAllowedOrigins(): string[] {
   return [
     Deno.env.get("FLORALOG_URL"),
     Deno.env.get("SITE_URL"),
+    "http://localhost",
+    "https://localhost",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "capacitor://localhost",
+    "ionic://localhost",
     "file://",
     "", // leere Origin für App-Requests ohne Origin-Header
   ].filter((v) => v !== undefined);
@@ -705,8 +708,10 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Service not configured" }, 500);
     }
 
-    if (!isAllowedOrigin(req.headers.get("Origin"))) {
-      return jsonResponse({ error: "Origin not allowed" }, 403);
+    const requestOrigin = req.headers.get("Origin");
+    if (!isAllowedOrigin(requestOrigin)) {
+      console.warn("[robotPlantDailyZones] Origin not allowed", { requestOrigin });
+      return jsonResponse({ error: "Origin not allowed", origin: requestOrigin }, 403);
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {

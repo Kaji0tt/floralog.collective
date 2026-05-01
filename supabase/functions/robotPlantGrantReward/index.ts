@@ -590,7 +590,16 @@ function getAllowedOrigins(): string[] {
     Deno.env.get("SITE_URL"),
   ].filter(Boolean) as string[];
 
-  return [...configured, "http://localhost:5173", "http://127.0.0.1:5173"];
+  return [
+    ...configured,
+    "http://localhost",
+    "https://localhost",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "capacitor://localhost",
+    "ionic://localhost",
+    "file://",
+  ];
 }
 
 function isAllowedOrigin(origin: string | null): boolean {
@@ -615,8 +624,10 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Supabase service not configured" }, 500);
     }
 
-    if (!isAllowedOrigin(req.headers.get("Origin"))) {
-      return jsonResponse({ error: "Origin not allowed" }, 403);
+    const requestOrigin = req.headers.get("Origin");
+    if (!isAllowedOrigin(requestOrigin)) {
+      console.warn("[robotPlantGrantReward] Origin not allowed", { requestOrigin });
+      return jsonResponse({ error: "Origin not allowed", origin: requestOrigin }, 403);
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {

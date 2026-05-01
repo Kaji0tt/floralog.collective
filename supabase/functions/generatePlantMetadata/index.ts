@@ -1,3 +1,5 @@
+import { buildOriginDeniedResponse } from "../_shared/origin.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -30,6 +32,11 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     console.log("[generatePlantMetadata] Handling OPTIONS request");
     return new Response(null, { headers: corsHeaders });
+  }
+
+  const originDeniedResponse = buildOriginDeniedResponse(req, corsHeaders, "generatePlantMetadata");
+  if (originDeniedResponse) {
+    return originDeniedResponse;
   }
 
   if (req.method !== "POST") {

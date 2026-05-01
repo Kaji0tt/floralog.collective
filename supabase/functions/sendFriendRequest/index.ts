@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildOriginDeniedResponse } from "../_shared/origin.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,6 +26,11 @@ function getAccessTokenFromAuthHeader(header: string | null): string | null {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  const originDeniedResponse = buildOriginDeniedResponse(req, corsHeaders, "sendFriendRequest");
+  if (originDeniedResponse) {
+    return originDeniedResponse;
   }
 
   if (req.method !== "POST") {

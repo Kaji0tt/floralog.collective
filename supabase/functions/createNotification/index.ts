@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
+import { buildOriginDeniedResponse } from "../_shared/origin.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -59,6 +60,11 @@ function buildPushPayload(params: {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  const originDeniedResponse = buildOriginDeniedResponse(req, corsHeaders, "createNotification");
+  if (originDeniedResponse) {
+    return originDeniedResponse;
   }
 
   if (req.method !== "POST") {

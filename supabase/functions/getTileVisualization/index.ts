@@ -10,6 +10,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import proj4 from "https://esm.sh/proj4@2.15.0";
+import { buildOriginDeniedResponse } from "../_shared/origin.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -220,6 +221,11 @@ async function fetchTileValuesForChunkIds(
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  const originDeniedResponse = buildOriginDeniedResponse(req, corsHeaders, "getTileVisualization");
+  if (originDeniedResponse) {
+    return originDeniedResponse;
   }
 
   if (req.method !== "POST") {
