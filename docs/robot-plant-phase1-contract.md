@@ -57,11 +57,11 @@ Rules:
 
 Health states and additive scan bonuses:
 
-- Kritisch: +0
-- Schwach: +5
-- Stabil: +15
-- Vital: +30
-- Kraeftig (ab 90 Gesamtgesundheit): +50
+- Ruhend: +0
+- Aktiv: +5
+- Lebendig: +15
+- Kräftig: +30
+- Prächtig (ab 90 Gesamtgesundheit): +50
 
 ## Wallet Ledger (What it means)
 

@@ -88,18 +88,18 @@ const REWARD_FORMULA_CONFIG = {
   zoneMultiplier: { min: 1, max: 1.5, default: 1, start: 1.5, decrementPerAdditionalScan: 0.1 },
   noveltyMultiplier: { min: 0.2, max: 1, decrementPerDuplicateScan: 0.2 },
   streakMultiplier: { min: 1, max: 7 },
-  careMultiplier: { min: 0.5, max: 1.5 },
+  careMultiplier: { min: 1, max: 2 },
   firstScanOfDayMultiplier: { min: 1, max: 2, default: 1 },
   absoluteMinReward: 1,
   absoluteMaxReward: 350,
 };
 
 const ROBOT_PLANT_HEALTH_STATES = [
-  { minOverallHealth: 90, label: "Kraeftig", scanEventBonus: 50 },
-  { minOverallHealth: 70, label: "Vital", scanEventBonus: 30 },
-  { minOverallHealth: 45, label: "Stabil", scanEventBonus: 15 },
-  { minOverallHealth: 25, label: "Schwach", scanEventBonus: 5 },
-  { minOverallHealth: 0, label: "Kritisch", scanEventBonus: 0 },
+  { minOverallHealth: 90, label: "Prächtig", scanEventBonus: 50 },
+  { minOverallHealth: 70, label: "Kräftig", scanEventBonus: 30 },
+  { minOverallHealth: 45, label: "Lebendig", scanEventBonus: 15 },
+  { minOverallHealth: 25, label: "Aktiv", scanEventBonus: 5 },
+  { minOverallHealth: 0, label: "Ruhend", scanEventBonus: 0 },
 ] as const;
 
 const ENERGY_GAIN_CONFIG = {
@@ -179,7 +179,31 @@ const lerpMultiplier = (value: number, min: number, max: number): number => {
 
 const computeCareMultiplier = (careValue: number): number => {
   const safeCare = clamp(Number(careValue ?? 0), 0, 100);
-  return clamp(0.5 + safeCare / 100, REWARD_FORMULA_CONFIG.careMultiplier.min, REWARD_FORMULA_CONFIG.careMultiplier.max);
+  return clamp(1 + safeCare / 100, REWARD_FORMULA_CONFIG.careMultiplier.min, REWARD_FORMULA_CONFIG.careMultiplier.max);
+};
+
+const computeRecoveryMultiplier = (currentValue: number): number => {
+  const safeValue = clamp(Number(currentValue ?? 0), 0, 100);
+
+  if (safeValue < 50) {
+    return 3;
+  }
+
+  if (safeValue < 75) {
+    return 2;
+  }
+
+  return 1;
+};
+
+const applyRecoveryGain = (baseDelta: number, currentValue: number): number => {
+  const safeBaseDelta = Number(baseDelta ?? 0);
+
+  if (!Number.isFinite(safeBaseDelta) || safeBaseDelta <= 0) {
+    return Math.round(safeBaseDelta || 0);
+  }
+
+  return Math.round(safeBaseDelta * computeRecoveryMultiplier(currentValue));
 };
 
 const computeOverallPlantHealth = ({
@@ -228,6 +252,11 @@ const computeDailyEnergyGainFromMeters = (meters: number): number => {
   const safeMeters = Math.max(0, Number(meters ?? 0));
   const points = Math.floor(safeMeters / ENERGY_GAIN_CONFIG.metersPerPoint);
   return clamp(points, 0, ENERGY_GAIN_CONFIG.maxPerDay);
+};
+
+const computeRawDailyEnergyPointsFromMeters = (meters: number): number => {
+  const safeMeters = Math.max(0, Number(meters ?? 0));
+  return Math.floor(safeMeters / ENERGY_GAIN_CONFIG.metersPerPoint);
 };
 
 const computeDataQualityGainFromZoneMultiplier = (zoneMultiplier: number): number => {
@@ -539,8 +568,17 @@ async function tryResolveScanRewardContext(
     };
 
     const beforeRows = (todayDiscoveries || []).filter((row) => row.id !== discovery.id);
-    const beforeEnergy = computeDailyEnergyGainFromMeters(computeDailyMeters(beforeRows));
-    const afterEnergy = computeDailyEnergyGainFromMeters(computeDailyMeters(todayDiscoveries || []));
+    const energyRecoveryMultiplier = computeRecoveryMultiplier(energyValue);
+    const beforeEnergy = clamp(
+      Math.round(computeRawDailyEnergyPointsFromMeters(computeDailyMeters(beforeRows)) * energyRecoveryMultiplier),
+      0,
+      ENERGY_GAIN_CONFIG.maxPerDay,
+    );
+    const afterEnergy = clamp(
+      Math.round(computeRawDailyEnergyPointsFromMeters(computeDailyMeters(todayDiscoveries || [])) * energyRecoveryMultiplier),
+      0,
+      ENERGY_GAIN_CONFIG.maxPerDay,
+    );
 
     derivedEnergyDelta = Math.max(0, afterEnergy - beforeEnergy);
   }
@@ -559,7 +597,7 @@ async function tryResolveScanRewardContext(
   });
 
   const derivedDataQualityDelta = isInActiveZone
-    ? computeDataQualityGainFromZoneMultiplier(zoneMultiplier)
+    ? applyRecoveryGain(computeDataQualityGainFromZoneMultiplier(zoneMultiplier), dataQualityValue)
     : 0;
   const finalEnergyDelta = Math.round(derivedEnergyDelta);
 
@@ -671,6 +709,7 @@ Deno.serve(async (req) => {
     let effectiveDataQualityDelta = dataQualityDelta;
     let effectiveCareDelta = careDelta;
     let rewardDetails: RewardBreakdown | null = null;
+    let currentRobotPlantState: RobotPlantStateRow | null = null;
 
     let scanContext: ScanRewardContext | null = null;
     try {
@@ -691,6 +730,7 @@ Deno.serve(async (req) => {
       effectiveEnergyDelta = scanContext.derivedEnergyDelta;
       effectiveDataQualityDelta = scanContext.derivedDataQualityDelta;
       effectiveCareDelta = 0;
+      currentRobotPlantState = scanContext.robotPlantState;
       metadata = {
         ...metadata,
         reward_breakdown: rewardDetails,
@@ -702,6 +742,16 @@ Deno.serve(async (req) => {
       };
     } else if (!Number.isFinite(effectiveAmount) || effectiveAmount < 0) {
       return jsonResponse({ error: "amount must be a number >= 0" }, 400);
+    }
+
+    if (!currentRobotPlantState) {
+      const { data: robotPlantState } = await adminClient
+        .from("RobotPlant")
+        .select("data_quality, care, energy, streak_days")
+        .eq("auth_id", authId)
+        .maybeSingle<RobotPlantStateRow>();
+
+      currentRobotPlantState = robotPlantState ?? null;
     }
 
     if (effectiveEventSource === "scan_like_received") {
@@ -729,6 +779,12 @@ Deno.serve(async (req) => {
         like_care_daily_cap: SCAN_LIKE_CARE_GAIN_DAILY_CAP,
         like_rewards_today_before_apply: likeRewardsToday,
       };
+    }
+
+    const currentCareValue = Number(currentRobotPlantState?.care ?? ROBOT_PLANT_DEFAULT_STATE.care);
+
+    if (effectiveCareDelta > 0 && effectiveEventSource !== "scan_like_received") {
+      effectiveCareDelta = applyRecoveryGain(effectiveCareDelta, currentCareValue);
     }
 
     const { data, error } = await adminClient.rpc("robot_plant_grant_reward", {

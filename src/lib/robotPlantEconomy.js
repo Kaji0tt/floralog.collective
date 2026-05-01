@@ -93,10 +93,24 @@ export const computeNoveltyMultiplier = (duplicateScanCount = 0) => {
 export const computeCareMultiplier = (careValue = ROBOT_PLANT_VALUES.care.initial) => {
   const safeCare = clamp(Number(careValue ?? 0), 0, 100);
   return clamp(
-    0.5 + safeCare / 100,
+    1 + safeCare / 100,
     REWARD_FORMULA_CONFIG.careMultiplier.min,
     REWARD_FORMULA_CONFIG.careMultiplier.max
   );
+};
+
+export const computeRecoveryMultiplier = (currentValue = 0) => {
+  const safeValue = clamp(Number(currentValue ?? 0), 0, 100);
+
+  if (safeValue < 50) {
+    return 3;
+  }
+
+  if (safeValue < 75) {
+    return 2;
+  }
+
+  return 1;
 };
 
 export const computeOverallPlantHealth = ({

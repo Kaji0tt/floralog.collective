@@ -34,32 +34,32 @@ export const ROBOT_PLANT_VALUES = {
 export const ROBOT_PLANT_HEALTH_STATES = Object.freeze([
   {
     minOverallHealth: 90,
-    label: "Kraeftig",
-    color: "#166534",
+    label: "Prächtig",
+    color: "#d97706",
     scanEventBonus: 50,
   },
   {
     minOverallHealth: 70,
-    label: "Vital",
-    color: "#22c55e",
+    label: "Kräftig",
+    color: "#a855f7",
     scanEventBonus: 30,
   },
   {
     minOverallHealth: 45,
-    label: "Stabil",
-    color: "#e6d111",
+    label: "Lebendig",
+    color: "#3b82f6",
     scanEventBonus: 15,
   },
   {
     minOverallHealth: 25,
-    label: "Schwach",
-    color: "#f97316",
+    label: "Aktiv",
+    color: "#22c55e",
     scanEventBonus: 5,
   },
   {
     minOverallHealth: 0,
-    label: "Kritisch",
-    color: "#dc2626",
+    label: "Ruhend",
+    color: "#f5f5f5",
     scanEventBonus: 0,
   },
 ]);
@@ -120,8 +120,8 @@ export const REWARD_FORMULA_CONFIG = Object.freeze({
     capDays: 7,
   },
   careMultiplier: {
-    min: 0.5,
-    max: 1.5,
+    min: 1,
+    max: 2,
     default: 1,
   },
   firstScanOfDayMultiplier: {

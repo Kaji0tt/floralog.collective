@@ -1469,7 +1469,7 @@ function HomeContent() {
       id: "care",
       title: "🌿 Pflege",
       value: formatMultiplier(careMultiplier),
-      description: "Direkter Einfluss aus dem Care-Wert (x0.5 bis x1.5).",
+      description: "Direkter Einfluss aus dem Care-Wert (x1.0 bis x2.0, kein Malus).",
     },
     {
       id: "daily",
@@ -2463,7 +2463,7 @@ function HomeContent() {
                                 {formatMultiplier(streakMultiplier)} × {formatMultiplier(zoneMultiplier)} × {formatMultiplier(careMultiplier)} × {formatMultiplier(dailyBonusMultiplier)} = <strong>{formatMultiplier(knownNextScanMultiplier)}</strong>
                               </div>
                               <div className="text-amber-50/70">
-                                Zustand <strong>{resolvedPlantHealthState.label}</strong> gibt aktuell <strong>+{healthStateBonus}</strong> auf alle Scan-Events.
+                                Bonus-Stufe <strong>{resolvedPlantHealthState.label}</strong> gibt aktuell <strong>+{healthStateBonus}</strong> auf alle Scan-Events.
                               </div>
                               <div className="text-amber-50/65">
                                 Mit Neuheit und Raritaet liegt der Bereich bei <strong>{formatMultiplier(nextScanMinMultiplier)}</strong> bis <strong>{formatMultiplier(nextScanMaxMultiplier)}</strong> (~{nextScanMinReward}-{nextScanMaxReward} Seeds).
