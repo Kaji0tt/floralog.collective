@@ -366,7 +366,13 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.15 }}
-      className="fixed inset-0 z-50 flex items-start justify-center pt-20 pointer-events-none"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-20 pointer-events-auto"
+      onPointerDown={(event) => {
+        event.stopPropagation();
+      }}
+      onClick={(event) => {
+        event.stopPropagation();
+      }}
     >
       <div className="flex flex-col items-center w-full max-w-sm">
         <motion.div
@@ -551,17 +557,32 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
           <div className="mt-5 flex flex-row gap-3 w-full justify-center">
             <button
               className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-base font-semibold shadow border border-emerald-700 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400"
-              onClick={() => {
-                if (onCompleteRef.current) {
-                  onCompleteRef.current();
-                }
+              onPointerDown={(event) => {
+                event.stopPropagation();
+              }}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setShowButtons(false);
+                window.setTimeout(() => {
+                  if (onCompleteRef.current) {
+                    onCompleteRef.current();
+                  }
+                }, 120);
               }}
             >
               Okay
             </button>
             <button
               className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-base font-semibold shadow border border-amber-600 flex items-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-amber-300"
-              onClick={() => handleNativeShare(cardRef, feedback?.plantName)}
+              onPointerDown={(event) => {
+                event.stopPropagation();
+              }}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                handleNativeShare(cardRef, feedback?.plantName);
+              }}
               title="Teilen"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-white">
