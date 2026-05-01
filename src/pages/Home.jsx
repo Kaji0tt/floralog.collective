@@ -52,7 +52,7 @@ function useOtaEnforceGuestFlow() {
         const local = await res.json();
         const localVersion = local?.version;
         // OTA-Manifest laden
-        const otaUrl = import.meta.env.VITE_OTA_VERSION_URL;
+        const otaUrl = import.meta.env.VITE_OTA_VERSION_URL || import.meta.env.VITE_OTA_MANIFEST_URL;
         if (!otaUrl) return;
         const otaRes = await fetch(otaUrl, { cache: 'no-store' });
         const ota = await otaRes.json();

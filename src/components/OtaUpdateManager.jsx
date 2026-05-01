@@ -30,9 +30,10 @@ export default function OtaUpdateManager() {
   const handleInstall = async () => {
     setDownloading(true);
     setError(null);
-    const ok = await downloadAndApplyUpdate(manifest, setProgress);
-    if (!ok) {
-      setError('Installation fehlgeschlagen. Bitte versuche es später erneut.');
+    const result = await downloadAndApplyUpdate(manifest, setProgress);
+    if (!result?.ok) {
+      const detail = result?.error ? ` (${result.error})` : '';
+      setError(`Installation fehlgeschlagen. Bitte versuche es spaeter erneut.${detail}`);
       setDownloading(false);
     }
     // On success the WebView reloads automatically – no state reset needed

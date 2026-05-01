@@ -188,6 +188,42 @@ public class OtaManager {
         return destDir.getAbsolutePath();
     }
 
+    /**
+     * Resolves the effective web root for a bundle.
+     * Accepts either:
+     *  - <bundle>/index.html
+     *  - <bundle>/<single-top-level-dir>/index.html
+     * Returns null when no valid root can be found.
+     */
+    public String resolveBundleRoot(String extractedPath) {
+        if (extractedPath == null || extractedPath.isEmpty()) {
+            return null;
+        }
+
+        File root = new File(extractedPath);
+        File rootIndex = new File(root, "index.html");
+        if (rootIndex.exists()) {
+            return root.getAbsolutePath();
+        }
+
+        File[] children = root.listFiles();
+        if (children == null || children.length != 1) {
+            return null;
+        }
+
+        File onlyChild = children[0];
+        if (!onlyChild.isDirectory()) {
+            return null;
+        }
+
+        File nestedIndex = new File(onlyChild, "index.html");
+        if (!nestedIndex.exists()) {
+            return null;
+        }
+
+        return onlyChild.getAbsolutePath();
+    }
+
     // ── Cleanup ───────────────────────────────────────────────────────────────
 
     /** Removes all bundle directories except the one matching activeVersion. */

@@ -6,19 +6,87 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
  * Checks a remote version manifest and downloads/applies new web bundles
  * without requiring a Play Store update.
  *
- * Configure the endpoint via the environment variable:
+ * Configure the endpoint via either environment variable:
  *   VITE_OTA_VERSION_URL=https://floralog-ota.<account>.workers.dev/version.json
+ *   VITE_OTA_MANIFEST_URL=https://floralog-ota.<account>.workers.dev/version.json
  */
 
 const OtaUpdate = registerPlugin('OtaUpdate');
 
 const OTA_VERSION_URL =
-  import.meta.env.VITE_OTA_VERSION_URL || '';
+  import.meta.env.VITE_OTA_VERSION_URL ||
+  import.meta.env.VITE_OTA_MANIFEST_URL ||
+  '';
+
+const OTA_VERSION_URL_SOURCE = import.meta.env.VITE_OTA_VERSION_URL
+  ? 'VITE_OTA_VERSION_URL'
+  : import.meta.env.VITE_OTA_MANIFEST_URL
+    ? 'VITE_OTA_MANIFEST_URL'
+    : 'none';
+
+function normalizeManifest(manifest) {
+  if (!manifest || typeof manifest !== 'object') return null;
+  const bundleUrl = manifest.bundleUrl || manifest.url || '';
+  const sha256 = manifest.sha256 || manifest.hash || '';
+  const version = manifest.version || '';
+  if (!version || !bundleUrl) return null;
+  return {
+    ...manifest,
+    version,
+    bundleUrl,
+    sha256,
+  };
+}
+
+function serializeDebugValue(value, seen = new WeakSet()) {
+  if (value instanceof Error) {
+    return {
+      name: value.name,
+      message: value.message,
+      stack: value.stack,
+    };
+  }
+
+  if (!value || typeof value !== 'object') return value;
+  if (seen.has(value)) return '[Circular]';
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    return value.map((item) => serializeDebugValue(item, seen));
+  }
+
+  const out = {};
+  for (const [key, val] of Object.entries(value)) {
+    out[key] = serializeDebugValue(val, seen);
+  }
+  return out;
+}
+
+function extractErrorMessage(err) {
+  if (!err) return 'Unbekannter Fehler';
+  if (typeof err === 'string') return err;
+  if (typeof err.message === 'string' && err.message.trim()) return err.message;
+  const serialized = serializeDebugValue(err);
+  try {
+    return JSON.stringify(serialized);
+  } catch {
+    return String(err);
+  }
+}
 
 // OTA Debug-Log-Funktion
 function otaDebugLog(...args) {
   if (!window.OTA_DEBUG_LOGS) window.OTA_DEBUG_LOGS = [];
-  const msg = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
+  const msg = args
+    .map((arg) => {
+      if (typeof arg !== 'object' || arg === null) return String(arg);
+      try {
+        return JSON.stringify(serializeDebugValue(arg));
+      } catch {
+        return String(arg);
+      }
+    })
+    .join(' ');
   window.OTA_DEBUG_LOGS.push({ time: new Date().toLocaleTimeString(), msg });
   // Begrenze auf die letzten 100 Einträge
   if (window.OTA_DEBUG_LOGS.length > 100) window.OTA_DEBUG_LOGS = window.OTA_DEBUG_LOGS.slice(-100);
@@ -39,9 +107,10 @@ export async function checkForUpdate() {
     return null;
   }
   if (!OTA_VERSION_URL) {
-    otaDebugLog('VITE_OTA_VERSION_URL is not configured');
+    otaDebugLog('OTA manifest URL is not configured (expected VITE_OTA_VERSION_URL or VITE_OTA_MANIFEST_URL)');
     return null;
   }
+  otaDebugLog(`Using OTA URL from: ${OTA_VERSION_URL_SOURCE}`);
 
   try {
     otaDebugLog(`Fetching manifest from: ${OTA_VERSION_URL}`);
@@ -52,10 +121,12 @@ export async function checkForUpdate() {
       return null;
     }
 
-    const manifest = await response.json();
-    otaDebugLog('Manifest received:', manifest);
-    if (!manifest?.version || !manifest?.bundleUrl) {
-      otaDebugLog('Manifest missing version or bundleUrl');
+    const rawManifest = await response.json();
+    otaDebugLog('Manifest received:', rawManifest);
+
+    const manifest = normalizeManifest(rawManifest);
+    if (!manifest) {
+      otaDebugLog('Manifest missing required fields (version + bundleUrl/url)');
       return null;
     }
 
@@ -80,13 +151,19 @@ export async function checkForUpdate() {
  *
  * @param {object} manifest   – version manifest from checkForUpdate()
  * @param {function} onProgress – optional callback(percent: number)
- * @returns {Promise<boolean>}
+ * @returns {Promise<{ ok: boolean, error?: string }>}
  */
 export async function downloadAndApplyUpdate(manifest, onProgress) {
-  otaDebugLog('downloadAndApplyUpdate called', manifest);
+  const normalizedManifest = normalizeManifest(manifest);
+  otaDebugLog('downloadAndApplyUpdate called', normalizedManifest || manifest);
   if (!Capacitor.isNativePlatform()) {
     otaDebugLog('Not running on native platform, download skipped');
-    return false;
+    return { ok: false, error: 'Nicht auf nativer Plattform' };
+  }
+
+  if (!normalizedManifest) {
+    otaDebugLog('Cannot download: invalid manifest payload');
+    return { ok: false, error: 'Ungultiges OTA-Manifest' };
   }
 
   let progressListener = null;
@@ -102,20 +179,21 @@ export async function downloadAndApplyUpdate(manifest, onProgress) {
     }
 
     otaDebugLog('Calling OtaUpdate.downloadAndApply', {
-      bundleUrl: manifest.bundleUrl,
-      version: manifest.version,
-      sha256: manifest.sha256 || '',
+      bundleUrl: normalizedManifest.bundleUrl,
+      version: normalizedManifest.version,
+      sha256: normalizedManifest.sha256 || '',
     });
     const result = await OtaUpdate.downloadAndApply({
-      bundleUrl: manifest.bundleUrl,
-      version: manifest.version,
-      sha256: manifest.sha256 || '',
+      bundleUrl: normalizedManifest.bundleUrl,
+      version: normalizedManifest.version,
+      sha256: normalizedManifest.sha256 || '',
     });
     otaDebugLog('downloadAndApply result:', result);
-    return result?.success === true;
+    return { ok: result?.success === true };
   } catch (err) {
-    otaDebugLog('Download/apply failed:', err);
-    return false;
+    const message = extractErrorMessage(err);
+    otaDebugLog('Download/apply failed:', { message, raw: err });
+    return { ok: false, error: message };
   } finally {
     progressListener?.remove();
   }

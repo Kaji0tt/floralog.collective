@@ -98,28 +98,28 @@ public class OtaUpdatePlugin extends Plugin {
                 //noinspection ResultOfMethodCallIgnored
                 zipFile.delete();
 
-                // 4. Sanity check
-                File indexFile = new File(extractedPath, "index.html");
-                if (!indexFile.exists()) {
+                // 4. Resolve root and sanity check
+                String bundleRootPath = otaManager.resolveBundleRoot(extractedPath);
+                if (bundleRootPath == null || bundleRootPath.isEmpty()) {
                     getBridge().getActivity().runOnUiThread(
                             () -> call.reject("Invalid bundle: index.html missing"));
                     return;
                 }
 
                 // 5. Persist state
-                otaManager.saveActiveBundle(version, extractedPath);
+                otaManager.saveActiveBundle(version, bundleRootPath);
                 otaManager.cleanupOldBundles(version);
 
-                Log.d(TAG, "OTA bundle staged: " + extractedPath);
+                Log.d(TAG, "OTA bundle staged: " + bundleRootPath);
 
                 // 6. Apply – must run on UI thread
                 getBridge().getActivity().runOnUiThread(() -> {
                     try {
-                        getBridge().setServerBasePath(extractedPath);
+                        getBridge().setServerBasePath(bundleRootPath);
                         JSObject result = new JSObject();
                         result.put("success", true);
                         result.put("version", version);
-                        result.put("path", extractedPath);
+                        result.put("path", bundleRootPath);
                         call.resolve(result);
                     } catch (Exception e) {
                         Log.e(TAG, "setServerBasePath failed", e);

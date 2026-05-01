@@ -69,7 +69,7 @@ info "Wrote bundle-version.json (version=$VERSION)"
 
 # ── 3. Create ZIP bundle ───────────────────────────────────────────────────────
 info "Creating ZIP bundle: $BUNDLE_FILE"
-npx bestzip "$BUNDLE_FILE" "$DIST_DIR/*"
+(cd "$DIST_DIR" && npx bestzip "../$BUNDLE_FILE" "*")
 success "Bundle created ($(du -sh "$BUNDLE_FILE" | cut -f1))"
 
 # ── 4. Compute SHA-256 ─────────────────────────────────────────────────────────
@@ -138,6 +138,6 @@ echo "   on next app launch."
 
 # ── 9. Write OTA URLs to .env.ota.local ──────────────────────────────────────
 OTA_ENV_FILE=".env.ota.local"
-echo "VITE_OTA_MANIFEST_URL=${WORKER_URL}/version.json" > "$OTA_ENV_FILE"
+echo "VITE_OTA_VERSION_URL=${WORKER_URL}/version.json" > "$OTA_ENV_FILE"
 echo "VITE_OTA_BUNDLE_URL=$BUNDLE_URL" >> "$OTA_ENV_FILE"
 success ".env.ota.local written with OTA URLs"
