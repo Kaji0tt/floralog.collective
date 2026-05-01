@@ -39,41 +39,8 @@ import HomeBottomNavigation from "@/components/navigation/HomeBottomNavigation";
 import { getNavButtonStyle } from "@/components/navigation/navButtonStyles";
 import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
 import GuestHomeFlow from "@/components/home/GuestHomeFlow";
-import { useState as useOtaState, useEffect as useOtaEffect } from "react";
+import HomeOtaGate from "@/components/home/HomeOtaGate";
 
-const DEFAULT_OTA_VERSION_URL = 'https://floralog-ota.green-term-27d0.workers.dev/version.json';
-
-// OTA-Update-Check: Lies die eingebaute Bundle-Version aus bundle-version.json
-function useOtaEnforceGuestFlow() {
-  const [forceGuest, setForceGuest] = useOtaState(false);
-  useOtaEffect(() => {
-    let cancelled = false;
-    async function checkOta() {
-      try {
-        // Lies die lokale Bundle-Version
-        const res = await fetch('/bundle-version.json', { cache: 'no-store' });
-        const local = await res.json();
-        const localVersion = local?.version;
-        // OTA-Manifest laden
-        const otaUrl = import.meta.env.VITE_OTA_VERSION_URL || import.meta.env.VITE_OTA_MANIFEST_URL || DEFAULT_OTA_VERSION_URL;
-        if (!otaUrl) return;
-        const otaRes = await fetch(otaUrl, { cache: 'no-store' });
-        const ota = await otaRes.json();
-        const otaVersion = ota?.version;
-        const mandatory = ota?.mandatory === true;
-        // Wenn OTA-Version neuer oder mandatory, dann GuestFlow erzwingen
-        if ((otaVersion && localVersion && otaVersion > localVersion) || mandatory) {
-          if (!cancelled) setForceGuest(true);
-        }
-      } catch (e) {
-        // Im Fehlerfall kein Block
-      }
-    }
-    checkOta();
-    return () => { cancelled = true; };
-  }, []);
-  return forceGuest;
-}
 import ShopFeatureRoot from "@/components/shop/ShopFeatureRoot";
 import PlantHeroHealthPanel from "@/components/home/PlantHeroHealthPanel";
 import AchievementsFeatureRoot from "@/components/achievements/AchievementsFeatureRoot";
@@ -96,7 +63,7 @@ const THEME_MAP_COLORS = {
 
 const THEME_MAP_META = {
   forest: { label: "Forest", Icon: TreePine, color: "#007a3f" },
-  urban: { label: "Urban", Icon: Building2, color: "#8d755c" },
+  urban: { label: "Urban", Icon: Building2, color: "#5a544d" },
   water: { label: "Water", Icon: Waves, color: "#2b6cb0" },
   meadow: { label: "Meadow", Icon: Flower2, color: "#84cc16" },
 };
@@ -115,9 +82,7 @@ const SOCIAL_NEWS_NOTIFICATION_TYPES = [
   "scan_liked",
 ];
 
-export default function Home() {
-  // OTA-Update-Check
-  const forceGuest = useOtaEnforceGuestFlow();
+function HomeContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -1058,7 +1023,7 @@ export default function Home() {
     );
   }
 
-  if (forceGuest || !user) {
+  if (!user) {
     return <GuestHomeFlow />;
   }
 
@@ -2545,6 +2510,14 @@ export default function Home() {
 
       </HomeBackgroundShell>
     </>
+  );
+}
+
+export default function Home() {
+  return (
+    <HomeOtaGate>
+      <HomeContent />
+    </HomeOtaGate>
   );
 }
 
