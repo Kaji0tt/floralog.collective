@@ -40,6 +40,9 @@ import { getNavButtonStyle } from "@/components/navigation/navButtonStyles";
 import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
 import GuestHomeFlow from "@/components/home/GuestHomeFlow";
 import { useState as useOtaState, useEffect as useOtaEffect } from "react";
+
+const DEFAULT_OTA_VERSION_URL = 'https://floralog-ota.green-term-27d0.workers.dev/version.json';
+
 // OTA-Update-Check: Lies die eingebaute Bundle-Version aus bundle-version.json
 function useOtaEnforceGuestFlow() {
   const [forceGuest, setForceGuest] = useOtaState(false);
@@ -52,7 +55,7 @@ function useOtaEnforceGuestFlow() {
         const local = await res.json();
         const localVersion = local?.version;
         // OTA-Manifest laden
-        const otaUrl = import.meta.env.VITE_OTA_VERSION_URL || import.meta.env.VITE_OTA_MANIFEST_URL;
+        const otaUrl = import.meta.env.VITE_OTA_VERSION_URL || import.meta.env.VITE_OTA_MANIFEST_URL || DEFAULT_OTA_VERSION_URL;
         if (!otaUrl) return;
         const otaRes = await fetch(otaUrl, { cache: 'no-store' });
         const ota = await otaRes.json();

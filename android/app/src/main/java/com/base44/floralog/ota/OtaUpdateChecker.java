@@ -3,7 +3,7 @@ package com.base44.floralog.ota;
 import android.content.Context;
 import android.os.AsyncTask;
 import java.io.BufferedInputStream;
-import java.io.FileOutputStream;
+import java.io.BufferedReader;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -11,6 +11,8 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+
+import de.floralog.app.R;
 
 public class OtaUpdateChecker {
     public interface OtaUpdateListener {
@@ -21,10 +23,26 @@ public class OtaUpdateChecker {
         void onBundleActivated(String version, String path);
     }
 
-    private static final String META_URL = "https://floralog-ota.green-term-27d0.workers.dev/version.json?platform=android";
+    private static final String DEFAULT_META_URL = "https://floralog-ota.green-term-27d0.workers.dev/version.json?platform=android";
     private static final String LOCAL_META = "ota_latest.json";
 
+    private static String resolveManifestUrl(Context context) {
+        try {
+            String fromResources = context.getString(R.string.ota_manifest_url);
+            if (fromResources != null) {
+                String trimmed = fromResources.trim();
+                if (!trimmed.isEmpty() && !trimmed.contains("PLACEHOLDER")) {
+                    return trimmed;
+                }
+            }
+        } catch (Exception ignored) {
+            // Fallback below
+        }
+        return DEFAULT_META_URL;
+    }
+
     public static void checkForUpdateAndApply(Context context, OtaUpdateListener listener) {
+        final String manifestUrl = resolveManifestUrl(context);
         new AsyncTask<Void, String, Boolean>() {
             Exception error;
             String remoteVersion = null;
@@ -37,7 +55,7 @@ public class OtaUpdateChecker {
                 try {
                     // 1. Lade remote Metadatei
                     publishProgress("Lade Metadatei", 0+"");
-                    URL url = new URL(META_URL);
+                    URL url = new URL(manifestUrl);
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.setConnectTimeout(5000);
                     conn.setReadTimeout(5000);
@@ -47,19 +65,28 @@ public class OtaUpdateChecker {
                     while ((b = in.read()) != -1) sb.append((char) b);
                     JSONObject remoteMeta = new JSONObject(sb.toString());
                     remoteVersion = remoteMeta.getString("version");
-                    remoteUrl = remoteMeta.getString("url");
-                    remoteHash = remoteMeta.optString("hash", null);
+                    remoteUrl = remoteMeta.optString("bundleUrl", remoteMeta.optString("url", null));
+                    remoteHash = remoteMeta.optString("sha256", remoteMeta.optString("hash", null));
+
+                    if (remoteUrl == null || remoteUrl.isEmpty()) {
+                        throw new Exception("Manifest missing bundle URL (bundleUrl/url)");
+                    }
 
                     // 2. Lese lokale Version
                     File localMetaFile = new File(context.getFilesDir(), LOCAL_META);
                     String localVersion = null;
                     if (localMetaFile.exists()) {
-                        FileReader fr = new FileReader(localMetaFile);
-                        char[] buf = new char[256];
-                        int len = fr.read(buf);
-                        JSONObject localMeta = new JSONObject(new String(buf, 0, len));
-                        localVersion = localMeta.getString("version");
-                        fr.close();
+                        StringBuilder localRaw = new StringBuilder();
+                        try (BufferedReader fr = new BufferedReader(new FileReader(localMetaFile))) {
+                            String line;
+                            while ((line = fr.readLine()) != null) {
+                                localRaw.append(line);
+                            }
+                        }
+                        if (localRaw.length() > 0) {
+                            JSONObject localMeta = new JSONObject(localRaw.toString());
+                            localVersion = localMeta.optString("version", null);
+                        }
                     }
 
                     // 3. Vergleiche Versionen
@@ -81,7 +108,12 @@ public class OtaUpdateChecker {
 
                     // 6. Entpacken
                     publishProgress("Entpacke Bundle", 80+"");
-                    bundlePath = otaManager.extractBundle(zipFile, remoteVersion);
+                    String extractedPath = otaManager.extractBundle(zipFile, remoteVersion);
+                    String resolvedRoot = otaManager.resolveBundleRoot(extractedPath);
+                    if (resolvedRoot == null || resolvedRoot.isEmpty()) {
+                        throw new Exception("Invalid bundle: index.html missing");
+                    }
+                    bundlePath = resolvedRoot;
 
                     // 7. Aktivieren
                     otaManager.saveActiveBundle(remoteVersion, bundlePath);

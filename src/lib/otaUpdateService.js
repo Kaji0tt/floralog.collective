@@ -13,16 +13,18 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 
 const OtaUpdate = registerPlugin('OtaUpdate');
 
+const DEFAULT_OTA_VERSION_URL = 'https://floralog-ota.green-term-27d0.workers.dev/version.json';
+
 const OTA_VERSION_URL =
   import.meta.env.VITE_OTA_VERSION_URL ||
   import.meta.env.VITE_OTA_MANIFEST_URL ||
-  '';
+  DEFAULT_OTA_VERSION_URL;
 
 const OTA_VERSION_URL_SOURCE = import.meta.env.VITE_OTA_VERSION_URL
   ? 'VITE_OTA_VERSION_URL'
   : import.meta.env.VITE_OTA_MANIFEST_URL
     ? 'VITE_OTA_MANIFEST_URL'
-    : 'none';
+    : 'DEFAULT_OTA_VERSION_URL';
 
 function normalizeManifest(manifest) {
   if (!manifest || typeof manifest !== 'object') return null;
@@ -104,10 +106,6 @@ export async function checkForUpdate() {
   otaDebugLog('checkForUpdate called');
   if (!Capacitor.isNativePlatform()) {
     otaDebugLog('Not running on native platform, OTA skipped');
-    return null;
-  }
-  if (!OTA_VERSION_URL) {
-    otaDebugLog('OTA manifest URL is not configured (expected VITE_OTA_VERSION_URL or VITE_OTA_MANIFEST_URL)');
     return null;
   }
   otaDebugLog(`Using OTA URL from: ${OTA_VERSION_URL_SOURCE}`);

@@ -11,7 +11,9 @@ if (!fs.existsSync(envPath)) {
 }
 
 const env = fs.readFileSync(envPath, 'utf-8');
-const manifestUrl = env.match(/^VITE_OTA_MANIFEST_URL=(.*)$/m)?.[1] || '';
+const manifestUrl = env.match(/^VITE_OTA_VERSION_URL=(.*)$/m)?.[1]
+  || env.match(/^VITE_OTA_MANIFEST_URL=(.*)$/m)?.[1]
+  || '';
 const bundleUrl = env.match(/^VITE_OTA_BUNDLE_URL=(.*)$/m)?.[1] || '';
 
 if (!manifestUrl || !bundleUrl) {

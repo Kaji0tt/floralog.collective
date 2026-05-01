@@ -107,7 +107,7 @@ fi
 
 # Manifest-JSON direkt als Here-String erzeugen (kein node nötig)
 MANIFEST=$(cat <<EOF
-{"version":"${VERSION}","bundleUrl":"${BUNDLE_URL}","sha256":"${SHA256}","buildTime":"${BUILD_TIME}"}
+{"version":"${VERSION}","bundleUrl":"${BUNDLE_URL}","sha256":"${SHA256}","url":"${BUNDLE_URL}","hash":"${SHA256}","buildTime":"${BUILD_TIME}"}
 EOF
 )
 
