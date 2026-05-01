@@ -100,6 +100,7 @@ async function handleNativeShare(cardRef, plantName) {
 export default function ScanFeedbackNotification({ feedback, onComplete }) {
   // Fix: cardRef muss im Funktions-Scope deklariert werden
   const cardRef = React.useRef(null);
+  const onCompleteRef = useRef(onComplete);
   // Zeitgeber und AnimationFrame-Referenzen
   /** @type any[] */
   let timeouts = [];
@@ -129,6 +130,10 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
   const [showButtons, setShowButtons] = useState(false);
 
   useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
     if (!feedback) {
       return undefined;
     }
@@ -156,8 +161,8 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
       setShowButtons(false);
       timeouts.push(
         window.setTimeout(() => {
-          if (onComplete) {
-            onComplete();
+          if (onCompleteRef.current) {
+            onCompleteRef.current();
           }
         }, delayMs)
       );
@@ -265,7 +270,7 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
         window.cancelAnimationFrame(frameId);
       }
     };
-  }, [feedback, hasResourceGains, onComplete, rewardDetails, rewardSteps]);
+  }, [feedback, hasResourceGains, rewardDetails, rewardSteps]);
 
   if (!feedback) return null;
 
@@ -547,13 +552,12 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
             <button
               className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-base font-semibold shadow border border-emerald-700 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400"
               onClick={() => {
-                setShowButtons(false);
-                setTimeout(() => {
-                  if (onComplete) onComplete();
-                }, 50);
+                if (onCompleteRef.current) {
+                  onCompleteRef.current();
+                }
               }}
             >
-              Cool!
+              Okay
             </button>
             <button
               className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-base font-semibold shadow border border-amber-600 flex items-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-amber-300"
