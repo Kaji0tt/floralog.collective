@@ -69,6 +69,7 @@ const THEME_MAP_META = {
 };
 
 const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "";
+const FLORALOG_LOGO_URL = new URL("../../floralog_logo.png", import.meta.url).href;
 
 
 
@@ -2338,11 +2339,11 @@ function HomeContent() {
                               }`}
                             />
                             <div className="absolute inset-0 flex items-center justify-center">
-                              <Leaf className={`w-20 h-20 md:w-24 md:h-24 drop-shadow-[0_0_24px_rgba(190,242,100,0.6)] ${
-                                isLightUi
-                                  ? "text-emerald-600"
-                                  : "text-lime-200"
-                              }`} />
+                              <img
+                                src={FLORALOG_LOGO_URL}
+                                alt="FloraLog Logo"
+                                className="w-20 h-20 md:w-24 md:h-24 object-contain drop-shadow-[0_0_24px_rgba(190,242,100,0.6)]"
+                              />
                             </div>
 
                             <div className="absolute left-1/2 top-1/2 w-[82%] aspect-square -translate-x-1/2 -translate-y-1/2 pointer-events-none">
