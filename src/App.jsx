@@ -9,7 +9,6 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
-import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import ConfirmEmail from '@/pages/ConfirmEmail';
 import MigrateLogin from '@/pages/MigrateLogin';
@@ -85,7 +84,7 @@ function App() {
           <NavigationTracker />
           <Routes>
             {/* Public Auth Routes - accessible without authentication */}
-            <Route path="/login" element={<Login />} />
+            <Route path="/login" element={<Navigate to="/" replace />} />
             <Route path="/register" element={<Register />} />
             <Route path="/confirm-email" element={<ConfirmEmail />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />

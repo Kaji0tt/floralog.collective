@@ -650,16 +650,22 @@ export default function GuestHomeFlow() {
   };
 
   const handleContinueBrowserLogin = () => {
-    window.location.assign("/login");
+    setRecoveryModalOpen(false);
+    setRecoveryError(null);
   };
 
   const handleContinueAppLogin = () => {
     if (isNativeRuntime) {
-      navigate("/login");
+      setRecoveryModalOpen(false);
+      setRecoveryError(null);
       return;
     }
 
-    setRecoveryError("Du bist gerade im Browser. Oeffne die App und melde dich dort an.");
+    setRecoveryError(null);
+    window.location.assign("floralog://open");
+    window.setTimeout(() => {
+      setRecoveryError("Falls sich die App nicht geoeffnet hat: Bitte stelle sicher, dass Floralog installiert ist.");
+    }, 1200);
   };
 
   const panelFadeDuration = contentTransitionPhase === "fading-out"
@@ -1340,14 +1346,14 @@ export default function GuestHomeFlow() {
                       onClick={handleContinueBrowserLogin}
                       className="rounded-xl border border-emerald-200/35 bg-emerald-700/30 py-2 text-sm font-semibold text-emerald-100 hover:bg-emerald-700/45 transition-colors"
                     >
-                      Im Browser einloggen
+                      Im Browser weiter
                     </button>
                     <button
                       type="button"
                       onClick={handleContinueAppLogin}
                       className="rounded-xl border border-amber-200/35 bg-amber-700/20 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-700/30 transition-colors"
                     >
-                      In App einloggen
+                      In App oeffnen
                     </button>
                   </div>
                 </div>
