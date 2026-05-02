@@ -1591,8 +1591,9 @@ export function useAchievementsFeatureContent({
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: index * 0.05 }}
+                            className="min-w-0"
                           >
-                            <Card className={`relative overflow-hidden border-2 shadow-sm backdrop-blur-sm hover:shadow-md transition-all ${questCardSurfaceClass} ${questBorderClass(quest)}`}>
+                            <Card className={`relative w-full min-w-0 overflow-hidden border-2 shadow-sm backdrop-blur-sm hover:shadow-md transition-all ${questCardSurfaceClass} ${questBorderClass(quest)}`}>
                               <div className="absolute inset-0 bg-black/35 pointer-events-none" />
                               <CardContent className="relative z-10 p-3">
                                 <div className="flex items-start gap-2">
@@ -1629,9 +1630,9 @@ export function useAchievementsFeatureContent({
 
                                     {quest.isCompleted && (
                                       <div className={`space-y-1 pt-1.5 border-t ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
                                           {quest.rewardDisplayName && (
-                                            <div className={`min-w-0 flex-1 flex items-center gap-1 rounded-md px-2 py-1 text-[11px] ${questRewardBlockClass}`}>
+                                            <div className={`min-w-0 w-full sm:flex-1 flex items-center gap-1 rounded-md px-2 py-1 text-[11px] ${questRewardBlockClass}`}>
                                               <Gift className="w-3 h-3 flex-shrink-0" />
                                               <span className="truncate font-semibold">{quest.rewardDisplayName}</span>
                                             </div>
@@ -1653,7 +1654,7 @@ export function useAchievementsFeatureContent({
                                               }}
                                               disabled={redeemQuestMutation.isPending}
                                               size="sm"
-                                              className={`h-6 px-2 text-[11px] ${questRedeemBtnClass}`}
+                                              className={`h-6 w-full sm:w-auto shrink-0 px-2 text-[11px] ${questRedeemBtnClass}`}
                                             >
                                               Einlösen
                                             </Button>
@@ -1744,9 +1745,9 @@ export function useAchievementsFeatureContent({
                                         )}
 
                                         <div className={`space-y-1 pt-1.5 border-t ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
-                                          <div className="flex items-center gap-2">
+                                          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
                                             {quest.rewardDisplayName && (
-                                              <div className={`min-w-0 flex-1 flex items-center gap-1 rounded-md px-2 py-1 text-[11px] ${questRewardBlockClass}`}>
+                                              <div className={`min-w-0 w-full sm:flex-1 flex items-center gap-1 rounded-md px-2 py-1 text-[11px] ${questRewardBlockClass}`}>
                                                 <Gift className="w-3 h-3 flex-shrink-0" />
                                                 <span className="truncate font-semibold">{quest.rewardDisplayName}</span>
                                               </div>

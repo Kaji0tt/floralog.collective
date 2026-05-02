@@ -1216,6 +1216,8 @@ export default function Scanner() {
     return `rgb(${r}, ${g}, ${b})`;
   };
 
+  const shouldTopAlignContent = !!matchedPlant || scanning;
+
   return (
     <>
       <style>{`
@@ -1251,7 +1253,7 @@ export default function Scanner() {
             className="w-full h-full flex flex-col items-center justify-center"
             style={{minHeight:'100dvh',height:'100dvh',width:'100vw',overflow:'auto'}}
           >
-            <div className="w-full h-full flex flex-col items-center justify-center">
+            <div className={`w-full min-h-full flex flex-col items-center ${shouldTopAlignContent ? 'justify-start py-4' : 'justify-center'}`}>
       {/* Grüner Haken / Ändern Button - nur wenn pendingScanData vorhanden */}
       {pendingScanData && !isSavingPlant && (
         <ConfirmButton 

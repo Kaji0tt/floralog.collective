@@ -289,7 +289,7 @@ export default function ScanResults({
     const showChangeResultButton = !isPrimaryResult && confidencePercentage >= 25;
 
     return (
-      <div className="relative -top-5 overflow-auto">
+      <div className="relative overflow-visible">
         {/* ShareScanDialog und zugehörigen Event-Listener entfernt, solange kein Dialog existiert */}
 
         <div className="relative flex items-center gap-4 overflow-visible">
