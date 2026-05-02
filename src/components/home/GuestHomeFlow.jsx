@@ -2,7 +2,7 @@
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Camera, Mail, Lock, User, Loader2, AlertCircle, CheckCircle2, ChevronDown } from "lucide-react";
-import { signIn, signUp } from "@/api/authService";
+import { signIn, signUp, updatePassword } from "@/api/authService";
 import { checkLegacyUser, upsertLegacyUserFromRegistration } from "@/api/migrationService";
 import { supabase } from "@/api/supabaseClient";
 
@@ -243,6 +243,11 @@ function useLeafTwitch() {
 
 export default function GuestHomeFlow() {
   const navigate = useNavigate();
+  const isNativeRuntime = (() => {
+    if (typeof window === "undefined") return false;
+    const runtimeWindow = /** @type {any} */ (window);
+    return Boolean(runtimeWindow.Capacitor?.isNativePlatform?.());
+  })();
   const gestureLockRef = useRef(false);
   const touchStartYRef = useRef(/** @type {number | null} */ (null));
   const orientationPermissionRequestedRef = useRef(false);
@@ -253,6 +258,12 @@ export default function GuestHomeFlow() {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalTab, setAuthModalTab] = useState(/** @type {"register" | "migration"} */ ("register"));
   const [supportModalOpen, setSupportModalOpen] = useState(false);
+  const [recoveryModalOpen, setRecoveryModalOpen] = useState(false);
+  const [recoveryPassword, setRecoveryPassword] = useState("");
+  const [recoveryConfirmPassword, setRecoveryConfirmPassword] = useState("");
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
+  const [recoveryError, setRecoveryError] = useState(/** @type {string | null} */ (null));
+  const [recoverySuccess, setRecoverySuccess] = useState(/** @type {string | null} */ (null));
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState(/** @type {string | null} */ (null));
   const [registerLoading, setRegisterLoading] = useState(false);
@@ -268,6 +279,27 @@ export default function GuestHomeFlow() {
     supabase.rpc("get_community_stats").then(({ data }) => {
       if (data) setCommunityStats(data);
     });
+  }, []);
+
+  useEffect(() => {
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const queryParams = new URLSearchParams(window.location.search);
+    const hasRecoveryType = hashParams.get("type") === "recovery" || queryParams.get("type") === "recovery";
+    const hasAuthTokens = hashParams.has("access_token") && hashParams.has("refresh_token");
+
+    if (hasRecoveryType || hasAuthTokens) {
+      setRecoveryModalOpen(true);
+    }
+
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY" || (event === "SIGNED_IN" && (hasRecoveryType || hasAuthTokens) && !!session?.user)) {
+        setRecoveryModalOpen(true);
+      }
+    });
+
+    return () => {
+      data?.subscription?.unsubscribe();
+    };
   }, []);
 
   const [authForm, setAuthForm] = useState({
@@ -577,6 +609,57 @@ export default function GuestHomeFlow() {
     } finally {
       setRegisterLoading(false);
     }
+  };
+
+  /** @param {React.FormEvent<HTMLFormElement>} event */
+  const handleRecoverySubmit = async (event) => {
+    event.preventDefault();
+    setRecoveryError(null);
+    setRecoverySuccess(null);
+
+    if (recoveryPassword !== recoveryConfirmPassword) {
+      setRecoveryError("Passwoerter stimmen nicht ueberein.");
+      return;
+    }
+
+    if (recoveryPassword.length < 8) {
+      setRecoveryError("Passwort muss mindestens 8 Zeichen lang sein.");
+      return;
+    }
+
+    if (!/[a-z]/.test(recoveryPassword) || !/[A-Z]/.test(recoveryPassword) || !/\d/.test(recoveryPassword)) {
+      setRecoveryError("Passwort muss Klein-, Grossbuchstaben und Zahlen enthalten.");
+      return;
+    }
+
+    setRecoveryLoading(true);
+    try {
+      await updatePassword(recoveryPassword);
+      setRecoverySuccess("Passwort wurde gespeichert. Du kannst dich jetzt anmelden.");
+      setRecoveryPassword("");
+      setRecoveryConfirmPassword("");
+      window.history.replaceState({}, document.title, "/");
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : "Passwort konnte nicht gespeichert werden. Bitte versuche es erneut.";
+      setRecoveryError(message);
+    } finally {
+      setRecoveryLoading(false);
+    }
+  };
+
+  const handleContinueBrowserLogin = () => {
+    window.location.assign("/login");
+  };
+
+  const handleContinueAppLogin = () => {
+    if (isNativeRuntime) {
+      navigate("/login");
+      return;
+    }
+
+    setRecoveryError("Du bist gerade im Browser. Oeffne die App und melde dich dort an.");
   };
 
   const panelFadeDuration = contentTransitionPhase === "fading-out"
@@ -1173,6 +1256,112 @@ export default function GuestHomeFlow() {
                 info@floralog.de
               </a>
             </div>
+          </div>
+        </div>
+      )}
+
+      {recoveryModalOpen && (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/72 backdrop-blur-[2px]" />
+
+          <div
+            className="relative z-10 w-full max-w-[92vw] sm:max-w-md rounded-3xl border border-amber-100/30 bg-[linear-gradient(180deg,rgba(10,24,16,0.95)_0%,rgba(6,16,10,0.96)_100%)] text-stone-100 shadow-[0_28px_90px_rgba(0,0,0,0.62)] backdrop-blur-xl p-5"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="absolute inset-0 rounded-3xl border border-amber-100/15 pointer-events-none" />
+
+            <div className="relative z-10">
+              <h3 className="text-xl font-semibold text-amber-50">Neues Passwort setzen</h3>
+              <p className="text-sm text-stone-300 mt-1">
+                Du bist ueber den E-Mail-Link angekommen. Vergib jetzt ein neues Passwort fuer deinen Account.
+              </p>
+            </div>
+
+            <form onSubmit={handleRecoverySubmit} className="relative z-10 space-y-3 mt-4">
+              {recoverySuccess && (
+                <div className="rounded-xl border border-emerald-300/35 bg-emerald-900/30 px-3 py-2 text-sm text-emerald-100 flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <span>{recoverySuccess}</span>
+                </div>
+              )}
+
+              {recoveryError && (
+                <div className="rounded-xl border border-red-300/35 bg-red-900/30 px-3 py-2 text-sm text-red-100 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <span>{recoveryError}</span>
+                </div>
+              )}
+
+              <label className="block space-y-1">
+                <span className="text-xs uppercase tracking-[0.14em] text-amber-100/75 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5" /> Neues Passwort</span>
+                <input
+                  type="password"
+                  value={recoveryPassword}
+                  onChange={(event) => setRecoveryPassword(event.target.value)}
+                  disabled={recoveryLoading || !!recoverySuccess}
+                  required
+                  className="w-full rounded-xl border border-amber-100/25 bg-black/35 px-3 py-2.5 text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/55"
+                  placeholder="••••••••"
+                />
+              </label>
+
+              <label className="block space-y-1">
+                <span className="text-xs uppercase tracking-[0.14em] text-amber-100/75 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5" /> Passwort bestaetigen</span>
+                <input
+                  type="password"
+                  value={recoveryConfirmPassword}
+                  onChange={(event) => setRecoveryConfirmPassword(event.target.value)}
+                  disabled={recoveryLoading || !!recoverySuccess}
+                  required
+                  className="w-full rounded-xl border border-amber-100/25 bg-black/35 px-3 py-2.5 text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/55"
+                  placeholder="••••••••"
+                />
+              </label>
+
+              <p className="text-xs text-stone-400/85">
+                Anforderungen: mindestens 8 Zeichen, Klein-/Grossbuchstaben und Zahlen.
+              </p>
+
+              <button
+                type="submit"
+                disabled={recoveryLoading || !!recoverySuccess}
+                className="w-full rounded-xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/85 via-emerald-500/75 to-emerald-700/85 py-2.5 text-white font-semibold hover:brightness-110 disabled:opacity-60 transition-all flex items-center justify-center gap-2"
+              >
+                {recoveryLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                Neues Passwort speichern
+              </button>
+
+              {recoverySuccess && (
+                <div className="rounded-xl border border-amber-100/20 bg-black/25 px-3 py-3">
+                  <p className="text-xs uppercase tracking-[0.14em] text-amber-100/75">Wie moechtest du weitermachen?</p>
+                  <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={handleContinueBrowserLogin}
+                      className="rounded-xl border border-emerald-200/35 bg-emerald-700/30 py-2 text-sm font-semibold text-emerald-100 hover:bg-emerald-700/45 transition-colors"
+                    >
+                      Im Browser einloggen
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleContinueAppLogin}
+                      className="rounded-xl border border-amber-200/35 bg-amber-700/20 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-700/30 transition-colors"
+                    >
+                      In App einloggen
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setRecoveryModalOpen(false)}
+                disabled={recoveryLoading}
+                className="w-full rounded-xl border border-amber-100/20 bg-black/25 py-2.5 text-stone-200 hover:bg-black/35 disabled:opacity-60 transition-colors"
+              >
+                Spaeter
+              </button>
+            </form>
           </div>
         </div>
       )}
