@@ -1557,16 +1557,6 @@ function HomeContent() {
       ...getNavButtonStyle({ palette: "amber", isLightUi }),
     },
     {
-      label: "Social",
-      icon: Users,
-      onClick: () => {
-        setActivePanel("friends");
-        setShowHealthStatsPanel(false);
-      },
-      showNotificationDot: hasSocialNotifications,
-      ...getNavButtonStyle({ palette: "blue", isLightUi }),
-    },
-    {
       label: "Karte",
       icon: MapPin,
       onClick: () => {
@@ -1574,6 +1564,16 @@ function HomeContent() {
         setShowHealthStatsPanel(false);
       },
       ...getNavButtonStyle({ palette: "blue", isLightUi }),
+    },
+    {
+      label: "Social",
+      icon: Users,
+      onClick: () => {
+        setActivePanel("friends");
+        setShowHealthStatsPanel(false);
+      },
+      showNotificationDot: hasSocialNotifications,
+      ...getNavButtonStyle({ palette: "purple", isLightUi }),
     },
   ];
 

@@ -23,6 +23,12 @@ const PALETTES = {
     lightShadow: "inset 0 1px 0 rgba(255,255,255,0.9), 0 6px 12px rgba(180,100,30,0.15)",
     darkShadow: "inset 0 1px 0 rgba(255,200,140,0.12), 0 6px 12px rgba(0,0,0,0.28)",
   },
+  purple: {
+    lightGradient: "bg-gradient-to-b from-[#ede9fe]/95 via-[#ddd6fe]/95 to-[#c4b5fd]/95",
+    darkGradient: "bg-gradient-to-b from-[#1e0a3a]/90 via-[#120622]/96 to-[#06020f]/99",
+    lightShadow: "inset 0 1px 0 rgba(255,255,255,0.9), 0 6px 12px rgba(120,60,200,0.15)",
+    darkShadow: "inset 0 1px 0 rgba(200,160,255,0.12), 0 6px 12px rgba(0,0,0,0.28)",
+  },
 };
 
 export const NAV_COLOR_ORDER = ["green", "amber", "blue", "orange"];
