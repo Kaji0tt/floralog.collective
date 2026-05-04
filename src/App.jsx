@@ -19,7 +19,6 @@ import GuestLoginModal from '@/components/GuestLoginModal';
 import HomeShellLoader from '@/components/navigation/HomeShellLoader';
 import { UiThemeProvider } from '@/lib/UiThemeContext';
 import OtaUpdateManager from '@/components/OtaUpdateManager';
-import OtaDebugConsole from '@/components/OtaDebugConsole';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -100,7 +99,6 @@ function App() {
         <Toaster />
         <VisualEditAgent />
         <OtaUpdateManager />
-        <OtaDebugConsole />
       </QueryClientProvider>
     </AuthProvider>
     </UiThemeProvider>
