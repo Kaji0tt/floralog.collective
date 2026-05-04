@@ -2133,14 +2133,19 @@ function HomeContent() {
                             onClick={() => setShowWeeklyQuestTooltip(false)}
                           />
                           <div
-                            className={`absolute left-0 md:left-2 z-[21] w-60 rounded-2xl border backdrop-blur-sm p-3 shadow-xl ${
+                            className={`absolute left-0 z-[21] right-0 rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl ${
                               isLightUi
                                 ? "border-amber-400/60 bg-white/88"
                                 : "border-amber-300/40 bg-black/75"
                             }`}
                             style={{ top: "calc(1.25rem + 3.6rem + 0.5rem)" }}
                           >
-                            <p className={`font-bold text-sm leading-tight mb-1.5 ${
+                            <p className={`text-[10px] font-semibold uppercase tracking-wide mb-0.5 ${
+                              isLightUi ? "text-amber-600" : "text-amber-400/80"
+                            }`}>
+                              Pflanze der Woche:
+                            </p>
+                            <p className={`font-bold text-sm leading-tight mb-2 ${
                               isLightUi ? "text-amber-800" : "text-amber-300"
                             }`}>
                               {currentWeeklyQuest
