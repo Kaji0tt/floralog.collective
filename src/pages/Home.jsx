@@ -15,7 +15,7 @@ import {
   waterRobotPlant,
 } from "@/api/robotPlantService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Camera, Loader2, Leaf, Plus, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, Zap } from "lucide-react";
+import { Camera, Loader2, Leaf, Plus, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, Zap, ShoppingCart } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
@@ -103,6 +103,7 @@ function HomeContent() {
   const [isResolvingHeroMapLocation, setIsResolvingHeroMapLocation] = useState(false);
   const [hasResolvedZoneBootstrap, setHasResolvedZoneBootstrap] = useState(false);
   const [showHealthStatsPanel, setShowHealthStatsPanel] = useState(false);
+  const [showWeeklyQuestTooltip, setShowWeeklyQuestTooltip] = useState(false);
   const healthStatsPanelRef = useRef(null);
   const [heroStageSizePx, setHeroStageSizePx] = useState(0);
   const [heroMapInstance, setHeroMapInstance] = useState(null);
@@ -2064,31 +2065,103 @@ function HomeContent() {
                         aspectRatio: showHealthStatsPanel ? undefined : "1 / 1",
                       }}
                     >
-                      <button
-                        type="button"
-                        onClick={() => setShowHealthStatsPanel((prev) => !prev)}
-                        className={`absolute left-0 md:left-2 top-5 md:top-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${
-                          isLightUi
-                            ? "border-[#c8ac62]/60"
-                            : "border-[#f0e5a5]/40"
-                        }`}
-                        style={{
-                          background: isLightUi
-                            ? `linear-gradient(135deg, ${resolvedPlantHealthState.color}35 0%, ${resolvedPlantHealthState.color}15 100%)`
-                            : `linear-gradient(135deg, ${resolvedPlantHealthState.color}7a 0%, ${resolvedPlantHealthState.color}4d 100%)`,
-                        }}
-                        aria-label="Pflanzenstatus ein- oder ausklappen"
-                      >
-                        <Leaf className={`w-4 h-4 ${isLightUi ? "text-stone-700" : "text-white/90"}`} />
-                        <span className={`font-bold text-[11px] md:text-xs leading-none mt-0.5 ${isLightUi ? "text-stone-800" : "text-white"}`}>
-                          {displayedOverallPlantHealth === null ? "..." : `${displayedOverallPlantHealth}%`}
-                        </span>
-                      </button>
+                      {(() => {
+                        const monthlyReady = activeMonthlyQuest?.isCompleted;
+                        const weeklyReady = activeWeeklyQuest?.isCompleted;
+                        const regularReady = activeRegularQuests.some(q => q.isCompleted);
+                        const anyReady = monthlyReady || weeklyReady || regularReady;
+
+                        const borderClass = monthlyReady
+                          ? isLightUi ? "border-purple-500/70" : "border-purple-400/60"
+                          : weeklyReady
+                            ? isLightUi ? "border-emerald-500/70" : "border-emerald-400/60"
+                            : regularReady
+                              ? isLightUi ? "border-stone-400/70" : "border-white/50"
+                              : isLightUi ? "border-amber-400/60" : "border-amber-300/50";
+
+                        const bgStyle = monthlyReady
+                          ? isLightUi
+                            ? "linear-gradient(135deg, rgba(168,85,247,0.30) 0%, rgba(168,85,247,0.12) 100%)"
+                            : "linear-gradient(135deg, rgba(168,85,247,0.52) 0%, rgba(168,85,247,0.30) 100%)"
+                          : weeklyReady
+                            ? isLightUi
+                              ? "linear-gradient(135deg, rgba(16,185,129,0.30) 0%, rgba(16,185,129,0.12) 100%)"
+                              : "linear-gradient(135deg, rgba(16,185,129,0.52) 0%, rgba(16,185,129,0.30) 100%)"
+                            : regularReady
+                              ? isLightUi
+                                ? "linear-gradient(135deg, rgba(200,200,200,0.38) 0%, rgba(200,200,200,0.16) 100%)"
+                                : "linear-gradient(135deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.12) 100%)"
+                              : isLightUi
+                                ? "linear-gradient(135deg, rgba(234,179,8,0.28) 0%, rgba(234,179,8,0.10) 100%)"
+                                : "linear-gradient(135deg, rgba(234,179,8,0.48) 0%, rgba(234,179,8,0.28) 100%)";
+
+                        const iconColor = monthlyReady
+                          ? isLightUi ? "text-purple-700" : "text-purple-300"
+                          : weeklyReady
+                            ? isLightUi ? "text-emerald-700" : "text-emerald-300"
+                            : regularReady
+                              ? isLightUi ? "text-stone-600" : "text-white"
+                              : isLightUi ? "text-amber-700" : "text-amber-300";
+
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (anyReady) {
+                                setActivePanel("achievements");
+                                setShowHealthStatsPanel(false);
+                              } else {
+                                setShowWeeklyQuestTooltip((prev) => !prev);
+                              }
+                            }}
+                            className={`absolute left-0 md:left-2 top-5 md:top-6 z-20 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${borderClass}`}
+                            style={{ background: bgStyle }}
+                            aria-label={anyReady ? "Quest abgeben" : "Wochenquest anzeigen"}
+                          >
+                            <span className={`text-[1.35rem] font-black leading-none ${iconColor}`}>
+                              {anyReady ? "?" : "!"}
+                            </span>
+                            <span className={`font-semibold text-[10px] md:text-[11px] leading-none mt-0.5 ${isLightUi ? "text-stone-800" : "text-white"}`}>Quest</span>
+                          </button>
+                        );
+                      })()}
+
+                      {showWeeklyQuestTooltip && (
+                        <>
+                          <div
+                            className="absolute inset-0 z-[19]"
+                            onClick={() => setShowWeeklyQuestTooltip(false)}
+                          />
+                          <div
+                            className={`absolute left-0 md:left-2 z-[21] w-60 rounded-2xl border backdrop-blur-sm p-3 shadow-xl ${
+                              isLightUi
+                                ? "border-amber-400/60 bg-white/88"
+                                : "border-amber-300/40 bg-black/75"
+                            }`}
+                            style={{ top: "calc(1.25rem + 3.6rem + 0.5rem)" }}
+                          >
+                            <p className={`font-bold text-sm leading-tight mb-1.5 ${
+                              isLightUi ? "text-amber-800" : "text-amber-300"
+                            }`}>
+                              {currentWeeklyQuest
+                                ? (currentWeeklyQuest.target_species_name || currentWeeklyQuest.target_genus_name || currentWeeklyQuest.title)
+                                : "Keine Wochenquest"}
+                            </p>
+                            {currentWeeklyQuest?.description && (
+                              <p className={`text-xs leading-snug ${
+                                isLightUi ? "text-stone-700" : "text-white/80"
+                              }`}>
+                                {currentWeeklyQuest.description}
+                              </p>
+                            )}
+                          </div>
+                        </>
+                      )}
 
                       <button
                         type="button"
-                        onClick={handleOpenHeroZoneMap}
-                        aria-label="Zonenkarte in Plant-Hero öffnen"
+                        onClick={() => openShop("all")}
+                        aria-label="Shop öffnen"
                         className={`absolute right-0 md:right-2 top-5 md:top-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${
                           isLightUi
                             ? "border-[#c8ac62]/60"
@@ -2096,13 +2169,13 @@ function HomeContent() {
                         }`}
                         style={{
                           background: isLightUi
-                            ? `linear-gradient(135deg, ${currentZoneColor}35 0%, ${currentZoneColor}15 100%)`
-                            : `linear-gradient(135deg, ${currentZoneColor}7a 0%, ${currentZoneColor}4d 100%)`,
+                            ? "linear-gradient(135deg, rgba(107,114,128,0.28) 0%, rgba(107,114,128,0.12) 100%)"
+                            : "linear-gradient(135deg, rgba(107,114,128,0.48) 0%, rgba(107,114,128,0.30) 100%)",
                         }}
                       >
-                        <ZoneIcon className={`w-4 h-4 ${isLightUi ? "text-stone-700" : "text-white/90"}`} />
-                        <span className={`font-semibold text-[11px] md:text-xs leading-none mt-0.5 truncate max-w-[85%] ${isLightUi ? "text-stone-800" : "text-white"}`}>
-                          {(!hasResolvedZoneBootstrap || isLoadingZone) ? "..." : activeZoneMeta?.label || "Leer"}
+                        <ShoppingCart className={`w-4 h-4 ${isLightUi ? "text-stone-700" : "text-white/90"}`} />
+                        <span className={`font-semibold text-[11px] md:text-xs leading-none mt-0.5 ${isLightUi ? "text-stone-800" : "text-white"}`}>
+                          Shop
                         </span>
                       </button>
 
