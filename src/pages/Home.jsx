@@ -2219,9 +2219,9 @@ function HomeContent() {
                             className="absolute inset-0"
                           >
                             <div
-                              className="absolute left-1/2 top-1/2 w-[56%] aspect-square -translate-x-1/2 -translate-y-1/2 rounded-full blur-2xl animate-pulse pointer-events-none"
+                              className="absolute left-1/2 top-1/2 w-[75%] aspect-square -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl animate-pulse pointer-events-none"
                               style={{
-                                background: `radial-gradient(circle, ${resolvedPlantHealthState.color}66 0%, ${resolvedPlantHealthState.color}22 46%, transparent 74%)`,
+                                background: `radial-gradient(circle, ${resolvedPlantHealthState.color}aa 0%, ${resolvedPlantHealthState.color}44 46%, transparent 74%)`,
                               }}
                             />
                             <div className="absolute left-1/2 top-1/2 w-[82%] aspect-square -translate-x-1/2 -translate-y-1/2">
