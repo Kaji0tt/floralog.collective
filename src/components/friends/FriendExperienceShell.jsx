@@ -218,17 +218,8 @@ export default function FriendExperienceShell({
           <div className={`my-[clamp(0.5rem,1.2vh,1rem)] h-px ${isLightUi ? "bg-[#c8ac62]/35" : "bg-[#f0e5a5]/25"}`} />
 
           <section
-            className={`relative flex-1 min-h-0 rounded-3xl border overflow-hidden ${
-              isLightUi
-                ? "border-[#c0a860]/50 backdrop-blur-xl"
-                : "border-[#f0e5a5]/25 bg-black/25 backdrop-blur-sm"
-            }`}
-            style={isLightUi ? {
-              background:
-                "linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.15) 35%, rgba(255,255,255,0) 65%, rgba(255,255,255,0.1) 100%)",
-            } : {}}
+            className="relative flex-1 min-h-0 rounded-3xl overflow-hidden bg-transparent"
           >
-            <div className="absolute inset-0 pointer-events-none bg-black/18" />
             <div className="relative z-10 h-full">
               {children}
             </div>

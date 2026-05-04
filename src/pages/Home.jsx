@@ -2205,13 +2205,6 @@ function HomeContent() {
                             transition={{ duration: 0.16, ease: "easeOut" }}
                             className="absolute inset-0"
                           >
-                            <div
-                              className={`absolute left-1/2 top-1/2 w-[82%] -translate-x-1/2 -translate-y-1/2 aspect-square rounded-full border backdrop-blur-sm shadow-[inset_0_0_30px_rgba(190,242,100,0.15)] ${
-                                isLightUi
-                                  ? "border-[#b8d4a8]/55 bg-gradient-to-b from-emerald-50/75 to-emerald-100/45"
-                                  : "border-[#f0e5a5]/35 bg-gradient-to-b from-emerald-100/25 to-emerald-900/45"
-                              }`}
-                            />
                             <div className="absolute left-1/2 top-1/2 w-[82%] aspect-square -translate-x-1/2 -translate-y-1/2">
                               <img
                                 src={FLORALOG_LOGO_URL}
