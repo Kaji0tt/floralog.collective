@@ -2019,17 +2019,25 @@ function HomeContent() {
                   <section data-ui="home-plant-hero-section" className="flex-1 min-h-0 rounded-3xl px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col bg-transparent">
                   <div
                     className={`w-full rounded-2xl border backdrop-blur-sm px-[clamp(0.625rem,2vw,0.875rem)] ${
-                      isLightUi
-                        ? "border-[#c8ac62]/45 bg-gradient-to-r from-emerald-100/50 via-white/40 to-emerald-100/50"
-                        : "border-[#f0e5a5]/45 bg-gradient-to-r from-emerald-900/45 via-black/30 to-emerald-900/45"
+                      isLightUi ? "border-[#c8ac62]/45" : "border-[#f0e5a5]/45"
                     }`}
-                    style={{ height: `${(2.4 * controlsScale).toFixed(2)}rem` }}
+                    style={{
+                      height: `${(2.4 * controlsScale).toFixed(2)}rem`,
+                      background: isLightUi
+                        ? `linear-gradient(90deg, ${resolvedPlantHealthState.color}2e 0%, rgba(255,255,255,0.44) 50%, ${resolvedPlantHealthState.color}24 100%)`
+                        : `linear-gradient(90deg, ${resolvedPlantHealthState.color}66 0%, rgba(0,0,0,0.30) 50%, ${resolvedPlantHealthState.color}4a 100%)`,
+                    }}
                   >
                     <div className={`h-full w-full grid grid-cols-3 divide-x ${isLightUi ? "divide-[#c8ac62]/35" : "divide-[#f0e5a5]/30"}`}>
-                      <div className={`flex items-center justify-center gap-1.5 min-w-0 px-2 text-xs md:text-sm font-semibold ${isLightUi ? "text-stone-700" : "text-white/95"}`}>
-                        <Leaf className="w-4 h-4 shrink-0" style={{ color: resolvedPlantHealthState.color }} />
+                      <button
+                        type="button"
+                        onClick={() => setShowHealthStatsPanel(true)}
+                        className={`flex items-center justify-center gap-1.5 min-w-0 px-2 text-xs md:text-sm font-semibold transition-colors ${isLightUi ? "text-stone-700 hover:text-stone-800" : "text-white/95 hover:text-white"}`}
+                        aria-label="Pflanzenstatus-Panel öffnen"
+                      >
+                        <Leaf className="w-4 h-4 shrink-0 text-emerald-500" />
                         <span className="truncate">{resolvedPlantHealthState.label}</span>
-                      </div>
+                      </button>
                       <div className={`flex items-center justify-center gap-1.5 min-w-0 px-2 text-xs md:text-sm font-semibold ${isLightUi ? "text-stone-700" : "text-white/95"}`}>
                         <MapPin className="w-4 h-4 shrink-0" style={{ color: currentZoneColor }} />
                         <span className="truncate">{(!hasResolvedZoneBootstrap || isLoadingZone) ? "..." : activeZoneMeta?.label || "Leer"}</span>
@@ -2132,6 +2140,12 @@ function HomeContent() {
                             transition={{ duration: 0.16, ease: "easeOut" }}
                             className="absolute inset-0"
                           >
+                            <div
+                              className="absolute left-1/2 top-1/2 w-[56%] aspect-square -translate-x-1/2 -translate-y-1/2 rounded-full blur-2xl animate-pulse pointer-events-none"
+                              style={{
+                                background: `radial-gradient(circle, ${resolvedPlantHealthState.color}66 0%, ${resolvedPlantHealthState.color}22 46%, transparent 74%)`,
+                              }}
+                            />
                             <div className="absolute left-1/2 top-1/2 w-[82%] aspect-square -translate-x-1/2 -translate-y-1/2">
                               <img
                                 src={FLORALOG_LOGO_URL}
@@ -2161,30 +2175,24 @@ function HomeContent() {
                   </div>
 
                   <div
-                    className={`mt-[clamp(0.5rem,1.2vh,1rem)] w-full rounded-2xl border backdrop-blur-sm px-[clamp(0.375rem,1.6vw,0.625rem)] ${
-                      isLightUi
-                        ? "border-[#c8ac62]/45 bg-gradient-to-r from-emerald-100/50 via-white/40 to-emerald-100/50"
-                        : "border-[#f0e5a5]/45 bg-gradient-to-r from-emerald-900/45 via-black/30 to-emerald-900/45"
-                    }`}
+                    className="mt-[clamp(0.5rem,1.2vh,1rem)] w-full grid grid-cols-4 gap-2"
                     style={{ height: `${(2.9 * controlsScale).toFixed(2)}rem` }}
                   >
-                    <div className="h-full w-full grid grid-cols-4 gap-2">
-                      {["left", "right", "top", "bottom"].map((slotKey) => (
-                        <button
-                          key={slotKey}
-                          type="button"
-                          onClick={() => openShop("accessory")}
-                          className={`h-full w-full rounded-xl border flex items-center justify-center transition-colors ${
-                            isLightUi
-                              ? "border-[#c8ac62]/55 bg-white/52 text-stone-700 hover:bg-white/68"
-                              : "border-[#f0e5a5]/45 bg-black/35 text-[#f0e5a5] hover:bg-black/50"
-                          }`}
-                          aria-label={`Accessoire Slot ${slotKey}`}
-                        >
-                          <Plus className="w-5 h-5" />
-                        </button>
-                      ))}
-                    </div>
+                    {["left", "right", "top", "bottom"].map((slotKey) => (
+                      <button
+                        key={slotKey}
+                        type="button"
+                        onClick={() => openShop("accessory")}
+                        className={`h-full w-full rounded-xl border flex items-center justify-center transition-colors ${
+                          isLightUi
+                            ? "border-[#c8ac62]/55 bg-white/52 text-stone-700 hover:bg-white/68"
+                            : "border-[#f0e5a5]/45 bg-black/35 text-[#f0e5a5] hover:bg-black/50"
+                        }`}
+                        aria-label={`Accessoire Slot ${slotKey}`}
+                      >
+                        <Plus className="w-5 h-5" />
+                      </button>
+                    ))}
                   </div>
 
                   <motion.button
