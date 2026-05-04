@@ -57,10 +57,14 @@ export default function CollectionScreen({
     <>
       <div className="shrink-0 space-y-3">
         {!isQuestCollectionView && (ownedCollections.length + followedCollections.length > 0) && (
-          <div className="-mx-4 px-4 pb-0 flex gap-2 overflow-x-auto scrollbar-hide">
+          <div className="-mx-4 px-4 pb-0">
             <div
-              className="flex gap-2"
+              className={"rounded-2xl border shadow-sm backdrop-blur-sm px-2 py-2 " + (isLightUi ? "bg-white/58" : "bg-black/30")}
+              style={{
+                borderColor: isLightUi ? "rgba(200,172,98,0.32)" : "rgba(240,229,165,0.28)",
+              }}
             >
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide">
               {(() => {
                 const followedCollectionsChips = followedCollections.map((collectionEntry) => ({
                   id: collectionEntry.id,
@@ -107,6 +111,7 @@ export default function CollectionScreen({
                   );
                 });
               })()}
+              </div>
             </div>
           </div>
         )}

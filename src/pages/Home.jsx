@@ -48,7 +48,6 @@ import AchievementsFeatureRoot from "@/components/achievements/AchievementsFeatu
 import FriendsFeatureRoot from "@/components/friends/FriendsFeatureRoot";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { useAuth } from "@/lib/AuthContext";
@@ -69,10 +68,6 @@ const THEME_MAP_META = {
 
 const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "";
 const FLORALOG_LOGO_URL = new URL("../../floralog_logo.png", import.meta.url).href;
-
-
-
-const MULTIPLIER_SWIPE_THRESHOLD_PX = 36;
 const SOCIAL_NEWS_NOTIFICATION_TYPES = [
   "gift_received",
   "collection_followed",
@@ -112,11 +107,6 @@ function HomeContent() {
   const [heroStageSizePx, setHeroStageSizePx] = useState(0);
   const [heroMapInstance, setHeroMapInstance] = useState(null);
   const [showDebugZonePanel, setShowDebugZonePanel] = useState(false);
-
-  const [showSeedsTooltip, setShowSeedsTooltip] = useState(false);
-  const [showMultiplierTooltip, setShowMultiplierTooltip] = useState(false);
-  const [activeMultiplierIndex, setActiveMultiplierIndex] = useState(0);
-  const multiplierTouchStartXRef = useRef(null);
 
   const [scanFeedback, setScanFeedback] = useState(null);
   const [showScanFeedback, setShowScanFeedback] = useState(false);
@@ -1449,93 +1439,6 @@ function HomeContent() {
     return `x${safeValue.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1")}`;
   };
 
-  const multiplierItems = [
-    {
-      id: "streak",
-      title: "🔥 Streak",
-      value: formatMultiplier(streakMultiplier),
-      description: "Basierend auf deiner Scan-Serie (x1 bis x7).",
-    },
-    {
-      id: "zone",
-      title: "📍 Zone",
-      value: formatMultiplier(zoneMultiplier),
-      description: "Start x1.5, pro weiterem Scan in derselben Zone -0.1 (bis x1.0, kein Penalty).",
-    },
-    {
-      id: "care",
-      title: "🌿 Pflege",
-      value: formatMultiplier(careMultiplier),
-      description: "Direkter Einfluss aus dem Care-Wert (x1.0 bis x2.0, kein Malus).",
-    },
-    {
-      id: "daily",
-      title: "☀️ Tagesbonus",
-      value: formatMultiplier(dailyBonusMultiplier),
-      description: "Erster Scan des Tages x2, danach x1.",
-    },
-    {
-      id: "rarity",
-      title: "⭐ Rarität",
-      value: "x1 bis x3",
-      description: "Scanabhaengig: haeufig x1, gelegentlich x2, selten x3.",
-    },
-    {
-      id: "novelty",
-      title: "✨ Neuheit",
-      value: "x1 bis x0.2",
-      description: "Scanabhaengig: sinkt pro Duplikat derselben Pflanze.",
-    },
-  ];
-
-  const activeMultiplierItem =
-    multiplierItems[activeMultiplierIndex] ?? multiplierItems[0];
-
-  const handleMultiplierTooltipOpenChange = (nextOpen) => {
-    setShowMultiplierTooltip(nextOpen);
-    if (nextOpen) {
-      setActiveMultiplierIndex(0);
-      multiplierTouchStartXRef.current = null;
-    }
-  };
-
-  const showPreviousMultiplier = () => {
-    setActiveMultiplierIndex((prevIndex) => {
-      if (!multiplierItems.length) return 0;
-      return (prevIndex - 1 + multiplierItems.length) % multiplierItems.length;
-    });
-  };
-
-  const showNextMultiplier = () => {
-    setActiveMultiplierIndex((prevIndex) => {
-      if (!multiplierItems.length) return 0;
-      return (prevIndex + 1) % multiplierItems.length;
-    });
-  };
-
-  const handleMultiplierTouchStart = (event) => {
-    if (!event.changedTouches?.length) return;
-    multiplierTouchStartXRef.current = event.changedTouches[0].clientX;
-  };
-
-  const handleMultiplierTouchEnd = (event) => {
-    if (!event.changedTouches?.length) return;
-    const startX = multiplierTouchStartXRef.current;
-    multiplierTouchStartXRef.current = null;
-    if (!Number.isFinite(startX)) return;
-
-    const endX = event.changedTouches[0].clientX;
-    const deltaX = endX - startX;
-    if (Math.abs(deltaX) < MULTIPLIER_SWIPE_THRESHOLD_PX) return;
-
-    if (deltaX < 0) {
-      showNextMultiplier();
-      return;
-    }
-
-    showPreviousMultiplier();
-  };
-
   const navItems = [
     {
       label: "Kollektion",
@@ -2114,6 +2017,30 @@ function HomeContent() {
                   />
                 ) : (
                   <section data-ui="home-plant-hero-section" className="flex-1 min-h-0 rounded-3xl px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col bg-transparent">
+                  <div
+                    className={`w-full rounded-2xl border backdrop-blur-sm px-[clamp(0.625rem,2vw,0.875rem)] ${
+                      isLightUi
+                        ? "border-[#c8ac62]/45 bg-gradient-to-r from-emerald-100/50 via-white/40 to-emerald-100/50"
+                        : "border-[#f0e5a5]/45 bg-gradient-to-r from-emerald-900/45 via-black/30 to-emerald-900/45"
+                    }`}
+                    style={{ height: `${(2.4 * controlsScale).toFixed(2)}rem` }}
+                  >
+                    <div className={`h-full w-full grid grid-cols-3 divide-x ${isLightUi ? "divide-[#c8ac62]/35" : "divide-[#f0e5a5]/30"}`}>
+                      <div className={`flex items-center justify-center gap-1.5 min-w-0 px-2 text-xs md:text-sm font-semibold ${isLightUi ? "text-stone-700" : "text-white/95"}`}>
+                        <Leaf className="w-4 h-4 shrink-0" style={{ color: resolvedPlantHealthState.color }} />
+                        <span className="truncate">{resolvedPlantHealthState.label}</span>
+                      </div>
+                      <div className={`flex items-center justify-center gap-1.5 min-w-0 px-2 text-xs md:text-sm font-semibold ${isLightUi ? "text-stone-700" : "text-white/95"}`}>
+                        <MapPin className="w-4 h-4 shrink-0" style={{ color: currentZoneColor }} />
+                        <span className="truncate">{(!hasResolvedZoneBootstrap || isLoadingZone) ? "..." : activeZoneMeta?.label || "Leer"}</span>
+                      </div>
+                      <div className={`flex items-center justify-center gap-1.5 min-w-0 px-2 text-xs md:text-sm font-semibold ${isLightUi ? "text-stone-700" : "text-white/95"}`}>
+                        <Zap className={`w-4 h-4 shrink-0 ${isLightUi ? "text-amber-700" : "text-amber-300"}`} />
+                        <span className="truncate">{formatMultiplier(knownNextScanMultiplier)}</span>
+                      </div>
+                    </div>
+                  </div>
+
                   <div ref={healthStatsPanelRef} className="flex-1 min-h-0 flex items-start justify-center pt-[clamp(0.2rem,1vh,0.5rem)]">
                     <div
                       className="relative mx-auto"
@@ -2213,27 +2140,17 @@ function HomeContent() {
                               />
                             </div>
 
-                            <div className="absolute left-1/2 top-1/2 w-[82%] aspect-square -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-                              {[
-                                { key: "left", className: "left-0 top-1/2 -translate-x-1/2 -translate-y-1/2" },
-                                { key: "right", className: "right-0 top-1/2 translate-x-1/2 -translate-y-1/2" },
-                                { key: "top", className: "left-1/2 top-0 -translate-x-1/2 -translate-y-1/2" },
-                                { key: "bottom", className: "left-1/2 bottom-0 -translate-x-1/2 translate-y-1/2" },
-                              ].map((slot) => (
-                                <button
-                                  key={slot.key}
-                                  type="button"
-                                  onClick={() => openShop("accessory")}
-                                  className={`pointer-events-auto absolute ${slot.className} z-[9] w-11 h-11 md:w-12 md:h-12 rounded-2xl border backdrop-blur-sm flex items-center justify-center transition-colors ${
-                                    isLightUi
-                                      ? "border-[#c8ac62]/55 bg-white/52 text-stone-700 hover:bg-white/68"
-                                      : "border-[#f0e5a5]/45 bg-black/35 text-[#f0e5a5] hover:bg-black/50"
-                                  }`}
-                                  aria-label={`Accessoire Slot ${slot.key}`}
-                                >
-                                  <Plus className="w-5 h-5" />
-                                </button>
-                              ))}
+                            <div className="absolute left-1/2 bottom-[7%] -translate-x-1/2 z-[8]">
+                              <div
+                                className={`rounded-xl border backdrop-blur-sm px-3 py-1.5 flex items-center gap-1.5 text-xs md:text-sm font-semibold ${
+                                  isLightUi
+                                    ? "border-[#c8ac62]/55 bg-white/60 text-stone-700"
+                                    : "border-[#f0e5a5]/45 bg-black/35 text-lime-100"
+                                }`}
+                              >
+                                <Leaf className={`w-4 h-4 ${isLightUi ? "text-emerald-600" : "text-lime-200"}`} />
+                                <span>{playerSeeds}</span>
+                              </div>
                             </div>
 
                           </motion.div>
@@ -2244,101 +2161,29 @@ function HomeContent() {
                   </div>
 
                   <div
-                    className={`mt-[clamp(0.5rem,1.2vh,1rem)] w-full rounded-2xl border backdrop-blur-sm px-[clamp(0.625rem,2vw,0.875rem)] ${
+                    className={`mt-[clamp(0.5rem,1.2vh,1rem)] w-full rounded-2xl border backdrop-blur-sm px-[clamp(0.375rem,1.6vw,0.625rem)] ${
                       isLightUi
                         ? "border-[#c8ac62]/45 bg-gradient-to-r from-emerald-100/50 via-white/40 to-emerald-100/50"
                         : "border-[#f0e5a5]/45 bg-gradient-to-r from-emerald-900/45 via-black/30 to-emerald-900/45"
                     }`}
-                    style={{ height: `${(2.4 * controlsScale).toFixed(2)}rem` }}
+                    style={{ height: `${(2.9 * controlsScale).toFixed(2)}rem` }}
                   >
-                    <div className={`h-full w-full flex items-center justify-between text-xs md:text-sm font-semibold ${
-                      isLightUi ? "text-stone-700" : ""
-                    }`}>
-                      <Popover open={showSeedsTooltip} onOpenChange={setShowSeedsTooltip}>
-                        <PopoverTrigger asChild>
-                          <div className={`flex items-center gap-1.5 min-w-0 cursor-pointer transition-colors ${
+                    <div className="h-full w-full grid grid-cols-4 gap-2">
+                      {["left", "right", "top", "bottom"].map((slotKey) => (
+                        <button
+                          key={slotKey}
+                          type="button"
+                          onClick={() => openShop("accessory")}
+                          className={`h-full w-full rounded-xl border flex items-center justify-center transition-colors ${
                             isLightUi
-                              ? "text-stone-700 hover:text-stone-800"
-                              : "text-lime-100/95 hover:text-lime-100"
-                          }`}>
-                            <Leaf className={`w-4 h-4 ${isLightUi ? "text-emerald-600" : "text-lime-200"}`} />
-                            <span className="truncate">{playerSeeds}</span>
-                          </div>
-                        </PopoverTrigger>
-                        <PopoverContent align="start" className="w-64 bg-emerald-950/95 border-amber-600/40 text-amber-50/90">
-                          <div className="space-y-2">
-                            <h3 className="font-semibold text-lime-200">Samen</h3>
-                            <p className="text-xs text-amber-50/70">
-                              Werden verwendet um neue Items zu freischalten, welche die Pflanzepflege erleichtern. Voraussichtlich werden auch Cosmetics verfügbar sein. Die genaue Verwendung wird noch definiert.
-                            </p>
-                            <p className="text-xs text-amber-100/50 italic">🔧 Status: In Entwicklung</p>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-
-                      <Popover open={showMultiplierTooltip} onOpenChange={handleMultiplierTooltipOpenChange}>
-                        <PopoverTrigger asChild>
-                          <div className={`flex items-center gap-1.5 min-w-0 cursor-pointer transition-colors ${
-                            isLightUi
-                              ? "text-stone-700 hover:text-stone-800"
-                              : "text-amber-100/95 hover:text-amber-100"
-                          }`}>
-                            <div className={`h-5 w-px ${isLightUi ? "bg-[#c8ac62]/40" : "bg-[#f0e5a5]/35"}`} />
-                            <Zap className={`w-4 h-4 ${isLightUi ? "text-amber-700" : "text-amber-300"}`} />
-                            <span className="truncate">
-                              Nächster Scan {formatMultiplier(knownNextScanMultiplier)}
-                            </span>
-                          </div>
-                        </PopoverTrigger>
-                        <PopoverContent align="end" className="w-72 bg-emerald-950/95 border-amber-600/40 text-amber-50/90">
-                          <div className="space-y-3">
-                            <h3 className="font-semibold text-amber-300">Multiplikatoren</h3>
-                            <div
-                              className="rounded-lg border border-amber-600/30 bg-black/20 p-3 text-xs space-y-2"
-                              onTouchStart={handleMultiplierTouchStart}
-                              onTouchEnd={handleMultiplierTouchEnd}
-                            >
-                              <div className="text-amber-300 font-semibold">
-                                {activeMultiplierItem.title}: <strong>{activeMultiplierItem.value}</strong>
-                              </div>
-                              <div className="text-amber-50/80 min-h-[2.5rem]">
-                                {activeMultiplierItem.description}
-                              </div>
-                              <div className="flex items-center justify-center gap-2 pt-0.5">
-                                {multiplierItems.map((item, index) => (
-                                  <button
-                                    key={item.id}
-                                    type="button"
-                                    onClick={() => setActiveMultiplierIndex(index)}
-                                    aria-label={`Multiplikator ${index + 1} von ${multiplierItems.length} anzeigen`}
-                                    className={
-                                      "h-2.5 w-2.5 rounded-full transition-colors " +
-                                      (index === activeMultiplierIndex
-                                        ? "bg-amber-300"
-                                        : "bg-amber-100/35 hover:bg-amber-100/60")
-                                    }
-                                  />
-                                ))}
-                              </div>
-                              <div className="text-[11px] text-amber-50/55 text-center">
-                                Wische nach links/rechts oder tippe auf die Punkte.
-                              </div>
-                            </div>
-                            <div className="rounded-lg border border-amber-600/25 bg-black/20 p-2.5 text-xs space-y-1">
-                              <div className="text-amber-300 font-semibold">Aktuell bekannter Gesamtfaktor</div>
-                              <div className="text-amber-50/90">
-                                {formatMultiplier(streakMultiplier)} × {formatMultiplier(zoneMultiplier)} × {formatMultiplier(careMultiplier)} × {formatMultiplier(dailyBonusMultiplier)} = <strong>{formatMultiplier(knownNextScanMultiplier)}</strong>
-                              </div>
-                              <div className="text-amber-50/70">
-                                Bonus-Stufe <strong>{resolvedPlantHealthState.label}</strong> gibt aktuell <strong>+{healthStateBonus}</strong> auf alle Scan-Events.
-                              </div>
-                              <div className="text-amber-50/65">
-                                Mit Neuheit und Raritaet liegt der Bereich bei <strong>{formatMultiplier(nextScanMinMultiplier)}</strong> bis <strong>{formatMultiplier(nextScanMaxMultiplier)}</strong> (~{nextScanMinReward}-{nextScanMaxReward} Seeds).
-                              </div>
-                            </div>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
+                              ? "border-[#c8ac62]/55 bg-white/52 text-stone-700 hover:bg-white/68"
+                              : "border-[#f0e5a5]/45 bg-black/35 text-[#f0e5a5] hover:bg-black/50"
+                          }`}
+                          aria-label={`Accessoire Slot ${slotKey}`}
+                        >
+                          <Plus className="w-5 h-5" />
+                        </button>
+                      ))}
                     </div>
                   </div>
 

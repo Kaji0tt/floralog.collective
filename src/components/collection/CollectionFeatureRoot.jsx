@@ -721,7 +721,10 @@ export default function CollectionFeatureRoot({
   }
   const followedPublicCollections = filteredPublicCollections.filter((c) => c.isFollowing);
   const discoverablePublicCollections = filteredPublicCollections.filter((c) => !c.isFollowing);
-  const isHeroSegmentOpen = selectedCollectionFilters.heroSegmentOpen !== false;
+  const hasAdditionalCollections = (ownedCollections.length + followedCollections.length) > 0;
+  const isHeroSegmentOpen = hasAdditionalCollections
+    ? selectedCollectionFilters.heroSegmentOpen !== false
+    : true;
   const isCollectionTogglePending = followMutation.isPending || unfollowMutation.isPending;
   const handleOpenPublicCollection = (collectionId) => {
     setPublicCollectionsPanelOpen(false);
