@@ -352,6 +352,12 @@ export function useAchievementsFeatureContent({
     staleTime: 15 * 1000,
   });
 
+  const { data: allRobotPlants = [] } = useQuery({
+    queryKey: ['allRobotPlantsForStats'],
+    queryFn: () => Query.RobotPlant.list(),
+    staleTime: 60 * 1000,
+  });
+
   // Echtzeit-Subscriptions für UserAchievements
   useEffect(() => {
     if (!user?.id) return;
@@ -1183,6 +1189,68 @@ export function useAchievementsFeatureContent({
 
   const ownRank = socialRanking.findIndex((entry) => entry.email === ownEmailLower) + 1;
 
+  // Globales Scan-Ranking: alle Nutzer aus allDiscoveries (nicht nur Freunde)
+  const globalScanCounts = new Map();
+  (allDiscoveries || []).forEach((entry) => {
+    const email = (entry.user || entry.created_by || entry.user_email || "").toLowerCase();
+    const entryAuth = entry.auth_id || null;
+    const isOwnByAuth = !!ownAuthId && !!entryAuth && ownAuthId === entryAuth;
+    const isOwnByEmail = !!ownEmailLower && ownEmailLower === email;
+
+    let participantKey = "";
+    if (isOwnByAuth || isOwnByEmail) {
+      participantKey = ownEmailLower;
+    } else if (email) {
+      participantKey = email;
+    }
+
+    if (!participantKey || !discoveryDate(entry)) return;
+    globalScanCounts.set(participantKey, (globalScanCounts.get(participantKey) || 0) + 1);
+  });
+
+  const globalScanRanking = Array.from(globalScanCounts.entries())
+    .map(([email, scans]) => {
+      const profile = profileByEmail.get(email);
+      return {
+        email,
+        scans,
+        name:
+          profile?.display_name ||
+          profile?.full_name ||
+          (email === ownEmailLower ? (user?.display_name || user?.full_name || user?.email) : email),
+      };
+    })
+    .sort((a, b) => b.scans - a.scans);
+
+  const ownGlobalScanRank = globalScanRanking.findIndex((entry) => entry.email === ownEmailLower) + 1;
+
+  // Globales Samenstand-Ranking: alle Spieler nach wallet_balance
+  const profileByAuthId = new Map(
+    (allProfiles || [])
+      .filter((profile) => !!profile.auth_id)
+      .map((profile) => [profile.auth_id, profile])
+  );
+
+  const globalSeedRanking = (allRobotPlants || [])
+    .filter((rp) => !!rp.auth_id && Number(rp.wallet_balance) > 0)
+    .map((rp) => {
+      const profile = profileByAuthId.get(rp.auth_id);
+      const isOwn = Boolean(ownAuthId && rp.auth_id === ownAuthId);
+      return {
+        authId: rp.auth_id,
+        seeds: Number(rp.wallet_balance ?? 0),
+        isOwn,
+        name:
+          profile?.display_name ||
+          profile?.full_name ||
+          (isOwn ? (user?.display_name || user?.full_name || user?.email) : (profile?.user_email || "")),
+      };
+    })
+    .sort((a, b) => b.seeds - a.seeds);
+
+  const ownSeedRank = globalSeedRanking.findIndex((entry) => entry.isOwn) + 1;
+  const ownSeeds = globalSeedRanking.find((entry) => entry.isOwn)?.seeds ?? 0;
+
   const moduleChips = [
     {
       id: "quests",
@@ -1544,30 +1612,102 @@ export function useAchievementsFeatureContent({
                   <CardHeader className="pb-2">
                     <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
                       <Users className={`w-4 h-4 ${isLightUi ? "text-indigo-600" : "text-indigo-300"}`} />
-                      Social Vergleich (Scans)
+                      Scan-Vergleich (Global)
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
                     <div className={`rounded-lg border px-3 py-2 ${isLightUi ? "border-indigo-200 bg-indigo-50" : "border-indigo-300/40 bg-indigo-500/10"}`}>
-                      <p className={`text-xs ${isLightUi ? "text-indigo-700" : "text-indigo-200"}`}>Dein Rang</p>
+                      <p className={`text-xs ${isLightUi ? "text-indigo-700" : "text-indigo-200"}`}>Dein globaler Rang</p>
                       <p className={`text-lg font-bold ${isLightUi ? "text-indigo-900" : "text-indigo-100"}`}>
-                        {ownRank > 0 ? `#${ownRank} von ${socialRanking.length}` : "Noch kein Rang"}
+                        {ownGlobalScanRank > 0 ? `#${ownGlobalScanRank} von ${globalScanRanking.length}` : "Noch kein Rang"}
                       </p>
                     </div>
 
-                    {socialRanking.length === 0 && (
-                      <p className={`text-sm ${statsBodyClass}`}>Noch keine Vergleichsdaten verfuegbar.</p>
+                    {globalScanRanking.length === 0 && (
+                      <p className={`text-sm ${statsBodyClass}`}>Noch keine Vergleichsdaten verfügbar.</p>
                     )}
 
-                    {socialRanking.slice(0, 5).map((entry, index) => (
-                      <div
-                        key={entry.email}
-                        className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.email === ownEmailLower ? rankingHighlightClass : rankingDefaultClass}`}
-                      >
-                        <p className={`text-sm font-semibold truncate ${statsTitleClass}`}>#{index + 1} {entry.name}</p>
-                        <Badge className={entry.email === ownEmailLower ? (isLightUi ? "bg-emerald-600 text-white" : "bg-emerald-700 text-white border border-emerald-400/60") : rankingDefaultBadgeClass}>{entry.scans}x</Badge>
-                      </div>
-                    ))}
+                    {/* Top 5 + eigener Eintrag falls außerhalb */}
+                    {(() => {
+                      const top5 = globalScanRanking.slice(0, 5);
+                      const ownInTop5 = top5.some((e) => e.email === ownEmailLower);
+                      const ownEntry = !ownInTop5 && ownGlobalScanRank > 0 ? globalScanRanking[ownGlobalScanRank - 1] : null;
+                      return (
+                        <>
+                          {top5.map((entry, index) => (
+                            <div
+                              key={entry.email}
+                              className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.email === ownEmailLower ? rankingHighlightClass : rankingDefaultClass}`}
+                            >
+                              <p className={`text-sm font-semibold truncate ${statsTitleClass}`}>#{index + 1} {entry.name}</p>
+                              <Badge className={entry.email === ownEmailLower ? (isLightUi ? "bg-emerald-600 text-white" : "bg-emerald-700 text-white border border-emerald-400/60") : rankingDefaultBadgeClass}>{entry.scans}x</Badge>
+                            </div>
+                          ))}
+                          {ownEntry && (
+                            <>
+                              <p className={`text-xs text-center ${statsBodyClass}`}>…</p>
+                              <div className={`flex items-center justify-between rounded-lg border px-3 py-2 ${rankingHighlightClass}`}>
+                                <p className={`text-sm font-semibold truncate ${statsTitleClass}`}>#{ownGlobalScanRank} {ownEntry.name}</p>
+                                <Badge className={isLightUi ? "bg-emerald-600 text-white" : "bg-emerald-700 text-white border border-emerald-400/60"}>{ownEntry.scans}x</Badge>
+                              </div>
+                            </>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+
+                <Card className={`${statsCardBaseClass} ${isLightUi ? "border-amber-200" : "border-amber-300/30"}`}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
+                      <span className={isLightUi ? "text-amber-600" : "text-amber-300"}>🌱</span>
+                      Samenstand-Vergleich (Global)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className={`rounded-lg border px-3 py-2 ${isLightUi ? "border-amber-200 bg-amber-50" : "border-amber-300/40 bg-amber-500/10"}`}>
+                      <p className={`text-xs ${isLightUi ? "text-amber-700" : "text-amber-200"}`}>Dein globaler Rang</p>
+                      <p className={`text-lg font-bold ${isLightUi ? "text-amber-900" : "text-amber-100"}`}>
+                        {ownSeedRank > 0 ? `#${ownSeedRank} von ${globalSeedRanking.length}` : "Noch kein Rang"}
+                      </p>
+                      {ownSeedRank > 0 && (
+                        <p className={`text-xs mt-0.5 ${isLightUi ? "text-amber-700" : "text-amber-300"}`}>{ownSeeds.toLocaleString()} Samen</p>
+                      )}
+                    </div>
+
+                    {globalSeedRanking.length === 0 && (
+                      <p className={`text-sm ${statsBodyClass}`}>Noch keine Vergleichsdaten verfügbar.</p>
+                    )}
+
+                    {/* Top 5 + eigener Eintrag falls außerhalb */}
+                    {(() => {
+                      const top5 = globalSeedRanking.slice(0, 5);
+                      const ownInTop5 = top5.some((e) => e.isOwn);
+                      const ownEntry = !ownInTop5 && ownSeedRank > 0 ? globalSeedRanking[ownSeedRank - 1] : null;
+                      return (
+                        <>
+                          {top5.map((entry, index) => (
+                            <div
+                              key={entry.authId}
+                              className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.isOwn ? rankingHighlightClass : rankingDefaultClass}`}
+                            >
+                              <p className={`text-sm font-semibold truncate ${statsTitleClass}`}>#{index + 1} {entry.name}</p>
+                              <Badge className={entry.isOwn ? (isLightUi ? "bg-amber-600 text-white" : "bg-amber-700 text-white border border-amber-400/60") : rankingDefaultBadgeClass}>{entry.seeds.toLocaleString()} 🌱</Badge>
+                            </div>
+                          ))}
+                          {ownEntry && (
+                            <>
+                              <p className={`text-xs text-center ${statsBodyClass}`}>…</p>
+                              <div className={`flex items-center justify-between rounded-lg border px-3 py-2 ${rankingHighlightClass}`}>
+                                <p className={`text-sm font-semibold truncate ${statsTitleClass}`}>#{ownSeedRank} {ownEntry.name}</p>
+                                <Badge className={isLightUi ? "bg-amber-600 text-white" : "bg-amber-700 text-white border border-amber-400/60"}>{ownEntry.seeds.toLocaleString()} 🌱</Badge>
+                              </div>
+                            </>
+                          )}
+                        </>
+                      );
+                    })()}
                   </CardContent>
                 </Card>
               </div>
