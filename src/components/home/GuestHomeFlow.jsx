@@ -930,6 +930,29 @@ export default function GuestHomeFlow() {
                   Anmelden
                 </motion.button>
 
+                <div className="flex items-center justify-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setAndroidDownloadModalOpen(true)}
+                    className="flex items-center gap-1.5 rounded-xl border border-emerald-400/30 bg-black/40 px-3 py-1.5 text-xs font-medium text-emerald-100/80 hover:bg-black/55 hover:text-emerald-50 transition-colors backdrop-blur-sm"
+                  >
+                    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" aria-hidden="true">
+                      <path d="M17.523 15.34a.5.5 0 0 1-.5.5H6.977a.5.5 0 0 1-.5-.5V9.5h11.046v5.84zM7.5 18.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm9 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM3.513 9.14l1.3-2.38A.5.5 0 0 1 5.25 6.5h13.5a.5.5 0 0 1 .437.26l1.3 2.38H3.513zM14.6 2.1l-1.5 2.6h-2.2L9.4 2.1a.4.4 0 0 1 .693-.4L11 3.5h2l.907-1.8a.4.4 0 0 1 .693.4z" />
+                    </svg>
+                    Android
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIosModalOpen(true)}
+                    className="flex items-center gap-1.5 rounded-xl border border-stone-400/25 bg-black/40 px-3 py-1.5 text-xs font-medium text-stone-300/70 hover:bg-black/55 hover:text-stone-100 transition-colors backdrop-blur-sm"
+                  >
+                    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" aria-hidden="true">
+                      <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+                    </svg>
+                    iOS
+                  </button>
+                </div>
+
                 <button
                   type="button"
                   onClick={openAuthModal}
@@ -1455,29 +1478,6 @@ export default function GuestHomeFlow() {
             </div>
           </div>
         )}
-        {/* App download buttons */}
-        <div className="flex items-center gap-2 mb-2">
-          <button
-            type="button"
-            onClick={() => setAndroidDownloadModalOpen(true)}
-            className="flex items-center gap-1.5 rounded-xl border border-emerald-400/30 bg-black/40 px-3 py-1.5 text-xs font-medium text-emerald-100/80 hover:bg-black/55 hover:text-emerald-50 transition-colors backdrop-blur-sm"
-          >
-            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" aria-hidden="true">
-              <path d="M17.523 15.34a.5.5 0 0 1-.5.5H6.977a.5.5 0 0 1-.5-.5V9.5h11.046v5.84zM7.5 18.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm9 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM3.513 9.14l1.3-2.38A.5.5 0 0 1 5.25 6.5h13.5a.5.5 0 0 1 .437.26l1.3 2.38H3.513zM14.6 2.1l-1.5 2.6h-2.2L9.4 2.1a.4.4 0 0 1 .693-.4L11 3.5h2l.907-1.8a.4.4 0 0 1 .693.4z" />
-            </svg>
-            Android
-          </button>
-          <button
-            type="button"
-            onClick={() => setIosModalOpen(true)}
-            className="flex items-center gap-1.5 rounded-xl border border-stone-400/25 bg-black/40 px-3 py-1.5 text-xs font-medium text-stone-300/70 hover:bg-black/55 hover:text-stone-100 transition-colors backdrop-blur-sm"
-          >
-            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" aria-hidden="true">
-              <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
-            </svg>
-            iOS
-          </button>
-        </div>
         <p
           className="text-center text-stone-300/40 drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)]"
           style={{
