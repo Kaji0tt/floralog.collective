@@ -1,24 +1,70 @@
 apply plugin: 'com.android.application'
 
-// ── Auto-increment versionCode from version.properties ────────────────────
+// ── Auto-increment versionCode + versionName patch from version.properties ──
 def versionPropsFile = rootProject.file('version.properties')
-if (!versionPropsFile.exists()) {
-    versionPropsFile.text = 'VERSION_CODE=1\nVERSION_NAME=1.0\n'
+def defaultVersionProps = 'VERSION_CODE=1\nVERSION_NAME_BASE=0.1\nVERSION_NAME_PATCH=0\nVERSION_NAME=0.1.0\n'
+if (!versionPropsFile.exists() || !versionPropsFile.text.trim()) {
+    versionPropsFile.text = defaultVersionProps
 }
 def versionProps = new Properties()
 versionPropsFile.withInputStream { versionProps.load(it) }
 
-def autoVersionCode = versionProps['VERSION_CODE'].toInteger()
-def autoVersionName = versionProps['VERSION_NAME']
+def versionPropsDirty = false
+def ensureProperty = { String key, String value ->
+    def current = versionProps.getProperty(key)
+    if (current == null || current != value) {
+        versionProps.setProperty(key, value)
+        versionPropsDirty = true
+    }
+}
+
+def readIntProperty = { String key, int fallback ->
+    def raw = versionProps.getProperty(key)
+    if (raw == null || raw.trim().isEmpty()) {
+        ensureProperty(key, String.valueOf(fallback))
+        return fallback
+    }
+    try {
+        return Integer.parseInt(raw.trim())
+    } catch (Exception ignored) {
+        ensureProperty(key, String.valueOf(fallback))
+        return fallback
+    }
+}
+
+def autoVersionCode = readIntProperty('VERSION_CODE', 1)
+def versionNameBase = (versionProps.getProperty('VERSION_NAME_BASE', '0.1') ?: '0.1').trim()
+if (!versionNameBase) {
+    versionNameBase = '0.1'
+}
+ensureProperty('VERSION_NAME_BASE', versionNameBase)
+
+def versionNamePatch = readIntProperty('VERSION_NAME_PATCH', 0)
+def autoVersionName = versionProps.getProperty('VERSION_NAME', "${versionNameBase}.${versionNamePatch}").toString()
+if (!autoVersionName.trim()) {
+    autoVersionName = "${versionNameBase}.${versionNamePatch}".toString()
+}
+
+ensureProperty('VERSION_CODE', String.valueOf(autoVersionCode))
+ensureProperty('VERSION_NAME_PATCH', String.valueOf(versionNamePatch))
+ensureProperty('VERSION_NAME', autoVersionName)
+if (versionPropsDirty) {
+    versionPropsFile.withOutputStream { versionProps.store(it, null) }
+}
 
 // Nur bei Release-Builds hochzählen (nicht bei jedem Debug-Build)
 gradle.taskGraph.whenReady { taskGraph ->
     def isRelease = taskGraph.allTasks.any { it.name.contains('Release') }
     if (isRelease) {
         autoVersionCode += 1
-        versionProps['VERSION_CODE'] = autoVersionCode.toString()
+        versionNamePatch += 1
+        autoVersionName = "${versionNameBase}.${versionNamePatch}".toString()
+        versionProps.setProperty('VERSION_CODE', autoVersionCode.toString())
+        versionProps.setProperty('VERSION_NAME_BASE', versionNameBase)
+        versionProps.setProperty('VERSION_NAME_PATCH', versionNamePatch.toString())
+        versionProps.setProperty('VERSION_NAME', autoVersionName)
         versionPropsFile.withOutputStream { versionProps.store(it, null) }
-        println ">>> Auto-incremented versionCode to ${autoVersionCode}"
+        println ">>> Auto-versioned release: versionName=${autoVersionName}, versionCode=${autoVersionCode}"
     }
 }
 // ──────────────────────────────────────────────────────────────────────────
@@ -43,6 +89,14 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    applicationVariants.all { variant ->
+        if (variant.buildType.name == 'release') {
+            variant.outputs.all { output ->
+                outputFileName = "floralog-v${variant.versionName}-code${variant.versionCode}.apk".toString()
+            }
         }
     }
 }

@@ -15,7 +15,8 @@
 #
 # Environment variables (can also be placed in .env.deploy):
 #   OTA_WORKER_NAME   – name of the deployed OTA Worker (default: floralog-ota)
-#   OTA_DEPLOY_SECRET – value of the DEPLOY_SECRET Worker secret
+#   OTA_WORKER_URL    – optional worker URL override
+#   DEPLOY_SECRET / OTA_DEPLOY_SECRET / OTA_SECRET – deploy secret for PUT /version.json
 #
 # First-time setup (run once):
 #   cd workers/ota
@@ -34,6 +35,7 @@ DIST_DIR="dist"
 BUNDLE_FILE="ota-bundle-${VERSION}.zip"
 OTA_WORKER_DIR="workers/ota"
 OTA_WORKER_NAME="${OTA_WORKER_NAME:-floralog-ota}"
+OTA_WORKER_URL="${OTA_WORKER_URL:-https://floralog-ota.green-term-27d0.workers.dev}"
 
 # Load optional deploy env vars
 if [[ -f ".env.deploy" ]]; then
@@ -92,17 +94,19 @@ success "Bundle uploaded to R2"
 # ── 6. Derive bundle URL ───────────────────────────────────────────────────────
 
 
-# Feste Worker-URL, damit der Deploy in CI/CD immer funktioniert
-WORKER_URL="https://floralog-ota.green-term-27d0.workers.dev"
+# Allow all secret env names accepted by the worker and other scripts.
+DEPLOY_SECRET_VALUE="${DEPLOY_SECRET:-${OTA_DEPLOY_SECRET:-${OTA_SECRET:-}}}"
+# Strip accidental Windows CR from env files so header comparisons stay exact.
+DEPLOY_SECRET_VALUE="${DEPLOY_SECRET_VALUE//$'\r'/}"
 
-BUNDLE_URL="${WORKER_URL}/bundle/${BUNDLE_FILE}"
+BUNDLE_URL="${OTA_WORKER_URL}/bundle/${BUNDLE_FILE}"
 info "Bundle URL: $BUNDLE_URL"
 
 # ── 7. Update version manifest via Worker PUT endpoint ────────────────────────
 info "Publishing version manifest..."
 
-if [[ -z "${OTA_DEPLOY_SECRET:-}" ]]; then
-  die "OTA_DEPLOY_SECRET is not set. Export it or add it to .env.deploy"
+if [[ -z "${DEPLOY_SECRET_VALUE:-}" ]]; then
+  die "No deploy secret set. Provide one of DEPLOY_SECRET / OTA_DEPLOY_SECRET / OTA_SECRET (env or .env.deploy)."
 fi
 
 # Manifest-JSON direkt als Here-String erzeugen (kein node nötig)
@@ -113,15 +117,19 @@ EOF
 
 info "Manifest: $MANIFEST"
 
-HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-  -X PUT "${WORKER_URL}/version.json" \
+RESPONSE_FILE="$(mktemp)"
+HTTP_STATUS=$(curl -s -o "$RESPONSE_FILE" -w "%{http_code}" \
+  -X PUT "${OTA_WORKER_URL}/version.json" \
   -H "Content-Type: application/json" \
-  -H "X-Deploy-Secret: ${OTA_DEPLOY_SECRET}" \
+  -H "X-Deploy-Secret: ${DEPLOY_SECRET_VALUE}" \
   -d "$MANIFEST")
 
 if [[ "$HTTP_STATUS" != "200" ]]; then
-  die "Worker returned HTTP $HTTP_STATUS when updating version manifest"
+  BODY="$(cat "$RESPONSE_FILE")"
+  rm -f "$RESPONSE_FILE"
+  die "Worker returned HTTP $HTTP_STATUS when updating version manifest. Response: ${BODY:-<empty>}"
 fi
+rm -f "$RESPONSE_FILE"
 success "Version manifest published"
 
 
@@ -131,13 +139,13 @@ success "Temp bundle removed"
 
 echo ""
 echo "✅ OTA deploy complete!"
-echo "   Version $VERSION is now live at $WORKER_URL/version.json"
+echo "   Version $VERSION is now live at $OTA_WORKER_URL/version.json"
 echo ""
 echo "   Devices running an older version will see the update banner"
 echo "   on next app launch."
 
 # ── 9. Write OTA URLs to .env.ota.local ──────────────────────────────────────
 OTA_ENV_FILE=".env.ota.local"
-echo "VITE_OTA_VERSION_URL=${WORKER_URL}/version.json" > "$OTA_ENV_FILE"
+echo "VITE_OTA_VERSION_URL=${OTA_WORKER_URL}/version.json" > "$OTA_ENV_FILE"
 echo "VITE_OTA_BUNDLE_URL=$BUNDLE_URL" >> "$OTA_ENV_FILE"
 success ".env.ota.local written with OTA URLs"
