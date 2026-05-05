@@ -25,6 +25,7 @@ import { getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/ques
 import { updateQuestProgress } from "@/components/utils/questProgress";
 import { grantRobotPlantRewardServerSide } from "@/api/robotPlantService";
 import { useUiTheme } from "@/lib/UiThemeContext";
+import { createPageUrl } from "@/utils";
 
 /** @type {{ regular: number, weekly: number, monthly: number }} */
 const DEFAULT_QUEST_SEED_REWARD_BY_TYPE = {
@@ -1224,6 +1225,14 @@ export function useAchievementsFeatureContent({
 
   const ownGlobalScanRank = globalScanRanking.findIndex((entry) => entry.email === ownEmailLower) + 1;
 
+  const emailByAuthIdFromDiscoveries = new Map();
+  (allDiscoveries || []).forEach((entry) => {
+    const authId = entry?.auth_id || null;
+    const email = String(entry?.user || entry?.created_by || entry?.user_email || "").trim().toLowerCase();
+    if (!authId || !email || emailByAuthIdFromDiscoveries.has(authId)) return;
+    emailByAuthIdFromDiscoveries.set(authId, email);
+  });
+
   // Globales Samenstand-Ranking: alle Spieler nach wallet_balance
   const profileByAuthId = new Map(
     (allProfiles || [])
@@ -1236,8 +1245,14 @@ export function useAchievementsFeatureContent({
     .map((rp) => {
       const profile = profileByAuthId.get(rp.auth_id);
       const isOwn = Boolean(ownAuthId && rp.auth_id === ownAuthId);
+      const resolvedEmail =
+        (profile?.user_email && String(profile.user_email).toLowerCase()) ||
+        emailByAuthIdFromDiscoveries.get(rp.auth_id) ||
+        (isOwn && user?.email ? String(user.email).toLowerCase() : null) ||
+        null;
       return {
         authId: rp.auth_id,
+        email: resolvedEmail,
         seeds: Number(rp.wallet_balance ?? 0),
         isOwn,
         name:
@@ -1250,6 +1265,18 @@ export function useAchievementsFeatureContent({
 
   const ownSeedRank = globalSeedRanking.findIndex((entry) => entry.isOwn) + 1;
   const ownSeeds = globalSeedRanking.find((entry) => entry.isOwn)?.seeds ?? 0;
+
+  const navigateToPublicProfile = (email) => {
+    const emailValue = String(email || "").trim();
+    if (!emailValue) return;
+
+    if (user?.email && emailValue.toLowerCase() === user.email.toLowerCase()) {
+      navigate(createPageUrl("Home"));
+      return;
+    }
+
+    navigate(createPageUrl(`FriendProfile?email=${encodeURIComponent(emailValue)}`));
+  };
 
   const moduleChips = [
     {
@@ -1639,7 +1666,13 @@ export function useAchievementsFeatureContent({
                               key={entry.email}
                               className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.email === ownEmailLower ? rankingHighlightClass : rankingDefaultClass}`}
                             >
-                              <p className={`text-sm font-semibold truncate ${statsTitleClass}`}>#{index + 1} {entry.name}</p>
+                              <button
+                                type="button"
+                                onClick={() => navigateToPublicProfile(entry.email)}
+                                className={`p-0 m-0 bg-transparent border-0 text-sm font-semibold truncate text-left ${statsTitleClass}`}
+                              >
+                                #{index + 1} {entry.name}
+                              </button>
                               <Badge className={entry.email === ownEmailLower ? (isLightUi ? "bg-emerald-600 text-white" : "bg-emerald-700 text-white border border-emerald-400/60") : rankingDefaultBadgeClass}>{entry.scans}x</Badge>
                             </div>
                           ))}
@@ -1647,7 +1680,13 @@ export function useAchievementsFeatureContent({
                             <>
                               <p className={`text-xs text-center ${statsBodyClass}`}>…</p>
                               <div className={`flex items-center justify-between rounded-lg border px-3 py-2 ${rankingHighlightClass}`}>
-                                <p className={`text-sm font-semibold truncate ${statsTitleClass}`}>#{ownGlobalScanRank} {ownEntry.name}</p>
+                                <button
+                                  type="button"
+                                  onClick={() => navigateToPublicProfile(ownEntry.email)}
+                                  className={`p-0 m-0 bg-transparent border-0 text-sm font-semibold truncate text-left ${statsTitleClass}`}
+                                >
+                                  #{ownGlobalScanRank} {ownEntry.name}
+                                </button>
                                 <Badge className={isLightUi ? "bg-emerald-600 text-white" : "bg-emerald-700 text-white border border-emerald-400/60"}>{ownEntry.scans}x</Badge>
                               </div>
                             </>
@@ -1692,7 +1731,14 @@ export function useAchievementsFeatureContent({
                               key={entry.authId}
                               className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.isOwn ? rankingHighlightClass : rankingDefaultClass}`}
                             >
-                              <p className={`text-sm font-semibold truncate ${statsTitleClass}`}>#{index + 1} {entry.name}</p>
+                              <button
+                                type="button"
+                                onClick={() => navigateToPublicProfile(entry.email)}
+                                disabled={!entry.email}
+                                className={`p-0 m-0 bg-transparent border-0 text-sm font-semibold truncate text-left ${entry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
+                              >
+                                #{index + 1} {entry.name}
+                              </button>
                               <Badge className={entry.isOwn ? (isLightUi ? "bg-amber-600 text-white" : "bg-amber-700 text-white border border-amber-400/60") : rankingDefaultBadgeClass}>{entry.seeds.toLocaleString()} 🌱</Badge>
                             </div>
                           ))}
@@ -1700,7 +1746,14 @@ export function useAchievementsFeatureContent({
                             <>
                               <p className={`text-xs text-center ${statsBodyClass}`}>…</p>
                               <div className={`flex items-center justify-between rounded-lg border px-3 py-2 ${rankingHighlightClass}`}>
-                                <p className={`text-sm font-semibold truncate ${statsTitleClass}`}>#{ownSeedRank} {ownEntry.name}</p>
+                                <button
+                                  type="button"
+                                  onClick={() => navigateToPublicProfile(ownEntry.email)}
+                                  disabled={!ownEntry.email}
+                                  className={`p-0 m-0 bg-transparent border-0 text-sm font-semibold truncate text-left ${ownEntry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
+                                >
+                                  #{ownSeedRank} {ownEntry.name}
+                                </button>
                                 <Badge className={isLightUi ? "bg-amber-600 text-white" : "bg-amber-700 text-white border border-amber-400/60"}>{ownEntry.seeds.toLocaleString()} 🌱</Badge>
                               </div>
                             </>
