@@ -616,14 +616,14 @@ export default function SettingsPanel({ user, onUserUpdated }) {
               : 'bg-white/5 border-[#f0e5a5]/10'
           }`}>
             <div className="flex-1 min-w-0">
-              <p className={`text-sm font-medium leading-snug ${uiTheme === 'light' ? 'text-stone-800' : 'text-stone-100'}`}>Weekly Tracking</p>
-              <p className={`text-xs leading-snug ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-400'}`}>Scans in woechentlichen Challenges teilen</p>
+              <p className={`text-sm font-medium leading-snug ${uiTheme === 'light' ? 'text-stone-800' : 'text-stone-100'}`}>Öffentliches Profil</p>
+              <p className={`text-xs leading-snug ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-400'}`}>Wenn aktiv, können Nutzer die dein Profil z.B. über Bestenlisten gefunden haben, deine Kollektionen und Scans sehen. Andernfalls ist dies nur für Freunde möglich.</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
               <input
                 type="checkbox"
-                checked={user?.weekly_tracking !== false}
-                onChange={(e) => updateUserMutation.mutate({ weekly_tracking: e.target.checked })}
+                checked={user?.public_profile !== false}
+                onChange={(e) => updateUserMutation.mutate({ public_profile: e.target.checked })}
                 className="sr-only peer"
               />
               <div className="relative w-10 h-[22px] bg-stone-600 rounded-full peer peer-checked:bg-green-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:after:translate-x-full" />

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "486455965042",
+    "project_id": "floralog-collective",
+    "storage_bucket": "floralog-collective.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:486455965042:android:22e654f37eba01c1aa99eb",
+        "android_client_info": {
+          "package_name": "de.floralog.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_aMmnEUpao6n674sNFz3GYfx0wLfGHVg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

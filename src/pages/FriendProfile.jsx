@@ -394,8 +394,9 @@ export default function FriendProfile() {
   const textPrimary = isLightUi ? "text-stone-900" : "text-white";
   const textSecondary = isLightUi ? "text-stone-700" : "text-stone-200";
 
-  const showNoFriendAccessHint = !isFriend && !hasPendingRequest && !isLoading;
-  const contentAccessDenied = activeTab !== "profile" && !isFriend && !isLoading;
+  const isPublicProfile = friendUser?.public_profile !== false;
+  const showNoFriendAccessHint = !isFriend && !hasPendingRequest && !isPublicProfile && !isLoading;
+  const contentAccessDenied = activeTab !== "profile" && !isFriend && !isPublicProfile && !isLoading;
 
   const handleTabChange = (nextTab) => {
     if (!VALID_FRIEND_TABS.includes(nextTab)) return;

@@ -1,21 +1,12 @@
-{
+﻿{
   "name": "floralog-ota",
-  "compatibility_date": "2026-02-17",
+  "compatibility_date": "2026-04-27",
   "main": "src/index.js",
-
-  // KV namespace stores the version manifest JSON
-  "kv_namespaces": [
-    {
-      "binding": "OTA",
-      "id": "ac10912f1adf4d65b2592da2e70b9967"
-    }
-  ],
-
-  // R2 bucket stores the bundle ZIP files
-  "r2_buckets": [
-    {
-      "binding": "OTA_BUCKET",
-      "bucket_name": "floralog-ota"
-    }
-  ]
+  "preview_urls": false,
+  "kv_namespaces": [{ "binding": "OTA_KV", "id": "ac10912f1adf4d65b2592da2e70b9967" }],
+  "r2_buckets": [{ "binding": "OTA_BUCKET", "bucket_name": "floralog-ota" }],
+  "triggers": {
+    "crons": ["*/10 * * * *"]
+  },
+  "observability": { "enabled": true, "logs": { "enabled": true } }
 }

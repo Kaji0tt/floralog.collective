@@ -1,21 +1,31 @@
 import React, { useState, useEffect } from "react";
-import { Query } from "@/api/entities";
+import { Capacitor } from "@capacitor/core";
+import { PushNotifications } from "@capacitor/push-notifications";
 import { updateCurrentUserProfile } from "@/api/userApi";
 import { Button } from "@/components/ui/button";
 import { Bell, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
+/**
+ * @param {{ user?: { push_subscription?: string | null; fcm_token?: string | null } | null; showInProfile?: boolean }} props
+ */
 export default function NotificationManager({ user, showInProfile = false }) {
   const [permissionState, setPermissionState] = useState("default");
   const [showPrompt, setShowPrompt] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const supportsPush =
+  const isNativePush = Capacitor.isNativePlatform();
+  const supportsWebPush =
     typeof window !== "undefined" &&
     "Notification" in window &&
     "serviceWorker" in navigator &&
     "PushManager" in window;
+  const supportsPush = isNativePush || supportsWebPush;
+  const hasPendingPermission =
+    permissionState === "default" ||
+    permissionState === "prompt" ||
+    permissionState === "prompt-with-rationale";
 
   useEffect(() => {
     checkNotificationStatus();
@@ -23,6 +33,24 @@ export default function NotificationManager({ user, showInProfile = false }) {
 
   const checkNotificationStatus = async () => {
     if (!supportsPush) {
+      return;
+    }
+
+    if (isNativePush) {
+      try {
+        const permission = await PushNotifications.checkPermissions();
+        const receivePermission = permission?.receive || "prompt";
+        setPermissionState(receivePermission);
+
+        const hasToken = Boolean(user?.fcm_token);
+        setIsSubscribed(receivePermission === "granted" && hasToken);
+
+        if (receivePermission === "prompt" && !localStorage.getItem("notification-prompt-dismissed") && !showInProfile) {
+          setTimeout(() => setShowPrompt(true), 5000);
+        }
+      } catch (_error) {
+        setIsSubscribed(false);
+      }
       return;
     }
 
@@ -56,6 +84,7 @@ export default function NotificationManager({ user, showInProfile = false }) {
     }
   };
 
+  /** @param {string} base64String */
   const urlBase64ToUint8Array = (base64String) => {
     const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
     const base64 = (base64String + padding).replace(/\-/g, "+").replace(/_/g, "/");
@@ -67,9 +96,18 @@ export default function NotificationManager({ user, showInProfile = false }) {
     return outputArray;
   };
 
+  /** @param {unknown} error */
   const getPushActivationErrorMessage = (error) => {
-    const errorName = error?.name || "UnknownError";
-    const rawMessage = (error?.message || "").trim();
+    const typedError = /** @type {{ message?: string; name?: string }} */ (error || {});
+
+    if (isNativePush) {
+      const message = (typedError.message || "").trim();
+      if (message) return `Push-Aktivierung fehlgeschlagen: ${message}`;
+      return "Push-Aktivierung fehlgeschlagen. Bitte Berechtigungen und Firebase-Konfiguration prüfen.";
+    }
+
+    const errorName = typedError.name || "UnknownError";
+    const rawMessage = (typedError.message || "").trim();
     const isFirefoxAndroid = /Android/i.test(navigator.userAgent) && /Firefox/i.test(navigator.userAgent);
 
     if (!window.isSecureContext) {
@@ -124,30 +162,93 @@ export default function NotificationManager({ user, showInProfile = false }) {
     return registration;
   };
 
+  const registerNativeToken = async () => {
+    /** @type {import("@capacitor/core").PluginListenerHandle[]} */
+    const listenerHandles = [];
+
+    try {
+      const tokenPromise = new Promise((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          reject(new Error("Zeitüberschreitung bei nativer Push-Registrierung"));
+        }, 12000);
+
+        const registrationListenerPromise = PushNotifications.addListener("registration", (token) => {
+          clearTimeout(timeoutId);
+          resolve(token?.value || "");
+        });
+
+        const registrationErrorListenerPromise = PushNotifications.addListener("registrationError", (registrationError) => {
+          clearTimeout(timeoutId);
+          reject(new Error(registrationError?.error || "Native Registrierung fehlgeschlagen"));
+        });
+
+        Promise.all([registrationListenerPromise, registrationErrorListenerPromise]).then(([listenerHandle, errorHandle]) => {
+          listenerHandles.push(listenerHandle, errorHandle);
+        }).catch((listenerError) => {
+          clearTimeout(timeoutId);
+          reject(listenerError);
+        });
+      });
+
+      await PushNotifications.register();
+      const token = await tokenPromise;
+      if (!token) {
+        throw new Error("Kein FCM-Token erhalten");
+      }
+      return token;
+    } finally {
+      await Promise.all(listenerHandles.map((handle) => handle.remove()));
+    }
+  };
+
+  const subscribeToNativePush = async () => {
+    let permission = await PushNotifications.checkPermissions();
+    if (permission.receive === "prompt") {
+      permission = await PushNotifications.requestPermissions();
+    }
+
+    setPermissionState(permission.receive || "prompt");
+
+    if (permission.receive !== "granted") {
+      throw new Error("Benachrichtigungsberechtigung wurde nicht erteilt");
+    }
+
+    const fcmToken = await registerNativeToken();
+
+    await updateCurrentUserProfile({
+      fcm_token: fcmToken,
+    });
+  };
+
+  const subscribeToWebPush = async () => {
+    const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+    if (!vapidPublicKey) {
+      throw new Error("VITE_VAPID_PUBLIC_KEY ist nicht gesetzt");
+    }
+
+    const registration = await registerServiceWorker();
+
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+      });
+    }
+
+    await updateCurrentUserProfile({
+      push_subscription: JSON.stringify(subscription.toJSON())
+    });
+  };
+
   const subscribeToPush = async () => {
     setIsLoading(true);
     try {
-      const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-      if (!vapidPublicKey) {
-        throw new Error("VITE_VAPID_PUBLIC_KEY ist nicht gesetzt");
+      if (isNativePush) {
+        await subscribeToNativePush();
+      } else {
+        await subscribeToWebPush();
       }
-      
-      // Service Worker registrieren
-      const registration = await registerServiceWorker();
-
-      // Push Subscription erstellen
-      let subscription = await registration.pushManager.getSubscription();
-      if (!subscription) {
-        subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
-        });
-      }
-
-      // Subscription in Datenbank speichern
-      await updateCurrentUserProfile({
-        push_subscription: JSON.stringify(subscription.toJSON())
-      });
 
       setIsSubscribed(true);
       setShowPrompt(false);
@@ -161,6 +262,11 @@ export default function NotificationManager({ user, showInProfile = false }) {
   };
 
   const requestNotificationPermission = async () => {
+    if (isNativePush) {
+      await subscribeToPush();
+      return;
+    }
+
     try {
       const permission = await Notification.requestPermission();
       setPermissionState(permission);
@@ -180,16 +286,25 @@ export default function NotificationManager({ user, showInProfile = false }) {
   const unsubscribeFromPush = async () => {
     setIsLoading(true);
     try {
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.getSubscription();
-      
-      if (subscription) {
-        await subscription.unsubscribe();
-      }
+      if (isNativePush) {
+        if (typeof PushNotifications.unregister === "function") {
+          await PushNotifications.unregister();
+        }
+        await updateCurrentUserProfile({
+          fcm_token: null,
+        });
+      } else {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
 
-      await updateCurrentUserProfile({
-        push_subscription: null
-      });
+        if (subscription) {
+          await subscription.unsubscribe();
+        }
+
+        await updateCurrentUserProfile({
+          push_subscription: null
+        });
+      }
 
       setIsSubscribed(false);
       alert("Push-Benachrichtigungen deaktiviert.");
@@ -205,6 +320,20 @@ export default function NotificationManager({ user, showInProfile = false }) {
     if (!supportsPush) {
       return { text: "Nicht unterstützt: Dieser Browser unterstützt keine Push-Benachrichtigungen.", className: "text-red-700" };
     }
+
+    if (isNativePush) {
+      if (permissionState === "denied") {
+        return { text: "Blockiert: Bitte Benachrichtigungen in den App-/Systemeinstellungen wieder erlauben.", className: "text-amber-700" };
+      }
+      if (permissionState === "granted" && isSubscribed) {
+        return { text: "Aktiv auf diesem Gerät: Native Push-Benachrichtigungen sind eingeschaltet.", className: "text-green-700" };
+      }
+      if (permissionState === "granted" && !isSubscribed) {
+        return { text: "Berechtigt, aber kein FCM-Token im Profil gespeichert. Bitte erneut aktivieren.", className: "text-amber-700" };
+      }
+      return { text: "Noch nicht entschieden: Benachrichtigungen sind aktuell aus.", className: "text-stone-600" };
+    }
+
     if (permissionState === "denied") {
       return { text: "Blockiert: In den Browser-Einstellungen wieder erlauben.", className: "text-amber-700" };
     }
@@ -276,7 +405,7 @@ export default function NotificationManager({ user, showInProfile = false }) {
   // Banner-Prompt
   return (
     <>
-      {showPrompt && permissionState === "default" && (
+      {showPrompt && hasPendingPermission && (
         <div className="fixed bottom-20 md:bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-md z-50 animate-in slide-in-from-bottom-5">
           <Card className="border-2 border-green-600 shadow-xl bg-white">
             <CardContent className="p-4">

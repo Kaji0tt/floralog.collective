@@ -16,6 +16,7 @@ import SetPassword from '@/pages/SetPassword';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
 import GuestLoginModal from '@/components/GuestLoginModal';
+import ResetPasswordModal from '@/components/ResetPasswordModal';
 import HomeShellLoader from '@/components/navigation/HomeShellLoader';
 import { UiThemeProvider } from '@/lib/UiThemeContext';
 import OtaUpdateManager from '@/components/OtaUpdateManager';
@@ -29,7 +30,7 @@ const LayoutWrapper = ({ children, currentPageName }) => Layout ?
   : <>{children}</>;
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, authError, isAuthenticated, loginModalOpen, closeLoginModal } = useAuth();
+  const { isLoadingAuth, authError, isAuthenticated, loginModalOpen, closeLoginModal, isPasswordRecovery, clearPasswordRecovery } = useAuth();
 
   // Show loading spinner while checking auth
   if (isLoadingAuth) {
@@ -49,6 +50,7 @@ const AuthenticatedApp = () => {
   return (
     <>
       <GuestLoginModal open={loginModalOpen} onClose={closeLoginModal} />
+      <ResetPasswordModal open={isPasswordRecovery} onSuccess={clearPasswordRecovery} />
       <Routes>
         <Route path="/" element={
           <LayoutWrapper currentPageName={mainPageKey}>

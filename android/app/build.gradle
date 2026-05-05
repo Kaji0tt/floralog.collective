@@ -1,5 +1,28 @@
 apply plugin: 'com.android.application'
 
+// ── Auto-increment versionCode from version.properties ────────────────────
+def versionPropsFile = rootProject.file('version.properties')
+if (!versionPropsFile.exists()) {
+    versionPropsFile.text = 'VERSION_CODE=1\nVERSION_NAME=1.0\n'
+}
+def versionProps = new Properties()
+versionPropsFile.withInputStream { versionProps.load(it) }
+
+def autoVersionCode = versionProps['VERSION_CODE'].toInteger()
+def autoVersionName = versionProps['VERSION_NAME']
+
+// Nur bei Release-Builds hochzählen (nicht bei jedem Debug-Build)
+gradle.taskGraph.whenReady { taskGraph ->
+    def isRelease = taskGraph.allTasks.any { it.name.contains('Release') }
+    if (isRelease) {
+        autoVersionCode += 1
+        versionProps['VERSION_CODE'] = autoVersionCode.toString()
+        versionPropsFile.withOutputStream { versionProps.store(it, null) }
+        println ">>> Auto-incremented versionCode to ${autoVersionCode}"
+    }
+}
+// ──────────────────────────────────────────────────────────────────────────
+
 android {
     namespace = "de.floralog.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +30,8 @@ android {
         applicationId "de.floralog.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode autoVersionCode
+        versionName autoVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

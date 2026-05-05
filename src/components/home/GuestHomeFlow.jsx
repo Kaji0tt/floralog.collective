@@ -1,10 +1,11 @@
 ﻿import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Mail, Lock, User, Loader2, AlertCircle, CheckCircle2, ChevronDown } from "lucide-react";
+import { Camera, Download, Mail, Lock, User, Loader2, AlertCircle, CheckCircle2, ChevronDown } from "lucide-react";
 import { signIn, signUp, updatePassword } from "@/api/authService";
 import { checkLegacyUser, upsertLegacyUserFromRegistration } from "@/api/migrationService";
 import { supabase } from "@/api/supabaseClient";
+import { checkApkVersion } from "@/lib/apkVersionService";
 
 const GUEST_BG_IMAGE_URL = new URL("../../../guestfunnel-bg.png", import.meta.url).href;
 const GUEST_MG_IMAGE_URL = new URL("../../../guestfunnel-mg.png", import.meta.url).href;
@@ -275,11 +276,39 @@ export default function GuestHomeFlow() {
   const communityCardTouchStartXRef = useRef(/** @type {number | null} */ (null));
   const communityCardTouchStartYRef = useRef(/** @type {number | null} */ (null));
 
+  // APK update banner state (non-forced; forced updates are handled in HomeOtaGate)
+  const [apkUpdateManifest, setApkUpdateManifest] = useState(/** @type {any|null} */ (null));
+  const [apkBannerDismissed, setApkBannerDismissed] = useState(false);
+
+  // Download modals
+  const [androidDownloadModalOpen, setAndroidDownloadModalOpen] = useState(false);
+  const [iosModalOpen, setIosModalOpen] = useState(false);
+  const [apkManifestForDownload, setApkManifestForDownload] = useState(/** @type {any|null} */ (null));
+
   useEffect(() => {
     supabase.rpc("get_community_stats").then(({ data }) => {
       if (data) setCommunityStats(data);
     });
   }, []);
+
+  useEffect(() => {
+    const base = (import.meta.env.VITE_APK_VERSION_URL || import.meta.env.VITE_OTA_VERSION_URL || 'https://floralog-ota.green-term-27d0.workers.dev/apk-version.json')
+      .replace(/\/version\.json$/, '/apk-version.json');
+    fetch(base)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data && data.apk_url) setApkManifestForDownload(data); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!isNativeRuntime) return;
+    checkApkVersion().then(({ isOutdated, isForcedUpdate, manifest }) => {
+      // Forced updates are handled in HomeOtaGate; here we only show the soft banner
+      if (isOutdated && !isForcedUpdate && manifest) {
+        setApkUpdateManifest(manifest);
+      }
+    });
+  }, [isNativeRuntime]);
 
   useEffect(() => {
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
@@ -1393,6 +1422,62 @@ export default function GuestHomeFlow() {
       <div
         className="fixed bottom-0 inset-x-0 z-[130] flex flex-col items-center justify-center py-4"
       >
+        {/* APK update banner – shown when a newer APK is available (soft, non-forced) */}
+        {apkUpdateManifest && !apkBannerDismissed && (
+          <div className="w-full max-w-md px-3 mb-2">
+            <div className="flex items-center gap-3 rounded-2xl border border-amber-500/50 bg-black/70 px-4 py-2.5 backdrop-blur-md shadow-xl">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-amber-200 leading-snug">
+                  Neue App-Version verfügbar
+                </p>
+                <p className="text-[0.68rem] text-stone-400 truncate">
+                  v{apkUpdateManifest.version_name}
+                  {apkUpdateManifest.release_notes ? ` – ${apkUpdateManifest.release_notes}` : ''}
+                </p>
+              </div>
+              <a
+                href={apkUpdateManifest.apk_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 shrink-0 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-400 active:bg-amber-600 transition-colors"
+              >
+                <Download className="w-3 h-3" />
+                APK laden
+              </a>
+              <button
+                type="button"
+                onClick={() => setApkBannerDismissed(true)}
+                className="text-stone-500 hover:text-stone-300 text-xs shrink-0 px-1"
+                aria-label="Schließen"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+        {/* App download buttons */}
+        <div className="flex items-center gap-2 mb-2">
+          <button
+            type="button"
+            onClick={() => setAndroidDownloadModalOpen(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-emerald-400/30 bg-black/40 px-3 py-1.5 text-xs font-medium text-emerald-100/80 hover:bg-black/55 hover:text-emerald-50 transition-colors backdrop-blur-sm"
+          >
+            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" aria-hidden="true">
+              <path d="M17.523 15.34a.5.5 0 0 1-.5.5H6.977a.5.5 0 0 1-.5-.5V9.5h11.046v5.84zM7.5 18.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm9 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM3.513 9.14l1.3-2.38A.5.5 0 0 1 5.25 6.5h13.5a.5.5 0 0 1 .437.26l1.3 2.38H3.513zM14.6 2.1l-1.5 2.6h-2.2L9.4 2.1a.4.4 0 0 1 .693-.4L11 3.5h2l.907-1.8a.4.4 0 0 1 .693.4z" />
+            </svg>
+            Android
+          </button>
+          <button
+            type="button"
+            onClick={() => setIosModalOpen(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-stone-400/25 bg-black/40 px-3 py-1.5 text-xs font-medium text-stone-300/70 hover:bg-black/55 hover:text-stone-100 transition-colors backdrop-blur-sm"
+          >
+            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" aria-hidden="true">
+              <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+            </svg>
+            iOS
+          </button>
+        </div>
         <p
           className="text-center text-stone-300/40 drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)]"
           style={{
@@ -1403,6 +1488,132 @@ export default function GuestHomeFlow() {
           by Floralog Collective, enabled with Pl@ntNet
         </p>
       </div>
+      {/* ── Android Download Modal ──────────────────────────────────── */}
+      {androidDownloadModalOpen && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/72 backdrop-blur-[2px]" onClick={() => setAndroidDownloadModalOpen(false)} />
+          <div
+            className="relative z-10 w-full max-w-[92vw] sm:max-w-sm rounded-3xl border border-emerald-100/25 bg-[linear-gradient(180deg,rgba(8,22,14,0.97)_0%,rgba(4,14,8,0.98)_100%)] text-stone-100 shadow-[0_28px_90px_rgba(0,0,0,0.65)] backdrop-blur-xl p-5"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="absolute inset-0 rounded-3xl border border-emerald-100/10 pointer-events-none" />
+            <button
+              type="button"
+              onClick={() => setAndroidDownloadModalOpen(false)}
+              className="absolute top-3.5 right-3.5 z-20 text-stone-400 hover:text-stone-100 transition-colors"
+              aria-label="Schließen"
+            >
+              ✕
+            </button>
+            <div className="relative z-10 flex flex-col items-center gap-3 pt-1">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-400/30 bg-emerald-900/40">
+                <svg viewBox="0 0 24 24" className="w-7 h-7 fill-emerald-300" aria-hidden="true">
+                  <path d="M17.523 15.34a.5.5 0 0 1-.5.5H6.977a.5.5 0 0 1-.5-.5V9.5h11.046v5.84zM7.5 18.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm9 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM3.513 9.14l1.3-2.38A.5.5 0 0 1 5.25 6.5h13.5a.5.5 0 0 1 .437.26l1.3 2.38H3.513zM14.6 2.1l-1.5 2.6h-2.2L9.4 2.1a.4.4 0 0 1 .693-.4L11 3.5h2l.907-1.8a.4.4 0 0 1 .693.4z" />
+                </svg>
+              </div>
+              <div className="text-center">
+                <h2 className="text-base font-semibold text-emerald-50">Floralog für Android</h2>
+                {apkManifestForDownload ? (
+                  <p className="mt-0.5 text-xs text-stone-400">
+                    Version {apkManifestForDownload.version_name}
+                    {apkManifestForDownload.release_notes ? ` · ${apkManifestForDownload.release_notes}` : ''}
+                  </p>
+                ) : (
+                  <p className="mt-0.5 text-xs text-stone-500">APK-Download</p>
+                )}
+              </div>
+              <div className="w-full rounded-2xl border border-stone-700/50 bg-black/25 p-3 text-xs text-stone-400 space-y-1.5">
+                <p className="font-medium text-stone-300">Hinweis zur Installation</p>
+                <p>Nach dem Download musst du in den Android-Einstellungen <span className="text-stone-200">&bdquo;Installation aus unbekannten Quellen&ldquo;</span> für deinen Browser einmalig erlauben.</p>
+              </div>
+              {apkManifestForDownload ? (
+                <a
+                  href={apkManifestForDownload.apk_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 w-full flex items-center justify-center gap-2 rounded-xl border border-emerald-400/40 bg-gradient-to-r from-emerald-700/90 via-emerald-600/80 to-emerald-700/90 py-2.5 text-sm font-semibold text-white hover:brightness-110 transition-all shadow-[0_4px_18px_rgba(34,197,94,0.22)]"
+                >
+                  <Download className="w-4 h-4" />
+                  APK herunterladen
+                </a>
+              ) : (
+                <div className="mt-1 w-full flex items-center justify-center gap-2 rounded-xl border border-stone-700/50 bg-stone-800/40 py-2.5 text-sm text-stone-500">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Lade Versionsinfo…
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── iOS / PWA Modal ───────────────────────────────────────────── */}
+      {iosModalOpen && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/72 backdrop-blur-[2px]" onClick={() => setIosModalOpen(false)} />
+          <div
+            className="relative z-10 w-full max-w-[92vw] sm:max-w-sm rounded-3xl border border-stone-600/30 bg-[linear-gradient(180deg,rgba(10,10,14,0.97)_0%,rgba(6,6,10,0.98)_100%)] text-stone-100 shadow-[0_28px_90px_rgba(0,0,0,0.65)] backdrop-blur-xl p-5 max-h-[90vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="absolute inset-0 rounded-3xl border border-stone-500/10 pointer-events-none" />
+            <button
+              type="button"
+              onClick={() => setIosModalOpen(false)}
+              className="absolute top-3.5 right-3.5 z-20 text-stone-400 hover:text-stone-100 transition-colors"
+              aria-label="Schließen"
+            >
+              ✕
+            </button>
+            <div className="relative z-10 flex flex-col gap-3.5 pt-1">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-stone-500/30 bg-stone-800/50">
+                  <svg viewBox="0 0 24 24" className="w-6 h-6 fill-stone-200" aria-hidden="true">
+                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-stone-50">Floralog für iPhone</h2>
+                  <p className="text-xs text-stone-400">iOS-App</p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-amber-500/25 bg-amber-900/15 p-3 text-xs text-amber-200/85 leading-relaxed">
+                <p className="font-semibold text-amber-100 mb-1">Warum gibt es keine iPhone-App im App Store?</p>
+                <p>Die Veröffentlichung einer iOS-App setzt ein <span className="text-amber-50 font-medium">Apple Developer-Konto</span> voraus, das <span className="text-amber-50 font-medium">99 US-Dollar pro Jahr</span> kostet. Da Floralog ein Community-Projekt im Aufbau ist, wurde vorerst darauf verzichtet.</p>
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-stone-200 mb-2.5">So richtest du Floralog trotzdem auf deinem iPhone ein:</p>
+                <ol className="space-y-3">
+                  {[
+                    { step: "1", title: "Safari öffnen", desc: "Öffne floralog.de in Safari – nicht in Chrome oder Firefox, da nur Safari diese Funktion unterstützt." },
+                    { step: "2", title: "Teilen antippen", desc: "Tippe auf das Teilen-Symbol (□ mit Pfeil nach oben) in der Mitte der Menüleiste unten." },
+                    { step: "3", title: "\"Zum Home-Bildschirm\"", desc: "Scrolle im Teilen-Menü nach unten und tippe auf \"Zum Home-Bildschirm\"." },
+                    { step: "4", title: "Namen bestätigen", desc: "Vergib einen Namen – z.\u202fB. \u201eFloralog\u201c – und tippe oben rechts auf \"Hinzufügen\"." },
+                    { step: "5", title: "Fertig!", desc: "Das Floralog-Icon erscheint auf deinem Startbildschirm. Es öffnet sich wie eine App – ohne Browser-Leiste." },
+                  ].map(({ step, title, desc }) => (
+                    <li key={step} className="flex gap-2.5">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-700/50 text-[0.65rem] font-bold text-emerald-200 mt-0.5">{step}</span>
+                      <div>
+                        <p className="text-xs font-semibold text-stone-200">{title}</p>
+                        <p className="text-xs text-stone-400 mt-0.5 leading-relaxed">{desc}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIosModalOpen(false)}
+                className="mt-1 w-full rounded-xl border border-stone-600/40 bg-stone-800/50 py-2.5 text-sm text-stone-300 hover:bg-stone-700/50 transition-colors"
+              >
+                Schließen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

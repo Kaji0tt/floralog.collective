@@ -21,6 +21,27 @@ type CreateNotificationBody = {
   displayLocation?: string | null;
 };
 
+type PushPayload = {
+  title: string;
+  body: string;
+  icon: string;
+  badge: string;
+  tag: string;
+  vibrate: number[];
+  data: {
+    type: string;
+    from: string;
+    actionUrl: string;
+  };
+};
+
+type FcmServiceAccount = {
+  project_id: string;
+  client_email: string;
+  private_key: string;
+  token_uri?: string;
+};
+
 function getAccessTokenFromAuthHeader(header: string | null): string | null {
   if (!header) return null;
   const parts = header.split(" ");
@@ -40,7 +61,7 @@ function buildPushPayload(params: {
   notificationType: string;
   actionUrl: string;
   actorEmail: string;
-}) {
+}): PushPayload {
   const { title, message, notificationType, actionUrl, actorEmail } = params;
   return {
     title,
@@ -54,6 +75,175 @@ function buildPushPayload(params: {
       from: actorEmail,
       actionUrl: actionUrl || "/Friends?tab=news",
     },
+  };
+}
+
+function isLikelyWebPushSubscription(subscriptionText: string | null | undefined): boolean {
+  if (!subscriptionText) return false;
+  try {
+    const parsed = JSON.parse(subscriptionText) as { endpoint?: string; keys?: Record<string, string> };
+    return typeof parsed?.endpoint === "string" && !!parsed?.keys;
+  } catch {
+    return false;
+  }
+}
+
+function parseFcmServiceAccount(rawJson: string | null): FcmServiceAccount | null {
+  if (!rawJson) return null;
+  try {
+    const parsed = JSON.parse(rawJson) as FcmServiceAccount;
+    if (!parsed?.project_id || !parsed?.client_email || !parsed?.private_key) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function base64UrlEncodeBytes(input: Uint8Array): string {
+  const binary = String.fromCharCode(...input);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function base64UrlEncodeText(input: string): string {
+  return base64UrlEncodeBytes(new TextEncoder().encode(input));
+}
+
+async function signGoogleJwt(serviceAccount: FcmServiceAccount): Promise<string> {
+  const tokenUri = serviceAccount.token_uri || "https://oauth2.googleapis.com/token";
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: "RS256", typ: "JWT" };
+  const payload = {
+    iss: serviceAccount.client_email,
+    scope: "https://www.googleapis.com/auth/firebase.messaging",
+    aud: tokenUri,
+    iat: now,
+    exp: now + 3600,
+  };
+
+  const encodedHeader = base64UrlEncodeText(JSON.stringify(header));
+  const encodedPayload = base64UrlEncodeText(JSON.stringify(payload));
+  const signingInput = `${encodedHeader}.${encodedPayload}`;
+
+  const normalizedPrivateKey = serviceAccount.private_key.replace(/\\n/g, "\n");
+  const pem = normalizedPrivateKey
+    .replace("-----BEGIN PRIVATE KEY-----", "")
+    .replace("-----END PRIVATE KEY-----", "")
+    .replace(/\s/g, "");
+  const keyBytes = Uint8Array.from(atob(pem), (char) => char.charCodeAt(0));
+
+  const cryptoKey = await crypto.subtle.importKey(
+    "pkcs8",
+    keyBytes.buffer,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+
+  const signature = await crypto.subtle.sign(
+    { name: "RSASSA-PKCS1-v1_5" },
+    cryptoKey,
+    new TextEncoder().encode(signingInput),
+  );
+
+  return `${signingInput}.${base64UrlEncodeBytes(new Uint8Array(signature))}`;
+}
+
+async function getFcmAccessToken(serviceAccount: FcmServiceAccount): Promise<string> {
+  const tokenUri = serviceAccount.token_uri || "https://oauth2.googleapis.com/token";
+  const assertion = await signGoogleJwt(serviceAccount);
+
+  const response = await fetch(tokenUri, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion,
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Google OAuth token request failed (${response.status}): ${errText}`);
+  }
+
+  const data = await response.json();
+  const accessToken = (data as { access_token?: string })?.access_token;
+  if (!accessToken) {
+    throw new Error("Google OAuth token response missing access_token");
+  }
+
+  return accessToken;
+}
+
+function parseFcmErrorReason(errorPayload: unknown): string | null {
+  const details = (errorPayload as {
+    error?: { details?: Array<{ errorCode?: string }> };
+  })?.error?.details;
+
+  if (!Array.isArray(details)) return null;
+
+  const fcmDetail = details.find((detail) => typeof detail?.errorCode === "string");
+  return fcmDetail?.errorCode || null;
+}
+
+async function sendFcmNotification(params: {
+  serviceAccount: FcmServiceAccount;
+  fcmToken: string;
+  pushPayload: PushPayload;
+}): Promise<{ ok: boolean; statusCode?: number; reason?: string; shouldClearToken?: boolean }> {
+  const { serviceAccount, fcmToken, pushPayload } = params;
+  const accessToken = await getFcmAccessToken(serviceAccount);
+
+  const response = await fetch(
+    `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        message: {
+          token: fcmToken,
+          notification: {
+            title: pushPayload.title,
+            body: pushPayload.body,
+          },
+          data: {
+            type: pushPayload.data.type,
+            from: pushPayload.data.from,
+            actionUrl: pushPayload.data.actionUrl,
+          },
+          android: {
+            priority: "high",
+          },
+          apns: {
+            payload: {
+              aps: {
+                sound: "default",
+              },
+            },
+          },
+        },
+      }),
+    },
+  );
+
+  if (response.ok) {
+    return { ok: true };
+  }
+
+  const errorPayload = await response.json().catch(() => ({}));
+  const reason = parseFcmErrorReason(errorPayload);
+  const shouldClearToken = reason === "UNREGISTERED" || reason === "INVALID_ARGUMENT";
+
+  return {
+    ok: false,
+    statusCode: response.status,
+    reason: reason || `http_${response.status}`,
+    shouldClearToken,
   };
 }
 
@@ -202,20 +392,20 @@ Deno.serve(async (req) => {
 
     const pushPublicKey = Deno.env.get("VAPID_PUBLIC_KEY");
     const pushPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY");
+    const fcmServiceAccount = parseFcmServiceAccount(Deno.env.get("FCM_SERVICE_ACCOUNT_JSON"));
     let pushStatus: { attempted: boolean; sent: boolean; reason?: string } = {
       attempted: false,
       sent: false,
     };
 
-    if ((targetEmail || targetAuthId) && pushPublicKey && pushPrivateKey) {
+    if (targetEmail || targetAuthId) {
       try {
-        pushStatus.attempted = true;
-        let targetProfile: { id: string; push_subscription: string | null } | null = null;
+        let targetProfile: { id: string; push_subscription: string | null; fcm_token: string | null } | null = null;
 
         if (targetAuthId) {
           const { data: byAuthId } = await adminClient
             .from("PublicProfile")
-            .select("id, push_subscription")
+            .select("id, push_subscription, fcm_token")
             .eq("auth_id", targetAuthId)
             .maybeSingle();
           targetProfile = byAuthId || null;
@@ -224,36 +414,78 @@ Deno.serve(async (req) => {
         if (!targetProfile && targetEmail) {
           const { data: byEmail } = await adminClient
             .from("PublicProfile")
-            .select("id, push_subscription")
+            .select("id, push_subscription, fcm_token")
             .ilike("user_email", targetEmail)
             .maybeSingle();
           targetProfile = byEmail || null;
         }
 
-        if (targetProfile?.push_subscription) {
+        const pushPayload = buildPushPayload({
+          title,
+          message,
+          notificationType,
+          actionUrl: body.actionUrl || "",
+          actorEmail,
+        });
+
+        const hasValidWebSubscription = Boolean(
+          targetProfile?.push_subscription && isLikelyWebPushSubscription(targetProfile.push_subscription),
+        );
+        const hasFcmToken = Boolean(targetProfile?.fcm_token);
+
+        if (hasValidWebSubscription && pushPublicKey && pushPrivateKey) {
+          pushStatus.attempted = true;
           webpush.setVapidDetails(
             "mailto:noreply@floralog.app",
             pushPublicKey,
             pushPrivateKey,
           );
 
-          const pushPayload = buildPushPayload({
-            title,
-            message,
-            notificationType,
-            actionUrl: body.actionUrl || "",
-            actorEmail,
-          });
-
           await webpush.sendNotification(
-            JSON.parse(targetProfile.push_subscription),
+            JSON.parse(targetProfile?.push_subscription || "{}"),
             JSON.stringify(pushPayload),
           );
 
           pushStatus.sent = true;
+          pushStatus.reason = "sent_webpush";
+        } else if (hasFcmToken) {
+          if (!fcmServiceAccount) {
+            pushStatus.reason = "missing_fcm_service_account";
+          } else {
+            pushStatus.attempted = true;
+            const fcmSendResult = await sendFcmNotification({
+              serviceAccount: fcmServiceAccount,
+              fcmToken: targetProfile?.fcm_token || "",
+              pushPayload,
+            });
+
+            if (fcmSendResult.ok) {
+              pushStatus.sent = true;
+              pushStatus.reason = "sent_fcm";
+            } else {
+              pushStatus.reason = `fcm_${fcmSendResult.reason || "unknown"}`;
+              if (fcmSendResult.shouldClearToken) {
+                if (targetAuthId) {
+                  await adminClient
+                    .from("PublicProfile")
+                    .update({ fcm_token: null })
+                    .eq("auth_id", targetAuthId);
+                } else if (targetEmail) {
+                  await adminClient
+                    .from("PublicProfile")
+                    .update({ fcm_token: null })
+                    .ilike("user_email", targetEmail);
+                }
+              }
+            }
+          }
+        } else if (targetProfile?.push_subscription && !hasValidWebSubscription) {
+          pushStatus.reason = "invalid_webpush_subscription_shape";
+        } else if (hasValidWebSubscription && (!pushPublicKey || !pushPrivateKey)) {
+          pushStatus.reason = "missing_vapid_keys";
         } else {
-          pushStatus.reason = "no_push_subscription";
-          console.info("[createNotification] Push skipped: no subscription", {
+          pushStatus.reason = "no_push_target";
+          console.info("[createNotification] Push skipped: no subscription/token", {
             targetAuthId,
             targetEmail,
           });
@@ -278,7 +510,7 @@ Deno.serve(async (req) => {
         }
       }
     } else {
-      pushStatus.reason = "missing_target_or_vapid_keys";
+      pushStatus.reason = "missing_target";
     }
 
     return new Response(

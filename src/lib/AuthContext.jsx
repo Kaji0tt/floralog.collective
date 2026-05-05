@@ -20,6 +20,7 @@ export const AuthProvider = ({ children }) => {
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [authError, setAuthError] = useState(null);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [zoneGenerationDay, setZoneGenerationDay] = useState(null);
 
   useEffect(() => {
@@ -33,6 +34,14 @@ export const AuthProvider = ({ children }) => {
     const { data: { subscription } } = onAuthChange(async (event, session) => {
       console.log('Auth event:', event);
       clearTimeout(timeoutId); // Clear timeout if auth responds
+
+      // Recovery session: user clicked the password-reset email link.
+      // Keep them as guest and show the reset-password modal.
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsPasswordRecovery(true);
+        setIsLoadingAuth(false);
+        return;
+      }
       
       if (session?.user) {
         // User signed in
@@ -132,6 +141,10 @@ export const AuthProvider = ({ children }) => {
     setLoginModalOpen(false);
   };
 
+  const clearPasswordRecovery = () => {
+    setIsPasswordRecovery(false);
+  };
+
   const setZoneGenerationDayForUser = (dayKey) => {
     if (!user?.id || !dayKey) return;
     localStorage.setItem(getZoneGenerationStorageKey(user.id), dayKey);
@@ -172,6 +185,8 @@ export const AuthProvider = ({ children }) => {
       openLoginModal,
       closeLoginModal,
       requireAuth,
+      isPasswordRecovery,
+      clearPasswordRecovery,
       zoneGenerationDay,
       hasCalledZoneGenerationToday,
       setZoneGenerationDayForUser,

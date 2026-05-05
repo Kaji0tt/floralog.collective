@@ -343,7 +343,7 @@ function HomeContent() {
     queryKey: ['allUsers'],
     queryFn: async () => {
       const users = await Query.PublicProfile.list();
-      return users.filter(u => u.weekly_tracking !== false);
+      return users.filter(u => u.public_profile !== false);
     },
     initialData: [],
     staleTime: 5 * 60 * 1000,
