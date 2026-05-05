@@ -104,6 +104,9 @@ function HomeContent() {
   const [hasResolvedZoneBootstrap, setHasResolvedZoneBootstrap] = useState(false);
   const [showHealthStatsPanel, setShowHealthStatsPanel] = useState(false);
   const [showWeeklyQuestTooltip, setShowWeeklyQuestTooltip] = useState(false);
+  const [weeklyQuestSeen, setWeeklyQuestSeen] = useState(() => {
+    try { return localStorage.getItem('weeklyQuestSeen') || ''; } catch { return ''; }
+  });
   const healthStatsPanelRef = useRef(null);
   const [heroStageSizePx, setHeroStageSizePx] = useState(0);
   const [heroMapInstance, setHeroMapInstance] = useState(null);
@@ -1304,6 +1307,13 @@ function HomeContent() {
   const healthStateBonus = Number(resolvedPlantHealthState?.scanEventBonus ?? 0);
   const displayedOverallPlantHealth = isPlantHealthPending ? null : overallPlantHealth;
 
+  const pulseEnabled = user?.plant_pulse_enabled !== false;
+  const pulseHealth = isPlantHealthPending ? 0 : (overallPlantHealth ?? 0);
+  const showPulse = pulseEnabled && pulseHealth > 0;
+  const pulseInnerOpacity = showPulse ? Math.round((pulseHealth / 100) * 0xaa).toString(16).padStart(2, '0') : '00';
+  const pulseOuterOpacity = showPulse ? Math.round((pulseHealth / 100) * 0x55).toString(16).padStart(2, '0') : '00';
+  const pulseDuration = showPulse ? (2.4 - (pulseHealth / 100) * 1.2).toFixed(2) + 's' : '2s';
+
   const currentZoneColor = !hasResolvedZoneBootstrap
     ? "#6b7280"
     : activeZone
@@ -2071,13 +2081,17 @@ function HomeContent() {
                         const regularReady = activeRegularQuests.some(q => q.isCompleted);
                         const anyReady = monthlyReady || weeklyReady || regularReady;
 
+                        const questUnseen = currentWeeklyQuest && weeklyQuestSeen !== String(currentWeeklyQuest.id);
+
                         const borderClass = monthlyReady
                           ? isLightUi ? "border-purple-500/70" : "border-purple-400/60"
                           : weeklyReady
                             ? isLightUi ? "border-emerald-500/70" : "border-emerald-400/60"
                             : regularReady
                               ? isLightUi ? "border-stone-400/70" : "border-white/50"
-                              : isLightUi ? "border-amber-400/60" : "border-amber-300/50";
+                              : questUnseen
+                                ? isLightUi ? "border-amber-400/60" : "border-amber-300/50"
+                                : isLightUi ? "border-[#c8ac62]/40" : "border-[#f0e5a5]/25";
 
                         const bgStyle = monthlyReady
                           ? isLightUi
@@ -2091,9 +2105,13 @@ function HomeContent() {
                               ? isLightUi
                                 ? "linear-gradient(135deg, rgba(200,200,200,0.38) 0%, rgba(200,200,200,0.16) 100%)"
                                 : "linear-gradient(135deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.12) 100%)"
-                              : isLightUi
-                                ? "linear-gradient(135deg, rgba(234,179,8,0.28) 0%, rgba(234,179,8,0.10) 100%)"
-                                : "linear-gradient(135deg, rgba(234,179,8,0.48) 0%, rgba(234,179,8,0.28) 100%)";
+                              : questUnseen
+                                ? isLightUi
+                                  ? "linear-gradient(135deg, rgba(234,179,8,0.28) 0%, rgba(234,179,8,0.10) 100%)"
+                                  : "linear-gradient(135deg, rgba(234,179,8,0.48) 0%, rgba(234,179,8,0.28) 100%)"
+                                : isLightUi
+                                  ? "linear-gradient(135deg, rgba(107,114,128,0.22) 0%, rgba(107,114,128,0.08) 100%)"
+                                  : "linear-gradient(135deg, rgba(107,114,128,0.38) 0%, rgba(107,114,128,0.18) 100%)";
 
                         const iconColor = monthlyReady
                           ? isLightUi ? "text-purple-700" : "text-purple-300"
@@ -2101,7 +2119,9 @@ function HomeContent() {
                             ? isLightUi ? "text-emerald-700" : "text-emerald-300"
                             : regularReady
                               ? isLightUi ? "text-stone-600" : "text-white"
-                              : isLightUi ? "text-amber-700" : "text-amber-300";
+                              : questUnseen
+                                ? isLightUi ? "text-amber-700" : "text-amber-300"
+                                : isLightUi ? "text-stone-500" : "text-stone-400";
 
                         return (
                           <button
@@ -2112,6 +2132,11 @@ function HomeContent() {
                                 setShowHealthStatsPanel(false);
                               } else {
                                 setShowWeeklyQuestTooltip((prev) => !prev);
+                                if (currentWeeklyQuest?.id) {
+                                  const key = String(currentWeeklyQuest.id);
+                                  setWeeklyQuestSeen(key);
+                                  try { localStorage.setItem('weeklyQuestSeen', key); } catch {}
+                                }
                               }
                             }}
                             className={`absolute left-0 md:left-2 top-5 md:top-6 z-20 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${borderClass}`}
@@ -2218,12 +2243,15 @@ function HomeContent() {
                             transition={{ duration: 0.16, ease: "easeOut" }}
                             className="absolute inset-0"
                           >
-                            <div
-                              className="absolute left-1/2 top-1/2 w-[75%] aspect-square -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl animate-pulse pointer-events-none"
-                              style={{
-                                background: `radial-gradient(circle, ${resolvedPlantHealthState.color}aa 0%, ${resolvedPlantHealthState.color}44 46%, transparent 74%)`,
-                              }}
-                            />
+                            {showPulse && (
+                              <div
+                                className="absolute left-1/2 top-1/2 w-[75%] aspect-square -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl animate-pulse pointer-events-none"
+                                style={{
+                                  background: `radial-gradient(circle, ${resolvedPlantHealthState.color}${pulseInnerOpacity} 0%, ${resolvedPlantHealthState.color}${pulseOuterOpacity} 46%, transparent 74%)`,
+                                  animationDuration: pulseDuration,
+                                }}
+                              />
+                            )}
                             <div className="absolute left-1/2 top-1/2 w-[82%] aspect-square -translate-x-1/2 -translate-y-1/2">
                               <img
                                 src={FLORALOG_LOGO_URL}

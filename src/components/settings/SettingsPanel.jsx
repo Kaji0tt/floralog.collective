@@ -588,6 +588,26 @@ export default function SettingsPanel({ user, onUserUpdated }) {
             </label>
           </div>
 
+          <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${
+            uiTheme === 'light'
+              ? 'bg-stone-100/20 border-[#c8ac62]/15'
+              : 'bg-white/5 border-[#f0e5a5]/10'
+          }`}>
+            <div className="flex-1 min-w-0">
+              <p className={`text-sm font-medium leading-snug ${uiTheme === 'light' ? 'text-stone-800' : 'text-stone-100'}`}>Pflanzen-Pulsieren</p>
+              <p className={`text-xs leading-snug ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-400'}`}>Glüheffekt hinter dem FloraLog-Logo. Intensität richtet sich nach dem Pflanzenstatus.</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+              <input
+                type="checkbox"
+                checked={user?.plant_pulse_enabled !== false}
+                onChange={(e) => updateUserMutation.mutate({ plant_pulse_enabled: e.target.checked })}
+                className="sr-only peer"
+              />
+              <div className="relative w-10 h-[22px] bg-stone-600 rounded-full peer peer-checked:bg-amber-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:after:translate-x-full" />
+            </label>
+          </div>
+
           <p className={`text-[10px] uppercase tracking-widest px-1 pt-1 ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-500'}`}>Datenschutz</p>
 
           <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${
