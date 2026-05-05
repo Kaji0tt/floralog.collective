@@ -278,7 +278,7 @@ export default function ScanResults({
 
   // Erfolgreich gescannte Pflanze (neu oder bereits entdeckt)
   if (currentPlant?.species_name) {
-    const isBlockedResult = currentPlant?.metadata_failed === true || (currentPlant?.notInDex && currentPlant?.is_european === false);
+    const isBlockedResult = currentPlant?.metadata_failed === true;
     const showBackToIntroButton = isBlockedResult;
     const rarity = currentPlant.rarity || currentPlant.aiData?.rarity || "Häufig";
     const isNewToPlantDex = currentPlant.isNewToPlantDex || false;
@@ -287,6 +287,7 @@ export default function ScanResults({
 
     // Prüfe ob Ergebnis ändern Button angezeigt werden soll
     const showChangeResultButton = !isPrimaryResult && confidencePercentage >= 25;
+    const isLowConfidenceAlt = isPendingConfirmation && !isPrimaryResult && typeof confidencePercentage === 'number' && confidencePercentage < 25;
 
     return (
       <div className="relative overflow-visible">
@@ -463,14 +464,46 @@ export default function ScanResults({
 
                   {/* Informations-Container - direkt unter dem Hauptcontainer */}
                   <div className="space-y-3 bg-black/30 backdrop-blur-md rounded-xl p-4 border border-[#f0e5a5]/20">
-                      {isBlockedResult ? (
+                      {/* Herkunftsinformation */}
+                  {currentPlant.distribution && (
+                    <div className={`rounded-xl p-3 border ${
+                      currentPlant.is_european
+                        ? 'bg-gradient-to-br from-emerald-900/35 to-teal-950/40 border-emerald-300/30'
+                        : 'bg-gradient-to-br from-violet-900/30 to-indigo-950/40 border-violet-300/30'
+                    }`}>
+                      <h4 className="font-semibold text-stone-200 mb-1.5 flex items-center gap-2 text-sm">
+                        <span>🌍</span>
+                        <span>Herkunft</span>
+                        {currentPlant.distribution.source === 'gbif_species_distributions' && (
+                          <span className="text-xs text-stone-400 font-normal">(GBIF)</span>
+                        )}
+                      </h4>
+                      {currentPlant.is_european ? (
+                        <div>
+                          <p className="text-emerald-200 text-sm font-medium">Heimisch in Europa</p>
+                          {currentPlant.distribution.regions?.[0]?.countries?.length > 0 && (
+                            <p className="text-stone-300 text-xs mt-1">
+                              {currentPlant.distribution.regions[0].countries.slice(0, 5).map(c => c.code).join(' · ')}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="text-violet-200 text-sm font-medium">Eingeführte / Exotische Art</p>
+                          <p className="text-stone-300 text-xs mt-1">Diese Pflanze ist nicht ursprünglich europäisch, kann aber trotzdem gespeichert werden.</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {isBlockedResult ? (
                       <div className="bg-gradient-to-br from-orange-900/45 to-red-900/40 rounded-xl p-4 border border-orange-300/35 shadow-md">
                           <h4 className="font-bold text-orange-100 mb-2 flex items-center gap-2">
                             <span className="text-xl">⚠️</span>
-                            <span>Keine mitteleuropäische Pflanze!</span>
+                            <span>Pflanzendaten unvollständig</span>
                           </h4>
-                          <p className="text-stone-100/95 leading-relaxed">
-                            Zum jetzigen Zeitpunkt, konzentriert sich Floralog auf die Verarbeitung von Pflanzen aus Mitteleuropa!
+                          <p className="text-stone-100/95 leading-relaxed text-sm">
+                            Diese Pflanze kann nicht gespeichert werden, da Verbreitungsdaten fehlen oder die Erkennungssicherheit zu gering ist. Versuche es mit einem klareren Foto erneut.
                           </p>
                         </div>
                       ) : (
@@ -511,6 +544,19 @@ export default function ScanResults({
                         </div>
                       }
                       </>
+                      )}
+
+                      {/* Mindest-Sicherheitshinweis für alternative Ergebnisse */}
+                      {isLowConfidenceAlt && (
+                        <div className="bg-gradient-to-br from-amber-900/40 to-yellow-950/40 rounded-xl p-3 border border-amber-300/30">
+                          <p className="text-amber-200 text-sm font-medium flex items-center gap-2">
+                            <span>🔒</span>
+                            Mindestsicherheit nicht erreicht
+                          </p>
+                          <p className="text-stone-300 text-xs mt-1">
+                            Eine Erkennungssicherheit von mindestens 25 % wird benötigt, um dieses Ergebnis zu speichern (aktuell: {confidencePercentage} %). Wähle ein sichereres Ergebnis oder scanne erneut.
+                          </p>
+                        </div>
                       )}
                       </div>
 

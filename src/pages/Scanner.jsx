@@ -90,8 +90,7 @@ export default function Scanner() {
   const [scanningPhase, setScanningPhase] = useState(0);
   const selectedPendingResult = pendingScanData?.allResults?.[currentResultIndex] || pendingScanData?.plant || null;
   const selectedResultBlocked = !!selectedPendingResult && (
-    selectedPendingResult.metadata_failed === true ||
-    (selectedPendingResult.notInDex && selectedPendingResult.is_european === false)
+    selectedPendingResult.metadata_failed === true
   );
 
   const [showGlobalFloralogModal, setShowGlobalFloralogModal] = useState(false);
@@ -724,15 +723,10 @@ export default function Scanner() {
             return;
           }
 
-          // KORRIGIERTE LOGIK: Prüfe zuerst ob nicht-europäisch, dann ob in Datenbank
-          if (firstResult && firstResult.is_european === false) {
-            // Nicht-europäische Pflanze - nur anzeigen, nicht speichern
-            console.log("🌍 Nicht-europäische Pflanze erkannt - nur Anzeige");
-            setMatchedPlant(firstResult);
-            setScanning(false);
-          } else if (firstResult) {
-            // Europäische Pflanze erkannt - temporär speichern, aber noch nicht in DB
-            console.log("🌿 Pflanze erkannt - warte auf Bestätigung");
+          // Alle Pflanzen (auch eingeführte/importierte Arten) sind speicherbar
+          if (firstResult) {
+            const originLabel = firstResult.is_european === false ? "🌍 Eingeführte/Importierte Pflanze" : "🌿 Pflanze";
+            console.log(`${originLabel} erkannt - warte auf Bestätigung`);
             setPendingScanData({
               plant: firstResult,
               imageUrl: file_url,
@@ -1277,8 +1271,9 @@ export default function Scanner() {
               <DialogDescription className="text-base pt-4 text-stone-200">
                 {selectedResultBlocked ? (
                   <span>
-                    <strong>{selectedPendingResult?.species_name || "Dieser Vorschlag"}</strong> kann nicht gespeichert werden,
-                    weil er nicht in den Sammelbereich passt oder unvollständige Metadaten hat.
+                    <strong>{selectedPendingResult?.species_name || "Dieser Vorschlag"}</strong> kann nicht gespeichert werden –
+                    Pflanzendaten oder Verbreitungsinformationen sind unvollständig. Dies kann an einer zu geringen Erkennungssicherheit liegen.
+                    Wähle ein anderes Ergebnis oder scanne erneut mit einem klareren Foto.
                   </span>
                 ) : (
                   <span>
@@ -1366,7 +1361,7 @@ export default function Scanner() {
                 Ergebnis nicht speicherbar
               </DialogTitle>
               <DialogDescription className="text-base pt-4 text-stone-200">
-                Dieser Vorschlag kann nicht gespeichert werden. Bitte waehle ein anderes Ergebnis oder scanne erneut.
+                Dieser Vorschlag kann nicht gespeichert werden, da keine ausreichenden Pflanzendaten verfügbar sind oder die Erkennungssicherheit zu gering ist. Bitte wähle ein anderes Ergebnis oder scanne erneut mit einem klareren Foto.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>

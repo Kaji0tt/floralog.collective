@@ -33,6 +33,21 @@ type RegionResult = {
   countries: { code: string; count: number }[];
 };
 
+type DistributionRecord = {
+  locality?: string;
+  locationId?: string;
+  establishmentMeans?: string;
+  source?: string;
+};
+
+type NativeDistributionSummary = {
+  totalDistributionRecords: number;
+  nativeLikeRecordCount: number;
+  europeNativeLikeCount: number;
+  europeNativeLikeProportion: number;
+  topEuropeanLocalities: { name: string; count: number }[];
+};
+
 // ISO 3166-1 alpha-2 country codes per region.
 // Regionen dürfen überlappen (z.B. TR in EUROPE und NEAR_EAST).
 const REGION_COUNTRIES: Record<RegionKey, Set<string>> = {
@@ -81,6 +96,46 @@ const REGION_COUNTRIES: Record<RegionKey, Set<string>> = {
     "QA", "BH", "AE", "YE", "OM",
   ]),
 };
+
+const EUROPE_LOCALITY_TOKENS = new Set([
+  "albania", "andorra", "austria", "belarus", "belgium", "bosnia", "bulgaria",
+  "croatia", "cyprus", "czech", "czech republic", "denmark", "estonia", "finland",
+  "france", "germany", "greece", "hungary", "iceland", "ireland", "italy",
+  "kosovo", "latvia", "liechtenstein", "lithuania", "luxembourg", "malta",
+  "moldova", "monaco", "montenegro", "netherlands", "north macedonia", "norway",
+  "poland", "portugal", "romania", "russia", "san marino", "serbia", "slovakia",
+  "slovenia", "spain", "sweden", "switzerland", "turkey", "ukraine", "united kingdom",
+  "england", "scotland", "wales", "vatican", "baltic states", "baleares", "balearic",
+  "corsica", "sicily", "sardinia", "crete", "faroe islands", "azores", "madeira",
+]);
+
+function normalizeText(value: string | null | undefined): string {
+  return String(value ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function isEuropeanLocality(locality: string | null | undefined): boolean {
+  const n = normalizeText(locality);
+  if (!n) return false;
+
+  if (EUROPE_LOCALITY_TOKENS.has(n)) return true;
+
+  for (const token of EUROPE_LOCALITY_TOKENS) {
+    if (n.includes(token)) return true;
+  }
+
+  return false;
+}
+
+function isNativeLike(establishmentMeans: string | null | undefined): boolean {
+  // GBIF marks introduced ranges explicitly; empty often means checklist/native range without marker.
+  const m = normalizeText(establishmentMeans);
+  if (!m) return true;
+  return m !== "introduced";
+}
 
 function normalizeRegionList(regions?: RegionKey[]): RegionKey[] {
   if (!regions || regions.length === 0) {
@@ -147,6 +202,67 @@ async function fetchGbifCountryFacet(gbifId: string | number) {
 
   const data = await res.json();
   return data as any;
+}
+
+async function fetchGbifSpeciesDistributions(gbifId: string | number): Promise<DistributionRecord[]> {
+  const url = new URL(`https://api.gbif.org/v1/species/${gbifId}/distributions`);
+  url.searchParams.set("limit", "1000");
+
+  console.log("[checkPlantDistribution] Fetching GBIF species distributions for taxonKey=", gbifId);
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      "User-Agent": "floralog-checkPlantDistribution/1.0",
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.warn("[checkPlantDistribution] GBIF species distributions API error", res.status, text);
+    return [];
+  }
+
+  const data = await res.json();
+  const results = Array.isArray(data?.results) ? data.results : [];
+  return results as DistributionRecord[];
+}
+
+function summarizeNativeDistribution(records: DistributionRecord[]): NativeDistributionSummary {
+  const europeanLocalities = new Map<string, number>();
+  let nativeLikeRecordCount = 0;
+  let europeNativeLikeCount = 0;
+
+  for (const r of records) {
+    const locality = (r?.locality ?? "").trim();
+    if (!locality) continue;
+
+    const nativeLike = isNativeLike(r.establishmentMeans);
+    if (!nativeLike) continue;
+
+    nativeLikeRecordCount += 1;
+
+    if (isEuropeanLocality(locality)) {
+      europeNativeLikeCount += 1;
+      europeanLocalities.set(locality, (europeanLocalities.get(locality) ?? 0) + 1);
+    }
+  }
+
+  const europeNativeLikeProportion = nativeLikeRecordCount > 0
+    ? europeNativeLikeCount / nativeLikeRecordCount
+    : 0;
+
+  const topEuropeanLocalities = [...europeanLocalities.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 20);
+
+  return {
+    totalDistributionRecords: records.length,
+    nativeLikeRecordCount,
+    europeNativeLikeCount,
+    europeNativeLikeProportion,
+    topEuropeanLocalities,
+  };
 }
 
 function computeRegionResults(
@@ -246,6 +362,37 @@ Deno.serve(async (req) => {
 
     const regionKeys = normalizeRegionList(regions);
 
+    const distributions = await fetchGbifSpeciesDistributions(gbifId);
+    const nativeSummary = summarizeNativeDistribution(distributions);
+
+    // Preferred path: native/home range via curated species distributions.
+    if (nativeSummary.nativeLikeRecordCount > 0) {
+      const isEuropean = nativeSummary.europeNativeLikeCount > 0;
+      const responsePayload = {
+        gbifId: String(gbifId),
+        totalCount: nativeSummary.nativeLikeRecordCount,
+        regions: [
+          {
+            key: "EUROPE",
+            totalCount: nativeSummary.nativeLikeRecordCount,
+            regionCount: nativeSummary.europeNativeLikeCount,
+            proportion: nativeSummary.europeNativeLikeProportion,
+            hasPresence: nativeSummary.europeNativeLikeCount > 0,
+            countries: nativeSummary.topEuropeanLocalities.map((l) => ({ code: l.name, count: l.count })),
+          },
+        ],
+        is_european: isEuropean,
+        europe_threshold: 0,
+        source: "gbif_species_distributions",
+      };
+
+      return new Response(
+        JSON.stringify(responsePayload),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
+      );
+    }
+
+    // Fallback path: occurrence density by country (older behavior).
     const gbifData = await fetchGbifCountryFacet(gbifId);
     const regionResults = computeRegionResults(gbifData, regionKeys);
 
@@ -261,9 +408,9 @@ Deno.serve(async (req) => {
       gbifId: String(gbifId),
       totalCount: europeResult?.totalCount ?? null,
       regions: regionResults,
-      // Primärer Shortcut für Floralog heute:
       is_european: isEuropean,
       europe_threshold: europeThreshold,
+      source: "gbif_occurrence_facet_fallback",
     };
 
     return new Response(
