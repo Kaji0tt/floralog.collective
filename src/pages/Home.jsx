@@ -393,14 +393,19 @@ function HomeContent() {
   const {
     data: openPlantQuiz = null,
     isFetching: isOpenPlantQuizFetching,
+    refetch: refetchOpenPlantQuiz,
   } = useQuery({
     queryKey: ['openPlantQuiz', user?.id],
     queryFn: () => getOpenPlantQuiz(user?.id),
     enabled: !!user?.id,
-    initialData: null,
     staleTime: 30 * 1000,
     refetchOnWindowFocus: true,
   });
+
+  useEffect(() => {
+    if (!user?.id) return;
+    refetchOpenPlantQuiz();
+  }, [user?.id, refetchOpenPlantQuiz]);
 
   const {
     data: robotPlantShopItems = [],
@@ -2186,11 +2191,22 @@ function HomeContent() {
                         return (
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={async () => {
                               if (quizAvailable) {
                                 setShowPlantQuizDialog(true);
                                 setPlantQuizResult(null);
                                 return;
+                              }
+
+                              // Force-refresh quiz state on click so login-time cache races
+                              // cannot hide an existing open quiz.
+                              if (user?.id) {
+                                const refreshed = await refetchOpenPlantQuiz();
+                                if (refreshed?.data?.id) {
+                                  setShowPlantQuizDialog(true);
+                                  setPlantQuizResult(null);
+                                  return;
+                                }
                               }
 
                               if (anyReady) {

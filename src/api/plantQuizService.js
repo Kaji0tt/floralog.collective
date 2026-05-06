@@ -5,7 +5,6 @@ const isMissingTableError = (error) => {
   const lowerMessage = String(error.message || "").toLowerCase();
   return (
     error.code === "PGRST201" ||
-    error.code === "PGRST301" ||
     error.code === "42P01" ||
     lowerMessage.includes("does not exist") ||
     lowerMessage.includes("not found")
