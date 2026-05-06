@@ -8,11 +8,8 @@ const config: CapacitorConfig = {
     StatusBar: {
       style: 'DARK',
       backgroundColor: '#141a12',
-      overlaysWebView: false
+      overlaysWebView: true
     }
-  },
-  android: {
-    useLegacyBridge: false
   }
 };
 
