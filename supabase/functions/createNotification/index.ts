@@ -194,7 +194,27 @@ async function sendFcmNotification(params: {
   pushPayload: PushPayload;
 }): Promise<{ ok: boolean; statusCode?: number; reason?: string; shouldClearToken?: boolean }> {
   const { serviceAccount, fcmToken, pushPayload } = params;
-  const accessToken = await getFcmAccessToken(serviceAccount);
+
+  console.log("[FCM] Fetching OAuth access token", {
+    project_id: serviceAccount.project_id,
+    client_email: serviceAccount.client_email,
+  });
+  let accessToken: string;
+  try {
+    accessToken = await getFcmAccessToken(serviceAccount);
+    console.log("[FCM] OAuth token obtained successfully");
+  } catch (tokenErr) {
+    console.error("[FCM] OAuth token fetch FAILED:", String(tokenErr));
+    throw tokenErr;
+  }
+
+  const tokenPreview = fcmToken.length > 20 ? fcmToken.slice(0, 20) + "..." : fcmToken;
+  console.log("[FCM] Sending notification", {
+    project_id: serviceAccount.project_id,
+    token_preview: tokenPreview,
+    title: pushPayload.title,
+    type: pushPayload.data.type,
+  });
 
   const response = await fetch(
     `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`,
@@ -231,13 +251,19 @@ async function sendFcmNotification(params: {
     },
   );
 
+  const responseText = await response.text();
+  console.log("[FCM] Response status:", response.status, "body:", responseText.slice(0, 800));
+
   if (response.ok) {
     return { ok: true };
   }
 
-  const errorPayload = await response.json().catch(() => ({}));
+  const errorPayload = (() => { try { return JSON.parse(responseText); } catch { return {}; } })();
   const reason = parseFcmErrorReason(errorPayload);
-  const shouldClearToken = reason === "UNREGISTERED" || reason === "INVALID_ARGUMENT";
+  // Only clear tokens that are explicitly unregistered.
+  // INVALID_ARGUMENT can also be caused by payload issues and should not
+  // automatically wipe a potentially valid token.
+  const shouldClearToken = reason === "UNREGISTERED";
 
   return {
     ok: false,
@@ -392,7 +418,12 @@ Deno.serve(async (req) => {
 
     const pushPublicKey = Deno.env.get("VAPID_PUBLIC_KEY");
     const pushPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY");
-    const fcmServiceAccount = parseFcmServiceAccount(Deno.env.get("FCM_SERVICE_ACCOUNT_JSON"));
+    const rawFcmJson = Deno.env.get("FCM_SERVICE_ACCOUNT_JSON");
+    const fcmServiceAccount = parseFcmServiceAccount(rawFcmJson);
+    console.log("[createNotification] FCM service account:", fcmServiceAccount
+      ? `OK (project_id=${fcmServiceAccount.project_id})`
+      : rawFcmJson ? "PARSE FAILED – JSON present but invalid" : "MISSING – FCM_SERVICE_ACCOUNT_JSON not set");
+    console.log("[createNotification] VAPID keys present:", { public: !!pushPublicKey, private: !!pushPrivateKey });
     let pushStatus: { attempted: boolean; sent: boolean; reason?: string } = {
       attempted: false,
       sent: false,
@@ -420,6 +451,10 @@ Deno.serve(async (req) => {
           targetProfile = byEmail || null;
         }
 
+        console.log("[createNotification] targetProfile lookup:", targetProfile
+          ? { id: targetProfile.id, hasPushSub: !!targetProfile.push_subscription, hasFcmToken: !!targetProfile.fcm_token }
+          : "NOT FOUND");
+
         const pushPayload = buildPushPayload({
           title,
           message,
@@ -433,24 +468,19 @@ Deno.serve(async (req) => {
         );
         const hasFcmToken = Boolean(targetProfile?.fcm_token);
 
-        if (hasValidWebSubscription && pushPublicKey && pushPrivateKey) {
-          pushStatus.attempted = true;
-          webpush.setVapidDetails(
-            "mailto:noreply@floralog.app",
-            pushPublicKey,
-            pushPrivateKey,
-          );
+        console.log("[createNotification] Push decision:", {
+          hasValidWebSubscription,
+          hasFcmToken,
+          hasVapidKeys: !!(pushPublicKey && pushPrivateKey),
+          hasFcmAccount: !!fcmServiceAccount,
+        });
 
-          await webpush.sendNotification(
-            JSON.parse(targetProfile?.push_subscription || "{}"),
-            JSON.stringify(pushPayload),
-          );
-
-          pushStatus.sent = true;
-          pushStatus.reason = "sent_webpush";
-        } else if (hasFcmToken) {
+        // FCM (native app) takes priority over web-push when both are available.
+        // Web-push is used as fallback when no FCM token exists.
+        if (hasFcmToken) {
           if (!fcmServiceAccount) {
             pushStatus.reason = "missing_fcm_service_account";
+            console.error("[createNotification] FCM token present but FCM_SERVICE_ACCOUNT_JSON is not set or invalid. Set it in Supabase Dashboard → Project Settings → Edge Functions → Secrets.");
           } else {
             pushStatus.attempted = true;
             const fcmSendResult = await sendFcmNotification({
@@ -462,8 +492,10 @@ Deno.serve(async (req) => {
             if (fcmSendResult.ok) {
               pushStatus.sent = true;
               pushStatus.reason = "sent_fcm";
+              console.log("[createNotification] FCM notification sent successfully");
             } else {
               pushStatus.reason = `fcm_${fcmSendResult.reason || "unknown"}`;
+              console.error("[createNotification] FCM send failed:", { reason: fcmSendResult.reason, statusCode: fcmSendResult.statusCode, shouldClearToken: fcmSendResult.shouldClearToken });
               if (fcmSendResult.shouldClearToken) {
                 if (targetAuthId) {
                   await adminClient
@@ -479,6 +511,21 @@ Deno.serve(async (req) => {
               }
             }
           }
+        } else if (hasValidWebSubscription && pushPublicKey && pushPrivateKey) {
+          pushStatus.attempted = true;
+          webpush.setVapidDetails(
+            "mailto:noreply@floralog.app",
+            pushPublicKey,
+            pushPrivateKey,
+          );
+
+          await webpush.sendNotification(
+            JSON.parse(targetProfile?.push_subscription || "{}"),
+            JSON.stringify(pushPayload),
+          );
+
+          pushStatus.sent = true;
+          pushStatus.reason = "sent_webpush";
         } else if (targetProfile?.push_subscription && !hasValidWebSubscription) {
           pushStatus.reason = "invalid_webpush_subscription_shape";
         } else if (hasValidWebSubscription && (!pushPublicKey || !pushPrivateKey)) {

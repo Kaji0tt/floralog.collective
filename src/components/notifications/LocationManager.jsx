@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { MapPin } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
 
 export default function LocationManager({ showInProfile = false }) {
   const [permissionState, setPermissionState] = useState("prompt");
   const [isLoading, setIsLoading] = useState(false);
+  const isNativePlatform = Capacitor.isNativePlatform();
 
   const supportsGeolocation =
     typeof window !== "undefined" && "geolocation" in navigator;
@@ -15,6 +17,29 @@ export default function LocationManager({ showInProfile = false }) {
 
   const checkLocationStatus = async () => {
     if (!supportsGeolocation) return;
+
+    // In native WebViews the Permissions API can report "prompt" even after
+    // permission has already been granted. Verify via a real location read.
+    if (isNativePlatform) {
+      await new Promise((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          () => {
+            setPermissionState("granted");
+            resolve(null);
+          },
+          (error) => {
+            if (error.code === error.PERMISSION_DENIED) {
+              setPermissionState("denied");
+            } else {
+              setPermissionState("prompt");
+            }
+            resolve(null);
+          },
+          { enableHighAccuracy: false, timeout: 3000, maximumAge: 60000 }
+        );
+      });
+      return;
+    }
 
     if (navigator.permissions) {
       try {
