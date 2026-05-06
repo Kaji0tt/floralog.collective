@@ -150,6 +150,7 @@ const tables = [
   'RobotPlant', 'RobotPlantWalletLedger', 'RobotPlantZone',
   'RobotPlantUserZoneState', 'RobotPlantDailyChallenge', 'RobotPlantUserDailyChallenge',
   'RobotPlantShopItem', 'RobotPlantUserInventory', 'RobotPlantActiveEffect',
+  'PlantQuiz', 'PlantQuizSlotRoll', 'PlantQuizExcludedDiscovery',
   // Collections & Classroom
   'Collection', 'CollectionItem', 'UserCollection',
   'ClassroomParticipant', 'ClassroomParticipantProgress'

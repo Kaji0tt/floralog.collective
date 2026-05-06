@@ -80,3 +80,13 @@ entrypoint = "./functions/robotPlantDailyZones/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/initializeGeoRasterGrid/index.ts"
+
+[functions.quizScheduler]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/quizScheduler/index.ts"
+
+[functions.submitPlantQuizAnswer]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/submitPlantQuizAnswer/index.ts"

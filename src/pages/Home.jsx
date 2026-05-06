@@ -14,6 +14,7 @@ import {
   useRobotPlantInventoryItem as activateRobotPlantInventoryItem,
   waterRobotPlant,
 } from "@/api/robotPlantService";
+import { getOpenPlantQuiz, submitPlantQuizAnswer } from "@/api/plantQuizService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Camera, Loader2, Leaf, Plus, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, Zap, ShoppingCart } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -44,6 +45,7 @@ import HomeMapFeatureRoot from "@/components/home/HomeMapFeatureRoot.jsx";
 
 import ShopFeatureRoot from "@/components/shop/ShopFeatureRoot";
 import PlantHeroHealthPanel from "@/components/home/PlantHeroHealthPanel";
+import PlantQuizDialog from "@/components/home/PlantQuizDialog";
 import AchievementsFeatureRoot from "@/components/achievements/AchievementsFeatureRoot";
 import FriendsFeatureRoot from "@/components/friends/FriendsFeatureRoot";
 
@@ -104,6 +106,8 @@ function HomeContent() {
   const [hasResolvedZoneBootstrap, setHasResolvedZoneBootstrap] = useState(false);
   const [showHealthStatsPanel, setShowHealthStatsPanel] = useState(false);
   const [showWeeklyQuestTooltip, setShowWeeklyQuestTooltip] = useState(false);
+  const [showPlantQuizDialog, setShowPlantQuizDialog] = useState(false);
+  const [plantQuizResult, setPlantQuizResult] = useState(null);
   const [weeklyQuestSeen, setWeeklyQuestSeen] = useState(() => {
     try { return localStorage.getItem('weeklyQuestSeen') || ''; } catch { return ''; }
   });
@@ -387,6 +391,18 @@ function HomeContent() {
   });
 
   const {
+    data: openPlantQuiz = null,
+    isFetching: isOpenPlantQuizFetching,
+  } = useQuery({
+    queryKey: ['openPlantQuiz', user?.id],
+    queryFn: () => getOpenPlantQuiz(user?.id),
+    enabled: !!user?.id,
+    initialData: null,
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
+  const {
     data: robotPlantShopItems = [],
     isPending: isRobotPlantShopItemsPending,
     isFetching: isRobotPlantShopItemsFetching,
@@ -486,6 +502,22 @@ function HomeContent() {
     },
     onError: () => {
       setCareActionMessage('Giessen fehlgeschlagen.');
+    },
+  });
+
+  const submitPlantQuizMutation = useMutation({
+    mutationFn: ({ quizId, selectedPlantId }) => submitPlantQuizAnswer({ quizId, selectedPlantId }),
+    onSuccess: async (result) => {
+      setPlantQuizResult(result || null);
+
+      if (result?.resolved) {
+        await queryClient.invalidateQueries({ queryKey: ['openPlantQuiz', user?.id] });
+        await queryClient.invalidateQueries({ queryKey: ['robotPlantState'] });
+      }
+    },
+    onError: (error) => {
+      const message = String(error?.message || '').trim() || 'Antwort konnte nicht verarbeitet werden.';
+      setPlantQuizResult({ success: false, correct: false, resolved: false, attemptsRemaining: null, error: message });
     },
   });
 
@@ -1198,6 +1230,7 @@ function HomeContent() {
   const hasSocialNotifications = pendingFriendRequests.length > 0 || unreadFriendsNewsCount > 0;
   const hasNewQuests = availableRegularQuests.length > 0 || availableCollectionQuests.length > 0 ||
     availableWeeklyQuest || availableMonthlyQuest;
+  const quizAvailable = Boolean(openPlantQuiz?.id);
 
   const weeklyParticipantsCount = (() => {
     if (!currentWeeklyQuest || allDiscoveries.length === 0 || allUsers.length === 0) return 0;
@@ -1901,6 +1934,25 @@ function HomeContent() {
         </DialogContent>
       </Dialog>
 
+      <PlantQuizDialog
+        open={showPlantQuizDialog}
+        quiz={openPlantQuiz}
+        isSubmitting={submitPlantQuizMutation.isPending}
+        result={plantQuizResult}
+        onResetResult={() => setPlantQuizResult(null)}
+        onClose={() => {
+          setShowPlantQuizDialog(false);
+          setPlantQuizResult(null);
+        }}
+        onSubmit={({ selectedPlantId }) => {
+          if (!openPlantQuiz?.id || !selectedPlantId) return;
+          submitPlantQuizMutation.mutate({
+            quizId: openPlantQuiz.id,
+            selectedPlantId,
+          });
+        }}
+      />
+
       <HomeBackgroundShell
         user={user}
         getRgbaFromRgb={getRgbaFromRgb}
@@ -2083,50 +2135,64 @@ function HomeContent() {
 
                         const questUnseen = currentWeeklyQuest && weeklyQuestSeen !== String(currentWeeklyQuest.id);
 
-                        const borderClass = monthlyReady
-                          ? isLightUi ? "border-purple-500/70" : "border-purple-400/60"
-                          : weeklyReady
-                            ? isLightUi ? "border-emerald-500/70" : "border-emerald-400/60"
-                            : regularReady
-                              ? isLightUi ? "border-stone-400/70" : "border-white/50"
-                              : questUnseen
-                                ? isLightUi ? "border-amber-400/60" : "border-amber-300/50"
-                                : isLightUi ? "border-[#c8ac62]/40" : "border-[#f0e5a5]/25";
+                        const borderClass = quizAvailable
+                          ? isLightUi ? "border-orange-500/80" : "border-orange-300/70"
+                          : monthlyReady
+                            ? isLightUi ? "border-purple-500/70" : "border-purple-400/60"
+                            : weeklyReady
+                              ? isLightUi ? "border-emerald-500/70" : "border-emerald-400/60"
+                              : regularReady
+                                ? isLightUi ? "border-stone-400/70" : "border-white/50"
+                                : questUnseen
+                                  ? isLightUi ? "border-amber-400/60" : "border-amber-300/50"
+                                  : isLightUi ? "border-[#c8ac62]/40" : "border-[#f0e5a5]/25";
 
-                        const bgStyle = monthlyReady
+                        const bgStyle = quizAvailable
                           ? isLightUi
-                            ? "linear-gradient(135deg, rgba(168,85,247,0.30) 0%, rgba(168,85,247,0.12) 100%)"
-                            : "linear-gradient(135deg, rgba(168,85,247,0.52) 0%, rgba(168,85,247,0.30) 100%)"
-                          : weeklyReady
+                            ? "linear-gradient(135deg, rgba(249,115,22,0.34) 0%, rgba(239,68,68,0.18) 100%)"
+                            : "linear-gradient(135deg, rgba(249,115,22,0.56) 0%, rgba(239,68,68,0.36) 100%)"
+                          : monthlyReady
                             ? isLightUi
-                              ? "linear-gradient(135deg, rgba(16,185,129,0.30) 0%, rgba(16,185,129,0.12) 100%)"
-                              : "linear-gradient(135deg, rgba(16,185,129,0.52) 0%, rgba(16,185,129,0.30) 100%)"
-                            : regularReady
+                              ? "linear-gradient(135deg, rgba(168,85,247,0.30) 0%, rgba(168,85,247,0.12) 100%)"
+                              : "linear-gradient(135deg, rgba(168,85,247,0.52) 0%, rgba(168,85,247,0.30) 100%)"
+                            : weeklyReady
                               ? isLightUi
-                                ? "linear-gradient(135deg, rgba(200,200,200,0.38) 0%, rgba(200,200,200,0.16) 100%)"
-                                : "linear-gradient(135deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.12) 100%)"
-                              : questUnseen
+                                ? "linear-gradient(135deg, rgba(16,185,129,0.30) 0%, rgba(16,185,129,0.12) 100%)"
+                                : "linear-gradient(135deg, rgba(16,185,129,0.52) 0%, rgba(16,185,129,0.30) 100%)"
+                              : regularReady
                                 ? isLightUi
-                                  ? "linear-gradient(135deg, rgba(234,179,8,0.28) 0%, rgba(234,179,8,0.10) 100%)"
-                                  : "linear-gradient(135deg, rgba(234,179,8,0.48) 0%, rgba(234,179,8,0.28) 100%)"
-                                : isLightUi
-                                  ? "linear-gradient(135deg, rgba(107,114,128,0.22) 0%, rgba(107,114,128,0.08) 100%)"
-                                  : "linear-gradient(135deg, rgba(107,114,128,0.38) 0%, rgba(107,114,128,0.18) 100%)";
+                                  ? "linear-gradient(135deg, rgba(200,200,200,0.38) 0%, rgba(200,200,200,0.16) 100%)"
+                                  : "linear-gradient(135deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.12) 100%)"
+                                : questUnseen
+                                  ? isLightUi
+                                    ? "linear-gradient(135deg, rgba(234,179,8,0.28) 0%, rgba(234,179,8,0.10) 100%)"
+                                    : "linear-gradient(135deg, rgba(234,179,8,0.48) 0%, rgba(234,179,8,0.28) 100%)"
+                                  : isLightUi
+                                    ? "linear-gradient(135deg, rgba(107,114,128,0.22) 0%, rgba(107,114,128,0.08) 100%)"
+                                    : "linear-gradient(135deg, rgba(107,114,128,0.38) 0%, rgba(107,114,128,0.18) 100%)";
 
-                        const iconColor = monthlyReady
-                          ? isLightUi ? "text-purple-700" : "text-purple-300"
-                          : weeklyReady
-                            ? isLightUi ? "text-emerald-700" : "text-emerald-300"
-                            : regularReady
-                              ? isLightUi ? "text-stone-600" : "text-white"
-                              : questUnseen
-                                ? isLightUi ? "text-amber-700" : "text-amber-300"
-                                : isLightUi ? "text-stone-500" : "text-stone-400";
+                        const iconColor = quizAvailable
+                          ? isLightUi ? "text-orange-700" : "text-orange-200"
+                          : monthlyReady
+                            ? isLightUi ? "text-purple-700" : "text-purple-300"
+                            : weeklyReady
+                              ? isLightUi ? "text-emerald-700" : "text-emerald-300"
+                              : regularReady
+                                ? isLightUi ? "text-stone-600" : "text-white"
+                                : questUnseen
+                                  ? isLightUi ? "text-amber-700" : "text-amber-300"
+                                  : isLightUi ? "text-stone-500" : "text-stone-400";
 
                         return (
                           <button
                             type="button"
                             onClick={() => {
+                              if (quizAvailable) {
+                                setShowPlantQuizDialog(true);
+                                setPlantQuizResult(null);
+                                return;
+                              }
+
                               if (anyReady) {
                                 setActivePanel("achievements");
                                 setShowHealthStatsPanel(false);
@@ -2141,12 +2207,13 @@ function HomeContent() {
                             }}
                             className={`absolute left-0 md:left-2 top-5 md:top-6 z-20 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${borderClass}`}
                             style={{ background: bgStyle }}
-                            aria-label={anyReady ? "Quest abgeben" : "Wochenquest anzeigen"}
+                            aria-label={quizAvailable ? "Quiz öffnen" : (anyReady ? "Quest abgeben" : "Wochenquest anzeigen")}
+                            disabled={isOpenPlantQuizFetching}
                           >
                             <span className={`text-[1.35rem] font-black leading-none ${iconColor}`}>
-                              {anyReady ? "?" : "!"}
+                              {quizAvailable ? "!" : (anyReady ? "?" : "!")}
                             </span>
-                            <span className={`font-semibold text-[10px] md:text-[11px] leading-none mt-0.5 ${isLightUi ? "text-stone-800" : "text-white"}`}>Quest</span>
+                            <span className={`font-semibold text-[10px] md:text-[11px] leading-none mt-0.5 ${isLightUi ? "text-stone-800" : "text-white"}`}>{quizAvailable ? "Quiz" : "Quest"}</span>
                           </button>
                         );
                       })()}
