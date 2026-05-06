@@ -1,6 +1,9 @@
 // @ts-nocheck
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { Capacitor } from "@capacitor/core";
+import { Filesystem, Directory } from "@capacitor/filesystem";
+import { Share } from "@capacitor/share";
 // Hilfsfunktionen und Konstanten
 function buildRewardSteps(rewardDetails, isInActiveZone) {
   if (!rewardDetails) return [];
@@ -66,6 +69,20 @@ const COUNTER_OUTLINE_STYLE = {
   textShadow:
     "0 1px 0 #000, 0 -1px 0 #000, 1px 0 0 #000, -1px 0 0 #000, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000",
 };
+
+async function blobToBase64(blob) {
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      const base64Part = result.includes(",") ? result.split(",")[1] : result;
+      resolve(base64Part);
+    };
+    reader.onerror = () => reject(new Error("Screenshot-Konvertierung fehlgeschlagen."));
+    reader.readAsDataURL(blob);
+  });
+}
+
 // Native Teilen-Funktion mit Screenshot
 async function handleNativeShare(cardRef, plantName) {
   try {
@@ -76,22 +93,62 @@ async function handleNativeShare(cardRef, plantName) {
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
     if (!blob) return alert('Screenshot fehlgeschlagen.');
     const file = new File([blob], 'floralog-scan.png', { type: 'image/png' });
+    const shareText = `Schau mal, ich habe gerade diese Pflanze mit Floralog gescannt und Samen gesammelt! 🌱\nTeste es selbst: https://floralog.app` + (plantName ? `\nPflanze: ${plantName}` : '');
     const shareData = {
       title: 'Mein Floralog Scan',
-      text: `Schau mal, ich habe gerade diese Pflanze mit Floralog gescannt und Samen gesammelt! 🌱\nTeste es selbst: https://floralog.app` + (plantName ? `\nPflanze: ${plantName}` : ''),
+      text: shareText,
       files: [file]
     };
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+
+    if (Capacitor.isNativePlatform()) {
+      const shareSupport = await Share.canShare();
+      if (!shareSupport?.value) {
+        alert('Teilen wird auf diesem Gerät nicht unterstützt.');
+        return;
+      }
+
+      // In nativen WebViews funktioniert der Browser-Download-Fallback nicht zuverlässig.
+      const base64 = await blobToBase64(blob);
+      const fileName = `floralog-scan-${Date.now()}.png`;
+      const { uri } = await Filesystem.writeFile({
+        path: fileName,
+        data: base64,
+        directory: Directory.Cache,
+        recursive: true,
+      });
+
+      await Share.share({
+        title: 'Mein Floralog Scan',
+        text: shareText,
+        url: uri,
+        dialogTitle: 'Scan teilen',
+      });
+      return;
+    }
+
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share(shareData);
-    } else {
+      return;
+    }
+
+    if (navigator.share) {
+      await navigator.share({
+        title: 'Mein Floralog Scan',
+        text: shareText,
+        url: 'https://floralog.app',
+      });
+      return;
+    }
+
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = 'floralog-scan.png';
+      document.body.appendChild(a);
       a.click();
+      a.remove();
       URL.revokeObjectURL(url);
-      alert('Teilen wird auf diesem Gerät nicht unterstützt. Screenshot wurde heruntergeladen.');
-    }
+      alert('Teilen wird auf diesem Gerät nicht unterstützt. Der Screenshot wurde heruntergeladen.');
   } catch (err) {
     alert('Teilen fehlgeschlagen: ' + (err?.message || err));
   }
@@ -148,26 +205,6 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
     timeouts.forEach((timeoutId) => window.clearTimeout(timeoutId));
     timeouts = [];
     frameId = null;
-    const finalize = (delayMs) => {
-      setDisplayReward(rewardDetails?.baseReward ?? 0);
-      setPreviousReward(null);
-      setIsNegativeSwap(false);
-      setActiveStepIndex(-1);
-      setVisibleStepCount(0);
-      setActivePopStepId(null);
-      setVibrateCounter(false);
-      setVibrateMultiplier(false);
-      setShowResourceGains(false);
-      setShowButtons(false);
-      timeouts.push(
-        window.setTimeout(() => {
-          if (onCompleteRef.current) {
-            onCompleteRef.current();
-          }
-        }, delayMs)
-      );
-    };
-
     if (!rewardDetails || rewardSteps.length === 0) {
       if (hasResourceGains) {
         timeouts.push(
@@ -328,19 +365,17 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
     animationVariant = "newDiscovery";
   }
 
-  const emojiPositions = useMemo(() => {
-    return emojiSet.map((_, index) => {
-      const baseAngle = (index / emojiSet.length) * Math.PI * 2;
-      const jitter = (Math.random() - 0.5) * (Math.PI / 6);
-      const angle = baseAngle + jitter;
-      const radius = 80;
-      const x = Math.cos(angle) * radius;
-      const y = Math.sin(angle) * radius + 10;
-      const targetY = y - 35;
+  const emojiPositions = emojiSet.map((_, index) => {
+    const baseAngle = (index / emojiSet.length) * Math.PI * 2;
+    const jitter = (Math.random() - 0.5) * (Math.PI / 6);
+    const angle = baseAngle + jitter;
+    const radius = 80;
+    const x = Math.cos(angle) * radius;
+    const y = Math.sin(angle) * radius + 10;
+    const targetY = y - 35;
 
-      return { x, y, targetY };
-    });
-  }, [emojiSet]);
+    return { x, y, targetY };
+  });
 
   const variants = {
     rescanned: {
@@ -376,6 +411,7 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
     >
       <div className="flex flex-col items-center w-full max-w-sm">
         <motion.div
+          ref={cardRef}
           variants={variants[String(animationVariant)]}
           initial="initial"
           animate="animate"
@@ -387,7 +423,7 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
           <div className={`absolute -inset-px rounded-2xl opacity-40 blur-xl ${ringClasses}`} />
           <div className="absolute inset-0 border border-[#f0e5a5]/25 rounded-2xl pointer-events-none" />
 
-          <div className="relative z-10 flex flex-col items-center w-full" ref={cardRef}>
+          <div className="relative z-10 flex flex-col items-center w-full">
             <h3 className={`text-lg font-bold mb-1 ${titleClasses}`}>{title}</h3>
             <p className={`text-sm ${messageClasses}`}>{message}</p>
           </div>

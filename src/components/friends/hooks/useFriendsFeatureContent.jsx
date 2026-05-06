@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Query } from "@/api/entities";
 import { createUserNotification } from "@/api/notificationService";
 import { supabase } from "@/api/supabaseClient";
@@ -71,8 +71,9 @@ export function useFriendsFeatureContent({
   const [newAchievements, setNewAchievements] = useState([]);
   const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
   const [averageColor, setAverageColor] = useState(null);
-  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "friends");
+  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "explorer");
   const [showAddFriendDialog, setShowAddFriendDialog] = useState(false);
+  const autoMarkingNewsRef = useRef(false);
 
   useEffect(() => {
     if (!embedded) return;
@@ -85,7 +86,7 @@ export function useFriendsFeatureContent({
   useEffect(() => {
     const allowedTabs = new Set(["friends", "news", "explorer"]);
     if (!allowedTabs.has(activeTab)) {
-      setActiveTab("friends");
+      setActiveTab("explorer");
     }
   }, [activeTab]);
 
@@ -200,6 +201,11 @@ export function useFriendsFeatureContent({
       const feed = Array.from(dedupedMap.values())
         .filter((notification) => NEWS_TYPES.includes(notification.notification_type))
         .sort((a, b) => {
+          const aUnseen = a.seen !== true;
+          const bUnseen = b.seen !== true;
+          if (aUnseen !== bUnseen) {
+            return aUnseen ? -1 : 1;
+          }
           const aTime = new Date(a.created_date || a.created_at || 0).getTime();
           const bTime = new Date(b.created_date || b.created_at || 0).getTime();
           return bTime - aTime;
@@ -230,6 +236,37 @@ export function useFriendsFeatureContent({
 
     return unsubscribe;
   }, [user?.email, queryClient]);
+
+  useEffect(() => {
+    if (activeTab !== 'news' || !user?.email || autoMarkingNewsRef.current) {
+      return;
+    }
+
+    const unseenIds = userNews
+      .filter((notification) => notification.seen !== true)
+      .map((notification) => notification.id)
+      .filter(Boolean);
+
+    if (unseenIds.length === 0) {
+      return;
+    }
+
+    autoMarkingNewsRef.current = true;
+
+    (async () => {
+      try {
+        await Promise.allSettled(
+          unseenIds.map((notificationId) =>
+            Query.UserNotification.update(notificationId, { seen: true })
+          )
+        );
+      } finally {
+        autoMarkingNewsRef.current = false;
+        queryClient.invalidateQueries({ queryKey: ['friendsNews'] });
+        queryClient.invalidateQueries({ queryKey: ['friendsUnreadNewsCount'] });
+      }
+    })();
+  }, [activeTab, user?.email, userNews, queryClient]);
 
   // Lade alle Achievements - mit höherem Limit
   const { data: allUserAchievements = [] } = useQuery({
@@ -943,10 +980,10 @@ Viel Spaß beim Entdecken! 🌿`;
 
   const moduleChips = [
     {
-      id: "friends",
-      title: "Freunde",
-      active: friends.length,
-      total: friends.length,
+      id: "explorer",
+      title: "Forscher Log",
+      active: explorerLogEntries.length,
+      total: explorerLogEntries.length,
     },
     {
       id: "news",
@@ -955,10 +992,10 @@ Viel Spaß beim Entdecken! 🌿`;
       total: userNews.length,
     },
     {
-      id: "explorer",
-      title: "Forscher Log",
-      active: explorerLogEntries.length,
-      total: explorerLogEntries.length,
+      id: "friends",
+      title: "Freunde",
+      active: friends.length,
+      total: friends.length,
     },
   ];
 
@@ -1113,6 +1150,261 @@ Viel Spaß beim Entdecken! 🌿`;
               </div>
             </div>
           </div>
+
+          {/* Explorer Tab Content */}
+          <TabsContent value="explorer" className={explorerContentClass} style={embeddedContentMaskStyle}>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="max-w-5xl mx-auto space-y-4"
+              style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}
+            >
+              {explorerLogEntries.length === 0 ? (
+                <div className={`${sectionSurfaceClass} px-5 py-10 text-center`}>
+                  <BookOpenText className={`w-16 h-16 mx-auto mb-4 ${isLightUi ? "text-stone-300" : "text-stone-500"}`} />
+                  <p className={`text-lg font-semibold mb-2 ${titleTextClass}`}>
+                      Noch kein Forscher-Log
+                  </p>
+                  <p className={bodyTextClass}>Scans von dir und deinen Freunden erscheinen hier.</p>
+                </div>
+              ) : (
+                <section className={`${sectionSurfaceClass} p-4 md:p-5`}>
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div>
+                      <div className={`flex items-center gap-2 ${titleTextClass}`}>
+                        <BookOpenText className={`w-4 h-4 ${isLightUi ? "text-emerald-700" : "text-emerald-300"}`} />
+                        <h3 className="text-base font-semibold">Forscher Log</h3>
+                      </div>
+                      <p className={`text-sm mt-1 ${bodyTextClass}`}>Ein visuelles Journal der letzten Scans.</p>
+                    </div>
+                    <Badge className={accentBadgeClass}>{explorerLogEntries.length}</Badge>
+                  </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {explorerLogEntries.map((entry, index) => (
+                    <motion.div
+                      key={entry.id}
+                      initial={{ opacity: 0, scale: 0.94 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: index * 0.02 }}
+                    >
+                      <Card className={`${nestedCardClass} ${interactiveHoverClass} transition-all overflow-hidden`}>
+                        {entry.discovery?.image_url ? (
+                          <div className={`aspect-[4/3] overflow-hidden ${isLightUi ? "bg-stone-100" : "bg-stone-900/60"}`}>
+                            <img
+                              src={entry.discovery.image_url}
+                              alt={entry.plant?.species_name || "Scan"}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className={`aspect-[4/3] flex items-center justify-center ${isLightUi ? "bg-gradient-to-br from-emerald-50 to-stone-100" : "bg-gradient-to-br from-emerald-500/10 to-stone-950/60"}`}>
+                            <Leaf className={`w-10 h-10 ${isLightUi ? "text-emerald-500" : "text-emerald-300"}`} />
+                          </div>
+                        )}
+                        <CardContent className="p-3 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className={`text-sm font-bold truncate ${titleTextClass}`}>
+                            {entry.plant?.species_name || "Unbekannte Pflanze"}
+                            </p>
+                            {entry.scanCount > 1 && (
+                              <Badge className={isLightUi ? "bg-emerald-600 text-white" : "bg-emerald-300 text-stone-900"}>
+                                {entry.scanCount}x
+                              </Badge>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => {
+                              if (entry.actorEmail && entry.actorEmail !== ownEmailLower) {
+                                navigate(createPageUrl(`FriendProfile?email=${entry.actorEmail}`));
+                              }
+                            }}
+                            className={`flex items-center gap-2 w-full text-left transition-opacity ${entry.actorEmail && entry.actorEmail !== ownEmailLower ? "hover:opacity-80" : "cursor-default"}`}
+                          >
+                            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-green-500 to-green-600 overflow-hidden flex items-center justify-center text-white text-[10px] font-bold">
+                              {entry.actorAvatar ? (
+                                <img src={entry.actorAvatar} alt={entry.actorName} className="w-full h-full object-cover" />
+                              ) : (
+                                entry.actorName?.charAt(0)?.toUpperCase() || "?"
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className={`text-[11px] font-medium truncate ${titleTextClass}`}>{entry.actorName}</p>
+                              <p className={`text-[10px] truncate ${mutedTextClass}`}>hat diesen Scan eingetragen</p>
+                            </div>
+                          </button>
+                          <div className={`flex items-center justify-between text-[10px] ${mutedTextClass}`}>
+                            <span className="inline-flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {formatDistanceToNow(entry.timestamp, { addSuffix: true, locale: de })}
+                            </span>
+                            {entry.actorEmail && entry.actorEmail !== ownEmailLower ? (
+                              <button
+                                type="button"
+                                onClick={() => handleExplorerLike(entry, !entry.likedByCurrentUser)}
+                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors ${
+                                  entry.likedByCurrentUser
+                                    ? (isLightUi
+                                      ? "border-rose-300 bg-rose-50 text-rose-600"
+                                      : "border-rose-400/60 bg-rose-400/10 text-rose-200")
+                                    : (isLightUi
+                                      ? "border-stone-300 text-stone-500 hover:border-rose-300 hover:text-rose-600"
+                                      : "border-stone-600 text-stone-300 hover:border-rose-400/60 hover:text-rose-200")
+                                }`}
+                                aria-label={entry.likedByCurrentUser ? "Like entfernen" : "Scan liken"}
+                              >
+                                <Heart className={`w-3 h-3 ${entry.likedByCurrentUser ? "fill-current" : ""}`} />
+                                <span>{entry.likeCount}</span>
+                              </button>
+                            ) : (
+                              <span className={faintTextClass}>30 Tage Fenster</span>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </div>
+                </section>
+              )}
+            </motion.div>
+          </TabsContent>
+
+          {/* News Tab Content */}
+          <TabsContent value="news" className={newsContentClass} style={embeddedContentMaskStyle}>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="max-w-5xl mx-auto space-y-4"
+              style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}
+            >
+              {userNews.length === 0 ? (
+                <div className={`${sectionSurfaceClass} px-5 py-10 text-center`}>
+                  <Bell className={`w-16 h-16 mx-auto mb-4 ${isLightUi ? "text-stone-300" : "text-stone-500"}`} />
+                  <p className={`text-lg font-semibold mb-2 ${titleTextClass}`}>
+                      Noch keine Neuigkeiten
+                  </p>
+                  <p className={bodyTextClass}>Hier siehst du, was in deinem Freundeskreis passiert.</p>
+                </div>
+              ) : (
+                <section className={`${sectionSurfaceClass} p-4 md:p-5`}>
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div>
+                      <div className={`flex items-center gap-2 ${titleTextClass}`}>
+                        <Bell className={`w-4 h-4 ${isLightUi ? "text-blue-700" : "text-blue-300"}`} />
+                        <h3 className="text-base font-semibold">Aktivitaetsfeed</h3>
+                      </div>
+                      <p className={`text-sm mt-1 ${bodyTextClass}`}>Achievements, Likes, Anfragen und Sammlungs-Updates auf einen Blick.</p>
+                    </div>
+                    <Badge className={accentBadgeClass}>{unreadNewsCount} neu</Badge>
+                  </div>
+
+                <div className="space-y-3">
+                  {userNews.map((newsItem, index) => {
+                    const meta = getNewsMeta(newsItem.notification_type);
+                    const Icon = meta.icon;
+                    const actor = getNewsActor(newsItem);
+                    const avatarFallback = (actor.name || actor.email || '?').charAt(0).toUpperCase();
+                    const pendingRequestFromNews = getPendingRequestFromNews(newsItem);
+                    const showFriendRequestActions =
+                      newsItem.notification_type === 'friend_request_received' &&
+                      !!pendingRequestFromNews;
+                    const showFriendRequestResolvedHint =
+                      newsItem.notification_type === 'friend_request_received' &&
+                      !pendingRequestFromNews;
+
+                    return (
+                      <motion.div
+                        key={newsItem.id}
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.04 }}
+                      >
+                        <Card
+                          className={`${nestedCardClass} ${interactiveHoverClass} transition-all cursor-pointer ${newsItem.seen ? "" : (isLightUi ? "border-emerald-200 bg-emerald-50/65" : "border-emerald-300/30 bg-emerald-500/10")}`}
+                          onClick={() => openNewsEntry(newsItem)}
+                        >
+                          <CardContent className="p-3">
+                            <div className="flex items-start gap-3">
+                              <div className="relative w-10 h-10 flex-shrink-0">
+                                <div className={`w-10 h-10 rounded-full overflow-hidden border ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/20"} ${newsItem.seen ? (isLightUi ? 'bg-stone-100' : 'bg-stone-900/55') : (isLightUi ? 'bg-white' : 'bg-stone-950/70')} flex items-center justify-center`}>
+                                  {actor.avatarUrl ? (
+                                    <img
+                                      src={actor.avatarUrl}
+                                      alt={actor.name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <span className={`text-xs font-semibold ${isLightUi ? "text-stone-700" : "text-stone-100"}`}>{avatarFallback}</span>
+                                  )}
+                                </div>
+                                <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border flex items-center justify-center ${isLightUi ? "bg-white border-stone-200" : "bg-stone-950 border-[#f0e5a5]/20"}`}>
+                                  <Icon className={`w-3 h-3 ${meta.accent}`} />
+                                </div>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  {!newsItem.seen && <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />}
+                                  <p className={`text-sm font-semibold truncate ${titleTextClass}`}>
+                                  {newsItem.title || 'Neuigkeit'}
+                                  </p>
+                                </div>
+                                <p className={`text-[11px] mt-0.5 truncate ${mutedTextClass}`}>
+                                  von {actor.name}
+                                </p>
+                                <p className={`text-xs mt-1 line-clamp-2 ${bodyTextClass}`}>
+                                  {newsItem.message}
+                                </p>
+                                {!!newsItem.description && (
+                                  <p className={`text-[11px] mt-1 truncate ${mutedTextClass}`}>{newsItem.description}</p>
+                                )}
+                                <p className={`text-[10px] mt-2 ${faintTextClass}`}>
+                                  {formatDistanceToNow(new Date(newsItem.created_date || newsItem.created_at || new Date().toISOString()), {
+                                    addSuffix: true,
+                                    locale: de,
+                                  })}
+                                </p>
+                                {showFriendRequestActions && (
+                                  <div className="flex gap-2 mt-2" onClick={(event) => event.stopPropagation()}>
+                                    <Button
+                                      size="sm"
+                                      className="h-7 px-2 bg-green-600 hover:bg-green-700"
+                                      disabled={acceptFriendRequestMutation.isPending || rejectFriendRequestMutation.isPending}
+                                      onClick={(event) => handleFriendRequestActionFromNews(event, newsItem, 'accept')}
+                                    >
+                                      <Check className="w-3 h-3 mr-1" />
+                                      Annehmen
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className={isLightUi ? "h-7 px-2 border-red-300 text-red-600 hover:bg-red-50" : "h-7 px-2 border-red-400/50 text-red-200 hover:bg-red-500/10"}
+                                      disabled={acceptFriendRequestMutation.isPending || rejectFriendRequestMutation.isPending}
+                                      onClick={(event) => handleFriendRequestActionFromNews(event, newsItem, 'reject')}
+                                    >
+                                      <X className="w-3 h-3 mr-1" />
+                                      Ablehnen
+                                    </Button>
+                                  </div>
+                                )}
+                                {showFriendRequestResolvedHint && (
+                                  <p className={`text-[11px] mt-2 ${mutedTextClass}`}>Diese Anfrage wurde bereits beantwortet.</p>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+                </section>
+              )}
+            </motion.div>
+          </TabsContent>
+
 
           {/* Friends Tab Content */}
           <TabsContent value="friends" className={friendsContentClass} style={embeddedContentMaskStyle}>
@@ -1279,258 +1571,6 @@ Viel Spaß beim Entdecken! 🌿`;
             </div>
           </TabsContent>
 
-          {/* News Tab Content */}
-          <TabsContent value="news" className={newsContentClass} style={embeddedContentMaskStyle}>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="max-w-5xl mx-auto space-y-4"
-              style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}
-            >
-              {userNews.length === 0 ? (
-                <div className={`${sectionSurfaceClass} px-5 py-10 text-center`}>
-                  <Bell className={`w-16 h-16 mx-auto mb-4 ${isLightUi ? "text-stone-300" : "text-stone-500"}`} />
-                  <p className={`text-lg font-semibold mb-2 ${titleTextClass}`}>
-                      Noch keine Neuigkeiten
-                  </p>
-                  <p className={bodyTextClass}>Hier siehst du, was in deinem Freundeskreis passiert.</p>
-                </div>
-              ) : (
-                <section className={`${sectionSurfaceClass} p-4 md:p-5`}>
-                  <div className="flex items-start justify-between gap-3 mb-4">
-                    <div>
-                      <div className={`flex items-center gap-2 ${titleTextClass}`}>
-                        <Bell className={`w-4 h-4 ${isLightUi ? "text-blue-700" : "text-blue-300"}`} />
-                        <h3 className="text-base font-semibold">Aktivitaetsfeed</h3>
-                      </div>
-                      <p className={`text-sm mt-1 ${bodyTextClass}`}>Achievements, Likes, Anfragen und Sammlungs-Updates auf einen Blick.</p>
-                    </div>
-                    <Badge className={accentBadgeClass}>{unreadNewsCount} neu</Badge>
-                  </div>
-
-                <div className="space-y-3">
-                  {userNews.map((newsItem, index) => {
-                    const meta = getNewsMeta(newsItem.notification_type);
-                    const Icon = meta.icon;
-                    const actor = getNewsActor(newsItem);
-                    const avatarFallback = (actor.name || actor.email || '?').charAt(0).toUpperCase();
-                    const pendingRequestFromNews = getPendingRequestFromNews(newsItem);
-                    const showFriendRequestActions =
-                      newsItem.notification_type === 'friend_request_received' &&
-                      !!pendingRequestFromNews;
-                    const showFriendRequestResolvedHint =
-                      newsItem.notification_type === 'friend_request_received' &&
-                      !pendingRequestFromNews;
-
-                    return (
-                      <motion.div
-                        key={newsItem.id}
-                        initial={{ opacity: 0, y: 12 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.04 }}
-                      >
-                        <Card
-                          className={`${nestedCardClass} ${interactiveHoverClass} transition-all cursor-pointer ${newsItem.seen ? "" : (isLightUi ? "border-emerald-200 bg-emerald-50/65" : "border-emerald-300/30 bg-emerald-500/10")}`}
-                          onClick={() => openNewsEntry(newsItem)}
-                        >
-                          <CardContent className="p-3">
-                            <div className="flex items-start gap-3">
-                              <div className="relative w-10 h-10 flex-shrink-0">
-                                <div className={`w-10 h-10 rounded-full overflow-hidden border ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/20"} ${newsItem.seen ? (isLightUi ? 'bg-stone-100' : 'bg-stone-900/55') : (isLightUi ? 'bg-white' : 'bg-stone-950/70')} flex items-center justify-center`}>
-                                  {actor.avatarUrl ? (
-                                    <img
-                                      src={actor.avatarUrl}
-                                      alt={actor.name}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : (
-                                    <span className={`text-xs font-semibold ${isLightUi ? "text-stone-700" : "text-stone-100"}`}>{avatarFallback}</span>
-                                  )}
-                                </div>
-                                <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border flex items-center justify-center ${isLightUi ? "bg-white border-stone-200" : "bg-stone-950 border-[#f0e5a5]/20"}`}>
-                                  <Icon className={`w-3 h-3 ${meta.accent}`} />
-                                </div>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  {!newsItem.seen && <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />}
-                                  <p className={`text-sm font-semibold truncate ${titleTextClass}`}>
-                                  {newsItem.title || 'Neuigkeit'}
-                                  </p>
-                                </div>
-                                <p className={`text-[11px] mt-0.5 truncate ${mutedTextClass}`}>
-                                  von {actor.name}
-                                </p>
-                                <p className={`text-xs mt-1 line-clamp-2 ${bodyTextClass}`}>
-                                  {newsItem.message}
-                                </p>
-                                {!!newsItem.description && (
-                                  <p className={`text-[11px] mt-1 truncate ${mutedTextClass}`}>{newsItem.description}</p>
-                                )}
-                                <p className={`text-[10px] mt-2 ${faintTextClass}`}>
-                                  {formatDistanceToNow(new Date(newsItem.created_date || newsItem.created_at || new Date().toISOString()), {
-                                    addSuffix: true,
-                                    locale: de,
-                                  })}
-                                </p>
-                                {showFriendRequestActions && (
-                                  <div className="flex gap-2 mt-2" onClick={(event) => event.stopPropagation()}>
-                                    <Button
-                                      size="sm"
-                                      className="h-7 px-2 bg-green-600 hover:bg-green-700"
-                                      disabled={acceptFriendRequestMutation.isPending || rejectFriendRequestMutation.isPending}
-                                      onClick={(event) => handleFriendRequestActionFromNews(event, newsItem, 'accept')}
-                                    >
-                                      <Check className="w-3 h-3 mr-1" />
-                                      Annehmen
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className={isLightUi ? "h-7 px-2 border-red-300 text-red-600 hover:bg-red-50" : "h-7 px-2 border-red-400/50 text-red-200 hover:bg-red-500/10"}
-                                      disabled={acceptFriendRequestMutation.isPending || rejectFriendRequestMutation.isPending}
-                                      onClick={(event) => handleFriendRequestActionFromNews(event, newsItem, 'reject')}
-                                    >
-                                      <X className="w-3 h-3 mr-1" />
-                                      Ablehnen
-                                    </Button>
-                                  </div>
-                                )}
-                                {showFriendRequestResolvedHint && (
-                                  <p className={`text-[11px] mt-2 ${mutedTextClass}`}>Diese Anfrage wurde bereits beantwortet.</p>
-                                )}
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-                </section>
-              )}
-            </motion.div>
-          </TabsContent>
-
-          <TabsContent value="explorer" className={explorerContentClass} style={embeddedContentMaskStyle}>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4 }}
-              className="max-w-5xl mx-auto space-y-4"
-              style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}
-            >
-              {explorerLogEntries.length === 0 ? (
-                <div className={`${sectionSurfaceClass} px-5 py-10 text-center`}>
-                  <BookOpenText className={`w-16 h-16 mx-auto mb-4 ${isLightUi ? "text-stone-300" : "text-stone-500"}`} />
-                  <p className={`text-lg font-semibold mb-2 ${titleTextClass}`}>
-                      Noch kein Forscher-Log
-                  </p>
-                  <p className={bodyTextClass}>Scans von dir und deinen Freunden erscheinen hier.</p>
-                </div>
-              ) : (
-                <section className={`${sectionSurfaceClass} p-4 md:p-5`}>
-                  <div className="flex items-start justify-between gap-3 mb-4">
-                    <div>
-                      <div className={`flex items-center gap-2 ${titleTextClass}`}>
-                        <BookOpenText className={`w-4 h-4 ${isLightUi ? "text-emerald-700" : "text-emerald-300"}`} />
-                        <h3 className="text-base font-semibold">Forscher Log</h3>
-                      </div>
-                      <p className={`text-sm mt-1 ${bodyTextClass}`}>Ein visuelles Journal der letzten Scans.</p>
-                    </div>
-                    <Badge className={accentBadgeClass}>{explorerLogEntries.length}</Badge>
-                  </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {explorerLogEntries.map((entry, index) => (
-                    <motion.div
-                      key={entry.id}
-                      initial={{ opacity: 0, scale: 0.94 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: index * 0.02 }}
-                    >
-                      <Card className={`${nestedCardClass} ${interactiveHoverClass} transition-all overflow-hidden`}>
-                        {entry.discovery?.image_url ? (
-                          <div className={`aspect-[4/3] overflow-hidden ${isLightUi ? "bg-stone-100" : "bg-stone-900/60"}`}>
-                            <img
-                              src={entry.discovery.image_url}
-                              alt={entry.plant?.species_name || "Scan"}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        ) : (
-                          <div className={`aspect-[4/3] flex items-center justify-center ${isLightUi ? "bg-gradient-to-br from-emerald-50 to-stone-100" : "bg-gradient-to-br from-emerald-500/10 to-stone-950/60"}`}>
-                            <Leaf className={`w-10 h-10 ${isLightUi ? "text-emerald-500" : "text-emerald-300"}`} />
-                          </div>
-                        )}
-                        <CardContent className="p-3 space-y-2">
-                          <div className="flex items-start justify-between gap-2">
-                            <p className={`text-sm font-bold truncate ${titleTextClass}`}>
-                            {entry.plant?.species_name || "Unbekannte Pflanze"}
-                            </p>
-                            {entry.scanCount > 1 && (
-                              <Badge className={isLightUi ? "bg-emerald-600 text-white" : "bg-emerald-300 text-stone-900"}>
-                                {entry.scanCount}x
-                              </Badge>
-                            )}
-                          </div>
-                          <button
-                            onClick={() => {
-                              if (entry.actorEmail && entry.actorEmail !== ownEmailLower) {
-                                navigate(createPageUrl(`FriendProfile?email=${entry.actorEmail}`));
-                              }
-                            }}
-                            className={`flex items-center gap-2 w-full text-left transition-opacity ${entry.actorEmail && entry.actorEmail !== ownEmailLower ? "hover:opacity-80" : "cursor-default"}`}
-                          >
-                            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-green-500 to-green-600 overflow-hidden flex items-center justify-center text-white text-[10px] font-bold">
-                              {entry.actorAvatar ? (
-                                <img src={entry.actorAvatar} alt={entry.actorName} className="w-full h-full object-cover" />
-                              ) : (
-                                entry.actorName?.charAt(0)?.toUpperCase() || "?"
-                              )}
-                            </div>
-                            <div className="min-w-0">
-                              <p className={`text-[11px] font-medium truncate ${titleTextClass}`}>{entry.actorName}</p>
-                              <p className={`text-[10px] truncate ${mutedTextClass}`}>hat diesen Scan eingetragen</p>
-                            </div>
-                          </button>
-                          <div className={`flex items-center justify-between text-[10px] ${mutedTextClass}`}>
-                            <span className="inline-flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {formatDistanceToNow(entry.timestamp, { addSuffix: true, locale: de })}
-                            </span>
-                            {entry.actorEmail && entry.actorEmail !== ownEmailLower ? (
-                              <button
-                                type="button"
-                                onClick={() => handleExplorerLike(entry, !entry.likedByCurrentUser)}
-                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors ${
-                                  entry.likedByCurrentUser
-                                    ? (isLightUi
-                                      ? "border-rose-300 bg-rose-50 text-rose-600"
-                                      : "border-rose-400/60 bg-rose-400/10 text-rose-200")
-                                    : (isLightUi
-                                      ? "border-stone-300 text-stone-500 hover:border-rose-300 hover:text-rose-600"
-                                      : "border-stone-600 text-stone-300 hover:border-rose-400/60 hover:text-rose-200")
-                                }`}
-                                aria-label={entry.likedByCurrentUser ? "Like entfernen" : "Scan liken"}
-                              >
-                                <Heart className={`w-3 h-3 ${entry.likedByCurrentUser ? "fill-current" : ""}`} />
-                                <span>{entry.likeCount}</span>
-                              </button>
-                            ) : (
-                              <span className={faintTextClass}>30 Tage Fenster</span>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  ))}
-                </div>
-                </section>
-              )}
-            </motion.div>
-          </TabsContent>
         </Tabs>
 
       </div>
