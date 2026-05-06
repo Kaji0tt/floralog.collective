@@ -5,6 +5,8 @@ import android.os.Bundle;
 import android.util.Log;
 import java.io.File;
 import com.base44.floralog.ota.OtaUpdateChecker;
+import androidx.core.view.WindowCompat;
+import android.view.WindowManager;
 
 public class MainActivity extends BridgeActivity {
 
@@ -16,6 +18,13 @@ public class MainActivity extends BridgeActivity {
 		registerPlugin(OtaUpdatePlugin.class);
 
 		super.onCreate(savedInstanceState);
+
+		// Enable edge-to-edge display to handle system bars properly
+		WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+		
+		// Set status bar and navigation bar to transparent
+		getWindow().setStatusBarColor(0x0A0A14); // #141a12 or similar dark color
+		getWindow().setNavigationBarColor(0x0A0A14);
 
 		// Apply a previously staged OTA bundle so the WebView loads from it
 		OtaManager otaManager = new OtaManager(this);

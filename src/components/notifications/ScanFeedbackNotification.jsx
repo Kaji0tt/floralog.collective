@@ -409,7 +409,7 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
         event.stopPropagation();
       }}
     >
-      <div className="flex flex-col items-center w-full max-w-sm">
+      <div className="flex flex-col items-center w-full max-w-sm px-4">
         <motion.div
           ref={cardRef}
           variants={variants[String(animationVariant)]}

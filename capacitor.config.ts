@@ -3,7 +3,17 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'de.floralog.app',
   appName: 'base44-app',
-  webDir: 'dist'
+  webDir: 'dist',
+  plugins: {
+    StatusBar: {
+      style: 'DARK',
+      backgroundColor: '#141a12',
+      overlaysWebView: false
+    }
+  },
+  android: {
+    useLegacyBridge: false
+  }
 };
 
 export default config;
