@@ -194,6 +194,7 @@ async function sendFcmNotification(params: {
   pushPayload: PushPayload;
 }): Promise<{ ok: boolean; statusCode?: number; reason?: string; shouldClearToken?: boolean }> {
   const { serviceAccount, fcmToken, pushPayload } = params;
+  const normalizedFcmToken = fcmToken.trim();
 
   console.log("[FCM] Fetching OAuth access token", {
     project_id: serviceAccount.project_id,
@@ -208,7 +209,7 @@ async function sendFcmNotification(params: {
     throw tokenErr;
   }
 
-  const tokenPreview = fcmToken.length > 20 ? fcmToken.slice(0, 20) + "..." : fcmToken;
+  const tokenPreview = normalizedFcmToken.length > 20 ? normalizedFcmToken.slice(0, 20) + "..." : normalizedFcmToken;
   console.log("[FCM] Sending notification", {
     project_id: serviceAccount.project_id,
     token_preview: tokenPreview,
@@ -226,18 +227,22 @@ async function sendFcmNotification(params: {
       },
       body: JSON.stringify({
         message: {
-          token: fcmToken,
+          token: normalizedFcmToken,
           notification: {
             title: pushPayload.title,
             body: pushPayload.body,
           },
           data: {
             type: pushPayload.data.type,
-            from: pushPayload.data.from,
+            sender: pushPayload.data.from,
             actionUrl: pushPayload.data.actionUrl,
           },
           android: {
             priority: "high",
+            notification: {
+              icon: "ic_stat_floralog",
+              color: "#3BAF61",
+            },
           },
           apns: {
             payload: {

@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="floralog_icon_background">#212121</color>
+    <color name="floralog_notification_accent">#3BAF61</color>
 </resources>
