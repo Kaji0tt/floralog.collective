@@ -90,7 +90,8 @@ export default function Scanner() {
   const [scanningPhase, setScanningPhase] = useState(0);
   const selectedPendingResult = pendingScanData?.allResults?.[currentResultIndex] || pendingScanData?.plant || null;
   const selectedResultBlocked = !!selectedPendingResult && (
-    selectedPendingResult.metadata_failed === true
+    selectedPendingResult.metadata_failed === true ||
+    (selectedPendingResult.notInDex && selectedPendingResult.is_european === false)
   );
 
   const [showGlobalFloralogModal, setShowGlobalFloralogModal] = useState(false);
@@ -599,9 +600,9 @@ export default function Scanner() {
                   console.warn('Kein gbif_id im PlantNet-Ergebnis vorhanden – kann Verteilung nicht prüfen');
                 }
 
-                // Wenn keine oder zu wenige GBIF-Daten vorhanden sind, lehnen wir den Scan ab
-                if (!distribution || typeof distribution.totalCount !== 'number' || distribution.totalCount === 0) {
-                  console.warn('❌ Keine ausreichenden GBIF-Daten verfügbar – Scan wird abgelehnt');
+                // Wenn die GBIF-Anfrage komplett fehlschlug (kein Response-Objekt)
+                if (!distribution) {
+                  console.warn('❌ GBIF-Anfrage fehlgeschlagen – Scan wird abgelehnt');
                   completedResults += 1;
                   updateScanningProgress(
                     4,
@@ -611,7 +612,8 @@ export default function Scanner() {
                   return { ...plantData, notInDex: true, inDatabase: false, metadata_failed: true };
                 }
 
-                // Wenn GBIF klar sagt „nicht europäisch“, nur zur Anzeige freigeben
+                // Wenn GBIF klar sagt „nicht europäisch" (inkl. keine Verbreitungsdaten vorhanden),
+                // Pflanze anzeigen aber als nicht speicherbar markieren
                 if (!isEuropean) {
                   completedResults += 1;
                   updateScanningProgress(
@@ -723,9 +725,10 @@ export default function Scanner() {
             return;
           }
 
-          // Alle Pflanzen (auch eingeführte/importierte Arten) sind speicherbar
+          // Alle Pflanzen (auch nicht-europäische) in pendingScanData legen;
+          // nicht-europäische werden durch selectedResultBlocked gesperrt.
           if (firstResult) {
-            const originLabel = firstResult.is_european === false ? "🌍 Eingeführte/Importierte Pflanze" : "🌿 Pflanze";
+            const originLabel = firstResult.is_european === false ? "🌍 Nicht-europäische Pflanze" : "🌿 Pflanze";
             console.log(`${originLabel} erkannt - warte auf Bestätigung`);
             setPendingScanData({
               plant: firstResult,
@@ -1272,8 +1275,10 @@ export default function Scanner() {
                 {selectedResultBlocked ? (
                   <span>
                     <strong>{selectedPendingResult?.species_name || "Dieser Vorschlag"}</strong> kann nicht gespeichert werden –
-                    Pflanzendaten oder Verbreitungsinformationen sind unvollständig. Dies kann an einer zu geringen Erkennungssicherheit liegen.
-                    Wähle ein anderes Ergebnis oder scanne erneut mit einem klareren Foto.
+                    {selectedPendingResult?.notInDex && selectedPendingResult?.is_european === false
+                      ? " diese Pflanze kommt nicht in europäischen Ökosystemen vor. Floralog sammelt nur Pflanzen, die in Europa heimisch oder dauerhaft eingebürgert sind."
+                      : " Pflanzendaten oder Verbreitungsinformationen sind unvollständig. Versuche es mit einem klareren Foto erneut."}
+                    {" "}Wähle ein anderes Ergebnis oder scanne erneut.
                   </span>
                 ) : (
                   <span>
@@ -1361,7 +1366,9 @@ export default function Scanner() {
                 Ergebnis nicht speicherbar
               </DialogTitle>
               <DialogDescription className="text-base pt-4 text-stone-200">
-                Dieser Vorschlag kann nicht gespeichert werden, da keine ausreichenden Pflanzendaten verfügbar sind oder die Erkennungssicherheit zu gering ist. Bitte wähle ein anderes Ergebnis oder scanne erneut mit einem klareren Foto.
+                {selectedPendingResult?.notInDex && selectedPendingResult?.is_european === false
+                  ? `${selectedPendingResult?.species_name || "Diese Pflanze"} kommt nicht in europäischen Ökosystemen vor und kann daher nicht ins Floralog aufgenommen werden. Floralog sammelt Pflanzen, die in Europa heimisch oder dauerhaft eingebürgert sind.`
+                  : "Dieser Vorschlag kann nicht gespeichert werden, da Pflanzendaten oder Verbreitungsinformationen unvollständig sind. Bitte wähle ein anderes Ergebnis oder scanne erneut mit einem klareren Foto."}
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>

@@ -1,9 +1,25 @@
 type CorsHeaders = Record<string, string>;
 
+function normalizeOriginValue(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  if (trimmed === "file://") return "file://";
+
+  try {
+    // Accept values like "https://example.com/" or "https://example.com/path"
+    // and reduce them to canonical origin form.
+    return new URL(trimmed).origin.toLowerCase();
+  } catch {
+    return trimmed.replace(/\/+$/, "").toLowerCase();
+  }
+}
+
 export function getAllowedOrigins(): string[] {
-  return [
+  const configured = [
     Deno.env.get("FLORALOG_URL"),
     Deno.env.get("SITE_URL"),
+    "https://base44-floralog.pages.dev",
     "http://localhost",
     "https://localhost",
     "http://localhost:5173",
@@ -13,11 +29,16 @@ export function getAllowedOrigins(): string[] {
     "file://",
     "",
   ].filter((value): value is string => value !== undefined);
+
+  const normalized = configured.map(normalizeOriginValue);
+  return Array.from(new Set(normalized));
 }
 
 export function isAllowedOrigin(origin: string | null): boolean {
   if (!origin) return true;
-  return getAllowedOrigins().some((allowed) => origin.toLowerCase() === allowed.toLowerCase());
+
+  const normalizedOrigin = normalizeOriginValue(origin);
+  return getAllowedOrigins().some((allowed) => normalizedOrigin === allowed);
 }
 
 export function buildOriginDeniedResponse(

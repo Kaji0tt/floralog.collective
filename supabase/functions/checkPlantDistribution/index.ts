@@ -106,7 +106,10 @@ const EUROPE_LOCALITY_TOKENS = new Set([
   "poland", "portugal", "romania", "russia", "san marino", "serbia", "slovakia",
   "slovenia", "spain", "sweden", "switzerland", "turkey", "ukraine", "united kingdom",
   "england", "scotland", "wales", "vatican", "baltic states", "baleares", "balearic",
-  "corsica", "sicily", "sardinia", "crete", "faroe islands", "azores", "madeira",
+  "corsica", "sicily", "sardinia", "crete", "faroe islands",
+  // Makaroneische Inseln (Azoren, Madeira) werden bewusst NICHT gezählt:
+  // Drachenpalmen und andere subtropische Arten sind dort heimisch, gehören aber
+  // nicht zum mitteleuropäischen Ökosystem, das Floralog dokumentiert.
 ]);
 
 function normalizeText(value: string | null | undefined): string {
@@ -237,18 +240,22 @@ function summarizeNativeDistribution(records: DistributionRecord[]): NativeDistr
     if (!locality) continue;
 
     const nativeLike = isNativeLike(r.establishmentMeans);
-    if (!nativeLike) continue;
+    if (nativeLike) {
+      nativeLikeRecordCount += 1;
+    }
 
-    nativeLikeRecordCount += 1;
-
+    // Europäische Präsenz wird unabhängig vom establishmentMeans gezählt.
+    // Eingebürgerte Arten (INTRODUCED) wie die Roteiche gelten als europäisch,
+    // weil sie tatsächlich in europäischen Ökosystemen vorkommen.
     if (isEuropeanLocality(locality)) {
       europeNativeLikeCount += 1;
       europeanLocalities.set(locality, (europeanLocalities.get(locality) ?? 0) + 1);
     }
   }
 
-  const europeNativeLikeProportion = nativeLikeRecordCount > 0
-    ? europeNativeLikeCount / nativeLikeRecordCount
+  const totalRecordsWithLocality = records.filter(r => (r?.locality ?? "").trim()).length;
+  const europeNativeLikeProportion = totalRecordsWithLocality > 0
+    ? europeNativeLikeCount / totalRecordsWithLocality
     : 0;
 
   const topEuropeanLocalities = [...europeanLocalities.entries()]
@@ -365,52 +372,45 @@ Deno.serve(async (req) => {
     const distributions = await fetchGbifSpeciesDistributions(gbifId);
     const nativeSummary = summarizeNativeDistribution(distributions);
 
-    // Preferred path: native/home range via curated species distributions.
-    if (nativeSummary.nativeLikeRecordCount > 0) {
-      const isEuropean = nativeSummary.europeNativeLikeCount > 0;
-      const responsePayload = {
-        gbifId: String(gbifId),
-        totalCount: nativeSummary.nativeLikeRecordCount,
-        regions: [
-          {
-            key: "EUROPE",
-            totalCount: nativeSummary.nativeLikeRecordCount,
-            regionCount: nativeSummary.europeNativeLikeCount,
-            proportion: nativeSummary.europeNativeLikeProportion,
-            hasPresence: nativeSummary.europeNativeLikeCount > 0,
-            countries: nativeSummary.topEuropeanLocalities.map((l) => ({ code: l.name, count: l.count })),
-          },
-        ],
-        is_european: isEuropean,
-        europe_threshold: 0,
-        source: "gbif_species_distributions",
-      };
-
+    // Wenn GBIF überhaupt keine kuratierten Verbreitungsdaten kennt, ist die Art
+    // entweder eine reine Zimmerpflanze oder zu selten dokumentiert.
+    // Kein Fallback auf Occurrence-Facets: Beobachtungen in Botanischen Gärten
+    // würden Zimmerpflanzen fälschlicherweise als "europäisch" einordnen.
+    if (distributions.length === 0) {
       return new Response(
-        JSON.stringify(responsePayload),
+        JSON.stringify({
+          gbifId: String(gbifId),
+          totalCount: 0,
+          regions: [],
+          is_european: false,
+          europe_threshold: 0,
+          source: "no_distribution_data",
+        }),
         { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
       );
     }
 
-    // Fallback path: occurrence density by country (older behavior).
-    const gbifData = await fetchGbifCountryFacet(gbifId);
-    const regionResults = computeRegionResults(gbifData, regionKeys);
-
-    const europeResult = regionResults.find((r) => r.key === "EUROPE");
-    const europeThreshold = 0.2; // mindestens 20 % der Funde in Europa
-    let isEuropean = false;
-
-    if (europeResult && europeResult.totalCount > 0) {
-      isEuropean = europeResult.proportion >= europeThreshold;
-    }
-
+    // Preferred path: curated species distributions (native + introduced/naturalized).
+    // Eingebürgerte Arten (z.B. Roteiche) zählen als europäisch wenn sie europäische
+    // Lokalitäten haben. Rein exotische Arten (Calathea, Bougainvillea) haben keine
+    // europäischen Einträge und werden daher als nicht-europäisch markiert.
+    const isEuropean = nativeSummary.europeNativeLikeCount > 0;
     const responsePayload = {
       gbifId: String(gbifId),
-      totalCount: europeResult?.totalCount ?? null,
-      regions: regionResults,
+      totalCount: distributions.length,
+      regions: [
+        {
+          key: "EUROPE",
+          totalCount: distributions.length,
+          regionCount: nativeSummary.europeNativeLikeCount,
+          proportion: nativeSummary.europeNativeLikeProportion,
+          hasPresence: nativeSummary.europeNativeLikeCount > 0,
+          countries: nativeSummary.topEuropeanLocalities.map((l) => ({ code: l.name, count: l.count })),
+        },
+      ],
       is_european: isEuropean,
-      europe_threshold: europeThreshold,
-      source: "gbif_occurrence_facet_fallback",
+      europe_threshold: 0,
+      source: "gbif_species_distributions",
     };
 
     return new Response(

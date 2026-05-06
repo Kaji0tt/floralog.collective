@@ -278,7 +278,7 @@ export default function ScanResults({
 
   // Erfolgreich gescannte Pflanze (neu oder bereits entdeckt)
   if (currentPlant?.species_name) {
-    const isBlockedResult = currentPlant?.metadata_failed === true;
+    const isBlockedResult = currentPlant?.metadata_failed === true || (currentPlant?.notInDex && currentPlant?.is_european === false);
     const showBackToIntroButton = isBlockedResult;
     const rarity = currentPlant.rarity || currentPlant.aiData?.rarity || "Häufig";
     const isNewToPlantDex = currentPlant.isNewToPlantDex || false;
@@ -480,7 +480,7 @@ export default function ScanResults({
                       </h4>
                       {currentPlant.is_european ? (
                         <div>
-                          <p className="text-emerald-200 text-sm font-medium">Heimisch in Europa</p>
+                          <p className="text-emerald-200 text-sm font-medium">Heimisch oder eingebürgert in Europa</p>
                           {currentPlant.distribution.regions?.[0]?.countries?.length > 0 && (
                             <p className="text-stone-300 text-xs mt-1">
                               {currentPlant.distribution.regions[0].countries.slice(0, 5).map(c => c.code).join(' · ')}
@@ -489,8 +489,8 @@ export default function ScanResults({
                         </div>
                       ) : (
                         <div>
-                          <p className="text-violet-200 text-sm font-medium">Eingeführte / Exotische Art</p>
-                          <p className="text-stone-300 text-xs mt-1">Diese Pflanze ist nicht ursprünglich europäisch, kann aber trotzdem gespeichert werden.</p>
+                          <p className="text-red-300 text-sm font-medium">Nicht in Europa</p>
+                          <p className="text-stone-300 text-xs mt-1">Diese Pflanze ist in Europa nicht heimisch oder eingebürgert und kann nicht gespeichert werden.</p>
                         </div>
                       )}
                     </div>
@@ -500,10 +500,12 @@ export default function ScanResults({
                       <div className="bg-gradient-to-br from-orange-900/45 to-red-900/40 rounded-xl p-4 border border-orange-300/35 shadow-md">
                           <h4 className="font-bold text-orange-100 mb-2 flex items-center gap-2">
                             <span className="text-xl">⚠️</span>
-                            <span>Pflanzendaten unvollständig</span>
+                            <span>Nicht im Floralog sammelbar</span>
                           </h4>
                           <p className="text-stone-100/95 leading-relaxed text-sm">
-                            Diese Pflanze kann nicht gespeichert werden, da Verbreitungsdaten fehlen oder die Erkennungssicherheit zu gering ist. Versuche es mit einem klareren Foto erneut.
+                            {currentPlant?.metadata_failed
+                              ? 'Pflanzendaten oder Verbreitungsinformationen sind unvollständig. Bitte versuche es mit einem klareren Foto erneut.'
+                              : 'Diese Pflanze kommt nicht in europäischen Ökosystemen vor und kann daher nicht ins Floralog aufgenommen werden. Floralog sammelt Pflanzen, die in Europa heimisch oder dauerhaft eingebürgert sind.'}
                           </p>
                         </div>
                       ) : (
