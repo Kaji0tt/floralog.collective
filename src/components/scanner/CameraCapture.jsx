@@ -65,11 +65,104 @@ export default function CameraCapture({ onCapture, onClose }) {
  */
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const cameraViewportRef = useRef(null);
   const [isReady, setIsReady] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   const [isMobile] = useState(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
+  const trackRef = useRef(null);
+  const pinchStartDistanceRef = useRef(null);
+  const pinchStartZoomRef = useRef(1);
+  const pinchAnimationFrameRef = useRef(null);
+  const pendingZoomRef = useRef(null);
+  const zoomRangeRef = useRef({ min: 1, max: 1, step: 0.1 });
   const [selectedOrgan, setSelectedOrgan] = useState("auto");
   const [facingMode, setFacingMode] = useState(isMobile ? 'environment' : 'environment'); // Standardmäßig Rückkamera
+  const [zoomSupported, setZoomSupported] = useState(false);
+  const [zoomRange, setZoomRange] = useState({ min: 1, max: 1, step: 0.1 });
+  const [zoomLevel, setZoomLevel] = useState(1);
+
+  const clampZoom = (value) => {
+    const range = zoomRangeRef.current;
+    return Math.min(range.max, Math.max(range.min, value));
+  };
+
+  const getTouchDistance = (touches) => {
+    if (!touches || touches.length < 2) return 0;
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.hypot(dx, dy);
+  };
+
+  const applyZoom = async (nextZoom) => {
+    const track = trackRef.current;
+    if (!track || !zoomSupported) return;
+
+    const clampedZoom = clampZoom(nextZoom);
+    try {
+      await track.applyConstraints({ advanced: [{ zoom: clampedZoom }] });
+      setZoomLevel(clampedZoom);
+    } catch (error) {
+      console.warn("Kamera-Zoom konnte nicht gesetzt werden:", error);
+    }
+  };
+
+  const scheduleZoom = (nextZoom) => {
+    pendingZoomRef.current = nextZoom;
+    if (pinchAnimationFrameRef.current) return;
+
+    pinchAnimationFrameRef.current = window.requestAnimationFrame(async () => {
+      const zoomToApply = pendingZoomRef.current;
+      pinchAnimationFrameRef.current = null;
+      pendingZoomRef.current = null;
+      if (zoomToApply != null) {
+        await applyZoom(zoomToApply);
+      }
+    });
+  };
+
+  const initializeZoomSupport = async (stream) => {
+    const [track] = stream.getVideoTracks();
+    trackRef.current = track || null;
+
+    if (!track || typeof track.getCapabilities !== "function") {
+      setZoomSupported(false);
+      setZoomLevel(1);
+      return;
+    }
+
+    const capabilities = track.getCapabilities();
+    const zoomCapability = capabilities?.zoom;
+    if (!zoomCapability) {
+      setZoomSupported(false);
+      setZoomLevel(1);
+      return;
+    }
+
+    const min = Number(zoomCapability.min ?? 1);
+    const max = Number(zoomCapability.max ?? min);
+    const step = Number(zoomCapability.step ?? 0.1);
+    const supportsZoomRange = Number.isFinite(min) && Number.isFinite(max) && max > min;
+
+    const nextRange = {
+      min: Number.isFinite(min) ? min : 1,
+      max: Number.isFinite(max) ? max : 1,
+      step: Number.isFinite(step) && step > 0 ? step : 0.1
+    };
+
+    zoomRangeRef.current = nextRange;
+    setZoomRange(nextRange);
+    setZoomSupported(supportsZoomRange);
+
+    const settings = typeof track.getSettings === "function" ? track.getSettings() : {};
+    const initialZoom = supportsZoomRange
+      ? clampZoom(Number(settings?.zoom ?? nextRange.min))
+      : 1;
+
+    setZoomLevel(initialZoom);
+    if (supportsZoomRange) {
+      await applyZoom(initialZoom);
+    }
+  };
 
   useEffect(() => {
     startCamera();
@@ -89,6 +182,7 @@ export default function CameraCapture({ onCapture, onClose }) {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
+      await initializeZoomSupport(stream);
       setIsReady(true);
     } catch (err) {
       console.error("Error accessing camera:", err);
@@ -97,16 +191,67 @@ export default function CameraCapture({ onCapture, onClose }) {
   };
 
   const stopCamera = () => {
+    if (pinchAnimationFrameRef.current) {
+      window.cancelAnimationFrame(pinchAnimationFrameRef.current);
+      pinchAnimationFrameRef.current = null;
+    }
+
+    pendingZoomRef.current = null;
+    pinchStartDistanceRef.current = null;
+    trackRef.current = null;
+
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
+
+    setZoomSupported(false);
+    setZoomLevel(1);
     setIsReady(false);
   };
 
   const switchCamera = () => {
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
+
+  useEffect(() => {
+    const viewport = cameraViewportRef.current;
+    if (!viewport) return;
+
+    const onTouchStart = (event) => {
+      if (!zoomSupported || event.touches.length !== 2) return;
+      pinchStartDistanceRef.current = getTouchDistance(event.touches);
+      pinchStartZoomRef.current = zoomLevel;
+    };
+
+    const onTouchMove = (event) => {
+      if (!zoomSupported || event.touches.length !== 2 || !pinchStartDistanceRef.current) return;
+      event.preventDefault();
+
+      const distance = getTouchDistance(event.touches);
+      if (!distance) return;
+
+      const scale = distance / pinchStartDistanceRef.current;
+      const nextZoom = pinchStartZoomRef.current * scale;
+      scheduleZoom(nextZoom);
+    };
+
+    const onTouchEnd = () => {
+      pinchStartDistanceRef.current = null;
+    };
+
+    viewport.addEventListener("touchstart", onTouchStart, { passive: true });
+    viewport.addEventListener("touchmove", onTouchMove, { passive: false });
+    viewport.addEventListener("touchend", onTouchEnd, { passive: true });
+    viewport.addEventListener("touchcancel", onTouchEnd, { passive: true });
+
+    return () => {
+      viewport.removeEventListener("touchstart", onTouchStart);
+      viewport.removeEventListener("touchmove", onTouchMove);
+      viewport.removeEventListener("touchend", onTouchEnd);
+      viewport.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, [zoomSupported, zoomLevel]);
 
   const capturePhoto = async () => {
     if (!videoRef.current || !isReady) return;
@@ -207,14 +352,18 @@ export default function CameraCapture({ onCapture, onClose }) {
       </div>
 
       {/* Kamera-Viewport */}
-      <div className="relative w-full flex-1 flex items-center justify-center bg-black rounded-2xl overflow-hidden" style={{ minHeight: 260, maxHeight: 420 }}>
+      <div
+        ref={cameraViewportRef}
+        className="relative w-full flex-1 flex items-center justify-center bg-black rounded-2xl overflow-hidden"
+        style={{ minHeight: 260, maxHeight: 420, touchAction: 'none' }}
+      >
         <video
           ref={videoRef}
           autoPlay
           playsInline
           muted
           className="w-full h-full object-cover"
-          style={{ display: 'block', maxHeight: 400 }}
+          style={{ display: 'block', maxHeight: 400, touchAction: 'none' }}
         />
         {/* Overlays */}
         {!isReady && (
@@ -244,7 +393,33 @@ export default function CameraCapture({ onCapture, onClose }) {
             <SwitchCamera className="w-5 h-5" />
           </Button>
         )}
+
+        {isReady && zoomSupported && (
+          <div className="absolute bottom-3 left-3 z-30 rounded-lg border border-[#f0e5a5]/35 bg-black/60 px-3 py-1 text-xs font-medium text-stone-100">
+            Zoom {zoomLevel.toFixed(1)}x
+          </div>
+        )}
       </div>
+
+      {isReady && zoomSupported && (
+        <div className="w-full max-w-sm rounded-xl border border-[#f0e5a5]/30 bg-black/40 px-4 py-3">
+          <div className="mb-2 flex items-center justify-between text-xs text-stone-200">
+            <span>Kamera-Zoom</span>
+            <span>{zoomLevel.toFixed(1)}x</span>
+          </div>
+          <input
+            type="range"
+            min={zoomRange.min}
+            max={zoomRange.max}
+            step={zoomRange.step}
+            value={zoomLevel}
+            onChange={(event) => applyZoom(Number(event.target.value))}
+            className="w-full accent-emerald-400"
+            aria-label="Kamera-Zoom"
+          />
+          <p className="mt-2 text-[11px] text-stone-300">Tipp: Mit zwei Fingern im Kamerabild zoomen.</p>
+        </div>
+      )}
 
       {/* Aufnahme- und Zurück-Button unten */}
       <div className="w-full flex justify-center items-center gap-6 pt-4">
