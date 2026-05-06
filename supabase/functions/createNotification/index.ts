@@ -404,6 +404,7 @@ Deno.serve(async (req) => {
         display_location: body.displayLocation || "banner",
         seen: false,
         created_by: actorEmail,
+        created_date: new Date().toISOString(),
       })
       .select("*")
       .single();

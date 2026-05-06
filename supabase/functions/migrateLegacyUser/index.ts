@@ -484,6 +484,7 @@ Deno.serve(async (req) => {
                   display_location: "banner",
                   priority: "medium",
                   seen: false,
+                  created_date: new Date().toISOString(),
                 })
 
               if (legacyNotifError) {

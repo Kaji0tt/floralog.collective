@@ -20,6 +20,7 @@ import { Camera, Loader2, Leaf, Plus, Users, Scroll, CheckCircle, AlertCircle, T
 import { motion, AnimatePresence } from "framer-motion";
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
+import QuizFeedbackNotification from "../components/notifications/QuizFeedbackNotification";
 import { useNavigate, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { getNameFontSize } from "@/lib/utils";
@@ -118,6 +119,8 @@ function HomeContent() {
 
   const [scanFeedback, setScanFeedback] = useState(null);
   const [showScanFeedback, setShowScanFeedback] = useState(false);
+  const [quizFeedback, setQuizFeedback] = useState(null);
+  const [showQuizFeedback, setShowQuizFeedback] = useState(false);
   const scanFeedbackCooldownRef = useRef(false);
   const blockNavigationFeedbackRef = useRef(false);
 
@@ -512,8 +515,23 @@ function HomeContent() {
 
   const submitPlantQuizMutation = useMutation({
     mutationFn: ({ quizId, selectedPlantId }) => submitPlantQuizAnswer({ quizId, selectedPlantId }),
-    onSuccess: async (result) => {
-      setPlantQuizResult(result || null);
+    onSuccess: async (result, variables) => {
+      const payload = {
+        ...result,
+        quizId: variables?.quizId || null,
+        selectedPlantId: variables?.selectedPlantId || null,
+        selectedPlantLabel: variables?.selectedPlantLabel || "",
+      };
+
+      setQuizFeedback(payload);
+      setShowQuizFeedback(true);
+
+      if (!result?.resolved) {
+        setPlantQuizResult(result || null);
+      } else {
+        setShowPlantQuizDialog(false);
+        setPlantQuizResult(null);
+      }
 
       if (result?.resolved) {
         await queryClient.invalidateQueries({ queryKey: ['openPlantQuiz', user?.id] });
@@ -522,7 +540,10 @@ function HomeContent() {
     },
     onError: (error) => {
       const message = String(error?.message || '').trim() || 'Antwort konnte nicht verarbeitet werden.';
-      setPlantQuizResult({ success: false, correct: false, resolved: false, attemptsRemaining: null, error: message });
+      const errorPayload = { success: false, correct: false, resolved: false, attemptsRemaining: null, error: message };
+      setPlantQuizResult(errorPayload);
+      setQuizFeedback(errorPayload);
+      setShowQuizFeedback(true);
     },
   });
 
@@ -1880,6 +1901,18 @@ function HomeContent() {
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {quizFeedback && showQuizFeedback && (
+          <QuizFeedbackNotification
+            feedback={quizFeedback}
+            onComplete={() => {
+              setShowQuizFeedback(false);
+              setQuizFeedback(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
       <Dialog open={isMigrating} onOpenChange={() => {}}>
         <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
           <DialogHeader>
@@ -1949,11 +1982,12 @@ function HomeContent() {
           setShowPlantQuizDialog(false);
           setPlantQuizResult(null);
         }}
-        onSubmit={({ selectedPlantId }) => {
-          if (!openPlantQuiz?.id || !selectedPlantId) return;
+        onSubmit={({ quizId, selectedPlantId, selectedPlantLabel }) => {
+          if (!quizId || !selectedPlantId) return;
           submitPlantQuizMutation.mutate({
-            quizId: openPlantQuiz.id,
+            quizId,
             selectedPlantId,
+            selectedPlantLabel,
           });
         }}
       />

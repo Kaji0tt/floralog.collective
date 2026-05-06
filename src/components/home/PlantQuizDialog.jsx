@@ -14,12 +14,10 @@ export default function PlantQuizDialog({
   onResetResult,
 }) {
   const [selectedPlantId, setSelectedPlantId] = useState("");
-  const [bufferedQuiz, setBufferedQuiz] = useState(quiz || null);
 
   useEffect(() => {
     if (!open) {
       setSelectedPlantId("");
-      setBufferedQuiz(null);
       return;
     }
 
@@ -27,17 +25,8 @@ export default function PlantQuizDialog({
     onResetResult?.();
   }, [open, onResetResult]);
 
-  useEffect(() => {
-    if (!open) return;
-    if (quiz?.id) {
-      setBufferedQuiz(quiz);
-    }
-  }, [open, quiz]);
-
-  const displayQuiz = quiz || bufferedQuiz;
-
-  const attemptsUsed = Math.max(0, Number(displayQuiz?.wrongAttempts || 0));
-  const attemptsTotal = Math.max(1, Number(displayQuiz?.maxAttempts || 3));
+  const attemptsUsed = Math.max(0, Number(quiz?.wrongAttempts || 0));
+  const attemptsTotal = Math.max(1, Number(quiz?.maxAttempts || 3));
   const attemptsRemaining = Math.max(0, attemptsTotal - attemptsUsed);
 
   const canSubmit = selectedPlantId && !isSubmitting && !result;
@@ -46,6 +35,15 @@ export default function PlantQuizDialog({
 
   const resultMessage = useMemo(() => {
     if (!result) return null;
+
+    if (result.error) {
+      return {
+        title: "Fehler",
+        description: String(result.error),
+        icon: AlertCircle,
+        tone: "text-rose-300",
+      };
+    }
 
     if (result.correct) {
       return {
@@ -83,7 +81,7 @@ export default function PlantQuizDialog({
           </DialogTitle>
         </DialogHeader>
 
-        {!displayQuiz ? (
+        {!quiz ? (
           <div className="rounded-xl border border-stone-200/15 bg-black/35 p-3 text-sm text-stone-300">Kein offenes Quiz gefunden.</div>
         ) : (
           <div className="space-y-4">
@@ -92,9 +90,9 @@ export default function PlantQuizDialog({
               <div className="mt-1 text-amber-200/90">Frage: Um welche Pflanze handelt es sich bei diesem Scan?</div>
             </div>
 
-            {displayQuiz.imageUrl ? (
+            {quiz.imageUrl ? (
               <div className="overflow-hidden rounded-2xl border border-amber-100/20 bg-black/25">
-                <img src={displayQuiz.imageUrl} alt="Quiz Scan" className="w-full h-56 object-cover" />
+                <img src={quiz.imageUrl} alt="Quiz Scan" className="w-full h-56 object-cover" />
               </div>
             ) : (
               <div className="rounded-2xl border border-dashed border-stone-200/25 bg-black/35 p-6 text-sm text-stone-300 text-center">
@@ -103,7 +101,7 @@ export default function PlantQuizDialog({
             )}
 
             <div className="grid gap-2">
-              {(displayQuiz.options || []).map((option) => {
+              {(quiz.options || []).map((option) => {
                 const selected = selectedPlantId === option.plantId;
                 return (
                   <button
@@ -183,7 +181,14 @@ export default function PlantQuizDialog({
               )}
               {!result && (
                 <Button
-                  onClick={() => onSubmit?.({ selectedPlantId })}
+                  onClick={() => {
+                    const selectedOption = (quiz.options || []).find((option) => option.plantId === selectedPlantId);
+                    onSubmit?.({
+                      quizId: quiz.id,
+                      selectedPlantId,
+                      selectedPlantLabel: selectedOption?.label || "",
+                    });
+                  }}
                   disabled={!canSubmit}
                   className="bg-gradient-to-b from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-black font-semibold"
                 >

@@ -172,6 +172,7 @@ async function sendQuizNotification(
       priority: payload.priority,
       seen: false,
       created_by: "system",
+      created_date: new Date().toISOString(),
     });
 
   if (fallbackInsert.error) {
