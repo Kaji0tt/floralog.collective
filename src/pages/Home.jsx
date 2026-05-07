@@ -55,6 +55,8 @@ import { getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/ques
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { useAuth } from "@/lib/AuthContext";
 import { resolveEquippedLogoAssets } from "@/lib/logoAccessoryAssets";
+import { resolveTitleValue } from "@/lib/profileCustomizationOptions";
+import { hexToFilter } from "@/lib/hexToFilter";
 
 const THEME_MAP_COLORS = {
   forest: "#007a3f",
@@ -214,6 +216,7 @@ function HomeContent() {
       border: withResolvedUrl(localEquippedLogoAssets.border),
       plant: withResolvedUrl(localEquippedLogoAssets.plant),
       face: withResolvedUrl(localEquippedLogoAssets.face),
+      borderColor: localEquippedLogoAssets.borderColor,
     };
   }, [localEquippedLogoAssets, logoAssets]);
 
@@ -2104,7 +2107,7 @@ function HomeContent() {
                 embeddedInfoLabel={embeddedInfoLabel}
                 embeddedCollectionPublicPanelOpen={embeddedCollectionPublicPanelOpen}
                 displayName={getDisplayName()}
-                userTitle={user?.selected_title || user?.title || "Pflanzen-Entdecker"}
+                userTitle={resolveTitleValue(user?.selected_title, user?.title) || "Pflanzen-Entdecker"}
                 onTogglePublicCollections={() => setEmbeddedCollectionPublicPanelOpen((prev) => !prev)}
                 onOpenEmbeddedFriendsAddDialog={() => setEmbeddedFriendsAddDialogNonce((prev) => prev + 1)}
                 onPrimaryAction={() => {
@@ -2142,6 +2145,7 @@ function HomeContent() {
                     embedded
                     onRequestClose={() => setActivePanel(null)}
                     onHeaderMetaChange={setEmbeddedHeaderMeta}
+                    onUserUpdated={(freshUser) => setUser(freshUser)}
                   />
                 ) : activePanel === "friends" ? (
                   <FriendsFeatureRoot
@@ -2451,6 +2455,9 @@ function HomeContent() {
                                     src={equippedLogoAssets.border.imageUrl}
                                     alt="Logo Rahmen"
                                     className="absolute inset-0 w-full h-full object-contain"
+                                    style={equippedLogoAssets.borderColor
+                                      ? { filter: `brightness(0) saturate(100%) ${hexToFilter(equippedLogoAssets.borderColor)}` }
+                                      : undefined}
                                   />
                                 )}
                                 {equippedLogoAssets.plant?.imageUrl && (

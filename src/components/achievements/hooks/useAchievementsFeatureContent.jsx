@@ -26,6 +26,7 @@ import { updateQuestProgress } from "@/components/utils/questProgress";
 import { grantRobotPlantRewardServerSide } from "@/api/robotPlantService";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { createPageUrl } from "@/utils";
+import { resolveTitleValue } from "@/lib/profileCustomizationOptions";
 
 /** @type {{ regular: number, weekly: number, monthly: number }} */
 const DEFAULT_QUEST_SEED_REWARD_BY_TYPE = {
@@ -162,6 +163,7 @@ export function useAchievementsFeatureContent({
   embedded = false,
   onHeaderMetaChange,
   onRequestClose: _onRequestClose = null,
+  onUserUpdated,
 }) {
   const { isLightUi } = useUiTheme();
   const queryClient = useQueryClient();
@@ -441,9 +443,12 @@ export function useAchievementsFeatureContent({
     mutationFn: (title) => updateCurrentUserProfile({ selected_title: title }),
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
-      // Re-fetch user data to ensure `user` state reflects the change immediately
+      queryClient.invalidateQueries({ queryKey: ['shopCurrentUser'] });
       const currentUser = await getCurrentUser();
       setUser(currentUser);
+      if (typeof onUserUpdated === "function") {
+        onUserUpdated(currentUser);
+      }
       setShowTitleDialog(false);
     }
   });
@@ -728,8 +733,12 @@ export function useAchievementsFeatureContent({
   };
 
   const confirmTitleSelection = () => {
-    if (selectedAchievement?.selectedReward?.value) {
-      updateTitleMutation.mutate(selectedAchievement.selectedReward.value);
+    const normalizedTitle = resolveTitleValue(
+      selectedAchievement?.selectedReward?.value,
+      selectedAchievement?.selectedReward?.display_name
+    );
+    if (normalizedTitle) {
+      updateTitleMutation.mutate(normalizedTitle);
     }
   };
 
@@ -1502,10 +1511,11 @@ export function useAchievementsFeatureContent({
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {sortedAchievements.map((achievement, index) => {
                     const isUnlocked = userAchievements.some((ua) => ua.achievement_id === achievement.id);
-                    
+
                     // Lade den zugehörigen Reward
                     const achievementReward = achievement.reward_name ? rewards.find(r => r.name === achievement.reward_name) : null;
-                    const isCurrentTitle = achievementReward?.type === 'title' && user.selected_title === achievementReward.value;
+                    const rewardTitleValue = resolveTitleValue(achievementReward?.value, achievementReward?.display_name);
+                    const isCurrentTitle = achievementReward?.type === 'title' && resolveTitleValue(user?.selected_title) === rewardTitleValue;
 
                     return (
                       <motion.div
@@ -1566,7 +1576,7 @@ export function useAchievementsFeatureContent({
                                 Aktiv
                               </> :
 
-                                  `Titel: ${achievementReward.value}`
+                                  `Titel: ${rewardTitleValue}`
                                   }
                           </Button>
                                 }
@@ -1988,7 +1998,7 @@ export function useAchievementsFeatureContent({
           </DialogHeader>
           <div className="py-4">
             <p className={`mb-4 ${!isLightUi ? "text-stone-300" : "text-stone-700"}`}>
-              Möchtest du den Titel <strong className={!isLightUi ? "text-purple-300" : "text-purple-700"}>"{selectedAchievement?.selectedReward?.value}"</strong> ausrüsten?
+              Möchtest du den Titel <strong className={!isLightUi ? "text-purple-300" : "text-purple-700"}>"{resolveTitleValue(selectedAchievement?.selectedReward?.value, selectedAchievement?.selectedReward?.display_name)}"</strong> ausrüsten?
             </p>
             <p className={`text-sm mb-6 ${!isLightUi ? "text-stone-400" : "text-stone-500"}`}>
               Dieser Titel wird in deinem Profil und auf der Startseite angezeigt.

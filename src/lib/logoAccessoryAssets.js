@@ -79,5 +79,6 @@ export const resolveEquippedLogoAssets = (profile = {}) => {
     face: faceOption,
     plant: plantOption,
     border: borderOption,
+    borderColor: profile?.selected_border_color || null,
   };
 };

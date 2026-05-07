@@ -23,11 +23,28 @@ const COLOR_ROWS = [
 const dedupeByValue = (options) => {
   const seen = new Set();
   return options.filter((option) => {
-    const value = String(option?.value || "").trim();
+    const value = String(option?.value ?? "").trim();
     if (!value || seen.has(value)) return false;
     seen.add(value);
     return true;
   });
+};
+
+const normalizeTitleCandidate = (value) => {
+  if (value === null || value === undefined) return "";
+  const text = String(value).trim();
+  if (!text) return "";
+  const lower = text.toLowerCase();
+  if (text === "0" || lower === "null" || lower === "undefined") return "";
+  return text;
+};
+
+export const resolveTitleValue = (...candidates) => {
+  for (const candidate of candidates) {
+    const normalized = normalizeTitleCandidate(candidate);
+    if (normalized) return normalized;
+  }
+  return "";
 };
 
 export const getUnlockedColorBackgrounds = (scannedPlantsCount = 0) => {
@@ -61,20 +78,26 @@ export const getUnlockedTitleOptions = ({
   );
 
   const achievementTitles = (Array.isArray(achievements) ? achievements : [])
-    .filter((achievement) => unlockedAchievementIds.has(achievement?.id) && achievement?.title_reward)
-    .map((achievement) => ({
-      id: `achievement-title:${achievement.id}`,
-      type: "title",
-      value: achievement.title_reward,
-      label: achievement.title_reward,
-      source: "achievement",
-    }));
+    .filter((achievement) => unlockedAchievementIds.has(achievement?.id))
+    .map((achievement) => {
+      const title = resolveTitleValue(achievement?.title_reward);
+      if (!title) return null;
+
+      return {
+        id: `achievement-title:${achievement.id}`,
+        type: "title",
+        value: title,
+        label: title,
+        source: "achievement",
+      };
+    })
+    .filter(Boolean);
 
   const rewardTitles = (Array.isArray(rewards) ? rewards : [])
     .filter((reward) => unlockedRewardIds.has(reward?.id) && reward?.type === "title")
     .map((reward) => {
-      const value = reward?.value || reward?.display_name;
-      const label = reward?.display_name || reward?.value;
+      const label = resolveTitleValue(reward?.display_name, reward?.value);
+      const value = resolveTitleValue(reward?.value, reward?.display_name);
       if (!value || !label) return null;
 
       return {

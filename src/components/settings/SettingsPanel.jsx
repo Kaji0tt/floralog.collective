@@ -20,6 +20,7 @@ import NotificationManager from "@/components/notifications/NotificationManager"
 import LocationManager from "@/components/notifications/LocationManager";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { useAuth } from "@/lib/AuthContext";
+import { getUnlockedTitleOptions, resolveTitleValue } from "@/lib/profileCustomizationOptions";
 
 export default function SettingsPanel({ user, onUserUpdated }) {
   const navigate = useNavigate();
@@ -203,27 +204,14 @@ export default function SettingsPanel({ user, onUserUpdated }) {
 
   const getDisplayName = () => user?.display_name || user?.full_name || "Spieler";
 
-  const achievementTitleOptions = userAchievements
-    .map((ua) => achievements.find((a) => a.id === ua.achievement_id)?.title_reward)
-    .filter(Boolean);
-
-  const rewardTitleOptions = userRewards
-    .map((ur) => {
-      const reward = allRewards.find((r) => r.id === ur.reward_id);
-      if (!reward || reward.type !== "title") return null;
-      const value = reward.value || reward.display_name;
-      const label = reward.display_name || reward.value;
-      if (!value) return null;
-      return { value, label };
-    })
-    .filter(Boolean);
-
-  const titleMap = new Map();
-  achievementTitleOptions.forEach((t) => titleMap.set(t, { value: t, label: t }));
-  rewardTitleOptions.forEach((o) => {
-    if (!titleMap.has(o.value)) titleMap.set(o.value, o);
+  const titleOptions = getUnlockedTitleOptions({
+    achievements,
+    userAchievements,
+    rewards: allRewards,
+    userRewards,
   });
-  const titleOptions = Array.from(titleMap.values());
+  const activeTitleValue = resolveTitleValue(user?.selected_title);
+  const activeTitleLabel = resolveTitleValue(user?.selected_title, user?.title) || "Pflanzen-Entdecker";
 
   const colorRows = [
     {
@@ -497,7 +485,7 @@ export default function SettingsPanel({ user, onUserUpdated }) {
                 </div>
               )}
               <p className={`text-xs truncate leading-snug ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-500'}`}>
-                {user?.selected_title || user?.title || "Pflanzen-Entdecker"}
+                {activeTitleLabel}
               </p>
             </div>
           </div>
@@ -540,13 +528,13 @@ export default function SettingsPanel({ user, onUserUpdated }) {
               <p className={`text-xs ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-400'}`}>Aktiver Titel</p>
             </div>
             <Select
-              value={user?.selected_title || "default"}
-              onValueChange={(v) => updateUserMutation.mutate({ selected_title: v === "default" ? null : v })}
+              value={activeTitleValue || "default"}
+              onValueChange={(v) => updateUserMutation.mutate({ selected_title: v === "default" ? null : resolveTitleValue(v) || null })}
               disabled={updateUserMutation.isPending}
             >
               <SelectTrigger className={`h-8 text-sm ${uiTheme === 'light' ? 'bg-stone-100/40 border-[#c8ac62]/25 text-stone-800' : 'bg-black/30 border-[#f0e5a5]/25 text-stone-100'}`}>
                 <SelectValue>
-                  <span>{user?.selected_title || "Pflanzen-Entdecker"}</span>
+                  <span>{activeTitleLabel}</span>
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>

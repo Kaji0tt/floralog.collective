@@ -7,6 +7,7 @@ import { useUiTheme } from "@/lib/UiThemeContext";
 import {
   getUnlockedProfileCustomizationCatalog,
   profileCustomizationCategoryComparator,
+  resolveTitleValue,
 } from "@/lib/profileCustomizationOptions";
 import { LOGO_ACCESSORY_DEFAULTS } from "@/lib/logoAccessoryAssets";
 
@@ -88,7 +89,7 @@ const BackgroundOptionCard = ({ option, user, isLightUi, isPending, onSelect }) 
 };
 
 const TitleOptionRow = ({ option, user, isLightUi, isPending, onSelect }) => {
-  const isActive = user?.selected_title === option.value;
+  const isActive = resolveTitleValue(user?.selected_title) === resolveTitleValue(option?.value, option?.label);
 
   return (
     <button
@@ -164,6 +165,89 @@ const AccessoryOptionCard = ({ option, user, isLightUi, isPending, onSelect }) =
         </div>
       </div>
     </button>
+  );
+};
+
+const BorderColorPicker = ({ currentColor, isLightUi, isPending, onSelectColor }) => {
+  const inputRef = React.useRef(null);
+  const hasColor = Boolean(currentColor);
+
+  const handleClick = () => {
+    if (inputRef.current) inputRef.current.click();
+  };
+
+  const handleChange = (e) => {
+    onSelectColor(e.target.value);
+  };
+
+  const handleReset = (e) => {
+    e.stopPropagation();
+    onSelectColor(null);
+  };
+
+  return (
+    <div
+      className={`rounded-2xl border px-3 py-3 ${
+        isLightUi
+          ? "border-[#c8ac62]/35 bg-white/60"
+          : "border-[#f0e5a5]/25 bg-black/25"
+      }`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className={`text-xs font-semibold ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
+            Rahmenfarbe
+          </div>
+          <div className={`mt-0.5 text-[11px] ${isLightUi ? "text-stone-500" : "text-stone-300/75"}`}>
+            {hasColor ? currentColor.toUpperCase() : "Standard (keine Tönung)"}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {hasColor && (
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={handleReset}
+              className={`h-8 rounded-xl border px-2.5 text-[11px] font-medium disabled:opacity-60 ${
+                isLightUi
+                  ? "border-[#c8ac62]/40 bg-white/75 text-stone-600 hover:bg-white"
+                  : "border-[#f0e5a5]/25 bg-black/35 text-stone-200 hover:bg-black/50"
+              }`}
+            >
+              Zurücksetzen
+            </button>
+          )}
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={handleClick}
+            className={`relative flex h-10 w-10 items-center justify-center rounded-xl border-2 transition-all disabled:opacity-60 ${
+              hasColor
+                ? "border-transparent shadow-md"
+                : isLightUi
+                  ? "border-[#c8ac62]/50 bg-white/75 hover:bg-white"
+                  : "border-[#f0e5a5]/35 bg-black/35 hover:bg-black/50"
+            }`}
+            style={hasColor ? { backgroundColor: currentColor } : undefined}
+            title="Rahmenfarbe wählen"
+          >
+            {!hasColor && (
+              <PaintBucket
+                className={`h-4 w-4 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}
+              />
+            )}
+            <input
+              ref={inputRef}
+              type="color"
+              value={currentColor || "#ffffff"}
+              onChange={handleChange}
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+              tabIndex={-1}
+            />
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -334,7 +418,8 @@ export default function ShopFeatureRoot({
 
   const handleSelectTitle = async (option) => {
     setShopMessage(null);
-    await updateCustomizationMutation.mutateAsync({ selected_title: option?.value || null });
+    const nextTitle = resolveTitleValue(option?.value, option?.label);
+    await updateCustomizationMutation.mutateAsync({ selected_title: nextTitle || null });
   };
 
   const handleResetTitle = async () => {
@@ -352,18 +437,25 @@ export default function ShopFeatureRoot({
     await updateCustomizationMutation.mutateAsync({ [option.profileField]: option.value });
   };
 
+  const handleSelectBorderColor = async (hex) => {
+    setShopMessage(null);
+    await updateCustomizationMutation.mutateAsync({ selected_border_color: hex || null });
+  };
+
   const handleResetAccessories = async () => {
     setShopMessage(null);
     await updateCustomizationMutation.mutateAsync({
       selected_face_asset: LOGO_ACCESSORY_DEFAULTS.selected_face_asset,
       selected_plant_asset: LOGO_ACCESSORY_DEFAULTS.selected_plant_asset,
       selected_border_asset: LOGO_ACCESSORY_DEFAULTS.selected_border_asset,
+      selected_border_color: null,
     });
   };
 
   const isAuthResolving = !resolvedAuthId;
   const isLoading = isAuthResolving || isDiscoveriesPending || isAchievementsPending || isUserAchievementsPending || isRewardsPending || isUserRewardsPending || isLogoAssetsPending;
   const resolvedCurrentUser = currentUser || fallbackUser || (authId ? { id: authId } : null);
+  const resolvedCurrentTitle = resolveTitleValue(resolvedCurrentUser?.selected_title, resolvedCurrentUser?.title) || "Pflanzen-Entdecker";
   const isMutationPending = updateCustomizationMutation.isPending;
 
   const tabsHeaderClass = embedded
@@ -551,17 +643,27 @@ export default function ShopFeatureRoot({
                       {section.emptyLabel}
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                      {section.options.map((option) => (
-                        <AccessoryOptionCard
-                          key={option.id}
-                          option={option}
-                          user={resolvedCurrentUser}
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                        {section.options.map((option) => (
+                          <AccessoryOptionCard
+                            key={option.id}
+                            option={option}
+                            user={resolvedCurrentUser}
+                            isLightUi={isLightUi}
+                            isPending={isMutationPending}
+                            onSelect={handleSelectAccessory}
+                          />
+                        ))}
+                      </div>
+                      {section.key === "border" && (
+                        <BorderColorPicker
+                          currentColor={resolvedCurrentUser?.selected_border_color || null}
                           isLightUi={isLightUi}
                           isPending={isMutationPending}
-                          onSelect={handleSelectAccessory}
+                          onSelectColor={handleSelectBorderColor}
                         />
-                      ))}
+                      )}
                     </div>
                   )}
                 </SectionCard>
@@ -574,7 +676,7 @@ export default function ShopFeatureRoot({
                   <div>
                     <div className={`text-sm font-semibold ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Aktiver Titel</div>
                     <div className={`mt-1 text-xs ${isLightUi ? "text-stone-500" : "text-stone-300/75"}`}>
-                      Aktuell: {resolvedCurrentUser?.selected_title || resolvedCurrentUser?.title || "Pflanzen-Entdecker"}
+                      Aktuell: {resolvedCurrentTitle}
                     </div>
                   </div>
                   <button
