@@ -20,13 +20,7 @@ const THEME_MAP_LABELS = {
 const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "";
 const TILE_HALF_SIZE_M = 50;
 const CLAIM_PULSE_CYCLE_MS = 2600;
-const DISCOVERY_SINGLE_RADIUS_PX = 20;
-const DISCOVERY_BASIC_RADIUS_PX = 11;
-const CLUSTER_EXTRA_PADDING_PX = 2;
-const MAX_CLUSTER_GEO_SPREAD_M = 450;
- 
-
-const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const ZONE_ECHO_CYCLE_MS = 2600;
 
 const escapeHtml = (value) =>
   String(value ?? "")
@@ -100,12 +94,8 @@ const buildClaimPulseGradient = (phase) => {
     return ["interpolate", ["linear"], ["line-progress"], 0, "rgba(255,255,255,0)", 1, "rgba(255,255,255,0)"];
   }
 
-  const fadeInStart = Math.max(0, phase - 0.16);
-  const fadeInMid = Math.max(0, phase - 0.1);
-  const glowStart = Math.max(0, phase - 0.04);
-  const glowEnd = Math.min(1, phase + 0.04);
-  const fadeOutMid = Math.min(1, phase + 0.1);
-  const fadeOutEnd = Math.min(1, phase + 0.16);
+  const trailStart = Math.max(0, phase - 0.09);
+  const headEnd = Math.min(1, phase + 0.1);
 
   return [
     "interpolate",
@@ -113,28 +103,71 @@ const buildClaimPulseGradient = (phase) => {
     ["line-progress"],
     0,
     "rgba(255,255,255,0)",
-    fadeInStart,
+    trailStart,
     "rgba(255,255,255,0)",
-    fadeInMid,
-    "rgba(255,255,255,0.2)",
-    glowStart,
-    "rgba(255,255,255,0.72)",
     phase,
     "rgba(255,255,255,0.98)",
-    glowEnd,
-    "rgba(255,255,255,0.72)",
-    fadeOutMid,
-    "rgba(255,255,255,0.2)",
-    fadeOutEnd,
+    headEnd,
     "rgba(255,255,255,0)",
     1,
     "rgba(255,255,255,0)",
   ];
 };
 
-const getPulsePhaseContinuous = (cycleMs) => {
+const getPulsePhaseWithPause = (cycleMs) => {
   const t = Date.now() % cycleMs;
-  return t / cycleMs;
+  const normalized = t / cycleMs;
+  if (normalized > 0.72) {
+    return -1;
+  }
+  return normalized / 0.72;
+};
+
+const buildZoneEchoFeatureCollection = (zones = []) => {
+  const phase = getPulsePhaseWithPause(ZONE_ECHO_CYCLE_MS);
+  const features = [];
+
+  const makePulse = (zone, pulseStart, pulseEnd) => {
+    if (phase < pulseStart || phase > pulseEnd) return null;
+    const local = (phase - pulseStart) / (pulseEnd - pulseStart);
+    const clampedLocal = Math.max(0, Math.min(local, 1));
+    const radiusM = Math.max(8, Number(zone.radiusM || 0) * clampedLocal);
+    const alpha = 0.8 * (1 - clampedLocal);
+    return {
+      radiusM,
+      alpha,
+    };
+  };
+
+  zones.forEach((zone) => {
+    const lat = Number(zone.centerLat);
+    const lng = Number(zone.centerLng);
+    const baseRadiusM = Number(zone.radiusM || 0);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || baseRadiusM <= 0) {
+      return;
+    }
+
+    const theme = typeof zone.theme === "string" ? zone.theme : "meadow";
+    const color = THEME_MAP_COLORS[theme] || THEME_MAP_COLORS.meadow;
+    const pulses = [makePulse(zone, 0.0, 0.34), makePulse(zone, 0.38, 0.72)].filter(Boolean);
+
+    pulses.forEach((pulse, index) => {
+      features.push({
+        type: "Feature",
+        geometry: {
+          type: "Polygon",
+          coordinates: [toCirclePolygon({ lat, lng, radiusM: pulse.radiusM })],
+        },
+        properties: {
+          id: `${zone.zoneKey || zone.id || `${lat}-${lng}`}-echo-${index}`,
+          color,
+          alpha: pulse.alpha,
+        },
+      });
+    });
+  });
+
+  return { type: "FeatureCollection", features };
 };
 
 const formatDiscoveryDate = (rawDate) => {
@@ -310,161 +343,12 @@ const createDiscoveryMarkerElement = (point) => {
   return markerEl;
 };
 
-const createDiscoveryClusterMarkerElement = (scanCount) => {
-  const markerEl = document.createElement("button");
-  markerEl.type = "button";
-  markerEl.setAttribute("aria-label", `${scanCount} Scans gebuendelt`);
-  markerEl.style.padding = "0";
-  markerEl.style.border = "0";
-  markerEl.style.background = "transparent";
-  markerEl.style.cursor = "pointer";
-  markerEl.style.position = "relative";
-
-  const base = document.createElement("span");
-  base.style.display = "inline-flex";
-  base.style.alignItems = "center";
-  base.style.justifyContent = "center";
-  base.style.width = "38px";
-  base.style.height = "38px";
-  base.style.borderRadius = "999px";
-  base.style.border = "1px solid rgba(240,229,165,0.52)";
-  base.style.background = "radial-gradient(circle at 35% 30%, rgba(120,120,120,0.45), rgba(24,24,24,0.78))";
-  base.style.boxShadow = "0 4px 10px rgba(0,0,0,0.28)";
-  base.style.color = "#f8fafc";
-  base.style.fontSize = "12px";
-  base.style.fontWeight = "700";
-  base.textContent = String(scanCount);
-  markerEl.appendChild(base);
-
-  const glyph = document.createElement("span");
-  glyph.textContent = "●";
-  glyph.style.position = "absolute";
-  glyph.style.right = "-1px";
-  glyph.style.bottom = "-2px";
-  glyph.style.fontSize = "8px";
-  glyph.style.color = "rgba(240,229,165,0.88)";
-  markerEl.appendChild(glyph);
-
-  return markerEl;
-};
-
-const getDiscoveryFootprintPx = (point) => {
-  const hasCustomLogo = Boolean(
-    String(point?.scannerLogoBorderUrl || "").trim() ||
-    String(point?.scannerLogoPlantUrl || "").trim() ||
-    String(point?.scannerLogoFaceUrl || "").trim()
-  );
-  return hasCustomLogo ? DISCOVERY_SINGLE_RADIUS_PX : DISCOVERY_BASIC_RADIUS_PX;
-};
-
-const buildDiscoveryRenderGroups = (points = [], map) => {
-  if (!map || points.length === 0) return [];
-
-  const canvas = map.getCanvas();
-  const viewWidth = Number(canvas?.clientWidth || 0);
-  const viewHeight = Number(canvas?.clientHeight || 0);
-  const viewMarginPx = 96;
-
-  const projected = points
-    .map((point) => {
-      const lng = Number(point?.lng);
-      const lat = Number(point?.lat);
-      if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null;
-      const projectedPoint = map.project([lng, lat]);
-      const isWithinViewport =
-        projectedPoint.x >= -viewMarginPx &&
-        projectedPoint.y >= -viewMarginPx &&
-        projectedPoint.x <= viewWidth + viewMarginPx &&
-        projectedPoint.y <= viewHeight + viewMarginPx;
-      if (!isWithinViewport) return null;
-
-      return {
-        point,
-        lng,
-        lat,
-        x: projectedPoint.x,
-        y: projectedPoint.y,
-        radius: getDiscoveryFootprintPx(point),
-      };
-    })
-    .filter(Boolean);
-
-  if (projected.length === 0) return [];
-
-  projected.sort((a, b) => (a.y - b.y) || (a.x - b.x));
-
-  const consumed = new Array(projected.length).fill(false);
-  const groups = [];
-
-  for (let i = 0; i < projected.length; i += 1) {
-    if (consumed[i]) continue;
-
-    const anchor = projected[i];
-    const members = [anchor];
-    consumed[i] = true;
-
-    for (let j = i + 1; j < projected.length; j += 1) {
-      if (consumed[j]) continue;
-
-      const candidate = projected[j];
-      const dx = candidate.x - anchor.x;
-      const dy = candidate.y - anchor.y;
-      const pixelDistance = Math.hypot(dx, dy);
-      const overlapThreshold = anchor.radius + candidate.radius + CLUSTER_EXTRA_PADDING_PX;
-      if (pixelDistance > overlapThreshold) continue;
-
-      const geoDistance = calculateDistanceMetersRaw(anchor.lat, anchor.lng, candidate.lat, candidate.lng);
-      if (!Number.isFinite(geoDistance) || geoDistance > MAX_CLUSTER_GEO_SPREAD_M) continue;
-
-      consumed[j] = true;
-      members.push(candidate);
-    }
-
-    groups.push(members);
-  }
-
-  return groups.map((entries) => {
-    if (entries.length === 1) {
-      return {
-        type: "single",
-        point: entries[0].point,
-        scanCount: 1,
-      };
-    }
-
-    const representative = entries[0].point;
-    const centroid = entries.reduce(
-      (acc, item) => {
-        acc.lat += item.lat;
-        acc.lng += item.lng;
-        return acc;
-      },
-      { lat: 0, lng: 0 }
-    );
-    const divisor = entries.length;
-
-    return {
-      type: "cluster",
-      point: {
-        ...representative,
-        lng: centroid.lng / divisor,
-        lat: centroid.lat / divisor,
-      },
-      scanCount: entries.length,
-    };
-  });
-};
-
 const createClaimLogoMarkerElement = (claim) => {
-  const ownerScanCount = Math.max(0, Number(claim?.ownerScanCount || 0));
-  const normalized = clamp(ownerScanCount, 1, 15);
-  const sizePx = Math.round(34 + ((normalized - 1) / 14) * 24);
-
   const markerEl = document.createElement("div");
-  markerEl.style.width = `${sizePx}px`;
-  markerEl.style.height = `${sizePx}px`;
+  markerEl.style.width = "40px";
+  markerEl.style.height = "40px";
   markerEl.style.borderRadius = "999px";
-  markerEl.style.pointerEvents = "auto";
+  markerEl.style.pointerEvents = "none";
   markerEl.style.display = "flex";
   markerEl.style.alignItems = "center";
   markerEl.style.justifyContent = "center";
@@ -525,27 +409,6 @@ const createClaimLogoMarkerElement = (claim) => {
   appendLayer(plantUrl, "");
   appendLayer(faceUrl, "");
 
-  const badge = document.createElement("span");
-  badge.textContent = String(ownerScanCount);
-  badge.style.position = "absolute";
-  badge.style.right = "-3px";
-  badge.style.bottom = "-4px";
-  badge.style.minWidth = "20px";
-  badge.style.height = "20px";
-  badge.style.padding = "0 5px";
-  badge.style.borderRadius = "999px";
-  badge.style.display = "inline-flex";
-  badge.style.alignItems = "center";
-  badge.style.justifyContent = "center";
-  badge.style.fontSize = "11px";
-  badge.style.fontWeight = "700";
-  badge.style.color = "#f8fafc";
-  badge.style.border = "1px solid rgba(240,229,165,0.62)";
-  badge.style.background = "rgba(17,24,39,0.84)";
-  badge.style.boxShadow = "0 2px 8px rgba(0,0,0,0.35)";
-  markerEl.style.position = "relative";
-  markerEl.appendChild(badge);
-
   return markerEl;
 };
 
@@ -583,20 +446,6 @@ const getLngLatOffsetByMeters = (lat, lng, offsetXMeter, offsetYMeter) => {
     lat: lat + offsetYMeter / latMetersPerDegree,
     lng: lng + offsetXMeter / safeLngMetersPerDegree,
   };
-};
-
-const calculateDistanceMetersRaw = (lat1, lon1, lat2, lon2) => {
-  const earthRadiusMeters = 6371000;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-
-  return 2 * earthRadiusMeters * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
 const buildApproxTilePolygon = (centerLat, centerLng) => {
@@ -749,13 +598,17 @@ export default function MapboxZoneMap({
   const discoveryMarkersRef = useRef([]);
   const claimLogoMarkersRef = useRef([]);
   const claimPulseIntervalRef = useRef(null);
-  const lastCenteredRef = useRef({ lat: null, lng: null });
+  const zoneEchoIntervalRef = useRef(null);
 
   useEffect(() => {
     return () => {
       if (claimPulseIntervalRef.current) {
         window.clearInterval(claimPulseIntervalRef.current);
         claimPulseIntervalRef.current = null;
+      }
+      if (zoneEchoIntervalRef.current) {
+        window.clearInterval(zoneEchoIntervalRef.current);
+        zoneEchoIntervalRef.current = null;
       }
       claimLogoMarkersRef.current.forEach((marker) => marker.remove());
       claimLogoMarkersRef.current = [];
@@ -801,12 +654,6 @@ export default function MapboxZoneMap({
       zoom: 13,
       pitch: 58,
       bearing: -18,
-      dragRotate: true,
-      touchZoomRotate: true,
-      scrollZoom: true,
-      doubleClickZoom: true,
-      touchPitch: true,
-      pitchWithRotate: true,
       antialias: true,
     });
 
@@ -823,6 +670,10 @@ export default function MapboxZoneMap({
     });
 
     return () => {
+      if (zoneEchoIntervalRef.current) {
+        window.clearInterval(zoneEchoIntervalRef.current);
+        zoneEchoIntervalRef.current = null;
+      }
       if (claimPulseIntervalRef.current) {
         window.clearInterval(claimPulseIntervalRef.current);
         claimPulseIntervalRef.current = null;
@@ -843,144 +694,13 @@ export default function MapboxZoneMap({
     const map = mapRef.current;
     if (!map) return;
 
-    const userLng = Number(userLocation?.lng);
-    const userLat = Number(userLocation?.lat);
-    const fallbackLng = Number(fallbackCenter?.lng);
-    const fallbackLat = Number(fallbackCenter?.lat);
-    const renderCenterLng = Number.isFinite(userLng) ? userLng : fallbackLng;
-    const renderCenterLat = Number.isFinite(userLat) ? userLat : fallbackLat;
-    const MAX_DISCOVERY_RENDER_DISTANCE_M = 3500;
-
-    const renderDynamicMarkers = () => { // This line is unchanged
-      if (claimPulseIntervalRef.current) {
-        window.clearInterval(claimPulseIntervalRef.current);
-        claimPulseIntervalRef.current = null;
-      }
-
-      if (map.getLayer("hero-claims-pulse")) {
-        claimPulseIntervalRef.current = window.setInterval(() => {
-          if (!map.getLayer("hero-claims-pulse")) return;
-          const phase = getPulsePhaseContinuous(CLAIM_PULSE_CYCLE_MS);
-          map.setPaintProperty("hero-claims-pulse", "line-gradient", buildClaimPulseGradient(phase));
-        }, 55);
-      }
-
-      claimLogoMarkersRef.current.forEach((marker) => marker.remove());
-      claimLogoMarkersRef.current = [];
-
-      claimedTiles
-        .filter((claim) => Number.isFinite(claim?.centerLat) && Number.isFinite(claim?.centerLng))
-        .forEach((claim) => {
-          const claimMarkerElement = createClaimLogoMarkerElement(claim);
-          const claimMarker = new mapboxgl.Marker({
-            element: claimMarkerElement,
-            anchor: "center",
-            pitchAlignment: "viewport",
-            rotationAlignment: "viewport",
-          })
-            .setLngLat([Number(claim.centerLng), Number(claim.centerLat)])
-            .addTo(map);
-
-          claimLogoMarkersRef.current.push(claimMarker);
-        });
-
-      discoveryMarkersRef.current.forEach((marker) => marker.remove());
-      discoveryMarkersRef.current = [];
-
-      const filteredDiscoveryPoints = discoveryPoints
-        .filter((point) => Number.isFinite(point?.lat) && Number.isFinite(point?.lng))
-        .filter((point) => {
-          if (!Number.isFinite(renderCenterLat) || !Number.isFinite(renderCenterLng)) {
-            return true;
-          }
-
-          const distanceM = calculateDistanceMetersRaw(
-            renderCenterLat,
-            renderCenterLng,
-            Number(point.lat),
-            Number(point.lng)
-          );
-
-          return Number.isFinite(distanceM) && distanceM <= MAX_DISCOVERY_RENDER_DISTANCE_M;
-        });
-
-      const renderGroups = buildDiscoveryRenderGroups(filteredDiscoveryPoints, map);
-
-      renderGroups.forEach((group) => {
-        const point = group.point;
-        const pointClaim = findClaimForPoint(point, claimedTiles);
-        const scannerAuthId = String(point?.scannerAuthId || "").trim();
-        if (pointClaim && scannerAuthId && String(pointClaim.ownerAuthId || "") === scannerAuthId) {
-          return;
-        }
-
-        const lng = Number(point.lng);
-        const lat = Number(point.lat);
-        const properties = {
-          discoveryId: point?.discoveryId || "",
-          imageUrl: point?.imageUrl || "",
-          scannerName: point?.scannerName || "Unbekannt",
-          scannerDisplayName: point?.scannerDisplayName || point?.scannerName || "Unbekannt",
-          scannerEmail: point?.scannerEmail || "",
-          scannerAuthId: point?.scannerAuthId || "",
-          viewerAuthId: currentAuthId || "",
-          plantName: point?.plantName || "Unbekannte Pflanze",
-          plantId: point?.plantId || "",
-          genusId: point?.genusId || "",
-          likedByCurrentUser: String(point?.likedByCurrentUser === true),
-          discoveredAt: point?.discoveredAt || "",
-        };
-
-        const markerElement = group.type === "cluster"
-          ? createDiscoveryClusterMarkerElement(group.scanCount)
-          : createDiscoveryMarkerElement(point);
-
-        markerElement.addEventListener("click", (domEvent) => {
-          domEvent.preventDefault();
-          domEvent.stopPropagation();
-
-          if (group.type === "cluster") {
-            map.easeTo({
-              center: [lng, lat],
-              zoom: Math.max(map.getZoom() + 1.6, 16.2),
-              duration: 450,
-            });
-            return;
-          }
-
-          openDiscoveryPopup({
-            map,
-            event: { lngLat: { lng, lat } },
-            feature: { properties },
-            onDiscoveryImageClick,
-            onDiscoveryLike,
-            allowDiscoveryLike,
-          });
-        });
-
-        const marker = new mapboxgl.Marker({
-          element: markerElement,
-          anchor: "center",
-          pitchAlignment: "viewport",
-          rotationAlignment: "viewport",
-        })
-          .setLngLat([lng, lat])
-          .addTo(map);
-        discoveryMarkersRef.current.push(marker);
-      });
-    };
-
-    const updateMapData = ({ shouldRecenter = true } = {}) => {
+    const updateMapData = () => {
+      const userLng = Number(userLocation?.lng);
+      const userLat = Number(userLocation?.lat);
       const targetLng = Number.isFinite(userLng) ? userLng : Number(fallbackCenter?.lng);
       const targetLat = Number.isFinite(userLat) ? userLat : Number(fallbackCenter?.lat);
 
-      const lastLat = Number(lastCenteredRef.current.lat);
-      const lastLng = Number(lastCenteredRef.current.lng);
-      const centerChanged = !Number.isFinite(lastLat) || !Number.isFinite(lastLng)
-        || Math.abs(lastLat - targetLat) > 0.00008
-        || Math.abs(lastLng - targetLng) > 0.00008;
-
-      if (shouldRecenter && Number.isFinite(targetLng) && Number.isFinite(targetLat) && centerChanged) {
+      if (Number.isFinite(targetLng) && Number.isFinite(targetLat)) {
         map.easeTo({
           center: [targetLng, targetLat],
           zoom: 13,
@@ -988,7 +708,6 @@ export default function MapboxZoneMap({
           bearing: -18,
           duration: 600,
         });
-        lastCenteredRef.current = { lat: targetLat, lng: targetLng };
       }
 
       const zoneFeatures = zones
@@ -1062,19 +781,6 @@ export default function MapboxZoneMap({
           },
         });
 
-        map.addLayer({
-          id: "hero-zones-fill",
-          type: "fill",
-          source: "hero-zones",
-          paint: {
-            "fill-color": ["get", "color"],
-            "fill-opacity": 0.08,
-          },
-          layout: {
-            visibility: "visible",
-          },
-        });
-
         map.on("click", "hero-zones-hit", (event) => {
           const claimHit = map.queryRenderedFeatures(
             [
@@ -1123,6 +829,41 @@ export default function MapboxZoneMap({
           map.getCanvas().style.cursor = "";
         });
       }
+
+      const zoneEchoGeoJson = buildZoneEchoFeatureCollection(zones);
+      const zoneEchoSource = map.getSource("hero-zones-echo");
+      if (zoneEchoSource) {
+        zoneEchoSource.setData(zoneEchoGeoJson);
+      } else {
+        map.addSource("hero-zones-echo", {
+          type: "geojson",
+          data: zoneEchoGeoJson,
+        });
+
+        map.addLayer({
+          id: "hero-zones-echo-line",
+          type: "line",
+          source: "hero-zones-echo",
+          paint: {
+            "line-color": ["get", "color"],
+            "line-width": 4,
+            "line-opacity": ["get", "alpha"],
+            "line-blur": 1.8,
+          },
+        });
+      }
+
+      if (zoneEchoIntervalRef.current) {
+        window.clearInterval(zoneEchoIntervalRef.current);
+        zoneEchoIntervalRef.current = null;
+      }
+
+      zoneEchoIntervalRef.current = window.setInterval(() => {
+        const currentMap = mapRef.current;
+        if (!currentMap?.getSource("hero-zones-echo")) return;
+        const source = currentMap.getSource("hero-zones-echo");
+        source.setData(buildZoneEchoFeatureCollection(zones));
+      }, 100);
 
       const userGeoJson = {
         type: "FeatureCollection",
@@ -1228,53 +969,94 @@ export default function MapboxZoneMap({
             "line-width": 8,
             "line-opacity": 0.9,
             "line-blur": 1.6,
-            "line-gradient": buildClaimPulseGradient(getPulsePhaseContinuous(CLAIM_PULSE_CYCLE_MS)),
+            "line-gradient": buildClaimPulseGradient(-1),
           },
         });
       }
 
-      if (map.getLayer("hero-claims-borders")) {
-        map.setLayoutProperty("hero-claims-borders", "visibility", "visible");
-        map.moveLayer("hero-claims-borders");
-      }
-      if (map.getLayer("hero-claims-pulse")) {
-        map.setLayoutProperty("hero-claims-pulse", "visibility", "visible");
-        map.moveLayer("hero-claims-pulse");
+      if (claimPulseIntervalRef.current) {
+        window.clearInterval(claimPulseIntervalRef.current);
+        claimPulseIntervalRef.current = null;
       }
 
-      renderDynamicMarkers();
+      if (map.getLayer("hero-claims-pulse")) {
+        claimPulseIntervalRef.current = window.setInterval(() => {
+          if (!map.getLayer("hero-claims-pulse")) return;
+          const phase = getPulsePhaseWithPause(CLAIM_PULSE_CYCLE_MS);
+          map.setPaintProperty("hero-claims-pulse", "line-gradient", buildClaimPulseGradient(phase));
+        }, 90);
+      }
+
+      claimLogoMarkersRef.current.forEach((marker) => marker.remove());
+      claimLogoMarkersRef.current = [];
+
+      claimedTiles
+        .filter((claim) => Number.isFinite(claim?.centerLat) && Number.isFinite(claim?.centerLng))
+        .forEach((claim) => {
+          const claimMarkerElement = createClaimLogoMarkerElement(claim);
+          const claimMarker = new mapboxgl.Marker({ element: claimMarkerElement, anchor: "center" })
+            .setLngLat([Number(claim.centerLng), Number(claim.centerLat)])
+            .addTo(map);
+
+          claimLogoMarkersRef.current.push(claimMarker);
+        });
+
+      discoveryMarkersRef.current.forEach((marker) => marker.remove());
+      discoveryMarkersRef.current = [];
+
+      discoveryPoints
+        .filter((point) => Number.isFinite(point?.lat) && Number.isFinite(point?.lng))
+        .forEach((point) => {
+          const pointClaim = findClaimForPoint(point, claimedTiles);
+          const scannerAuthId = String(point?.scannerAuthId || "").trim();
+          if (pointClaim && scannerAuthId && String(pointClaim.ownerAuthId || "") === scannerAuthId) {
+            return;
+          }
+
+          const lng = Number(point.lng);
+          const lat = Number(point.lat);
+          const properties = {
+            discoveryId: point?.discoveryId || "",
+            imageUrl: point?.imageUrl || "",
+            scannerName: point?.scannerName || "Unbekannt",
+            scannerDisplayName: point?.scannerDisplayName || point?.scannerName || "Unbekannt",
+            scannerEmail: point?.scannerEmail || "",
+            scannerAuthId: point?.scannerAuthId || "",
+            viewerAuthId: currentAuthId || "",
+            plantName: point?.plantName || "Unbekannte Pflanze",
+            plantId: point?.plantId || "",
+            genusId: point?.genusId || "",
+            likedByCurrentUser: String(point?.likedByCurrentUser === true),
+            discoveredAt: point?.discoveredAt || "",
+          };
+
+          const markerElement = createDiscoveryMarkerElement(point);
+          markerElement.addEventListener("click", (domEvent) => {
+            domEvent.preventDefault();
+            domEvent.stopPropagation();
+            openDiscoveryPopup({
+              map,
+              event: { lngLat: { lng, lat } },
+              feature: { properties },
+              onDiscoveryImageClick,
+              onDiscoveryLike,
+              allowDiscoveryLike,
+            });
+          });
+
+          const marker = new mapboxgl.Marker({ element: markerElement, anchor: "center" })
+            .setLngLat([lng, lat])
+            .addTo(map);
+          discoveryMarkersRef.current.push(marker);
+        });
     };
 
     if (map.isStyleLoaded()) {
-      updateMapData({ shouldRecenter: true });
-    } else {
-      map.once("style.load", () => updateMapData({ shouldRecenter: true }));
+      updateMapData();
+      return;
     }
 
-    const handleInitialIdle = () => {
-      updateMapData({ shouldRecenter: false });
-      map.off("idle", handleInitialIdle);
-    };
-
-    map.on("idle", handleInitialIdle);
-
-
-    const handleViewChangeEnd = () => {
-      renderDynamicMarkers();
-    };
-
-    map.on("zoomend", handleViewChangeEnd);
-    map.on("moveend", handleViewChangeEnd);
-    map.on("pitchend", handleViewChangeEnd);
-    map.on("rotateend", handleViewChangeEnd);
-
-    return () => {
-      map.off("idle", handleInitialIdle);
-      map.off("zoomend", handleViewChangeEnd);
-      map.off("moveend", handleViewChangeEnd);
-      map.off("pitchend", handleViewChangeEnd);
-      map.off("rotateend", handleViewChangeEnd);
-    };
+    map.once("style.load", updateMapData);
   }, [
     allowDiscoveryLike,
     claimedTiles,
