@@ -1134,6 +1134,27 @@ function HomeContent() {
     refetchOnWindowFocus: true,
   });
 
+  const claimedTilesWithLogos = useMemo(() => {
+    if (!Array.isArray(claimedTiles) || claimedTiles.length === 0) {
+      return [];
+    }
+
+    return claimedTiles.map((claim) => {
+      const ownerAuthId = String(claim?.ownerAuthId || "");
+      const ownerProfile = allUsers.find((profile) => String(profile?.auth_id || "") === ownerAuthId) || null;
+      const ownerLogoAssets = ownerProfile
+        ? resolveEquippedLogoAssetsWithCatalog(ownerProfile, logoAssets)
+        : null;
+
+      return {
+        ...claim,
+        ownerLogoBorderUrl: ownerLogoAssets?.border?.imageUrl || "",
+        ownerLogoPlantUrl: ownerLogoAssets?.plant?.imageUrl || "",
+        ownerLogoFaceUrl: ownerLogoAssets?.face?.imageUrl || "",
+      };
+    });
+  }, [claimedTiles, allUsers, logoAssets]);
+
   const isLoadingCriticalData = isLoadingDiscoveries || isLoadingQuests || isLoadingAchievements || isLoadingFriends || isLoadingWeeklyQuests || isLoadingMonthlyQuests || isLoadingCollectionQuests;
 
   if (isLoadingUser) {
@@ -2185,7 +2206,7 @@ function HomeContent() {
                     onRequestLocation={handleOpenHeroZoneMap}
                     heroZones={heroZones}
                     nearbyDiscoveryPoints={nearbyDiscoveryPoints}
-                    claimedTiles={claimedTiles}
+                    claimedTiles={claimedTilesWithLogos}
                     cachedLocation={cachedLocation}
                     heroMapCenter={heroMapCenter}
                     onDiscoveryImageClick={handleDiscoveryImageClick}

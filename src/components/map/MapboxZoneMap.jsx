@@ -201,6 +201,75 @@ const createDiscoveryMarkerElement = (point) => {
   return markerEl;
 };
 
+const createClaimLogoMarkerElement = (claim) => {
+  const markerEl = document.createElement("div");
+  markerEl.style.width = "40px";
+  markerEl.style.height = "40px";
+  markerEl.style.borderRadius = "999px";
+  markerEl.style.pointerEvents = "none";
+  markerEl.style.display = "flex";
+  markerEl.style.alignItems = "center";
+  markerEl.style.justifyContent = "center";
+  markerEl.style.filter = "drop-shadow(0 4px 10px rgba(0,0,0,0.42))";
+
+  const borderUrl = String(claim?.ownerLogoBorderUrl || "").trim();
+  const plantUrl = String(claim?.ownerLogoPlantUrl || "").trim();
+  const faceUrl = String(claim?.ownerLogoFaceUrl || "").trim();
+  const borderColor = String(claim?.ownerBorderColor || "").trim();
+
+  if (!borderUrl && !plantUrl && !faceUrl) {
+    const fallbackDot = document.createElement("span");
+    fallbackDot.style.width = "14px";
+    fallbackDot.style.height = "14px";
+    fallbackDot.style.borderRadius = "999px";
+    fallbackDot.style.background = borderColor || "#f0e5a5";
+    fallbackDot.style.border = "1px solid rgba(255,255,255,0.8)";
+    markerEl.appendChild(fallbackDot);
+    return markerEl;
+  }
+
+  const ring = document.createElement("span");
+  ring.style.display = "block";
+  ring.style.width = "100%";
+  ring.style.height = "100%";
+  ring.style.borderRadius = "999px";
+  ring.style.border = "1px solid rgba(240,229,165,0.72)";
+  ring.style.background = "rgba(0,0,0,0.24)";
+  ring.style.padding = "4px";
+  ring.style.boxSizing = "border-box";
+  ring.style.overflow = "hidden";
+  markerEl.appendChild(ring);
+
+  const content = document.createElement("span");
+  content.style.position = "relative";
+  content.style.display = "block";
+  content.style.width = "100%";
+  content.style.height = "100%";
+  ring.appendChild(content);
+
+  const appendLayer = (url, filterValue) => {
+    if (!url) return;
+    const img = document.createElement("img");
+    img.src = url;
+    img.alt = "";
+    img.style.position = "absolute";
+    img.style.inset = "0";
+    img.style.width = "100%";
+    img.style.height = "100%";
+    img.style.objectFit = "contain";
+    if (filterValue) {
+      img.style.filter = filterValue;
+    }
+    content.appendChild(img);
+  };
+
+  appendLayer(borderUrl, borderColor ? `brightness(0) saturate(100%) ${hexToFilter(borderColor)}` : "");
+  appendLayer(plantUrl, "");
+  appendLayer(faceUrl, "");
+
+  return markerEl;
+};
+
 const toCirclePolygon = ({ lat, lng, radiusM, points = 48 }) => {
   const earthRadiusM = 6371000;
   const latRad = (lat * Math.PI) / 180;
@@ -384,6 +453,7 @@ export default function MapboxZoneMap({
   const mapRef = useRef(null);
   const onTokenErrorRef = useRef(null);
   const discoveryMarkersRef = useRef([]);
+  const claimLogoMarkersRef = useRef([]);
   const claimPulseIntervalRef = useRef(null);
 
   useEffect(() => {
@@ -392,6 +462,8 @@ export default function MapboxZoneMap({
         window.clearInterval(claimPulseIntervalRef.current);
         claimPulseIntervalRef.current = null;
       }
+      claimLogoMarkersRef.current.forEach((marker) => marker.remove());
+      claimLogoMarkersRef.current = [];
       discoveryMarkersRef.current.forEach((marker) => marker.remove());
       discoveryMarkersRef.current = [];
     };
@@ -450,6 +522,8 @@ export default function MapboxZoneMap({
     });
 
     return () => {
+      claimLogoMarkersRef.current.forEach((marker) => marker.remove());
+      claimLogoMarkersRef.current = [];
       discoveryMarkersRef.current.forEach((marker) => marker.remove());
       discoveryMarkersRef.current = [];
       map.remove();
@@ -734,6 +808,20 @@ export default function MapboxZoneMap({
           map.setPaintProperty("hero-claims-borders", "line-width", pulseOn ? 4 : 2.4);
         }, 820);
       }
+
+      claimLogoMarkersRef.current.forEach((marker) => marker.remove());
+      claimLogoMarkersRef.current = [];
+
+      claimedTiles
+        .filter((claim) => Number.isFinite(claim?.centerLat) && Number.isFinite(claim?.centerLng))
+        .forEach((claim) => {
+          const claimMarkerElement = createClaimLogoMarkerElement(claim);
+          const claimMarker = new mapboxgl.Marker({ element: claimMarkerElement, anchor: "center" })
+            .setLngLat([Number(claim.centerLng), Number(claim.centerLat)])
+            .addTo(map);
+
+          claimLogoMarkersRef.current.push(claimMarker);
+        });
 
       discoveryMarkersRef.current.forEach((marker) => marker.remove());
       discoveryMarkersRef.current = [];
