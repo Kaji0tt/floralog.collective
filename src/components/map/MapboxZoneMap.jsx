@@ -367,48 +367,38 @@ const buildDiscoveryRenderGroups = (points = [], map) => {
 
   if (projected.length === 0) return [];
 
-  const parent = projected.map((_, idx) => idx);
+  projected.sort((a, b) => (a.y - b.y) || (a.x - b.x));
 
-  const find = (idx) => {
-    let cursor = idx;
-    while (parent[cursor] !== cursor) {
-      parent[cursor] = parent[parent[cursor]];
-      cursor = parent[cursor];
-    }
-    return cursor;
-  };
+  const clusters = [];
 
-  const union = (a, b) => {
-    const rootA = find(a);
-    const rootB = find(b);
-    if (rootA === rootB) return;
-    parent[rootB] = rootA;
-  };
-
-  for (let i = 0; i < projected.length; i += 1) {
-    const a = projected[i];
-    for (let j = i + 1; j < projected.length; j += 1) {
-      const b = projected[j];
-      const dx = a.x - b.x;
-      const dy = a.y - b.y;
+  projected.forEach((entry) => {
+    const targetCluster = clusters.find((cluster) => {
+      const dx = entry.x - cluster.seedX;
+      const dy = entry.y - cluster.seedY;
       const distance = Math.hypot(dx, dy);
-      const overlapThreshold = a.radius + b.radius + CLUSTER_EXTRA_PADDING_PX;
-      if (distance <= overlapThreshold) {
-        union(i, j);
-      }
-    }
-  }
+      const overlapThreshold = entry.radius + cluster.seedRadius + CLUSTER_EXTRA_PADDING_PX;
+      return distance <= overlapThreshold;
+    });
 
-  const grouped = new Map();
-  projected.forEach((entry, idx) => {
-    const root = find(idx);
-    if (!grouped.has(root)) {
-      grouped.set(root, []);
+    if (targetCluster) {
+      targetCluster.entries.push(entry);
+      targetCluster.sumLng += entry.lng;
+      targetCluster.sumLat += entry.lat;
+      return;
     }
-    grouped.get(root).push(entry);
+
+    clusters.push({
+      seedX: entry.x,
+      seedY: entry.y,
+      seedRadius: entry.radius,
+      entries: [entry],
+      sumLng: entry.lng,
+      sumLat: entry.lat,
+    });
   });
 
-  return Array.from(grouped.values()).map((entries) => {
+  return clusters.map((cluster) => {
+    const entries = cluster.entries;
     if (entries.length === 1) {
       return {
         type: "single",
@@ -417,15 +407,6 @@ const buildDiscoveryRenderGroups = (points = [], map) => {
       };
     }
 
-    const centroid = entries.reduce(
-      (acc, item) => {
-        acc.lng += item.lng;
-        acc.lat += item.lat;
-        return acc;
-      },
-      { lng: 0, lat: 0 }
-    );
-
     const divisor = entries.length;
     const representative = entries[0].point;
 
@@ -433,8 +414,8 @@ const buildDiscoveryRenderGroups = (points = [], map) => {
       type: "cluster",
       point: {
         ...representative,
-        lng: centroid.lng / divisor,
-        lat: centroid.lat / divisor,
+        lng: cluster.sumLng / divisor,
+        lat: cluster.sumLat / divisor,
       },
       scanCount: entries.length,
     };
@@ -569,6 +550,20 @@ const getLngLatOffsetByMeters = (lat, lng, offsetXMeter, offsetYMeter) => {
     lat: lat + offsetYMeter / latMetersPerDegree,
     lng: lng + offsetXMeter / safeLngMetersPerDegree,
   };
+};
+
+const calculateDistanceMetersRaw = (lat1, lon1, lat2, lon2) => {
+  const earthRadiusMeters = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+
+  return 2 * earthRadiusMeters * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
 const buildApproxTilePolygon = (centerLat, centerLng) => {
@@ -815,6 +810,14 @@ export default function MapboxZoneMap({
     const map = mapRef.current;
     if (!map) return;
 
+    const userLng = Number(userLocation?.lng);
+    const userLat = Number(userLocation?.lat);
+    const fallbackLng = Number(fallbackCenter?.lng);
+    const fallbackLat = Number(fallbackCenter?.lat);
+    const renderCenterLng = Number.isFinite(userLng) ? userLng : fallbackLng;
+    const renderCenterLat = Number.isFinite(userLat) ? userLat : fallbackLat;
+    const MAX_DISCOVERY_RENDER_DISTANCE_M = 3500;
+
     const renderDynamicMarkers = () => { // This line is unchanged
       if (claimPulseIntervalRef.current) {
         window.clearInterval(claimPulseIntervalRef.current);
@@ -851,10 +854,24 @@ export default function MapboxZoneMap({
       discoveryMarkersRef.current.forEach((marker) => marker.remove());
       discoveryMarkersRef.current = [];
 
-      const renderGroups = buildDiscoveryRenderGroups(
-        discoveryPoints.filter((point) => Number.isFinite(point?.lat) && Number.isFinite(point?.lng)),
-        map,
-      );
+      const filteredDiscoveryPoints = discoveryPoints
+        .filter((point) => Number.isFinite(point?.lat) && Number.isFinite(point?.lng))
+        .filter((point) => {
+          if (!Number.isFinite(renderCenterLat) || !Number.isFinite(renderCenterLng)) {
+            return true;
+          }
+
+          const distanceM = calculateDistanceMetersRaw(
+            renderCenterLat,
+            renderCenterLng,
+            Number(point.lat),
+            Number(point.lng)
+          );
+
+          return Number.isFinite(distanceM) && distanceM <= MAX_DISCOVERY_RENDER_DISTANCE_M;
+        });
+
+      const renderGroups = buildDiscoveryRenderGroups(filteredDiscoveryPoints, map);
 
       renderGroups.forEach((group) => {
         const point = group.point;
@@ -921,8 +938,6 @@ export default function MapboxZoneMap({
     };
 
     const updateMapData = ({ shouldRecenter = true } = {}) => {
-      const userLng = Number(userLocation?.lng);
-      const userLat = Number(userLocation?.lat);
       const targetLng = Number.isFinite(userLng) ? userLng : Number(fallbackCenter?.lng);
       const targetLat = Number.isFinite(userLat) ? userLat : Number(fallbackCenter?.lat);
 
