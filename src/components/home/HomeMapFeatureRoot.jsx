@@ -96,6 +96,7 @@ export default function HomeMapFeatureRoot({
           discoveryPoints={nearbyDiscoveryPoints}
           claimedTiles={claimedTiles}
           currentAuthId={authId}
+          isLightUi={isLightUi}
           onDiscoveryImageClick={onDiscoveryImageClick}
           onDiscoveryLike={onDiscoveryLike}
           allowDiscoveryLike={allowDiscoveryLike}

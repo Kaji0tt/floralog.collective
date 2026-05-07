@@ -19,6 +19,10 @@ const THEME_MAP_LABELS = {
 
 const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "";
 const TILE_HALF_SIZE_M = 50;
+const CLAIM_PULSE_CYCLE_MS = 2600;
+const ZONE_ECHO_CYCLE_MS = 2600;
+
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 const escapeHtml = (value) =>
   String(value ?? "")
@@ -27,6 +31,146 @@ const escapeHtml = (value) =>
     .replace(/>/g, "&gt;")
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#039;");
+
+const buildZonePopupHtml = (props, isLightUi) => {
+  const themeLabel = escapeHtml(props.themeLabel || props.theme || "Zone");
+  const color = props.color || THEME_MAP_COLORS.meadow;
+  const radiusDisplay = props.radiusM ? `${Math.round(props.radiusM)} m` : "";
+  const zoneMultiplier = Number(props.zoneMultiplier || 1.5);
+
+  const cardBg = isLightUi ? "rgba(255,255,255,0.92)" : "rgba(12,14,17,0.86)";
+  const cardBorder = isLightUi ? "rgba(200,172,98,0.5)" : "rgba(240,229,165,0.35)";
+  const titleColor = isLightUi ? "#292524" : "#fde68a";
+  const bodyColor = isLightUi ? "#44403c" : "#d6d3d1";
+  const mutedColor = isLightUi ? "#78716c" : "#a8a29e";
+
+  return `
+    <div style="font-family:sans-serif;min-width:176px;max-width:228px;padding:6px 4px;background:${cardBg};border:1px solid ${cardBorder};border-radius:12px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};flex-shrink:0;"></span>
+        <strong style="font-size:14px;color:${titleColor};">${themeLabel} Zone</strong>
+      </div>
+      <div style="font-size:12px;color:${bodyColor};line-height:1.55;">
+        <div style="margin-bottom:4px;">
+          <span style="font-weight:700;">Multiplikator:</span> x${zoneMultiplier.toFixed(2)}
+        </div>
+        <div style="margin-bottom:4px;color:${mutedColor};">
+          Start bei x1.50, sinkt pro weiterem Scan in dieser Zone.
+        </div>
+        ${radiusDisplay ? `<div style="color:${mutedColor};">Radius: ${radiusDisplay}</div>` : ""}
+      </div>
+    </div>
+  `;
+};
+
+const buildClaimPopupHtml = (props, isLightUi) => {
+  const ownerName = escapeHtml(props.ownerName || "Unbekannt");
+  const ownerScanCount = Math.max(0, Number(props.ownerScanCount || 0));
+  const ownerBorderColor = props.ownerBorderColor || "#f0e5a5";
+  const tileX = Number(props.tileX);
+  const tileY = Number(props.tileY);
+
+  const cardBg = isLightUi ? "rgba(255,255,255,0.94)" : "rgba(12,14,17,0.88)";
+  const cardBorder = isLightUi ? "rgba(200,172,98,0.55)" : "rgba(240,229,165,0.38)";
+  const titleColor = isLightUi ? "#292524" : "#fde68a";
+  const bodyColor = isLightUi ? "#44403c" : "#d6d3d1";
+  const mutedColor = isLightUi ? "#78716c" : "#a8a29e";
+
+  return `
+    <div style="font-family:sans-serif;min-width:176px;max-width:228px;padding:6px 4px;background:${cardBg};border:1px solid ${cardBorder};border-radius:12px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${ownerBorderColor};flex-shrink:0;"></span>
+        <strong style="font-size:14px;color:${titleColor};">Claimed Tile</strong>
+      </div>
+      <div style="font-size:12px;color:${bodyColor};line-height:1.58;">
+        <div><span style="font-weight:700;">Owner:</span> ${ownerName}</div>
+        <div><span style="font-weight:700;">Scans im Tile:</span> ${ownerScanCount}</div>
+        <div style="color:${mutedColor};margin-top:4px;">Tile ${tileX}/${tileY}</div>
+      </div>
+    </div>
+  `;
+};
+
+const buildClaimPulseGradient = (phase) => {
+  if (!Number.isFinite(phase) || phase < 0 || phase > 1) {
+    return ["interpolate", ["linear"], ["line-progress"], 0, "rgba(255,255,255,0)", 1, "rgba(255,255,255,0)"];
+  }
+
+  const trailStart = Math.max(0, phase - 0.09);
+  const headEnd = Math.min(1, phase + 0.1);
+
+  return [
+    "interpolate",
+    ["linear"],
+    ["line-progress"],
+    0,
+    "rgba(255,255,255,0)",
+    trailStart,
+    "rgba(255,255,255,0)",
+    phase,
+    "rgba(255,255,255,0.98)",
+    headEnd,
+    "rgba(255,255,255,0)",
+    1,
+    "rgba(255,255,255,0)",
+  ];
+};
+
+const getPulsePhaseWithPause = (cycleMs) => {
+  const t = Date.now() % cycleMs;
+  const normalized = t / cycleMs;
+  if (normalized > 0.72) {
+    return -1;
+  }
+  return normalized / 0.72;
+};
+
+const buildZoneEchoFeatureCollection = (zones = []) => {
+  const phase = getPulsePhaseWithPause(ZONE_ECHO_CYCLE_MS);
+  const features = [];
+
+  const makePulse = (zone, pulseStart, pulseEnd) => {
+    if (phase < pulseStart || phase > pulseEnd) return null;
+    const local = (phase - pulseStart) / (pulseEnd - pulseStart);
+    const clampedLocal = Math.max(0, Math.min(local, 1));
+    const radiusM = Math.max(8, Number(zone.radiusM || 0) * clampedLocal);
+    const alpha = 0.8 * (1 - clampedLocal);
+    return {
+      radiusM,
+      alpha,
+    };
+  };
+
+  zones.forEach((zone) => {
+    const lat = Number(zone.centerLat);
+    const lng = Number(zone.centerLng);
+    const baseRadiusM = Number(zone.radiusM || 0);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || baseRadiusM <= 0) {
+      return;
+    }
+
+    const theme = typeof zone.theme === "string" ? zone.theme : "meadow";
+    const color = THEME_MAP_COLORS[theme] || THEME_MAP_COLORS.meadow;
+    const pulses = [makePulse(zone, 0.0, 0.34), makePulse(zone, 0.38, 0.72)].filter(Boolean);
+
+    pulses.forEach((pulse, index) => {
+      features.push({
+        type: "Feature",
+        geometry: {
+          type: "Polygon",
+          coordinates: [toCirclePolygon({ lat, lng, radiusM: pulse.radiusM })],
+        },
+        properties: {
+          id: `${zone.zoneKey || zone.id || `${lat}-${lng}`}-echo-${index}`,
+          color,
+          alpha: pulse.alpha,
+        },
+      });
+    });
+  });
+
+  return { type: "FeatureCollection", features };
+};
 
 const formatDiscoveryDate = (rawDate) => {
   if (!rawDate) return "Kein Datum";
@@ -201,12 +345,86 @@ const createDiscoveryMarkerElement = (point) => {
   return markerEl;
 };
 
+const createDiscoveryClusterMarkerElement = (point, scanCount) => {
+  const markerEl = document.createElement("button");
+  markerEl.type = "button";
+  markerEl.setAttribute("aria-label", `${scanCount} Scans von ${point?.scannerDisplayName || point?.scannerName || "Unbekannt"}`);
+  markerEl.style.padding = "0";
+  markerEl.style.border = "0";
+  markerEl.style.background = "transparent";
+  markerEl.style.cursor = "pointer";
+
+  const base = createDiscoveryMarkerElement(point);
+  base.style.width = "46px";
+  base.style.height = "46px";
+  base.style.transform = "scale(1.08)";
+  base.style.boxShadow = "0 8px 16px rgba(0,0,0,0.42)";
+  markerEl.appendChild(base);
+
+  const badge = document.createElement("span");
+  badge.textContent = String(scanCount);
+  badge.style.position = "absolute";
+  badge.style.right = "-3px";
+  badge.style.bottom = "-4px";
+  badge.style.minWidth = "20px";
+  badge.style.height = "20px";
+  badge.style.padding = "0 5px";
+  badge.style.borderRadius = "999px";
+  badge.style.display = "inline-flex";
+  badge.style.alignItems = "center";
+  badge.style.justifyContent = "center";
+  badge.style.fontSize = "11px";
+  badge.style.fontWeight = "700";
+  badge.style.color = "#f8fafc";
+  badge.style.border = "1px solid rgba(240,229,165,0.6)";
+  badge.style.background = "rgba(17,24,39,0.84)";
+  badge.style.boxShadow = "0 2px 8px rgba(0,0,0,0.35)";
+  markerEl.style.position = "relative";
+  markerEl.appendChild(badge);
+
+  return markerEl;
+};
+
+const buildDiscoveryRenderGroups = (points = [], zoom = 0) => {
+  const shouldAggregate = Number(zoom) < 16;
+  if (!shouldAggregate) {
+    return points.map((point) => ({ type: "single", point, scanCount: 1 }));
+  }
+
+  const groups = new Map();
+  points.forEach((point) => {
+    const authKey = String(point?.scannerAuthId || "unknown");
+    const latKey = Number(point?.lat).toFixed(5);
+    const lngKey = Number(point?.lng).toFixed(5);
+    const key = `${authKey}:${latKey}:${lngKey}`;
+
+    if (!groups.has(key)) {
+      groups.set(key, {
+        type: "single",
+        point,
+        scanCount: 1,
+      });
+      return;
+    }
+
+    const current = groups.get(key);
+    current.scanCount += 1;
+    current.type = "cluster";
+  });
+
+  return Array.from(groups.values());
+};
+
 const createClaimLogoMarkerElement = (claim) => {
+  const ownerScanCount = Math.max(0, Number(claim?.ownerScanCount || 0));
+  const normalized = clamp(ownerScanCount, 1, 15);
+  const sizePx = Math.round(34 + ((normalized - 1) / 14) * 24);
+
   const markerEl = document.createElement("div");
-  markerEl.style.width = "40px";
-  markerEl.style.height = "40px";
+  markerEl.style.width = `${sizePx}px`;
+  markerEl.style.height = `${sizePx}px`;
   markerEl.style.borderRadius = "999px";
-  markerEl.style.pointerEvents = "none";
+  markerEl.style.pointerEvents = "auto";
   markerEl.style.display = "flex";
   markerEl.style.alignItems = "center";
   markerEl.style.justifyContent = "center";
@@ -266,6 +484,27 @@ const createClaimLogoMarkerElement = (claim) => {
   appendLayer(borderUrl, borderColor ? `brightness(0) saturate(100%) ${hexToFilter(borderColor)}` : "");
   appendLayer(plantUrl, "");
   appendLayer(faceUrl, "");
+
+  const badge = document.createElement("span");
+  badge.textContent = String(ownerScanCount);
+  badge.style.position = "absolute";
+  badge.style.right = "-3px";
+  badge.style.bottom = "-4px";
+  badge.style.minWidth = "20px";
+  badge.style.height = "20px";
+  badge.style.padding = "0 5px";
+  badge.style.borderRadius = "999px";
+  badge.style.display = "inline-flex";
+  badge.style.alignItems = "center";
+  badge.style.justifyContent = "center";
+  badge.style.fontSize = "11px";
+  badge.style.fontWeight = "700";
+  badge.style.color = "#f8fafc";
+  badge.style.border = "1px solid rgba(240,229,165,0.62)";
+  badge.style.background = "rgba(17,24,39,0.84)";
+  badge.style.boxShadow = "0 2px 8px rgba(0,0,0,0.35)";
+  markerEl.style.position = "relative";
+  markerEl.appendChild(badge);
 
   return markerEl;
 };
@@ -442,6 +681,7 @@ export default function MapboxZoneMap({
   discoveryPoints = [],
   claimedTiles = [],
   currentAuthId = null,
+  isLightUi = false,
   onTokenError = null,
   onMapReady = null,
   onDiscoveryImageClick = null,
@@ -455,12 +695,17 @@ export default function MapboxZoneMap({
   const discoveryMarkersRef = useRef([]);
   const claimLogoMarkersRef = useRef([]);
   const claimPulseIntervalRef = useRef(null);
+  const zoneEchoIntervalRef = useRef(null);
 
   useEffect(() => {
     return () => {
       if (claimPulseIntervalRef.current) {
         window.clearInterval(claimPulseIntervalRef.current);
         claimPulseIntervalRef.current = null;
+      }
+      if (zoneEchoIntervalRef.current) {
+        window.clearInterval(zoneEchoIntervalRef.current);
+        zoneEchoIntervalRef.current = null;
       }
       claimLogoMarkersRef.current.forEach((marker) => marker.remove());
       claimLogoMarkersRef.current = [];
@@ -522,6 +767,14 @@ export default function MapboxZoneMap({
     });
 
     return () => {
+      if (zoneEchoIntervalRef.current) {
+        window.clearInterval(zoneEchoIntervalRef.current);
+        zoneEchoIntervalRef.current = null;
+      }
+      if (claimPulseIntervalRef.current) {
+        window.clearInterval(claimPulseIntervalRef.current);
+        claimPulseIntervalRef.current = null;
+      }
       claimLogoMarkersRef.current.forEach((marker) => marker.remove());
       claimLogoMarkersRef.current = [];
       discoveryMarkersRef.current.forEach((marker) => marker.remove());
@@ -604,27 +857,42 @@ export default function MapboxZoneMap({
         });
 
         map.addLayer({
-          id: "hero-zones-fill",
-          type: "fill",
-          source: "hero-zones",
-          paint: {
-            "fill-color": ["get", "color"],
-            "fill-opacity": 0.22,
-          },
-        });
-
-        map.addLayer({
           id: "hero-zones-line",
           type: "line",
           source: "hero-zones",
           paint: {
             "line-color": ["get", "color"],
-            "line-width": 2,
-            "line-opacity": 0.9,
+            "line-width": 2.4,
+            "line-opacity": 0.95,
+            "line-blur": 0.45,
           },
         });
 
-        map.on("click", "hero-zones-fill", (event) => {
+        map.addLayer({
+          id: "hero-zones-hit",
+          type: "fill",
+          source: "hero-zones",
+          paint: {
+            "fill-color": ["get", "color"],
+            "fill-opacity": 0,
+          },
+        });
+
+        map.on("click", "hero-zones-hit", (event) => {
+          const claimHit = map.queryRenderedFeatures(
+            [
+              [event.point.x - 8, event.point.y - 8],
+              [event.point.x + 8, event.point.y + 8],
+            ],
+            {
+              layers: ["hero-claims-fill", "hero-claims-borders", "hero-claims-pulse"].filter((layerId) => map.getLayer(layerId)),
+            }
+          );
+
+          if (claimHit.length > 0) {
+            return;
+          }
+
           const discoveryLayers = ["hero-discovery-hit", "hero-discovery-points"].filter((layerId) => map.getLayer(layerId));
           if (discoveryLayers.length > 0) {
             const discoveryNearClick = map.queryRenderedFeatures(
@@ -643,42 +911,56 @@ export default function MapboxZoneMap({
           if (!feature) return;
 
           const props = feature.properties || {};
-          const themeLabel = props.themeLabel || props.theme || "Zone";
-          const color = props.color || THEME_MAP_COLORS.meadow;
-          const radiusDisplay = props.radiusM ? `${Math.round(props.radiusM)} m` : "";
-          const zoneMultiplier = Number(props.zoneMultiplier || 1.5);
-          const popupHtml = `
-            <div style="font-family:sans-serif;min-width:170px;max-width:220px;padding:4px 2px;">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};flex-shrink:0;"></span>
-                <strong style="font-size:14px;color:#fde68a;">${themeLabel} Zone</strong>
-              </div>
-              <div style="font-size:12px;color:#d6d3d1;line-height:1.5;">
-                <div style="margin-bottom:4px;">
-                  <span style="color:#86efac;font-weight:600;">Multiplikator:</span> x${zoneMultiplier.toFixed(2)}
-                </div>
-                <div style="margin-bottom:4px;color:#a8a29e;">
-                  Startet bei x1.50 und sinkt pro weiterem Scan in dieser Zone.
-                </div>
-                ${radiusDisplay ? `<div style="color:#a8a29e;">Radius: ${radiusDisplay}</div>` : ""}
-              </div>
-            </div>
-          `;
-
+          const popupHtml = buildZonePopupHtml(props, isLightUi);
           new mapboxgl.Popup({ closeButton: true, maxWidth: "240px", className: "hero-zone-popup" })
             .setLngLat(event.lngLat)
             .setHTML(popupHtml)
             .addTo(map);
         });
 
-        map.on("mouseenter", "hero-zones-fill", () => {
+        map.on("mouseenter", "hero-zones-hit", () => {
           map.getCanvas().style.cursor = "pointer";
         });
 
-        map.on("mouseleave", "hero-zones-fill", () => {
+        map.on("mouseleave", "hero-zones-hit", () => {
           map.getCanvas().style.cursor = "";
         });
       }
+
+      const zoneEchoGeoJson = buildZoneEchoFeatureCollection(zones);
+      const zoneEchoSource = map.getSource("hero-zones-echo");
+      if (zoneEchoSource) {
+        zoneEchoSource.setData(zoneEchoGeoJson);
+      } else {
+        map.addSource("hero-zones-echo", {
+          type: "geojson",
+          data: zoneEchoGeoJson,
+        });
+
+        map.addLayer({
+          id: "hero-zones-echo-line",
+          type: "line",
+          source: "hero-zones-echo",
+          paint: {
+            "line-color": ["get", "color"],
+            "line-width": 4,
+            "line-opacity": ["get", "alpha"],
+            "line-blur": 1.8,
+          },
+        });
+      }
+
+      if (zoneEchoIntervalRef.current) {
+        window.clearInterval(zoneEchoIntervalRef.current);
+        zoneEchoIntervalRef.current = null;
+      }
+
+      zoneEchoIntervalRef.current = window.setInterval(() => {
+        const currentMap = mapRef.current;
+        if (!currentMap?.getSource("hero-zones-echo")) return;
+        const source = currentMap.getSource("hero-zones-echo");
+        source.setData(buildZoneEchoFeatureCollection(zones));
+      }, 100);
 
       const userGeoJson = {
         type: "FeatureCollection",
@@ -728,7 +1010,7 @@ export default function MapboxZoneMap({
           source: "hero-claims-fill",
           paint: {
             "fill-color": ["get", "ownerBorderColor"],
-            "fill-opacity": 0.06,
+            "fill-opacity": 0.22,
           },
         });
 
@@ -737,25 +1019,7 @@ export default function MapboxZoneMap({
           if (!feature) return;
           const props = feature.properties || {};
 
-          const ownerName = escapeHtml(props.ownerName || "Unbekannt");
-          const ownerScanCount = Math.max(0, Number(props.ownerScanCount || 0));
-          const ownerBorderColor = props.ownerBorderColor || "#f0e5a5";
-          const tileX = Number(props.tileX);
-          const tileY = Number(props.tileY);
-
-          const popupHtml = `
-            <div style="font-family:sans-serif;min-width:172px;max-width:220px;padding:4px 2px;">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${ownerBorderColor};flex-shrink:0;"></span>
-                <strong style="font-size:14px;color:#fde68a;">Claimed Tile</strong>
-              </div>
-              <div style="font-size:12px;color:#d6d3d1;line-height:1.55;">
-                <div><span style="color:#86efac;font-weight:600;">Owner:</span> ${ownerName}</div>
-                <div><span style="color:#86efac;font-weight:600;">Scans im Tile:</span> ${ownerScanCount}</div>
-                <div style="color:#a8a29e;margin-top:4px;">Tile ${tileX}/${tileY}</div>
-              </div>
-            </div>
-          `;
+          const popupHtml = buildClaimPopupHtml(props, isLightUi);
 
           new mapboxgl.Popup({ closeButton: true, maxWidth: "240px", className: "hero-claim-popup" })
             .setLngLat(event.lngLat)
@@ -779,6 +1043,7 @@ export default function MapboxZoneMap({
         map.addSource("hero-claims-borders", {
           type: "geojson",
           data: claimOverlay.borderFeatureCollection,
+          lineMetrics: true,
         });
 
         map.addLayer({
@@ -787,9 +1052,21 @@ export default function MapboxZoneMap({
           source: "hero-claims-borders",
           paint: {
             "line-color": ["get", "ownerBorderColor"],
-            "line-width": 3,
-            "line-opacity": 0.92,
-            "line-blur": 0.4,
+            "line-width": 5.5,
+            "line-opacity": 0.98,
+            "line-blur": 0.9,
+          },
+        });
+
+        map.addLayer({
+          id: "hero-claims-pulse",
+          type: "line",
+          source: "hero-claims-borders",
+          paint: {
+            "line-width": 8,
+            "line-opacity": 0.9,
+            "line-blur": 1.6,
+            "line-gradient": buildClaimPulseGradient(-1),
           },
         });
       }
@@ -799,14 +1076,12 @@ export default function MapboxZoneMap({
         claimPulseIntervalRef.current = null;
       }
 
-      if (map.getLayer("hero-claims-borders")) {
-        let pulseOn = false;
+      if (map.getLayer("hero-claims-pulse")) {
         claimPulseIntervalRef.current = window.setInterval(() => {
-          if (!map.getLayer("hero-claims-borders")) return;
-          pulseOn = !pulseOn;
-          map.setPaintProperty("hero-claims-borders", "line-opacity", pulseOn ? 0.98 : 0.58);
-          map.setPaintProperty("hero-claims-borders", "line-width", pulseOn ? 4 : 2.4);
-        }, 820);
+          if (!map.getLayer("hero-claims-pulse")) return;
+          const phase = getPulsePhaseWithPause(CLAIM_PULSE_CYCLE_MS);
+          map.setPaintProperty("hero-claims-pulse", "line-gradient", buildClaimPulseGradient(phase));
+        }, 90);
       }
 
       claimLogoMarkersRef.current.forEach((marker) => marker.remove());
@@ -826,9 +1101,13 @@ export default function MapboxZoneMap({
       discoveryMarkersRef.current.forEach((marker) => marker.remove());
       discoveryMarkersRef.current = [];
 
-      discoveryPoints
-        .filter((point) => Number.isFinite(point?.lat) && Number.isFinite(point?.lng))
-        .forEach((point) => {
+      const renderGroups = buildDiscoveryRenderGroups(
+        discoveryPoints.filter((point) => Number.isFinite(point?.lat) && Number.isFinite(point?.lng)),
+        map.getZoom(),
+      );
+
+      renderGroups.forEach((group) => {
+          const point = group.point;
           const pointClaim = findClaimForPoint(point, claimedTiles);
           const scannerAuthId = String(point?.scannerAuthId || "").trim();
           if (pointClaim && scannerAuthId && String(pointClaim.ownerAuthId || "") === scannerAuthId) {
@@ -852,10 +1131,23 @@ export default function MapboxZoneMap({
             discoveredAt: point?.discoveredAt || "",
           };
 
-          const markerElement = createDiscoveryMarkerElement(point);
+          const markerElement = group.type === "cluster"
+            ? createDiscoveryClusterMarkerElement(point, group.scanCount)
+            : createDiscoveryMarkerElement(point);
+
           markerElement.addEventListener("click", (domEvent) => {
             domEvent.preventDefault();
             domEvent.stopPropagation();
+
+            if (group.type === "cluster") {
+              map.easeTo({
+                center: [lng, lat],
+                zoom: Math.max(map.getZoom() + 1.6, 16.2),
+                duration: 450,
+              });
+              return;
+            }
+
             openDiscoveryPopup({
               map,
               event: { lngLat: { lng, lat } },
@@ -879,6 +1171,16 @@ export default function MapboxZoneMap({
     }
 
     map.once("style.load", updateMapData);
+
+    const handleZoomEnd = () => {
+      updateMapData();
+    };
+
+    map.on("zoomend", handleZoomEnd);
+
+    return () => {
+      map.off("zoomend", handleZoomEnd);
+    };
   }, [
     allowDiscoveryLike,
     claimedTiles,
@@ -886,6 +1188,7 @@ export default function MapboxZoneMap({
     discoveryPoints,
     fallbackCenter?.lat,
     fallbackCenter?.lng,
+    isLightUi,
     onDiscoveryImageClick,
     onDiscoveryLike,
     userLocation?.lat,
