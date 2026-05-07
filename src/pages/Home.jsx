@@ -1120,16 +1120,24 @@ function HomeContent() {
 
   const cachedLocation = getCachedLocation({ maxAgeMs: LOCATION_CACHE_MAX_AGE_MS });
   const hasLiveCachedLocation = Number.isFinite(cachedLocation?.lat) && Number.isFinite(cachedLocation?.lng);
+  const fallbackClaimCenterLat = Number(heroZones?.[0]?.centerLat);
+  const fallbackClaimCenterLng = Number(heroZones?.[0]?.centerLng);
+  const claimsCenterLat = hasLiveCachedLocation ? Number(cachedLocation?.lat) : fallbackClaimCenterLat;
+  const claimsCenterLng = hasLiveCachedLocation ? Number(cachedLocation?.lng) : fallbackClaimCenterLng;
 
-  const { data: claimedTiles = [] } = useQuery({
-    queryKey: ["tileClaims", user?.id, cachedLocation?.lat, cachedLocation?.lng],
+  const { data: claimedTiles = [], error: tileClaimsError } = useQuery({
+    queryKey: ["tileClaims", user?.id, claimsCenterLat, claimsCenterLng],
     queryFn: () =>
       getTileClaims({
-        latitude: cachedLocation.lat,
-        longitude: cachedLocation.lng,
+        latitude: claimsCenterLat,
+        longitude: claimsCenterLng,
         radiusM: NEARBY_DISCOVERY_RADIUS_METERS,
       }),
-    enabled: !!user?.id && hasLiveCachedLocation && activePanel === "map",
+    enabled:
+      !!user?.id &&
+      activePanel === "map" &&
+      Number.isFinite(claimsCenterLat) &&
+      Number.isFinite(claimsCenterLng),
     staleTime: 30 * 1000,
     refetchOnWindowFocus: true,
   });
@@ -2203,6 +2211,7 @@ function HomeContent() {
                     isLoadingDiscoveries={isMapDataPending}
                     hasLiveCachedLocation={hasLiveCachedLocation}
                     zoneMapError={zoneMapError}
+                    tileClaimError={tileClaimsError ? String(tileClaimsError?.message || tileClaimsError) : null}
                     onRequestLocation={handleOpenHeroZoneMap}
                     heroZones={heroZones}
                     nearbyDiscoveryPoints={nearbyDiscoveryPoints}

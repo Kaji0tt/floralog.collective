@@ -1,6 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import proj4 from "https://esm.sh/proj4@2.15.0";
-import { buildOriginDeniedResponse } from "../_shared/origin.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -68,11 +67,6 @@ Deno.serve(async (req) => {
 
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
-  }
-
-  const originDenied = buildOriginDeniedResponse(req, corsHeaders, "getTileClaims");
-  if (originDenied) {
-    return originDenied;
   }
 
   try {

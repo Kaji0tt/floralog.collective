@@ -8,6 +8,7 @@ export default function HomeMapFeatureRoot({
   isLoadingDiscoveries,
   hasLiveCachedLocation,
   zoneMapError,
+  tileClaimError,
   onRequestLocation,
   heroZones,
   nearbyDiscoveryPoints,
@@ -127,13 +128,13 @@ export default function HomeMapFeatureRoot({
         Zonen: {heroZones.length} | Funde: {nearbyDiscoveryPoints.length} | Claims: {claimedTiles?.length || 0}
       </div>
 
-      {zoneMapError && (
+      {(zoneMapError || tileClaimError) && (
         <div className={`absolute left-4 right-4 top-16 z-[1200] rounded-xl border backdrop-blur-sm px-3 py-2 text-[11px] md:text-xs font-medium ${
           isLightUi
             ? "border-red-400/40 bg-red-200/65 text-red-800"
             : "border-red-300/50 bg-red-900/55 text-red-100"
         }`}>
-          {zoneMapError}
+          {zoneMapError || `Tile-Claims konnten nicht geladen werden: ${tileClaimError}`}
         </div>
       )}
 
