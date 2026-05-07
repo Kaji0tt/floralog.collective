@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { Query } from "@/api/entities";
@@ -12,8 +12,10 @@ import FriendAchievementsPanel from "@/components/friends/FriendAchievementsPane
 import FriendFriendsPanel from "@/components/friends/FriendFriendsPanel";
 import { computeOverallPlantHealth, computePlantHealthState } from "@/lib/robotPlantEconomy";
 import { motion, AnimatePresence } from "framer-motion";
-import { Leaf, UserPlus, Clock, Heart, Plus, Zap } from "lucide-react";
+import { Leaf, UserPlus, Clock, Heart, Zap } from "lucide-react";
 import PlantHeroHealthPanel from "@/components/home/PlantHeroHealthPanel";
+import { hexToFilter } from "@/lib/hexToFilter";
+import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 
 const VALID_FRIEND_TABS = ["profile", "collection", "achievements", "friends"];
 
@@ -31,6 +33,7 @@ function FriendProfileHomePanel({
   healthStateBonus,
   healthStats,
   isPlantHealthPending,
+  friendLogoAssets,
   sendFriendRequestMutation,
   showNoFriendAccessHint,
 }) {
@@ -152,33 +155,39 @@ function FriendProfileHomePanel({
                     />
 
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <Leaf
-                        className={`w-20 h-20 md:w-24 md:h-24 drop-shadow-[0_0_24px_rgba(190,242,100,0.6)] ${
-                          isLightUi ? "text-emerald-600" : "text-lime-200"
-                        }`}
-                      />
-                    </div>
-
-                    <div className="absolute left-1/2 top-1/2 w-[82%] aspect-square -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-                      {[
-                        { key: "left", className: "left-0 top-1/2 -translate-x-1/2 -translate-y-1/2" },
-                        { key: "right", className: "right-0 top-1/2 translate-x-1/2 -translate-y-1/2" },
-                        { key: "top", className: "left-1/2 top-0 -translate-x-1/2 -translate-y-1/2" },
-                        { key: "bottom", className: "left-1/2 bottom-0 -translate-x-1/2 translate-y-1/2" },
-                      ].map((slot) => (
-                        <button
-                          key={slot.key}
-                          type="button"
-                          className={`pointer-events-auto absolute ${slot.className} z-[9] w-11 h-11 md:w-12 md:h-12 rounded-2xl border backdrop-blur-sm flex items-center justify-center transition-colors ${
-                            isLightUi
-                              ? "border-[#c8ac62]/55 bg-white/52 text-stone-700"
-                              : "border-[#f0e5a5]/45 bg-black/35 text-[#f0e5a5]"
-                          }`}
-                          aria-label={`Accessoire Slot ${slot.key}`}
-                        >
-                          <Plus className="w-5 h-5" />
-                        </button>
-                      ))}
+                      <div className="relative w-[74%] h-[74%] drop-shadow-[0_0_24px_rgba(190,242,100,0.6)]">
+                        {friendLogoAssets?.border?.imageUrl && (
+                          <img
+                            src={friendLogoAssets.border.imageUrl}
+                            alt="Logo Rahmen"
+                            className="absolute inset-0 w-full h-full object-contain"
+                            style={friendLogoAssets.borderColor
+                              ? { filter: `brightness(0) saturate(100%) ${hexToFilter(friendLogoAssets.borderColor)}` }
+                              : undefined}
+                          />
+                        )}
+                        {friendLogoAssets?.plant?.imageUrl && (
+                          <img
+                            src={friendLogoAssets.plant.imageUrl}
+                            alt="Logo Pflanze"
+                            className="absolute inset-0 w-full h-full object-contain"
+                          />
+                        )}
+                        {friendLogoAssets?.face?.imageUrl && (
+                          <img
+                            src={friendLogoAssets.face.imageUrl}
+                            alt="Logo Gesicht"
+                            className="absolute inset-0 w-full h-full object-contain"
+                          />
+                        )}
+                        {!friendLogoAssets?.border?.imageUrl && !friendLogoAssets?.plant?.imageUrl && !friendLogoAssets?.face?.imageUrl && (
+                          <Leaf
+                            className={`w-20 h-20 md:w-24 md:h-24 ${
+                              isLightUi ? "text-emerald-600" : "text-lime-200"
+                            }`}
+                          />
+                        )}
+                      </div>
                     </div>
                   </motion.div>
                 )}
@@ -298,6 +307,18 @@ export default function FriendProfile() {
     isLoading,
   } = useFriendData(friendEmail);
 
+  const { data: logoAssets = [] } = useQuery({
+    queryKey: ["logoAssets"],
+    queryFn: () => Query.LogoAsset.list(),
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
+  const friendLogoAssets = useMemo(
+    () => resolveEquippedLogoAssetsWithCatalog(friendUser || {}, logoAssets),
+    [friendUser, logoAssets]
+  );
+
   const { data: friendRobotPlant = null, isFetched: isFriendRobotPlantFetched } = useQuery({
     queryKey: ["friendRobotPlant", friendUser?.auth_id],
     queryFn: async () => {
@@ -409,6 +430,7 @@ export default function FriendProfile() {
   return (
     <FriendExperienceShell
       friendUser={friendUser}
+      friendLogoAssets={friendLogoAssets}
       activeTab={activeTab}
       friendEmail={friendEmail}
       averageColor={averageColor}
@@ -446,6 +468,7 @@ export default function FriendProfile() {
           healthStateBonus={healthStateBonus}
           healthStats={healthStats}
           isPlantHealthPending={isPlantHealthPending}
+          friendLogoAssets={friendLogoAssets}
           sendFriendRequestMutation={sendFriendRequestMutation}
           showNoFriendAccessHint={showNoFriendAccessHint}
         />

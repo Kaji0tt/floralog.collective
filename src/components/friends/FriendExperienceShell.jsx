@@ -5,6 +5,7 @@ import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
 import HomeBottomNavigation from "@/components/navigation/HomeBottomNavigation";
 import { getRgbaFromRgb } from "@/lib/friendColorUtils";
 import { getNavButtonStyle, NAV_COLOR_ORDER } from "@/components/navigation/navButtonStyles";
+import { hexToFilter } from "@/lib/hexToFilter";
 import { Leaf, Users, Lock, Scroll, Home as HomeIcon } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -35,6 +36,7 @@ const FRIEND_TABS = [
  */
 export default function FriendExperienceShell({
   friendUser,
+  friendLogoAssets,
   activeTab,
   friendEmail,
   averageColor,
@@ -192,13 +194,49 @@ export default function FriendExperienceShell({
 
         <div className="relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6">
           <header className="shrink-0 flex items-start justify-between gap-3">
-            <div className="min-w-0">
+            <div className="min-w-0 flex items-start gap-3">
+              <div className={`relative w-12 h-12 rounded-full border overflow-hidden shrink-0 ${
+                isLightUi ? "border-[#c8ac62]/55 bg-white/60" : "border-[#f0e5a5]/35 bg-black/35"
+              }`}>
+                <div className="absolute inset-[10%]">
+                  {friendLogoAssets?.border?.imageUrl && (
+                    <img
+                      src={friendLogoAssets.border.imageUrl}
+                      alt="Logo Rahmen"
+                      className="absolute inset-0 w-full h-full object-contain"
+                      style={friendLogoAssets.borderColor
+                        ? { filter: `brightness(0) saturate(100%) ${hexToFilter(friendLogoAssets.borderColor)}` }
+                        : undefined}
+                    />
+                  )}
+                  {friendLogoAssets?.plant?.imageUrl && (
+                    <img
+                      src={friendLogoAssets.plant.imageUrl}
+                      alt="Logo Pflanze"
+                      className="absolute inset-0 w-full h-full object-contain"
+                    />
+                  )}
+                  {friendLogoAssets?.face?.imageUrl && (
+                    <img
+                      src={friendLogoAssets.face.imageUrl}
+                      alt="Logo Gesicht"
+                      className="absolute inset-0 w-full h-full object-contain"
+                    />
+                  )}
+                  {!friendLogoAssets?.border?.imageUrl && !friendLogoAssets?.plant?.imageUrl && !friendLogoAssets?.face?.imageUrl && (
+                    <Leaf className={`w-full h-full ${isLightUi ? "text-emerald-700" : "text-[#f0e5a5]"}`} />
+                  )}
+                </div>
+              </div>
+
+              <div className="min-w-0">
               <h1 className="text-xl md:text-2xl font-bold leading-tight text-white truncate" title={friendDisplayName}>
                 {friendDisplayName}
               </h1>
               <p className="mt-1 text-sm md:text-base text-white/90 truncate" title={friendTitle}>
                 {friendTitle}
               </p>
+            </div>
             </div>
 
             <button

@@ -82,3 +82,27 @@ export const resolveEquippedLogoAssets = (profile = {}) => {
     borderColor: profile?.selected_border_color || null,
   };
 };
+
+export const resolveEquippedLogoAssetsWithCatalog = (profile = {}, logoAssets = []) => {
+  const equipped = resolveEquippedLogoAssets(profile);
+  const assetUrlById = new Map(
+    (Array.isArray(logoAssets) ? logoAssets : [])
+      .filter((asset) => asset?.asset_id && asset?.public_url)
+      .map((asset) => [String(asset.asset_id), String(asset.public_url)])
+  );
+
+  const withResolvedUrl = (entry) => {
+    if (!entry) return entry;
+    return {
+      ...entry,
+      imageUrl: assetUrlById.get(entry.value) || entry.imageUrl,
+    };
+  };
+
+  return {
+    border: withResolvedUrl(equipped.border),
+    plant: withResolvedUrl(equipped.plant),
+    face: withResolvedUrl(equipped.face),
+    borderColor: equipped.borderColor,
+  };
+};

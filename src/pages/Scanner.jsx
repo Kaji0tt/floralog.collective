@@ -338,7 +338,11 @@ export default function Scanner() {
         full_name: userData.full_name,
         title: userData.title,
         selected_title: userData.selected_title,
-        avatar_url: userData.avatar_url
+        avatar_url: userData.avatar_url,
+        selected_face_asset: userData.selected_face_asset,
+        selected_plant_asset: userData.selected_plant_asset,
+        selected_border_asset: userData.selected_border_asset,
+        selected_border_color: userData.selected_border_color
       };
 
       await upsertUserProfile(userData.id, profileData);

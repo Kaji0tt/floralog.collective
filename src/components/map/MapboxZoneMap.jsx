@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
+import { hexToFilter } from "@/lib/hexToFilter";
 
 const THEME_MAP_COLORS = {
   forest: "#007a3f",
@@ -127,6 +128,78 @@ const openDiscoveryPopup = ({ map, event, feature, onDiscoveryImageClick, onDisc
   });
 };
 
+const createDiscoveryMarkerElement = (point) => {
+  const markerEl = document.createElement("button");
+  markerEl.type = "button";
+  markerEl.setAttribute("aria-label", `Scan von ${point?.scannerDisplayName || point?.scannerName || "Unbekannt"}`);
+  markerEl.style.padding = "0";
+  markerEl.style.border = "0";
+  markerEl.style.background = "transparent";
+  markerEl.style.cursor = "pointer";
+
+  const borderUrl = String(point?.scannerLogoBorderUrl || "").trim();
+  const plantUrl = String(point?.scannerLogoPlantUrl || "").trim();
+  const faceUrl = String(point?.scannerLogoFaceUrl || "").trim();
+  const borderColor = String(point?.scannerLogoBorderColor || "").trim();
+  const hasCustomLogo = Boolean(borderUrl || plantUrl || faceUrl);
+
+  if (!hasCustomLogo) {
+    markerEl.style.width = "16px";
+    markerEl.style.height = "16px";
+    markerEl.style.borderRadius = "999px";
+    markerEl.style.background = "#16a34a";
+    markerEl.style.border = "1px solid #dcfce7";
+    markerEl.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.35)";
+    return markerEl;
+  }
+
+  markerEl.style.width = "34px";
+  markerEl.style.height = "34px";
+  markerEl.style.borderRadius = "999px";
+  markerEl.style.boxShadow = "0 6px 14px rgba(0, 0, 0, 0.35)";
+
+  const ring = document.createElement("span");
+  ring.style.display = "block";
+  ring.style.width = "100%";
+  ring.style.height = "100%";
+  ring.style.borderRadius = "999px";
+  ring.style.border = "1px solid rgba(240,229,165,0.6)";
+  ring.style.background = "rgba(0,0,0,0.35)";
+  ring.style.padding = "4px";
+  ring.style.boxSizing = "border-box";
+  ring.style.overflow = "hidden";
+  markerEl.appendChild(ring);
+
+  const content = document.createElement("span");
+  content.style.position = "relative";
+  content.style.display = "block";
+  content.style.width = "100%";
+  content.style.height = "100%";
+  ring.appendChild(content);
+
+  const appendLayer = (url, filterValue) => {
+    if (!url) return;
+    const img = document.createElement("img");
+    img.src = url;
+    img.alt = "";
+    img.style.position = "absolute";
+    img.style.inset = "0";
+    img.style.width = "100%";
+    img.style.height = "100%";
+    img.style.objectFit = "contain";
+    if (filterValue) {
+      img.style.filter = filterValue;
+    }
+    content.appendChild(img);
+  };
+
+  appendLayer(borderUrl, borderColor ? `brightness(0) saturate(100%) ${hexToFilter(borderColor)}` : "");
+  appendLayer(plantUrl, "");
+  appendLayer(faceUrl, "");
+
+  return markerEl;
+};
+
 const toCirclePolygon = ({ lat, lng, radiusM, points = 48 }) => {
   const earthRadiusM = 6371000;
   const latRad = (lat * Math.PI) / 180;
@@ -167,6 +240,14 @@ export default function MapboxZoneMap({
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const onTokenErrorRef = useRef(null);
+  const discoveryMarkersRef = useRef([]);
+
+  useEffect(() => {
+    return () => {
+      discoveryMarkersRef.current.forEach((marker) => marker.remove());
+      discoveryMarkersRef.current = [];
+    };
+  }, []);
 
   useEffect(() => {
     onTokenErrorRef.current = typeof onTokenError === "function" ? onTokenError : null;
@@ -221,6 +302,8 @@ export default function MapboxZoneMap({
     });
 
     return () => {
+      discoveryMarkersRef.current.forEach((marker) => marker.remove());
+      discoveryMarkersRef.current = [];
       map.remove();
       mapRef.current = null;
       if (typeof onMapReady === "function") {
@@ -320,15 +403,18 @@ export default function MapboxZoneMap({
         });
 
         map.on("click", "hero-zones-fill", (event) => {
-          const discoveryNearClick = map.queryRenderedFeatures(
-            [
-              [event.point.x - 8, event.point.y - 8],
-              [event.point.x + 8, event.point.y + 8],
-            ],
-            { layers: ["hero-discovery-hit", "hero-discovery-points"] }
-          );
-          if (discoveryNearClick.length > 0) {
-            return;
+          const discoveryLayers = ["hero-discovery-hit", "hero-discovery-points"].filter((layerId) => map.getLayer(layerId));
+          if (discoveryLayers.length > 0) {
+            const discoveryNearClick = map.queryRenderedFeatures(
+              [
+                [event.point.x - 8, event.point.y - 8],
+                [event.point.x + 8, event.point.y + 8],
+              ],
+              { layers: discoveryLayers }
+            );
+            if (discoveryNearClick.length > 0) {
+              return;
+            }
           }
 
           const feature = event.features?.[0];
@@ -404,96 +490,47 @@ export default function MapboxZoneMap({
         });
       }
 
-      const discoveryGeoJson = {
-        type: "FeatureCollection",
-        features: discoveryPoints
-          .filter((point) => Number.isFinite(point?.lat) && Number.isFinite(point?.lng))
-          .map((point, index) => ({
-            type: "Feature",
-            geometry: {
-              type: "Point",
-              coordinates: [Number(point.lng), Number(point.lat)],
-            },
-            properties: {
-              id: `discovery-${index}`,
-              discoveryId: point?.discoveryId || "",
-              imageUrl: point?.imageUrl || "",
-              scannerName: point?.scannerName || "Unbekannt",
-              scannerDisplayName: point?.scannerDisplayName || point?.scannerName || "Unbekannt",
-              scannerEmail: point?.scannerEmail || "",
-              scannerAuthId: point?.scannerAuthId || "",
-              plantName: point?.plantName || "Unbekannte Pflanze",
-              plantId: point?.plantId || "",
-              genusId: point?.genusId || "",
-              likedByCurrentUser: String(point?.likedByCurrentUser === true),
-              discoveredAt: point?.discoveredAt || "",
-            },
-          })),
-      };
+      discoveryMarkersRef.current.forEach((marker) => marker.remove());
+      discoveryMarkersRef.current = [];
 
-      const discoverySource = map.getSource("hero-discoveries");
-      if (discoverySource) {
-        discoverySource.setData(discoveryGeoJson);
-      } else {
-        map.addSource("hero-discoveries", {
-          type: "geojson",
-          data: discoveryGeoJson,
-        });
+      discoveryPoints
+        .filter((point) => Number.isFinite(point?.lat) && Number.isFinite(point?.lng))
+        .forEach((point) => {
+          const lng = Number(point.lng);
+          const lat = Number(point.lat);
+          const properties = {
+            discoveryId: point?.discoveryId || "",
+            imageUrl: point?.imageUrl || "",
+            scannerName: point?.scannerName || "Unbekannt",
+            scannerDisplayName: point?.scannerDisplayName || point?.scannerName || "Unbekannt",
+            scannerEmail: point?.scannerEmail || "",
+            scannerAuthId: point?.scannerAuthId || "",
+            plantName: point?.plantName || "Unbekannte Pflanze",
+            plantId: point?.plantId || "",
+            genusId: point?.genusId || "",
+            likedByCurrentUser: String(point?.likedByCurrentUser === true),
+            discoveredAt: point?.discoveredAt || "",
+          };
 
-        map.addLayer({
-          id: "hero-discovery-points",
-          type: "circle",
-          source: "hero-discoveries",
-          paint: {
-            "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 3, 14, 5, 17, 9, 20, 13],
-            "circle-color": "#16a34a",
-            "circle-opacity": 0.92,
-            "circle-stroke-width": 1,
-            "circle-stroke-color": "#dcfce7",
-          },
-        });
-
-        map.addLayer({
-          id: "hero-discovery-hit",
-          type: "circle",
-          source: "hero-discoveries",
-          paint: {
-            "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 9, 14, 12, 17, 17, 20, 22],
-            "circle-color": "#000000",
-            "circle-opacity": 0,
-            "circle-stroke-width": 0,
-            "circle-stroke-opacity": 0,
-          },
-        });
-
-        map.on("click", "hero-discovery-hit", (event) => {
-          const feature = event.features?.[0];
-          openDiscoveryPopup({
-            map,
-            event,
-            feature,
-            onDiscoveryImageClick,
-            onDiscoveryLike,
-            allowDiscoveryLike,
+          const markerElement = createDiscoveryMarkerElement(point);
+          markerElement.addEventListener("click", (domEvent) => {
+            domEvent.preventDefault();
+            domEvent.stopPropagation();
+            openDiscoveryPopup({
+              map,
+              event: { lngLat: { lng, lat } },
+              feature: { properties },
+              onDiscoveryImageClick,
+              onDiscoveryLike,
+              allowDiscoveryLike,
+            });
           });
-        });
 
-        map.on("mouseenter", "hero-discovery-hit", () => {
-          map.getCanvas().style.cursor = "pointer";
+          const marker = new mapboxgl.Marker({ element: markerElement, anchor: "center" })
+            .setLngLat([lng, lat])
+            .addTo(map);
+          discoveryMarkersRef.current.push(marker);
         });
-
-        map.on("mouseleave", "hero-discovery-hit", () => {
-          map.getCanvas().style.cursor = "";
-        });
-      }
-
-      // Keep discovery markers visually below the player marker.
-      if (map.getLayer("hero-discovery-points") && map.getLayer("hero-user-point")) {
-        map.moveLayer("hero-discovery-points", "hero-user-point");
-      }
-      if (map.getLayer("hero-discovery-hit") && map.getLayer("hero-user-point")) {
-        map.moveLayer("hero-discovery-hit", "hero-user-point");
-      }
     };
 
     if (map.isStyleLoaded()) {

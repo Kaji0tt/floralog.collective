@@ -54,7 +54,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { useAuth } from "@/lib/AuthContext";
-import { resolveEquippedLogoAssets } from "@/lib/logoAccessoryAssets";
+import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 import { resolveTitleValue } from "@/lib/profileCustomizationOptions";
 import { hexToFilter } from "@/lib/hexToFilter";
 
@@ -118,8 +118,6 @@ function HomeContent() {
   const [heroStageSizePx, setHeroStageSizePx] = useState(0);
   const [heroMapInstance, setHeroMapInstance] = useState(null);
   const [showDebugZonePanel, setShowDebugZonePanel] = useState(false);
-
-  const localEquippedLogoAssets = useMemo(() => resolveEquippedLogoAssets(user || {}), [user]);
 
   const [scanFeedback, setScanFeedback] = useState(null);
   const [showScanFeedback, setShowScanFeedback] = useState(false);
@@ -197,28 +195,10 @@ function HomeContent() {
     refetchOnReconnect: true,
   });
 
-  const equippedLogoAssets = useMemo(() => {
-    const assetUrlById = new Map(
-      (Array.isArray(logoAssets) ? logoAssets : [])
-        .filter((asset) => asset?.asset_id && asset?.public_url)
-        .map((asset) => [String(asset.asset_id), String(asset.public_url)])
-    );
-
-    const withResolvedUrl = (entry) => {
-      if (!entry) return entry;
-      return {
-        ...entry,
-        imageUrl: assetUrlById.get(entry.value) || entry.imageUrl,
-      };
-    };
-
-    return {
-      border: withResolvedUrl(localEquippedLogoAssets.border),
-      plant: withResolvedUrl(localEquippedLogoAssets.plant),
-      face: withResolvedUrl(localEquippedLogoAssets.face),
-      borderColor: localEquippedLogoAssets.borderColor,
-    };
-  }, [localEquippedLogoAssets, logoAssets]);
+  const equippedLogoAssets = useMemo(
+    () => resolveEquippedLogoAssetsWithCatalog(user || {}, logoAssets),
+    [user, logoAssets]
+  );
 
 
   const { data: quests = [] } = useQuery({
@@ -832,6 +812,7 @@ function HomeContent() {
         selected_face_asset: userData.selected_face_asset,
         selected_plant_asset: userData.selected_plant_asset,
         selected_border_asset: userData.selected_border_asset,
+        selected_border_color: userData.selected_border_color,
         background_image_url: userData.background_image_url,
         background_color: userData.background_color
       };
@@ -1493,6 +1474,9 @@ function HomeContent() {
             "";
           const scannerNameFromOwnProfile = user?.display_name || user?.full_name || "";
           const scannerName = (scannerNameFromProfile || (isOwnDiscovery ? scannerNameFromOwnProfile : "") || "Unbekannt").trim();
+          const discoveryLogoAssets = discoveryUser
+            ? resolveEquippedLogoAssetsWithCatalog(discoveryUser, logoAssets)
+            : (isOwnDiscovery ? equippedLogoAssets : null);
 
           return {
             lat: coords.lat,
@@ -1508,6 +1492,10 @@ function HomeContent() {
             genusId: plant?.genus_id || "",
             likedByCurrentUser: likedDiscoveryIdSet.has(entry?.id),
             discoveredAt: entry?.created_date || entry?.discovered_date || entry?.updated_date || null,
+            scannerLogoBorderUrl: discoveryLogoAssets?.border?.imageUrl || "",
+            scannerLogoPlantUrl: discoveryLogoAssets?.plant?.imageUrl || "",
+            scannerLogoFaceUrl: discoveryLogoAssets?.face?.imageUrl || "",
+            scannerLogoBorderColor: discoveryLogoAssets?.borderColor || "",
           };
         })
         .filter(Boolean)
