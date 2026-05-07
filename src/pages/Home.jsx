@@ -140,6 +140,7 @@ function HomeContent() {
   const [embeddedFriendsAddDialogNonce, setEmbeddedFriendsAddDialogNonce] = useState(0);
   const [embeddedCollectionPublicPanelOpen, setEmbeddedCollectionPublicPanelOpen] = useState(false);
   const [embeddedSelectedCollectionId, setEmbeddedSelectedCollectionId] = useState("global");
+  const [isMapDiscoveryDataLoading, setIsMapDiscoveryDataLoading] = useState(false);
 
   useEffect(() => {
     if (activePanel !== "collection") {
@@ -738,6 +739,36 @@ function HomeContent() {
     const shouldHighlight = hasDisplayName && hasNoScans;
     setShowScannerHighlight(shouldHighlight);
   }, [user?.display_name, userDiscoveries, isLoadingDiscoveries]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const loadMapDiscoveryData = async () => {
+      if (activePanel !== "map") return;
+
+      const liveCachedLocation = getCachedLocation({ maxAgeMs: LOCATION_CACHE_MAX_AGE_MS });
+      const hasLiveLocation = Number.isFinite(liveCachedLocation?.lat) && Number.isFinite(liveCachedLocation?.lng);
+      if (!hasLiveLocation) return;
+
+      setIsMapDiscoveryDataLoading(true);
+      try {
+        await Promise.all([
+          refetchAllDiscoveries(),
+          refetchAllUsers(),
+        ]);
+      } finally {
+        if (!isCancelled) {
+          setIsMapDiscoveryDataLoading(false);
+        }
+      }
+    };
+
+    loadMapDiscoveryData();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [activePanel, refetchAllDiscoveries, refetchAllUsers]);
 
 
   const updateUserMutation = useMutation({
@@ -1386,33 +1417,6 @@ function HomeContent() {
   const cachedLocation = getCachedLocation({ maxAgeMs: LOCATION_CACHE_MAX_AGE_MS });
   const hasLiveCachedLocation = Number.isFinite(cachedLocation?.lat) && Number.isFinite(cachedLocation?.lng);
   const currentUserEmailLower = (user?.email || "").toLowerCase();
-  const [isMapDiscoveryDataLoading, setIsMapDiscoveryDataLoading] = useState(false);
-
-  useEffect(() => {
-    let isCancelled = false;
-
-    const loadMapDiscoveryData = async () => {
-      if (activePanel !== "map" || !hasLiveCachedLocation) return;
-
-      setIsMapDiscoveryDataLoading(true);
-      try {
-        await Promise.all([
-          refetchAllDiscoveries(),
-          refetchAllUsers(),
-        ]);
-      } finally {
-        if (!isCancelled) {
-          setIsMapDiscoveryDataLoading(false);
-        }
-      }
-    };
-
-    loadMapDiscoveryData();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [activePanel, hasLiveCachedLocation, refetchAllDiscoveries, refetchAllUsers]);
 
   const isMapDataPending = isMapDiscoveryDataLoading || isLoadingAllDiscoveries || isLoadingAllUsers;
   const likedDiscoveryIdSet = new Set(
