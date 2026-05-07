@@ -348,10 +348,7 @@ function HomeContent() {
 
   const { data: allUsers = [] } = useQuery({
     queryKey: ['allUsers'],
-    queryFn: async () => {
-      const users = await Query.PublicProfile.list();
-      return users.filter(u => u.public_profile !== false);
-    },
+    queryFn: () => Query.PublicProfile.list(),
     initialData: [],
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
@@ -1381,6 +1378,12 @@ function HomeContent() {
   const cachedLocation = getCachedLocation({ maxAgeMs: LOCATION_CACHE_MAX_AGE_MS });
   const hasLiveCachedLocation = Number.isFinite(cachedLocation?.lat) && Number.isFinite(cachedLocation?.lng);
   const currentUserEmailLower = (user?.email || "").toLowerCase();
+  const isLocalTrackingEnabled = (profile) => {
+    if (!profile) return false;
+    if (profile.local_tracking === false) return false;
+    if (profile.local_tracking === true) return true;
+    return profile.weekly_tracking !== false;
+  };
   const likedDiscoveryIdSet = new Set(
     (scanLikes || [])
       .filter((like) => like?.discovery_id && like?.liked_by?.toLowerCase() === currentUserEmailLower)
@@ -1410,6 +1413,10 @@ function HomeContent() {
             const candidateEmail = candidate.user_email.toLowerCase();
             return candidateEmail === entryEmailUser || candidateEmail === entryEmailCreatedBy;
           });
+
+          if (!isOwnDiscovery && !isLocalTrackingEnabled(discoveryUser)) {
+            return null;
+          }
 
           const scannerNameFromProfile =
             discoveryUser?.display_name ||

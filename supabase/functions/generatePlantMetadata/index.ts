@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
   - rarity: genau eines der Wörter "Häufig", "Gelegentlich", "Selten", "Sehr selten".
   - is_european: boolean, true NUR wenn die Art ursprünglich aus Europa stammt oder heute in Europa heimisch/natürlichisiert ist. Bei Unsicherheit immer false.
   - genus_name: der deutsche Gattungsname (z. B. "Glockenblume" für Campanula, "Rose" für Rosa). Falls kein gebräuchlicher deutscher Gattungsname existiert, verwende den wissenschaftlichen Gattungsnamen.
-  - category: genau eines der Wörter "Bäume", "Sträucher", "Blumen & Kräuter". Wähle "Bäume" für verholzte Pflanzen mit einem Stamm (z. B. Eiche, Birke, Fichte). Wähle "Sträucher" für verholzte Pflanzen mit mehreren Trieben ohne klaren Hauptstamm (z. B. Holunder, Weißdorn, Hasel). Wähle "Blumen & Kräuter" für krautige Pflanzen, Wildblumen und Gräser (z. B. Glockenblume, Schafgarbe, Löwenzahn).`;
+  - category: genau eines der Wörter "Bäume", "Sträucher", "Blumen". Wähle "Bäume" für verholzte Pflanzen mit einem Stamm (z. B. Eiche, Birke, Fichte). Wähle "Sträucher" für verholzte Pflanzen mit mehreren Trieben ohne klaren Hauptstamm (z. B. Holunder, Weißdorn, Hasel). Wähle "Blumen" für krautige Pflanzen, Wildblumen, Kräuter und Gräser (z. B. Glockenblume, Schafgarbe, Löwenzahn).`;
 
     let llmResult: LlmResponse | null = null;
 
@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
                   genus_name: { type: "string" },
                   category: {
                     type: "string",
-                    enum: ["Bäume", "Sträucher", "Blumen & Kräuter"],
+                    enum: ["Bäume", "Sträucher", "Blumen"],
                   },
                 },
                 required: [

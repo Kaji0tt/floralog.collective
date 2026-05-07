@@ -294,9 +294,12 @@ export default function CollectionFeatureRoot({
       lastDiscoveryDate,
     };
   }).sort((a, b) => {
-    if (a.category !== b.category) {
+    const normalizeCategory = (cat) => cat === "Blumen & Kräuter" ? "Blumen" : cat;
+    const normA = normalizeCategory(a.category);
+    const normB = normalizeCategory(b.category);
+    if (normA !== normB) {
       const categoryOrder = { "Bäume": 1, "Sträucher": 2, "Blumen": 3 };
-      return (categoryOrder[a.category] || 999) - (categoryOrder[b.category] || 999);
+      return (categoryOrder[normA] || 999) - (categoryOrder[normB] || 999);
     }
     return (a.category_dex_number || 999999) - (b.category_dex_number || 999999);
   });
@@ -422,9 +425,10 @@ export default function CollectionFeatureRoot({
     }
 
     if (CATEGORY_CHIPS.some((chip) => chip.value === activeCategory)) {
+      const blumenEquivalents = activeCategory === "Blumen" ? ["Blumen", "Blumen & Kräuter"] : [activeCategory];
       const matchingGenusKeys = new Set(
         plants
-          .filter((plant) => plant.genus_category === activeCategory)
+          .filter((plant) => blumenEquivalents.includes(plant.genus_category))
           .map((plant) => `${plant.genus_category}::${plant.genus_number}`)
       );
       filteredGenera = filteredGenera.filter((g) =>

@@ -91,6 +91,42 @@ interface GrantRewardsBody {
   eventType?: string | null;
 }
 
+async function createRewardNotification(params: {
+  adminClient: ReturnType<typeof createClient>;
+  accessToken: string;
+  authId: string;
+  userEmail: string;
+  title: string;
+  message: string;
+  imageUrl?: string | null;
+}): Promise<void> {
+  const { adminClient, accessToken, authId, userEmail, title, message, imageUrl } = params;
+
+  const invoke = await adminClient.functions.invoke("createNotification", {
+    body: {
+      authId,
+      userEmail,
+      notificationType: "custom",
+      title,
+      message,
+      imageUrl: imageUrl || "",
+      displayLocation: "banner",
+      priority: "medium",
+    },
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (invoke.error) {
+    throw invoke.error;
+  }
+
+  if (!invoke.data?.success) {
+    throw new Error(invoke.data?.error || "createNotification failed");
+  }
+}
+
 function getAccessTokenFromAuthHeader(header: string | null): string | null {
   if (!header) return null;
   const parts = header.split(" ");
@@ -252,21 +288,18 @@ Deno.serve(async (req) => {
 
       unlockedRewardIds.add(reward.id);
 
-      const { error: notifError } = await adminClient.from("UserNotification").insert({
-        auth_id: authId,
-        user_email: userEmail,
-        notification_type: "custom",
-        title: `🎁 Neue Belohnung freigeschaltet!`,
-        message: `Du hast "${reward.display_name || reward.name || "eine Belohnung"}" freigeschaltet!`,
-        image_url: reward.image_url || reward.value,
-        display_location: "banner",
-        priority: "medium",
-        seen: false,
-        created_date: new Date().toISOString(),
-      });
-
-      if (notifError) {
-        console.error("[grantRewards] Failed to insert UserNotification:", notifError);
+      try {
+        await createRewardNotification({
+          adminClient,
+          accessToken,
+          authId,
+          userEmail,
+          title: "🎁 Neue Belohnung freigeschaltet!",
+          message: `Du hast "${reward.display_name || reward.name || "eine Belohnung"}" freigeschaltet!`,
+          imageUrl: reward.image_url || reward.value,
+        });
+      } catch (notifError) {
+        console.error("[grantRewards] Failed to create reward notification:", notifError);
       }
 
       return true;

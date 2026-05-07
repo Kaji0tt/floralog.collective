@@ -9,6 +9,35 @@ const corsHeaders = {
 
 console.log("[migrateLegacyUser] Function loaded successfully")
 
+async function createLegacyRewardNotification(params: {
+  supabaseAdmin: ReturnType<typeof createClient>
+  authId: string
+  userEmail: string
+  message: string
+}): Promise<void> {
+  const { supabaseAdmin, authId, userEmail, message } = params
+
+  const invoke = await supabaseAdmin.functions.invoke("createNotification", {
+    body: {
+      authId,
+      userEmail,
+      notificationType: "custom",
+      title: "🎁 Neue Belohnung freigeschaltet!",
+      message,
+      displayLocation: "banner",
+      priority: "medium",
+    },
+  })
+
+  if (invoke.error) {
+    throw invoke.error
+  }
+
+  if (!invoke.data?.success) {
+    throw new Error(invoke.data?.error || "createNotification failed")
+  }
+}
+
 Deno.serve(async (req) => {
   console.log("[migrateLegacyUser] === REQUEST RECEIVED ===")
   console.log("[migrateLegacyUser] Method:", req.method)
@@ -473,24 +502,16 @@ Deno.serve(async (req) => {
               legacyRewardGranted = 1
               console.log("[migrateLegacyUser] ✅ Legacy background reward granted")
 
-              const { error: legacyNotifError } = await supabaseAdmin
-                .from("UserNotification")
-                .insert({
-                  auth_id: authUserId,
-                  user_email: userEmail,
-                  notification_type: "custom",
-                  title: "🎁 Neue Belohnung freigeschaltet!",
+              try {
+                await createLegacyRewardNotification({
+                  supabaseAdmin,
+                  authId: authUserId,
+                  userEmail,
                   message: `Du hast den besonderen Hintergrund "${legacyReward.display_name || legacyRewardName}" für frühe Unterstützer freigeschaltet!`,
-                  display_location: "banner",
-                  priority: "medium",
-                  seen: false,
-                  created_date: new Date().toISOString(),
                 })
-
-              if (legacyNotifError) {
-                console.error("[migrateLegacyUser] Failed to insert legacy UserNotification:", legacyNotifError)
-              } else {
                 console.log("[migrateLegacyUser] ✅ Legacy background reward notification created")
+              } catch (legacyNotifError) {
+                console.error("[migrateLegacyUser] Failed to create legacy UserNotification:", legacyNotifError)
               }
             }
           }

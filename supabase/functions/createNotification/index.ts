@@ -55,6 +55,11 @@ function isTruthy(value: string | null | undefined): boolean {
   return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
 }
 
+function isServiceRoleInvocation(accessToken: string | null, serviceRoleKey: string): boolean {
+  if (!accessToken) return false;
+  return accessToken === serviceRoleKey;
+}
+
 function buildPushPayload(params: {
   title: string;
   message: string;
@@ -310,6 +315,7 @@ Deno.serve(async (req) => {
 
     const allowUnauthenticated = isTruthy(Deno.env.get("ALLOW_UNAUTHENTICATED_NOTIFICATIONS"));
     const accessToken = getAccessTokenFromAuthHeader(req.headers.get("Authorization"));
+    const isInternalInvocation = isServiceRoleInvocation(accessToken, serviceRoleKey);
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false },
@@ -317,7 +323,7 @@ Deno.serve(async (req) => {
 
     let actorEmail = "system";
 
-    if (!allowUnauthenticated) {
+    if (!allowUnauthenticated && !isInternalInvocation) {
       if (!accessToken) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401,
@@ -335,6 +341,9 @@ Deno.serve(async (req) => {
       }
 
       actorEmail = userData.user.email || "system";
+    } else if (isInternalInvocation) {
+      actorEmail = "system";
+      console.log("[createNotification] Internal service-role invocation detected");
     } else {
       console.warn("[createNotification] ALLOW_UNAUTHENTICATED_NOTIFICATIONS enabled. JWT auth is bypassed.");
     }
@@ -399,6 +408,7 @@ Deno.serve(async (req) => {
         title,
         message,
         description: body.description || "",
+        image_url: body.imageUrl || "",
         action_url: body.actionUrl || "",
         priority: body.priority || "medium",
         display_location: body.displayLocation || "banner",
@@ -575,6 +585,7 @@ Deno.serve(async (req) => {
           targetAuthId,
           targetEmail,
           allowUnauthenticated,
+          isInternalInvocation,
           pushStatus,
         },
       }),

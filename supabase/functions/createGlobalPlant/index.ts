@@ -140,9 +140,11 @@ Deno.serve(async (req) => {
     }
 
     const normalize = (s: string | null | undefined) => (s || "").toLowerCase().trim();
-    const categoryCandidates = plant.category === "Blumen"
+    // Normalize legacy "Blumen & Kräuter" to "Blumen" for consistent categorisation
+    const normalizedCategory = plant.category === "Blumen & Kräuter" ? "Blumen" : plant.category;
+    const categoryCandidates = normalizedCategory === "Blumen"
       ? ["Blumen", "Blumen & Kräuter"]
-      : [plant.category];
+      : [normalizedCategory];
 
     let genus = (allGenera || []).find((g: any) =>
       categoryCandidates.includes(g.category) && (
@@ -169,9 +171,9 @@ Deno.serve(async (req) => {
             category_dex_number: maxCategoryDexNumber + 1,
             genus_name: plant.genus_name,
             scientific_genus: plant.scientific_genus,
-            category: plant.category,
+            category: normalizedCategory,
             family: plant.family,
-            description: `Gattung der ${plant.category}`,
+            description: `Gattung der ${normalizedCategory}`,
           })
           .select("*")
           .single();

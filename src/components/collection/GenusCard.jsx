@@ -10,7 +10,8 @@ import EditGenusDialog from "./EditGenusDialog";
 const categoryIcons = {
   "Bäume": TreeDeciduous,
   "Sträucher": Leaf,
-  "Blumen": Flower2
+  "Blumen": Flower2,
+  "Blumen & Kräuter": Flower2
 };
 
 export default function GenusCard({ genus, onShowHint, userDiscoveries = [], plants = [], friendEmail, collectionNote, isAdmin = false, uiTheme = "dark" }) {
