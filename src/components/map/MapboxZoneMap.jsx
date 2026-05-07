@@ -360,14 +360,25 @@ const getDiscoveryFootprintPx = (point) => {
 const buildDiscoveryRenderGroups = (points = [], map) => {
   if (!map || points.length === 0) return [];
 
+  const canvas = map.getCanvas();
+  const viewWidth = Number(canvas?.clientWidth || 0);
+  const viewHeight = Number(canvas?.clientHeight || 0);
+  const viewMarginPx = 96;
+
   const projected = points
-    .map((point, index) => {
+    .map((point) => {
       const lng = Number(point?.lng);
       const lat = Number(point?.lat);
       if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null;
       const projectedPoint = map.project([lng, lat]);
+      const isWithinViewport =
+        projectedPoint.x >= -viewMarginPx &&
+        projectedPoint.y >= -viewMarginPx &&
+        projectedPoint.x <= viewWidth + viewMarginPx &&
+        projectedPoint.y <= viewHeight + viewMarginPx;
+      if (!isWithinViewport) return null;
+
       return {
-        index,
         point,
         lng,
         lat,
@@ -382,43 +393,37 @@ const buildDiscoveryRenderGroups = (points = [], map) => {
 
   projected.sort((a, b) => (a.y - b.y) || (a.x - b.x));
 
-  const clusters = [];
+  const consumed = new Array(projected.length).fill(false);
+  const groups = [];
 
-  projected.forEach((entry) => {
-    const targetCluster = clusters.find((cluster) => {
-      const dx = entry.x - cluster.seedX;
-      const dy = entry.y - cluster.seedY;
-      const distance = Math.hypot(dx, dy);
-      const overlapThreshold = entry.radius + cluster.seedRadius + CLUSTER_EXTRA_PADDING_PX;
-      if (distance > overlapThreshold) return false;
+  for (let i = 0; i < projected.length; i += 1) {
+    if (consumed[i]) continue;
 
-      const geoDistance = calculateDistanceMetersRaw(
-        cluster.seedLat,
-        cluster.seedLng,
-        entry.lat,
-        entry.lng
-      );
+    const anchor = projected[i];
+    const members = [anchor];
+    consumed[i] = true;
 
-      return Number.isFinite(geoDistance) && geoDistance <= MAX_CLUSTER_GEO_SPREAD_M;
-    });
+    for (let j = i + 1; j < projected.length; j += 1) {
+      if (consumed[j]) continue;
 
-    if (targetCluster) {
-      targetCluster.entries.push(entry);
-      return;
+      const candidate = projected[j];
+      const dx = candidate.x - anchor.x;
+      const dy = candidate.y - anchor.y;
+      const pixelDistance = Math.hypot(dx, dy);
+      const overlapThreshold = anchor.radius + candidate.radius + CLUSTER_EXTRA_PADDING_PX;
+      if (pixelDistance > overlapThreshold) continue;
+
+      const geoDistance = calculateDistanceMetersRaw(anchor.lat, anchor.lng, candidate.lat, candidate.lng);
+      if (!Number.isFinite(geoDistance) || geoDistance > MAX_CLUSTER_GEO_SPREAD_M) continue;
+
+      consumed[j] = true;
+      members.push(candidate);
     }
 
-    clusters.push({
-      seedX: entry.x,
-      seedY: entry.y,
-      seedRadius: entry.radius,
-      seedLng: entry.lng,
-      seedLat: entry.lat,
-      entries: [entry],
-    });
-  });
+    groups.push(members);
+  }
 
-  return clusters.map((cluster) => {
-    const entries = cluster.entries;
+  return groups.map((entries) => {
     if (entries.length === 1) {
       return {
         type: "single",
@@ -428,13 +433,22 @@ const buildDiscoveryRenderGroups = (points = [], map) => {
     }
 
     const representative = entries[0].point;
+    const centroid = entries.reduce(
+      (acc, item) => {
+        acc.lat += item.lat;
+        acc.lng += item.lng;
+        return acc;
+      },
+      { lat: 0, lng: 0 }
+    );
+    const divisor = entries.length;
 
     return {
       type: "cluster",
       point: {
         ...representative,
-        lng: cluster.seedLng,
-        lat: cluster.seedLat,
+        lng: centroid.lng / divisor,
+        lat: centroid.lat / divisor,
       },
       scanCount: entries.length,
     };
