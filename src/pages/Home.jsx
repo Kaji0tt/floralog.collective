@@ -16,7 +16,7 @@ import {
 } from "@/api/robotPlantService";
 import { getOpenPlantQuiz, submitPlantQuizAnswer } from "@/api/plantQuizService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Camera, Loader2, Leaf, Plus, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, Zap, ShoppingCart } from "lucide-react";
+import { Camera, Loader2, Leaf, Plus, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, Zap, Palette } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
@@ -2348,7 +2348,7 @@ function HomeContent() {
                       <button
                         type="button"
                         onClick={() => openShop("backgrounds")}
-                        aria-label="Shop öffnen"
+                        aria-label="Profil anpassen"
                         className={`absolute right-0 md:right-2 top-5 md:top-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${
                           isLightUi
                             ? "border-[#c8ac62]/60"
@@ -2360,9 +2360,9 @@ function HomeContent() {
                             : "linear-gradient(135deg, rgba(107,114,128,0.48) 0%, rgba(107,114,128,0.30) 100%)",
                         }}
                       >
-                        <ShoppingCart className={`w-4 h-4 ${isLightUi ? "text-stone-700" : "text-white/90"}`} />
+                        <Palette className={`w-4 h-4 ${isLightUi ? "text-stone-700" : "text-white/90"}`} />
                         <span className={`font-semibold text-[11px] md:text-xs leading-none mt-0.5 ${isLightUi ? "text-stone-800" : "text-white"}`}>
-                          Shop
+                          Anpassen
                         </span>
                       </button>
 
