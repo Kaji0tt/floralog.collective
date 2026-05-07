@@ -1,84 +1,146 @@
-import React, { useEffect, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  listRobotPlantShopItems,
-  listRobotPlantInventory,
-  listRobotPlantActiveEffects,
-  purchaseRobotPlantShopItem,
-} from "@/api/robotPlantService";
-import { getCurrentUser } from "@/api/userApi";
+import React, { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Sparkles, Loader2, RefreshCw, Image as ImageIcon, BadgeCheck, PaintBucket } from "lucide-react";
+import { Query } from "@/api/entities";
+import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { useUiTheme } from "@/lib/UiThemeContext";
-import { Badge } from "@/components/ui/badge";
-import { Info, Loader2, RefreshCw, Sparkles, ShoppingBag } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  getUnlockedProfileCustomizationCatalog,
+  profileCustomizationCategoryComparator,
+} from "@/lib/profileCustomizationOptions";
 
-const KNOWN_CATEGORY_ORDER = ["fertilizer", "accessory", "background"];
 const CATEGORY_META = {
-  fertilizer: {
-    title: "Duenger",
-    subtitle: "Pflege-Boosts fuer deine Pflanze",
-  },
-  accessory: {
-    title: "Accessoires",
-    subtitle: "Kosmetische Extras und Freischaltungen",
-  },
-  background: {
+  backgrounds: {
     title: "Hintergruende",
-    subtitle: "Neue Stimmungen fuer deine Home-Ansicht",
+    subtitle: "Alle freigeschalteten Hintergründe fuer dein Profil",
+    emptyLabel: "Noch keine Hintergrundoptionen freigeschaltet.",
   },
-  all: {
-    title: "Alle Artikel",
-    subtitle: "Gesamtes Sortiment im Ueberblick",
+  titles: {
+    title: "Titel",
+    subtitle: "Alle freigeschalteten Titel fuer dein Profil",
+    emptyLabel: "Noch keine Titel freigeschaltet.",
   },
 };
 
-const formatCategoryLabel = (value) => {
-  if (!value) return "Sonstiges";
-  const normalized = String(value).trim();
-  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+const getBackgroundSelectionState = (user, option) => {
+  if (!option) return false;
+  if (option.type === "color") {
+    return !user?.background_image_url && user?.background_color === option.value;
+  }
+  return user?.background_image_url === option.value;
 };
 
-const getShopItemDetailText = (item) => {
-  const detailParts = [];
-
-  if (item?.description) {
-    detailParts.push(item.description);
+const getBackgroundButtonStyle = ({ isActive, isLightUi }) => {
+  if (isActive) {
+    return isLightUi
+      ? "border-[#c8ac62]/80 ring-2 ring-[#c8ac62]/60 shadow-[0_10px_26px_rgba(162,129,48,0.24)]"
+      : "border-[#f0e5a5]/70 ring-2 ring-[#f0e5a5]/55 shadow-[0_14px_28px_rgba(0,0,0,0.34)]";
   }
 
-  if (Number(item?.effect_value || 0) > 0 && Number(item?.duration_hours || 0) > 0) {
-    detailParts.push(
-      `Reduziert den taeglichen Verfall deiner Pflanze um ${Math.round(Number(item.effect_value) * 100)}% fuer ${item.duration_hours} Stunden.`
-    );
-  }
-
-  if (detailParts.length === 0) {
-    detailParts.push("Dieses Item erweitert deinen Shop um weitere Pflege- oder Kosmetikoptionen.");
-  }
-
-  return detailParts.join(" ");
+  return isLightUi
+    ? "border-[#c8ac62]/35 hover:border-[#c8ac62]/60"
+    : "border-[#f0e5a5]/25 hover:border-[#f0e5a5]/45";
 };
 
-/**
- * Self-contained shop panel. Follows the same architecture pattern as
- * AchievementsFeatureRoot and FriendsFeatureRoot.
- *
- * @param {{ embedded?: boolean, playerSeeds: number, initialCategory?: string, authId?: string | null, onHeaderMetaChange?: Function }} props
- */
+const BackgroundOptionCard = ({ option, user, isLightUi, isPending, onSelect }) => {
+  const isActive = getBackgroundSelectionState(user, option);
+
+  return (
+    <button
+      type="button"
+      disabled={isPending}
+      onClick={() => onSelect(option)}
+      className={`relative overflow-hidden rounded-2xl border text-left transition-all duration-200 disabled:opacity-60 ${getBackgroundButtonStyle({ isActive, isLightUi })}`}
+    >
+      <div className="aspect-[1.1/1] w-full">
+        {option.type === "color" ? (
+          <div className="h-full w-full" style={{ backgroundColor: option.value }} />
+        ) : (
+          <img src={option.value} alt={option.label} className="h-full w-full object-cover" />
+        )}
+      </div>
+      <div className={`absolute inset-0 ${isActive ? (isLightUi ? "bg-white/10" : "bg-black/10") : "bg-transparent"}`} />
+      <div className="absolute inset-x-0 bottom-0 p-2">
+        <div className={`rounded-xl border px-2 py-2 backdrop-blur-md ${
+          isLightUi
+            ? "border-white/65 bg-white/75 text-stone-800"
+            : "border-white/10 bg-black/45 text-stone-100"
+        }`}>
+          <div className="flex items-center justify-between gap-2">
+            <span className="truncate text-xs font-semibold">{option.label}</span>
+            {isActive && <BadgeCheck className={`h-3.5 w-3.5 shrink-0 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />}
+          </div>
+          {option.unlockLabel && (
+            <div className={`mt-1 text-[10px] ${isLightUi ? "text-stone-500" : "text-stone-300/80"}`}>
+              {option.unlockLabel}
+            </div>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+};
+
+const TitleOptionRow = ({ option, user, isLightUi, isPending, onSelect }) => {
+  const isActive = user?.selected_title === option.value;
+
+  return (
+    <button
+      type="button"
+      disabled={isPending}
+      onClick={() => onSelect(option)}
+      className={`w-full rounded-2xl border px-3 py-3 text-left transition-colors disabled:opacity-60 ${
+        isActive
+          ? (isLightUi
+            ? "border-[#c8ac62]/75 bg-white/85 text-stone-900 shadow-[0_10px_24px_rgba(162,129,48,0.16)]"
+            : "border-[#f0e5a5]/55 bg-black/55 text-stone-100")
+          : (isLightUi
+            ? "border-[#c8ac62]/30 bg-white/65 text-stone-800 hover:bg-white/85"
+            : "border-[#f0e5a5]/20 bg-black/30 text-stone-100 hover:bg-black/45")
+      }`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="truncate text-sm font-semibold">{option.label}</div>
+          <div className={`mt-1 text-[11px] ${isLightUi ? "text-stone-500" : "text-stone-300/75"}`}>
+            {option.source === "achievement" ? "Freigeschaltet durch Erfolg" : "Freigeschaltet als Belohnung"}
+          </div>
+        </div>
+        {isActive && <BadgeCheck className={`h-4 w-4 shrink-0 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />}
+      </div>
+    </button>
+  );
+};
+
+const SectionCard = ({ title, icon: Icon, children, isLightUi }) => {
+  return (
+    <div className={`rounded-[1.5rem] border px-3 py-3 backdrop-blur-md ${
+      isLightUi
+        ? "border-[#c8ac62]/30 bg-white/72"
+        : "border-[#f0e5a5]/20 bg-black/28"
+    }`}>
+      <div className="mb-3 flex items-center gap-2">
+        <Icon className={`h-4 w-4 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+        <h3 className={`text-sm font-semibold ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>{title}</h3>
+      </div>
+      {children}
+    </div>
+  );
+};
+
 export default function ShopFeatureRoot({
   embedded = true,
-  playerSeeds = 0,
-  initialCategory = "fertilizer",
+  initialCategory = "backgrounds",
   authId = null,
+  currentUser = null,
   onHeaderMetaChange,
+  onUserUpdated,
 }) {
   const { isLightUi } = useUiTheme();
   const queryClient = useQueryClient();
 
   const [shopCategory, setShopCategory] = useState(initialCategory);
-  const [careActionMessage, setCareActionMessage] = useState(null);
-  const [lastResolvedCategory, setLastResolvedCategory] = useState(initialCategory);
-  const [purchaseQuantities, setPurchaseQuantities] = useState({});
-  const [selectedShopItemId, setSelectedShopItemId] = useState(null);
+  const [shopMessage, setShopMessage] = useState(null);
 
   const { data: fallbackUser = null } = useQuery({
     queryKey: ["shopCurrentUser"],
@@ -90,179 +152,159 @@ export default function ShopFeatureRoot({
 
   const resolvedAuthId = authId || fallbackUser?.id || null;
 
-  const {
-    data: robotPlantShopItems,
-    isPending: isShopItemsPending,
-    isFetching: isShopItemsFetching,
-    error: shopItemsError,
-    refetch: refetchShopItems,
-  } = useQuery({
-    queryKey: ["robotPlantShopItems", resolvedAuthId],
-    queryFn: () => listRobotPlantShopItems(),
+  const { data: userDiscoveries = [], isPending: isDiscoveriesPending, refetch: refetchDiscoveries } = useQuery({
+    queryKey: ["userDiscoveries", resolvedAuthId],
+    queryFn: () => Query.UserPlantDiscovery.filter({ auth_id: resolvedAuthId }),
     enabled: !!resolvedAuthId,
-    staleTime: 60 * 1000,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-    retry: 2,
-  });
-
-  const {
-    data: robotPlantInventory = [],
-    isPending: isInventoryPending,
-    isFetching: isInventoryFetching,
-  } = useQuery({
-    queryKey: ["robotPlantInventory", resolvedAuthId],
-    queryFn: () => listRobotPlantInventory(resolvedAuthId),
-    enabled: !!resolvedAuthId,
-    staleTime: 30 * 1000,
+    staleTime: Infinity,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
 
-  const { data: robotPlantActiveEffects = [] } = useQuery({
-    queryKey: ["robotPlantActiveEffects", resolvedAuthId],
-    queryFn: () => listRobotPlantActiveEffects(resolvedAuthId),
+  const { data: achievements = [], isPending: isAchievementsPending, refetch: refetchAchievements } = useQuery({
+    queryKey: ["achievements"],
+    queryFn: () => Query.Achievement.list(),
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: userAchievements = [], isPending: isUserAchievementsPending, refetch: refetchUserAchievements } = useQuery({
+    queryKey: ["userAchievements", resolvedAuthId],
+    queryFn: () => Query.UserAchievement.filter({ auth_id: resolvedAuthId }),
     enabled: !!resolvedAuthId,
-    staleTime: 30 * 1000,
+    staleTime: Infinity,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
 
-  const shopItems = Array.isArray(robotPlantShopItems) ? robotPlantShopItems : [];
+  const { data: rewards = [], isPending: isRewardsPending, refetch: refetchRewards } = useQuery({
+    queryKey: ["rewards"],
+    queryFn: () => Query.Reward.list(),
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: userRewards = [], isPending: isUserRewardsPending, refetch: refetchUserRewards } = useQuery({
+    queryKey: ["userRewards", resolvedAuthId],
+    queryFn: () => Query.UserReward.filter({ auth_id: resolvedAuthId }),
+    enabled: !!resolvedAuthId,
+    staleTime: Infinity,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
+
+  const catalog = useMemo(() => {
+    return getUnlockedProfileCustomizationCatalog({
+      achievements,
+      userAchievements,
+      rewards,
+      userRewards,
+      userDiscoveries,
+    });
+  }, [achievements, rewards, userAchievements, userDiscoveries, userRewards]);
+
+  const categories = useMemo(() => {
+    return [...(catalog.categories || [])].sort(profileCustomizationCategoryComparator);
+  }, [catalog.categories]);
 
   useEffect(() => {
-    setShopCategory(initialCategory || "fertilizer");
+    setShopCategory(initialCategory || "backgrounds");
   }, [initialCategory]);
 
-  const categoryCounts = shopItems.reduce((acc, item) => {
-    const itemType = item?.item_type || "other";
-    acc[itemType] = (acc[itemType] || 0) + 1;
-    return acc;
-  }, {});
+  useEffect(() => {
+    if (!categories.some((category) => category.key === shopCategory)) {
+      setShopCategory(categories[0]?.key || "backgrounds");
+    }
+  }, [categories, shopCategory]);
 
-  const dynamicCategories = Object.keys(categoryCounts).filter(
-    (category) => !KNOWN_CATEGORY_ORDER.includes(category)
-  );
-
-  const categoryChips = [
-    ...KNOWN_CATEGORY_ORDER.filter((category) => categoryCounts[category] > 0 || category === initialCategory),
-    ...dynamicCategories,
-    "all",
-  ].map((categoryKey) => ({
-    key: categoryKey,
-    label: CATEGORY_META[categoryKey]?.title || formatCategoryLabel(categoryKey),
-    count: categoryKey === "all"
-      ? shopItems.length
-      : (categoryCounts[categoryKey] || 0),
-  }));
+  const currentCategory = categories.find((category) => category.key === shopCategory) || categories[0] || null;
 
   useEffect(() => {
-    const availableCategories = new Set(categoryChips.map((chip) => chip.key));
-    if (availableCategories.size === 0) return;
+    if (!embedded || typeof onHeaderMetaChange !== "function" || !currentCategory) return;
+    onHeaderMetaChange({
+      title: "Shop",
+      subtitle: currentCategory.subtitle || CATEGORY_META[currentCategory.key]?.subtitle || null,
+    });
+  }, [currentCategory, embedded, onHeaderMetaChange]);
 
-    if (!availableCategories.has(shopCategory)) {
-      const fallbackCategory = availableCategories.has(initialCategory)
-        ? initialCategory
-        : categoryChips[0]?.key || "all";
-
-      if (fallbackCategory && fallbackCategory !== lastResolvedCategory) {
-        setShopCategory(fallbackCategory);
-        setLastResolvedCategory(fallbackCategory);
+  const updateCustomizationMutation = useMutation({
+    mutationFn: async (updates) => updateCurrentUserProfile(updates),
+    onSuccess: async () => {
+      const freshUser = await getCurrentUser();
+      if (typeof onUserUpdated === "function") {
+        onUserUpdated(freshUser);
       }
+      setShopMessage("Profil angepasst.");
+      await queryClient.invalidateQueries({ queryKey: ["user"] });
+      await queryClient.invalidateQueries({ queryKey: ["shopCurrentUser"] });
+    },
+    onError: () => {
+      setShopMessage("Anpassung konnte nicht gespeichert werden.");
+    },
+  });
+
+  const handleSelectBackground = async (option) => {
+    setShopMessage(null);
+
+    if (option?.type === "color") {
+      await updateCustomizationMutation.mutateAsync({
+        background_image_url: null,
+        background_color: option.value,
+      });
       return;
     }
 
-    if (shopCategory !== lastResolvedCategory) {
-      setLastResolvedCategory(shopCategory);
-    }
-  }, [categoryChips, initialCategory, lastResolvedCategory, shopCategory]);
-
-  const purchaseShopItemMutation = useMutation({
-    mutationFn: ({ itemId, quantity }) => purchaseRobotPlantShopItem({ itemId, quantity }),
-    onSuccess: async (result) => {
-      if (!result?.applied) {
-        setCareActionMessage(
-          result?.error_code === "insufficient_balance"
-            ? "Nicht genug Samen fuer diesen Kauf."
-            : "Kauf konnte nicht abgeschlossen werden."
-        );
-        return;
-      }
-      setCareActionMessage("Item gekauft.");
-      await queryClient.invalidateQueries({ queryKey: ["robotPlantState"] });
-      await queryClient.invalidateQueries({ queryKey: ["robotPlantInventory", resolvedAuthId] });
-    },
-    onError: () => {
-      setCareActionMessage("Kauf fehlgeschlagen.");
-    },
-  });
-
-  const inventoryByItemId = Object.fromEntries(
-    robotPlantInventory.map((entry) => [entry.item_id, entry.quantity || 0])
-  );
-  const isInventoryLoading = Boolean(resolvedAuthId) && (isInventoryPending || isInventoryFetching);
-
-  const updatePurchaseQuantity = (itemId, nextQuantity, maxAffordable) => {
-    const clampedQuantity = maxAffordable <= 0
-      ? 0
-      : Math.max(1, Math.min(maxAffordable, nextQuantity));
-    setPurchaseQuantities((current) => ({
-      ...current,
-      [itemId]: clampedQuantity,
-    }));
+    await updateCustomizationMutation.mutateAsync({
+      background_image_url: option?.value || null,
+      background_color: null,
+    });
   };
 
-  const filteredShopItems = shopItems.filter((item) => {
-    if (shopCategory === "all") return true;
-    return item.item_type === shopCategory;
-  });
+  const handleResetBackground = async () => {
+    setShopMessage(null);
+    await updateCustomizationMutation.mutateAsync({
+      background_image_url: null,
+      background_color: null,
+    });
+  };
 
-  useEffect(() => {
-    if (!selectedShopItemId) return;
-    const stillVisible = filteredShopItems.some((item) => item.id === selectedShopItemId);
-    if (!stillVisible) {
-      setSelectedShopItemId(null);
-    }
-  }, [filteredShopItems, selectedShopItemId]);
+  const handleSelectTitle = async (option) => {
+    setShopMessage(null);
+    await updateCustomizationMutation.mutateAsync({ selected_title: option?.value || null });
+  };
 
-  const activeDecayEffects = robotPlantActiveEffects
-    .filter((effect) => effect.effect_type === "decay_reduction")
-    .sort((a, b) => new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime());
+  const handleResetTitle = async () => {
+    setShopMessage(null);
+    await updateCustomizationMutation.mutateAsync({ selected_title: null });
+  };
 
-  const activeDecayPercent = activeDecayEffects.reduce(
-    (acc, effect) => acc + Number(effect.effect_value || 0),
-    0
-  );
-
-  const isBusy = purchaseShopItemMutation.isPending;
   const isAuthResolving = !resolvedAuthId;
-  const showShopLoadingState = (isAuthResolving || isShopItemsPending) && shopItems.length === 0;
-  const currentCategoryMeta = CATEGORY_META[shopCategory] || {
-    title: formatCategoryLabel(shopCategory),
-    subtitle: "Artikel in dieser Kategorie",
-  };
+  const isLoading = isAuthResolving || isDiscoveriesPending || isAchievementsPending || isUserAchievementsPending || isRewardsPending || isUserRewardsPending;
+  const resolvedCurrentUser = currentUser || fallbackUser || (authId ? { id: authId } : null);
+  const isMutationPending = updateCustomizationMutation.isPending;
+
   const tabsHeaderClass = embedded
     ? `sticky top-0 z-40 backdrop-blur-sm border-b ${isLightUi ? "bg-white/70 border-[#b99a48]/30" : "bg-black/20 border-[#f0e5a5]/20"}`
     : `sticky top-0 z-40 border-b ${isLightUi ? "bg-white/90 border-stone-200/80 backdrop-blur-xl" : "bg-stone-950/75 border-[#f0e5a5]/20 backdrop-blur-xl"}`;
-  const bottomBarClass = embedded
-    ? `shrink-0 backdrop-blur-sm border-t ${isLightUi ? "bg-white/70 border-[#b99a48]/30" : "bg-black/20 border-[#f0e5a5]/20"}`
-    : `shrink-0 border-t ${isLightUi ? "bg-white/90 border-stone-200/80 backdrop-blur-xl" : "bg-stone-950/75 border-[#f0e5a5]/20 backdrop-blur-xl"}`;
   const contentClass = embedded ? "mt-0 px-4 pb-4 flex-1 min-h-0 overflow-y-auto" : "px-4 pb-8 pt-4";
   const listTopFadePx = 12;
   const listBottomFadePx = 18;
-  const contentMaskStyle = embedded ? {
-    WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
-    maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
-  } : undefined;
+  const contentMaskStyle = embedded
+    ? {
+        WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
+        maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
+      }
+    : undefined;
 
-  useEffect(() => {
-    if (!embedded || typeof onHeaderMetaChange !== "function") return;
-
-    onHeaderMetaChange({
-      title: "Shop",
-      subtitle: currentCategoryMeta.subtitle,
-    });
-  }, [currentCategoryMeta.subtitle, embedded, onHeaderMetaChange]);
+  const refetchAll = async () => {
+    await Promise.all([
+      refetchDiscoveries(),
+      refetchAchievements(),
+      refetchUserAchievements(),
+      refetchRewards(),
+      refetchUserRewards(),
+    ]);
+  };
 
   return (
     <section
@@ -274,15 +316,15 @@ export default function ShopFeatureRoot({
         <div className="w-full px-2 py-2">
           <div className="overflow-x-auto pb-1">
             <div className="flex min-w-max gap-2 px-2">
-              {categoryChips.map((chip) => {
-                const isPrimary = shopCategory === chip.key;
+              {categories.map((category) => {
+                const isPrimary = shopCategory === category.key;
                 return (
                   <button
-                    key={chip.key}
+                    key={category.key}
                     type="button"
-                    onClick={() => setShopCategory(chip.key)}
+                    onClick={() => setShopCategory(category.key)}
                     className={
-                      "flex items-center justify-center gap-2 px-2 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors min-w-fit " +
+                      "flex items-center justify-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors min-w-fit " +
                       (isPrimary
                         ? (isLightUi
                           ? "bg-white/90 text-[#8f6b22] shadow-sm"
@@ -297,7 +339,12 @@ export default function ShopFeatureRoot({
                         : (isLightUi ? "rgba(200,172,98,0.35)" : "rgba(255,255,255,0.3)"),
                     }}
                   >
-                    <span className="font-medium truncate">{chip.label}</span>
+                    <span className="font-medium truncate">{category.title}</span>
+                    <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+                      isLightUi ? "bg-[#c8ac62]/12 text-stone-600" : "bg-white/10 text-stone-200/80"
+                    }`}>
+                      {category.optionCount}
+                    </span>
                   </button>
                 );
               })}
@@ -308,264 +355,133 @@ export default function ShopFeatureRoot({
 
       <div className={contentClass} style={contentMaskStyle}>
         <div className="max-w-5xl mx-auto space-y-3" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
-          {!!careActionMessage && (
+          {!!shopMessage && (
             <div className={`text-[11px] md:text-xs ${isLightUi ? "text-stone-700" : "text-stone-200/90"}`}>
-              {careActionMessage}
+              {shopMessage}
             </div>
           )}
 
-          {showShopLoadingState ? (
+          {isLoading ? (
             <div className="px-1 py-6 flex flex-col items-center justify-center gap-2 text-center">
               <Loader2 className={`w-6 h-6 animate-spin ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
-              <div className={`text-sm font-medium ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Shop wird geladen</div>
-              <div className={`text-xs ${isLightUi ? "text-stone-500" : "text-stone-300/80"}`}>Artikel werden aus der Datenbank geladen.</div>
+              <div className={`text-sm font-medium ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Freischaltungen werden geladen</div>
+              <div className={`text-xs ${isLightUi ? "text-stone-500" : "text-stone-300/80"}`}>Der Shop sammelt deine bereits freigeschalteten Anpassungen.</div>
             </div>
-          ) : shopItemsError ? (
+          ) : !currentCategory ? (
             <div className="px-1 py-6 flex flex-col items-center justify-center gap-3 text-center">
-              <ShoppingBag className={`w-6 h-6 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
-              <div className={`text-sm font-medium ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Shopdaten konnten nicht geladen werden</div>
-              <div className={`text-xs max-w-md ${isLightUi ? "text-stone-500" : "text-stone-300/80"}`}>
-                Statt eines stillen leeren Shops wird der Fehler jetzt sichtbar. Ein erneuter Abruf behebt in der Regel kurzzeitige Supabase-Aussetzer.
-              </div>
+              <Sparkles className={`w-6 h-6 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+              <div className={`text-sm font-medium ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Noch keine Anpassungskategorien verfuegbar</div>
               <button
                 type="button"
-                onClick={() => refetchShopItems()}
+                onClick={refetchAll}
                 className={`inline-flex items-center gap-2 h-9 px-3 rounded-xl text-xs font-semibold border ${
                   isLightUi
                     ? "border-[#c8ac62]/55 bg-white/65 text-stone-800"
                     : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
                 }`}
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isShopItemsFetching ? "animate-spin" : ""}`} />
+                <RefreshCw className="w-3.5 h-3.5" />
                 Erneut laden
               </button>
             </div>
-          ) : filteredShopItems.length === 0 ? (
-            <div className="px-1 py-6 flex flex-col items-center justify-center gap-2 text-center">
-              <Sparkles className={`w-6 h-6 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
-              <div className={`text-sm font-medium ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Keine Artikel in dieser Kategorie</div>
-              <div className={`text-xs ${isLightUi ? "text-stone-500" : "text-stone-300/80"}`}>
-                Wechsle auf eine andere Kategorie oder pruefe spaeter erneut.
-              </div>
-            </div>
-          ) : (
-            filteredShopItems.map((item) => {
-              const owned = inventoryByItemId[item.id] || 0;
-              const itemDetailText = getShopItemDetailText(item);
-              const seedCost = Math.max(1, Number(item.seed_cost || 0));
-              const maxAffordable = Math.max(0, Math.floor(playerSeeds / seedCost));
-              const selectedQuantity = maxAffordable <= 0
-                ? 0
-                : Math.max(1, Math.min(maxAffordable, Number(purchaseQuantities[item.id] || 1)));
-              const isSelectedItem = selectedShopItemId === item.id;
-
-              return (
-                <div
-                  key={item.id}
-                  onClick={() => setSelectedShopItemId(item.id)}
-                  className={`relative overflow-hidden rounded-2xl border backdrop-blur-md px-3 py-3 cursor-pointer transition-all duration-200 ease-out will-change-transform ${
-                    isLightUi
-                      ? "border-[#c8ac62]/35 bg-white/78"
-                      : "border-[#f0e5a5]/30 bg-black/36"
-                  } ${isSelectedItem
-                    ? (isLightUi
-                      ? "border-[#c8ac62]/75 ring-2 ring-[#c8ac62]/70 scale-[1.01] shadow-[0_0_0_1px_rgba(200,172,98,0.25),0_16px_34px_rgba(162,129,48,0.22),0_0_24px_rgba(200,172,98,0.30)]"
-                      : "border-[#f0e5a5]/65 ring-2 ring-[#f0e5a5]/60 scale-[1.01] shadow-[0_0_0_1px_rgba(240,229,165,0.22),0_18px_36px_rgba(0,0,0,0.45),0_0_24px_rgba(240,229,165,0.25)]")
-                    : (isLightUi
-                      ? "shadow-[0_14px_32px_rgba(162,129,48,0.12)]"
-                      : "shadow-[0_16px_34px_rgba(0,0,0,0.28)]")}`}
-                >
-                  <div className={`absolute left-0 top-0 h-full w-1 ${isLightUi ? "bg-[#c8ac62]/55" : "bg-[#f0e5a5]/55"}`} />
-                  <div
-                    className="absolute left-0 top-0 h-full w-16"
-                    style={{
-                      background: isLightUi
-                        ? "linear-gradient(90deg, rgba(200,172,98,0.14) 0%, transparent 100%)"
-                        : "linear-gradient(90deg, rgba(240,229,165,0.14) 0%, transparent 100%)",
-                    }}
-                  />
-                  <div
-                    className={`absolute inset-0 ${isSelectedItem ? (isLightUi ? "bg-white/42" : "bg-black/46") : (isLightUi ? "bg-white/30" : "bg-black/30")}`}
-                    style={{ backdropFilter: "blur(10px)" }}
-                  />
-                  {isSelectedItem && (
-                    <div
-                      className="absolute inset-0 pointer-events-none"
-                      style={{
-                        background: isLightUi
-                          ? "radial-gradient(circle at 82% 14%, rgba(200,172,98,0.34) 0%, rgba(200,172,98,0.06) 38%, rgba(255,255,255,0) 65%)"
-                          : "radial-gradient(circle at 82% 14%, rgba(240,229,165,0.22) 0%, rgba(240,229,165,0.05) 42%, rgba(0,0,0,0) 68%)",
-                        filter: "blur(8px)",
-                      }}
-                    />
-                  )}
-
-                  <div className="relative z-10 flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <div className={`text-sm font-semibold truncate ${isLightUi ? "text-stone-900" : "text-[#f8f4d6]"}`}>
-                          {item.title}
-                        </div>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button
-                              type="button"
-                              onClick={(event) => event.stopPropagation()}
-                              className={`shrink-0 w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${
-                                isLightUi
-                                  ? "bg-white/85 border-[#c8ac62]/45 text-[#8f6b22] hover:bg-white"
-                                  : "bg-black/45 border-[#f0e5a5]/35 text-[#f0e5a5] hover:bg-black/60"
-                              }`}
-                              aria-label={`Mehr Informationen zu ${item.title}`}
-                            >
-                              <Info className="w-2.5 h-2.5" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent
-                            align="start"
-                            className={isLightUi
-                              ? "w-72 border-[#c8ac62]/55 bg-white/95 text-stone-800"
-                              : "w-72 bg-emerald-950/95 border-amber-600/40 text-amber-50/90"}
-                          >
-                            <div className="space-y-2">
-                              <h3 className={`text-sm font-semibold ${isLightUi ? "text-[#8f6b22]" : "text-amber-300"}`}>
-                                {item.title}
-                              </h3>
-                              <p className={`text-xs ${isLightUi ? "text-stone-700" : "text-amber-50/80"}`}>
-                                {itemDetailText}
-                              </p>
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <div className={`text-[11px] mt-1 line-clamp-2 ${isLightUi ? "text-stone-600" : "text-stone-300/90"}`}>
-                        {item.description || itemDetailText}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 text-[11px] flex-shrink-0">
-                      <div className={"rounded-full px-2 py-0.5 border " + (isLightUi ? "bg-white/75 border-[#c8ac62]/35 text-stone-700" : "bg-black/45 border-[#f0e5a5]/30 text-stone-100")}>
-                        {item.seed_cost} Samen
-                      </div>
-                      {isInventoryLoading ? (
-                        <div className={"w-6 h-6 rounded-full border text-[10px] font-bold inline-flex items-center justify-center " + (isLightUi ? "bg-white/80 border-[#c8ac62]/45 text-stone-500" : "bg-black/55 border-[#f0e5a5]/35 text-stone-300")}>
-                          ...
-                        </div>
-                      ) : owned >= 1 && (
-                        <div className={"w-6 h-6 rounded-full border text-[10px] font-bold inline-flex items-center justify-center " + (isLightUi ? "bg-white/80 border-[#c8ac62]/45 text-stone-700" : "bg-black/55 border-[#f0e5a5]/35 text-stone-100")}>
-                          {owned}x
-                        </div>
-                      )}
+          ) : currentCategory.key === "backgrounds" ? (
+            <div className="space-y-3">
+              <div className={`rounded-[1.5rem] border px-3 py-3 ${isLightUi ? "border-[#c8ac62]/30 bg-white/72" : "border-[#f0e5a5]/20 bg-black/28"}`}>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className={`text-sm font-semibold ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Aktiver Hintergrund</div>
+                    <div className={`mt-1 text-xs ${isLightUi ? "text-stone-500" : "text-stone-300/75"}`}>
+                      Presets, Farben und eigene Scans werden direkt auf dein Profil angewendet.
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    disabled={isMutationPending}
+                    onClick={handleResetBackground}
+                    className={`h-9 rounded-xl border px-3 text-xs font-semibold disabled:opacity-60 ${
+                      isLightUi
+                        ? "border-[#c8ac62]/40 bg-white/75 text-stone-700 hover:bg-white"
+                        : "border-[#f0e5a5]/25 bg-black/35 text-stone-100 hover:bg-black/50"
+                    }`}
+                  >
+                    Standardhintergrund
+                  </button>
+                </div>
+              </div>
 
-                  {isSelectedItem && (
-                    <div className="relative z-10 mt-3 flex flex-wrap items-center justify-between gap-2">
-                      <div
-                        className={`inline-flex items-center h-[30px] rounded-full border overflow-hidden ${
-                          isLightUi
-                            ? "border-[#c8ac62]/55 bg-white/65 text-stone-800"
-                            : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
-                        }`}
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <button
-                          type="button"
-                          disabled={isBusy || selectedQuantity <= 1}
-                          onClick={() => updatePurchaseQuantity(item.id, selectedQuantity - 1, maxAffordable)}
-                          className={`h-full w-8 text-sm font-semibold disabled:opacity-35 ${
-                            isLightUi ? "hover:bg-white/80" : "hover:bg-black/55"
-                          }`}
-                          aria-label={`Menge fuer ${item.title} verringern`}
-                        >
-                          -
-                        </button>
-                        <div className={`h-full min-w-12 px-2 flex items-center justify-center text-[11px] font-semibold border-x ${
-                          isLightUi ? "border-[#c8ac62]/35" : "border-[#f0e5a5]/25"
-                        }`}>
-                          {selectedQuantity}
-                        </div>
-                        <button
-                          type="button"
-                          disabled={isBusy || maxAffordable <= 0 || selectedQuantity >= maxAffordable}
-                          onClick={() => updatePurchaseQuantity(item.id, selectedQuantity + 1, maxAffordable)}
-                          className={`h-full w-8 text-sm font-semibold disabled:opacity-35 ${
-                            isLightUi ? "hover:bg-white/80" : "hover:bg-black/55"
-                          }`}
-                          aria-label={`Menge fuer ${item.title} erhoehen`}
-                        >
-                          +
-                        </button>
+              {currentCategory.sections.map((section) => {
+                const icon = section.key === "colors" ? PaintBucket : ImageIcon;
+                return (
+                  <SectionCard key={section.key} title={section.title} icon={icon} isLightUi={isLightUi}>
+                    {section.options.length === 0 ? (
+                      <div className={`rounded-2xl border border-dashed px-3 py-4 text-xs ${isLightUi ? "border-[#c8ac62]/30 text-stone-500" : "border-[#f0e5a5]/20 text-stone-300/75"}`}>
+                        {section.emptyLabel}
                       </div>
-
-                      <button
-                        type="button"
-                        disabled={isBusy || maxAffordable <= 0}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          purchaseShopItemMutation.mutate({ itemId: item.id, quantity: selectedQuantity });
-                        }}
-                        className={`h-[30px] px-3 rounded-full text-[11px] font-semibold border disabled:opacity-60 ${
-                          isLightUi
-                            ? "border-[#c8ac62]/55 bg-white/65 text-stone-800 hover:bg-white/85"
-                            : "border-[#f0e5a5]/45 bg-black/40 text-stone-100 hover:bg-black/55"
-                        }`}
-                      >
-                        Kaufen
-                      </button>
-
+                    ) : (
+                      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                        {section.options.map((option) => (
+                          <BackgroundOptionCard
+                            key={option.id}
+                            option={option}
+                            user={resolvedCurrentUser}
+                            isLightUi={isLightUi}
+                            isPending={isMutationPending}
+                            onSelect={handleSelectBackground}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </SectionCard>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className={`rounded-[1.5rem] border px-3 py-3 ${isLightUi ? "border-[#c8ac62]/30 bg-white/72" : "border-[#f0e5a5]/20 bg-black/28"}`}>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className={`text-sm font-semibold ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Aktiver Titel</div>
+                    <div className={`mt-1 text-xs ${isLightUi ? "text-stone-500" : "text-stone-300/75"}`}>
+                      Aktuell: {resolvedCurrentUser?.selected_title || resolvedCurrentUser?.title || "Pflanzen-Entdecker"}
                     </div>
-                  )}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isMutationPending}
+                    onClick={handleResetTitle}
+                    className={`h-9 rounded-xl border px-3 text-xs font-semibold disabled:opacity-60 ${
+                      isLightUi
+                        ? "border-[#c8ac62]/40 bg-white/75 text-stone-700 hover:bg-white"
+                        : "border-[#f0e5a5]/25 bg-black/35 text-stone-100 hover:bg-black/50"
+                    }`}
+                  >
+                    Standardtitel
+                  </button>
                 </div>
-              );
-            })
+              </div>
+
+              <SectionCard title="Freigeschaltete Titel" icon={BadgeCheck} isLightUi={isLightUi}>
+                {currentCategory.sections[0]?.options?.length ? (
+                  <div className="space-y-2">
+                    {currentCategory.sections[0].options.map((option) => (
+                      <TitleOptionRow
+                        key={option.id}
+                        option={option}
+                        user={resolvedCurrentUser}
+                        isLightUi={isLightUi}
+                        isPending={isMutationPending}
+                        onSelect={handleSelectTitle}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className={`rounded-2xl border border-dashed px-3 py-4 text-xs ${isLightUi ? "border-[#c8ac62]/30 text-stone-500" : "border-[#f0e5a5]/20 text-stone-300/75"}`}>
+                    {CATEGORY_META.titles.emptyLabel}
+                  </div>
+                )}
+              </SectionCard>
+            </div>
           )}
-        </div>
-      </div>
-
-      <div className={bottomBarClass}>
-        <div className="w-full px-2 py-2">
-          <div className="flex items-center justify-between gap-2 px-2">
-            <span
-              className={`inline-flex items-center h-8 rounded-full border px-3 text-[11px] font-semibold backdrop-blur-sm ${
-                isLightUi
-                  ? "border-[#c8ac62]/55 bg-white/65 text-[#8f6b22]"
-                  : "border-[#f0e5a5]/35 bg-black/35 text-[#f0e5a5]"
-              }`}
-            >
-              {playerSeeds} Samen
-            </span>
-
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className={`inline-flex items-center h-8 rounded-full border px-3 text-[11px] font-semibold backdrop-blur-sm transition-colors ${
-                    isLightUi
-                      ? "border-[#c8ac62]/55 bg-white/65 text-[#8f6b22] hover:bg-white/80"
-                      : "border-[#f0e5a5]/35 bg-black/35 text-[#f0e5a5] hover:bg-black/50"
-                  }`}
-                >
-                  Dünger: {Math.round(activeDecayPercent * 100)}%
-                </button>
-              </PopoverTrigger>
-              <PopoverContent
-                align="end"
-                className={isLightUi
-                  ? "w-72 border-[#c8ac62]/55 bg-white/95 text-stone-800"
-                  : "w-72 bg-emerald-950/95 border-amber-600/40 text-amber-50/90"}
-              >
-                <div className="space-y-2">
-                  <h3 className={`text-sm font-semibold ${isLightUi ? "text-[#8f6b22]" : "text-amber-300"}`}>
-                    Dünger-Effekt
-                  </h3>
-                  <p className={`text-xs ${isLightUi ? "text-stone-700" : "text-amber-50/80"}`}>
-                    Dünger reduziert den täglichen Verfall (Decay) deiner Pflanze. Der Prozentwert zeigt die aktuell aktive Gesamtreduktion durch laufende Effekte.
-                  </p>
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
         </div>
       </div>
     </section>

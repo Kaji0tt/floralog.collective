@@ -9,6 +9,7 @@ const CATEGORY_CHIPS = [
 ];
 
 export default function CollectionScreen({
+  readOnly = false,
   isQuestCollectionView,
   ownedCollections,
   followedCollections,
@@ -128,7 +129,7 @@ export default function CollectionScreen({
                 <h1 className={"text-lg font-bold leading-tight flex-1 min-w-0 truncate " + (isLightUi ? "text-stone-900" : "text-[#f8f4d6]")}>
                   {heroTitle}
                 </h1>
-                {!isQuestCollectionView && (ownedCollections.length + followedCollections.length === 0) && (
+                {!readOnly && !isQuestCollectionView && (ownedCollections.length + followedCollections.length === 0) && (
                   <button
                     type="button"
                     onClick={onCreateCollection}
@@ -140,7 +141,7 @@ export default function CollectionScreen({
                     <span className="text-lg leading-none">+</span>
                   </button>
                 )}
-                {selectedCollection && !isQuestCollectionView && (
+                {selectedCollection && !isQuestCollectionView && !readOnly && (
                   <div className="shrink-0 flex items-center gap-1.5">
                     {(selectedCollection.followers_count ?? 0) > 0 && (
                       <div

@@ -61,6 +61,8 @@ export default function CollectionFeatureRoot({
   onSelectedCollectionIdChange = null,
   showPublicCollectionsPanel: externalShowPublicCollectionsPanel,
   onShowPublicCollectionsPanelChange = null,
+  profileUser = null,
+  readOnly = false,
 }) {
   const { isLightUi, uiTheme, pushThemeOverride, popThemeOverride } = useUiTheme();
   const queryClient = useQueryClient();
@@ -131,14 +133,12 @@ export default function CollectionFeatureRoot({
     loadUser();
   }, []);
 
+  const targetUser = profileUser || user;
+  const targetUserId = targetUser?.auth_id || targetUser?.id || null;
+
   const { data: genera = [], isLoading: generaLoading } = useQuery({
     queryKey: ['genera'],
     queryFn: () => Query.PlantGenus.list(),
-  });
-
-  const { data: currentUser = null } = useQuery({
-    queryKey: ["currentUser"],
-    queryFn: getCurrentUser,
   });
 
   const { data: plants = [], isLoading: plantsLoading } = useQuery({
@@ -147,14 +147,14 @@ export default function CollectionFeatureRoot({
   });
 
   const { data: userDiscoveries = [], isLoading: discoveriesLoading } = useQuery({
-    queryKey: ['userDiscoveries'],
+    queryKey: ['userDiscoveries', targetUserId],
     queryFn: async () => {
-      const user = await getCurrentUser();
-      if (!user || !user.id) {
+      if (!targetUserId) {
         return [];
       }
-      return Query.UserPlantDiscovery.filter({ auth_id: user.id });
+      return Query.UserPlantDiscovery.filter({ auth_id: targetUserId });
     },
+    enabled: !!targetUserId,
   });
 
   const { data: collectionQuests = [] } = useQuery({
@@ -163,12 +163,12 @@ export default function CollectionFeatureRoot({
   });
 
   const { data: userCollections = [] } = useQuery({
-    queryKey: ["userCollections", user?.id],
+    queryKey: ["userCollections", targetUserId],
     queryFn: async () => {
-      if (!user?.id) return [];
-      return Query.UserCollection.filter({ auth_id: user.id });
+      if (!targetUserId) return [];
+      return Query.UserCollection.filter({ auth_id: targetUserId });
     },
-    enabled: !!user?.id,
+    enabled: !!targetUserId,
   });
 
   const { data: visibleCollections = [] } = useQuery({
@@ -182,12 +182,12 @@ export default function CollectionFeatureRoot({
   });
 
   const { data: ownedCollections = [] } = useQuery({
-    queryKey: ['ownedCollections', user?.id],
+    queryKey: ['ownedCollections', targetUserId],
     queryFn: async () => {
-      if (!user?.id) return [];
-      return Query.Collection.filter({ auth_id: user.id });
+      if (!targetUserId) return [];
+      return Query.Collection.filter({ auth_id: targetUserId });
     },
-    enabled: !!user?.id,
+    enabled: !!targetUserId,
   });
 
   const { data: allCollectionItems = [] } = useQuery({
@@ -310,7 +310,7 @@ export default function CollectionFeatureRoot({
   
   const followedCollections = visibleCollections.filter((c) =>
     c.is_public &&
-    c.auth_id !== user?.id &&
+    c.auth_id !== targetUserId &&
     userCollections.some((uc) => uc.collection_id === c.id)
   );
 
@@ -338,8 +338,8 @@ export default function CollectionFeatureRoot({
     !!selectedCollection &&
     !!selectedCollection.is_public &&
     !!selectedCollection.auth_id &&
-    !!user?.id &&
-    selectedCollection.auth_id !== user.id;
+    !!targetUserId &&
+    selectedCollection.auth_id !== targetUserId;
 
   useEffect(() => {
     if (!shouldUseSelectedOwnerTheme) return;
@@ -545,7 +545,7 @@ export default function CollectionFeatureRoot({
   useEffect(() => {
     const backgroundSourceProfile = shouldUseSelectedOwnerTheme
       ? selectedCollectionOwnerProfile
-      : user;
+      : targetUser;
 
     if (backgroundSourceProfile?.background_color) {
       setAverageColor(backgroundSourceProfile.background_color);
@@ -560,8 +560,8 @@ export default function CollectionFeatureRoot({
     shouldUseSelectedOwnerTheme,
     selectedCollectionOwnerProfile?.background_color,
     selectedCollectionOwnerProfile?.background_image_url,
-    user?.background_image_url,
-    user?.background_color,
+    targetUser?.background_image_url,
+    targetUser?.background_color,
   ]);
 
   const handleShowHint = (genus) => {
@@ -606,13 +606,13 @@ export default function CollectionFeatureRoot({
   const activeBackgroundColor = isQuestCollectionView ? null : averageColor;
   const pageShellBackgroundStyle = user?.background_image_url
     ? {
-      backgroundImage: `url(${user.background_image_url})`,
+      backgroundImage: `url(${targetUser.background_image_url})`,
       backgroundSize: "cover",
       backgroundPosition: "center",
     }
-    : user?.background_color
+    : targetUser?.background_color
       ? {
-        background: `linear-gradient(160deg, ${getRgbaFromRgb(user.background_color, 1)} 0%, ${getRgbaFromRgb(user.background_color, 0.55)} 100%)`,
+        background: `linear-gradient(160deg, ${getRgbaFromRgb(targetUser.background_color, 1)} 0%, ${getRgbaFromRgb(targetUser.background_color, 0.55)} 100%)`,
       }
       : {
         background: "radial-gradient(circle at top, rgb(167, 243, 208) 0%, rgb(22, 101, 52) 60%, rgb(10, 30, 18) 100%)",
@@ -623,14 +623,14 @@ export default function CollectionFeatureRoot({
     ? Math.round((heroStats.discovered / heroStats.total) * 100)
     : 0;
 
-  const ownerName = user?.display_name || user?.full_name || "Dein";
+  const ownerName = targetUser?.display_name || targetUser?.full_name || "Dein";
   const heroTitle = selectedCollection
     ? selectedCollection.title
     : ownerName + "'s Floralog";
   const listTopFadePx = 12;
   const listBottomFadePx = 18;
   const isOwnerOfSelected =
-    !!selectedCollection && !!user?.id && selectedCollection.auth_id === user.id;
+    !!selectedCollection && !!targetUserId && selectedCollection.auth_id === targetUserId;
   const userCollectionLinkForSelected = selectedCollection
     ? userCollections.find((uc) => uc.collection_id === selectedCollection.id)
     : null;
@@ -682,7 +682,7 @@ export default function CollectionFeatureRoot({
       if (isDiscovered) discoveredRequired += 1;
     });
 
-    const isOwnCollection = !!user?.id && c.auth_id === user.id;
+    const isOwnCollection = !!targetUserId && c.auth_id === targetUserId;
     const userCollectionLink = userCollections.find((uc) => uc.collection_id === c.id) || null;
     const isFollowing = !!userCollectionLink && !isOwnCollection;
 
@@ -745,6 +745,7 @@ export default function CollectionFeatureRoot({
   };
 
   const handlePublicCollectionFollowToggle = (collectionEntry) => {
+    if (readOnly) return;
     if (collectionEntry.isFollowing && collectionEntry.userCollectionLink) {
       unfollowMutation.mutate(collectionEntry.userCollectionLink.id);
       return;
@@ -773,12 +774,12 @@ export default function CollectionFeatureRoot({
           {!embedded && (
             <div
               className="absolute inset-0"
-              style={user?.background_image_url ? {
-                backgroundImage: `linear-gradient(180deg, rgba(19,37,24,0.42) 0%, rgba(12,20,15,0.66) 100%), url(${user.background_image_url})`,
+              style={targetUser?.background_image_url ? {
+                backgroundImage: `linear-gradient(180deg, rgba(19,37,24,0.42) 0%, rgba(12,20,15,0.66) 100%), url(${targetUser.background_image_url})`,
                 backgroundSize: "cover",
                 backgroundPosition: "center",
-              } : user?.background_color ? {
-                background: `linear-gradient(180deg, ${getRgbaFromRgb(user.background_color, 0.28)} 0%, rgba(14, 22, 16, 0.74) 100%)`,
+              } : targetUser?.background_color ? {
+                background: `linear-gradient(180deg, ${getRgbaFromRgb(targetUser.background_color, 0.28)} 0%, rgba(14, 22, 16, 0.74) 100%)`,
               } : {
                 background: "linear-gradient(180deg, rgba(126, 171, 98, 0.45) 0%, rgba(10, 22, 15, 0.78) 100%)",
               }}
@@ -839,10 +840,13 @@ export default function CollectionFeatureRoot({
               onOpenCollection={handleOpenPublicCollection}
               onToggleFollow={handlePublicCollectionFollowToggle}
               isCollectionTogglePending={isCollectionTogglePending}
-              onCreateCollection={() => navigate("/CollectionEditor")}
+              onCreateCollection={() => {
+                if (!readOnly) navigate("/CollectionEditor");
+              }}
             />
           ) : (
             <CollectionScreen
+              readOnly={readOnly}
               isQuestCollectionView={isQuestCollectionView}
               ownedCollections={ownedCollections}
               followedCollections={followedCollections}
@@ -850,7 +854,9 @@ export default function CollectionFeatureRoot({
               selectedCollectionId={selectedCollectionId}
               onCollectionChipSelect={handleCollectionChipSelect}
               isLightUi={isLightUi}
-              onCreateCollection={() => navigate("/CollectionEditor")}
+              onCreateCollection={() => {
+                if (!readOnly) navigate("/CollectionEditor");
+              }}
               isHeroSegmentOpen={isHeroSegmentOpen}
               heroTitle={heroTitle}
               selectedCollection={selectedCollection}
@@ -859,8 +865,10 @@ export default function CollectionFeatureRoot({
               userCollectionLinkForSelected={userCollectionLinkForSelected}
               onUnfollow={(userCollectionId) => unfollowMutation.mutate(userCollectionId)}
               onFollow={(collectionId) => followMutation.mutate(collectionId)}
-              isFollowLoading={followMutation.isPending || unfollowMutation.isPending}
-              onEditCollection={(collectionId) => navigate("/CollectionEditor?id=" + collectionId)}
+              isFollowLoading={!readOnly && (followMutation.isPending || unfollowMutation.isPending)}
+              onEditCollection={(collectionId) => {
+                if (!readOnly) navigate("/CollectionEditor?id=" + collectionId);
+              }}
               heroStats={heroStats}
               heroProgressPercent={heroProgressPercent}
               activeCategory={activeCategory}
@@ -899,7 +907,7 @@ export default function CollectionFeatureRoot({
               onShowHint={handleShowHint}
               userDiscoveries={userDiscoveries}
               plants={plants}
-              currentUser={currentUser}
+              currentUser={user}
               uiTheme={uiTheme}
             />
           )}

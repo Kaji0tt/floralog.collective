@@ -5,6 +5,7 @@ import { TileVisualizationPanel } from "@/components/admin/TileVisualizationPane
 export default function HomeMapFeatureRoot({
   isLightUi,
   isResolvingLocation,
+  isLoadingDiscoveries,
   hasLiveCachedLocation,
   zoneMapError,
   onRequestLocation,
@@ -48,6 +49,17 @@ export default function HomeMapFeatureRoot({
           }`}>
             <Loader2 className="w-4 h-4 animate-spin" />
             Live-Standort wird geladen...
+          </div>
+        </div>
+      ) : isLoadingDiscoveries ? (
+        <div className="absolute inset-0 flex items-center justify-center px-4">
+          <div className={`rounded-2xl border px-4 py-3 text-sm flex items-center gap-2 ${
+            isLightUi
+              ? "border-[#c8ac62]/50 bg-white/70 text-stone-800"
+              : "border-[#f0e5a5]/35 bg-black/55 text-stone-100"
+          }`}>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Lokale Funde werden geladen...
           </div>
         </div>
       ) : !hasLiveCachedLocation ? (

@@ -133,7 +133,7 @@ function HomeContent() {
     setScanFeedback(value);
   };
   const [activePanel, setActivePanel] = useState(null);
-  const [shopOpenCategory, setShopOpenCategory] = useState("fertilizer");
+  const [shopOpenCategory, setShopOpenCategory] = useState("backgrounds");
   const [careActionMessage, setCareActionMessage] = useState(null);
   const [careGainFeedback, setCareGainFeedback] = useState(null);
   const [embeddedHeaderMeta, setEmbeddedHeaderMeta] = useState(null);
@@ -329,7 +329,11 @@ function HomeContent() {
     refetchOnWindowFocus: false,
   });
 
-  const { data: allDiscoveries = [] } = useQuery({
+  const {
+    data: allDiscoveries = [],
+    isLoading: isLoadingAllDiscoveries,
+    refetch: refetchAllDiscoveries,
+  } = useQuery({
     queryKey: ['allDiscoveries'],
     queryFn: () => Query.UserPlantDiscovery.list('-created_date'),
     initialData: [],
@@ -346,12 +350,16 @@ function HomeContent() {
     refetchOnWindowFocus: true,
   });
 
-  const { data: allUsers = [] } = useQuery({
+  const {
+    data: allUsers = [],
+    isLoading: isLoadingAllUsers,
+    refetch: refetchAllUsers,
+  } = useQuery({
     queryKey: ['allUsers'],
     queryFn: () => Query.PublicProfile.list(),
     initialData: [],
     staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
   });
 
   const { data: publicCollections = [] } = useQuery({
@@ -1378,12 +1386,35 @@ function HomeContent() {
   const cachedLocation = getCachedLocation({ maxAgeMs: LOCATION_CACHE_MAX_AGE_MS });
   const hasLiveCachedLocation = Number.isFinite(cachedLocation?.lat) && Number.isFinite(cachedLocation?.lng);
   const currentUserEmailLower = (user?.email || "").toLowerCase();
-  const isLocalTrackingEnabled = (profile) => {
-    if (!profile) return false;
-    if (profile.local_tracking === false) return false;
-    if (profile.local_tracking === true) return true;
-    return profile.weekly_tracking !== false;
-  };
+  const [isMapDiscoveryDataLoading, setIsMapDiscoveryDataLoading] = useState(false);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const loadMapDiscoveryData = async () => {
+      if (activePanel !== "map" || !hasLiveCachedLocation) return;
+
+      setIsMapDiscoveryDataLoading(true);
+      try {
+        await Promise.all([
+          refetchAllDiscoveries(),
+          refetchAllUsers(),
+        ]);
+      } finally {
+        if (!isCancelled) {
+          setIsMapDiscoveryDataLoading(false);
+        }
+      }
+    };
+
+    loadMapDiscoveryData();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [activePanel, hasLiveCachedLocation, refetchAllDiscoveries, refetchAllUsers]);
+
+  const isMapDataPending = isMapDiscoveryDataLoading || isLoadingAllDiscoveries || isLoadingAllUsers;
   const likedDiscoveryIdSet = new Set(
     (scanLikes || [])
       .filter((like) => like?.discovery_id && like?.liked_by?.toLowerCase() === currentUserEmailLower)
@@ -1413,10 +1444,6 @@ function HomeContent() {
             const candidateEmail = candidate.user_email.toLowerCase();
             return candidateEmail === entryEmailUser || candidateEmail === entryEmailCreatedBy;
           });
-
-          if (!isOwnDiscovery && !isLocalTrackingEnabled(discoveryUser)) {
-            return null;
-          }
 
           const scannerNameFromProfile =
             discoveryUser?.display_name ||
@@ -1818,7 +1845,7 @@ function HomeContent() {
     return nextLiked;
   };
 
-  const openShop = (category = "fertilizer") => {
+  const openShop = (category = "backgrounds") => {
     setShopOpenCategory(category);
     setActivePanel("shop");
     setShowHealthStatsPanel(false);
@@ -1860,8 +1887,8 @@ function HomeContent() {
   };
 
   const handleOpenFertilizerShop = () => {
-    openShop("fertilizer");
-    setCareActionMessage("Keine Duenger im Inventar. Kaufe zuerst im Shop.");
+    openShop("backgrounds");
+    setCareActionMessage("Der Shop zeigt aktuell freigeschaltete Profil-Anpassungen.");
   };
 
   return (
@@ -2088,8 +2115,9 @@ function HomeContent() {
                   <ShopFeatureRoot
                     embedded
                     authId={user?.id}
+                    currentUser={user}
                     onHeaderMetaChange={setEmbeddedHeaderMeta}
-                    playerSeeds={playerSeeds}
+                    onUserUpdated={(freshUser) => setUser(freshUser)}
                     initialCategory={shopOpenCategory}
                   />
                 ) : activePanel === "settings" ? (
@@ -2101,6 +2129,7 @@ function HomeContent() {
                   <HomeMapFeatureRoot
                     isLightUi={isLightUi}
                     isResolvingLocation={isResolvingHeroMapLocation}
+                    isLoadingDiscoveries={isMapDataPending}
                     hasLiveCachedLocation={hasLiveCachedLocation}
                     zoneMapError={zoneMapError}
                     onRequestLocation={handleOpenHeroZoneMap}
@@ -2314,7 +2343,7 @@ function HomeContent() {
 
                       <button
                         type="button"
-                        onClick={() => openShop("all")}
+                        onClick={() => openShop("backgrounds")}
                         aria-label="Shop öffnen"
                         className={`absolute right-0 md:right-2 top-5 md:top-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${
                           isLightUi
@@ -2412,7 +2441,7 @@ function HomeContent() {
                       <button
                         key={slotKey}
                         type="button"
-                        onClick={() => openShop("accessory")}
+                        onClick={() => openShop("titles")}
                         className={`h-full w-full rounded-xl border flex items-center justify-center transition-colors ${
                           isLightUi
                             ? "border-[#c8ac62]/55 bg-white/52 text-stone-700 hover:bg-white/68"

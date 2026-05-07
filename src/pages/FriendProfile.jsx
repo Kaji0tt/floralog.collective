@@ -7,7 +7,7 @@ import { sendFriendRequest } from "@/api/friendService";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { useFriendData } from "@/components/friends/hooks/useFriendData";
 import FriendExperienceShell from "@/components/friends/FriendExperienceShell";
-import FriendCollectionPanel from "@/components/friends/FriendCollectionPanel";
+import CollectionFeatureRoot from "@/components/collection/CollectionFeatureRoot";
 import FriendAchievementsPanel from "@/components/friends/FriendAchievementsPanel";
 import FriendFriendsPanel from "@/components/friends/FriendFriendsPanel";
 import { computeOverallPlantHealth, computePlantHealthState } from "@/lib/robotPlantEconomy";
@@ -417,10 +417,10 @@ export default function FriendProfile() {
       onTabChange={handleTabChange}
     >
       {activeTab === "collection" ? (
-        <FriendCollectionPanel
-          friendEmail={friendEmail}
-          friendUser={friendUser}
-          averageColor={averageColor}
+        <CollectionFeatureRoot
+          embedded
+          profileUser={friendUser}
+          readOnly
         />
       ) : activeTab === "achievements" ? (
         <FriendAchievementsPanel friendUser={friendUser} />
