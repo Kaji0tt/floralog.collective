@@ -20,6 +20,9 @@ const THEME_MAP_LABELS = {
 const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "";
 const TILE_HALF_SIZE_M = 50;
 const CLAIM_PULSE_CYCLE_MS = 2600;
+const DISCOVERY_SINGLE_RADIUS_PX = 20;
+const DISCOVERY_BASIC_RADIUS_PX = 11;
+const CLUSTER_EXTRA_PADDING_PX = 2;
  
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -298,74 +301,148 @@ const createDiscoveryMarkerElement = (point) => {
   return markerEl;
 };
 
-const createDiscoveryClusterMarkerElement = (point, scanCount) => {
+const createDiscoveryClusterMarkerElement = (scanCount) => {
   const markerEl = document.createElement("button");
   markerEl.type = "button";
-  markerEl.setAttribute("aria-label", `${scanCount} Scans von ${point?.scannerDisplayName || point?.scannerName || "Unbekannt"}`);
+  markerEl.setAttribute("aria-label", `${scanCount} Scans gebuendelt`);
   markerEl.style.padding = "0";
   markerEl.style.border = "0";
   markerEl.style.background = "transparent";
   markerEl.style.cursor = "pointer";
+  markerEl.style.position = "relative";
 
-  const base = createDiscoveryMarkerElement(point);
-  base.style.width = "46px";
-  base.style.height = "46px";
-  base.style.transform = "scale(1.08)";
-  base.style.boxShadow = "0 8px 16px rgba(0,0,0,0.42)";
+  const base = document.createElement("span");
+  base.style.display = "inline-flex";
+  base.style.alignItems = "center";
+  base.style.justifyContent = "center";
+  base.style.width = "38px";
+  base.style.height = "38px";
+  base.style.borderRadius = "999px";
+  base.style.border = "1px solid rgba(240,229,165,0.52)";
+  base.style.background = "radial-gradient(circle at 35% 30%, rgba(120,120,120,0.45), rgba(24,24,24,0.78))";
+  base.style.boxShadow = "0 4px 10px rgba(0,0,0,0.28)";
+  base.style.color = "#f8fafc";
+  base.style.fontSize = "12px";
+  base.style.fontWeight = "700";
+  base.textContent = String(scanCount);
   markerEl.appendChild(base);
 
-  const badge = document.createElement("span");
-  badge.textContent = String(scanCount);
-  badge.style.position = "absolute";
-  badge.style.right = "-3px";
-  badge.style.bottom = "-4px";
-  badge.style.minWidth = "20px";
-  badge.style.height = "20px";
-  badge.style.padding = "0 5px";
-  badge.style.borderRadius = "999px";
-  badge.style.display = "inline-flex";
-  badge.style.alignItems = "center";
-  badge.style.justifyContent = "center";
-  badge.style.fontSize = "11px";
-  badge.style.fontWeight = "700";
-  badge.style.color = "#f8fafc";
-  badge.style.border = "1px solid rgba(240,229,165,0.6)";
-  badge.style.background = "rgba(17,24,39,0.84)";
-  badge.style.boxShadow = "0 2px 8px rgba(0,0,0,0.35)";
-  markerEl.style.position = "relative";
-  markerEl.appendChild(badge);
+  const glyph = document.createElement("span");
+  glyph.textContent = "●";
+  glyph.style.position = "absolute";
+  glyph.style.right = "-1px";
+  glyph.style.bottom = "-2px";
+  glyph.style.fontSize = "8px";
+  glyph.style.color = "rgba(240,229,165,0.88)";
+  markerEl.appendChild(glyph);
 
   return markerEl;
 };
 
-const buildDiscoveryRenderGroups = (points = [], zoom = 0) => {
-  const shouldAggregate = Number(zoom) < 16;
-  if (!shouldAggregate) {
-    return points.map((point) => ({ type: "single", point, scanCount: 1 }));
+const getDiscoveryFootprintPx = (point) => {
+  const hasCustomLogo = Boolean(
+    String(point?.scannerLogoBorderUrl || "").trim() ||
+    String(point?.scannerLogoPlantUrl || "").trim() ||
+    String(point?.scannerLogoFaceUrl || "").trim()
+  );
+  return hasCustomLogo ? DISCOVERY_SINGLE_RADIUS_PX : DISCOVERY_BASIC_RADIUS_PX;
+};
+
+const buildDiscoveryRenderGroups = (points = [], map) => {
+  if (!map || points.length === 0) return [];
+
+  const projected = points
+    .map((point, index) => {
+      const lng = Number(point?.lng);
+      const lat = Number(point?.lat);
+      if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null;
+      const projectedPoint = map.project([lng, lat]);
+      return {
+        index,
+        point,
+        lng,
+        lat,
+        x: projectedPoint.x,
+        y: projectedPoint.y,
+        radius: getDiscoveryFootprintPx(point),
+      };
+    })
+    .filter(Boolean);
+
+  if (projected.length === 0) return [];
+
+  const parent = projected.map((_, idx) => idx);
+
+  const find = (idx) => {
+    let cursor = idx;
+    while (parent[cursor] !== cursor) {
+      parent[cursor] = parent[parent[cursor]];
+      cursor = parent[cursor];
+    }
+    return cursor;
+  };
+
+  const union = (a, b) => {
+    const rootA = find(a);
+    const rootB = find(b);
+    if (rootA === rootB) return;
+    parent[rootB] = rootA;
+  };
+
+  for (let i = 0; i < projected.length; i += 1) {
+    const a = projected[i];
+    for (let j = i + 1; j < projected.length; j += 1) {
+      const b = projected[j];
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      const distance = Math.hypot(dx, dy);
+      const overlapThreshold = a.radius + b.radius + CLUSTER_EXTRA_PADDING_PX;
+      if (distance <= overlapThreshold) {
+        union(i, j);
+      }
+    }
   }
 
-  const groups = new Map();
-  points.forEach((point) => {
-    const authKey = String(point?.scannerAuthId || "unknown");
-    const latKey = Number(point?.lat).toFixed(5);
-    const lngKey = Number(point?.lng).toFixed(5);
-    const key = `${authKey}:${latKey}:${lngKey}`;
-
-    if (!groups.has(key)) {
-      groups.set(key, {
-        type: "single",
-        point,
-        scanCount: 1,
-      });
-      return;
+  const grouped = new Map();
+  projected.forEach((entry, idx) => {
+    const root = find(idx);
+    if (!grouped.has(root)) {
+      grouped.set(root, []);
     }
-
-    const current = groups.get(key);
-    current.scanCount += 1;
-    current.type = "cluster";
+    grouped.get(root).push(entry);
   });
 
-  return Array.from(groups.values());
+  return Array.from(grouped.values()).map((entries) => {
+    if (entries.length === 1) {
+      return {
+        type: "single",
+        point: entries[0].point,
+        scanCount: 1,
+      };
+    }
+
+    const centroid = entries.reduce(
+      (acc, item) => {
+        acc.lng += item.lng;
+        acc.lat += item.lat;
+        return acc;
+      },
+      { lng: 0, lat: 0 }
+    );
+
+    const divisor = entries.length;
+    const representative = entries[0].point;
+
+    return {
+      type: "cluster",
+      point: {
+        ...representative,
+        lng: centroid.lng / divisor,
+        lat: centroid.lat / divisor,
+      },
+      scanCount: entries.length,
+    };
+  });
 };
 
 const createClaimLogoMarkerElement = (claim) => {
@@ -763,7 +840,12 @@ export default function MapboxZoneMap({
         .filter((claim) => Number.isFinite(claim?.centerLat) && Number.isFinite(claim?.centerLng))
         .forEach((claim) => {
           const claimMarkerElement = createClaimLogoMarkerElement(claim);
-          const claimMarker = new mapboxgl.Marker({ element: claimMarkerElement, anchor: "center" })
+          const claimMarker = new mapboxgl.Marker({
+            element: claimMarkerElement,
+            anchor: "center",
+            pitchAlignment: "map",
+            rotationAlignment: "map",
+          })
             .setLngLat([Number(claim.centerLng), Number(claim.centerLat)])
             .addTo(map);
 
@@ -775,7 +857,7 @@ export default function MapboxZoneMap({
 
       const renderGroups = buildDiscoveryRenderGroups(
         discoveryPoints.filter((point) => Number.isFinite(point?.lat) && Number.isFinite(point?.lng)),
-        map.getZoom(),
+        map,
       );
 
       renderGroups.forEach((group) => {
@@ -804,7 +886,7 @@ export default function MapboxZoneMap({
         };
 
         const markerElement = group.type === "cluster"
-          ? createDiscoveryClusterMarkerElement(point, group.scanCount)
+          ? createDiscoveryClusterMarkerElement(group.scanCount)
           : createDiscoveryMarkerElement(point);
 
         markerElement.addEventListener("click", (domEvent) => {
@@ -830,7 +912,12 @@ export default function MapboxZoneMap({
           });
         });
 
-        const marker = new mapboxgl.Marker({ element: markerElement, anchor: "center" })
+        const marker = new mapboxgl.Marker({
+          element: markerElement,
+          anchor: "center",
+          pitchAlignment: "map",
+          rotationAlignment: "map",
+        })
           .setLngLat([lng, lat])
           .addTo(map);
         discoveryMarkersRef.current.push(marker);
@@ -1112,14 +1199,20 @@ export default function MapboxZoneMap({
     }
 
 
-    const handleZoomEnd = () => {
+    const handleViewChangeEnd = () => {
       renderDynamicMarkers();
     };
 
-    map.on("zoomend", handleZoomEnd);
+    map.on("zoomend", handleViewChangeEnd);
+    map.on("moveend", handleViewChangeEnd);
+    map.on("pitchend", handleViewChangeEnd);
+    map.on("rotateend", handleViewChangeEnd);
 
     return () => {
-      map.off("zoomend", handleZoomEnd);
+      map.off("zoomend", handleViewChangeEnd);
+      map.off("moveend", handleViewChangeEnd);
+      map.off("pitchend", handleViewChangeEnd);
+      map.off("rotateend", handleViewChangeEnd);
     };
   }, [
     allowDiscoveryLike,
