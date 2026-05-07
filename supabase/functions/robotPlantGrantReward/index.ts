@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import proj4 from "https://esm.sh/proj4@2.15.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -61,8 +62,29 @@ type RewardBreakdown = {
   careMultiplier: number;
   streakMultiplier: number;
   firstScanOfDayMultiplier: number;
+  preTileClaimReward?: number;
+  tileClaimMultiplier?: number;
+  claimedTilesCount?: number;
   preStreakReward: number;
   finalReward: number;
+};
+
+type TileClaimRow = {
+  tile_x: number;
+  tile_y: number;
+  owner_auth_id: string;
+  owner_scan_count: number;
+  claimed_at: string;
+  updated_at: string;
+};
+
+type TileClaimResolution = {
+  tileX: number;
+  tileY: number;
+  ownerAuthId: string | null;
+  ownerScanCount: number;
+  claimedTilesCountForAuth: number;
+  tileClaimMultiplier: number;
 };
 
 type ScanRewardContext = {
@@ -125,6 +147,11 @@ const NORMALIZED_RARITY_MULTIPLIERS: Record<string, number> = {
 
 const EARTH_RADIUS_M = 6371000;
 const SCAN_LIKE_CARE_GAIN_DAILY_CAP = 5;
+const CLAIM_THRESHOLD = 4;
+const TILE_SIZE_M = 100;
+const EPSG_3035 = "+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +datum=ETRS89 +units=m +no_defs +type=crs";
+
+proj4.defs("EPSG:3035", EPSG_3035);
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
@@ -309,6 +336,151 @@ const getDistanceBetweenCoordinatesM = (
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
   return EARTH_RADIUS_M * c;
+};
+
+const getTileFromLatLng = (lat: number, lng: number): { tileX: number; tileY: number } => {
+  const [x, y] = proj4("EPSG:4326", "EPSG:3035", [lng, lat]);
+  return {
+    tileX: Math.floor(Number(x) / TILE_SIZE_M),
+    tileY: Math.floor(Number(y) / TILE_SIZE_M),
+  };
+};
+
+const syncClaimedTileCountForUser = async (
+  adminClient: ReturnType<typeof createClient>,
+  authId: string,
+): Promise<number> => {
+  const { count } = await adminClient
+    .from("TileClaim")
+    .select("tile_x", { count: "exact", head: true })
+    .eq("owner_auth_id", authId);
+
+  const claimedCount = Math.max(0, Number(count ?? 0));
+
+  await adminClient
+    .from("RobotPlant")
+    .update({ claimed_tiles_count: claimedCount })
+    .eq("auth_id", authId);
+
+  return claimedCount;
+};
+
+const resolveTileClaimForScan = async (
+  adminClient: ReturnType<typeof createClient>,
+  authId: string,
+  discoveryLocation: string | null | undefined,
+): Promise<TileClaimResolution | null> => {
+  const discoveryCoords = parseDiscoveryLocation(discoveryLocation);
+  if (!discoveryCoords) return null;
+
+  const { tileX, tileY } = getTileFromLatLng(discoveryCoords.lat, discoveryCoords.lng);
+
+  const { data: existingClaim } = await adminClient
+    .from("TileClaim")
+    .select("tile_x, tile_y, owner_auth_id, owner_scan_count, claimed_at, updated_at")
+    .eq("tile_x", tileX)
+    .eq("tile_y", tileY)
+    .maybeSingle<TileClaimRow>();
+
+  const { data: allDiscoveries, error: allDiscoveriesError } = await adminClient
+    .from("UserPlantDiscovery")
+    .select("auth_id, discovery_location")
+    .not("discovery_location", "is", null)
+    .not("auth_id", "is", null);
+
+  if (allDiscoveriesError) {
+    throw new Error(`Failed to load discoveries for tile claim aggregation: ${allDiscoveriesError.message}`);
+  }
+
+  const scanCountByAuth = new Map<string, number>();
+
+  for (const row of allDiscoveries || []) {
+    const coords = parseDiscoveryLocation(String(row.discovery_location || ""));
+    if (!coords) continue;
+    const rowTile = getTileFromLatLng(coords.lat, coords.lng);
+    if (rowTile.tileX !== tileX || rowTile.tileY !== tileY) continue;
+
+    const rowAuthId = String(row.auth_id || "").trim();
+    if (!isUuid(rowAuthId)) continue;
+    scanCountByAuth.set(rowAuthId, (scanCountByAuth.get(rowAuthId) || 0) + 1);
+  }
+
+  const rankedCounts = Array.from(scanCountByAuth.entries())
+    .sort((left, right) => {
+      if (right[1] !== left[1]) return right[1] - left[1];
+      return left[0].localeCompare(right[0]);
+    });
+
+  const previousOwnerAuthId = existingClaim?.owner_auth_id || null;
+  const previousOwnerCount = previousOwnerAuthId ? (scanCountByAuth.get(previousOwnerAuthId) || 0) : 0;
+
+  let nextOwnerAuthId: string | null = previousOwnerAuthId;
+  let nextOwnerScanCount = previousOwnerCount;
+
+  if (!previousOwnerAuthId) {
+    const topCount = rankedCounts[0]?.[1] || 0;
+    if (topCount >= CLAIM_THRESHOLD) {
+      const topOwners = rankedCounts.filter((entry) => entry[1] === topCount);
+      if (topOwners.length === 1) {
+        nextOwnerAuthId = topOwners[0][0];
+        nextOwnerScanCount = topOwners[0][1];
+      }
+    }
+  } else {
+    const bestChallenger = rankedCounts.find((entry) => entry[0] !== previousOwnerAuthId) || null;
+    if (bestChallenger && bestChallenger[1] >= CLAIM_THRESHOLD && bestChallenger[1] > previousOwnerCount) {
+      nextOwnerAuthId = bestChallenger[0];
+      nextOwnerScanCount = bestChallenger[1];
+    } else {
+      nextOwnerScanCount = previousOwnerCount;
+    }
+  }
+
+  if (nextOwnerAuthId) {
+    await adminClient
+      .from("TileClaim")
+      .upsert(
+        {
+          tile_x: tileX,
+          tile_y: tileY,
+          owner_auth_id: nextOwnerAuthId,
+          owner_scan_count: nextOwnerScanCount,
+          claimed_at: existingClaim?.claimed_at || new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "tile_x,tile_y", ignoreDuplicates: false },
+      );
+  } else if (existingClaim) {
+    await adminClient
+      .from("TileClaim")
+      .delete()
+      .eq("tile_x", tileX)
+      .eq("tile_y", tileY);
+  }
+
+  const ownersToSync = new Set<string>();
+  ownersToSync.add(authId);
+  if (previousOwnerAuthId) ownersToSync.add(previousOwnerAuthId);
+  if (nextOwnerAuthId) ownersToSync.add(nextOwnerAuthId);
+
+  let claimedTilesCountForAuth = 0;
+  for (const ownerAuthId of ownersToSync) {
+    const syncedCount = await syncClaimedTileCountForUser(adminClient, ownerAuthId);
+    if (ownerAuthId === authId) {
+      claimedTilesCountForAuth = syncedCount;
+    }
+  }
+
+  const tileClaimMultiplier = 1 + claimedTilesCountForAuth * 0.1;
+
+  return {
+    tileX,
+    tileY,
+    ownerAuthId: nextOwnerAuthId,
+    ownerScanCount: Math.max(0, Number(nextOwnerScanCount || 0)),
+    claimedTilesCountForAuth,
+    tileClaimMultiplier,
+  };
 };
 
 const computeScanRewardBreakdown = ({
@@ -709,6 +881,7 @@ Deno.serve(async (req) => {
     let effectiveDataQualityDelta = dataQualityDelta;
     let effectiveCareDelta = careDelta;
     let rewardDetails: RewardBreakdown | null = null;
+    let tileClaimResolution: TileClaimResolution | null = null;
     let currentRobotPlantState: RobotPlantStateRow | null = null;
 
     let scanContext: ScanRewardContext | null = null;
@@ -726,7 +899,26 @@ Deno.serve(async (req) => {
 
       effectiveEventSource = scanContext.eventSource;
       rewardDetails = scanContext.rewardDetails;
-      effectiveAmount = rewardDetails.finalReward;
+      tileClaimResolution = await resolveTileClaimForScan(
+        adminClient,
+        authId,
+        scanContext.discovery.discovery_location,
+      );
+
+      const baseFinalReward = Math.max(1, Math.round(Number(rewardDetails.finalReward || 0)));
+      const tileClaimMultiplier = Number(tileClaimResolution?.tileClaimMultiplier || 1);
+      const claimedTilesCount = Math.max(0, Number(tileClaimResolution?.claimedTilesCountForAuth || 0));
+      const multipliedFinalReward = Math.max(1, Math.round(baseFinalReward * tileClaimMultiplier));
+
+      rewardDetails = {
+        ...rewardDetails,
+        preTileClaimReward: baseFinalReward,
+        tileClaimMultiplier: roundMultiplier(tileClaimMultiplier),
+        claimedTilesCount,
+        finalReward: multipliedFinalReward,
+      };
+
+      effectiveAmount = multipliedFinalReward;
       effectiveEnergyDelta = scanContext.derivedEnergyDelta;
       effectiveDataQualityDelta = scanContext.derivedDataQualityDelta;
       effectiveCareDelta = 0;
@@ -739,6 +931,14 @@ Deno.serve(async (req) => {
         derived_energy_delta: effectiveEnergyDelta,
         derived_data_quality_delta: effectiveDataQualityDelta,
         zone_scan_applied: scanContext.matchedZoneId,
+        tile_claim: tileClaimResolution
+          ? {
+              tile_x: tileClaimResolution.tileX,
+              tile_y: tileClaimResolution.tileY,
+              owner_auth_id: tileClaimResolution.ownerAuthId,
+              owner_scan_count: tileClaimResolution.ownerScanCount,
+            }
+          : null,
       };
     } else if (!Number.isFinite(effectiveAmount) || effectiveAmount < 0) {
       return jsonResponse({ error: "amount must be a number >= 0" }, 400);
@@ -805,6 +1005,13 @@ Deno.serve(async (req) => {
 
     const result = Array.isArray(data) ? data[0] : data;
 
+    if (tileClaimResolution) {
+      await syncClaimedTileCountForUser(adminClient, authId);
+      if (tileClaimResolution.ownerAuthId && tileClaimResolution.ownerAuthId !== authId) {
+        await syncClaimedTileCountForUser(adminClient, tileClaimResolution.ownerAuthId);
+      }
+    }
+
     if (scanContext?.matchedZoneId && Number.isFinite(scanContext.nextZoneMultiplier)) {
       const { error: zoneUpdateError } = await adminClient
         .from("RobotPlantZone")
@@ -821,6 +1028,7 @@ Deno.serve(async (req) => {
         ok: true,
         result,
         rewardDetails,
+        tileClaim: tileClaimResolution,
         eventSource: effectiveEventSource,
         energyDelta: Math.round(effectiveEnergyDelta),
         dataQualityDelta: Math.round(effectiveDataQualityDelta),

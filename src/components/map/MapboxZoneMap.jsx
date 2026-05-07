@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { hexToFilter } from "@/lib/hexToFilter";
@@ -18,6 +18,7 @@ const THEME_MAP_LABELS = {
 };
 
 const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "";
+const TILE_HALF_SIZE_M = 50;
 
 const escapeHtml = (value) =>
   String(value ?? "")
@@ -225,11 +226,153 @@ const toCirclePolygon = ({ lat, lng, radiusM, points = 48 }) => {
   return coordinates;
 };
 
+const getLngLatOffsetByMeters = (lat, lng, offsetXMeter, offsetYMeter) => {
+  const latMetersPerDegree = 111320;
+  const lngMetersPerDegree = 111320 * Math.cos((lat * Math.PI) / 180);
+  const safeLngMetersPerDegree = Math.abs(lngMetersPerDegree) < 1e-6 ? 1e-6 : lngMetersPerDegree;
+
+  return {
+    lat: lat + offsetYMeter / latMetersPerDegree,
+    lng: lng + offsetXMeter / safeLngMetersPerDegree,
+  };
+};
+
+const buildApproxTilePolygon = (centerLat, centerLng) => {
+  const nw = getLngLatOffsetByMeters(centerLat, centerLng, -TILE_HALF_SIZE_M, TILE_HALF_SIZE_M);
+  const ne = getLngLatOffsetByMeters(centerLat, centerLng, TILE_HALF_SIZE_M, TILE_HALF_SIZE_M);
+  const se = getLngLatOffsetByMeters(centerLat, centerLng, TILE_HALF_SIZE_M, -TILE_HALF_SIZE_M);
+  const sw = getLngLatOffsetByMeters(centerLat, centerLng, -TILE_HALF_SIZE_M, -TILE_HALF_SIZE_M);
+
+  return [
+    [nw.lng, nw.lat],
+    [ne.lng, ne.lat],
+    [se.lng, se.lat],
+    [sw.lng, sw.lat],
+    [nw.lng, nw.lat],
+  ];
+};
+
+const buildClaimOverlayData = (claimedTiles = []) => {
+  const claimByTileKey = new Map();
+  claimedTiles.forEach((claim) => {
+    const tileX = Number(claim?.tileX);
+    const tileY = Number(claim?.tileY);
+    if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) return;
+    claimByTileKey.set(`${tileX}:${tileY}`, claim);
+  });
+
+  const fillFeatures = [];
+  const borderFeatures = [];
+
+  claimedTiles.forEach((claim) => {
+    const tileX = Number(claim?.tileX);
+    const tileY = Number(claim?.tileY);
+    const centerLat = Number(claim?.centerLat);
+    const centerLng = Number(claim?.centerLng);
+    if (!Number.isFinite(tileX) || !Number.isFinite(tileY) || !Number.isFinite(centerLat) || !Number.isFinite(centerLng)) {
+      return;
+    }
+
+    const ownerAuthId = String(claim?.ownerAuthId || "");
+    const ownerName = claim?.ownerName || "Unbekannt";
+    const ownerScanCount = Math.max(0, Number(claim?.ownerScanCount || 0));
+    const ownerBorderColor = String(claim?.ownerBorderColor || "").trim() || "#f0e5a5";
+
+    const polygon = buildApproxTilePolygon(centerLat, centerLng);
+    fillFeatures.push({
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [polygon],
+      },
+      properties: {
+        tileX,
+        tileY,
+        ownerAuthId,
+        ownerName,
+        ownerScanCount,
+        ownerBorderColor,
+      },
+    });
+
+    const tileKey = `${tileX}:${tileY}`;
+    const neighbors = {
+      north: claimByTileKey.get(`${tileX}:${tileY + 1}`),
+      east: claimByTileKey.get(`${tileX + 1}:${tileY}`),
+      south: claimByTileKey.get(`${tileX}:${tileY - 1}`),
+      west: claimByTileKey.get(`${tileX - 1}:${tileY}`),
+    };
+
+    const edges = [
+      { id: `${tileKey}:north`, points: [polygon[0], polygon[1]], neighbor: neighbors.north },
+      { id: `${tileKey}:east`, points: [polygon[1], polygon[2]], neighbor: neighbors.east },
+      { id: `${tileKey}:south`, points: [polygon[2], polygon[3]], neighbor: neighbors.south },
+      { id: `${tileKey}:west`, points: [polygon[3], polygon[0]], neighbor: neighbors.west },
+    ];
+
+    edges.forEach((edge) => {
+      const sameOwnerNeighbor = edge.neighbor && String(edge.neighbor.ownerAuthId || "") === ownerAuthId;
+      if (sameOwnerNeighbor) return;
+
+      borderFeatures.push({
+        type: "Feature",
+        geometry: {
+          type: "LineString",
+          coordinates: edge.points,
+        },
+        properties: {
+          id: edge.id,
+          ownerAuthId,
+          ownerBorderColor,
+          ownerName,
+          ownerScanCount,
+        },
+      });
+    });
+  });
+
+  return {
+    fillFeatureCollection: {
+      type: "FeatureCollection",
+      features: fillFeatures,
+    },
+    borderFeatureCollection: {
+      type: "FeatureCollection",
+      features: borderFeatures,
+    },
+  };
+};
+
+const findClaimForPoint = (point, claimedTiles = []) => {
+  const pointLat = Number(point?.lat);
+  const pointLng = Number(point?.lng);
+  if (!Number.isFinite(pointLat) || !Number.isFinite(pointLng)) return null;
+
+  for (const claim of claimedTiles) {
+    const centerLat = Number(claim?.centerLat);
+    const centerLng = Number(claim?.centerLng);
+    if (!Number.isFinite(centerLat) || !Number.isFinite(centerLng)) continue;
+
+    const latMetersPerDegree = 111320;
+    const lngMetersPerDegree = 111320 * Math.cos((centerLat * Math.PI) / 180);
+    const dx = (pointLng - centerLng) * (Math.abs(lngMetersPerDegree) < 1e-6 ? 1e-6 : lngMetersPerDegree);
+    const dy = (pointLat - centerLat) * latMetersPerDegree;
+
+    if (Math.abs(dx) <= TILE_HALF_SIZE_M && Math.abs(dy) <= TILE_HALF_SIZE_M) {
+      return claim;
+    }
+  }
+
+  return null;
+};
+
 export default function MapboxZoneMap({
   zones = [],
   userLocation = null,
   fallbackCenter = null,
   discoveryPoints = [],
+  claimedTiles = [],
+  currentAuthId = null,
   onTokenError = null,
   onMapReady = null,
   onDiscoveryImageClick = null,
@@ -241,9 +384,14 @@ export default function MapboxZoneMap({
   const mapRef = useRef(null);
   const onTokenErrorRef = useRef(null);
   const discoveryMarkersRef = useRef([]);
+  const claimPulseIntervalRef = useRef(null);
 
   useEffect(() => {
     return () => {
+      if (claimPulseIntervalRef.current) {
+        window.clearInterval(claimPulseIntervalRef.current);
+        claimPulseIntervalRef.current = null;
+      }
       discoveryMarkersRef.current.forEach((marker) => marker.remove());
       discoveryMarkersRef.current = [];
     };
@@ -490,12 +638,115 @@ export default function MapboxZoneMap({
         });
       }
 
+      const claimOverlay = buildClaimOverlayData(claimedTiles);
+      const claimFillSource = map.getSource("hero-claims-fill");
+      if (claimFillSource) {
+        claimFillSource.setData(claimOverlay.fillFeatureCollection);
+      } else {
+        map.addSource("hero-claims-fill", {
+          type: "geojson",
+          data: claimOverlay.fillFeatureCollection,
+        });
+
+        map.addLayer({
+          id: "hero-claims-fill",
+          type: "fill",
+          source: "hero-claims-fill",
+          paint: {
+            "fill-color": ["get", "ownerBorderColor"],
+            "fill-opacity": 0.06,
+          },
+        });
+
+        map.on("click", "hero-claims-fill", (event) => {
+          const feature = event.features?.[0];
+          if (!feature) return;
+          const props = feature.properties || {};
+
+          const ownerName = escapeHtml(props.ownerName || "Unbekannt");
+          const ownerScanCount = Math.max(0, Number(props.ownerScanCount || 0));
+          const ownerBorderColor = props.ownerBorderColor || "#f0e5a5";
+          const tileX = Number(props.tileX);
+          const tileY = Number(props.tileY);
+
+          const popupHtml = `
+            <div style="font-family:sans-serif;min-width:172px;max-width:220px;padding:4px 2px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${ownerBorderColor};flex-shrink:0;"></span>
+                <strong style="font-size:14px;color:#fde68a;">Claimed Tile</strong>
+              </div>
+              <div style="font-size:12px;color:#d6d3d1;line-height:1.55;">
+                <div><span style="color:#86efac;font-weight:600;">Owner:</span> ${ownerName}</div>
+                <div><span style="color:#86efac;font-weight:600;">Scans im Tile:</span> ${ownerScanCount}</div>
+                <div style="color:#a8a29e;margin-top:4px;">Tile ${tileX}/${tileY}</div>
+              </div>
+            </div>
+          `;
+
+          new mapboxgl.Popup({ closeButton: true, maxWidth: "240px", className: "hero-claim-popup" })
+            .setLngLat(event.lngLat)
+            .setHTML(popupHtml)
+            .addTo(map);
+        });
+
+        map.on("mouseenter", "hero-claims-fill", () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
+
+        map.on("mouseleave", "hero-claims-fill", () => {
+          map.getCanvas().style.cursor = "";
+        });
+      }
+
+      const claimBorderSource = map.getSource("hero-claims-borders");
+      if (claimBorderSource) {
+        claimBorderSource.setData(claimOverlay.borderFeatureCollection);
+      } else {
+        map.addSource("hero-claims-borders", {
+          type: "geojson",
+          data: claimOverlay.borderFeatureCollection,
+        });
+
+        map.addLayer({
+          id: "hero-claims-borders",
+          type: "line",
+          source: "hero-claims-borders",
+          paint: {
+            "line-color": ["get", "ownerBorderColor"],
+            "line-width": 3,
+            "line-opacity": 0.92,
+            "line-blur": 0.4,
+          },
+        });
+      }
+
+      if (claimPulseIntervalRef.current) {
+        window.clearInterval(claimPulseIntervalRef.current);
+        claimPulseIntervalRef.current = null;
+      }
+
+      if (map.getLayer("hero-claims-borders")) {
+        let pulseOn = false;
+        claimPulseIntervalRef.current = window.setInterval(() => {
+          if (!map.getLayer("hero-claims-borders")) return;
+          pulseOn = !pulseOn;
+          map.setPaintProperty("hero-claims-borders", "line-opacity", pulseOn ? 0.98 : 0.58);
+          map.setPaintProperty("hero-claims-borders", "line-width", pulseOn ? 4 : 2.4);
+        }, 820);
+      }
+
       discoveryMarkersRef.current.forEach((marker) => marker.remove());
       discoveryMarkersRef.current = [];
 
       discoveryPoints
         .filter((point) => Number.isFinite(point?.lat) && Number.isFinite(point?.lng))
         .forEach((point) => {
+          const pointClaim = findClaimForPoint(point, claimedTiles);
+          const scannerAuthId = String(point?.scannerAuthId || "").trim();
+          if (pointClaim && scannerAuthId && String(pointClaim.ownerAuthId || "") === scannerAuthId) {
+            return;
+          }
+
           const lng = Number(point.lng);
           const lat = Number(point.lat);
           const properties = {
@@ -505,6 +756,7 @@ export default function MapboxZoneMap({
             scannerDisplayName: point?.scannerDisplayName || point?.scannerName || "Unbekannt",
             scannerEmail: point?.scannerEmail || "",
             scannerAuthId: point?.scannerAuthId || "",
+            viewerAuthId: currentAuthId || "",
             plantName: point?.plantName || "Unbekannte Pflanze",
             plantId: point?.plantId || "",
             genusId: point?.genusId || "",
@@ -541,6 +793,8 @@ export default function MapboxZoneMap({
     map.once("style.load", updateMapData);
   }, [
     allowDiscoveryLike,
+    claimedTiles,
+    currentAuthId,
     discoveryPoints,
     fallbackCenter?.lat,
     fallbackCenter?.lng,

@@ -28,6 +28,7 @@ function FriendProfileHomePanel({
   textPrimary,
   textSecondary,
   friendSeeds,
+  friendClaimedTiles,
   resolvedPlantHealthState,
   displayedOverallPlantHealth,
   healthStateBonus,
@@ -210,7 +211,7 @@ function FriendProfileHomePanel({
             }`}>
               <div className={`flex items-center gap-1.5 min-w-0 ${isLightUi ? "text-stone-700" : "text-lime-100/95"}`}>
                 <Leaf className={`w-4 h-4 ${isLightUi ? "text-emerald-600" : "text-lime-200"}`} />
-                <span className="truncate">Samen {friendSeeds}</span>
+                <span className="truncate">Samen {friendSeeds} · Tiles {friendClaimedTiles}</span>
               </div>
 
               <div className={`flex items-center gap-1.5 min-w-0 ${isLightUi ? "text-stone-700" : "text-amber-100/95"}`}>
@@ -408,6 +409,10 @@ export default function FriendProfile() {
     0,
     Number(friendRobotPlant?.wallet_balance ?? friendRobotPlant?.walletBalance ?? 0)
   );
+  const friendClaimedTiles = Math.max(
+    0,
+    Number(friendRobotPlant?.claimed_tiles_count ?? friendRobotPlant?.claimedTilesCount ?? 0)
+  );
 
   const cardBase = isLightUi
     ? "bg-white/35 border border-[#c8ac62]/30"
@@ -463,6 +468,7 @@ export default function FriendProfile() {
           textPrimary={textPrimary}
           textSecondary={textSecondary}
           friendSeeds={friendSeeds}
+          friendClaimedTiles={friendClaimedTiles}
           resolvedPlantHealthState={resolvedPlantHealthState}
           displayedOverallPlantHealth={displayedOverallPlantHealth}
           healthStateBonus={healthStateBonus}

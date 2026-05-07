@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useRef } from "react";
+﻿import { useState, useEffect, useMemo, useRef } from "react";
 import { Query } from "@/api/entities";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { upsertUserProfile } from "@/api/authService";
@@ -15,15 +15,15 @@ import {
   waterRobotPlant,
 } from "@/api/robotPlantService";
 import { getOpenPlantQuiz, submitPlantQuizAnswer } from "@/api/plantQuizService";
+import { getTileClaims } from "@/api/tileClaimService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Camera, Loader2, Leaf, Plus, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, Zap, Palette } from "lucide-react";
+import { Camera, Loader2, Leaf, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, Zap, Palette } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
 import QuizFeedbackNotification from "../components/notifications/QuizFeedbackNotification";
 import { useNavigate, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { getNameFontSize } from "@/lib/utils";
 import { cacheLocation, getCachedLocation, LOCATION_CACHE_MAX_AGE_MS, requestCurrentLocation } from "@/lib/locationSync";
 import {
   computeCareMultiplier,
@@ -1118,6 +1118,22 @@ function HomeContent() {
     return () => window.removeEventListener("resize", updateHeroStageSize);
   }, [activePanel, showHealthStatsPanel]);
 
+  const cachedLocation = getCachedLocation({ maxAgeMs: LOCATION_CACHE_MAX_AGE_MS });
+  const hasLiveCachedLocation = Number.isFinite(cachedLocation?.lat) && Number.isFinite(cachedLocation?.lng);
+
+  const { data: claimedTiles = [] } = useQuery({
+    queryKey: ["tileClaims", user?.id, cachedLocation?.lat, cachedLocation?.lng],
+    queryFn: () =>
+      getTileClaims({
+        latitude: cachedLocation.lat,
+        longitude: cachedLocation.lng,
+        radiusM: NEARBY_DISCOVERY_RADIUS_METERS,
+      }),
+    enabled: !!user?.id && hasLiveCachedLocation && activePanel === "map",
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
   const isLoadingCriticalData = isLoadingDiscoveries || isLoadingQuests || isLoadingAchievements || isLoadingFriends || isLoadingWeeklyQuests || isLoadingMonthlyQuests || isLoadingCollectionQuests;
 
   if (isLoadingUser) {
@@ -1142,6 +1158,10 @@ function HomeContent() {
   const playerSeeds = Math.max(
     0,
     Number(robotPlantState?.wallet_balance ?? robotPlantState?.walletBalance ?? 0)
+  );
+  const playerClaimedTiles = Math.max(
+    0,
+    Number(robotPlantState?.claimed_tiles_count ?? robotPlantState?.claimedTilesCount ?? 0)
   );
 
   const isPlantHealthPending = Boolean(user?.id) && !isRobotPlantStateFetched;
@@ -1433,8 +1453,6 @@ function HomeContent() {
     : activeZone
     ? THEME_MAP_COLORS[activeZone.theme] || "#84cc16"
     : "#6b7280";
-  const cachedLocation = getCachedLocation({ maxAgeMs: LOCATION_CACHE_MAX_AGE_MS });
-  const hasLiveCachedLocation = Number.isFinite(cachedLocation?.lat) && Number.isFinite(cachedLocation?.lng);
   const currentUserEmailLower = (user?.email || "").toLowerCase();
 
   const isMapDataPending = isMapDiscoveryDataLoading || isLoadingAllDiscoveries || isLoadingAllUsers;
@@ -1555,8 +1573,9 @@ function HomeContent() {
     );
   });
   const dailyBonusMultiplier = computeFirstScanOfDayMultiplier(!hasScanToday);
+  const claimedTileMultiplier = 1 + playerClaimedTiles * 0.1;
   const knownNextScanMultiplier =
-    streakMultiplier * zoneMultiplier * careMultiplier * dailyBonusMultiplier;
+    streakMultiplier * zoneMultiplier * careMultiplier * dailyBonusMultiplier * claimedTileMultiplier;
   const noveltyMinMultiplier = 0.2;
   const noveltyMaxMultiplier = 1;
   const rarityMinMultiplier = 1;
@@ -2166,6 +2185,7 @@ function HomeContent() {
                     onRequestLocation={handleOpenHeroZoneMap}
                     heroZones={heroZones}
                     nearbyDiscoveryPoints={nearbyDiscoveryPoints}
+                    claimedTiles={claimedTiles}
                     cachedLocation={cachedLocation}
                     heroMapCenter={heroMapCenter}
                     onDiscoveryImageClick={handleDiscoveryImageClick}
@@ -2474,7 +2494,7 @@ function HomeContent() {
                                 }`}
                               >
                                 <Leaf className={`w-4 h-4 ${isLightUi ? "text-emerald-600" : "text-lime-200"}`} />
-                                <span>{playerSeeds}</span>
+                                <span>{playerSeeds} · Tiles {playerClaimedTiles}</span>
                               </div>
                             </div>
 
@@ -2483,40 +2503,6 @@ function HomeContent() {
                       </AnimatePresence>
 
                     </div>
-                  </div>
-
-                  <div
-                    className="mt-[clamp(0.5rem,1.2vh,1rem)] w-full grid grid-cols-4 gap-2"
-                    style={{ height: `${(2.9 * controlsScale).toFixed(2)}rem` }}
-                  >
-                    {[
-                      { key: "face", label: "Face", isEmpty: false },
-                      { key: "plant", label: "Plant", isEmpty: false },
-                      { key: "border", label: "Border", isEmpty: false },
-                      { key: "extra", label: "Leer", isEmpty: true },
-                    ].map((slot) => (
-                      <button
-                        key={slot.key}
-                        type="button"
-                        onClick={() => {
-                          if (slot.isEmpty) return;
-                          openShop("accessories");
-                        }}
-                        disabled={slot.isEmpty}
-                        className={`h-full w-full rounded-xl border flex items-center justify-center transition-colors ${
-                          isLightUi
-                            ? "border-[#c8ac62]/55 bg-white/52 text-stone-700 hover:bg-white/68"
-                            : "border-[#f0e5a5]/45 bg-black/35 text-[#f0e5a5] hover:bg-black/50"
-                        } ${slot.isEmpty ? "opacity-60 cursor-not-allowed" : ""}`}
-                        aria-label={`Accessoire Slot ${slot.key}`}
-                      >
-                        {slot.isEmpty ? (
-                          <Plus className="w-5 h-5" />
-                        ) : (
-                          <span className="text-[11px] md:text-xs font-semibold tracking-wide">{slot.label}</span>
-                        )}
-                      </button>
-                    ))}
                   </div>
 
                   <motion.button

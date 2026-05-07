@@ -11,6 +11,7 @@ export default function HomeMapFeatureRoot({
   onRequestLocation,
   heroZones,
   nearbyDiscoveryPoints,
+  claimedTiles,
   cachedLocation,
   heroMapCenter,
   onDiscoveryImageClick,
@@ -92,6 +93,8 @@ export default function HomeMapFeatureRoot({
           userLocation={cachedLocation}
           fallbackCenter={{ lat: heroMapCenter[0], lng: heroMapCenter[1] }}
           discoveryPoints={nearbyDiscoveryPoints}
+          claimedTiles={claimedTiles}
+          currentAuthId={authId}
           onDiscoveryImageClick={onDiscoveryImageClick}
           onDiscoveryLike={onDiscoveryLike}
           allowDiscoveryLike={allowDiscoveryLike}
@@ -121,7 +124,7 @@ export default function HomeMapFeatureRoot({
           : "border-[#f0e5a5]/35 bg-black/55 text-stone-100"
       }`}>
         <MapIcon className="w-3.5 h-3.5" />
-        Zonen: {heroZones.length} | Funde: {nearbyDiscoveryPoints.length}
+        Zonen: {heroZones.length} | Funde: {nearbyDiscoveryPoints.length} | Claims: {claimedTiles?.length || 0}
       </div>
 
       {zoneMapError && (
