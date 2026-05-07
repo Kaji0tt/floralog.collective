@@ -119,13 +119,9 @@ const buildClaimPulseGradient = (phase) => {
   ];
 };
 
-const getPulsePhaseWithPause = (cycleMs) => {
+const getPulsePhaseContinuous = (cycleMs) => {
   const t = Date.now() % cycleMs;
-  const normalized = t / cycleMs;
-  if (normalized > 0.72) {
-    return -1;
-  }
-  return normalized / 0.72;
+  return t / cycleMs;
 };
 
 const formatDiscoveryDate = (rawDate) => {
@@ -828,9 +824,9 @@ export default function MapboxZoneMap({
       if (map.getLayer("hero-claims-pulse")) {
         claimPulseIntervalRef.current = window.setInterval(() => {
           if (!map.getLayer("hero-claims-pulse")) return;
-          const phase = getPulsePhaseWithPause(CLAIM_PULSE_CYCLE_MS);
+          const phase = getPulsePhaseContinuous(CLAIM_PULSE_CYCLE_MS);
           map.setPaintProperty("hero-claims-pulse", "line-gradient", buildClaimPulseGradient(phase));
-        }, 90);
+        }, 55);
       }
 
       claimLogoMarkersRef.current.forEach((marker) => marker.remove());
@@ -1184,9 +1180,18 @@ export default function MapboxZoneMap({
             "line-width": 8,
             "line-opacity": 0.9,
             "line-blur": 1.6,
-            "line-gradient": buildClaimPulseGradient(-1),
+            "line-gradient": buildClaimPulseGradient(getPulsePhaseContinuous(CLAIM_PULSE_CYCLE_MS)),
           },
         });
+      }
+
+      if (map.getLayer("hero-claims-borders")) {
+        map.setLayoutProperty("hero-claims-borders", "visibility", "visible");
+        map.moveLayer("hero-claims-borders");
+      }
+      if (map.getLayer("hero-claims-pulse")) {
+        map.setLayoutProperty("hero-claims-pulse", "visibility", "visible");
+        map.moveLayer("hero-claims-pulse");
       }
 
       renderDynamicMarkers();
@@ -1197,6 +1202,13 @@ export default function MapboxZoneMap({
     } else {
       map.once("style.load", () => updateMapData({ shouldRecenter: true }));
     }
+
+    const handleInitialIdle = () => {
+      updateMapData({ shouldRecenter: false });
+      map.off("idle", handleInitialIdle);
+    };
+
+    map.on("idle", handleInitialIdle);
 
 
     const handleViewChangeEnd = () => {
@@ -1209,6 +1221,7 @@ export default function MapboxZoneMap({
     map.on("rotateend", handleViewChangeEnd);
 
     return () => {
+      map.off("idle", handleInitialIdle);
       map.off("zoomend", handleViewChangeEnd);
       map.off("moveend", handleViewChangeEnd);
       map.off("pitchend", handleViewChangeEnd);
