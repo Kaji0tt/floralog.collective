@@ -142,6 +142,7 @@ const tables = [
   'Classroom', 'ClassroomMember', 'ClassroomQuest',
   'CollectionQuest', 'DailyQuest', 'Friend', 'MonthlyQuest',
   'News', 'Plant', 'PlantGenus', 'PublicProfile', 'Quest',
+  'LogoAsset',
   'Referral', 'Rewards', 'ScanLike', 'SharedScan', 'UserAchievement',
   'UserCollectionQuest', 'UserDailyQuest', 'UserMonthlyQuest',
   'UserNotification', 'UserPlantDiscovery', 'UserQuest',

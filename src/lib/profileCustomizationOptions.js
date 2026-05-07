@@ -1,3 +1,7 @@
+import { LOGO_ACCESSORY_SECTIONS } from "@/lib/logoAccessoryAssets";
+
+const LOGO_ACCESSORY_REWARD_TYPES = new Set(["logo_accessory", "accessory"]);
+
 const COLOR_ROWS = [
   {
     threshold: 5,
@@ -160,7 +164,95 @@ export const getUnlockedBackgroundSections = ({
   ];
 };
 
-export const PROFILE_CUSTOMIZATION_CATEGORY_ORDER = ["backgrounds", "titles"];
+const getRewardUnlockedAccessoryIds = ({ rewards = [], userRewards = [] } = {}) => {
+  const unlockedRewardIds = new Set(
+    (Array.isArray(userRewards) ? userRewards : []).map((entry) => entry?.reward_id).filter(Boolean)
+  );
+
+  return new Set(
+    (Array.isArray(rewards) ? rewards : [])
+      .filter((reward) => unlockedRewardIds.has(reward?.id) && LOGO_ACCESSORY_REWARD_TYPES.has(reward?.type))
+      .map((reward) => String(reward?.value || "").trim())
+      .filter(Boolean)
+  );
+};
+
+const buildFallbackAccessorySections = ({ rewardUnlockedIds = new Set() } = {}) => {
+  return LOGO_ACCESSORY_SECTIONS.map((section) => ({
+    key: section.key,
+    title: section.title,
+    profileField: section.profileField,
+    emptyLabel: "Noch keine Accessoire-Optionen verfuegbar.",
+    options: section.options.map((option) => {
+      const isDefaultUnlocked = ["border_original", "plant_leaf", "plant_legacy", "face_original"].includes(option.value);
+      const isUnlocked = isDefaultUnlocked || rewardUnlockedIds.has(option.value);
+      return {
+        ...option,
+        isLocked: !isUnlocked,
+      };
+    }),
+  }));
+};
+
+export const getAccessorySections = ({ logoAssets = [], rewards = [], userRewards = [] } = {}) => {
+  const rewardUnlockedIds = getRewardUnlockedAccessoryIds({ rewards, userRewards });
+
+  const normalizedLogoAssets = Array.isArray(logoAssets) ? logoAssets : [];
+  if (normalizedLogoAssets.length === 0) {
+    return buildFallbackAccessorySections({ rewardUnlockedIds });
+  }
+
+  const grouped = {
+    face: [],
+    plant: [],
+    border: [],
+  };
+
+  for (const asset of normalizedLogoAssets) {
+    const assetType = String(asset?.asset_type || "");
+    const assetId = String(asset?.asset_id || "").trim();
+    if (!grouped[assetType] || !assetId) continue;
+
+    const isDefaultUnlocked = Boolean(asset?.default_unlocked);
+    const isUnlocked = isDefaultUnlocked || rewardUnlockedIds.has(assetId);
+
+    grouped[assetType].push({
+      id: assetId,
+      value: assetId,
+      label: asset?.display_name || assetId,
+      profileField: `selected_${assetType}_asset`,
+      imageUrl: asset?.public_url,
+      type: "accessory",
+      isLocked: !isUnlocked,
+    });
+  }
+
+  return [
+    {
+      key: "face",
+      title: "Gesicht",
+      profileField: "selected_face_asset",
+      emptyLabel: "Noch keine Gesichts-Accessoires verfuegbar.",
+      options: grouped.face.sort((left, right) => String(left.label).localeCompare(String(right.label), "de")),
+    },
+    {
+      key: "plant",
+      title: "Pflanze",
+      profileField: "selected_plant_asset",
+      emptyLabel: "Noch keine Pflanzen-Accessoires verfuegbar.",
+      options: grouped.plant.sort((left, right) => String(left.label).localeCompare(String(right.label), "de")),
+    },
+    {
+      key: "border",
+      title: "Rahmen",
+      profileField: "selected_border_asset",
+      emptyLabel: "Noch keine Rahmen-Accessoires verfuegbar.",
+      options: grouped.border.sort((left, right) => String(left.label).localeCompare(String(right.label), "de")),
+    },
+  ];
+};
+
+export const PROFILE_CUSTOMIZATION_CATEGORY_ORDER = ["backgrounds", "titles", "accessories"];
 
 export const getUnlockedProfileCustomizationCatalog = ({
   achievements = [],
@@ -168,6 +260,7 @@ export const getUnlockedProfileCustomizationCatalog = ({
   rewards = [],
   userRewards = [],
   userDiscoveries = [],
+  logoAssets = [],
 } = {}) => {
   const scannedPlantsCount = (Array.isArray(userDiscoveries) ? userDiscoveries : []).length;
   const uniqueSpeciesCount = new Set(
@@ -187,6 +280,7 @@ export const getUnlockedProfileCustomizationCatalog = ({
     rewards,
     userRewards,
   });
+  const accessorySections = getAccessorySections({ logoAssets, rewards, userRewards });
 
   return {
     scannedPlantsCount,
@@ -212,6 +306,13 @@ export const getUnlockedProfileCustomizationCatalog = ({
           },
         ],
         optionCount: titleOptions.length,
+      },
+      {
+        key: "accessories",
+        title: "Accessoires",
+        subtitle: "Austauschbare Teile fuer dein Home-Logo",
+        sections: accessorySections,
+        optionCount: accessorySections.reduce((sum, section) => sum + section.options.length, 0),
       },
     ],
   };

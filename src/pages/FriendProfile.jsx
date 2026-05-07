@@ -420,6 +420,7 @@ export default function FriendProfile() {
         <CollectionFeatureRoot
           embedded
           profileUser={friendUser}
+          friendEmail={friendEmail}
           readOnly
         />
       ) : activeTab === "achievements" ? (

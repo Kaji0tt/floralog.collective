@@ -62,6 +62,7 @@ export default function CollectionFeatureRoot({
   showPublicCollectionsPanel: externalShowPublicCollectionsPanel,
   onShowPublicCollectionsPanelChange = null,
   profileUser = null,
+  friendEmail = "",
   readOnly = false,
 }) {
   const { isLightUi, uiTheme, pushThemeOverride, popThemeOverride } = useUiTheme();
@@ -135,6 +136,8 @@ export default function CollectionFeatureRoot({
 
   const targetUser = profileUser || user;
   const targetUserId = targetUser?.auth_id || targetUser?.id || null;
+  const resolvedFriendEmail =
+    (friendEmail || targetUser?.user_email || "").toString().trim();
 
   const { data: genera = [], isLoading: generaLoading } = useQuery({
     queryKey: ['genera'],
@@ -847,6 +850,7 @@ export default function CollectionFeatureRoot({
           ) : (
             <CollectionScreen
               readOnly={readOnly}
+              friendEmail={resolvedFriendEmail || null}
               isQuestCollectionView={isQuestCollectionView}
               ownedCollections={ownedCollections}
               followedCollections={followedCollections}

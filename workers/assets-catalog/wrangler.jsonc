@@ -1,0 +1,8 @@
+{
+  "name": "floralog-assets-catalog",
+  "compatibility_date": "2026-05-07",
+  "main": "src/index.js",
+  "preview_urls": false,
+  "r2_buckets": [{ "binding": "ASSET_BUCKET", "bucket_name": "floralog-assets" }],
+  "observability": { "enabled": true, "logs": { "enabled": true } }
+}

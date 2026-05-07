@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Query } from "@/api/entities";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { upsertUserProfile } from "@/api/authService";
@@ -54,6 +54,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { useAuth } from "@/lib/AuthContext";
+import { resolveEquippedLogoAssets } from "@/lib/logoAccessoryAssets";
 
 const THEME_MAP_COLORS = {
   forest: "#007a3f",
@@ -70,7 +71,6 @@ const THEME_MAP_META = {
 };
 
 const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "";
-const FLORALOG_LOGO_URL = new URL("../../floralog_logo.png", import.meta.url).href;
 const SOCIAL_NEWS_NOTIFICATION_TYPES = [
   "gift_received",
   "collection_followed",
@@ -116,6 +116,8 @@ function HomeContent() {
   const [heroStageSizePx, setHeroStageSizePx] = useState(0);
   const [heroMapInstance, setHeroMapInstance] = useState(null);
   const [showDebugZonePanel, setShowDebugZonePanel] = useState(false);
+
+  const localEquippedLogoAssets = useMemo(() => resolveEquippedLogoAssets(user || {}), [user]);
 
   const [scanFeedback, setScanFeedback] = useState(null);
   const [showScanFeedback, setShowScanFeedback] = useState(false);
@@ -184,6 +186,36 @@ function HomeContent() {
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
+
+  const { data: logoAssets = [] } = useQuery({
+    queryKey: ["logoAssets"],
+    queryFn: () => Query.LogoAsset.list(),
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
+
+  const equippedLogoAssets = useMemo(() => {
+    const assetUrlById = new Map(
+      (Array.isArray(logoAssets) ? logoAssets : [])
+        .filter((asset) => asset?.asset_id && asset?.public_url)
+        .map((asset) => [String(asset.asset_id), String(asset.public_url)])
+    );
+
+    const withResolvedUrl = (entry) => {
+      if (!entry) return entry;
+      return {
+        ...entry,
+        imageUrl: assetUrlById.get(entry.value) || entry.imageUrl,
+      };
+    };
+
+    return {
+      border: withResolvedUrl(localEquippedLogoAssets.border),
+      plant: withResolvedUrl(localEquippedLogoAssets.plant),
+      face: withResolvedUrl(localEquippedLogoAssets.face),
+    };
+  }, [localEquippedLogoAssets, logoAssets]);
 
 
   const { data: quests = [] } = useQuery({
@@ -794,6 +826,9 @@ function HomeContent() {
         full_name: userData.full_name,
         title: userData.title,
         selected_title: userData.selected_title,
+        selected_face_asset: userData.selected_face_asset,
+        selected_plant_asset: userData.selected_plant_asset,
+        selected_border_asset: userData.selected_border_asset,
         background_image_url: userData.background_image_url,
         background_color: userData.background_color
       };
@@ -2410,11 +2445,29 @@ function HomeContent() {
                               />
                             )}
                             <div className="absolute left-1/2 top-1/2 w-[82%] aspect-square -translate-x-1/2 -translate-y-1/2">
-                              <img
-                                src={FLORALOG_LOGO_URL}
-                                alt="FloraLog Logo"
-                                className="w-full h-full object-contain p-[10%] drop-shadow-[0_0_24px_rgba(190,242,100,0.6)]"
-                              />
+                              <div className="relative w-full h-full p-[10%] drop-shadow-[0_0_24px_rgba(190,242,100,0.6)]">
+                                {equippedLogoAssets.border?.imageUrl && (
+                                  <img
+                                    src={equippedLogoAssets.border.imageUrl}
+                                    alt="Logo Rahmen"
+                                    className="absolute inset-0 w-full h-full object-contain"
+                                  />
+                                )}
+                                {equippedLogoAssets.plant?.imageUrl && (
+                                  <img
+                                    src={equippedLogoAssets.plant.imageUrl}
+                                    alt="Logo Pflanze"
+                                    className="absolute inset-0 w-full h-full object-contain"
+                                  />
+                                )}
+                                {equippedLogoAssets.face?.imageUrl && (
+                                  <img
+                                    src={equippedLogoAssets.face.imageUrl}
+                                    alt="Logo Gesicht"
+                                    className="absolute inset-0 w-full h-full object-contain"
+                                  />
+                                )}
+                              </div>
                             </div>
 
                             <div className="absolute left-1/2 bottom-[7%] -translate-x-1/2 z-[8]">
@@ -2441,19 +2494,32 @@ function HomeContent() {
                     className="mt-[clamp(0.5rem,1.2vh,1rem)] w-full grid grid-cols-4 gap-2"
                     style={{ height: `${(2.9 * controlsScale).toFixed(2)}rem` }}
                   >
-                    {["left", "right", "top", "bottom"].map((slotKey) => (
+                    {[
+                      { key: "face", label: "Face", isEmpty: false },
+                      { key: "plant", label: "Plant", isEmpty: false },
+                      { key: "border", label: "Border", isEmpty: false },
+                      { key: "extra", label: "Leer", isEmpty: true },
+                    ].map((slot) => (
                       <button
-                        key={slotKey}
+                        key={slot.key}
                         type="button"
-                        onClick={() => openShop("titles")}
+                        onClick={() => {
+                          if (slot.isEmpty) return;
+                          openShop("accessories");
+                        }}
+                        disabled={slot.isEmpty}
                         className={`h-full w-full rounded-xl border flex items-center justify-center transition-colors ${
                           isLightUi
                             ? "border-[#c8ac62]/55 bg-white/52 text-stone-700 hover:bg-white/68"
                             : "border-[#f0e5a5]/45 bg-black/35 text-[#f0e5a5] hover:bg-black/50"
-                        }`}
-                        aria-label={`Accessoire Slot ${slotKey}`}
+                        } ${slot.isEmpty ? "opacity-60 cursor-not-allowed" : ""}`}
+                        aria-label={`Accessoire Slot ${slot.key}`}
                       >
-                        <Plus className="w-5 h-5" />
+                        {slot.isEmpty ? (
+                          <Plus className="w-5 h-5" />
+                        ) : (
+                          <span className="text-[11px] md:text-xs font-semibold tracking-wide">{slot.label}</span>
+                        )}
                       </button>
                     ))}
                   </div>

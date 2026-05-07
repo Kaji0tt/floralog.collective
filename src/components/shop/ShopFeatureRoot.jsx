@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Sparkles, Loader2, RefreshCw, Image as ImageIcon, BadgeCheck, PaintBucket } from "lucide-react";
+import { Sparkles, Loader2, RefreshCw, Image as ImageIcon, BadgeCheck, PaintBucket, Lock } from "lucide-react";
 import { Query } from "@/api/entities";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { useUiTheme } from "@/lib/UiThemeContext";
@@ -8,6 +8,7 @@ import {
   getUnlockedProfileCustomizationCatalog,
   profileCustomizationCategoryComparator,
 } from "@/lib/profileCustomizationOptions";
+import { LOGO_ACCESSORY_DEFAULTS } from "@/lib/logoAccessoryAssets";
 
 const CATEGORY_META = {
   backgrounds: {
@@ -19,6 +20,11 @@ const CATEGORY_META = {
     title: "Titel",
     subtitle: "Alle freigeschalteten Titel fuer dein Profil",
     emptyLabel: "Noch keine Titel freigeschaltet.",
+  },
+  accessories: {
+    title: "Accessoires",
+    subtitle: "Austauschbare Teile fuer dein Home-Logo",
+    emptyLabel: "Noch keine Accessoires verfuegbar.",
   },
 };
 
@@ -112,6 +118,55 @@ const TitleOptionRow = ({ option, user, isLightUi, isPending, onSelect }) => {
   );
 };
 
+const getAccessorySelectionState = (user, option) => {
+  const profileField = option?.profileField;
+  if (!profileField) return false;
+
+  const activeValue = user?.[profileField] || LOGO_ACCESSORY_DEFAULTS[profileField];
+  return activeValue === option.value;
+};
+
+const AccessoryOptionCard = ({ option, user, isLightUi, isPending, onSelect }) => {
+  const isActive = getAccessorySelectionState(user, option);
+  const isLocked = Boolean(option?.isLocked);
+
+  return (
+    <button
+      type="button"
+      disabled={isPending || isLocked}
+      onClick={() => onSelect(option)}
+      className={`relative overflow-hidden rounded-2xl border text-left transition-all duration-200 disabled:opacity-60 ${getBackgroundButtonStyle({ isActive, isLightUi })}`}
+    >
+      <div className="aspect-square w-full p-2">
+        <img src={option.imageUrl} alt={option.label} className="h-full w-full object-contain" />
+      </div>
+      {isLocked && <div className="absolute inset-0 bg-black/45" />}
+      <div className={`absolute inset-0 ${isActive ? (isLightUi ? "bg-white/10" : "bg-black/10") : "bg-transparent"}`} />
+      <div className="absolute inset-x-0 bottom-0 p-2">
+        <div className={`rounded-xl border px-2 py-2 backdrop-blur-md ${
+          isLightUi
+            ? "border-white/65 bg-white/75 text-stone-800"
+            : "border-white/10 bg-black/45 text-stone-100"
+        }`}>
+          <div className="flex items-center justify-between gap-2">
+            <span className="truncate text-xs font-semibold">{option.label}</span>
+            {isLocked ? (
+              <Lock className={`h-3.5 w-3.5 shrink-0 ${isLightUi ? "text-stone-600" : "text-stone-200/90"}`} />
+            ) : (
+              isActive && <BadgeCheck className={`h-3.5 w-3.5 shrink-0 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+            )}
+          </div>
+          {isLocked && (
+            <div className={`mt-1 text-[10px] ${isLightUi ? "text-stone-600" : "text-stone-300/80"}`}>
+              Noch gesperrt
+            </div>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+};
+
 const SectionCard = ({ title, icon: Icon, children, isLightUi }) => {
   return (
     <div className={`rounded-[1.5rem] border px-3 py-3 backdrop-blur-md ${
@@ -193,6 +248,14 @@ export default function ShopFeatureRoot({
     refetchOnReconnect: true,
   });
 
+  const { data: logoAssets = [], isPending: isLogoAssetsPending, refetch: refetchLogoAssets } = useQuery({
+    queryKey: ["logoAssets"],
+    queryFn: () => Query.LogoAsset.list(),
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
+
   const catalog = useMemo(() => {
     return getUnlockedProfileCustomizationCatalog({
       achievements,
@@ -200,8 +263,9 @@ export default function ShopFeatureRoot({
       rewards,
       userRewards,
       userDiscoveries,
+      logoAssets,
     });
-  }, [achievements, rewards, userAchievements, userDiscoveries, userRewards]);
+  }, [achievements, logoAssets, rewards, userAchievements, userDiscoveries, userRewards]);
 
   const categories = useMemo(() => {
     return [...(catalog.categories || [])].sort(profileCustomizationCategoryComparator);
@@ -278,8 +342,27 @@ export default function ShopFeatureRoot({
     await updateCustomizationMutation.mutateAsync({ selected_title: null });
   };
 
+  const handleSelectAccessory = async (option) => {
+    if (!option?.profileField) return;
+    if (option?.isLocked) {
+      setShopMessage("Dieses Accessoire ist noch gesperrt.");
+      return;
+    }
+    setShopMessage(null);
+    await updateCustomizationMutation.mutateAsync({ [option.profileField]: option.value });
+  };
+
+  const handleResetAccessories = async () => {
+    setShopMessage(null);
+    await updateCustomizationMutation.mutateAsync({
+      selected_face_asset: LOGO_ACCESSORY_DEFAULTS.selected_face_asset,
+      selected_plant_asset: LOGO_ACCESSORY_DEFAULTS.selected_plant_asset,
+      selected_border_asset: LOGO_ACCESSORY_DEFAULTS.selected_border_asset,
+    });
+  };
+
   const isAuthResolving = !resolvedAuthId;
-  const isLoading = isAuthResolving || isDiscoveriesPending || isAchievementsPending || isUserAchievementsPending || isRewardsPending || isUserRewardsPending;
+  const isLoading = isAuthResolving || isDiscoveriesPending || isAchievementsPending || isUserAchievementsPending || isRewardsPending || isUserRewardsPending || isLogoAssetsPending;
   const resolvedCurrentUser = currentUser || fallbackUser || (authId ? { id: authId } : null);
   const isMutationPending = updateCustomizationMutation.isPending;
 
@@ -303,6 +386,7 @@ export default function ShopFeatureRoot({
       refetchUserAchievements(),
       refetchRewards(),
       refetchUserRewards(),
+      refetchLogoAssets(),
     ]);
   };
 
@@ -434,6 +518,54 @@ export default function ShopFeatureRoot({
                   </SectionCard>
                 );
               })}
+            </div>
+          ) : currentCategory.key === "accessories" ? (
+            <div className="space-y-3">
+              <div className={`rounded-[1.5rem] border px-3 py-3 ${isLightUi ? "border-[#c8ac62]/30 bg-white/72" : "border-[#f0e5a5]/20 bg-black/28"}`}>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className={`text-sm font-semibold ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Aktives Logo-Set</div>
+                    <div className={`mt-1 text-xs ${isLightUi ? "text-stone-500" : "text-stone-300/75"}`}>
+                      Gesicht, Pflanze und Rahmen koennen getrennt ausgeruestet werden.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isMutationPending}
+                    onClick={handleResetAccessories}
+                    className={`h-9 rounded-xl border px-3 text-xs font-semibold disabled:opacity-60 ${
+                      isLightUi
+                        ? "border-[#c8ac62]/40 bg-white/75 text-stone-700 hover:bg-white"
+                        : "border-[#f0e5a5]/25 bg-black/35 text-stone-100 hover:bg-black/50"
+                    }`}
+                  >
+                    Standard-Logo
+                  </button>
+                </div>
+              </div>
+
+              {currentCategory.sections.map((section) => (
+                <SectionCard key={section.key} title={section.title} icon={Sparkles} isLightUi={isLightUi}>
+                  {section.options.length === 0 ? (
+                    <div className={`rounded-2xl border border-dashed px-3 py-4 text-xs ${isLightUi ? "border-[#c8ac62]/30 text-stone-500" : "border-[#f0e5a5]/20 text-stone-300/75"}`}>
+                      {section.emptyLabel}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                      {section.options.map((option) => (
+                        <AccessoryOptionCard
+                          key={option.id}
+                          option={option}
+                          user={resolvedCurrentUser}
+                          isLightUi={isLightUi}
+                          isPending={isMutationPending}
+                          onSelect={handleSelectAccessory}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </SectionCard>
+              ))}
             </div>
           ) : (
             <div className="space-y-3">

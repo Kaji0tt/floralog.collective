@@ -10,6 +10,7 @@ const CATEGORY_CHIPS = [
 
 export default function CollectionScreen({
   readOnly = false,
+  friendEmail = null,
   isQuestCollectionView,
   ownedCollections,
   followedCollections,
@@ -321,7 +322,7 @@ export default function CollectionScreen({
                 onShowHint={onShowHint}
                 userDiscoveries={userDiscoveries}
                 plants={plants}
-                friendEmail={null}
+                friendEmail={friendEmail}
                 collectionNote={genus.collectionNote}
                 isAdmin={currentUser?.role === "admin"}
                 uiTheme={uiTheme}
