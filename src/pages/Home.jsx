@@ -333,8 +333,8 @@ function HomeContent() {
     queryKey: ['allDiscoveries'],
     queryFn: () => Query.UserPlantDiscovery.list('-created_date'),
     initialData: [],
-    staleTime: Infinity,
-    refetchOnWindowFocus: false,
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: true,
   });
 
   const { data: scanLikes = [] } = useQuery({

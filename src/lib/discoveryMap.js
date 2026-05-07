@@ -1,4 +1,4 @@
-export const NEARBY_DISCOVERY_RADIUS_METERS = 2000;
+export const NEARBY_DISCOVERY_RADIUS_METERS = 2500;
 
 export const parseDiscoveryCoordinates = (location) => {
   if (!location || typeof location !== "string") return null;
