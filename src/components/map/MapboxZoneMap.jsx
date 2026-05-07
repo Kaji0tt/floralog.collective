@@ -23,6 +23,7 @@ const CLAIM_PULSE_CYCLE_MS = 2600;
 const DISCOVERY_SINGLE_RADIUS_PX = 20;
 const DISCOVERY_BASIC_RADIUS_PX = 11;
 const CLUSTER_EXTRA_PADDING_PX = 2;
+const MAX_CLUSTER_GEO_SPREAD_M = 450;
  
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -99,8 +100,12 @@ const buildClaimPulseGradient = (phase) => {
     return ["interpolate", ["linear"], ["line-progress"], 0, "rgba(255,255,255,0)", 1, "rgba(255,255,255,0)"];
   }
 
-  const trailStart = Math.max(0, phase - 0.09);
-  const headEnd = Math.min(1, phase + 0.1);
+  const fadeInStart = Math.max(0, phase - 0.16);
+  const fadeInMid = Math.max(0, phase - 0.1);
+  const glowStart = Math.max(0, phase - 0.04);
+  const glowEnd = Math.min(1, phase + 0.04);
+  const fadeOutMid = Math.min(1, phase + 0.1);
+  const fadeOutEnd = Math.min(1, phase + 0.16);
 
   return [
     "interpolate",
@@ -108,11 +113,19 @@ const buildClaimPulseGradient = (phase) => {
     ["line-progress"],
     0,
     "rgba(255,255,255,0)",
-    trailStart,
+    fadeInStart,
     "rgba(255,255,255,0)",
+    fadeInMid,
+    "rgba(255,255,255,0.2)",
+    glowStart,
+    "rgba(255,255,255,0.72)",
     phase,
     "rgba(255,255,255,0.98)",
-    headEnd,
+    glowEnd,
+    "rgba(255,255,255,0.72)",
+    fadeOutMid,
+    "rgba(255,255,255,0.2)",
+    fadeOutEnd,
     "rgba(255,255,255,0)",
     1,
     "rgba(255,255,255,0)",
@@ -377,13 +390,20 @@ const buildDiscoveryRenderGroups = (points = [], map) => {
       const dy = entry.y - cluster.seedY;
       const distance = Math.hypot(dx, dy);
       const overlapThreshold = entry.radius + cluster.seedRadius + CLUSTER_EXTRA_PADDING_PX;
-      return distance <= overlapThreshold;
+      if (distance > overlapThreshold) return false;
+
+      const geoDistance = calculateDistanceMetersRaw(
+        cluster.seedLat,
+        cluster.seedLng,
+        entry.lat,
+        entry.lng
+      );
+
+      return Number.isFinite(geoDistance) && geoDistance <= MAX_CLUSTER_GEO_SPREAD_M;
     });
 
     if (targetCluster) {
       targetCluster.entries.push(entry);
-      targetCluster.sumLng += entry.lng;
-      targetCluster.sumLat += entry.lat;
       return;
     }
 
@@ -391,9 +411,9 @@ const buildDiscoveryRenderGroups = (points = [], map) => {
       seedX: entry.x,
       seedY: entry.y,
       seedRadius: entry.radius,
+      seedLng: entry.lng,
+      seedLat: entry.lat,
       entries: [entry],
-      sumLng: entry.lng,
-      sumLat: entry.lat,
     });
   });
 
@@ -407,15 +427,14 @@ const buildDiscoveryRenderGroups = (points = [], map) => {
       };
     }
 
-    const divisor = entries.length;
     const representative = entries[0].point;
 
     return {
       type: "cluster",
       point: {
         ...representative,
-        lng: cluster.sumLng / divisor,
-        lat: cluster.sumLat / divisor,
+        lng: cluster.seedLng,
+        lat: cluster.seedLat,
       },
       scanCount: entries.length,
     };
@@ -842,8 +861,8 @@ export default function MapboxZoneMap({
           const claimMarker = new mapboxgl.Marker({
             element: claimMarkerElement,
             anchor: "center",
-            pitchAlignment: "map",
-            rotationAlignment: "map",
+            pitchAlignment: "viewport",
+            rotationAlignment: "viewport",
           })
             .setLngLat([Number(claim.centerLng), Number(claim.centerLat)])
             .addTo(map);
@@ -928,8 +947,8 @@ export default function MapboxZoneMap({
         const marker = new mapboxgl.Marker({
           element: markerElement,
           anchor: "center",
-          pitchAlignment: "map",
-          rotationAlignment: "map",
+          pitchAlignment: "viewport",
+          rotationAlignment: "viewport",
         })
           .setLngLat([lng, lat])
           .addTo(map);
