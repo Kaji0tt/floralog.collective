@@ -21,6 +21,7 @@ const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "";
 const TILE_HALF_SIZE_M = 50;
 const CLAIM_PULSE_CYCLE_MS = 2600;
 const ZONE_ECHO_CYCLE_MS = 2600;
+const OVERLAP_PADDING_FACTOR = 0.86;
 
 const escapeHtml = (value) =>
   String(value ?? "")
@@ -340,7 +341,60 @@ const createDiscoveryMarkerElement = (point) => {
   appendLayer(plantUrl, "");
   appendLayer(faceUrl, "");
 
+  if (Number(point?.mergedCount || 1) > 1) {
+    const badge = document.createElement("span");
+    badge.textContent = String(Math.max(2, Number(point.mergedCount || 2)));
+    badge.style.position = "absolute";
+    badge.style.right = "-4px";
+    badge.style.bottom = "-3px";
+    badge.style.minWidth = "16px";
+    badge.style.height = "16px";
+    badge.style.borderRadius = "999px";
+    badge.style.background = "rgba(17,24,39,0.92)";
+    badge.style.border = "1px solid rgba(240,229,165,0.75)";
+    badge.style.color = "#f8fafc";
+    badge.style.fontSize = "10px";
+    badge.style.fontWeight = "700";
+    badge.style.display = "inline-flex";
+    badge.style.alignItems = "center";
+    badge.style.justifyContent = "center";
+    badge.style.padding = "0 4px";
+    badge.style.boxSizing = "border-box";
+    markerEl.appendChild(badge);
+  }
+
   return markerEl;
+};
+
+const buildMergedDiscoveryPopupHtml = (point) => {
+  const scanCount = Math.max(2, Number(point?.mergedCount || 2));
+  const scannerDisplayName = escapeHtml(point?.scannerDisplayName || point?.scannerName || "Unbekannt");
+  return `
+    <div style="font-family:sans-serif;min-width:168px;max-width:220px;padding:6px 4px;background:rgba(12,14,17,0.9);border:1px solid rgba(240,229,165,0.35);border-radius:12px;">
+      <div style="font-size:14px;font-weight:700;color:#fde68a;margin-bottom:6px;">Mehrere Scans</div>
+      <div style="font-size:12px;color:#e7e5e4;line-height:1.55;">
+        <div><span style="font-weight:700;">Spieler:</span> ${scannerDisplayName}</div>
+        <div><span style="font-weight:700;">Überlappte Scans:</span> ${scanCount}</div>
+        <div style="color:#a8a29e;margin-top:4px;">Zoome weiter hinein, um Einzelmarker zu sehen.</div>
+      </div>
+    </div>
+  `;
+};
+
+const openMergedDiscoveryPopup = ({ map, lng, lat, point }) => {
+  new mapboxgl.Popup({ closeButton: true, maxWidth: "240px", className: "hero-discovery-popup" })
+    .setLngLat({ lng, lat })
+    .setHTML(buildMergedDiscoveryPopupHtml(point))
+    .addTo(map);
+};
+
+const getMarkerVisualSizePx = (point) => {
+  const hasCustomLogo = Boolean(
+    String(point?.scannerLogoBorderUrl || "").trim() ||
+      String(point?.scannerLogoPlantUrl || "").trim() ||
+      String(point?.scannerLogoFaceUrl || "").trim()
+  );
+  return hasCustomLogo ? 34 : 16;
 };
 
 const createClaimLogoMarkerElement = (claim) => {
@@ -577,6 +631,96 @@ const findClaimForPoint = (point, claimedTiles = []) => {
   return null;
 };
 
+const mergeOverlappingDiscoveryPoints = (map, points = []) => {
+  const safePoints = (points || []).filter((point) => Number.isFinite(point?.lat) && Number.isFinite(point?.lng));
+  if (safePoints.length <= 1) {
+    return safePoints.map((point) => ({ ...point, mergedCount: 1, mergedDiscoveryIds: [point?.discoveryId].filter(Boolean) }));
+  }
+
+  const byScanner = new Map();
+  safePoints.forEach((point, idx) => {
+    const key = String(point?.scannerAuthId || point?.scannerEmail || `unknown-${idx}`);
+    if (!byScanner.has(key)) byScanner.set(key, []);
+    byScanner.get(key).push({ point, idx });
+  });
+
+  const result = [];
+
+  byScanner.forEach((entries) => {
+    if (entries.length === 1) {
+      const single = entries[0].point;
+      result.push({ ...single, mergedCount: 1, mergedDiscoveryIds: [single?.discoveryId].filter(Boolean) });
+      return;
+    }
+
+    const projected = entries.map((entry) => {
+      const coords = map.project([Number(entry.point.lng), Number(entry.point.lat)]);
+      return {
+        ...entry,
+        x: Number(coords.x),
+        y: Number(coords.y),
+        sizePx: getMarkerVisualSizePx(entry.point),
+      };
+    });
+
+    const parent = projected.map((_, index) => index);
+    const find = (i) => {
+      let p = i;
+      while (parent[p] !== p) {
+        parent[p] = parent[parent[p]];
+        p = parent[p];
+      }
+      return p;
+    };
+    const union = (a, b) => {
+      const rootA = find(a);
+      const rootB = find(b);
+      if (rootA !== rootB) parent[rootB] = rootA;
+    };
+
+    for (let i = 0; i < projected.length; i += 1) {
+      for (let j = i + 1; j < projected.length; j += 1) {
+        const dx = projected[i].x - projected[j].x;
+        const dy = projected[i].y - projected[j].y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const overlapThreshold = ((projected[i].sizePx + projected[j].sizePx) / 2) * OVERLAP_PADDING_FACTOR;
+        if (distance <= overlapThreshold) {
+          union(i, j);
+        }
+      }
+    }
+
+    const groups = new Map();
+    projected.forEach((entry, index) => {
+      const root = find(index);
+      if (!groups.has(root)) groups.set(root, []);
+      groups.get(root).push(entry.point);
+    });
+
+    groups.forEach((groupPoints) => {
+      if (groupPoints.length <= 1) {
+        const single = groupPoints[0];
+        result.push({ ...single, mergedCount: 1, mergedDiscoveryIds: [single?.discoveryId].filter(Boolean) });
+        return;
+      }
+
+      const lat = groupPoints.reduce((acc, point) => acc + Number(point.lat || 0), 0) / groupPoints.length;
+      const lng = groupPoints.reduce((acc, point) => acc + Number(point.lng || 0), 0) / groupPoints.length;
+      const representative = groupPoints[0];
+
+      result.push({
+        ...representative,
+        lat,
+        lng,
+        mergedCount: groupPoints.length,
+        mergedDiscoveryIds: groupPoints.map((point) => point?.discoveryId).filter(Boolean),
+      });
+    });
+  });
+
+  return result;
+};
+
 export default function MapboxZoneMap({
   zones = [],
   userLocation = null,
@@ -599,6 +743,7 @@ export default function MapboxZoneMap({
   const claimLogoMarkersRef = useRef([]);
   const claimPulseIntervalRef = useRef(null);
   const zoneEchoIntervalRef = useRef(null);
+  const rerenderDiscoveryMarkersRef = useRef(() => {});
 
   useEffect(() => {
     return () => {
@@ -669,7 +814,16 @@ export default function MapboxZoneMap({
       }
     });
 
+    const handleDiscoveryMarkerReflow = () => {
+      rerenderDiscoveryMarkersRef.current();
+    };
+
+    map.on("zoom", handleDiscoveryMarkerReflow);
+    map.on("moveend", handleDiscoveryMarkerReflow);
+
     return () => {
+      map.off("zoom", handleDiscoveryMarkerReflow);
+      map.off("moveend", handleDiscoveryMarkerReflow);
       if (zoneEchoIntervalRef.current) {
         window.clearInterval(zoneEchoIntervalRef.current);
         zoneEchoIntervalRef.current = null;
@@ -1001,18 +1155,21 @@ export default function MapboxZoneMap({
           claimLogoMarkersRef.current.push(claimMarker);
         });
 
-      discoveryMarkersRef.current.forEach((marker) => marker.remove());
-      discoveryMarkersRef.current = [];
+      const renderDiscoveryMarkers = () => {
+        discoveryMarkersRef.current.forEach((marker) => marker.remove());
+        discoveryMarkersRef.current = [];
 
-      discoveryPoints
-        .filter((point) => Number.isFinite(point?.lat) && Number.isFinite(point?.lng))
-        .forEach((point) => {
-          const pointClaim = findClaimForPoint(point, claimedTiles);
-          const scannerAuthId = String(point?.scannerAuthId || "").trim();
-          if (pointClaim && scannerAuthId && String(pointClaim.ownerAuthId || "") === scannerAuthId) {
-            return;
-          }
+        const filteredPoints = discoveryPoints
+          .filter((point) => Number.isFinite(point?.lat) && Number.isFinite(point?.lng))
+          .filter((point) => {
+            const pointClaim = findClaimForPoint(point, claimedTiles);
+            const scannerAuthId = String(point?.scannerAuthId || "").trim();
+            return !(pointClaim && scannerAuthId && String(pointClaim.ownerAuthId || "") === scannerAuthId);
+          });
 
+        const visualPoints = mergeOverlappingDiscoveryPoints(map, filteredPoints);
+
+        visualPoints.forEach((point) => {
           const lng = Number(point.lng);
           const lat = Number(point.lat);
           const properties = {
@@ -1034,6 +1191,12 @@ export default function MapboxZoneMap({
           markerElement.addEventListener("click", (domEvent) => {
             domEvent.preventDefault();
             domEvent.stopPropagation();
+
+            if (Number(point?.mergedCount || 1) > 1) {
+              openMergedDiscoveryPopup({ map, lng, lat, point });
+              return;
+            }
+
             openDiscoveryPopup({
               map,
               event: { lngLat: { lng, lat } },
@@ -1049,6 +1212,10 @@ export default function MapboxZoneMap({
             .addTo(map);
           discoveryMarkersRef.current.push(marker);
         });
+      };
+
+      rerenderDiscoveryMarkersRef.current = renderDiscoveryMarkers;
+      renderDiscoveryMarkers();
     };
 
     if (map.isStyleLoaded()) {
