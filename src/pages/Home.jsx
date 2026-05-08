@@ -49,6 +49,7 @@ import PlantHeroHealthPanel from "@/components/home/PlantHeroHealthPanel";
 import PlantQuizDialog from "@/components/home/PlantQuizDialog";
 import AchievementsFeatureRoot from "@/components/achievements/AchievementsFeatureRoot";
 import FriendsFeatureRoot from "@/components/friends/FriendsFeatureRoot";
+import { LockedTooltip } from "@/components/ui/locked-tooltip";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
@@ -1125,7 +1126,13 @@ function HomeContent() {
   const claimsCenterLat = hasLiveCachedLocation ? Number(cachedLocation?.lat) : fallbackClaimCenterLat;
   const claimsCenterLng = hasLiveCachedLocation ? Number(cachedLocation?.lng) : fallbackClaimCenterLng;
 
-  const { data: claimedTiles = [], error: tileClaimsError } = useQuery({
+  const {
+    data: claimedTiles = [],
+    error: tileClaimsError,
+    isLoading: isTileClaimsLoading,
+    isFetching: isTileClaimsFetching,
+    isFetched: isTileClaimsFetched,
+  } = useQuery({
     queryKey: ["tileClaims", user?.id, claimsCenterLat, claimsCenterLng],
     queryFn: () =>
       getTileClaims({
@@ -1141,6 +1148,11 @@ function HomeContent() {
     staleTime: 30 * 1000,
     refetchOnWindowFocus: true,
   });
+
+  const isClaimsPendingForMap =
+    activePanel === "map" &&
+    !tileClaimsError &&
+    (isTileClaimsLoading || isTileClaimsFetching || !isTileClaimsFetched);
 
   const claimedTilesWithLogos = useMemo(() => {
     if (!Array.isArray(claimedTiles) || claimedTiles.length === 0) {
@@ -2209,6 +2221,7 @@ function HomeContent() {
                     isLightUi={isLightUi}
                     isResolvingLocation={isResolvingHeroMapLocation}
                     isLoadingDiscoveries={isMapDataPending}
+                    isLoadingClaims={isClaimsPendingForMap}
                     hasLiveCachedLocation={hasLiveCachedLocation}
                     zoneMapError={zoneMapError}
                     tileClaimError={tileClaimsError ? String(tileClaimsError?.message || tileClaimsError) : null}
@@ -2516,15 +2529,41 @@ function HomeContent() {
                             </div>
 
                             <div className="absolute left-1/2 bottom-[7%] -translate-x-1/2 z-[8]">
-                              <div
-                                className={`rounded-xl border backdrop-blur-sm px-3 py-1.5 flex items-center gap-1.5 text-xs md:text-sm font-semibold ${
-                                  isLightUi
-                                    ? "border-[#c8ac62]/55 bg-white/60 text-stone-700"
-                                    : "border-[#f0e5a5]/45 bg-black/35 text-lime-100"
-                                }`}
-                              >
-                                <Leaf className={`w-4 h-4 ${isLightUi ? "text-emerald-600" : "text-lime-200"}`} />
-                                <span>{playerSeeds} · Tiles {playerClaimedTiles}</span>
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className={`rounded-xl border backdrop-blur-sm px-3 py-1.5 flex items-center gap-1.5 text-xs md:text-sm font-semibold ${
+                                    isLightUi
+                                      ? "border-[#c8ac62]/55 bg-white/60 text-stone-700"
+                                      : "border-[#f0e5a5]/45 bg-black/35 text-lime-100"
+                                  }`}
+                                >
+                                  <Leaf className={`w-4 h-4 ${isLightUi ? "text-emerald-600" : "text-lime-200"}`} />
+                                  <span>{playerSeeds}</span>
+                                </div>
+
+                                <LockedTooltip
+                                  content={
+                                    <div className="space-y-1.5">
+                                      <p className="text-xs font-semibold">Deine Tile-Claims</p>
+                                      <p className="text-[11px] leading-relaxed text-stone-200">
+                                        Jede geclaimte Tile erhoeht deinen Seed-Multiplikator um +10%. Mit {playerClaimedTiles} Tiles hast du aktuell x{(1 + playerClaimedTiles * 0.1).toFixed(1)}.
+                                      </p>
+                                    </div>
+                                  }
+                                >
+                                  <button
+                                    type="button"
+                                    aria-label="Tile-Claims anzeigen"
+                                    className={`rounded-xl border backdrop-blur-sm px-2.5 py-1.5 flex items-center gap-1 text-xs md:text-sm font-semibold transition-colors ${
+                                      isLightUi
+                                        ? "border-[#c8ac62]/55 bg-white/60 text-stone-700 hover:bg-white/75"
+                                        : "border-[#f0e5a5]/45 bg-black/35 text-lime-100 hover:bg-black/50"
+                                    }`}
+                                  >
+                                    <MapPin className={`w-3.5 h-3.5 ${isLightUi ? "text-amber-600" : "text-amber-300"}`} />
+                                    <span>{playerClaimedTiles}</span>
+                                  </button>
+                                </LockedTooltip>
                               </div>
                             </div>
 

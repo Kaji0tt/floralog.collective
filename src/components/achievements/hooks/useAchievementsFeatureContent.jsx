@@ -27,6 +27,7 @@ import { grantRobotPlantRewardServerSide } from "@/api/robotPlantService";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { createPageUrl } from "@/utils";
 import { resolveTitleValue } from "@/lib/profileCustomizationOptions";
+import { supabase } from "@/api/supabaseClient";
 
 /** @type {{ regular: number, weekly: number, monthly: number }} */
 const DEFAULT_QUEST_SEED_REWARD_BY_TYPE = {
@@ -46,6 +47,19 @@ const resolveQuestSeedReward = ({ questType, seedReward }) => {
   if (questType === "weekly") return DEFAULT_QUEST_SEED_REWARD_BY_TYPE.weekly;
   if (questType === "monthly") return DEFAULT_QUEST_SEED_REWARD_BY_TYPE.monthly;
   return DEFAULT_QUEST_SEED_REWARD_BY_TYPE.regular;
+};
+
+/**
+ * @param {any} error
+ */
+const isMissingRpcFunctionError = (error) => {
+  if (!error) return false;
+  const message = String(error.message || "").toLowerCase();
+  return (
+    error.code === "PGRST202" ||
+    error.code === "42883" ||
+    message.includes("could not find the function")
+  );
 };
 
 /**
@@ -358,6 +372,22 @@ export function useAchievementsFeatureContent({
   const { data: allRobotPlants = [] } = useQuery({
     queryKey: ['allRobotPlantsForStats'],
     queryFn: () => Query.RobotPlant.list(),
+    staleTime: 60 * 1000,
+  });
+
+  const { data: globalScanLeaderboard = null } = useQuery({
+    queryKey: ['globalScanLeaderboard'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_global_scan_leaderboard');
+      if (error) {
+        if (isMissingRpcFunctionError(error)) {
+          console.warn('[AchievementsPage] get_global_scan_leaderboard not available yet, using discovery fallback.');
+          return null;
+        }
+        throw error;
+      }
+      return Array.isArray(data) ? data : [];
+    },
     staleTime: 60 * 1000,
   });
 
@@ -1232,7 +1262,31 @@ export function useAchievementsFeatureContent({
     })
     .sort((a, b) => b.scans - a.scans);
 
-  const ownGlobalScanRank = globalScanRanking.findIndex((entry) => entry.email === ownEmailLower) + 1;
+  const rpcGlobalScanRanking = (globalScanLeaderboard || [])
+    .map((entry) => {
+      const email = String(entry?.user_email || '').trim().toLowerCase();
+      const entryAuthId = entry?.auth_id || null;
+      const isOwnByAuth = !!ownAuthId && !!entryAuthId && ownAuthId === entryAuthId;
+      const isOwnByEmail = !!ownEmailLower && !!email && ownEmailLower === email;
+      const participantEmail = isOwnByAuth ? ownEmailLower : email;
+
+      return {
+        email: participantEmail,
+        scans: Number(entry?.scan_count ?? 0),
+        name:
+          entry?.display_name ||
+          entry?.full_name ||
+          (isOwnByAuth || isOwnByEmail
+            ? (user?.display_name || user?.full_name || user?.email)
+            : (participantEmail || 'Unbekannt')),
+      };
+    })
+    .filter((entry) => !!entry.email && Number(entry.scans) > 0)
+    .sort((a, b) => b.scans - a.scans);
+
+  const effectiveGlobalScanRanking = rpcGlobalScanRanking.length > 0 ? rpcGlobalScanRanking : globalScanRanking;
+
+  const ownGlobalScanRank = effectiveGlobalScanRanking.findIndex((entry) => entry.email === ownEmailLower) + 1;
 
   const emailByAuthIdFromDiscoveries = new Map();
   (allDiscoveries || []).forEach((entry) => {
@@ -1656,19 +1710,19 @@ export function useAchievementsFeatureContent({
                     <div className={`rounded-lg border px-3 py-2 ${isLightUi ? "border-indigo-200 bg-indigo-50" : "border-indigo-300/40 bg-indigo-500/10"}`}>
                       <p className={`text-xs ${isLightUi ? "text-indigo-700" : "text-indigo-200"}`}>Dein globaler Rang</p>
                       <p className={`text-lg font-bold ${isLightUi ? "text-indigo-900" : "text-indigo-100"}`}>
-                        {ownGlobalScanRank > 0 ? `#${ownGlobalScanRank} von ${globalScanRanking.length}` : "Noch kein Rang"}
+                        {ownGlobalScanRank > 0 ? `#${ownGlobalScanRank} von ${effectiveGlobalScanRanking.length}` : "Noch kein Rang"}
                       </p>
                     </div>
 
-                    {globalScanRanking.length === 0 && (
+                    {effectiveGlobalScanRanking.length === 0 && (
                       <p className={`text-sm ${statsBodyClass}`}>Noch keine Vergleichsdaten verfügbar.</p>
                     )}
 
                     {/* Top 5 + eigener Eintrag falls außerhalb */}
                     {(() => {
-                      const top5 = globalScanRanking.slice(0, 5);
+                      const top5 = effectiveGlobalScanRanking.slice(0, 5);
                       const ownInTop5 = top5.some((e) => e.email === ownEmailLower);
-                      const ownEntry = !ownInTop5 && ownGlobalScanRank > 0 ? globalScanRanking[ownGlobalScanRank - 1] : null;
+                      const ownEntry = !ownInTop5 && ownGlobalScanRank > 0 ? effectiveGlobalScanRanking[ownGlobalScanRank - 1] : null;
                       return (
                         <>
                           {top5.map((entry, index) => (
