@@ -395,31 +395,22 @@ export default function CameraCapture({ onCapture, onClose }) {
         )}
 
         {isReady && zoomSupported && (
-          <div className="absolute bottom-3 left-3 z-30 rounded-lg border border-[#f0e5a5]/35 bg-black/60 px-3 py-1 text-xs font-medium text-stone-100">
-            Zoom {zoomLevel.toFixed(1)}x
+          <div className="absolute bottom-3 left-3 right-3 z-30 flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/40 backdrop-blur-sm">
+            <span className="text-[11px] font-medium text-stone-200 shrink-0 w-10 text-right">{zoomLevel.toFixed(1)}x</span>
+            <input
+              type="range"
+              min={zoomRange.min}
+              max={zoomRange.max}
+              step={zoomRange.step}
+              value={zoomLevel}
+              onChange={(event) => applyZoom(Number(event.target.value))}
+              className="flex-1 h-1 accent-emerald-400 cursor-pointer"
+              aria-label="Kamera-Zoom"
+              style={{ accentColor: '#34d399' }}
+            />
           </div>
         )}
       </div>
-
-      {isReady && zoomSupported && (
-        <div className="w-full max-w-sm rounded-xl border border-[#f0e5a5]/30 bg-black/40 px-4 py-3">
-          <div className="mb-2 flex items-center justify-between text-xs text-stone-200">
-            <span>Kamera-Zoom</span>
-            <span>{zoomLevel.toFixed(1)}x</span>
-          </div>
-          <input
-            type="range"
-            min={zoomRange.min}
-            max={zoomRange.max}
-            step={zoomRange.step}
-            value={zoomLevel}
-            onChange={(event) => applyZoom(Number(event.target.value))}
-            className="w-full accent-emerald-400"
-            aria-label="Kamera-Zoom"
-          />
-          <p className="mt-2 text-[11px] text-stone-300">Tipp: Mit zwei Fingern im Kamerabild zoomen.</p>
-        </div>
-      )}
 
       {/* Aufnahme- und Zurück-Button unten */}
       <div className="w-full flex justify-center items-center gap-6 pt-4">
