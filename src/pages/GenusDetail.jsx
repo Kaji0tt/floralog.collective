@@ -607,8 +607,7 @@ export default function GenusDetail() {
               }`}
             >
               <CardContent className="p-3">
-                {plant.discovered ? (
-                  <div className="space-y-3">
+                <div className="space-y-3">
                     {/* Header mit Bild */}
                     <div className="flex gap-3">
                       {plant.allDiscoveries?.length > 0 && (
@@ -647,7 +646,9 @@ export default function GenusDetail() {
                               <PencilLine className="w-3 h-3" />
                             </button>
                           )}
-                          <CheckCircle2 className={"w-5 h-5 flex-shrink-0 " + (isLightUi ? "text-green-600" : "text-emerald-300")} />
+                          {plant.discovered && (
+                            <CheckCircle2 className={"w-5 h-5 flex-shrink-0 " + (isLightUi ? "text-green-600" : "text-emerald-300")} />
+                          )}
                         </div>
                         </div>
                         {plant.rarity && (
@@ -674,58 +675,7 @@ export default function GenusDetail() {
                       <p className={"text-xs line-clamp-2 " + (isLightUi ? "text-stone-600" : "text-stone-300")}>{plant.description}</p>
                     )}
                   </div>
-                ) : (
-                  <div 
-                    className={"relative h-32 rounded-lg overflow-hidden cursor-pointer flex items-center justify-center " + (isLightUi
-                      ? "bg-gradient-to-br from-stone-100 to-stone-200"
-                      : "bg-gradient-to-br from-stone-800/80 to-stone-900")}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setFlippedPlants(prev => ({ ...prev, [plant.id]: true }));
-                      setTimeout(() => setFlippedPlants(prev => ({ ...prev, [plant.id]: false })), 3000);
-                    }}
-                  >
-                    {!flippedPlants[plant.id] ? (
-                      <div className="text-center">
-                        <Leaf className={"w-10 h-10 mx-auto mb-2 " + (isLightUi ? "text-stone-300" : "text-stone-500")} />
-                        <p className={"text-xs " + (isLightUi ? "text-stone-500" : "text-stone-300")}>{friendEmail ? "Noch nicht entdeckt" : "Tippen für Hinweis"}</p>
-                      </div>
-                    ) : (
-                      <div className="text-center px-3">
-                        <p className={"text-sm font-bold " + (isLightUi ? "text-stone-700" : "text-stone-100")}>{plant.species_name}</p>
-                        <p className={"text-xs italic " + (isLightUi ? "text-stone-600" : "text-stone-300")}>{plant.scientific_name}</p>
-                      </div>
-                    )}
-                    {!friendEmail && (
-                      <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
-                        {currentUser?.role === "admin" && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingPlant(plant);
-                            }}
-                              className={"shrink-0 p-1.5 rounded-full border transition-colors " + (isLightUi
-                                ? "bg-amber-100 text-amber-700 hover:bg-amber-200 hover:text-amber-800 border-amber-300"
-                                : "bg-[#f0e5a5]/20 text-[#f0e5a5] hover:bg-[#f0e5a5]/30 border-[#f0e5a5]/45")}
-                            aria-label="Art bearbeiten"
-                          >
-                            <PencilLine className="w-3 h-3" />
-                          </button>
-                        )}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            window.open(`https://www.google.com/search?q=Wo+finde+ich+${encodeURIComponent(plant.species_name)}`, '_blank');
-                          }}
-                          className={"w-6 h-6 rounded-full flex items-center justify-center " + (isLightUi ? "bg-stone-400 hover:bg-stone-500" : "bg-stone-600 hover:bg-stone-500")}
-                        >
-                          <HelpCircle className="w-3 h-3 text-white" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
+                )
               </CardContent>
             </Card>
           ))}
