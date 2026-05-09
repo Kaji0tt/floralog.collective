@@ -50,6 +50,26 @@ export default function EditGenusDialog({ genus, isOpen, onClose, isLightUi = tr
       const newCategory = payload.data.category;
       const categoryChanged = newCategory && newCategory !== oldCategory;
 
+      let newDexNumber = genus.category_dex_number;
+
+      if (categoryChanged) {
+        // Berechne die höchste Nummer in der Zielkategorie und fahre dort fort
+        const categoryCandidates = newCategory === "Blumen"
+          ? ["Blumen", "Blumen & Kräuter"]
+          : [newCategory];
+        const categoryGenera = allGenera.filter(
+          (g) => categoryCandidates.includes(g.category) && g.id !== genus.id
+        );
+        const highestNumber = Math.max(
+          0,
+          ...categoryGenera
+            .map((g) => Number(g.category_dex_number || 0))
+            .filter((value) => Number.isFinite(value))
+        );
+        newDexNumber = highestNumber + 1;
+        payload.data.category_dex_number = newDexNumber;
+      }
+
       // Update genus
       await Query.PlantGenus.update(payload.id, payload.data);
 
@@ -57,7 +77,7 @@ export default function EditGenusDialog({ genus, isOpen, onClose, isLightUi = tr
       if (categoryChanged) {
         await supabase
           .from("Plant")
-          .update({ genus_category: newCategory })
+          .update({ genus_category: newCategory, genus_number: newDexNumber })
           .eq("genus_category", oldCategory)
           .eq("genus_number", genus.category_dex_number);
       }
