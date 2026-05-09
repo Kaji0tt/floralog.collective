@@ -93,7 +93,9 @@ async function handleNativeShare(cardRef, plantName) {
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
     if (!blob) return alert('Screenshot fehlgeschlagen.');
     const file = new File([blob], 'floralog-scan.png', { type: 'image/png' });
-    const shareText = `Schau mal, ich habe gerade diese Pflanze mit Floralog gescannt und Samen gesammelt! 🌱\nTeste es selbst: https://floralog.app` + (plantName ? `\nPflanze: ${plantName}` : '');
+    // Korrigierter Teilen-Text mit Platzhaltern für Pflanzennamen und Samenanzahl
+    const seedsAmount = (rewardDetails && typeof rewardDetails.finalReward === 'number') ? rewardDetails.finalReward : undefined;
+    const shareText = `Schau mal, beim Scan der Pflanze${plantName ? ' ' + plantName : ''} habe ich${seedsAmount !== undefined ? ' ' + seedsAmount : ''} Samen erhalten!\nTeste das Scannen selbst: https://floralog.de`;
     const shareData = {
       title: 'Mein Floralog Scan',
       text: shareText,
