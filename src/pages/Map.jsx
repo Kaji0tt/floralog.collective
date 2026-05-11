@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
+import { getTileClaims } from "@/api/tileClaimService";
 import MapboxZoneMap from "@/components/map/MapboxZoneMap";
 import { parseDiscoveryCoordinates } from "@/lib/discoveryMap";
 import { cacheLocation, requestCurrentLocation } from "@/lib/locationSync";
@@ -23,6 +24,8 @@ export default function Map() {
   const [gettingLocation, setGettingLocation] = useState(false);
   const [mapError, setMapError] = useState("");
   const [locationReady, setLocationReady] = useState(false);
+  const [claimsCenterLat, setClaimsCenterLat] = useState(null);
+  const [claimsCenterLng, setClaimsCenterLng] = useState(null);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -44,6 +47,22 @@ export default function Map() {
     () => allDiscoveries.map((entry) => parseDiscoveryCoordinates(entry?.discovery_location)).filter(Boolean),
     [allDiscoveries]
   );
+
+  const { data: claimedTiles = [], error: tileClaimsError, isLoading: isTileClaimsLoading } = useQuery({
+    queryKey: ["tileClaims", claimsCenterLat, claimsCenterLng],
+    queryFn: () =>
+      getTileClaims({
+        latitude: claimsCenterLat,
+        longitude: claimsCenterLng,
+        radiusM: 1500,
+      }),
+    enabled:
+      locationReady &&
+      Number.isFinite(claimsCenterLat) &&
+      Number.isFinite(claimsCenterLng),
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
+  });
 
   const liveLat = Number(userLocation?.lat);
   const liveLng = Number(userLocation?.lng);
@@ -76,6 +95,8 @@ export default function Map() {
         lat: location.lat,
         lng: location.lng,
       });
+      setClaimsCenterLat(location.lat);
+      setClaimsCenterLng(location.lng);
       setMapError("");
       setLocationReady(true);
     } catch (caughtError) {
@@ -177,6 +198,7 @@ export default function Map() {
                 userLocation={hasUserLocation ? mapCenter : null}
                 fallbackCenter={mapCenter}
                 discoveryPoints={discoveryPoints}
+                claimedTiles={claimedTiles}
                 className="h-full w-full"
               />
             )}
