@@ -9,6 +9,13 @@ function buildRewardSteps(rewardDetails, isInActiveZone) {
   if (!rewardDetails) return [];
   let runningReward = rewardDetails.baseReward ?? 0;
   const preStreakSteps = [];
+  const formatTileBonusLabel = (multiplier) => {
+    const bonusPercent = Math.max(0, (Number(multiplier) - 1) * 100);
+    const roundedPercent = Number.isInteger(bonusPercent)
+      ? bonusPercent
+      : Math.round(bonusPercent * 10) / 10;
+    return `+ ${roundedPercent}% durch Tiles`;
+  };
 
   function pushPreStreakStep(id, label, multiplier) {
     if (multiplier === 1) return;
@@ -48,6 +55,8 @@ function buildRewardSteps(rewardDetails, isInActiveZone) {
   const positivePreStreak = preStreakSteps.filter((step) => step.positive);
   const negativePreStreak = preStreakSteps.filter((step) => !step.positive);
   const steps = [...positivePreStreak, ...negativePreStreak];
+
+  let currentReward = rewardDetails.preStreakReward;
   if (rewardDetails.streakMultiplier !== 1) {
     steps.push({
       id: "streak",
@@ -55,6 +64,24 @@ function buildRewardSteps(rewardDetails, isInActiveZone) {
       multiplier: rewardDetails.streakMultiplier,
       result: rewardDetails.finalReward,
       positive: rewardDetails.streakMultiplier > 1,
+    });
+    currentReward = rewardDetails.finalReward;
+  }
+
+  if (rewardDetails.tileClaimMultiplier && rewardDetails.tileClaimMultiplier !== 1) {
+    const preTileReward =
+      typeof rewardDetails.preTileClaimReward === "number"
+        ? rewardDetails.preTileClaimReward
+        : currentReward;
+
+    steps.push({
+      id: "tiles",
+      label: "Tiles",
+      multiplier: rewardDetails.tileClaimMultiplier,
+      result: rewardDetails.finalReward,
+      positive: rewardDetails.tileClaimMultiplier > 1,
+      displayValue: formatTileBonusLabel(rewardDetails.tileClaimMultiplier),
+      from: preTileReward,
     });
   }
   return steps;

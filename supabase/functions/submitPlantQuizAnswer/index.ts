@@ -169,73 +169,29 @@ Deno.serve(async (req) => {
       });
     }
 
-    const nextWrongAttempts = wrongAttempts + 1;
-    if (nextWrongAttempts >= 3) {
-      const consolationSeeds = 25;
-      const eventReference = `plantquiz:${quizId}:consolation`;
-
-      const rewardRpc = await adminClient.rpc("robot_plant_grant_reward", {
-        p_auth_id: authUser.id,
-        p_event_source: "quiz",
-        p_event_reference: eventReference,
-        p_amount: consolationSeeds,
-        p_energy_delta: 0,
-        p_data_quality_delta: 0,
-        p_care_delta: 0,
-        p_metadata: {
-          source: "plant_quiz",
-          quizId,
-          consolation: true,
-          wrongAttempts: 3,
-        },
-      });
-
-      if (rewardRpc.error) {
-        return jsonResponse({ error: `Consolation reward failed: ${rewardRpc.error.message}` }, 500);
-      }
-
-      const resolveQuiz = await adminClient
-        .from("PlantQuiz")
-        .update({
-          status: "resolved",
-          wrong_attempts: 3,
-          resolved_at: new Date().toISOString(),
-          reward_seeds: consolationSeeds,
-          reward_data_quality: 0,
-        })
-        .eq("id", quizId);
-
-      if (resolveQuiz.error) {
-        return jsonResponse({ error: `Quiz resolve failed: ${resolveQuiz.error.message}` }, 500);
-      }
-
-      return jsonResponse({
-        success: true,
-        correct: false,
-        resolved: true,
-        consolation: true,
-        rewardSeeds: consolationSeeds,
-        rewardDataQuality: 0,
-        wrongAttempts: 3,
-      });
-    }
-
-    const wrongUpdate = await adminClient
+    // Bei falscher Antwort: Quiz sofort abbrechen, kein Reward
+    const abortQuiz = await adminClient
       .from("PlantQuiz")
-      .update({ wrong_attempts: nextWrongAttempts })
-      .eq("id", quizId)
-      .eq("status", "open");
+      .update({
+        status: "resolved",
+        wrong_attempts: wrongAttempts + 1,
+        resolved_at: new Date().toISOString(),
+        reward_seeds: 0,
+        reward_data_quality: 0,
+      })
+      .eq("id", quizId);
 
-    if (wrongUpdate.error) {
-      return jsonResponse({ error: `Wrong-attempt update failed: ${wrongUpdate.error.message}` }, 500);
+    if (abortQuiz.error) {
+      return jsonResponse({ error: `Quiz abort failed: ${abortQuiz.error.message}` }, 500);
     }
 
     return jsonResponse({
       success: true,
       correct: false,
-      resolved: false,
-      wrongAttempts: nextWrongAttempts,
-      attemptsRemaining: Math.max(0, 3 - nextWrongAttempts),
+      resolved: true,
+      aborted: true,
+      wrongAttempts: wrongAttempts + 1,
+      encouragementMessage: "Viel Glück beim nächsten Mal!",
     });
   } catch (error) {
     console.error("[submitPlantQuizAnswer] unexpected error", error);

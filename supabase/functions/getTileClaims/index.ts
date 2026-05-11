@@ -29,9 +29,28 @@ type TileClaimRow = {
 
 type PublicProfileRow = {
   auth_id: string;
-  username: string | null;
+  display_name: string | null;
+  full_name: string | null;
+  user_email: string | null;
   selected_border_color: string | null;
 };
+
+function deriveOwnerName(profile: PublicProfileRow | null): string | null {
+  if (!profile) return null;
+
+  const displayName = String(profile.display_name || "").trim();
+  if (displayName) return displayName;
+
+  const fullName = String(profile.full_name || "").trim();
+  if (fullName) return fullName;
+
+  const email = String(profile.user_email || "").trim().toLowerCase();
+  if (email && email.includes("@")) {
+    return email.split("@")[0];
+  }
+
+  return null;
+}
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
@@ -130,7 +149,7 @@ Deno.serve(async (req) => {
     if (ownerIds.length > 0) {
       const { data: profileRows, error: profileError } = await adminClient
         .from("PublicProfile")
-        .select("auth_id, username, selected_border_color")
+        .select("auth_id, display_name, full_name, user_email, selected_border_color")
         .in("auth_id", ownerIds);
 
       if (profileError) {
@@ -145,6 +164,7 @@ Deno.serve(async (req) => {
     const responseClaims = filteredClaims.map((claim: TileClaimRow) => {
       const center = getTileCenter(claim.tile_x, claim.tile_y);
       const ownerProfile = profileByAuth.get(claim.owner_auth_id) || null;
+      const ownerName = deriveOwnerName(ownerProfile);
       return {
         tileX: claim.tile_x,
         tileY: claim.tile_y,
@@ -152,7 +172,7 @@ Deno.serve(async (req) => {
         centerLng: center.lng,
         ownerAuthId: claim.owner_auth_id,
         ownerScanCount: Number(claim.owner_scan_count || 0),
-        ownerName: ownerProfile?.username || null,
+        ownerName,
         ownerBorderColor: ownerProfile?.selected_border_color || null,
         claimedAt: claim.claimed_at,
         updatedAt: claim.updated_at,

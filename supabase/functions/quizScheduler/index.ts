@@ -394,9 +394,26 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // Lade alle Pflanzendaten (ID und Kategorie)
+      const plantsResult = await adminClient
+        .from("Plant")
+        .select("id, genus_category")
+        .in("id", uniquePlantIds);
+
+      if (plantsResult.error || !plantsResult.data) {
+        continue;
+      }
+
+      const plantsMap = new Map(plantsResult.data.map((p: any) => [p.id, p.genus_category]));
+
       const eligibleCandidates = candidates.filter((candidate) => {
         const correctPlantId = String(candidate.plant_id);
-        const distractorPlantIds = uniquePlantIds.filter((plantId) => plantId !== correctPlantId);
+        const correctCategory = plantsMap.get(correctPlantId);
+        
+        // Finde Distraktoren aus der gleichen Kategorie
+        const distractorPlantIds = uniquePlantIds.filter(
+          (plantId) => plantId !== correctPlantId && plantsMap.get(plantId) === correctCategory
+        );
         return distractorPlantIds.length >= 2;
       });
 
@@ -406,7 +423,11 @@ Deno.serve(async (req) => {
 
       const selectedDiscovery = pickRandom(eligibleCandidates);
       const correctPlantId = String(selectedDiscovery.plant_id);
-      const distractorPool = uniquePlantIds.filter((plantId) => plantId !== correctPlantId);
+      const correctCategory = plantsMap.get(correctPlantId);
+      
+      const distractorPool = uniquePlantIds.filter(
+        (plantId) => plantId !== correctPlantId && plantsMap.get(plantId) === correctCategory
+      );
       const distractors = pickDistinctRandom(distractorPool, 2);
       if (distractors.length < 2) {
         continue;

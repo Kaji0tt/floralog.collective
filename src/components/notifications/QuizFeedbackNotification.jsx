@@ -22,22 +22,27 @@ export default function QuizFeedbackNotification({ feedback, onComplete }) {
   const isCorrect = feedback.correct === true;
   const isResolved = feedback.resolved === true;
   const isConsolation = feedback.consolation === true;
+  const isAborted = feedback.aborted === true;
 
   const title = feedback.error
     ? "Quiz-Antwort konnte nicht verarbeitet werden"
     : isCorrect
       ? "Richtig!"
-      : isResolved
-        ? "Quiz beendet"
-        : "Leider falsch";
+      : isAborted
+        ? "Leider falsch"
+        : isResolved
+          ? "Quiz beendet"
+          : "Leider falsch";
 
   const message = feedback.error
     ? String(feedback.error)
     : isCorrect
       ? `+${feedback.rewardSeeds || 0} Samen, +${feedback.rewardDataQuality || 0} Datenqualitaet`
-      : isConsolation
-        ? `Trostpreis: +${feedback.rewardSeeds || 0} Samen`
-        : `Verbleibende Versuche: ${feedback.attemptsRemaining ?? "?"}`;
+      : isAborted
+        ? feedback.encouragementMessage || "Viel Glück beim nächsten Mal!"
+        : isConsolation
+          ? `Trostpreis: +${feedback.rewardSeeds || 0} Samen`
+          : `Verbleibende Versuche: ${feedback.attemptsRemaining ?? "?"}`;
 
   const Icon = isCorrect ? CheckCircle2 : AlertCircle;
   const accentClass = isCorrect ? "text-emerald-300" : "text-rose-300";

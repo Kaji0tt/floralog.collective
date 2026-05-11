@@ -30,7 +30,7 @@ export default function PlantQuizDialog({
   const attemptsRemaining = Math.max(0, attemptsTotal - attemptsUsed);
 
   const canSubmit = selectedPlantId && !isSubmitting && !result;
-  const hasRetryableWrongResult = Boolean(result && !result.correct && !result.resolved);
+  const hasRetryableWrongResult = Boolean(result && !result.correct && !result.resolved && !result.aborted);
   const shouldLockAnswers = Boolean(result?.correct || result?.resolved);
 
   const resultMessage = useMemo(() => {
@@ -51,6 +51,15 @@ export default function PlantQuizDialog({
         description: `Belohnung: +${result.rewardSeeds || 0} Samen, +${result.rewardDataQuality || 0} Datenqualität`,
         icon: CheckCircle2,
         tone: "text-emerald-300",
+      };
+    }
+
+    if (result.resolved && result.aborted) {
+      return {
+        title: "Leider falsch",
+        description: result.encouragementMessage || "Viel Glück beim nächsten Mal!",
+        icon: AlertCircle,
+        tone: "text-rose-300",
       };
     }
 

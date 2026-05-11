@@ -20,7 +20,6 @@ const THEME_MAP_LABELS = {
 const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "";
 const TILE_HALF_SIZE_M = 50;
 const CLAIM_PULSE_CYCLE_MS = 2600;
-const ZONE_ECHO_CYCLE_MS = 2600;
 const OVERLAP_PADDING_FACTOR = 0.86;
 
 const escapeHtml = (value) =>
@@ -122,53 +121,6 @@ const getPulsePhaseWithPause = (cycleMs) => {
     return -1;
   }
   return normalized / 0.72;
-};
-
-const buildZoneEchoFeatureCollection = (zones = []) => {
-  const phase = getPulsePhaseWithPause(ZONE_ECHO_CYCLE_MS);
-  const features = [];
-
-  const makePulse = (zone, pulseStart, pulseEnd) => {
-    if (phase < pulseStart || phase > pulseEnd) return null;
-    const local = (phase - pulseStart) / (pulseEnd - pulseStart);
-    const clampedLocal = Math.max(0, Math.min(local, 1));
-    const radiusM = Math.max(8, Number(zone.radiusM || 0) * clampedLocal);
-    const alpha = 0.8 * (1 - clampedLocal);
-    return {
-      radiusM,
-      alpha,
-    };
-  };
-
-  zones.forEach((zone) => {
-    const lat = Number(zone.centerLat);
-    const lng = Number(zone.centerLng);
-    const baseRadiusM = Number(zone.radiusM || 0);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng) || baseRadiusM <= 0) {
-      return;
-    }
-
-    const theme = typeof zone.theme === "string" ? zone.theme : "meadow";
-    const color = THEME_MAP_COLORS[theme] || THEME_MAP_COLORS.meadow;
-    const pulses = [makePulse(zone, 0.0, 0.34), makePulse(zone, 0.38, 0.72)].filter(Boolean);
-
-    pulses.forEach((pulse, index) => {
-      features.push({
-        type: "Feature",
-        geometry: {
-          type: "Polygon",
-          coordinates: [toCirclePolygon({ lat, lng, radiusM: pulse.radiusM })],
-        },
-        properties: {
-          id: `${zone.zoneKey || zone.id || `${lat}-${lng}`}-echo-${index}`,
-          color,
-          alpha: pulse.alpha,
-        },
-      });
-    });
-  });
-
-  return { type: "FeatureCollection", features };
 };
 
 const formatDiscoveryDate = (rawDate) => {
@@ -742,7 +694,6 @@ export default function MapboxZoneMap({
   const discoveryMarkersRef = useRef([]);
   const claimLogoMarkersRef = useRef([]);
   const claimPulseIntervalRef = useRef(null);
-  const zoneEchoIntervalRef = useRef(null);
   const rerenderDiscoveryMarkersRef = useRef(() => {});
 
   useEffect(() => {
@@ -750,10 +701,6 @@ export default function MapboxZoneMap({
       if (claimPulseIntervalRef.current) {
         window.clearInterval(claimPulseIntervalRef.current);
         claimPulseIntervalRef.current = null;
-      }
-      if (zoneEchoIntervalRef.current) {
-        window.clearInterval(zoneEchoIntervalRef.current);
-        zoneEchoIntervalRef.current = null;
       }
       claimLogoMarkersRef.current.forEach((marker) => marker.remove());
       claimLogoMarkersRef.current = [];
@@ -793,6 +740,9 @@ export default function MapboxZoneMap({
         basemap: {
           theme: "default",
           show3dObjects: true,
+          showPlaceLabels: false,
+          showPointOfInterestLabels: false,
+          showTransitLabels: false,
         },
       },
       center: [initialLng, initialLat],
@@ -824,10 +774,6 @@ export default function MapboxZoneMap({
     return () => {
       map.off("zoom", handleDiscoveryMarkerReflow);
       map.off("moveend", handleDiscoveryMarkerReflow);
-      if (zoneEchoIntervalRef.current) {
-        window.clearInterval(zoneEchoIntervalRef.current);
-        zoneEchoIntervalRef.current = null;
-      }
       if (claimPulseIntervalRef.current) {
         window.clearInterval(claimPulseIntervalRef.current);
         claimPulseIntervalRef.current = null;
@@ -926,6 +872,16 @@ export default function MapboxZoneMap({
         });
 
         map.addLayer({
+          id: "hero-zones-fill",
+          type: "fill",
+          source: "hero-zones",
+          paint: {
+            "fill-color": ["get", "color"],
+            "fill-opacity": 0.07,
+          },
+        });
+
+        map.addLayer({
           id: "hero-zones-hit",
           type: "fill",
           source: "hero-zones",
@@ -983,41 +939,6 @@ export default function MapboxZoneMap({
           map.getCanvas().style.cursor = "";
         });
       }
-
-      const zoneEchoGeoJson = buildZoneEchoFeatureCollection(zones);
-      const zoneEchoSource = map.getSource("hero-zones-echo");
-      if (zoneEchoSource) {
-        zoneEchoSource.setData(zoneEchoGeoJson);
-      } else {
-        map.addSource("hero-zones-echo", {
-          type: "geojson",
-          data: zoneEchoGeoJson,
-        });
-
-        map.addLayer({
-          id: "hero-zones-echo-line",
-          type: "line",
-          source: "hero-zones-echo",
-          paint: {
-            "line-color": ["get", "color"],
-            "line-width": 4,
-            "line-opacity": ["get", "alpha"],
-            "line-blur": 1.8,
-          },
-        });
-      }
-
-      if (zoneEchoIntervalRef.current) {
-        window.clearInterval(zoneEchoIntervalRef.current);
-        zoneEchoIntervalRef.current = null;
-      }
-
-      zoneEchoIntervalRef.current = window.setInterval(() => {
-        const currentMap = mapRef.current;
-        if (!currentMap?.getSource("hero-zones-echo")) return;
-        const source = currentMap.getSource("hero-zones-echo");
-        source.setData(buildZoneEchoFeatureCollection(zones));
-      }, 100);
 
       const userGeoJson = {
         type: "FeatureCollection",
