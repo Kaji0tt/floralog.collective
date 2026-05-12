@@ -19,7 +19,6 @@ export default function HomeMapFeatureRoot({
   onDiscoveryImageClick,
   onDiscoveryLike,
   allowDiscoveryLike,
-  onRenameClaimGroup,
   onTokenError,
   onMapReady,
   heroMapInstance,
@@ -113,7 +112,6 @@ export default function HomeMapFeatureRoot({
           onDiscoveryImageClick={onDiscoveryImageClick}
           onDiscoveryLike={onDiscoveryLike}
           allowDiscoveryLike={allowDiscoveryLike}
-          onRenameClaimGroup={onRenameClaimGroup}
           onTokenError={onTokenError}
           onMapReady={onMapReady}
         />

@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getTileClaims, renameTileClaimGroupName } from "@/api/tileClaimService";
+import { useQuery } from "@tanstack/react-query";
+import { getTileClaims } from "@/api/tileClaimService";
 import MapboxZoneMap from "@/components/map/MapboxZoneMap";
 import { parseDiscoveryCoordinates } from "@/lib/discoveryMap";
 import { cacheLocation, requestCurrentLocation } from "@/lib/locationSync";
@@ -15,7 +15,6 @@ const AnyMapboxZoneMap = /** @type {any} */ (MapboxZoneMap);
 export default function Map() {
   const [searchParams] = useSearchParams();
   const [user, setUser] = useState(null);
-  const queryClient = useQueryClient();
 
   const urlLat = parseFloat(searchParams.get("lat") ?? "");
   const urlLng = parseFloat(searchParams.get("lng") ?? "");
@@ -70,18 +69,6 @@ export default function Map() {
   const hasUserLocation = Number.isFinite(liveLat) && Number.isFinite(liveLng);
   const mapCenter = hasUserLocation ? { lat: liveLat, lng: liveLng } : null;
   const title = user?.display_name || user?.full_name || "Floralog Karte";
-
-  const renameClaimGroupMutation = useMutation({
-    mutationFn: ({ tileX, tileY, groupName }) =>
-      renameTileClaimGroupName({ tileX, tileY, groupName }),
-  });
-
-  const handleRenameClaimGroup = async ({ tileX, tileY, groupName }) => {
-    const nextName = String(groupName || "").trim();
-    await renameClaimGroupMutation.mutateAsync({ tileX, tileY, groupName: nextName });
-    await queryClient.invalidateQueries({ queryKey: ["tileClaims"] });
-    return nextName;
-  };
 
   const handleGetLocation = async () => {
     if (!navigator.geolocation) {
@@ -213,7 +200,6 @@ export default function Map() {
                 discoveryPoints={discoveryPoints}
                 claimedTiles={claimedTiles}
                 currentAuthId={user?.id || null}
-                onRenameClaimGroup={handleRenameClaimGroup}
                 className="h-full w-full"
               />
             )}
