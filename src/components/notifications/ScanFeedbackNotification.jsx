@@ -1,4 +1,4 @@
-// @ts-nocheck
+﻿// @ts-nocheck
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Capacitor } from "@capacitor/core";
@@ -111,17 +111,20 @@ async function blobToBase64(blob) {
 }
 
 // Native Teilen-Funktion mit Screenshot
-async function handleNativeShare(cardRef, plantName) {
+async function handleNativeShare(cardRef, { plantName, rewardDetails } = {}) {
   try {
     const resultCard = cardRef.current;
     if (!resultCard) return alert('Fehler: Scan-Ergebnis nicht gefunden.');
     const html2canvas = (await import('html2canvas')).default;
-    const canvas = await html2canvas(resultCard, { backgroundColor: null, useCORS: true });
+    const canvas = await html2canvas(resultCard, {
+      backgroundColor: null,
+      useCORS: true,
+      scale: Math.max(2, window.devicePixelRatio || 1),
+    });
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
     if (!blob) return alert('Screenshot fehlgeschlagen.');
     const file = new File([blob], 'floralog-scan.png', { type: 'image/png' });
-    // Korrigierter Teilen-Text mit Platzhaltern für Pflanzennamen und Samenanzahl
-    const seedsAmount = (rewardDetails && typeof rewardDetails.finalReward === 'number') ? rewardDetails.finalReward : undefined;
+    const seedsAmount = typeof rewardDetails?.finalReward === 'number' ? rewardDetails.finalReward : undefined;
     const shareText = `Schau mal, beim Scan der Pflanze${plantName ? ' ' + plantName : ''} habe ich${seedsAmount !== undefined ? ' ' + seedsAmount : ''} Samen erhalten!\nTeste das Scannen selbst: https://floralog.de`;
     const shareData = {
       title: 'Mein Floralog Scan',
@@ -136,7 +139,6 @@ async function handleNativeShare(cardRef, plantName) {
         return;
       }
 
-      // In nativen WebViews funktioniert der Browser-Download-Fallback nicht zuverlässig.
       const base64 = await blobToBase64(blob);
       const fileName = `floralog-scan-${Date.now()}.png`;
       const { uri } = await Filesystem.writeFile({
@@ -169,21 +171,25 @@ async function handleNativeShare(cardRef, plantName) {
       return;
     }
 
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'floralog-scan.png';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      alert('Teilen wird auf diesem Gerät nicht unterstützt. Der Screenshot wurde heruntergeladen.');
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'floralog-scan.png';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    alert('Teilen wird auf diesem Gerät nicht unterstützt. Der Screenshot wurde heruntergeladen.');
   } catch (err) {
     alert('Teilen fehlgeschlagen: ' + (err?.message || err));
   }
 }
-
-export default function ScanFeedbackNotification({ feedback, onComplete }) {
+export default function ScanFeedbackNotification({
+  feedback,
+  onComplete,
+  shareSnapshotBackgroundImageUrl = null,
+  shareSnapshotBackgroundColor = null,
+}) {
   // Fix: cardRef muss im Funktions-Scope deklariert werden
   const cardRef = React.useRef(null);
   const onCompleteRef = useRef(onComplete);
@@ -349,7 +355,7 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
   let counterClasses = "text-emerald-300";
   let messageClasses = "text-stone-200";
   let titleClasses = "text-stone-100";
-  let emojiSet = ["✨", "✨", "✨"];
+  let emojiSet = ["âœ¨", "âœ¨", "âœ¨"];
   let animationVariant = "rescanned";
 
   if (type === "rescanned") {
@@ -358,7 +364,7 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
       ? `${plantName} wurde erneut bestaetigt.`
       : "Deine Pflanze wurde erneut bestaetigt.";
     ringClasses = "bg-emerald-300/35";
-    emojiSet = ["✨", "🌿", "✨"];
+    emojiSet = ["âœ¨", "ðŸŒ¿", "âœ¨"];
   } else if (type === "newDiscovery") {
     title = "Neue Entdeckung!";
     message = plantName
@@ -367,7 +373,7 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
     containerClasses = "bg-black/60 border-lime-200/35";
     ringClasses = "bg-lime-400/35";
     counterClasses = "text-lime-300";
-    emojiSet = ["✨", "🌿", "✨", "🌱"];
+    emojiSet = ["âœ¨", "ðŸŒ¿", "âœ¨", "ðŸŒ±"];
     animationVariant = "newDiscovery";
   } else if (type === "globalNewPlant") {
     title = "Globales Floralog erweitert!";
@@ -378,7 +384,7 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
     ringClasses = "bg-amber-400/35";
     counterClasses = "text-amber-300";
     messageClasses = "text-stone-200";
-    emojiSet = ["✨", "🌟", "✨", "🌼"];
+    emojiSet = ["âœ¨", "ðŸŒŸ", "âœ¨", "ðŸŒ¼"];
     animationVariant = "globalNewPlant";
   } else if (type === "questCompleted") {
     title = "Quest abgeschlossen!";
@@ -390,7 +396,7 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
     }
     containerClasses = "bg-black/60 border-emerald-200/35";
     ringClasses = "bg-emerald-400/35";
-    emojiSet = ["✨", "🎯", "🎁", "✨"];
+    emojiSet = ["âœ¨", "ðŸŽ¯", "ðŸŽ", "âœ¨"];
     animationVariant = "newDiscovery";
   }
 
@@ -405,6 +411,18 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
 
     return { x, y, targetY };
   });
+
+  const shareSnapshotStyle = shareSnapshotBackgroundImageUrl
+    ? {
+        backgroundImage: `linear-gradient(180deg, rgba(6, 18, 10, 0.34) 0%, rgba(3, 10, 6, 0.74) 100%), url(${shareSnapshotBackgroundImageUrl})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }
+    : shareSnapshotBackgroundColor
+      ? {
+          background: `linear-gradient(160deg, ${shareSnapshotBackgroundColor} 0%, rgba(10, 20, 14, 0.92) 100%)`,
+        }
+      : null;
 
   const variants = {
     rescanned: {
@@ -447,7 +465,9 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
           exit="exit"
           transition={{ type: "spring", damping: 16, stiffness: 260 }}
           className={`relative pointer-events-auto ${containerClasses} backdrop-blur-xl rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.55)] border px-6 py-4 w-full flex flex-col items-center text-center overflow-hidden`}
+          style={shareSnapshotStyle || undefined}
         >
+          {shareSnapshotStyle && <div className="absolute inset-0 bg-black/20 pointer-events-none" />}
           <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-emerald-950/15 to-black/45 pointer-events-none" />
           <div className={`absolute -inset-px rounded-2xl opacity-40 blur-xl ${ringClasses}`} />
           <div className="absolute inset-0 border border-[#f0e5a5]/25 rounded-2xl pointer-events-none" />
@@ -617,7 +637,7 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
             );
           })}
         </motion.div>
-        {/* Buttons jetzt außerhalb des Containers, direkt darunter */}
+        {/* Buttons jetzt auÃŸerhalb des Containers, direkt darunter */}
         {showButtons && (
           <div className="mt-5 flex flex-row gap-3 w-full justify-center">
             <button
@@ -646,7 +666,10 @@ export default function ScanFeedbackNotification({ feedback, onComplete }) {
               onClick={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
-                handleNativeShare(cardRef, feedback?.plantName);
+                handleNativeShare(cardRef, {
+                  plantName: feedback?.plantName,
+                  rewardDetails,
+                });
               }}
               title="Teilen"
             >

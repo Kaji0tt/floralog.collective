@@ -1,15 +1,33 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Sparkles, Loader2, RefreshCw, Image as ImageIcon, BadgeCheck, PaintBucket, Lock } from "lucide-react";
+import { HexColorPicker } from "react-colorful";
+import "react-colorful/dist/index.css";
 import { Query } from "@/api/entities";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { useUiTheme } from "@/lib/UiThemeContext";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   getUnlockedProfileCustomizationCatalog,
   profileCustomizationCategoryComparator,
   resolveTitleValue,
 } from "@/lib/profileCustomizationOptions";
 import { LOGO_ACCESSORY_DEFAULTS } from "@/lib/logoAccessoryAssets";
+
+const BORDER_COLOR_PRESETS = [
+  "#ff3b30",
+  "#ff9500",
+  "#ffcc00",
+  "#34c759",
+  "#00c7be",
+  "#0a84ff",
+  "#5856d6",
+  "#bf5af2",
+  "#ff2d55",
+  "#8e8e93",
+  "#ffffff",
+  "#000000",
+];
 
 const CATEGORY_META = {
   backgrounds: {
@@ -169,15 +187,39 @@ const AccessoryOptionCard = ({ option, user, isLightUi, isPending, onSelect }) =
 };
 
 const BorderColorPicker = ({ currentColor, isLightUi, isPending, onSelectColor }) => {
-  const inputRef = React.useRef(null);
+  const [isPickerOpen, setIsPickerOpen] = React.useState(false);
+  const [draftColor, setDraftColor] = React.useState(currentColor || BORDER_COLOR_PRESETS[0]);
+  const [customHex, setCustomHex] = React.useState(currentColor || BORDER_COLOR_PRESETS[0]);
   const hasColor = Boolean(currentColor);
 
-  const handleClick = () => {
-    if (inputRef.current) inputRef.current.click();
+  React.useEffect(() => {
+    if (!isPickerOpen) return;
+    const nextColor = currentColor || BORDER_COLOR_PRESETS[0];
+    setDraftColor(nextColor);
+    setCustomHex(nextColor.toUpperCase());
+  }, [currentColor, isPickerOpen]);
+
+  const normalizeHexColor = (value) => {
+    const sanitized = String(value || "").trim();
+    const withHash = sanitized.startsWith("#") ? sanitized : `#${sanitized}`;
+    return /^#[0-9a-fA-F]{6}$/.test(withHash) ? withHash.toUpperCase() : null;
   };
 
-  const handleChange = (e) => {
-    onSelectColor(e.target.value);
+  const handleOpenPicker = () => {
+    if (isPending) return;
+    setIsPickerOpen(true);
+  };
+
+  const handleApplyCustomColor = () => {
+    const normalized = normalizeHexColor(customHex);
+    if (!normalized) return;
+    setDraftColor(normalized);
+    setCustomHex(normalized);
+  };
+
+  const handleConfirm = () => {
+    onSelectColor(draftColor);
+    setIsPickerOpen(false);
   };
 
   const handleReset = (e) => {
@@ -220,7 +262,7 @@ const BorderColorPicker = ({ currentColor, isLightUi, isPending, onSelectColor }
           <button
             type="button"
             disabled={isPending}
-            onClick={handleClick}
+            onClick={handleOpenPicker}
             className={`relative flex h-10 w-10 items-center justify-center rounded-xl border-2 transition-all disabled:opacity-60 ${
               hasColor
                 ? "border-transparent shadow-md"
@@ -236,17 +278,103 @@ const BorderColorPicker = ({ currentColor, isLightUi, isPending, onSelectColor }
                 className={`h-4 w-4 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}
               />
             )}
-            <input
-              ref={inputRef}
-              type="color"
-              value={currentColor || "#ffffff"}
-              onChange={handleChange}
-              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-              tabIndex={-1}
-            />
           </button>
         </div>
       </div>
+
+      <Dialog open={isPickerOpen} onOpenChange={setIsPickerOpen}>
+        <DialogContent className={`max-w-[min(92vw,26rem)] rounded-2xl ${isLightUi ? "border-[#c8ac62]/45 bg-white" : "border-[#f0e5a5]/35 bg-[#1a1d1a]"}`}>
+          <DialogHeader>
+            <DialogTitle className={`${isLightUi ? "text-stone-900" : "text-stone-100"}`}>Rahmenfarbe wählen</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+              {BORDER_COLOR_PRESETS.map((color) => {
+                const isActive = draftColor?.toUpperCase() === color.toUpperCase();
+                return (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => {
+                      setDraftColor(color);
+                      setCustomHex(color.toUpperCase());
+                    }}
+                    className={`h-9 rounded-lg border-2 transition-all ${isActive ? "scale-105" : "hover:scale-105"}`}
+                    style={{
+                      backgroundColor: color,
+                      borderColor: isActive
+                        ? (isLightUi ? "rgba(41,37,36,0.95)" : "rgba(255,255,255,0.9)")
+                        : (isLightUi ? "rgba(200,172,98,0.35)" : "rgba(240,229,165,0.35)"),
+                    }}
+                    aria-label={`Farbe ${color}`}
+                  />
+                );
+              })}
+            </div>
+
+            <div className="space-y-2">
+              <span className={`text-xs font-medium ${isLightUi ? "text-stone-700" : "text-stone-200"}`}>
+                Farbe auswählen
+              </span>
+              <div
+                className={`rounded-xl border p-2 ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50" : "border-[#f0e5a5]/25 bg-black/25"}`}
+              >
+                <HexColorPicker color={draftColor} onChange={(value) => {
+                  const normalized = normalizeHexColor(value);
+                  if (!normalized) return;
+                  setDraftColor(normalized);
+                  setCustomHex(normalized);
+                }} />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
+              <span className={`text-xs font-medium whitespace-nowrap ${isLightUi ? "text-stone-700" : "text-stone-200"}`}>
+                Benutzerdefiniert
+              </span>
+              <input
+                type="text"
+                inputMode="text"
+                value={customHex}
+                onChange={(e) => setCustomHex(e.target.value)}
+                placeholder="#AABBCC"
+                className={`h-9 min-w-0 flex-1 rounded-lg border px-2.5 text-xs uppercase tracking-wide ${isLightUi ? "border-[#c8ac62]/45 bg-white text-stone-800" : "border-[#f0e5a5]/35 bg-black/35 text-stone-100"}`}
+              />
+              <button
+                type="button"
+                onClick={handleApplyCustomColor}
+                disabled={!normalizeHexColor(customHex)}
+                className={`h-9 rounded-lg border px-3 text-xs font-semibold whitespace-nowrap disabled:opacity-50 ${isLightUi ? "border-[#c8ac62]/45 bg-white/75 text-stone-700 hover:bg-white" : "border-[#f0e5a5]/25 bg-black/35 text-stone-100 hover:bg-black/55"}`}
+              >
+                Anwenden
+              </button>
+            </div>
+
+            <div className={`rounded-lg border px-3 py-2 text-xs ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50 text-stone-700" : "border-[#f0e5a5]/25 bg-black/25 text-stone-200"}`}>
+              Ausgewählte Farbe: <span className="font-semibold">{draftColor.toUpperCase()}</span>
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsPickerOpen(false)}
+                className={`h-9 rounded-lg border px-3 text-xs font-semibold whitespace-nowrap ${isLightUi ? "border-[#c8ac62]/45 bg-white/70 text-stone-700 hover:bg-white" : "border-[#f0e5a5]/25 bg-black/30 text-stone-200 hover:bg-black/50"}`}
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={handleConfirm}
+                className={`h-9 rounded-lg border px-3 text-xs font-semibold whitespace-nowrap disabled:opacity-60 ${isLightUi ? "border-[#c8ac62]/50 bg-[#f4e7bf] text-stone-800 hover:bg-[#f7edd0]" : "border-[#f0e5a5]/40 bg-[#4f4826] text-[#f7f0c1] hover:bg-[#5a512b]"}`}
+              >
+                Festlegen
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

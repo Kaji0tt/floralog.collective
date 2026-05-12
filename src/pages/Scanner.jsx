@@ -1504,6 +1504,8 @@ export default function Scanner() {
         {guestScanFeedback && (
           <ScanFeedbackNotification
             feedback={guestScanFeedback}
+            shareSnapshotBackgroundImageUrl={user?.background_image_url || null}
+            shareSnapshotBackgroundColor={user?.background_color || null}
             onComplete={() => {
               setGuestScanFeedback(null);
               setShowGuestRegisterDialog(true);

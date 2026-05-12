@@ -844,6 +844,8 @@ export function useAchievementsFeatureContent({
       {questFeedback && (
         <ScanFeedbackNotification
           feedback={questFeedback}
+          shareSnapshotBackgroundImageUrl={user?.background_image_url || null}
+          shareSnapshotBackgroundColor={user?.background_color || null}
           onComplete={() => {
             const seedReward = Math.max(0, Number(questFeedback?.seedReward ?? 0));
             if (questFeedback?.type === "questCompleted" && seedReward > 0) {

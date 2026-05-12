@@ -4,5 +4,8 @@
   "main": "src/index.js",
   "preview_urls": false,
   "r2_buckets": [{ "binding": "ASSET_BUCKET", "bucket_name": "floralog-assets" }],
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  },
   "observability": { "enabled": true, "logs": { "enabled": true } }
 }

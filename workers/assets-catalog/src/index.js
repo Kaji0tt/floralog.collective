@@ -1,7 +1,7 @@
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, X-Worker-Secret",
 };
 
 const DEFAULT_UNLOCKED_IDS = new Set([
@@ -103,6 +103,47 @@ const jsonResponse = (payload, status = 200, extraHeaders = {}) => {
   });
 };
 
+const triggerLogoAssetSync = async (env, reason = "manual") => {
+  const endpoint = String(env.LOGO_ASSET_SYNC_ENDPOINT || "").trim();
+  const syncSecret = String(env.LOGO_ASSET_SYNC_SECRET || "").trim();
+
+  if (!endpoint) {
+    return {
+      ok: false,
+      reason,
+      status: 0,
+      error: "LOGO_ASSET_SYNC_ENDPOINT missing",
+    };
+  }
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(syncSecret ? { "x-sync-secret": syncSecret } : {}),
+      },
+      body: JSON.stringify({ source: "assets-catalog-worker", reason }),
+    });
+
+    const data = await response.json().catch(() => null);
+    return {
+      ok: response.ok,
+      reason,
+      status: response.status,
+      data,
+      error: response.ok ? null : `syncLogoAssets failed (${response.status})`,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      reason,
+      status: 0,
+      error: error?.message || String(error),
+    };
+  }
+};
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -114,6 +155,19 @@ export default {
     if (request.method === "GET" && url.pathname === "/logo-assets/catalog") {
       const catalog = await buildCatalog(request.url, env);
       return jsonResponse(catalog, 200, { "Cache-Control": "no-store" });
+    }
+
+    if (request.method === "POST" && url.pathname === "/logo-assets/sync") {
+      const workerSecret = String(env.WORKER_TRIGGER_SECRET || "").trim();
+      if (workerSecret) {
+        const providedSecret = request.headers.get("X-Worker-Secret");
+        if (providedSecret !== workerSecret) {
+          return jsonResponse({ ok: false, error: "Unauthorized" }, 401);
+        }
+      }
+
+      const result = await triggerLogoAssetSync(env, "manual-endpoint");
+      return jsonResponse(result, result.ok ? 200 : 502, { "Cache-Control": "no-store" });
     }
 
     if (request.method === "GET" && url.pathname.startsWith("/asset/")) {
@@ -138,5 +192,9 @@ export default {
     }
 
     return new Response("Not found", { status: 404, headers: CORS_HEADERS });
+  },
+
+  async scheduled(_event, env, ctx) {
+    ctx.waitUntil(triggerLogoAssetSync(env, "cron"));
   },
 };

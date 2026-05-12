@@ -2011,6 +2011,8 @@ function HomeContent() {
         {scanFeedback && showScanFeedback && (
           <ScanFeedbackNotification
             feedback={scanFeedback}
+            shareSnapshotBackgroundImageUrl={user?.background_image_url || null}
+            shareSnapshotBackgroundColor={user?.background_color || null}
             onComplete={() => {
               setShowScanFeedback(false);
               setScanFeedback(null);
