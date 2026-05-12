@@ -23,6 +23,7 @@ type TileClaimRow = {
   tile_y: number;
   owner_auth_id: string;
   owner_scan_count: number;
+  claim_group_name: string | null;
   claimed_at: string;
   updated_at: string;
 };
@@ -122,7 +123,7 @@ Deno.serve(async (req) => {
 
     const { data: claims, error: claimError } = await adminClient
       .from("TileClaim")
-      .select("tile_x, tile_y, owner_auth_id, owner_scan_count, claimed_at, updated_at")
+      .select("tile_x, tile_y, owner_auth_id, owner_scan_count, claim_group_name, claimed_at, updated_at")
       .gte("tile_x", minTileX)
       .lte("tile_x", maxTileX)
       .gte("tile_y", minTileY)
@@ -172,6 +173,7 @@ Deno.serve(async (req) => {
         centerLng: center.lng,
         ownerAuthId: claim.owner_auth_id,
         ownerScanCount: Number(claim.owner_scan_count || 0),
+        claimGroupName: claim.claim_group_name ? String(claim.claim_group_name).trim() : null,
         ownerName,
         ownerBorderColor: ownerProfile?.selected_border_color || null,
         claimedAt: claim.claimed_at,

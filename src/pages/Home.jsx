@@ -15,7 +15,7 @@ import {
   waterRobotPlant,
 } from "@/api/robotPlantService";
 import { getOpenPlantQuiz, submitPlantQuizAnswer } from "@/api/plantQuizService";
-import { getTileClaims } from "@/api/tileClaimService";
+import { getTileClaims, renameTileClaimGroupName } from "@/api/tileClaimService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Camera, Loader2, Leaf, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, Zap, Palette } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -1935,6 +1935,18 @@ function HomeContent() {
     return nextLiked;
   };
 
+  const renameClaimGroupMutation = useMutation({
+    mutationFn: ({ tileX, tileY, groupName }) =>
+      renameTileClaimGroupName({ tileX, tileY, groupName }),
+  });
+
+  const handleRenameClaimGroup = async ({ tileX, tileY, groupName }) => {
+    const nextName = String(groupName || "").trim();
+    await renameClaimGroupMutation.mutateAsync({ tileX, tileY, groupName: nextName });
+    await queryClient.invalidateQueries({ queryKey: ["tileClaims", user?.id] });
+    return nextName;
+  };
+
   const openShop = (category = "backgrounds") => {
     setShopOpenCategory(category);
     setActivePanel("shop");
@@ -2234,6 +2246,7 @@ function HomeContent() {
                     onDiscoveryImageClick={handleDiscoveryImageClick}
                     onDiscoveryLike={handleDiscoveryLike}
                     allowDiscoveryLike={!!user?.id}
+                    onRenameClaimGroup={handleRenameClaimGroup}
                     onTokenError={(message) => setZoneMapError(message)}
                     onMapReady={setHeroMapInstance}
                     heroMapInstance={heroMapInstance}

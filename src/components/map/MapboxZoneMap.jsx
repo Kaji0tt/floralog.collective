@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { hexToFilter } from "@/lib/hexToFilter";
+import { hasProfanityInTileClaimName } from "@/lib/tileClaimNameModeration";
 
 const THEME_MAP_COLORS = {
   forest: "#007a3f",
@@ -61,32 +62,142 @@ const buildZonePopupHtml = (props, isLightUi) => {
   `;
 };
 
-const buildClaimPopupHtml = (props, isLightUi) => {
+const buildClaimPopupHtml = (props, isLightUi, options = {}) => {
+  const canEdit = options?.canEdit === true;
   const ownerName = escapeHtml(props.ownerName || "Unbekannt");
+  const claimGroupNameRaw = String(props.claimGroupName || "").trim();
+  const claimGroupName = escapeHtml(claimGroupNameRaw || "Unbenannt");
   const ownerScanCount = Math.max(0, Number(props.ownerScanCount || 0));
   const ownerBorderColor = props.ownerBorderColor || "#f0e5a5";
   const tileX = Number(props.tileX);
   const tileY = Number(props.tileY);
 
   const cardBg = isLightUi ? "rgba(255,255,255,0.94)" : "rgba(12,14,17,0.88)";
-  const cardBorder = isLightUi ? "rgba(200,172,98,0.55)" : "rgba(240,229,165,0.38)";
   const titleColor = isLightUi ? "#292524" : "#fde68a";
   const bodyColor = isLightUi ? "#44403c" : "#d6d3d1";
   const mutedColor = isLightUi ? "#78716c" : "#a8a29e";
 
+  const escapedInputValue = escapeHtml(claimGroupNameRaw);
+
   return `
-    <div style="font-family:sans-serif;min-width:176px;max-width:228px;padding:6px 4px;background:${cardBg};border:1px solid ${cardBorder};border-radius:12px;">
+    <div style="font-family:sans-serif;min-width:188px;max-width:248px;padding:6px 4px;background:${cardBg};border-radius:12px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
         <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${ownerBorderColor};flex-shrink:0;"></span>
         <strong style="font-size:14px;color:${titleColor};">Claimed Tile</strong>
       </div>
       <div style="font-size:12px;color:${bodyColor};line-height:1.58;">
+        <div><span style="font-weight:700;">Name:</span> <span data-popup-action="claim-group-display">${claimGroupName}</span></div>
         <div><span style="font-weight:700;">Owner:</span> ${ownerName}</div>
         <div><span style="font-weight:700;">Scans im Tile:</span> ${ownerScanCount}</div>
         <div style="color:${mutedColor};margin-top:4px;">Tile ${tileX}/${tileY}</div>
       </div>
+      ${canEdit ? `
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(240,229,165,0.22);">
+          <label style="display:block;font-size:11px;font-weight:700;color:${mutedColor};margin-bottom:4px;">Gruppenname bearbeiten</label>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <input
+              type="text"
+              maxlength="48"
+              value="${escapedInputValue}"
+              data-popup-action="edit-claim-group-name"
+              placeholder="z. B. Sonnenbeet"
+              style="flex:1;min-width:0;height:30px;border-radius:8px;border:1px solid rgba(240,229,165,0.28);background:rgba(0,0,0,0.16);color:${bodyColor};padding:0 8px;font-size:12px;outline:none;"
+            />
+            <button
+              type="button"
+              data-popup-action="save-claim-group-name"
+              style="height:30px;border-radius:8px;border:1px solid rgba(240,229,165,0.3);background:rgba(34,197,94,0.22);color:${titleColor};padding:0 10px;font-size:12px;font-weight:700;cursor:pointer;"
+            >
+              Speichern
+            </button>
+          </div>
+          <div data-popup-action="claim-name-feedback" style="margin-top:5px;font-size:11px;line-height:1.35;color:${mutedColor};"></div>
+        </div>
+      ` : ""}
     </div>
   `;
+};
+
+const openClaimPopup = ({ map, event, feature, isLightUi, currentAuthId, onRenameClaimGroup }) => {
+  if (!feature) return;
+
+  const props = feature.properties || {};
+  const ownerAuthId = String(props.ownerAuthId || "").trim();
+  const viewerAuthId = String(currentAuthId || "").trim();
+  const canEdit = Boolean(ownerAuthId && viewerAuthId && ownerAuthId === viewerAuthId && typeof onRenameClaimGroup === "function");
+
+  const popupHtml = buildClaimPopupHtml(props, isLightUi, { canEdit });
+  const popup = new mapboxgl.Popup({ closeButton: true, maxWidth: "260px", className: "hero-claim-popup" })
+    .setLngLat(event.lngLat)
+    .setHTML(popupHtml)
+    .addTo(map);
+
+  if (!canEdit) return;
+
+  const popupRoot = popup.getElement();
+  if (!popupRoot) return;
+
+  const input = popupRoot.querySelector('[data-popup-action="edit-claim-group-name"]');
+  const saveButton = popupRoot.querySelector('[data-popup-action="save-claim-group-name"]');
+  const feedback = popupRoot.querySelector('[data-popup-action="claim-name-feedback"]');
+  const groupDisplay = popupRoot.querySelector('[data-popup-action="claim-group-display"]');
+
+  if (!(input instanceof HTMLInputElement) || !(saveButton instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  const setFeedback = (message, tone = "neutral") => {
+    if (!feedback) return;
+    feedback.textContent = String(message || "");
+    if (tone === "error") {
+      feedback.style.color = "#fca5a5";
+      return;
+    }
+    if (tone === "success") {
+      feedback.style.color = "#86efac";
+      return;
+    }
+    feedback.style.color = "#a8a29e";
+  };
+
+  saveButton.addEventListener("click", async () => {
+    const tileX = Number(props.tileX);
+    const tileY = Number(props.tileY);
+    const nextName = String(input.value || "").trim();
+
+    if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) {
+      setFeedback("Tile konnte nicht zugeordnet werden.", "error");
+      return;
+    }
+
+    if (nextName.length < 3 || nextName.length > 48) {
+      setFeedback("Name muss 3 bis 48 Zeichen lang sein.", "error");
+      return;
+    }
+
+    if (hasProfanityInTileClaimName(nextName)) {
+      setFeedback("Schimpfwoerter (DE/EN) sind nicht erlaubt.", "error");
+      return;
+    }
+
+    saveButton.disabled = true;
+    input.disabled = true;
+    setFeedback("Speichere...", "neutral");
+
+    try {
+      await onRenameClaimGroup({ tileX, tileY, groupName: nextName });
+      props.claimGroupName = nextName;
+      if (groupDisplay) {
+        groupDisplay.textContent = nextName;
+      }
+      setFeedback("Name gespeichert. Gilt fuer alle verbundenen Tiles.", "success");
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "Speichern fehlgeschlagen.", "error");
+    } finally {
+      saveButton.disabled = false;
+      input.disabled = false;
+    }
+  });
 };
 
 const buildClaimPulseGradient = (phase) => {
@@ -492,6 +603,7 @@ const buildClaimOverlayData = (claimedTiles = []) => {
 
     const ownerAuthId = String(claim?.ownerAuthId || "");
     const ownerName = claim?.ownerName || "Unbekannt";
+    const claimGroupName = String(claim?.claimGroupName || "").trim() || null;
     const ownerScanCount = Math.max(0, Number(claim?.ownerScanCount || 0));
     const ownerBorderColor = String(claim?.ownerBorderColor || "").trim() || "#f0e5a5";
 
@@ -507,6 +619,7 @@ const buildClaimOverlayData = (claimedTiles = []) => {
         tileY,
         ownerAuthId,
         ownerName,
+        claimGroupName,
         ownerScanCount,
         ownerBorderColor,
       },
@@ -542,6 +655,7 @@ const buildClaimOverlayData = (claimedTiles = []) => {
           ownerAuthId,
           ownerBorderColor,
           ownerName,
+          claimGroupName,
           ownerScanCount,
         },
       });
@@ -686,6 +800,7 @@ export default function MapboxZoneMap({
   onDiscoveryImageClick = null,
   onDiscoveryLike = null,
   allowDiscoveryLike = true,
+  onRenameClaimGroup = null,
   className = "h-full w-full z-0",
 }) {
   const mapContainerRef = useRef(null);
@@ -995,14 +1110,15 @@ export default function MapboxZoneMap({
         map.on("click", "hero-claims-fill", (event) => {
           const feature = event.features?.[0];
           if (!feature) return;
-          const props = feature.properties || {};
 
-          const popupHtml = buildClaimPopupHtml(props, isLightUi);
-
-          new mapboxgl.Popup({ closeButton: true, maxWidth: "240px", className: "hero-claim-popup" })
-            .setLngLat(event.lngLat)
-            .setHTML(popupHtml)
-            .addTo(map);
+          openClaimPopup({
+            map,
+            event,
+            feature,
+            isLightUi,
+            currentAuthId,
+            onRenameClaimGroup,
+          });
         });
 
         map.on("mouseenter", "hero-claims-fill", () => {
@@ -1155,6 +1271,7 @@ export default function MapboxZoneMap({
     isLightUi,
     onDiscoveryImageClick,
     onDiscoveryLike,
+    onRenameClaimGroup,
     userLocation?.lat,
     userLocation?.lng,
     zones,

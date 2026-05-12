@@ -74,6 +74,7 @@ type TileClaimRow = {
   tile_y: number;
   owner_auth_id: string;
   owner_scan_count: number;
+  claim_group_name: string | null;
   claimed_at: string;
   updated_at: string;
 };
@@ -346,6 +347,48 @@ const getTileFromLatLng = (lat: number, lng: number): { tileX: number; tileY: nu
   };
 };
 
+const resolveAdjacentGroupNameForOwner = async (
+  adminClient: ReturnType<typeof createClient>,
+  ownerAuthId: string,
+  tileX: number,
+  tileY: number,
+): Promise<string | null> => {
+  const minTileX = tileX - 1;
+  const maxTileX = tileX + 1;
+  const minTileY = tileY - 1;
+  const maxTileY = tileY + 1;
+
+  const { data: neighbors, error } = await adminClient
+    .from("TileClaim")
+    .select("tile_x, tile_y, claim_group_name, updated_at")
+    .eq("owner_auth_id", ownerAuthId)
+    .gte("tile_x", minTileX)
+    .lte("tile_x", maxTileX)
+    .gte("tile_y", minTileY)
+    .lte("tile_y", maxTileY)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    console.warn("[robotPlantGrantReward] Failed to resolve adjacent group name", error);
+    return null;
+  }
+
+  for (const row of neighbors || []) {
+    const rowTileX = Number(row.tile_x);
+    const rowTileY = Number(row.tile_y);
+    if (!Number.isFinite(rowTileX) || !Number.isFinite(rowTileY)) continue;
+    const manhattanDistance = Math.abs(rowTileX - tileX) + Math.abs(rowTileY - tileY);
+    if (manhattanDistance !== 1) continue;
+
+    const groupName = String(row.claim_group_name || "").trim();
+    if (groupName) {
+      return groupName;
+    }
+  }
+
+  return null;
+};
+
 const syncClaimedTileCountForUser = async (
   adminClient: ReturnType<typeof createClient>,
   authId: string,
@@ -377,7 +420,7 @@ const resolveTileClaimForScan = async (
 
   const { data: existingClaim } = await adminClient
     .from("TileClaim")
-    .select("tile_x, tile_y, owner_auth_id, owner_scan_count, claimed_at, updated_at")
+    .select("tile_x, tile_y, owner_auth_id, owner_scan_count, claim_group_name, claimed_at, updated_at")
     .eq("tile_x", tileX)
     .eq("tile_y", tileY)
     .maybeSingle<TileClaimRow>();
@@ -437,6 +480,13 @@ const resolveTileClaimForScan = async (
   }
 
   if (nextOwnerAuthId) {
+    const existingGroupName = String(existingClaim?.claim_group_name || "").trim() || null;
+    let claimGroupNameToPersist = existingGroupName;
+
+    if (!claimGroupNameToPersist || nextOwnerAuthId !== previousOwnerAuthId) {
+      claimGroupNameToPersist = await resolveAdjacentGroupNameForOwner(adminClient, nextOwnerAuthId, tileX, tileY);
+    }
+
     await adminClient
       .from("TileClaim")
       .upsert(
@@ -445,6 +495,7 @@ const resolveTileClaimForScan = async (
           tile_y: tileY,
           owner_auth_id: nextOwnerAuthId,
           owner_scan_count: nextOwnerScanCount,
+          claim_group_name: claimGroupNameToPersist,
           claimed_at: existingClaim?.claimed_at || new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
