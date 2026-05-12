@@ -70,6 +70,12 @@ export const getUnlockedTitleOptions = ({
   rewards = [],
   userRewards = [],
 } = {}) => {
+  const rewardsByName = new Map(
+    (Array.isArray(rewards) ? rewards : [])
+      .filter((reward) => !!reward?.name)
+      .map((reward) => [String(reward.name), reward])
+  );
+
   const unlockedAchievementIds = new Set(
     (Array.isArray(userAchievements) ? userAchievements : []).map((entry) => entry?.achievement_id).filter(Boolean)
   );
@@ -80,7 +86,12 @@ export const getUnlockedTitleOptions = ({
   const achievementTitles = (Array.isArray(achievements) ? achievements : [])
     .filter((achievement) => unlockedAchievementIds.has(achievement?.id))
     .map((achievement) => {
-      const title = resolveTitleValue(achievement?.title_reward);
+      const linkedReward = achievement?.reward_name ? rewardsByName.get(String(achievement.reward_name)) : null;
+      const title = resolveTitleValue(
+        achievement?.title_reward,
+        linkedReward?.display_name,
+        linkedReward?.value
+      );
       if (!title) return null;
 
       return {
@@ -94,7 +105,21 @@ export const getUnlockedTitleOptions = ({
     .filter(Boolean);
 
   const rewardTitles = (Array.isArray(rewards) ? rewards : [])
-    .filter((reward) => unlockedRewardIds.has(reward?.id) && reward?.type === "title")
+    .filter((reward) => {
+      if (!reward || !unlockedRewardIds.has(reward.id)) return false;
+
+      const rewardType = String(reward?.type || reward?.reward_type || reward?.kind || "").trim().toLowerCase();
+      if (rewardType === "title") return true;
+
+      const rewardValue = String(reward?.value || "").trim();
+      const rewardLabel = String(reward?.display_name || "").trim();
+      const looksLikeTextTitle = Boolean(rewardValue || rewardLabel) &&
+        !/^https?:\/\//i.test(rewardValue) &&
+        !/\.(png|jpe?g|gif|webp|svg)$/i.test(rewardValue) &&
+        rewardValue.indexOf("/") === -1;
+
+      return !rewardType && looksLikeTextTitle;
+    })
     .map((reward) => {
       const label = resolveTitleValue(reward?.display_name, reward?.value);
       const value = resolveTitleValue(reward?.value, reward?.display_name);

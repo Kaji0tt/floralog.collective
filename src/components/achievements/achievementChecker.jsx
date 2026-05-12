@@ -280,15 +280,53 @@ export async function checkAndUnlockAchievements(user) {
     
     const longestScanStreak = calculateScanStreak(); 
 
+    const getGenusKey = (genus) => {
+      if (!genus) return "";
+      const genusId = String(genus.id || "").trim();
+      if (genusId) return `id:${genusId}`;
+
+      const category = String(genus.category || "").trim();
+      const genusNumber = Number(genus.category_dex_number || 0);
+      if (category && genusNumber) return `cat:${category}:${genusNumber}`;
+
+      return "";
+    };
+
+    const getPlantGenusKey = (plant) => {
+      if (!plant) return "";
+      const plantGenusId = String(plant.genus_id || "").trim();
+      if (plantGenusId) return `id:${plantGenusId}`;
+
+      const category = String(plant.genus_category || "").trim();
+      const genusNumber = Number(plant.genus_number || 0);
+      if (category && genusNumber) return `cat:${category}:${genusNumber}`;
+
+      return "";
+    };
+
+    const matchesGenus = (plant, genus) => {
+      if (!plant || !genus) return false;
+
+      if (plant.genus_id && genus.id && String(plant.genus_id) === String(genus.id)) {
+        return true;
+      }
+
+      return (
+        String(plant.genus_category || "").trim() === String(genus.category || "").trim() &&
+        Number(plant.genus_number || 0) === Number(genus.category_dex_number || 0)
+      );
+    };
+
     // As per outline, discoveredGenera is the count of unique genera discovered by the user
-    const discoveredGenera = genera.filter(g => {
-      const genusPlants = plants.filter(p => p.genus_id === g.id);
-      return genusPlants.some(p => userDiscoveries.some(d => d.plant_id === p.id));
-    }).length;
+    const discoveredGenera = genera.filter((genus) =>
+      userDiscoveredPlantObjects.some((plant) => matchesGenus(plant, genus))
+    ).length;
 
     // To get the actual genus objects discovered by the user (needed for filtering categories)
-    const discoveredGenusIdsByUser = new Set(userDiscoveredPlantObjects.map(p => p.genus_id));
-    const discoveredGeneraByUser = genera.filter(g => discoveredGenusIdsByUser.has(g.id));
+    const discoveredGenusKeysByUser = new Set(
+      userDiscoveredPlantObjects.map((plant) => getPlantGenusKey(plant)).filter(Boolean)
+    );
+    const discoveredGeneraByUser = genera.filter((genus) => discoveredGenusKeysByUser.has(getGenusKey(genus)));
 
     const baumGenera = genera.filter(g => g.category === "Bäume");
     const discoveredBaumGeneraByUser = discoveredGeneraByUser.filter(g => g.category === "Bäume");
@@ -378,10 +416,10 @@ export async function checkAndUnlockAchievements(user) {
 
     // 11. Waldgott - Alle Baum-Arten einer bestimmten Gattung entdeckt
     for (const genus of baumGenera) {
-      const allPlantsInGenus = plants.filter(p => p.genus_id === genus.id);
+      const allPlantsInGenus = plants.filter((plant) => matchesGenus(plant, genus));
       if (allPlantsInGenus.length === 0) continue; // Cannot discover all if there are no plants in this genus
 
-      const userDiscoveredInGenus = userDiscoveredPlantObjects.filter(p => p.genus_id === genus.id);
+      const userDiscoveredInGenus = userDiscoveredPlantObjects.filter((plant) => matchesGenus(plant, genus));
       
       if (userDiscoveredInGenus.length >= allPlantsInGenus.length) {
         if (!hasAchievement("Waldgott")) {

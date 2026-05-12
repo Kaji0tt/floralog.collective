@@ -133,15 +133,7 @@ export default function FriendFriendsPanel({ friendUser, friendEmail, currentUse
                   isSelf ? cardSelf : cardBase
                 }`}
               >
-                <div
-                  className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-base shadow-md overflow-hidden flex-shrink-0 ${
-                    isSelf
-                      ? "bg-gradient-to-br from-emerald-500 to-emerald-600"
-                      : isLightUi
-                      ? "bg-gradient-to-br from-stone-500 to-stone-600"
-                      : "bg-gradient-to-br from-stone-600 to-stone-700"
-                  }`}
-                >
+                <div className="w-11 h-11 rounded-full flex items-center justify-center font-bold text-base shadow-md overflow-hidden flex-shrink-0">
                   <CustomLogoAvatar
                     logoAssets={data.logoAssets}
                     className="w-full h-full"

@@ -124,6 +124,7 @@ export default function SettingsPanel({ user, onUserUpdated }) {
         selected_title: userData.selected_title,
         background_image_url: userData.background_image_url,
         background_color: userData.background_color,
+        global_explorer_visibility: userData.global_explorer_visibility,
       });
     } catch (error) {
       console.error("Fehler beim PublicProfile Update:", error);
@@ -210,8 +211,12 @@ export default function SettingsPanel({ user, onUserUpdated }) {
     rewards: allRewards,
     userRewards,
   });
-  const activeTitleValue = resolveTitleValue(user?.selected_title);
-  const activeTitleLabel = resolveTitleValue(user?.selected_title, user?.title) || "Pflanzen-Entdecker";
+  const activeTitleCandidate = resolveTitleValue(user?.selected_title, user?.title);
+  const activeTitleOption = titleOptions.find(
+    (option) => option.value === activeTitleCandidate || option.label === activeTitleCandidate
+  ) || null;
+  const activeTitleValue = activeTitleOption?.value || "default";
+  const activeTitleLabel = activeTitleOption?.label || activeTitleCandidate || "Pflanzen-Entdecker";
 
   const colorRows = [
     {
@@ -528,7 +533,7 @@ export default function SettingsPanel({ user, onUserUpdated }) {
               <p className={`text-xs ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-400'}`}>Aktiver Titel</p>
             </div>
             <Select
-              value={activeTitleValue || "default"}
+              value={activeTitleValue}
               onValueChange={(v) => updateUserMutation.mutate({ selected_title: v === "default" ? null : resolveTitleValue(v) || null })}
               disabled={updateUserMutation.isPending}
             >
@@ -612,6 +617,26 @@ export default function SettingsPanel({ user, onUserUpdated }) {
                 type="checkbox"
                 checked={user?.public_profile !== false}
                 onChange={(e) => updateUserMutation.mutate({ public_profile: e.target.checked })}
+                className="sr-only peer"
+              />
+              <div className="relative w-10 h-[22px] bg-stone-600 rounded-full peer peer-checked:bg-green-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:after:translate-x-full" />
+            </label>
+          </div>
+
+          <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${
+            uiTheme === 'light'
+              ? 'bg-stone-100/20 border-[#c8ac62]/15'
+              : 'bg-white/5 border-[#f0e5a5]/10'
+          }`}>
+            <div className="flex-1 min-w-0">
+              <p className={`text-sm font-medium leading-snug ${uiTheme === 'light' ? 'text-stone-800' : 'text-stone-100'}`}>Globales Forscherlog</p>
+              <p className={`text-xs leading-snug ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-400'}`}>Wenn aktiv, koennen deine Scans im Social-Tab unter Alle Spielern angezeigt werden.</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+              <input
+                type="checkbox"
+                checked={user?.global_explorer_visibility !== false}
+                onChange={(e) => updateUserMutation.mutate({ global_explorer_visibility: e.target.checked })}
                 className="sr-only peer"
               />
               <div className="relative w-10 h-[22px] bg-stone-600 rounded-full peer peer-checked:bg-green-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:after:translate-x-full" />

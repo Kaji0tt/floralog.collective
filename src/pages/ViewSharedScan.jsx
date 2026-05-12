@@ -270,7 +270,7 @@ export default function ViewSharedScan() {
             <div className="flex items-center gap-3">
               <CustomLogoAvatar
                 logoAssets={senderLogoAssets}
-                className="w-12 h-12 border-2 border-white bg-green-600"
+                className="w-12 h-12 border-2 border-white"
                 fallbackText={senderProfile?.display_name?.charAt(0).toUpperCase() || "?"}
                 fallbackClassName="text-white font-bold"
               />

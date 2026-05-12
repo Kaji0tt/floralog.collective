@@ -908,6 +908,10 @@ Viel Spaß beim Entdecken! 🌿`;
     .filter((entry) => {
       const entryEmail = getDiscoveryEmailLower(entry);
       if (!entryEmail) return false;
+      const actorProfile = profileByEmail.get(entryEmail);
+      const isCurrentUserEntry = entryEmail === ownEmailLower;
+      const isVisibleInGlobalExplorer = actorProfile?.global_explorer_visibility !== false;
+      if (!showFriendsOnlyInExplorer && !isCurrentUserEntry && !isVisibleInGlobalExplorer) return false;
       if (showFriendsOnlyInExplorer && !acceptedEmailSet.has(entryEmail)) return false;
       const date = new Date(entry.created_date || entry.discovered_date || entry.updated_date || 0);
       if (Number.isNaN(date.getTime())) return false;
@@ -1278,7 +1282,7 @@ Viel Spaß beim Entdecken! 🌿`;
                             }}
                             className={`flex items-center gap-2 w-full text-left transition-opacity ${entry.actorEmail && entry.actorEmail !== ownEmailLower ? "hover:opacity-80" : "cursor-default"}`}
                           >
-                            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-green-500 to-green-600 overflow-hidden flex items-center justify-center text-white text-[10px] font-bold">
+                            <div className="w-5 h-5 rounded-full overflow-hidden flex items-center justify-center text-white text-[10px] font-bold">
                               <CustomLogoAvatar
                                 logoAssets={entry.actorLogoAssets}
                                 className="w-full h-full"
@@ -1386,7 +1390,7 @@ Viel Spaß beim Entdecken! 🌿`;
                           <CardContent className="p-3">
                             <div className="flex items-start gap-3">
                               <div className="relative w-10 h-10 flex-shrink-0">
-                                <div className={`w-10 h-10 rounded-full overflow-hidden border ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/20"} ${newsItem.seen ? (isLightUi ? 'bg-stone-100' : 'bg-stone-900/55') : (isLightUi ? 'bg-white' : 'bg-stone-950/70')} flex items-center justify-center`}>
+                                <div className={`w-10 h-10 rounded-full overflow-hidden border ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/20"} flex items-center justify-center`}>
                                   <CustomLogoAvatar
                                     logoAssets={actor.logoAssets}
                                     className="w-full h-full"
@@ -1497,7 +1501,7 @@ Viel Spaß beim Entdecken! 🌿`;
                         >
                           <div className="flex items-center justify-between gap-3 flex-wrap">
                             <div className="flex items-center gap-3 min-w-0 flex-1">
-                              <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-lg shadow-md bg-gradient-to-br from-emerald-500 to-emerald-700 flex-shrink-0">
+                              <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-lg shadow-md flex-shrink-0">
                                 <CustomLogoAvatar
                                   logoAssets={requesterData.logoAssets}
                                   className="w-full h-full"
@@ -1577,7 +1581,7 @@ Viel Spaß beim Entdecken! 🌿`;
                           onClick={() => navigate(createPageUrl(`FriendProfile?email=${friendData.email}`))}
                           className="flex items-center gap-2.5 flex-1 min-w-0 max-w-full text-left"
                         >
-                          <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-sm shadow-md bg-gradient-to-br from-emerald-500 to-emerald-700 flex-shrink-0">
+                          <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-sm shadow-md flex-shrink-0">
                             <CustomLogoAvatar
                               logoAssets={friendData.logoAssets}
                               className="w-full h-full"
