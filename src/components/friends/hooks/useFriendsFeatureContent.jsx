@@ -21,6 +21,8 @@ import MobileBackButton from "@/components/navigation/MobileBackButton";
 import { formatDistanceToNow } from "date-fns";
 import { de } from "date-fns/locale";
 import { useUiTheme } from "@/lib/UiThemeContext";
+import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
+import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 
 const getAverageColor = (imageUrl) => {
   return new Promise((resolve) => {
@@ -56,6 +58,8 @@ const getAverageColor = (imageUrl) => {
   });
 };
 
+const MAX_EXPLORER_DISCOVERIES = 100;
+
 export function useFriendsFeatureContent({
   embedded = false,
   onHeaderMetaChange,
@@ -72,6 +76,7 @@ export function useFriendsFeatureContent({
   const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
   const [averageColor, setAverageColor] = useState(null);
   const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "explorer");
+  const [explorerAudienceFilter, setExplorerAudienceFilter] = useState("all");
   const [showAddFriendDialog, setShowAddFriendDialog] = useState(false);
   const autoMarkingNewsRef = useRef(false);
 
@@ -157,11 +162,17 @@ export function useFriendsFeatureContent({
     staleTime: 30000 // 30 Sekunden Cache
   });
 
+  const { data: logoAssets = [] } = useQuery({
+    queryKey: ['logoAssets'],
+    queryFn: () => Query.LogoAsset.list(),
+    staleTime: 60000,
+  });
+
   // Lade alle Discoveries - mit höherem Limit
   const { data: allDiscoveries = [] } = useQuery({
     queryKey: ['allDiscoveries'],
     queryFn: async () => {
-      const discoveries = await Query.UserPlantDiscovery.list('-created_date', 999);
+      const discoveries = await Query.UserPlantDiscovery.list('-created_date', MAX_EXPLORER_DISCOVERIES);
       console.log("📊 Geladene Discoveries:", discoveries.length);
       return discoveries;
     }
@@ -771,6 +782,7 @@ Viel Spaß beim Entdecken! 🌿`;
         actorProfile?.full_name ||
         actorEmail,
       avatarUrl: actorProfile?.avatar_url || null,
+      logoAssets: resolveEquippedLogoAssetsWithCatalog(actorProfile || {}, logoAssets),
       email: actorEmail,
     };
   };
@@ -851,7 +863,7 @@ Viel Spaß beim Entdecken! 🌿`;
       email: friendEmail,
       auth_id: friendAuthId,
       name: friendProfile?.display_name || friendProfile?.full_name || friendUser?.display_name || friendUser?.full_name || friendEmail,
-      avatar_url: friendProfile?.avatar_url || friendUser?.avatar_url,
+      logoAssets: resolveEquippedLogoAssetsWithCatalog(friendProfile || friendUser || {}, logoAssets),
       level: friendProfile?.level || friendUser?.level || 1,
       title: friendProfile?.selected_title || friendProfile?.title || friendUser?.selected_title || friendUser?.title || "Pflanzen-Anfänger",
       lastActivity
@@ -890,11 +902,13 @@ Viel Spaß beim Entdecken! 🌿`;
 
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const acceptedEmailSet = new Set([ownEmailLower, ...Array.from(friendEmailSet)]);
+  const showFriendsOnlyInExplorer = explorerAudienceFilter === "friends";
 
   const recentDiscoveries = (allDiscoveries || [])
     .filter((entry) => {
       const entryEmail = getDiscoveryEmailLower(entry);
-      if (!entryEmail || !acceptedEmailSet.has(entryEmail)) return false;
+      if (!entryEmail) return false;
+      if (showFriendsOnlyInExplorer && !acceptedEmailSet.has(entryEmail)) return false;
       const date = new Date(entry.created_date || entry.discovered_date || entry.updated_date || 0);
       if (Number.isNaN(date.getTime())) return false;
       return date >= thirtyDaysAgo;
@@ -927,7 +941,7 @@ Viel Spaß beim Entdecken! 🌿`;
       actorEmail: entryEmail,
       actorAuthId: profile?.auth_id || entry.auth_id || null,
       actorName: profile?.display_name || profile?.full_name || entryEmail,
-      actorAvatar: profile?.avatar_url || null,
+      actorLogoAssets: resolveEquippedLogoAssetsWithCatalog(profile || {}, logoAssets),
       scanCount: scansBySameUserPlant.length,
       likedByCurrentUser: likedDiscoveryIdSet.has(entry.id),
       likeCount: likeCountByDiscoveryId.get(entry.id) || 0,
@@ -1166,19 +1180,61 @@ Viel Spaß beim Entdecken! 🌿`;
                   <p className={`text-lg font-semibold mb-2 ${titleTextClass}`}>
                       Noch kein Forscher-Log
                   </p>
-                  <p className={bodyTextClass}>Scans von dir und deinen Freunden erscheinen hier.</p>
+                  <p className={bodyTextClass}>
+                    {showFriendsOnlyInExplorer
+                      ? "Scans von dir und deinen Freunden erscheinen hier."
+                      : "Scans aller Spieler erscheinen hier."}
+                  </p>
                 </div>
               ) : (
                 <section className={`${sectionSurfaceClass} p-4 md:p-5`}>
-                  <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="flex flex-col gap-3 mb-4 md:flex-row md:items-start md:justify-between">
                     <div>
                       <div className={`flex items-center gap-2 ${titleTextClass}`}>
                         <BookOpenText className={`w-4 h-4 ${isLightUi ? "text-emerald-700" : "text-emerald-300"}`} />
                         <h3 className="text-base font-semibold">Forscher Log</h3>
                       </div>
-                      <p className={`text-sm mt-1 ${bodyTextClass}`}>Ein visuelles Journal der letzten Scans.</p>
+                      <p className={`text-sm mt-1 ${bodyTextClass}`}>
+                        {showFriendsOnlyInExplorer
+                          ? "Ein visuelles Journal der letzten Scans von dir und deinen Freunden."
+                          : "Ein visuelles Journal der letzten Scans aller Spieler."}
+                      </p>
                     </div>
-                    <Badge className={accentBadgeClass}>{explorerLogEntries.length}</Badge>
+                    <div className="flex items-center justify-between gap-3 md:justify-end">
+                      <div
+                        className={
+                          `inline-flex rounded-full border p-1 ${isLightUi
+                            ? "border-[#d9c48a]/60 bg-[#f8f1dc]/85"
+                            : "border-[#f0e5a5]/30 bg-black/30"}`
+                        }
+                      >
+                        {[
+                          { id: "all", label: "Alle" },
+                          { id: "friends", label: "Freunde" },
+                        ].map((option) => {
+                          const isSelected = explorerAudienceFilter === option.id;
+                          return (
+                            <button
+                              key={option.id}
+                              type="button"
+                              onClick={() => setExplorerAudienceFilter(option.id)}
+                              className={
+                                `rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${isSelected
+                                  ? (isLightUi
+                                    ? "bg-white text-[#8f6b22] shadow-sm"
+                                    : "bg-[#f0e5a5] text-stone-950")
+                                  : (isLightUi
+                                    ? "text-stone-600 hover:text-stone-900"
+                                    : "text-stone-300 hover:text-stone-100")}`
+                              }
+                            >
+                              {option.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <Badge className={accentBadgeClass}>{explorerLogEntries.length}</Badge>
+                    </div>
                   </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1223,11 +1279,12 @@ Viel Spaß beim Entdecken! 🌿`;
                             className={`flex items-center gap-2 w-full text-left transition-opacity ${entry.actorEmail && entry.actorEmail !== ownEmailLower ? "hover:opacity-80" : "cursor-default"}`}
                           >
                             <div className="w-5 h-5 rounded-full bg-gradient-to-br from-green-500 to-green-600 overflow-hidden flex items-center justify-center text-white text-[10px] font-bold">
-                              {entry.actorAvatar ? (
-                                <img src={entry.actorAvatar} alt={entry.actorName} className="w-full h-full object-cover" />
-                              ) : (
-                                entry.actorName?.charAt(0)?.toUpperCase() || "?"
-                              )}
+                              <CustomLogoAvatar
+                                logoAssets={entry.actorLogoAssets}
+                                className="w-full h-full"
+                                fallbackText={entry.actorName?.charAt(0)?.toUpperCase() || "?"}
+                                fallbackClassName="text-[10px] font-bold text-white"
+                              />
                             </div>
                             <div className="min-w-0">
                               <p className={`text-[11px] font-medium truncate ${titleTextClass}`}>{entry.actorName}</p>
@@ -1330,15 +1387,12 @@ Viel Spaß beim Entdecken! 🌿`;
                             <div className="flex items-start gap-3">
                               <div className="relative w-10 h-10 flex-shrink-0">
                                 <div className={`w-10 h-10 rounded-full overflow-hidden border ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/20"} ${newsItem.seen ? (isLightUi ? 'bg-stone-100' : 'bg-stone-900/55') : (isLightUi ? 'bg-white' : 'bg-stone-950/70')} flex items-center justify-center`}>
-                                  {actor.avatarUrl ? (
-                                    <img
-                                      src={actor.avatarUrl}
-                                      alt={actor.name}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : (
-                                    <span className={`text-xs font-semibold ${isLightUi ? "text-stone-700" : "text-stone-100"}`}>{avatarFallback}</span>
-                                  )}
+                                  <CustomLogoAvatar
+                                    logoAssets={actor.logoAssets}
+                                    className="w-full h-full"
+                                    fallbackText={avatarFallback}
+                                    fallbackClassName={`text-xs font-semibold ${isLightUi ? "text-stone-700" : "text-stone-100"}`}
+                                  />
                                 </div>
                                 <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border flex items-center justify-center ${isLightUi ? "bg-white border-stone-200" : "bg-stone-950 border-[#f0e5a5]/20"}`}>
                                   <Icon className={`w-3 h-3 ${meta.accent}`} />
@@ -1444,11 +1498,12 @@ Viel Spaß beim Entdecken! 🌿`;
                           <div className="flex items-center justify-between gap-3 flex-wrap">
                             <div className="flex items-center gap-3 min-w-0 flex-1">
                               <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-lg shadow-md bg-gradient-to-br from-emerald-500 to-emerald-700 flex-shrink-0">
-                                {requesterData.avatar_url ? (
-                                  <img src={requesterData.avatar_url} alt={requesterData.name} className="w-full h-full object-cover" />
-                                ) : (
-                                  requesterData.name?.[0]?.toUpperCase() || "?"
-                                )}
+                                <CustomLogoAvatar
+                                  logoAssets={requesterData.logoAssets}
+                                  className="w-full h-full"
+                                  fallbackText={requesterData.name?.[0]?.toUpperCase() || "?"}
+                                  fallbackClassName="text-lg font-bold text-white"
+                                />
                               </div>
                               <div className="min-w-0">
                                 <p className={`font-semibold truncate ${titleTextClass}`}>{requesterData.name}</p>
@@ -1523,11 +1578,12 @@ Viel Spaß beim Entdecken! 🌿`;
                           className="flex items-center gap-2.5 flex-1 min-w-0 max-w-full text-left"
                         >
                           <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-sm shadow-md bg-gradient-to-br from-emerald-500 to-emerald-700 flex-shrink-0">
-                            {friendData.avatar_url ? (
-                              <img src={friendData.avatar_url} alt={friendData.name} className="w-full h-full object-cover" />
-                            ) : (
-                              friendData.name?.[0]?.toUpperCase() || friendData.email?.[0]?.toUpperCase()
-                            )}
+                            <CustomLogoAvatar
+                              logoAssets={friendData.logoAssets}
+                              className="w-full h-full"
+                              fallbackText={friendData.name?.[0]?.toUpperCase() || friendData.email?.[0]?.toUpperCase()}
+                              fallbackClassName="text-sm font-bold text-white"
+                            />
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 min-w-0">

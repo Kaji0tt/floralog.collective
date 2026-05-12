@@ -6,6 +6,8 @@ import { createPageUrl } from "@/utils";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { motion } from "framer-motion";
 import { Users, Star, ChevronRight, Leaf, Loader2 } from "lucide-react";
+import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
+import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 
 export default function FriendFriendsPanel({ friendUser, friendEmail, currentUser }) {
   const navigate = useNavigate();
@@ -44,6 +46,12 @@ export default function FriendFriendsPanel({ friendUser, friendEmail, currentUse
     queryFn: () => Query.PublicProfile.list(),
   });
 
+  const { data: logoAssets = [] } = useQuery({
+    queryKey: ["logoAssets"],
+    queryFn: () => Query.LogoAsset.list(),
+    staleTime: 60000,
+  });
+
   const getFriendData = (record) => {
     if (!friendEmail) return null;
     const otherEmail =
@@ -57,7 +65,7 @@ export default function FriendFriendsPanel({ friendUser, friendEmail, currentUse
       id: record.id,
       email: otherEmail,
       name: profile?.display_name || profile?.full_name || otherEmail,
-      avatar_url: profile?.avatar_url,
+      logoAssets: resolveEquippedLogoAssetsWithCatalog(profile || {}, logoAssets),
       level: profile?.level || 1,
       title: profile?.selected_title || profile?.title || "Pflanzen-Anfänger",
     };
@@ -134,19 +142,13 @@ export default function FriendFriendsPanel({ friendUser, friendEmail, currentUse
                       : "bg-gradient-to-br from-stone-600 to-stone-700"
                   }`}
                 >
-                  {data.avatar_url ? (
-                    <img
-                      src={data.avatar_url}
-                      alt={data.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-white">
-                      {data.name?.[0]?.toUpperCase() || data.email?.[0]?.toUpperCase() || (
-                        <Leaf className="w-5 h-5 text-white" />
-                      )}
-                    </span>
-                  )}
+                  <CustomLogoAvatar
+                    logoAssets={data.logoAssets}
+                    className="w-full h-full"
+                    fallbackText={data.name?.[0]?.toUpperCase() || data.email?.[0]?.toUpperCase()}
+                    fallbackClassName="text-white text-base font-bold"
+                    leafClassName="w-5 h-5 text-white"
+                  />
                 </div>
 
                 <div className="flex-1 min-w-0">

@@ -1,17 +1,18 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Query } from "@/api/entities";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Calendar, Sparkles, ArrowLeft, Loader2 } from "lucide-react";
 import { createPageUrl } from "@/utils";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import { awardXP } from "../components/utils/xpSystem";
 import { motion } from "framer-motion";
+import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
+import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 
 export default function ViewSharedScan() {
   const [user, setUser] = useState(null);
@@ -66,6 +67,17 @@ export default function ViewSharedScan() {
     },
     enabled: !!sharedScan?.shared_by,
   });
+
+  const { data: logoAssets = [] } = useQuery({
+    queryKey: ['logoAssets'],
+    queryFn: () => Query.LogoAsset.list(),
+    staleTime: 60000,
+  });
+
+  const senderLogoAssets = useMemo(
+    () => resolveEquippedLogoAssetsWithCatalog(senderProfile || {}, logoAssets),
+    [senderProfile, logoAssets]
+  );
 
   const { data: existingDiscoveries = [] } = useQuery({
     queryKey: ['existingSharedScanDiscoveries', user?.id, sharedScan?.plant_id],
@@ -256,12 +268,12 @@ export default function ViewSharedScan() {
         <Card className="border-2 border-stone-200 shadow-xl bg-white mb-6">
           <CardHeader className="border-b border-stone-200 bg-gradient-to-r from-green-50 to-green-100">
             <div className="flex items-center gap-3">
-              <Avatar className="w-12 h-12 border-2 border-white">
-                <AvatarImage src={senderProfile?.avatar_url} />
-                <AvatarFallback className="bg-green-600 text-white">
-                  {senderProfile?.display_name?.charAt(0).toUpperCase() || "?"}
-                </AvatarFallback>
-              </Avatar>
+              <CustomLogoAvatar
+                logoAssets={senderLogoAssets}
+                className="w-12 h-12 border-2 border-white bg-green-600"
+                fallbackText={senderProfile?.display_name?.charAt(0).toUpperCase() || "?"}
+                fallbackClassName="text-white font-bold"
+              />
               <div>
                 <p className="text-sm text-stone-600">Geteilt von</p>
                 <p className="font-bold text-lg text-stone-900">
