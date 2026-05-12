@@ -1154,6 +1154,11 @@ function HomeContent() {
     !tileClaimsError &&
     (isTileClaimsLoading || isTileClaimsFetching || !isTileClaimsFetched);
 
+  const renameClaimGroupMutation = useMutation({
+    mutationFn: ({ tileX, tileY, groupName }) =>
+      renameTileClaimGroupName({ tileX, tileY, groupName }),
+  });
+
   const claimedTilesWithLogos = useMemo(() => {
     if (!Array.isArray(claimedTiles) || claimedTiles.length === 0) {
       return [];
@@ -1934,11 +1939,6 @@ function HomeContent() {
     await queryClient.invalidateQueries({ queryKey: ["scanLikesAll"] });
     return nextLiked;
   };
-
-  const renameClaimGroupMutation = useMutation({
-    mutationFn: ({ tileX, tileY, groupName }) =>
-      renameTileClaimGroupName({ tileX, tileY, groupName }),
-  });
 
   const handleRenameClaimGroup = async ({ tileX, tileY, groupName }) => {
     const nextName = String(groupName || "").trim();
