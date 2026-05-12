@@ -188,7 +188,7 @@ export function useAchievementsFeatureContent({
   const [showTitleDialog, setShowTitleDialog] = useState(false);
   const [selectedAchievement, setSelectedAchievement] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
-  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "quests");
+  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "stats");
   const [questFeedback, setQuestFeedback] = useState(null);
   const [seedRewardFeedback, setSeedRewardFeedback] = useState(null);
   const [newAchievements, setNewAchievements] = useState([]);
@@ -206,7 +206,7 @@ export function useAchievementsFeatureContent({
   useEffect(() => {
     const allowedTabs = new Set(["quests", "achievements", "stats"]);
     if (!allowedTabs.has(activeTab)) {
-      setActiveTab("quests");
+      setActiveTab("stats");
     }
   }, [activeTab]);
 
@@ -1343,6 +1343,12 @@ export function useAchievementsFeatureContent({
 
   const moduleChips = [
     {
+      id: "stats",
+      title: "Statistik",
+      active: totalScans,
+      total: totalScans,
+    },
+    {
       id: "quests",
       title: "Aufgaben",
       active: activeQuests.length,
@@ -1353,12 +1359,6 @@ export function useAchievementsFeatureContent({
       title: "Erfolge",
       active: unlockedCount,
       total: achievements.length,
-    },
-    {
-      id: "stats",
-      title: "Statistik",
-      active: totalScans,
-      total: totalScans,
     },
   ];
 
@@ -1663,9 +1663,17 @@ export function useAchievementsFeatureContent({
           <TabsContent value="stats" className={statsContentClass} style={embeddedContentMaskStyle}>
             <div className="max-w-6xl mx-auto space-y-4" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
+                <Card className={`${statsCardBaseClass} ${isLightUi ? "border-amber-200" : "border-amber-300/35"}`}>
+                  <CardContent className="p-4">
+                    <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>Samen insgesamt</p>
+                    <p className={`text-2xl font-bold mt-1 ${isLightUi ? "text-amber-700" : "text-amber-300"}`}>{ownSeeds.toLocaleString()}</p>
+                    <p className={`text-xs mt-1 ${statsBodyClass}`}>Aktueller Samenstand</p>
+                  </CardContent>
+                </Card>
+
                 <Card className={`${statsCardBaseClass} ${isLightUi ? "border-emerald-200" : "border-emerald-300/35"}`}>
                   <CardContent className="p-4">
-                    <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>Gesamt-Scans</p>
+                    <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>Scans insgesamt</p>
                     <p className={`text-2xl font-bold mt-1 ${isLightUi ? "text-emerald-700" : "text-emerald-300"}`}>{totalScans}</p>
                     <p className={`text-xs mt-1 ${statsBodyClass}`}>{activeDaysSet.size} aktive Tage</p>
                   </CardContent>
