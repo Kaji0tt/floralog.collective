@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Sparkles, Loader2, RefreshCw, Image as ImageIcon, BadgeCheck, PaintBucket, Lock } from "lucide-react";
 import { HexColorPicker } from "react-colorful";
-import "react-colorful/dist/index.css";
 import { Query } from "@/api/entities";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { useUiTheme } from "@/lib/UiThemeContext";
