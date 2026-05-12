@@ -2,6 +2,21 @@ import { Leaf } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { hexToFilter } from "@/lib/hexToFilter";
 
+/**
+ * @param {{
+ *   logoAssets?: {
+ *     border?: { imageUrl?: string },
+ *     plant?: { imageUrl?: string },
+ *     face?: { imageUrl?: string },
+ *     borderColor?: string | null,
+ *   } | null,
+ *   className?: string,
+ *   innerClassName?: string,
+ *   fallbackText?: string,
+ *   fallbackClassName?: string,
+ *   leafClassName?: string,
+ * }} props
+ */
 export default function CustomLogoAvatar({
   logoAssets,
   className,
