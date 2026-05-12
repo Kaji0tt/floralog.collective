@@ -1,6 +1,21 @@
-import { Home as HomeIcon, List, Plus, Settings } from "lucide-react";
+import { Gem, Home as HomeIcon, List, Plus, Settings } from "lucide-react";
 import { useUiTheme } from "@/lib/UiThemeContext";
 
+/**
+ * @param {{
+ *   activePanel: string | null,
+ *   embeddedTitle?: string | null,
+ *   embeddedSubtitle?: string | null,
+ *   embeddedInfoLabel?: string | null,
+ *   embeddedCollectionPublicPanelOpen?: boolean,
+ *   displayName?: string | null,
+ *   userTitle?: string | null,
+ *   onTogglePublicCollections?: () => void,
+ *   onOpenEmbeddedFriendsAddDialog?: () => void,
+ *   onOpenAmberPurchase?: () => void,
+ *   onPrimaryAction: () => void,
+ * }} props
+ */
 export default function HomeHeaderBar({
   activePanel,
   embeddedTitle,
@@ -11,11 +26,13 @@ export default function HomeHeaderBar({
   userTitle,
   onTogglePublicCollections,
   onOpenEmbeddedFriendsAddDialog,
+  onOpenAmberPurchase,
   onPrimaryAction,
 }) {
   const { isLightUi } = useUiTheme();
   const showEmbeddedCollection = activePanel === "collection";
   const showEmbeddedFriends = activePanel === "friends";
+  const showEmbeddedShop = activePanel === "shop";
   const isEmbeddedMode = activePanel !== null;
 
   const resolvedEmbeddedTitle = embeddedTitle || (showEmbeddedCollection
@@ -42,7 +59,7 @@ export default function HomeHeaderBar({
           <div className="min-w-0">
             <h1
               className="font-bold leading-tight text-2xl md:text-3xl truncate"
-              title={displayName}
+              title={displayName || undefined}
             >
               {displayName}
             </h1>
@@ -92,6 +109,17 @@ export default function HomeHeaderBar({
             aria-label="Freund hinzufuegen"
           >
             <Plus className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+          </button>
+        )}
+
+        {showEmbeddedShop && typeof onOpenAmberPurchase === "function" && (
+          <button
+            type="button"
+            onClick={onOpenAmberPurchase}
+            className={`w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors ${isLightUi ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80" : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"}`}
+            aria-label="Bernstein kaufen"
+          >
+            <Gem className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
           </button>
         )}
 

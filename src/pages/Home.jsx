@@ -14,10 +14,11 @@ import {
   useRobotPlantInventoryItem as activateRobotPlantInventoryItem,
   waterRobotPlant,
 } from "@/api/robotPlantService";
+import { claimDailyLoginSparks, getUserWallet } from "@/api/walletService";
 import { getOpenPlantQuiz, submitPlantQuizAnswer } from "@/api/plantQuizService";
 import { getTileClaims } from "@/api/tileClaimService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Camera, Loader2, Leaf, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, Zap, Palette } from "lucide-react";
+import { Camera, Gem, Loader2, Leaf, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, Zap, Palette } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
@@ -139,6 +140,8 @@ function HomeContent() {
   const [shopOpenCategory, setShopOpenCategory] = useState("backgrounds");
   const [careActionMessage, setCareActionMessage] = useState(null);
   const [careGainFeedback, setCareGainFeedback] = useState(null);
+  const [dailySparkClaimMessage, setDailySparkClaimMessage] = useState(null);
+  const [showAmberPurchaseModal, setShowAmberPurchaseModal] = useState(false);
   const [embeddedHeaderMeta, setEmbeddedHeaderMeta] = useState(null);
   const [embeddedFriendsAddDialogNonce, setEmbeddedFriendsAddDialogNonce] = useState(0);
   const [embeddedCollectionPublicPanelOpen, setEmbeddedCollectionPublicPanelOpen] = useState(false);
@@ -416,6 +419,17 @@ function HomeContent() {
   });
 
   const {
+    data: userWallet = null,
+  } = useQuery({
+    queryKey: ['userWallet', user?.id],
+    queryFn: () => getUserWallet(user?.id),
+    enabled: !!user?.id,
+    initialData: null,
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
+  const {
     data: openPlantQuiz = null,
     isFetching: isOpenPlantQuizFetching,
     refetch: refetchOpenPlantQuiz,
@@ -584,6 +598,7 @@ function HomeContent() {
     queryClient.refetchQueries({ queryKey: ['friendsUnreadNewsCount'] });
     queryClient.refetchQueries({ queryKey: ['allDiscoveries'] });
     queryClient.refetchQueries({ queryKey: ['robotPlantState'] });
+    queryClient.refetchQueries({ queryKey: ['userWallet'] });
     
     // NICHT mehr hier - Rewards werden nur beim Scannen/Quest-Completion geprüft
   };
@@ -611,6 +626,7 @@ function HomeContent() {
       queryClient.refetchQueries({ queryKey: ['friendsUnreadNewsCount'] });
       queryClient.refetchQueries({ queryKey: ['allDiscoveries'] });
       queryClient.refetchQueries({ queryKey: ['robotPlantState'] });
+      queryClient.refetchQueries({ queryKey: ['userWallet'] });
     };
 
     window.addEventListener('userUpdated', handleUserUpdate);
@@ -685,6 +701,50 @@ function HomeContent() {
 
     runQuestProgressUpdate();
   }, [user?.id]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const claimDailySparks = async () => {
+      if (!user?.id) return;
+
+      try {
+        const claimResult = await claimDailyLoginSparks({
+          metadata: {
+            source: 'home_open',
+            user_email: user?.email || null,
+          },
+        });
+
+        if (isCancelled || !claimResult?.applied) {
+          return;
+        }
+
+        const award = Math.max(0, Number(claimResult?.awarded_amount ?? 0));
+        const streakDays = Math.max(0, Number(claimResult?.streak_days ?? 0));
+        if (award <= 0) {
+          return;
+        }
+
+        setDailySparkClaimMessage(`Taeglicher Login: +${award} Funken (Streak ${streakDays}, Cap 3)`);
+        await queryClient.invalidateQueries({ queryKey: ['userWallet'] });
+
+        window.setTimeout(() => {
+          setDailySparkClaimMessage((previous) => (
+            previous === `Taeglicher Login: +${award} Funken (Streak ${streakDays}, Cap 3)` ? null : previous
+          ));
+        }, 4500);
+      } catch (error) {
+        console.warn('[Home] Daily spark claim failed:', error?.message || error);
+      }
+    };
+
+    claimDailySparks();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [user?.id, user?.email, queryClient]);
 
   // Consume transient navigation state exactly once per navigation
   useEffect(() => {
@@ -1199,6 +1259,14 @@ function HomeContent() {
   const playerSeeds = Math.max(
     0,
     Number(robotPlantState?.wallet_balance ?? robotPlantState?.walletBalance ?? 0)
+  );
+  const playerSparks = Math.max(
+    0,
+    Number(userWallet?.sparks_balance ?? 0)
+  );
+  const playerAmber = Math.max(
+    0,
+    Number(userWallet?.amber_balance ?? 0)
   );
   const playerClaimedTiles = Math.max(
     0,
@@ -2118,6 +2186,58 @@ function HomeContent() {
         }}
       />
 
+      <Dialog open={showAmberPurchaseModal} onOpenChange={setShowAmberPurchaseModal}>
+        <DialogContent className={`sm:max-w-lg ${isLightUi ? "bg-white" : "bg-[#141714] border-[#f0e5a5]/30"}`}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Gem className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+              Bernstein kaufen (Vorbereitung)
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className={`text-sm ${isLightUi ? "text-stone-700" : "text-stone-200"}`}>
+              Aktueller Kontostand: <span className="font-semibold">{playerAmber} Bernstein</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[
+                { amount: 120, price: '2,99 EUR' },
+                { amount: 350, price: '6,99 EUR' },
+                { amount: 900, price: '14,99 EUR' },
+              ].map((pack) => (
+                <button
+                  key={pack.amount}
+                  type="button"
+                  disabled
+                  className={`rounded-2xl border px-3 py-3 text-left opacity-70 cursor-not-allowed ${isLightUi ? "border-[#c8ac62]/40 bg-white/70" : "border-[#f0e5a5]/25 bg-black/30"}`}
+                >
+                  <div className="text-sm font-semibold">{pack.amount} Bernstein</div>
+                  <div className={`text-xs mt-1 ${isLightUi ? "text-stone-600" : "text-stone-300"}`}>{pack.price}</div>
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {["Apple Pay", "Google Pay", "PayPal", "Kreditkarte"].map((method) => (
+                <button
+                  key={method}
+                  type="button"
+                  disabled
+                  className={`h-10 rounded-xl border text-xs font-medium opacity-65 cursor-not-allowed ${isLightUi ? "border-[#c8ac62]/35 bg-white/70 text-stone-700" : "border-[#f0e5a5]/20 bg-black/35 text-stone-200"}`}
+                >
+                  {method}
+                </button>
+              ))}
+            </div>
+
+            <div className={`rounded-xl border px-3 py-2 text-xs leading-relaxed ${isLightUi ? "border-amber-300/60 bg-amber-50 text-amber-900" : "border-amber-300/35 bg-amber-900/20 text-amber-100"}`}>
+              Die Bezahlfunktionen sind noch nicht aktiv. Dieses Modal bereitet nur die spaetere Echtgeld-Integration vor.
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <HomeBackgroundShell
         user={user}
         getRgbaFromRgb={getRgbaFromRgb}
@@ -2160,6 +2280,7 @@ function HomeContent() {
                 userTitle={resolveTitleValue(user?.selected_title, user?.title) || "Pflanzen-Entdecker"}
                 onTogglePublicCollections={() => setEmbeddedCollectionPublicPanelOpen((prev) => !prev)}
                 onOpenEmbeddedFriendsAddDialog={() => setEmbeddedFriendsAddDialogNonce((prev) => prev + 1)}
+                onOpenAmberPurchase={() => setShowAmberPurchaseModal(true)}
                 onPrimaryAction={() => {
                   if (activePanel === "collection") {
                     setEmbeddedCollectionPublicPanelOpen(false);
@@ -2251,6 +2372,12 @@ function HomeContent() {
                   />
                 ) : (
                   <section data-ui="home-plant-hero-section" className="flex-1 min-h-0 rounded-3xl px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col bg-transparent">
+                  {dailySparkClaimMessage && (
+                    <div className={`mb-2 rounded-xl border px-3 py-1.5 text-xs font-semibold ${isLightUi ? "border-emerald-400/60 bg-emerald-50/90 text-emerald-800" : "border-emerald-300/35 bg-emerald-900/25 text-emerald-100"}`}>
+                      {dailySparkClaimMessage}
+                    </div>
+                  )}
+
                   <div
                     className={`w-full rounded-2xl border backdrop-blur-sm px-[clamp(0.625rem,2vw,0.875rem)] ${
                       isLightUi ? "border-[#c8ac62]/45" : "border-[#f0e5a5]/45"
@@ -2279,6 +2406,30 @@ function HomeContent() {
                       <div className={`flex items-center justify-center gap-1.5 min-w-0 px-2 text-xs md:text-sm font-semibold ${isLightUi ? "text-stone-700" : "text-white/95"}`}>
                         <Zap className={`w-4 h-4 shrink-0 ${isLightUi ? "text-amber-700" : "text-amber-300"}`} />
                         <span className="truncate">{formatMultiplier(knownNextScanMultiplier)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    className={`mt-2 w-full rounded-2xl border backdrop-blur-sm px-[clamp(0.625rem,2vw,0.875rem)] ${
+                      isLightUi ? "border-[#c8ac62]/35 bg-white/55" : "border-[#f0e5a5]/30 bg-black/25"
+                    }`}
+                    style={{
+                      height: `${(2.1 * controlsScale).toFixed(2)}rem`,
+                    }}
+                  >
+                    <div className={`h-full w-full grid grid-cols-3 divide-x ${isLightUi ? "divide-[#c8ac62]/25" : "divide-[#f0e5a5]/20"}`}>
+                      <div className={`flex items-center justify-center gap-1.5 min-w-0 px-2 text-xs md:text-sm font-semibold ${isLightUi ? "text-stone-700" : "text-white/95"}`}>
+                        <Leaf className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                        <span className="truncate">{playerSeeds}</span>
+                      </div>
+                      <div className={`flex items-center justify-center gap-1.5 min-w-0 px-2 text-xs md:text-sm font-semibold ${isLightUi ? "text-stone-700" : "text-white/95"}`}>
+                        <Zap className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+                        <span className="truncate">{playerSparks}</span>
+                      </div>
+                      <div className={`flex items-center justify-center gap-1.5 min-w-0 px-2 text-xs md:text-sm font-semibold ${isLightUi ? "text-stone-700" : "text-white/95"}`}>
+                        <Gem className="w-3.5 h-3.5 shrink-0 text-orange-500" />
+                        <span className="truncate">{playerAmber}</span>
                       </div>
                     </div>
                   </div>

@@ -933,6 +933,7 @@ Deno.serve(async (req) => {
     let effectiveCareDelta = careDelta;
     let rewardDetails: RewardBreakdown | null = null;
     let tileClaimResolution: TileClaimResolution | null = null;
+    let zoneSparkReward: Record<string, unknown> | null = null;
     let currentRobotPlantState: RobotPlantStateRow | null = null;
 
     let scanContext: ScanRewardContext | null = null;
@@ -1063,6 +1064,29 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (scanContext?.matchedZoneId) {
+      const sparkEventReference = `zone:${scanContext.matchedZoneId}`;
+      const { data: sparkGrantData, error: sparkGrantError } = await adminClient.rpc("wallet_grant_currency", {
+        p_auth_id: authId,
+        p_currency_code: "sparks",
+        p_event_source: "new_zone_first_scan_spark",
+        p_event_reference: sparkEventReference,
+        p_amount: 5,
+        p_direction: "credit",
+        p_metadata: {
+          source_event_reference: eventReference,
+          source_event: effectiveEventSource,
+          zone_id: scanContext.matchedZoneId,
+        },
+      });
+
+      if (sparkGrantError) {
+        console.warn("[robotPlantGrantReward] zone spark grant failed", sparkGrantError);
+      } else {
+        zoneSparkReward = Array.isArray(sparkGrantData) ? (sparkGrantData[0] ?? null) : (sparkGrantData ?? null);
+      }
+    }
+
     if (scanContext?.matchedZoneId && Number.isFinite(scanContext.nextZoneMultiplier)) {
       const { error: zoneUpdateError } = await adminClient
         .from("RobotPlantZone")
@@ -1079,6 +1103,7 @@ Deno.serve(async (req) => {
         ok: true,
         result,
         rewardDetails,
+        zoneSparkReward,
         tileClaim: tileClaimResolution,
         eventSource: effectiveEventSource,
         energyDelta: Math.round(effectiveEnergyDelta),

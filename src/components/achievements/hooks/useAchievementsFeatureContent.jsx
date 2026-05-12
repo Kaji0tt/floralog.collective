@@ -24,6 +24,7 @@ import AchievementNotification from "@/components/achievements/AchievementNotifi
 import { getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
 import { updateQuestProgress } from "@/components/utils/questProgress";
 import { grantRobotPlantRewardServerSide } from "@/api/robotPlantService";
+import { grantWalletCurrency } from "@/api/walletService";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { createPageUrl } from "@/utils";
 import { resolveTitleValue } from "@/lib/profileCustomizationOptions";
@@ -660,6 +661,25 @@ export function useAchievementsFeatureContent({
           redeemed_date: now,
           status: 'redeemed'
         });
+
+        // Monthly quest bonus: +15 sparks on redeem.
+        try {
+          await grantWalletCurrency({
+            authId: currentUser.id,
+            currencyCode: 'sparks',
+            eventSource: 'monthly_quest_redeem_spark',
+            eventReference: `monthly:${userQuestId}`,
+            amount: 15,
+            direction: 'credit',
+            metadata: {
+              quest_type: 'monthly',
+              redeemed_at: now,
+              source: 'quest_redeem',
+            },
+          });
+        } catch (sparkError) {
+          console.warn('[QuestRedeem] Monthly spark bonus could not be granted:', sparkError?.message || sparkError);
+        }
       } else if (questType === 'collection') {
         await Query.UserCollectionQuest.update(userQuestId, {
           redeemed: true,
@@ -750,6 +770,7 @@ export function useAchievementsFeatureContent({
       queryClient.invalidateQueries({ queryKey: ['userCollectionQuests'] });
       queryClient.invalidateQueries({ queryKey: ['userAchievements'] });
       queryClient.invalidateQueries({ queryKey: ['robotPlantState'] });
+      queryClient.invalidateQueries({ queryKey: ['userWallet'] });
 
       // User neu laden
       const currentUser = await getCurrentUser();
