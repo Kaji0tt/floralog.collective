@@ -2660,17 +2660,6 @@ function HomeContent() {
 
                             <div className="absolute left-1/2 bottom-[7%] -translate-x-1/2 z-[8]">
                               <div className="flex items-center gap-2">
-                                <div
-                                  className={`rounded-xl border backdrop-blur-sm px-3 py-1.5 flex items-center gap-1.5 text-xs md:text-sm font-semibold ${
-                                    isLightUi
-                                      ? "border-[#c8ac62]/55 bg-white/60 text-stone-700"
-                                      : "border-[#f0e5a5]/45 bg-black/35 text-lime-100"
-                                  }`}
-                                >
-                                  <Leaf className={`w-4 h-4 ${isLightUi ? "text-emerald-600" : "text-lime-200"}`} />
-                                  <span>{playerSeeds}</span>
-                                </div>
-
                                 <LockedTooltip
                                   content={
                                     <div className="space-y-1.5">
