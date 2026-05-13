@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { UserPlus, Users, Loader2, Check, X, Bell, UserMinus, Leaf, Trophy, Share2, Plus, Heart, UserCheck, BookOpenText, Clock, Newspaper, Send } from "lucide-react";
+import { UserPlus, Users, Loader2, Check, X, Bell, UserMinus, Leaf, Trophy, Share2, Plus, Heart, UserCheck, BookOpenText, Clock, Newspaper, Send, ChevronDown } from "lucide-react";
 import { motion } from "framer-motion";
 import { checkAndUnlockAchievements } from "@/components/achievements/achievementChecker";
 import AchievementNotification from "@/components/achievements/AchievementNotification";
@@ -78,6 +78,8 @@ export function useFriendsFeatureContent({
   const [averageColor, setAverageColor] = useState(null);
   const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "explorer");
   const [explorerAudienceFilter, setExplorerAudienceFilter] = useState("all");
+  const [newsFilter, setNewsFilter] = useState("activities");
+  const [expandedNewsIds, setExpandedNewsIds] = useState(new Set());
   const [showAddFriendDialog, setShowAddFriendDialog] = useState(false);
   const [showAdminNewsDialog, setShowAdminNewsDialog] = useState(false);
   const [adminNewsTitle, setAdminNewsTitle] = useState("");
@@ -572,6 +574,16 @@ Viel Spaß beim Entdecken! 🌿`;
       return path;
     }
     return `/${path}`;
+  };
+
+  const toggleNewsExpanded = (id) => {
+    const newSet = new Set(expandedNewsIds);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setExpandedNewsIds(newSet);
   };
 
   const handleExplorerLike = async (entry, nextLiked) => {
@@ -1386,40 +1398,7 @@ Viel Spaß beim Entdecken! 🌿`;
               className="max-w-5xl mx-auto space-y-4"
               style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}
             >
-              {/* Admin-Ankündigungen (für alle sichtbar) */}
-              {adminNews.length > 0 && (
-                <section className={`${sectionSurfaceClass} p-4 md:p-5`}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <Newspaper className={`w-4 h-4 ${isLightUi ? "text-emerald-700" : "text-emerald-300"}`} />
-                    <h3 className={`text-base font-semibold ${titleTextClass}`}>Ankündigungen</h3>
-                  </div>
-                  <div className="space-y-3">
-                    {adminNews.map((item, index) => (
-                      <motion.div
-                        key={item.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.04 }}
-                        className={`${nestedCardClass} p-4`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${isLightUi ? "bg-emerald-100" : "bg-emerald-500/15"}`}>
-                            <Newspaper className={`w-4 h-4 ${isLightUi ? "text-emerald-600" : "text-emerald-300"}`} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-semibold ${titleTextClass}`}>{item.title}</p>
-                            <p className={`text-xs mt-1 ${bodyTextClass}`}>{item.text}</p>
-                            <p className={`text-[10px] mt-2 ${faintTextClass}`}>
-                              {formatDistanceToNow(new Date(item.created_date || new Date().toISOString()), { addSuffix: true, locale: de })}
-                            </p>
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                </section>
-              )}
-
+              {/* Kombinierte News-Liste mit Filter-Toggle */}
               {userNews.length === 0 && adminNews.length === 0 ? (
                 <div className={`${sectionSurfaceClass} px-5 py-10 text-center`}>
                   <Bell className={`w-16 h-16 mx-auto mb-4 ${isLightUi ? "text-stone-300" : "text-stone-500"}`} />
@@ -1428,117 +1407,221 @@ Viel Spaß beim Entdecken! 🌿`;
                   </p>
                   <p className={bodyTextClass}>Hier siehst du, was in deinem Freundeskreis passiert.</p>
                 </div>
-              ) : userNews.length > 0 ? (
+              ) : (
                 <section className={`${sectionSurfaceClass} p-4 md:p-5`}>
                   <div className="flex items-start justify-between gap-3 mb-4">
                     <div>
                       <div className={`flex items-center gap-2 ${titleTextClass}`}>
                         <Bell className={`w-4 h-4 ${isLightUi ? "text-blue-700" : "text-blue-300"}`} />
-                        <h3 className="text-base font-semibold">Aktivitaetsfeed</h3>
+                        <h3 className="text-base font-semibold">{newsFilter === "activities" ? "Aktivitätsfeed" : "Server-News"}</h3>
                       </div>
-                      <p className={`text-sm mt-1 ${bodyTextClass}`}>Achievements, Likes, Anfragen und Sammlungs-Updates auf einen Blick.</p>
+                      <p className={`text-sm mt-1 ${bodyTextClass}`}>
+                        {newsFilter === "activities" 
+                          ? "Achievements, Likes, Anfragen und Sammlungs-Updates"
+                          : "Neuigkeiten und Ankündigungen vom Server"}
+                      </p>
                     </div>
-                    <Badge className={accentBadgeClass}>{unreadNewsCount} neu</Badge>
+                    <Badge className={accentBadgeClass}>
+                      {newsFilter === "activities" ? unreadNewsCount : adminNews.length} {newsFilter === "activities" ? "neu" : ""}
+                    </Badge>
                   </div>
 
-                <div className="space-y-3">
-                  {userNews.map((newsItem, index) => {
-                    const meta = getNewsMeta(newsItem.notification_type);
-                    const Icon = meta.icon;
-                    const actor = getNewsActor(newsItem);
-                    const avatarFallback = (actor.name || actor.email || '?').charAt(0).toUpperCase();
-                    const pendingRequestFromNews = getPendingRequestFromNews(newsItem);
-                    const showFriendRequestActions =
-                      newsItem.notification_type === 'friend_request_received' &&
-                      !!pendingRequestFromNews;
-                    const showFriendRequestResolvedHint =
-                      newsItem.notification_type === 'friend_request_received' &&
-                      !pendingRequestFromNews;
+                  {/* Filter Toggle */}
+                  <div className="flex items-center justify-between gap-3 mb-4">
+                    <div
+                      className={
+                        `inline-flex rounded-full border p-1 ${isLightUi
+                          ? "border-[#d9c48a]/60 bg-[#f8f1dc]/85"
+                          : "border-[#f0e5a5]/30 bg-black/30"}`
+                      }
+                    >
+                      {[
+                        { id: "activities", label: "Aktivitäten" },
+                        { id: "server", label: "Server" },
+                      ].map((option) => {
+                        const isSelected = newsFilter === option.id;
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => setNewsFilter(option.id)}
+                            className={
+                              `rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${isSelected
+                                ? (isLightUi
+                                  ? "bg-white text-[#8f6b22] shadow-sm"
+                                  : "bg-[#f0e5a5] text-stone-950")
+                                : (isLightUi
+                                  ? "text-stone-600 hover:text-stone-900"
+                                  : "text-stone-300 hover:text-stone-100")}`
+                            }
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
 
-                    return (
-                      <motion.div
-                        key={newsItem.id}
-                        initial={{ opacity: 0, y: 12 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.04 }}
-                      >
-                        <Card
-                          className={`${nestedCardClass} ${interactiveHoverClass} transition-all cursor-pointer ${newsItem.seen ? "" : (isLightUi ? "border-emerald-200 bg-emerald-50/65" : "border-emerald-300/30 bg-emerald-500/10")}`}
-                          onClick={() => openNewsEntry(newsItem)}
-                        >
-                          <CardContent className="p-3">
-                            <div className="flex items-start gap-3">
-                              <div className="relative w-10 h-10 flex-shrink-0">
-                                <div className={`w-10 h-10 rounded-full overflow-hidden border ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/20"} flex items-center justify-center`}>
-                                  <CustomLogoAvatar
-                                    logoAssets={actor.logoAssets}
-                                    className="w-full h-full"
-                                    fallbackText={avatarFallback}
-                                    fallbackClassName={`text-xs font-semibold ${isLightUi ? "text-stone-700" : "text-stone-100"}`}
-                                  />
-                                </div>
-                                <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border flex items-center justify-center ${isLightUi ? "bg-white border-stone-200" : "bg-stone-950 border-[#f0e5a5]/20"}`}>
-                                  <Icon className={`w-3 h-3 ${meta.accent}`} />
-                                </div>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  {!newsItem.seen && <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />}
-                                  <p className={`text-sm font-semibold truncate ${titleTextClass}`}>
-                                  {newsItem.title || 'Neuigkeit'}
-                                  </p>
-                                </div>
-                                <p className={`text-[11px] mt-0.5 truncate ${mutedTextClass}`}>
-                                  von {actor.name}
-                                </p>
-                                <p className={`text-xs mt-1 line-clamp-2 ${bodyTextClass}`}>
-                                  {newsItem.message}
-                                </p>
-                                {!!newsItem.description && (
-                                  <p className={`text-[11px] mt-1 truncate ${mutedTextClass}`}>{newsItem.description}</p>
-                                )}
-                                <p className={`text-[10px] mt-2 ${faintTextClass}`}>
-                                  {formatDistanceToNow(new Date(newsItem.created_date || newsItem.created_at || new Date().toISOString()), {
-                                    addSuffix: true,
-                                    locale: de,
-                                  })}
-                                </p>
-                                {showFriendRequestActions && (
-                                  <div className="flex gap-2 mt-2" onClick={(event) => event.stopPropagation()}>
-                                    <Button
-                                      size="sm"
-                                      className="h-7 px-2 bg-green-600 hover:bg-green-700"
-                                      disabled={acceptFriendRequestMutation.isPending || rejectFriendRequestMutation.isPending}
-                                      onClick={(event) => handleFriendRequestActionFromNews(event, newsItem, 'accept')}
-                                    >
-                                      <Check className="w-3 h-3 mr-1" />
-                                      Annehmen
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className={isLightUi ? "h-7 px-2 border-red-300 text-red-600 hover:bg-red-50" : "h-7 px-2 border-red-400/50 text-red-200 hover:bg-red-500/10"}
-                                      disabled={acceptFriendRequestMutation.isPending || rejectFriendRequestMutation.isPending}
-                                      onClick={(event) => handleFriendRequestActionFromNews(event, newsItem, 'reject')}
-                                    >
-                                      <X className="w-3 h-3 mr-1" />
-                                      Ablehnen
-                                    </Button>
+                  {/* News Items - Collapsible */}
+                  <div className="space-y-2">
+                    {(newsFilter === "activities" ? userNews : adminNews).map((newsItem, index) => {
+                      const isExpanded = expandedNewsIds.has(newsItem.id);
+                      const isAdminNews = !newsItem.created_by || newsItem.created_by === 'system' || newsItem.text;
+                      
+                      if (newsFilter === "activities") {
+                        // User News Items
+                        const meta = getNewsMeta(newsItem.notification_type);
+                        const Icon = meta.icon;
+                        const actor = getNewsActor(newsItem);
+                        const avatarFallback = (actor.name || actor.email || '?').charAt(0).toUpperCase();
+                        const pendingRequestFromNews = getPendingRequestFromNews(newsItem);
+                        const showFriendRequestActions =
+                          newsItem.notification_type === 'friend_request_received' &&
+                          !!pendingRequestFromNews;
+
+                        return (
+                          <motion.div
+                            key={newsItem.id}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.03 }}
+                          >
+                            <div
+                              className={`${nestedCardClass} transition-all cursor-pointer ${isExpanded ? "bg-opacity-100" : "hover:bg-opacity-75"} ${newsItem.seen ? "" : (isLightUi ? "border-emerald-200 bg-emerald-50/65" : "border-emerald-300/30 bg-emerald-500/10")}`}
+                              onClick={() => toggleNewsExpanded(newsItem.id)}
+                            >
+                              <CardContent className="p-3">
+                                {/* Collapsed View */}
+                                <div className="flex items-start gap-3">
+                                  <div className="relative w-10 h-10 flex-shrink-0">
+                                    <div className={`w-10 h-10 rounded-full overflow-hidden border ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/20"} flex items-center justify-center`}>
+                                      <CustomLogoAvatar
+                                        logoAssets={actor.logoAssets}
+                                        className="w-full h-full"
+                                        fallbackText={avatarFallback}
+                                        fallbackClassName={`text-xs font-semibold ${isLightUi ? "text-stone-700" : "text-stone-100"}`}
+                                      />
+                                    </div>
+                                    <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border flex items-center justify-center ${isLightUi ? "bg-white border-stone-200" : "bg-stone-950 border-[#f0e5a5]/20"}`}>
+                                      <Icon className={`w-3 h-3 ${meta.accent}`} />
+                                    </div>
                                   </div>
-                                )}
-                                {showFriendRequestResolvedHint && (
-                                  <p className={`text-[11px] mt-2 ${mutedTextClass}`}>Diese Anfrage wurde bereits beantwortet.</p>
-                                )}
-                              </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-2 min-w-0">
+                                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                                        {!newsItem.seen && <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />}
+                                        <p className={`text-sm font-semibold truncate ${titleTextClass}`}>
+                                          {newsItem.title || 'Neuigkeit'}
+                                        </p>
+                                      </div>
+                                      <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""} ${mutedTextClass}`} />
+                                    </div>
+                                    <p className={`text-[10px] mt-1 ${faintTextClass}`}>
+                                      {formatDistanceToNow(new Date(newsItem.created_date || newsItem.created_at || new Date().toISOString()), {
+                                        addSuffix: true,
+                                        locale: de,
+                                      })}
+                                    </p>
+
+                                    {/* Expanded Content */}
+                                    {isExpanded && (
+                                      <motion.div
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: "auto" }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        className="mt-3 pt-3 border-t border-current border-opacity-10"
+                                      >
+                                        <p className={`text-[11px] mb-2 ${mutedTextClass}`}>
+                                          von {actor.name}
+                                        </p>
+                                        <p className={`text-xs ${bodyTextClass}`}>
+                                          {newsItem.message}
+                                        </p>
+                                        {!!newsItem.description && (
+                                          <p className={`text-[11px] mt-2 ${mutedTextClass}`}>{newsItem.description}</p>
+                                        )}
+                                        {showFriendRequestActions && (
+                                          <div className="flex gap-2 mt-3" onClick={(event) => event.stopPropagation()}>
+                                            <Button
+                                              size="sm"
+                                              className="h-6 px-2 text-xs bg-green-600 hover:bg-green-700"
+                                              disabled={acceptFriendRequestMutation.isPending || rejectFriendRequestMutation.isPending}
+                                              onClick={(event) => handleFriendRequestActionFromNews(event, newsItem, 'accept')}
+                                            >
+                                              <Check className="w-3 h-3 mr-1" />
+                                              Annehmen
+                                            </Button>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className={`h-6 px-2 text-xs ${isLightUi ? "border-red-300 text-red-600 hover:bg-red-50" : "border-red-400/50 text-red-200 hover:bg-red-500/10"}`}
+                                              disabled={acceptFriendRequestMutation.isPending || rejectFriendRequestMutation.isPending}
+                                              onClick={(event) => handleFriendRequestActionFromNews(event, newsItem, 'reject')}
+                                            >
+                                              <X className="w-3 h-3 mr-1" />
+                                              Ablehnen
+                                            </Button>
+                                          </div>
+                                        )}
+                                      </motion.div>
+                                    )}
+                                  </div>
+                                </div>
+                              </CardContent>
                             </div>
-                          </CardContent>
-                        </Card>
-                      </motion.div>
-                    );
-                  })}
-                </div>
+                          </motion.div>
+                        );
+                      } else {
+                        // Admin News Items
+                        return (
+                          <motion.div
+                            key={newsItem.id}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.03 }}
+                          >
+                            <div
+                              className={`${nestedCardClass} transition-all cursor-pointer`}
+                              onClick={() => toggleNewsExpanded(newsItem.id)}
+                            >
+                              <CardContent className="p-3">
+                                <div className="flex items-start gap-3">
+                                  <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${isLightUi ? "bg-emerald-100" : "bg-emerald-500/15"}`}>
+                                    <Newspaper className={`w-4 h-4 ${isLightUi ? "text-emerald-600" : "text-emerald-300"}`} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-2 min-w-0">
+                                      <p className={`text-sm font-semibold truncate ${titleTextClass}`}>{newsItem.title}</p>
+                                      <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""} ${mutedTextClass}`} />
+                                    </div>
+                                    <p className={`text-[10px] mt-1 ${faintTextClass}`}>
+                                      {formatDistanceToNow(new Date(newsItem.created_date || new Date().toISOString()), { addSuffix: true, locale: de })}
+                                    </p>
+
+                                    {/* Expanded Content */}
+                                    {isExpanded && (
+                                      <motion.div
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: "auto" }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        className="mt-3 pt-3 border-t border-current border-opacity-10"
+                                      >
+                                        <p className={`text-xs ${bodyTextClass}`}>{newsItem.text}</p>
+                                      </motion.div>
+                                    )}
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </div>
+                          </motion.div>
+                        );
+                      }
+                    })}
+                  </div>
                 </section>
-              ) : null}
+              )}
+            </motion.div>
+          </TabsContent>
             </motion.div>
           </TabsContent>
 

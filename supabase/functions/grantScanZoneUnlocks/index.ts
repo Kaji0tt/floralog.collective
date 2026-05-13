@@ -25,6 +25,13 @@ type DiscoveryRow = {
 type PlantRow = {
   id: string;
   species_name: string | null;
+  genus_category: string | null;
+  genus_number: number | null;
+};
+
+type PlantGenusRow = {
+  genus_name: string | null;
+  scientific_genus: string | null;
 };
 
 type ZoneRow = {
@@ -45,6 +52,7 @@ type RewardRow = {
   requires_zone_theme?: string | null;
   requires_plant_id?: string | null;
   requires_plant_species?: string | null;
+  requires_plant_genus?: string | null;
 };
 
 type ProfileRow = {
@@ -174,12 +182,26 @@ Deno.serve(async (req) => {
 
     const { data: plant, error: plantError } = await adminClient
       .from("Plant")
-      .select("id, species_name")
+      .select("id, species_name, genus_category, genus_number")
       .eq("id", effectivePlantId)
       .maybeSingle<PlantRow>();
 
     if (plantError || !plant) {
       return jsonResponse({ success: true, unlocked: [] });
+    }
+
+    let normalizedGenusName = "";
+    const plantGenusCategory = String(plant.genus_category || "").trim();
+    const plantGenusNumber = Number(plant.genus_number);
+    if (plantGenusCategory && Number.isFinite(plantGenusNumber)) {
+      const { data: plantGenus } = await adminClient
+        .from("PlantGenus")
+        .select("genus_name, scientific_genus")
+        .eq("category", plantGenusCategory)
+        .eq("category_dex_number", plantGenusNumber)
+        .maybeSingle<PlantGenusRow>();
+
+      normalizedGenusName = normalizeText(plantGenus?.genus_name || plantGenus?.scientific_genus);
     }
 
     const dayKey = new Date().toISOString().slice(0, 10);
@@ -215,7 +237,7 @@ Deno.serve(async (req) => {
 
     const { data: rewards, error: rewardsError } = await adminClient
       .from("Rewards")
-      .select("id, name, display_name, value, image_url, type, requires_zone_theme, requires_plant_id, requires_plant_species")
+      .select("id, name, display_name, value, image_url, type, requires_zone_theme, requires_plant_id, requires_plant_species, requires_plant_genus")
       .not("requires_zone_theme", "is", null);
 
     if (rewardsError) {
@@ -232,15 +254,17 @@ Deno.serve(async (req) => {
 
       const requiredPlantId = String(reward.requires_plant_id || "").trim();
       const requiredPlantSpecies = normalizeText(reward.requires_plant_species);
-      const hasPlantCondition = !!requiredPlantId || !!requiredPlantSpecies;
+      const requiredPlantGenus = normalizeText(reward.requires_plant_genus);
+      const hasPlantCondition = !!requiredPlantId || !!requiredPlantSpecies || !!requiredPlantGenus;
       if (!hasPlantCondition) {
         return false;
       }
 
       const plantIdMatches = !!requiredPlantId && requiredPlantId === effectivePlantId;
       const speciesMatches = !!requiredPlantSpecies && requiredPlantSpecies === normalizedSpeciesName;
+      const genusMatches = !!requiredPlantGenus && requiredPlantGenus === normalizedGenusName;
 
-      return plantIdMatches || speciesMatches;
+      return plantIdMatches || speciesMatches || genusMatches;
     });
 
     if (matchingRewards.length === 0) {

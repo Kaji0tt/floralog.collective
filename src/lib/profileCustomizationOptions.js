@@ -89,8 +89,8 @@ export const getUnlockedTitleOptions = ({
       const linkedReward = achievement?.reward_name ? rewardsByName.get(String(achievement.reward_name)) : null;
       const title = resolveTitleValue(
         achievement?.title_reward,
-        linkedReward?.display_name,
-        linkedReward?.value
+        linkedReward?.value,
+        linkedReward?.display_name
       );
       if (!title) return null;
 
@@ -227,7 +227,7 @@ const getRewardUnlockedAccessoryIds = ({ rewards = [], userRewards = [] } = {}) 
 
 const getAccessoryUnlockCondition = (accessoryId, rewards = []) => {
   const rewardsForAccessory = (Array.isArray(rewards) ? rewards : [])
-    .filter((r) => String(r?.value || "").trim() === accessoryId && (r?.requires_zone_theme || r?.requires_plant_species));
+    .filter((r) => String(r?.value || "").trim() === accessoryId && (r?.requires_zone_theme || r?.requires_plant_species || r?.requires_plant_genus));
 
   if (rewardsForAccessory.length === 0) return null;
 
@@ -240,11 +240,13 @@ const getAccessoryUnlockCondition = (accessoryId, rewards = []) => {
 
   const conditions = rewardsForAccessory.map((reward) => {
     const plantSpecies = String(reward?.requires_plant_species || "").trim();
+    const plantGenus = String(reward?.requires_plant_genus || "").trim();
     const zoneTheme = String(reward?.requires_zone_theme || "").trim();
     const zoneName = zoneTranslations[zoneTheme] || zoneTheme;
+    const plantLabel = plantSpecies || plantGenus;
 
-    if (plantSpecies && zoneName) {
-      return `${plantSpecies} in einer ${zoneName} scannen`;
+    if (plantLabel && zoneName) {
+      return `${plantLabel} in einer ${zoneName} scannen`;
     }
     return null;
   }).filter(Boolean);
