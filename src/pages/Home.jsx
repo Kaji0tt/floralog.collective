@@ -18,7 +18,7 @@ import { claimDailyLoginSparks, getUserWallet } from "@/api/walletService";
 import { getOpenPlantQuiz, submitPlantQuizAnswer } from "@/api/plantQuizService";
 import { getTileClaims } from "@/api/tileClaimService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Camera, Gem, Loader2, Leaf, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, Zap, Palette } from "lucide-react";
+import { Camera, Loader2, Leaf, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, Zap, Palette } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
@@ -2190,7 +2190,7 @@ function HomeContent() {
         <DialogContent className={`sm:max-w-lg ${isLightUi ? "bg-white" : "bg-[#141714] border-[#f0e5a5]/30"}`}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Gem className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+              <span className={`inline-flex items-center justify-center w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} aria-hidden="true">🔸</span>
               Bernstein kaufen (Vorbereitung)
             </DialogTitle>
           </DialogHeader>
@@ -2428,7 +2428,7 @@ function HomeContent() {
                         <span className="truncate">{playerSparks}</span>
                       </div>
                       <div className={`flex items-center justify-center gap-1.5 min-w-0 px-2 text-xs md:text-sm font-semibold ${isLightUi ? "text-stone-700" : "text-white/95"}`}>
-                        <Gem className="w-3.5 h-3.5 shrink-0 text-orange-500" />
+                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 shrink-0 text-orange-500" aria-hidden="true">🔸</span>
                         <span className="truncate">{playerAmber}</span>
                       </div>
                     </div>

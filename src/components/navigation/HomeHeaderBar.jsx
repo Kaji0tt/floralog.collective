@@ -1,4 +1,4 @@
-import { Gem, Home as HomeIcon, List, Plus, Settings } from "lucide-react";
+import { Home as HomeIcon, List, Plus, Settings } from "lucide-react";
 import { useUiTheme } from "@/lib/UiThemeContext";
 
 /**
@@ -119,7 +119,7 @@ export default function HomeHeaderBar({
             className={`w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors ${isLightUi ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80" : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"}`}
             aria-label="Bernstein kaufen"
           >
-            <Gem className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+            <span className={`inline-flex items-center justify-center w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} aria-hidden="true">🔸</span>
           </button>
         )}
 

@@ -8,15 +8,15 @@ import { AnimatePresence } from "framer-motion";
 // These must NOT be marked as seen when dismissed from the Home page banner,
 // so that the Friends page unread counter remains accurate.
 const FRIENDS_NEWS_TYPES = [
-  'gift_received',
-  'collection_followed',
-  'friendship_accepted',
-  'friend_request_received',
-  'friend_achievement',
-  'scan_liked',
+  "gift_received",
+  "collection_followed",
+  "friendship_accepted",
+  "friend_request_received",
+  "friend_achievement",
+  "scan_liked",
 ];
 
-const DISMISSED_BANNERS_KEY = 'floralog_dismissed_news_banners';
+const DISMISSED_BANNERS_KEY = "floralog_dismissed_news_banners";
 
 function getDismissedBannerIds() {
   try {
@@ -40,7 +40,7 @@ function addDismissedBannerId(id) {
 function cleanupDismissedBanners(seenIds) {
   try {
     const ids = getDismissedBannerIds();
-    const cleaned = [...ids].filter(id => !seenIds.has(id));
+    const cleaned = [...ids].filter((id) => !seenIds.has(id));
     if (cleaned.length < ids.size) {
       localStorage.setItem(DISMISSED_BANNERS_KEY, JSON.stringify(cleaned));
     }
@@ -49,8 +49,61 @@ function cleanupDismissedBanners(seenIds) {
   }
 }
 
+function extractScanLikerName(message) {
+  const text = String(message || "").trim();
+  if (!text) return null;
+
+  const directMatch = text.match(/^(.+?)\s+gef[äa]llt\s+dein\s+Scan/i);
+  if (directMatch?.[1]) return directMatch[1].trim();
+
+  const groupedMatch = text.match(/^(.+?)\s+und\s+\d+\s+andere\s+gef[äa]llt\s+dein\s+Scan/i);
+  if (groupedMatch?.[1]) return groupedMatch[1].trim();
+
+  return null;
+}
+
+function buildScanLikeSummaryNotification(scanLikeNotifications) {
+  const sorted = [...scanLikeNotifications].sort((a, b) => {
+    const aTime = new Date(a.created_date || a.created_at || 0).getTime();
+    const bTime = new Date(b.created_date || b.created_at || 0).getTime();
+    return bTime - aTime;
+  });
+
+  const count = sorted.length;
+  const uniqueNames = [];
+  const seenNames = new Set();
+
+  for (const item of sorted) {
+    const name = extractScanLikerName(item.message);
+    if (!name) continue;
+
+    const key = name.toLowerCase();
+    if (seenNames.has(key)) continue;
+
+    seenNames.add(key);
+    uniqueNames.push(name);
+    if (uniqueNames.length >= 3) break;
+  }
+
+  const namesPreview = uniqueNames.length > 0 ? uniqueNames.join(", ") : "deinen Freund:innen";
+  const remainingCount = Math.max(0, count - uniqueNames.length);
+  const moreText = remainingCount > 0 ? ` und ${remainingCount} weitere` : "";
+  const base = sorted[0] || {};
+
+  return {
+    ...base,
+    id: `scan-liked-summary:${sorted.map((n) => n.id).join(",")}`,
+    title: `❤️ ${count} neue Likes`,
+    message: `Du hast ${count} neue Likes erhalten, unter anderem von ${namesPreview}${moreText}. Sieh direkt nach, wofür!`,
+    action_url: "Friends?tab=news",
+    display_location: "banner",
+    priority: "high",
+    _groupedNotificationIds: sorted.map((n) => n.id),
+  };
+}
+
 /**
- * Manager für User-Benachrichtigungen
+ * Manager fuer User-Benachrichtigungen
  * Zeigt ungesehene Benachrichtigungen basierend auf display_location an
  */
 export default function UserNotificationManager({ user }) {
@@ -60,28 +113,28 @@ export default function UserNotificationManager({ user }) {
 
   // Lade ungesehene Benachrichtigungen (nur initiales Laden)
   const { data: notifications = [] } = useQuery({
-    queryKey: ['userNotifications', user?.id],
+    queryKey: ["userNotifications", user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      const allNotifications = await Query.UserNotification.list('-created_date');
+      const allNotifications = await Query.UserNotification.list("-created_date");
 
       // Remove IDs from the dismissed-banner list that are now marked as seen in DB
-      const seenIds = new Set(allNotifications.filter(n => n.seen === true).map(n => n.id));
+      const seenIds = new Set(allNotifications.filter((n) => n.seen === true).map((n) => n.id));
       cleanupDismissedBanners(seenIds);
 
       const dismissedBannerIds = getDismissedBannerIds();
 
-      const filtered = allNotifications.filter(n =>
-        n.auth_id === user.id &&
-        n.seen === false &&
-        !dismissedBannerIds.has(n.id)
+      const filtered = allNotifications.filter(
+        (n) => n.auth_id === user.id && n.seen === false && !dismissedBannerIds.has(n.id)
       );
-      console.log('[UserNotificationManager] Loaded notifications', {
+
+      console.log("[UserNotificationManager] Loaded notifications", {
         userId: user.id,
         total: allNotifications.length,
         filtered: filtered.length,
-        sample: filtered[0] || null
+        sample: filtered[0] || null,
       });
+
       return filtered;
     },
     enabled: !!user?.id,
@@ -90,25 +143,26 @@ export default function UserNotificationManager({ user }) {
 
   useEffect(() => {
     if (!user?.id) return;
-    console.log('[UserNotificationManager] notifications state changed', {
+
+    console.log("[UserNotificationManager] notifications state changed", {
       userId: user.id,
       count: notifications.length,
-      ids: notifications.map(n => n.id)
+      ids: notifications.map((n) => n.id),
     });
   }, [notifications, user?.id]);
 
-  // Echtzeit-Subscription für UserNotification-Änderungen
+  // Echtzeit-Subscription fuer UserNotification-Aenderungen
   useEffect(() => {
     if (!user?.id) return;
 
     const unsubscribe = Query.UserNotification.subscribe((event) => {
-      if (event.type === 'create') {
+      if (event.type === "create") {
         const notification = event.data;
         if (notification.auth_id === user.id && !notification.seen) {
-          queryClient.invalidateQueries({ queryKey: ['userNotifications'] });
+          queryClient.invalidateQueries({ queryKey: ["userNotifications"] });
         }
-      } else if (event.type === 'update' || event.type === 'delete') {
-        queryClient.invalidateQueries({ queryKey: ['userNotifications'] });
+      } else if (event.type === "update" || event.type === "delete") {
+        queryClient.invalidateQueries({ queryKey: ["userNotifications"] });
       }
     });
 
@@ -117,48 +171,64 @@ export default function UserNotificationManager({ user }) {
 
   // Mutation zum Markieren als gesehen
   const markAsSeenMutation = useMutation({
-    mutationFn: (notificationId) => 
-      Query.UserNotification.update(notificationId, { seen: true }),
+    mutationFn: (notificationId) => Query.UserNotification.update(notificationId, { seen: true }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['userNotifications'] });
-    }
+      queryClient.invalidateQueries({ queryKey: ["userNotifications"] });
+    },
   });
 
-  // Zeige die nächste Benachrichtigung
+  // Zeige die naechste Benachrichtigung
   useEffect(() => {
-    if (notifications.length > 0 && !currentNotification) {
-      // Priorisiere nach priority: high -> medium -> low
-      const sortedNotifications = [...notifications].sort((a, b) => {
-        const priorityOrder = { high: 3, medium: 2, low: 1 };
-        return (priorityOrder[b.priority] || 2) - (priorityOrder[a.priority] || 2);
-      });
+    if (notifications.length === 0 || currentNotification) return;
 
-      // Also exclude notifications that were dismissed as banners in a previous session
-      const dismissedBannerIds = getDismissedBannerIds();
-      
-      // Finde die erste Benachrichtigung, die noch nicht gezeigt wurde
-      const nextNotification = sortedNotifications.find(n =>
-        !shownNotificationIds.has(n.id) && !dismissedBannerIds.has(n.id)
+    // Priorisiere nach priority: high -> medium -> low
+    const sortedNotifications = [...notifications].sort((a, b) => {
+      const priorityOrder = { high: 3, medium: 2, low: 1 };
+      return (priorityOrder[b.priority] || 2) - (priorityOrder[a.priority] || 2);
+    });
+
+    const dismissedBannerIds = getDismissedBannerIds();
+    const availableNotifications = sortedNotifications.filter(
+      (n) => !shownNotificationIds.has(n.id) && !dismissedBannerIds.has(n.id)
+    );
+
+    const nextNotification = availableNotifications[0] || null;
+    if (!nextNotification) return;
+
+    // If multiple unseen likes are queued, show one summary instead of many individual banners.
+    if (nextNotification.notification_type === "scan_liked") {
+      const availableScanLikes = availableNotifications.filter(
+        (n) => n.notification_type === "scan_liked"
       );
-      
-      if (nextNotification) {
-        setCurrentNotification(nextNotification);
-        setShownNotificationIds(prev => new Set([...prev, nextNotification.id]));
+
+      if (availableScanLikes.length > 1) {
+        const summaryNotification = buildScanLikeSummaryNotification(availableScanLikes);
+        setCurrentNotification(summaryNotification);
+        setShownNotificationIds((prev) => new Set([...prev, ...availableScanLikes.map((n) => n.id)]));
+        return;
       }
     }
+
+    setCurrentNotification(nextNotification);
+    setShownNotificationIds((prev) => new Set([...prev, nextNotification.id]));
   }, [notifications, currentNotification, shownNotificationIds]);
 
   const handleClose = () => {
     if (currentNotification) {
+      const groupedIds = Array.isArray(currentNotification._groupedNotificationIds)
+        ? currentNotification._groupedNotificationIds
+        : [currentNotification.id];
+
       if (FRIENDS_NEWS_TYPES.includes(currentNotification.notification_type)) {
         // For Friends news-type notifications: track dismissal in localStorage so the
         // banner doesn't reappear, but do NOT mark as seen in the DB. The notification
         // stays unseen so the Friends page unread counter reflects it correctly.
-        addDismissedBannerId(currentNotification.id);
+        groupedIds.forEach((id) => addDismissedBannerId(id));
       } else {
-        markAsSeenMutation.mutate(currentNotification.id);
+        groupedIds.forEach((id) => markAsSeenMutation.mutate(id));
       }
     }
+
     setCurrentNotification(null);
   };
 

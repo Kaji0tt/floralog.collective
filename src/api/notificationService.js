@@ -21,7 +21,6 @@ export async function createUserNotification({
   message,
   actionUrl = "",
   description = "",
-  imageUrl = "",
   priority = "medium",
   displayLocation = "banner",
   createdBy = "system"
@@ -52,7 +51,6 @@ export async function createUserNotification({
     message,
     actionUrl,
     description,
-    imageUrl,
     priority,
     displayLocation,
     createdBy,
@@ -100,8 +98,7 @@ export async function notifyAcceptedFriends({
   title,
   message,
   actionUrl,
-  description = "",
-  imageUrl = ""
+  description = ""
 }) {
   if (!actorUser?.email) return;
 
@@ -144,7 +141,6 @@ export async function notifyAcceptedFriends({
       message,
       actionUrl,
       description,
-      imageUrl,
       createdBy: actorUser.email,
     });
   });

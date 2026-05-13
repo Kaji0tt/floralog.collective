@@ -408,7 +408,6 @@ Deno.serve(async (req) => {
         title,
         message,
         description: body.description || "",
-        image_url: body.imageUrl || "",
         action_url: body.actionUrl || "",
         priority: body.priority || "medium",
         display_location: body.displayLocation || "banner",
