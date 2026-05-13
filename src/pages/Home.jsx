@@ -2762,12 +2762,9 @@ function HomeContent() {
                   </div>
 
                   <div
-                    className={`mt-[clamp(0.375rem,1vh,0.75rem)] w-full grid grid-cols-[1fr_1fr_1fr_1fr_1fr] items-center text-xs md:text-sm font-semibold ${
+                    className={`mt-[clamp(0.375rem,1vh,0.75rem)] w-full grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center text-xs md:text-sm font-semibold ${
                       isLightUi ? "text-stone-700" : "text-white/95"
                     }`}
-                    style={{
-                      minHeight: `${(1.35 * controlsScale).toFixed(2)}rem`,
-                    }}
                   >
                     <LockedTooltip
                       content={(
@@ -2798,17 +2795,17 @@ function HomeContent() {
                     >
                       <button
                         type="button"
-                        className="inline-flex w-full min-w-0 items-center justify-center"
+                        className="inline-flex w-full min-w-0 items-center justify-center py-2.5"
                         aria-label="Samen anzeigen"
                       >
-                        <span className="inline-flex max-w-full items-center justify-center gap-1 whitespace-nowrap text-center">
+                        <span className="inline-flex max-w-full items-center justify-center gap-1.5 whitespace-nowrap text-center">
                           <span>{playerSeeds}</span>
                           <Leaf className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
                         </span>
                       </button>
                     </LockedTooltip>
 
-                    <span className={`text-center ${isLightUi ? "text-stone-500/90" : "text-white/65"}`}>|</span>
+                    <span className={`flex items-center justify-center px-1 ${isLightUi ? "text-stone-400/70" : "text-white/35"}`}>|</span>
 
                     <LockedTooltip
                       content={(
@@ -2839,17 +2836,17 @@ function HomeContent() {
                     >
                       <button
                         type="button"
-                        className="inline-flex w-full min-w-0 items-center justify-center"
+                        className="inline-flex w-full min-w-0 items-center justify-center py-2.5"
                         aria-label="Funken anzeigen"
                       >
-                        <span className="inline-flex max-w-full items-center justify-center gap-1 whitespace-nowrap text-center">
+                        <span className="inline-flex max-w-full items-center justify-center gap-1.5 whitespace-nowrap text-center">
                           <span>{playerSparks}</span>
                           <Zap className="w-3.5 h-3.5 shrink-0 text-amber-500" />
                         </span>
                       </button>
                     </LockedTooltip>
 
-                    <span className={`text-center ${isLightUi ? "text-stone-500/90" : "text-white/65"}`}>|</span>
+                    <span className={`flex items-center justify-center px-1 ${isLightUi ? "text-stone-400/70" : "text-white/35"}`}>|</span>
 
                     <LockedTooltip
                       content={(
@@ -2880,10 +2877,10 @@ function HomeContent() {
                     >
                       <button
                         type="button"
-                        className="inline-flex w-full min-w-0 items-center justify-center"
+                        className="inline-flex w-full min-w-0 items-center justify-center py-2.5"
                         aria-label="Bernstein anzeigen"
                       >
-                        <span className="inline-flex max-w-full items-center justify-center gap-1 whitespace-nowrap text-center">
+                        <span className="inline-flex max-w-full items-center justify-center gap-1.5 whitespace-nowrap text-center">
                           <span>{playerAmber}</span>
                           <span className="inline-flex items-center justify-center w-3.5 h-3.5 shrink-0 text-orange-500" aria-hidden="true">🔸</span>
                         </span>
