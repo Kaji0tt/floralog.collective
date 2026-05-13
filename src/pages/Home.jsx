@@ -2423,11 +2423,12 @@ function HomeContent() {
                   <section data-ui="home-plant-hero-section" className="flex-1 min-h-0 rounded-3xl px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col bg-transparent">
                   <div
                     className={`w-full rounded-2xl border backdrop-blur-sm px-[clamp(0.625rem,2vw,0.875rem)] ${
-                      isLightUi ? "border-[#c8ac62]/45" : "border-[#f0e5a5]/35"
+                      isLightUi
+                        ? "border-[#c8ac62]/45"
+                        : "border-[#f0e5a5]/35"
                     }`}
                     style={{
                       height: `${(2.4 * controlsScale).toFixed(2)}rem`,
-                      borderColor: `${resolvedPlantHealthState.color}${isLightUi ? "a6" : "c2"}`,
                       background: isLightUi
                         ? `linear-gradient(90deg, ${resolvedPlantHealthState.color}14 0%, rgba(255,255,255,0.46) 50%, ${resolvedPlantHealthState.color}10 100%)`
                         : `linear-gradient(90deg, ${resolvedPlantHealthState.color}22 0%, rgba(0,0,0,0.30) 50%, ${resolvedPlantHealthState.color}1a 100%)`,
@@ -3034,5 +3035,3 @@ export default function Home() {
     </HomeOtaGate>
   );
 }
-
-
