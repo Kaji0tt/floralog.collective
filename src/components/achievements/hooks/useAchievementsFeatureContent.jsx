@@ -31,6 +31,7 @@ import { resolveTitleValue } from "@/lib/profileCustomizationOptions";
 import { supabase } from "@/api/supabaseClient";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 import { hexToFilter } from "@/lib/hexToFilter";
+import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 
 /** @type {{ regular: number, weekly: number, monthly: number }} */
 const DEFAULT_QUEST_SEED_REWARD_BY_TYPE = {
@@ -1743,16 +1744,14 @@ export function useAchievementsFeatureContent({
                                 className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.email === ownEmailLower ? rankingHighlightClass : rankingDefaultClass}`}
                               >
                                 <div className="flex min-w-0 items-center gap-2 flex-1">
-                                  {logo?.border?.imageUrl && (
-                                    <div className="w-6 h-6 flex-shrink-0 overflow-hidden rounded-full border border-stone-300/50 bg-stone-100">
-                                      <img
-                                        src={logo.border.imageUrl}
-                                        alt="Logo"
-                                        className="h-full w-full object-contain"
-                                        style={logo.borderColor ? { filter: `brightness(0) saturate(100%) ${hexToFilter(logo.borderColor)}` } : undefined}
-                                      />
-                                    </div>
-                                  )}
+                                  <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50">
+                                    <CustomLogoAvatar
+                                      logoAssets={logo}
+                                      className="w-full h-full"
+                                      fallbackText={entry.name?.charAt(0)?.toUpperCase() || "?"}
+                                      fallbackClassName="text-[10px] font-bold text-white"
+                                    />
+                                  </div>
                                   <button
                                     type="button"
                                     onClick={() => navigateToPublicProfile(entry.email)}
@@ -1773,16 +1772,14 @@ export function useAchievementsFeatureContent({
                               <p className={`text-xs text-center ${statsBodyClass}`}>…</p>
                               <div className={`flex items-center justify-between rounded-lg border px-3 py-2 ${rankingHighlightClass}`}>
                                 <div className="flex min-w-0 items-center gap-2 flex-1">
-                                  {leaderboardLogosByEmail.get(ownEntry.email)?.border?.imageUrl && (
-                                    <div className="w-6 h-6 flex-shrink-0 overflow-hidden rounded-full border border-stone-300/50 bg-stone-100">
-                                      <img
-                                        src={leaderboardLogosByEmail.get(ownEntry.email).border.imageUrl}
-                                        alt="Logo"
-                                        className="h-full w-full object-contain"
-                                        style={leaderboardLogosByEmail.get(ownEntry.email).borderColor ? { filter: `brightness(0) saturate(100%) ${hexToFilter(leaderboardLogosByEmail.get(ownEntry.email).borderColor)}` } : undefined}
-                                      />
-                                    </div>
-                                  )}
+                                  <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50">
+                                    <CustomLogoAvatar
+                                      logoAssets={leaderboardLogosByEmail.get(ownEntry.email)}
+                                      className="w-full h-full"
+                                      fallbackText={ownEntry.name?.charAt(0)?.toUpperCase() || "?"}
+                                      fallbackClassName="text-[10px] font-bold text-white"
+                                    />
+                                  </div>
                                   <button
                                     type="button"
                                     onClick={() => navigateToPublicProfile(ownEntry.email)}
@@ -1842,16 +1839,14 @@ export function useAchievementsFeatureContent({
                                 className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.isOwn ? rankingHighlightClass : rankingDefaultClass}`}
                               >
                                 <div className="flex min-w-0 items-center gap-2 flex-1">
-                                  {logo?.border?.imageUrl && (
-                                    <div className="w-6 h-6 flex-shrink-0 overflow-hidden rounded-full border border-stone-300/50 bg-stone-100">
-                                      <img
-                                        src={logo.border.imageUrl}
-                                        alt="Logo"
-                                        className="h-full w-full object-contain"
-                                        style={logo.borderColor ? { filter: `brightness(0) saturate(100%) ${hexToFilter(logo.borderColor)}` } : undefined}
-                                      />
-                                    </div>
-                                  )}
+                                  <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50">
+                                    <CustomLogoAvatar
+                                      logoAssets={logo}
+                                      className="w-full h-full"
+                                      fallbackText={entry.name?.charAt(0)?.toUpperCase() || "?"}
+                                      fallbackClassName="text-[10px] font-bold text-white"
+                                    />
+                                  </div>
                                   <button
                                     type="button"
                                     onClick={() => navigateToPublicProfile(entry.email)}
@@ -1873,16 +1868,14 @@ export function useAchievementsFeatureContent({
                               <p className={`text-xs text-center ${statsBodyClass}`}>…</p>
                               <div className={`flex items-center justify-between rounded-lg border px-3 py-2 ${rankingHighlightClass}`}>
                                 <div className="flex min-w-0 items-center gap-2 flex-1">
-                                  {leaderboardLogosByEmail.get(ownEntry.email)?.border?.imageUrl && (
-                                    <div className="w-6 h-6 flex-shrink-0 overflow-hidden rounded-full border border-stone-300/50 bg-stone-100">
-                                      <img
-                                        src={leaderboardLogosByEmail.get(ownEntry.email).border.imageUrl}
-                                        alt="Logo"
-                                        className="h-full w-full object-contain"
-                                        style={leaderboardLogosByEmail.get(ownEntry.email).borderColor ? { filter: `brightness(0) saturate(100%) ${hexToFilter(leaderboardLogosByEmail.get(ownEntry.email).borderColor)}` } : undefined}
-                                      />
-                                    </div>
-                                  )}
+                                  <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50">
+                                    <CustomLogoAvatar
+                                      logoAssets={leaderboardLogosByEmail.get(ownEntry.email)}
+                                      className="w-full h-full"
+                                      fallbackText={ownEntry.name?.charAt(0)?.toUpperCase() || "?"}
+                                      fallbackClassName="text-[10px] font-bold text-white"
+                                    />
+                                  </div>
                                   <button
                                     type="button"
                                     onClick={() => navigateToPublicProfile(ownEntry.email)}

@@ -6,12 +6,13 @@ import { sendFriendRequest, removeFriendship, respondToFriendRequest } from "@/a
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { UserPlus, Users, Loader2, Check, X, Bell, UserMinus, Leaf, Trophy, Share2, Plus, Heart, UserCheck, BookOpenText, Clock } from "lucide-react";
+import { UserPlus, Users, Loader2, Check, X, Bell, UserMinus, Leaf, Trophy, Share2, Plus, Heart, UserCheck, BookOpenText, Clock, Newspaper, Send } from "lucide-react";
 import { motion } from "framer-motion";
 import { checkAndUnlockAchievements } from "@/components/achievements/achievementChecker";
 import AchievementNotification from "@/components/achievements/AchievementNotification";
@@ -78,6 +79,9 @@ export function useFriendsFeatureContent({
   const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "explorer");
   const [explorerAudienceFilter, setExplorerAudienceFilter] = useState("all");
   const [showAddFriendDialog, setShowAddFriendDialog] = useState(false);
+  const [showAdminNewsDialog, setShowAdminNewsDialog] = useState(false);
+  const [adminNewsTitle, setAdminNewsTitle] = useState("");
+  const [adminNewsText, setAdminNewsText] = useState("");
   const autoMarkingNewsRef = useRef(false);
 
   useEffect(() => {
@@ -178,6 +182,12 @@ export function useFriendsFeatureContent({
     }
   });
 
+  const { data: adminNews = [] } = useQuery({
+    queryKey: ['news'],
+    queryFn: () => Query.News.list('-created_date'),
+    staleTime: 60000,
+  });
+
   const { data: scanLikes = [] } = useQuery({
     queryKey: ['scanLikesAll'],
     queryFn: () => Query.ScanLike.list('-created_date', 2000),
@@ -191,7 +201,7 @@ export function useFriendsFeatureContent({
     queryFn: () => Query.Plant.list()
   });
 
-  const NEWS_TYPES = ['gift_received', 'collection_followed', 'friendship_accepted', 'friend_request_received', 'friend_achievement', 'scan_liked'];
+  const NEWS_TYPES = ['gift_received', 'collection_followed', 'friendship_accepted', 'friend_request_received', 'friend_achievement', 'scan_liked', 'admin_broadcast'];
 
   const { data: userNews = [] } = useQuery({
     queryKey: ['friendsNews', user?.id, user?.email],
@@ -442,6 +452,29 @@ export function useFriendsFeatureContent({
     onError: (error) => {
       alert(`Fehler beim Entfernen des Freundes: ${error.message}`);
     }
+  });
+
+  const broadcastNewsMutation = useMutation({
+    mutationFn: async ({ title, text }) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const { data, error } = await supabase.functions.invoke("broadcastNews", {
+        body: { title, text, createdBy: user?.email },
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Broadcast fehlgeschlagen");
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['news'] });
+      setAdminNewsTitle("");
+      setAdminNewsText("");
+      setShowAdminNewsDialog(false);
+      alert(`✅ Neuigkeit erstellt und an ${data.pushSent ?? 0} Spielende als Push-Benachrichtigung gesendet!`);
+    },
+    onError: (error) => {
+      alert(`❌ Fehler: ${error.message}`);
+    },
   });
 
   const markNewsAsSeenMutation = useMutation({
@@ -757,6 +790,8 @@ Viel Spaß beim Entdecken! 🌿`;
         return { icon: Trophy, accent: 'text-amber-600', card: 'bg-amber-50 border-amber-200' };
       case 'scan_liked':
         return { icon: Heart, accent: 'text-rose-600', card: 'bg-rose-50 border-rose-200' };
+      case 'admin_broadcast':
+        return { icon: Newspaper, accent: 'text-emerald-600', card: 'bg-emerald-50 border-emerald-200' };
       default:
         return { icon: Bell, accent: 'text-stone-600', card: 'bg-stone-50 border-stone-200' };
     }
@@ -1128,6 +1163,16 @@ Viel Spaß beim Entdecken! 🌿`;
                         <Plus className="w-5 h-5 text-[#f0e5a5]" />
                       </button>
                     )}
+                    {activeTab === "news" && user?.role === 'admin' && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAdminNewsDialog(true)}
+                        className="w-11 h-11 rounded-full border border-[#f0e5a5]/35 bg-black/30 backdrop-blur-md flex items-center justify-center hover:bg-black/45 transition-colors shrink-0"
+                        aria-label="Neuigkeit senden"
+                      >
+                        <Plus className="w-5 h-5 text-[#f0e5a5]" />
+                      </button>
+                    )}
                     <Badge className="bg-stone-800 text-white text-[10px] px-2 py-1 shrink-0">
                       {activeTab === "friends" ? `${friends.length} Freunde` : activeTab === "news" ? `${unreadNewsCount} neu` : `${explorerLogEntries.length} Eintraege`}
                     </Badge>
@@ -1341,7 +1386,41 @@ Viel Spaß beim Entdecken! 🌿`;
               className="max-w-5xl mx-auto space-y-4"
               style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}
             >
-              {userNews.length === 0 ? (
+              {/* Admin-Ankündigungen (für alle sichtbar) */}
+              {adminNews.length > 0 && (
+                <section className={`${sectionSurfaceClass} p-4 md:p-5`}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Newspaper className={`w-4 h-4 ${isLightUi ? "text-emerald-700" : "text-emerald-300"}`} />
+                    <h3 className={`text-base font-semibold ${titleTextClass}`}>Ankündigungen</h3>
+                  </div>
+                  <div className="space-y-3">
+                    {adminNews.map((item, index) => (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.04 }}
+                        className={`${nestedCardClass} p-4`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${isLightUi ? "bg-emerald-100" : "bg-emerald-500/15"}`}>
+                            <Newspaper className={`w-4 h-4 ${isLightUi ? "text-emerald-600" : "text-emerald-300"}`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-semibold ${titleTextClass}`}>{item.title}</p>
+                            <p className={`text-xs mt-1 ${bodyTextClass}`}>{item.text}</p>
+                            <p className={`text-[10px] mt-2 ${faintTextClass}`}>
+                              {formatDistanceToNow(new Date(item.created_date || new Date().toISOString()), { addSuffix: true, locale: de })}
+                            </p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {userNews.length === 0 && adminNews.length === 0 ? (
                 <div className={`${sectionSurfaceClass} px-5 py-10 text-center`}>
                   <Bell className={`w-16 h-16 mx-auto mb-4 ${isLightUi ? "text-stone-300" : "text-stone-500"}`} />
                   <p className={`text-lg font-semibold mb-2 ${titleTextClass}`}>
@@ -1349,7 +1428,7 @@ Viel Spaß beim Entdecken! 🌿`;
                   </p>
                   <p className={bodyTextClass}>Hier siehst du, was in deinem Freundeskreis passiert.</p>
                 </div>
-              ) : (
+              ) : userNews.length > 0 ? (
                 <section className={`${sectionSurfaceClass} p-4 md:p-5`}>
                   <div className="flex items-start justify-between gap-3 mb-4">
                     <div>
@@ -1459,7 +1538,7 @@ Viel Spaß beim Entdecken! 🌿`;
                   })}
                 </div>
                 </section>
-              )}
+              ) : null}
             </motion.div>
           </TabsContent>
 
@@ -1721,6 +1800,64 @@ Viel Spaß beim Entdecken! 🌿`;
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Admin Broadcast Dialog */}
+      <Dialog open={showAdminNewsDialog} onOpenChange={setShowAdminNewsDialog}>
+        <DialogContent className={`max-w-md ${!isLightUi ? "bg-[#1a1d1a] border-[#f0e5a5]/20" : ""}`}>
+          <DialogHeader>
+            <DialogTitle className={!isLightUi ? "text-stone-100" : ""}>
+              <span className="flex items-center gap-2">
+                <Newspaper className="w-5 h-5" />
+                Neuigkeit senden
+              </span>
+            </DialogTitle>
+            <DialogDescription className={!isLightUi ? "text-stone-400" : ""}>
+              Die Neuigkeit wird für alle Spielenden sichtbar und als Push-Benachrichtigung gesendet.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <label className={`text-sm font-medium ${!isLightUi ? "text-stone-200" : "text-stone-900"}`}>Titel</label>
+              <input
+                type="text"
+                value={adminNewsTitle}
+                onChange={(e) => setAdminNewsTitle(e.target.value)}
+                placeholder="z.B. Neues Update verfügbar!"
+                className={`w-full px-3 py-2 rounded-md border text-sm ${!isLightUi ? "border-stone-600 bg-stone-800/60 text-stone-100 placeholder:text-stone-500" : "border-stone-200 bg-white"}`}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className={`text-sm font-medium ${!isLightUi ? "text-stone-200" : "text-stone-900"}`}>Text</label>
+              <Textarea
+                value={adminNewsText}
+                onChange={(e) => setAdminNewsText(e.target.value)}
+                placeholder="Beschreibe die Neuigkeit..."
+                rows={4}
+                className={`border-2 resize-none ${!isLightUi ? "border-stone-600 bg-stone-800/60 text-stone-100 placeholder:text-stone-500" : "border-stone-200"}`}
+              />
+            </div>
+            <Button
+              onClick={() => {
+                if (!adminNewsTitle.trim() || !adminNewsText.trim()) {
+                  alert("Bitte fülle Titel und Text aus.");
+                  return;
+                }
+                broadcastNewsMutation.mutate({ title: adminNewsTitle, text: adminNewsText });
+              }}
+              disabled={broadcastNewsMutation.isPending || !adminNewsTitle.trim() || !adminNewsText.trim()}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {broadcastNewsMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Send className="w-4 h-4 mr-2" />
+              )}
+              An alle senden
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       </div>
       </>);
 

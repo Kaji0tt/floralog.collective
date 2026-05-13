@@ -149,13 +149,16 @@ const AccessoryOptionCard = ({ option, user, isLightUi, isPending, onSelect }) =
   const isActive = getAccessorySelectionState(user, option);
   const isLocked = Boolean(option?.isLocked);
   const unlockCondition = option?.unlockCondition;
+  const tooltipContent = isLocked
+    ? (unlockCondition || "Freischaltung noch nicht erreicht.")
+    : null;
 
   const buttonContent = (
     <button
       type="button"
-      disabled={isPending || isLocked}
+      disabled={isPending}
       onClick={() => onSelect(option)}
-      className={`relative overflow-hidden rounded-2xl border text-left transition-all duration-200 disabled:opacity-60 ${getBackgroundButtonStyle({ isActive, isLightUi })}`}
+      className={`relative overflow-hidden rounded-2xl border text-left transition-all duration-200 disabled:opacity-60 ${isLocked ? "cursor-help" : ""} ${getBackgroundButtonStyle({ isActive, isLightUi })}`}
     >
       <div className="aspect-square w-full p-2">
         <img src={option.imageUrl} alt={option.label} className="h-full w-full object-contain" />
@@ -187,7 +190,7 @@ const AccessoryOptionCard = ({ option, user, isLightUi, isPending, onSelect }) =
   );
 
   return (
-    <LockedTooltip content={unlockCondition}>
+    <LockedTooltip content={tooltipContent}>
       {buttonContent}
     </LockedTooltip>
   );
