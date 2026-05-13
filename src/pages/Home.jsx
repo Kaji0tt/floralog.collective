@@ -2410,29 +2410,6 @@ function HomeContent() {
                     </div>
                   </div>
 
-                  <div
-                    className={`mt-2 w-full rounded-2xl border backdrop-blur-sm px-[clamp(0.625rem,2vw,0.875rem)] ${
-                      isLightUi ? "border-[#c8ac62]/35 bg-white/55" : "border-[#f0e5a5]/30 bg-black/25"
-                    }`}
-                    style={{
-                      height: `${(2.1 * controlsScale).toFixed(2)}rem`,
-                    }}
-                  >
-                    <div className={`h-full w-full grid grid-cols-3 divide-x ${isLightUi ? "divide-[#c8ac62]/25" : "divide-[#f0e5a5]/20"}`}>
-                      <div className={`flex items-center justify-center gap-1.5 min-w-0 px-2 text-xs md:text-sm font-semibold ${isLightUi ? "text-stone-700" : "text-white/95"}`}>
-                        <Leaf className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
-                        <span className="truncate">{playerSeeds}</span>
-                      </div>
-                      <div className={`flex items-center justify-center gap-1.5 min-w-0 px-2 text-xs md:text-sm font-semibold ${isLightUi ? "text-stone-700" : "text-white/95"}`}>
-                        <Zap className="w-3.5 h-3.5 shrink-0 text-amber-500" />
-                        <span className="truncate">{playerSparks}</span>
-                      </div>
-                      <div className={`flex items-center justify-center gap-1.5 min-w-0 px-2 text-xs md:text-sm font-semibold ${isLightUi ? "text-stone-700" : "text-white/95"}`}>
-                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 shrink-0 text-orange-500" aria-hidden="true">🔸</span>
-                        <span className="truncate">{playerAmber}</span>
-                      </div>
-                    </div>
-                  </div>
 
                   <div ref={healthStatsPanelRef} className="flex-1 min-h-0 flex items-start justify-center pt-[clamp(0.2rem,1vh,0.5rem)]">
                     <div
@@ -2725,6 +2702,30 @@ function HomeContent() {
                       </AnimatePresence>
 
                     </div>
+                  </div>
+
+                  <div
+                    className={`mt-[clamp(0.375rem,1vh,0.75rem)] w-full flex items-center justify-center gap-2 text-xs md:text-sm font-semibold ${
+                      isLightUi ? "text-stone-700" : "text-white/95"
+                    }`}
+                    style={{
+                      minHeight: `${(1.35 * controlsScale).toFixed(2)}rem`,
+                    }}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      <Leaf className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                      <span>{playerSeeds}</span>
+                    </span>
+                    <span className={isLightUi ? "text-stone-500/90" : "text-white/65"}>|</span>
+                    <span className="inline-flex items-center gap-1">
+                      <Zap className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+                      <span>{playerSparks}</span>
+                    </span>
+                    <span className={isLightUi ? "text-stone-500/90" : "text-white/65"}>|</span>
+                    <span className="inline-flex items-center gap-1">
+                      <span className="inline-flex items-center justify-center w-3.5 h-3.5 shrink-0 text-orange-500" aria-hidden="true">🔸</span>
+                      <span>{playerAmber}</span>
+                    </span>
                   </div>
 
                   <motion.button
