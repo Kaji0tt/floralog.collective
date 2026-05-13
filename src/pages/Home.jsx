@@ -2729,14 +2729,31 @@ function HomeContent() {
                             <div className="absolute left-1/2 bottom-[7%] -translate-x-1/2 z-[8]">
                               <div className="flex items-center gap-2">
                                 <LockedTooltip
-                                  content={
-                                    <div className="space-y-1.5">
-                                      <p className="text-xs font-semibold">Deine Tile-Claims</p>
-                                      <p className="text-[11px] leading-relaxed text-stone-200">
-                                        Jede geclaimte Tile erhoeht deinen Seed-Multiplikator um +10%. Mit {playerClaimedTiles} Tiles hast du aktuell x{(1 + playerClaimedTiles * 0.1).toFixed(1)}.
+                                  content={(
+                                    <div
+                                      className={`rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl ${
+                                        isLightUi
+                                          ? "border-amber-400/60 bg-white/88"
+                                          : "border-amber-300/40 bg-black/75"
+                                      }`}
+                                    >
+                                      <p className={`text-[10px] font-semibold uppercase tracking-wide mb-0.5 ${
+                                        isLightUi ? "text-amber-600" : "text-amber-400/80"
+                                      }`}>
+                                        Tile-Claims
+                                      </p>
+                                      <p className={`font-bold text-sm leading-tight mb-2 ${
+                                        isLightUi ? "text-amber-800" : "text-amber-300"
+                                      }`}>
+                                        {playerClaimedTiles} {playerClaimedTiles === 1 ? "Tile" : "Tiles"} geclaimt
+                                      </p>
+                                      <p className={`text-xs leading-snug ${
+                                        isLightUi ? "text-stone-700" : "text-white/80"
+                                      }`}>
+                                        Jede geclaimte Tile erhöht deinen Scan-Multiplikator um +10%. Aktueller Bonus: x{(1 + playerClaimedTiles * 0.1).toFixed(1)}.
                                       </p>
                                     </div>
-                                  }
+                                  )}
                                 >
                                   <button
                                     type="button"
