@@ -23,6 +23,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
 import QuizFeedbackNotification from "../components/notifications/QuizFeedbackNotification";
+import DailyLoginSparkNotification from "../components/notifications/DailyLoginSparkNotification";
 import { useNavigate, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { cacheLocation, getCachedLocation, LOCATION_CACHE_MAX_AGE_MS, requestCurrentLocation } from "@/lib/locationSync";
@@ -140,7 +141,7 @@ function HomeContent() {
   const [shopOpenCategory, setShopOpenCategory] = useState("backgrounds");
   const [careActionMessage, setCareActionMessage] = useState(null);
   const [careGainFeedback, setCareGainFeedback] = useState(null);
-  const [dailySparkClaimMessage, setDailySparkClaimMessage] = useState(null);
+  const [dailySparkClaimFeedback, setDailySparkClaimFeedback] = useState(null);
   const [showAmberPurchaseModal, setShowAmberPurchaseModal] = useState(false);
   const [embeddedHeaderMeta, setEmbeddedHeaderMeta] = useState(null);
   const [embeddedFriendsAddDialogNonce, setEmbeddedFriendsAddDialogNonce] = useState(0);
@@ -726,14 +727,12 @@ function HomeContent() {
           return;
         }
 
-        setDailySparkClaimMessage(`Taeglicher Login: +${award} Funken (Streak ${streakDays}, Cap 3)`);
+        setDailySparkClaimFeedback({
+          awardedAmount: award,
+          streakDays,
+          sparksBalance: Math.max(0, Number(claimResult?.sparks_balance ?? 0)),
+        });
         await queryClient.invalidateQueries({ queryKey: ['userWallet'] });
-
-        window.setTimeout(() => {
-          setDailySparkClaimMessage((previous) => (
-            previous === `Taeglicher Login: +${award} Funken (Streak ${streakDays}, Cap 3)` ? null : previous
-          ));
-        }, 4500);
       } catch (error) {
         console.warn('[Home] Daily spark claim failed:', error?.message || error);
       }
@@ -2107,6 +2106,15 @@ function HomeContent() {
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {dailySparkClaimFeedback && (
+          <DailyLoginSparkNotification
+            feedback={dailySparkClaimFeedback}
+            onComplete={() => setDailySparkClaimFeedback(null)}
+          />
+        )}
+      </AnimatePresence>
+
       <Dialog open={isMigrating} onOpenChange={() => {}}>
         <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
           <DialogHeader>
@@ -2372,12 +2380,6 @@ function HomeContent() {
                   />
                 ) : (
                   <section data-ui="home-plant-hero-section" className="flex-1 min-h-0 rounded-3xl px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col bg-transparent">
-                  {dailySparkClaimMessage && (
-                    <div className={`mb-2 rounded-xl border px-3 py-1.5 text-xs font-semibold ${isLightUi ? "border-emerald-400/60 bg-emerald-50/90 text-emerald-800" : "border-emerald-300/35 bg-emerald-900/25 text-emerald-100"}`}>
-                      {dailySparkClaimMessage}
-                    </div>
-                  )}
-
                   <div
                     className={`w-full rounded-2xl border backdrop-blur-sm px-[clamp(0.625rem,2vw,0.875rem)] ${
                       isLightUi ? "border-[#c8ac62]/45" : "border-[#f0e5a5]/45"
@@ -2694,27 +2696,55 @@ function HomeContent() {
                   </div>
 
                   <div
-                    className={`mt-[clamp(0.375rem,1vh,0.75rem)] w-full flex items-center justify-center gap-2 text-xs md:text-sm font-semibold ${
+                    className={`mt-[clamp(0.375rem,1vh,0.75rem)] w-full grid grid-cols-[1fr_1fr_1fr_1fr_1fr] items-center text-xs md:text-sm font-semibold ${
                       isLightUi ? "text-stone-700" : "text-white/95"
                     }`}
                     style={{
                       minHeight: `${(1.35 * controlsScale).toFixed(2)}rem`,
                     }}
                   >
-                    <span className="inline-flex items-center gap-1">
-                      <Leaf className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
-                      <span>{playerSeeds}</span>
-                    </span>
-                    <span className={isLightUi ? "text-stone-500/90" : "text-white/65"}>|</span>
-                    <span className="inline-flex items-center gap-1">
-                      <Zap className="w-3.5 h-3.5 shrink-0 text-amber-500" />
-                      <span>{playerSparks}</span>
-                    </span>
-                    <span className={isLightUi ? "text-stone-500/90" : "text-white/65"}>|</span>
-                    <span className="inline-flex items-center gap-1">
-                      <span className="inline-flex items-center justify-center w-3.5 h-3.5 shrink-0 text-orange-500" aria-hidden="true">🔸</span>
-                      <span>{playerAmber}</span>
-                    </span>
+                    <LockedTooltip
+                      content={<span className="text-xs">Samen: Basiswährung für deinen Fortschritt.</span>}
+                    >
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center gap-1"
+                        aria-label="Samen anzeigen"
+                      >
+                        <span>{playerSeeds}</span>
+                        <Leaf className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                      </button>
+                    </LockedTooltip>
+
+                    <span className={`text-center ${isLightUi ? "text-stone-500/90" : "text-white/65"}`}>|</span>
+
+                    <LockedTooltip
+                      content={<span className="text-xs">Funken: Verdient durch Login, Quests und Aktivität.</span>}
+                    >
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center gap-1"
+                        aria-label="Funken anzeigen"
+                      >
+                        <span>{playerSparks}</span>
+                        <Zap className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+                      </button>
+                    </LockedTooltip>
+
+                    <span className={`text-center ${isLightUi ? "text-stone-500/90" : "text-white/65"}`}>|</span>
+
+                    <LockedTooltip
+                      content={<span className="text-xs">Bernstein: Premiumwährung für Shop-Inhalte.</span>}
+                    >
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center gap-1"
+                        aria-label="Bernstein anzeigen"
+                      >
+                        <span>{playerAmber}</span>
+                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 shrink-0 text-orange-500" aria-hidden="true">🔸</span>
+                      </button>
+                    </LockedTooltip>
                   </div>
 
                   <motion.button
