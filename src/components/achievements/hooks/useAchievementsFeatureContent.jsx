@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Query } from "@/api/entities";
 import { createUserNotification } from "@/api/notificationService";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
@@ -29,6 +29,8 @@ import { useUiTheme } from "@/lib/UiThemeContext";
 import { createPageUrl } from "@/utils";
 import { resolveTitleValue } from "@/lib/profileCustomizationOptions";
 import { supabase } from "@/api/supabaseClient";
+import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
+import { hexToFilter } from "@/lib/hexToFilter";
 
 /** @type {{ regular: number, weekly: number, monthly: number }} */
 const DEFAULT_QUEST_SEED_REWARD_BY_TYPE = {
@@ -376,6 +378,14 @@ export function useAchievementsFeatureContent({
     staleTime: 60 * 1000,
   });
 
+    const { data: logoAssets = [] } = useQuery({
+      queryKey: ["logoAssets"],
+      queryFn: () => Query.LogoAsset.list(),
+      staleTime: 5 * 60 * 1000,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+    });
+
   const { data: globalScanLeaderboard = null } = useQuery({
     queryKey: ['globalScanLeaderboard'],
     queryFn: async () => {
@@ -391,6 +401,19 @@ export function useAchievementsFeatureContent({
     },
     staleTime: 60 * 1000,
   });
+
+    // Resolve logos for all profiles
+    const leaderboardLogosByEmail = useMemo(() => {
+      const logosByEmail = new Map();
+      (allProfiles || []).forEach((profile) => {
+        const email = String(profile.user_email || "").toLowerCase();
+        if (email) {
+          const equippedLogos = resolveEquippedLogoAssetsWithCatalog(profile, logoAssets);
+          logosByEmail.set(email, equippedLogos);
+        }
+      });
+      return logosByEmail;
+    }, [allProfiles, logoAssets]);
 
   // Echtzeit-Subscriptions für UserAchievements
   useEffect(() => {
@@ -1685,15 +1708,204 @@ export function useAchievementsFeatureContent({
 
           <TabsContent value="stats" className={statsContentClass} style={embeddedContentMaskStyle}>
             <div className="max-w-6xl mx-auto space-y-4" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
-                <Card className={`${statsCardBaseClass} ${isLightUi ? "border-amber-200" : "border-amber-300/35"}`}>
-                  <CardContent className="p-4">
-                    <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>Samen insgesamt</p>
-                    <p className={`text-2xl font-bold mt-1 ${isLightUi ? "text-amber-700" : "text-amber-300"}`}>{ownSeeds.toLocaleString()}</p>
-                    <p className={`text-xs mt-1 ${statsBodyClass}`}>Aktueller Samenstand</p>
+              <div className="grid grid-cols-1 gap-4">
+                <Card className={`${statsCardBaseClass} ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
+                      <Users className={`w-4 h-4 ${isLightUi ? "text-indigo-600" : "text-indigo-300"}`} />
+                      Scan-Vergleich (Global)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className={`rounded-lg border px-3 py-2 ${isLightUi ? "border-indigo-200 bg-indigo-50" : "border-indigo-300/40 bg-indigo-500/10"}`}>
+                      <p className={`text-xs ${isLightUi ? "text-indigo-700" : "text-indigo-200"}`}>Dein globaler Rang</p>
+                      <p className={`text-lg font-bold ${isLightUi ? "text-indigo-900" : "text-indigo-100"}`}>
+                        {ownGlobalScanRank > 0 ? `#${ownGlobalScanRank} von ${effectiveGlobalScanRanking.length}` : "Noch kein Rang"}
+                      </p>
+                    </div>
+
+                    {effectiveGlobalScanRanking.length === 0 && (
+                      <p className={`text-sm ${statsBodyClass}`}>Noch keine Vergleichsdaten verfügbar.</p>
+                    )}
+
+                    {(() => {
+                      const top5 = effectiveGlobalScanRanking.slice(0, 5);
+                      const ownInTop5 = top5.some((entry) => entry.email === ownEmailLower);
+                      const ownEntry = !ownInTop5 && ownGlobalScanRank > 0 ? effectiveGlobalScanRanking[ownGlobalScanRank - 1] : null;
+
+                      return (
+                        <>
+                          {top5.map((entry, index) => {
+                            const logo = leaderboardLogosByEmail.get(entry.email);
+                            return (
+                              <div
+                                key={entry.email}
+                                className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.email === ownEmailLower ? rankingHighlightClass : rankingDefaultClass}`}
+                              >
+                                <div className="flex min-w-0 items-center gap-2 flex-1">
+                                  {logo?.border?.imageUrl && (
+                                    <div className="w-6 h-6 flex-shrink-0 overflow-hidden rounded-full border border-stone-300/50 bg-stone-100">
+                                      <img
+                                        src={logo.border.imageUrl}
+                                        alt="Logo"
+                                        className="h-full w-full object-contain"
+                                        style={logo.borderColor ? { filter: `brightness(0) saturate(100%) ${hexToFilter(logo.borderColor)}` } : undefined}
+                                      />
+                                    </div>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => navigateToPublicProfile(entry.email)}
+                                    className={`p-0 m-0 min-w-0 border-0 bg-transparent text-left text-sm font-semibold truncate ${statsTitleClass}`}
+                                  >
+                                    #{index + 1} {entry.name}
+                                  </button>
+                                </div>
+                                <Badge className={entry.email === ownEmailLower ? (isLightUi ? "bg-emerald-600 text-white" : "bg-emerald-700 text-white border border-emerald-400/60") : rankingDefaultBadgeClass}>
+                                  {entry.scans}x
+                                </Badge>
+                              </div>
+                            );
+                          })}
+
+                          {ownEntry && (
+                            <>
+                              <p className={`text-xs text-center ${statsBodyClass}`}>…</p>
+                              <div className={`flex items-center justify-between rounded-lg border px-3 py-2 ${rankingHighlightClass}`}>
+                                <div className="flex min-w-0 items-center gap-2 flex-1">
+                                  {leaderboardLogosByEmail.get(ownEntry.email)?.border?.imageUrl && (
+                                    <div className="w-6 h-6 flex-shrink-0 overflow-hidden rounded-full border border-stone-300/50 bg-stone-100">
+                                      <img
+                                        src={leaderboardLogosByEmail.get(ownEntry.email).border.imageUrl}
+                                        alt="Logo"
+                                        className="h-full w-full object-contain"
+                                        style={leaderboardLogosByEmail.get(ownEntry.email).borderColor ? { filter: `brightness(0) saturate(100%) ${hexToFilter(leaderboardLogosByEmail.get(ownEntry.email).borderColor)}` } : undefined}
+                                      />
+                                    </div>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => navigateToPublicProfile(ownEntry.email)}
+                                    className={`p-0 m-0 min-w-0 border-0 bg-transparent text-left text-sm font-semibold truncate ${statsTitleClass}`}
+                                  >
+                                    #{ownGlobalScanRank} {ownEntry.name}
+                                  </button>
+                                </div>
+                                <Badge className={isLightUi ? "bg-emerald-600 text-white" : "bg-emerald-700 text-white border border-emerald-400/60"}>
+                                  {ownEntry.scans}x
+                                </Badge>
+                              </div>
+                            </>
+                          )}
+                        </>
+                      );
+                    })()}
                   </CardContent>
                 </Card>
 
+                <Card className={`${statsCardBaseClass} ${isLightUi ? "border-amber-200" : "border-amber-300/30"}`}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
+                      <span className={isLightUi ? "text-amber-600" : "text-amber-300"}>🌱</span>
+                      Samenstand-Vergleich (Global)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className={`rounded-lg border px-3 py-2 ${isLightUi ? "border-amber-200 bg-amber-50" : "border-amber-300/40 bg-amber-500/10"}`}>
+                      <p className={`text-xs ${isLightUi ? "text-amber-700" : "text-amber-200"}`}>Dein globaler Rang</p>
+                      <p className={`text-lg font-bold ${isLightUi ? "text-amber-900" : "text-amber-100"}`}>
+                        {ownSeedRank > 0 ? `#${ownSeedRank} von ${globalSeedRanking.length}` : "Noch kein Rang"}
+                      </p>
+                      {ownSeedRank > 0 && (
+                        <p className={`text-xs mt-0.5 ${isLightUi ? "text-amber-700" : "text-amber-300"}`}>
+                          {ownSeeds.toLocaleString()} Samen
+                        </p>
+                      )}
+                    </div>
+
+                    {globalSeedRanking.length === 0 && (
+                      <p className={`text-sm ${statsBodyClass}`}>Noch keine Vergleichsdaten verfügbar.</p>
+                    )}
+
+                    {(() => {
+                      const top5 = globalSeedRanking.slice(0, 5);
+                      const ownInTop5 = top5.some((entry) => entry.isOwn);
+                      const ownEntry = !ownInTop5 && ownSeedRank > 0 ? globalSeedRanking[ownSeedRank - 1] : null;
+
+                      return (
+                        <>
+                          {top5.map((entry, index) => {
+                            const logo = leaderboardLogosByEmail.get(entry.email);
+                            return (
+                              <div
+                                key={entry.authId}
+                                className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.isOwn ? rankingHighlightClass : rankingDefaultClass}`}
+                              >
+                                <div className="flex min-w-0 items-center gap-2 flex-1">
+                                  {logo?.border?.imageUrl && (
+                                    <div className="w-6 h-6 flex-shrink-0 overflow-hidden rounded-full border border-stone-300/50 bg-stone-100">
+                                      <img
+                                        src={logo.border.imageUrl}
+                                        alt="Logo"
+                                        className="h-full w-full object-contain"
+                                        style={logo.borderColor ? { filter: `brightness(0) saturate(100%) ${hexToFilter(logo.borderColor)}` } : undefined}
+                                      />
+                                    </div>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => navigateToPublicProfile(entry.email)}
+                                    disabled={!entry.email}
+                                    className={`p-0 m-0 min-w-0 border-0 bg-transparent text-left text-sm font-semibold truncate ${entry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
+                                  >
+                                    #{index + 1} {entry.name}
+                                  </button>
+                                </div>
+                                <Badge className={entry.isOwn ? (isLightUi ? "bg-amber-600 text-white" : "bg-amber-700 text-white border border-amber-400/60") : rankingDefaultBadgeClass}>
+                                  {entry.seeds.toLocaleString()} 🌱
+                                </Badge>
+                              </div>
+                            );
+                          })}
+
+                          {ownEntry && (
+                            <>
+                              <p className={`text-xs text-center ${statsBodyClass}`}>…</p>
+                              <div className={`flex items-center justify-between rounded-lg border px-3 py-2 ${rankingHighlightClass}`}>
+                                <div className="flex min-w-0 items-center gap-2 flex-1">
+                                  {leaderboardLogosByEmail.get(ownEntry.email)?.border?.imageUrl && (
+                                    <div className="w-6 h-6 flex-shrink-0 overflow-hidden rounded-full border border-stone-300/50 bg-stone-100">
+                                      <img
+                                        src={leaderboardLogosByEmail.get(ownEntry.email).border.imageUrl}
+                                        alt="Logo"
+                                        className="h-full w-full object-contain"
+                                        style={leaderboardLogosByEmail.get(ownEntry.email).borderColor ? { filter: `brightness(0) saturate(100%) ${hexToFilter(leaderboardLogosByEmail.get(ownEntry.email).borderColor)}` } : undefined}
+                                      />
+                                    </div>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => navigateToPublicProfile(ownEntry.email)}
+                                    disabled={!ownEntry.email}
+                                    className={`p-0 m-0 min-w-0 border-0 bg-transparent text-left text-sm font-semibold truncate ${ownEntry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
+                                  >
+                                    #{ownSeedRank} {ownEntry.name}
+                                  </button>
+                                </div>
+                                <Badge className={isLightUi ? "bg-amber-600 text-white" : "bg-amber-700 text-white border border-amber-400/60"}>
+                                  {ownEntry.seeds.toLocaleString()} 🌱
+                                </Badge>
+                              </div>
+                            </>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
                 <Card className={`${statsCardBaseClass} ${isLightUi ? "border-emerald-200" : "border-emerald-300/35"}`}>
                   <CardContent className="p-4">
                     <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>Scans insgesamt</p>
@@ -1725,137 +1937,6 @@ export function useAchievementsFeatureContent({
                     <p className={`text-xs mt-1 ${monthTrendDelta >= 0 ? (isLightUi ? "text-emerald-700" : "text-emerald-300") : (isLightUi ? "text-rose-700" : "text-rose-300")}`}>
                       {monthTrendDelta >= 0 ? "+" : ""}{monthTrendDelta} vs. letzter Monat
                     </p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4">
-                <Card className={`${statsCardBaseClass} ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
-                  <CardHeader className="pb-2">
-                    <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
-                      <Users className={`w-4 h-4 ${isLightUi ? "text-indigo-600" : "text-indigo-300"}`} />
-                      Scan-Vergleich (Global)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <div className={`rounded-lg border px-3 py-2 ${isLightUi ? "border-indigo-200 bg-indigo-50" : "border-indigo-300/40 bg-indigo-500/10"}`}>
-                      <p className={`text-xs ${isLightUi ? "text-indigo-700" : "text-indigo-200"}`}>Dein globaler Rang</p>
-                      <p className={`text-lg font-bold ${isLightUi ? "text-indigo-900" : "text-indigo-100"}`}>
-                        {ownGlobalScanRank > 0 ? `#${ownGlobalScanRank} von ${effectiveGlobalScanRanking.length}` : "Noch kein Rang"}
-                      </p>
-                    </div>
-
-                    {effectiveGlobalScanRanking.length === 0 && (
-                      <p className={`text-sm ${statsBodyClass}`}>Noch keine Vergleichsdaten verfügbar.</p>
-                    )}
-
-                    {/* Top 5 + eigener Eintrag falls außerhalb */}
-                    {(() => {
-                      const top5 = effectiveGlobalScanRanking.slice(0, 5);
-                      const ownInTop5 = top5.some((e) => e.email === ownEmailLower);
-                      const ownEntry = !ownInTop5 && ownGlobalScanRank > 0 ? effectiveGlobalScanRanking[ownGlobalScanRank - 1] : null;
-                      return (
-                        <>
-                          {top5.map((entry, index) => (
-                            <div
-                              key={entry.email}
-                              className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.email === ownEmailLower ? rankingHighlightClass : rankingDefaultClass}`}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => navigateToPublicProfile(entry.email)}
-                                className={`p-0 m-0 bg-transparent border-0 text-sm font-semibold truncate text-left ${statsTitleClass}`}
-                              >
-                                #{index + 1} {entry.name}
-                              </button>
-                              <Badge className={entry.email === ownEmailLower ? (isLightUi ? "bg-emerald-600 text-white" : "bg-emerald-700 text-white border border-emerald-400/60") : rankingDefaultBadgeClass}>{entry.scans}x</Badge>
-                            </div>
-                          ))}
-                          {ownEntry && (
-                            <>
-                              <p className={`text-xs text-center ${statsBodyClass}`}>…</p>
-                              <div className={`flex items-center justify-between rounded-lg border px-3 py-2 ${rankingHighlightClass}`}>
-                                <button
-                                  type="button"
-                                  onClick={() => navigateToPublicProfile(ownEntry.email)}
-                                  className={`p-0 m-0 bg-transparent border-0 text-sm font-semibold truncate text-left ${statsTitleClass}`}
-                                >
-                                  #{ownGlobalScanRank} {ownEntry.name}
-                                </button>
-                                <Badge className={isLightUi ? "bg-emerald-600 text-white" : "bg-emerald-700 text-white border border-emerald-400/60"}>{ownEntry.scans}x</Badge>
-                              </div>
-                            </>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </CardContent>
-                </Card>
-
-                <Card className={`${statsCardBaseClass} ${isLightUi ? "border-amber-200" : "border-amber-300/30"}`}>
-                  <CardHeader className="pb-2">
-                    <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
-                      <span className={isLightUi ? "text-amber-600" : "text-amber-300"}>🌱</span>
-                      Samenstand-Vergleich (Global)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <div className={`rounded-lg border px-3 py-2 ${isLightUi ? "border-amber-200 bg-amber-50" : "border-amber-300/40 bg-amber-500/10"}`}>
-                      <p className={`text-xs ${isLightUi ? "text-amber-700" : "text-amber-200"}`}>Dein globaler Rang</p>
-                      <p className={`text-lg font-bold ${isLightUi ? "text-amber-900" : "text-amber-100"}`}>
-                        {ownSeedRank > 0 ? `#${ownSeedRank} von ${globalSeedRanking.length}` : "Noch kein Rang"}
-                      </p>
-                      {ownSeedRank > 0 && (
-                        <p className={`text-xs mt-0.5 ${isLightUi ? "text-amber-700" : "text-amber-300"}`}>{ownSeeds.toLocaleString()} Samen</p>
-                      )}
-                    </div>
-
-                    {globalSeedRanking.length === 0 && (
-                      <p className={`text-sm ${statsBodyClass}`}>Noch keine Vergleichsdaten verfügbar.</p>
-                    )}
-
-                    {/* Top 5 + eigener Eintrag falls außerhalb */}
-                    {(() => {
-                      const top5 = globalSeedRanking.slice(0, 5);
-                      const ownInTop5 = top5.some((e) => e.isOwn);
-                      const ownEntry = !ownInTop5 && ownSeedRank > 0 ? globalSeedRanking[ownSeedRank - 1] : null;
-                      return (
-                        <>
-                          {top5.map((entry, index) => (
-                            <div
-                              key={entry.authId}
-                              className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.isOwn ? rankingHighlightClass : rankingDefaultClass}`}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => navigateToPublicProfile(entry.email)}
-                                disabled={!entry.email}
-                                className={`p-0 m-0 bg-transparent border-0 text-sm font-semibold truncate text-left ${entry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
-                              >
-                                #{index + 1} {entry.name}
-                              </button>
-                              <Badge className={entry.isOwn ? (isLightUi ? "bg-amber-600 text-white" : "bg-amber-700 text-white border border-amber-400/60") : rankingDefaultBadgeClass}>{entry.seeds.toLocaleString()} 🌱</Badge>
-                            </div>
-                          ))}
-                          {ownEntry && (
-                            <>
-                              <p className={`text-xs text-center ${statsBodyClass}`}>…</p>
-                              <div className={`flex items-center justify-between rounded-lg border px-3 py-2 ${rankingHighlightClass}`}>
-                                <button
-                                  type="button"
-                                  onClick={() => navigateToPublicProfile(ownEntry.email)}
-                                  disabled={!ownEntry.email}
-                                  className={`p-0 m-0 bg-transparent border-0 text-sm font-semibold truncate text-left ${ownEntry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
-                                >
-                                  #{ownSeedRank} {ownEntry.name}
-                                </button>
-                                <Badge className={isLightUi ? "bg-amber-600 text-white" : "bg-amber-700 text-white border border-amber-400/60"}>{ownEntry.seeds.toLocaleString()} 🌱</Badge>
-                              </div>
-                            </>
-                          )}
-                        </>
-                      );
-                    })()}
                   </CardContent>
                 </Card>
               </div>

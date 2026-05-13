@@ -225,7 +225,34 @@ const getRewardUnlockedAccessoryIds = ({ rewards = [], userRewards = [] } = {}) 
   );
 };
 
-const buildFallbackAccessorySections = ({ rewardUnlockedIds = new Set() } = {}) => {
+const getAccessoryUnlockCondition = (accessoryId, rewards = []) => {
+  const rewardsForAccessory = (Array.isArray(rewards) ? rewards : [])
+    .filter((r) => String(r?.value || "").trim() === accessoryId && (r?.requires_zone_theme || r?.requires_plant_species));
+
+  if (rewardsForAccessory.length === 0) return null;
+
+  const zoneTranslations = {
+    water: "Wasserzone",
+    forest: "Waldzone",
+    meadow: "Wiese",
+    urban: "Stadt",
+  };
+
+  const conditions = rewardsForAccessory.map((reward) => {
+    const plantSpecies = String(reward?.requires_plant_species || "").trim();
+    const zoneTheme = String(reward?.requires_zone_theme || "").trim();
+    const zoneName = zoneTranslations[zoneTheme] || zoneTheme;
+
+    if (plantSpecies && zoneName) {
+      return `${plantSpecies} in einer ${zoneName} scannen`;
+    }
+    return null;
+  }).filter(Boolean);
+
+  return conditions.length > 0 ? conditions[0] : null;
+};
+
+const buildFallbackAccessorySections = ({ rewardUnlockedIds = new Set(), rewards = [] } = {}) => {
   return LOGO_ACCESSORY_SECTIONS.map((section) => ({
     key: section.key,
     title: section.title,
@@ -234,9 +261,11 @@ const buildFallbackAccessorySections = ({ rewardUnlockedIds = new Set() } = {}) 
     options: section.options.map((option) => {
       const isDefaultUnlocked = ["border_original", "plant_leaf", "plant_legacy", "face_original"].includes(option.value);
       const isUnlocked = isDefaultUnlocked || rewardUnlockedIds.has(option.value);
+      const unlockCondition = !isUnlocked ? getAccessoryUnlockCondition(option.value, rewards) : null;
       return {
         ...option,
         isLocked: !isUnlocked,
+        unlockCondition,
       };
     }),
   }));
@@ -247,7 +276,7 @@ export const getAccessorySections = ({ logoAssets = [], rewards = [], userReward
 
   const normalizedLogoAssets = Array.isArray(logoAssets) ? logoAssets : [];
   if (normalizedLogoAssets.length === 0) {
-    return buildFallbackAccessorySections({ rewardUnlockedIds });
+    return buildFallbackAccessorySections({ rewardUnlockedIds, rewards });
   }
 
   const grouped = {
@@ -263,6 +292,7 @@ export const getAccessorySections = ({ logoAssets = [], rewards = [], userReward
 
     const isDefaultUnlocked = Boolean(asset?.default_unlocked);
     const isUnlocked = isDefaultUnlocked || rewardUnlockedIds.has(assetId);
+    const unlockCondition = !isUnlocked ? getAccessoryUnlockCondition(assetId, rewards) : null;
 
     grouped[assetType].push({
       id: assetId,
@@ -272,6 +302,7 @@ export const getAccessorySections = ({ logoAssets = [], rewards = [], userReward
       imageUrl: asset?.public_url,
       type: "accessory",
       isLocked: !isUnlocked,
+      unlockCondition,
     });
   }
 

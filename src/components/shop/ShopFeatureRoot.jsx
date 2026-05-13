@@ -6,6 +6,7 @@ import { Query } from "@/api/entities";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import {
   getUnlockedProfileCustomizationCatalog,
   profileCustomizationCategoryComparator,
@@ -147,8 +148,9 @@ const getAccessorySelectionState = (user, option) => {
 const AccessoryOptionCard = ({ option, user, isLightUi, isPending, onSelect }) => {
   const isActive = getAccessorySelectionState(user, option);
   const isLocked = Boolean(option?.isLocked);
+  const unlockCondition = option?.unlockCondition;
 
-  return (
+  const buttonContent = (
     <button
       type="button"
       disabled={isPending || isLocked}
@@ -182,6 +184,12 @@ const AccessoryOptionCard = ({ option, user, isLightUi, isPending, onSelect }) =
         </div>
       </div>
     </button>
+  );
+
+  return (
+    <LockedTooltip content={unlockCondition}>
+      {buttonContent}
+    </LockedTooltip>
   );
 };
 

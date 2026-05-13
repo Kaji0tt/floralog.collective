@@ -22,6 +22,7 @@ import { Camera, Loader2, Leaf, Users, Scroll, CheckCircle, AlertCircle, TreePin
 import { motion, AnimatePresence } from "framer-motion";
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
+import ScanZoneUnlockNotification from "../components/notifications/ScanZoneUnlockNotification";
 import QuizFeedbackNotification from "../components/notifications/QuizFeedbackNotification";
 import DailyLoginSparkNotification from "../components/notifications/DailyLoginSparkNotification";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -124,6 +125,8 @@ function HomeContent() {
 
   const [scanFeedback, setScanFeedback] = useState(null);
   const [showScanFeedback, setShowScanFeedback] = useState(false);
+  const [scanZoneUnlockQueue, setScanZoneUnlockQueue] = useState([]);
+  const [showScanZoneUnlock, setShowScanZoneUnlock] = useState(false);
   const [quizFeedback, setQuizFeedback] = useState(null);
   const [showQuizFeedback, setShowQuizFeedback] = useState(false);
   const scanFeedbackCooldownRef = useRef(false);
@@ -750,13 +753,23 @@ function HomeContent() {
     if (!location.state) return;
 
     const hasScanFeedback = Boolean(location.state.scanFeedback);
+    const navigationUnlocks = Array.isArray(location.state.scanZoneUnlocks)
+      ? location.state.scanZoneUnlocks
+      : [];
+    const hasScanZoneUnlocks = navigationUnlocks.length > 0;
     const shouldOpenSettings = Boolean(location.state.openSettings);
 
-    if (!hasScanFeedback && !shouldOpenSettings) return;
+    if (!hasScanFeedback && !hasScanZoneUnlocks && !shouldOpenSettings) return;
 
     if (hasScanFeedback && !blockNavigationFeedbackRef.current) {
       safeSetScanFeedback(location.state.scanFeedback);
       setShowScanFeedback(true);
+      if (hasScanZoneUnlocks) {
+        setScanZoneUnlockQueue(navigationUnlocks);
+      }
+    } else if (hasScanZoneUnlocks) {
+      setScanZoneUnlockQueue(navigationUnlocks);
+      setShowScanZoneUnlock(true);
     }
 
     if (shouldOpenSettings) {
@@ -764,7 +777,12 @@ function HomeContent() {
       setShowHealthStatsPanel(false);
     }
 
-    const { scanFeedback: _ignoredFeedback, openSettings: _ignoredOpenSettings, ...restState } = location.state;
+    const {
+      scanFeedback: _ignoredFeedback,
+      scanZoneUnlocks: _ignoredScanZoneUnlocks,
+      openSettings: _ignoredOpenSettings,
+      ...restState
+    } = location.state;
     const nextState = Object.keys(restState).length > 0 ? restState : null;
 
     navigate(location.pathname + location.search, {
@@ -2085,10 +2103,33 @@ function HomeContent() {
               setScanFeedback(null);
               scanFeedbackCooldownRef.current = true;
               blockNavigationFeedbackRef.current = true;
+              if (scanZoneUnlockQueue.length > 0) {
+                setTimeout(() => {
+                  setShowScanZoneUnlock(true);
+                }, 280);
+              }
               setTimeout(() => {
                 scanFeedbackCooldownRef.current = false;
                 blockNavigationFeedbackRef.current = false;
               }, 1000); // 1 Sekunde Block
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showScanZoneUnlock && scanZoneUnlockQueue.length > 0 && (
+          <ScanZoneUnlockNotification
+            unlock={scanZoneUnlockQueue[0]}
+            remainingCount={Math.max(0, scanZoneUnlockQueue.length - 1)}
+            onComplete={() => {
+              setScanZoneUnlockQueue((prevQueue) => {
+                const nextQueue = prevQueue.slice(1);
+                if (nextQueue.length === 0) {
+                  setShowScanZoneUnlock(false);
+                }
+                return nextQueue;
+              });
             }}
           />
         )}

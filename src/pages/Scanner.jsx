@@ -26,6 +26,7 @@ import { cacheLocation, LOCATION_CACHE_MAX_AGE_MS, requestCurrentLocation } from
 import {
   grantRobotPlantRewardServerSide,
 } from "@/api/robotPlantService";
+import { grantScanZoneUnlocks } from "@/api/rewardUnlockService";
 import { ROBOT_PLANT_EVENT_SOURCES } from "@/lib/robotPlantConfig";
 import { updateQuestProgress } from "@/components/utils/questProgress";
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
@@ -858,6 +859,17 @@ export default function Scanner() {
     const { checkRandomRewards } = await import('../components/rewards/randomRewardChecker');
     await checkRandomRewards(user, 'scan');
 
+    let scanZoneUnlocks = [];
+    try {
+      scanZoneUnlocks = await grantScanZoneUnlocks({
+        discoveryId: newDiscovery.id,
+        plantId: plant.id,
+        discoveryLocation: locationString,
+      });
+    } catch (error) {
+      console.error("Fehler bei scan-basierten Zonen-Freischaltungen:", error);
+    }
+
     // Vibration: 1x kurz für erfolgreichen Scan
     if (navigator.vibrate) {
       navigator.vibrate(200);
@@ -876,7 +888,7 @@ export default function Scanner() {
 
     setScanning(false);
 
-    return { alreadyDiscovered, rewardDetails, activeZone, energyDelta, dataQualityDelta };
+    return { alreadyDiscovered, rewardDetails, activeZone, energyDelta, dataQualityDelta, scanZoneUnlocks };
   };
 
   const handleAutoAddNewPlant = async (plantData, imageUrl, allResults = [], options = {}) => {
@@ -963,6 +975,17 @@ export default function Scanner() {
       const { checkRandomRewards } = await import('../components/rewards/randomRewardChecker');
       await checkRandomRewards(user, 'scan');
 
+      let scanZoneUnlocks = [];
+      try {
+        scanZoneUnlocks = await grantScanZoneUnlocks({
+          discoveryId: newDiscoveryId,
+          plantId: newPlant.id,
+          discoveryLocation: locationString,
+        });
+      } catch (unlockError) {
+        console.error("Fehler bei scan-basierten Zonen-Freischaltungen fuer neue Global-Pflanze:", unlockError);
+      }
+
       // Vibration: 3x kurz für neuen Floralog-Eintrag
       if (navigator.vibrate) {
         navigator.vibrate([200, 100, 200, 100, 200]);
@@ -979,7 +1002,7 @@ export default function Scanner() {
       });
       setScanning(false);
 
-      return { newPlant, rewardDetails, activeZone, energyDelta, dataQualityDelta };
+      return { newPlant, rewardDetails, activeZone, energyDelta, dataQualityDelta, scanZoneUnlocks };
     } catch (error) {
       console.error("Fehler beim Hinzufügen der Pflanze:", error);
       setScanning(false);
@@ -1073,7 +1096,7 @@ export default function Scanner() {
 
       if (selectedPlant.inDatabase) {
         // Pflanze existiert bereits im Floralog
-        const { alreadyDiscovered, rewardDetails, activeZone, energyDelta, dataQualityDelta } = await handleAutoSave(
+        const { alreadyDiscovered, rewardDetails, activeZone, energyDelta, dataQualityDelta, scanZoneUnlocks } = await handleAutoSave(
           selectedPlant,
           imageUrl,
           selectedPlant.aiData || plant?.aiData,
@@ -1093,7 +1116,8 @@ export default function Scanner() {
               isInActiveZone: !!activeZone,
               energyDelta,
               dataQualityDelta,
-            }
+            },
+            scanZoneUnlocks,
           }
         });
       } else {
@@ -1109,6 +1133,7 @@ export default function Scanner() {
               isInActiveZone: !!result.activeZone,
               energyDelta: Number(result.energyDelta ?? 0),
               dataQualityDelta: Number(result.dataQualityDelta ?? 0),
+              scanZoneUnlocks: Array.isArray(result.scanZoneUnlocks) ? result.scanZoneUnlocks : [],
             });
             setShowGlobalFloralogModal(true);
 
@@ -1431,7 +1456,10 @@ export default function Scanner() {
                     scanFeedback: globalScanFeedback || {
                       type: "globalNewPlant",
                       plantName: newPlantName,
-                    }
+                    },
+                    scanZoneUnlocks: Array.isArray(globalScanFeedback?.scanZoneUnlocks)
+                      ? globalScanFeedback.scanZoneUnlocks
+                      : [],
                   }
                 });
               }}
