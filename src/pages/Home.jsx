@@ -2424,11 +2424,14 @@ function HomeContent() {
                   <div
                     className={`w-full rounded-2xl border backdrop-blur-sm px-[clamp(0.625rem,2vw,0.875rem)] ${
                       isLightUi
-                        ? "border-[#c8ac62]/45 bg-gradient-to-r from-emerald-100/50 via-white/40 to-emerald-100/50"
-                        : "border-[#f0e5a5]/35 bg-gradient-to-r from-emerald-900/45 via-black/30 to-emerald-900/45"
+                        ? "border-[#c8ac62]/45"
+                        : "border-[#f0e5a5]/35"
                     }`}
                     style={{
                       height: `${(2.4 * controlsScale).toFixed(2)}rem`,
+                      background: isLightUi
+                        ? `linear-gradient(90deg, ${resolvedPlantHealthState.color}14 0%, rgba(255,255,255,0.46) 50%, ${resolvedPlantHealthState.color}10 100%)`
+                        : `linear-gradient(90deg, ${resolvedPlantHealthState.color}22 0%, rgba(0,0,0,0.30) 50%, ${resolvedPlantHealthState.color}1a 100%)`,
                     }}
                   >
                     <div className={`h-full w-full grid grid-cols-3 divide-x ${isLightUi ? "divide-[#c8ac62]/35" : "divide-[#f0e5a5]/30"}`}>
@@ -3032,4 +3035,3 @@ export default function Home() {
     </HomeOtaGate>
   );
 }
-
