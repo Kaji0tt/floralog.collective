@@ -168,6 +168,17 @@ export function useFriendsFeatureContent({
     staleTime: 30000 // 30 Sekunden Cache
   });
 
+  const normalizedRole = (value) => String(value || '').trim().toLowerCase();
+  const ownProfile = allPublicProfiles.find((profile) => {
+    if (!profile) return false;
+    if (user?.id && profile.auth_id && profile.auth_id === user.id) return true;
+    if (user?.email && profile.user_email) {
+      return profile.user_email.toLowerCase() === user.email.toLowerCase();
+    }
+    return false;
+  });
+  const isAdminUser = normalizedRole(user?.role) === 'admin' || normalizedRole(ownProfile?.role) === 'admin';
+
   const { data: logoAssets = [] } = useQuery({
     queryKey: ['logoAssets'],
     queryFn: () => Query.LogoAsset.list(),
@@ -1175,7 +1186,7 @@ Viel Spaß beim Entdecken! 🌿`;
                         <Plus className="w-5 h-5 text-[#f0e5a5]" />
                       </button>
                     )}
-                    {activeTab === "news" && user?.role === 'admin' && (
+                    {activeTab === "news" && isAdminUser && (
                       <button
                         type="button"
                         onClick={() => setShowAdminNewsDialog(true)}
