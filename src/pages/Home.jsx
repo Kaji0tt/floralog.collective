@@ -2704,45 +2704,123 @@ function HomeContent() {
                     }}
                   >
                     <LockedTooltip
-                      content={<span className="text-xs">Samen: Basiswährung für deinen Fortschritt.</span>}
+                      content={(
+                        <div
+                          className={`rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl ${
+                            isLightUi
+                              ? "border-amber-400/60 bg-white/88"
+                              : "border-amber-300/40 bg-black/75"
+                          }`}
+                        >
+                          <p className={`text-[10px] font-semibold uppercase tracking-wide mb-0.5 ${
+                            isLightUi ? "text-amber-600" : "text-amber-400/80"
+                          }`}>
+                            Währung
+                          </p>
+                          <p className={`font-bold text-sm leading-tight mb-2 ${
+                            isLightUi ? "text-amber-800" : "text-amber-300"
+                          }`}>
+                            Samen
+                          </p>
+                          <p className={`text-xs leading-snug ${
+                            isLightUi ? "text-stone-700" : "text-white/80"
+                          }`}>
+                            Basiswährung für Fortschritt, Upgrades und Sammelaktivitäten.
+                          </p>
+                        </div>
+                      )}
                     >
                       <button
                         type="button"
-                        className="inline-flex items-center justify-center gap-1"
+                        className="inline-flex w-full min-w-0 items-center justify-center"
                         aria-label="Samen anzeigen"
                       >
-                        <span>{playerSeeds}</span>
-                        <Leaf className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                        <span className="inline-flex max-w-full items-center justify-center gap-1 whitespace-nowrap text-center">
+                          <span>{playerSeeds}</span>
+                          <Leaf className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                        </span>
                       </button>
                     </LockedTooltip>
 
                     <span className={`text-center ${isLightUi ? "text-stone-500/90" : "text-white/65"}`}>|</span>
 
                     <LockedTooltip
-                      content={<span className="text-xs">Funken: Verdient durch Login, Quests und Aktivität.</span>}
+                      content={(
+                        <div
+                          className={`rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl ${
+                            isLightUi
+                              ? "border-amber-400/60 bg-white/88"
+                              : "border-amber-300/40 bg-black/75"
+                          }`}
+                        >
+                          <p className={`text-[10px] font-semibold uppercase tracking-wide mb-0.5 ${
+                            isLightUi ? "text-amber-600" : "text-amber-400/80"
+                          }`}>
+                            Währung
+                          </p>
+                          <p className={`font-bold text-sm leading-tight mb-2 ${
+                            isLightUi ? "text-amber-800" : "text-amber-300"
+                          }`}>
+                            Funken
+                          </p>
+                          <p className={`text-xs leading-snug ${
+                            isLightUi ? "text-stone-700" : "text-white/80"
+                          }`}>
+                            Verdient durch Login, Quests und Aktivität; damit kannst du ebenfalls Sachen im Shop kaufen.
+                          </p>
+                        </div>
+                      )}
                     >
                       <button
                         type="button"
-                        className="inline-flex items-center justify-center gap-1"
+                        className="inline-flex w-full min-w-0 items-center justify-center"
                         aria-label="Funken anzeigen"
                       >
-                        <span>{playerSparks}</span>
-                        <Zap className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+                        <span className="inline-flex max-w-full items-center justify-center gap-1 whitespace-nowrap text-center">
+                          <span>{playerSparks}</span>
+                          <Zap className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+                        </span>
                       </button>
                     </LockedTooltip>
 
                     <span className={`text-center ${isLightUi ? "text-stone-500/90" : "text-white/65"}`}>|</span>
 
                     <LockedTooltip
-                      content={<span className="text-xs">Bernstein: Premiumwährung für Shop-Inhalte.</span>}
+                      content={(
+                        <div
+                          className={`rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl ${
+                            isLightUi
+                              ? "border-amber-400/60 bg-white/88"
+                              : "border-amber-300/40 bg-black/75"
+                          }`}
+                        >
+                          <p className={`text-[10px] font-semibold uppercase tracking-wide mb-0.5 ${
+                            isLightUi ? "text-amber-600" : "text-amber-400/80"
+                          }`}>
+                            Währung
+                          </p>
+                          <p className={`font-bold text-sm leading-tight mb-2 ${
+                            isLightUi ? "text-amber-800" : "text-amber-300"
+                          }`}>
+                            Bernstein
+                          </p>
+                          <p className={`text-xs leading-snug ${
+                            isLightUi ? "text-stone-700" : "text-white/80"
+                          }`}>
+                            Premiumwährung für besondere Shop-Inhalte und exklusive Anpassungen.
+                          </p>
+                        </div>
+                      )}
                     >
                       <button
                         type="button"
-                        className="inline-flex items-center justify-center gap-1"
+                        className="inline-flex w-full min-w-0 items-center justify-center"
                         aria-label="Bernstein anzeigen"
                       >
-                        <span>{playerAmber}</span>
-                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 shrink-0 text-orange-500" aria-hidden="true">🔸</span>
+                        <span className="inline-flex max-w-full items-center justify-center gap-1 whitespace-nowrap text-center">
+                          <span>{playerAmber}</span>
+                          <span className="inline-flex items-center justify-center w-3.5 h-3.5 shrink-0 text-orange-500" aria-hidden="true">🔸</span>
+                        </span>
                       </button>
                     </LockedTooltip>
                   </div>
