@@ -2433,16 +2433,45 @@ function HomeContent() {
                     }}
                   >
                     <div className={`h-full w-full grid grid-cols-3 divide-x ${isLightUi ? "divide-[#c8ac62]/35" : "divide-[#f0e5a5]/30"}`}>
-                      <button
-                        type="button"
-                        onClick={() => setShowHealthStatsPanel(true)}
-                        className={`flex items-center justify-center gap-1.5 min-w-0 px-2 text-xs md:text-sm font-semibold transition-colors ${isLightUi ? "text-stone-700 hover:text-stone-800" : "text-white/95 hover:text-white"}`}
-                        aria-label="Pflanzenstatus-Panel öffnen"
-                      >
-                        <Leaf className="w-4 h-4 shrink-0 text-emerald-500" />
-                        <span className="truncate">{resolvedPlantHealthState.label}</span>
-                      </button>
                       <LockedTooltip
+                        unstyled
+                        content={(
+                          <div
+                            className={`rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl ${
+                              isLightUi
+                                ? "border-amber-400/60 bg-white/88"
+                                : "border-amber-300/40 bg-black/75"
+                            }`}
+                          >
+                            <p className={`text-[10px] font-semibold uppercase tracking-wide mb-0.5 ${
+                              isLightUi ? "text-amber-600" : "text-amber-400/80"
+                            }`}>
+                              Pflanzengesundheit
+                            </p>
+                            <p className={`font-bold text-sm leading-tight mb-2 ${
+                              isLightUi ? "text-amber-800" : "text-amber-300"
+                            }`}>
+                              {resolvedPlantHealthState.label}
+                            </p>
+                            <p className={`text-xs leading-snug ${
+                              isLightUi ? "text-stone-700" : "text-white/80"
+                            }`}>
+                              Eine hohe Pflanzengesundheit verbessert deinen Scan-Fortschritt: sie beeinflusst Zonen, Multiplikatoren, taegliche Gewinne und Pflege-Boni.
+                            </p>
+                          </div>
+                        )}
+                      >
+                        <button
+                          type="button"
+                          className={`flex items-center justify-center gap-1.5 min-w-0 px-2 text-xs md:text-sm font-semibold transition-colors ${isLightUi ? "text-stone-700 hover:text-stone-800" : "text-white/95 hover:text-white"}`}
+                          aria-label="Pflanzengesundheit Info"
+                        >
+                          <Leaf className="w-4 h-4 shrink-0 text-emerald-500" />
+                          <span className="truncate">{resolvedPlantHealthState.label}</span>
+                        </button>
+                      </LockedTooltip>
+                      <LockedTooltip
+                        unstyled
                         content={(
                           <div
                             className={`rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl ${
@@ -2481,6 +2510,7 @@ function HomeContent() {
                         </button>
                       </LockedTooltip>
                       <LockedTooltip
+                        unstyled
                         content={(
                           <div
                             className={`rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl ${
@@ -2738,7 +2768,12 @@ function HomeContent() {
                                 }}
                               />
                             )}
-                            <div className="absolute left-1/2 top-1/2 w-[82%] aspect-square -translate-x-1/2 -translate-y-1/2">
+                            <button
+                              type="button"
+                              onClick={() => setShowHealthStatsPanel(true)}
+                              className="absolute left-1/2 top-1/2 w-[82%] aspect-square -translate-x-1/2 -translate-y-1/2 cursor-pointer"
+                              aria-label="Pflanzenstatus-Panel öffnen"
+                            >
                               <div className="relative w-full h-full p-[10%] drop-shadow-[0_0_24px_rgba(190,242,100,0.6)]">
                                 {equippedLogoAssets.border?.imageUrl && (
                                   <img
@@ -2765,11 +2800,12 @@ function HomeContent() {
                                   />
                                 )}
                               </div>
-                            </div>
+                            </button>
 
                             <div className="absolute left-1/2 bottom-[7%] -translate-x-1/2 z-[8]">
                               <div className="flex items-center gap-2">
                                 <LockedTooltip
+                                  unstyled
                                   content={(
                                     <div
                                       className={`rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl ${
@@ -2825,6 +2861,7 @@ function HomeContent() {
                     }`}
                   >
                     <LockedTooltip
+                      unstyled
                       content={(
                         <div
                           className={`rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl ${
@@ -2866,6 +2903,7 @@ function HomeContent() {
                     <span className={`flex items-center justify-center px-1 ${isLightUi ? "text-stone-400/70" : "text-white/35"}`}>|</span>
 
                     <LockedTooltip
+                      unstyled
                       content={(
                         <div
                           className={`rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl ${
@@ -2907,6 +2945,7 @@ function HomeContent() {
                     <span className={`flex items-center justify-center px-1 ${isLightUi ? "text-stone-400/70" : "text-white/35"}`}>|</span>
 
                     <LockedTooltip
+                      unstyled
                       content={(
                         <div
                           className={`rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl ${
