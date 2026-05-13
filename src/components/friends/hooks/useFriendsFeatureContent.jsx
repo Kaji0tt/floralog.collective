@@ -1622,8 +1622,6 @@ Viel Spaß beim Entdecken! 🌿`;
               )}
             </motion.div>
           </TabsContent>
-            </motion.div>
-          </TabsContent>
 
 
           {/* Friends Tab Content */}
