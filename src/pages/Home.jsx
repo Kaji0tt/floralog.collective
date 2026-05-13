@@ -2401,14 +2401,80 @@ function HomeContent() {
                         <Leaf className="w-4 h-4 shrink-0 text-emerald-500" />
                         <span className="truncate">{resolvedPlantHealthState.label}</span>
                       </button>
-                      <div className={`flex items-center justify-center gap-1.5 min-w-0 px-2 text-xs md:text-sm font-semibold ${isLightUi ? "text-stone-700" : "text-white/95"}`}>
-                        <MapPin className="w-4 h-4 shrink-0" style={{ color: currentZoneColor }} />
-                        <span className="truncate">{(!hasResolvedZoneBootstrap || isLoadingZone) ? "..." : activeZoneMeta?.label || "Leer"}</span>
-                      </div>
-                      <div className={`flex items-center justify-center gap-1.5 min-w-0 px-2 text-xs md:text-sm font-semibold ${isLightUi ? "text-stone-700" : "text-white/95"}`}>
-                        <Zap className={`w-4 h-4 shrink-0 ${isLightUi ? "text-amber-700" : "text-amber-300"}`} />
-                        <span className="truncate">{formatMultiplier(knownNextScanMultiplier)}</span>
-                      </div>
+                      <LockedTooltip
+                        content={(
+                          <div
+                            className={`rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl ${
+                              isLightUi
+                                ? "border-amber-400/60 bg-white/88"
+                                : "border-amber-300/40 bg-black/75"
+                            }`}
+                          >
+                            <p className={`text-[10px] font-semibold uppercase tracking-wide mb-0.5 ${
+                              isLightUi ? "text-amber-600" : "text-amber-400/80"
+                            }`}>
+                              Scan-Zone
+                            </p>
+                            <p className={`font-bold text-sm leading-tight mb-2 ${
+                              isLightUi ? "text-amber-800" : "text-amber-300"
+                            }`}>
+                              {(!hasResolvedZoneBootstrap || isLoadingZone) ? "Wird geladen…" : activeZoneMeta?.label || "Keine Zone"}
+                            </p>
+                            <p className={`text-xs leading-snug ${
+                              isLightUi ? "text-stone-700" : "text-white/80"
+                            }`}>
+                              {activeZone
+                                ? `Du befindest dich in einer aktiven ${activeZoneMeta?.label || ""}-Zone. Scans hier erhalten einen Zonen-Bonus.`
+                                : "Du befindest dich aktuell in keiner aktiven Scan-Zone. Begib dich in eine Zone, um einen Bonus-Multiplikator zu erhalten."}
+                            </p>
+                          </div>
+                        )}
+                      >
+                        <button
+                          type="button"
+                          className={`flex items-center justify-center gap-1.5 min-w-0 w-full h-full px-2 text-xs md:text-sm font-semibold transition-colors ${isLightUi ? "text-stone-700 hover:text-stone-800" : "text-white/95 hover:text-white"}`}
+                          aria-label="Scan-Zone Info"
+                        >
+                          <MapPin className="w-4 h-4 shrink-0" style={{ color: currentZoneColor }} />
+                          <span className="truncate">{(!hasResolvedZoneBootstrap || isLoadingZone) ? "..." : activeZoneMeta?.label || "Leer"}</span>
+                        </button>
+                      </LockedTooltip>
+                      <LockedTooltip
+                        content={(
+                          <div
+                            className={`rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl ${
+                              isLightUi
+                                ? "border-amber-400/60 bg-white/88"
+                                : "border-amber-300/40 bg-black/75"
+                            }`}
+                          >
+                            <p className={`text-[10px] font-semibold uppercase tracking-wide mb-0.5 ${
+                              isLightUi ? "text-amber-600" : "text-amber-400/80"
+                            }`}>
+                              Scan-Multiplikator
+                            </p>
+                            <p className={`font-bold text-sm leading-tight mb-2 ${
+                              isLightUi ? "text-amber-800" : "text-amber-300"
+                            }`}>
+                              {formatMultiplier(knownNextScanMultiplier)}
+                            </p>
+                            <p className={`text-xs leading-snug ${
+                              isLightUi ? "text-stone-700" : "text-white/80"
+                            }`}>
+                              Berechnet aus Streak ({formatMultiplier(streakMultiplier)}), Zone ({formatMultiplier(zoneMultiplier)}), Pflege ({formatMultiplier(careMultiplier)}), Tagesbonus ({formatMultiplier(dailyBonusMultiplier)}) und Tiles ({formatMultiplier(claimedTileMultiplier)}).
+                            </p>
+                          </div>
+                        )}
+                      >
+                        <button
+                          type="button"
+                          className={`flex items-center justify-center gap-1.5 min-w-0 w-full h-full px-2 text-xs md:text-sm font-semibold transition-colors ${isLightUi ? "text-stone-700 hover:text-stone-800" : "text-white/95 hover:text-white"}`}
+                          aria-label="Scan-Multiplikator Info"
+                        >
+                          <Zap className={`w-4 h-4 shrink-0 ${isLightUi ? "text-amber-700" : "text-amber-300"}`} />
+                          <span className="truncate">{formatMultiplier(knownNextScanMultiplier)}</span>
+                        </button>
+                      </LockedTooltip>
                     </div>
                   </div>
 
@@ -2725,7 +2791,7 @@ function HomeContent() {
                           <p className={`text-xs leading-snug ${
                             isLightUi ? "text-stone-700" : "text-white/80"
                           }`}>
-                            Basiswährung für Fortschritt, Upgrades und Sammelaktivitäten.
+                            Zeigt deinen Spielfortschritt und schaltet neue Funktionen und Inhalte frei.
                           </p>
                         </div>
                       )}
@@ -2766,7 +2832,7 @@ function HomeContent() {
                           <p className={`text-xs leading-snug ${
                             isLightUi ? "text-stone-700" : "text-white/80"
                           }`}>
-                            Verdient durch Login, Quests und Aktivität; damit kannst du ebenfalls Sachen im Shop kaufen.
+                            Verdient durch Login, dem abschließen der Monats-Quest und neuen Scans in Geo-Zonen. Wird benötigt zum Freischalten von Anpassungen.
                           </p>
                         </div>
                       )}
@@ -2807,7 +2873,7 @@ function HomeContent() {
                           <p className={`text-xs leading-snug ${
                             isLightUi ? "text-stone-700" : "text-white/80"
                           }`}>
-                            Premiumwährung für besondere Shop-Inhalte und exklusive Anpassungen.
+                            Premiumwährung für besondere Anpassungen. Kann im Shop erworben und zukünftig durch besondere Aktionen verdient werden.
                           </p>
                         </div>
                       )}
