@@ -1,19 +1,64 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { signIn } from '@/api/authService';
 import { checkLegacyUser } from '@/api/migrationService';
 import { Mail, Lock, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+
+const SAVED_LOGIN_KEY = 'savedLoginCredentials';
+
+const readSavedCredentials = () => {
+  try {
+    const raw = localStorage.getItem(SAVED_LOGIN_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    if (!parsed?.email || !parsed?.password) return null;
+
+    return {
+      email: String(parsed.email),
+      password: String(parsed.password)
+    };
+  } catch {
+    return null;
+  }
+};
 
 export default function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberLogin, setRememberLogin] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showMigrationPrompt, setShowMigrationPrompt] = useState(false);
 
   const wasMigrated = searchParams.get('migrated') === 'true';
+
+  useEffect(() => {
+    const saved = readSavedCredentials();
+    if (!saved) return;
+
+    setEmail(saved.email);
+    setPassword(saved.password);
+    setRememberLogin(true);
+  }, []);
+
+  const persistCredentialsChoice = () => {
+    if (!rememberLogin) {
+      localStorage.removeItem(SAVED_LOGIN_KEY);
+      return;
+    }
+
+    localStorage.setItem(
+      SAVED_LOGIN_KEY,
+      JSON.stringify({
+        email,
+        password,
+        updatedAt: new Date().toISOString()
+      })
+    );
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -21,6 +66,7 @@ export default function Login() {
     setIsLoading(true);
 
     try {
+      persistCredentialsChoice();
       await signIn(email, password);
       navigate('/');
     } catch (err) {
@@ -127,6 +173,7 @@ export default function Login() {
                 placeholder="deine@email.de"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                autoComplete="username"
                 disabled={isLoading}
                 required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
@@ -144,6 +191,7 @@ export default function Login() {
                 placeholder="••••••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
                 disabled={isLoading}
                 required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
@@ -158,6 +206,17 @@ export default function Login() {
                 </button>
               </div>
             </div>
+
+            <label className="flex items-center gap-2 text-sm text-gray-700 select-none">
+              <input
+                type="checkbox"
+                checked={rememberLogin}
+                onChange={(e) => setRememberLogin(e.target.checked)}
+                disabled={isLoading}
+                className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+              />
+              Login-Daten speichern
+            </label>
 
             <button
               type="submit"
