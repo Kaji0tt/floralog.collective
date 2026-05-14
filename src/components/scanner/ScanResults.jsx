@@ -464,37 +464,6 @@ export default function ScanResults({
 
                   {/* Informations-Container - direkt unter dem Hauptcontainer */}
                   <div className="space-y-3 bg-black/30 backdrop-blur-md rounded-xl p-4 border border-[#f0e5a5]/20">
-                      {/* Herkunftsinformation */}
-                  {currentPlant.distribution && (
-                    <div className={`rounded-xl p-3 border ${
-                      currentPlant.is_european
-                        ? 'bg-gradient-to-br from-emerald-900/35 to-teal-950/40 border-emerald-300/30'
-                        : 'bg-gradient-to-br from-violet-900/30 to-indigo-950/40 border-violet-300/30'
-                    }`}>
-                      <h4 className="font-semibold text-stone-200 mb-1.5 flex items-center gap-2 text-sm">
-                        <span>🌍</span>
-                        <span>Herkunft</span>
-                        {currentPlant.distribution.source === 'gbif_species_distributions' && (
-                          <span className="text-xs text-stone-400 font-normal">(GBIF)</span>
-                        )}
-                      </h4>
-                      {currentPlant.is_european ? (
-                        <div>
-                          <p className="text-emerald-200 text-sm font-medium">Heimisch oder eingebürgert in Europa</p>
-                          {currentPlant.distribution.regions?.[0]?.countries?.length > 0 && (
-                            <p className="text-stone-300 text-xs mt-1">
-                              {currentPlant.distribution.regions[0].countries.slice(0, 5).map(c => c.code).join(' · ')}
-                            </p>
-                          )}
-                        </div>
-                      ) : (
-                        <div>
-                          <p className="text-red-300 text-sm font-medium">Nicht in Europa</p>
-                          <p className="text-stone-300 text-xs mt-1">Diese Pflanze ist in Europa nicht heimisch oder eingebürgert und kann nicht gespeichert werden.</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
 
                   {isBlockedResult ? (
                       <div className="bg-gradient-to-br from-orange-900/45 to-red-900/40 rounded-xl p-4 border border-orange-300/35 shadow-md">
@@ -545,6 +514,38 @@ export default function ScanResults({
                           </p>
                         </div>
                       }
+
+                      {/* Herkunftsinformation */}
+                      {currentPlant.distribution && (
+                        <div className={`rounded-xl p-3 border ${
+                          currentPlant.is_european
+                            ? 'bg-gradient-to-br from-emerald-900/35 to-teal-950/40 border-emerald-300/30'
+                            : 'bg-gradient-to-br from-violet-900/30 to-indigo-950/40 border-violet-300/30'
+                        }`}>
+                          <h4 className="font-semibold text-stone-200 mb-1.5 flex items-center gap-2 text-sm">
+                            <span>🌍</span>
+                            <span>Herkunft</span>
+                            {currentPlant.distribution.source === 'gbif_species_distributions' && (
+                              <span className="text-xs text-stone-400 font-normal">(GBIF)</span>
+                            )}
+                          </h4>
+                          {currentPlant.is_european ? (
+                            <div>
+                              <p className="text-emerald-200 text-sm font-medium">Heimisch oder eingebürgert in Europa</p>
+                              {currentPlant.distribution.regions?.[0]?.countries?.length > 0 && (
+                                <p className="text-stone-300 text-xs mt-1">
+                                  {currentPlant.distribution.regions[0].countries.slice(0, 5).map(c => c.code).join(' · ')}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <div>
+                              <p className="text-red-300 text-sm font-medium">Nicht in Europa</p>
+                              <p className="text-stone-300 text-xs mt-1">Diese Pflanze ist in Europa nicht heimisch oder eingebürgert und kann nicht gespeichert werden.</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                       </>
                       )}
 
