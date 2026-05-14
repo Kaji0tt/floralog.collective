@@ -5,6 +5,7 @@ import { upsertUserProfile } from "@/api/authService";
 import { executeMigration } from "@/api/migrationService";
 import { createUserNotification } from "@/api/notificationService";
 import { supabase } from "@/api/supabaseClient";
+import { sendFriendRequest } from "@/api/friendService";
 import {
   getRobotPlantDailyZones,
   listRobotPlantShopItems,
@@ -640,6 +641,39 @@ function HomeContent() {
       window.removeEventListener('userUpdated', handleUserUpdate);
     };
   }, []);
+
+  // Referral-Code aus localStorage verarbeiten, sobald User eingeloggt ist (einmalig)
+  useEffect(() => {
+    if (!user?.email) return;
+    const referralCode = localStorage.getItem('referral_code');
+    if (!referralCode) return;
+
+    const referrerEmail = decodeURIComponent(referralCode);
+    // Sofort löschen, um doppelte Verarbeitung zu verhindern
+    localStorage.removeItem('referral_code');
+
+    if (referrerEmail.toLowerCase() === user.email.toLowerCase()) return;
+
+    (async () => {
+      try {
+        // Referral-Eintrag anlegen
+        await Query.Referral.create({
+          referrer_email: referrerEmail,
+          referred_email: user.email,
+          status: "completed",
+        });
+      } catch (_e) {
+        // Duplikat oder andere Fehler ignorieren
+      }
+      try {
+        // Freundschaftsanfrage an den Werber senden
+        await sendFriendRequest(referrerEmail);
+        queryClient.invalidateQueries({ queryKey: ['pendingFriendRequests'] });
+      } catch (_e) {
+        // Anfrage existiert ggf. bereits
+      }
+    })();
+  }, [user?.email, queryClient]);
 
   useEffect(() => {
     if (!user?.email) return;

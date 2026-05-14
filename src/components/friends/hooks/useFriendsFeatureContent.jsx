@@ -503,8 +503,8 @@ export function useFriendsFeatureContent({
     mutationFn: async (email) => {
       // Erstelle Referral-Eintrag
       await Query.Referral.create({
-        invited_by: user.email,
-        invited_email: email,
+        referrer_email: user.email,
+        referred_email: email,
         status: "pending"
       });
       return email;
@@ -1853,41 +1853,37 @@ Viel Spaß beim Entdecken! 🌿`;
               <p className={`text-xs mb-3 ${!isLightUi ? "text-stone-400" : "text-stone-600"}`}>
                 Erstelle einen Einladungslink und teile ihn per WhatsApp, SMS oder E-Mail
               </p>
+            <div className={`rounded-xl border-2 p-4 ${!isLightUi ? "border-amber-500/40 bg-amber-500/10" : "border-amber-400/60 bg-amber-50"}`}>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">🌟</span>
+                <h3 className={`text-sm font-bold ${!isLightUi ? "text-amber-300" : "text-amber-800"}`}>Freunde einladen & Belohnungen sichern</h3>
+              </div>
+              <p className={`text-xs mb-3 leading-relaxed ${!isLightUi ? "text-amber-200/70" : "text-amber-700/80"}`}>
+                Lade Freunde ein und ihr werdet automatisch in der Freundesliste verbunden. Für geworbene Spielende winken exklusive Belohnungen!
+              </p>
               <Button
                 onClick={() => {
-                  // Erstelle Referral-Link
                   const referralCode = encodeURIComponent(user.email);
-                  const referralLink = `https://floralog.de?ref=${referralCode}`;
-                  
-                  // Erstelle Share-Text
-                  const shareText = `Hallo!
-
-${user.display_name || user.full_name} lädt dich zu Floralog ein! 🌱
-
-Floralog ist eine App zum Entdecken und Sammeln von Pflanzen. Scanne Pflanzen in deiner Umgebung, baue deine Sammlung auf und tausche dich mit Freunden aus!
-
-Starte jetzt: ${referralLink}
-
-Viel Spaß beim Entdecken! 🌿`;
-
-                  // Kopiere in Zwischenablage
+                  const referralLink = "https://floralog.de?ref=" + referralCode;
+                  const shareText = "Hallo!\n\n" + (user.display_name || user.full_name) + " lädt dich zu Floralog ein! 🌱\n\nFloralog ist eine App zum Entdecken und Sammeln von Pflanzen. Scanne Pflanzen in deiner Umgebung, baue deine Sammlung auf und tausche dich mit Freunden aus!\n\nStarte jetzt: " + referralLink + "\n\nViel Spaß beim Entdecken! 🌿";
                   if (navigator.clipboard) {
                     navigator.clipboard.writeText(shareText).then(() => {
-                      alert(`✅ Einladungstext wurde in die Zwischenablage kopiert!\n\nSende ihn per WhatsApp, SMS oder E-Mail!\n\nDein Referral-Link: ${referralLink}`);
+                      alert("✅ Einladungstext wurde in die Zwischenablage kopiert!\n\nSende ihn per WhatsApp, SMS oder E-Mail!\n\nDein Referral-Link: " + referralLink);
                       setShowAddFriendDialog(false);
                     }).catch(() => {
-                      alert(`✅ Dein Referral-Link: ${referralLink}\n\nKopiere ihn und teile ihn mit deinen Freunden!`);
+                      alert("✅ Dein Referral-Link: " + referralLink + "\n\nKopiere ihn und teile ihn mit deinen Freunden!");
                     });
                   } else {
-                    alert(`✅ Dein Referral-Link: ${referralLink}\n\nKopiere ihn und teile ihn mit deinen Freunden!`);
+                    alert("✅ Dein Referral-Link: " + referralLink + "\n\nKopiere ihn und teile ihn mit deinen Freunden!");
                   }
                 }}
+                className={`w-full font-semibold border-2 shadow-md transition-all duration-150 active:scale-95 ${!isLightUi ? "bg-amber-500/15 border-amber-400/60 text-amber-300 hover:bg-amber-500/30 hover:border-amber-400" : "bg-amber-50 border-amber-400 text-amber-800 hover:bg-amber-100 hover:border-amber-500"}`}
                 variant="outline"
-                className={`w-full border-2 ${!isLightUi ? "border-blue-700/60 text-blue-300 hover:bg-blue-900/20" : "border-blue-300 text-blue-700 hover:bg-blue-50"}`}
               >
-                <Share2 className="w-4 h-4 mr-2" />
+                <Share2 className="w-4 h-4 mr-2 flex-shrink-0" />
                 Einladungslink kopieren
               </Button>
+            </div>
             </div>
           </div>
         </DialogContent>
