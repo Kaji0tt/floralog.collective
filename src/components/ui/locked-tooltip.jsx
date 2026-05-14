@@ -13,7 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
  *  - content  – React nodes rendered inside the tooltip (tooltip is skipped when falsy)
  *  - children – single trigger element (e.g. a <button>)
  */
-const LockedTooltip = ({ children, content, unstyled = false }) => {
+const LockedTooltip = ({ children, content, unstyled = false, contentClassName = "" }) => {
   const [open, setOpen] = React.useState(false);
   // True while the tooltip is being kept open via a touch interaction.
   const isTouchOpen = React.useRef(false);
@@ -74,7 +74,7 @@ const LockedTooltip = ({ children, content, unstyled = false }) => {
   });
 
   const renderedContent = unstyled ? content : (
-    <div className="rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl border-amber-400/60 bg-white/88 text-stone-800 dark:border-amber-300/40 dark:bg-black/75 dark:text-white/90">
+    <div className={`rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl border-amber-400/60 bg-white/88 text-stone-800 dark:border-amber-300/40 dark:bg-black/75 dark:text-white/90 ${contentClassName}`}>
       {content}
     </div>
   );

@@ -88,7 +88,8 @@ export default function PlantHeroHealthPanel({
               }`}
             >
               <LockedTooltip
-                content={
+                  contentClassName={isLightUi ? "" : "text-white/90"}
+                  content={
                   <span className="text-xs leading-relaxed">
                     {HEALTH_TOOLTIP_TEXT[stat.id] || "Wert der Robopflanze"}
                   </span>

@@ -190,7 +190,10 @@ const AccessoryOptionCard = ({ option, user, isLightUi, isPending, onSelect }) =
   );
 
   return (
-    <LockedTooltip content={tooltipContent}>
+    <LockedTooltip
+      content={tooltipContent}
+      contentClassName={isLightUi ? "" : "text-white/90"}
+    >
       {buttonContent}
     </LockedTooltip>
   );

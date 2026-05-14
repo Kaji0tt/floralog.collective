@@ -1710,6 +1710,7 @@ function HomeContent() {
     knownNextScanMultiplier * noveltyMinMultiplier * rarityMinMultiplier;
   const nextScanMaxMultiplier =
     knownNextScanMultiplier * noveltyMaxMultiplier * rarityMaxMultiplier;
+  const securedNextScanMultiplier = nextScanMinMultiplier;
   const nextScanMinReward = Math.round((10 + healthStateBonus) * nextScanMinMultiplier);
   const nextScanMaxReward = Math.round((50 + healthStateBonus) * nextScanMaxMultiplier);
 
@@ -2527,12 +2528,12 @@ function HomeContent() {
                             <p className={`font-bold text-sm leading-tight mb-2 ${
                               isLightUi ? "text-amber-800" : "text-amber-300"
                             }`}>
-                              {formatMultiplier(knownNextScanMultiplier)}
+                              {formatMultiplier(securedNextScanMultiplier)}
                             </p>
                             <p className={`text-xs leading-snug ${
                               isLightUi ? "text-stone-700" : "text-white/80"
                             }`}>
-                              Berechnet aus Streak ({formatMultiplier(streakMultiplier)}), Zone ({formatMultiplier(zoneMultiplier)}), Pflege ({formatMultiplier(careMultiplier)}), Tagesbonus ({formatMultiplier(dailyBonusMultiplier)}) und Tiles ({formatMultiplier(claimedTileMultiplier)}).
+                              Mindestens gesichert aus Streak ({formatMultiplier(streakMultiplier)}), Zone ({formatMultiplier(zoneMultiplier)}), Pflege ({formatMultiplier(careMultiplier)}), Tagesbonus ({formatMultiplier(dailyBonusMultiplier)}), Tiles ({formatMultiplier(claimedTileMultiplier)}) und dem konservativen Scan-Minimum.
                             </p>
                           </div>
                         )}
@@ -2543,7 +2544,7 @@ function HomeContent() {
                           aria-label="Scan-Multiplikator Info"
                         >
                           <Zap className={`w-4 h-4 shrink-0 ${isLightUi ? "text-amber-700" : "text-amber-300"}`} />
-                          <span className="truncate">{formatMultiplier(knownNextScanMultiplier)}</span>
+                          <span className="truncate">{formatMultiplier(securedNextScanMultiplier)}</span>
                         </button>
                       </LockedTooltip>
                     </div>
