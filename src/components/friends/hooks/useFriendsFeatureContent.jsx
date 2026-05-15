@@ -1297,6 +1297,7 @@ Viel Spaß beim Entdecken! 🌿`;
                   </p>
                 </div>
               ) : (
+                <>
                 <section className={`${sectionSurfaceClass} p-4 md:p-5`}>
                   <div className="flex flex-col gap-3 mb-4 md:flex-row md:items-start md:justify-between">
                     <div>
@@ -1440,6 +1441,7 @@ Viel Spaß beim Entdecken! 🌿`;
                   <Loader2 className="w-5 h-5 animate-spin" />
                 </div>
               )}
+                </>
               )}
             </motion.div>
           </TabsContent>

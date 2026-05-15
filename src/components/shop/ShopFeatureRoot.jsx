@@ -1046,6 +1046,20 @@ export default function ShopFeatureRoot({
           </DialogHeader>
 
           <div className="space-y-3">
+            {purchaseConfirmOption?.imageUrl && (
+              <div className={`mx-auto flex h-28 w-28 items-center justify-center rounded-2xl border p-2 ${
+                isLightUi
+                  ? "border-[#c8ac62]/40 bg-white"
+                  : "border-[#f0e5a5]/35 bg-black/30"
+              }`}>
+                <img
+                  src={purchaseConfirmOption.imageUrl}
+                  alt={purchaseConfirmOption?.label || "Accessoire Vorschau"}
+                  className="h-full w-full object-contain"
+                />
+              </div>
+            )}
+
             <p className={`text-sm ${isLightUi ? "text-stone-700" : "text-stone-200"}`}>
               Möchtest du <span className="font-semibold">{purchaseConfirmOption?.label || "dieses Accessoire"}</span> für <span className="font-semibold">{purchaseDialogSparkPrice} Funken</span> kaufen?
             </p>
@@ -1075,7 +1089,7 @@ export default function ShopFeatureRoot({
                 onClick={handleConfirmAccessoryPurchase}
                 className={`h-9 rounded-lg border px-3 text-xs font-semibold whitespace-nowrap disabled:opacity-60 ${isLightUi ? "border-[#c8ac62]/50 bg-[#f4e7bf] text-stone-800 hover:bg-[#f7edd0]" : "border-[#f0e5a5]/40 bg-[#4f4826] text-[#f7f0c1] hover:bg-[#5a512b]"}`}
               >
-                {purchaseAccessoryMutation.isPending ? "Kaufe..." : "Für Funken freischalten"}
+                {purchaseAccessoryMutation.isPending ? "Kaufe..." : "Freischalten"}
               </button>
             </div>
           </div>
