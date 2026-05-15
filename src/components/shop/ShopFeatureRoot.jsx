@@ -152,6 +152,7 @@ const AccessoryOptionCard = ({ option, user, isLightUi, isPending, onSelect }) =
   const isActive = getAccessorySelectionState(user, option);
   const isLocked = Boolean(option?.isLocked);
   const isPurchasable = isLocked && Boolean(option?.isPurchasable) && Number(option?.sparkPrice || 0) > 0;
+  const isFaceAccessory = option?.profileField === "selected_face_asset" || String(option?.value || "").startsWith("face_");
   const unlockCondition = option?.unlockCondition;
   const sparkPrice = Math.max(0, Number(option?.sparkPrice || 0));
   const tooltipContent = isLocked
@@ -166,7 +167,12 @@ const AccessoryOptionCard = ({ option, user, isLightUi, isPending, onSelect }) =
       className={`relative overflow-hidden rounded-2xl border text-left transition-all duration-200 disabled:opacity-60 ${isLocked ? "cursor-help" : ""} ${getBackgroundButtonStyle({ isActive, isLightUi })}`}
     >
       <div className="aspect-square w-full p-2">
-        <img src={option.imageUrl} alt={option.label} className="h-full w-full object-contain" />
+        <img
+          src={option.imageUrl}
+          alt={option.label}
+          className="h-full w-full object-contain"
+          style={isFaceAccessory ? { transform: "translateY(-28%) scale(1.4)", transformOrigin: "center center" } : undefined}
+        />
       </div>
       {isLocked && <div className="absolute inset-0 bg-black/45" />}
       <div className={`absolute inset-0 ${isActive ? (isLightUi ? "bg-white/10" : "bg-black/10") : "bg-transparent"}`} />
