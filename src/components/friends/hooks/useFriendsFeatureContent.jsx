@@ -59,7 +59,9 @@ const getAverageColor = (imageUrl) => {
   });
 };
 
-const MAX_EXPLORER_DISCOVERIES = 100;
+const MAX_EXPLORER_DISCOVERIES = 200;
+const EXPLORER_BATCH_SIZE = 10;
+const EXPLORER_PREFETCH_REMAINING = 5;
 
 export function useFriendsFeatureContent({
   embedded = false,
@@ -78,6 +80,8 @@ export function useFriendsFeatureContent({
   const [averageColor, setAverageColor] = useState(null);
   const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "explorer");
   const [explorerAudienceFilter, setExplorerAudienceFilter] = useState("all");
+  const [visibleExplorerCount, setVisibleExplorerCount] = useState(EXPLORER_BATCH_SIZE);
+  const explorerSentinelRef = useRef(null);
   const [newsFilter, setNewsFilter] = useState("activities");
   const [expandedNewsIds, setExpandedNewsIds] = useState(new Set());
   const [showAddFriendDialog, setShowAddFriendDialog] = useState(false);
@@ -93,6 +97,11 @@ export function useFriendsFeatureContent({
       setShowAddFriendDialog(true);
     }
   }, [embedded, openAddFriendDialogNonce]);
+
+  // Sichtbare Einträge zurücksetzen wenn Filter wechselt
+  useEffect(() => {
+    setVisibleExplorerCount(EXPLORER_BATCH_SIZE);
+  }, [explorerAudienceFilter]);
 
   useEffect(() => {
     const allowedTabs = new Set(["friends", "news", "explorer"]);
@@ -187,12 +196,13 @@ export function useFriendsFeatureContent({
 
   // Lade alle Discoveries - mit höherem Limit
   const { data: allDiscoveries = [] } = useQuery({
-    queryKey: ['allDiscoveries'],
+    queryKey: ['explorerDiscoveries', MAX_EXPLORER_DISCOVERIES],
     queryFn: async () => {
       const discoveries = await Query.UserPlantDiscovery.list('-created_date', MAX_EXPLORER_DISCOVERIES);
       console.log("📊 Geladene Discoveries:", discoveries.length);
       return discoveries;
-    }
+    },
+    staleTime: 60 * 1000,
   });
 
   const { data: adminNews = [] } = useQuery({
@@ -1011,6 +1021,34 @@ Viel Spaß beim Entdecken! 🌿`;
     });
   });
 
+  const hasMoreExplorerEntries = visibleExplorerCount < explorerLogEntries.length;
+  const visibleExplorerEntries = explorerLogEntries.slice(0, visibleExplorerCount);
+  const explorerPrefetchIndex = hasMoreExplorerEntries
+    ? Math.max(0, visibleExplorerEntries.length - EXPLORER_PREFETCH_REMAINING)
+    : -1;
+
+  useEffect(() => {
+    if (activeTab !== "explorer" || !hasMoreExplorerEntries) return;
+
+    const sentinel = explorerSentinelRef.current;
+    if (!sentinel) return;
+
+    let didTrigger = false;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0]?.isIntersecting || didTrigger) return;
+        didTrigger = true;
+        setVisibleExplorerCount((prev) =>
+          Math.min(prev + EXPLORER_BATCH_SIZE, explorerLogEntries.length)
+        );
+      },
+      { rootMargin: "0px 0px 200px 0px" }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [activeTab, explorerLogEntries.length, hasMoreExplorerEntries, visibleExplorerCount]);
+
   const friendCards = friends
     .map((friendEntry) => ({
       friend: friendEntry,
@@ -1310,9 +1348,10 @@ Viel Spaß beim Entdecken! 🌿`;
                   </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {explorerLogEntries.map((entry, index) => (
+                  {visibleExplorerEntries.map((entry, index) => (
                     <motion.div
                       key={entry.id}
+                      ref={index === explorerPrefetchIndex ? explorerSentinelRef : null}
                       initial={{ opacity: 0, scale: 0.94 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: index * 0.02 }}
@@ -1396,6 +1435,11 @@ Viel Spaß beim Entdecken! 🌿`;
                   ))}
                 </div>
                 </section>
+              {hasMoreExplorerEntries && (
+                <div className={`flex justify-center py-3 ${isLightUi ? "text-stone-400" : "text-stone-500"}`}>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                </div>
+              )}
               )}
             </motion.div>
           </TabsContent>
@@ -1441,9 +1485,9 @@ Viel Spaß beim Entdecken! 🌿`;
                   <div className="flex items-center justify-between gap-3 mb-4">
                     <div
                       className={
-                        `inline-flex rounded-full border p-1 ${isLightUi
-                          ? "border-[#d9c48a]/60 bg-[#f8f1dc]/85"
-                          : "border-[#f0e5a5]/30 bg-black/30"}`
+                          `inline-flex rounded-full border p-1 ${isLightUi
+                            ? "border-[#d9c48a]/60 bg-[#f8f1dc]/85"
+                            : "border-[#f0e5a5]/30 bg-black/30"}`
                       }
                     >
                       {[
@@ -1527,6 +1571,11 @@ Viel Spaß beim Entdecken! 🌿`;
                                       </div>
                                       <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""} ${mutedTextClass}`} />
                                     </div>
+                                    {newsItem.notification_type === 'friend_achievement' && (
+                                      <p className={`text-xs mt-0.5 truncate ${mutedTextClass}`}>
+                                        {actor.name}{newsItem.description ? ` · ${newsItem.description}` : ''}
+                                      </p>
+                                    )}
                                     <p className={`text-[10px] mt-1 ${faintTextClass}`}>
                                       {formatDistanceToNow(new Date(newsItem.created_date || newsItem.created_at || new Date().toISOString()), {
                                         addSuffix: true,

@@ -131,7 +131,7 @@ export async function checkAndUnlockAchievements(user) {
           actorUser: user,
           notificationType: "friend_achievement",
           title: "🏆 Neuer Freundes-Erfolg",
-          message: `${user.display_name || user.full_name || user.email} hat einen neuen Erfolg freigeschaltet!`,
+          message: `${user.display_name || user.full_name || user.email} hat den Erfolg „${achievement.title}" freigeschaltet!`,
           description: achievement.title || "",
           actionUrl: `FriendAchievements?email=${encodeURIComponent(user.email)}`,
         });
@@ -206,7 +206,7 @@ export async function checkAndUnlockAchievements(user) {
           actorUser: user,
           notificationType: "friend_achievement",
           title: "🏆 Neuer Freundes-Erfolg",
-          message: `${user.display_name || user.full_name || user.email} hat einen neuen Erfolg freigeschaltet!`,
+          message: `${user.display_name || user.full_name || user.email} hat den Erfolg „${achievement.title}" freigeschaltet!`,
           description: achievement.title || "",
           actionUrl: `FriendAchievements?email=${encodeURIComponent(user.email)}`,
         });

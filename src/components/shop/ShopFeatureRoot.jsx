@@ -4,6 +4,7 @@ import { Sparkles, Loader2, RefreshCw, Image as ImageIcon, BadgeCheck, PaintBuck
 import { HexColorPicker } from "react-colorful";
 import { Query } from "@/api/entities";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
+import { getUserWallet, grantWalletCurrency } from "@/api/walletService";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
@@ -46,6 +47,8 @@ const CATEGORY_META = {
     emptyLabel: "Noch keine Accessoires verfuegbar.",
   },
 };
+
+const ACCESSORY_PURCHASABLE_REWARD_TYPES = new Set(["logo_accessory", "accessory"]);
 
 const getBackgroundSelectionState = (user, option) => {
   if (!option) return false;
@@ -148,9 +151,11 @@ const getAccessorySelectionState = (user, option) => {
 const AccessoryOptionCard = ({ option, user, isLightUi, isPending, onSelect }) => {
   const isActive = getAccessorySelectionState(user, option);
   const isLocked = Boolean(option?.isLocked);
+  const isPurchasable = isLocked && Boolean(option?.isPurchasable) && Number(option?.sparkPrice || 0) > 0;
   const unlockCondition = option?.unlockCondition;
+  const sparkPrice = Math.max(0, Number(option?.sparkPrice || 0));
   const tooltipContent = isLocked
-    ? (unlockCondition || "Freischaltung noch nicht erreicht.")
+    ? (isPurchasable ? `${sparkPrice} Funken` : (unlockCondition || "Freischaltung noch nicht erreicht."))
     : null;
 
   const buttonContent = (
@@ -174,14 +179,18 @@ const AccessoryOptionCard = ({ option, user, isLightUi, isPending, onSelect }) =
           <div className="flex items-center justify-between gap-2">
             <span className="truncate text-xs font-semibold">{option.label}</span>
             {isLocked ? (
-              <Lock className={`h-3.5 w-3.5 shrink-0 ${isLightUi ? "text-stone-600" : "text-stone-200/90"}`} />
+              isPurchasable ? (
+                <Sparkles className={`h-3.5 w-3.5 shrink-0 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+              ) : (
+                <Lock className={`h-3.5 w-3.5 shrink-0 ${isLightUi ? "text-stone-600" : "text-stone-200/90"}`} />
+              )
             ) : (
               isActive && <BadgeCheck className={`h-3.5 w-3.5 shrink-0 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
             )}
           </div>
           {isLocked && (
             <div className={`mt-1 text-[10px] ${isLightUi ? "text-stone-600" : "text-stone-300/80"}`}>
-              Noch gesperrt
+              {isPurchasable ? `${sparkPrice} Funken` : "Noch gesperrt"}
             </div>
           )}
         </div>
@@ -421,6 +430,7 @@ export default function ShopFeatureRoot({
 
   const [shopCategory, setShopCategory] = useState(initialCategory);
   const [shopMessage, setShopMessage] = useState(null);
+  const [purchaseConfirmOption, setPurchaseConfirmOption] = useState(null);
 
   const { data: fallbackUser = null } = useQuery({
     queryKey: ["shopCurrentUser"],
@@ -469,6 +479,15 @@ export default function ShopFeatureRoot({
     queryFn: () => Query.UserReward.filter({ auth_id: resolvedAuthId }),
     enabled: !!resolvedAuthId,
     staleTime: Infinity,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
+
+  const { data: userWallet = null, isPending: isUserWalletPending, refetch: refetchUserWallet } = useQuery({
+    queryKey: ["userWallet", resolvedAuthId],
+    queryFn: () => getUserWallet(resolvedAuthId),
+    enabled: !!resolvedAuthId,
+    staleTime: 30 * 1000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
@@ -532,6 +551,130 @@ export default function ShopFeatureRoot({
     },
   });
 
+  const purchaseAccessoryMutation = useMutation({
+    mutationFn: async (option) => {
+      if (!resolvedAuthId) {
+        throw new Error("Nutzerkontext nicht gefunden.");
+      }
+
+      const sparkPrice = Math.max(0, Math.round(Number(option?.sparkPrice || 0)));
+      if (!option?.isPurchasable || sparkPrice <= 0) {
+        throw new Error("Dieses Accessoire ist nicht kaufbar.");
+      }
+
+      const currentWallet = await getUserWallet(resolvedAuthId);
+      const sparksBalance = Math.max(0, Number(currentWallet?.sparks_balance ?? 0));
+      if (sparksBalance < sparkPrice) {
+        return {
+          applied: false,
+          errorCode: "insufficient_sparks",
+          sparksBalance,
+          sparkPrice,
+        };
+      }
+
+      const matchingReward = (Array.isArray(rewards) ? rewards : []).find((reward) => {
+        const rewardType = String(reward?.type || reward?.reward_type || reward?.kind || "").trim().toLowerCase();
+        return ACCESSORY_PURCHASABLE_REWARD_TYPES.has(rewardType) && String(reward?.value || "").trim() === String(option?.value || "").trim();
+      });
+
+      if (!matchingReward?.id) {
+        return {
+          applied: false,
+          errorCode: "reward_not_configured",
+        };
+      }
+
+      const alreadyOwned = (Array.isArray(userRewards) ? userRewards : []).some((entry) => entry?.reward_id === matchingReward.id);
+      if (alreadyOwned) {
+        return {
+          applied: true,
+          alreadyOwned: true,
+          sparksBalance,
+        };
+      }
+
+      const eventReference = `shop-accessory:${String(option.value)}:${Date.now()}`;
+      const debitResult = await grantWalletCurrency({
+        authId: resolvedAuthId,
+        currencyCode: "sparks",
+        eventSource: "shop_accessory_purchase",
+        eventReference,
+        amount: sparkPrice,
+        direction: "debit",
+        metadata: {
+          source: "profile_shop",
+          accessory_id: String(option.value),
+          reward_id: matchingReward.id,
+          spark_price: sparkPrice,
+        },
+      });
+
+      try {
+        await Query.UserReward.create({
+          reward_id: matchingReward.id,
+          reward_name: matchingReward.display_name || matchingReward.name || matchingReward.value || String(option.value),
+          auth_id: resolvedAuthId,
+          user_email: currentUser?.email || fallbackUser?.email || null,
+          user_name: currentUser?.display_name || currentUser?.full_name || fallbackUser?.display_name || fallbackUser?.full_name || currentUser?.email || fallbackUser?.email || null,
+          unlocked_date: new Date().toISOString(),
+        });
+      } catch (createError) {
+        try {
+          await grantWalletCurrency({
+            authId: resolvedAuthId,
+            currencyCode: "sparks",
+            eventSource: "shop_accessory_purchase_refund",
+            eventReference,
+            amount: sparkPrice,
+            direction: "credit",
+            metadata: {
+              source: "profile_shop",
+              accessory_id: String(option.value),
+              reason: "user_reward_create_failed",
+            },
+          });
+        } catch (_refundError) {
+          // Intentionally ignored: purchase error is returned and can be retried.
+        }
+
+        throw createError;
+      }
+
+      return {
+        applied: true,
+        alreadyOwned: false,
+        sparksBalance: Math.max(0, Number(debitResult?.sparks_balance ?? sparksBalance - sparkPrice)),
+      };
+    },
+    onSuccess: async (result) => {
+      if (!result?.applied) {
+        if (result?.errorCode === "insufficient_sparks") {
+          setShopMessage(`Nicht genug Funken. Benötigt: ${result.sparkPrice}, verfügbar: ${result.sparksBalance}.`);
+        } else if (result?.errorCode === "reward_not_configured") {
+          setShopMessage("Dieses Accessoire kann aktuell nicht gekauft werden.");
+        } else {
+          setShopMessage("Kauf konnte nicht abgeschlossen werden.");
+        }
+      } else if (result?.alreadyOwned) {
+        setShopMessage("Dieses Accessoire ist bereits freigeschaltet.");
+      } else {
+        setShopMessage("Accessoire gekauft. Du kannst es jetzt ausrüsten.");
+      }
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["userRewards", resolvedAuthId] }),
+        queryClient.invalidateQueries({ queryKey: ["userWallet", resolvedAuthId] }),
+        refetchUserRewards(),
+        refetchUserWallet(),
+      ]);
+    },
+    onError: (error) => {
+      const message = String(error?.message || "").trim();
+      setShopMessage(message ? `Kauf fehlgeschlagen: ${message}` : "Kauf fehlgeschlagen.");
+    },
+  });
+
   const handleSelectBackground = async (option) => {
     setShopMessage(null);
 
@@ -571,7 +714,12 @@ export default function ShopFeatureRoot({
   const handleSelectAccessory = async (option) => {
     if (!option?.profileField) return;
     if (option?.isLocked) {
-      setShopMessage("Dieses Accessoire ist noch gesperrt.");
+      if (option?.isPurchasable && Number(option?.sparkPrice || 0) > 0) {
+        setShopMessage(null);
+        setPurchaseConfirmOption(option);
+      } else {
+        setShopMessage("Dieses Accessoire ist noch gesperrt.");
+      }
       return;
     }
     setShopMessage(null);
@@ -594,10 +742,33 @@ export default function ShopFeatureRoot({
   };
 
   const isAuthResolving = !resolvedAuthId;
-  const isLoading = isAuthResolving || isDiscoveriesPending || isAchievementsPending || isUserAchievementsPending || isRewardsPending || isUserRewardsPending || isLogoAssetsPending;
+  const isLoading = isAuthResolving || isDiscoveriesPending || isAchievementsPending || isUserAchievementsPending || isRewardsPending || isUserRewardsPending || isLogoAssetsPending || isUserWalletPending;
   const resolvedCurrentUser = currentUser || fallbackUser || (authId ? { id: authId } : null);
+  const availableSparks = Math.max(0, Number(userWallet?.sparks_balance ?? 0));
+  const purchaseDialogSparkPrice = Math.max(0, Number(purchaseConfirmOption?.sparkPrice ?? 0));
+  const canAffordPurchaseDialogOption = availableSparks >= purchaseDialogSparkPrice;
   const resolvedCurrentTitle = resolveTitleValue(resolvedCurrentUser?.selected_title, resolvedCurrentUser?.title) || "Pflanzen-Entdecker";
-  const isMutationPending = updateCustomizationMutation.isPending;
+  const isMutationPending = updateCustomizationMutation.isPending || purchaseAccessoryMutation.isPending;
+
+  const handleClosePurchaseDialog = () => {
+    if (purchaseAccessoryMutation.isPending) return;
+    setPurchaseConfirmOption(null);
+  };
+
+  const handleConfirmAccessoryPurchase = async () => {
+    if (!purchaseConfirmOption || purchaseAccessoryMutation.isPending) return;
+    if (!canAffordPurchaseDialogOption) {
+      setShopMessage(`Nicht genug Funken. Benötigt: ${purchaseDialogSparkPrice}, verfügbar: ${availableSparks}.`);
+      return;
+    }
+
+    try {
+      await purchaseAccessoryMutation.mutateAsync(purchaseConfirmOption);
+      setPurchaseConfirmOption(null);
+    } catch (_error) {
+      // Die Fehlermeldung wird in onError/onSuccess gesetzt.
+    }
+  };
 
   const tabsHeaderClass = embedded
     ? `sticky top-0 z-40 backdrop-blur-sm border-b ${isLightUi ? "bg-white/70 border-[#b99a48]/30" : "bg-black/20 border-[#f0e5a5]/20"}`
@@ -620,6 +791,7 @@ export default function ShopFeatureRoot({
       refetchRewards(),
       refetchUserRewards(),
       refetchLogoAssets(),
+      refetchUserWallet(),
     ]);
   };
 
@@ -761,6 +933,9 @@ export default function ShopFeatureRoot({
                     <div className={`mt-1 text-xs ${isLightUi ? "text-stone-500" : "text-stone-300/75"}`}>
                       Gesicht, Pflanze und Rahmen koennen getrennt ausgeruestet werden.
                     </div>
+                    <div className={`mt-1 text-xs font-medium ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}>
+                      Verfügbare Funken: {availableSparks}
+                    </div>
                   </div>
                   <button
                     type="button"
@@ -859,6 +1034,53 @@ export default function ShopFeatureRoot({
           )}
         </div>
       </div>
+
+      <Dialog open={Boolean(purchaseConfirmOption)} onOpenChange={(open) => {
+        if (!open) handleClosePurchaseDialog();
+      }}>
+        <DialogContent className={`max-w-[min(92vw,25rem)] rounded-2xl ${isLightUi ? "border-[#c8ac62]/45 bg-white" : "border-[#f0e5a5]/35 bg-[#1a1d1a]"}`}>
+          <DialogHeader>
+            <DialogTitle className={`${isLightUi ? "text-stone-900" : "text-stone-100"}`}>
+              Accessoire freischalten?
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <p className={`text-sm ${isLightUi ? "text-stone-700" : "text-stone-200"}`}>
+              Möchtest du <span className="font-semibold">{purchaseConfirmOption?.label || "dieses Accessoire"}</span> für <span className="font-semibold">{purchaseDialogSparkPrice} Funken</span> kaufen?
+            </p>
+
+            <div className={`rounded-lg border px-3 py-2 text-xs ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50 text-stone-700" : "border-[#f0e5a5]/25 bg-black/25 text-stone-200"}`}>
+              Verfügbare Funken: <span className="font-semibold">{availableSparks}</span>
+            </div>
+
+            {!canAffordPurchaseDialogOption && (
+              <div className={`rounded-lg border px-3 py-2 text-xs ${isLightUi ? "border-red-200 bg-red-50 text-red-700" : "border-red-500/35 bg-red-900/25 text-red-200"}`}>
+                Du hast nicht genug Funken für diesen Kauf.
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                disabled={purchaseAccessoryMutation.isPending}
+                onClick={handleClosePurchaseDialog}
+                className={`h-9 rounded-lg border px-3 text-xs font-semibold whitespace-nowrap disabled:opacity-60 ${isLightUi ? "border-[#c8ac62]/45 bg-white/70 text-stone-700 hover:bg-white" : "border-[#f0e5a5]/25 bg-black/30 text-stone-200 hover:bg-black/50"}`}
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                disabled={purchaseAccessoryMutation.isPending || !canAffordPurchaseDialogOption}
+                onClick={handleConfirmAccessoryPurchase}
+                className={`h-9 rounded-lg border px-3 text-xs font-semibold whitespace-nowrap disabled:opacity-60 ${isLightUi ? "border-[#c8ac62]/50 bg-[#f4e7bf] text-stone-800 hover:bg-[#f7edd0]" : "border-[#f0e5a5]/40 bg-[#4f4826] text-[#f7f0c1] hover:bg-[#5a512b]"}`}
+              >
+                {purchaseAccessoryMutation.isPending ? "Kaufe..." : "Für Funken freischalten"}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

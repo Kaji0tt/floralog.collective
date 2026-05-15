@@ -1,6 +1,11 @@
 import { LOGO_ACCESSORY_SECTIONS } from "@/lib/logoAccessoryAssets";
 
 const LOGO_ACCESSORY_REWARD_TYPES = new Set(["logo_accessory", "accessory"]);
+const ACCESSORY_SPARK_SHOP_PRICES = new Map([
+  ["face_sus", 10],
+  ["face_annoyed", 10],
+  ["face_v", 10],
+]);
 
 const COLOR_ROWS = [
   {
@@ -254,6 +259,16 @@ const getAccessoryUnlockCondition = (accessoryId, rewards = []) => {
   return conditions.length > 0 ? conditions[0] : null;
 };
 
+const getAccessoryPurchaseMeta = (accessoryId) => {
+  const sparkPrice = Number(ACCESSORY_SPARK_SHOP_PRICES.get(accessoryId) || 0);
+  if (!Number.isFinite(sparkPrice) || sparkPrice <= 0) return null;
+
+  return {
+    isPurchasable: true,
+    sparkPrice,
+  };
+};
+
 const buildFallbackAccessorySections = ({ rewardUnlockedIds = new Set(), rewards = [] } = {}) => {
   return LOGO_ACCESSORY_SECTIONS.map((section) => ({
     key: section.key,
@@ -264,10 +279,12 @@ const buildFallbackAccessorySections = ({ rewardUnlockedIds = new Set(), rewards
       const isDefaultUnlocked = ["border_original", "plant_leaf", "plant_legacy", "face_original"].includes(option.value);
       const isUnlocked = isDefaultUnlocked || rewardUnlockedIds.has(option.value);
       const unlockCondition = !isUnlocked ? getAccessoryUnlockCondition(option.value, rewards) : null;
+      const purchaseMeta = !isUnlocked ? getAccessoryPurchaseMeta(option.value) : null;
       return {
         ...option,
         isLocked: !isUnlocked,
         unlockCondition,
+        ...(purchaseMeta || {}),
       };
     }),
   }));
@@ -295,6 +312,7 @@ export const getAccessorySections = ({ logoAssets = [], rewards = [], userReward
     const isDefaultUnlocked = Boolean(asset?.default_unlocked);
     const isUnlocked = isDefaultUnlocked || rewardUnlockedIds.has(assetId);
     const unlockCondition = !isUnlocked ? getAccessoryUnlockCondition(assetId, rewards) : null;
+    const purchaseMeta = !isUnlocked ? getAccessoryPurchaseMeta(assetId) : null;
 
     grouped[assetType].push({
       id: assetId,
@@ -305,6 +323,7 @@ export const getAccessorySections = ({ logoAssets = [], rewards = [], userReward
       type: "accessory",
       isLocked: !isUnlocked,
       unlockCondition,
+      ...(purchaseMeta || {}),
     });
   }
 

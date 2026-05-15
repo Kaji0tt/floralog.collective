@@ -602,6 +602,7 @@ function HomeContent() {
     queryClient.refetchQueries({ queryKey: ['pendingFriendRequests'] });
     queryClient.refetchQueries({ queryKey: ['friendsUnreadNewsCount'] });
     queryClient.refetchQueries({ queryKey: ['allDiscoveries'] });
+    queryClient.refetchQueries({ queryKey: ['explorerDiscoveries'] });
     queryClient.refetchQueries({ queryKey: ['robotPlantState'] });
     queryClient.refetchQueries({ queryKey: ['userWallet'] });
     
@@ -630,6 +631,7 @@ function HomeContent() {
       queryClient.refetchQueries({ queryKey: ['pendingFriendRequests'] });
       queryClient.refetchQueries({ queryKey: ['friendsUnreadNewsCount'] });
       queryClient.refetchQueries({ queryKey: ['allDiscoveries'] });
+      queryClient.refetchQueries({ queryKey: ['explorerDiscoveries'] });
       queryClient.refetchQueries({ queryKey: ['robotPlantState'] });
       queryClient.refetchQueries({ queryKey: ['userWallet'] });
     };
