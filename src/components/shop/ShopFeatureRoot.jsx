@@ -49,8 +49,8 @@ const CATEGORY_META = {
 };
 
 const ACCESSORY_PURCHASABLE_REWARD_TYPES = new Set(["logo_accessory", "accessory"]);
-const ACCESSORY_GRID_COLUMNS = 4;
-const ACCESSORY_GRID_ROWS = 4;
+const ACCESSORY_GRID_COLUMNS = 2;
+const ACCESSORY_GRID_ROWS = 2;
 const ACCESSORY_GRID_PAGE_SIZE = ACCESSORY_GRID_COLUMNS * ACCESSORY_GRID_ROWS;
 
 const chunkIntoAccessoryPages = (options) => {
@@ -445,10 +445,10 @@ const AccessoryPagedGrid = ({ options, user, isLightUi, isPending, onSelect }) =
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
         <div className={`text-[11px] ${isLightUi ? "text-stone-500" : "text-stone-300/75"}`}>
-          4x4 Ansicht pro Seite
+          2x2 Ansicht pro Seite
         </div>
         <div className={`inline-flex items-center gap-1 text-[11px] font-medium ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}>
-          <span>{hasOverflow ? "Nach rechts scrollen" : "Kompakte 4x4 Ansicht"}</span>
+          <span>{hasOverflow ? "Nach rechts scrollen" : "Kompakte 2x2 Ansicht"}</span>
           {hasOverflow && <ArrowRight className="h-3.5 w-3.5" />}
         </div>
       </div>
@@ -460,7 +460,7 @@ const AccessoryPagedGrid = ({ options, user, isLightUi, isPending, onSelect }) =
 
             return (
               <div key={`accessory-page-${pageIndex}`} className="min-w-full snap-start">
-                <div className="grid grid-cols-4 gap-2 md:gap-3">
+                <div className="grid grid-cols-2 gap-2 md:gap-3">
                   {pageOptions.map((option) => (
                     <AccessoryOptionCard
                       key={option.id}
