@@ -59,6 +59,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { useAuth } from "@/lib/AuthContext";
+import { resolveReferralEmail } from "@/lib/referralCode";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 import { resolveTitleValue } from "@/lib/profileCustomizationOptions";
 import { hexToFilter } from "@/lib/hexToFilter";
@@ -650,9 +651,11 @@ function HomeContent() {
     const referralCode = localStorage.getItem('referral_code');
     if (!referralCode) return;
 
-    const referrerEmail = decodeURIComponent(referralCode);
+    const referrerEmail = resolveReferralEmail(referralCode);
     // Sofort löschen, um doppelte Verarbeitung zu verhindern
     localStorage.removeItem('referral_code');
+
+    if (!referrerEmail) return;
 
     if (referrerEmail.toLowerCase() === user.email.toLowerCase()) return;
 

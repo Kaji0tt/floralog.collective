@@ -22,6 +22,7 @@ import MobileBackButton from "@/components/navigation/MobileBackButton";
 import { formatDistanceToNow } from "date-fns";
 import { de } from "date-fns/locale";
 import { useUiTheme } from "@/lib/UiThemeContext";
+import { encodeReferralCode } from "@/lib/referralCode";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 
@@ -522,8 +523,8 @@ export function useFriendsFeatureContent({
     onSuccess: (email) => {
       queryClient.invalidateQueries({ queryKey: ['referrals'] });
       
-      // Erstelle Referral-Link mit User-Email als Code
-      const referralCode = encodeURIComponent(user.email);
+      // Erstelle Referral-Link mit verschleiertem Referral-Code
+      const referralCode = encodeReferralCode(user.email);
       const referralLink = `https://floralog.de?ref=${referralCode}`;
       
       // Erstelle Share-Text
@@ -1914,7 +1915,7 @@ Viel Spaß beim Entdecken! 🌿`;
               </p>
               <Button
                 onClick={() => {
-                  const referralCode = encodeURIComponent(user.email);
+                  const referralCode = encodeReferralCode(user.email);
                   const referralLink = "https://floralog.de?ref=" + referralCode;
                   const shareText = "Hallo!\n\n" + (user.display_name || user.full_name) + " lädt dich zu Floralog ein! 🌱\n\nFloralog ist eine App zum Entdecken und Sammeln von Pflanzen. Scanne Pflanzen in deiner Umgebung, baue deine Sammlung auf und tausche dich mit Freunden aus!\n\nStarte jetzt: " + referralLink + "\n\nViel Spaß beim Entdecken! 🌿";
                   if (navigator.clipboard) {

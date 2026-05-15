@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Sparkles, Loader2, RefreshCw, Image as ImageIcon, BadgeCheck, PaintBucket, Lock } from "lucide-react";
+import { Sparkles, Loader2, RefreshCw, Image as ImageIcon, BadgeCheck, PaintBucket, Lock, ArrowRight } from "lucide-react";
 import { HexColorPicker } from "react-colorful";
 import { Query } from "@/api/entities";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
@@ -49,6 +49,20 @@ const CATEGORY_META = {
 };
 
 const ACCESSORY_PURCHASABLE_REWARD_TYPES = new Set(["logo_accessory", "accessory"]);
+const ACCESSORY_GRID_COLUMNS = 4;
+const ACCESSORY_GRID_ROWS = 4;
+const ACCESSORY_GRID_PAGE_SIZE = ACCESSORY_GRID_COLUMNS * ACCESSORY_GRID_ROWS;
+
+const chunkIntoAccessoryPages = (options) => {
+  const source = Array.isArray(options) ? options : [];
+  if (source.length === 0) return [];
+
+  const pages = [];
+  for (let index = 0; index < source.length; index += ACCESSORY_GRID_PAGE_SIZE) {
+    pages.push(source.slice(index, index + ACCESSORY_GRID_PAGE_SIZE));
+  }
+  return pages;
+};
 
 const getBackgroundSelectionState = (user, option) => {
   if (!option) return false;
@@ -419,6 +433,59 @@ const SectionCard = ({ title, icon: Icon, children, isLightUi }) => {
         <h3 className={`text-sm font-semibold ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>{title}</h3>
       </div>
       {children}
+    </div>
+  );
+};
+
+const AccessoryPagedGrid = ({ options, user, isLightUi, isPending, onSelect }) => {
+  const pages = chunkIntoAccessoryPages(options);
+  const hasOverflow = (options?.length || 0) > ACCESSORY_GRID_PAGE_SIZE;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className={`text-[11px] ${isLightUi ? "text-stone-500" : "text-stone-300/75"}`}>
+          4x4 Ansicht pro Seite
+        </div>
+        <div className={`inline-flex items-center gap-1 text-[11px] font-medium ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}>
+          <span>{hasOverflow ? "Nach rechts scrollen" : "Kompakte 4x4 Ansicht"}</span>
+          {hasOverflow && <ArrowRight className="h-3.5 w-3.5" />}
+        </div>
+      </div>
+
+      <div className="overflow-x-auto pb-1">
+        <div className="flex snap-x snap-mandatory gap-3">
+          {pages.map((pageOptions, pageIndex) => {
+            const placeholders = Math.max(0, ACCESSORY_GRID_PAGE_SIZE - pageOptions.length);
+
+            return (
+              <div key={`accessory-page-${pageIndex}`} className="min-w-full snap-start">
+                <div className="grid grid-cols-4 gap-2 md:gap-3">
+                  {pageOptions.map((option) => (
+                    <AccessoryOptionCard
+                      key={option.id}
+                      option={option}
+                      user={user}
+                      isLightUi={isLightUi}
+                      isPending={isPending}
+                      onSelect={onSelect}
+                    />
+                  ))}
+                  {Array.from({ length: placeholders }).map((_, placeholderIndex) => (
+                    <div
+                      key={`accessory-placeholder-${pageIndex}-${placeholderIndex}`}
+                      aria-hidden="true"
+                      className={`aspect-square rounded-2xl border border-dashed ${
+                        isLightUi ? "border-[#c8ac62]/25 bg-white/35" : "border-[#f0e5a5]/15 bg-black/20"
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 };
@@ -966,18 +1033,13 @@ export default function ShopFeatureRoot({
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                        {section.options.map((option) => (
-                          <AccessoryOptionCard
-                            key={option.id}
-                            option={option}
-                            user={resolvedCurrentUser}
-                            isLightUi={isLightUi}
-                            isPending={isMutationPending}
-                            onSelect={handleSelectAccessory}
-                          />
-                        ))}
-                      </div>
+                      <AccessoryPagedGrid
+                        options={section.options}
+                        user={resolvedCurrentUser}
+                        isLightUi={isLightUi}
+                        isPending={isMutationPending}
+                        onSelect={handleSelectAccessory}
+                      />
                       {section.key === "border" && (
                         <BorderColorPicker
                           currentColor={resolvedCurrentUser?.selected_border_color || null}

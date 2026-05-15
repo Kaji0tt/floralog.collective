@@ -1,11 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { Query } from "@/api/entities";
+import { useState, useEffect } from "react";
 import { getCurrentUser } from "@/api/userApi";
+import { encodeReferralCode } from "@/lib/referralCode";
 import NotificationManager from "./components/notifications/NotificationManager";
 import ToastNotificationManager from "./components/notifications/ToastNotificationManager";
-import QuestNotificationManager from "./components/quests/QuestNotificationManager";
 import UserNotificationManager from "./components/notifications/UserNotificationManager";
 import QuestAutoAccepter from "./components/quests/QuestAutoAccepter";
 import { Toaster } from "@/components/ui/toaster";
@@ -13,7 +10,6 @@ import { Toaster } from "@/components/ui/toaster";
 
 
 export default function Layout({ children, currentPageName }) {
-  const location = useLocation();
   const [user, setUser] = useState(null);
 
   const loadUser = async () => {
@@ -48,8 +44,11 @@ export default function Layout({ children, currentPageName }) {
     const urlParams = new URLSearchParams(window.location.search);
     const referralCode = urlParams.get('ref');
     if (referralCode) {
-      localStorage.setItem('referral_code', referralCode);
-      console.log('[Referral] Code gespeichert:', referralCode);
+      const normalizedReferralCode = referralCode.includes('@')
+        ? encodeReferralCode(referralCode)
+        : referralCode;
+      localStorage.setItem('referral_code', normalizedReferralCode);
+      console.log('[Referral] Code gespeichert');
       // Entferne den Code aus der URL
       window.history.replaceState({}, document.title, window.location.pathname);
     }
