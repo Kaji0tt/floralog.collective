@@ -2422,6 +2422,7 @@ function HomeContent() {
                     onHeaderMetaChange={setEmbeddedHeaderMeta}
                     onUserUpdated={(freshUser) => setUser(freshUser)}
                     initialCategory={shopOpenCategory}
+                    onOpenAmberPurchase={() => setShowAmberPurchaseModal(true)}
                   />
                 ) : activePanel === "settings" ? (
                   <SettingsFeatureRoot

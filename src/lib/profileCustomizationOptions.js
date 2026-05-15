@@ -389,7 +389,7 @@ export const getAccessorySections = ({ logoAssets = [], rewards = [], userReward
   ];
 };
 
-export const PROFILE_CUSTOMIZATION_CATEGORY_ORDER = ["backgrounds", "titles", "accessories"];
+export const PROFILE_CUSTOMIZATION_CATEGORY_ORDER = ["accessories", "backgrounds", "titles"];
 
 export const getUnlockedProfileCustomizationCatalog = ({
   achievements = [],

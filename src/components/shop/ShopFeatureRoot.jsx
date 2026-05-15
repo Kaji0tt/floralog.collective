@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Sparkles, Loader2, RefreshCw, Image as ImageIcon, BadgeCheck, PaintBucket, Lock, ArrowRight } from "lucide-react";
+import { Sparkles, Loader2, RefreshCw, Image as ImageIcon, BadgeCheck, PaintBucket, Lock, ArrowLeft, ArrowRight } from "lucide-react";
 import { HexColorPicker } from "react-colorful";
 import { Query } from "@/api/entities";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
@@ -439,21 +439,41 @@ const SectionCard = ({ title, icon: Icon, children, isLightUi }) => {
 
 const AccessoryPagedGrid = ({ options, user, isLightUi, isPending, onSelect }) => {
   const pages = chunkIntoAccessoryPages(options);
-  const hasOverflow = (options?.length || 0) > ACCESSORY_GRID_PAGE_SIZE;
+  const scrollRef = React.useRef(/** @type {HTMLDivElement | null} */ (null));
+  const [canScrollLeft, setCanScrollLeft] = React.useState(false);
+  const [canScrollRight, setCanScrollRight] = React.useState(pages.length > 1);
+
+  const updateScrollState = React.useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 1);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+  }, []);
+
+  React.useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    updateScrollState();
+    el.addEventListener("scroll", updateScrollState, { passive: true });
+    return () => el.removeEventListener("scroll", updateScrollState);
+  }, [updateScrollState, pages.length]);
+
+  const showArrows = canScrollLeft || canScrollRight;
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <div className={`text-[11px] ${isLightUi ? "text-stone-500" : "text-stone-300/75"}`}>
-          2x2 Ansicht pro Seite
+      {showArrows && (
+        <div className="flex items-center justify-between gap-2" aria-hidden="true">
+          <div className={`flex items-center gap-1 text-[11px] font-medium ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"} ${canScrollLeft ? "visible" : "invisible"}`}>
+            <ArrowLeft className="h-3.5 w-3.5" />
+          </div>
+          <div className={`flex items-center gap-1 text-[11px] font-medium ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"} ${canScrollRight ? "visible" : "invisible"}`}>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </div>
         </div>
-        <div className={`inline-flex items-center gap-1 text-[11px] font-medium ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}>
-          <span>{hasOverflow ? "Nach rechts scrollen" : "Kompakte 2x2 Ansicht"}</span>
-          {hasOverflow && <ArrowRight className="h-3.5 w-3.5" />}
-        </div>
-      </div>
+      )}
 
-      <div className="overflow-x-auto pb-1">
+      <div ref={scrollRef} className="overflow-x-auto pb-1">
         <div className="flex snap-x snap-mandatory gap-3">
           {pages.map((pageOptions, pageIndex) => {
             const placeholders = Math.max(0, ACCESSORY_GRID_PAGE_SIZE - pageOptions.length);
@@ -492,11 +512,12 @@ const AccessoryPagedGrid = ({ options, user, isLightUi, isPending, onSelect }) =
 
 export default function ShopFeatureRoot({
   embedded = true,
-  initialCategory = "backgrounds",
+  initialCategory = "accessories",
   authId = null,
   currentUser = null,
   onHeaderMetaChange,
   onUserUpdated,
+  onOpenAmberPurchase = null,
 }) {
   const { isLightUi } = useUiTheme();
   const queryClient = useQueryClient();
@@ -818,6 +839,7 @@ export default function ShopFeatureRoot({
   const isLoading = isAuthResolving || isDiscoveriesPending || isAchievementsPending || isUserAchievementsPending || isRewardsPending || isUserRewardsPending || isLogoAssetsPending || isUserWalletPending;
   const resolvedCurrentUser = currentUser || fallbackUser || (authId ? { id: authId } : null);
   const availableSparks = Math.max(0, Number(userWallet?.sparks_balance ?? 0));
+  const availableAmber = Math.max(0, Number(userWallet?.amber_balance ?? 0));
   const purchaseDialogSparkPrice = Math.max(0, Number(purchaseConfirmOption?.sparkPrice ?? 0));
   const canAffordPurchaseDialogOption = availableSparks >= purchaseDialogSparkPrice;
   const resolvedCurrentTitle = resolveTitleValue(resolvedCurrentUser?.selected_title, resolvedCurrentUser?.title) || "Pflanzen-Entdecker";
@@ -875,7 +897,7 @@ export default function ShopFeatureRoot({
       className="flex-1 min-h-0 overflow-hidden flex flex-col"
     >
       <div className={`${tabsHeaderClass} shrink-0`}>
-        <div className="w-full px-2 py-2">
+        <div className="w-full px-2 pt-2">
           <div className="overflow-x-auto pb-1">
             <div className="flex min-w-max gap-2 px-2">
               {categories.map((category) => {
@@ -912,6 +934,23 @@ export default function ShopFeatureRoot({
               })}
             </div>
           </div>
+        </div>
+        <div className="flex items-center gap-4 px-4 pb-2">
+          <div className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}>
+            <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>{availableSparks}</span>
+          </div>
+          {typeof onOpenAmberPurchase === "function" && (
+            <button
+              type="button"
+              onClick={onOpenAmberPurchase}
+              className={`inline-flex items-center gap-1.5 text-[11px] font-medium transition-opacity hover:opacity-75 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}
+              aria-label="Bernstein kaufen"
+            >
+              <span aria-hidden="true">🔸</span>
+              <span>{availableAmber}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -999,30 +1038,19 @@ export default function ShopFeatureRoot({
             </div>
           ) : currentCategory.key === "accessories" ? (
             <div className="space-y-3">
-              <div className={`rounded-[1.5rem] border px-3 py-3 ${isLightUi ? "border-[#c8ac62]/30 bg-white/72" : "border-[#f0e5a5]/20 bg-black/28"}`}>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <div className={`text-sm font-semibold ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Aktives Logo-Set</div>
-                    <div className={`mt-1 text-xs ${isLightUi ? "text-stone-500" : "text-stone-300/75"}`}>
-                      Gesicht, Pflanze und Rahmen koennen getrennt ausgeruestet werden.
-                    </div>
-                    <div className={`mt-1 text-xs font-medium ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}>
-                      Verfügbare Funken: {availableSparks}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={isMutationPending}
-                    onClick={handleResetAccessories}
-                    className={`h-9 rounded-xl border px-3 text-xs font-semibold disabled:opacity-60 ${
-                      isLightUi
-                        ? "border-[#c8ac62]/40 bg-white/75 text-stone-700 hover:bg-white"
-                        : "border-[#f0e5a5]/25 bg-black/35 text-stone-100 hover:bg-black/50"
-                    }`}
-                  >
-                    Standard-Logo
-                  </button>
-                </div>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  disabled={isMutationPending}
+                  onClick={handleResetAccessories}
+                  className={`h-8 rounded-xl border px-3 text-xs font-semibold disabled:opacity-60 ${
+                    isLightUi
+                      ? "border-[#c8ac62]/40 bg-white/75 text-stone-700 hover:bg-white"
+                      : "border-[#f0e5a5]/25 bg-black/35 text-stone-100 hover:bg-black/50"
+                  }`}
+                >
+                  Standard-Logo
+                </button>
               </div>
 
               {currentCategory.sections.map((section) => (
