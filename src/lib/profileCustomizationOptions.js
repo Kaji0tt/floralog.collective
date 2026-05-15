@@ -7,6 +7,25 @@ const ACCESSORY_SPARK_SHOP_PRICES = new Map([
   ["face_v", 10],
 ]);
 
+const normalizeAccessoryId = (value) => String(value || "").trim().toLowerCase();
+
+const normalizeRewardAccessoryValue = (value) => {
+  const normalized = normalizeAccessoryId(value);
+  if (!normalized) return "";
+  if (normalized.startsWith("face_") || normalized.startsWith("plant_") || normalized.startsWith("border_")) {
+    return normalized;
+  }
+
+  // Backward-compatible shorthand support, e.g. "blush" -> "face_blush".
+  return `face_${normalized}`;
+};
+
+const accessoryValueMatches = (rewardValue, accessoryId) => {
+  const normalizedReward = normalizeRewardAccessoryValue(rewardValue);
+  const normalizedAccessory = normalizeAccessoryId(accessoryId);
+  return Boolean(normalizedReward) && Boolean(normalizedAccessory) && normalizedReward === normalizedAccessory;
+};
+
 const COLOR_ROWS = [
   {
     threshold: 5,
@@ -225,16 +244,34 @@ const getRewardUnlockedAccessoryIds = ({ rewards = [], userRewards = [] } = {}) 
   return new Set(
     (Array.isArray(rewards) ? rewards : [])
       .filter((reward) => unlockedRewardIds.has(reward?.id) && LOGO_ACCESSORY_REWARD_TYPES.has(reward?.type))
-      .map((reward) => String(reward?.value || "").trim())
+      .map((reward) => normalizeRewardAccessoryValue(reward?.value))
       .filter(Boolean)
   );
 };
 
 const getAccessoryUnlockCondition = (accessoryId, rewards = []) => {
   const rewardsForAccessory = (Array.isArray(rewards) ? rewards : [])
-    .filter((r) => String(r?.value || "").trim() === accessoryId && (r?.requires_zone_theme || r?.requires_plant_species || r?.requires_plant_genus));
+    .filter((reward) => LOGO_ACCESSORY_REWARD_TYPES.has(reward?.type) && accessoryValueMatches(reward?.value, accessoryId));
 
   if (rewardsForAccessory.length === 0) return null;
+
+  const reward = rewardsForAccessory[0];
+
+  const requiredReferrals = Math.max(0, Number(reward?.requires_referrals || 0));
+  const requiredReferralSeeds = Math.max(0, Number(reward?.requires_referred_seeds_progress || 0));
+  if (requiredReferrals > 0 && requiredReferralSeeds > 0) {
+    return `Wirb ${requiredReferrals} Freund${requiredReferrals > 1 ? "e" : ""} und erreiche mit ${requiredReferrals > 1 ? "ihnen" : "ihm"} jeweils ${requiredReferralSeeds} Samen.`;
+  }
+  if (requiredReferrals > 0) {
+    return `Wirb ${requiredReferrals} Freund${requiredReferrals > 1 ? "e" : ""}.`;
+  }
+  if (reward?.requires_donor) {
+    return "Nur fuer Unterstuetzer freischaltbar.";
+  }
+  if (reward?.requires_rare_plants) {
+    const count = Number(reward.requires_rare_plants);
+    return `Entdecke ${count} seltene Pflanze${count > 1 ? "n" : ""}.`;
+  }
 
   const zoneTranslations = {
     water: "Wasserzone",
@@ -243,10 +280,10 @@ const getAccessoryUnlockCondition = (accessoryId, rewards = []) => {
     urban: "Stadt",
   };
 
-  const conditions = rewardsForAccessory.map((reward) => {
-    const plantSpecies = String(reward?.requires_plant_species || "").trim();
-    const plantGenus = String(reward?.requires_plant_genus || "").trim();
-    const zoneTheme = String(reward?.requires_zone_theme || "").trim();
+  const conditions = rewardsForAccessory.map((zoneReward) => {
+    const plantSpecies = String(zoneReward?.requires_plant_species || "").trim();
+    const plantGenus = String(zoneReward?.requires_plant_genus || "").trim();
+    const zoneTheme = String(zoneReward?.requires_zone_theme || "").trim();
     const zoneName = zoneTranslations[zoneTheme] || zoneTheme;
     const plantLabel = plantSpecies || plantGenus;
 

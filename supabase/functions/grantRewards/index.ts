@@ -21,6 +21,7 @@ type RewardRow = {
   requires_gifts?: number | null;
   requires_donor?: boolean | null;
   requires_referrals?: number | null;
+  requires_referred_seeds_progress?: number | null;
   requires_rare_plants?: number | null;
   requires_quest?: string | null;
   random_event?: string | null;
@@ -80,12 +81,24 @@ type PlantRow = {
 };
 
 type ProfileRow = {
+  auth_id?: string | null;
+  user_email?: string | null;
   display_name?: string | null;
   full_name?: string | null;
   donor_status?: boolean | null;
 };
 
-type ReferralRow = { id: string };
+type ReferralRow = {
+  referred_email?: string | null;
+  status?: string | null;
+};
+
+type WalletRow = {
+  auth_id: string;
+  seeds_progress?: number | null;
+};
+
+const normalizeEmail = (value: string | null | undefined): string => String(value || "").trim().toLowerCase();
 
 interface GrantRewardsBody {
   eventType?: string | null;
@@ -243,7 +256,7 @@ Deno.serve(async (req) => {
       adminClient.from("Quest").select("id, reward_name"),
       adminClient.from("WeeklyQuest").select("id, reward_name"),
       adminClient.from("MonthlyQuest").select("id, reward_name"),
-      adminClient.from("Referral").select("id").eq("referrer_email", userEmail),
+      adminClient.from("Referral").select("referred_email, status").eq("referrer_email", userEmail),
     ] as const);
 
     const rewards = (rewardsRes.data || []) as RewardRow[];
@@ -259,6 +272,82 @@ Deno.serve(async (req) => {
     const weeklyQuests = (weeklyQuestsRes.data || []) as WeeklyQuestRow[];
     const monthlyQuests = (monthlyQuestsRes.data || []) as MonthlyQuestRow[];
     const referrals = (referralsRes.data || []) as ReferralRow[];
+
+    const completedReferralEmails = Array.from(
+      new Set(
+        referrals
+          .filter((referral) => {
+            const status = String(referral?.status || "").trim().toLowerCase();
+            return status === "completed" || status === "accepted";
+          })
+          .map((referral) => normalizeEmail(referral?.referred_email))
+          .filter(Boolean),
+      ),
+    );
+
+    const requiredReferralSeedThresholds = Array.from(
+      new Set(
+        rewards
+          .map((reward) => Number(reward?.requires_referred_seeds_progress || 0))
+          .filter((threshold) => Number.isFinite(threshold) && threshold > 0),
+      ),
+    );
+
+    const qualifiedReferralCountBySeedThreshold = new Map<number, number>();
+    if (requiredReferralSeedThresholds.length > 0 && completedReferralEmails.length > 0) {
+      const { data: referredProfilesData, error: referredProfilesError } = await adminClient
+        .from("PublicProfile")
+        .select("auth_id, user_email")
+        .in("user_email", completedReferralEmails);
+
+      if (referredProfilesError) {
+        console.error("[grantRewards] Failed loading referred profiles:", referredProfilesError);
+      } else {
+        const referredProfiles = (referredProfilesData || []) as ProfileRow[];
+        const profileByEmail = new Map<string, ProfileRow>();
+        for (const profileRow of referredProfiles) {
+          const email = normalizeEmail(profileRow?.user_email);
+          if (!email || !profileRow?.auth_id) continue;
+          profileByEmail.set(email, profileRow);
+        }
+
+        const referredAuthIds = Array.from(
+          new Set(
+            completedReferralEmails
+              .map((email) => profileByEmail.get(email)?.auth_id)
+              .filter((id): id is string => Boolean(id)),
+          ),
+        );
+
+        if (referredAuthIds.length > 0) {
+          const { data: referredWalletsData, error: referredWalletsError } = await adminClient
+            .from("UserWallet")
+            .select("auth_id, seeds_progress")
+            .in("auth_id", referredAuthIds);
+
+          if (referredWalletsError) {
+            console.error("[grantRewards] Failed loading referred wallets:", referredWalletsError);
+          } else {
+            const referredWallets = (referredWalletsData || []) as WalletRow[];
+            const walletSeedsByAuthId = new Map<string, number>();
+            for (const wallet of referredWallets) {
+              walletSeedsByAuthId.set(wallet.auth_id, Math.max(0, Number(wallet?.seeds_progress || 0)));
+            }
+
+            const referredSeedValues = completedReferralEmails.map((email) => {
+              const authIdForEmail = profileByEmail.get(email)?.auth_id;
+              if (!authIdForEmail) return 0;
+              return walletSeedsByAuthId.get(authIdForEmail) || 0;
+            });
+
+            for (const threshold of requiredReferralSeedThresholds) {
+              const qualifiedCount = referredSeedValues.filter((seeds) => seeds >= threshold).length;
+              qualifiedReferralCountBySeedThreshold.set(threshold, qualifiedCount);
+            }
+          }
+        }
+      }
+    }
 
     const unlockedRewardIds = new Set(userRewards.map((ur) => ur.reward_id));
 
@@ -327,7 +416,7 @@ Deno.serve(async (req) => {
     }).length;
     const giftsReceived = sharedScans.length;
     const isDonor = !!profile.donor_status;
-    const referralCount = referrals.length;
+    const referralCount = completedReferralEmails.length;
 
     const rarePlantCount = userDiscoveries.filter((d) => {
       const plant = plants.find((p) => p.id === d.plant_id);
@@ -414,8 +503,16 @@ Deno.serve(async (req) => {
         conditionsMet = false;
       }
 
-      if (reward.requires_referrals && referralCount < reward.requires_referrals) {
-        conditionsMet = false;
+      if (reward.requires_referrals) {
+        const requiredSeedThreshold = Number(reward.requires_referred_seeds_progress || 0);
+        if (Number.isFinite(requiredSeedThreshold) && requiredSeedThreshold > 0) {
+          const qualifiedCount = qualifiedReferralCountBySeedThreshold.get(requiredSeedThreshold) || 0;
+          if (qualifiedCount < reward.requires_referrals) {
+            conditionsMet = false;
+          }
+        } else if (referralCount < reward.requires_referrals) {
+          conditionsMet = false;
+        }
       }
 
       if (reward.requires_rare_plants && rarePlantCount < reward.requires_rare_plants) {

@@ -9,6 +9,7 @@ export const LOGO_ACCESSORY_DEFAULTS = {
 const faceOptions = [
   { id: "face_original", label: "Original", fileName: "face_original.png" },
   { id: "face_annoyed", label: "Annoyed", fileName: "face_annoyed.png" },
+  { id: "face_blush", label: "Blush", fileName: "face_blush.png" },
   { id: "face_sus", label: "Sus", fileName: "face_sus.png" },
   { id: "face_v", label: "V", fileName: "face_v.png" },
 ];
