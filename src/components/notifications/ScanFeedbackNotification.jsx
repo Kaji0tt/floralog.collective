@@ -478,8 +478,8 @@ export default function ScanFeedbackNotification({
           </div>
 
           {rewardDetails && (
-            <div className="mt-4 w-full rounded-2xl bg-black/35 border border-[#f0e5a5]/30 px-4 py-4 shadow-sm">
-              <div className="relative min-h-[3.4rem] flex items-center justify-center overflow-hidden">
+            <div className="mt-4 w-full rounded-2xl bg-black/35 border border-[#f0e5a5]/30 px-4 pt-4 pb-5 shadow-sm">
+              <div className="relative min-h-[5rem] flex items-center justify-center">
                 <AnimatePresence mode="wait" initial={false}>
                   {isNegativeSwap && previousReward !== null ? (
                     <motion.div
@@ -488,7 +488,7 @@ export default function ScanFeedbackNotification({
                       animate={{ y: -32, opacity: 0 }}
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.24, ease: "easeInOut" }}
-                      className={`absolute text-5xl font-black tracking-tight ${counterClasses}`}
+                      className={`absolute text-5xl font-black tracking-tight leading-none ${counterClasses}`}
                     >
                       {previousReward}
                     </motion.div>
@@ -508,7 +508,7 @@ export default function ScanFeedbackNotification({
                       ? { duration: 0.18, repeat: Infinity, ease: "linear" }
                       : { duration: 0.26, ease: "easeOut" }
                   }
-                  className={`relative text-5xl font-black tracking-tight ${counterClasses}`}
+                  className={`relative text-5xl font-black tracking-tight leading-none ${counterClasses}`}
                   style={COUNTER_OUTLINE_STYLE}
                 >
                   {displayReward}
