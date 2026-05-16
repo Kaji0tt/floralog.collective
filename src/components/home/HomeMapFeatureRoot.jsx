@@ -146,7 +146,7 @@ export default function HomeMapFeatureRoot({
           : "bg-gradient-to-b from-black/60 to-transparent"
       }`} />
 
-      {/* Top bar: stats chip (left) + Neu button (right) */}
+      {/* Top bar: stats chip */}
       <div className="absolute left-4 right-4 top-4 z-[1200] flex items-center justify-between gap-2">
         <div className={`rounded-xl border backdrop-blur-sm px-3 py-1.5 text-[11px] md:text-xs font-semibold flex items-center gap-1.5 ${
           isLightUi
@@ -158,20 +158,6 @@ export default function HomeMapFeatureRoot({
             ? `Funde: ${displayedDiscoveryPoints.length}`
             : `Zonen: ${heroZones.length} | Funde: ${nearbyDiscoveryPoints.length} | Claims: ${claimedTiles?.length || 0}`}
         </div>
-
-        <button
-          type="button"
-          onClick={onRegenerateZones}
-          disabled={!canRegenerateZones || isRegeneratingZones}
-          className={`h-8 px-3 rounded-xl border backdrop-blur-sm flex items-center gap-1.5 text-[11px] md:text-xs font-semibold disabled:opacity-60 ${
-            isLightUi
-              ? "border-[#c8ac62]/55 bg-white/60 text-stone-800 hover:bg-white/70"
-              : "border-[#f0e5a5]/45 bg-black/55 text-stone-100 hover:bg-black/70"
-          } transition-colors`}
-        >
-          {isRegeneratingZones ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-          {zoneRerollsRemaining !== null && !isAdminUser ? `Neu (${zoneRerollsRemaining})` : "Neu"}
-        </button>
       </div>
 
       {/* Debug button for admins, below the top bar */}
@@ -203,43 +189,59 @@ export default function HomeMapFeatureRoot({
         </div>
       )}
 
-      {/* Bottom search bar */}
-      <div className="absolute left-4 right-4 bottom-4 z-[1200]">
-        <div className={`flex items-center gap-2 h-10 rounded-xl border backdrop-blur-sm px-3 ${
-          isLightUi
-            ? "border-[#c8ac62]/55 bg-white/70 text-stone-800"
-            : "border-[#f0e5a5]/45 bg-black/60 text-stone-100"
-        }`}>
-          <Search className="w-3.5 h-3.5 shrink-0 opacity-60" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Freund oder Pflanzenname suchen…"
-            className={`flex-1 bg-transparent text-xs md:text-sm outline-none placeholder:opacity-50 ${
-              isLightUi ? "placeholder:text-stone-600" : "placeholder:text-stone-400"
-            }`}
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery("")}
-              className="shrink-0 opacity-60 hover:opacity-100 transition-opacity"
-              aria-label="Suche löschen"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
+      {/* Bottom search bar + Neu button */}
+      <div className="absolute left-4 right-4 bottom-4 z-[1200] flex items-end gap-2">
+        <div className="flex-1 min-w-0">
+          <div className={`flex items-center gap-2 h-10 rounded-xl border backdrop-blur-sm px-3 ${
+            isLightUi
+              ? "border-[#c8ac62]/55 bg-white/70 text-stone-800"
+              : "border-[#f0e5a5]/45 bg-black/60 text-stone-100"
+          }`}>
+            <Search className="w-3.5 h-3.5 shrink-0 opacity-60" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Freund oder Pflanzenname suchen…"
+              className={`flex-1 min-w-0 bg-transparent text-xs md:text-sm outline-none placeholder:opacity-50 ${
+                isLightUi ? "placeholder:text-stone-600" : "placeholder:text-stone-400"
+              }`}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="shrink-0 opacity-60 hover:opacity-100 transition-opacity"
+                aria-label="Suche löschen"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          {trimmedQuery && (
+            <p className={`mt-1 text-[10px] text-center ${
+              isLightUi ? "text-stone-600" : "text-stone-400"
+            }`}>
+              {displayedDiscoveryPoints.length === 0
+                ? "Keine Ergebnisse"
+                : `${displayedDiscoveryPoints.length} Fund${displayedDiscoveryPoints.length === 1 ? "" : "e"} gefunden (deutschlandweit)`}
+            </p>
           )}
         </div>
-        {trimmedQuery && (
-          <p className={`mt-1 text-[10px] text-center ${
-            isLightUi ? "text-stone-600" : "text-stone-400"
-          }`}>
-            {displayedDiscoveryPoints.length === 0
-              ? "Keine Ergebnisse"
-              : `${displayedDiscoveryPoints.length} Fund${displayedDiscoveryPoints.length === 1 ? "" : "e"} gefunden (deutschlandweit)`}
-          </p>
-        )}
+
+        <button
+          type="button"
+          onClick={onRegenerateZones}
+          disabled={!canRegenerateZones || isRegeneratingZones}
+          className={`h-10 px-3 rounded-xl border backdrop-blur-sm flex items-center gap-1.5 text-[11px] md:text-xs font-semibold disabled:opacity-60 whitespace-nowrap ${
+            isLightUi
+              ? "border-[#c8ac62]/55 bg-white/60 text-stone-800 hover:bg-white/70"
+              : "border-[#f0e5a5]/45 bg-black/55 text-stone-100 hover:bg-black/70"
+          } transition-colors`}
+        >
+          {isRegeneratingZones ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+          {zoneRerollsRemaining !== null && !isAdminUser ? `Neu (${zoneRerollsRemaining})` : "Neu"}
+        </button>
       </div>
     </section>
   );
