@@ -462,17 +462,6 @@ const AccessoryPagedGrid = ({ options, user, isLightUi, isPending, onSelect }) =
 
   return (
     <div className="space-y-2">
-      {showArrows && (
-        <div className="flex items-center justify-between gap-2" aria-hidden="true">
-          <div className={`flex items-center gap-1 text-[11px] font-medium ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"} ${canScrollLeft ? "visible" : "invisible"}`}>
-            <ArrowLeft className="h-3.5 w-3.5" />
-          </div>
-          <div className={`flex items-center gap-1 text-[11px] font-medium ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"} ${canScrollRight ? "visible" : "invisible"}`}>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </div>
-        </div>
-      )}
-
       <div ref={scrollRef} className="overflow-x-auto pb-1">
         <div className="flex snap-x snap-mandatory gap-3">
           {pages.map((pageOptions, pageIndex) => {
@@ -506,6 +495,17 @@ const AccessoryPagedGrid = ({ options, user, isLightUi, isPending, onSelect }) =
           })}
         </div>
       </div>
+
+      {showArrows && (
+        <div className="flex items-center justify-between gap-2" aria-hidden="true">
+          <div className={`flex items-center gap-1 text-[11px] font-medium ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"} ${canScrollLeft ? "visible" : "invisible"}`}>
+            <ArrowLeft className="h-3.5 w-3.5" />
+          </div>
+          <div className={`flex items-center gap-1 text-[11px] font-medium ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"} ${canScrollRight ? "visible" : "invisible"}`}>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -517,7 +517,6 @@ export default function ShopFeatureRoot({
   currentUser = null,
   onHeaderMetaChange,
   onUserUpdated,
-  onOpenAmberPurchase = null,
 }) {
   const { isLightUi } = useUiTheme();
   const queryClient = useQueryClient();
@@ -620,14 +619,6 @@ export default function ShopFeatureRoot({
   }, [categories, shopCategory]);
 
   const currentCategory = categories.find((category) => category.key === shopCategory) || categories[0] || null;
-
-  useEffect(() => {
-    if (!embedded || typeof onHeaderMetaChange !== "function" || !currentCategory) return;
-    onHeaderMetaChange({
-      title: "Shop",
-      subtitle: currentCategory.subtitle || CATEGORY_META[currentCategory.key]?.subtitle || null,
-    });
-  }, [currentCategory, embedded, onHeaderMetaChange]);
 
   const updateCustomizationMutation = useMutation({
     mutationFn: async (updates) => updateCurrentUserProfile(updates),
@@ -825,21 +816,24 @@ export default function ShopFeatureRoot({
     await updateCustomizationMutation.mutateAsync({ selected_border_color: hex || null });
   };
 
-  const handleResetAccessories = async () => {
-    setShopMessage(null);
-    await updateCustomizationMutation.mutateAsync({
-      selected_face_asset: LOGO_ACCESSORY_DEFAULTS.selected_face_asset,
-      selected_plant_asset: LOGO_ACCESSORY_DEFAULTS.selected_plant_asset,
-      selected_border_asset: LOGO_ACCESSORY_DEFAULTS.selected_border_asset,
-      selected_border_color: null,
-    });
-  };
-
   const isAuthResolving = !resolvedAuthId;
   const isLoading = isAuthResolving || isDiscoveriesPending || isAchievementsPending || isUserAchievementsPending || isRewardsPending || isUserRewardsPending || isLogoAssetsPending || isUserWalletPending;
   const resolvedCurrentUser = currentUser || fallbackUser || (authId ? { id: authId } : null);
   const availableSparks = Math.max(0, Number(userWallet?.sparks_balance ?? 0));
   const availableAmber = Math.max(0, Number(userWallet?.amber_balance ?? 0));
+
+  useEffect(() => {
+    if (!embedded || typeof onHeaderMetaChange !== "function" || !currentCategory) return;
+    onHeaderMetaChange({
+      title: "Shop",
+      subtitle: null,
+      infoLabel: {
+        sparks: availableSparks,
+        amber: availableAmber,
+      },
+    });
+  }, [availableAmber, availableSparks, currentCategory, embedded, onHeaderMetaChange]);
+
   const purchaseDialogSparkPrice = Math.max(0, Number(purchaseConfirmOption?.sparkPrice ?? 0));
   const canAffordPurchaseDialogOption = availableSparks >= purchaseDialogSparkPrice;
   const resolvedCurrentTitle = resolveTitleValue(resolvedCurrentUser?.selected_title, resolvedCurrentUser?.title) || "Pflanzen-Entdecker";
@@ -935,23 +929,6 @@ export default function ShopFeatureRoot({
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-4 px-4 pb-2">
-          <div className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}>
-            <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            <span>{availableSparks}</span>
-          </div>
-          {typeof onOpenAmberPurchase === "function" && (
-            <button
-              type="button"
-              onClick={onOpenAmberPurchase}
-              className={`inline-flex items-center gap-1.5 text-[11px] font-medium transition-opacity hover:opacity-75 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}
-              aria-label="Bernstein kaufen"
-            >
-              <span aria-hidden="true">🔸</span>
-              <span>{availableAmber}</span>
-            </button>
-          )}
-        </div>
       </div>
 
       <div className={contentClass} style={contentMaskStyle}>
@@ -1038,21 +1015,6 @@ export default function ShopFeatureRoot({
             </div>
           ) : currentCategory.key === "accessories" ? (
             <div className="space-y-3">
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  disabled={isMutationPending}
-                  onClick={handleResetAccessories}
-                  className={`h-8 rounded-xl border px-3 text-xs font-semibold disabled:opacity-60 ${
-                    isLightUi
-                      ? "border-[#c8ac62]/40 bg-white/75 text-stone-700 hover:bg-white"
-                      : "border-[#f0e5a5]/25 bg-black/35 text-stone-100 hover:bg-black/50"
-                  }`}
-                >
-                  Standard-Logo
-                </button>
-              </div>
-
               {currentCategory.sections.map((section) => (
                 <SectionCard key={section.key} title={section.title} icon={Sparkles} isLightUi={isLightUi}>
                   {section.options.length === 0 ? (

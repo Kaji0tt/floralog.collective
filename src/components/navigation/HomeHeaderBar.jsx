@@ -34,6 +34,10 @@ export default function HomeHeaderBar({
   const showEmbeddedFriends = activePanel === "friends";
   const showEmbeddedShop = activePanel === "shop";
   const isEmbeddedMode = activePanel !== null;
+  const shopCurrencyInfo = showEmbeddedShop && embeddedInfoLabel && typeof embeddedInfoLabel === "object"
+    ? embeddedInfoLabel
+    : null;
+  const shouldShowEmbeddedInfoChip = Boolean(embeddedInfoLabel) && isEmbeddedMode && !showEmbeddedShop;
 
   const resolvedEmbeddedTitle = embeddedTitle || (showEmbeddedCollection
     ? "Kollektionen"
@@ -49,10 +53,51 @@ export default function HomeHeaderBar({
             <h1 className="font-bold leading-tight text-2xl md:text-3xl truncate" title={resolvedEmbeddedTitle}>
               {resolvedEmbeddedTitle}
             </h1>
-            {embeddedSubtitle && (
+            {!showEmbeddedShop && embeddedSubtitle && (
               <p className={`${isLightUi ? "text-stone-700/90" : "text-stone-200/85"} text-sm md:text-base truncate mt-0.5`}>
                 {embeddedSubtitle}
               </p>
+            )}
+            {shopCurrencyInfo && (
+              <div className="mt-2 flex items-center gap-4">
+                <span
+                  className={`inline-flex items-center gap-1.5 h-7 rounded-full border px-2.5 text-[11px] font-semibold ${
+                    isLightUi
+                      ? "border-[#c8ac62]/55 bg-white/60 text-[#8f6b22]"
+                      : "border-[#f0e5a5]/35 bg-black/30 text-[#f0e5a5]"
+                  }`}
+                >
+                  <span aria-hidden="true">✨</span>
+                  <span>{Math.max(0, Number(shopCurrencyInfo.sparks ?? 0))}</span>
+                </span>
+
+                {typeof onOpenAmberPurchase === "function" ? (
+                  <button
+                    type="button"
+                    onClick={onOpenAmberPurchase}
+                    className={`inline-flex items-center gap-1.5 h-7 rounded-full border px-2.5 text-[11px] font-semibold transition-colors ${
+                      isLightUi
+                        ? "border-[#c8ac62]/55 bg-white/60 text-[#8f6b22] hover:bg-white/80"
+                        : "border-[#f0e5a5]/35 bg-black/30 text-[#f0e5a5] hover:bg-black/45"
+                    }`}
+                    aria-label="Bernstein kaufen"
+                  >
+                    <span aria-hidden="true">🔸</span>
+                    <span>{Math.max(0, Number(shopCurrencyInfo.amber ?? 0))}</span>
+                  </button>
+                ) : (
+                  <span
+                    className={`inline-flex items-center gap-1.5 h-7 rounded-full border px-2.5 text-[11px] font-semibold ${
+                      isLightUi
+                        ? "border-[#c8ac62]/55 bg-white/60 text-[#8f6b22]"
+                        : "border-[#f0e5a5]/35 bg-black/30 text-[#f0e5a5]"
+                    }`}
+                  >
+                    <span aria-hidden="true">🔸</span>
+                    <span>{Math.max(0, Number(shopCurrencyInfo.amber ?? 0))}</span>
+                  </span>
+                )}
+              </div>
             )}
           </div>
         ) : (
@@ -68,7 +113,7 @@ export default function HomeHeaderBar({
             </p>
           </div>
         )}
-        {!!embeddedInfoLabel && isEmbeddedMode && (
+        {shouldShowEmbeddedInfoChip && (
           <div className="mt-2">
             <span
               className={`inline-flex items-center h-7 rounded-full border px-2.5 text-[11px] font-semibold max-w-full ${
@@ -109,17 +154,6 @@ export default function HomeHeaderBar({
             aria-label="Freund hinzufuegen"
           >
             <Plus className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
-          </button>
-        )}
-
-        {showEmbeddedShop && typeof onOpenAmberPurchase === "function" && (
-          <button
-            type="button"
-            onClick={onOpenAmberPurchase}
-            className={`w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors ${isLightUi ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80" : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"}`}
-            aria-label="Bernstein kaufen"
-          >
-            <span className={`inline-flex items-center justify-center w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} aria-hidden="true">🔸</span>
           </button>
         )}
 

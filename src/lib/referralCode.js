@@ -37,8 +37,16 @@ export function decodeReferralCode(referralCode) {
   try {
     const decodedBytes = fromBase64Url(referralCode);
     const plainText = new TextDecoder().decode(scrambleBytes(decodedBytes)).trim().toLowerCase();
-    return plainText.includes("@") ? plainText : null;
-  } catch {
+    const isValidEmail = plainText.includes("@");
+    console.log('[Referral] decodeReferralCode:', {
+      input: referralCode,
+      decodedBytes: decodedBytes.length,
+      plainText,
+      isValidEmail,
+    });
+    return isValidEmail ? plainText : null;
+  } catch (err) {
+    console.error('[Referral] decodeReferralCode failed:', err, { input: referralCode });
     return null;
   }
 }

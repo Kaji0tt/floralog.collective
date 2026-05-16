@@ -1366,14 +1366,19 @@ export default function Scanner() {
               >
                 Spaeter
               </Button>
+              {/* Registrieren/Login führt zur Hauptseite (GuestHomeFlow), die den primären
+                  Registrierungs- und Login-Flow als Modal anbietet. createPageUrl("Register")
+                  und createPageUrl("Login") dürfen hier NICHT verwendet werden – beide Seiten
+                  sind nicht in pages.config.js registriert und würden zu PageNotFound führen.
+                  Die Route /login in App.jsx leitet ebenfalls zu "/" weiter. */}
               <Button
-                onClick={() => navigate(createPageUrl("Register"))}
+                onClick={() => navigate("/")}
                 className="border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 hover:brightness-110"
               >
                 Kostenlos registrieren
               </Button>
               <Button
-                onClick={() => navigate(createPageUrl("Login"))}
+                onClick={() => navigate("/")}
                 className="border border-[#f0e5a5]/35 bg-black/35 hover:bg-black/55"
               >
                 Anmelden

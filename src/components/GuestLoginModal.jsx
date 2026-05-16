@@ -6,17 +6,27 @@ import { LogIn, UserPlus, Leaf } from "lucide-react";
 
 /**
  * Modal shown to guest users when they try to perform an action that requires authentication.
+ *
+ * Registrierungs-Flows im Überblick:
+ *  - Primärer Flow: GuestHomeFlow-Modal auf "/" (Erstbesucher über Landing Page)
+ *  - Sekundärer Flow: Standalone-Seite "/register" (z.B. von hier aus, oder direkte URL)
+ *  - Kaputt / nicht verwenden: createPageUrl("Register") → "/Register" → 404
+ *
+ * Die Route "/login" in App.jsx redirectet ebenfalls zu "/".
+ * Referral-Codes werden in beiden Fällen aus localStorage verarbeitet (Home.jsx).
  */
 export default function GuestLoginModal({ open, onClose }) {
   const navigate = useNavigate();
 
   const handleLogin = () => {
     onClose();
-    navigate("/login");
+    // /login redirectet zu "/" (App.jsx), direkt zu "/" navigieren ist äquivalent
+    navigate("/");
   };
 
   const handleRegister = () => {
     onClose();
+    // Standalone-Registrierungsseite; Referral-Code bleibt im localStorage erhalten
     navigate("/register");
   };
 

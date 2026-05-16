@@ -647,35 +647,59 @@ function HomeContent() {
 
   // Referral-Code aus localStorage verarbeiten, sobald User eingeloggt ist (einmalig)
   useEffect(() => {
-    if (!user?.email) return;
+    if (!user?.email) {
+      console.log('[Referral] Home-Effect: User noch nicht geladen');
+      return;
+    }
     const referralCode = localStorage.getItem('referral_code');
-    if (!referralCode) return;
+    console.log('[Referral] Home-Effect: User geladen, localStorage-Code:', { referralCode });
+    if (!referralCode) {
+      console.log('[Referral] Home-Effect: Kein referral_code im localStorage');
+      return;
+    }
 
     const referrerEmail = resolveReferralEmail(referralCode);
+    console.log('[Referral] Home-Effect: Dekodierung:', {
+      code: referralCode,
+      decodedEmail: referrerEmail,
+    });
     // Sofort löschen, um doppelte Verarbeitung zu verhindern
     localStorage.removeItem('referral_code');
 
-    if (!referrerEmail) return;
+    if (!referrerEmail) {
+      console.log('[Referral] Home-Effect: Dekodierung fehlgeschlagen - kein Email in Code');
+      return;
+    }
 
-    if (referrerEmail.toLowerCase() === user.email.toLowerCase()) return;
+    if (referrerEmail.toLowerCase() === user.email.toLowerCase()) {
+      console.log('[Referral] Home-Effect: Gleiche Email - Selbstreferral, ignorieren');
+      return;
+    }
 
     (async () => {
       try {
+        console.log('[Referral] Home-Effect: Erstelle Referral-Eintrag...', {
+          referrer: referrerEmail,
+          referred: user.email,
+        });
         // Referral-Eintrag anlegen
         await Query.Referral.create({
           referrer_email: referrerEmail,
           referred_email: user.email,
           status: "completed",
         });
-      } catch (_e) {
-        // Duplikat oder andere Fehler ignorieren
+        console.log('[Referral] Home-Effect: Referral-Eintrag erfolgreich erstellt');
+      } catch (e) {
+        console.error('[Referral] Home-Effect: Fehler beim Erstellen des Referral-Eintrags:', e);
       }
       try {
+        console.log('[Referral] Home-Effect: Sende Freundschaftsanfrage an:', referrerEmail);
         // Freundschaftsanfrage an den Werber senden
         await sendFriendRequest(referrerEmail);
         queryClient.invalidateQueries({ queryKey: ['pendingFriendRequests'] });
-      } catch (_e) {
-        // Anfrage existiert ggf. bereits
+        console.log('[Referral] Home-Effect: Freundschaftsanfrage erfolgreich gesendet');
+      } catch (e) {
+        console.error('[Referral] Home-Effect: Fehler beim Senden der Freundschaftsanfrage:', e);
       }
     })();
   }, [user?.email, queryClient]);
@@ -2422,7 +2446,6 @@ function HomeContent() {
                     onHeaderMetaChange={setEmbeddedHeaderMeta}
                     onUserUpdated={(freshUser) => setUser(freshUser)}
                     initialCategory={shopOpenCategory}
-                    onOpenAmberPurchase={() => setShowAmberPurchaseModal(true)}
                   />
                 ) : activePanel === "settings" ? (
                   <SettingsFeatureRoot

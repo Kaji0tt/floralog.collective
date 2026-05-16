@@ -43,14 +43,26 @@ export default function Layout({ children, currentPageName }) {
     // Referral-Code aus URL extrahieren und speichern
     const urlParams = new URLSearchParams(window.location.search);
     const referralCode = urlParams.get('ref');
+    console.log('[Referral] Layout-Init - window.location:', {
+      href: window.location.href,
+      search: window.location.search,
+      referralCode,
+      searchParams: Array.from(urlParams.entries()),
+    });
     if (referralCode) {
       const normalizedReferralCode = referralCode.includes('@')
         ? encodeReferralCode(referralCode)
         : referralCode;
       localStorage.setItem('referral_code', normalizedReferralCode);
-      console.log('[Referral] Code gespeichert');
+      console.log('[Referral] Code gespeichert im localStorage:', {
+        original: referralCode,
+        normalized: normalizedReferralCode,
+        includes@: referralCode.includes('@'),
+      });
       // Entferne den Code aus der URL
       window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+      console.log('[Referral] Kein referral_code in URL gefunden');
     }
   }, []);
 
