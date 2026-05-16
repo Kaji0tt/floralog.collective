@@ -21,6 +21,7 @@ const handleMissingTable = (tableName, error) => {
 };
 
 const legacyIdTables = new Set([
+  'Referral',
   'UserQuest',
   'UserWeeklyQuest',
   'UserMonthlyQuest',
