@@ -249,7 +249,7 @@ const getRewardUnlockedAccessoryIds = ({ rewards = [], userRewards = [] } = {}) 
   );
 };
 
-const getAccessoryUnlockCondition = (accessoryId, rewards = []) => {
+const getAccessoryUnlockCondition = (accessoryId, rewards = [], genera = [], plants = []) => {
   const rewardsForAccessory = (Array.isArray(rewards) ? rewards : [])
     .filter((reward) => LOGO_ACCESSORY_REWARD_TYPES.has(reward?.type) && accessoryValueMatches(reward?.value, accessoryId));
 
@@ -281,11 +281,18 @@ const getAccessoryUnlockCondition = (accessoryId, rewards = []) => {
   };
 
   const conditions = rewardsForAccessory.map((zoneReward) => {
-    const plantSpecies = String(zoneReward?.requires_plant_species || "").trim();
-    const plantGenus = String(zoneReward?.requires_plant_genus || "").trim();
+    const genusId = String(zoneReward?.requires_plant_genus_id || "").trim();
+    const speciesId = String(zoneReward?.requires_plant_species_id || "").trim();
     const zoneTheme = String(zoneReward?.requires_zone_theme || "").trim();
     const zoneName = zoneTranslations[zoneTheme] || zoneTheme;
-    const plantLabel = plantSpecies || plantGenus;
+
+    const genusName = genusId
+      ? ((Array.isArray(genera) ? genera : []).find((g) => g.id === genusId)?.genus_name || null)
+      : null;
+    const speciesName = speciesId
+      ? ((Array.isArray(plants) ? plants : []).find((p) => p.id === speciesId)?.species_name || null)
+      : null;
+    const plantLabel = speciesName || genusName;
 
     if (plantLabel && zoneName) {
       return `${plantLabel} in einer ${zoneName} scannen`;
@@ -306,7 +313,7 @@ const getAccessoryPurchaseMeta = (accessoryId) => {
   };
 };
 
-const buildFallbackAccessorySections = ({ rewardUnlockedIds = new Set(), rewards = [] } = {}) => {
+const buildFallbackAccessorySections = ({ rewardUnlockedIds = new Set(), rewards = [], genera = [], plants = [] } = {}) => {
   return LOGO_ACCESSORY_SECTIONS.map((section) => ({
     key: section.key,
     title: section.title,
@@ -315,7 +322,7 @@ const buildFallbackAccessorySections = ({ rewardUnlockedIds = new Set(), rewards
     options: section.options.map((option) => {
       const isDefaultUnlocked = ["border_original", "plant_leaf", "plant_legacy", "face_original"].includes(option.value);
       const isUnlocked = isDefaultUnlocked || rewardUnlockedIds.has(option.value);
-      const unlockCondition = !isUnlocked ? getAccessoryUnlockCondition(option.value, rewards) : null;
+      const unlockCondition = !isUnlocked ? getAccessoryUnlockCondition(option.value, rewards, genera, plants) : null;
       const purchaseMeta = !isUnlocked ? getAccessoryPurchaseMeta(option.value) : null;
       return {
         ...option,
@@ -327,12 +334,12 @@ const buildFallbackAccessorySections = ({ rewardUnlockedIds = new Set(), rewards
   }));
 };
 
-export const getAccessorySections = ({ logoAssets = [], rewards = [], userRewards = [] } = {}) => {
+export const getAccessorySections = ({ logoAssets = [], rewards = [], userRewards = [], genera = [], plants = [] } = {}) => {
   const rewardUnlockedIds = getRewardUnlockedAccessoryIds({ rewards, userRewards });
 
   const normalizedLogoAssets = Array.isArray(logoAssets) ? logoAssets : [];
   if (normalizedLogoAssets.length === 0) {
-    return buildFallbackAccessorySections({ rewardUnlockedIds, rewards });
+    return buildFallbackAccessorySections({ rewardUnlockedIds, rewards, genera, plants });
   }
 
   const grouped = {
@@ -348,7 +355,7 @@ export const getAccessorySections = ({ logoAssets = [], rewards = [], userReward
 
     const isDefaultUnlocked = Boolean(asset?.default_unlocked);
     const isUnlocked = isDefaultUnlocked || rewardUnlockedIds.has(assetId);
-    const unlockCondition = !isUnlocked ? getAccessoryUnlockCondition(assetId, rewards) : null;
+    const unlockCondition = !isUnlocked ? getAccessoryUnlockCondition(assetId, rewards, genera, plants) : null;
     const purchaseMeta = !isUnlocked ? getAccessoryPurchaseMeta(assetId) : null;
 
     grouped[assetType].push({
@@ -398,6 +405,8 @@ export const getUnlockedProfileCustomizationCatalog = ({
   userRewards = [],
   userDiscoveries = [],
   logoAssets = [],
+  genera = [],
+  plants = [],
 } = {}) => {
   const scannedPlantsCount = (Array.isArray(userDiscoveries) ? userDiscoveries : []).length;
   const uniqueSpeciesCount = new Set(
@@ -417,7 +426,7 @@ export const getUnlockedProfileCustomizationCatalog = ({
     rewards,
     userRewards,
   });
-  const accessorySections = getAccessorySections({ logoAssets, rewards, userRewards });
+  const accessorySections = getAccessorySections({ logoAssets, rewards, userRewards, genera, plants });
 
   return {
     scannedPlantsCount,

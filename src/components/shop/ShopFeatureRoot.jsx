@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Sparkles, Loader2, RefreshCw, Image as ImageIcon, BadgeCheck, PaintBucket, Lock, ArrowLeft, ArrowRight } from "lucide-react";
 import { HexColorPicker } from "react-colorful";
 import { Query } from "@/api/entities";
+import { supabase } from "@/api/supabaseClient";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { getUserWallet, grantWalletCurrency } from "@/api/walletService";
 import { useUiTheme } from "@/lib/UiThemeContext";
@@ -593,6 +594,29 @@ export default function ShopFeatureRoot({
     refetchOnReconnect: true,
   });
 
+  const { data: genera = [] } = useQuery({
+    queryKey: ["plantGenera"],
+    queryFn: () => Query.PlantGenus.list(),
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const speciesIds = useMemo(
+    () => [...new Set((rewards || []).filter((r) => r.requires_plant_species_id).map((r) => r.requires_plant_species_id))],
+    [rewards],
+  );
+
+  const { data: rewardPlants = [] } = useQuery({
+    queryKey: ["rewardPlants", speciesIds],
+    queryFn: async () => {
+      const { data } = await supabase.from("Plant").select("id, species_name").in("id", speciesIds);
+      return data || [];
+    },
+    enabled: speciesIds.length > 0,
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
   const catalog = useMemo(() => {
     return getUnlockedProfileCustomizationCatalog({
       achievements,
@@ -601,8 +625,10 @@ export default function ShopFeatureRoot({
       userRewards,
       userDiscoveries,
       logoAssets,
+      genera,
+      plants: rewardPlants,
     });
-  }, [achievements, logoAssets, rewards, userAchievements, userDiscoveries, userRewards]);
+  }, [achievements, logoAssets, rewards, userAchievements, userDiscoveries, userRewards, genera, rewardPlants]);
 
   const categories = useMemo(() => {
     return [...(catalog.categories || [])].sort(profileCustomizationCategoryComparator);

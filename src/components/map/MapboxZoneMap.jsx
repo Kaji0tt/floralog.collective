@@ -23,7 +23,7 @@ const CLAIM_PULSE_CYCLE_MS = 2600;
 const OVERLAP_PADDING_FACTOR = 0.86;
 const DISCOVERY_CUSTOM_MARKER_BASE_SIZE_PX = 34;
 const DISCOVERY_FALLBACK_MARKER_BASE_SIZE_PX = 16;
-const DISCOVERY_CUSTOM_LOGO_BASE_SCALE = 2.1;
+const DISCOVERY_CUSTOM_LOGO_BASE_SCALE = 2.15;
 const DISCOVERY_MARKER_UNIFIED_SCALE_DEFAULT = 0.8;
 const DISCOVERY_MARKER_UNIFIED_SCALE_MIN = 0.5;
 const DISCOVERY_MARKER_UNIFIED_SCALE_MAX = 1.0;
@@ -378,16 +378,19 @@ const getMarkerVisualSizePx = (point, markerScale) => {
   return hasCustomLogo ? customMarkerSizePx : fallbackMarkerSizePx;
 };
 
-const createClaimLogoMarkerElement = (claim) => {
+const createClaimLogoMarkerElement = (claim, markerScale) => {
+  const safeMarkerScale = clampDiscoveryMarkerScale(markerScale);
+  const claimMarkerSizePx = Math.round(40 * safeMarkerScale);
+  const fallbackDotSizePx = Math.round(14 * safeMarkerScale);
+  const claimLogoScale = DISCOVERY_CUSTOM_LOGO_BASE_SCALE * safeMarkerScale;
+
   const markerEl = document.createElement("div");
-  markerEl.style.width = "40px";
-  markerEl.style.height = "40px";
+  markerEl.style.width = toPx(claimMarkerSizePx);
+  markerEl.style.height = toPx(claimMarkerSizePx);
   markerEl.style.borderRadius = "999px";
   markerEl.style.pointerEvents = "none";
-  markerEl.style.display = "flex";
-  markerEl.style.alignItems = "center";
-  markerEl.style.justifyContent = "center";
-  markerEl.style.filter = "drop-shadow(0 4px 10px rgba(0,0,0,0.42))";
+  markerEl.style.overflow = "visible";
+  markerEl.style.boxShadow = "0 6px 14px rgba(0, 0, 0, 0.35)";
 
   const borderUrl = String(claim?.ownerLogoBorderUrl || "").trim();
   const plantUrl = String(claim?.ownerLogoPlantUrl || "").trim();
@@ -396,11 +399,13 @@ const createClaimLogoMarkerElement = (claim) => {
 
   if (!borderUrl && !plantUrl && !faceUrl) {
     const fallbackDot = document.createElement("span");
-    fallbackDot.style.width = "14px";
-    fallbackDot.style.height = "14px";
+    fallbackDot.style.width = toPx(fallbackDotSizePx);
+    fallbackDot.style.height = toPx(fallbackDotSizePx);
     fallbackDot.style.borderRadius = "999px";
     fallbackDot.style.background = borderColor || "#f0e5a5";
     fallbackDot.style.border = "1px solid rgba(255,255,255,0.8)";
+    fallbackDot.style.display = "block";
+    fallbackDot.style.margin = "0 auto";
     markerEl.appendChild(fallbackDot);
     return markerEl;
   }
@@ -410,11 +415,11 @@ const createClaimLogoMarkerElement = (claim) => {
   ring.style.width = "100%";
   ring.style.height = "100%";
   ring.style.borderRadius = "999px";
-  ring.style.border = "1px solid rgba(240,229,165,0.72)";
-  ring.style.background = "rgba(0,0,0,0.24)";
-  ring.style.padding = "4px";
+  ring.style.border = "0";
+  ring.style.background = "rgba(0,0,0,0.35)";
+  ring.style.padding = toPx(3 * safeMarkerScale);
   ring.style.boxSizing = "border-box";
-  ring.style.overflow = "hidden";
+  ring.style.overflow = "visible";
   markerEl.appendChild(ring);
 
   const content = document.createElement("span");
@@ -422,6 +427,7 @@ const createClaimLogoMarkerElement = (claim) => {
   content.style.display = "block";
   content.style.width = "100%";
   content.style.height = "100%";
+  content.style.overflow = "visible";
   ring.appendChild(content);
 
   const appendLayer = (url, filterValue) => {
@@ -434,6 +440,8 @@ const createClaimLogoMarkerElement = (claim) => {
     img.style.width = "100%";
     img.style.height = "100%";
     img.style.objectFit = "contain";
+    img.style.transform = `scale(${claimLogoScale})`;
+    img.style.transformOrigin = "center center";
     if (filterValue) {
       img.style.filter = filterValue;
     }
@@ -1100,7 +1108,7 @@ export default function MapboxZoneMap({
       claimedTiles
         .filter((claim) => Number.isFinite(claim?.centerLat) && Number.isFinite(claim?.centerLng))
         .forEach((claim) => {
-          const claimMarkerElement = createClaimLogoMarkerElement(claim);
+          const claimMarkerElement = createClaimLogoMarkerElement(claim, discoveryMarkerScale);
           const claimMarker = new mapboxgl.Marker({ element: claimMarkerElement, anchor: "center" })
             .setLngLat([Number(claim.centerLng), Number(claim.centerLat)])
             .addTo(map);

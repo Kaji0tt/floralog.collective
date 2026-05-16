@@ -30,6 +30,7 @@ type PlantRow = {
 };
 
 type PlantGenusRow = {
+  id: string;
   genus_name: string | null;
   scientific_genus: string | null;
 };
@@ -50,9 +51,8 @@ type RewardRow = {
   image_url: string | null;
   type: string | null;
   requires_zone_theme?: string | null;
-  requires_plant_id?: string | null;
-  requires_plant_species?: string | null;
-  requires_plant_genus?: string | null;
+  requires_plant_species_id?: string | null;
+  requires_plant_genus_id?: string | null;
 };
 
 type ProfileRow = {
@@ -190,18 +190,18 @@ Deno.serve(async (req) => {
       return jsonResponse({ success: true, unlocked: [] });
     }
 
-    let normalizedGenusName = "";
+    let plantGenusId = "";
     const plantGenusCategory = String(plant.genus_category || "").trim();
     const plantGenusNumber = Number(plant.genus_number);
     if (plantGenusCategory && Number.isFinite(plantGenusNumber)) {
       const { data: plantGenus } = await adminClient
         .from("PlantGenus")
-        .select("genus_name, scientific_genus")
+        .select("id, genus_name, scientific_genus")
         .eq("category", plantGenusCategory)
         .eq("category_dex_number", plantGenusNumber)
         .maybeSingle<PlantGenusRow>();
 
-      normalizedGenusName = normalizeText(plantGenus?.genus_name || plantGenus?.scientific_genus);
+      plantGenusId = plantGenus?.id || "";
     }
 
     const dayKey = new Date().toISOString().slice(0, 10);
@@ -237,14 +237,12 @@ Deno.serve(async (req) => {
 
     const { data: rewards, error: rewardsError } = await adminClient
       .from("Rewards")
-      .select("id, name, display_name, value, image_url, type, requires_zone_theme, requires_plant_id, requires_plant_species, requires_plant_genus")
+      .select("id, name, display_name, value, image_url, type, requires_zone_theme, requires_plant_species_id, requires_plant_genus_id")
       .not("requires_zone_theme", "is", null);
 
     if (rewardsError) {
       return jsonResponse({ success: false, error: rewardsError.message }, 500);
     }
-
-    const normalizedSpeciesName = normalizeText(plant.species_name);
 
     const matchingRewards = ((rewards || []) as RewardRow[]).filter((reward) => {
       const requiredTheme = normalizeText(reward.requires_zone_theme);
@@ -252,19 +250,17 @@ Deno.serve(async (req) => {
         return false;
       }
 
-      const requiredPlantId = String(reward.requires_plant_id || "").trim();
-      const requiredPlantSpecies = normalizeText(reward.requires_plant_species);
-      const requiredPlantGenus = normalizeText(reward.requires_plant_genus);
-      const hasPlantCondition = !!requiredPlantId || !!requiredPlantSpecies || !!requiredPlantGenus;
+      const requiredPlantSpeciesId = String(reward.requires_plant_species_id || "").trim();
+      const requiredPlantGenusId = String(reward.requires_plant_genus_id || "").trim();
+      const hasPlantCondition = !!requiredPlantSpeciesId || !!requiredPlantGenusId;
       if (!hasPlantCondition) {
         return false;
       }
 
-      const plantIdMatches = !!requiredPlantId && requiredPlantId === effectivePlantId;
-      const speciesMatches = !!requiredPlantSpecies && requiredPlantSpecies === normalizedSpeciesName;
-      const genusMatches = !!requiredPlantGenus && requiredPlantGenus === normalizedGenusName;
+      const speciesMatches = !!requiredPlantSpeciesId && requiredPlantSpeciesId === plant.id;
+      const genusMatches = !!requiredPlantGenusId && requiredPlantGenusId === plantGenusId;
 
-      return plantIdMatches || speciesMatches || genusMatches;
+      return speciesMatches || genusMatches;
     });
 
     if (matchingRewards.length === 0) {
