@@ -284,7 +284,7 @@ const createDiscoveryMarkerElement = (point) => {
     img.style.height = "100%";
     img.style.objectFit = "contain";
     img.style.borderRadius = "999px";
-    img.style.transform = "scale(2.875)";
+    img.style.transform = "scale(2.2)";
     img.style.transformOrigin = "center center";
     if (filterValue) {
       img.style.filter = filterValue;
