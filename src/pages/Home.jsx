@@ -2587,7 +2587,7 @@ function HomeContent() {
                           className={`flex items-center justify-center gap-1.5 min-w-0 w-full h-full px-2 text-xs md:text-sm font-semibold transition-colors ${isLightUi ? "text-stone-700 hover:text-stone-800" : "text-white/95 hover:text-white"}`}
                           aria-label="Scan-Multiplikator Info"
                         >
-                          <Zap className={`w-4 h-4 shrink-0 ${isLightUi ? "text-amber-700" : "text-amber-300"}`} />
+                          <Camera className={`w-4 h-4 shrink-0 ${isLightUi ? "text-amber-700" : "text-amber-300"}`} />
                           <span className="truncate">{formatMultiplier(securedNextScanMultiplier)}</span>
                         </button>
                       </LockedTooltip>
