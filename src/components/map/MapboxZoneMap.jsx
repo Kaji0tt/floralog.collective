@@ -232,6 +232,7 @@ const createDiscoveryMarkerElement = (point) => {
   markerEl.style.border = "0";
   markerEl.style.background = "transparent";
   markerEl.style.cursor = "pointer";
+  markerEl.style.overflow = "visible";
 
   const borderUrl = String(point?.scannerLogoBorderUrl || "").trim();
   const plantUrl = String(point?.scannerLogoPlantUrl || "").trim();
@@ -263,7 +264,7 @@ const createDiscoveryMarkerElement = (point) => {
   ring.style.background = "rgba(0,0,0,0.35)";
   ring.style.padding = "3px";
   ring.style.boxSizing = "border-box";
-  ring.style.overflow = "hidden";
+  ring.style.overflow = "visible";
   markerEl.appendChild(ring);
 
   const content = document.createElement("span");
@@ -271,6 +272,7 @@ const createDiscoveryMarkerElement = (point) => {
   content.style.display = "block";
   content.style.width = "100%";
   content.style.height = "100%";
+  content.style.overflow = "visible";
   ring.appendChild(content);
 
   const appendLayer = (url, filterValue) => {
@@ -283,7 +285,6 @@ const createDiscoveryMarkerElement = (point) => {
     img.style.width = "100%";
     img.style.height = "100%";
     img.style.objectFit = "contain";
-    img.style.borderRadius = "999px";
     img.style.transform = "scale(2.2)";
     img.style.transformOrigin = "center center";
     if (filterValue) {
