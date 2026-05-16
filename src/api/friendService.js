@@ -55,6 +55,23 @@ export async function sendFriendRequest(recipientEmail) {
   return data.friend;
 }
 
+export async function connectViaReferral(referrerEmail) {
+  const normalizedEmail = referrerEmail?.trim?.();
+  if (!normalizedEmail) {
+    throw new Error("Referrer E-Mail fehlt.");
+  }
+
+  const data = await invokeFriendService(
+    {
+      action: "connectViaReferral",
+      referrerEmail: normalizedEmail,
+    },
+    "Referral-Verknüpfung konnte nicht erstellt werden.",
+  );
+
+  return data;
+}
+
 export async function removeFriendship(friendEmail) {
   const normalizedEmail = friendEmail?.trim?.();
   if (!normalizedEmail) {

@@ -5,7 +5,7 @@ import { upsertUserProfile } from "@/api/authService";
 import { executeMigration } from "@/api/migrationService";
 import { createUserNotification } from "@/api/notificationService";
 import { supabase } from "@/api/supabaseClient";
-import { sendFriendRequest } from "@/api/friendService";
+import { connectViaReferral } from "@/api/friendService";
 import {
   getRobotPlantDailyZones,
   listRobotPlantShopItems,
@@ -678,28 +678,16 @@ function HomeContent() {
 
     (async () => {
       try {
-        console.log('[Referral] Home-Effect: Erstelle Referral-Eintrag...', {
+        console.log('[Referral] Home-Effect: Verbinde Referral und Freundschaft direkt...', {
           referrer: referrerEmail,
           referred: user.email,
         });
-        // Referral-Eintrag anlegen
-        await Query.Referral.create({
-          referrer_email: referrerEmail,
-          referred_email: user.email,
-          status: "completed",
-        });
-        console.log('[Referral] Home-Effect: Referral-Eintrag erfolgreich erstellt');
-      } catch (e) {
-        console.error('[Referral] Home-Effect: Fehler beim Erstellen des Referral-Eintrags:', e);
-      }
-      try {
-        console.log('[Referral] Home-Effect: Sende Freundschaftsanfrage an:', referrerEmail);
-        // Freundschaftsanfrage an den Werber senden
-        await sendFriendRequest(referrerEmail);
+        await connectViaReferral(referrerEmail);
         queryClient.invalidateQueries({ queryKey: ['pendingFriendRequests'] });
-        console.log('[Referral] Home-Effect: Freundschaftsanfrage erfolgreich gesendet');
+        queryClient.invalidateQueries({ queryKey: ['friends'] });
+        console.log('[Referral] Home-Effect: Referral + direkte Freundschaft erfolgreich erstellt');
       } catch (e) {
-        console.error('[Referral] Home-Effect: Fehler beim Senden der Freundschaftsanfrage:', e);
+        console.error('[Referral] Home-Effect: Fehler bei Referral/Freundschaft:', e);
       }
     })();
   }, [user?.email, queryClient]);

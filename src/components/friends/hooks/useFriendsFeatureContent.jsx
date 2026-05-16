@@ -512,17 +512,11 @@ export function useFriendsFeatureContent({
 
   const shareAppMutation = useMutation({
     mutationFn: async (email) => {
-      // Erstelle Referral-Eintrag
-      await Query.Referral.create({
-        referrer_email: user.email,
-        referred_email: email,
-        status: "pending"
-      });
+      // Kein direkter Referral-Insert im Frontend: das verursacht RLS-Fehler.
+      // Die Verknüpfung wird beim ersten Login des eingeladenen Users serverseitig erstellt.
       return email;
     },
     onSuccess: (email) => {
-      queryClient.invalidateQueries({ queryKey: ['referrals'] });
-      
       // Erstelle Referral-Link mit verschleiertem Referral-Code
       const referralCode = encodeReferralCode(user.email);
       const referralLink = `https://floralog.de?ref=${referralCode}`;

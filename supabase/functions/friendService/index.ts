@@ -20,6 +20,10 @@ type FriendServiceBody =
       action?: "respondToRequest";
       requesterEmail?: string | null;
       responseAction?: "accept" | "reject" | null;
+    }
+  | {
+      action?: "connectViaReferral";
+      referrerEmail?: string | null;
     };
 
 function generateLegacyHexId(): string {
@@ -159,6 +163,171 @@ Deno.serve(async (req) => {
       }
 
       return jsonResponse({ success: true, friend: createdFriend }, 200);
+    }
+
+    if (action === "connectViaReferral") {
+      const referrerEmail = body?.referrerEmail?.trim();
+      if (!referrerEmail) {
+        return jsonResponse({ error: "referrerEmail is required" }, 400);
+      }
+
+      if (actorEmail.toLowerCase() === referrerEmail.toLowerCase()) {
+        return jsonResponse({ error: "Self-referral is not allowed." }, 400);
+      }
+
+      const now = new Date().toISOString();
+
+      const { data: existingReferral, error: existingReferralError } = await adminClient
+        .from("Referral")
+        .select("id, status")
+        .ilike("referrer_email", referrerEmail)
+        .ilike("referred_email", actorEmail)
+        .limit(1)
+        .maybeSingle();
+
+      if (existingReferralError) {
+        return jsonResponse(
+          {
+            error: existingReferralError.message,
+            code: existingReferralError.code,
+            details: existingReferralError.details,
+            hint: existingReferralError.hint,
+          },
+          500,
+        );
+      }
+
+      if (existingReferral) {
+        const { error: referralUpdateError } = await adminClient
+          .from("Referral")
+          .update({
+            status: "completed",
+            completed_date: now,
+            updated_date: now,
+            created_by: existingReferral.status ? undefined : referrerEmail,
+            auth_id: authData.user.id,
+          })
+          .eq("id", existingReferral.id);
+
+        if (referralUpdateError) {
+          return jsonResponse(
+            {
+              error: referralUpdateError.message,
+              code: referralUpdateError.code,
+              details: referralUpdateError.details,
+              hint: referralUpdateError.hint,
+            },
+            500,
+          );
+        }
+      } else {
+        const { error: referralInsertError } = await adminClient
+          .from("Referral")
+          .insert({
+            id: generateLegacyHexId(),
+            referrer_email: referrerEmail,
+            referred_email: actorEmail,
+            status: "completed",
+            completed_date: now,
+            created_date: now,
+            updated_date: now,
+            created_by: referrerEmail,
+            auth_id: authData.user.id,
+          });
+
+        if (referralInsertError) {
+          return jsonResponse(
+            {
+              error: referralInsertError.message,
+              code: referralInsertError.code,
+              details: referralInsertError.details,
+              hint: referralInsertError.hint,
+            },
+            500,
+          );
+        }
+      }
+
+      const [forwardRes, reverseRes] = await Promise.all([
+        adminClient
+          .from("Friend")
+          .select("id, status")
+          .ilike("request_sent_by", actorEmail)
+          .ilike("request_sent_to", referrerEmail)
+          .limit(1)
+          .maybeSingle(),
+        adminClient
+          .from("Friend")
+          .select("id, status")
+          .ilike("request_sent_by", referrerEmail)
+          .ilike("request_sent_to", actorEmail)
+          .limit(1)
+          .maybeSingle(),
+      ]);
+
+      if (forwardRes.error || reverseRes.error) {
+        const firstError = forwardRes.error || reverseRes.error;
+        return jsonResponse(
+          {
+            error: firstError?.message || "Friendship lookup failed",
+            code: firstError?.code,
+            details: firstError?.details,
+            hint: firstError?.hint,
+          },
+          500,
+        );
+      }
+
+      const existingFriend = forwardRes.data || reverseRes.data;
+
+      if (existingFriend) {
+        if (existingFriend.status !== "accepted") {
+          const { error: acceptError } = await adminClient
+            .from("Friend")
+            .update({ status: "accepted", added_date: now })
+            .eq("id", existingFriend.id);
+
+          if (acceptError) {
+            return jsonResponse(
+              {
+                error: acceptError.message,
+                code: acceptError.code,
+                details: acceptError.details,
+                hint: acceptError.hint,
+              },
+              500,
+            );
+          }
+        }
+
+        return jsonResponse({ success: true, connected: true, alreadyExisted: true }, 200);
+      }
+
+      const { error: friendInsertError } = await adminClient
+        .from("Friend")
+        .insert({
+          id: generateLegacyHexId(),
+          request_sent_by: referrerEmail,
+          request_sent_to: actorEmail,
+          status: "accepted",
+          added_date: now,
+          created_by: referrerEmail,
+          auth_id: authData.user.id,
+        });
+
+      if (friendInsertError) {
+        return jsonResponse(
+          {
+            error: friendInsertError.message,
+            code: friendInsertError.code,
+            details: friendInsertError.details,
+            hint: friendInsertError.hint,
+          },
+          500,
+        );
+      }
+
+      return jsonResponse({ success: true, connected: true, alreadyExisted: false }, 200);
     }
 
     if (action === "removeFriendship") {
