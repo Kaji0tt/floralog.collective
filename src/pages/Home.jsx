@@ -5,7 +5,7 @@ import { upsertUserProfile } from "@/api/authService";
 import { executeMigration } from "@/api/migrationService";
 import { createUserNotification } from "@/api/notificationService";
 import { supabase } from "@/api/supabaseClient";
-import { connectViaReferral } from "@/api/friendService";
+import { sendFriendRequest } from "@/api/friendService";
 import {
   getRobotPlantDailyZones,
   listRobotPlantShopItems,
@@ -143,7 +143,7 @@ function HomeContent() {
     setScanFeedback(value);
   };
   const [activePanel, setActivePanel] = useState(null);
-  const [shopOpenCategory, setShopOpenCategory] = useState("backgrounds");
+  const [shopOpenCategory, setShopOpenCategory] = useState("accessories");
   const [careActionMessage, setCareActionMessage] = useState(null);
   const [careGainFeedback, setCareGainFeedback] = useState(null);
   const [dailySparkClaimFeedback, setDailySparkClaimFeedback] = useState(null);
@@ -647,47 +647,35 @@ function HomeContent() {
 
   // Referral-Code aus localStorage verarbeiten, sobald User eingeloggt ist (einmalig)
   useEffect(() => {
-    if (!user?.email) {
-      console.log('[Referral] Home-Effect: User noch nicht geladen');
-      return;
-    }
+    if (!user?.email) return;
     const referralCode = localStorage.getItem('referral_code');
-    console.log('[Referral] Home-Effect: User geladen, localStorage-Code:', { referralCode });
-    if (!referralCode) {
-      console.log('[Referral] Home-Effect: Kein referral_code im localStorage');
-      return;
-    }
+    if (!referralCode) return;
 
     const referrerEmail = resolveReferralEmail(referralCode);
-    console.log('[Referral] Home-Effect: Dekodierung:', {
-      code: referralCode,
-      decodedEmail: referrerEmail,
-    });
     // Sofort löschen, um doppelte Verarbeitung zu verhindern
     localStorage.removeItem('referral_code');
 
-    if (!referrerEmail) {
-      console.log('[Referral] Home-Effect: Dekodierung fehlgeschlagen - kein Email in Code');
-      return;
-    }
+    if (!referrerEmail) return;
 
-    if (referrerEmail.toLowerCase() === user.email.toLowerCase()) {
-      console.log('[Referral] Home-Effect: Gleiche Email - Selbstreferral, ignorieren');
-      return;
-    }
+    if (referrerEmail.toLowerCase() === user.email.toLowerCase()) return;
 
     (async () => {
       try {
-        console.log('[Referral] Home-Effect: Verbinde Referral und Freundschaft direkt...', {
-          referrer: referrerEmail,
-          referred: user.email,
+        // Referral-Eintrag anlegen
+        await Query.Referral.create({
+          referrer_email: referrerEmail,
+          referred_email: user.email,
+          status: "completed",
         });
-        await connectViaReferral(referrerEmail);
+      } catch (_e) {
+        // Duplikat oder andere Fehler ignorieren
+      }
+      try {
+        // Freundschaftsanfrage an den Werber senden
+        await sendFriendRequest(referrerEmail);
         queryClient.invalidateQueries({ queryKey: ['pendingFriendRequests'] });
-        queryClient.invalidateQueries({ queryKey: ['friends'] });
-        console.log('[Referral] Home-Effect: Referral + direkte Freundschaft erfolgreich erstellt');
-      } catch (e) {
-        console.error('[Referral] Home-Effect: Fehler bei Referral/Freundschaft:', e);
+      } catch (_e) {
+        // Anfrage existiert ggf. bereits
       }
     })();
   }, [user?.email, queryClient]);
@@ -2072,7 +2060,7 @@ function HomeContent() {
     return nextLiked;
   };
 
-  const openShop = (category = "backgrounds") => {
+  const openShop = (category = "accessories") => {
     setShopOpenCategory(category);
     setActivePanel("shop");
     setShowHealthStatsPanel(false);
@@ -2535,19 +2523,24 @@ function HomeContent() {
                             <p className={`text-[10px] font-semibold uppercase tracking-wide mb-0.5 ${
                               isLightUi ? "text-amber-600" : "text-amber-400/80"
                             }`}>
-                              Scan-Zone
+                              Scan-Zone & Geclaimte Tiles
                             </p>
                             <p className={`font-bold text-sm leading-tight mb-2 ${
                               isLightUi ? "text-amber-800" : "text-amber-300"
                             }`}>
-                              {(!hasResolvedZoneBootstrap || isLoadingZone) ? "Wird geladen…" : activeZoneMeta?.label || "Keine Zone"}
+                              {(!hasResolvedZoneBootstrap || isLoadingZone) ? "Wird geladen…" : activeZoneMeta?.label || "Keine Zone"} · {playerClaimedTiles} Tiles
                             </p>
-                            <p className={`text-xs leading-snug ${
+                            <p className={`text-xs leading-snug mb-2 ${
                               isLightUi ? "text-stone-700" : "text-white/80"
                             }`}>
                               {activeZone
                                 ? `Du befindest dich in einer aktiven ${activeZoneMeta?.label || ""}-Zone. Scans hier erhalten einen Zonen-Bonus.`
                                 : "Du befindest dich aktuell in keiner aktiven Scan-Zone. Begib dich in eine Zone, um einen Bonus-Multiplikator zu erhalten."}
+                            </p>
+                            <p className={`text-xs leading-snug ${
+                              isLightUi ? "text-stone-700" : "text-white/80"
+                            }`}>
+                              Jede geclaimte Tile erhöht deinen Scan-Multiplikator um +10%. Aktueller Bonus: x{(1 + playerClaimedTiles * 0.1).toFixed(1)}.
                             </p>
                           </div>
                         )}
@@ -2558,7 +2551,7 @@ function HomeContent() {
                           aria-label="Scan-Zone Info"
                         >
                           <MapPin className="w-4 h-4 shrink-0" style={{ color: currentZoneColor }} />
-                          <span className="truncate">{(!hasResolvedZoneBootstrap || isLoadingZone) ? "..." : activeZoneMeta?.label || "Leer"}</span>
+                          <span className="truncate">{(!hasResolvedZoneBootstrap || isLoadingZone) ? "..." : playerClaimedTiles}</span>
                         </button>
                       </LockedTooltip>
                       <LockedTooltip
@@ -2758,7 +2751,7 @@ function HomeContent() {
 
                       <button
                         type="button"
-                        onClick={() => openShop("backgrounds")}
+                        onClick={() => openShop("accessories")}
                         aria-label="Profil anpassen"
                         className={`absolute right-0 md:right-2 top-5 md:top-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${
                           isLightUi
@@ -2854,51 +2847,7 @@ function HomeContent() {
                               </div>
                             </button>
 
-                            <div className="absolute left-1/2 bottom-[7%] -translate-x-1/2 z-[8]">
-                              <div className="flex items-center gap-2">
-                                <LockedTooltip
-                                  unstyled
-                                  content={(
-                                    <div
-                                      className={`rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl ${
-                                        isLightUi
-                                          ? "border-amber-400/60 bg-white/88"
-                                          : "border-amber-300/40 bg-black/75"
-                                      }`}
-                                    >
-                                      <p className={`text-[10px] font-semibold uppercase tracking-wide mb-0.5 ${
-                                        isLightUi ? "text-amber-600" : "text-amber-400/80"
-                                      }`}>
-                                        Tile-Claims
-                                      </p>
-                                      <p className={`font-bold text-sm leading-tight mb-2 ${
-                                        isLightUi ? "text-amber-800" : "text-amber-300"
-                                      }`}>
-                                        {playerClaimedTiles} {playerClaimedTiles === 1 ? "Tile" : "Tiles"} geclaimt
-                                      </p>
-                                      <p className={`text-xs leading-snug ${
-                                        isLightUi ? "text-stone-700" : "text-white/80"
-                                      }`}>
-                                        Jede geclaimte Tile erhöht deinen Scan-Multiplikator um +10%. Aktueller Bonus: x{(1 + playerClaimedTiles * 0.1).toFixed(1)}.
-                                      </p>
-                                    </div>
-                                  )}
-                                >
-                                  <button
-                                    type="button"
-                                    aria-label="Tile-Claims anzeigen"
-                                    className={`rounded-xl border backdrop-blur-sm px-2.5 py-1.5 flex items-center gap-1 text-xs md:text-sm font-semibold transition-colors ${
-                                      isLightUi
-                                        ? "border-[#c8ac62]/55 bg-white/60 text-stone-700 hover:bg-white/75"
-                                        : "border-[#f0e5a5]/45 bg-black/35 text-lime-100 hover:bg-black/50"
-                                    }`}
-                                  >
-                                    <MapPin className={`w-3.5 h-3.5 ${isLightUi ? "text-amber-600" : "text-amber-300"}`} />
-                                    <span>{playerClaimedTiles}</span>
-                                  </button>
-                                </LockedTooltip>
-                              </div>
-                            </div>
+
 
                           </motion.div>
                         )}

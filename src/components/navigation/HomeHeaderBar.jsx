@@ -1,4 +1,4 @@
-import { Home as HomeIcon, List, Plus, Settings } from "lucide-react";
+import { Home as HomeIcon, List, Plus, Settings, Sparkles } from "lucide-react";
 import { useUiTheme } from "@/lib/UiThemeContext";
 
 /**
@@ -58,47 +58,6 @@ export default function HomeHeaderBar({
                 {embeddedSubtitle}
               </p>
             )}
-            {shopCurrencyInfo && (
-              <div className="mt-2 flex items-center gap-4">
-                <span
-                  className={`inline-flex items-center gap-1.5 h-7 rounded-full border px-2.5 text-[11px] font-semibold ${
-                    isLightUi
-                      ? "border-[#c8ac62]/55 bg-white/60 text-[#8f6b22]"
-                      : "border-[#f0e5a5]/35 bg-black/30 text-[#f0e5a5]"
-                  }`}
-                >
-                  <span aria-hidden="true">✨</span>
-                  <span>{Math.max(0, Number(shopCurrencyInfo.sparks ?? 0))}</span>
-                </span>
-
-                {typeof onOpenAmberPurchase === "function" ? (
-                  <button
-                    type="button"
-                    onClick={onOpenAmberPurchase}
-                    className={`inline-flex items-center gap-1.5 h-7 rounded-full border px-2.5 text-[11px] font-semibold transition-colors ${
-                      isLightUi
-                        ? "border-[#c8ac62]/55 bg-white/60 text-[#8f6b22] hover:bg-white/80"
-                        : "border-[#f0e5a5]/35 bg-black/30 text-[#f0e5a5] hover:bg-black/45"
-                    }`}
-                    aria-label="Bernstein kaufen"
-                  >
-                    <span aria-hidden="true">🔸</span>
-                    <span>{Math.max(0, Number(shopCurrencyInfo.amber ?? 0))}</span>
-                  </button>
-                ) : (
-                  <span
-                    className={`inline-flex items-center gap-1.5 h-7 rounded-full border px-2.5 text-[11px] font-semibold ${
-                      isLightUi
-                        ? "border-[#c8ac62]/55 bg-white/60 text-[#8f6b22]"
-                        : "border-[#f0e5a5]/35 bg-black/30 text-[#f0e5a5]"
-                    }`}
-                  >
-                    <span aria-hidden="true">🔸</span>
-                    <span>{Math.max(0, Number(shopCurrencyInfo.amber ?? 0))}</span>
-                  </span>
-                )}
-              </div>
-            )}
           </div>
         ) : (
           <div className="min-w-0">
@@ -134,6 +93,44 @@ export default function HomeHeaderBar({
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
+        {shopCurrencyInfo && (
+          <>
+            <div
+              className={`w-11 h-11 rounded-full border backdrop-blur-md flex flex-col items-center justify-center gap-0.5 ${isLightUi ? "border-[#c8ac62]/55 bg-white/65" : "border-[#f0e5a5]/35 bg-black/30"}`}
+              aria-label="Funken"
+            >
+              <Sparkles className={`w-3.5 h-3.5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} aria-hidden="true" />
+              <span className={`text-[10px] font-semibold leading-none ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}>
+                {Math.max(0, Number(shopCurrencyInfo.sparks ?? 0))}
+              </span>
+            </div>
+
+            {typeof onOpenAmberPurchase === "function" ? (
+              <button
+                type="button"
+                onClick={onOpenAmberPurchase}
+                className={`w-11 h-11 rounded-full border backdrop-blur-md flex flex-col items-center justify-center gap-0.5 transition-colors ${isLightUi ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80" : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"}`}
+                aria-label="Bernstein kaufen"
+              >
+                <span className={`inline-flex items-center justify-center w-3.5 h-3.5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} aria-hidden="true">🔸</span>
+                <span className={`text-[10px] font-semibold leading-none ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}>
+                  {Math.max(0, Number(shopCurrencyInfo.amber ?? 0))}
+                </span>
+              </button>
+            ) : (
+              <div
+                className={`w-11 h-11 rounded-full border backdrop-blur-md flex flex-col items-center justify-center gap-0.5 ${isLightUi ? "border-[#c8ac62]/55 bg-white/65" : "border-[#f0e5a5]/35 bg-black/30"}`}
+                aria-label="Bernstein"
+              >
+                <span className={`inline-flex items-center justify-center w-3.5 h-3.5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} aria-hidden="true">🔸</span>
+                <span className={`text-[10px] font-semibold leading-none ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}>
+                  {Math.max(0, Number(shopCurrencyInfo.amber ?? 0))}
+                </span>
+              </div>
+            )}
+          </>
+        )}
+
         {showEmbeddedCollection && (
           <button
             type="button"
