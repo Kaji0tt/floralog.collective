@@ -1,4 +1,5 @@
-import { ArrowLeft, Bug, Loader2, Map as MapIcon, RefreshCw } from "lucide-react";
+import { Bug, Loader2, Map as MapIcon, RefreshCw, Search, X } from "lucide-react";
+import { useState } from "react";
 import MapboxZoneMap from "@/components/map/MapboxZoneMap";
 import { TileVisualizationPanel } from "@/components/admin/TileVisualizationPanel";
 
@@ -31,7 +32,20 @@ export default function HomeMapFeatureRoot({
   canRegenerateZones,
   isRegeneratingZones,
   zoneRerollsRemaining,
+  allDiscoveryPoints = [],
+  friendEmailSet = new Set(),
 }) {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const trimmedQuery = searchQuery.trim().toLowerCase();
+  const displayedDiscoveryPoints = trimmedQuery
+    ? allDiscoveryPoints.filter((point) => {
+        const nameMatch = point.scannerName.toLowerCase().includes(trimmedQuery);
+        const isFriend = friendEmailSet.has(point.scannerEmail.toLowerCase());
+        const plantMatch = point.plantName.toLowerCase().includes(trimmedQuery);
+        return (nameMatch && isFriend) || plantMatch;
+      })
+    : nearbyDiscoveryPoints;
   return (
     <section
       className={`relative flex-1 min-h-0 rounded-3xl border overflow-hidden ${
@@ -105,7 +119,7 @@ export default function HomeMapFeatureRoot({
           zones={heroZones}
           userLocation={cachedLocation}
           fallbackCenter={{ lat: heroMapCenter[0], lng: heroMapCenter[1] }}
-          discoveryPoints={nearbyDiscoveryPoints}
+          discoveryPoints={displayedDiscoveryPoints}
           claimedTiles={claimedTiles}
           currentAuthId={authId}
           isLightUi={isLightUi}
@@ -132,17 +146,55 @@ export default function HomeMapFeatureRoot({
           : "bg-gradient-to-b from-black/60 to-transparent"
       }`} />
 
-      <div className={`absolute left-4 top-4 z-[1200] rounded-xl border backdrop-blur-sm px-3 py-1.5 text-[11px] md:text-xs font-semibold flex items-center gap-1.5 ${
-        isLightUi
-          ? "border-[#c8ac62]/50 bg-white/55 text-stone-800"
-          : "border-[#f0e5a5]/35 bg-black/55 text-stone-100"
-      }`}>
-        <MapIcon className="w-3.5 h-3.5" />
-        Zonen: {heroZones.length} | Funde: {nearbyDiscoveryPoints.length} | Claims: {claimedTiles?.length || 0}
+      {/* Top bar: stats chip (left) + Neu button (right) */}
+      <div className="absolute left-4 right-4 top-4 z-[1200] flex items-center justify-between gap-2">
+        <div className={`rounded-xl border backdrop-blur-sm px-3 py-1.5 text-[11px] md:text-xs font-semibold flex items-center gap-1.5 ${
+          isLightUi
+            ? "border-[#c8ac62]/50 bg-white/55 text-stone-800"
+            : "border-[#f0e5a5]/35 bg-black/55 text-stone-100"
+        }`}>
+          <MapIcon className="w-3.5 h-3.5" />
+          {trimmedQuery
+            ? `Funde: ${displayedDiscoveryPoints.length}`
+            : `Zonen: ${heroZones.length} | Funde: ${nearbyDiscoveryPoints.length} | Claims: ${claimedTiles?.length || 0}`}
+        </div>
+
+        <button
+          type="button"
+          onClick={onRegenerateZones}
+          disabled={!canRegenerateZones || isRegeneratingZones}
+          className={`h-8 px-3 rounded-xl border backdrop-blur-sm flex items-center gap-1.5 text-[11px] md:text-xs font-semibold disabled:opacity-60 ${
+            isLightUi
+              ? "border-[#c8ac62]/55 bg-white/60 text-stone-800 hover:bg-white/70"
+              : "border-[#f0e5a5]/45 bg-black/55 text-stone-100 hover:bg-black/70"
+          } transition-colors`}
+        >
+          {isRegeneratingZones ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+          {zoneRerollsRemaining !== null && !isAdminUser ? `Neu (${zoneRerollsRemaining})` : "Neu"}
+        </button>
       </div>
 
+      {/* Debug button for admins, below the top bar */}
+      {isAdminUser && (
+        <button
+          type="button"
+          onClick={() => onDebugZonePanelChange(true)}
+          className={`absolute left-4 top-14 z-[1200] h-8 px-3 rounded-xl border backdrop-blur-sm flex items-center gap-1.5 text-[11px] md:text-xs font-semibold ${
+            isLightUi
+              ? "border-amber-400/60 bg-amber-50/70 text-amber-800 hover:bg-amber-100/80"
+              : "border-amber-400/50 bg-amber-900/40 text-amber-200 hover:bg-amber-900/60"
+          } transition-colors`}
+          title="Admin: Debug Zone Overlay"
+        >
+          <Bug className="w-3.5 h-3.5" />
+          Debug-Zone
+        </button>
+      )}
+
       {(zoneMapError || tileClaimError) && (
-        <div className={`absolute left-4 right-4 top-16 z-[1200] rounded-xl border backdrop-blur-sm px-3 py-2 text-[11px] md:text-xs font-medium ${
+        <div className={`absolute left-4 right-4 z-[1200] rounded-xl border backdrop-blur-sm px-3 py-2 text-[11px] md:text-xs font-medium ${
+          isAdminUser ? "top-24" : "top-16"
+        } ${
           isLightUi
             ? "border-red-400/40 bg-red-200/65 text-red-800"
             : "border-red-300/50 bg-red-900/55 text-red-100"
@@ -151,49 +203,43 @@ export default function HomeMapFeatureRoot({
         </div>
       )}
 
-      <div className="absolute left-4 right-4 bottom-4 z-[1200] flex items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={onClose}
-          className={`h-10 px-3 rounded-xl border backdrop-blur-sm flex items-center gap-2 text-xs md:text-sm font-semibold ${
-            isLightUi
-              ? "border-[#c8ac62]/55 bg-white/60 text-stone-800 hover:bg-white/70"
-              : "border-[#f0e5a5]/45 bg-black/55 text-stone-100 hover:bg-black/70"
-          } transition-colors`}
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Zurück
-        </button>
-
-        {isAdminUser && (
-          <button
-            type="button"
-            onClick={() => onDebugZonePanelChange(true)}
-            className={`h-10 px-3 rounded-xl border backdrop-blur-sm flex items-center gap-2 text-xs md:text-sm font-semibold ${
-              isLightUi
-                ? "border-amber-400/60 bg-amber-50/70 text-amber-800 hover:bg-amber-100/80"
-                : "border-amber-400/50 bg-amber-900/40 text-amber-200 hover:bg-amber-900/60"
-            } transition-colors`}
-            title="Admin: Debug Zone Overlay"
-          >
-            <Bug className="w-4 h-4" />
-            Debug-Zone
-          </button>
+      {/* Bottom search bar */}
+      <div className="absolute left-4 right-4 bottom-4 z-[1200]">
+        <div className={`flex items-center gap-2 h-10 rounded-xl border backdrop-blur-sm px-3 ${
+          isLightUi
+            ? "border-[#c8ac62]/55 bg-white/70 text-stone-800"
+            : "border-[#f0e5a5]/45 bg-black/60 text-stone-100"
+        }`}>
+          <Search className="w-3.5 h-3.5 shrink-0 opacity-60" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Freund oder Pflanzenname suchen…"
+            className={`flex-1 bg-transparent text-xs md:text-sm outline-none placeholder:opacity-50 ${
+              isLightUi ? "placeholder:text-stone-600" : "placeholder:text-stone-400"
+            }`}
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="shrink-0 opacity-60 hover:opacity-100 transition-opacity"
+              aria-label="Suche löschen"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+        {trimmedQuery && (
+          <p className={`mt-1 text-[10px] text-center ${
+            isLightUi ? "text-stone-600" : "text-stone-400"
+          }`}>
+            {displayedDiscoveryPoints.length === 0
+              ? "Keine Ergebnisse"
+              : `${displayedDiscoveryPoints.length} Fund${displayedDiscoveryPoints.length === 1 ? "" : "e"} gefunden (deutschlandweit)`}
+          </p>
         )}
-
-        <button
-          type="button"
-          onClick={onRegenerateZones}
-          disabled={!canRegenerateZones || isRegeneratingZones}
-          className={`h-10 px-3 rounded-xl border backdrop-blur-sm flex items-center gap-2 text-xs md:text-sm font-semibold disabled:opacity-60 ${
-            isLightUi
-              ? "border-[#c8ac62]/55 bg-white/60 text-stone-800 hover:bg-white/70"
-              : "border-[#f0e5a5]/45 bg-black/55 text-stone-100 hover:bg-black/70"
-          } transition-colors`}
-        >
-          {isRegeneratingZones ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          {zoneRerollsRemaining !== null && !isAdminUser ? `Neu (${zoneRerollsRemaining})` : "Neu"}
-        </button>
       </div>
     </section>
   );

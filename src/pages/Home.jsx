@@ -1627,71 +1627,84 @@ function HomeContent() {
       .map((like) => like.discovery_id)
   );
 
+  const allDiscoveryPoints = allDiscoveries
+    .map((entry) => {
+      const coords = parseDiscoveryCoordinates(entry?.discovery_location);
+      if (!coords) return null;
+
+      const plant = plants.find((candidate) => candidate.id === entry?.plant_id);
+
+      const entryEmailUser = typeof entry?.user === "string" ? entry.user.toLowerCase() : null;
+      const entryEmailCreatedBy = typeof entry?.created_by === "string" ? entry.created_by.toLowerCase() : null;
+      const entryAuthId = entry?.auth_id || entry?.created_by_id || "";
+      const isOwnDiscovery =
+        (entryAuthId && user?.id && entryAuthId === user.id) ||
+        (entryEmailUser && user?.email && entryEmailUser === user.email.toLowerCase()) ||
+        (entryEmailCreatedBy && user?.email && entryEmailCreatedBy === user.email.toLowerCase());
+      const discoveryUser = allUsers.find((candidate) => {
+        if (candidate?.auth_id && (candidate.auth_id === entry?.auth_id || candidate.auth_id === entry?.created_by_id)) {
+          return true;
+        }
+        if (!candidate?.user_email) return false;
+        const candidateEmail = candidate.user_email.toLowerCase();
+        return candidateEmail === entryEmailUser || candidateEmail === entryEmailCreatedBy;
+      });
+
+      const scannerNameFromProfile =
+        discoveryUser?.display_name ||
+        discoveryUser?.full_name ||
+        "";
+      const scannerNameFromOwnProfile = user?.display_name || user?.full_name || "";
+      const scannerName = (scannerNameFromProfile || (isOwnDiscovery ? scannerNameFromOwnProfile : "") || "Unbekannt").trim();
+      const discoveryLogoAssets = discoveryUser
+        ? resolveEquippedLogoAssetsWithCatalog(discoveryUser, logoAssets)
+        : (isOwnDiscovery ? equippedLogoAssets : null);
+
+      return {
+        lat: coords.lat,
+        lng: coords.lng,
+        discoveryId: entry?.id || null,
+        imageUrl: entry?.image_url || "",
+        scannerName,
+        scannerDisplayName: scannerName,
+        scannerEmail: discoveryUser?.user_email || entry?.user || entry?.created_by || "",
+        scannerAuthId: discoveryUser?.auth_id || entry?.auth_id || entry?.created_by_id || "",
+        plantName: plant?.species_name || "Unbekannte Pflanze",
+        plantId: plant?.id || entry?.plant_id || "",
+        genusId: plant?.genus_id || "",
+        likedByCurrentUser: likedDiscoveryIdSet.has(entry?.id),
+        discoveredAt: entry?.created_date || entry?.discovered_date || entry?.updated_date || null,
+        scannerLogoBorderUrl: discoveryLogoAssets?.border?.imageUrl || "",
+        scannerLogoPlantUrl: discoveryLogoAssets?.plant?.imageUrl || "",
+        scannerLogoFaceUrl: discoveryLogoAssets?.face?.imageUrl || "",
+        scannerLogoBorderColor: discoveryLogoAssets?.borderColor || "",
+      };
+    })
+    .filter(Boolean);
+
   const nearbyDiscoveryPoints = hasLiveCachedLocation
-    ? allDiscoveries
-        .map((entry) => {
-          const coords = parseDiscoveryCoordinates(entry?.discovery_location);
-          if (!coords) return null;
-
-          const plant = plants.find((candidate) => candidate.id === entry?.plant_id);
-
-          const entryEmailUser = typeof entry?.user === "string" ? entry.user.toLowerCase() : null;
-          const entryEmailCreatedBy = typeof entry?.created_by === "string" ? entry.created_by.toLowerCase() : null;
-          const entryAuthId = entry?.auth_id || entry?.created_by_id || "";
-          const isOwnDiscovery =
-            (entryAuthId && user?.id && entryAuthId === user.id) ||
-            (entryEmailUser && user?.email && entryEmailUser === user.email.toLowerCase()) ||
-            (entryEmailCreatedBy && user?.email && entryEmailCreatedBy === user.email.toLowerCase());
-          const discoveryUser = allUsers.find((candidate) => {
-            if (candidate?.auth_id && (candidate.auth_id === entry?.auth_id || candidate.auth_id === entry?.created_by_id)) {
-              return true;
-            }
-            if (!candidate?.user_email) return false;
-            const candidateEmail = candidate.user_email.toLowerCase();
-            return candidateEmail === entryEmailUser || candidateEmail === entryEmailCreatedBy;
-          });
-
-          const scannerNameFromProfile =
-            discoveryUser?.display_name ||
-            discoveryUser?.full_name ||
-            "";
-          const scannerNameFromOwnProfile = user?.display_name || user?.full_name || "";
-          const scannerName = (scannerNameFromProfile || (isOwnDiscovery ? scannerNameFromOwnProfile : "") || "Unbekannt").trim();
-          const discoveryLogoAssets = discoveryUser
-            ? resolveEquippedLogoAssetsWithCatalog(discoveryUser, logoAssets)
-            : (isOwnDiscovery ? equippedLogoAssets : null);
-
-          return {
-            lat: coords.lat,
-            lng: coords.lng,
-            discoveryId: entry?.id || null,
-            imageUrl: entry?.image_url || "",
-            scannerName,
-            scannerDisplayName: scannerName,
-            scannerEmail: discoveryUser?.user_email || entry?.user || entry?.created_by || "",
-            scannerAuthId: discoveryUser?.auth_id || entry?.auth_id || entry?.created_by_id || "",
-            plantName: plant?.species_name || "Unbekannte Pflanze",
-            plantId: plant?.id || entry?.plant_id || "",
-            genusId: plant?.genus_id || "",
-            likedByCurrentUser: likedDiscoveryIdSet.has(entry?.id),
-            discoveredAt: entry?.created_date || entry?.discovered_date || entry?.updated_date || null,
-            scannerLogoBorderUrl: discoveryLogoAssets?.border?.imageUrl || "",
-            scannerLogoPlantUrl: discoveryLogoAssets?.plant?.imageUrl || "",
-            scannerLogoFaceUrl: discoveryLogoAssets?.face?.imageUrl || "",
-            scannerLogoBorderColor: discoveryLogoAssets?.borderColor || "",
-          };
-        })
-        .filter(Boolean)
-        .filter((point) => {
-          const distanceM = calculateDistanceMetersRaw(
-            cachedLocation.lat,
-            cachedLocation.lng,
-            point.lat,
-            point.lng
-          );
-          return Number.isFinite(distanceM) && distanceM <= NEARBY_DISCOVERY_RADIUS_METERS;
-        })
+    ? allDiscoveryPoints.filter((point) => {
+        const distanceM = calculateDistanceMetersRaw(
+          cachedLocation.lat,
+          cachedLocation.lng,
+          point.lat,
+          point.lng
+        );
+        return Number.isFinite(distanceM) && distanceM <= NEARBY_DISCOVERY_RADIUS_METERS;
+      })
     : [];
+
+  const friendEmailSet = new Set(
+    friends.flatMap((f) => {
+      const userEmailLower = (user?.email || "").toLowerCase();
+      const emails = [];
+      if (f.request_sent_by && f.request_sent_by.toLowerCase() !== userEmailLower)
+        emails.push(f.request_sent_by.toLowerCase());
+      if (f.request_sent_to && f.request_sent_to.toLowerCase() !== userEmailLower)
+        emails.push(f.request_sent_to.toLowerCase());
+      return emails;
+    })
+  );
   const heroMapCenter = hasLiveCachedLocation
     ? [cachedLocation.lat, cachedLocation.lng]
     : heroZones[0]
@@ -2458,6 +2471,8 @@ function HomeContent() {
                     canRegenerateZones={hasCalledZoneGenerationToday && !isLoadingZone && (isAdminUser || zoneRerollsRemaining !== 0)}
                     isRegeneratingZones={isRegeneratingZones}
                     zoneRerollsRemaining={zoneRerollsRemaining}
+                    allDiscoveryPoints={allDiscoveryPoints}
+                    friendEmailSet={friendEmailSet}
                   />
                 ) : (
                   <section data-ui="home-plant-hero-section" className="flex-1 min-h-0 rounded-3xl px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col bg-transparent">

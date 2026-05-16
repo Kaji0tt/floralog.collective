@@ -260,7 +260,7 @@ const createDiscoveryMarkerElement = (point) => {
   ring.style.height = "100%";
   ring.style.borderRadius = "999px";
   ring.style.border = "0";
-  ring.style.background = "rgba(0,0,0,0.35)";
+  ring.style.background = "transparent";
   ring.style.boxSizing = "border-box";
   ring.style.overflow = "hidden";
   markerEl.appendChild(ring);
@@ -278,11 +278,11 @@ const createDiscoveryMarkerElement = (point) => {
     img.src = url;
     img.alt = "";
     img.style.position = "absolute";
-    img.style.left = "-50%";
-    img.style.top = "-50%";
-    img.style.width = "200%";
-    img.style.height = "200%";
-    img.style.objectFit = "contain";
+    img.style.inset = "0";
+    img.style.width = "100%";
+    img.style.height = "100%";
+    img.style.objectFit = "cover";
+    img.style.borderRadius = "999px";
     if (filterValue) {
       img.style.filter = filterValue;
     }
