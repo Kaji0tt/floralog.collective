@@ -57,7 +57,7 @@ export default function Layout({ children, currentPageName }) {
       console.log('[Referral] Code gespeichert im localStorage:', {
         original: referralCode,
         normalized: normalizedReferralCode,
-        includes@: referralCode.includes('@'),
+        includesAt: referralCode.includes('@'),
       });
       // Entferne den Code aus der URL
       window.history.replaceState({}, document.title, window.location.pathname);
