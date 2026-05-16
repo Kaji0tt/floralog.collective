@@ -79,6 +79,16 @@ const THEME_MAP_META = {
 };
 
 const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "";
+const DISCOVERY_MARKER_SCALE_STORAGE_KEY = "home.discoveryMarkerScale";
+const DISCOVERY_MARKER_SCALE_MIN = 0.5;
+const DISCOVERY_MARKER_SCALE_MAX = 1.0;
+const DISCOVERY_MARKER_SCALE_DEFAULT = 0.8;
+
+const clampDiscoveryMarkerScale = (value) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return DISCOVERY_MARKER_SCALE_DEFAULT;
+  return Math.min(DISCOVERY_MARKER_SCALE_MAX, Math.max(DISCOVERY_MARKER_SCALE_MIN, numeric));
+};
 const SOCIAL_NEWS_NOTIFICATION_TYPES = [
   "gift_received",
   "collection_followed",
@@ -153,6 +163,22 @@ function HomeContent() {
   const [embeddedCollectionPublicPanelOpen, setEmbeddedCollectionPublicPanelOpen] = useState(false);
   const [embeddedSelectedCollectionId, setEmbeddedSelectedCollectionId] = useState("global");
   const [isMapDiscoveryDataLoading, setIsMapDiscoveryDataLoading] = useState(false);
+  const [discoveryMarkerScale, setDiscoveryMarkerScale] = useState(() => {
+    try {
+      const stored = localStorage.getItem(DISCOVERY_MARKER_SCALE_STORAGE_KEY);
+      return clampDiscoveryMarkerScale(stored ?? DISCOVERY_MARKER_SCALE_DEFAULT);
+    } catch {
+      return DISCOVERY_MARKER_SCALE_DEFAULT;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(DISCOVERY_MARKER_SCALE_STORAGE_KEY, String(discoveryMarkerScale));
+    } catch {
+      // localStorage may be unavailable in private contexts.
+    }
+  }, [discoveryMarkerScale]);
 
   useEffect(() => {
     if (activePanel !== "collection") {
@@ -2440,6 +2466,8 @@ function HomeContent() {
                   <SettingsFeatureRoot
                     user={user}
                     onUserUpdated={(freshUser) => setUser(freshUser)}
+                    discoveryMarkerScale={discoveryMarkerScale}
+                    onDiscoveryMarkerScaleChange={(nextValue) => setDiscoveryMarkerScale(clampDiscoveryMarkerScale(nextValue))}
                   />
                 ) : activePanel === "map" ? (
                   <HomeMapFeatureRoot
@@ -2473,6 +2501,7 @@ function HomeContent() {
                     zoneRerollsRemaining={zoneRerollsRemaining}
                     allDiscoveryPoints={allDiscoveryPoints}
                     friendEmailSet={friendEmailSet}
+                    discoveryMarkerScale={discoveryMarkerScale}
                   />
                 ) : (
                   <section data-ui="home-plant-hero-section" className="flex-1 min-h-0 rounded-3xl px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col bg-transparent">

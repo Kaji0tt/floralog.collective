@@ -22,7 +22,22 @@ import { useUiTheme } from "@/lib/UiThemeContext";
 import { useAuth } from "@/lib/AuthContext";
 import { getUnlockedTitleOptions, resolveTitleValue } from "@/lib/profileCustomizationOptions";
 
-export default function SettingsPanel({ user, onUserUpdated }) {
+const DISCOVERY_MARKER_SCALE_MIN = 0.5;
+const DISCOVERY_MARKER_SCALE_MAX = 1.0;
+const DISCOVERY_MARKER_SCALE_DEFAULT = 0.8;
+
+const clampDiscoveryMarkerScale = (value) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return DISCOVERY_MARKER_SCALE_DEFAULT;
+  return Math.min(DISCOVERY_MARKER_SCALE_MAX, Math.max(DISCOVERY_MARKER_SCALE_MIN, numeric));
+};
+
+export default function SettingsPanel({
+  user,
+  onUserUpdated,
+  discoveryMarkerScale = DISCOVERY_MARKER_SCALE_DEFAULT,
+  onDiscoveryMarkerScaleChange,
+}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { uiTheme, setUiTheme } = useUiTheme();
@@ -204,6 +219,7 @@ export default function SettingsPanel({ user, onUserUpdated }) {
   };
 
   const getDisplayName = () => user?.display_name || user?.full_name || "Spieler";
+  const safeDiscoveryMarkerScale = clampDiscoveryMarkerScale(discoveryMarkerScale);
 
   const titleOptions = getUnlockedTitleOptions({
     achievements,
@@ -579,6 +595,31 @@ export default function SettingsPanel({ user, onUserUpdated }) {
               />
               <div className="relative w-10 h-[22px] bg-stone-600 rounded-full peer peer-checked:bg-amber-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:after:translate-x-full" />
             </label>
+          </div>
+
+          <div className={`px-3 py-2.5 rounded-xl border ${
+            uiTheme === 'light'
+              ? 'bg-stone-100/20 border-[#c8ac62]/15'
+              : 'bg-white/5 border-[#f0e5a5]/10'
+          }`}>
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <p className={`text-sm font-medium leading-snug ${uiTheme === 'light' ? 'text-stone-800' : 'text-stone-100'}`}>Marker-Skalierung (Karte)</p>
+              <span className={`text-xs tabular-nums ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-400'}`}>
+                {safeDiscoveryMarkerScale.toFixed(2)}
+              </span>
+            </div>
+            <p className={`text-xs leading-snug mb-2 ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-400'}`}>
+              Bestimmt die gemeinsame Marker-Groesse in der Kartenansicht.
+            </p>
+            <input
+              type="range"
+              min={DISCOVERY_MARKER_SCALE_MIN}
+              max={DISCOVERY_MARKER_SCALE_MAX}
+              step={0.01}
+              value={safeDiscoveryMarkerScale}
+              onChange={(event) => onDiscoveryMarkerScaleChange?.(event.target.value)}
+              className="w-full accent-amber-500"
+            />
           </div>
 
           <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${

@@ -21,6 +21,22 @@ const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "";
 const TILE_HALF_SIZE_M = 50;
 const CLAIM_PULSE_CYCLE_MS = 2600;
 const OVERLAP_PADDING_FACTOR = 0.86;
+const DISCOVERY_CUSTOM_MARKER_BASE_SIZE_PX = 34;
+const DISCOVERY_FALLBACK_MARKER_BASE_SIZE_PX = 16;
+const DISCOVERY_CUSTOM_LOGO_BASE_SCALE = 2.1;
+const DISCOVERY_MARKER_UNIFIED_SCALE_DEFAULT = 0.8;
+const DISCOVERY_MARKER_UNIFIED_SCALE_MIN = 0.5;
+const DISCOVERY_MARKER_UNIFIED_SCALE_MAX = 1.0;
+
+const toPx = (value) => `${Math.round(value)}px`;
+
+const clampDiscoveryMarkerScale = (value) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return DISCOVERY_MARKER_UNIFIED_SCALE_DEFAULT;
+  }
+  return Math.min(DISCOVERY_MARKER_UNIFIED_SCALE_MAX, Math.max(DISCOVERY_MARKER_UNIFIED_SCALE_MIN, numeric));
+};
 
 const escapeHtml = (value) =>
   String(value ?? "")
@@ -224,7 +240,12 @@ const openDiscoveryPopup = ({ map, event, feature, onDiscoveryImageClick, onDisc
   });
 };
 
-const createDiscoveryMarkerElement = (point) => {
+const createDiscoveryMarkerElement = (point, markerScale) => {
+  const safeMarkerScale = clampDiscoveryMarkerScale(markerScale);
+  const customMarkerSizePx = Math.round(DISCOVERY_CUSTOM_MARKER_BASE_SIZE_PX * safeMarkerScale);
+  const fallbackMarkerSizePx = Math.round(DISCOVERY_FALLBACK_MARKER_BASE_SIZE_PX * safeMarkerScale);
+  const customLogoScale = DISCOVERY_CUSTOM_LOGO_BASE_SCALE * safeMarkerScale;
+
   const markerEl = document.createElement("button");
   markerEl.type = "button";
   markerEl.setAttribute("aria-label", `Scan von ${point?.scannerDisplayName || point?.scannerName || "Unbekannt"}`);
@@ -241,8 +262,8 @@ const createDiscoveryMarkerElement = (point) => {
   const hasCustomLogo = Boolean(borderUrl || plantUrl || faceUrl);
 
   if (!hasCustomLogo) {
-    markerEl.style.width = "16px";
-    markerEl.style.height = "16px";
+    markerEl.style.width = toPx(fallbackMarkerSizePx);
+    markerEl.style.height = toPx(fallbackMarkerSizePx);
     markerEl.style.borderRadius = "999px";
     markerEl.style.background = "#16a34a";
     markerEl.style.border = "1px solid #dcfce7";
@@ -250,8 +271,8 @@ const createDiscoveryMarkerElement = (point) => {
     return markerEl;
   }
 
-  markerEl.style.width = "34px";
-  markerEl.style.height = "34px";
+  markerEl.style.width = toPx(customMarkerSizePx);
+  markerEl.style.height = toPx(customMarkerSizePx);
   markerEl.style.borderRadius = "999px";
   markerEl.style.boxShadow = "0 6px 14px rgba(0, 0, 0, 0.35)";
 
@@ -262,7 +283,7 @@ const createDiscoveryMarkerElement = (point) => {
   ring.style.borderRadius = "999px";
   ring.style.border = "0";
   ring.style.background = "rgba(0,0,0,0.35)";
-  ring.style.padding = "3px";
+  ring.style.padding = toPx(3 * safeMarkerScale);
   ring.style.boxSizing = "border-box";
   ring.style.overflow = "visible";
   markerEl.appendChild(ring);
@@ -285,7 +306,7 @@ const createDiscoveryMarkerElement = (point) => {
     img.style.width = "100%";
     img.style.height = "100%";
     img.style.objectFit = "contain";
-    img.style.transform = "scale(2.2)";
+    img.style.transform = `scale(${customLogoScale})`;
     img.style.transformOrigin = "center center";
     if (filterValue) {
       img.style.filter = filterValue;
@@ -301,20 +322,20 @@ const createDiscoveryMarkerElement = (point) => {
     const badge = document.createElement("span");
     badge.textContent = String(Math.max(2, Number(point.mergedCount || 2)));
     badge.style.position = "absolute";
-    badge.style.right = "-4px";
-    badge.style.bottom = "-3px";
-    badge.style.minWidth = "16px";
-    badge.style.height = "16px";
+    badge.style.right = toPx(-8 * safeMarkerScale);
+    badge.style.bottom = toPx(-3 * safeMarkerScale);
+    badge.style.minWidth = toPx(16 * safeMarkerScale);
+    badge.style.height = toPx(16 * safeMarkerScale);
     badge.style.borderRadius = "999px";
-    badge.style.background = "rgba(17,24,39,0.92)";
+    badge.style.background = "rgba(17, 24, 39, 0.75)";
     badge.style.border = "1px solid rgba(240,229,165,0.75)";
     badge.style.color = "#f8fafc";
-    badge.style.fontSize = "10px";
+    badge.style.fontSize = toPx(10 * safeMarkerScale);
     badge.style.fontWeight = "700";
     badge.style.display = "inline-flex";
     badge.style.alignItems = "center";
     badge.style.justifyContent = "center";
-    badge.style.padding = "0 4px";
+    badge.style.padding = `0 ${toPx(4 * safeMarkerScale)}`;
     badge.style.boxSizing = "border-box";
     markerEl.appendChild(badge);
   }
@@ -344,13 +365,17 @@ const openMergedDiscoveryPopup = ({ map, lng, lat, point }) => {
     .addTo(map);
 };
 
-const getMarkerVisualSizePx = (point) => {
+const getMarkerVisualSizePx = (point, markerScale) => {
+  const safeMarkerScale = clampDiscoveryMarkerScale(markerScale);
+  const customMarkerSizePx = Math.round(DISCOVERY_CUSTOM_MARKER_BASE_SIZE_PX * safeMarkerScale);
+  const fallbackMarkerSizePx = Math.round(DISCOVERY_FALLBACK_MARKER_BASE_SIZE_PX * safeMarkerScale);
+
   const hasCustomLogo = Boolean(
     String(point?.scannerLogoBorderUrl || "").trim() ||
       String(point?.scannerLogoPlantUrl || "").trim() ||
       String(point?.scannerLogoFaceUrl || "").trim()
   );
-  return hasCustomLogo ? 34 : 16;
+  return hasCustomLogo ? customMarkerSizePx : fallbackMarkerSizePx;
 };
 
 const createClaimLogoMarkerElement = (claim) => {
@@ -590,7 +615,7 @@ const findClaimForPoint = (point, claimedTiles = []) => {
   return null;
 };
 
-const mergeOverlappingDiscoveryPoints = (map, points = []) => {
+const mergeOverlappingDiscoveryPoints = (map, points = [], markerScale) => {
   const safePoints = (points || []).filter((point) => Number.isFinite(point?.lat) && Number.isFinite(point?.lng));
   if (safePoints.length <= 1) {
     return safePoints.map((point) => ({ ...point, mergedCount: 1, mergedDiscoveryIds: [point?.discoveryId].filter(Boolean) }));
@@ -618,7 +643,7 @@ const mergeOverlappingDiscoveryPoints = (map, points = []) => {
         ...entry,
         x: Number(coords.x),
         y: Number(coords.y),
-        sizePx: getMarkerVisualSizePx(entry.point),
+        sizePx: getMarkerVisualSizePx(entry.point, markerScale),
       };
     });
 
@@ -693,6 +718,7 @@ export default function MapboxZoneMap({
   onDiscoveryImageClick = null,
   onDiscoveryLike = null,
   allowDiscoveryLike = true,
+  discoveryMarkerScale = DISCOVERY_MARKER_UNIFIED_SCALE_DEFAULT,
   className = "h-full w-full z-0",
 }) {
   const mapContainerRef = useRef(null);
@@ -1094,7 +1120,7 @@ export default function MapboxZoneMap({
             return !(pointClaim && scannerAuthId && String(pointClaim.ownerAuthId || "") === scannerAuthId);
           });
 
-        const visualPoints = mergeOverlappingDiscoveryPoints(map, filteredPoints);
+        const visualPoints = mergeOverlappingDiscoveryPoints(map, filteredPoints, discoveryMarkerScale);
 
         visualPoints.forEach((point) => {
           const lng = Number(point.lng);
@@ -1114,7 +1140,7 @@ export default function MapboxZoneMap({
             discoveredAt: point?.discoveredAt || "",
           };
 
-          const markerElement = createDiscoveryMarkerElement(point);
+          const markerElement = createDiscoveryMarkerElement(point, discoveryMarkerScale);
           markerElement.addEventListener("click", (domEvent) => {
             domEvent.preventDefault();
             domEvent.stopPropagation();
@@ -1161,6 +1187,7 @@ export default function MapboxZoneMap({
     isLightUi,
     onDiscoveryImageClick,
     onDiscoveryLike,
+    discoveryMarkerScale,
     userLocation?.lat,
     userLocation?.lng,
     zones,

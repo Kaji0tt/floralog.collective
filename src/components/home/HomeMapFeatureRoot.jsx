@@ -34,6 +34,7 @@ export default function HomeMapFeatureRoot({
   zoneRerollsRemaining,
   allDiscoveryPoints = [],
   friendEmailSet = new Set(),
+  discoveryMarkerScale = 0.8,
 }) {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -126,6 +127,7 @@ export default function HomeMapFeatureRoot({
           onDiscoveryImageClick={onDiscoveryImageClick}
           onDiscoveryLike={onDiscoveryLike}
           allowDiscoveryLike={allowDiscoveryLike}
+          discoveryMarkerScale={discoveryMarkerScale}
           onTokenError={onTokenError}
           onMapReady={onMapReady}
         />
