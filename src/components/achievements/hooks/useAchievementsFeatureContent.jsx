@@ -403,6 +403,22 @@ export function useAchievementsFeatureContent({
     staleTime: 60 * 1000,
   });
 
+  const { data: highestScanResultsLeaderboard = null } = useQuery({
+    queryKey: ['highestScanResultsLeaderboard'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_highest_scan_results_leaderboard', { p_limit: 100 });
+      if (error) {
+        if (isMissingRpcFunctionError(error)) {
+          console.warn('[AchievementsPage] get_highest_scan_results_leaderboard not available yet.');
+          return null;
+        }
+        throw error;
+      }
+      return Array.isArray(data) ? data : [];
+    },
+    staleTime: 60 * 1000,
+  });
+
     // Resolve logos for all profiles
     const leaderboardLogosByEmail = useMemo(() => {
       const logosByEmail = new Map();
@@ -1335,6 +1351,49 @@ export function useAchievementsFeatureContent({
 
   const ownGlobalScanRank = effectiveGlobalScanRanking.findIndex((entry) => entry.email === ownEmailLower) + 1;
 
+  const highestScanResultsRanking = (highestScanResultsLeaderboard || [])
+    .map((entry) => {
+      const email = String(entry?.user_email || "").trim().toLowerCase();
+      const entryAuthId = entry?.auth_id || null;
+      const isOwnByAuth = !!ownAuthId && !!entryAuthId && ownAuthId === entryAuthId;
+      const isOwnByEmail = !!ownEmailLower && !!email && ownEmailLower === email;
+      const participantEmail = isOwnByAuth ? ownEmailLower : email;
+      const profile = participantEmail ? profileByEmail.get(participantEmail) : null;
+      const parsedAwardedAt = entry?.awarded_at ? new Date(entry.awarded_at) : null;
+      const hasValidAwardedAt = !!parsedAwardedAt && !Number.isNaN(parsedAwardedAt.getTime());
+
+      return {
+        authId: entryAuthId,
+        email: participantEmail,
+        rewardAmount: Math.max(0, Number(entry?.reward_amount ?? 0)),
+        eventSource: String(entry?.event_source || ""),
+        awardedAt: entry?.awarded_at || null,
+        formattedAwardedAt: hasValidAwardedAt ? format(parsedAwardedAt, "dd.MM.yyyy", { locale: de }) : null,
+        name:
+          profile?.display_name ||
+          profile?.full_name ||
+          entry?.display_name ||
+          entry?.full_name ||
+          (isOwnByAuth || isOwnByEmail
+            ? (user?.display_name || user?.full_name || user?.email)
+            : (participantEmail || "Unbekannt")),
+      };
+    })
+    .filter((entry) => Number(entry.rewardAmount) > 0)
+    .sort((a, b) => {
+      if (b.rewardAmount !== a.rewardAmount) return b.rewardAmount - a.rewardAmount;
+      return String(b.awardedAt || "").localeCompare(String(a.awardedAt || ""));
+    });
+
+  const ownHighestScanResultRank = highestScanResultsRanking.findIndex((entry) => entry.email === ownEmailLower) + 1;
+  const ownHighestScanResultEntry = ownHighestScanResultRank > 0 ? highestScanResultsRanking[ownHighestScanResultRank - 1] : null;
+
+  const resolveScanEventLabel = (eventSource) => {
+    if (eventSource === "new_global_scan") return "Neuer Global-Scan";
+    if (eventSource === "new_scan") return "Neuer Scan";
+    return "Scan";
+  };
+
   const emailByAuthIdFromDiscoveries = new Map();
   (allDiscoveries || []).forEach((entry) => {
     const authId = entry?.auth_id || null;
@@ -1887,6 +1946,109 @@ export function useAchievementsFeatureContent({
                                 </div>
                                 <Badge className={isLightUi ? "bg-amber-600 text-white" : "bg-amber-700 text-white border border-amber-400/60"}>
                                   {ownEntry.seeds.toLocaleString()} 🌱
+                                </Badge>
+                              </div>
+                            </>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+
+                <Card className={`${statsCardBaseClass} ${isLightUi ? "border-fuchsia-200" : "border-fuchsia-300/35"}`}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
+                      <Trophy className={`w-4 h-4 ${isLightUi ? "text-fuchsia-600" : "text-fuchsia-300"}`} />
+                      Hoechste Scan-Ergebnisse (Global)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className={`rounded-lg border px-3 py-2 ${isLightUi ? "border-fuchsia-200 bg-fuchsia-50" : "border-fuchsia-300/40 bg-fuchsia-500/10"}`}>
+                      <p className={`text-xs ${isLightUi ? "text-fuchsia-700" : "text-fuchsia-200"}`}>Dein bester Scan-Score</p>
+                      <p className={`text-lg font-bold ${isLightUi ? "text-fuchsia-900" : "text-fuchsia-100"}`}>
+                        {ownHighestScanResultRank > 0 ? `#${ownHighestScanResultRank} von ${highestScanResultsRanking.length}` : "Noch kein Rang"}
+                      </p>
+                      {ownHighestScanResultEntry && (
+                        <p className={`text-xs mt-0.5 ${isLightUi ? "text-fuchsia-700" : "text-fuchsia-300"}`}>
+                          {ownHighestScanResultEntry.rewardAmount.toLocaleString()} Seeds
+                        </p>
+                      )}
+                    </div>
+
+                    {highestScanResultsRanking.length === 0 && (
+                      <p className={`text-sm ${statsBodyClass}`}>Noch keine Scan-Ergebnisdaten verfügbar.</p>
+                    )}
+
+                    {(() => {
+                      const top5 = highestScanResultsRanking.slice(0, 5);
+                      const ownInTop5 = top5.some((entry) => entry.email === ownEmailLower);
+                      const ownEntry = !ownInTop5 && ownHighestScanResultRank > 0
+                        ? highestScanResultsRanking[ownHighestScanResultRank - 1]
+                        : null;
+
+                      return (
+                        <>
+                          {top5.map((entry, index) => {
+                            const logo = leaderboardLogosByEmail.get(entry.email);
+                            return (
+                              <div
+                                key={`${entry.authId || entry.email || "unknown"}-${entry.eventSource}-${entry.rewardAmount}-${entry.awardedAt || ""}`}
+                                className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.email === ownEmailLower ? rankingHighlightClass : rankingDefaultClass}`}
+                              >
+                                <div className="flex min-w-0 items-center gap-2 flex-1">
+                                  <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50">
+                                    <CustomLogoAvatar
+                                      logoAssets={logo}
+                                      className="w-full h-full"
+                                      fallbackText={entry.name?.charAt(0)?.toUpperCase() || "?"}
+                                      fallbackClassName="text-[10px] font-bold text-white"
+                                    />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => navigateToPublicProfile(entry.email)}
+                                    disabled={!entry.email}
+                                    className={`p-0 m-0 min-w-0 border-0 bg-transparent text-left text-sm font-semibold truncate ${entry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
+                                  >
+                                    #{index + 1} {entry.name}
+                                  </button>
+                                  <span className={`hidden sm:inline text-[11px] ${statsBodyClass}`}>
+                                    {resolveScanEventLabel(entry.eventSource)}
+                                    {entry.formattedAwardedAt ? ` · ${entry.formattedAwardedAt}` : ""}
+                                  </span>
+                                </div>
+                                <Badge className={entry.email === ownEmailLower ? (isLightUi ? "bg-fuchsia-600 text-white" : "bg-fuchsia-700 text-white border border-fuchsia-400/60") : rankingDefaultBadgeClass}>
+                                  {entry.rewardAmount.toLocaleString()}
+                                </Badge>
+                              </div>
+                            );
+                          })}
+
+                          {ownEntry && (
+                            <>
+                              <p className={`text-xs text-center ${statsBodyClass}`}>…</p>
+                              <div className={`flex items-center justify-between rounded-lg border px-3 py-2 ${rankingHighlightClass}`}>
+                                <div className="flex min-w-0 items-center gap-2 flex-1">
+                                  <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50">
+                                    <CustomLogoAvatar
+                                      logoAssets={leaderboardLogosByEmail.get(ownEntry.email)}
+                                      className="w-full h-full"
+                                      fallbackText={ownEntry.name?.charAt(0)?.toUpperCase() || "?"}
+                                      fallbackClassName="text-[10px] font-bold text-white"
+                                    />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => navigateToPublicProfile(ownEntry.email)}
+                                    disabled={!ownEntry.email}
+                                    className={`p-0 m-0 min-w-0 border-0 bg-transparent text-left text-sm font-semibold truncate ${ownEntry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
+                                  >
+                                    #{ownHighestScanResultRank} {ownEntry.name}
+                                  </button>
+                                </div>
+                                <Badge className={isLightUi ? "bg-fuchsia-600 text-white" : "bg-fuchsia-700 text-white border border-fuchsia-400/60"}>
+                                  {ownEntry.rewardAmount.toLocaleString()}
                                 </Badge>
                               </div>
                             </>
