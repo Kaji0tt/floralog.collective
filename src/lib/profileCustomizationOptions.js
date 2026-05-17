@@ -1,13 +1,15 @@
 import { LOGO_ACCESSORY_SECTIONS } from "@/lib/logoAccessoryAssets";
 
 const LOGO_ACCESSORY_REWARD_TYPES = new Set(["logo_accessory", "accessory"]);
-const ACCESSORY_SPARK_SHOP_PRICES = new Map([
+const DEFAULT_ACCESSORY_SPARK_SHOP_PRICES = new Map([
   ["face_sus", 10],
   ["face_annoyed", 10],
   ["face_v", 10],
 ]);
 
 const normalizeAccessoryId = (value) => String(value || "").trim().toLowerCase();
+
+const normalizeAccessoryRewardType = (reward) => String(reward?.type || reward?.reward_type || reward?.kind || "").trim().toLowerCase();
 
 const normalizeRewardAccessoryValue = (value) => {
   const normalized = normalizeAccessoryId(value);
@@ -243,7 +245,7 @@ const getRewardUnlockedAccessoryIds = ({ rewards = [], userRewards = [] } = {}) 
 
   return new Set(
     (Array.isArray(rewards) ? rewards : [])
-      .filter((reward) => unlockedRewardIds.has(reward?.id) && LOGO_ACCESSORY_REWARD_TYPES.has(reward?.type))
+      .filter((reward) => unlockedRewardIds.has(reward?.id) && LOGO_ACCESSORY_REWARD_TYPES.has(normalizeAccessoryRewardType(reward)))
       .map((reward) => normalizeRewardAccessoryValue(reward?.value))
       .filter(Boolean)
   );
@@ -251,7 +253,7 @@ const getRewardUnlockedAccessoryIds = ({ rewards = [], userRewards = [] } = {}) 
 
 const getAccessoryUnlockCondition = (accessoryId, rewards = [], genera = [], plants = []) => {
   const rewardsForAccessory = (Array.isArray(rewards) ? rewards : [])
-    .filter((reward) => LOGO_ACCESSORY_REWARD_TYPES.has(reward?.type) && accessoryValueMatches(reward?.value, accessoryId));
+    .filter((reward) => LOGO_ACCESSORY_REWARD_TYPES.has(normalizeAccessoryRewardType(reward)) && accessoryValueMatches(reward?.value, accessoryId));
 
   if (rewardsForAccessory.length === 0) return null;
 
@@ -303,13 +305,30 @@ const getAccessoryUnlockCondition = (accessoryId, rewards = [], genera = [], pla
   return conditions.length > 0 ? conditions[0] : null;
 };
 
-const getAccessoryPurchaseMeta = (accessoryId) => {
-  const sparkPrice = Number(ACCESSORY_SPARK_SHOP_PRICES.get(accessoryId) || 0);
-  if (!Number.isFinite(sparkPrice) || sparkPrice <= 0) return null;
+const getAccessoryPurchaseMeta = (accessoryId, rewards = []) => {
+  const matchingReward = (Array.isArray(rewards) ? rewards : [])
+    .find((reward) => LOGO_ACCESSORY_REWARD_TYPES.has(normalizeAccessoryRewardType(reward)) && accessoryValueMatches(reward?.value, accessoryId));
+
+  const configuredSparkPrice = Number(matchingReward?.spark_price || 0);
+  const sparkPriceFromReward = Number.isFinite(configuredSparkPrice) && configuredSparkPrice > 0
+    ? Math.round(configuredSparkPrice)
+    : 0;
+
+  const fallbackSparkPrice = Number(DEFAULT_ACCESSORY_SPARK_SHOP_PRICES.get(accessoryId) || 0);
+  const sparkPrice = sparkPriceFromReward > 0 ? sparkPriceFromReward : fallbackSparkPrice;
+  const finalSparkPrice = Number.isFinite(sparkPrice) && sparkPrice > 0 ? sparkPrice : 0;
+
+  const configuredAmberPrice = Number(matchingReward?.amber_price || 0);
+  const amberPrice = Number.isFinite(configuredAmberPrice) && configuredAmberPrice > 0
+    ? Math.round(configuredAmberPrice)
+    : null;
+
+  if (finalSparkPrice <= 0 && !amberPrice) return null;
 
   return {
     isPurchasable: true,
-    sparkPrice,
+    sparkPrice: finalSparkPrice,
+    amberPrice,
   };
 };
 
@@ -323,7 +342,7 @@ const buildFallbackAccessorySections = ({ rewardUnlockedIds = new Set(), rewards
       const isDefaultUnlocked = ["border_original", "plant_leaf", "plant_legacy", "face_original"].includes(option.value);
       const isUnlocked = isDefaultUnlocked || rewardUnlockedIds.has(option.value);
       const unlockCondition = !isUnlocked ? getAccessoryUnlockCondition(option.value, rewards, genera, plants) : null;
-      const purchaseMeta = !isUnlocked ? getAccessoryPurchaseMeta(option.value) : null;
+      const purchaseMeta = !isUnlocked ? getAccessoryPurchaseMeta(option.value, rewards) : null;
       return {
         ...option,
         isLocked: !isUnlocked,
@@ -356,7 +375,7 @@ export const getAccessorySections = ({ logoAssets = [], rewards = [], userReward
     const isDefaultUnlocked = Boolean(asset?.default_unlocked);
     const isUnlocked = isDefaultUnlocked || rewardUnlockedIds.has(assetId);
     const unlockCondition = !isUnlocked ? getAccessoryUnlockCondition(assetId, rewards, genera, plants) : null;
-    const purchaseMeta = !isUnlocked ? getAccessoryPurchaseMeta(assetId) : null;
+    const purchaseMeta = !isUnlocked ? getAccessoryPurchaseMeta(assetId, rewards) : null;
 
     grouped[assetType].push({
       id: assetId,

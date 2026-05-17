@@ -54,6 +54,25 @@ const ACCESSORY_GRID_COLUMNS = 2;
 const ACCESSORY_GRID_ROWS = 2;
 const ACCESSORY_GRID_PAGE_SIZE = ACCESSORY_GRID_COLUMNS * ACCESSORY_GRID_ROWS;
 
+const normalizeAccessoryId = (value) => String(value || "").trim().toLowerCase();
+
+const normalizeRewardAccessoryValue = (value) => {
+  const normalized = normalizeAccessoryId(value);
+  if (!normalized) return "";
+  if (normalized.startsWith("face_") || normalized.startsWith("plant_") || normalized.startsWith("border_")) {
+    return normalized;
+  }
+
+  // Backward-compatible shorthand support, e.g. "v" -> "face_v".
+  return `face_${normalized}`;
+};
+
+const accessoryValueMatches = (rewardValue, accessoryId) => {
+  const normalizedReward = normalizeRewardAccessoryValue(rewardValue);
+  const normalizedAccessory = normalizeAccessoryId(accessoryId);
+  return Boolean(normalizedReward) && Boolean(normalizedAccessory) && normalizedReward === normalizedAccessory;
+};
+
 const chunkIntoAccessoryPages = (options) => {
   const source = Array.isArray(options) ? options : [];
   if (source.length === 0) return [];
@@ -163,15 +182,23 @@ const getAccessorySelectionState = (user, option) => {
   return activeValue === option.value;
 };
 
+const formatAccessoryPriceLabel = (sparkPrice, amberPrice) => {
+  const parts = [];
+  if (sparkPrice > 0) parts.push(`${sparkPrice} Funken`);
+  if (amberPrice > 0) parts.push(`${amberPrice} Bernstein`);
+  return parts.join(" + ");
+};
+
 const AccessoryOptionCard = ({ option, user, isLightUi, isPending, onSelect }) => {
   const isActive = getAccessorySelectionState(user, option);
   const isLocked = Boolean(option?.isLocked);
-  const isPurchasable = isLocked && Boolean(option?.isPurchasable) && Number(option?.sparkPrice || 0) > 0;
+  const sparkPrice = Math.max(0, Number(option?.sparkPrice || 0));
+  const amberPrice = Math.max(0, Number(option?.amberPrice || 0));
+  const isPurchasable = isLocked && Boolean(option?.isPurchasable) && (sparkPrice > 0 || amberPrice > 0);
   const isFaceAccessory = option?.profileField === "selected_face_asset" || String(option?.value || "").startsWith("face_");
   const unlockCondition = option?.unlockCondition;
-  const sparkPrice = Math.max(0, Number(option?.sparkPrice || 0));
   const tooltipContent = isLocked
-    ? (isPurchasable ? `${sparkPrice} Funken` : (unlockCondition || "Freischaltung noch nicht erreicht."))
+    ? (isPurchasable ? formatAccessoryPriceLabel(sparkPrice, amberPrice) : (unlockCondition || "Freischaltung noch nicht erreicht."))
     : null;
 
   const buttonContent = (
@@ -211,7 +238,7 @@ const AccessoryOptionCard = ({ option, user, isLightUi, isPending, onSelect }) =
           </div>
           {isLocked && (
             <div className={`mt-1 text-[10px] ${isLightUi ? "text-stone-600" : "text-stone-300/80"}`}>
-              {isPurchasable ? `${sparkPrice} Funken` : "Noch gesperrt"}
+              {isPurchasable ? formatAccessoryPriceLabel(sparkPrice, amberPrice) : "Noch gesperrt"}
             </div>
           )}
         </div>
@@ -669,24 +696,30 @@ export default function ShopFeatureRoot({
       }
 
       const sparkPrice = Math.max(0, Math.round(Number(option?.sparkPrice || 0)));
-      if (!option?.isPurchasable || sparkPrice <= 0) {
+      const amberPrice = Math.max(0, Math.round(Number(option?.amberPrice || 0)));
+      if (!option?.isPurchasable || (sparkPrice <= 0 && amberPrice <= 0)) {
         throw new Error("Dieses Accessoire ist nicht kaufbar.");
       }
 
       const currentWallet = await getUserWallet(resolvedAuthId);
       const sparksBalance = Math.max(0, Number(currentWallet?.sparks_balance ?? 0));
-      if (sparksBalance < sparkPrice) {
+      const amberBalance = Math.max(0, Number(currentWallet?.amber_balance ?? 0));
+      const insufficientSparks = sparkPrice > 0 && sparksBalance < sparkPrice;
+      const insufficientAmber = amberPrice > 0 && amberBalance < amberPrice;
+      if (insufficientSparks || insufficientAmber) {
         return {
           applied: false,
-          errorCode: "insufficient_sparks",
+          errorCode: insufficientSparks && insufficientAmber ? "insufficient_both" : insufficientSparks ? "insufficient_sparks" : "insufficient_amber",
           sparksBalance,
+          amberBalance,
           sparkPrice,
+          amberPrice,
         };
       }
 
       const matchingReward = (Array.isArray(rewards) ? rewards : []).find((reward) => {
         const rewardType = String(reward?.type || reward?.reward_type || reward?.kind || "").trim().toLowerCase();
-        return ACCESSORY_PURCHASABLE_REWARD_TYPES.has(rewardType) && String(reward?.value || "").trim() === String(option?.value || "").trim();
+        return ACCESSORY_PURCHASABLE_REWARD_TYPES.has(rewardType) && accessoryValueMatches(reward?.value, option?.value);
       });
 
       if (!matchingReward?.id) {
@@ -702,24 +735,66 @@ export default function ShopFeatureRoot({
           applied: true,
           alreadyOwned: true,
           sparksBalance,
+          amberBalance,
         };
       }
 
       const eventReference = `shop-accessory:${String(option.value)}:${Date.now()}`;
-      const debitResult = await grantWalletCurrency({
-        authId: resolvedAuthId,
-        currencyCode: "sparks",
-        eventSource: "shop_accessory_purchase",
-        eventReference,
-        amount: sparkPrice,
-        direction: "debit",
-        metadata: {
-          source: "profile_shop",
-          accessory_id: String(option.value),
-          reward_id: matchingReward.id,
-          spark_price: sparkPrice,
-        },
-      });
+      let sparkDebitResult = null;
+      let amberDebitResult = null;
+
+      if (sparkPrice > 0) {
+        sparkDebitResult = await grantWalletCurrency({
+          authId: resolvedAuthId,
+          currencyCode: "sparks",
+          eventSource: "shop_accessory_purchase",
+          eventReference,
+          amount: sparkPrice,
+          direction: "debit",
+          metadata: {
+            source: "profile_shop",
+            accessory_id: String(option.value),
+            reward_id: matchingReward.id,
+            spark_price: sparkPrice,
+          },
+        });
+      }
+
+      if (amberPrice > 0) {
+        try {
+          amberDebitResult = await grantWalletCurrency({
+            authId: resolvedAuthId,
+            currencyCode: "amber",
+            eventSource: "shop_accessory_purchase",
+            eventReference,
+            amount: amberPrice,
+            direction: "debit",
+            metadata: {
+              source: "profile_shop",
+              accessory_id: String(option.value),
+              reward_id: matchingReward.id,
+              amber_price: amberPrice,
+            },
+          });
+        } catch (amberDebitError) {
+          if (sparkPrice > 0) {
+            try {
+              await grantWalletCurrency({
+                authId: resolvedAuthId,
+                currencyCode: "sparks",
+                eventSource: "shop_accessory_purchase_refund",
+                eventReference,
+                amount: sparkPrice,
+                direction: "credit",
+                metadata: { source: "profile_shop", accessory_id: String(option.value), reason: "amber_debit_failed" },
+              });
+            } catch (_refundError) {
+              // Intentionally ignored.
+            }
+          }
+          throw amberDebitError;
+        }
+      }
 
       try {
         await Query.UserReward.create({
@@ -731,37 +806,54 @@ export default function ShopFeatureRoot({
           unlocked_date: new Date().toISOString(),
         });
       } catch (createError) {
-        try {
-          await grantWalletCurrency({
-            authId: resolvedAuthId,
-            currencyCode: "sparks",
-            eventSource: "shop_accessory_purchase_refund",
-            eventReference,
-            amount: sparkPrice,
-            direction: "credit",
-            metadata: {
-              source: "profile_shop",
-              accessory_id: String(option.value),
-              reason: "user_reward_create_failed",
-            },
-          });
-        } catch (_refundError) {
-          // Intentionally ignored: purchase error is returned and can be retried.
+        if (sparkPrice > 0) {
+          try {
+            await grantWalletCurrency({
+              authId: resolvedAuthId,
+              currencyCode: "sparks",
+              eventSource: "shop_accessory_purchase_refund",
+              eventReference,
+              amount: sparkPrice,
+              direction: "credit",
+              metadata: { source: "profile_shop", accessory_id: String(option.value), reason: "user_reward_create_failed" },
+            });
+          } catch (_refundError) {
+            // Intentionally ignored: purchase error is returned and can be retried.
+          }
         }
-
+        if (amberPrice > 0) {
+          try {
+            await grantWalletCurrency({
+              authId: resolvedAuthId,
+              currencyCode: "amber",
+              eventSource: "shop_accessory_purchase_refund",
+              eventReference,
+              amount: amberPrice,
+              direction: "credit",
+              metadata: { source: "profile_shop", accessory_id: String(option.value), reason: "user_reward_create_failed" },
+            });
+          } catch (_refundError) {
+            // Intentionally ignored: purchase error is returned and can be retried.
+          }
+        }
         throw createError;
       }
 
       return {
         applied: true,
         alreadyOwned: false,
-        sparksBalance: Math.max(0, Number(debitResult?.sparks_balance ?? sparksBalance - sparkPrice)),
+        sparksBalance: sparkPrice > 0 ? Math.max(0, Number(sparkDebitResult?.sparks_balance ?? sparksBalance - sparkPrice)) : sparksBalance,
+        amberBalance: amberPrice > 0 ? Math.max(0, Number(amberDebitResult?.amber_balance ?? amberBalance - amberPrice)) : amberBalance,
       };
     },
     onSuccess: async (result) => {
       if (!result?.applied) {
         if (result?.errorCode === "insufficient_sparks") {
           setShopMessage(`Nicht genug Funken. Benötigt: ${result.sparkPrice}, verfügbar: ${result.sparksBalance}.`);
+        } else if (result?.errorCode === "insufficient_amber") {
+          setShopMessage(`Nicht genug Bernstein. Benötigt: ${result.amberPrice}, verfügbar: ${result.amberBalance}.`);
+        } else if (result?.errorCode === "insufficient_both") {
+          setShopMessage(`Nicht genug Funken und Bernstein. Benötigt: ${formatAccessoryPriceLabel(result.sparkPrice, result.amberPrice)}.`);
         } else if (result?.errorCode === "reward_not_configured") {
           setShopMessage("Dieses Accessoire kann aktuell nicht gekauft werden.");
         } else {
@@ -825,7 +917,7 @@ export default function ShopFeatureRoot({
   const handleSelectAccessory = async (option) => {
     if (!option?.profileField) return;
     if (option?.isLocked) {
-      if (option?.isPurchasable && Number(option?.sparkPrice || 0) > 0) {
+      if (option?.isPurchasable && (Number(option?.sparkPrice || 0) > 0 || Number(option?.amberPrice || 0) > 0)) {
         setShopMessage(null);
         setPurchaseConfirmOption(option);
       } else {
@@ -861,7 +953,10 @@ export default function ShopFeatureRoot({
   }, [availableAmber, availableSparks, currentCategory, embedded, onHeaderMetaChange]);
 
   const purchaseDialogSparkPrice = Math.max(0, Number(purchaseConfirmOption?.sparkPrice ?? 0));
-  const canAffordPurchaseDialogOption = availableSparks >= purchaseDialogSparkPrice;
+  const purchaseDialogAmberPrice = Math.max(0, Number(purchaseConfirmOption?.amberPrice ?? 0));
+  const canAffordDialogSparks = purchaseDialogSparkPrice <= 0 || availableSparks >= purchaseDialogSparkPrice;
+  const canAffordDialogAmber = purchaseDialogAmberPrice <= 0 || availableAmber >= purchaseDialogAmberPrice;
+  const canAffordPurchaseDialogOption = canAffordDialogSparks && canAffordDialogAmber;
   const resolvedCurrentTitle = resolveTitleValue(resolvedCurrentUser?.selected_title, resolvedCurrentUser?.title) || "Pflanzen-Entdecker";
   const isMutationPending = updateCustomizationMutation.isPending || purchaseAccessoryMutation.isPending;
 
@@ -873,7 +968,13 @@ export default function ShopFeatureRoot({
   const handleConfirmAccessoryPurchase = async () => {
     if (!purchaseConfirmOption || purchaseAccessoryMutation.isPending) return;
     if (!canAffordPurchaseDialogOption) {
-      setShopMessage(`Nicht genug Funken. Benötigt: ${purchaseDialogSparkPrice}, verfügbar: ${availableSparks}.`);
+      if (!canAffordDialogSparks && !canAffordDialogAmber) {
+        setShopMessage("Nicht genug Funken und Bernstein.");
+      } else if (!canAffordDialogSparks) {
+        setShopMessage(`Nicht genug Funken. Benötigt: ${purchaseDialogSparkPrice}, verfügbar: ${availableSparks}.`);
+      } else {
+        setShopMessage(`Nicht genug Bernstein. Benötigt: ${purchaseDialogAmberPrice}, verfügbar: ${availableAmber}.`);
+      }
       return;
     }
 
@@ -1145,16 +1246,31 @@ export default function ShopFeatureRoot({
             )}
 
             <p className={`text-sm ${isLightUi ? "text-stone-700" : "text-stone-200"}`}>
-              Möchtest du <span className="font-semibold">{purchaseConfirmOption?.label || "dieses Accessoire"}</span> für <span className="font-semibold">{purchaseDialogSparkPrice} Funken</span> kaufen?
+              Möchtest du <span className="font-semibold">{purchaseConfirmOption?.label || "dieses Accessoire"}</span> für <span className="font-semibold">{formatAccessoryPriceLabel(purchaseDialogSparkPrice, purchaseDialogAmberPrice)}</span> kaufen?
             </p>
 
-            <div className={`rounded-lg border px-3 py-2 text-xs ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50 text-stone-700" : "border-[#f0e5a5]/25 bg-black/25 text-stone-200"}`}>
-              Verfügbare Funken: <span className="font-semibold">{availableSparks}</span>
+            <div className={`rounded-lg border px-3 py-2 text-xs space-y-1 ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50 text-stone-700" : "border-[#f0e5a5]/25 bg-black/25 text-stone-200"}`}>
+              {purchaseDialogSparkPrice > 0 && (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1"><Sparkles className="w-3 h-3 opacity-80" /> Funken</span>
+                  <span className={`font-semibold ${!canAffordDialogSparks ? (isLightUi ? "text-red-600" : "text-red-400") : ""}`}>{availableSparks} / {purchaseDialogSparkPrice}</span>
+                </div>
+              )}
+              {purchaseDialogAmberPrice > 0 && (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1"><span className="text-[11px]">🔸</span> Bernstein</span>
+                  <span className={`font-semibold ${!canAffordDialogAmber ? (isLightUi ? "text-red-600" : "text-red-400") : ""}`}>{availableAmber} / {purchaseDialogAmberPrice}</span>
+                </div>
+              )}
             </div>
 
             {!canAffordPurchaseDialogOption && (
               <div className={`rounded-lg border px-3 py-2 text-xs ${isLightUi ? "border-red-200 bg-red-50 text-red-700" : "border-red-500/35 bg-red-900/25 text-red-200"}`}>
-                Du hast nicht genug Funken für diesen Kauf.
+                {!canAffordDialogSparks && !canAffordDialogAmber
+                  ? "Du hast nicht genug Funken und Bernstein für diesen Kauf."
+                  : !canAffordDialogSparks
+                  ? "Du hast nicht genug Funken für diesen Kauf."
+                  : "Du hast nicht genug Bernstein für diesen Kauf."}
               </div>
             )}
 

@@ -16,6 +16,8 @@ type CatalogAsset = {
   display_name?: string | null;
   active?: boolean;
   default_unlocked?: boolean;
+  spark_price?: number | null;
+  amber_price?: number | null;
 };
 
 type CatalogResponse = {
@@ -28,6 +30,15 @@ const VALID_TYPES = new Set(["face", "plant", "border"]);
 const asBoolean = (value: unknown, fallback = false): boolean => {
   if (typeof value === "boolean") return value;
   return fallback;
+};
+
+const asNonNegativeIntegerOrNull = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  const normalized = Math.round(parsed);
+  if (normalized < 0) return null;
+  return normalized;
 };
 
 const normalizeAsset = (asset: CatalogAsset) => {
@@ -50,6 +61,8 @@ const normalizeAsset = (asset: CatalogAsset) => {
     display_name: (asset.display_name || assetId).trim(),
     active: asBoolean(asset.active, true),
     default_unlocked: asBoolean(asset.default_unlocked, DEFAULT_UNLOCKED_IDS.has(assetId)),
+    spark_price: asNonNegativeIntegerOrNull(asset.spark_price),
+    amber_price: asNonNegativeIntegerOrNull(asset.amber_price),
     source: "r2",
     updated_at: new Date().toISOString(),
   };
@@ -60,6 +73,31 @@ const getAccessTokenFromAuthHeader = (header: string | null): string | null => {
   const parts = header.split(" ");
   if (parts.length === 2 && parts[0] === "Bearer") return parts[1];
   return header;
+};
+
+const normalizeAccessoryValue = (value: unknown): string => {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) return "";
+  if (normalized.startsWith("face_") || normalized.startsWith("plant_") || normalized.startsWith("border_")) {
+    return normalized;
+  }
+  return `face_${normalized}`;
+};
+
+const buildAccessoryRewardRow = (asset: NonNullable<ReturnType<typeof normalizeAsset>>) => {
+  const accessoryValue = normalizeAccessoryValue(asset.asset_id);
+  if (!accessoryValue) return null;
+
+  return {
+    id: `reward_logo_accessory_${asset.asset_id}`,
+    name: `accessory_${asset.asset_id}`,
+    display_name: asset.display_name,
+    type: "logo_accessory",
+    value: accessoryValue,
+    image_url: asset.public_url,
+    spark_price: asset.spark_price,
+    amber_price: asset.amber_price,
+  };
 };
 
 Deno.serve(async (req) => {
@@ -168,6 +206,52 @@ Deno.serve(async (req) => {
       throw upsertError;
     }
 
+    let rewardsSynced = 0;
+    const accessoryRewardRows = deduped
+      .map((asset) => buildAccessoryRewardRow(asset))
+      .filter((reward): reward is NonNullable<ReturnType<typeof buildAccessoryRewardRow>> => Boolean(reward));
+
+    if (accessoryRewardRows.length > 0) {
+      const { data: existingRewards, error: existingRewardsError } = await adminClient
+        .from("Rewards")
+        .select("type, value")
+        .in("type", ["logo_accessory", "accessory"]);
+
+      if (existingRewardsError) {
+        throw existingRewardsError;
+      }
+
+      const existingRewardKeys = new Set(
+        (existingRewards || [])
+          .map((reward) => {
+            const rewardType = String(reward.type || "").trim().toLowerCase();
+            const rewardValue = normalizeAccessoryValue(reward.value);
+            if (!rewardType || !rewardValue) return null;
+            return `${rewardType}:${rewardValue}`;
+          })
+          .filter((key): key is string => Boolean(key)),
+      );
+
+      const rewardsToCreate = accessoryRewardRows.filter((reward) => {
+        const rewardType = String(reward.type || "").trim().toLowerCase();
+        const rewardValue = normalizeAccessoryValue(reward.value);
+        if (!rewardType || !rewardValue) return false;
+        return !existingRewardKeys.has(`${rewardType}:${rewardValue}`);
+      });
+
+      if (rewardsToCreate.length > 0) {
+        const { error: rewardsUpsertError } = await adminClient
+          .from("Rewards")
+          .upsert(rewardsToCreate, { onConflict: "id" });
+
+        if (rewardsUpsertError) {
+          throw rewardsUpsertError;
+        }
+
+        rewardsSynced = rewardsToCreate.length;
+      }
+    }
+
     const syncedIds = new Set(deduped.map((asset) => asset.asset_id));
     const { data: existingR2Assets, error: existingError } = await adminClient
       .from("LogoAsset")
@@ -197,6 +281,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         ok: true,
         synced: deduped.length,
+        rewards_synced: rewardsSynced,
         defaults_unlocked: Array.from(DEFAULT_UNLOCKED_IDS),
       }),
       {
