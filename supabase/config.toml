@@ -90,3 +90,8 @@ entrypoint = "./functions/quizScheduler/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/submitPlantQuizAnswer/index.ts"
+
+[functions.purchaseAccessory]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/purchaseAccessory/index.ts"

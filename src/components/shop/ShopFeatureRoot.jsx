@@ -5,7 +5,7 @@ import { HexColorPicker } from "react-colorful";
 import { Query } from "@/api/entities";
 import { supabase } from "@/api/supabaseClient";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
-import { getUserWallet, grantWalletCurrency } from "@/api/walletService";
+import { getUserWallet } from "@/api/walletService";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
@@ -562,6 +562,12 @@ export default function ShopFeatureRoot({
   });
 
   const resolvedAuthId = authId || fallbackUser?.id || null;
+  const resolvedUserEmail =
+    currentUser?.user_email ||
+    currentUser?.email ||
+    fallbackUser?.user_email ||
+    fallbackUser?.email ||
+    null;
 
   const { data: userDiscoveries = [], isPending: isDiscoveriesPending, refetch: refetchDiscoveries } = useQuery({
     queryKey: ["userDiscoveries", resolvedAuthId],
@@ -691,30 +697,12 @@ export default function ShopFeatureRoot({
 
   const purchaseAccessoryMutation = useMutation({
     mutationFn: async (option) => {
-      if (!resolvedAuthId) {
-        throw new Error("Nutzerkontext nicht gefunden.");
-      }
+      if (!resolvedAuthId) throw new Error("Nutzerkontext nicht gefunden.");
 
       const sparkPrice = Math.max(0, Math.round(Number(option?.sparkPrice || 0)));
       const amberPrice = Math.max(0, Math.round(Number(option?.amberPrice || 0)));
       if (!option?.isPurchasable || (sparkPrice <= 0 && amberPrice <= 0)) {
         throw new Error("Dieses Accessoire ist nicht kaufbar.");
-      }
-
-      const currentWallet = await getUserWallet(resolvedAuthId);
-      const sparksBalance = Math.max(0, Number(currentWallet?.sparks_balance ?? 0));
-      const amberBalance = Math.max(0, Number(currentWallet?.amber_balance ?? 0));
-      const insufficientSparks = sparkPrice > 0 && sparksBalance < sparkPrice;
-      const insufficientAmber = amberPrice > 0 && amberBalance < amberPrice;
-      if (insufficientSparks || insufficientAmber) {
-        return {
-          applied: false,
-          errorCode: insufficientSparks && insufficientAmber ? "insufficient_both" : insufficientSparks ? "insufficient_sparks" : "insufficient_amber",
-          sparksBalance,
-          amberBalance,
-          sparkPrice,
-          amberPrice,
-        };
       }
 
       const matchingReward = (Array.isArray(rewards) ? rewards : []).find((reward) => {
@@ -729,122 +717,21 @@ export default function ShopFeatureRoot({
         };
       }
 
-      const alreadyOwned = (Array.isArray(userRewards) ? userRewards : []).some((entry) => entry?.reward_id === matchingReward.id);
-      if (alreadyOwned) {
-        return {
-          applied: true,
-          alreadyOwned: true,
-          sparksBalance,
-          amberBalance,
-        };
-      }
-
       const eventReference = `shop-accessory:${String(option.value)}:${Date.now()}`;
-      let sparkDebitResult = null;
-      let amberDebitResult = null;
-
-      if (sparkPrice > 0) {
-        sparkDebitResult = await grantWalletCurrency({
+      const { data, error } = await supabase.functions.invoke("purchaseAccessory", {
+        body: {
           authId: resolvedAuthId,
-          currencyCode: "sparks",
-          eventSource: "shop_accessory_purchase",
+          userEmail: resolvedUserEmail,
+          rewardId: matchingReward.id,
+          accessoryId: String(option.value),
+          sparkPrice,
+          amberPrice,
           eventReference,
-          amount: sparkPrice,
-          direction: "debit",
-          metadata: {
-            source: "profile_shop",
-            accessory_id: String(option.value),
-            reward_id: matchingReward.id,
-            spark_price: sparkPrice,
-          },
-        });
-      }
+        },
+      });
 
-      if (amberPrice > 0) {
-        try {
-          amberDebitResult = await grantWalletCurrency({
-            authId: resolvedAuthId,
-            currencyCode: "amber",
-            eventSource: "shop_accessory_purchase",
-            eventReference,
-            amount: amberPrice,
-            direction: "debit",
-            metadata: {
-              source: "profile_shop",
-              accessory_id: String(option.value),
-              reward_id: matchingReward.id,
-              amber_price: amberPrice,
-            },
-          });
-        } catch (amberDebitError) {
-          if (sparkPrice > 0) {
-            try {
-              await grantWalletCurrency({
-                authId: resolvedAuthId,
-                currencyCode: "sparks",
-                eventSource: "shop_accessory_purchase_refund",
-                eventReference,
-                amount: sparkPrice,
-                direction: "credit",
-                metadata: { source: "profile_shop", accessory_id: String(option.value), reason: "amber_debit_failed" },
-              });
-            } catch (_refundError) {
-              // Intentionally ignored.
-            }
-          }
-          throw amberDebitError;
-        }
-      }
-
-      try {
-        await Query.UserReward.create({
-          reward_id: matchingReward.id,
-          reward_name: matchingReward.display_name || matchingReward.name || matchingReward.value || String(option.value),
-          auth_id: resolvedAuthId,
-          user_email: currentUser?.email || fallbackUser?.email || null,
-          user_name: currentUser?.display_name || currentUser?.full_name || fallbackUser?.display_name || fallbackUser?.full_name || currentUser?.email || fallbackUser?.email || null,
-          unlocked_date: new Date().toISOString(),
-        });
-      } catch (createError) {
-        if (sparkPrice > 0) {
-          try {
-            await grantWalletCurrency({
-              authId: resolvedAuthId,
-              currencyCode: "sparks",
-              eventSource: "shop_accessory_purchase_refund",
-              eventReference,
-              amount: sparkPrice,
-              direction: "credit",
-              metadata: { source: "profile_shop", accessory_id: String(option.value), reason: "user_reward_create_failed" },
-            });
-          } catch (_refundError) {
-            // Intentionally ignored: purchase error is returned and can be retried.
-          }
-        }
-        if (amberPrice > 0) {
-          try {
-            await grantWalletCurrency({
-              authId: resolvedAuthId,
-              currencyCode: "amber",
-              eventSource: "shop_accessory_purchase_refund",
-              eventReference,
-              amount: amberPrice,
-              direction: "credit",
-              metadata: { source: "profile_shop", accessory_id: String(option.value), reason: "user_reward_create_failed" },
-            });
-          } catch (_refundError) {
-            // Intentionally ignored: purchase error is returned and can be retried.
-          }
-        }
-        throw createError;
-      }
-
-      return {
-        applied: true,
-        alreadyOwned: false,
-        sparksBalance: sparkPrice > 0 ? Math.max(0, Number(sparkDebitResult?.sparks_balance ?? sparksBalance - sparkPrice)) : sparksBalance,
-        amberBalance: amberPrice > 0 ? Math.max(0, Number(amberDebitResult?.amber_balance ?? amberBalance - amberPrice)) : amberBalance,
-      };
+      if (error) throw error;
+      return data;
     },
     onSuccess: async (result) => {
       if (!result?.applied) {

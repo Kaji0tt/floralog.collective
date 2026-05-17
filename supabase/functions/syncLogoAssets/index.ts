@@ -16,8 +16,6 @@ type CatalogAsset = {
   display_name?: string | null;
   active?: boolean;
   default_unlocked?: boolean;
-  spark_price?: number | null;
-  amber_price?: number | null;
 };
 
 type CatalogResponse = {
@@ -95,8 +93,6 @@ const buildAccessoryRewardRow = (asset: NonNullable<ReturnType<typeof normalizeA
     type: "logo_accessory",
     value: accessoryValue,
     image_url: asset.public_url,
-    spark_price: asset.spark_price,
-    amber_price: asset.amber_price,
   };
 };
 
