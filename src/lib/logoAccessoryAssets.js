@@ -71,6 +71,55 @@ const resolveAssetOption = (field, selectedValue) => {
   return options[selectedValue] || options[fallback] || null;
 };
 
+const PROFILE_FIELD_TO_ASSET_TYPE = {
+  selected_face_asset: "face",
+  selected_plant_asset: "plant",
+  selected_border_asset: "border",
+};
+
+const buildCatalogAssetMaps = (logoAssets = []) => {
+  const byTypeAndId = {
+    face: new Map(),
+    plant: new Map(),
+    border: new Map(),
+  };
+
+  for (const asset of Array.isArray(logoAssets) ? logoAssets : []) {
+    const assetType = String(asset?.asset_type || "").trim();
+    const assetId = String(asset?.asset_id || "").trim();
+    if (!byTypeAndId[assetType] || !assetId) continue;
+
+    byTypeAndId[assetType].set(assetId, {
+      id: assetId,
+      value: assetId,
+      label: String(asset?.display_name || assetId),
+      profileField: `selected_${assetType}_asset`,
+      imageUrl: String(asset?.public_url || ""),
+      type: "accessory",
+    });
+  }
+
+  return byTypeAndId;
+};
+
+const resolveAssetOptionWithCatalog = (field, selectedValue, catalogAssetsByTypeAndId) => {
+  const assetType = PROFILE_FIELD_TO_ASSET_TYPE[field];
+  const normalizedSelected = String(selectedValue || "").trim();
+  const defaultId = LOGO_ACCESSORY_DEFAULTS[field];
+
+  const catalogTypeMap = assetType ? catalogAssetsByTypeAndId?.[assetType] : null;
+  if (catalogTypeMap) {
+    if (normalizedSelected && catalogTypeMap.has(normalizedSelected)) {
+      return catalogTypeMap.get(normalizedSelected);
+    }
+    if (defaultId && catalogTypeMap.has(defaultId)) {
+      return catalogTypeMap.get(defaultId);
+    }
+  }
+
+  return resolveAssetOption(field, selectedValue);
+};
+
 export const resolveEquippedLogoAssets = (profile = {}) => {
   const faceOption = resolveAssetOption("selected_face_asset", profile?.selected_face_asset);
   const plantOption = resolveAssetOption("selected_plant_asset", profile?.selected_plant_asset);
@@ -85,7 +134,26 @@ export const resolveEquippedLogoAssets = (profile = {}) => {
 };
 
 export const resolveEquippedLogoAssetsWithCatalog = (profile = {}, logoAssets = []) => {
-  const equipped = resolveEquippedLogoAssets(profile);
+  const catalogAssetsByTypeAndId = buildCatalogAssetMaps(logoAssets);
+  const equipped = {
+    face: resolveAssetOptionWithCatalog(
+      "selected_face_asset",
+      profile?.selected_face_asset,
+      catalogAssetsByTypeAndId
+    ),
+    plant: resolveAssetOptionWithCatalog(
+      "selected_plant_asset",
+      profile?.selected_plant_asset,
+      catalogAssetsByTypeAndId
+    ),
+    border: resolveAssetOptionWithCatalog(
+      "selected_border_asset",
+      profile?.selected_border_asset,
+      catalogAssetsByTypeAndId
+    ),
+    borderColor: profile?.selected_border_color || null,
+  };
+
   const assetUrlById = new Map(
     (Array.isArray(logoAssets) ? logoAssets : [])
       .filter((asset) => asset?.asset_id && asset?.public_url)
