@@ -63,6 +63,34 @@ export async function checkAndUnlockAchievements(user) {
       friendsAcceptedForUser: friends.length
     });
 
+    const normalizeText = (value) => String(value || "").trim().toLowerCase();
+
+    const resolveRewardByCandidates = (candidates = []) => {
+      const normalizedCandidates = (Array.isArray(candidates) ? candidates : [candidates])
+        .map((candidate) => normalizeText(candidate))
+        .filter(Boolean);
+
+      if (normalizedCandidates.length === 0) return null;
+
+      const fieldsByPriority = ["name", "display_name", "value"];
+      for (const field of fieldsByPriority) {
+        const reward = rewards.find((entry) =>
+          normalizedCandidates.includes(normalizeText(entry?.[field]))
+        );
+        if (reward) return reward;
+      }
+
+      return null;
+    };
+
+    const resolveRewardForAchievement = (achievement) => {
+      if (!achievement) return null;
+      return resolveRewardByCandidates([
+        achievement?.reward_name,
+        achievement?.title_reward,
+      ]);
+    };
+
     const unlockedAchievements = [];
 
     // Backfill: Fehlende Rewards für bereits freigeschaltete Achievements nachtragen
@@ -71,9 +99,9 @@ export async function checkAndUnlockAchievements(user) {
 
       for (const userAchievement of userAchievements) {
         const achievement = achievements.find((a) => a.id === userAchievement.achievement_id);
-        if (!achievement || !achievement.reward_name) continue;
+        if (!achievement) continue;
 
-        const reward = rewards.find((r) => r.name === achievement.reward_name);
+        const reward = resolveRewardForAchievement(achievement);
         if (!reward || unlockedRewardIds.has(reward.id)) continue;
 
         console.log(
@@ -97,8 +125,6 @@ export async function checkAndUnlockAchievements(user) {
     } catch (backfillError) {
       console.error("[AchievementChecker] Error while backfilling rewards for existing achievements:", backfillError);
     }
-
-    const normalizeText = (value) => String(value || "").trim().toLowerCase();
 
     // Hilfsfunktionen zum Finden von Achievements
     const findAchievementByTitle = (title) =>
@@ -171,8 +197,7 @@ export async function checkAndUnlockAchievements(user) {
 
       // Wenn das Achievement einen Reward hat, schalte diesen ebenfalls frei
       if (achievement.reward_name) {
-        const rewards = await Query.Reward.list();
-        const reward = rewards.find(r => r.name === achievement.reward_name);
+        const reward = resolveRewardForAchievement(achievement);
         
         if (reward) {
           // Prüfe ob User den Reward bereits hat
@@ -239,8 +264,7 @@ export async function checkAndUnlockAchievements(user) {
 
       // Wenn das Achievement einen Reward hat, schalte diesen ebenfalls frei
       if (achievement.reward_name) {
-        const rewards = await Query.Reward.list();
-        const reward = rewards.find(r => r.name === achievement.reward_name);
+        const reward = resolveRewardForAchievement(achievement);
         
         if (reward) {
           // Prüfe ob User den Reward bereits hat
@@ -314,8 +338,7 @@ export async function checkAndUnlockAchievements(user) {
 
       // Wenn das Achievement einen Reward hat, schalte diesen ebenfalls frei (gleiche Logik wie oben)
       if (achievement.reward_name) {
-        const rewards = await Query.Reward.list();
-        const reward = rewards.find(r => r.name === achievement.reward_name);
+        const reward = resolveRewardForAchievement(achievement);
         
         if (reward) {
           const userRewards = await Query.UserReward.filter({ auth_id: user.id });
