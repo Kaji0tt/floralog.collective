@@ -31,6 +31,35 @@ import { ROBOT_PLANT_EVENT_SOURCES } from "@/lib/robotPlantConfig";
 import { updateQuestProgress } from "@/components/utils/questProgress";
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
+/**
+ * Leitet einen menschenlesbaren Herkunftstext aus den GBIF-Verteilungsdaten ab.
+ * Verwendet ausschließlich die harten GBIF-Daten – kein LLM.
+ */
+function deriveNativeRegion(distribution) {
+  if (!distribution) return null;
+  if (!distribution.is_european) return null;
+
+  const nativeCount = distribution.europe_native_count ?? 0;
+  const introducedCount = distribution.europe_introduced_count ?? 0;
+
+  let label;
+  if (nativeCount > 0 && introducedCount > 0) {
+    label = "Heimisch & eingebürgert in Europa";
+  } else if (introducedCount > 0) {
+    label = "Eingebürgert in Europa";
+  } else {
+    label = "Heimisch in Europa";
+  }
+
+  const localities = (distribution.regions?.[0]?.countries || [])
+    .map((c) => c.code)
+    .filter(Boolean)
+    .slice(0, 5);
+
+  if (localities.length === 0) return label;
+  return `${label} (${localities.join(' · ')})`;
+}
+
 // Bestätigungs-Button Komponente (draggable wie MobileBackButton)
 function ConfirmButton({ onConfirm, disabled = false }) {
   const [position, setPosition] = useState(() => {
@@ -570,7 +599,19 @@ export default function Scanner() {
                   `${completedResults}/${totalResults} - 📜 Kandidaten geprueft, ordne Ergebnisse...`,
                   { current: completedResults, total: totalResults }
                 );
-                return { ...match, aiData: plantData, inDatabase: true };
+                // Herkunft aus GBIF nachladen, wenn im DB-Eintrag noch nicht vorhanden
+                let backfillNativeRegion = match.native_region || null;
+                if (!backfillNativeRegion && plantData.gbif_id) {
+                  try {
+                    const { data: distData } = await supabase.functions.invoke('checkPlantDistribution', {
+                      body: { gbifId: plantData.gbif_id }
+                    });
+                    if (distData) backfillNativeRegion = deriveNativeRegion(distData);
+                  } catch (e) {
+                    console.warn('[Scanner] Backfill native_region fehlgeschlagen:', e);
+                  }
+                }
+                return { ...match, native_region: backfillNativeRegion ?? match.native_region, _backfillNativeRegion: backfillNativeRegion, aiData: plantData, inDatabase: true };
               } else {
                 console.log("🆕 Nicht in Datenbank:", plantData.species_name);
                 // Schritt 1: GBIF-Verteilung prüfen (ausschließliche Quelle für is_european)
@@ -689,6 +730,7 @@ export default function Scanner() {
                     rarity: meta.rarity || plantData.rarity || 'Gelegentlich',
                     genus_name: meta.genus_name || plantData.genus_name,
                     category: meta.category || plantData.category,
+                    native_region: deriveNativeRegion(distribution),
                     notInDex: true,
                     inDatabase: false,
                     is_european: isEuropean,
@@ -823,6 +865,16 @@ export default function Scanner() {
 
     setLatestDiscoveryId(newDiscovery.id);
 
+    // Backfill: native_region in der DB-Pflanze ergänzen, falls noch nicht gesetzt
+    const backfillRegion = plant._backfillNativeRegion;
+    if (!plant.native_region && backfillRegion && plant.id) {
+      try {
+        await updatePlantMutation.mutateAsync({ id: plant.id, data: { native_region: backfillRegion } });
+      } catch (e) {
+        console.warn('[Scanner] native_region Backfill-Update fehlgeschlagen:', e);
+      }
+    }
+
     let rewardDetails = null;
     let activeZone = null;
     let energyDelta = 0;
@@ -917,7 +969,8 @@ export default function Scanner() {
             description: plantData.description,
             identification_features: plantData.identification_features,
             fun_fact: plantData.fun_fact,
-            rarity: plantData.rarity || "Gelegentlich"
+            rarity: plantData.rarity || "Gelegentlich",
+            native_region: plantData.native_region || null
           },
           image_url: imageUrl,
           discovery_location: locationString

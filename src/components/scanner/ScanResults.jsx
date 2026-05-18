@@ -515,6 +515,18 @@ export default function ScanResults({
                         </div>
                       }
 
+                      {currentPlant.native_region &&
+                      <div className="bg-gradient-to-br from-teal-900/40 to-emerald-950/45 rounded-xl p-4 border border-teal-300/25 shadow-md">
+                          <h4 className="font-bold text-teal-100 mb-2 flex items-center gap-2">
+                            <span className="text-xl">🌍</span>
+                            <span>Herkunft</span>
+                          </h4>
+                          <p className="text-stone-100/95 leading-relaxed">
+                            {currentPlant.native_region}
+                          </p>
+                        </div>
+                      }
+
                       {/* Herkunftsinformation */}
                       {currentPlant.distribution && (
                         <div className={`rounded-xl p-3 border ${

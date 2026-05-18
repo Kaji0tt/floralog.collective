@@ -46,6 +46,8 @@ type NativeDistributionSummary = {
   europeNativeLikeCount: number;
   europeNativeLikeProportion: number;
   topEuropeanLocalities: { name: string; count: number }[];
+  europeNativeCount: number;
+  europeIntroducedCount: number;
 };
 
 // ISO 3166-1 alpha-2 country codes per region.
@@ -234,6 +236,8 @@ function summarizeNativeDistribution(records: DistributionRecord[]): NativeDistr
   const europeanLocalities = new Map<string, number>();
   let nativeLikeRecordCount = 0;
   let europeNativeLikeCount = 0;
+  let europeNativeCount = 0;
+  let europeIntroducedCount = 0;
 
   for (const r of records) {
     const locality = (r?.locality ?? "").trim();
@@ -250,6 +254,15 @@ function summarizeNativeDistribution(records: DistributionRecord[]): NativeDistr
     if (isEuropeanLocality(locality)) {
       europeNativeLikeCount += 1;
       europeanLocalities.set(locality, (europeanLocalities.get(locality) ?? 0) + 1);
+
+      // Heimisch vs. eingebürgert für europäische Einträge
+      const means = normalizeText(r.establishmentMeans);
+      if (means === "introduced") {
+        europeIntroducedCount += 1;
+      } else {
+        // "native", "naturalised", leer (kein Marker = heimisch-ähnlich)
+        europeNativeCount += 1;
+      }
     }
   }
 
@@ -269,6 +282,8 @@ function summarizeNativeDistribution(records: DistributionRecord[]): NativeDistr
     europeNativeLikeCount,
     europeNativeLikeProportion,
     topEuropeanLocalities,
+    europeNativeCount,
+    europeIntroducedCount,
   };
 }
 
@@ -409,6 +424,8 @@ Deno.serve(async (req) => {
         },
       ],
       is_european: isEuropean,
+      europe_native_count: nativeSummary.europeNativeCount,
+      europe_introduced_count: nativeSummary.europeIntroducedCount,
       europe_threshold: 0,
       source: "gbif_species_distributions",
     };

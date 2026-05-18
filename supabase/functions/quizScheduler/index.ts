@@ -404,11 +404,16 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      const plantsMap = new Map(plantsResult.data.map((p: any) => [p.id, p.genus_category]));
+      const plantsMap = new Map(
+        plantsResult.data.map((p: any) => [String(p.id), String(p.genus_category || "").trim()]),
+      );
 
       const eligibleCandidates = candidates.filter((candidate) => {
         const correctPlantId = String(candidate.plant_id);
         const correctCategory = plantsMap.get(correctPlantId);
+        if (!correctCategory) {
+          return false;
+        }
         
         // Finde Distraktoren aus der gleichen Kategorie
         const distractorPlantIds = uniquePlantIds.filter(
@@ -424,6 +429,9 @@ Deno.serve(async (req) => {
       const selectedDiscovery = pickRandom(eligibleCandidates);
       const correctPlantId = String(selectedDiscovery.plant_id);
       const correctCategory = plantsMap.get(correctPlantId);
+      if (!correctCategory) {
+        continue;
+      }
       
       const distractorPool = uniquePlantIds.filter(
         (plantId) => plantId !== correctPlantId && plantsMap.get(plantId) === correctCategory

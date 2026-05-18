@@ -82,7 +82,7 @@ export default function PlantQuizDialog({
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => (!nextOpen ? onClose?.() : null)}>
-      <DialogContent className="sm:max-w-lg border border-amber-100/25 bg-[linear-gradient(180deg,rgba(10,24,16,0.96)_0%,rgba(6,16,10,0.97)_100%)] text-stone-100 shadow-[0_28px_90px_rgba(0,0,0,0.62)] backdrop-blur-xl [&>button]:text-stone-300 [&>button]:hover:text-amber-100 [&>button]:hover:bg-black/30 [&>button]:rounded-lg">
+      <DialogContent className="sm:max-w-lg max-h-[calc(100vh-160px)] flex flex-col border border-amber-100/25 bg-[linear-gradient(180deg,rgba(10,24,16,0.96)_0%,rgba(6,16,10,0.97)_100%)] text-stone-100 shadow-[0_28px_90px_rgba(0,0,0,0.62)] backdrop-blur-xl [&>button]:text-stone-300 [&>button]:hover:text-amber-100 [&>button]:hover:bg-black/30 [&>button]:rounded-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <HelpCircle className="w-5 h-5 text-amber-300" />
@@ -93,7 +93,7 @@ export default function PlantQuizDialog({
         {!quiz ? (
           <div className="rounded-xl border border-stone-200/15 bg-black/35 p-3 text-sm text-stone-300">Kein offenes Quiz gefunden.</div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto pr-3 -mr-3 flex-1">
             <div className="rounded-2xl border border-amber-100/20 bg-black/35 p-3 text-xs sm:text-sm backdrop-blur-sm">
               <div>Versuche verbleibend: <strong>{attemptsRemaining}</strong> von {attemptsTotal}</div>
               <div className="mt-1 text-amber-200/90">Frage: Um welche Pflanze handelt es sich bei diesem Scan?</div>

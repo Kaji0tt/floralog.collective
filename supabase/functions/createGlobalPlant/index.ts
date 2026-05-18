@@ -21,6 +21,7 @@ type CreateGlobalPlantBody = {
     identification_features?: string | null;
     fun_fact?: string | null;
     rarity?: string | null;
+    native_region?: string | null;
   };
   image_url?: string | null;
   discovery_location?: string | null;
@@ -229,6 +230,7 @@ Deno.serve(async (req) => {
         identification_features: plant.identification_features || null,
         fun_fact: plant.fun_fact || null,
         rarity: plant.rarity || "Gelegentlich",
+        native_region: plant.native_region || null,
       })
       .select("*")
       .single();

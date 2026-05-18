@@ -848,6 +848,13 @@ export default function GenusDetail() {
                     <p className={"text-sm " + (isLightUi ? "text-stone-700" : "text-stone-200")}>{expandedPlant.fun_fact}</p>
                   </div>
                 )}
+
+                {expandedPlant.native_region && (
+                  <div className={"border rounded-lg p-3 " + (isLightUi ? "bg-teal-50 border-teal-100" : "bg-teal-900/20 border-teal-700/45")}>
+                    <p className={"text-xs font-semibold mb-1 " + (isLightUi ? "text-teal-900" : "text-teal-200")}>🌍 Herkunft</p>
+                    <p className={"text-sm " + (isLightUi ? "text-stone-700" : "text-stone-200")}>{expandedPlant.native_region}</p>
+                  </div>
+                )}
                 
                 {expandedPlant.discovery_date && (
                   <p className={"text-xs " + (isLightUi ? "text-stone-500" : "text-stone-300") }>
