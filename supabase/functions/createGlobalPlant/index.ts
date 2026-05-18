@@ -222,6 +222,7 @@ Deno.serve(async (req) => {
       .from("Plant")
       .insert({
         id: generateLegacyHexId(),
+        created_by_id: authId,
         genus_category: genus.category,
         genus_number: genus.category_dex_number,
         species_name: displayName,

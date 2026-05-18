@@ -22,6 +22,8 @@ export async function checkAndUnlockAchievements(user) {
       allFriendRecords,
       rewards,
       userRewards,
+      referrals,
+      robotPlantLedgerEntries,
     ] = await Promise.all([
       Query.Achievement.list(),
       Query.UserAchievement.filter({ auth_id: user.id }),
@@ -33,6 +35,8 @@ export async function checkAndUnlockAchievements(user) {
       // Rewards und bereits freigeschaltete User-Rewards (für Backfill)
       Query.Reward.list(),
       Query.UserReward.filter({ auth_id: user.id }),
+      Query.Referral.list(),
+      Query.RobotPlantWalletLedger.filter({ auth_id: user.id }),
     ]);
 
     const userEmailLower = (user.email || '').toLowerCase();
@@ -53,6 +57,8 @@ export async function checkAndUnlockAchievements(user) {
       userDiscoveries: userDiscoveries.length,
       rewards: rewards.length,
       userRewards: userRewards.length,
+      referrals: referrals.length,
+      robotPlantLedgerEntries: robotPlantLedgerEntries.length,
       friendsTotal: allFriendRecords.length,
       friendsAcceptedForUser: friends.length
     });
@@ -92,9 +98,17 @@ export async function checkAndUnlockAchievements(user) {
       console.error("[AchievementChecker] Error while backfilling rewards for existing achievements:", backfillError);
     }
 
+    const normalizeText = (value) => String(value || "").trim().toLowerCase();
+
     // Hilfsfunktionen zum Finden von Achievements
     const findAchievementByTitle = (title) =>
-      achievements.find(a => a.title === title);
+      achievements.find((a) => normalizeText(a.title) === normalizeText(title));
+
+    const findAchievementByTitles = (titles = []) => {
+      if (!Array.isArray(titles) || titles.length === 0) return null;
+      const normalizedTargets = titles.map((title) => normalizeText(title)).filter(Boolean);
+      return achievements.find((achievement) => normalizedTargets.includes(normalizeText(achievement.title)));
+    };
 
     const findAchievementByRewardName = (rewardName) =>
       achievements.find(a => a.reward_name === rewardName);
@@ -103,6 +117,11 @@ export async function checkAndUnlockAchievements(user) {
     const hasAchievement = (title) => {
       const achievement = findAchievementByTitle(title);
       return achievement && userAchievements.some(ua => ua.achievement_id === achievement.id);
+    };
+
+    const hasAchievementByAnyTitle = (titles = []) => {
+      const achievement = findAchievementByTitles(titles);
+      return achievement && userAchievements.some((ua) => ua.achievement_id === achievement.id);
     };
 
     // Hilfsfunktion: Achievement per Titel freischalten
@@ -118,6 +137,74 @@ export async function checkAndUnlockAchievements(user) {
       }
 
       console.log('[AchievementChecker] Unlocking achievement:', title, 'with reward:', achievement.reward_name);
+
+      await Query.UserAchievement.create({
+        achievement_id: achievement.id,
+        unlocked_date: new Date().toISOString(),
+        auth_id: user.id,
+        created_by: user.email
+      });
+
+      try {
+        await notifyAcceptedFriends({
+          actorUser: user,
+          notificationType: "friend_achievement",
+          title: "🏆 Neuer Freundes-Erfolg",
+          message: `${user.display_name || user.full_name || user.email} hat den Erfolg „${achievement.title}" freigeschaltet!`,
+          description: achievement.title || "",
+          actionUrl: `FriendAchievements?email=${encodeURIComponent(user.email)}`,
+        });
+      } catch (notificationError) {
+        console.error("[AchievementChecker] Failed to notify friends about achievement unlock:", notificationError);
+      }
+
+      // Wenn das Achievement einen Reward hat, schalte diesen ebenfalls frei
+      if (achievement.reward_name) {
+        const rewards = await Query.Reward.list();
+        const reward = rewards.find(r => r.name === achievement.reward_name);
+        
+        if (reward) {
+          // Prüfe ob User den Reward bereits hat
+            const userRewards = await Query.UserReward.filter({ auth_id: user.id });
+          const hasReward = userRewards.some(ur => ur.reward_id === reward.id);
+          
+          if (!hasReward) {
+            console.log('[AchievementChecker] Unlocking reward:', reward.name, reward.display_name);
+            
+            // Schalte Reward frei
+            await Query.UserReward.create({
+              reward_id: reward.id,
+              reward_name: reward.display_name,
+              auth_id: user.id,
+              user_email: user.email,
+              user_name: user.display_name || user.full_name || user.email,
+              unlocked_date: new Date().toISOString()
+            });
+
+            // Früher wurde hier eine UserNotification im Banner-Stil erstellt.
+            // Belohnungs-Feedback wird nun direkt über UI-Komponenten (z.B. ScanFeedbackNotification)
+            // gehandhabt und nicht mehr als persistente Notification gespeichert.
+          } else {
+            console.log('[AchievementChecker] User already has reward:', reward.name);
+          }
+        }
+      }
+
+      return achievement;
+    };
+
+    const unlockAchievementByAnyTitle = async (titles = []) => {
+      const achievement = findAchievementByTitles(titles);
+      if (!achievement) {
+        console.warn('[AchievementChecker] Achievement definition not found for any title:', titles);
+        return null;
+      }
+      if (userAchievements.some((ua) => ua.achievement_id === achievement.id)) {
+        console.log('[AchievementChecker] Achievement already unlocked, skipping alias group:', titles, 'resolved title:', achievement.title);
+        return null;
+      }
+
+      console.log('[AchievementChecker] Unlocking achievement by aliases:', titles, 'resolved title:', achievement.title, 'with reward:', achievement.reward_name);
 
       await Query.UserAchievement.create({
         achievement_id: achievement.id,
@@ -328,23 +415,87 @@ export async function checkAndUnlockAchievements(user) {
     );
     const discoveredGeneraByUser = genera.filter((genus) => discoveredGenusKeysByUser.has(getGenusKey(genus)));
 
-    const baumGenera = genera.filter(g => g.category === "Bäume");
-    const discoveredBaumGeneraByUser = discoveredGeneraByUser.filter(g => g.category === "Bäume");
+    const discoveredPlantIds = new Set(
+      userDiscoveries.map((discovery) => discovery?.plant_id).filter(Boolean)
+    );
 
-    // This calculates plants *contributed* by the user to the global dex, not just discovered personally
-    const newPlantsAddedToGlobalDex = plants.filter(p => 
-      p.created_by === user.email && 
-      p.discovered === true
-    ).length;
+    const discoveredSpeciesCount = discoveredPlantIds.size;
+
+    const normalizeGenusCategory = (value) => {
+      const normalized = String(value || '').trim();
+      if (!normalized) return '';
+      if (normalized === 'Blumen & Kräuter') return 'Blumen';
+      return normalized;
+    };
+
+    const discoveredPlantsUnique = plants.filter((plant) => discoveredPlantIds.has(plant.id));
+    const discoveredTreeSpeciesCount = discoveredPlantsUnique.filter((plant) => normalizeGenusCategory(plant.genus_category) === 'Bäume').length;
+    const discoveredFlowerSpeciesCount = discoveredPlantsUnique.filter((plant) => normalizeGenusCategory(plant.genus_category) === 'Blumen').length;
+    const discoveredShrubSpeciesCount = discoveredPlantsUnique.filter((plant) => normalizeGenusCategory(plant.genus_category) === 'Sträucher').length;
+
+    const referralCompletions = (Array.isArray(referrals) ? referrals : []).filter((referral) => {
+      const referrerEmail = String(referral?.referrer_email || '').trim().toLowerCase();
+      const createdByEmail = String(referral?.created_by || '').trim().toLowerCase();
+      const authId = String(referral?.auth_id || '').trim();
+      const status = String(referral?.status || '').trim().toLowerCase();
+      return (
+        (referrerEmail && referrerEmail === userEmailLower) ||
+        (createdByEmail && createdByEmail === userEmailLower) ||
+        (authId && authId === String(user.id))
+      ) && status === 'completed';
+    }).length;
+
+    // Pionier: Primär über new_global_scan Ledger-Events (stabil im neuen Scanner-Flow),
+    // Legacy-Fallback über Plant-Autorfelder falls vorhanden.
+    const newGlobalEventDiscoveryIds = new Set(
+      (Array.isArray(robotPlantLedgerEntries) ? robotPlantLedgerEntries : [])
+        .filter((entry) => String(entry?.event_source || '').trim().toLowerCase() === 'new_global_scan')
+        .map((entry) => String(entry?.event_reference || '').trim())
+        .filter(Boolean)
+    );
+
+    const plantIdsFromNewGlobalEvents = new Set(
+      (Array.isArray(userDiscoveries) ? userDiscoveries : [])
+        .filter((discovery) => newGlobalEventDiscoveryIds.has(String(discovery?.id || '').trim()))
+        .map((discovery) => discovery?.plant_id)
+        .filter(Boolean)
+    );
+
+    const legacyAttributedPlantIds = new Set(
+      (Array.isArray(plants) ? plants : [])
+        .filter((plant) => {
+          const createdById = String(plant?.created_by_id || '').trim();
+          const authId = String(plant?.auth_id || '').trim();
+          const createdByEmail = String(plant?.created_by || '').trim().toLowerCase();
+          return (
+            (createdById && createdById === String(user.id)) ||
+            (authId && authId === String(user.id)) ||
+            (createdByEmail && createdByEmail === userEmailLower)
+          );
+        })
+        .map((plant) => plant?.id)
+        .filter(Boolean)
+    );
+
+    const newPlantsAddedToGlobalDex = new Set([
+      ...plantIdsFromNewGlobalEvents,
+      ...legacyAttributedPlantIds,
+    ]).size;
 
     console.log('[AchievementChecker] Computed stats:', {
       discoveredPlants,
+      discoveredSpeciesCount,
       longestScanStreak,
       discoveredGenera,
       discoveredGeneraByUser: discoveredGeneraByUser.length,
-      baumGeneraTotal: baumGenera.length,
-      discoveredBaumGeneraByUser: discoveredBaumGeneraByUser.length,
+      discoveredTreeSpeciesCount,
+      discoveredFlowerSpeciesCount,
+      discoveredShrubSpeciesCount,
       newPlantsAddedToGlobalDex,
+      newGlobalEventDiscoveryIds: newGlobalEventDiscoveryIds.size,
+      plantIdsFromNewGlobalEvents: plantIdsFromNewGlobalEvents.size,
+      legacyAttributedPlantIds: legacyAttributedPlantIds.size,
+      referralCompletions,
       friendsAcceptedForUser: friends.length
     });
 
@@ -362,85 +513,57 @@ export async function checkAndUnlockAchievements(user) {
       if (achievement) unlockedAchievements.push(achievement);
     }
     
-    // 3. Fleißiger Sammler - 50 Pflanzen entdeckt
-    if (discoveredPlants >= 50 && !hasAchievement("Fleißiger Sammler")) {
-      const achievement = await unlockAchievement("Fleißiger Sammler");
+    // 3. Wissenschaftler (Legacy: Fleißiger Sammler) - 50 verschiedene Pflanzenarten
+    if (discoveredSpeciesCount >= 50 && !hasAchievementByAnyTitle(["Wissenschaftler", "Fleißiger Sammler"])) {
+      const achievement = await unlockAchievementByAnyTitle(["Wissenschaftler", "Fleißiger Sammler"]);
       if (achievement) unlockedAchievements.push(achievement);
     }
 
-    // 4. Lokaler Entdecker - 10 Pflanzen am gleichen Ort
-    const locationCounts = {};
-    userDiscoveredPlantObjects.forEach(p => {
-      if (p.discovery_location) {
-        locationCounts[p.discovery_location] = (locationCounts[p.discovery_location] || 0) + 1;
-      }
-    });
-    const maxAtOneLocation = Math.max(0, ...Object.values(locationCounts));
-    if (maxAtOneLocation >= 10 && !hasAchievement("Lokaler Entdecker")) {
-      const achievement = await unlockAchievement("Lokaler Entdecker");
+    // 4. Naturkind (Legacy: Gattungssammler) - 10 verschiedene Pflanzengattungen
+    if (discoveredGenera >= 10 && !hasAchievementByAnyTitle(["Naturkind", "Gattungssammler"])) {
+      const achievement = await unlockAchievementByAnyTitle(["Naturkind", "Gattungssammler"]);
       if (achievement) unlockedAchievements.push(achievement);
     }
 
-    // 5. Baum-Meister - Alle Baum-Gattungen entdeckt
-    if (baumGenera.length > 0 && discoveredBaumGeneraByUser.length >= baumGenera.length && !hasAchievement("Baum-Meister")) {
-      const achievement = await unlockAchievement("Baum-Meister");
+    // 5. Forstwirt - 10 verschiedene Baumarten scannen
+    if (discoveredTreeSpeciesCount >= 10 && !hasAchievementByAnyTitle(["Forstwirt"])) {
+      const achievement = await unlockAchievementByAnyTitle(["Forstwirt"]);
       if (achievement) unlockedAchievements.push(achievement);
     }
 
-
-
-    // 7. Jahrhundertsammlung - 100 Pflanzen entdeckt
-    if (discoveredPlants >= 100 && !hasAchievement("Jahrhundertsammlung")) {
-      const achievement = await unlockAchievement("Jahrhundertsammlung");
+    // 6. Floristin - 10 verschiedene Blumen scannen
+    if (discoveredFlowerSpeciesCount >= 10 && !hasAchievementByAnyTitle(["Floristin"])) {
+      const achievement = await unlockAchievementByAnyTitle(["Floristin"]);
       if (achievement) unlockedAchievements.push(achievement);
     }
 
-    // 8. Pionier - 10 neue Pflanzen zum globalen Floralog hinzugefügt
-    if (newPlantsAddedToGlobalDex >= 10 && !hasAchievement("Pionier")) {
-      const achievement = await unlockAchievement("Pionier");
+    // 7. Ab durch die Hecke - 10 verschiedene Sträucher scannen
+    if (discoveredShrubSpeciesCount >= 10 && !hasAchievementByAnyTitle(["Ab durch die Hecke"])) {
+      const achievement = await unlockAchievementByAnyTitle(["Ab durch die Hecke"]);
       if (achievement) unlockedAchievements.push(achievement);
     }
 
-    // 9. Duo Sammler (Legacy) - Erster Freund hinzugefügt
-    // Hinweis: In neueren Versionen kann dieses Achievement durch "Buddy" ersetzt worden sein.
-    if (friends.length >= 1 && hasAchievement("Duo Sammler") === false) {
-      const achievement = await unlockAchievement("Duo Sammler");
+    // 8. Carl von Linné (Legacy: Jahrhundertsammlung) - 100 verschiedene Pflanzenarten
+    if (discoveredSpeciesCount >= 100 && !hasAchievementByAnyTitle(["Carl von Linné", "Carl von Linne", "Jahrhundertsammlung"])) {
+      const achievement = await unlockAchievementByAnyTitle(["Carl von Linné", "Carl von Linne", "Jahrhundertsammlung"]);
       if (achievement) unlockedAchievements.push(achievement);
     }
 
-    // 10. Gattungssammler - 10 verschiedene Gattungen entdeckt
-    if (discoveredGenera >= 10 && !hasAchievement("Gattungssammler")) {
-      const achievement = await unlockAchievement("Gattungssammler");
+    // 9. Pionier - 10 neue Pflanzen zum globalen Floralog hinzugefügt
+    if (newPlantsAddedToGlobalDex >= 10 && !hasAchievementByAnyTitle(["Pionier"])) {
+      const achievement = await unlockAchievementByAnyTitle(["Pionier"]);
       if (achievement) unlockedAchievements.push(achievement);
     }
 
-    // 11. Waldgott - Alle Baum-Arten einer bestimmten Gattung entdeckt
-    for (const genus of baumGenera) {
-      const allPlantsInGenus = plants.filter((plant) => matchesGenus(plant, genus));
-      if (allPlantsInGenus.length === 0) continue; // Cannot discover all if there are no plants in this genus
-
-      const userDiscoveredInGenus = userDiscoveredPlantObjects.filter((plant) => matchesGenus(plant, genus));
-      
-      if (userDiscoveredInGenus.length >= allPlantsInGenus.length) {
-        if (!hasAchievement("Waldgott")) {
-          const achievement = await unlockAchievement("Waldgott");
-          if (achievement) {
-            unlockedAchievements.push(achievement);
-            break; // Achievement unlocked, no need to check other genera
-          }
-        }
-      }
+    // 9b. Botschafter - 5 erfolgreiche Empfehlungen
+    if (referralCompletions >= 5 && !hasAchievementByAnyTitle(["Botschafter"])) {
+      const achievement = await unlockAchievementByAnyTitle(["Botschafter"]);
+      if (achievement) unlockedAchievements.push(achievement);
     }
 
-    // 12. Floralog Meister - Alle Pflanzen entdeckt
+    // 10. Floralog Meister - Alle Pflanzen entdeckt
     if (plants.length > 0 && userDiscoveredPlantObjects.length >= plants.length && !hasAchievement("Floralog Meister")) {
       const achievement = await unlockAchievement("Floralog Meister");
-      if (achievement) unlockedAchievements.push(achievement);
-    }
-
-    // 13. Teamforscher (Legacy) - 5 Freunde hinzugefügt
-    if (friends.length >= 5 && hasAchievement("Teamforscher") === false) {
-      const achievement = await unlockAchievement("Teamforscher");
       if (achievement) unlockedAchievements.push(achievement);
     }
 
@@ -451,7 +574,7 @@ export async function checkAndUnlockAchievements(user) {
       if (achievement) unlockedAchievements.push(achievement);
     }
 
-    // 14. Glücksfund - Eine Seltene Pflanze entdeckt
+    // 11. Glücksfund - Eine Seltene Pflanze entdeckt
     const hasRarePlant = userDiscoveredPlantObjects.some(p => 
       p.rarity === "Selten" || 
       p.rarity === "Sehr Selten" || 
@@ -462,7 +585,7 @@ export async function checkAndUnlockAchievements(user) {
       if (achievement) unlockedAchievements.push(achievement);
     }
 
-    // 7. Gewohnheitstier - 3 Tage hintereinander scannen
+    // 12. Gewohnheitstier - 3 Tage hintereinander scannen
     if (longestScanStreak >= 3 && !hasAchievement("Gewohnheitstier")) {
       const achievement = await unlockAchievement("Gewohnheitstier");
       if (achievement) unlockedAchievements.push(achievement);
