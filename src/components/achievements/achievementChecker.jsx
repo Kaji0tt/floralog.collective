@@ -542,9 +542,20 @@ export async function checkAndUnlockAchievements(user) {
     }
     
     // 3. Wissenschaftler (Legacy: Fleißiger Sammler) - 50 verschiedene Pflanzenarten
-    if (discoveredSpeciesCount >= 50 && !hasAchievementByAnyTitle(["Wissenschaftler", "Wissenschafter", "Fleißiger Sammler"])) {
-      const achievement = await unlockAchievementByAnyTitle(["Wissenschaftler", "Wissenschafter", "Fleißiger Sammler"]);
-      if (achievement) unlockedAchievements.push(achievement);
+    if (discoveredSpeciesCount >= 50) {
+      const scientistAliases = ["Wissenschaftler", "Wissenschafter", "Fleißiger Sammler"];
+      const scientistDefinitions = findAllAchievementsByTitles(scientistAliases);
+
+      if (scientistDefinitions.length > 0) {
+        // Falls Legacy- und neuer Titel als getrennte Zeilen existieren, beide sauber nachziehen.
+        for (const definition of scientistDefinitions) {
+          const achievement = await unlockAchievement(definition.title);
+          if (achievement) unlockedAchievements.push(achievement);
+        }
+      } else {
+        const achievement = await unlockAchievementByAnyTitle(scientistAliases);
+        if (achievement) unlockedAchievements.push(achievement);
+      }
     }
 
     // 4. Naturkind (Legacy: Gattungssammler) - 10 verschiedene Pflanzengattungen
@@ -572,9 +583,19 @@ export async function checkAndUnlockAchievements(user) {
     }
 
     // 8. Carl von Linné (Legacy: Jahrhundertsammlung) - 100 verschiedene Pflanzenarten
-    if (discoveredSpeciesCount >= 100 && !hasAchievementByAnyTitle(["Carl von Linné", "Carl von Linne", "Carl von Linee", "Carl von Linée", "Jahrhundertsammlung"])) {
-      const achievement = await unlockAchievementByAnyTitle(["Carl von Linné", "Carl von Linne", "Carl von Linee", "Carl von Linée", "Jahrhundertsammlung"]);
-      if (achievement) unlockedAchievements.push(achievement);
+    if (discoveredSpeciesCount >= 100) {
+      const lineeAliases = ["Carl von Linné", "Carl von Linne", "Carl von Linee", "Carl von Linée", "Jahrhundertsammlung"];
+      const lineeDefinitions = findAllAchievementsByTitles(lineeAliases);
+
+      if (lineeDefinitions.length > 0) {
+        for (const definition of lineeDefinitions) {
+          const achievement = await unlockAchievement(definition.title);
+          if (achievement) unlockedAchievements.push(achievement);
+        }
+      } else {
+        const achievement = await unlockAchievementByAnyTitle(lineeAliases);
+        if (achievement) unlockedAchievements.push(achievement);
+      }
     }
 
     // 9. Pionier - 10 neue Pflanzen zum globalen Floralog hinzugefügt

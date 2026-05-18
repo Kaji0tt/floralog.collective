@@ -2864,6 +2864,9 @@ function HomeContent() {
                               aria-label="Pflanzenstatus-Panel öffnen"
                             >
                               <div className="relative w-full h-full p-[10%] drop-shadow-[0_0_24px_rgba(190,242,100,0.6)]">
+                                {(equippedLogoAssets.border?.imageUrl || equippedLogoAssets.plant?.imageUrl || equippedLogoAssets.face?.imageUrl) && (
+                                  <div className="absolute left-1/2 top-1/2 h-[56%] w-[56%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/35" />
+                                )}
                                 {equippedLogoAssets.border?.imageUrl && (
                                   <img
                                     src={equippedLogoAssets.border.imageUrl}

@@ -32,6 +32,9 @@ export default function CustomLogoAvatar({
   return (
     <div className={cn("relative rounded-full overflow-hidden", className)}>
       <div className={cn("absolute inset-0 flex items-center justify-center", hasLogoLayers && "scale-[1.5]", innerClassName)}>
+        {hasLogoLayers && (
+          <div className="absolute left-1/2 top-1/2 h-[56%] w-[56%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/35" />
+        )}
         {logoAssets?.border?.imageUrl && (
           <img
             src={logoAssets.border.imageUrl}

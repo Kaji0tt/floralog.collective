@@ -1352,7 +1352,7 @@ Viel Spaß beim Entdecken! 🌿`;
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: index * 0.02 }}
                     >
-                      <Card className={`${nestedCardClass} ${interactiveHoverClass} transition-all overflow-hidden`}>
+                      <Card className={`${nestedCardClass} ${isLightUi ? "bg-white" : ""} ${interactiveHoverClass} transition-all overflow-hidden`}>
                         {entry.discovery?.image_url ? (
                           <div className={`aspect-[4/3] overflow-hidden ${isLightUi ? "bg-stone-100" : "bg-stone-900/60"}`}>
                             <img
@@ -1539,7 +1539,7 @@ Viel Spaß beim Entdecken! 🌿`;
                             transition={{ delay: index * 0.03 }}
                           >
                             <div
-                              className={`${nestedCardClass} transition-all cursor-pointer ${isExpanded ? "bg-opacity-100" : "hover:bg-opacity-75"} ${newsItem.seen ? "" : (isLightUi ? "border-emerald-200 bg-emerald-50/65" : "border-emerald-300/30 bg-emerald-500/10")}`}
+                              className={`${nestedCardClass} ${isLightUi ? "bg-white" : ""} transition-all cursor-pointer ${isExpanded ? "bg-opacity-100" : "hover:bg-opacity-75"} ${newsItem.seen ? "" : (isLightUi ? "border-emerald-200 bg-white" : "border-emerald-300/30 bg-emerald-500/10")}`}
                               onClick={() => toggleNewsExpanded(newsItem.id)}
                             >
                               <CardContent className="p-3">
@@ -1638,7 +1638,7 @@ Viel Spaß beim Entdecken! 🌿`;
                             transition={{ delay: index * 0.03 }}
                           >
                             <div
-                              className={`${nestedCardClass} transition-all cursor-pointer`}
+                              className={`${nestedCardClass} ${isLightUi ? "bg-white" : ""} transition-all cursor-pointer`}
                               onClick={() => toggleNewsExpanded(newsItem.id)}
                             >
                               <CardContent className="p-3">

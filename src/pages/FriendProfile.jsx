@@ -157,6 +157,9 @@ function FriendProfileHomePanel({
 
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="relative w-[74%] h-[74%] drop-shadow-[0_0_24px_rgba(190,242,100,0.6)]">
+                        {(friendLogoAssets?.border?.imageUrl || friendLogoAssets?.plant?.imageUrl || friendLogoAssets?.face?.imageUrl) && (
+                          <div className="absolute left-1/2 top-1/2 h-[56%] w-[56%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/35" />
+                        )}
                         {friendLogoAssets?.border?.imageUrl && (
                           <img
                             src={friendLogoAssets.border.imageUrl}

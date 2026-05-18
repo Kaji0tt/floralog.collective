@@ -11,10 +11,10 @@ with reward_candidates as (
     ua.created_by,
     ua.unlocked_date,
     a.id as achievement_id,
-    nullif(trim(a.reward_name), '') as reward_name_candidate,
-    nullif(trim(a.title_reward), '') as title_reward_candidate
+    nullif(trim(to_jsonb(a)->>'reward_name'), '') as reward_name_candidate,
+    nullif(trim(to_jsonb(a)->>'title_reward'), '') as title_reward_candidate
   from public."UserAchievement" ua
-  join public."Achievement" a
+  join public."Achievements" a
     on a.id = ua.achievement_id
   where ua.auth_id is not null
 ), resolved_rewards as (
@@ -71,15 +71,18 @@ where not exists (
 
 -- Optional verification examples:
 -- 1) Missing rewards for unlocked achievements (should return 0 rows after migration)
--- select ua.auth_id, a.title, a.reward_name, a.title_reward
+-- select ua.auth_id,
+--        to_jsonb(a)->>'title' as title,
+--        to_jsonb(a)->>'reward_name' as reward_name,
+--        to_jsonb(a)->>'title_reward' as title_reward
 -- from public."UserAchievement" ua
--- join public."Achievement" a on a.id = ua.achievement_id
+-- join public."Achievements" a on a.id = ua.achievement_id
 -- left join public."Rewards" r
---   on lower(trim(r.name)) = lower(trim(coalesce(a.reward_name, '')))
---   or lower(trim(coalesce(r.display_name, ''))) = lower(trim(coalesce(a.reward_name, '')))
---   or lower(trim(coalesce(r.value, ''))) = lower(trim(coalesce(a.reward_name, '')))
---   or lower(trim(r.name)) = lower(trim(coalesce(a.title_reward, '')))
---   or lower(trim(coalesce(r.display_name, ''))) = lower(trim(coalesce(a.title_reward, '')))
---   or lower(trim(coalesce(r.value, ''))) = lower(trim(coalesce(a.title_reward, '')))
+--   on lower(trim(r.name)) = lower(trim(coalesce(to_jsonb(a)->>'reward_name', '')))
+--   or lower(trim(coalesce(r.display_name, ''))) = lower(trim(coalesce(to_jsonb(a)->>'reward_name', '')))
+--   or lower(trim(coalesce(r.value, ''))) = lower(trim(coalesce(to_jsonb(a)->>'reward_name', '')))
+--   or lower(trim(r.name)) = lower(trim(coalesce(to_jsonb(a)->>'title_reward', '')))
+--   or lower(trim(coalesce(r.display_name, ''))) = lower(trim(coalesce(to_jsonb(a)->>'title_reward', '')))
+--   or lower(trim(coalesce(r.value, ''))) = lower(trim(coalesce(to_jsonb(a)->>'title_reward', '')))
 -- left join public."UserReward" ur on ur.auth_id = ua.auth_id and ur.reward_id = r.id
 -- where r.id is not null and ur.id is null;

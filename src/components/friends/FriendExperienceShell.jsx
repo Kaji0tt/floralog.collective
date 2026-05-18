@@ -199,6 +199,9 @@ export default function FriendExperienceShell({
                 isLightUi ? "border-[#c8ac62]/55 bg-white/60" : "border-[#f0e5a5]/35 bg-black/35"
               }`}>
                 <div className="absolute inset-[10%]">
+                  {(friendLogoAssets?.border?.imageUrl || friendLogoAssets?.plant?.imageUrl || friendLogoAssets?.face?.imageUrl) && (
+                    <div className="absolute left-1/2 top-1/2 h-[56%] w-[56%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/35" />
+                  )}
                   {friendLogoAssets?.border?.imageUrl && (
                     <img
                       src={friendLogoAssets.border.imageUrl}
