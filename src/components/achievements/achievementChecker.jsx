@@ -106,8 +106,17 @@ export async function checkAndUnlockAchievements(user) {
 
     const findAchievementByTitles = (titles = []) => {
       if (!Array.isArray(titles) || titles.length === 0) return null;
+      for (const title of titles) {
+        const found = achievements.find((achievement) => normalizeText(achievement.title) === normalizeText(title));
+        if (found) return found;
+      }
+      return null;
+    };
+
+    const findAllAchievementsByTitles = (titles = []) => {
+      if (!Array.isArray(titles) || titles.length === 0) return [];
       const normalizedTargets = titles.map((title) => normalizeText(title)).filter(Boolean);
-      return achievements.find((achievement) => normalizedTargets.includes(normalizeText(achievement.title)));
+      return achievements.filter((achievement) => normalizedTargets.includes(normalizeText(achievement.title)));
     };
 
     const findAchievementByRewardName = (rewardName) =>
@@ -120,8 +129,10 @@ export async function checkAndUnlockAchievements(user) {
     };
 
     const hasAchievementByAnyTitle = (titles = []) => {
-      const achievement = findAchievementByTitles(titles);
-      return achievement && userAchievements.some((ua) => ua.achievement_id === achievement.id);
+      const matchedAchievements = findAllAchievementsByTitles(titles);
+      return matchedAchievements.some((achievement) =>
+        userAchievements.some((ua) => ua.achievement_id === achievement.id)
+      );
     };
 
     // Hilfsfunktion: Achievement per Titel freischalten
@@ -199,7 +210,7 @@ export async function checkAndUnlockAchievements(user) {
         console.warn('[AchievementChecker] Achievement definition not found for any title:', titles);
         return null;
       }
-      if (userAchievements.some((ua) => ua.achievement_id === achievement.id)) {
+      if (hasAchievementByAnyTitle(titles)) {
         console.log('[AchievementChecker] Achievement already unlocked, skipping alias group:', titles, 'resolved title:', achievement.title);
         return null;
       }

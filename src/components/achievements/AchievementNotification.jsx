@@ -21,6 +21,12 @@ export default function AchievementNotification({ achievement, onComplete }) {
     }
   };
 
+  const normalizedTitleReward = String(achievement?.title_reward || "").trim();
+  const titleRewardLooksLikeBackground =
+    /^https?:\/\//i.test(normalizedTitleReward) ||
+    /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(normalizedTitleReward);
+  const hasVisibleTitleReward = Boolean(normalizedTitleReward) && !titleRewardLooksLikeBackground;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: -100, scale: 0.8 }}
@@ -55,10 +61,17 @@ export default function AchievementNotification({ achievement, onComplete }) {
             <p className="text-white/90 text-sm">
               {achievement.description}
             </p>
-            {achievement.title_reward && (
+            {hasVisibleTitleReward && (
               <div className="mt-2 bg-white/20 rounded-lg px-3 py-1 inline-block">
                 <span className="text-white text-xs font-semibold">
-                  ⭐ Titel: "{achievement.title_reward}"
+                  ⭐ Titel: "{normalizedTitleReward}"
+                </span>
+              </div>
+            )}
+            {titleRewardLooksLikeBackground && (
+              <div className="mt-2 bg-white/20 rounded-lg px-3 py-1 inline-block">
+                <span className="text-white text-xs font-semibold">
+                  🎨 Neuer Hintergrund freigeschaltet
                 </span>
               </div>
             )}

@@ -65,6 +65,14 @@ const normalizeTitleCandidate = (value) => {
   return text;
 };
 
+const looksLikeImageOrUrl = (value) => {
+  const text = String(value || "").trim();
+  if (!text) return false;
+  if (/^https?:\/\//i.test(text)) return true;
+  if (/\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(text)) return true;
+  return false;
+};
+
 export const resolveTitleValue = (...candidates) => {
   for (const candidate of candidates) {
     const normalized = normalizeTitleCandidate(candidate);
@@ -113,12 +121,20 @@ export const getUnlockedTitleOptions = ({
     .filter((achievement) => unlockedAchievementIds.has(achievement?.id))
     .map((achievement) => {
       const linkedReward = achievement?.reward_name ? rewardsByName.get(String(achievement.reward_name)) : null;
+      const linkedRewardType = String(
+        linkedReward?.type || linkedReward?.reward_type || linkedReward?.kind || ""
+      ).trim().toLowerCase();
+
+      if (linkedReward && linkedRewardType && linkedRewardType !== "title") {
+        return null;
+      }
+
       const title = resolveTitleValue(
         achievement?.title_reward,
-        linkedReward?.value,
-        linkedReward?.display_name
+        linkedRewardType === "title" ? linkedReward?.value : null,
+        linkedRewardType === "title" ? linkedReward?.display_name : null
       );
-      if (!title) return null;
+      if (!title || looksLikeImageOrUrl(title)) return null;
 
       return {
         id: `achievement-title:${achievement.id}`,

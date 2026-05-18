@@ -40,6 +40,14 @@ export default function FriendAchievementsPanel({ friendUser }) {
     }
   };
 
+  const isTextTitleReward = (value) => {
+    const normalized = String(value || "").trim();
+    if (!normalized) return false;
+    if (/^https?:\/\//i.test(normalized)) return false;
+    if (/\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(normalized)) return false;
+    return true;
+  };
+
   const sortedAchievements = [...achievements].sort(
     (a, b) => getRarityValue(a.rarity) - getRarityValue(b.rarity)
   );
@@ -138,7 +146,7 @@ export default function FriendAchievementsPanel({ friendUser }) {
                   <p className={`text-xs font-semibold ${textMuted}`}>
                     {achievement.requirement}
                   </p>
-                  {achievement.title_reward && (
+                  {isTextTitleReward(achievement.title_reward) && (
                     <p className={`text-xs mt-1 ${isLightUi ? "text-purple-700" : "text-purple-300"}`}>
                       ⭐ Titel: „{achievement.title_reward}"
                     </p>
@@ -187,7 +195,7 @@ export default function FriendAchievementsPanel({ friendUser }) {
                 <p className={`text-xs font-semibold ${textMuted}`}>
                   {achievement.requirement}
                 </p>
-                {achievement.title_reward && (
+                {isTextTitleReward(achievement.title_reward) && (
                   <p className={`text-xs mt-1 ${textMuted}`}>
                     ⭐ Titel: „{achievement.title_reward}"
                   </p>
