@@ -195,34 +195,32 @@ export async function checkAndUnlockAchievements(user) {
         console.error("[AchievementChecker] Failed to notify friends about achievement unlock:", notificationError);
       }
 
-      // Wenn das Achievement einen Reward hat, schalte diesen ebenfalls frei
-      if (achievement.reward_name) {
-        const reward = resolveRewardForAchievement(achievement);
-        
-        if (reward) {
-          // Prüfe ob User den Reward bereits hat
-            const userRewards = await Query.UserReward.filter({ auth_id: user.id });
-          const hasReward = userRewards.some(ur => ur.reward_id === reward.id);
-          
-          if (!hasReward) {
-            console.log('[AchievementChecker] Unlocking reward:', reward.name, reward.display_name);
-            
-            // Schalte Reward frei
-            await Query.UserReward.create({
-              reward_id: reward.id,
-              reward_name: reward.display_name,
-              auth_id: user.id,
-              user_email: user.email,
-              user_name: user.display_name || user.full_name || user.email,
-              unlocked_date: new Date().toISOString()
-            });
+      // Wenn das Achievement einen zuordenbaren Reward hat, schalte diesen ebenfalls frei
+      const reward = resolveRewardForAchievement(achievement);
 
-            // Früher wurde hier eine UserNotification im Banner-Stil erstellt.
-            // Belohnungs-Feedback wird nun direkt über UI-Komponenten (z.B. ScanFeedbackNotification)
-            // gehandhabt und nicht mehr als persistente Notification gespeichert.
-          } else {
-            console.log('[AchievementChecker] User already has reward:', reward.name);
-          }
+      if (reward) {
+        // Prüfe ob User den Reward bereits hat
+        const userRewards = await Query.UserReward.filter({ auth_id: user.id });
+        const hasReward = userRewards.some(ur => ur.reward_id === reward.id);
+
+        if (!hasReward) {
+          console.log('[AchievementChecker] Unlocking reward:', reward.name, reward.display_name);
+
+          // Schalte Reward frei
+          await Query.UserReward.create({
+            reward_id: reward.id,
+            reward_name: reward.display_name,
+            auth_id: user.id,
+            user_email: user.email,
+            user_name: user.display_name || user.full_name || user.email,
+            unlocked_date: new Date().toISOString()
+          });
+
+          // Früher wurde hier eine UserNotification im Banner-Stil erstellt.
+          // Belohnungs-Feedback wird nun direkt über UI-Komponenten (z.B. ScanFeedbackNotification)
+          // gehandhabt und nicht mehr als persistente Notification gespeichert.
+        } else {
+          console.log('[AchievementChecker] User already has reward:', reward.name);
         }
       }
 
@@ -262,34 +260,32 @@ export async function checkAndUnlockAchievements(user) {
         console.error("[AchievementChecker] Failed to notify friends about achievement unlock:", notificationError);
       }
 
-      // Wenn das Achievement einen Reward hat, schalte diesen ebenfalls frei
-      if (achievement.reward_name) {
-        const reward = resolveRewardForAchievement(achievement);
-        
-        if (reward) {
-          // Prüfe ob User den Reward bereits hat
-            const userRewards = await Query.UserReward.filter({ auth_id: user.id });
-          const hasReward = userRewards.some(ur => ur.reward_id === reward.id);
-          
-          if (!hasReward) {
-            console.log('[AchievementChecker] Unlocking reward:', reward.name, reward.display_name);
-            
-            // Schalte Reward frei
-            await Query.UserReward.create({
-              reward_id: reward.id,
-              reward_name: reward.display_name,
-              auth_id: user.id,
-              user_email: user.email,
-              user_name: user.display_name || user.full_name || user.email,
-              unlocked_date: new Date().toISOString()
-            });
+      // Wenn das Achievement einen zuordenbaren Reward hat, schalte diesen ebenfalls frei
+      const reward = resolveRewardForAchievement(achievement);
 
-            // Früher wurde hier eine UserNotification im Banner-Stil erstellt.
-            // Belohnungs-Feedback wird nun direkt über UI-Komponenten (z.B. ScanFeedbackNotification)
-            // gehandhabt und nicht mehr als persistente Notification gespeichert.
-          } else {
-            console.log('[AchievementChecker] User already has reward:', reward.name);
-          }
+      if (reward) {
+        // Prüfe ob User den Reward bereits hat
+        const userRewards = await Query.UserReward.filter({ auth_id: user.id });
+        const hasReward = userRewards.some(ur => ur.reward_id === reward.id);
+
+        if (!hasReward) {
+          console.log('[AchievementChecker] Unlocking reward:', reward.name, reward.display_name);
+
+          // Schalte Reward frei
+          await Query.UserReward.create({
+            reward_id: reward.id,
+            reward_name: reward.display_name,
+            auth_id: user.id,
+            user_email: user.email,
+            user_name: user.display_name || user.full_name || user.email,
+            unlocked_date: new Date().toISOString()
+          });
+
+          // Früher wurde hier eine UserNotification im Banner-Stil erstellt.
+          // Belohnungs-Feedback wird nun direkt über UI-Komponenten (z.B. ScanFeedbackNotification)
+          // gehandhabt und nicht mehr als persistente Notification gespeichert.
+        } else {
+          console.log('[AchievementChecker] User already has reward:', reward.name);
         }
       }
 
@@ -336,27 +332,25 @@ export async function checkAndUnlockAchievements(user) {
         console.error("[AchievementChecker] Failed to notify friends about achievement unlock:", notificationError);
       }
 
-      // Wenn das Achievement einen Reward hat, schalte diesen ebenfalls frei (gleiche Logik wie oben)
-      if (achievement.reward_name) {
-        const reward = resolveRewardForAchievement(achievement);
-        
-        if (reward) {
-          const userRewards = await Query.UserReward.filter({ auth_id: user.id });
-          const hasReward = userRewards.some(ur => ur.reward_id === reward.id);
-          
-          if (!hasReward) {
-            console.log('[AchievementChecker] Unlocking reward (by reward_name):', reward.name, reward.display_name);
-            await Query.UserReward.create({
-              reward_id: reward.id,
-              reward_name: reward.display_name,
-              auth_id: user.id,
-              user_email: user.email,
-              user_name: user.display_name || user.full_name || user.email,
-              unlocked_date: new Date().toISOString()
-            });
-          } else {
-            console.log('[AchievementChecker] User already has reward (by reward_name):', reward.name);
-          }
+      // Wenn das Achievement einen zuordenbaren Reward hat, schalte diesen ebenfalls frei (gleiche Logik wie oben)
+      const reward = resolveRewardForAchievement(achievement);
+
+      if (reward) {
+        const userRewards = await Query.UserReward.filter({ auth_id: user.id });
+        const hasReward = userRewards.some(ur => ur.reward_id === reward.id);
+
+        if (!hasReward) {
+          console.log('[AchievementChecker] Unlocking reward (by reward_name):', reward.name, reward.display_name);
+          await Query.UserReward.create({
+            reward_id: reward.id,
+            reward_name: reward.display_name,
+            auth_id: user.id,
+            user_email: user.email,
+            user_name: user.display_name || user.full_name || user.email,
+            unlocked_date: new Date().toISOString()
+          });
+        } else {
+          console.log('[AchievementChecker] User already has reward (by reward_name):', reward.name);
         }
       }
 
@@ -548,8 +542,8 @@ export async function checkAndUnlockAchievements(user) {
     }
     
     // 3. Wissenschaftler (Legacy: Fleißiger Sammler) - 50 verschiedene Pflanzenarten
-    if (discoveredSpeciesCount >= 50 && !hasAchievementByAnyTitle(["Wissenschaftler", "Fleißiger Sammler"])) {
-      const achievement = await unlockAchievementByAnyTitle(["Wissenschaftler", "Fleißiger Sammler"]);
+    if (discoveredSpeciesCount >= 50 && !hasAchievementByAnyTitle(["Wissenschaftler", "Wissenschafter", "Fleißiger Sammler"])) {
+      const achievement = await unlockAchievementByAnyTitle(["Wissenschaftler", "Wissenschafter", "Fleißiger Sammler"]);
       if (achievement) unlockedAchievements.push(achievement);
     }
 
@@ -578,8 +572,8 @@ export async function checkAndUnlockAchievements(user) {
     }
 
     // 8. Carl von Linné (Legacy: Jahrhundertsammlung) - 100 verschiedene Pflanzenarten
-    if (discoveredSpeciesCount >= 100 && !hasAchievementByAnyTitle(["Carl von Linné", "Carl von Linne", "Jahrhundertsammlung"])) {
-      const achievement = await unlockAchievementByAnyTitle(["Carl von Linné", "Carl von Linne", "Jahrhundertsammlung"]);
+    if (discoveredSpeciesCount >= 100 && !hasAchievementByAnyTitle(["Carl von Linné", "Carl von Linne", "Carl von Linee", "Carl von Linée", "Jahrhundertsammlung"])) {
+      const achievement = await unlockAchievementByAnyTitle(["Carl von Linné", "Carl von Linne", "Carl von Linee", "Carl von Linée", "Jahrhundertsammlung"]);
       if (achievement) unlockedAchievements.push(achievement);
     }
 
