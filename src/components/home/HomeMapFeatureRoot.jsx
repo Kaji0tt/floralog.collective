@@ -128,6 +128,7 @@ export default function HomeMapFeatureRoot({
           onDiscoveryLike={onDiscoveryLike}
           allowDiscoveryLike={allowDiscoveryLike}
           discoveryMarkerScale={discoveryMarkerScale}
+          hideClaimLogos={!!trimmedQuery}
           onTokenError={onTokenError}
           onMapReady={onMapReady}
         />
@@ -193,7 +194,16 @@ export default function HomeMapFeatureRoot({
 
       {/* Bottom search bar + Neu button */}
       <div className="absolute left-4 right-4 bottom-4 z-[1200] flex items-end gap-2">
-        <div className="flex-1 min-w-0">
+        <div className="relative flex-1 min-w-0">
+          {trimmedQuery && (
+            <p className={`absolute bottom-full mb-1 left-0 right-0 text-[10px] text-center ${
+              isLightUi ? "text-stone-600" : "text-stone-400"
+            }`}>
+              {displayedDiscoveryPoints.length === 0
+                ? "Keine Ergebnisse"
+                : `${displayedDiscoveryPoints.length} Fund${displayedDiscoveryPoints.length === 1 ? "" : "e"} gefunden (deutschlandweit)`}
+            </p>
+          )}
           <div className={`flex items-center gap-2 h-10 rounded-xl border backdrop-blur-sm px-3 ${
             isLightUi
               ? "border-[#c8ac62]/55 bg-white/70 text-stone-800"
@@ -220,15 +230,6 @@ export default function HomeMapFeatureRoot({
               </button>
             )}
           </div>
-          {trimmedQuery && (
-            <p className={`mt-1 text-[10px] text-center ${
-              isLightUi ? "text-stone-600" : "text-stone-400"
-            }`}>
-              {displayedDiscoveryPoints.length === 0
-                ? "Keine Ergebnisse"
-                : `${displayedDiscoveryPoints.length} Fund${displayedDiscoveryPoints.length === 1 ? "" : "e"} gefunden (deutschlandweit)`}
-            </p>
-          )}
         </div>
 
         <button

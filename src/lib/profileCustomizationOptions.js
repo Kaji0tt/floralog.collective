@@ -85,7 +85,7 @@ export const getUnlockedColorBackgrounds = (scannedPlantsCount = 0) => {
   const normalizedCount = Number(scannedPlantsCount || 0);
 
   return COLOR_ROWS.flatMap((row) => {
-    if (normalizedCount < row.threshold) return [];
+    const isUnlocked = normalizedCount >= row.threshold;
 
     return row.colors.map((color) => ({
       id: `color:${color}`,
@@ -94,8 +94,37 @@ export const getUnlockedColorBackgrounds = (scannedPlantsCount = 0) => {
       label: color,
       unlockLabel: row.label,
       threshold: row.threshold,
+      isLocked: !isUnlocked,
+      unlockCondition: !isUnlocked ? `Scanne ${row.threshold} Pflanzen (${normalizedCount}/${row.threshold}).` : null,
     }));
   });
+};
+
+const getBackgroundUnlockCondition = (reward) => {
+  if (!reward) return null;
+
+  if (reward?.requires_donor) return "Nur fuer Unterstuetzer freischaltbar.";
+
+  const requiredReferrals = Math.max(0, Number(reward?.requires_referrals || 0));
+  if (requiredReferrals > 0) {
+    return `Wirb ${requiredReferrals} Freund${requiredReferrals > 1 ? "e" : ""}.`;
+  }
+
+  const requiredRarePlants = Math.max(0, Number(reward?.requires_rare_plants || 0));
+  if (requiredRarePlants > 0) {
+    return `Entdecke ${requiredRarePlants} seltene Pflanze${requiredRarePlants > 1 ? "n" : ""}.`;
+  }
+
+  const requiredWeeklyQuests = Math.max(0, Number(reward?.requires_weekly_quests || 0));
+  if (requiredWeeklyQuests > 0) {
+    return `Nimm an ${requiredWeeklyQuests} Wochenquests teil.`;
+  }
+
+  if (reward?.requires_quest) {
+    return "Schliesse eine Quest ab.";
+  }
+
+  return "Noch nicht freigeschaltet.";
 };
 
 export const getUnlockedTitleOptions = ({
@@ -188,7 +217,7 @@ export const getUnlockedPresetBackgrounds = ({ rewards = [], userRewards = [] } 
   );
 
   return (Array.isArray(rewards) ? rewards : [])
-    .filter((reward) => unlockedRewardIds.has(reward?.id) && reward?.type === "background" && reward?.value)
+    .filter((reward) => reward?.type === "background" && reward?.value)
     .map((reward) => ({
       id: `reward-background:${reward.id}`,
       type: "preset",
@@ -196,6 +225,8 @@ export const getUnlockedPresetBackgrounds = ({ rewards = [], userRewards = [] } 
       label: reward.display_name || reward.value,
       previewColor: reward.color || null,
       source: "reward",
+      isLocked: !unlockedRewardIds.has(reward?.id),
+      unlockCondition: !unlockedRewardIds.has(reward?.id) ? getBackgroundUnlockCondition(reward) : null,
     }))
     .sort((left, right) => String(left.label || "").localeCompare(String(right.label || ""), "de"));
 };
@@ -235,19 +266,19 @@ export const getUnlockedBackgroundSections = ({
   return [
     {
       key: "presets",
-      title: "Hintergruende",
-      emptyLabel: "Noch keine freigeschalteten Hintergrundbilder.",
+      title: "Vorgefertigte Hintergruende",
+      emptyLabel: "Noch keine Hintergrundbilder verfuegbar.",
       options: presetOptions,
     },
     {
       key: "colors",
       title: "Einfarbiger Hintergrund",
-      emptyLabel: "Noch keine Hintergrundfarben freigeschaltet.",
+      emptyLabel: "Noch keine Hintergrundfarben verfuegbar.",
       options: colorOptions,
     },
     {
       key: "scans",
-      title: "Scan-Hintergrund",
+      title: "Pflanzenbild als Hintergrund",
       emptyLabel: "Scan-Hintergründe werden ab 50 verschiedenen Arten freigeschaltet.",
       options: scanOptions,
     },
@@ -470,9 +501,9 @@ export const getUnlockedProfileCustomizationCatalog = ({
       {
         key: "backgrounds",
         title: "Hintergruende",
-        subtitle: "Alle freigeschalteten Hintergründe fuer dein Profil",
+        subtitle: "Alle Hintergrundoptionen fuer dein Profil",
         sections: backgroundSections,
-        optionCount: backgroundSections.reduce((sum, section) => sum + section.options.length, 0),
+        optionCount: (backgroundSections.find((section) => section.key === "presets")?.options.length) || 0,
       },
       {
         key: "titles",

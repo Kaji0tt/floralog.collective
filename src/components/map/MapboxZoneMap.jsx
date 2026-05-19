@@ -727,6 +727,7 @@ export default function MapboxZoneMap({
   onDiscoveryLike = null,
   allowDiscoveryLike = true,
   discoveryMarkerScale = DISCOVERY_MARKER_UNIFIED_SCALE_DEFAULT,
+  hideClaimLogos = false,
   className = "h-full w-full z-0",
 }) {
   const mapContainerRef = useRef(null);
@@ -1105,16 +1106,18 @@ export default function MapboxZoneMap({
       claimLogoMarkersRef.current.forEach((marker) => marker.remove());
       claimLogoMarkersRef.current = [];
 
-      claimedTiles
-        .filter((claim) => Number.isFinite(claim?.centerLat) && Number.isFinite(claim?.centerLng))
-        .forEach((claim) => {
-          const claimMarkerElement = createClaimLogoMarkerElement(claim, discoveryMarkerScale);
-          const claimMarker = new mapboxgl.Marker({ element: claimMarkerElement, anchor: "center" })
-            .setLngLat([Number(claim.centerLng), Number(claim.centerLat)])
-            .addTo(map);
+      if (!hideClaimLogos) {
+        claimedTiles
+          .filter((claim) => Number.isFinite(claim?.centerLat) && Number.isFinite(claim?.centerLng))
+          .forEach((claim) => {
+            const claimMarkerElement = createClaimLogoMarkerElement(claim, discoveryMarkerScale);
+            const claimMarker = new mapboxgl.Marker({ element: claimMarkerElement, anchor: "center" })
+              .setLngLat([Number(claim.centerLng), Number(claim.centerLat)])
+              .addTo(map);
 
-          claimLogoMarkersRef.current.push(claimMarker);
-        });
+            claimLogoMarkersRef.current.push(claimMarker);
+          });
+      }
 
       const renderDiscoveryMarkers = () => {
         discoveryMarkersRef.current.forEach((marker) => marker.remove());
@@ -1192,6 +1195,7 @@ export default function MapboxZoneMap({
     discoveryPoints,
     fallbackCenter?.lat,
     fallbackCenter?.lng,
+    hideClaimLogos,
     isLightUi,
     onDiscoveryImageClick,
     onDiscoveryLike,

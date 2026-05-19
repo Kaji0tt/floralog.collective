@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUiTheme } from "@/lib/UiThemeContext";
@@ -21,13 +20,14 @@ export default function HomeBottomNavigation({
   navItems,
   controlsScale = 1,
   showLabels = false,
+  isNavVisible = true,
+  onNavVisibleChange,
 }) {
   const { isLightUi } = useUiTheme();
-  const [isNavVisible, setIsNavVisible] = useState(true);
   const navButtonHeightRem = Math.min(3.2, Math.max(2.7, 2.9 * controlsScale));
 
   const toggleNavVisibility = () => {
-    setIsNavVisible((prev) => !prev);
+    onNavVisibleChange?.((prev) => !prev);
   };
 
   return (

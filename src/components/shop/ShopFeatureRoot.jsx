@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Sparkles, Loader2, RefreshCw, Image as ImageIcon, BadgeCheck, PaintBucket, Lock, ArrowLeft, ArrowRight } from "lucide-react";
+import { Sparkles, Loader2, RefreshCw, Image as ImageIcon, BadgeCheck, PaintBucket, Lock, ArrowLeft, ArrowRight, ChevronDown, ChevronUp } from "lucide-react";
 import { HexColorPicker } from "react-colorful";
 import { Query } from "@/api/entities";
 import { supabase } from "@/api/supabaseClient";
@@ -106,13 +106,14 @@ const getBackgroundButtonStyle = ({ isActive, isLightUi }) => {
 
 const BackgroundOptionCard = ({ option, user, isLightUi, isPending, onSelect }) => {
   const isActive = getBackgroundSelectionState(user, option);
+  const isLocked = Boolean(option?.isLocked);
 
-  return (
+  const buttonContent = (
     <button
       type="button"
-      disabled={isPending}
+      disabled={isPending || isLocked}
       onClick={() => onSelect(option)}
-      className={`relative overflow-hidden rounded-2xl border text-left transition-all duration-200 disabled:opacity-60 ${getBackgroundButtonStyle({ isActive, isLightUi })}`}
+      className={`relative overflow-hidden rounded-2xl border text-left transition-all duration-200 disabled:opacity-60 ${isLocked ? "cursor-help" : ""} ${getBackgroundButtonStyle({ isActive, isLightUi })}`}
     >
       <div className="aspect-[1.1/1] w-full">
         {option.type === "color" ? (
@@ -121,6 +122,7 @@ const BackgroundOptionCard = ({ option, user, isLightUi, isPending, onSelect }) 
           <img src={option.value} alt={option.label} className="h-full w-full object-cover" />
         )}
       </div>
+      {isLocked && <div className="absolute inset-0 bg-black/45" />}
       <div className={`absolute inset-0 ${isActive ? (isLightUi ? "bg-white/10" : "bg-black/10") : "bg-transparent"}`} />
       <div className="absolute inset-x-0 bottom-0 p-2">
         <div className={`rounded-xl border px-2 py-2 backdrop-blur-md ${
@@ -130,16 +132,29 @@ const BackgroundOptionCard = ({ option, user, isLightUi, isPending, onSelect }) 
         }`}>
           <div className="flex items-center justify-between gap-2">
             <span className="truncate text-xs font-semibold">{option.label}</span>
-            {isActive && <BadgeCheck className={`h-3.5 w-3.5 shrink-0 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />}
+            {isLocked ? (
+              <Lock className={`h-3.5 w-3.5 shrink-0 ${isLightUi ? "text-stone-600" : "text-stone-200/90"}`} />
+            ) : (
+              isActive && <BadgeCheck className={`h-3.5 w-3.5 shrink-0 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+            )}
           </div>
-          {option.unlockLabel && (
+          {(option.unlockLabel || option.unlockCondition || isLocked) && (
             <div className={`mt-1 text-[10px] ${isLightUi ? "text-stone-500" : "text-stone-300/80"}`}>
-              {option.unlockLabel}
+              {isLocked ? (option.unlockCondition || "Noch gesperrt") : option.unlockLabel}
             </div>
           )}
         </div>
       </div>
     </button>
+  );
+
+  return (
+    <LockedTooltip
+      content={isLocked ? (option.unlockCondition || "Noch nicht freigeschaltet") : null}
+      contentClassName={isLightUi ? "" : "text-white/90"}
+    >
+      {buttonContent}
+    </LockedTooltip>
   );
 };
 
@@ -552,6 +567,11 @@ export default function ShopFeatureRoot({
   const [shopCategory, setShopCategory] = useState(initialCategory);
   const [shopMessage, setShopMessage] = useState(null);
   const [purchaseConfirmOption, setPurchaseConfirmOption] = useState(null);
+  const [collapsedBackgroundSections, setCollapsedBackgroundSections] = useState({
+    presets: false,
+    colors: false,
+    scans: true,
+  });
 
   const { data: fallbackUser = null } = useQuery({
     queryKey: ["shopCurrentUser"],
@@ -767,6 +787,11 @@ export default function ShopFeatureRoot({
 
   const handleSelectBackground = async (option) => {
     setShopMessage(null);
+
+    if (option?.isLocked) {
+      setShopMessage(option?.unlockCondition || "Dieser Hintergrund ist noch gesperrt.");
+      return;
+    }
 
     if (option?.type === "color") {
       await updateCustomizationMutation.mutateAsync({
@@ -1003,25 +1028,45 @@ export default function ShopFeatureRoot({
 
               {currentCategory.sections.map((section) => {
                 const icon = section.key === "colors" ? PaintBucket : ImageIcon;
+                const isCollapsed = Boolean(collapsedBackgroundSections?.[section.key]);
                 return (
                   <SectionCard key={section.key} title={section.title} icon={icon} isLightUi={isLightUi}>
-                    {section.options.length === 0 ? (
-                      <div className={`rounded-2xl border border-dashed px-3 py-4 text-xs ${isLightUi ? "border-[#c8ac62]/30 text-stone-500" : "border-[#f0e5a5]/20 text-stone-300/75"}`}>
-                        {section.emptyLabel}
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                        {section.options.map((option) => (
-                          <BackgroundOptionCard
-                            key={option.id}
-                            option={option}
-                            user={resolvedCurrentUser}
-                            isLightUi={isLightUi}
-                            isPending={isMutationPending}
-                            onSelect={handleSelectBackground}
-                          />
-                        ))}
-                      </div>
+                    <button
+                      type="button"
+                      onClick={() => setCollapsedBackgroundSections((prev) => ({ ...prev, [section.key]: !prev[section.key] }))}
+                      className={`mb-3 w-full flex items-center justify-between rounded-xl border px-3 py-2 text-left transition-colors ${
+                        isLightUi
+                          ? "border-[#c8ac62]/30 bg-white/60 hover:bg-white/75"
+                          : "border-[#f0e5a5]/20 bg-black/20 hover:bg-black/35"
+                      }`}
+                    >
+                      <span className={`text-xs font-semibold ${isLightUi ? "text-stone-700" : "text-stone-100"}`}>{section.title}</span>
+                      {isCollapsed ? (
+                        <ChevronDown className={`h-4 w-4 ${isLightUi ? "text-stone-600" : "text-stone-300"}`} />
+                      ) : (
+                        <ChevronUp className={`h-4 w-4 ${isLightUi ? "text-stone-600" : "text-stone-300"}`} />
+                      )}
+                    </button>
+
+                    {!isCollapsed && (
+                      section.options.length === 0 ? (
+                        <div className={`rounded-2xl border border-dashed px-3 py-4 text-xs ${isLightUi ? "border-[#c8ac62]/30 text-stone-500" : "border-[#f0e5a5]/20 text-stone-300/75"}`}>
+                          {section.emptyLabel}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                          {section.options.map((option) => (
+                            <BackgroundOptionCard
+                              key={option.id}
+                              option={option}
+                              user={resolvedCurrentUser}
+                              isLightUi={isLightUi}
+                              isPending={isMutationPending}
+                              onSelect={handleSelectBackground}
+                            />
+                          ))}
+                        </div>
+                      )
                     )}
                   </SectionCard>
                 );

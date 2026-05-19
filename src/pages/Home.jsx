@@ -125,6 +125,7 @@ function HomeContent() {
   const [hasResolvedZoneBootstrap, setHasResolvedZoneBootstrap] = useState(false);
   const [showHealthStatsPanel, setShowHealthStatsPanel] = useState(false);
   const [showWeeklyQuestTooltip, setShowWeeklyQuestTooltip] = useState(false);
+  const [isNavVisible, setIsNavVisible] = useState(true);
   const [showPlantQuizDialog, setShowPlantQuizDialog] = useState(false);
   const [plantQuizResult, setPlantQuizResult] = useState(null);
   const [weeklyQuestSeen, setWeeklyQuestSeen] = useState(() => {
@@ -2763,12 +2764,17 @@ function HomeContent() {
                             onClick={() => setShowWeeklyQuestTooltip(false)}
                           />
                           <div
-                            className={`absolute left-0 z-[21] right-0 rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl ${
+                            className={`absolute left-0 z-[21] right-0 rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl overflow-y-auto ${
                               isLightUi
                                 ? "border-amber-400/60 bg-white/88"
                                 : "border-amber-300/40 bg-black/75"
                             }`}
-                            style={{ top: "calc(1.25rem + 3.6rem + 0.5rem)" }}
+                            style={{
+                              top: "calc(1.25rem + 3.6rem + 0.5rem)",
+                              maxHeight: isNavVisible
+                                ? "calc(100vh - 11rem)"
+                                : "calc(100vh - 7rem)",
+                            }}
                           >
                             <p className={`text-[10px] font-semibold uppercase tracking-wide mb-0.5 ${
                               isLightUi ? "text-amber-600" : "text-amber-400/80"
@@ -3065,6 +3071,8 @@ function HomeContent() {
               <HomeBottomNavigation
                 navItems={navItems}
                 controlsScale={controlsScale}
+                isNavVisible={isNavVisible}
+                onNavVisibleChange={setIsNavVisible}
               />
             </div>
           </motion.div>
