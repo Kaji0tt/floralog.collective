@@ -63,6 +63,10 @@ import { resolveReferralEmail } from "@/lib/referralCode";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 import { resolveTitleValue } from "@/lib/profileCustomizationOptions";
 import { hexToFilter } from "@/lib/hexToFilter";
+import FlorabotIntroOverlay from "@/components/florabot/FlorabotIntroOverlay";
+import FlorabotMilestoneOverlay from "@/components/florabot/FlorabotMilestoneOverlay";
+import FlorabotContextBubble from "@/components/florabot/FlorabotContextBubble";
+import { getSeenMilestoneIds, getNextUnseenMilestone, markMilestoneSeen, FLORABOT_MILESTONES } from "@/lib/florabotMilestones";
 
 const THEME_MAP_COLORS = {
   forest: "#007a3f",
@@ -135,6 +139,9 @@ function HomeContent() {
   const [heroStageSizePx, setHeroStageSizePx] = useState(0);
   const [heroMapInstance, setHeroMapInstance] = useState(null);
   const [showDebugZonePanel, setShowDebugZonePanel] = useState(false);
+  const [showFlorabotIntro, setShowFlorabotIntro] = useState(false);
+  const [activeMilestone, setActiveMilestone] = useState(null);
+  const [florabotContextBubble, setFlorabotContextBubble] = useState(null);
 
   const [scanFeedback, setScanFeedback] = useState(null);
   const [showScanFeedback, setShowScanFeedback] = useState(false);
@@ -193,6 +200,32 @@ function HomeContent() {
       setEmbeddedHeaderMeta(null);
     }
   }, [activePanel]);
+
+  // Florabot intro: einmalig nach dem ersten Login anzeigen
+  useEffect(() => {
+    if (!user?.id) return;
+    const key = `florabot_intro_seen_v1:${user.id}`;
+    try {
+      if (!localStorage.getItem(key)) setShowFlorabotIntro(true);
+    } catch { /* ignore */ }
+  }, [user?.id]);
+
+  // Florabot Context-Bubble: zeige Panel-Hinweis wenn Nutzer in relevantes Feature navigiert
+  useEffect(() => {
+    if (!user?.id || !activePanel) return;
+    const bubbleKey = (panel) => `florabot_ctx_bubble_v1:${user.id}:${panel}`;
+    const milestone = FLORABOT_MILESTONES.find(
+      (m) => m.contextBubble?.panel === activePanel
+    );
+    if (!milestone?.contextBubble) return;
+    // Nur anzeigen wenn das Milestone bereits gesehen wurde und die Bubble noch nicht
+    try {
+      const seenMilestones = getSeenMilestoneIds(user.id);
+      if (!seenMilestones.has(milestone.id)) return;
+      if (localStorage.getItem(bubbleKey(activePanel))) return;
+      setFlorabotContextBubble({ panel: activePanel, message: milestone.contextBubble.message });
+    } catch { /* ignore */ }
+  }, [activePanel, user?.id]);
 
   // Migration states
   const [isMigrating, setIsMigrating] = useState(false);
@@ -1343,6 +1376,19 @@ function HomeContent() {
     0,
     Number(robotPlantState?.wallet_balance ?? robotPlantState?.walletBalance ?? 0)
   );
+
+  // Florabot-Meilensteine prüfen wenn Wallet geladen
+  // (playerSeeds ist ein derived value – kein Dep-Array-Fehler)
+  useEffect(() => {
+    if (!user?.id || !isRobotPlantStateFetched) return;
+    if (activeMilestone) return;
+    // Nur nach abgeschlossenem Intro
+    try { if (!localStorage.getItem(`florabot_intro_seen_v1:${user.id}`)) return; } catch { return; }
+    const seenIds = getSeenMilestoneIds(user.id);
+    const next = getNextUnseenMilestone(playerSeeds, seenIds);
+    if (next) setActiveMilestone(next);
+  }, [playerSeeds, user?.id, isRobotPlantStateFetched, activeMilestone]);
+
   const playerSparks = Math.max(
     0,
     Number(userWallet?.sparks_balance ?? 0)
@@ -2069,8 +2115,8 @@ function HomeContent() {
             authId: scannerAuthId || null,
             userEmail: scannerEmail || null,
             notificationType: "scan_liked",
-            title: "❤️ Neuer Like",
-            message: `${user.display_name || user.full_name || user.email} gefällt dein Scan ${plantName ? `(${plantName})` : ""}.`,
+            title: "🤖 Florabot meldet: Datenpunkt bestätigt!",
+            message: `${user.display_name || user.full_name || user.email} hat deinen Fund${plantName ? ` (${plantName})` : ""} markiert. Diese Daten fließen in meine Datenbank ein!`,
             actionUrl: `GenusDetail?${actionParams.toString()}`,
             displayLocation: "banner",
             createdBy: user.email,
@@ -2232,6 +2278,49 @@ function HomeContent() {
           <DailyLoginSparkNotification
             feedback={dailySparkClaimFeedback}
             onComplete={() => setDailySparkClaimFeedback(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showFlorabotIntro && (
+          <FlorabotIntroOverlay
+            profile={user}
+            onDismiss={() => {
+              try { localStorage.setItem(`florabot_intro_seen_v1:${user?.id}`, "1"); } catch {}
+              setShowFlorabotIntro(false);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {activeMilestone && !showFlorabotIntro && (
+          <FlorabotMilestoneOverlay
+            milestone={activeMilestone}
+            profile={user}
+            onDismiss={(milestoneId) => {
+              markMilestoneSeen(user?.id, milestoneId);
+              setActiveMilestone(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {florabotContextBubble && !activeMilestone && !showFlorabotIntro && (
+          <FlorabotContextBubble
+            message={florabotContextBubble.message}
+            profile={user}
+            onDismiss={() => {
+              try {
+                localStorage.setItem(
+                  `florabot_ctx_bubble_v1:${user?.id}:${florabotContextBubble.panel}`,
+                  "1"
+                );
+              } catch {}
+              setFlorabotContextBubble(null);
+            }}
           />
         )}
       </AnimatePresence>

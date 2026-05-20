@@ -383,8 +383,8 @@ Deno.serve(async (req) => {
           accessToken,
           authId,
           userEmail,
-          title: "🎁 Neue Belohnung freigeschaltet!",
-          message: `Du hast "${reward.display_name || reward.name || "eine Belohnung"}" freigeschaltet!`,
+          title: "🌱 Florabot-Belohnung freigeschaltet!",
+          message: `Ausgezeichnete Arbeit! Du hast "${reward.display_name || reward.name || "eine Belohnung"}" freigeschaltet!`,
           imageUrl: reward.image_url || reward.value,
         });
       } catch (notifError) {

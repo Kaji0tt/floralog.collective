@@ -379,8 +379,8 @@ export function useFriendsFeatureContent({
           authId: targetProfile?.auth_id,
           userEmail: targetProfile?.user_email || targetEmail,
           notificationType: "friend_request_received",
-          title: "🤝 Neue Freundschaftsanfrage",
-          message: `${senderName} hat dir eine Freundschaftsanfrage gesendet.`,
+          title: "🤖 Florabot entdeckt: neuer Forscher!",
+          message: `${senderName} möchte gemeinsam mit dir die Erde kartieren. Verbindet euch!`,
           actionUrl: "Friends",
           displayLocation: "banner",
           createdBy: user.email,
@@ -423,8 +423,8 @@ export function useFriendsFeatureContent({
           authId: requesterProfile?.auth_id,
           userEmail: requesterProfile?.user_email || requesterEmail,
           notificationType: "friendship_accepted",
-          title: "🤝 Freundschaft bestätigt",
-          message: `${accepterName} hat deine Freundschaftsanfrage angenommen!`,
+          title: "🌍 Netzwerk erweitert!",
+          message: `${accepterName} ist jetzt Teil deines Forscherteams. Gemeinsam decken wir mehr ab!`,
           actionUrl: `FriendProfile?email=${encodeURIComponent(user.email)}`,
           displayLocation: "banner",
           createdBy: user.email
@@ -639,8 +639,8 @@ Viel Spaß beim Entdecken! 🌿`;
             authId: entry.actorAuthId || null,
             userEmail: entry.actorEmail || null,
             notificationType: "scan_liked",
-            title: "❤️ Neuer Like",
-            message: `${likerName} gefällt dein Scan${entry.plant?.species_name ? ` (${entry.plant.species_name})` : ""}.`,
+            title: "🤖 Florabot meldet: Datenpunkt bestätigt!",
+            message: `${likerName} hat deinen Fund${entry.plant?.species_name ? ` (${entry.plant.species_name})` : ""} markiert. Diese Daten fließen in meine Datenbank ein!`,
             actionUrl: entry.plant?.genus_id
               ? `GenusDetail?${actionParams.toString()}`
               : "Friends?tab=explorer",
