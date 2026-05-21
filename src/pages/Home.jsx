@@ -1353,6 +1353,23 @@ function HomeContent() {
 
   const isLoadingCriticalData = isLoadingDiscoveries || isLoadingQuests || isLoadingAchievements || isLoadingFriends || isLoadingWeeklyQuests || isLoadingMonthlyQuests || isLoadingCollectionQuests;
 
+  // Computed here (before conditional returns) so the useEffect below can reference it
+  const playerSeeds = Math.max(
+    0,
+    Number(robotPlantState?.wallet_balance ?? robotPlantState?.walletBalance ?? 0)
+  );
+
+  // Florabot-Meilensteine prüfen wenn Wallet geladen
+  // Must be declared before any conditional returns to satisfy React hook rules
+  useEffect(() => {
+    if (!user?.id || !isRobotPlantStateFetched) return;
+    if (activeMilestone) return;
+    try { if (!localStorage.getItem(`florabot_intro_seen_v1:${user.id}`)) return; } catch { return; }
+    const seenIds = getSeenMilestoneIds(user.id);
+    const next = getNextUnseenMilestone(playerSeeds, seenIds);
+    if (next) setActiveMilestone(next);
+  }, [playerSeeds, user?.id, isRobotPlantStateFetched, activeMilestone]);
+
   if (isLoadingUser) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50">
@@ -1371,23 +1388,6 @@ function HomeContent() {
     );
     return genusPlants.some(p => userDiscoveries.some(d => d.plant_id === p.id));
   }).length;
-
-  const playerSeeds = Math.max(
-    0,
-    Number(robotPlantState?.wallet_balance ?? robotPlantState?.walletBalance ?? 0)
-  );
-
-  // Florabot-Meilensteine prüfen wenn Wallet geladen
-  // (playerSeeds ist ein derived value – kein Dep-Array-Fehler)
-  useEffect(() => {
-    if (!user?.id || !isRobotPlantStateFetched) return;
-    if (activeMilestone) return;
-    // Nur nach abgeschlossenem Intro
-    try { if (!localStorage.getItem(`florabot_intro_seen_v1:${user.id}`)) return; } catch { return; }
-    const seenIds = getSeenMilestoneIds(user.id);
-    const next = getNextUnseenMilestone(playerSeeds, seenIds);
-    if (next) setActiveMilestone(next);
-  }, [playerSeeds, user?.id, isRobotPlantStateFetched, activeMilestone]);
 
   const playerSparks = Math.max(
     0,
