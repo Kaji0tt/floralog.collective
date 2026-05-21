@@ -143,9 +143,9 @@ export const getUserProfile = async (authId) => {
     .from('PublicProfile')
     .select('*')
     .eq('auth_id', authId)
-    .single();
+    .maybeSingle();
   
-  if (error && error.code !== 'PGRST116') { // PGRST116 = no rows
+  if (error) {
     throw error;
   }
   

@@ -9,6 +9,7 @@ import {
 
 const getTodayKey = () => new Date().toISOString().slice(0, 10);
 const getZoneGenerationStorageKey = (authId) => `robotPlantZoneDay:${authId}`;
+const migrateLegacyUserUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/migrateLegacyUser`;
 
 
 const AuthContext = createContext(null);
@@ -65,7 +66,7 @@ export const AuthProvider = ({ children }) => {
           // Supabase Edge Function automatisch aufrufen
           // Jetzt mit auth_id und email
           if (baseUser.auth_id && baseUser.email) {
-            fetch('https://mppxozsltkgjozcastgv.functions.supabase.co/migrateLegacyUser', {
+            fetch(migrateLegacyUserUrl, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

@@ -20,6 +20,7 @@ export function getAllowedOrigins(): string[] {
     Deno.env.get("FLORALOG_URL"),
     Deno.env.get("SITE_URL"),
     "https://base44-floralog.pages.dev",
+    "https://base44-floralog-6jz.pages.dev",
     "http://localhost",
     "https://localhost",
     "http://localhost:5173",
