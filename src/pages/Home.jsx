@@ -16,6 +16,12 @@ import {
   waterRobotPlant,
 } from "@/api/robotPlantService";
 import { claimDailyLoginSparks, getUserWallet } from "@/api/walletService";
+import {
+  ensureUserStoryRow,
+  getUserStory,
+  mergeSeenMilestoneIds,
+  updateUserStory,
+} from "@/api/storyService";
 import { getOpenPlantQuiz, submitPlantQuizAnswer } from "@/api/plantQuizService";
 import { getTileClaims } from "@/api/tileClaimService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -142,6 +148,8 @@ function HomeContent() {
   const [showFlorabotIntro, setShowFlorabotIntro] = useState(false);
   const [activeMilestone, setActiveMilestone] = useState(null);
   const [florabotContextBubble, setFlorabotContextBubble] = useState(null);
+  const [userStory, setUserStory] = useState(/** @type {any} */ (null));
+  const [storyCreatedThisSession, setStoryCreatedThisSession] = useState(false);
 
   const [scanFeedback, setScanFeedback] = useState(null);
   const [showScanFeedback, setShowScanFeedback] = useState(false);
@@ -201,13 +209,53 @@ function HomeContent() {
     }
   }, [activePanel]);
 
-  // Florabot intro: einmalig nach dem ersten Login anzeigen
+  // Ensure UserStory exists and derive intro visibility from DB state.
   useEffect(() => {
     if (!user?.id) return;
-    const key = `florabot_intro_seen_v1:${user.id}`;
-    try {
-      if (!localStorage.getItem(key)) setShowFlorabotIntro(true);
-    } catch { /* ignore */ }
+
+    let cancelled = false;
+
+    const bootstrapStoryState = async () => {
+      try {
+        const existingStory = await getUserStory(user.id);
+
+        let nextStory = existingStory;
+        let createdNow = false;
+
+        if (!nextStory) {
+          nextStory = await ensureUserStoryRow({ authId: user.id, storyVersion: "v1" });
+          createdNow = true;
+        }
+
+        if (cancelled) return;
+
+        setUserStory(nextStory || null);
+        setStoryCreatedThisSession(createdNow);
+
+        if (nextStory) {
+          setShowFlorabotIntro(nextStory.intro_seen !== true);
+          return;
+        }
+      } catch (error) {
+        const errorMessage = String(error?.message || error || "unknown_error");
+        console.warn("[Home] UserStory bootstrap failed, fallback to local intro state:", errorMessage);
+      }
+
+      if (cancelled) return;
+
+      const key = `florabot_intro_seen_v1:${user.id}`;
+      try {
+        setShowFlorabotIntro(!localStorage.getItem(key));
+      } catch {
+        setShowFlorabotIntro(true);
+      }
+    };
+
+    bootstrapStoryState();
+
+    return () => {
+      cancelled = true;
+    };
   }, [user?.id]);
 
   // Florabot Context-Bubble: zeige Panel-Hinweis wenn Nutzer in relevantes Feature navigiert
@@ -220,12 +268,24 @@ function HomeContent() {
     if (!milestone?.contextBubble) return;
     // Nur anzeigen wenn das Milestone bereits gesehen wurde und die Bubble noch nicht
     try {
-      const seenMilestones = getSeenMilestoneIds(user.id);
+      const seenMilestones = new Set(
+        Array.isArray(userStory?.seen_milestone_ids)
+          ? userStory.seen_milestone_ids
+          : Array.from(getSeenMilestoneIds(user.id))
+      );
       if (!seenMilestones.has(milestone.id)) return;
+
+      const seenContextKeys = new Set(
+        Array.isArray(userStory?.seen_context_bubble_keys)
+          ? userStory.seen_context_bubble_keys
+          : []
+      );
+
+      if (seenContextKeys.has(activePanel)) return;
       if (localStorage.getItem(bubbleKey(activePanel))) return;
       setFlorabotContextBubble({ panel: activePanel, message: milestone.contextBubble.message });
     } catch { /* ignore */ }
-  }, [activePanel, user?.id]);
+  }, [activePanel, user?.id, userStory]);
 
   // Migration states
   const [isMigrating, setIsMigrating] = useState(false);
@@ -673,7 +733,7 @@ function HomeContent() {
   useEffect(() => {
     loadUserData();
 
-    // Subscription für User-Updates (z.B. aus WelcomeNameDialog)
+    // Subscription für User-Updates
     const unsubscribe = Query.PublicProfile.subscribe((event) => {
       if (event.type === 'update') {
         loadUserData();
@@ -1364,11 +1424,61 @@ function HomeContent() {
   useEffect(() => {
     if (!user?.id || !isRobotPlantStateFetched) return;
     if (activeMilestone) return;
-    try { if (!localStorage.getItem(`florabot_intro_seen_v1:${user.id}`)) return; } catch { return; }
-    const seenIds = getSeenMilestoneIds(user.id);
+
+    const introSeen = userStory
+      ? userStory.intro_seen === true
+      : (() => {
+          try {
+            return !!localStorage.getItem(`florabot_intro_seen_v1:${user.id}`);
+          } catch {
+            return false;
+          }
+        })();
+
+    if (!introSeen) return;
+
+    let seenIds = new Set(
+      Array.isArray(userStory?.seen_milestone_ids)
+        ? userStory.seen_milestone_ids
+        : Array.from(getSeenMilestoneIds(user.id))
+    );
+
+    // New UserStory rows for existing users should not replay historic milestones.
+    if (storyCreatedThisSession) {
+      const reachedMilestoneIds = FLORABOT_MILESTONES
+        .filter((milestone) => playerSeeds >= milestone.threshold)
+        .map((milestone) => milestone.id);
+
+      if (reachedMilestoneIds.length > 0) {
+        const mergedSeenIds = mergeSeenMilestoneIds(Array.from(seenIds), reachedMilestoneIds);
+        seenIds = new Set(mergedSeenIds);
+
+        updateUserStory(user.id, {
+          seen_milestone_ids: mergedSeenIds,
+          seed_progress_at_last_eval: playerSeeds,
+          last_story_eval_at: new Date().toISOString(),
+        })
+          .then((nextStory) => {
+            if (nextStory) setUserStory(nextStory);
+          })
+          .catch((error) => {
+            console.warn("[Home] Could not persist skipped milestone backlog:", error?.message || error);
+          });
+      }
+
+      setStoryCreatedThisSession(false);
+    }
+
     const next = getNextUnseenMilestone(playerSeeds, seenIds);
     if (next) setActiveMilestone(next);
-  }, [playerSeeds, user?.id, isRobotPlantStateFetched, activeMilestone]);
+  }, [
+    playerSeeds,
+    user?.id,
+    isRobotPlantStateFetched,
+    activeMilestone,
+    userStory,
+    storyCreatedThisSession,
+  ]);
 
   if (isLoadingUser) {
     return (
@@ -2288,6 +2398,20 @@ function HomeContent() {
             profile={user}
             onDismiss={() => {
               try { localStorage.setItem(`florabot_intro_seen_v1:${user?.id}`, "1"); } catch {}
+
+              if (user?.id) {
+                updateUserStory(user.id, {
+                  intro_seen: true,
+                  intro_seen_at: new Date().toISOString(),
+                })
+                  .then((nextStory) => {
+                    if (nextStory) setUserStory(nextStory);
+                  })
+                  .catch((error) => {
+                    console.warn("[Home] Could not persist intro_seen:", error?.message || error);
+                  });
+              }
+
               setShowFlorabotIntro(false);
             }}
           />
@@ -2301,6 +2425,26 @@ function HomeContent() {
             profile={user}
             onDismiss={(milestoneId) => {
               markMilestoneSeen(user?.id, milestoneId);
+
+              if (user?.id) {
+                const nextSeenIds = mergeSeenMilestoneIds(
+                  Array.isArray(userStory?.seen_milestone_ids) ? userStory.seen_milestone_ids : [],
+                  [milestoneId]
+                );
+
+                updateUserStory(user.id, {
+                  seen_milestone_ids: nextSeenIds,
+                  seed_progress_at_last_eval: playerSeeds,
+                  last_story_eval_at: new Date().toISOString(),
+                })
+                  .then((nextStory) => {
+                    if (nextStory) setUserStory(nextStory);
+                  })
+                  .catch((error) => {
+                    console.warn("[Home] Could not persist milestone seen state:", error?.message || error);
+                  });
+              }
+
               setActiveMilestone(null);
             }}
           />
@@ -2319,6 +2463,27 @@ function HomeContent() {
                   "1"
                 );
               } catch {}
+
+              if (user?.id && florabotContextBubble?.panel) {
+                const currentContextKeys = Array.isArray(userStory?.seen_context_bubble_keys)
+                  ? userStory.seen_context_bubble_keys
+                  : [];
+                const mergedContextKeys = Array.from(new Set([
+                  ...currentContextKeys,
+                  florabotContextBubble.panel,
+                ]));
+
+                updateUserStory(user.id, {
+                  seen_context_bubble_keys: mergedContextKeys,
+                })
+                  .then((nextStory) => {
+                    if (nextStory) setUserStory(nextStory);
+                  })
+                  .catch((error) => {
+                    console.warn("[Home] Could not persist context bubble seen state:", error?.message || error);
+                  });
+              }
+
               setFlorabotContextBubble(null);
             }}
           />

@@ -1,26 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import FlorabotLogo from "./FlorabotLogo";
-
-const INTRO_SLIDES = [
-  {
-    title: "Hallo! Ich bin Florabot.",
-    body: "Ich komme von sehr weit weg. Meine Heimatwelt gibt es nicht mehr – aber ich habe etwas Wichtiges gelernt: Pflanzen sind das Herzstück jedes Planeten.",
-  },
-  {
-    title: "Ich hatte eine einzige Mission.",
-    body: "Ich wurde ausgesendet, bevor alles verloren ging: Die Pflanzenwelt der Erde kartieren und verstehen – damit euch nicht dasselbe Schicksal ereilt.",
-  },
-  {
-    title: "Das Problem?",
-    body: "Alleine kann ich nicht erkunden. Meine Sensoren sind gut – aber ich brauche jemanden, der die Welt durch eine Kamera für mich entdeckt. Wärst du dabei?",
-  },
-  {
-    title: "Ausgezeichnet.",
-    body: "Dann lass uns anfangen. Zeig mir deine erste Pflanze – und zusammen füllen wir die Lücken in meiner Datenbank.",
-  },
-];
+import { buildStoryProfileVariables, resolveIntroSlidesWithVariables } from "@/lib/story/storyDefinition";
 
 /**
  * Full-screen Florabot introduction overlay shown once after the user's first login.
@@ -31,7 +13,13 @@ export default function FlorabotIntroOverlay({ profile, onDismiss }) {
   const { isLightUi } = useUiTheme();
   const [slideIndex, setSlideIndex] = useState(0);
 
-  const isLast = slideIndex === INTRO_SLIDES.length - 1;
+  const introSlides = useMemo(() => {
+    return resolveIntroSlidesWithVariables(buildStoryProfileVariables(profile));
+  }, [profile]);
+
+  if (introSlides.length === 0) return null;
+
+  const isLast = slideIndex === introSlides.length - 1;
 
   const handleNext = () => {
     if (isLast) {
@@ -41,7 +29,7 @@ export default function FlorabotIntroOverlay({ profile, onDismiss }) {
     }
   };
 
-  const currentSlide = INTRO_SLIDES[slideIndex];
+  const currentSlide = introSlides[slideIndex];
 
   return (
     <motion.div
@@ -123,7 +111,7 @@ export default function FlorabotIntroOverlay({ profile, onDismiss }) {
 
       {/* Progress dots */}
       <div className="flex gap-2 mt-6">
-        {INTRO_SLIDES.map((_, i) => (
+        {introSlides.map((_, i) => (
           <div
             key={i}
             className={`rounded-full transition-all duration-300 ${
