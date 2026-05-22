@@ -124,28 +124,28 @@ export const STORY_COPY = {
   introSlides: [
     {
       id: "intro_1",
-      title: "Dein Bionical-Begleiter",
-      body: "Juhu, ich habe es geschafft! Der erste direkte Kontakt mit einem Menschen! Ich bin Florabot-%randomNumber%A, ein Bionical von einem weit entfernten Planeten.",
+      title: "Ein neuer Freund auf der Erde!",
+      body: "Hallo  %display_name%! Ich bin Florabot-Z%randomNumber%A%randomNumber%v1.13 - aber nenn' mich einfach %bot_name%!",
     },
     {
       id: "intro_2",
-      title: "Was ist das hier für ein Ort?",
-      body: "Ich finde aber, %display_name% ist auch ein toller Name. Ich will auch einen menschelichen Namen! Nenn' mich einfach...",
+      title: "Ganz schön bunt hier!",
+      body: "Auf der Suche nach einem grünen Planeten bin ich über die Erde gestolpert. Es ist so aufregend, hier zu sein. Die Menschen müssen es lieben, von so vielen Pflanzen umgeben zu sein!",
     },
     {
       id: "intro_3",
-      title: "Ganz schön bunt hier!",
-      body: "Nenn mich %bot_name%! Wow, bei gibt es so viele Pflanzen! Euer Planet ist total grün, an allen Orten wächst etwas! Es muss spannend sein, in so einer Welt zu leben!",
-    },
-    {
-      id: "intro_4",
-      title: "Blinder Fleck?",
+      title: "Was? Ein blinder Fleck?",
       body: "Was? Du meinst... viele Menschen interessieren sich gar nicht für ihre Umgebung? Ohje... was hältst du davon, wenn wir gemeinsam die Pflanzenwelt hier erforschen?",
     },
     {
-      id: "intro_5",
+      id: "intro_4",
       title: "Gemeinsam wachsen!",
-      body: "Mega cool! Du scannst Pflanzen, und ich durchsuche die Daten der Menschen nach Hinweisen! So können wir beides was über diese Welt hier lernen! Bitte verzeih mir, wenn ich mich manchmal irre.",
+      body: "Mega cool! Du sammelst Pflanzen - und ich ordne sie den Daten der Menschen zu! Damit können wir beide was über diese Welt hier lernen!",
+    },
+    {
+      id: "intro_5",
+      title: "Irrtum ist Teil des Lernens.",
+      body: "Bitte verzeih mir, wenn ich mich manchmal irre. Das kann durchaus vorkommen! Ich gebe mir Mühe, aber ich bin auch nur ein Roboter!",
     },
   ],
 
