@@ -8,7 +8,6 @@ const corsHeaders = {
 };
 
 type GenerateBotNameBody = {
-  displayName?: string | null;
   storyContext?: string | null;
 };
 
@@ -77,26 +76,17 @@ Deno.serve(async (req) => {
     }
 
     const body = (await req.json()) as GenerateBotNameBody;
-    const displayName = String(body?.displayName || "").trim();
     const storyContext = String(body?.storyContext || "").trim();
 
-    const ownerName = displayName || "(nicht gesetzt)";
-
-    const userPrompt = `Spielername: ${ownerName}
-Kontext: ${
+    const userPrompt = `Context: ${
       storyContext ||
-      "Florabot ist ein neugieriger, freundlicher KI-Begleiter in einer Natur-Entdecker-App. Er hilft beim Erfassen und Verstehen von Pflanzen."
+      "Florabot is a friendly AI companion in a modern plant care app."
     }
 
-  Dieser Florabot soll der Begleiter von ${ownerName} werden und stilistisch zu diesem Namen passen.
-
-Erzeuge einen einzigen passenden Bot-Namen.
-Regeln:
-  - Name muss zum Stil/Klang des Spielernamens passen, aber NICHT identisch mit dem Spielername sein.
-- Muss freundlich, einpraegsam, naturverbunden und leicht aussprechbar sein.
-- 1 Wort, 4 bis 12 Zeichen.
-- Keine Zahlen, keine Sonderzeichen, kein Titel, kein Satzzeichen.
-- Gib nur JSON im geforderten Format aus.`;
+  Additional constraints:
+  - Return exactly one name
+  - Do not reference any specific human owner or player name
+  - Output only JSON in the required schema`;
 
     const openAiResponse = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -109,7 +99,19 @@ Regeln:
         input: [
           {
             role: "system",
-            content: "Du bist ein Naming-Assistant fuer einen freundlich-neugierigen Natur-Bot.",
+            content: `You are a creative naming assistant.
+
+Generate short, memorable names for a friendly plant-themed AI companion or robot assistant used inside a modern plant care app.
+
+Style requirements:
+- Names should feel soft, warm, cute, neutral, and slightly futuristic
+- Blend botanical/nature vibes with subtle tech/robot energy
+- Avoid sounding overly mechanical, aggressive, corporate, or fantasy-heavy
+- Prefer 1-2 syllables
+- Maximum length: 6 letters
+- Easy to pronounce internationally
+- Names should resemble examples like:
+  Flori, Mossi, Nori, Elow, Sylu, Fern`,
           },
           {
             role: "user",

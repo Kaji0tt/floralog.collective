@@ -4,13 +4,24 @@ import { getCurrentAuthUser, getUserProfile, upsertUserProfile } from './authSer
 import { supabase } from './supabaseClient';
 const baseUserProxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/baseUserProxy`;
 
+/**
+ * @param {unknown} error
+ * @returns {string}
+ */
+const getErrorMessage = (error) => {
+  return error instanceof Error ? error.message : String(error || 'Unknown error');
+};
+
 const BOT_NAME_STORY_CONTEXT = [
   'Florabot ist ein freundlicher, neugieriger KI-Begleiter in einer Natur-App.',
   'Der Bot motiviert Spieler beim Pflanzen-Scannen und fuehrt spielerisch durch die Story.',
-  'Der Name soll warm, naturverbunden und leicht merkbar sein.',
-  'Dieser Florabot soll der Begleiter von %display_name% werden und zu diesem Namen passen.'
+  'Der Name soll warm, naturverbunden und leicht merkbar sein.'
 ].join(' ');
 
+/**
+ * @param {string} action
+ * @param {Record<string, unknown>} payload
+ */
 const invokeBaseUserProxy = async (action, payload) => {
   const response = await fetch(baseUserProxyUrl, {
     method: 'POST',
@@ -33,20 +44,32 @@ const invokeBaseUserProxy = async (action, payload) => {
   return result?.data || null;
 };
 
+/**
+ * @param {unknown} value
+ */
 const normalizeName = (value) => {
-  const trimmed = value?.trim?.();
+  const trimmed = typeof value === 'string' ? value.trim() : '';
   return trimmed || null;
 };
 
+/**
+ * @param {{ user_metadata?: Record<string, unknown> } | null | undefined} authUser
+ */
 const getMetadataName = (authUser) => {
   const metadata = authUser?.user_metadata || {};
   return normalizeName(metadata.display_name) || normalizeName(metadata.full_name) || normalizeName(metadata.name);
 };
 
+/**
+ * @param {{ display_name?: unknown, full_name?: unknown } | null | undefined} legacyFallback
+ */
 const getLegacyFallbackName = (legacyFallback) => {
   return normalizeName(legacyFallback?.display_name) || normalizeName(legacyFallback?.full_name);
 };
 
+/**
+ * @param {{ email?: string | null } | null | undefined} authUser
+ */
 const resolveLegacyNameFallback = async (authUser) => {
   if (!authUser?.email) return null;
 
@@ -54,11 +77,14 @@ const resolveLegacyNameFallback = async (authUser) => {
     const data = await invokeBaseUserProxy('getProfile', { email: authUser.email });
     return data || null;
   } catch (error) {
-    console.warn('[userApi] baseUser fallback lookup failed:', error.message);
+    console.warn('[userApi] baseUser fallback lookup failed:', getErrorMessage(error));
     return null;
   }
 };
 
+/**
+ * @param {unknown} value
+ */
 const normalizeBotName = (value) => {
   const cleaned = String(value || '')
     .replace(/[^A-Za-z\u00C0-\u017F\-\s]/g, '')
@@ -68,6 +94,9 @@ const normalizeBotName = (value) => {
   return cleaned || null;
 };
 
+/**
+ * @param {unknown} value
+ */
 const hashSeed = (value) => {
   const text = String(value || 'floralog');
   let hash = 2166136261;
@@ -78,6 +107,9 @@ const hashSeed = (value) => {
   return Math.abs(hash >>> 0);
 };
 
+/**
+ * @param {unknown} seedSource
+ */
 const createFallbackBotName = (seedSource) => {
   const seed = hashSeed(seedSource);
   const consonants = 'bcdfghjklmnprstvz';
@@ -97,15 +129,14 @@ const createFallbackBotName = (seedSource) => {
   return `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
 };
 
-const generateBotNameWithModel = async ({ displayName, authId }) => {
+/**
+ * @param {{ authId?: string | null }} params
+ */
+const generateBotNameWithModel = async ({ authId }) => {
   try {
-    const ownerName = normalizeName(displayName) || 'dem Spieler';
-    const storyContextWithOwner = BOT_NAME_STORY_CONTEXT.replace('%display_name%', ownerName);
-
     const { data, error } = await supabase.functions.invoke('generateBotName', {
       body: {
-        displayName: displayName || null,
-        storyContext: storyContextWithOwner,
+        storyContext: BOT_NAME_STORY_CONTEXT,
       },
     });
 
@@ -118,10 +149,10 @@ const generateBotNameWithModel = async ({ displayName, authId }) => {
       return modelName;
     }
   } catch (error) {
-    console.warn('[userApi] generateBotName function failed, using fallback:', error?.message || error);
+    console.warn('[userApi] generateBotName function failed, using fallback:', getErrorMessage(error));
   }
 
-  return createFallbackBotName(displayName || authId || 'floralog');
+  return createFallbackBotName(authId || 'floralog');
 };
 
 /**
@@ -152,7 +183,7 @@ export const getCurrentUser = async () => {
           full_name: metadataName || fallbackName,
         });
       } catch (error) {
-        console.warn('[userApi] PublicProfile bootstrap failed:', error.message);
+        console.warn('[userApi] PublicProfile bootstrap failed:', getErrorMessage(error));
       }
     }
 
@@ -165,7 +196,6 @@ export const getCurrentUser = async () => {
 
     if (!resolvedBotName) {
       const generatedBotName = await generateBotNameWithModel({
-        displayName: resolvedDisplayName,
         authId: authUser.id,
       });
 
@@ -182,7 +212,7 @@ export const getCurrentUser = async () => {
 
           profile = upsertedProfile || profile;
         } catch (error) {
-          console.warn('[userApi] Failed to persist generated bot_name:', error.message);
+          console.warn('[userApi] Failed to persist generated bot_name:', getErrorMessage(error));
         }
       }
     }
@@ -207,6 +237,9 @@ export const getCurrentUser = async () => {
 
 /**
  * Update current user's PublicProfile data
+ */
+/**
+ * @param {Record<string, unknown>} updates
  */
 export const updateCurrentUserProfile = async (updates) => {
   const authUser = await getCurrentAuthUser();

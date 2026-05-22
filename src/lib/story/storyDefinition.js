@@ -124,28 +124,28 @@ export const STORY_COPY = {
   introSlides: [
     {
       id: "intro_1",
-      title: "... Ha- .. Hallo?",
-      body: "Du musst einer dieser \"Menschen\" sein  - es ist so aufregend, dich zu treffen! Ich bin Florabot-%randomNumber%A, ein Bionical von einem anderen Planeten. ",
+      title: "Dein Bionical-Begleiter",
+      body: "Juhu, ich habe es geschafft! Der erste direkte Kontakt mit einem Menschen! Ich bin Florabot-%randomNumber%A, ein Bionical von einem weit entfernten Planeten.",
     },
     {
       id: "intro_2",
       title: "Was ist das hier für ein Ort?",
-      body: "Und du bist... %display_name%?  Das klingt total toll! Ich will auch so einen Menschen-Namen haben! Nenn' mich einfach...",
+      body: "Ich finde aber, %display_name% ist auch ein toller Name. Ich will auch einen menschelichen Namen! Nenn' mich einfach...",
     },
     {
       id: "intro_3",
       title: "Ganz schön bunt hier!",
-      body: "Nenn mich %bot_name% - das klingt doch super, oder? Wow, bei gibt es so viele Pflanzen! Euer Planet ist total grün, an allen Orten wächst etwas! Es muss spannend sein, in so eienr Welt zu leben!",
+      body: "Nenn mich %bot_name%! Wow, bei gibt es so viele Pflanzen! Euer Planet ist total grün, an allen Orten wächst etwas! Es muss spannend sein, in so einer Welt zu leben!",
     },
     {
       id: "intro_4",
       title: "Blinder Fleck?",
-      body: "Was? Du meinst... viele Menschen interessieren sich gar nicht so sehr für ihre Umgebung? Ohje, das kommt mir bekannt vor... was hältst du davon, wenn wir gemeinsam die Pflanzenwelt hier erforschen? Ich kann deine Hilfe gebrauchen, eure Daten besser zu interpretieren!",
+      body: "Was? Du meinst... viele Menschen interessieren sich gar nicht für ihre Umgebung? Ohje... was hältst du davon, wenn wir gemeinsam die Pflanzenwelt hier erforschen?",
     },
     {
       id: "intro_5",
       title: "Gemeinsam wachsen!",
-      body: "Du scannst Pflanzen, und ich ordne sie mit den Daten der Menschen in meinem System ein! Habe bitte Verständnis dafür, dass ich Fehler mache. Ich bin nur ein einfacher Bionical von einem anderen Planeten - wenn du dir ganz sicher sein willst, solltest du stets auf das Wissen der Menschen vertrauen!",
+      body: "Mega cool! Du scannst Pflanzen, und ich durchsuche die Daten der Menschen nach Hinweisen! So können wir beides was über diese Welt hier lernen! Bitte verzeih mir, wenn ich mich manchmal irre.",
     },
   ],
 
