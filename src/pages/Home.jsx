@@ -119,6 +119,7 @@ function HomeContent() {
     setZoneGenerationDayForUser,
   } = useAuth();
   const [user, setUser] = useState(null);
+  const botName = user?.bot_name || null;
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [newAchievements, setNewAchievements] = useState([]);
   const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
@@ -2760,6 +2761,17 @@ function HomeContent() {
                   />
                 ) : (
                   <section data-ui="home-plant-hero-section" className="flex-1 min-h-0 rounded-3xl px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col bg-transparent">
+                  {/* Bot-Name: auf kleinen Bildschirmen oberhalb, auf md+ zentriert zwischen den Aktion-Buttons */}
+                  {botName && (
+                    <div className="block md:hidden mb-2">
+                      <div className="w-full flex justify-center">
+                        <div className={`px-3 py-1 rounded-full border ${isLightUi ? "bg-white/80 text-stone-800 border-[#c8ac62]/40" : "bg-black/45 text-white/90 border-[#f0e5a5]/30"}`}>
+                          <span className="font-semibold text-sm truncate">{botName}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div
                     className={`w-full rounded-2xl border backdrop-blur-sm px-[clamp(0.625rem,2vw,0.875rem)] ${
                       isLightUi ? "border-[#c8ac62]/45" : "border-[#f0e5a5]/45"
@@ -2773,6 +2785,14 @@ function HomeContent() {
                   >
                     <div className={`h-full w-full grid grid-cols-3 divide-x ${isLightUi ? "divide-[#c8ac62]/35" : "divide-[#f0e5a5]/30"}`}>
                       <LockedTooltip
+                    {/* md+: zentriert zwischen links/rechts Buttons */}
+                    {botName && (
+                      <div className="hidden md:block absolute left-1/2 top-5 md:top-6 transform -translate-x-1/2 z-20 pointer-events-none">
+                        <div className={`px-3 py-1 rounded-full border ${isLightUi ? "bg-white/70 text-stone-800 border-[#c8ac62]/40" : "bg-black/40 text-white/90 border-[#f0e5a5]/30"}`}>
+                          <span className="font-semibold text-sm truncate max-w-[14rem] block text-center">{botName}</span>
+                        </div>
+                      </div>
+                    )}
                         unstyled
                         content={(
                           <div

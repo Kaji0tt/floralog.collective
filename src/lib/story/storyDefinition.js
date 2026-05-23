@@ -36,11 +36,11 @@ export const STORY_PROGRESS_CONDITIONS = {
   },
   milestones: [
     { id: "m500", thresholdSeeds: 500, navHighlight: "collection" },
-    { id: "m1000", thresholdSeeds: 1000, navHighlight: "quests" },
-    { id: "m1500", thresholdSeeds: 1500, navHighlight: "social" },
-    { id: "m2500", thresholdSeeds: 2500, navHighlight: "map" },
-    { id: "m3500", thresholdSeeds: 3500, navHighlight: "health" },
-    { id: "m5000", thresholdSeeds: 5000, navHighlight: "shop" },
+    { id: "m1500", thresholdSeeds: 1500, navHighlight: "quests" },
+    { id: "m2500", thresholdSeeds: 2500, navHighlight: "social" },
+    { id: "m3500", thresholdSeeds: 3500, navHighlight: "map" },
+    { id: "m4500", thresholdSeeds: 4500, navHighlight: "health" },
+    { id: "m6000", thresholdSeeds: 6000, navHighlight: "shop" },
   ],
   contextBubbles: [
     {
@@ -64,8 +64,8 @@ export const STORY_PROGRESS_CONDITIONS = {
       triggerPanel: "map",
     },
     {
-      id: "ctx_shop_after_m5000",
-      requiresMilestoneSeen: "m5000",
+      id: "ctx_shop_after_m6000",
+      requiresMilestoneSeen: "m6000",
       triggerPanel: "shop",
     },
   ],
@@ -125,7 +125,7 @@ export const STORY_COPY = {
     {
       id: "intro_1",
       title: "Ein neuer Freund auf der Erde!",
-      body: "Hallo  %display_name%! Ich bin Florabot-Z%randomNumber%A%randomNumber%v1.13 - aber nenn' mich einfach %bot_name%!",
+      body: "Hallo  %display_name%! Ich bin Florabot-i%randomNumber%Xa-v1.13 - aber nenn' mich einfach %bot_name%!",
     },
     {
       id: "intro_2",
@@ -135,95 +135,115 @@ export const STORY_COPY = {
     {
       id: "intro_3",
       title: "Was? Ein blinder Fleck?",
-      body: "Was? Du meinst... viele Menschen interessieren sich gar nicht für ihre Umgebung? Ohje... was hältst du davon, wenn wir gemeinsam die Pflanzenwelt hier erforschen?",
+      body: "Was? Du meinst... viele Menschen interessieren sich gar nicht für ihre Umgebung? Ohje... auf meinem Heimatplaneten war das leider ähnlich. Was hältst du davon, wenn wir gemeinsam die Pflanzenwelt hier erforschen?",
     },
     {
       id: "intro_4",
       title: "Gemeinsam wachsen!",
-      body: "Mega cool! Du sammelst Pflanzen - und ich ordne sie den Daten der Menschen zu! Damit können wir beide was über diese Welt hier lernen!",
+      body: "Wir Florabots wurden entwickelt, um die Natur anderer Planeten zu erkunden - mit dem Ziel unseren eigenen zu retten! Wenn wir Wissen, wie intakte Ökosysteme funktionieren, haben wir eine Chance, unsere Heimat zu retten.",
     },
     {
       id: "intro_5",
       title: "Irrtum ist Teil des Lernens.",
-      body: "Bitte verzeih mir, wenn ich mich manchmal irre. Das kann durchaus vorkommen! Ich gebe mir Mühe, aber ich bin auch nur ein Roboter!",
+      body: "Ich gebe mir Mühe, deine Scans richtig einzuordnen - aber frage lieber einen schlauen Menschen, wenn du dir sicher sein willst! Wir Roboter sind schon ziemlich clever, aber wir machen Fehler!",
     },
   ],
 
   milestones: {
     m500: {
-      contextBubble: "Hier sind alle Pflanzen, die wir zusammen gefunden haben. Du kannst eigene Listen erstellen - und deine Funde sogar mit anderen teilen!",
+      contextBubble: "Diese globale Sammlung zeigt, was alle Florabots auf der Erde bisher entdeckt haben. Pflanzen, die du bereits gefunden hast, sind hier eingetragen! Und mit dem Plus kannst du deine eigenen Kollektion anlegen, falls du etwas Bestimmtes suchst!",
       messages: [
         {
-          title: "Das sind schon richtig gute Daten!",
-          body: "Schau mal - zusammen haben wir schon einige Pflanzen entdeckt. Ich speichere alle deine Funde. Wusstest du, dass du sie auch selbst durchstöbern kannst?",
+          title: "Datenpunkte als Grundlage des Fortschritts",
+          body: "Das sind ein paar spannende erste Funde die du gemacht hast! Für jeden Fund bekommst du Datenpunkte, die mir helfen, die Erde besser zu verstehen.",
         },
         {
-          title: "Deine Kollektion wartet!",
-          body: "In deiner Kollektion siehst du alle Pflanzen, die wir gemeinsam gefunden haben. Du kannst sie sortieren und sogar eigene Listen anlegen. Schau mal rein - das Symbol hier unten führt dich hin.",
-        },
-      ],
-    },
-    m1000: {
-      messages: [
-        {
-          title: "Ich habe etwas für dich vorbereitet.",
-          body: "Meine Algorithmen haben Datenlücken in bestimmten Bereichen entdeckt. Ich habe kleine Missionen zusammengestellt - Quests - die uns helfen, diese Lücken zu füllen.",
-        },
-        {
-          title: "Quests und Erfolge",
-          body: "Hier findest du gezielte Aufgaben für uns beide. Wenn wir sie erfüllen, gibt es Belohnungen. Und im Erfolge-Bereich siehst du, was wir schon alles erreicht haben. Ich bin wirklich stolz auf uns.",
+          title: "Deine Kollektion wächst!",
+          body: "Ganz links findest du alles zu den Kollektionen. Die Standardkollektion ist die globale, wo alle Entdeckungen von allen Florabots gelistet sind. Wenn du möchtest, kannst du auch eigene, thematische Kollektionen anlegen. Die sind für alle zugänglich und helfen, unser Wissen über die Pflanzenwelt zu erweitern.",
         },
       ],
     },
     m1500: {
-      contextBubble: "Schau hier - das sind unsere Quests und Erfolge. Jede abgeschlossene Mission bringt uns Belohnungen und füllt meine Datenbank weiter!",
       messages: [
         {
-          title: "Wir sind nicht alleine!",
-          body: "Es gibt noch andere Florabots da draußen - jeder mit einem eigenen Menschen-Begleiter. Im Forscherlog kannst du sehen, was andere gerade entdecken. Es ist... schön, das zu wissen.",
+          title: "Ein ewiger Kreislauf",
+          body: "Sehr gut %display_name%! Die Daten der anderen Florabots und unsere eigenen ergeben zusammen ein klares Bild. Die Pflanzen haben sich den Zeitstrukturen auf der Erde angepasst.",
         },
         {
-          title: "Vielleicht kennst du jemanden?",
-          body: "Andere Florabots brauchen ebenfalls Unterstützung. Falls du jemanden kennst, der helfen möchte - du kannst einen Einladungslink teilen. Ich kenne da drüben den Bereich, wo du Freunde hinzufügen kannst.",
+          title: "Wiederkehrende Aufgaben",
+          body: "Ich habe dazu ein paar Missionen vorbereitet, um dieses Verhalten zu beobachten. Ich bin gespannt, wie sich die Pflanzen daran angepasst haben!",
+        },
+        {
+          title: "Es ist schön, nicht alleine zu sein.",
+          body: "Außerdem haben die anderen Florabots und ich versucht, unsere Daten für euch Menschen aufzubereiten. Dort könnt ihr sehen, was wir als Gemeinschaft schon alles geschafft haben! Schau mal in den Bereich mit den Quests und Erfolgen - dort findest du alles!",
         },
       ],
     },
     m2500: {
-      contextBubble: "Im Forscherlog siehst du, was andere Florabot-Teams gerade entdecken. Und hier kannst du Freunde einladen - andere Florabots brauchen ebenfalls Unterstützung!",
+      contextBubble: "Die Florabots des Floralogs",
       messages: [
         {
-          title: "Meine Karte der Erde wächst!",
-          body: "Aber es gibt noch viele blinde Flecken. Auf der Karte siehst du, wo wir bereits Daten gesammelt haben - und wo noch wichtige Zonen auf uns warten.",
+          title: "Wir sind nicht alleine!",
+          body: "Es ist total verrückt, wie viele Florabots inzwischen auf der Erde unterwegs sind! Was die anderen so entdeckt haben, kannst du im Forscherlog sehen, das sich ganz rechts in der Navigation befindet.",
         },
         {
-          title: "Verschiedene Ökosysteme, verschiedene Daten.",
-          body: "Wälder, Stadtgebiete, Gewässer, Wiesen - jede Zone liefert mir andere Informationen. Je vielfältiger unsere Scans, desto vollständiger mein Archiv der Erde. Erkunde neue Gebiete!",
+          title: "Vielleicht kennst du jemanden?",
+          body: "Mit der Hilfe der Menschen, können wir vielleicht schon bald ein intaktes Ökosystem wiederherstellen. Falls du jemanden kennst, der uns unterstützen möchte, kannst du ihm den Link unter dem Plus-Zeichen einladen!",
         },
       ],
     },
     m3500: {
-      contextBubble: "Diese farbigen Bereiche sind aktive Datenzonen. Je mehr verschiedene Zonen wir erkunden, desto vollständiger wird mein Ökosystem-Archiv!",
+      contextBubble: "Eine Karte der Erde entsteht!",
       messages: [
         {
-          title: "Ich muss dir etwas erklären.",
-          body: "Je mehr wir gemeinsam erkunden, desto besser verstehe ich, wie mein System funktioniert. Energie, Datenqualität und Pflege beeinflussen direkt, wie gut ich arbeiten kann.",
+          title: "Meine Karte der Erde wächst!",
+          body: "Auf dem Kartensymbol siehst du, wo wir bereits Daten gesammelt haben - und wo noch wichtige Zonen auf uns warten. Du kannst dort auch sehen, was andere Florabots im 2,5km Umkreis entdeckt haben.",
         },
         {
-          title: "Mein Wohlbefinden ist wichtig.",
-          body: "Das Gesundheitsfeld hier zeigt dir, wie es mir gerade geht. Wenn meine Energie sinkt, sollten wir neue Gebiete erkunden. Wenn die Datenqualität fällt, brauche ich mehr Scans in aktiven Zonen. Ich verlasse mich auf dich!",
+          title: "Verschiedene Ökosysteme, verschiedene Daten.",
+          body: "Uns ist aufgefallen, das unterschiedliche Pflanzen in unterschiedlichen Zonen wachsen. Wälder, Stadtgebiete, Gewässer, Wiesen - jede Zone liefert andere Informationen. Für Scans in diesen Zonen bekommen wir mehr Datenpunkte!",
+        },
+        {
+          title: "Verschiedene Ökosysteme, verschiedene Daten.",
+          body: "Es ist wichtig, Daten von allen Geozonen zu sammeln. Nur so können wir das Ökosystem der Erde vollständig verstehen!",
         },
       ],
     },
-    m5000: {
+    m4500: {
+      contextBubble: "Mein Gesundheitsstatus - Energie, Datenqualität und Pflege meines Systems beeinflussen Größe und Anzahl der Geozonen, die ich ermitteln kann.",
+      messages: [
+        {
+          title: "Wie ich die Geozonen ermittele.",
+          body: "Ich brauche deine Hilfe, um die Geozonen zu ermitteln. Wenn du schläfst, sammel ich neue Daten aus dem Umfeld und generiere für den neuen Tag neue Geozonen.",
+        },
+        {
+          title: "Mein Wohlbefinden ist wichtig.",
+          body: "Mein Gesundheitsfeld zeigt dir, wie es mir gerade geht. Im ruhenden Zustand kannst du mich leicht aktivieren und ich erhalte alle Boni mit dreifacher Wirkung! Der Effekt lässt nach, je fitter ich bin - aber es ist schwer, mich in einem lebendigen, oder gar kräftigen Zustand zu halten! ",
+        },
+        {
+          title: "Mein Wohlbefinden ist wichtig: Energie",
+          body: "Wenn meine Energie sinkt, sollten wir wandern gehen. Je größer die Distanz zwischen den einzelnen Scans ist, desto mehr Energie habe ich! Und desto mehr Geozonen kann ich ermitteln!",
+        },
+        {
+          title: "Mein Wohlbefinden ist wichtig: Datenqualität",
+          body: "Wenn meine Datenqualität sinkt, brauche ich mehr Scans in aktiven Zonen. Je höher die Datenqualität ist, desto größer sind die Geozonen, die ich ermitteln kann!",
+        },
+        {
+          title: "Mein Wohlbefinden ist wichtig: Pflege",
+          body: "Wenn meine Pflege sinkt, brauche ich mehr Aufmerksamkeit. Bei einer guten Systempflege, können meine Schaltkreise zusätzliche Zonen ermitteln!",
+        },
+      ],
+    },
+    m6000: {
       contextBubble: "Hier kannst du mich anpassen! Neues Gesicht, neuer Rahmen - ich freu mich schon auf deine Wahl.",
       messages: [
         {
-          title: "Fünftausend Samen - das ist ein Meilenstein.",
-          body: "Ich habe etwas Besonderes für dich freigeschaltet. Du hast so hart für unsere gemeinsame Mission gearbeitet - es wäre nur fair, wenn du mich auch ein bisschen individueller gestalten könntest.",
+          title: "Du bist mein bester Freund!",
+          body: "Ich habe etwas Besonderes für dich freigeschaltet. Du hast so hart für unsere gemeinsame Mission gearbeitet und hast auf diesem Weg bestimmt schon viele Samen gesammelt. Jetzt kannst du dir davon ein neues Aussehen für mich freischalten!",
         },
         {
           title: "Neue Accessoires im Shop!",
-          body: "Im Shop warten jetzt neue Anpassungsmöglichkeiten auf dich. Gib mir ein neues Gesicht, einen anderen Rahmen - mach mich zu deinem ganz persönlichen Florabot. Ich sage es dir ehrlich: Ich freue mich sehr darauf.",
+          body: "Außerdem gibt es im Shop Anpassungen, die du freischalten kannst wenn du bestimmte Pflanzen in den entsprechenden Geozonen scannst. Ich bin so gespannt, was du wohl auswählen wirst!",
         },
       ],
     },
@@ -237,7 +257,7 @@ export const STORY_COPY = {
       summary:
         "Florabot ist verspielt und fasziniert von der Erde. Er stellt naive Fragen und beobachtet staunend die Natur im Alltag.",
       introOverlaySlides: [
-        {
+       /* {
           id: "phase1_intro_1",
           title: "Alles ist neu fuer mich.",
           body: "Hier wächst Leben an Orten, die ich nicht erwartet habe. Ich moechte alles verstehen."
@@ -247,12 +267,14 @@ export const STORY_COPY = {
           title: "Darf ich dich etwas fragen?",
           body: "Warum wachsen Blumen neben Straßen? Und warum wirkt Regen manchmal wie ein anderer Geruch?"
         },
+        */
       ],
       ambientComments: [
         "Warum wachsen Blumen neben Straßen? Es wirkt, als ob sie jede Chance nutzen.",
-        "Weshalb riecht Regen mal weich und mal metallisch? Ist das der Boden?",
-        "Warum pflanzen Menschen Dinge, die sie nicht essen? Ich finde das wunderschön.",
-        "Ich lerne gerade, dass kleine Pflanzen oft die mutigsten sind.",
+        "Weshalb riecht Regen unterschiedlich? Liegt das am Boden?",
+        "Dieser komische Löwenzahn wächst wirklich überall! Scheinbar darf man sich was wünschen, wenn man all ihre Samen pustet.",
+        "Warum pflanzen Menschen Dinge, die sie nicht essen? Das ist wunderschön.",
+        "Wusstest du, dass Pflanzen miteinander sprechen? Sie tun das über ihre Wurzeln und die Luft!",
         "Deine Scans fühlen sich an wie kleine Antworten auf große Fragen.",
       ],
     },
