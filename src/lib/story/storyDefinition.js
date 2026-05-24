@@ -145,7 +145,12 @@ export const STORY_COPY = {
     {
       id: "intro_5",
       title: "Irrtum ist Teil des Lernens.", /* Fehlerfreundlichkeit */
-      body: "Dabei gebe ich mir zwar Mühe, deine Scans richtig einzuordnen, aber mir können Fehler passieren! Wenn du dir sicher sein willst: Frage lieber einen Menschen! Wir Roboter sind schon ziemlich clever, aber wir machen Fehler!",
+      body: "Ich gebe mir zwar Mühe, deine Scans richtig einzuordnen, aber mir passieren Fehler! Wir Roboter sind schon ziemlich clever, aber wir können uns irren!",
+    },
+    {
+      id: "intro_6",
+      title: "Eine Reise startet.", /* Aufbruch */
+      body: "Also dann: Finde deine erste heimische Pflanze und scanne sie! Lass uns starten!",
     },
   ],
 

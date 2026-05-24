@@ -2894,13 +2894,7 @@ function HomeContent() {
                       </LockedTooltip>
                     </div>
 
-                    {botName && (
-                      <div className="absolute left-1/2 transform -translate-x-1/2 z-20 pointer-events-none" style={{ top: `calc(${(2.4 * controlsScale).toFixed(2)}rem + 0.5rem)` }}>
-                        <div className={`px-3 py-1 rounded-full border ${isLightUi ? "bg-white/70 text-stone-800 border-[#c8ac62]/40" : "bg-black/40 text-white/90 border-[#f0e5a5]/30"}`}>
-                          <span className="font-semibold text-sm truncate max-w-[14rem] block text-center">{botName}</span>
-                        </div>
-                      </div>
-                    )}
+                    {/* botName removed here; rendered inside inner hero container per request */}
 
                   </div>
 
@@ -3170,6 +3164,14 @@ function HomeContent() {
                           </motion.div>
                         )}
                       </AnimatePresence>
+
+                    {botName && (
+                      <div className="absolute left-1/2 transform -translate-x-1/2 z-30 pointer-events-none" style={{ bottom: 0 }}>
+                        <div className={`px-3 py-1 rounded-full border ${isLightUi ? "bg-white/80 text-stone-800 border-[#c8ac62]/45" : "bg-black/50 text-white/90 border-[#f0e5a5]/30"}`}>
+                          <span className="font-semibold text-sm truncate max-w-[12rem] block text-center">{botName}</span>
+                        </div>
+                      </div>
+                    )}
 
                     </div>
                   </div>
