@@ -66,7 +66,7 @@ export default function PlantHeroHealthPanel({
             ? "border-[#c8ac62]/45 bg-white/48 text-stone-700"
             : "border-[#f0e5a5]/35 bg-black/38 text-stone-100"
         }`}
-      >
+          >
         <div className="text-[11px] md:text-xs">
           <div
             className={`font-semibold uppercase tracking-wide ${
