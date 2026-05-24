@@ -3079,7 +3079,7 @@ function HomeContent() {
                         </span>
                       </button>
 
-                    <div className={`w-full rounded-2xl border px-3 py-3 space-y-2.5 max-h-[calc(100vh-7rem)] overflow-y-auto backdrop-blur-md pointer-events-auto z-[15] ${
+                    <div className={`absolute inset-0 w-full rounded-2xl border px-3 py-3 space-y-2.5 max-h-[calc(100vh-7rem)] overflow-y-auto backdrop-blur-md pointer-events-auto z-[15] ${
                       isLightUi
                         ? "border-[#c8ac62]/45 bg-white/48 text-stone-700"
                         : "border-[#f0e5a5]/35 bg-black/38 text-stone-100"
