@@ -124,42 +124,42 @@ export const STORY_COPY = {
   introSlides: [
     {
       id: "intro_1",
-      title: "Ein neuer Freund auf der Erde!",
+      title: "Ein neuer Freund auf der Erde!", /* Begrüßungstext*/
       body: "Hallo  %display_name%! Ich bin Florabot-i%randomNumber%Xa-v1.13 - aber nenn' mich einfach %bot_name%!",
     },
     {
       id: "intro_2",
-      title: "Ganz schön bunt hier!",
-      body: "Auf der Suche nach einem grünen Planeten bin ich über die Erde gestolpert. Es ist so aufregend, hier zu sein. Die Menschen müssen es lieben, von so vielen Pflanzen umgeben zu sein!",
+      title: "Ganz schön bunt hier!", /* Mission */
+      body: "Ich habe den Weltraum nach einem grünen Planeten durchsucht. Dabei habe ich eure Erde entdeckt! Es sieht hier total lebendig aus - ihr Menschen müsst es hier lieben!",
     },
     {
       id: "intro_3",
-      title: "Was? Ein blinder Fleck?",
-      body: "Was? Du meinst... viele Menschen interessieren sich gar nicht für ihre Umgebung? Ohje... auf meinem Heimatplaneten war das leider ähnlich. Was hältst du davon, wenn wir gemeinsam die Pflanzenwelt hier erforschen?",
+      title: "Die Menschen sehen die Natur nicht?", /* Naivität */
+      body: "Was? Du meinst... die meisten Menschen nehmen die Natur gar nicht richtig wahr? Ohje... das ist in meiner Heimat leider ähnlich gewesen. Deshalb wurden wir Florabots entwickelt: Um von intakten Ökosystemen zu lernen.",
     },
     {
       id: "intro_4",
-      title: "Gemeinsam wachsen!",
-      body: "Wir Florabots wurden entwickelt, um die Natur anderer Planeten zu erkunden - mit dem Ziel unseren eigenen zu retten! Wenn wir Wissen, wie intakte Ökosysteme funktionieren, haben wir eine Chance, unsere Heimat zu retten.",
+      title: "Gemeinsam wachsen!", /* Hoffnung */
+      body: "Das schaffe ich jedoch nicht alleine. Ich brauche deine Hilfe, um die Pflanzen hier besser zu verstehen. Mit jedem Scan sammel ich Datenpunkte, die dabei helfen meine Heimat zu retten!",
     },
     {
       id: "intro_5",
-      title: "Irrtum ist Teil des Lernens.",
-      body: "Ich gebe mir Mühe, deine Scans richtig einzuordnen - aber frage lieber einen schlauen Menschen, wenn du dir sicher sein willst! Wir Roboter sind schon ziemlich clever, aber wir machen Fehler!",
+      title: "Irrtum ist Teil des Lernens.", /* Fehlerfreundlichkeit */
+      body: "Dabei gebe ich mir zwar Mühe, deine Scans richtig einzuordnen, aber mir können Fehler passieren! Wenn du dir sicher sein willst: Frage lieber einen Menschen! Wir Roboter sind schon ziemlich clever, aber wir machen Fehler!",
     },
   ],
 
   milestones: {
     m500: {
-      contextBubble: "Diese globale Sammlung zeigt, was alle Florabots auf der Erde bisher entdeckt haben. Pflanzen, die du bereits gefunden hast, sind hier eingetragen! Und mit dem Plus kannst du deine eigenen Kollektion anlegen, falls du etwas Bestimmtes suchst!",
+      contextBubble: "Die Kollektion zeigt, was alle Florabots auf der Erde bisher entdeckt haben und Pflanzen, die du bereits gefunden hast, sind hier eingetragen!",
       messages: [
         {
-          title: "Datenpunkte als Grundlage des Fortschritts",
-          body: "Das sind ein paar spannende erste Funde die du gemacht hast! Für jeden Fund bekommst du Datenpunkte, die mir helfen, die Erde besser zu verstehen.",
+          title: "Die ersten Scans",
+          body: "Das sind ein paar spannende erste Funde die du gemacht hast! Ich habe Sie in der Kollektion ganz links in der Navigation für unser Archiv einsortiert!",
         },
         {
           title: "Deine Kollektion wächst!",
-          body: "Ganz links findest du alles zu den Kollektionen. Die Standardkollektion ist die globale, wo alle Entdeckungen von allen Florabots gelistet sind. Wenn du möchtest, kannst du auch eigene, thematische Kollektionen anlegen. Die sind für alle zugänglich und helfen, unser Wissen über die Pflanzenwelt zu erweitern.",
+          body: "Man kann über die Listenfunktion auch eigene, thematische Kollektionen anlegen. Damit kannst du helfen, dein Wissen über die Pflanzenwelt zu teilen.",
         },
       ],
     },
