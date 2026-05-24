@@ -241,3 +241,13 @@ button:focus-visible {
   line-height: 1;
   padding: 2px 7px;
 }
+
+/* Hide native scrollbars but keep scrolling behavior and reserved gutter where supported */
+.hide-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+  scrollbar-gutter: stable both-edges;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}

@@ -58,10 +58,10 @@ export default function PlantHeroHealthPanel({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -6 }}
       transition={{ duration: 0.16, ease: "easeOut" }}
-      className="absolute inset-0 px-0 pt-[5.5rem] md:pt-[5.8rem] flex flex-col justify-start pointer-events-none"
+      className="relative w-full h-full px-0 flex flex-col justify-start pointer-events-none"
     >
       <div
-        className={`w-full rounded-2xl border px-3 py-3 space-y-2.5 max-h-[calc(100vh-7rem)] overflow-y-auto backdrop-blur-md pointer-events-auto z-[15] ${
+        className={`w-full rounded-2xl border px-3 py-3 space-y-2.5 max-h-[calc(100vh-7rem)] overflow-y-auto hide-scrollbar backdrop-blur-md pointer-events-auto z-[15] ${
           isLightUi
             ? "border-[#c8ac62]/45 bg-white/48 text-stone-700"
             : "border-[#f0e5a5]/35 bg-black/38 text-stone-100"

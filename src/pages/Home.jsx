@@ -3003,7 +3003,7 @@ function HomeContent() {
                                 }
                               }
                             }}
-                            className={`absolute left-0 md:left-2 top-5 md:top-6 z-20 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${borderClass}`}
+                            className={`absolute left-0 md:left-2 top-5 md:top-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${borderClass}`}
                             style={{ background: bgStyle }}
                             aria-label={quizAvailable ? "Quiz öffnen" : (anyReady ? "Quest abgeben" : "Wochenquest anzeigen")}
                             disabled={isOpenPlantQuizFetching}
@@ -3079,10 +3079,8 @@ function HomeContent() {
                         </span>
                       </button>
 
-                    <div className={`absolute inset-0 w-full rounded-2xl border px-3 py-3 space-y-2.5 max-h-[calc(100vh-7rem)] overflow-y-auto backdrop-blur-md pointer-events-auto z-[15] ${
-                      isLightUi
-                        ? "border-[#c8ac62]/45 bg-white/48 text-stone-700"
-                        : "border-[#f0e5a5]/35 bg-black/38 text-stone-100"
+                    <div className={`absolute inset-0 w-full rounded-2xl px-3 py-3 space-y-2.5 max-h-[calc(100vh-7rem)] overflow-y-scroll hide-scrollbar pointer-events-auto z-[15] ${
+                      isLightUi ? "text-stone-700" : "text-stone-100"
                     }`}>
                       <AnimatePresence mode="wait">
                         {showHealthStatsPanel ? (
@@ -3172,7 +3170,7 @@ function HomeContent() {
 
                     </div>
 
-                    {botName && (
+                    {botName && !showHealthStatsPanel && (
                       <div className="absolute left-1/2 transform -translate-x-1/2 z-30 pointer-events-none" style={{ bottom: 0 }}>
                         <div className={`px-3 py-1 rounded-full border ${isLightUi ? "bg-white/80 text-stone-800 border-[#c8ac62]/45" : "bg-black/50 text-white/90 border-[#f0e5a5]/30"}`}>
                           <span className="font-semibold text-sm truncate max-w-[12rem] block text-center">{botName}</span>
@@ -3184,7 +3182,7 @@ function HomeContent() {
                   </div>
 
                   <div
-                    className={`mt-[clamp(0.375rem,1vh,0.75rem)] w-full grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center text-xs md:text-sm font-semibold rounded-xl border backdrop-blur-md ${
+                    className={`mt-[clamp(0.375rem,1vh,0.75rem)] w-full grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center text-xs md:text-sm font-semibold rounded-xl border ${
                       isLightUi
                         ? "text-stone-700 border-[#c8ac62]/35 bg-white/50"
                         : "text-white/95 border-[#f0e5a5]/20 bg-black/35"
