@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildOriginDeniedResponse } from "../_shared/origin.ts";
+import { getOpenAiKey, getOpenAiModel } from "../_shared/openai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -46,7 +47,9 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const openAiKey = Deno.env.get("OPENAI_API_KEY");
+    const openAiKey = getOpenAiKey();
+    const openAiModel = getOpenAiModel();
+    console.log("[generateBotName] Using OpenAI model:", openAiModel);
 
     if (!supabaseUrl || !serviceRoleKey || !openAiKey) {
       return new Response(JSON.stringify({ error: "Service not configured" }), {
@@ -95,7 +98,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-5-mini",
+      model: openAiModel,
         input: [
           {
             role: "system",

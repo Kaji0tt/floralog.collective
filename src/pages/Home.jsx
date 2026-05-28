@@ -3210,6 +3210,8 @@ function HomeContent() {
                             onUseFertilizerItem={handleUseFertilizerItem}
                             onOpenFertilizerShop={handleOpenFertilizerShop}
                             contextBubbleMessage={florabotContextBubble?.panel === 'home' ? florabotContextBubble?.message : null}
+                            contextBubbleProfile={user}
+                            onContextBubbleDismiss={() => setShowHealthStatsPanel(false)}
                           />
                         ) : (
                           <motion.div
