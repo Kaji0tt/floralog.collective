@@ -72,6 +72,7 @@ import { hexToFilter } from "@/lib/hexToFilter";
 import FlorabotIntroOverlay from "@/components/florabot/FlorabotIntroOverlay";
 import FlorabotMilestoneOverlay from "@/components/florabot/FlorabotMilestoneOverlay";
 import FlorabotContextBubble from "@/components/florabot/FlorabotContextBubble";
+import { STORY_PROGRESS_CONDITIONS, pickRandomPhaseAmbientComment } from "@/lib/story/storyDefinition";
 import { getSeenMilestoneIds, getNextUnseenMilestone, markMilestoneSeen, FLORABOT_MILESTONES } from "@/lib/florabotMilestones";
 
 const THEME_MAP_COLORS = {
@@ -1480,6 +1481,53 @@ function HomeContent() {
     userStory,
     storyCreatedThisSession,
   ]);
+
+  // Ambient comments: random, rate-limited comments when entering Home
+  useEffect(() => {
+    if (!user?.id || !userStory) return;
+    const rules = STORY_PROGRESS_CONDITIONS?.ambientCommentRules;
+    if (!rules) return;
+
+    // Do not show if a higher-priority overlay is active
+    const blocked = showFlorabotIntro || activeMilestone || florabotContextBubble || showQuizFeedback || showScanFeedback || showScanZoneUnlock;
+    if (blocked) return;
+
+    try {
+      const lastAt = userStory?.last_ambient_comment_at ? new Date(userStory.last_ambient_comment_at) : null;
+      const minutesSince = lastAt ? (Date.now() - lastAt.getTime()) / (1000 * 60) : Infinity;
+      if (minutesSince < (rules.cooldownMinutes || 15)) return;
+
+      const todayCount = Number(userStory?.ambient_comment_count || 0);
+      if (todayCount >= (rules.maxPerDay || 6)) return;
+
+      if (Math.random() >= (rules.chanceOnHomeEnter || 0.3)) return;
+
+      const exclude = Array.isArray(userStory?.seen_ambient_comment_ids) ? userStory.seen_ambient_comment_ids : [];
+      const { comment } = pickRandomPhaseAmbientComment(playerSeeds, exclude);
+      if (!comment) return;
+
+      setFlorabotContextBubble({ panel: 'home', message: comment });
+
+      // Persist ambient comment meta in UserStory
+      if (user?.id) {
+        const nextSeen = Array.from(new Set([...(userStory?.seen_ambient_comment_ids || []), comment]));
+        updateUserStory(user.id, {
+          last_ambient_comment_at: new Date().toISOString(),
+          ambient_comment_count: (Number(userStory?.ambient_comment_count || 0) + 1),
+          seen_ambient_comment_ids: nextSeen,
+        })
+          .then((nextStory) => {
+            if (nextStory) setUserStory(nextStory);
+          })
+          .catch((error) => {
+            console.warn("[Home] Could not persist ambient comment state:", error?.message || error);
+          });
+      }
+    } catch (e) {
+      // swallow errors to avoid breaking Home
+      console.warn('[Home] ambient comment check failed', e?.message || e);
+    }
+  }, [user?.id, userStory, playerSeeds, showFlorabotIntro, activeMilestone, florabotContextBubble, showQuizFeedback, showScanFeedback, showScanZoneUnlock]);
 
   if (isLoadingUser) {
     return (
