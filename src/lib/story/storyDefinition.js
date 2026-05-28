@@ -205,11 +205,11 @@ export const STORY_COPY = {
         },
         {
           title: "Zonen liefern Kontext",
-          body: "Wälder, Stadtgebiete, Gewässer und Wiesen liefern unterschiedliche Informationen. Bitte scanne vielfältige Lebensräume, damit unsere Modelle besser werden. ",
+          body: "Wälder-, Stadt-, Gewässer- und Wiesenzonen liefern unterschiedliche Informationen. Die Daten dort sind besonders wertvoll, weil sie zeigen, wie Pflanzen sich in unterschiedlichen Umgebungen verhalten.",
         },
         {
           title: "Verschiedene Ökosysteme, verschiedene Daten.",
-          body: "In der nächtlichen Ruhe sammle ich neue Daten aus der Umgebung und generiere neue, mögliche Zonen. Jeder erste Scan in einer neuen Zone startet mit einem zusätzlichen 1,5-fachen Datenbonus!",
+          body: "Jede Nacht generiere ich neue Zonen anhand der Daten, die mir in eurem Internet zur Verfügung stehen. Der erste Scan in einer neuen Zone startet mit einem 50% Bonus!",
         },
       ],
     },

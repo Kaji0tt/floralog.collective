@@ -13,6 +13,7 @@ const HEALTH_TOOLTIP_TEXT = {
 };
 
 export default function PlantHeroHealthPanel({
+  contextBubbleMessage = null,
   plantHealthState,
   healthStateBonus,
   healthStats,
@@ -67,20 +68,32 @@ export default function PlantHeroHealthPanel({
             : "border-[#f0e5a5]/35 bg-black/38 text-stone-100"
         }`}
           >
-        <div className="text-[11px] md:text-xs">
-          <div
-            className={`font-semibold uppercase tracking-wide ${
-              isLightUi ? "text-stone-800" : "text-stone-50"
-            }`}
-          >
-            {plantHealthState.label}
+        {/* If a context bubble message is provided, render that instead of the health content */}
+        {contextBubbleMessage ? (
+          <div className="text-sm md:text-base leading-snug">
+            <div className={`font-semibold ${isLightUi ? 'text-stone-800' : 'text-stone-50'}`}>
+              Florabot
+            </div>
+            <div className={isLightUi ? 'text-stone-700/90' : 'text-stone-200/85'}>
+              {contextBubbleMessage}
+            </div>
           </div>
-          <div className={isLightUi ? "text-stone-700/85" : "text-stone-200/80"}>
-            Scan-Bonus: <strong>{isLoading ? "..." : `+${healthStateBonus}`}</strong>
-          </div>
-        </div>
+        ) : (
+          <>
+            <div className="text-[11px] md:text-xs">
+              <div
+                className={`font-semibold uppercase tracking-wide ${
+                  isLightUi ? "text-stone-800" : "text-stone-50"
+                }`}
+              >
+                {plantHealthState.label}
+              </div>
+              <div className={isLightUi ? "text-stone-700/85" : "text-stone-200/80"}>
+                Scan-Bonus: <strong>{isLoading ? "..." : `+${healthStateBonus}`}</strong>
+              </div>
+            </div>
 
-        {safeHealthStats.map((stat) => (
+            {safeHealthStats.map((stat) => (
           <div key={stat.id} className="space-y-1">
             <div
               className={`relative flex items-center justify-between text-[11px] md:text-xs ${
@@ -195,6 +208,8 @@ export default function PlantHeroHealthPanel({
             {careActionMessage}
           </div>
         )}
+        </>)
+      }
       </div>
     </motion.div>
   );

@@ -161,6 +161,7 @@ function HomeContent() {
   const [showQuizFeedback, setShowQuizFeedback] = useState(false);
   const scanFeedbackCooldownRef = useRef(false);
   const blockNavigationFeedbackRef = useRef(false);
+  const ambientCommentLockRef = useRef(false);
 
   // Cooldown-Schutz: scanFeedback kann nach Schließen für 1 Sekunde nicht erneut gesetzt werden
   const safeSetScanFeedback = (value) => {
@@ -1487,6 +1488,8 @@ function HomeContent() {
     if (!user?.id || !userStory) return;
     const rules = STORY_PROGRESS_CONDITIONS?.ambientCommentRules;
     if (!rules) return;
+    // Prevent concurrent pulls of ambient comments
+    if (ambientCommentLockRef.current) return;
 
     // Do not show if a higher-priority overlay is active
     const blocked = showFlorabotIntro || activeMilestone || florabotContextBubble || showQuizFeedback || showScanFeedback || showScanZoneUnlock;
@@ -1506,7 +1509,11 @@ function HomeContent() {
       const { comment } = pickRandomPhaseAmbientComment(playerSeeds, exclude);
       if (!comment) return;
 
+      // Mark that we've pulled an ambient comment so another cannot be pulled concurrently
+      ambientCommentLockRef.current = true;
       setFlorabotContextBubble({ panel: 'home', message: comment });
+      // Open the Plant Health panel so the comment is rendered there
+      setShowHealthStatsPanel(true);
 
       // Persist ambient comment meta in UserStory
       if (user?.id) {
@@ -1528,6 +1535,47 @@ function HomeContent() {
       console.warn('[Home] ambient comment check failed', e?.message || e);
     }
   }, [user?.id, userStory, playerSeeds, showFlorabotIntro, activeMilestone, florabotContextBubble, showQuizFeedback, showScanFeedback, showScanZoneUnlock]);
+
+  // If the Plant Health panel is closed while a 'home' context bubble is active,
+  // treat that as dismissing the bubble: persist seen state and release locks.
+  useEffect(() => {
+    if (showHealthStatsPanel) return;
+    if (!florabotContextBubble || florabotContextBubble.panel !== 'home') return;
+    if (!user?.id) {
+      setFlorabotContextBubble(null);
+      if (ambientCommentLockRef.current) ambientCommentLockRef.current = false;
+      return;
+    }
+
+    try {
+      try {
+        localStorage.setItem(`florabot_ctx_bubble_v1:${user?.id}:${florabotContextBubble.panel}`, "1");
+      } catch {}
+
+      const currentContextKeys = Array.isArray(userStory?.seen_context_bubble_keys)
+        ? userStory.seen_context_bubble_keys
+        : [];
+      const mergedContextKeys = Array.from(new Set([...
+        currentContextKeys,
+        florabotContextBubble.panel,
+      ]));
+
+      if (user?.id && florabotContextBubble?.panel) {
+        updateUserStory(user.id, {
+          seen_context_bubble_keys: mergedContextKeys,
+        })
+          .then((nextStory) => {
+            if (nextStory) setUserStory(nextStory);
+          })
+          .catch((error) => {
+            console.warn("[Home] Could not persist context bubble seen state:", error?.message || error);
+          });
+      }
+    } finally {
+      setFlorabotContextBubble(null);
+      if (ambientCommentLockRef.current) ambientCommentLockRef.current = false;
+    }
+  }, [showHealthStatsPanel, florabotContextBubble, user?.id, userStory]);
 
   if (isLoadingUser) {
     return (
@@ -2501,7 +2549,7 @@ function HomeContent() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {florabotContextBubble && !activeMilestone && !showFlorabotIntro && (
+        {florabotContextBubble && florabotContextBubble.panel !== 'home' && !activeMilestone && !showFlorabotIntro && (
           <FlorabotContextBubble
             message={florabotContextBubble.message}
             profile={user}
@@ -2533,7 +2581,12 @@ function HomeContent() {
                   });
               }
 
+              const wasHomeBubble = florabotContextBubble?.panel === 'home';
               setFlorabotContextBubble(null);
+              // Release ambient comment lock if this was the ambient/home bubble
+              if (ambientCommentLockRef.current && wasHomeBubble) {
+                ambientCommentLockRef.current = false;
+              }
             }}
           />
         )}
@@ -2962,7 +3015,7 @@ function HomeContent() {
                         aspectRatio: showHealthStatsPanel ? undefined : "1 / 1",
                       }}
                     >
-                      {(() => {
+                      {!showHealthStatsPanel && (() => {
                         const monthlyReady = activeMonthlyQuest?.isCompleted;
                         const weeklyReady = activeWeeklyQuest?.isCompleted;
                         const regularReady = activeRegularQuests.some(q => q.isCompleted);
@@ -3106,6 +3159,7 @@ function HomeContent() {
                         </>
                       )}
 
+                    {!showHealthStatsPanel && (
                       <button
                         type="button"
                         onClick={() => openShop("accessories")}
@@ -3126,6 +3180,7 @@ function HomeContent() {
                           Anpassen
                         </span>
                       </button>
+                    )}
 
                     <div className={`absolute inset-0 w-full rounded-2xl px-3 py-3 space-y-2.5 max-h-[calc(100vh-7rem)] overflow-y-scroll hide-scrollbar pointer-events-auto z-[15] ${
                       isLightUi ? "text-stone-700" : "text-stone-100"
@@ -3154,6 +3209,7 @@ function HomeContent() {
                             onWaterPlant={handleWaterPlantClick}
                             onUseFertilizerItem={handleUseFertilizerItem}
                             onOpenFertilizerShop={handleOpenFertilizerShop}
+                            contextBubbleMessage={florabotContextBubble?.panel === 'home' ? florabotContextBubble?.message : null}
                           />
                         ) : (
                           <motion.div
