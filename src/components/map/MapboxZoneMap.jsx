@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { hexToFilter } from "@/lib/hexToFilter";
+import { NEARBY_DISCOVERY_RADIUS_METERS } from "@/lib/discoveryMap";
 
 const THEME_MAP_COLORS = {
   forest: "#007a3f",
@@ -1012,6 +1013,62 @@ export default function MapboxZoneMap({
             "circle-stroke-color": "#111827",
           },
         });
+      }
+
+      // Sichtweite (Visibility) des Spielers als Polygon anzeigen (z.B. 2500m)
+      try {
+        const visCenterLng = Number.isFinite(targetLng) ? targetLng : null;
+        const visCenterLat = Number.isFinite(targetLat) ? targetLat : null;
+        const visibilityFeatures = visCenterLng !== null && visCenterLat !== null
+          ? [{
+              type: "Feature",
+              geometry: {
+                type: "Polygon",
+                coordinates: [
+                  toCirclePolygon({ lat: visCenterLat, lng: visCenterLng, radiusM: Number(NEARBY_DISCOVERY_RADIUS_METERS || 2500), points: 64 }),
+                ],
+              },
+              properties: {},
+            }]
+          : [];
+
+        const visibilityGeoJson = {
+          type: "FeatureCollection",
+          features: visibilityFeatures,
+        };
+
+        const visSource = map.getSource("hero-visibility");
+        if (visSource) {
+          visSource.setData(visibilityGeoJson);
+        } else {
+          map.addSource("hero-visibility", { type: "geojson", data: visibilityGeoJson });
+
+          // Fill under the user marker
+          map.addLayer({
+            id: "hero-visibility-fill",
+            type: "fill",
+            source: "hero-visibility",
+            paint: {
+              "fill-color": "#38bdf8",
+              "fill-opacity": 0.06,
+            },
+          }, "hero-user-point");
+
+          map.addLayer({
+            id: "hero-visibility-line",
+            type: "line",
+            source: "hero-visibility",
+            paint: {
+              "line-color": "#38bdf8",
+              "line-width": 2,
+              "line-opacity": 0.9,
+            },
+          }, "hero-user-point");
+        }
+      } catch (e) {
+        // defensive: if visibility creation fails, don't break the whole map update
+        // eslint-disable-next-line no-console
+        console.warn("Failed to update visibility layer", e);
       }
 
       const claimOverlay = buildClaimOverlayData(claimedTiles);
