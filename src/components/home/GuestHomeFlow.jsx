@@ -1,7 +1,7 @@
 ﻿import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Download, Mail, Lock, User, Loader2, AlertCircle, CheckCircle2, ChevronDown } from "lucide-react";
+import { Camera, Download, Mail, Lock, User, Loader2, AlertCircle, CheckCircle2, ChevronDown, FileText } from "lucide-react";
 import { signIn, signUp, updatePassword } from "@/api/authService";
 import { checkLegacyUser, upsertLegacyUserFromRegistration } from "@/api/migrationService";
 import { supabase } from "@/api/supabaseClient";
@@ -260,6 +260,7 @@ export default function GuestHomeFlow() {
   const [authModalTab, setAuthModalTab] = useState(/** @type {"register" | "migration"} */ ("register"));
   const [supportModalOpen, setSupportModalOpen] = useState(false);
   const [recoveryModalOpen, setRecoveryModalOpen] = useState(false);
+  const [impressumModalOpen, setImpressumModalOpen] = useState(false);
   const [recoveryPassword, setRecoveryPassword] = useState("");
   const [recoveryConfirmPassword, setRecoveryConfirmPassword] = useState("");
   const [recoveryLoading, setRecoveryLoading] = useState(false);
@@ -1485,7 +1486,23 @@ export default function GuestHomeFlow() {
             letterSpacing: "0.08em",
           }}
         >
-          by Floralog Collective, enabled with Pl@ntNet
+          by{' '}
+          <button
+            type="button"
+            onClick={() => setImpressumModalOpen(true)}
+            className="inline text-stone-300/80 underline decoration-stone-300/45 underline-offset-4 hover:text-stone-100 transition-colors"
+          >
+            Floralog Collective
+          </button>
+          , enabled with{' '}
+          <a
+            href="https://identify.plantnet.org/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline text-stone-300/80 underline decoration-stone-300/45 underline-offset-4 hover:text-stone-100 transition-colors"
+          >
+            Pl@ntNet
+          </a>
         </p>
       </div>
       {/* ── Android Download Modal ──────────────────────────────────── */}
@@ -1610,6 +1627,65 @@ export default function GuestHomeFlow() {
               >
                 Schließen
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {impressumModalOpen && (
+        <div className="fixed inset-0 z-[155] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/82 backdrop-blur-[2px]" onClick={() => setImpressumModalOpen(false)} />
+          <div
+            className="relative z-10 w-full max-w-[92vw] sm:max-w-lg rounded-3xl border border-stone-200 bg-white text-stone-900 shadow-[0_28px_90px_rgba(0,0,0,0.65)] p-5 max-h-[90vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setImpressumModalOpen(false)}
+              className="absolute top-3.5 right-3.5 z-20 text-stone-500 hover:text-stone-900 transition-colors"
+              aria-label="Schließen"
+            >
+              ✕
+            </button>
+
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-green-50 border border-stone-200">
+                  <FileText className="w-5 h-5 text-green-600" />
+                </div>
+                <h3 className="text-lg font-semibold">Impressum</h3>
+              </div>
+
+              <div className="space-y-4 text-sm text-stone-700 leading-relaxed">
+                <div>
+                  <p className="font-semibold">Betreiber</p>
+                  <p>
+                    Floralog Collective<br />
+                    Dorotheenstr. 41<br />
+                    24939 Flensburg<br />
+                    <br />
+                    Eigentümer: Jascha Kruse
+                  </p>
+                </div>
+
+                <div>
+                  <p className="font-semibold flex items-center gap-2"><Mail className="w-4 h-4 text-green-600" />Kontakt</p>
+                  <p>info@floralog.de</p>
+                </div>
+
+                <div>
+                  <p className="font-semibold">Haftungsausschluss</p>
+                  <p className="text-sm text-stone-600">Die Inhalte dieser App wurden mit größter Sorgfalt erstellt. Für die Richtigkeit, Vollständigkeit und Aktualität der Inhalte können wir jedoch keine Gewähr übernehmen. Floralog dient ausschließlich zu Bildungszwecken und ersetzt keine professionelle botanische Beratung.</p>
+                </div>
+
+                <div>
+                  <p className="font-semibold">Datenschutz</p>
+                  <p className="text-sm text-stone-600">Ausführliche Informationen zur Verarbeitung Ihrer Daten finden Sie in unserer <button onClick={() => window.location.href = '/Datenschutz'} className="text-blue-600 hover:underline font-semibold ml-1">Datenschutzerklärung</button>.</p>
+                </div>
+              </div>
+
+              <div className="mt-4 text-sm text-stone-600 text-right">
+                © Floralog Collective, {new Date().getFullYear()}
+              </div>
             </div>
           </div>
         </div>

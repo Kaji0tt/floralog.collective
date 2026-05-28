@@ -60,8 +60,7 @@ export default function Impressum() {
             <div className="pt-4 border-t border-stone-200">
               <h3 className="font-bold text-lg text-stone-900 mb-2">Haftungsausschluss</h3>
               <p className="text-sm text-stone-600 leading-relaxed">
-                Die Inhalte dieser App wurden mit größter Sorgfalt erstellt. 
-                Für die Richtigkeit, Vollständigkeit und Aktualität der Inhalte können wir jedoch keine Gewähr übernehmen. 
+                Die Inhalte dieser App wurden mit KI generiert. Es wird keine Gewähr für die Richtigkeit, Vollständigkeit und Aktualität der Inhalte übernommen. 
                 Floralog dient ausschließlich zu Bildungszwecken und ersetzt keine professionelle botanische Beratung.
               </p>
             </div>
@@ -87,8 +86,9 @@ export default function Impressum() {
                     <li>Gespeicherte Daten: E-Mail-Adresse, Anzeigename, Scans und Standortdaten (optional)</li>
                     <li>Backend: Supabase (Auftragsverarbeiter, Server in Frankfurt/EU)</li>
                     <li>Frontend: Cloudflare (CDN zur Inhaltsauslieferung)</li>
-                    <li>Pflanzenerkennung: Pl@ntNet und ChatGPT von OpenAI</li>
-                    <li>Keine dateneigene Speicherung auf unseren Servern</li>
+                    <li>Pflanzenerkennung: Pl@ntNet </li>
+                    <li>Textgenerierung: OpenAI</li>
+                    <li>Kartendarstellung: Mapbox</li>
                   </ul>
                 </div>
               </div>
