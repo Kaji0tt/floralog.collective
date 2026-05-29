@@ -70,12 +70,15 @@ export default function PlantHeroHealthPanel({
       className="relative w-full h-full px-0 flex flex-col justify-start pointer-events-none"
     >
       <div
-        className={`w-full rounded-2xl border px-3 py-3 space-y-2.5 max-h-[calc(100vh-7rem)] overflow-y-auto hide-scrollbar backdrop-blur-md pointer-events-auto z-[15] ${
-          isLightUi
-            ? "border-[#c8ac62]/45 bg-white/48 text-stone-700"
-            : "border-[#f0e5a5]/35 bg-black/38 text-stone-100"
-        }`}
-          >
+        className={(() => {
+          const base = "w-full rounded-2xl px-3 py-3 space-y-2.5 max-h-[calc(100vh-7rem)] overflow-y-auto hide-scrollbar pointer-events-auto z-[15]";
+          if (contextBubbleMessage) {
+            // When showing the centered context bubble, avoid the large translucent panel
+            return `${base} bg-transparent border-transparent text-stone-100`;
+          }
+          return `${base} rounded-2xl border backdrop-blur-md ${isLightUi ? "border-[#c8ac62]/45 bg-white/48 text-stone-700" : "border-[#f0e5a5]/35 bg-black/38 text-stone-100"}`;
+        })()}
+      >
         {/* If a context bubble message is provided, render that instead of the health content */}
         {contextBubbleMessage ? (
           <>
