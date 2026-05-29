@@ -3,7 +3,6 @@ import { motion, AnimatePresence, useAnimationControls } from "framer-motion";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import PartnerSelectionPopover from "@/components/home/PartnerSelectionPopover";
-import FlorabotLogo from "@/components/florabot/FlorabotLogo";
 
 const HEALTH_TOOLTIP_TEXT = {
   energy:
@@ -81,47 +80,7 @@ export default function PlantHeroHealthPanel({
       >
         {/* If a context bubble message is provided, render that instead of the health content */}
         {contextBubbleMessage ? (
-          <>
-            <div className="text-sm md:text-base leading-snug">
-              <div className={`font-semibold ${isLightUi ? 'text-stone-800' : 'text-stone-50'}`}>
-                Florabot
-              </div>
-              <div className={isLightUi ? 'text-stone-700/90' : 'text-stone-200/85'}>
-                {contextBubbleMessage}
-              </div>
-            </div>
-
-            {/* Centered overlay bubble (visually matches FlorabotContextBubble) */}
-            <motion.div
-              className="fixed inset-0 z-[190] flex items-center justify-center pointer-events-none px-4"
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.98 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-            >
-              <div
-                className={`pointer-events-auto flex items-start gap-3 max-w-[420px] w-full rounded-2xl px-4 py-3 border shadow-xl ${
-                  isLightUi ? 'bg-white/92 border-stone-200/70' : 'bg-[#1a1f18]/95 border-white/10'
-                }`}
-                style={{ backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}
-              >
-                <FlorabotLogo profile={contextBubbleProfile} sizeClass="w-12 h-12 shrink-0 mt-0.5" padding="p-[6%]" />
-                <p className={`flex-1 text-sm leading-relaxed ${isLightUi ? 'text-stone-700' : 'text-stone-200'}`}>
-                  {contextBubbleMessage}
-                </p>
-                <button
-                  type="button"
-                  onClick={onContextBubbleDismiss}
-                  aria-label="Schließen"
-                  className={`shrink-0 mt-0.5 p-1 rounded-full transition-colors ${
-                    isLightUi ? 'text-stone-400 hover:text-stone-600 hover:bg-stone-100' : 'text-stone-500 hover:text-stone-300 hover:bg-white/8'
-                  }`}
-                >
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"></path><path d="M6 6l12 12"></path></svg>
-                </button>
-              </div>
-            </motion.div>
-          </>
+          <div className="h-full" />
         ) : (
           <>
             <div className="text-[11px] md:text-xs">

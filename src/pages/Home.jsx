@@ -72,6 +72,7 @@ import { hexToFilter } from "@/lib/hexToFilter";
 import FlorabotIntroOverlay from "@/components/florabot/FlorabotIntroOverlay";
 import FlorabotMilestoneOverlay from "@/components/florabot/FlorabotMilestoneOverlay";
 import FlorabotContextBubble from "@/components/florabot/FlorabotContextBubble";
+import FlorabotLogo from "@/components/florabot/FlorabotLogo";
 import { STORY_PROGRESS_CONDITIONS, pickRandomPhaseAmbientComment } from "@/lib/story/storyDefinition";
 import { getSeenMilestoneIds, getNextUnseenMilestone, markMilestoneSeen, FLORABOT_MILESTONES } from "@/lib/florabotMilestones";
 import { sendPartnerRequest } from "@/api/friendService";
@@ -1470,6 +1471,8 @@ function HomeContent() {
 
   const shouldForcePhase6ByReferral = playerSeeds >= 40000 && referralPhase6UnlockCount > 0;
   const storySeedProgress = shouldForcePhase6ByReferral ? Math.max(playerSeeds, 50000) : playerSeeds;
+  const questUnlockThreshold = FLORABOT_MILESTONES.find((milestone) => milestone.navHighlight === "quests")?.threshold ?? 1000;
+  const isQuestButtonUnlocked = playerSeeds >= questUnlockThreshold;
   const isShopUnlocked = playerSeeds >= 5000;
   const isPartnerFunctionUnlocked = storySeedProgress >= 50000;
   const currentPartnerRelation = friends.find((friend) => String(friend?.status || '').toLowerCase() === 'partner') || null;
@@ -1597,8 +1600,6 @@ function HomeContent() {
       // Mark that we've pulled an ambient comment so another cannot be pulled concurrently
       ambientCommentLockRef.current = true;
       setFlorabotContextBubble({ panel: 'home', message: comment });
-      // Open the Plant Health panel so the comment is rendered there
-      setShowHealthStatsPanel(true);
 
       // Persist ambient comment meta in UserStory
       if (user?.id) {
@@ -1621,31 +1622,26 @@ function HomeContent() {
     }
   }, [user?.id, userStory, storySeedProgress, showFlorabotIntro, activeMilestone, florabotContextBubble, showQuizFeedback, showScanFeedback, showScanZoneUnlock]);
 
-  // If the Plant Health panel is closed while a 'home' context bubble is active,
-  // treat that as dismissing the bubble: persist seen state and release locks.
-  useEffect(() => {
-    if (showHealthStatsPanel) return;
-    if (!florabotContextBubble || florabotContextBubble.panel !== 'home') return;
-    if (!user?.id) {
-      setFlorabotContextBubble(null);
-      if (ambientCommentLockRef.current) ambientCommentLockRef.current = false;
-      return;
-    }
+  const dismissFlorabotContextBubble = () => {
+    if (!florabotContextBubble) return;
 
     try {
       try {
-        localStorage.setItem(`florabot_ctx_bubble_v1:${user?.id}:${florabotContextBubble.panel}`, "1");
+        localStorage.setItem(
+          `florabot_ctx_bubble_v1:${user?.id}:${florabotContextBubble.panel}`,
+          "1"
+        );
       } catch {}
 
-      const currentContextKeys = Array.isArray(userStory?.seen_context_bubble_keys)
-        ? userStory.seen_context_bubble_keys
-        : [];
-      const mergedContextKeys = Array.from(new Set([...
-        currentContextKeys,
-        florabotContextBubble.panel,
-      ]));
-
       if (user?.id && florabotContextBubble?.panel) {
+        const currentContextKeys = Array.isArray(userStory?.seen_context_bubble_keys)
+          ? userStory.seen_context_bubble_keys
+          : [];
+        const mergedContextKeys = Array.from(new Set([
+          ...currentContextKeys,
+          florabotContextBubble.panel,
+        ]));
+
         updateUserStory(user.id, {
           seen_context_bubble_keys: mergedContextKeys,
         })
@@ -1657,10 +1653,13 @@ function HomeContent() {
           });
       }
     } finally {
+      const wasHomeBubble = florabotContextBubble?.panel === "home";
       setFlorabotContextBubble(null);
-      if (ambientCommentLockRef.current) ambientCommentLockRef.current = false;
+      if (ambientCommentLockRef.current && wasHomeBubble) {
+        ambientCommentLockRef.current = false;
+      }
     }
-  }, [showHealthStatsPanel, florabotContextBubble, user?.id, userStory]);
+  };
 
   if (isLoadingUser) {
     return (
@@ -2130,6 +2129,10 @@ function HomeContent() {
   const securedNextScanMultiplier = nextScanMinMultiplier;
   const nextScanMinReward = Math.round((10 + healthStateBonus) * nextScanMinMultiplier);
   const nextScanMaxReward = Math.round((50 + healthStateBonus) * nextScanMaxMultiplier);
+  const homeContextBubbleMessage =
+    florabotContextBubble?.panel === "home" && !activeMilestone && !showFlorabotIntro
+      ? florabotContextBubble?.message
+      : null;
 
   const formatMultiplier = (value) => {
     const safeValue = Number.isFinite(value) ? value : 1;
@@ -2667,41 +2670,7 @@ function HomeContent() {
           <FlorabotContextBubble
             message={florabotContextBubble.message}
             profile={user}
-            onDismiss={() => {
-              try {
-                localStorage.setItem(
-                  `florabot_ctx_bubble_v1:${user?.id}:${florabotContextBubble.panel}`,
-                  "1"
-                );
-              } catch {}
-
-              if (user?.id && florabotContextBubble?.panel) {
-                const currentContextKeys = Array.isArray(userStory?.seen_context_bubble_keys)
-                  ? userStory.seen_context_bubble_keys
-                  : [];
-                const mergedContextKeys = Array.from(new Set([
-                  ...currentContextKeys,
-                  florabotContextBubble.panel,
-                ]));
-
-                updateUserStory(user.id, {
-                  seen_context_bubble_keys: mergedContextKeys,
-                })
-                  .then((nextStory) => {
-                    if (nextStory) setUserStory(nextStory);
-                  })
-                  .catch((error) => {
-                    console.warn("[Home] Could not persist context bubble seen state:", error?.message || error);
-                  });
-              }
-
-              const wasHomeBubble = florabotContextBubble?.panel === 'home';
-              setFlorabotContextBubble(null);
-              // Release ambient comment lock if this was the ambient/home bubble
-              if (ambientCommentLockRef.current && wasHomeBubble) {
-                ambientCommentLockRef.current = false;
-              }
-            }}
+            onDismiss={dismissFlorabotContextBubble}
           />
         )}
       </AnimatePresence>
@@ -3129,7 +3098,7 @@ function HomeContent() {
                         aspectRatio: showHealthStatsPanel ? undefined : "1 / 1",
                       }}
                     >
-                      {!showHealthStatsPanel && (() => {
+                      {!showHealthStatsPanel && isQuestButtonUnlocked && (() => {
                         const monthlyReady = activeMonthlyQuest?.isCompleted;
                         const weeklyReady = activeWeeklyQuest?.isCompleted;
                         const regularReady = activeRegularQuests.some(q => q.isCompleted);
@@ -3231,7 +3200,7 @@ function HomeContent() {
                         );
                       })()}
 
-                      {showWeeklyQuestTooltip && (
+                      {isQuestButtonUnlocked && showWeeklyQuestTooltip && (
                         <>
                           <div
                             className="absolute inset-0 z-[19]"
@@ -3273,11 +3242,10 @@ function HomeContent() {
                         </>
                       )}
 
-                    {!showHealthStatsPanel && (
+                    {!showHealthStatsPanel && isShopUnlocked && (
                       <button
                         type="button"
                         onClick={() => openShop("accessories")}
-                        disabled={!isShopUnlocked}
                         aria-label="Profil anpassen"
                         className={`absolute right-0 md:right-2 top-5 md:top-6 z-20 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${
                           isLightUi
@@ -3337,9 +3305,6 @@ function HomeContent() {
                             isPartnerFeatureUnlocked={isPartnerFunctionUnlocked}
                             isPartnerPending={partnerPendingRelations.length > 0}
                             onRequestPartner={handleRequestPartner}
-                            contextBubbleMessage={florabotContextBubble?.panel === 'home' ? florabotContextBubble?.message : null}
-                            contextBubbleProfile={user}
-                            onContextBubbleDismiss={() => setShowHealthStatsPanel(false)}
                           />
                         ) : (
                           <motion.div
@@ -3404,7 +3369,7 @@ function HomeContent() {
 
                     </div>
 
-                    {botName && !showHealthStatsPanel && (
+                    {botName && !showHealthStatsPanel && !homeContextBubbleMessage && (
                       <div className="absolute left-1/2 transform -translate-x-1/2 z-30 pointer-events-none" style={{ bottom: 0 }}>
                         <div className={`px-3 py-1 rounded-full border ${isLightUi ? "bg-white/80 text-stone-800 border-[#c8ac62]/45" : "bg-black/50 text-white/90 border-[#f0e5a5]/30"}`}>
                           <span className="font-semibold text-sm truncate max-w-[12rem] block text-center">{botName}</span>
@@ -3415,8 +3380,38 @@ function HomeContent() {
                     </div>
                   </div>
 
+                  {homeContextBubbleMessage && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                      transition={{ duration: 0.2, ease: "easeOut" }}
+                      className={`mt-[clamp(0.375rem,1vh,0.75rem)] mb-[clamp(0.625rem,1.6vh,1.25rem)] mx-auto w-full max-w-[26rem] flex items-start gap-3 rounded-2xl px-4 py-3 border shadow-xl pointer-events-auto ${
+                        isLightUi ? "bg-white/92 border-stone-200/70" : "bg-[#2b3a2f]/88 border-white/20"
+                      }`}
+                      style={{ backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" }}
+                    >
+                      <FlorabotLogo profile={user} sizeClass="w-12 h-12 shrink-0 mt-0.5" padding="p-[6%]" />
+                      <p className={`flex-1 text-sm leading-relaxed ${isLightUi ? "text-stone-700" : "text-stone-200"}`}>
+                        {homeContextBubbleMessage}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={dismissFlorabotContextBubble}
+                        aria-label="Schließen"
+                        className={`shrink-0 mt-0.5 p-1 rounded-full transition-colors ${
+                          isLightUi
+                            ? "text-stone-400 hover:text-stone-600 hover:bg-stone-100"
+                            : "text-stone-500 hover:text-stone-300 hover:bg-white/8"
+                        }`}
+                      >
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"></path><path d="M6 6l12 12"></path></svg>
+                      </button>
+                    </motion.div>
+                  )}
+
                   <div
-                    className={`mt-[clamp(0.375rem,1vh,0.75rem)] w-full grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center text-xs md:text-sm font-semibold rounded-xl border ${
+                    className={`${homeContextBubbleMessage ? "mt-0" : "mt-[clamp(0.375rem,1vh,0.75rem)]"} w-full grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center text-xs md:text-sm font-semibold rounded-xl border ${
                       isLightUi
                         ? "text-stone-700 border-[#c8ac62]/35 bg-white/50"
                         : "text-white/95 border-[#f0e5a5]/20 bg-black/35"
