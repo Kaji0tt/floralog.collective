@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Query } from "@/api/entities";
 import { createUserNotification } from "@/api/notificationService";
 import { supabase } from "@/api/supabaseClient";
-import { sendFriendRequest, removeFriendship, respondToFriendRequest } from "@/api/friendService";
+import { sendFriendRequest, removeFriendship, respondToFriendRequest, respondToPartnerRequest } from "@/api/friendService";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -147,7 +147,7 @@ export function useFriendsFeatureContent({
       return allFriendRecords.filter((f) =>
       (f.request_sent_by?.toLowerCase() === user.email.toLowerCase() ||
       f.request_sent_to?.toLowerCase() === user.email.toLowerCase()) &&
-      f.status === 'accepted'
+      ['accepted', 'partner'].includes(String(f.status || '').toLowerCase())
       );
     },
     enabled: !!user?.email && allFriendRecords.length > 0
@@ -160,7 +160,7 @@ export function useFriendsFeatureContent({
       if (!user?.email) return [];
       return allFriendRecords.filter((f) =>
       f.request_sent_to?.toLowerCase() === user.email.toLowerCase() &&
-      f.status === 'pending'
+      ['pending', 'partner_pending'].includes(String(f.status || '').toLowerCase())
       );
     },
     enabled: !!user?.email && allFriendRecords.length > 0
@@ -329,24 +329,6 @@ export function useFriendsFeatureContent({
     queryFn: () => Query.Achievement.list()
   });
 
-  const sendFriendRequestMutation = useMutation({
-    mutationFn: async () => {
-      if (!user || !user.email) {
-        throw new Error("User nicht geladen!");
-      }
-
-      const targetEmail = friendEmail.trim();
-      if (!targetEmail) {
-        throw new Error("Bitte gib eine E-Mail-Adresse ein.");
-      }
-
-      const myEmail = user.email.toLowerCase();
-      const friendEmailLower = targetEmail.toLowerCase();
-
-      // Selbst-Check
-      if (friendEmailLower === myEmail) {
-        throw new Error("Du kannst dir nicht selbst eine Anfrage senden!");
-      }
 
       // Prüfe ob bereits eine Freundschaft existiert (in BEIDE Richtungen!)
       const existingFriendship = allFriendRecords.find((f) =>
@@ -400,18 +382,25 @@ export function useFriendsFeatureContent({
 
   const acceptFriendRequestMutation = useMutation({
     mutationFn: async (request) => {
-      const affected = await respondToFriendRequest(request.request_sent_by, "accept");
+      const isPartnerRequest = String(request?.status || "").toLowerCase() === 'partner_pending';
+      const affected = isPartnerRequest
+        ? await respondToPartnerRequest(request.request_sent_by, "accept")
+        : await respondToFriendRequest(request.request_sent_by, "accept");
       if (affected <= 0) {
         throw new Error("Diese Anfrage ist nicht mehr offen.");
       }
     },
     onSuccess: async (data, variables) => {
       await queryClient.invalidateQueries({ queryKey: ['allFriendRecords'] });
+      await queryClient.invalidateQueries({ queryKey: ['friends'] });
+      await queryClient.invalidateQueries({ queryKey: ['pendingFriendRequests'] });
+      await queryClient.invalidateQueries({ queryKey: ['partnerPendingRelations'] });
       await queryClient.refetchQueries({ queryKey: ['allFriendRecords'] });
 
       // Zeige Success-Message
       const requesterEmail = variables.request_sent_by;
-      alert(`✅ Freundschaft mit ${requesterEmail} bestätigt!`);
+      const isPartnerRequest = String(variables?.status || "").toLowerCase() === 'partner_pending';
+      alert(isPartnerRequest ? `✅ Partnerschaft mit ${requesterEmail} bestätigt!` : `✅ Freundschaft mit ${requesterEmail} bestätigt!`);
 
       try {
         const requesterProfile = allPublicProfiles.find(
@@ -423,8 +412,10 @@ export function useFriendsFeatureContent({
           authId: requesterProfile?.auth_id,
           userEmail: requesterProfile?.user_email || requesterEmail,
           notificationType: "friendship_accepted",
-          title: "🌍 Netzwerk erweitert!",
-          message: `${accepterName} ist jetzt Teil deines Forscherteams. Gemeinsam decken wir mehr ab!`,
+          title: isPartnerRequest ? "💞 Partnerschaft bestätigt!" : "🌍 Netzwerk erweitert!",
+          message: isPartnerRequest
+            ? `${accepterName} möchte dein Partner sein. Die Decay-Reduktion ist jetzt aktiv!`
+            : `${accepterName} ist jetzt Teil deines Forscherteams. Gemeinsam decken wir mehr ab!`,
           actionUrl: `FriendProfile?email=${encodeURIComponent(user.email)}`,
           displayLocation: "banner",
           createdBy: user.email
@@ -447,14 +438,21 @@ export function useFriendsFeatureContent({
 
   const rejectFriendRequestMutation = useMutation({
     mutationFn: async (request) => {
-      const affected = await respondToFriendRequest(request.request_sent_by, "reject");
+      const isPartnerRequest = String(request?.status || "").toLowerCase() === 'partner_pending';
+      const affected = isPartnerRequest
+        ? await respondToPartnerRequest(request.request_sent_by, "reject")
+        : await respondToFriendRequest(request.request_sent_by, "reject");
       if (affected <= 0) {
         throw new Error("Diese Anfrage ist nicht mehr offen.");
       }
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['allFriendRecords'] });
-      alert(`❌ Freundschaftsanfrage abgelehnt`);
+      queryClient.invalidateQueries({ queryKey: ['friends'] });
+      queryClient.invalidateQueries({ queryKey: ['pendingFriendRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['partnerPendingRelations'] });
+      const isPartnerRequest = String(variables?.status || "").toLowerCase() === 'partner_pending';
+      alert(isPartnerRequest ? `❌ Partner-Anfrage abgelehnt` : `❌ Freundschaftsanfrage abgelehnt`);
     },
     onError: (error) => {
       alert(`Fehler beim Ablehnen der Anfrage: ${error.message}`);
@@ -467,6 +465,9 @@ export function useFriendsFeatureContent({
     },
     onSuccess: (removedCount) => {
       queryClient.invalidateQueries({ queryKey: ['allFriendRecords'] });
+      queryClient.invalidateQueries({ queryKey: ['friends'] });
+      queryClient.invalidateQueries({ queryKey: ['pendingFriendRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['partnerPendingRelations'] });
       if (removedCount > 0) {
         alert(`🗑️ Freund entfernt`);
       } else {

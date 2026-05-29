@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { motion, AnimatePresence, useAnimationControls } from "framer-motion";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import { useUiTheme } from "@/lib/UiThemeContext";
-import InventorySlotPickerPopover from "@/components/robotPlant/InventorySlotPickerPopover";
+import PartnerSelectionPopover from "@/components/home/PartnerSelectionPopover";
 
 const HEALTH_TOOLTIP_TEXT = {
   energy:
@@ -32,11 +32,16 @@ export default function PlantHeroHealthPanel({
   activeFertilizerRemainingDays = 0,
   activeDecayEffects: _activeDecayEffects = [],
   activeDecayPercent = 0,
+  currentPartnerLabel = null,
+  partnerCandidates = [],
+  isPartnerFeatureUnlocked = false,
+  isPartnerPending = false,
   careActionMessage = null,
   careGainFeedback = null,
   onWaterPlant = () => {},
   onUseFertilizerItem = () => {},
   onOpenFertilizerShop = () => {},
+  onRequestPartner = () => {},
   showCareActions = true,
 }) {
   const { isLightUi } = useUiTheme();
@@ -207,20 +212,20 @@ export default function PlantHeroHealthPanel({
               </span>
             </motion.button>
 
-            <InventorySlotPickerPopover
-              items={fertilizerInventoryItems}
-              activeItemId={activeFertilizerItemId}
-              disabled={isLoading || isFertilizerPending}
-              isPending={isFertilizerPending}
-              isLoading={isFertilizerInventoryLoading}
+            <PartnerSelectionPopover
+              candidates={partnerCandidates}
+              currentPartnerLabel={currentPartnerLabel}
+              isUnlocked={isPartnerFeatureUnlocked}
+              isPending={isPartnerPending}
+              isLoading={isLoading}
               isLightUi={isLightUi}
-              emptyText="Keine Dünger vorhanden."
-              emptyActionLabel="Zum Shop ->"
-              onUseItem={onUseFertilizerItem}
-              onOpenShop={onOpenFertilizerShop}
+              emptyText={isPartnerFeatureUnlocked ? "Noch keine Partner verfügbar." : "Partner-Funktion gesperrt."}
+              emptyActionLabel={isPartnerFeatureUnlocked ? "Werde zuerst mit jemandem befreundet." : ""}
+              onRequestPartner={onRequestPartner}
             >
               <button
                 type="button"
+                disabled={!isPartnerFeatureUnlocked || isPartnerPending}
                 className={`h-14 rounded-xl border flex flex-col items-center justify-center disabled:opacity-60 ${
                   isLightUi
                     ? "border-[#c8ac62]/55 bg-white/60 text-stone-800"
@@ -231,10 +236,10 @@ export default function PlantHeroHealthPanel({
                   Partner
                 </span>
                 <span className="text-[10px] md:text-[11px] mt-1 leading-none opacity-90">
-                  -
+                  {currentPartnerLabel || (isPartnerFeatureUnlocked ? "Wählen" : "Gesperrt")}
                 </span>
               </button>
-            </InventorySlotPickerPopover>
+            </PartnerSelectionPopover>
           </div>
         )}
 

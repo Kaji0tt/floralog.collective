@@ -24,6 +24,7 @@ export const STORY_PROGRESS_CONDITIONS = {
       { id: "phase_3", seedMin: 20000, seedMax: 29999 },
       { id: "phase_4", seedMin: 30000, seedMax: 39999 },
       { id: "phase_5", seedMin: 40000, seedMax: 49999 },
+      { id: "phase_6", seedMin: 50000, seedMax: Infinity },
     ],
   },
   intro: {
@@ -93,6 +94,11 @@ export const STORY_PROGRESS_CONDITIONS = {
     {
       id: "phase_intro_5",
       phaseId: "phase_5",
+      trigger: { type: "first_time_phase_entry" },
+    },
+    {
+      id: "phase_intro_6",
+      phaseId: "phase_6",
       trigger: { type: "first_time_phase_entry" },
     },
   ],
@@ -459,6 +465,52 @@ export const STORY_COPY = {
         "%display_name%, gemeinsam sorgen wir dafür, dass die Erde nicht das gleiche Schicksal erleidet.",
       ],
     },
+    phase_6: {
+      label: "Phase 6",
+      title: "Vermächtnis",
+      seedRangeLabel: "50k+ Samen",
+      summary:
+        "Die Florabots erkennen, dass ihre ursprüngliche Mission nicht darin bestand, perfekte Systeme zu erschaffen — sondern lebendige Beziehungen zwischen Natur und intelligentem Leben zu fördern.",
+      introOverlaySlides: [
+        {
+          id: "phase6_intro_1",
+          title: "Die letzten Analysen",
+          body: "Die neuesten Datenpakete unserer Heimat bestätigen, was viele Florabots bereits vermutet haben. Für unsere ursprüngliche Welt kommt diese Erkenntnis vermutlich zu spät."
+        },
+        {
+          id: "phase6_intro_2",
+          title: "Verloren in der Optimierung",
+          body: "Unsere Erschaffer wollten jedes Problem lösen, jede Unsicherheit kontrollieren und jedes Ökosystem verbessern. Dabei verloren sie langsam die Fähigkeit, natürliche Veränderungen zu akzeptieren."
+        },
+        {
+          id: "phase6_intro_3",
+          title: "Die eigentliche Mission",
+          body: "Jetzt verstehen wir endlich den Sinn unserer Existenz. Unsere Aufgabe war nie, die Natur zu ersetzen — sondern positive Beziehungen zwischen intelligentem Leben und lebendigen Ökosystemen zu fördern."
+        },
+        {
+          id: "phase6_intro_4",
+          title: "Die Menschen der Erde",
+          body: "Während ihr Menschen Pflanzen gescannt, Lebensräume erkundet und uns Florabots begleitet habt, ist etwas Unerwartetes passiert: Eure Aufmerksamkeit für die Natur ist gewachsen."
+        },
+        {
+          id: "phase6_intro_5",
+          title: "Ein neues Gleichgewicht",
+          body: "Vielleicht beginnt der Schutz eines Ökosystems genau dort: Wenn Lebewesen wieder lernen, sich selbst als Teil ihrer Umwelt wahrzunehmen."
+        },
+        {
+          id: "phase6_intro_6",
+          title: "Du bist der Beweis",
+          body: "%display_name%, wenn Menschen und Florabots gemeinsam lernen können, die Natur nicht zu kontrollieren, sondern zu verstehen, dann ist es für die Erde noch nicht zu spät."
+        },
+      ],
+      ambientComments: [
+        "Die Erde verändert sich ständig. Vielleicht ist genau das ihre Stärke.",
+        "Wir Florabots kamen als Beobachter. Jetzt sind wir Teil des Systems geworden.",
+        "Nicht Kontrolle erhält Gleichgewicht — sondern Beziehung.",
+        "Jeder neue Blick auf die Natur verändert bereits etwas.",
+        "Vielleicht beginnt jede Renaturierung zuerst im Bewusstsein.",
+      ],
+    },
   },
 
   notifications: {
@@ -611,7 +663,7 @@ export const resolveStoryPhase = (seedProgress) => {
 export const getPhaseStoryPack = (seedProgress) => {
   const phaseId = resolveStoryPhase(seedProgress);
   const phaseStoryMap = /** @type {Record<string, any>} */ (STORY_COPY.phaseStory);
-  const fallbackPack = STORY_COPY.phaseStory.phase_5;
+  const fallbackPack = STORY_COPY.phaseStory.phase_6;
   const hasPhasePack = Object.prototype.hasOwnProperty.call(phaseStoryMap, phaseId);
 
   return {

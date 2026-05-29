@@ -823,6 +823,23 @@ Deno.serve(async (req) => {
       const baseDailyDecay = Math.max(1, Math.floor(overallHealthPreDecay / 10));
       const nowIso = new Date().toISOString();
       let activeDecayReduction = 0;
+      let partnerDecayReduction = 0;
+
+      if (resolvedEmail) {
+        const { data: partnerRelation, error: partnerRelationError } = await adminClient
+          .from("Friend")
+          .select("id, status, request_sent_by, request_sent_to")
+          .eq("status", "partner")
+          .or(`request_sent_by.eq.${resolvedEmail},request_sent_to.eq.${resolvedEmail}`)
+          .limit(1)
+          .maybeSingle();
+
+        if (partnerRelationError) {
+          console.warn("[robotPlantDailyZones] Failed to load partner relation (non-fatal):", partnerRelationError);
+        } else if (String(partnerRelation?.status || "").toLowerCase() === "partner") {
+          partnerDecayReduction = 0.5;
+        }
+      }
 
       const { data: activeDecayEffects, error: activeDecayEffectsError } = await adminClient
         .from("RobotPlantActiveEffect")
@@ -838,7 +855,7 @@ Deno.serve(async (req) => {
           (acc, effect) => acc + Number(effect?.effect_value || 0),
           0,
         );
-        activeDecayReduction = clamp(summedReduction, 0, 0.9);
+        activeDecayReduction = clamp(summedReduction + partnerDecayReduction, 0, 0.9);
       }
 
       const effectiveDecay = Math.max(1, Math.round(baseDailyDecay * dayFactor * (1 - activeDecayReduction)));
@@ -864,7 +881,7 @@ Deno.serve(async (req) => {
       } else {
         console.log(
           `[robotPlantDailyZones] Decay tick: E:${currentEnergy}→${newEnergy} DQ:${currentDq}→${newDq} C:${currentCare}→${newCare}` +
-          ` (overallPre:${overallHealthPreDecay}, baseDailyDecay:${baseDailyDecay}, factor:${dayFactor.toFixed(2)}, fertilizerReduction:${activeDecayReduction}, preDecayBonusRerolls:+${preDecayBonusRerolls})`,
+          ` (overallPre:${overallHealthPreDecay}, baseDailyDecay:${baseDailyDecay}, factor:${dayFactor.toFixed(2)}, fertilizerReduction:${activeDecayReduction}, partnerReduction:${partnerDecayReduction}, preDecayBonusRerolls:+${preDecayBonusRerolls})`,
         );
         currentEnergy = newEnergy;
         currentDq = newDq;

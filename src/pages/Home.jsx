@@ -5,7 +5,7 @@ import { upsertUserProfile } from "@/api/authService";
 import { executeMigration } from "@/api/migrationService";
 import { createUserNotification } from "@/api/notificationService";
 import { supabase } from "@/api/supabaseClient";
-import { sendFriendRequest } from "@/api/friendService";
+import { connectViaReferral } from "@/api/friendService";
 import {
   getRobotPlantDailyZones,
   listRobotPlantShopItems,
@@ -74,6 +74,7 @@ import FlorabotMilestoneOverlay from "@/components/florabot/FlorabotMilestoneOve
 import FlorabotContextBubble from "@/components/florabot/FlorabotContextBubble";
 import { STORY_PROGRESS_CONDITIONS, pickRandomPhaseAmbientComment } from "@/lib/story/storyDefinition";
 import { getSeenMilestoneIds, getNextUnseenMilestone, markMilestoneSeen, FLORABOT_MILESTONES } from "@/lib/florabotMilestones";
+import { sendPartnerRequest } from "@/api/friendService";
 
 const THEME_MAP_COLORS = {
   forest: "#007a3f",
@@ -358,6 +359,15 @@ function HomeContent() {
     refetchOnReconnect: false,
   });
 
+  const { data: allReferrals = [] } = useQuery({
+    queryKey: ['referralsForStoryUnlock', user?.email],
+    queryFn: () => Query.Referral.list(),
+    enabled: !!user?.email,
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
+
   const { data: friends = [], isLoading: isLoadingFriends } = useQuery({
     queryKey: ['friends', user?.email],
     queryFn: async () => {
@@ -366,7 +376,7 @@ function HomeContent() {
       return allFriends.filter(f => 
         (f.request_sent_by?.toLowerCase() === user.email.toLowerCase() || 
          f.request_sent_to?.toLowerCase() === user.email.toLowerCase()) && 
-        f.status === 'accepted'
+        ['accepted', 'partner'].includes(String(f.status || '').toLowerCase())
       );
     },
     enabled: !!user?.email,
@@ -382,7 +392,26 @@ function HomeContent() {
       const allFriends = await Query.Friend.list();
       return allFriends.filter((friendship) =>
         friendship.request_sent_to?.toLowerCase() === user.email.toLowerCase() &&
-        friendship.status === 'pending'
+        ['pending', 'partner_pending'].includes(String(friendship.status || '').toLowerCase())
+      );
+    },
+    enabled: !!user?.email,
+    initialData: [],
+    staleTime: 15000,
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: partnerPendingRelations = [] } = useQuery({
+    queryKey: ['partnerPendingRelations', user?.email],
+    queryFn: async () => {
+      if (!user?.email) return [];
+      const allFriends = await Query.Friend.list();
+      return allFriends.filter((friendship) =>
+        ['partner_pending'].includes(String(friendship.status || '').toLowerCase()) &&
+        (
+          friendship.request_sent_by?.toLowerCase() === user.email.toLowerCase() ||
+          friendship.request_sent_to?.toLowerCase() === user.email.toLowerCase()
+        )
       );
     },
     enabled: !!user?.email,
@@ -784,23 +813,28 @@ function HomeContent() {
 
     (async () => {
       try {
-        // Referral-Eintrag anlegen
-        await Query.Referral.create({
-          referrer_email: referrerEmail,
-          referred_email: user.email,
-          status: "completed",
-        });
-      } catch (_e) {
-        // Duplikat oder andere Fehler ignorieren
-      }
-      try {
-        // Freundschaftsanfrage an den Werber senden
-        await sendFriendRequest(referrerEmail);
+        // Erstellt/aktualisiert Referral inkl. Account-Referenz und verbindet beide Accounts.
+        await connectViaReferral(referrerEmail);
+        queryClient.invalidateQueries({ queryKey: ['referralsForStoryUnlock', referrerEmail] });
         queryClient.invalidateQueries({ queryKey: ['pendingFriendRequests'] });
       } catch (_e) {
-        // Anfrage existiert ggf. bereits
+        // Duplikat oder bereits bestehende Verknüpfung ignorieren
       }
     })();
+  }, [user?.email, queryClient]);
+
+  useEffect(() => {
+    if (!user?.email) return;
+
+    const unsubscribeReferral = Query.Referral.subscribe((event) => {
+      if (event.type === 'create' || event.type === 'update' || event.type === 'delete') {
+        queryClient.invalidateQueries({ queryKey: ['referralsForStoryUnlock', user.email] });
+      }
+    });
+
+    return () => {
+      unsubscribeReferral?.();
+    };
   }, [user?.email, queryClient]);
 
   useEffect(() => {
@@ -1422,6 +1456,57 @@ function HomeContent() {
     Number(robotPlantState?.wallet_balance ?? robotPlantState?.walletBalance ?? 0)
   );
 
+  const referralPhase6UnlockCount = useMemo(() => {
+    if (!user?.email || !Array.isArray(allReferrals)) return 0;
+    const userEmailLower = String(user.email || "").trim().toLowerCase();
+
+    return allReferrals.filter((referral) => {
+      const referrerEmail = String(referral?.referrer_email || "").trim().toLowerCase();
+      const status = String(referral?.status || "").trim().toLowerCase();
+      const referredAuthId = String(referral?.auth_id || "").trim();
+      return referrerEmail === userEmailLower && status === "completed" && Boolean(referredAuthId);
+    }).length;
+  }, [allReferrals, user?.email]);
+
+  const shouldForcePhase6ByReferral = playerSeeds >= 40000 && referralPhase6UnlockCount > 0;
+  const storySeedProgress = shouldForcePhase6ByReferral ? Math.max(playerSeeds, 50000) : playerSeeds;
+  const isShopUnlocked = playerSeeds >= 5000;
+  const isPartnerFunctionUnlocked = storySeedProgress >= 50000;
+  const currentPartnerRelation = friends.find((friend) => String(friend?.status || '').toLowerCase() === 'partner') || null;
+  const partnerCandidates = friends.filter((friend) => String(friend?.status || '').toLowerCase() === 'accepted');
+  const resolvePublicProfileLabel = (email) => {
+    if (!email) return null;
+    const profile = allUsers.find((entry) => entry?.user_email?.toLowerCase() === String(email).toLowerCase());
+    return profile?.display_name || profile?.full_name || profile?.user_email || email;
+  };
+
+  useEffect(() => {
+    if (!user?.id || !userStory || !shouldForcePhase6ByReferral) return;
+
+    const currentConditionState =
+      userStory?.condition_state && typeof userStory.condition_state === "object"
+        ? userStory.condition_state
+        : {};
+
+    if (currentConditionState?.phase6_unlocked_by_referral === true) return;
+
+    updateUserStory(user.id, {
+      condition_state: {
+        ...currentConditionState,
+        phase6_unlocked_by_referral: true,
+        phase6_referral_unlocked_at: new Date().toISOString(),
+      },
+      seed_progress_at_last_eval: Math.max(playerSeeds, 50000),
+      last_story_eval_at: new Date().toISOString(),
+    })
+      .then((nextStory) => {
+        if (nextStory) setUserStory(nextStory);
+      })
+      .catch((error) => {
+        console.warn("[Home] Could not persist referral phase 6 unlock state:", error?.message || error);
+      });
+  }, [playerSeeds, shouldForcePhase6ByReferral, user?.id, userStory]);
+
   // Florabot-Meilensteine prüfen wenn Wallet geladen
   // Must be declared before any conditional returns to satisfy React hook rules
   useEffect(() => {
@@ -1506,7 +1591,7 @@ function HomeContent() {
       if (Math.random() >= (rules.chanceOnHomeEnter || 0.3)) return;
 
       const exclude = Array.isArray(userStory?.seen_ambient_comment_ids) ? userStory.seen_ambient_comment_ids : [];
-      const { comment } = pickRandomPhaseAmbientComment(playerSeeds, exclude);
+      const { comment } = pickRandomPhaseAmbientComment(storySeedProgress, exclude);
       if (!comment) return;
 
       // Mark that we've pulled an ambient comment so another cannot be pulled concurrently
@@ -1534,7 +1619,7 @@ function HomeContent() {
       // swallow errors to avoid breaking Home
       console.warn('[Home] ambient comment check failed', e?.message || e);
     }
-  }, [user?.id, userStory, playerSeeds, showFlorabotIntro, activeMilestone, florabotContextBubble, showQuizFeedback, showScanFeedback, showScanZoneUnlock]);
+  }, [user?.id, userStory, storySeedProgress, showFlorabotIntro, activeMilestone, florabotContextBubble, showQuizFeedback, showScanFeedback, showScanZoneUnlock]);
 
   // If the Plant Health panel is closed while a 'home' context bubble is active,
   // treat that as dismissing the bubble: persist seen state and release locks.
@@ -2354,9 +2439,15 @@ function HomeContent() {
   };
 
   const openShop = (category = "accessories") => {
+    if (!isShopUnlocked) {
+      window.alert("Der Shop wird ab 5.000 Samen freigeschaltet.");
+      return false;
+    }
+
     setShopOpenCategory(category);
     setActivePanel("shop");
     setShowHealthStatsPanel(false);
+    return true;
   };
 
   const handleWaterPlantClick = () => {
@@ -2395,8 +2486,31 @@ function HomeContent() {
   };
 
   const handleOpenFertilizerShop = () => {
-    openShop("backgrounds");
-    setCareActionMessage("Der Shop zeigt aktuell freigeschaltete Profil-Anpassungen.");
+    const opened = openShop("backgrounds");
+    if (opened) {
+      setCareActionMessage("Der Shop zeigt aktuell freigeschaltete Profil-Anpassungen.");
+    }
+  };
+
+  const handleRequestPartner = async (partnerEmail) => {
+    if (!isPartnerFunctionUnlocked) {
+      window.alert("Die Partner-Funktion wird ab 50.000 Samen oder mit Phase 6 freigeschaltet.");
+      return false;
+    }
+
+    if (!partnerEmail) return false;
+
+    try {
+      await sendPartnerRequest(partnerEmail);
+      queryClient.invalidateQueries({ queryKey: ['friends', user?.email] });
+      queryClient.invalidateQueries({ queryKey: ['pendingFriendRequests', user?.email] });
+      queryClient.invalidateQueries({ queryKey: ['partnerPendingRelations', user?.email] });
+      window.alert(`Partner-Anfrage an ${partnerEmail} gesendet.`);
+      return true;
+    } catch (error) {
+      window.alert(error?.message || "Partner-Anfrage konnte nicht gesendet werden.");
+      return false;
+    }
   };
 
   return (
@@ -3163,6 +3277,7 @@ function HomeContent() {
                       <button
                         type="button"
                         onClick={() => openShop("accessories")}
+                        disabled={!isShopUnlocked}
                         aria-label="Profil anpassen"
                         className={`absolute right-0 md:right-2 top-5 md:top-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${
                           isLightUi
@@ -3173,6 +3288,7 @@ function HomeContent() {
                           background: isLightUi
                             ? "linear-gradient(135deg, rgba(107,114,128,0.28) 0%, rgba(107,114,128,0.12) 100%)"
                             : "linear-gradient(135deg, rgba(107,114,128,0.48) 0%, rgba(107,114,128,0.30) 100%)",
+                          opacity: isShopUnlocked ? 1 : 0.72,
                         }}
                       >
                         <Palette className={`w-4 h-4 ${isLightUi ? "text-stone-700" : "text-white/90"}`} />
@@ -3209,6 +3325,18 @@ function HomeContent() {
                             onWaterPlant={handleWaterPlantClick}
                             onUseFertilizerItem={handleUseFertilizerItem}
                             onOpenFertilizerShop={handleOpenFertilizerShop}
+                            currentPartnerLabel={currentPartnerRelation ? resolvePublicProfileLabel(currentPartnerRelation.request_sent_by?.toLowerCase() === (user?.email || '').toLowerCase() ? currentPartnerRelation.request_sent_to : currentPartnerRelation.request_sent_by) : null}
+                            partnerCandidates={partnerCandidates.map((friend) => {
+                              const email = friend.request_sent_by?.toLowerCase() === (user?.email || '').toLowerCase() ? friend.request_sent_to : friend.request_sent_by;
+                              return {
+                                email,
+                                name: resolvePublicProfileLabel(email),
+                                title: 'Partner',
+                              };
+                            })}
+                            isPartnerFeatureUnlocked={isPartnerFunctionUnlocked}
+                            isPartnerPending={partnerPendingRelations.length > 0}
+                            onRequestPartner={handleRequestPartner}
                             contextBubbleMessage={florabotContextBubble?.panel === 'home' ? florabotContextBubble?.message : null}
                             contextBubbleProfile={user}
                             onContextBubbleDismiss={() => setShowHealthStatsPanel(false)}

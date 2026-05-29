@@ -13,11 +13,20 @@ type FriendServiceBody =
       recipientEmail?: string | null;
     }
   | {
+      action?: "sendPartnerRequest";
+      recipientEmail?: string | null;
+    }
+  | {
       action?: "removeFriendship";
       friendEmail?: string | null;
     }
   | {
       action?: "respondToRequest";
+      requesterEmail?: string | null;
+      responseAction?: "accept" | "reject" | null;
+    }
+  | {
+      action?: "respondToPartnerRequest";
       requesterEmail?: string | null;
       responseAction?: "accept" | "reject" | null;
     }
@@ -165,6 +174,82 @@ Deno.serve(async (req) => {
       return jsonResponse({ success: true, friend: createdFriend }, 200);
     }
 
+    if (action === "sendPartnerRequest") {
+      const recipientEmail = body?.recipientEmail?.trim();
+      if (!recipientEmail) {
+        return jsonResponse({ error: "recipientEmail is required" }, 400);
+      }
+
+      if (actorEmail.toLowerCase() === recipientEmail.toLowerCase()) {
+        return jsonResponse({ error: "Du kannst dir nicht selbst eine Partner-Anfrage senden!" }, 400);
+      }
+
+      const { data: forward, error: forwardError } = await adminClient
+        .from("Friend")
+        .select("id, status, request_sent_by, request_sent_to")
+        .ilike("request_sent_by", actorEmail)
+        .ilike("request_sent_to", recipientEmail)
+        .limit(1)
+        .maybeSingle();
+
+      if (forwardError) {
+        return jsonResponse({ error: forwardError.message }, 500);
+      }
+
+      const { data: reverse, error: reverseError } = await adminClient
+        .from("Friend")
+        .select("id, status, request_sent_by, request_sent_to")
+        .ilike("request_sent_by", recipientEmail)
+        .ilike("request_sent_to", actorEmail)
+        .limit(1)
+        .maybeSingle();
+
+      if (reverseError) {
+        return jsonResponse({ error: reverseError.message }, 500);
+      }
+
+      const existing = forward || reverse;
+      if (existing) {
+        const normalizedStatus = String(existing.status || "").trim().toLowerCase();
+        if (normalizedStatus === "partner") {
+          return jsonResponse({ error: "Ihr seid bereits Partner." }, 409);
+        }
+
+        return jsonResponse({ error: "Es gibt bereits eine offene Beziehung zu dieser Person." }, 409);
+      }
+
+      const { data: createdFriend, error: createError } = await adminClient
+        .from("Friend")
+        .insert({
+          id: generateLegacyHexId(),
+          request_sent_by: actorEmail,
+          request_sent_to: recipientEmail,
+          status: "partner_pending",
+          created_by: actorEmail,
+          auth_id: authData.user.id,
+        })
+        .select("*")
+        .single();
+
+      if (createError) {
+        if (createError.code === "23505") {
+          return jsonResponse({ error: "Partner-Anfrage existiert bereits." }, 409);
+        }
+
+        return jsonResponse(
+          {
+            error: createError.message,
+            code: createError.code,
+            details: createError.details,
+            hint: createError.hint,
+          },
+          500,
+        );
+      }
+
+      return jsonResponse({ success: true, friend: createdFriend }, 200);
+    }
+
     if (action === "connectViaReferral") {
       const referrerEmail = body?.referrerEmail?.trim();
       if (!referrerEmail) {
@@ -281,7 +366,8 @@ Deno.serve(async (req) => {
       const existingFriend = forwardRes.data || reverseRes.data;
 
       if (existingFriend) {
-        if (existingFriend.status !== "accepted") {
+        const normalizedStatus = String(existingFriend.status || "").trim().toLowerCase();
+        if (normalizedStatus !== "accepted" && normalizedStatus !== "partner" && normalizedStatus !== "partner_pending") {
           const { error: acceptError } = await adminClient
             .from("Friend")
             .update({ status: "accepted", added_date: now })
@@ -431,6 +517,87 @@ Deno.serve(async (req) => {
           .from("Friend")
           .update({
             status: "accepted",
+            added_date: new Date().toISOString(),
+          })
+          .in("id", pendingIds)
+          .select("id, status, request_sent_by, request_sent_to, added_date");
+
+        if (updateError) {
+          return jsonResponse(
+            {
+              error: updateError.message,
+              code: updateError.code,
+              details: updateError.details,
+              hint: updateError.hint,
+            },
+            500,
+          );
+        }
+
+        return jsonResponse({ success: true, affected: updatedRows?.length || 0, rows: updatedRows || [] }, 200);
+      }
+
+      const { error: deleteError } = await adminClient
+        .from("Friend")
+        .delete()
+        .in("id", pendingIds);
+
+      if (deleteError) {
+        return jsonResponse(
+          {
+            error: deleteError.message,
+            code: deleteError.code,
+            details: deleteError.details,
+            hint: deleteError.hint,
+          },
+          500,
+        );
+      }
+
+      return jsonResponse({ success: true, affected: pendingIds.length }, 200);
+    }
+
+    if (action === "respondToPartnerRequest") {
+      const requesterEmail = body?.requesterEmail?.trim();
+      const responseAction = body?.responseAction;
+
+      if (!requesterEmail) {
+        return jsonResponse({ error: "requesterEmail is required" }, 400);
+      }
+
+      if (responseAction !== "accept" && responseAction !== "reject") {
+        return jsonResponse({ error: "responseAction must be 'accept' or 'reject'" }, 400);
+      }
+
+      const { data: requests, error: requestError } = await adminClient
+        .from("Friend")
+        .select("id")
+        .ilike("request_sent_by", requesterEmail)
+        .ilike("request_sent_to", actorEmail)
+        .eq("status", "partner_pending");
+
+      if (requestError) {
+        return jsonResponse(
+          {
+            error: requestError.message,
+            code: requestError.code,
+            details: requestError.details,
+            hint: requestError.hint,
+          },
+          500,
+        );
+      }
+
+      const pendingIds = (requests || []).map((row) => row.id).filter(Boolean);
+      if (pendingIds.length === 0) {
+        return jsonResponse({ success: true, affected: 0 }, 200);
+      }
+
+      if (responseAction === "accept") {
+        const { data: updatedRows, error: updateError } = await adminClient
+          .from("Friend")
+          .update({
+            status: "partner",
             added_date: new Date().toISOString(),
           })
           .in("id", pendingIds)
