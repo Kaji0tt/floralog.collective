@@ -3279,7 +3279,7 @@ function HomeContent() {
                         onClick={() => openShop("accessories")}
                         disabled={!isShopUnlocked}
                         aria-label="Profil anpassen"
-                        className={`absolute right-0 md:right-2 top-5 md:top-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${
+                        className={`absolute right-0 md:right-2 top-5 md:top-6 z-20 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${
                           isLightUi
                             ? "border-[#c8ac62]/60"
                             : "border-[#f0e5a5]/40"
