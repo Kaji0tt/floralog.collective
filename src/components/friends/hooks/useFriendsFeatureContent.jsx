@@ -329,23 +329,36 @@ export function useFriendsFeatureContent({
     queryFn: () => Query.Achievement.list()
   });
 
+  const sendFriendRequestMutation = useMutation({
+    mutationFn: async () => {
+      if (!user?.email) {
+        throw new Error("Bitte warte bis dein Profil geladen ist.");
+      }
+
+      const targetEmail = friendEmail?.trim();
+      if (!targetEmail) {
+        throw new Error("Bitte gib eine E-Mail-Adresse ein.");
+      }
+
+      const myEmail = user.email.toLowerCase();
+      const friendEmailLower = targetEmail.toLowerCase();
 
       // Prüfe ob bereits eine Freundschaft existiert (in BEIDE Richtungen!)
       const existingFriendship = allFriendRecords.find((f) =>
-      f.request_sent_by?.toLowerCase() === myEmail && f.request_sent_to?.toLowerCase() === friendEmailLower ||
-      f.request_sent_by?.toLowerCase() === friendEmailLower && f.request_sent_to?.toLowerCase() === myEmail
+        (f.request_sent_by?.toLowerCase() === myEmail && f.request_sent_to?.toLowerCase() === friendEmailLower) ||
+        (f.request_sent_by?.toLowerCase() === friendEmailLower && f.request_sent_to?.toLowerCase() === myEmail)
       );
 
       if (existingFriendship) {
         if (existingFriendship.status === "accepted") {
           throw new Error("Ihr seid bereits befreundet!");
-        } else {
-          if (existingFriendship.request_sent_by?.toLowerCase() === myEmail) {
-            throw new Error("Du hast dieser Person bereits eine Anfrage gesendet!");
-          } else {
-            throw new Error("Diese Person hat dir bereits eine Anfrage gesendet! Akzeptiere sie im Tab 'Anfragen'.");
-          }
         }
+
+        if (existingFriendship.request_sent_by?.toLowerCase() === myEmail) {
+          throw new Error("Du hast dieser Person bereits eine Anfrage gesendet!");
+        }
+
+        throw new Error("Diese Person hat dir bereits eine Anfrage gesendet! Akzeptiere sie im Tab 'Anfragen'.");
       }
 
       // Serverseitiger Insert (bypasst clientseitige RLS-Probleme)

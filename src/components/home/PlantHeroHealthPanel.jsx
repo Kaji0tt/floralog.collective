@@ -3,6 +3,7 @@ import { motion, AnimatePresence, useAnimationControls } from "framer-motion";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import PartnerSelectionPopover from "@/components/home/PartnerSelectionPopover";
+import FlorabotLogo from "@/components/florabot/FlorabotLogo";
 
 const HEALTH_TOOLTIP_TEXT = {
   energy:
