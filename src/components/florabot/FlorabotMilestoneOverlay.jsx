@@ -10,10 +10,11 @@ import FlorabotLogo from "./FlorabotLogo";
  * @param {{
  *   milestone: import("@/lib/florabotMilestones").FlorabotMilestone,
  *   profile?: object,
+ *   logoAssets?: Array<any>,
  *   onDismiss: (milestoneId: string) => void
  * }} props
  */
-export default function FlorabotMilestoneOverlay({ milestone, profile, onDismiss }) {
+export default function FlorabotMilestoneOverlay({ milestone, profile, logoAssets = [], onDismiss }) {
   const { isLightUi } = useUiTheme();
   const [slideIndex, setSlideIndex] = useState(0);
 
@@ -66,6 +67,7 @@ export default function FlorabotMilestoneOverlay({ milestone, profile, onDismiss
       >
         <FlorabotLogo
           profile={profile}
+          logoAssets={logoAssets}
           sizeClass="w-28 h-28"
           padding="p-[8%]"
           className="drop-shadow-[0_0_28px_rgba(190,242,100,0.5)]"

@@ -11,10 +11,11 @@ import FlorabotLogo from "./FlorabotLogo";
  * @param {{
  *   message: string,
  *   profile?: object,
+ *   logoAssets?: Array<any>,
  *   onDismiss: () => void
  * }} props
  */
-export default function FlorabotContextBubble({ message, profile, onDismiss }) {
+export default function FlorabotContextBubble({ message, profile, logoAssets = [], onDismiss }) {
   const { isLightUi } = useUiTheme();
 
   if (!message) return null;
@@ -40,6 +41,7 @@ export default function FlorabotContextBubble({ message, profile, onDismiss }) {
       >
         <FlorabotLogo
           profile={profile}
+          logoAssets={logoAssets}
           sizeClass="w-10 h-10 shrink-0 mt-0.5"
           padding="p-[6%]"
         />

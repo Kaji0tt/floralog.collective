@@ -1,22 +1,27 @@
-import { resolveEquippedLogoAssets } from "@/lib/logoAccessoryAssets";
+import { resolveEquippedLogoAssets, resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 import { hexToFilter } from "@/lib/hexToFilter";
 
 /**
  * Renders the 3-layer Florabot logo (border / plant / face).
  *
- * @param {{ profile?: object, sizeClass?: string, className?: string, padding?: string }} props
+ * @param {{ profile?: object, logoAssets?: Array<any>, sizeClass?: string, className?: string, padding?: string }} props
  *   profile     – PublicProfile object (or null for default/guest assets)
+ *   logoAssets  – Optional LogoAsset catalog rows for canonical asset URL resolution
  *   sizeClass   – Tailwind w-/h- classes, e.g. "w-24 h-24" (default "w-24 h-24")
  *   className   – Additional wrapper classes
  *   padding     – Inner padding fraction for the assets, e.g. "p-[10%]" (default "p-[8%]")
  */
 export default function FlorabotLogo({
   profile = null,
+  logoAssets = [],
   sizeClass = "w-24 h-24",
   className = "",
   padding = "p-[8%]",
 }) {
-  const assets = resolveEquippedLogoAssets(profile || {});
+  const safeProfile = profile || {};
+  const assets = Array.isArray(logoAssets) && logoAssets.length > 0
+    ? resolveEquippedLogoAssetsWithCatalog(safeProfile, logoAssets)
+    : resolveEquippedLogoAssets(safeProfile);
 
   const hasAnyLayer =
     assets.border?.imageUrl || assets.plant?.imageUrl || assets.face?.imageUrl;

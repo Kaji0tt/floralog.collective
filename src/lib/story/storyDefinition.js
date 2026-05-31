@@ -162,7 +162,7 @@ export const STORY_COPY = {
 
   milestones: {
     m500: {
-      contextBubble: "Die Kollektion zeigt, was alle Florabots auf der Erde bisher entdeckt haben. Oben im Header gelangst du zur Listenfunktion!",
+      contextBubble: "Das ist das globale Floralog. Es zeigt alle Entdeckungen aller Florabots der Erde. Du kannst deinen eigenen Fortschritt sehen und über das Listensymbol neue Kollektionen erstellen oder ihnen folgen!",
       messages: [
         {
           title: "Die ersten Scans",
@@ -175,6 +175,7 @@ export const STORY_COPY = {
       ],
     },
     m1000: {
+      contextBubble: "In diesem Bereich kannst du sehen, wie viel Fortschritt du und andere Florabots gemacht haben und welche Aufgaben für dich bereitstehen.",
       messages: [
         {
           title: "Der Rhythmus der Pflanzen",
@@ -191,11 +192,11 @@ export const STORY_COPY = {
       ],
     },
     m2000: {
-      contextBubble: "Die Florabots des Floralogs",
+      contextBubble: "Hier kannst du sehen, was andere Florabots entdeckt haben - es ist so spannend, die Welt durch die Augen anderer zu sehen! Außerdem kannst du Freunde hinzufügen und zum Floralog einladen.",
       messages: [
         {
           title: "Wir sind viele Forscher",
-          body: "Unglaublich, wie viele Florabots inzwischen unterwegs sind! Im Social Bereich (rechts in der Navigation) siehst du, was andere so entdeckt haben und kannst Freunde hinzufügen — vielleicht findest du spannende Parallelen.",
+          body: "Unglaublich, wie viele Florabots inzwischen unterwegs sind! Im Social Bereich (rechts in der Navigation) siehst du, was andere so entdeckt haben Du kannst dort auch Freunde hinzufügen.",
         },
         {
           title: "Teile die Mission",
@@ -207,15 +208,15 @@ export const STORY_COPY = {
       messages: [
         {
           title: "Die Karte füllt sich!",
-          body: "Auf dem Kartensymbol siehst du, welche Daten im 2,5km Umkreis gesammelt wurden. Zoom rein, um Funde anderer Florabots zu entdecken.",
+          body: "Auf dem Kartensymbol siehst du, welche Daten von anderen Florabots im 2,5km Umkreis gesammelt wurden.",
         },
         {
           title: "Zonen liefern Kontext",
-          body: "Wälder-, Stadt-, Gewässer- und Wiesenzonen liefern unterschiedliche Informationen. Die Daten dort sind besonders wertvoll, weil sie zeigen, wie Pflanzen sich in unterschiedlichen Umgebungen verhalten.",
+          body: "Dort siehst du auch Wälder-, Stadt-, Gewässer- und Wiesenzonen. Die Daten aus diesen Zonen sind besonders wertvoll, weil sie zeigen, wie Pflanzen sich in unterschiedlichen Umgebungen verhalten.",
         },
         {
           title: "Verschiedene Ökosysteme, verschiedene Daten.",
-          body: "Jede Nacht generiere ich neue Zonen anhand der Daten, die mir in eurem Internet zur Verfügung stehen. Der erste Scan in einer neuen Zone startet mit einem 50% Bonus!",
+          body: "Jede Nacht generiere ich neue Zonen. Der erste Scan in einer neuen Zone startet mit einem 50% Bonus!",
         },
       ],
     },
@@ -232,7 +233,7 @@ export const STORY_COPY = {
         },
         {
           title: "Je höher, desto besser!",
-          body: " Aktivierst du mich im Ruhemodus, erhalte ich dreifache Boni auf die Werte — aber je höher die Werte sind, desto schneller klingen Sie über Nacht ab.",
+          body: "Aktivierst du mich im Ruhemodus, erhalte ich dreifache Boni auf die Werte — aber je höher die Werte sind, desto schneller klingen Sie über Nacht ab.",
         },
       ],
     },
@@ -462,7 +463,7 @@ export const STORY_COPY = {
         "Unsere Gemeinschaft wächst. Das verändert alles.",
         "Ich trauere um Zuhause, aber ich sehe eine Zukunft hier.",
         "Deine Arbeit ist Teil eines globalen Musters geworden!",
-        "%display_name%, gemeinsam sorgen wir dafür, dass die Erde nicht das gleiche Schicksal erleidet.",
+        "%display_name%, gemeinsam sorgen wir dafür, dass der Erde nicht das gleiche Schicksal erleidet.",
       ],
     },
     phase_6: {

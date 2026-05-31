@@ -73,7 +73,12 @@ import FlorabotIntroOverlay from "@/components/florabot/FlorabotIntroOverlay";
 import FlorabotMilestoneOverlay from "@/components/florabot/FlorabotMilestoneOverlay";
 import FlorabotContextBubble from "@/components/florabot/FlorabotContextBubble";
 import FlorabotLogo from "@/components/florabot/FlorabotLogo";
-import { STORY_PROGRESS_CONDITIONS, pickRandomPhaseAmbientComment } from "@/lib/story/storyDefinition";
+import {
+  STORY_PROGRESS_CONDITIONS,
+  pickRandomPhaseAmbientComment,
+  interpolatePercentVariables,
+  buildStoryProfileVariables,
+} from "@/lib/story/storyDefinition";
 import { getSeenMilestoneIds, getNextUnseenMilestone, markMilestoneSeen, FLORABOT_MILESTONES } from "@/lib/florabotMilestones";
 import { sendPartnerRequest } from "@/api/friendService";
 
@@ -1597,9 +1602,14 @@ function HomeContent() {
       const { comment } = pickRandomPhaseAmbientComment(storySeedProgress, exclude);
       if (!comment) return;
 
+      const resolvedAmbientComment = interpolatePercentVariables(
+        comment,
+        buildStoryProfileVariables(user || {})
+      );
+
       // Mark that we've pulled an ambient comment so another cannot be pulled concurrently
       ambientCommentLockRef.current = true;
-      setFlorabotContextBubble({ panel: 'home', message: comment });
+      setFlorabotContextBubble({ panel: 'home', message: resolvedAmbientComment || comment });
 
       // Persist ambient comment meta in UserStory
       if (user?.id) {
@@ -2610,6 +2620,7 @@ function HomeContent() {
         {showFlorabotIntro && (
           <FlorabotIntroOverlay
             profile={user}
+            logoAssets={logoAssets}
             onDismiss={() => {
               try { localStorage.setItem(`florabot_intro_seen_v1:${user?.id}`, "1"); } catch {}
 
@@ -2637,6 +2648,7 @@ function HomeContent() {
           <FlorabotMilestoneOverlay
             milestone={activeMilestone}
             profile={user}
+            logoAssets={logoAssets}
             onDismiss={(milestoneId) => {
               markMilestoneSeen(user?.id, milestoneId);
 
@@ -2670,6 +2682,7 @@ function HomeContent() {
           <FlorabotContextBubble
             message={florabotContextBubble.message}
             profile={user}
+            logoAssets={logoAssets}
             onDismiss={dismissFlorabotContextBubble}
           />
         )}
@@ -3083,7 +3096,7 @@ function HomeContent() {
                   </div>
 
 
-                  <div ref={healthStatsPanelRef} className="flex-1 min-h-0 flex items-start justify-center pt-[clamp(0.2rem,1vh,0.5rem)]">
+                  <div ref={healthStatsPanelRef} className="relative flex-1 min-h-0 flex items-start justify-center pt-[clamp(0.2rem,1vh,0.5rem)]">
                     <div
                       className="relative mx-auto"
                       style={{
@@ -3378,40 +3391,47 @@ function HomeContent() {
                     )}
 
                     </div>
+
+                    <AnimatePresence>
+                      {homeContextBubbleMessage && (
+                        <motion.div
+                          key="home-ambient-bubble"
+                          initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 8, scale: 0.97 }}
+                          transition={{ duration: 0.2, ease: "easeOut" }}
+                          className="absolute bottom-0 left-0 right-0 z-[35] flex justify-center pointer-events-none px-2 pb-1"
+                        >
+                          <div
+                            className={`pointer-events-auto flex items-start gap-3 w-full max-w-[26rem] rounded-2xl px-4 py-3 border shadow-xl ${
+                              isLightUi ? "bg-black/72 border-white/25" : "bg-black/78 border-white/22"
+                            }`}
+                            style={{ backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" }}
+                          >
+                            <FlorabotLogo profile={user} logoAssets={logoAssets} sizeClass="w-12 h-12 shrink-0 mt-0.5" padding="p-[6%]" />
+                            <p className="flex-1 text-sm leading-relaxed text-white/95">
+                              {homeContextBubbleMessage}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={dismissFlorabotContextBubble}
+                              aria-label="Schließen"
+                              className={`shrink-0 mt-0.5 p-1 rounded-full transition-colors ${
+                                isLightUi
+                                  ? "text-white/65 hover:text-white hover:bg-white/12"
+                                  : "text-white/60 hover:text-white hover:bg-white/14"
+                              }`}
+                            >
+                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"></path><path d="M6 6l12 12"></path></svg>
+                            </button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
 
-                  {homeContextBubbleMessage && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 6, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                      transition={{ duration: 0.2, ease: "easeOut" }}
-                      className={`mt-[clamp(0.375rem,1vh,0.75rem)] mb-[clamp(0.625rem,1.6vh,1.25rem)] mx-auto w-full max-w-[26rem] flex items-start gap-3 rounded-2xl px-4 py-3 border shadow-xl pointer-events-auto ${
-                        isLightUi ? "bg-white/92 border-stone-200/70" : "bg-[#2b3a2f]/88 border-white/20"
-                      }`}
-                      style={{ backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" }}
-                    >
-                      <FlorabotLogo profile={user} sizeClass="w-12 h-12 shrink-0 mt-0.5" padding="p-[6%]" />
-                      <p className={`flex-1 text-sm leading-relaxed ${isLightUi ? "text-stone-700" : "text-stone-200"}`}>
-                        {homeContextBubbleMessage}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={dismissFlorabotContextBubble}
-                        aria-label="Schließen"
-                        className={`shrink-0 mt-0.5 p-1 rounded-full transition-colors ${
-                          isLightUi
-                            ? "text-stone-400 hover:text-stone-600 hover:bg-stone-100"
-                            : "text-stone-500 hover:text-stone-300 hover:bg-white/8"
-                        }`}
-                      >
-                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"></path><path d="M6 6l12 12"></path></svg>
-                      </button>
-                    </motion.div>
-                  )}
-
                   <div
-                    className={`${homeContextBubbleMessage ? "mt-0" : "mt-[clamp(0.375rem,1vh,0.75rem)]"} w-full grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center text-xs md:text-sm font-semibold rounded-xl border ${
+                    className={`mt-[clamp(0.375rem,1vh,0.75rem)] w-full grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center text-xs md:text-sm font-semibold rounded-xl border ${
                       isLightUi
                         ? "text-stone-700 border-[#c8ac62]/35 bg-white/50"
                         : "text-white/95 border-[#f0e5a5]/20 bg-black/35"

@@ -7,9 +7,9 @@ import { buildStoryProfileVariables, resolveIntroSlidesWithVariables } from "@/l
 /**
  * Full-screen Florabot introduction overlay shown once after the user's first login.
  *
- * @param {{ profile?: object, onDismiss: () => void }} props
+ * @param {{ profile?: object, logoAssets?: Array<any>, onDismiss: () => void }} props
  */
-export default function FlorabotIntroOverlay({ profile, onDismiss }) {
+export default function FlorabotIntroOverlay({ profile, logoAssets = [], onDismiss }) {
   const { isLightUi } = useUiTheme();
   const [slideIndex, setSlideIndex] = useState(0);
 
@@ -55,6 +55,7 @@ export default function FlorabotIntroOverlay({ profile, onDismiss }) {
       >
         <FlorabotLogo
           profile={profile}
+          logoAssets={logoAssets}
           sizeClass="w-32 h-32"
           padding="p-[8%]"
           className="drop-shadow-[0_0_32px_rgba(190,242,100,0.55)]"
