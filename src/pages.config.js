@@ -71,6 +71,7 @@ import Friends from './pages/Friends';
 import GenusDetail from './pages/GenusDetail';
 import Home from './pages/Home';
 import Impressum from './pages/Impressum';
+import KPIAdmin from './pages/KPIAdmin';
 import Map from './pages/Map';
 import MigrateDiscoveries from './pages/MigrateDiscoveries';
 import MigratePlantGenus from './pages/MigratePlantGenus';
@@ -113,6 +114,7 @@ export const PAGES = {
     "GenusDetail": GenusDetail,
     "Home": Home,
     "Impressum": Impressum,
+    "KPIAdmin": KPIAdmin,
     "Map": Map,
     "MigrateDiscoveries": MigrateDiscoveries,
     "MigratePlantGenus": MigratePlantGenus,
