@@ -6,6 +6,7 @@ import {
   getUserProfile, 
   signOut as supabaseSignOut 
 } from '@/api/authService';
+import { trackCurrentUserPresence } from '@/api/onlinePresenceService';
 
 const getTodayKey = () => new Date().toISOString().slice(0, 10);
 const getZoneGenerationStorageKey = (authId) => `robotPlantZoneDay:${authId}`;
@@ -101,6 +102,22 @@ export const AuthProvider = ({ children }) => {
       subscription?.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!user?.id) return undefined;
+
+    return trackCurrentUserPresence({
+      authUser: user,
+      profile,
+    });
+  }, [
+    user?.id,
+    user?.email,
+    profile?.display_name,
+    profile?.full_name,
+    profile?.selected_title,
+    profile?.title,
+  ]);
 
   const logout = async (shouldRedirect = true) => {
     try {

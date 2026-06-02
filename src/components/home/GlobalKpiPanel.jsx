@@ -1,3 +1,6 @@
+import { useEffect, useState } from "react";
+import { getOnlinePresenceDisplayName, subscribeToOnlineUsers } from "@/api/onlinePresenceService";
+
 const formatMetricValue = (metric) => {
   if (metric?.type === "percent") {
     return `${Number(metric.value || 0).toFixed(1)}%`;
@@ -21,6 +24,23 @@ const trendPrefixByDirection = {
 };
 
 export default function GlobalKpiPanel({ summary, isLoading = false, isLightUi = false }) {
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [isLoadingOnlineUsers, setIsLoadingOnlineUsers] = useState(true);
+
+  useEffect(() => {
+    const cleanup = subscribeToOnlineUsers({
+      onUsersChange: (users) => {
+        setOnlineUsers(Array.isArray(users) ? users : []);
+        setIsLoadingOnlineUsers(false);
+      },
+      onError: () => {
+        setIsLoadingOnlineUsers(false);
+      },
+    });
+
+    return cleanup;
+  }, []);
+
   const generatedAt = summary?.generatedAt ? new Date(summary.generatedAt) : null;
   const generatedAtLabel = generatedAt && !Number.isNaN(generatedAt.getTime())
     ? generatedAt.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })
@@ -103,6 +123,45 @@ export default function GlobalKpiPanel({ summary, isLoading = false, isLightUi =
         <p className={isLightUi ? "text-stone-600" : "text-stone-300/90"}>
           24h: {isLoading ? "..." : formatAverage(mapAverages.day)} | 7 Tage: {isLoading ? "..." : formatAverage(mapAverages.week)} | 30 Tage: {isLoading ? "..." : formatAverage(mapAverages.month)}
         </p>
+      </div>
+
+      <div className={`mt-2 rounded-xl border px-2.5 py-2 text-[11px] ${
+        isLightUi ? "border-[#c8ac62]/35 bg-white/60" : "border-[#f0e5a5]/20 bg-black/25"
+      }`}>
+        <div className="flex items-center justify-between gap-3">
+          <p className={`font-semibold ${isLightUi ? "text-stone-700" : "text-stone-100"}`}>
+            Aktuell angemeldete Nutzer
+          </p>
+          <p className={`text-[10px] ${isLightUi ? "text-stone-500" : "text-stone-300/80"}`}>
+            {isLoadingOnlineUsers ? "..." : `${onlineUsers.length} online`}
+          </p>
+        </div>
+
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {isLoadingOnlineUsers ? (
+            <span className={isLightUi ? "text-stone-500" : "text-stone-300/80"}>
+              Online-Status wird geladen...
+            </span>
+          ) : onlineUsers.length > 0 ? (
+            onlineUsers.map((onlineUser) => (
+              <span
+                key={onlineUser.presenceKey}
+                className={`inline-flex items-center rounded-full border px-2 py-1 text-[10px] font-medium ${
+                  isLightUi
+                    ? "border-emerald-300/70 bg-emerald-50 text-emerald-800"
+                    : "border-emerald-400/35 bg-emerald-500/10 text-emerald-200"
+                }`}
+              >
+                {getOnlinePresenceDisplayName(onlineUser)}
+                {onlineUser.connectionCount > 1 ? ` x${onlineUser.connectionCount}` : ""}
+              </span>
+            ))
+          ) : (
+            <span className={isLightUi ? "text-stone-500" : "text-stone-300/80"}>
+              Derzeit sind keine angemeldeten Nutzer sichtbar.
+            </span>
+          )}
+        </div>
       </div>
     </section>
   );

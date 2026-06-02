@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, AlertCircle, BarChart3, RefreshCw } from "lucide-react";
@@ -6,6 +6,7 @@ import { Loader2, AlertCircle, BarChart3, RefreshCw } from "lucide-react";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { buildGlobalKpiSummary } from "@/api/kpiService";
+import { getOnlinePresenceDisplayName, subscribeToOnlineUsers } from "@/api/onlinePresenceService";
 import { createPageUrl } from "@/utils";
 
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,8 @@ export default function KPIAdmin() {
 
   const [user, setUser] = useState(null);
   const [loadError, setLoadError] = useState(null);
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [isLoadingOnlineUsers, setIsLoadingOnlineUsers] = useState(true);
 
   const isAdmin = user && normalizeRole(user?.role) === "admin";
 
@@ -49,6 +52,20 @@ export default function KPIAdmin() {
 
     loadUser();
   }, [navigate]);
+
+  useEffect(() => {
+    const cleanup = subscribeToOnlineUsers({
+      onUsersChange: (users) => {
+        setOnlineUsers(Array.isArray(users) ? users : []);
+        setIsLoadingOnlineUsers(false);
+      },
+      onError: () => {
+        setIsLoadingOnlineUsers(false);
+      },
+    });
+
+    return cleanup;
+  }, []);
 
   const {
     data: discoveries = [],
@@ -225,6 +242,40 @@ export default function KPIAdmin() {
             </CardContent>
           </Card>
         </div>
+
+        <Card className="border-2 border-stone-200 shadow-lg bg-white">
+          <CardHeader>
+            <CardTitle>Aktuell angemeldete Nutzer</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <p className="text-sm text-stone-600">
+                Live ueber Supabase Presence
+              </p>
+              <p className="text-xs text-stone-500">
+                {isLoadingOnlineUsers ? "..." : `${onlineUsers.length} online`}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {isLoadingOnlineUsers ? (
+                <span className="text-sm text-stone-500">Online-Status wird geladen...</span>
+              ) : onlineUsers.length > 0 ? (
+                onlineUsers.map((onlineUser) => (
+                  <span
+                    key={onlineUser.presenceKey}
+                    className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800"
+                  >
+                    {getOnlinePresenceDisplayName(onlineUser)}
+                    {onlineUser.connectionCount > 1 ? ` x${onlineUser.connectionCount}` : ""}
+                  </span>
+                ))
+              ) : (
+                <span className="text-sm text-stone-500">Derzeit sind keine angemeldeten Nutzer sichtbar.</span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         <Card className="border-2 border-stone-200 shadow-lg bg-white">
           <CardHeader>
