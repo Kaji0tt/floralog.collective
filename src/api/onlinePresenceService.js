@@ -102,8 +102,24 @@ export const subscribeToOnlineUsers = ({ onUsersChange, onError } = {}) => {
     onUsersChange?.(mapOnlinePresenceState(channel.presenceState()));
   });
 
+  channel.on("presence", { event: "join" }, () => {
+    onUsersChange?.(mapOnlinePresenceState(channel.presenceState()));
+  });
+
+  channel.on("presence", { event: "leave" }, () => {
+    onUsersChange?.(mapOnlinePresenceState(channel.presenceState()));
+  });
+
   channel.subscribe((status) => {
+    console.info("[onlinePresenceService] subscribe status", { status, channel: ONLINE_USERS_CHANNEL });
+
+    if (status === "SUBSCRIBED") {
+      onUsersChange?.(mapOnlinePresenceState(channel.presenceState()));
+      return;
+    }
+
     if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+      console.warn("[onlinePresenceService] subscribe status problem", { status, channel: ONLINE_USERS_CHANNEL });
       onError?.(status);
     }
   });
