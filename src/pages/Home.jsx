@@ -1344,18 +1344,6 @@ function HomeContent() {
 
   const isLoadingCriticalData = isLoadingDiscoveries || isLoadingQuests || isLoadingAchievements || isLoadingFriends || isLoadingWeeklyQuests || isLoadingMonthlyQuests || isLoadingCollectionQuests;
 
-  if (isLoadingUser) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50">
-        <Leaf className="w-12 h-12 text-green-600 animate-spin" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <GuestHomeFlow />;
-  }
-
   const discoveredGenera = genera.filter(g => {
     const genusPlants = plants.filter(p => 
       p.genus_category === g.category && p.genus_number === g.category_dex_number
@@ -2180,6 +2168,18 @@ function HomeContent() {
     setCareActionMessage("Der Shop zeigt aktuell freigeschaltete Profil-Anpassungen.");
   };
 
+  if (isLoadingUser) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50">
+        <Leaf className="w-12 h-12 text-green-600 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <GuestHomeFlow />;
+  }
+
   return (
     <>
       <style>{`
@@ -2693,57 +2693,62 @@ function HomeContent() {
                         const monthlyReady = activeMonthlyQuest?.isCompleted;
                         const weeklyReady = activeWeeklyQuest?.isCompleted;
                         const regularReady = activeRegularQuests.some(q => q.isCompleted);
-                        const anyReady = monthlyReady || weeklyReady || regularReady;
-
                         const questUnseen = currentWeeklyQuest && weeklyQuestSeen !== String(currentWeeklyQuest.id);
+                        const weeklyNew = Boolean(availableWeeklyQuest || questUnseen);
+                        const monthlyNew = Boolean(availableMonthlyQuest);
+                        const regularNew = availableRegularQuests.length > 0 || availableCollectionQuests.length > 0;
+
+                        const hasAnyReady = monthlyReady || weeklyReady || regularReady;
+                        const shouldShowQuestionMark = hasAnyReady;
+
+                        let questSignalType = "none";
+                        if (monthlyReady || monthlyNew) {
+                          questSignalType = "monthly";
+                        } else if (weeklyReady || weeklyNew) {
+                          questSignalType = "weekly";
+                        } else if (regularReady || regularNew) {
+                          questSignalType = "regular";
+                        }
 
                         const borderClass = quizAvailable
                           ? isLightUi ? "border-orange-500/80" : "border-orange-300/70"
-                          : monthlyReady
+                          : questSignalType === "monthly"
                             ? isLightUi ? "border-purple-500/70" : "border-purple-400/60"
-                            : weeklyReady
+                            : questSignalType === "weekly"
                               ? isLightUi ? "border-emerald-500/70" : "border-emerald-400/60"
-                              : regularReady
-                                ? isLightUi ? "border-stone-400/70" : "border-white/50"
-                                : questUnseen
-                                  ? isLightUi ? "border-amber-400/60" : "border-amber-300/50"
-                                  : isLightUi ? "border-[#c8ac62]/40" : "border-[#f0e5a5]/25";
+                              : questSignalType === "regular"
+                                ? isLightUi ? "border-amber-500/70" : "border-amber-300/60"
+                                : isLightUi ? "border-[#c8ac62]/40" : "border-[#f0e5a5]/25";
 
                         const bgStyle = quizAvailable
                           ? isLightUi
                             ? "linear-gradient(135deg, rgba(249,115,22,0.34) 0%, rgba(239,68,68,0.18) 100%)"
                             : "linear-gradient(135deg, rgba(249,115,22,0.56) 0%, rgba(239,68,68,0.36) 100%)"
-                          : monthlyReady
+                          : questSignalType === "monthly"
                             ? isLightUi
                               ? "linear-gradient(135deg, rgba(168,85,247,0.30) 0%, rgba(168,85,247,0.12) 100%)"
                               : "linear-gradient(135deg, rgba(168,85,247,0.52) 0%, rgba(168,85,247,0.30) 100%)"
-                            : weeklyReady
+                            : questSignalType === "weekly"
                               ? isLightUi
                                 ? "linear-gradient(135deg, rgba(16,185,129,0.30) 0%, rgba(16,185,129,0.12) 100%)"
                                 : "linear-gradient(135deg, rgba(16,185,129,0.52) 0%, rgba(16,185,129,0.30) 100%)"
-                              : regularReady
+                              : questSignalType === "regular"
                                 ? isLightUi
-                                  ? "linear-gradient(135deg, rgba(200,200,200,0.38) 0%, rgba(200,200,200,0.16) 100%)"
-                                  : "linear-gradient(135deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.12) 100%)"
-                                : questUnseen
-                                  ? isLightUi
-                                    ? "linear-gradient(135deg, rgba(234,179,8,0.28) 0%, rgba(234,179,8,0.10) 100%)"
-                                    : "linear-gradient(135deg, rgba(234,179,8,0.48) 0%, rgba(234,179,8,0.28) 100%)"
-                                  : isLightUi
-                                    ? "linear-gradient(135deg, rgba(107,114,128,0.22) 0%, rgba(107,114,128,0.08) 100%)"
-                                    : "linear-gradient(135deg, rgba(107,114,128,0.38) 0%, rgba(107,114,128,0.18) 100%)";
+                                  ? "linear-gradient(135deg, rgba(234,179,8,0.28) 0%, rgba(234,179,8,0.10) 100%)"
+                                  : "linear-gradient(135deg, rgba(234,179,8,0.48) 0%, rgba(234,179,8,0.28) 100%)"
+                                : isLightUi
+                                  ? "linear-gradient(135deg, rgba(107,114,128,0.22) 0%, rgba(107,114,128,0.08) 100%)"
+                                  : "linear-gradient(135deg, rgba(107,114,128,0.38) 0%, rgba(107,114,128,0.18) 100%)";
 
                         const iconColor = quizAvailable
                           ? isLightUi ? "text-orange-700" : "text-orange-200"
-                          : monthlyReady
+                          : questSignalType === "monthly"
                             ? isLightUi ? "text-purple-700" : "text-purple-300"
-                            : weeklyReady
+                            : questSignalType === "weekly"
                               ? isLightUi ? "text-emerald-700" : "text-emerald-300"
-                              : regularReady
-                                ? isLightUi ? "text-stone-600" : "text-white"
-                                : questUnseen
-                                  ? isLightUi ? "text-amber-700" : "text-amber-300"
-                                  : isLightUi ? "text-stone-500" : "text-stone-400";
+                              : questSignalType === "regular"
+                                ? isLightUi ? "text-amber-700" : "text-amber-300"
+                                : isLightUi ? "text-stone-500" : "text-stone-400";
 
                         return (
                           <button
@@ -2766,25 +2771,44 @@ function HomeContent() {
                                 }
                               }
 
-                              if (anyReady) {
+                              if (monthlyReady || weeklyReady || regularReady) {
                                 setActivePanel("achievements");
                                 setShowHealthStatsPanel(false);
-                              } else {
+                                return;
+                              }
+
+                              if (weeklyNew && !monthlyNew && !regularNew) {
                                 setShowWeeklyQuestTooltip((prev) => !prev);
                                 if (currentWeeklyQuest?.id) {
                                   const key = String(currentWeeklyQuest.id);
                                   setWeeklyQuestSeen(key);
                                   try { localStorage.setItem('weeklyQuestSeen', key); } catch {}
                                 }
+                                return;
                               }
+
+                              setActivePanel("achievements");
+                              setShowHealthStatsPanel(false);
                             }}
                             className={`absolute left-0 md:left-2 top-5 md:top-6 z-20 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${borderClass}`}
                             style={{ background: bgStyle }}
-                            aria-label={quizAvailable ? "Quiz öffnen" : (anyReady ? "Quest abgeben" : "Wochenquest anzeigen")}
+                            aria-label={
+                              quizAvailable
+                                ? "Quiz oeffnen"
+                                : monthlyReady || weeklyReady || regularReady
+                                  ? "Quest in Aufgaben anzeigen"
+                                  : monthlyNew
+                                    ? "Monatliche Quest anzeigen"
+                                    : weeklyNew
+                                      ? "Woechentliche Quest anzeigen"
+                                      : regularNew
+                                        ? "Neue Quest anzeigen"
+                                        : "Quest anzeigen"
+                            }
                             disabled={isOpenPlantQuizFetching}
                           >
                             <span className={`text-[1.35rem] font-black leading-none ${iconColor}`}>
-                              {quizAvailable ? "!" : (anyReady ? "?" : "!")}
+                              {quizAvailable ? "!" : (shouldShowQuestionMark ? "?" : "!")}
                             </span>
                             <span className={`font-semibold text-[10px] md:text-[11px] leading-none mt-0.5 ${isLightUi ? "text-stone-800" : "text-white"}`}>{quizAvailable ? "Quiz" : "Quest"}</span>
                           </button>
