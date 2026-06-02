@@ -18,7 +18,6 @@ import {
 import { claimDailyLoginSparks, getUserWallet } from "@/api/walletService";
 import { getOpenPlantQuiz, submitPlantQuizAnswer } from "@/api/plantQuizService";
 import { getTileClaims } from "@/api/tileClaimService";
-import { buildGlobalKpiSummary } from "@/api/kpiService";
 import { recordMapView } from "@/api/mapViewService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Camera, Loader2, Leaf, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, Zap, Palette } from "lucide-react";
@@ -49,7 +48,6 @@ import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
 import GuestHomeFlow from "@/components/home/GuestHomeFlow";
 import HomeOtaGate from "@/components/home/HomeOtaGate";
 import HomeMapFeatureRoot from "@/components/home/HomeMapFeatureRoot.jsx";
-import GlobalKpiPanel from "@/components/home/GlobalKpiPanel";
 
 import ShopFeatureRoot from "@/components/shop/ShopFeatureRoot";
 import PlantHeroHealthPanel from "@/components/home/PlantHeroHealthPanel";
@@ -415,15 +413,6 @@ function HomeContent() {
     initialData: [],
     staleTime: 60 * 1000,
     enabled: !!user?.email,
-    refetchOnWindowFocus: true,
-  });
-
-  const { data: mapViews = [], isLoading: isLoadingMapViews } = useQuery({
-    queryKey: ['mapViewsAll'],
-    queryFn: () => Query.MapViewEvent.list('-created_date', 5000),
-    initialData: [],
-    staleTime: 60 * 1000,
-    enabled: !!user?.id,
     refetchOnWindowFocus: true,
   });
 
@@ -1660,16 +1649,6 @@ function HomeContent() {
   const currentUserEmailLower = (user?.email || "").toLowerCase();
 
   const isMapDataPending = isMapDiscoveryDataLoading || isLoadingAllDiscoveries || isLoadingAllUsers;
-  const globalKpiSummary = useMemo(
-    () => buildGlobalKpiSummary({
-      discoveries: allDiscoveries,
-      profiles: allUsers,
-      scanLikes,
-      mapViews,
-    }),
-    [allDiscoveries, allUsers, scanLikes, mapViews]
-  );
-  const isGlobalKpiLoading = isLoadingAllDiscoveries || isLoadingAllUsers || isLoadingMapViews;
   const likedDiscoveryIdSet = new Set(
     (scanLikes || [])
       .filter((like) => like?.discovery_id && like?.liked_by?.toLowerCase() === currentUserEmailLower)
@@ -3098,12 +3077,6 @@ function HomeContent() {
                       </button>
                     </LockedTooltip>
                   </div>
-
-                  <GlobalKpiPanel
-                    summary={globalKpiSummary}
-                    isLoading={isGlobalKpiLoading}
-                    isLightUi={isLightUi}
-                  />
 
                   <motion.button
                     onClick={() => navigate(createPageUrl('Scanner'))}
