@@ -64,6 +64,7 @@ import { resolveReferralEmail } from "@/lib/referralCode";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 import { resolveTitleValue } from "@/lib/profileCustomizationOptions";
 import { hexToFilter } from "@/lib/hexToFilter";
+import { useDeviceTiltOffset } from "@/lib/useDeviceTiltOffset";
 
 const THEME_MAP_COLORS = {
   forest: "#007a3f",
@@ -269,6 +270,15 @@ function HomeContent() {
 
     return Boolean(activeBackgroundReward?.background_motion_enabled);
   }, [rewards, user?.background_image_url]);
+
+  const contentBackgroundTiltOffset = useDeviceTiltOffset({
+    enabled: isBackgroundMotionEnabled,
+    maxOffsetX: 24,
+    maxOffsetY: 20,
+    maxGamma: 22,
+    maxBeta: 28,
+    betaCenter: 35,
+  });
 
 
   const { data: quests = [] } = useQuery({
@@ -2434,6 +2444,10 @@ function HomeContent() {
                   : `linear-gradient(180deg, rgba(19,37,24,0.42) 0%, rgba(12,20,15,0.66) 100%), url(${user.background_image_url})`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
+                transform: isBackgroundMotionEnabled
+                  ? `translate3d(${(contentBackgroundTiltOffset.x * 0.46).toFixed(2)}px, ${(contentBackgroundTiltOffset.y * 0.46).toFixed(2)}px, 0) scale(1.08)`
+                  : undefined,
+                willChange: isBackgroundMotionEnabled ? 'transform' : 'auto',
               } : user?.background_color ? {
                 background: isLightUi
                   ? `linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.38) 100%)`

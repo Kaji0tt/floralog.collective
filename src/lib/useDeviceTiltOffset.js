@@ -13,6 +13,7 @@ export function useDeviceTiltOffset({
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const frameRef = useRef(/** @type {number | null} */ (null));
   const pendingRef = useRef({ x: 0, y: 0 });
+  const permissionRequestedRef = useRef(false);
 
   useEffect(() => {
     if (!enabled) {
@@ -23,6 +24,18 @@ export function useDeviceTiltOffset({
     const flush = () => {
       frameRef.current = null;
       setOffset({ ...pendingRef.current });
+    };
+
+    const requestOrientationPermissionIfNeeded = () => {
+      if (permissionRequestedRef.current) return;
+      permissionRequestedRef.current = true;
+
+      const orientationCtor = /** @type {any} */ (window.DeviceOrientationEvent);
+      if (orientationCtor && typeof orientationCtor.requestPermission === "function") {
+        orientationCtor.requestPermission().catch(() => {
+          // Ignore permission errors; pointer movement remains as fallback.
+        });
+      }
     };
 
     const schedule = (nextX, nextY) => {
@@ -49,10 +62,14 @@ export function useDeviceTiltOffset({
 
     window.addEventListener("deviceorientation", handleDeviceOrientation);
     window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("touchstart", requestOrientationPermissionIfNeeded, { passive: true });
+    window.addEventListener("pointerdown", requestOrientationPermissionIfNeeded, { passive: true });
 
     return () => {
       window.removeEventListener("deviceorientation", handleDeviceOrientation);
       window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("touchstart", requestOrientationPermissionIfNeeded);
+      window.removeEventListener("pointerdown", requestOrientationPermissionIfNeeded);
       if (frameRef.current != null) {
         window.cancelAnimationFrame(frameRef.current);
       }
