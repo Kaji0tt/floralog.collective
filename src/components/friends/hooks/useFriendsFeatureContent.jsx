@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Query } from "@/api/entities";
 import { createUserNotification } from "@/api/notificationService";
 import { supabase } from "@/api/supabaseClient";
@@ -64,6 +64,17 @@ const MAX_EXPLORER_DISCOVERIES = 200;
 const EXPLORER_BATCH_SIZE = 10;
 const EXPLORER_PREFETCH_REMAINING = 5;
 
+const parseActivityDate = (primary, fallback) => {
+  const value = primary || fallback;
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  // Filter offensichtlich kaputte Legacy-Daten (1970 etc.) heraus
+  const minValid = new Date('2000-01-01T00:00:00Z');
+  if (d < minValid) return null;
+  return d;
+};
+
 export function useFriendsFeatureContent({
   embedded = false,
   onHeaderMetaChange,
@@ -90,6 +101,9 @@ export function useFriendsFeatureContent({
   const [adminNewsTitle, setAdminNewsTitle] = useState("");
   const [adminNewsText, setAdminNewsText] = useState("");
   const autoMarkingNewsRef = useRef(false);
+  const isFriendsTab = activeTab === "friends";
+  const isExplorerTab = activeTab === "explorer";
+  const shouldLoadDiscoveryData = isExplorerTab || isFriendsTab;
 
   useEffect(() => {
     if (!embedded) return;
@@ -166,17 +180,21 @@ export function useFriendsFeatureContent({
     enabled: !!user?.email && allFriendRecords.length > 0
   });
 
-  const { data: allUsers = [] } = useQuery({
-    queryKey: ['allUsers'],
-    queryFn: () => Query.PublicProfile.list(),
-    staleTime: 60000 // 1 Minute Cache
-  });
-
   const { data: allPublicProfiles = [] } = useQuery({
     queryKey: ['allPublicProfiles'],
     queryFn: () => Query.PublicProfile.list(),
     staleTime: 30000 // 30 Sekunden Cache
   });
+
+  const ownEmailLower = user?.email?.toLowerCase() || "";
+  const profileByEmail = useMemo(
+    () => new Map(
+      (allPublicProfiles || [])
+        .filter((profile) => !!profile.user_email)
+        .map((profile) => [profile.user_email.toLowerCase(), profile])
+    ),
+    [allPublicProfiles]
+  );
 
   const normalizedRole = (value) => String(value || '').trim().toLowerCase();
   const ownProfile = allPublicProfiles.find((profile) => {
@@ -198,11 +216,8 @@ export function useFriendsFeatureContent({
   // Lade alle Discoveries - mit höherem Limit
   const { data: allDiscoveries = [] } = useQuery({
     queryKey: ['explorerDiscoveries', MAX_EXPLORER_DISCOVERIES],
-    queryFn: async () => {
-      const discoveries = await Query.UserPlantDiscovery.list('-created_date', MAX_EXPLORER_DISCOVERIES);
-      console.log("📊 Geladene Discoveries:", discoveries.length);
-      return discoveries;
-    },
+    queryFn: () => Query.UserPlantDiscovery.list('-created_date', MAX_EXPLORER_DISCOVERIES),
+    enabled: !!user?.email && shouldLoadDiscoveryData,
     staleTime: 60 * 1000,
   });
 
@@ -215,14 +230,15 @@ export function useFriendsFeatureContent({
   const { data: scanLikes = [] } = useQuery({
     queryKey: ['scanLikesAll'],
     queryFn: () => Query.ScanLike.list('-created_date', 2000),
-    enabled: !!user?.email,
+    enabled: !!user?.email && isExplorerTab,
     staleTime: 60 * 1000,
   });
 
   // Lade alle Plants
   const { data: allPlants = [] } = useQuery({
     queryKey: ['allPlants'],
-    queryFn: () => Query.Plant.list()
+    queryFn: () => Query.Plant.list(),
+    enabled: !!user?.email && shouldLoadDiscoveryData,
   });
 
   const NEWS_TYPES = ['gift_received', 'collection_followed', 'friendship_accepted', 'friend_request_received', 'friend_achievement', 'scan_liked', 'admin_broadcast'];
@@ -316,18 +332,47 @@ export function useFriendsFeatureContent({
   // Lade alle Achievements - mit höherem Limit
   const { data: allUserAchievements = [] } = useQuery({
     queryKey: ['allUserAchievements'],
-    queryFn: async () => {
-      const achievements = await Query.UserAchievement.list('-created_date', 999);
-      console.log("📊 Geladene UserAchievements:", achievements.length);
-      return achievements;
-    }
+    queryFn: () => Query.UserAchievement.list('-created_date', 999),
+    enabled: !!user?.email && isFriendsTab,
   });
 
   // Lade Achievement Definitionen
   const { data: achievements = [] } = useQuery({
     queryKey: ['achievements'],
-    queryFn: () => Query.Achievement.list()
+    queryFn: () => Query.Achievement.list(),
+    enabled: isFriendsTab,
   });
+
+  const plantById = useMemo(
+    () => new Map((allPlants || []).map((plant) => [plant.id, plant])),
+    [allPlants]
+  );
+
+  const achievementById = useMemo(
+    () => new Map((achievements || []).map((achievement) => [achievement.id, achievement])),
+    [achievements]
+  );
+
+  const pendingRequestByActorEmail = useMemo(() => {
+    const map = new Map();
+    if (!user?.email) return map;
+
+    const myEmail = user.email.toLowerCase();
+    allFriendRecords.forEach((request) => {
+      const actorEmail = request.request_sent_by?.toLowerCase();
+      if (!actorEmail) return;
+      if (request.status !== 'pending') return;
+      if (request.request_sent_to?.toLowerCase() !== myEmail) return;
+      map.set(actorEmail, request);
+    });
+
+    return map;
+  }, [allFriendRecords, user?.email]);
+
+  const unreadNewsCount = useMemo(
+    () => userNews.filter((notification) => notification.seen !== true).length,
+    [userNews]
+  );
 
   const sendFriendRequestMutation = useMutation({
     mutationFn: async () => {
@@ -369,9 +414,7 @@ export function useFriendsFeatureContent({
       // Serverseitiger Insert (bypasst clientseitige RLS-Probleme)
       await sendFriendRequest(targetEmail);
 
-      const targetProfile = allPublicProfiles.find(
-        (profile) => profile.user_email?.toLowerCase() === friendEmailLower
-      );
+      const targetProfile = profileByEmail.get(friendEmailLower);
       const senderName = user.display_name || user.full_name || user.email;
 
       try {
@@ -414,9 +457,7 @@ export function useFriendsFeatureContent({
       alert(`✅ Freundschaft mit ${requesterEmail} bestätigt!`);
 
       try {
-        const requesterProfile = allPublicProfiles.find(
-          (profile) => profile.user_email?.toLowerCase() === requesterEmail?.toLowerCase()
-        );
+        const requesterProfile = profileByEmail.get(requesterEmail?.toLowerCase());
         const accepterName = user.display_name || user.full_name || user.email;
 
         await createUserNotification({
@@ -674,115 +715,59 @@ Viel Spaß beim Entdecken! 🌿`;
     }
   };
 
-  const parseActivityDate = (primary, fallback) => {
-    const value = primary || fallback;
-    if (!value) return null;
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return null;
-    // Filter offensichtlich kaputte Legacy-Daten (1970 etc.) heraus
-    const minValid = new Date('2000-01-01T00:00:00Z');
-    if (d < minValid) return null;
-    return d;
-  };
+  const latestFriendActivityByKey = useMemo(() => {
+    const latestByKey = new Map();
 
-  // Helper: Hole letzte Aktivität eines Freundes (bevorzugt über auth_id)
-  const getLastActivity = ({ email, authId }) => {
-    if (!email && !authId) {
-      console.log("⚠️ Weder Email noch authId übergeben");
-      return null;
-    }
-
-    const friendEmailLower = email?.toLowerCase();
-    console.log("🔍 Suche Aktivitäten für:", { email: friendEmailLower, authId });
-
-    const matchesFriend = (row) => {
-      const authMatch = authId && row.auth_id && row.auth_id === authId;
-      const emailMatch = friendEmailLower && (
-        row.user?.toLowerCase?.() === friendEmailLower ||
-        row.created_by?.toLowerCase?.() === friendEmailLower
-      );
-      return authMatch || emailMatch;
+    const updateLatest = (key, candidate) => {
+      if (!key || !candidate) return;
+      const current = latestByKey.get(key);
+      if (!current || candidate.timestamp > current.timestamp) {
+        latestByKey.set(key, candidate);
+      }
     };
 
-    // Letzte Discovery - prüfe auth_id und fallweise Email
-    const friendDiscoveries = allDiscoveries.filter((d) => matchesFriend(d));
-    console.log(`📦 ${friendDiscoveries.length} Discoveries gefunden`);
+    allDiscoveries.forEach((entry) => {
+      const date = parseActivityDate(entry.discovered_date, entry.created_date);
+      if (!date) return;
 
-    const validSortedDiscoveries = friendDiscoveries
-      .map((d) => ({
-        row: d,
-        date: parseActivityDate(d.discovered_date, d.created_date)
-      }))
-      .filter((x) => x.date)
-      .sort((a, b) => b.date - a.date);
-
-    const lastDiscoveryEntry = validSortedDiscoveries[0] || null;
-
-    // Letztes Achievement
-    const friendAchievements = allUserAchievements.filter((a) => matchesFriend(a));
-    console.log(`🏆 ${friendAchievements.length} Achievements gefunden`);
-
-    const validSortedAchievements = friendAchievements
-      .map((a) => ({
-        row: a,
-        date: parseActivityDate(a.unlocked_date, a.created_date)
-      }))
-      .filter((x) => x.date)
-      .sort((a, b) => b.date - a.date);
-
-    const lastAchievementEntry = validSortedAchievements[0] || null;
-
-    let activity = null;
-
-    if (lastDiscoveryEntry && lastAchievementEntry) {
-      const discoveryDate = lastDiscoveryEntry.date;
-      const achievementDate = lastAchievementEntry.date;
-
-      console.log("📅 Discovery:", discoveryDate, "Achievement:", achievementDate);
-
-      if (discoveryDate > achievementDate) {
-        const lastDiscovery = lastDiscoveryEntry.row;
-        const plant = allPlants.find((p) => p.id === lastDiscovery.plant_id);
-        activity = {
-          type: 'discovery',
-          plant,
-          date: discoveryDate.toISOString()
-        };
-        console.log("✅ Neueste Aktivität: Discovery -", plant?.species_name);
-      } else {
-        const lastAchievement = lastAchievementEntry.row;
-        const achievement = achievements.find((a) => a.id === lastAchievement.achievement_id);
-        activity = {
-          type: 'achievement',
-          achievement,
-          date: achievementDate.toISOString()
-        };
-        console.log("✅ Neueste Aktivität: Achievement -", achievement?.title);
-      }
-    } else if (lastDiscoveryEntry) {
-      const lastDiscovery = lastDiscoveryEntry.row;
-      const plant = allPlants.find((p) => p.id === lastDiscovery.plant_id);
-      activity = {
+      const activity = {
         type: 'discovery',
-        plant,
-        date: lastDiscoveryEntry.date.toISOString()
+        plant: plantById.get(entry.plant_id),
+        date: date.toISOString(),
+        timestamp: date.getTime(),
       };
-      console.log("✅ Neueste Aktivität: Discovery -", plant?.species_name);
-    } else if (lastAchievementEntry) {
-      const lastAchievement = lastAchievementEntry.row;
-      const achievement = achievements.find((a) => a.id === lastAchievement.achievement_id);
-      activity = {
-        type: 'achievement',
-        achievement,
-        date: lastAchievementEntry.date.toISOString()
-      };
-      console.log("✅ Neueste Aktivität: Achievement -", achievement?.title);
-    } else {
-      console.log("❌ Keine gültigen Aktivitäten gefunden");
-    }
 
-    return activity;
-  };
+      updateLatest(entry.auth_id ? `auth:${entry.auth_id}` : null, activity);
+
+      const email = (entry.user || entry.created_by || entry.user_email || '').toLowerCase();
+      updateLatest(email ? `email:${email}` : null, activity);
+    });
+
+    allUserAchievements.forEach((entry) => {
+      const date = parseActivityDate(entry.unlocked_date, entry.created_date);
+      if (!date) return;
+
+      const activity = {
+        type: 'achievement',
+        achievement: achievementById.get(entry.achievement_id),
+        date: date.toISOString(),
+        timestamp: date.getTime(),
+      };
+
+      updateLatest(entry.auth_id ? `auth:${entry.auth_id}` : null, activity);
+
+      const email = (entry.user || entry.created_by || entry.user_email || '').toLowerCase();
+      updateLatest(email ? `email:${email}` : null, activity);
+    });
+
+    const normalizedMap = new Map();
+    latestByKey.forEach((activity, key) => {
+      const { timestamp: _timestamp, ...normalizedActivity } = activity;
+      normalizedMap.set(key, normalizedActivity);
+    });
+
+    return normalizedMap;
+  }, [allDiscoveries, allUserAchievements, plantById, achievementById]);
 
   const getLighterColor = (rgbString) => {
     if (!rgbString) return null;
@@ -835,9 +820,7 @@ Viel Spaß beim Entdecken! 🌿`;
       };
     }
 
-    const actorProfile = allPublicProfiles.find(
-      (profile) => profile.user_email?.toLowerCase() === actorEmail.toLowerCase()
-    );
+    const actorProfile = profileByEmail.get(actorEmail.toLowerCase());
 
     return {
       name:
@@ -850,22 +833,15 @@ Viel Spaß beim Entdecken! 🌿`;
     };
   };
 
-  const unreadNewsCount = userNews.filter((notification) => notification.seen !== true).length;
-
   const getPendingRequestFromNews = (newsItem) => {
     if (newsItem.notification_type !== 'friend_request_received' || !user?.email) {
       return null;
     }
 
     const actorEmail = newsItem.created_by?.toLowerCase();
-    const myEmail = user.email.toLowerCase();
     if (!actorEmail) return null;
 
-    return allFriendRecords.find((request) =>
-      request.status === 'pending' &&
-      request.request_sent_by?.toLowerCase() === actorEmail &&
-      request.request_sent_to?.toLowerCase() === myEmail
-    ) || null;
+    return pendingRequestByActorEmail.get(actorEmail) || null;
   };
 
   const handleFriendRequestActionFromNews = async (event, newsItem, action) => {
@@ -901,120 +877,136 @@ Viel Spaß beim Entdecken! 🌿`;
   };
 
   // Helper: Hole Freundesdaten
-  const getFriendData = (friendEntry) => {
+  const getFriendData = useCallback((friendEntry) => {
     if (!user || !user.email) return null;
 
     const isCurrentUserSender = friendEntry.request_sent_by?.toLowerCase() === user.email.toLowerCase();
     const friendEmail = isCurrentUserSender ? friendEntry.request_sent_to : friendEntry.request_sent_by;
+    const friendEmailLower = friendEmail?.toLowerCase() || "";
 
     // Suche PublicProfile (bevorzugt, inkl. auth_id)
-    const friendProfile = allPublicProfiles.find((p) => p.user_email?.toLowerCase() === friendEmail?.toLowerCase());
+    const friendProfile = profileByEmail.get(friendEmailLower);
 
-    // Fallback auf baseUser
-    const friendUser = allUsers.find((u) => u.email?.toLowerCase() === friendEmail?.toLowerCase());
-
-    const friendAuthId = friendProfile?.auth_id || friendUser?.auth_id || null;
-
-    // Hole letzte Aktivität, bevorzugt über auth_id
-    const lastActivity = getLastActivity({
-      email: friendEmail,
-      authId: friendAuthId
-    });
+    const friendAuthId = friendProfile?.auth_id || null;
+    const lastActivity =
+      (friendAuthId ? latestFriendActivityByKey.get(`auth:${friendAuthId}`) : null) ||
+      (friendEmailLower ? latestFriendActivityByKey.get(`email:${friendEmailLower}`) : null) ||
+      null;
 
     return {
       id: friendEntry.id,
       email: friendEmail,
       auth_id: friendAuthId,
-      name: friendProfile?.display_name || friendProfile?.full_name || friendUser?.display_name || friendUser?.full_name || friendEmail,
-      logoAssets: resolveEquippedLogoAssetsWithCatalog(friendProfile || friendUser || {}, logoAssets),
-      level: friendProfile?.level || friendUser?.level || 1,
-      title: friendProfile?.selected_title || friendProfile?.title || friendUser?.selected_title || friendUser?.title || "Pflanzen-Anfänger",
+      name: friendProfile?.display_name || friendProfile?.full_name || friendEmail,
+      logoAssets: resolveEquippedLogoAssetsWithCatalog(friendProfile || {}, logoAssets),
+      level: friendProfile?.level || 1,
+      title: friendProfile?.selected_title || friendProfile?.title || "Pflanzen-Anfänger",
       lastActivity
     };
-  };
+  }, [user, profileByEmail, latestFriendActivityByKey, logoAssets]);
 
-  const ownEmailLower = user?.email?.toLowerCase() || "";
-  const likedDiscoveryIdSet = new Set(
-    scanLikes
-      .filter((like) => like?.discovery_id && like?.liked_by?.toLowerCase() === ownEmailLower)
-      .map((like) => like.discovery_id)
-  );
-  const likeCountByDiscoveryId = scanLikes.reduce((acc, like) => {
-    if (!like?.discovery_id) return acc;
-    acc.set(like.discovery_id, (acc.get(like.discovery_id) || 0) + 1);
-    return acc;
-  }, new Map());
-
-  const friendEmailSet = new Set(
-    friends
-      .map((entry) => {
-        const isCurrentUserSender = entry.request_sent_by?.toLowerCase() === ownEmailLower;
-        return isCurrentUserSender ? entry.request_sent_to?.toLowerCase() : entry.request_sent_by?.toLowerCase();
-      })
-      .filter(Boolean)
+  const likedDiscoveryIdSet = useMemo(
+    () => new Set(
+      scanLikes
+        .filter((like) => like?.discovery_id && like?.liked_by?.toLowerCase() === ownEmailLower)
+        .map((like) => like.discovery_id)
+    ),
+    [scanLikes, ownEmailLower]
   );
 
-  const profileByEmail = new Map(
-    (allPublicProfiles || [])
-      .filter((profile) => !!profile.user_email)
-      .map((profile) => [profile.user_email.toLowerCase(), profile])
+  const likeCountByDiscoveryId = useMemo(
+    () => scanLikes.reduce((acc, like) => {
+      if (!like?.discovery_id) return acc;
+      acc.set(like.discovery_id, (acc.get(like.discovery_id) || 0) + 1);
+      return acc;
+    }, new Map()),
+    [scanLikes]
+  );
+
+  const friendEmailSet = useMemo(
+    () => new Set(
+      friends
+        .map((entry) => {
+          const isCurrentUserSender = entry.request_sent_by?.toLowerCase() === ownEmailLower;
+          return isCurrentUserSender ? entry.request_sent_to?.toLowerCase() : entry.request_sent_by?.toLowerCase();
+        })
+        .filter(Boolean)
+    ),
+    [friends, ownEmailLower]
   );
 
   const getDiscoveryEmailLower = (entry) =>
     (entry.user || entry.created_by || entry.user_email || "").toLowerCase();
 
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const acceptedEmailSet = new Set([ownEmailLower, ...Array.from(friendEmailSet)]);
+  const acceptedEmailSet = useMemo(
+    () => new Set([ownEmailLower, ...Array.from(friendEmailSet)]),
+    [ownEmailLower, friendEmailSet]
+  );
   const showFriendsOnlyInExplorer = explorerAudienceFilter === "friends";
 
-  const recentDiscoveries = (allDiscoveries || [])
-    .filter((entry) => {
+  const recentDiscoveries = useMemo(
+    () => {
+      const thresholdMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
+      return (allDiscoveries || [])
+      .filter((entry) => {
+        const entryEmail = getDiscoveryEmailLower(entry);
+        if (!entryEmail) return false;
+        const actorProfile = profileByEmail.get(entryEmail);
+        const isCurrentUserEntry = entryEmail === ownEmailLower;
+        const isVisibleInGlobalExplorer = actorProfile?.global_explorer_visibility !== false;
+        if (!showFriendsOnlyInExplorer && !isCurrentUserEntry && !isVisibleInGlobalExplorer) return false;
+        if (showFriendsOnlyInExplorer && !acceptedEmailSet.has(entryEmail)) return false;
+        const date = new Date(entry.created_date || entry.discovered_date || entry.updated_date || 0);
+        if (Number.isNaN(date.getTime())) return false;
+        return date.getTime() >= thresholdMs;
+      })
+      .sort((a, b) =>
+        new Date(b.created_date || b.discovered_date || b.updated_date || 0).getTime() -
+        new Date(a.created_date || a.discovered_date || a.updated_date || 0).getTime()
+      );
+    },
+    [allDiscoveries, profileByEmail, ownEmailLower, showFriendsOnlyInExplorer, acceptedEmailSet]
+  );
+
+  const scanCountByUserPlant = useMemo(
+    () => recentDiscoveries.reduce((acc, entry) => {
+      const key = `${getDiscoveryEmailLower(entry)}::${entry.plant_id}`;
+      if (!key) return acc;
+      acc.set(key, (acc.get(key) || 0) + 1);
+      return acc;
+    }, new Map()),
+    [recentDiscoveries]
+  );
+
+  const explorerLogEntries = useMemo(() => {
+    const seenPlantKeys = new Set();
+    const entries = [];
+
+    recentDiscoveries.forEach((entry) => {
       const entryEmail = getDiscoveryEmailLower(entry);
-      if (!entryEmail) return false;
-      const actorProfile = profileByEmail.get(entryEmail);
-      const isCurrentUserEntry = entryEmail === ownEmailLower;
-      const isVisibleInGlobalExplorer = actorProfile?.global_explorer_visibility !== false;
-      if (!showFriendsOnlyInExplorer && !isCurrentUserEntry && !isVisibleInGlobalExplorer) return false;
-      if (showFriendsOnlyInExplorer && !acceptedEmailSet.has(entryEmail)) return false;
-      const date = new Date(entry.created_date || entry.discovered_date || entry.updated_date || 0);
-      if (Number.isNaN(date.getTime())) return false;
-      return date >= thirtyDaysAgo;
-    })
-    .sort((a, b) =>
-      new Date(b.created_date || b.discovered_date || b.updated_date || 0).getTime() -
-      new Date(a.created_date || a.discovered_date || a.updated_date || 0).getTime()
-    );
+      const key = `${entryEmail}::${entry.plant_id}`;
+      if (seenPlantKeys.has(key)) return;
+      seenPlantKeys.add(key);
 
-  const seenPlantKeys = new Set();
-  const explorerLogEntries = [];
+      const profile = profileByEmail.get(entryEmail);
 
-  recentDiscoveries.forEach((entry) => {
-    const entryEmail = getDiscoveryEmailLower(entry);
-    const key = `${entryEmail}::${entry.plant_id}`;
-    if (seenPlantKeys.has(key)) return;
-    seenPlantKeys.add(key);
-
-    const scansBySameUserPlant = recentDiscoveries.filter((candidate) => {
-      return getDiscoveryEmailLower(candidate) === entryEmail && candidate.plant_id === entry.plant_id;
+      entries.push({
+        id: entry.id,
+        discovery: entry,
+        plant: plantById.get(entry.plant_id),
+        actorEmail: entryEmail,
+        actorAuthId: profile?.auth_id || entry.auth_id || null,
+        actorName: profile?.display_name || profile?.full_name || entryEmail,
+        actorLogoAssets: resolveEquippedLogoAssetsWithCatalog(profile || {}, logoAssets),
+        scanCount: scanCountByUserPlant.get(key) || 0,
+        likedByCurrentUser: likedDiscoveryIdSet.has(entry.id),
+        likeCount: likeCountByDiscoveryId.get(entry.id) || 0,
+        timestamp: new Date(entry.created_date || entry.discovered_date || entry.updated_date || Date.now()),
+      });
     });
 
-    const plant = allPlants.find((plantItem) => plantItem.id === entry.plant_id);
-    const profile = profileByEmail.get(entryEmail);
-
-    explorerLogEntries.push({
-      id: entry.id,
-      discovery: entry,
-      plant,
-      actorEmail: entryEmail,
-      actorAuthId: profile?.auth_id || entry.auth_id || null,
-      actorName: profile?.display_name || profile?.full_name || entryEmail,
-      actorLogoAssets: resolveEquippedLogoAssetsWithCatalog(profile || {}, logoAssets),
-      scanCount: scansBySameUserPlant.length,
-      likedByCurrentUser: likedDiscoveryIdSet.has(entry.id),
-      likeCount: likeCountByDiscoveryId.get(entry.id) || 0,
-      timestamp: new Date(entry.created_date || entry.discovered_date || entry.updated_date || Date.now()),
-    });
-  });
+    return entries;
+  }, [recentDiscoveries, profileByEmail, plantById, logoAssets, scanCountByUserPlant, likedDiscoveryIdSet, likeCountByDiscoveryId]);
 
   const hasMoreExplorerEntries = visibleExplorerCount < explorerLogEntries.length;
   const visibleExplorerEntries = explorerLogEntries.slice(0, visibleExplorerCount);
@@ -1044,14 +1036,24 @@ Viel Spaß beim Entdecken! 🌿`;
     return () => observer.disconnect();
   }, [activeTab, explorerLogEntries.length, hasMoreExplorerEntries, visibleExplorerCount]);
 
-  const friendCards = friends
-    .map((friendEntry) => ({
-      friend: friendEntry,
-      friendData: getFriendData(friendEntry),
-    }))
-    .filter((entry) => !!entry.friendData);
+  const friendCards = useMemo(
+    () => friends
+      .map((friendEntry) => ({
+        friend: friendEntry,
+        friendData: getFriendData(friendEntry),
+      }))
+      .filter((entry) => !!entry.friendData),
+    [friends, getFriendData]
+  );
 
-  const pendingRequestsCount = pendingRequests.length;
+  const pendingRequestCards = useMemo(
+    () => pendingRequests
+      .map((request) => ({ request, requesterData: getFriendData(request) }))
+      .filter((entry) => !!entry.requesterData),
+    [pendingRequests, getFriendData]
+  );
+
+  const pendingRequestsCount = pendingRequestCards.length;
 
   const tabsHeaderClass = embedded
     ? `sticky top-0 z-40 backdrop-blur-sm border-b ${isLightUi ? "bg-white/70 border-[#b99a48]/30" : "bg-black/20 border-[#f0e5a5]/20"}`
@@ -1704,9 +1706,7 @@ Viel Spaß beim Entdecken! 🌿`;
                   </div>
 
                   <div className="space-y-3">
-                    {pendingRequests.map((request, index) => {
-                      const requesterData = getFriendData(request);
-                      if (!requesterData) return null;
+                    {pendingRequestCards.map(({ request, requesterData }, index) => {
 
                       return (
                         <motion.div
