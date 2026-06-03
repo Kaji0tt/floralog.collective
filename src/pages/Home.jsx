@@ -245,10 +245,30 @@ function HomeContent() {
     refetchOnReconnect: true,
   });
 
+  const { data: rewards = [] } = useQuery({
+    queryKey: ["rewards"],
+    queryFn: () => Query.Reward.list(),
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
   const equippedLogoAssets = useMemo(
     () => resolveEquippedLogoAssetsWithCatalog(user || {}, logoAssets),
     [user, logoAssets]
   );
+
+  const isBackgroundMotionEnabled = useMemo(() => {
+    const selectedBackgroundImageUrl = String(user?.background_image_url || "").trim();
+    if (!selectedBackgroundImageUrl) return false;
+
+    const activeBackgroundReward = (Array.isArray(rewards) ? rewards : []).find((reward) => {
+      const rewardType = String(reward?.type || reward?.reward_type || reward?.kind || "").trim().toLowerCase();
+      if (rewardType !== "background") return false;
+      return String(reward?.value || "").trim() === selectedBackgroundImageUrl;
+    });
+
+    return Boolean(activeBackgroundReward?.background_motion_enabled);
+  }, [rewards, user?.background_image_url]);
 
 
   const { data: quests = [] } = useQuery({
@@ -971,7 +991,11 @@ function HomeContent() {
         selected_border_asset: userData.selected_border_asset,
         selected_border_color: userData.selected_border_color,
         background_image_url: userData.background_image_url,
-        background_color: userData.background_color
+        background_color: userData.background_color,
+        home_foreground_image_url: userData.home_foreground_image_url || null,
+        home_foreground_motion_enabled: userData.home_foreground_motion_enabled !== false,
+        shop_foreground_image_url: userData.shop_foreground_image_url || null,
+        shop_foreground_motion_enabled: userData.shop_foreground_motion_enabled !== false,
       };
 
       await upsertUserProfile(userData.id, profileData);
@@ -2383,6 +2407,17 @@ function HomeContent() {
       <HomeBackgroundShell
         user={user}
         getRgbaFromRgb={getRgbaFromRgb}
+        enableBackgroundMotion={isBackgroundMotionEnabled}
+        foregroundImageUrl={
+          activePanel === "shop"
+            ? (user?.shop_foreground_image_url || null)
+            : (user?.home_foreground_image_url || null)
+        }
+        enableForegroundMotion={
+          activePanel === "shop"
+            ? user?.shop_foreground_motion_enabled !== false
+            : user?.home_foreground_motion_enabled !== false
+        }
       >
           <motion.div
             initial={{ opacity: 0, y: 14 }}

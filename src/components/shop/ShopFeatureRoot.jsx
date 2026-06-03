@@ -501,6 +501,20 @@ const AccessoryPagedGrid = ({ options, user, isLightUi, isPending, onSelect }) =
     return () => el.removeEventListener("scroll", updateScrollState);
   }, [updateScrollState, pages.length]);
 
+  const handleArrowNavigation = React.useCallback((direction) => {
+    const el = scrollRef.current;
+    if (!el || pages.length <= 1) return;
+
+    const pageWidth = el.clientWidth || 1;
+    const currentPage = Math.round(el.scrollLeft / pageWidth);
+    const nextPage = Math.min(pages.length - 1, Math.max(0, currentPage + direction));
+
+    el.scrollTo({
+      left: nextPage * pageWidth,
+      behavior: "smooth",
+    });
+  }, [pages.length]);
+
   const showArrows = canScrollLeft || canScrollRight;
 
   return (
@@ -540,13 +554,25 @@ const AccessoryPagedGrid = ({ options, user, isLightUi, isPending, onSelect }) =
       </div>
 
       {showArrows && (
-        <div className="flex items-center justify-between gap-2" aria-hidden="true">
-          <div className={`flex items-center gap-1 text-[11px] font-medium ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"} ${canScrollLeft ? "visible" : "invisible"}`}>
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => handleArrowNavigation(-1)}
+            disabled={!canScrollLeft}
+            aria-label="Vorherige Shop-Seite"
+            className={`inline-flex h-7 w-7 items-center justify-center rounded-full border transition disabled:pointer-events-none disabled:opacity-35 ${isLightUi ? "border-[#c8ac62]/45 bg-white/80 text-[#8f6b22] hover:bg-[#f6efdc]" : "border-[#f0e5a5]/30 bg-black/35 text-[#f0e5a5] hover:bg-black/55"}`}
+          >
             <ArrowLeft className="h-3.5 w-3.5" />
-          </div>
-          <div className={`flex items-center gap-1 text-[11px] font-medium ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"} ${canScrollRight ? "visible" : "invisible"}`}>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleArrowNavigation(1)}
+            disabled={!canScrollRight}
+            aria-label="Naechste Shop-Seite"
+            className={`inline-flex h-7 w-7 items-center justify-center rounded-full border transition disabled:pointer-events-none disabled:opacity-35 ${isLightUi ? "border-[#c8ac62]/45 bg-white/80 text-[#8f6b22] hover:bg-[#f6efdc]" : "border-[#f0e5a5]/30 bg-black/35 text-[#f0e5a5] hover:bg-black/55"}`}
+          >
             <ArrowRight className="h-3.5 w-3.5" />
-          </div>
+          </button>
         </div>
       )}
     </div>
