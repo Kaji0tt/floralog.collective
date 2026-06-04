@@ -1,11 +1,12 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, TreeDeciduous, Flower2, Leaf, HelpCircle, PencilIcon } from "lucide-react";
+import { CheckCircle, TreeDeciduous, Flower2, Leaf, HelpCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
 import EditGenusDialog from "./EditGenusDialog";
+import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 
 const categoryIcons = {
   "Bäume": TreeDeciduous,
@@ -14,13 +15,31 @@ const categoryIcons = {
   "Blumen & Kräuter": Flower2
 };
 
-export default function GenusCard({ genus, onShowHint, userDiscoveries = [], plants = [], friendEmail, collectionNote, isAdmin = false, uiTheme = "dark" }) {
+export default function GenusCard({
+  genus,
+  onShowHint,
+  userDiscoveries = [],
+  plants = [],
+  selectedCollectionId = "global",
+  friendEmail,
+  friendDiscoveries = [],
+  friendDiscoveryCount = 0,
+  collectionNote,
+  isAdmin = false,
+  uiTheme = "dark",
+}) {
   const navigate = useNavigate();
   const discovered = genus.discovered;
-  const [isFlipped, setIsFlipped] = React.useState(false);
   const [isEditOpen, setIsEditOpen] = React.useState(false);
+  const [showCategoryIcon, setShowCategoryIcon] = React.useState(true);
+  const longPressTimerRef = React.useRef(null);
+  const longPressTriggeredRef = React.useRef(false);
+  const headerRowRef = React.useRef(null);
   const CategoryIcon = categoryIcons[genus.category] || TreeDeciduous;
   const isLightUi = uiTheme === "light";
+  const showFriendLogos = friendDiscoveryCount > 0;
+  const visibleFriendLogos = (friendDiscoveries || []).slice(0, 3);
+  const remainingFriendCount = Math.max(0, friendDiscoveryCount - visibleFriendLogos.length);
 
   const getDiscoveryTimestamp = (discovery) => {
     const raw = discovery?.discovered_date || discovery?.created_date || discovery?.created_at;
@@ -59,19 +78,21 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
   };
 
   const handleClick = () => {
-    if (discovered) {
-      // Wenn friendEmail vorhanden, füge es zur URL hinzu
-      const url = friendEmail 
-        ? createPageUrl(`GenusDetail?id=${genus.id}&email=${friendEmail}`)
-        : createPageUrl(`GenusDetail?id=${genus.id}`);
-      navigate(url);
-    } else {
-      // Kachel umdrehen und Gattungsname zeigen
-      setIsFlipped(true);
-      setTimeout(() => {
-        setIsFlipped(false);
-      }, 3000);
+    if (longPressTriggeredRef.current) {
+      longPressTriggeredRef.current = false;
+      return;
     }
+
+    const nextParams = new URLSearchParams();
+    nextParams.set("id", genus.id);
+    if (friendEmail) {
+      nextParams.set("email", friendEmail);
+    } else if (selectedCollectionId && selectedCollectionId !== "global") {
+      nextParams.set("collectionId", selectedCollectionId);
+    }
+
+    const url = createPageUrl(`GenusDetail?${nextParams.toString()}`);
+    navigate(url);
   };
 
   const handleHelpClick = (e) => {
@@ -81,10 +102,47 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
     }
   };
 
-  const handleEditClick = (e) => {
-    e.stopPropagation();
-    setIsEditOpen(true);
+  const clearLongPress = () => {
+    if (longPressTimerRef.current) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
   };
+
+  const handleLongPressStart = () => {
+    if (!isAdmin) return;
+
+    clearLongPress();
+    longPressTriggeredRef.current = false;
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      setIsEditOpen(true);
+    }, 550);
+  };
+
+  React.useEffect(() => {
+    return () => {
+      clearLongPress();
+    };
+  }, []);
+
+  React.useEffect(() => {
+    const headerRow = headerRowRef.current;
+    if (!headerRow || typeof ResizeObserver === "undefined") return;
+
+    const updateCategoryIconVisibility = () => {
+      const rowWidth = headerRow.getBoundingClientRect().width;
+      const hasFriendLogos = showFriendLogos;
+      const compactThreshold = hasFriendLogos ? 154 : 132;
+      setShowCategoryIcon(rowWidth >= compactThreshold);
+    };
+
+    updateCategoryIconVisibility();
+    const observer = new ResizeObserver(updateCategoryIconVisibility);
+    observer.observe(headerRow);
+
+    return () => observer.disconnect();
+  }, [showFriendLogos, selectedCollectionId, genus.category, genus.category_dex_number]);
 
   return (
     <>
@@ -93,45 +151,57 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
         whileTap={{ scale: 0.95 }}
       >
         <Card
-          className={`cursor-pointer overflow-hidden border-2 shadow-sm transition-all duration-300 ${
+          className={`relative cursor-pointer overflow-hidden border-2 shadow-sm transition-all duration-300 ${
             discovered 
-              ? `${getBorderColor()} hover:shadow-lg ${isLightUi ? "bg-white/95" : "bg-[#171a17]/88"}`
-              : `${getBorderColor()} ${isLightUi ? "opacity-70 hover:opacity-85 hover:border-stone-400 bg-stone-100/90" : "opacity-65 hover:opacity-85 hover:border-stone-400/70 bg-[#111412]/80"}`
+              ? `${getBorderColor()} hover:shadow-lg ${isLightUi ? "bg-white/95" : "bg-black/45"}`
+              : `${getBorderColor()} ${isLightUi ? "opacity-85 hover:opacity-100 hover:border-stone-400 bg-stone-100/90" : "opacity-85 hover:opacity-100 hover:border-stone-400/70 bg-black/45"}`
           }`}
           onClick={handleClick}
+          onMouseDown={handleLongPressStart}
+          onMouseUp={clearLongPress}
+          onMouseLeave={clearLongPress}
+          onTouchStart={handleLongPressStart}
+          onTouchEnd={clearLongPress}
+          onTouchCancel={clearLongPress}
         >
           <CardContent className="p-2">
             {/* Dex Number Badge */}
-            <div className="flex justify-between items-start mb-2">
+            <div ref={headerRowRef} className="flex justify-between items-start mb-2">
               <Badge className={"font-bold text-[10px] px-1.5 py-0.5 " + (isLightUi ? "bg-stone-800 text-white" : "bg-[#f0e5a5]/20 text-[#f8f1c8] border border-[#f0e5a5]/30") }>
-                {genus.category === "Bäume" && "🌳"}
-                {genus.category === "Sträucher" && "🌿"}
-                {genus.category === "Blumen" && "🌸"}
+                {showCategoryIcon && genus.category === "Bäume" && "🌳"}
+                {showCategoryIcon && genus.category === "Sträucher" && "🌿"}
+                {showCategoryIcon && genus.category === "Blumen" && "🌸"}
+                {showCategoryIcon && genus.category === "Blumen & Kräuter" && "🌸"}
                 #{String(genus.category_dex_number).padStart(3, '0')}
               </Badge>
               <div className="flex items-center gap-1">
-                {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={handleEditClick}
-                    className={"shrink-0 w-5 h-5 rounded-full border transition-colors inline-flex items-center justify-center " + (isLightUi
-                      ? "bg-amber-100 text-amber-700 hover:bg-amber-200 hover:text-amber-800 border-amber-300"
-                      : "bg-[#f0e5a5]/20 text-[#f0e5a5] hover:bg-[#f0e5a5]/30 border-[#f0e5a5]/45")}
-                    aria-label="Gattung bearbeiten"
-                  >
-                    <PencilIcon className="w-3 h-3" />
-                  </button>
-                )}
-                {discovered ? (
-                  <div className={"w-5 h-5 rounded-full flex items-center justify-center " + (isLightUi ? "bg-emerald-600" : "bg-emerald-500/90") }>
-                    <CheckCircle className="w-4 h-4 text-white" />
-                  </div>
-                ) : (
-                  <div 
-                    className={"w-5 h-5 rounded-full flex items-center justify-center transition-colors cursor-pointer " + (isLightUi ? "bg-stone-400 hover:bg-stone-500" : "bg-stone-600 hover:bg-stone-500") }
-                    onClick={handleHelpClick}
-                  >
-                    <HelpCircle className="w-3 h-3 text-white" />
+                {showFriendLogos && (
+                  <div className="mr-1 flex items-center">
+                    {visibleFriendLogos.map((entry, index) => (
+                      <div
+                        key={entry.authId || entry.email || index}
+                        className="w-5 h-5 rounded-full overflow-hidden bg-black/35"
+                        style={{ marginLeft: index === 0 ? 0 : -6 }}
+                        title={entry.name || entry.email || "Freund"}
+                      >
+                        <CustomLogoAvatar
+                          logoAssets={entry.logoAssets}
+                          className="w-full h-full"
+                          fallbackText={(entry.name || entry.email || "?").charAt(0).toUpperCase()}
+                          fallbackClassName="text-[9px] font-bold text-white"
+                        />
+                      </div>
+                    ))}
+                    {remainingFriendCount > 0 && (
+                      <div
+                        className={"w-5 h-5 -ml-1.5 rounded-full border text-[9px] font-semibold flex items-center justify-center " + (isLightUi
+                          ? "bg-sky-100 text-sky-800 border-sky-400/60"
+                          : "bg-sky-500/20 text-sky-100 border-sky-200/55")}
+                        title={`+${remainingFriendCount} weitere Freunde`}
+                      >
+                        +{remainingFriendCount}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -141,7 +211,6 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
             <div className="relative mb-2">
               <motion.div 
                 className={"relative aspect-square rounded-lg overflow-hidden z-10 " + (isLightUi ? "bg-gradient-to-br from-stone-100 to-stone-200" : "bg-gradient-to-br from-stone-800/85 to-stone-900/95")}
-                style={{ perspective: 1000 }}
               >
                 {discovered && genusImage ? (
                   <img
@@ -150,31 +219,23 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                <motion.div 
-                  className="absolute inset-0 flex items-center justify-center"
-                  animate={{ rotateY: isFlipped ? 180 : 0 }}
-                  transition={{ duration: 0.6 }}
-                  style={{ transformStyle: "preserve-3d" }}
-                >
-                  <motion.div
-                    className="absolute inset-0 flex items-center justify-center"
-                    style={{ backfaceVisibility: "hidden" }}
-                  >
+                  <div className="absolute inset-0 flex items-center justify-center">
                     <CategoryIcon className={"w-12 h-12 " + (isLightUi ? "text-stone-300" : "text-stone-500")} strokeWidth={1.5} />
-                  </motion.div>
-                  <motion.div
-                    className="absolute inset-0 flex items-center justify-center text-center px-2"
-                    style={{ 
-                      backfaceVisibility: "hidden",
-                      transform: "rotateY(180deg)"
-                    }}
+                  </div>
+                )}
+
+                {discovered ? (
+                  <div className={"absolute bottom-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center shadow-sm " + (isLightUi ? "bg-emerald-600" : "bg-emerald-500/90") }>
+                    <CheckCircle className="w-4 h-4 text-white" />
+                  </div>
+                ) : (
+                  <div
+                    className={"absolute bottom-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center transition-colors cursor-pointer shadow-sm " + (isLightUi ? "bg-stone-400 hover:bg-stone-500" : "bg-stone-600 hover:bg-stone-500") }
+                    onClick={handleHelpClick}
                   >
-                    <p className={"font-bold break-words text-xs " + (isLightUi ? "text-stone-700" : "text-stone-200")}>
-                      {genus.genus_name}
-                    </p>
-                  </motion.div>
-                </motion.div>
-              )}
+                    <HelpCircle className="w-3 h-3 text-white" />
+                  </div>
+                )}
               </motion.div>
             </div>
 
@@ -183,15 +244,15 @@ export default function GenusCard({ genus, onShowHint, userDiscoveries = [], pla
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <h3 className={`font-bold break-words text-xs leading-tight ${discovered ? (isLightUi ? 'text-stone-900' : 'text-stone-100') : (isLightUi ? 'text-stone-500' : 'text-stone-300')}`}>
-                    {discovered ? genus.genus_name : '???'}
+                    {genus.genus_name}
                   </h3>
                 </div>
 
-                {discovered && (
-                  <div className={"text-[10px] font-semibold whitespace-nowrap " + (isLightUi ? "text-emerald-700" : "text-emerald-300") }>
-                    {genus.discoveredCount}/{genus.totalSpecies}
-                  </div>
-                )}
+                <div className={"text-[10px] font-semibold whitespace-nowrap " + (discovered
+                  ? (isLightUi ? "text-emerald-700" : "text-emerald-300")
+                  : (isLightUi ? "text-stone-600" : "text-stone-300"))}>
+                  {genus.discoveredCount}/{genus.totalSpecies}
+                </div>
               </div>
 
               {!!collectionNote?.trim() && (

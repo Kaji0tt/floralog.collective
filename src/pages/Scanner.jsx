@@ -404,9 +404,14 @@ export default function Scanner() {
       let targetPlantId = newPlant.id;
 
       if (!targetPlantId || newPlant.notInDex) {
+        const scientificGenusFromScientificName =
+          (newPlant.scientific_name || "").toLowerCase().trim().split(" ")[0] || null;
+
         let genus = genera.find((g) =>
         g.genus_name?.toLowerCase() === newPlant.genus_name?.toLowerCase() ||
-        g.scientific_genus?.toLowerCase() === newPlant.scientific_genus?.toLowerCase()
+        g.scientific_genus?.toLowerCase() === newPlant.scientific_genus?.toLowerCase() ||
+        (scientificGenusFromScientificName &&
+          g.scientific_genus?.toLowerCase() === scientificGenusFromScientificName)
         );
 
         if (!genus) {

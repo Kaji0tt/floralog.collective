@@ -862,8 +862,10 @@ function HomeContent() {
       : [];
     const hasScanZoneUnlocks = navigationUnlocks.length > 0;
     const shouldOpenSettings = Boolean(location.state.openSettings);
+    const requestedActivePanel = location.state.activePanel;
+    const requestedCollectionId = location.state.collectionId;
 
-    if (!hasScanFeedback && !hasScanZoneUnlocks && !shouldOpenSettings) return;
+    if (!hasScanFeedback && !hasScanZoneUnlocks && !shouldOpenSettings && !requestedActivePanel && !requestedCollectionId) return;
 
     if (hasScanFeedback && !blockNavigationFeedbackRef.current) {
       safeSetScanFeedback(location.state.scanFeedback);
@@ -881,10 +883,20 @@ function HomeContent() {
       setShowHealthStatsPanel(false);
     }
 
+    if (requestedActivePanel) {
+      setActivePanel(requestedActivePanel);
+    }
+
+    if (requestedCollectionId) {
+      setEmbeddedSelectedCollectionId(requestedCollectionId);
+    }
+
     const {
       scanFeedback: _ignoredFeedback,
       scanZoneUnlocks: _ignoredScanZoneUnlocks,
       openSettings: _ignoredOpenSettings,
+      activePanel: _ignoredActivePanel,
+      collectionId: _ignoredCollectionId,
       ...restState
     } = location.state;
     const nextState = Object.keys(restState).length > 0 ? restState : null;

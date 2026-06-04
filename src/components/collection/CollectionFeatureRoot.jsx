@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Query } from "@/api/entities";
 import { createUserNotification, getUserDisplayName } from "@/api/notificationService";
@@ -12,6 +12,7 @@ import PublicCollectionScreen from "./PublicCollectionScreen";
 import HomeShellLoader from "../navigation/HomeShellLoader";
 import useCollectionViewState, { DEFAULT_COLLECTION_FILTERS } from "./hooks/useCollectionViewState";
 import { useUiTheme } from "@/lib/UiThemeContext";
+import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 
 const CATEGORY_CHIPS = [
   { value: "Bäume", emoji: "🌳" },
@@ -136,8 +137,17 @@ export default function CollectionFeatureRoot({
 
   const targetUser = profileUser || user;
   const targetUserId = targetUser?.auth_id || targetUser?.id || null;
-  const resolvedFriendEmail =
-    (friendEmail || targetUser?.user_email || "").toString().trim();
+  const isOwnCollectionContext =
+    !readOnly &&
+    !!user?.id &&
+    !!targetUserId &&
+    targetUserId === user.id;
+  // Nur die explizit übergebene friendEmail weitergeben.
+  // targetUser?.user_email darf NICHT als Fallback dienen, weil es sonst die eigene
+  // E-Mail als friendEmail setzt und GenusDetail in den Fremd-Ansichts-Modus versetzt.
+  const resolvedFriendEmail = friendEmail
+    ? friendEmail.toString().trim()
+    : (isOwnCollectionContext ? "" : (targetUser?.user_email || "").toString().trim());
 
   const { data: genera = [], isLoading: generaLoading } = useQuery({
     queryKey: ['genera'],
@@ -184,6 +194,19 @@ export default function CollectionFeatureRoot({
     queryFn: () => Query.PublicProfile.list(),
   });
 
+  const { data: logoAssets = [] } = useQuery({
+    queryKey: ["logoAssets"],
+    queryFn: () => Query.LogoAsset.list(),
+    staleTime: 60000,
+  });
+
+  const { data: allFriendRecords = [] } = useQuery({
+    queryKey: ["collectionAllFriendRecords", user?.email],
+    queryFn: () => Query.Friend.list(),
+    enabled: !!user?.email && isOwnCollectionContext,
+    staleTime: 10000,
+  });
+
   const { data: ownedCollections = [] } = useQuery({
     queryKey: ['ownedCollections', targetUserId],
     queryFn: async () => {
@@ -198,7 +221,125 @@ export default function CollectionFeatureRoot({
     queryFn: () => Query.CollectionItem.list(),
   });
 
+  const acceptedFriendProfiles = useMemo(() => {
+    if (!isOwnCollectionContext || !user?.email) return [];
+
+    const ownEmailLower = user.email.toLowerCase();
+    const profileByEmail = new Map(
+      (publicProfiles || [])
+        .filter((profile) => !!profile?.user_email)
+        .map((profile) => [profile.user_email.toLowerCase(), profile])
+    );
+
+    const acceptedEmails = new Set();
+    (allFriendRecords || []).forEach((friendEntry) => {
+      if (friendEntry?.status !== "accepted") return;
+
+      const sender = String(friendEntry.request_sent_by || "").toLowerCase();
+      const receiver = String(friendEntry.request_sent_to || "").toLowerCase();
+
+      if (sender === ownEmailLower && receiver) {
+        acceptedEmails.add(receiver);
+      } else if (receiver === ownEmailLower && sender) {
+        acceptedEmails.add(sender);
+      }
+    });
+
+    return Array.from(acceptedEmails)
+      .map((emailLower) => {
+        const profile = profileByEmail.get(emailLower);
+        if (!profile?.auth_id) return null;
+        return {
+          authId: profile.auth_id,
+          email: profile.user_email,
+          name: profile.display_name || profile.full_name || profile.user_email,
+          logoAssets: resolveEquippedLogoAssetsWithCatalog(profile, logoAssets),
+        };
+      })
+      .filter(Boolean);
+  }, [allFriendRecords, isOwnCollectionContext, logoAssets, publicProfiles, user?.email]);
+
+  const acceptedFriendAuthIds = useMemo(
+    () => acceptedFriendProfiles.map((entry) => entry.authId).filter(Boolean),
+    [acceptedFriendProfiles]
+  );
+
+  const acceptedFriendProfilesByAuthId = useMemo(
+    () => new Map(acceptedFriendProfiles.map((entry) => [entry.authId, entry])),
+    [acceptedFriendProfiles]
+  );
+
+  const { data: friendDiscoveriesByAuthId = {} } = useQuery({
+    queryKey: ["collectionFriendDiscoveries", acceptedFriendAuthIds],
+    queryFn: async () => {
+      const rows = await Promise.all(
+        acceptedFriendAuthIds.map(async (authId) => {
+          const discoveries = await Query.UserPlantDiscovery.filter({ auth_id: authId });
+          return [authId, discoveries || []];
+        })
+      );
+      return Object.fromEntries(rows);
+    },
+    enabled: isOwnCollectionContext && acceptedFriendAuthIds.length > 0,
+    staleTime: 30000,
+  });
+
   const isLoading = generaLoading || plantsLoading || discoveriesLoading;
+
+  const plantById = useMemo(
+    () => new Map((plants || []).map((plant) => [plant.id, plant])),
+    [plants]
+  );
+
+  const genusByCategoryAndNumber = useMemo(
+    () => new Map((genera || []).map((genus) => [`${genus.category}::${genus.category_dex_number}`, genus])),
+    [genera]
+  );
+
+  const friendDiscoveryMetaByGenusId = useMemo(() => {
+    if (!isOwnCollectionContext) return {};
+
+    const friendMapByGenus = new Map();
+
+    Object.entries(friendDiscoveriesByAuthId || {}).forEach(([authId, discoveries]) => {
+      const friendProfile = acceptedFriendProfilesByAuthId.get(authId);
+      if (!friendProfile || !Array.isArray(discoveries)) return;
+
+      discoveries.forEach((discovery) => {
+        const plant = plantById.get(discovery?.plant_id);
+        if (!plant) return;
+
+        const genus = genusByCategoryAndNumber.get(`${plant.genus_category}::${plant.genus_number}`);
+        if (!genus?.id) return;
+
+        if (!friendMapByGenus.has(genus.id)) {
+          friendMapByGenus.set(genus.id, new Map());
+        }
+
+        friendMapByGenus.get(genus.id).set(authId, friendProfile);
+      });
+    });
+
+    const meta = {};
+    friendMapByGenus.forEach((friendsByAuthId, genusId) => {
+      const friends = Array.from(friendsByAuthId.values()).sort((a, b) =>
+        (a.name || "").localeCompare(b.name || "", "de")
+      );
+
+      meta[genusId] = {
+        count: friends.length,
+        friends,
+      };
+    });
+
+    return meta;
+  }, [
+    acceptedFriendProfilesByAuthId,
+    friendDiscoveriesByAuthId,
+    genusByCategoryAndNumber,
+    isOwnCollectionContext,
+    plantById,
+  ]);
 
   const followMutation = useMutation({
     mutationFn: async (collectionId) => {
@@ -851,6 +992,8 @@ export default function CollectionFeatureRoot({
             <CollectionScreen
               readOnly={readOnly}
               friendEmail={resolvedFriendEmail || null}
+              showFriendHighlights={isOwnCollectionContext}
+              friendDiscoveryMetaByGenusId={friendDiscoveryMetaByGenusId}
               isQuestCollectionView={isQuestCollectionView}
               ownedCollections={ownedCollections}
               followedCollections={followedCollections}

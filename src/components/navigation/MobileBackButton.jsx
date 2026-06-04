@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Home, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
 
-export default function MobileBackButton({ backUrl = null }) {
+export default function MobileBackButton({ backUrl = null, backState = null }) {
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -51,7 +51,7 @@ export default function MobileBackButton({ backUrl = null }) {
       style={{ x: position.x, y: position.y }}
     >
       <Button
-        onClick={() => navigate(targetUrl)}
+        onClick={() => navigate(targetUrl, backState ? { state: backState } : undefined)}
         className="w-16 h-16 bg-white/90 backdrop-blur-sm hover:bg-white shadow-lg border-2 border-stone-200 text-stone-900 rounded-full cursor-move"
       >
         {isFriendContext ? (

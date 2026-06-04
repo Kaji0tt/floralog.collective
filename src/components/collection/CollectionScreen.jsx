@@ -11,6 +11,8 @@ const CATEGORY_CHIPS = [
 export default function CollectionScreen({
   readOnly = false,
   friendEmail = null,
+  showFriendHighlights = false,
+  friendDiscoveryMetaByGenusId = {},
   isQuestCollectionView,
   ownedCollections,
   followedCollections,
@@ -322,7 +324,10 @@ export default function CollectionScreen({
                 onShowHint={onShowHint}
                 userDiscoveries={userDiscoveries}
                 plants={plants}
+                selectedCollectionId={selectedCollectionId}
                 friendEmail={friendEmail}
+                friendDiscoveries={showFriendHighlights ? (friendDiscoveryMetaByGenusId?.[genus.id]?.friends || []) : []}
+                friendDiscoveryCount={showFriendHighlights ? (friendDiscoveryMetaByGenusId?.[genus.id]?.count || 0) : 0}
                 collectionNote={genus.collectionNote}
                 isAdmin={currentUser?.role === "admin"}
                 uiTheme={uiTheme}

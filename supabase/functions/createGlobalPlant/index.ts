@@ -141,18 +141,41 @@ Deno.serve(async (req) => {
     }
 
     const normalize = (s: string | null | undefined) => (s || "").toLowerCase().trim();
+    const scientificGenusFromScientificName = normalize(plant.scientific_name).split(" ")[0] || "";
+    const normalizedRequestedGenusName = normalize(plant.genus_name);
+    const normalizedRequestedScientificGenus = normalize(plant.scientific_genus) || scientificGenusFromScientificName;
     // Normalize legacy "Blumen & Kräuter" to "Blumen" for consistent categorisation
     const normalizedCategory = plant.category === "Blumen & Kräuter" ? "Blumen" : plant.category;
     const categoryCandidates = normalizedCategory === "Blumen"
       ? ["Blumen", "Blumen & Kräuter"]
       : [normalizedCategory];
 
-    let genus = (allGenera || []).find((g: any) =>
-      categoryCandidates.includes(g.category) && (
-        normalize(g.genus_name) === normalize(plant.genus_name) ||
-        normalize(g.scientific_genus) === normalize(plant.scientific_genus)
-      ),
-    );
+    const findExistingGenus = (items: any[]) => {
+      if (!Array.isArray(items) || items.length === 0) return null;
+
+      // Never create a new genus when we can identify an existing one by name,
+      // even if category differs due to misclassification.
+      const scientificMatch = items.find((g: any) =>
+        normalizedRequestedScientificGenus &&
+        normalize(g.scientific_genus) === normalizedRequestedScientificGenus,
+      );
+      if (scientificMatch) return scientificMatch;
+
+      const genusNameMatch = items.find((g: any) =>
+        normalizedRequestedGenusName &&
+        normalize(g.genus_name) === normalizedRequestedGenusName,
+      );
+      if (genusNameMatch) return genusNameMatch;
+
+      return items.find((g: any) =>
+        categoryCandidates.includes(g.category) && (
+          normalize(g.genus_name) === normalizedRequestedGenusName ||
+          normalize(g.scientific_genus) === normalizedRequestedScientificGenus
+        ),
+      ) || null;
+    };
+
+    let genus = findExistingGenus(allGenera || []);
 
     if (!genus) {
       let latestGenera = allGenera || [];
@@ -206,12 +229,7 @@ Deno.serve(async (req) => {
         }
 
         latestGenera = refreshedGenera || [];
-        genus = latestGenera.find((g: any) =>
-          categoryCandidates.includes(g.category) && (
-            normalize(g.genus_name) === normalize(plant.genus_name) ||
-            normalize(g.scientific_genus) === normalize(plant.scientific_genus)
-          ),
-        );
+        genus = findExistingGenus(latestGenera || []);
       }
     }
 

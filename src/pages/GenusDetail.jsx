@@ -1,32 +1,36 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Leaf, CheckCircle2, Lock, Sparkles, Volume2, VolumeX, ChevronLeft, ChevronRight, Star, HelpCircle, MapPin, X, ExternalLink, Trash2, Heart, PencilLine } from "lucide-react";
+import { ArrowLeft, Leaf, CheckCircle2, Volume2, VolumeX, ChevronLeft, ChevronRight, Star, HelpCircle, MapPin, X, ExternalLink, Trash2, Heart } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { motion } from "framer-motion";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import EditPlantDialog from "../components/collection/EditPlantDialog";
 import { useUiTheme } from "@/lib/UiThemeContext";
+import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
+import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 
 export default function GenusDetail() {
+  const SWIPE_THRESHOLD_PX = 36;
+  const VARIANT_RESET_TIMEOUT_MS = 5000;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isLightUi: contextIsLightUi } = useUiTheme();
   const urlParams = new URLSearchParams(window.location.search);
   const genusId = urlParams.get('id');
   const friendEmail = urlParams.get('email'); // NEU: Prüfe ob wir im Freundes-Kontext sind
+  const collectionId = urlParams.get('collectionId');
   const targetDiscoveryId = urlParams.get('discoveryId');
   const [speakingPlantId, setSpeakingPlantId] = useState(null);
-  const [imageIndexes, setImageIndexes] = useState({});
-  const [flippedPlants, setFlippedPlants] = useState({});
+  const [activeVariantIndexes, setActiveVariantIndexes] = useState({});
+  const [expandedActiveVariantIndex, setExpandedActiveVariantIndex] = useState(0);
   const [enlargedImage, setEnlargedImage] = useState(null);
   const [expandedPlant, setExpandedPlant] = useState(null);
   const [editingPlant, setEditingPlant] = useState(null);
@@ -34,9 +38,20 @@ export default function GenusDetail() {
   const [deleteConfirmDiscoveryId, setDeleteConfirmDiscoveryId] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
+  const [plantDragOffsets, setPlantDragOffsets] = useState({});
+  const [expandedDragOffset, setExpandedDragOffset] = useState(null);
   const geocodePendingRef = useRef(new Set());
   const geocodeByCoordsRef = useRef({});
   const deepLinkAppliedRef = useRef(false);
+  const plantLongPressTimerRef = useRef(null);
+  const plantLongPressTriggeredRef = useRef(false);
+  const plantDragStartXRef = useRef({});
+  const plantTouchStartXRef = useRef({});
+  const plantSwipeTriggeredRef = useRef({});
+  const variantResetTimersRef = useRef({});
+  const expandedDragStartXRef = useRef(null);
+  const expandedTouchStartXRef = useRef(null);
+  const expandedSwipeTriggeredRef = useRef(false);
 
   const getDiscoveryTimestamp = (discovery) => {
     const raw = discovery?.discovered_date || discovery?.created_date || discovery?.created_at;
@@ -91,7 +106,7 @@ export default function GenusDetail() {
           g = Math.floor(g / count);
           b = Math.floor(b / count);
           resolve(`rgb(${r}, ${g}, ${b})`);
-        } catch (error) {
+        } catch {
           resolve(null);
         }
       };
@@ -159,6 +174,119 @@ export default function GenusDetail() {
       return Query.UserPlantDiscovery.filter({ auth_id: currentUser.id });
     },
     enabled: friendEmail ? (friendProfile !== undefined) : !!currentUser?.id,
+  });
+
+  const { data: allScanLikes = [] } = useQuery({
+    queryKey: ["scanLikesAll"],
+    queryFn: () => Query.ScanLike.list("-created_date"),
+  });
+
+  const { data: allPublicProfiles = [] } = useQuery({
+    queryKey: ["genusDetailPublicProfiles"],
+    queryFn: () => Query.PublicProfile.list(),
+    enabled: !friendEmail && !!currentUser?.email,
+    staleTime: 30000,
+  });
+
+  const { data: logoAssets = [] } = useQuery({
+    queryKey: ["logoAssets"],
+    queryFn: () => Query.LogoAsset.list(),
+    enabled: !friendEmail && !!currentUser?.email,
+    staleTime: 60000,
+  });
+
+  const { data: allFriendRecords = [] } = useQuery({
+    queryKey: ["genusDetailFriendRecords", currentUser?.email],
+    queryFn: () => Query.Friend.list(),
+    enabled: !friendEmail && !!currentUser?.email,
+    staleTime: 10000,
+  });
+
+  const acceptedFriendProfiles = useMemo(() => {
+    if (friendEmail || !currentUser?.email) return [];
+
+    const ownEmailLower = currentUser.email.toLowerCase();
+    const profileByEmail = new Map(
+      (allPublicProfiles || [])
+        .filter((profile) => !!profile?.user_email)
+        .map((profile) => [profile.user_email.toLowerCase(), profile])
+    );
+
+    const friendEmails = new Set();
+    (allFriendRecords || []).forEach((friendEntry) => {
+      if (friendEntry?.status !== "accepted") return;
+
+      const sender = String(friendEntry.request_sent_by || "").toLowerCase();
+      const receiver = String(friendEntry.request_sent_to || "").toLowerCase();
+      if (sender === ownEmailLower && receiver) {
+        friendEmails.add(receiver);
+      } else if (receiver === ownEmailLower && sender) {
+        friendEmails.add(sender);
+      }
+    });
+
+    return Array.from(friendEmails)
+      .map((emailLower) => {
+        const profile = profileByEmail.get(emailLower);
+        if (!profile?.auth_id) return null;
+        return {
+          authId: profile.auth_id,
+          email: profile.user_email,
+          name: profile.display_name || profile.full_name || profile.user_email,
+          logoAssets: resolveEquippedLogoAssetsWithCatalog(profile, logoAssets),
+        };
+      })
+      .filter(Boolean);
+  }, [allFriendRecords, allPublicProfiles, currentUser?.email, friendEmail, logoAssets]);
+
+  const acceptedFriendAuthIds = useMemo(
+    () => acceptedFriendProfiles.map((entry) => entry.authId).filter(Boolean),
+    [acceptedFriendProfiles]
+  );
+
+  const acceptedFriendByAuthId = useMemo(
+    () => new Map(acceptedFriendProfiles.map((entry) => [entry.authId, entry])),
+    [acceptedFriendProfiles]
+  );
+
+  const ownActor = useMemo(() => {
+    const ownProfile = (allPublicProfiles || []).find((profile) => {
+      if (!profile) return false;
+      if (currentUser?.id && profile.auth_id === currentUser.id) return true;
+      if (currentUser?.email && profile.user_email) {
+        return profile.user_email.toLowerCase() === currentUser.email.toLowerCase();
+      }
+      return false;
+    });
+
+    return {
+      authId: currentUser?.id || ownProfile?.auth_id || "self",
+      email: currentUser?.email || ownProfile?.user_email || "",
+      name:
+        currentUser?.display_name ||
+        currentUser?.full_name ||
+        ownProfile?.display_name ||
+        ownProfile?.full_name ||
+        currentUser?.email ||
+        "Du",
+      logoAssets: resolveEquippedLogoAssetsWithCatalog(ownProfile || currentUser || {}, logoAssets),
+      isOwn: true,
+    };
+  }, [allPublicProfiles, currentUser, logoAssets]);
+
+  const { data: friendDiscoveriesByAuthId = {} } = useQuery({
+    queryKey: ["genusDetailFriendDiscoveries", acceptedFriendAuthIds],
+    queryFn: async () => {
+      const rows = await Promise.all(
+        acceptedFriendAuthIds.map(async (authId) => {
+          const discoveries = await Query.UserPlantDiscovery.filter({ auth_id: authId });
+          return [authId, discoveries || []];
+        })
+      );
+      return Object.fromEntries(rows);
+    },
+    enabled: !friendEmail && acceptedFriendAuthIds.length > 0,
+    staleTime: 30000,
   });
 
   // Koordinaten zu Ortsnamen umwandeln
@@ -284,7 +412,9 @@ export default function GenusDetail() {
       setDeleteConfirmDiscoveryId(null);
       // Wenn das expandedPlant keine Discoveries mehr hat, schließe das Modal
       if (expandedPlant) {
-        const remainingDiscoveries = expandedPlant.allDiscoveries.filter(d => d.id !== deleteConfirmDiscoveryId);
+        const remainingDiscoveries = (expandedPlantData?.discoveryVariants || [])
+          .map((variant) => variant?.discovery)
+          .filter((discovery) => !!discovery && discovery.id !== deleteConfirmDiscoveryId);
         if (remainingDiscoveries.length === 0) {
           setExpandedPlant(null);
         }
@@ -352,6 +482,36 @@ export default function GenusDetail() {
 
   const genus = genera.find(g => g.id === genusId);
   const selectedGenus = genus;
+  const likeCountByDiscoveryId = useMemo(
+    () => (allScanLikes || []).reduce((acc, like) => {
+      if (!like?.discovery_id) return acc;
+      acc.set(like.discovery_id, (acc.get(like.discovery_id) || 0) + 1);
+      return acc;
+    }, new Map()),
+    [allScanLikes]
+  );
+
+  const likedDiscoveryIdSet = useMemo(() => {
+    const ownEmailLower = currentUser?.email?.toLowerCase();
+    if (!ownEmailLower) return new Set();
+    return new Set(
+      (allScanLikes || [])
+        .filter((like) => like?.discovery_id && like?.liked_by?.toLowerCase() === ownEmailLower)
+        .map((like) => like.discovery_id)
+    );
+  }, [allScanLikes, currentUser?.email]);
+
+  const pickPreferredDiscovery = (discoveries = []) => {
+    if (!Array.isArray(discoveries) || discoveries.length === 0) return null;
+    return [...discoveries].sort((a, b) => {
+      const aIsFront = Boolean(a?.is_front_image || a?.is_species_front_image);
+      const bIsFront = Boolean(b?.is_front_image || b?.is_species_front_image);
+      if (aIsFront && !bIsFront) return -1;
+      if (!aIsFront && bIsFront) return 1;
+      return getDiscoveryTimestamp(b) - getDiscoveryTimestamp(a);
+    })[0] || null;
+  };
+
   const genusPlants = plants.filter(p => 
     selectedGenus && p.genus_category === selectedGenus.category && p.genus_number === selectedGenus.category_dex_number
   ).map(plant => {
@@ -365,30 +525,124 @@ export default function GenusDetail() {
       return getDiscoveryTimestamp(b) - getDiscoveryTimestamp(a);
     });
     const userDiscovery = sortedDiscoveries[0];
+
+    const friendActors = friendEmail
+      ? []
+      : Object.entries(friendDiscoveriesByAuthId || []).flatMap(([authId, discoveries]) => {
+          const actor = acceptedFriendByAuthId.get(authId);
+          if (!actor || !Array.isArray(discoveries)) return [];
+          const hasSpeciesDiscovery = discoveries.some((discovery) => discovery?.plant_id === plant.id);
+          return hasSpeciesDiscovery ? [actor] : [];
+        });
+
+    const uniqueFriendActors = Array.from(
+      new Map(friendActors.map((actor) => [actor.authId, actor])).values()
+    ).sort((a, b) => (a.name || "").localeCompare(b.name || "", "de"));
+
+    const discoveryVariants = [];
+
+    if (friendEmail) {
+      if (sortedDiscoveries.length > 0) {
+        sortedDiscoveries.forEach((discovery, index) => {
+          discoveryVariants.push({
+            key: `friend-${friendProfile?.auth_id || "unknown"}-${discovery.id || index}`,
+            actor: {
+              authId: friendProfile?.auth_id || "friend",
+              email: friendEmail,
+              name: friendProfile?.display_name || friendProfile?.full_name || friendEmail,
+              logoAssets: resolveEquippedLogoAssetsWithCatalog(friendProfile || {}, logoAssets),
+              isOwn: false,
+            },
+            discovery,
+            isOwn: false,
+          });
+        });
+      } else {
+        discoveryVariants.push({
+          key: `friend-${friendProfile?.auth_id || "unknown"}-empty`,
+          actor: {
+            authId: friendProfile?.auth_id || "friend",
+            email: friendEmail,
+            name: friendProfile?.display_name || friendProfile?.full_name || friendEmail,
+            logoAssets: resolveEquippedLogoAssetsWithCatalog(friendProfile || {}, logoAssets),
+            isOwn: false,
+          },
+          discovery: null,
+          isOwn: false,
+        });
+      }
+    } else {
+      discoveryVariants.push({
+        key: `own-${ownActor.authId}-${plant.id}`,
+        actor: ownActor,
+        discovery: pickPreferredDiscovery(sortedDiscoveries),
+        isOwn: true,
+      });
+
+      uniqueFriendActors.forEach((actor) => {
+        const actorDiscoveries = Array.isArray(friendDiscoveriesByAuthId?.[actor.authId])
+          ? friendDiscoveriesByAuthId[actor.authId].filter((entry) => entry?.plant_id === plant.id)
+          : [];
+        const actorDiscovery = pickPreferredDiscovery(actorDiscoveries);
+        if (!actorDiscovery) return;
+        discoveryVariants.push({
+          key: `friend-${actor.authId}-${plant.id}`,
+          actor: { ...actor, isOwn: false },
+          discovery: actorDiscovery,
+          isOwn: false,
+        });
+      });
+    }
+
+    const defaultVariantIndex = friendEmail
+      ? 0
+      : Math.max(0, discoveryVariants.findIndex((variant) => variant.isOwn));
+
     return {
       ...plant,
       discovered: !!userDiscovery,
       userDiscovery: userDiscovery,
       allDiscoveries: sortedDiscoveries,
-      discovery_date: userDiscovery ? userDiscovery.created_at : null
+      discovery_date: userDiscovery ? userDiscovery.created_at : null,
+      friendActors: uniqueFriendActors,
+      friendDiscoveryCount: uniqueFriendActors.length,
+      discoveryVariants,
+      defaultVariantIndex,
     };
   });
   const discoveredSpecies = genusPlants.filter(p => p.discovered);
+
+  useEffect(() => {
+    setActiveVariantIndexes((prev) => {
+      const next = { ...prev };
+      genusPlants.forEach((plant) => {
+        if (typeof next[plant.id] !== "number") {
+          next[plant.id] = plant.defaultVariantIndex || 0;
+        }
+      });
+      return next;
+    });
+  }, [genusPlants]);
 
   useEffect(() => {
     if (!targetDiscoveryId || deepLinkAppliedRef.current) return;
     if (!Array.isArray(genusPlants) || genusPlants.length === 0) return;
 
     const matchingPlant = genusPlants.find((plant) =>
-      Array.isArray(plant.allDiscoveries) && plant.allDiscoveries.some((discovery) => discovery.id === targetDiscoveryId)
+      Array.isArray(plant.discoveryVariants) &&
+      plant.discoveryVariants.some((variant) => variant?.discovery?.id === targetDiscoveryId)
     );
     if (!matchingPlant) return;
 
-    const targetIndex = matchingPlant.allDiscoveries.findIndex((discovery) => discovery.id === targetDiscoveryId);
+    const targetIndex = matchingPlant.discoveryVariants.findIndex((variant) => variant?.discovery?.id === targetDiscoveryId);
     if (targetIndex < 0) return;
 
     setExpandedPlant(matchingPlant);
-    setImageIndexes((prev) => ({ ...prev, [matchingPlant.id]: targetIndex }));
+    setExpandedActiveVariantIndex(targetIndex);
+    setActiveVariantIndexes((prev) => ({
+      ...prev,
+      [matchingPlant.id]: targetIndex,
+    }));
     deepLinkAppliedRef.current = true;
   }, [genusPlants, targetDiscoveryId]);
 
@@ -406,6 +660,16 @@ export default function GenusDetail() {
     genusDiscoveries.find((d) => d.is_front_image)?.image_url ||
     genusDiscoveries.find((d) => d.is_species_front_image)?.image_url ||
     [...genusDiscoveries].sort((a, b) => getDiscoveryTimestamp(b) - getDiscoveryTimestamp(a))[0]?.image_url;
+
+  useEffect(() => {
+    return () => {
+      clearPlantLongPress();
+      Object.values(variantResetTimersRef.current).forEach((timerId) => {
+        window.clearTimeout(timerId);
+      });
+      variantResetTimersRef.current = {};
+    };
+  }, []);
 
   if (generaLoading || plantsLoading || discoveriesLoading) {
     return (
@@ -470,6 +734,179 @@ export default function GenusDetail() {
     }
   };
 
+  const friendProfileLogoAssets = resolveEquippedLogoAssetsWithCatalog(friendProfile || {}, logoAssets);
+
+  const expandedPlantData = expandedPlant
+    ? (genusPlants.find((plant) => plant.id === expandedPlant.id) || expandedPlant)
+    : null;
+
+  const expandedVariants = Array.isArray(expandedPlantData?.discoveryVariants)
+    ? expandedPlantData.discoveryVariants
+    : [];
+  const safeExpandedVariantIndex = Math.min(
+    Math.max(expandedActiveVariantIndex || 0, 0),
+    Math.max(expandedVariants.length - 1, 0)
+  );
+  const activeExpandedVariant = expandedVariants[safeExpandedVariantIndex] || null;
+
+  const activeExpandedDiscovery = activeExpandedVariant?.discovery || null;
+  const activeExpandedLikeCount = activeExpandedDiscovery?.id
+    ? (likeCountByDiscoveryId.get(activeExpandedDiscovery.id) || 0)
+    : 0;
+  const activeExpandedLikedByUser = activeExpandedDiscovery?.id
+    ? likedDiscoveryIdSet.has(activeExpandedDiscovery.id)
+    : false;
+  const activeExpandedFriendActor = activeExpandedVariant?.isOwn ? null : activeExpandedVariant?.actor || null;
+
+  const clearVariantResetTimer = (timerKey) => {
+    if (!timerKey) return;
+    if (variantResetTimersRef.current[timerKey]) {
+      window.clearTimeout(variantResetTimersRef.current[timerKey]);
+      delete variantResetTimersRef.current[timerKey];
+    }
+  };
+
+  const scheduleVariantReset = ({ timerKey, plantId, defaultIndex, updateExpanded }) => {
+    if (!timerKey || typeof plantId === "undefined") return;
+    clearVariantResetTimer(timerKey);
+    variantResetTimersRef.current[timerKey] = window.setTimeout(() => {
+      setActiveVariantIndexes((prev) => ({
+        ...prev,
+        [plantId]: defaultIndex,
+      }));
+
+      if (updateExpanded && expandedPlantData?.id === plantId) {
+        setExpandedActiveVariantIndex(defaultIndex);
+      }
+    }, VARIANT_RESET_TIMEOUT_MS);
+  };
+
+  const cyclePlantVariant = ({ plant, direction, updateExpanded = false }) => {
+    const variants = Array.isArray(plant?.discoveryVariants) ? plant.discoveryVariants : [];
+    if (variants.length <= 1) return;
+
+    const currentIndex = updateExpanded
+      ? safeExpandedVariantIndex
+      : (typeof activeVariantIndexes[plant.id] === "number" ? activeVariantIndexes[plant.id] : (plant.defaultVariantIndex || 0));
+
+    const nextIndex = direction === "left"
+      ? (currentIndex + 1) % variants.length
+      : (currentIndex - 1 + variants.length) % variants.length;
+
+    setActiveVariantIndexes((prev) => ({
+      ...prev,
+      [plant.id]: nextIndex,
+    }));
+
+    if (updateExpanded) {
+      setExpandedActiveVariantIndex(nextIndex);
+      scheduleVariantReset({
+        timerKey: `expanded:${plant.id}`,
+        plantId: plant.id,
+        defaultIndex: plant.defaultVariantIndex || 0,
+        updateExpanded: true,
+      });
+      return;
+    }
+
+    scheduleVariantReset({
+      timerKey: `list:${plant.id}`,
+      plantId: plant.id,
+      defaultIndex: plant.defaultVariantIndex || 0,
+      updateExpanded: false,
+    });
+  };
+
+  const clearPlantLongPress = () => {
+    if (plantLongPressTimerRef.current) {
+      window.clearTimeout(plantLongPressTimerRef.current);
+      plantLongPressTimerRef.current = null;
+    }
+  };
+
+  const resetPlantDrag = (plantId) => {
+    if (!plantId) return;
+    plantDragStartXRef.current[plantId] = null;
+    setPlantDragOffsets((prev) => {
+      if (!(plantId in prev)) return prev;
+      const next = { ...prev };
+      delete next[plantId];
+      return next;
+    });
+  };
+
+  const resetExpandedDrag = () => {
+    expandedDragStartXRef.current = null;
+    setExpandedDragOffset(null);
+  };
+
+  const clampDragOffset = (deltaX) => Math.max(-88, Math.min(88, deltaX));
+
+  const updatePlantDrag = (plant, clientX) => {
+    if (!plant?.id || typeof clientX !== "number") return;
+    const startX = plantDragStartXRef.current[plant.id];
+    if (typeof startX !== "number") return;
+    setPlantDragOffsets((prev) => ({
+      ...prev,
+      [plant.id]: clampDragOffset(clientX - startX),
+    }));
+  };
+
+  const finishPlantDrag = (plant, clientX) => {
+    if (!plant?.id) return;
+    const startX = plantDragStartXRef.current[plant.id];
+    const endX = typeof clientX === "number" ? clientX : null;
+    const deltaX = typeof startX === "number" && endX !== null ? endX - startX : 0;
+    const shouldSwipe = Math.abs(deltaX) >= SWIPE_THRESHOLD_PX;
+
+    if (shouldSwipe) {
+      plantSwipeTriggeredRef.current[plant.id] = true;
+      cyclePlantVariant({
+        plant,
+        direction: deltaX < 0 ? "left" : "right",
+        updateExpanded: false,
+      });
+    }
+
+    resetPlantDrag(plant.id);
+  };
+
+  const updateExpandedDrag = (clientX) => {
+    if (typeof clientX !== "number") return;
+    const startX = expandedDragStartXRef.current;
+    if (typeof startX !== "number") return;
+    setExpandedDragOffset(clampDragOffset(clientX - startX));
+  };
+
+  const finishExpandedDrag = (clientX) => {
+    const startX = expandedDragStartXRef.current;
+    const endX = typeof clientX === "number" ? clientX : null;
+    const deltaX = typeof startX === "number" && endX !== null ? endX - startX : 0;
+    const shouldSwipe = Math.abs(deltaX) >= SWIPE_THRESHOLD_PX;
+
+    if (shouldSwipe) {
+      expandedSwipeTriggeredRef.current = true;
+      cyclePlantVariant({
+        plant: expandedPlantData,
+        direction: deltaX < 0 ? "left" : "right",
+        updateExpanded: true,
+      });
+    }
+
+    resetExpandedDrag();
+  };
+
+  const handlePlantLongPressStart = (plant) => {
+    if (currentUser?.role !== "admin") return;
+
+    clearPlantLongPress();
+    plantLongPressTriggeredRef.current = false;
+    plantLongPressTimerRef.current = window.setTimeout(() => {
+      plantLongPressTriggeredRef.current = true;
+      setEditingPlant(plant);
+    }, 550);
+  };
+
   const getLighterColor = (rgbString) => {
     if (!rgbString) return null;
     const match = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
@@ -493,8 +930,22 @@ export default function GenusDetail() {
   // Bestimme Zurück-URL basierend auf Kontext
   const backUrl = friendEmail 
     ? createPageUrl(`FriendCollection?email=${friendEmail}`)
-    : createPageUrl("Collection");
+    : createPageUrl("Home");
   const backLabel = friendEmail ? "Zurück zum Freundes-PlantDex" : "Zurück zur Sammlung";
+  const backState = friendEmail
+    ? null
+    : {
+        activePanel: "collection",
+        collectionId: collectionId || "global",
+      };
+  const handleBackClick = () => {
+    if (friendEmail) {
+      navigate(backUrl);
+      return;
+    }
+
+    navigate(backUrl, { state: backState });
+  };
 
   return (
     <div 
@@ -509,12 +960,12 @@ export default function GenusDetail() {
             : 'linear-gradient(to bottom right, rgb(17, 24, 21), rgb(24, 34, 29))')
       }}
     >
-      <MobileBackButton backUrl={backUrl} />
+      <MobileBackButton backUrl={backUrl} backState={backState} />
       
       <div className="max-w-6xl mx-auto">
         <Button
           variant="ghost"
-          onClick={() => navigate(backUrl)}
+          onClick={handleBackClick}
           className={"mb-6 font-semibold shadow-sm border hidden md:inline-flex " + (isLightUi
             ? "bg-white hover:bg-stone-50 text-stone-900 border-stone-200"
             : "bg-black/45 hover:bg-black/60 text-stone-100 border-[#f0e5a5]/35")}
@@ -596,93 +1047,207 @@ export default function GenusDetail() {
 
         {/* Species Cards - Kompakt, klickbar für Vollansicht */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {genusPlants.map((plant) => (
+          {genusPlants.map((plant) => {
+            const variants = Array.isArray(plant.discoveryVariants) ? plant.discoveryVariants : [];
+            const defaultIndex = plant.defaultVariantIndex || 0;
+            const activeIndex = Math.min(
+              Math.max(typeof activeVariantIndexes[plant.id] === "number" ? activeVariantIndexes[plant.id] : defaultIndex, 0),
+              Math.max(variants.length - 1, 0)
+            );
+            const activeVariant = variants[activeIndex] || null;
+            const activeDiscovery = activeVariant?.discovery || null;
+            const activeLikeCount = activeDiscovery?.id ? (likeCountByDiscoveryId.get(activeDiscovery.id) || 0) : 0;
+            const activeLikedByUser = activeDiscovery?.id ? likedDiscoveryIdSet.has(activeDiscovery.id) : false;
+            const showStack = variants.length > 1;
+
+            return (
             <Card
               key={plant.id}
-              onClick={() => plant.discovered && setExpandedPlant(plant)}
-              className={`border shadow-sm transition-all duration-300 overflow-hidden ${
-                plant.discovered 
-                  ? `${getRarityBorderColor(plant.rarity)} hover:shadow-md ${isLightUi ? 'bg-white cursor-pointer' : 'bg-black/40 cursor-pointer'}`
-                  : (isLightUi ? 'border-stone-200 bg-stone-50' : 'border-stone-700/60 bg-black/30')
+              onClick={() => {
+                if (plantLongPressTriggeredRef.current || plantSwipeTriggeredRef.current[plant.id]) {
+                  plantLongPressTriggeredRef.current = false;
+                  plantSwipeTriggeredRef.current[plant.id] = false;
+                  return;
+                }
+                setExpandedPlant(plant);
+                setExpandedActiveVariantIndex(activeIndex);
+              }}
+              onMouseDown={(event) => {
+                handlePlantLongPressStart(plant);
+                plantDragStartXRef.current[plant.id] = event.clientX;
+                setPlantDragOffsets((prev) => ({ ...prev, [plant.id]: 0 }));
+              }}
+              onMouseMove={(event) => {
+                if (event.buttons !== 1) return;
+                updatePlantDrag(plant, event.clientX);
+              }}
+              onMouseUp={(event) => {
+                clearPlantLongPress();
+                finishPlantDrag(plant, event.clientX);
+              }}
+              onMouseLeave={() => {
+                clearPlantLongPress();
+                resetPlantDrag(plant.id);
+              }}
+              onTouchStart={(event) => {
+                handlePlantLongPressStart(plant);
+                const startX = event.changedTouches?.[0]?.clientX ?? null;
+                plantTouchStartXRef.current[plant.id] = startX;
+                plantDragStartXRef.current[plant.id] = startX;
+                setPlantDragOffsets((prev) => ({ ...prev, [plant.id]: 0 }));
+                plantSwipeTriggeredRef.current[plant.id] = false;
+              }}
+              onTouchMove={(event) => {
+                updatePlantDrag(plant, event.touches?.[0]?.clientX ?? null);
+              }}
+              onTouchEnd={(event) => {
+                clearPlantLongPress();
+                const endX = event.changedTouches?.[0]?.clientX ?? null;
+                plantTouchStartXRef.current[plant.id] = null;
+                finishPlantDrag(plant, endX);
+              }}
+              onTouchCancel={() => {
+                clearPlantLongPress();
+                plantTouchStartXRef.current[plant.id] = null;
+                resetPlantDrag(plant.id);
+              }}
+              style={plantDragOffsets[plant.id] != null ? {
+                transform: `translateX(${plantDragOffsets[plant.id]}px) rotate(${plantDragOffsets[plant.id] / 30}deg)`,
+                transition: "none",
+                willChange: "transform",
+              } : undefined}
+              className={`relative border shadow-sm transition-all duration-300 overflow-hidden cursor-pointer ${
+                plant.discovered
+                  ? `${getRarityBorderColor(plant.rarity)} hover:shadow-md ${isLightUi ? 'bg-white' : 'bg-black/40'}`
+                  : (isLightUi ? 'border-stone-200 bg-stone-50 hover:bg-white' : 'border-stone-700/60 bg-black/30 hover:bg-black/40')
               }`}
             >
               <CardContent className="p-3">
                 <div className="space-y-3">
                     {/* Header mit Bild */}
                     <div className="flex gap-3">
-                      {plant.allDiscoveries?.length > 0 && (
-                        <div className="relative flex-shrink-0">
+                      <div className="relative flex-shrink-0">
+                        {activeDiscovery?.image_url ? (
                           <img
-                            src={plant.allDiscoveries[imageIndexes[plant.id] || 0]?.image_url || plant.userDiscovery.image_url}
+                            src={activeDiscovery.image_url}
                             alt={plant.species_name}
-                            className={"w-20 h-20 object-cover rounded-lg shadow-sm border " + (isLightUi ? "border-stone-200" : "border-stone-700/70")}
+                            className={"relative w-20 h-20 object-cover rounded-lg shadow-sm border " + (isLightUi ? "border-stone-200" : "border-stone-700/70")}
                           />
-                          {plant.allDiscoveries.length > 1 && (
-                            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded-full">
-                              {plant.allDiscoveries.length}x
+                        ) : (
+                          <div className={"relative w-20 h-20 rounded-lg border flex items-center justify-center " + (isLightUi
+                            ? "bg-gradient-to-br from-stone-100 to-stone-200 border-stone-200"
+                            : "bg-gradient-to-br from-stone-800/85 to-stone-900 border-stone-700/70")}>
+                            <Leaf className={"w-8 h-8 " + (isLightUi ? "text-stone-400" : "text-stone-500")} />
+                          </div>
+                        )}
+                        {plant.friendDiscoveryCount > 0 && (!activeVariant || activeVariant.isOwn) && (
+                          <div className="absolute top-1 right-1 flex items-center">
+                            {(plant.friendActors || []).slice(0, 3).map((actor, index) => (
+                              <div
+                                key={actor.authId || actor.email || index}
+                                className="w-5 h-5 rounded-full overflow-hidden bg-black/35"
+                                style={{ marginLeft: index === 0 ? 0 : -6 }}
+                                title={actor.name || actor.email || "Freund"}
+                              >
+                                <CustomLogoAvatar
+                                  logoAssets={actor.logoAssets}
+                                  className="w-full h-full"
+                                  fallbackText={(actor.name || actor.email || "?").charAt(0).toUpperCase()}
+                                  fallbackClassName="text-[9px] font-bold text-white"
+                                />
+                              </div>
+                            ))}
+                            {plant.friendDiscoveryCount > 3 && (
+                              <div
+                                className={"w-5 h-5 -ml-1.5 rounded-full text-[9px] font-semibold flex items-center justify-center " + (isLightUi
+                                  ? "bg-sky-100 text-sky-800"
+                                  : "bg-sky-500/20 text-sky-100")}
+                                title={`+${plant.friendDiscoveryCount - 3} weitere Freunde`}
+                              >
+                                +{plant.friendDiscoveryCount - 3}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {showStack && (
+                          <div className="absolute bottom-1 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded-full">
+                            {(activeIndex + 1)}/{variants.length}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <h3 className={"text-base font-bold truncate " + (isLightUi ? "text-stone-900" : "text-stone-100")}>{plant.species_name}</h3>
+                            <p className={"text-xs italic truncate " + (isLightUi ? "text-stone-600" : "text-stone-300")}>{plant.scientific_name}</p>
+                          </div>
+                          <div className="flex-shrink-0">
+                            {activeVariant && !activeVariant.isOwn ? (
+                              <div
+                                className="w-6 h-6 rounded-full overflow-hidden bg-black/35"
+                                title={activeVariant.actor?.name || activeVariant.actor?.email || "Freund"}
+                              >
+                                <CustomLogoAvatar
+                                  logoAssets={activeVariant.actor?.logoAssets}
+                                  className="w-full h-full"
+                                  fallbackText={(activeVariant.actor?.name || activeVariant.actor?.email || "?").charAt(0).toUpperCase()}
+                                  fallbackClassName="text-[9px] font-bold text-white"
+                                />
+                              </div>
+                            ) : plant.discovered ? (
+                              <CheckCircle2 className={"w-5 h-5 " + (isLightUi ? "text-green-600" : "text-emerald-300")} />
+                            ) : (
+                              <HelpCircle className={"w-5 h-5 " + (isLightUi ? "text-stone-500" : "text-stone-300")} />
+                            )}
+                          </div>
+                        </div>
+                        <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                          {plant.rarity && (
+                            <Badge className={`h-5 ${getRarityColor(plant.rarity)} text-white text-[10px] px-1.5 py-0 rounded-full`}>
+                              {getRarityStars(plant.rarity)}
+                            </Badge>
+                          )}
+                          {activeDiscovery?.discovery_location && (
+                            <Link
+                              to={createPageUrl(`Map?lat=${activeDiscovery.discovery_location.split(',')[0]?.trim()}&lng=${activeDiscovery.discovery_location.split(',')[1]?.trim()}`)}
+                              onClick={(e) => e.stopPropagation()}
+                              className={"inline-flex h-5 w-5 items-center justify-center rounded-full border transition-colors " + (isLightUi
+                                ? "border-stone-300 bg-white/90 text-green-600 hover:text-green-700 hover:bg-white"
+                                : "border-stone-500/70 bg-black/60 text-emerald-300 hover:text-emerald-200 hover:bg-black/75")}
+                              title="Fundort auf Karte öffnen"
+                            >
+                              <MapPin className="w-3 h-3" />
+                            </Link>
+                          )}
+                          {activeDiscovery && (
+                            <div className={"inline-flex h-5 items-center gap-1 rounded-full border px-1.5 text-[10px] " + (activeLikeCount > 0
+                              ? (activeLikedByUser
+                                ? (isLightUi ? "border-rose-300 bg-rose-50 text-rose-600" : "border-rose-400/60 bg-rose-400/15 text-rose-200")
+                                : (isLightUi ? "border-rose-200 bg-white/90 text-rose-500" : "border-rose-300/45 bg-black/60 text-rose-200"))
+                              : (isLightUi ? "border-stone-300 bg-white/90 text-stone-400" : "border-stone-500/70 bg-black/60 text-stone-300"))}>
+                              <Heart className={"w-3 h-3 " + (activeLikedByUser ? "fill-current" : "")} />
+                              <span>{activeLikeCount || 0}</span>
                             </div>
                           )}
                         </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <h3 className={"text-base font-bold truncate " + (isLightUi ? "text-stone-900" : "text-stone-100")}>{plant.species_name}</h3>
-                          <p className={"text-xs italic truncate " + (isLightUi ? "text-stone-600" : "text-stone-300")}>{plant.scientific_name}</p>
-                        </div>
-                        <div className="flex gap-1 flex-shrink-0">
-                          {currentUser?.role === "admin" && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingPlant(plant);
-                              }}
-                              className={"shrink-0 p-1.5 rounded-full border transition-colors " + (isLightUi
-                                ? "bg-amber-100 text-amber-700 hover:bg-amber-200 hover:text-amber-800 border-amber-300"
-                                : "bg-[#f0e5a5]/20 text-[#f0e5a5] hover:bg-[#f0e5a5]/30 border-[#f0e5a5]/45")}
-                              aria-label="Art bearbeiten"
-                            >
-                              <PencilLine className="w-3 h-3" />
-                            </button>
-                          )}
-                          {plant.discovered && (
-                            <CheckCircle2 className={"w-5 h-5 flex-shrink-0 " + (isLightUi ? "text-green-600" : "text-emerald-300")} />
-                          )}
-                        </div>
-                        </div>
-                        {plant.rarity && (
-                          <Badge className={`mt-1 ${getRarityColor(plant.rarity)} text-white text-xs px-1.5 py-0`}>
-                            {getRarityStars(plant.rarity)}
-                          </Badge>
-                        )}
-                        {/* Fundort anzeigen - klickbar zur Karte */}
-                        {plant.userDiscovery?.discovery_location && (
-                          <Link
-                            to={createPageUrl(`Map?lat=${plant.userDiscovery.discovery_location.split(',')[0]?.trim()}&lng=${plant.userDiscovery.discovery_location.split(',')[1]?.trim()}`)}
-                            onClick={(e) => e.stopPropagation()}
-                            className={"flex items-center gap-1 mt-1 text-xs " + (isLightUi ? "text-green-600 hover:text-green-700" : "text-emerald-300 hover:text-emerald-200")}
-                          >
-                            <MapPin className="w-3 h-3" />
-                            <span className="truncate">{locationNames[plant.userDiscovery.id] || plant.userDiscovery.discovery_location}</span>
-                          </Link>
-                        )}
                       </div>
                     </div>
                     
                     {/* Info Boxes kompakt */}
                     {plant.description && (
-                      <p className={"text-xs line-clamp-2 " + (isLightUi ? "text-stone-600" : "text-stone-300")}>{plant.description}</p>
+                      <div className="max-h-16 overflow-y-auto pr-1">
+                        <p className={"text-xs leading-snug " + (isLightUi ? "text-stone-600" : "text-stone-300")}>{plant.description}</p>
+                      </div>
                     )}
                   </div>
-                )
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
 
         {/* Erweiterte Pflanzen-Ansicht Modal */}
-        {expandedPlant && (
+        {expandedPlantData && (
           <div 
             className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
             onClick={() => setExpandedPlant(null)}
@@ -690,32 +1255,94 @@ export default function GenusDetail() {
             <div 
               className={"rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto " + (isLightUi ? "bg-white" : "bg-[#141916] border border-[#f0e5a5]/25")}
               onClick={(e) => e.stopPropagation()}
+              onMouseDown={(event) => {
+                expandedDragStartXRef.current = event.clientX;
+                setExpandedDragOffset(0);
+              }}
+              onMouseMove={(event) => {
+                if (event.buttons !== 1) return;
+                updateExpandedDrag(event.clientX);
+              }}
+              onMouseUp={(event) => {
+                finishExpandedDrag(event.clientX);
+              }}
+              onMouseLeave={() => {
+                resetExpandedDrag();
+              }}
+              onTouchStart={(event) => {
+                const startX = event.changedTouches?.[0]?.clientX ?? null;
+                expandedTouchStartXRef.current = startX;
+                expandedDragStartXRef.current = startX;
+                setExpandedDragOffset(0);
+                expandedSwipeTriggeredRef.current = false;
+              }}
+              onTouchMove={(event) => {
+                updateExpandedDrag(event.touches?.[0]?.clientX ?? null);
+              }}
+              onTouchEnd={(event) => {
+                const endX = event.changedTouches?.[0]?.clientX ?? null;
+                expandedTouchStartXRef.current = null;
+                finishExpandedDrag(endX);
+              }}
+              onTouchCancel={() => {
+                expandedTouchStartXRef.current = null;
+                resetExpandedDrag();
+              }}
+              style={expandedDragOffset != null ? {
+                transform: `translateX(${expandedDragOffset}px) rotate(${expandedDragOffset / 34}deg)`,
+                transition: "none",
+                willChange: "transform",
+              } : undefined}
             >
               {/* Großes Bild */}
-              {expandedPlant.allDiscoveries?.length > 0 && (
-                <div className="relative">
+              <div className="relative">
+                {activeExpandedDiscovery?.image_url ? (
                   <img
-                    src={expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.image_url || expandedPlant.userDiscovery?.image_url}
-                    alt={expandedPlant.species_name}
+                    src={activeExpandedDiscovery.image_url}
+                    alt={expandedPlantData.species_name}
                     className="w-full aspect-square object-cover rounded-t-2xl"
                   />
-                  {/* Schließen Button */}
-                  <button
-                    onClick={() => setExpandedPlant(null)}
-                    className="absolute top-3 right-3 w-10 h-10 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center transition-colors"
-                  >
-                    <X className="w-6 h-6 text-white" />
-                  </button>
-                  
-                  {/* Bild-Navigation */}
-                  {expandedPlant.allDiscoveries.length > 1 && (
+                ) : (
+                  <div className={"w-full aspect-square rounded-t-2xl flex items-center justify-center " + (isLightUi
+                    ? "bg-gradient-to-br from-stone-100 to-stone-200"
+                    : "bg-gradient-to-br from-stone-800/90 to-stone-900/95")}>
+                    <Leaf className={"w-20 h-20 " + (isLightUi ? "text-stone-400" : "text-stone-500")} />
+                  </div>
+                )}
+
+                <button
+                  onClick={() => setExpandedPlant(null)}
+                  className="absolute top-3 right-3 w-10 h-10 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center transition-colors"
+                >
+                  <X className="w-6 h-6 text-white" />
+                </button>
+
+                {(friendEmail ? !!friendProfile : !!activeExpandedFriendActor) && (
+                  <div className="absolute top-3 left-3 w-14 h-14 rounded-full overflow-hidden shadow-lg bg-black/25">
+                    <CustomLogoAvatar
+                      logoAssets={friendEmail ? friendProfileLogoAssets : activeExpandedFriendActor?.logoAssets}
+                      className="w-full h-full"
+                      fallbackText={friendEmail
+                        ? (friendProfile?.display_name || friendProfile?.user_email || "?").charAt(0).toUpperCase()
+                        : (activeExpandedFriendActor?.name || activeExpandedFriendActor?.email || "?").charAt(0).toUpperCase()}
+                      fallbackClassName="text-xl font-bold text-white"
+                    />
+                  </div>
+                )}
+
+                {/* Herz nur für Freundes-Scans (unten links), Stern+Löschen für eigene (unten links/rechts) */}
+
+                {/* Bild-Navigation */}
+                {expandedVariants.length > 1 && (
                     <>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          const currentIndex = imageIndexes[expandedPlant.id] || 0;
-                          const newIndex = currentIndex > 0 ? currentIndex - 1 : expandedPlant.allDiscoveries.length - 1;
-                          setImageIndexes(prev => ({ ...prev, [expandedPlant.id]: newIndex }));
+                          cyclePlantVariant({
+                            plant: expandedPlantData,
+                            direction: "right",
+                            updateExpanded: true,
+                          });
                         }}
                         className={"absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center shadow-lg " + (isLightUi
                           ? "bg-white/90 hover:bg-white"
@@ -726,9 +1353,11 @@ export default function GenusDetail() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          const currentIndex = imageIndexes[expandedPlant.id] || 0;
-                          const newIndex = currentIndex < expandedPlant.allDiscoveries.length - 1 ? currentIndex + 1 : 0;
-                          setImageIndexes(prev => ({ ...prev, [expandedPlant.id]: newIndex }));
+                          cyclePlantVariant({
+                            plant: expandedPlantData,
+                            direction: "left",
+                            updateExpanded: true,
+                          });
                         }}
                         className={"absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center shadow-lg " + (isLightUi
                           ? "bg-white/90 hover:bg-white"
@@ -737,84 +1366,83 @@ export default function GenusDetail() {
                         <ChevronRight className={"w-6 h-6 " + (isLightUi ? "text-stone-700" : "text-stone-100")} />
                       </button>
                       <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white text-sm px-3 py-1 rounded-full">
-                        {(imageIndexes[expandedPlant.id] || 0) + 1} / {expandedPlant.allDiscoveries.length}
+                        {(safeExpandedVariantIndex || 0) + 1} / {expandedVariants.length}
                       </div>
                     </>
                   )}
-                  {/* Aktionen für eigene Discoveries */}
-                  {!friendEmail && (
-                    <>
-                      {/* Front-Image nur sinnvoll, wenn es mehrere Scans in der Gattung gibt */}
-                      {genusDiscoveries.length > 1 && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const currentDiscovery = expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0];
-                            setFrontImageMutation.mutate({ discoveryId: currentDiscovery.id });
-                          }}
-                          className={`absolute bottom-3 left-3 w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all backdrop-blur-sm ${
-                            (expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_front_image ||
-                              expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_species_front_image)
-                              ? 'bg-amber-500/80 hover:bg-amber-600/80' 
-                              : 'bg-white/60 hover:bg-white/80'
-                          }`}
-                          title="Als Gattungsbild festlegen"
-                        >
-                          <Star className={`w-5 h-5 ${
-                            (expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_front_image ||
-                              expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0]?.is_species_front_image)
-                              ? 'text-white fill-white' 
-                              : 'text-stone-600'
-                          }`} />
-                        </button>
-                      )}
 
+                {/* Aktionen je nach Variante: eigener Scan → Stern + Löschen; Freundes-Scan → Herz */}
+                {activeExpandedVariant?.isOwn && activeExpandedDiscovery ? (
+                  <>
+                    {genusDiscoveries.length > 1 && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          const currentDiscovery = expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0];
-                          setDeleteConfirmDiscoveryId(currentDiscovery.id);
+                          setFrontImageMutation.mutate({ discoveryId: activeExpandedDiscovery.id });
                         }}
-                        className="absolute bottom-3 right-3 w-10 h-10 bg-red-500/60 hover:bg-red-600/80 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg transition-all"
-                        title="Scan löschen"
+                        className={"absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs backdrop-blur-sm transition-colors " + (
+                          (activeExpandedDiscovery?.is_front_image || activeExpandedDiscovery?.is_species_front_image)
+                            ? "border-amber-400/70 bg-amber-500/80 text-white hover:bg-amber-600/80"
+                            : (isLightUi ? "border-stone-300 bg-white/90 text-stone-500 hover:bg-white" : "border-stone-500/70 bg-black/65 text-stone-300 hover:bg-black/75")
+                        )}
+                        title="Als Gattungsbild festlegen"
                       >
-                        <Trash2 className="w-5 h-5 text-white" />
+                        <Star className={"w-3.5 h-3.5 " + ((activeExpandedDiscovery?.is_front_image || activeExpandedDiscovery?.is_species_front_image) ? "fill-current" : "")} />
                       </button>
-                    </>
-                  )}
-                </div>
-              )}
+                    )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteConfirmDiscoveryId(activeExpandedDiscovery.id);
+                      }}
+                      className={"absolute bottom-3 right-3 inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs backdrop-blur-sm transition-colors " + (isLightUi ? "border-red-300 bg-red-50/95 text-red-600 hover:bg-red-100" : "border-red-400/60 bg-red-500/25 text-red-200 hover:bg-red-500/40")}
+                      title="Scan löschen"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </>
+                ) : activeExpandedDiscovery ? (
+                  <div className={"absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs backdrop-blur-sm " + (activeExpandedLikeCount > 0
+                    ? (activeExpandedLikedByUser
+                      ? (isLightUi ? "border-rose-300 bg-rose-50/95 text-rose-600" : "border-rose-400/60 bg-rose-400/15 text-rose-200")
+                      : (isLightUi ? "border-rose-200 bg-white/90 text-rose-500" : "border-rose-300/45 bg-black/65 text-rose-200"))
+                    : (isLightUi ? "border-stone-300 bg-white/90 text-stone-400" : "border-stone-500/70 bg-black/65 text-stone-300"))}>
+                    <Heart className={"w-3.5 h-3.5 " + (activeExpandedLikedByUser ? "fill-current" : "")} />
+                    <span>{activeExpandedLikeCount}</span>
+                  </div>
+                ) : null}
+              </div>
               
               {/* Info-Bereich */}
               <div className="p-4 space-y-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1">
-                    <h2 className={"text-xl font-bold " + (isLightUi ? "text-stone-900" : "text-stone-100")}>{expandedPlant.species_name}</h2>
-                    <p className={"text-sm italic " + (isLightUi ? "text-stone-600" : "text-stone-300")}>{expandedPlant.scientific_name}</p>
+                    <h2 className={"text-xl font-bold " + (isLightUi ? "text-stone-900" : "text-stone-100")}>{expandedPlantData.species_name}</h2>
+                    <p className={"text-sm italic " + (isLightUi ? "text-stone-600" : "text-stone-300")}>{expandedPlantData.scientific_name}</p>
                   </div>
                   <div className="flex gap-2 flex-shrink-0">
                     <Button
-                      onClick={() => speakPlantDescription(expandedPlant)}
+                      onClick={() => speakPlantDescription(expandedPlantData)}
                       variant="outline"
                       size="icon"
                       className={isLightUi ? "" : "border-stone-600 bg-black/40 hover:bg-black/60"}
                     >
-                      {speakingPlantId === expandedPlant.id
+                      {speakingPlantId === expandedPlantData.id
                         ? <VolumeX className={"w-5 h-5 " + (isLightUi ? "text-green-600" : "text-emerald-300")} />
                         : <Volume2 className={"w-5 h-5 " + (isLightUi ? "text-stone-600" : "text-stone-200")} />}
                     </Button>
                   </div>
                 </div>
                 
-                {expandedPlant.rarity && (
-                  <Badge className={`${getRarityColor(expandedPlant.rarity)} text-white`}>
-                    {getRarityStars(expandedPlant.rarity)} {expandedPlant.rarity}
+                {expandedPlantData.rarity && (
+                  <Badge className={`${getRarityColor(expandedPlantData.rarity)} text-white`}>
+                    {getRarityStars(expandedPlantData.rarity)} {expandedPlantData.rarity}
                   </Badge>
                 )}
                 
                 {/* Fundort - klickbar zur Karte */}
-                {expandedPlant.allDiscoveries?.[imageIndexes[expandedPlant.id] || 0]?.discovery_location && (() => {
-                  const currentDiscovery = expandedPlant.allDiscoveries[imageIndexes[expandedPlant.id] || 0];
+                {activeExpandedDiscovery?.discovery_location && (() => {
+                  const currentDiscovery = activeExpandedDiscovery;
                   const coords = currentDiscovery.discovery_location;
                   const [lat, lng] = coords.split(',').map(s => s.trim());
                   return (
@@ -831,34 +1459,29 @@ export default function GenusDetail() {
                   );
                 })()}
                 
-                {expandedPlant.description && (
-                  <p className={"text-sm " + (isLightUi ? "text-stone-700" : "text-stone-200")}>{expandedPlant.description}</p>
-                )}
-                
-                {expandedPlant.identification_features && (
-                  <div className={"border rounded-lg p-3 " + (isLightUi ? "bg-blue-50 border-blue-100" : "bg-blue-900/20 border-blue-700/45")}>
-                    <p className={"text-xs font-semibold mb-1 " + (isLightUi ? "text-blue-900" : "text-blue-200")}>🔍 Erkennungsmerkmale</p>
-                    <p className={"text-sm " + (isLightUi ? "text-stone-700" : "text-stone-200")}>{expandedPlant.identification_features}</p>
+                {expandedPlantData.description && (
+                  <div className="max-h-28 overflow-y-auto pr-1">
+                    <p className={"text-sm leading-snug " + (isLightUi ? "text-stone-700" : "text-stone-200")}>{expandedPlantData.description}</p>
                   </div>
                 )}
                 
-                {expandedPlant.fun_fact && (
+                {expandedPlantData.fun_fact && (
                   <div className={"border rounded-lg p-3 " + (isLightUi ? "bg-amber-50 border-amber-100" : "bg-amber-900/20 border-amber-700/45")}>
                     <p className={"text-xs font-semibold mb-1 " + (isLightUi ? "text-amber-900" : "text-amber-200")}>💡 Wusstest du?</p>
-                    <p className={"text-sm " + (isLightUi ? "text-stone-700" : "text-stone-200")}>{expandedPlant.fun_fact}</p>
+                    <p className={"text-sm " + (isLightUi ? "text-stone-700" : "text-stone-200")}>{expandedPlantData.fun_fact}</p>
                   </div>
                 )}
 
-                {expandedPlant.native_region && (
+                {expandedPlantData.native_region && (
                   <div className={"border rounded-lg p-3 " + (isLightUi ? "bg-teal-50 border-teal-100" : "bg-teal-900/20 border-teal-700/45")}>
                     <p className={"text-xs font-semibold mb-1 " + (isLightUi ? "text-teal-900" : "text-teal-200")}>🌍 Herkunft</p>
-                    <p className={"text-sm " + (isLightUi ? "text-stone-700" : "text-stone-200")}>{expandedPlant.native_region}</p>
+                    <p className={"text-sm " + (isLightUi ? "text-stone-700" : "text-stone-200")}>{expandedPlantData.native_region}</p>
                   </div>
                 )}
                 
-                {expandedPlant.discovery_date && (
+                {activeExpandedDiscovery?.created_at && (
                   <p className={"text-xs " + (isLightUi ? "text-stone-500" : "text-stone-300") }>
-                    Entdeckt am: {format(new Date(expandedPlant.discovery_date), "d. MMMM yyyy", { locale: de })}
+                    Entdeckt am: {format(new Date(activeExpandedDiscovery.created_at), "d. MMMM yyyy", { locale: de })}
                   </p>
                 )}
               </div>
