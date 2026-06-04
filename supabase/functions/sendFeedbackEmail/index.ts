@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
     const resendKey = Deno.env.get("RESEND_API_KEY")
     const feedbackToAddress = Deno.env.get("FEEDBACK_TO_EMAIL") || "info@floralog.de"
     const bugReportToAddress = Deno.env.get("BUG_REPORT_TO_EMAIL") || "info@floralog.de"
-    const fromAddress = Deno.env.get("FEEDBACK_FROM_EMAIL") || "noreply@blauzahn.eu"
+    const fromAddress = Deno.env.get("FEEDBACK_FROM_EMAIL") || "noreply@floralog.de"
     const toAddress = normalizedReportType === "bug" ? bugReportToAddress : feedbackToAddress
     const subject = normalizedReportType === "bug"
       ? `[Bug-Report] ${normalizedSubjectSuffix || "Floralog"}`
