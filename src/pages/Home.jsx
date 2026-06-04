@@ -43,6 +43,7 @@ import HomeHeaderBar from "@/components/navigation/HomeHeaderBar";
 import HomeBottomNavigation from "@/components/navigation/HomeBottomNavigation";
 import { getNavButtonStyle } from "@/components/navigation/navButtonStyles";
 import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
+import BugReportDialog from "@/components/home/BugReportDialog";
 import GuestHomeFlow from "@/components/home/GuestHomeFlow";
 import HomeOtaGate from "@/components/home/HomeOtaGate";
 import HomeMapFeatureRoot from "@/components/home/HomeMapFeatureRoot.jsx";
@@ -135,6 +136,7 @@ function HomeContent() {
   const [heroStageSizePx, setHeroStageSizePx] = useState(0);
   const [heroMapInstance, setHeroMapInstance] = useState(null);
   const [showDebugZonePanel, setShowDebugZonePanel] = useState(false);
+  const [bugReportDialogOpen, setBugReportDialogOpen] = useState(false);
 
   const [scanFeedback, setScanFeedback] = useState(null);
   const [showScanFeedback, setShowScanFeedback] = useState(false);
@@ -2373,6 +2375,7 @@ function HomeContent() {
                 onTogglePublicCollections={() => setEmbeddedCollectionPublicPanelOpen((prev) => !prev)}
                 onOpenEmbeddedFriendsAddDialog={() => setEmbeddedFriendsAddDialogNonce((prev) => prev + 1)}
                 onOpenAmberPurchase={() => setShowAmberPurchaseModal(true)}
+                onOpenBugReport={() => setBugReportDialogOpen(true)}
                 onPrimaryAction={() => {
                   if (activePanel === "collection") {
                     setEmbeddedCollectionPublicPanelOpen(false);
@@ -2385,6 +2388,13 @@ function HomeContent() {
                   setActivePanel("settings");
                   setShowHealthStatsPanel(false);
                 }}
+              />
+
+              <BugReportDialog
+                open={bugReportDialogOpen}
+                onOpenChange={setBugReportDialogOpen}
+                user={user}
+                displayName={getDisplayName()}
               />
 
               <div

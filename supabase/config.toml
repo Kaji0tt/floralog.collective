@@ -83,3 +83,8 @@ entrypoint = "./functions/submitPlantQuizAnswer/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/purchaseAccessory/index.ts"
+
+[functions.sendFeedbackEmail]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/sendFeedbackEmail/index.ts"

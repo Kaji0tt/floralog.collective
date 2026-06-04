@@ -1,4 +1,4 @@
-import { Home as HomeIcon, List, Plus, Settings, Sparkles } from "lucide-react";
+import { Bug, Home as HomeIcon, List, Plus, Settings, Sparkles } from "lucide-react";
 import { useUiTheme } from "@/lib/UiThemeContext";
 
 /**
@@ -13,6 +13,7 @@ import { useUiTheme } from "@/lib/UiThemeContext";
  *   onTogglePublicCollections?: () => void,
  *   onOpenEmbeddedFriendsAddDialog?: () => void,
  *   onOpenAmberPurchase?: () => void,
+ *   onOpenBugReport?: () => void,
  *   onPrimaryAction: () => void,
  * }} props
  */
@@ -27,6 +28,7 @@ export default function HomeHeaderBar({
   onTogglePublicCollections,
   onOpenEmbeddedFriendsAddDialog,
   onOpenAmberPurchase,
+  onOpenBugReport,
   onPrimaryAction,
 }) {
   const { isLightUi } = useUiTheme();
@@ -93,6 +95,17 @@ export default function HomeHeaderBar({
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
+        {!isEmbeddedMode && typeof onOpenBugReport === "function" && (
+          <button
+            type="button"
+            onClick={onOpenBugReport}
+            className={`w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors ${isLightUi ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80" : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"}`}
+            aria-label="Bug melden"
+          >
+            <Bug className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+          </button>
+        )}
+
         {shopCurrencyInfo && (
           <>
             <div
