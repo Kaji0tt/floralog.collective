@@ -34,6 +34,8 @@ export default function GenusCard({
   const [showCategoryIcon, setShowCategoryIcon] = React.useState(true);
   const longPressTimerRef = React.useRef(null);
   const longPressTriggeredRef = React.useRef(false);
+  const longPressStartPointRef = React.useRef(null);
+  const longPressMovementCancelledRef = React.useRef(false);
   const headerRowRef = React.useRef(null);
   const CategoryIcon = categoryIcons[genus.category] || TreeDeciduous;
   const isLightUi = uiTheme === "light";
@@ -107,17 +109,39 @@ export default function GenusCard({
       window.clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
+    longPressStartPointRef.current = null;
+    longPressMovementCancelledRef.current = false;
   };
 
-  const handleLongPressStart = () => {
+  const handleLongPressStart = (clientX = null, clientY = null) => {
     if (!isAdmin) return;
 
     clearLongPress();
     longPressTriggeredRef.current = false;
+    longPressMovementCancelledRef.current = false;
+    if (typeof clientX === "number" && typeof clientY === "number") {
+      longPressStartPointRef.current = { x: clientX, y: clientY };
+    }
     longPressTimerRef.current = window.setTimeout(() => {
+      if (longPressMovementCancelledRef.current) return;
       longPressTriggeredRef.current = true;
       setIsEditOpen(true);
-    }, 550);
+    }, 3000);
+  };
+
+  const handleLongPressMove = (clientX = null, clientY = null) => {
+    if (!isAdmin || longPressMovementCancelledRef.current) return;
+    if (!longPressTimerRef.current || !longPressStartPointRef.current) return;
+    if (typeof clientX !== "number" || typeof clientY !== "number") return;
+
+    const deltaX = Math.abs(clientX - longPressStartPointRef.current.x);
+    const deltaY = Math.abs(clientY - longPressStartPointRef.current.y);
+    const movementThresholdPx = 8;
+
+    if (deltaX > movementThresholdPx || deltaY > movementThresholdPx) {
+      longPressMovementCancelledRef.current = true;
+      clearLongPress();
+    }
   };
 
   React.useEffect(() => {
@@ -157,10 +181,18 @@ export default function GenusCard({
               : `${getBorderColor()} ${isLightUi ? "opacity-85 hover:opacity-100 hover:border-stone-400 bg-stone-100/90" : "opacity-85 hover:opacity-100 hover:border-stone-400/70 bg-black/45"}`
           }`}
           onClick={handleClick}
-          onMouseDown={handleLongPressStart}
+          onMouseDown={(event) => handleLongPressStart(event.clientX, event.clientY)}
+          onMouseMove={(event) => handleLongPressMove(event.clientX, event.clientY)}
           onMouseUp={clearLongPress}
           onMouseLeave={clearLongPress}
-          onTouchStart={handleLongPressStart}
+          onTouchStart={(event) => {
+            const touch = event.touches?.[0] || event.changedTouches?.[0];
+            handleLongPressStart(touch?.clientX ?? null, touch?.clientY ?? null);
+          }}
+          onTouchMove={(event) => {
+            const touch = event.touches?.[0] || event.changedTouches?.[0];
+            handleLongPressMove(touch?.clientX ?? null, touch?.clientY ?? null);
+          }}
           onTouchEnd={clearLongPress}
           onTouchCancel={clearLongPress}
         >

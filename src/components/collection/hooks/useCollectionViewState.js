@@ -40,6 +40,7 @@ export default function useCollectionViewState({
   const listScrollContainerRef = useRef(null);
   const restoredScrollForCollectionRef = useRef(null);
   const collectionViewStateRef = useRef(readCollectionViewState());
+  const scrollPersistTimeoutRef = useRef(null);
   const [filterSettingsByCollection, setFilterSettingsByCollection] = useState(() => {
     if (typeof window === "undefined") return {};
     try {
@@ -141,12 +142,23 @@ export default function useCollectionViewState({
 
   useEffect(() => {
     return () => {
+      if (scrollPersistTimeoutRef.current) {
+        window.clearTimeout(scrollPersistTimeoutRef.current);
+        scrollPersistTimeoutRef.current = null;
+      }
       persistCurrentScrollPosition();
     };
   }, [selectedCollectionId]);
 
   const handleCollectionListScroll = () => {
-    persistCurrentScrollPosition();
+    if (scrollPersistTimeoutRef.current) {
+      window.clearTimeout(scrollPersistTimeoutRef.current);
+    }
+
+    scrollPersistTimeoutRef.current = window.setTimeout(() => {
+      persistCurrentScrollPosition();
+      scrollPersistTimeoutRef.current = null;
+    }, 120);
   };
 
   const handleCollectionChipSelect = (nextCollectionId) => {
