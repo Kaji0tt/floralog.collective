@@ -73,8 +73,6 @@ import Home from './pages/Home';
 import Impressum from './pages/Impressum';
 import KPIAdmin from './pages/KPIAdmin';
 import Map from './pages/Map';
-import MigrateDiscoveries from './pages/MigrateDiscoveries';
-import MigratePlantGenus from './pages/MigratePlantGenus';
 import News from './pages/News';
 import NewsAdmin from './pages/NewsAdmin';
 import PlantDetail from './pages/PlantDetail';
@@ -116,8 +114,6 @@ export const PAGES = {
     "Impressum": Impressum,
     "KPIAdmin": KPIAdmin,
     "Map": Map,
-    "MigrateDiscoveries": MigrateDiscoveries,
-    "MigratePlantGenus": MigratePlantGenus,
     "News": News,
     "NewsAdmin": NewsAdmin,
     "PlantDetail": PlantDetail,

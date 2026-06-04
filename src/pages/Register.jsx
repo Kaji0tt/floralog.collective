@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signUp } from '@/api/authService';
-import { checkLegacyUser, upsertLegacyUserFromRegistration } from '@/api/migrationService';
 import { Mail, Lock, User, Loader2, AlertCircle } from 'lucide-react';
 
 export default function Register() {
@@ -46,24 +45,7 @@ export default function Register() {
     setIsLoading(true);
 
     try {
-      // Check if email exists in legacy baseUsers table
-      const legacyUser = await checkLegacyUser(formData.email);
-      
-      if (legacyUser) {
-        // Email exists in baseUsers - redirect to migration
-        navigate('/migrate', { state: { email: formData.email, skipEmailInput: true } });
-        setIsLoading(false);
-        return;
-      }
-
-      // New user registration
-      const signUpResult = await signUp(formData.email, formData.password, formData.username);
-
-      await upsertLegacyUserFromRegistration({
-        email: formData.email,
-        displayName: formData.username,
-        authId: signUpResult?.user?.id || null
-      });
+      await signUp(formData.email, formData.password, formData.username);
 
       navigate(`/confirm-email?email=${encodeURIComponent(formData.email)}`);
     } catch (err) {

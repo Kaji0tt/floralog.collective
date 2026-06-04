@@ -55,33 +55,6 @@ export const AuthProvider = ({ children }) => {
         try {
           const userProfile = await getUserProfile(session.user.id);
           setProfile(userProfile);
-
-          // Migrations-Helper aufrufen
-          const baseUser = {
-            auth_id: session.user.id,
-            email: session.user.email
-          };
-
-
-          // Supabase Edge Function automatisch aufrufen
-          // Jetzt mit auth_id und email
-          if (baseUser.auth_id && baseUser.email) {
-            fetch('https://mppxozsltkgjozcastgv.functions.supabase.co/migrateLegacyUser', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                // ggf. Authorization-Header ergänzen
-              },
-              body: JSON.stringify({ email: baseUser.email, auth_id: baseUser.auth_id })
-            })
-              .then(res => res.json())
-              .then(data => {
-                console.log('[AuthContext] migrateLegacyUser result:', data);
-              })
-              .catch(err => {
-                console.error('[AuthContext] migrateLegacyUser error:', err);
-              });
-          }
         } catch (error) {
           console.error('Error loading user profile:', error);
         }

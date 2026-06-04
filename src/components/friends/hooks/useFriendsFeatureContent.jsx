@@ -4,7 +4,7 @@ import { createUserNotification } from "@/api/notificationService";
 import { supabase } from "@/api/supabaseClient";
 import { sendFriendRequest, removeFriendship, respondToFriendRequest } from "@/api/friendService";
 import { getCurrentUser } from "@/api/userApi";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -60,9 +60,7 @@ const getAverageColor = (imageUrl) => {
   });
 };
 
-const MAX_EXPLORER_DISCOVERIES = 200;
-const EXPLORER_BATCH_SIZE = 10;
-const EXPLORER_PREFETCH_REMAINING = 5;
+const EXPLORER_PAGE_SIZE = 40;
 
 const parseActivityDate = (primary, fallback) => {
   const value = primary || fallback;
@@ -92,7 +90,6 @@ export function useFriendsFeatureContent({
   const [averageColor, setAverageColor] = useState(null);
   const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "explorer");
   const [explorerAudienceFilter, setExplorerAudienceFilter] = useState("all");
-  const [visibleExplorerCount, setVisibleExplorerCount] = useState(EXPLORER_BATCH_SIZE);
   const explorerSentinelRef = useRef(null);
   const [newsFilter, setNewsFilter] = useState("activities");
   const [expandedNewsIds, setExpandedNewsIds] = useState(new Set());
@@ -112,11 +109,6 @@ export function useFriendsFeatureContent({
       setShowAddFriendDialog(true);
     }
   }, [embedded, openAddFriendDialogNonce]);
-
-  // Sichtbare Einträge zurücksetzen wenn Filter wechselt
-  useEffect(() => {
-    setVisibleExplorerCount(EXPLORER_BATCH_SIZE);
-  }, [explorerAudienceFilter]);
 
   useEffect(() => {
     const allowedTabs = new Set(["friends", "news", "explorer"]);
@@ -213,11 +205,46 @@ export function useFriendsFeatureContent({
     staleTime: 60000,
   });
 
-  // Lade alle Discoveries - mit höherem Limit
-  const { data: allDiscoveries = [] } = useQuery({
-    queryKey: ['explorerDiscoveries', MAX_EXPLORER_DISCOVERIES],
-    queryFn: () => Query.UserPlantDiscovery.list('-created_date', MAX_EXPLORER_DISCOVERIES),
-    enabled: !!user?.email && shouldLoadDiscoveryData,
+  const explorerThresholdIso = useMemo(
+    () => new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+    []
+  );
+
+  const {
+    data: explorerDiscoveriesPages,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+    isLoading: isExplorerLoading,
+  } = useInfiniteQuery({
+    queryKey: ['explorerDiscoveriesInfinite', ownEmailLower, explorerAudienceFilter, explorerThresholdIso],
+    queryFn: async ({ pageParam = 0 }) => {
+      const { data, error } = await supabase.rpc('get_explorer_discoveries', {
+        p_audience: explorerAudienceFilter,
+        p_since: explorerThresholdIso,
+        p_limit: EXPLORER_PAGE_SIZE,
+        p_offset: pageParam * EXPLORER_PAGE_SIZE,
+      });
+
+      if (error) throw error;
+      return data || [];
+    },
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length < EXPLORER_PAGE_SIZE ? undefined : allPages.length,
+    enabled: !!user?.email && isExplorerTab,
+    staleTime: 30 * 1000,
+    initialPageParam: 0,
+  });
+
+  const explorerDiscoveries = useMemo(
+    () => explorerDiscoveriesPages?.pages?.flatMap((page) => page) || [],
+    [explorerDiscoveriesPages]
+  );
+
+  const { data: friendActivityDiscoveries = [] } = useQuery({
+    queryKey: ['friendActivityDiscoveries'],
+    queryFn: () => Query.UserPlantDiscovery.list('-created_date', 600),
+    enabled: !!user?.email && isFriendsTab,
     staleTime: 60 * 1000,
   });
 
@@ -726,7 +753,7 @@ Viel Spaß beim Entdecken! 🌿`;
       }
     };
 
-    allDiscoveries.forEach((entry) => {
+    friendActivityDiscoveries.forEach((entry) => {
       const date = parseActivityDate(entry.discovered_date, entry.created_date);
       if (!date) return;
 
@@ -767,7 +794,7 @@ Viel Spaß beim Entdecken! 🌿`;
     });
 
     return normalizedMap;
-  }, [allDiscoveries, allUserAchievements, plantById, achievementById]);
+  }, [friendActivityDiscoveries, allUserAchievements, plantById, achievementById]);
 
   const getLighterColor = (rgbString) => {
     if (!rgbString) return null;
@@ -923,49 +950,13 @@ Viel Spaß beim Entdecken! 🌿`;
     [scanLikes]
   );
 
-  const friendEmailSet = useMemo(
-    () => new Set(
-      friends
-        .map((entry) => {
-          const isCurrentUserSender = entry.request_sent_by?.toLowerCase() === ownEmailLower;
-          return isCurrentUserSender ? entry.request_sent_to?.toLowerCase() : entry.request_sent_by?.toLowerCase();
-        })
-        .filter(Boolean)
-    ),
-    [friends, ownEmailLower]
-  );
-
   const getDiscoveryEmailLower = (entry) =>
     (entry.user || entry.created_by || entry.user_email || "").toLowerCase();
-
-  const acceptedEmailSet = useMemo(
-    () => new Set([ownEmailLower, ...Array.from(friendEmailSet)]),
-    [ownEmailLower, friendEmailSet]
-  );
   const showFriendsOnlyInExplorer = explorerAudienceFilter === "friends";
 
   const recentDiscoveries = useMemo(
-    () => {
-      const thresholdMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
-      return (allDiscoveries || [])
-      .filter((entry) => {
-        const entryEmail = getDiscoveryEmailLower(entry);
-        if (!entryEmail) return false;
-        const actorProfile = profileByEmail.get(entryEmail);
-        const isCurrentUserEntry = entryEmail === ownEmailLower;
-        const isVisibleInGlobalExplorer = actorProfile?.global_explorer_visibility !== false;
-        if (!showFriendsOnlyInExplorer && !isCurrentUserEntry && !isVisibleInGlobalExplorer) return false;
-        if (showFriendsOnlyInExplorer && !acceptedEmailSet.has(entryEmail)) return false;
-        const date = new Date(entry.created_date || entry.discovered_date || entry.updated_date || 0);
-        if (Number.isNaN(date.getTime())) return false;
-        return date.getTime() >= thresholdMs;
-      })
-      .sort((a, b) =>
-        new Date(b.created_date || b.discovered_date || b.updated_date || 0).getTime() -
-        new Date(a.created_date || a.discovered_date || a.updated_date || 0).getTime()
-      );
-    },
-    [allDiscoveries, profileByEmail, ownEmailLower, showFriendsOnlyInExplorer, acceptedEmailSet]
+    () => explorerDiscoveries || [],
+    [explorerDiscoveries]
   );
 
   const scanCountByUserPlant = useMemo(
@@ -979,18 +970,12 @@ Viel Spaß beim Entdecken! 🌿`;
   );
 
   const explorerLogEntries = useMemo(() => {
-    const seenPlantKeys = new Set();
-    const entries = [];
-
-    recentDiscoveries.forEach((entry) => {
+    return recentDiscoveries.map((entry) => {
       const entryEmail = getDiscoveryEmailLower(entry);
       const key = `${entryEmail}::${entry.plant_id}`;
-      if (seenPlantKeys.has(key)) return;
-      seenPlantKeys.add(key);
-
       const profile = profileByEmail.get(entryEmail);
 
-      entries.push({
+      return {
         id: entry.id,
         discovery: entry,
         plant: plantById.get(entry.plant_id),
@@ -1002,39 +987,27 @@ Viel Spaß beim Entdecken! 🌿`;
         likedByCurrentUser: likedDiscoveryIdSet.has(entry.id),
         likeCount: likeCountByDiscoveryId.get(entry.id) || 0,
         timestamp: new Date(entry.created_date || entry.discovered_date || entry.updated_date || Date.now()),
-      });
+      };
     });
-
-    return entries;
   }, [recentDiscoveries, profileByEmail, plantById, logoAssets, scanCountByUserPlant, likedDiscoveryIdSet, likeCountByDiscoveryId]);
 
-  const hasMoreExplorerEntries = visibleExplorerCount < explorerLogEntries.length;
-  const visibleExplorerEntries = explorerLogEntries.slice(0, visibleExplorerCount);
-  const explorerPrefetchIndex = hasMoreExplorerEntries
-    ? Math.max(0, visibleExplorerEntries.length - EXPLORER_PREFETCH_REMAINING)
-    : -1;
-
   useEffect(() => {
-    if (activeTab !== "explorer" || !hasMoreExplorerEntries) return;
+    if (activeTab !== "explorer" || !hasNextPage || isFetchingNextPage) return;
 
     const sentinel = explorerSentinelRef.current;
     if (!sentinel) return;
 
-    let didTrigger = false;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (!entries[0]?.isIntersecting || didTrigger) return;
-        didTrigger = true;
-        setVisibleExplorerCount((prev) =>
-          Math.min(prev + EXPLORER_BATCH_SIZE, explorerLogEntries.length)
-        );
+        if (!entries[0]?.isIntersecting || isFetchingNextPage) return;
+        fetchNextPage();
       },
       { rootMargin: "0px 0px 200px 0px" }
     );
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [activeTab, explorerLogEntries.length, hasMoreExplorerEntries, visibleExplorerCount]);
+  }, [activeTab, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const friendCards = useMemo(
     () => friends
@@ -1281,7 +1254,12 @@ Viel Spaß beim Entdecken! 🌿`;
               className="max-w-5xl mx-auto space-y-4"
               style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}
             >
-              {explorerLogEntries.length === 0 ? (
+              {isExplorerLoading ? (
+                <div className={`${sectionSurfaceClass} px-5 py-10 text-center`}>
+                  <Loader2 className={`w-12 h-12 mx-auto mb-4 animate-spin ${isLightUi ? "text-stone-400" : "text-stone-500"}`} />
+                  <p className={bodyTextClass}>Lade Forscher-Log...</p>
+                </div>
+              ) : explorerLogEntries.length === 0 ? (
                 <div className={`${sectionSurfaceClass} px-5 py-10 text-center`}>
                   <BookOpenText className={`w-16 h-16 mx-auto mb-4 ${isLightUi ? "text-stone-300" : "text-stone-500"}`} />
                   <p className={`text-lg font-semibold mb-2 ${titleTextClass}`}>
@@ -1346,10 +1324,9 @@ Viel Spaß beim Entdecken! 🌿`;
                   </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {visibleExplorerEntries.map((entry, index) => (
+                  {explorerLogEntries.map((entry, index) => (
                     <motion.div
                       key={entry.id}
-                      ref={index === explorerPrefetchIndex ? explorerSentinelRef : null}
                       initial={{ opacity: 0, scale: 0.94 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: index * 0.02 }}
@@ -1433,7 +1410,8 @@ Viel Spaß beim Entdecken! 🌿`;
                   ))}
                 </div>
                 </section>
-              {hasMoreExplorerEntries && (
+              <div ref={explorerSentinelRef} className="h-px" />
+              {(hasNextPage || isFetchingNextPage) && (
                 <div className={`flex justify-center py-3 ${isLightUi ? "text-stone-400" : "text-stone-500"}`}>
                   <Loader2 className="w-5 h-5 animate-spin" />
                 </div>

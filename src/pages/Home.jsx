@@ -2,7 +2,6 @@
 import { Query } from "@/api/entities";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { upsertUserProfile } from "@/api/authService";
-import { executeMigration } from "@/api/migrationService";
 import { createUserNotification } from "@/api/notificationService";
 import { supabase } from "@/api/supabaseClient";
 import { sendFriendRequest } from "@/api/friendService";
@@ -20,7 +19,7 @@ import { getOpenPlantQuiz, submitPlantQuizAnswer } from "@/api/plantQuizService"
 import { getTileClaims } from "@/api/tileClaimService";
 import { recordMapView } from "@/api/mapViewService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Camera, Loader2, Leaf, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, Zap, Palette } from "lucide-react";
+import { Camera, Leaf, Users, Scroll, TreePine, Building2, Waves, Flower2, MapPin, Zap, Palette } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
@@ -37,7 +36,6 @@ import {
   computePlantHealthState,
 } from "@/lib/robotPlantEconomy";
 import { calculateDistanceMetersRaw, NEARBY_DISCOVERY_RADIUS_METERS, parseDiscoveryCoordinates } from "@/lib/discoveryMap";
-import { Button } from "@/components/ui/button";
 import { updateQuestProgress } from "@/components/utils/questProgress";
 import Collection from "./Collection";
 import SettingsFeatureRoot from "@/components/settings/SettingsFeatureRoot";
@@ -207,11 +205,6 @@ function HomeContent() {
     mapViewTrackedForOpenRef.current = true;
     recordMapView({ source: "home_map" });
   }, [activePanel, user?.id]);
-
-  // Migration states
-  const [isMigrating, setIsMigrating] = useState(false);
-  const [migrationSteps, setMigrationSteps] = useState([]);
-  const [migrationError, setMigrationError] = useState(null);
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
@@ -899,39 +892,6 @@ function HomeContent() {
       state: nextState,
     });
   }, [location, navigate]);
-
-  // Auto-execute migration if pending (user came from SetPassword page)
-  useEffect(() => {
-    const migrationPending = localStorage.getItem('migration_pending');
-    
-    // Check if we should run migration
-    if (migrationPending === 'true' && user) {
-      console.log('[Home] Migration pending detected - starting automatic migration...');
-      
-      // IMMEDIATELY clear flag to prevent loop
-      localStorage.removeItem('migration_pending');
-      
-      setIsMigrating(true);
-      setMigrationSteps([]);
-      setMigrationError(null);
-
-      executeMigration((progress) => {
-        console.log(`[Home] Migration progress: ${progress.completed}/${progress.total} - ${progress.step.name}`);
-        setMigrationSteps(prev => [...prev, progress.step]);
-      })
-        .then(() => {
-          console.log('[Home] Migration completed successfully!');
-          setIsMigrating(false);
-          // Refetch all user data after successful migration
-          loadUserData();
-        })
-        .catch((err) => {
-          console.error('[Home] Migration failed:', err);
-          setMigrationError(err.message || 'Migration fehlgeschlagen');
-          setIsMigrating(false);
-        });
-    }
-  }, [user]); // Only depend on user, not isMigrating!
 
   // Prüfe ob Scanner-Highlight angezeigt werden soll
   useEffect(() => {
@@ -2282,65 +2242,6 @@ function HomeContent() {
           />
         )}
       </AnimatePresence>
-
-      <Dialog open={isMigrating} onOpenChange={() => {}}>
-        <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Loader2 className="w-5 h-5 animate-spin text-green-600" />
-              Migration läuft...
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600">
-              Deine Daten werden migriert. Dies kann einen Moment dauern.
-            </p>
-
-            {migrationError ? (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-red-900">Migration fehlgeschlagen</p>
-                    <p className="text-sm text-red-700 mt-1">{migrationError}</p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-60 overflow-y-auto">
-                {migrationSteps.length === 0 ? (
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Initialisierung...</span>
-                  </div>
-                ) : (
-                  migrationSteps.map((step, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-sm text-green-800 animate-in fade-in duration-300">
-                      <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-                      <span>{step.name}</span>
-                      {step.updated !== undefined && <span className="text-gray-500">({step.updated})</span>}
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {migrationError && (
-              <Button
-                onClick={() => {
-                  setIsMigrating(false);
-                  setMigrationError(null);
-                  localStorage.removeItem('migration_pending');
-                }}
-                variant="outline"
-                className="w-full"
-              >
-                Schließen
-              </Button>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <PlantQuizDialog
         open={showPlantQuizDialog}

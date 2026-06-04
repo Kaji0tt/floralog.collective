@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Camera, Download, Mail, Lock, User, Loader2, AlertCircle, CheckCircle2, ChevronDown, FileText } from "lucide-react";
 import { signIn, signUp, updatePassword } from "@/api/authService";
-import { checkLegacyUser, upsertLegacyUserFromRegistration } from "@/api/migrationService";
 import { supabase } from "@/api/supabaseClient";
 import { checkApkVersion } from "@/lib/apkVersionService";
 
@@ -257,7 +256,6 @@ export default function GuestHomeFlow() {
   const [contentTransitionPhase, setContentTransitionPhase] = useState("idle");
   const [tiltOffset, setTiltOffset] = useState({ x: 0, y: 0 });
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authModalTab, setAuthModalTab] = useState(/** @type {"register" | "migration"} */ ("register"));
   const [supportModalOpen, setSupportModalOpen] = useState(false);
   const [recoveryModalOpen, setRecoveryModalOpen] = useState(false);
   const [impressumModalOpen, setImpressumModalOpen] = useState(false);
@@ -271,7 +269,6 @@ export default function GuestHomeFlow() {
   const [registerLoading, setRegisterLoading] = useState(false);
   const [registerError, setRegisterError] = useState(/** @type {string | null} */ (null));
   const [registerSuccess, setRegisterSuccess] = useState(/** @type {string | null} */ (null));
-  const [migrateEmail, setMigrateEmail] = useState("");
   const [communityCardIndex, setCommunityCardIndex] = useState(0);
   const [communityStats, setCommunityStats] = useState(/** @type {{ active_researchers_this_month: number, total_species: number, total_scans: number } | null} */ (null));
   const communityCardTouchStartXRef = useRef(/** @type {number | null} */ (null));
@@ -537,8 +534,6 @@ export default function GuestHomeFlow() {
   const openAuthModal = () => {
     setRegisterError(null);
     setRegisterSuccess(null);
-    setAuthModalTab("register");
-    setMigrateEmail("");
     setAuthModalOpen(true);
   };
 
@@ -547,8 +542,6 @@ export default function GuestHomeFlow() {
     setRegisterError(null);
     setRegisterSuccess(null);
     setRegisterLoading(false);
-    setAuthModalTab("register");
-    setMigrateEmail("");
   };
 
   const openSupportModal = () => {
@@ -613,17 +606,7 @@ export default function GuestHomeFlow() {
         throw new Error("Passwort muss mindestens 6 Zeichen lang sein");
       }
 
-      const legacyUser = await checkLegacyUser(authForm.email);
-      if (legacyUser) {
-        throw new Error("Diese E-Mail existiert bereits. Bitte melde dich an oder nutze die Migration.");
-      }
-
-      const signUpResult = await signUp(authForm.email, authForm.password, authForm.username);
-      await upsertLegacyUserFromRegistration({
-        email: authForm.email,
-        displayName: authForm.username,
-        authId: signUpResult?.user?.id || null,
-      });
+      await signUp(authForm.email, authForm.password, authForm.username);
 
       setRegisterSuccess("Fast geschafft: Bitte bestaetige jetzt deine E-Mail und melde dich danach an.");
       setAuthForm((prev) => ({
@@ -1095,56 +1078,14 @@ export default function GuestHomeFlow() {
             </button>
 
             <div className="relative z-10">
-              {/* Tab Switcher */}
-              <div className="flex rounded-xl border border-amber-100/20 overflow-hidden mb-4">
-                <button
-                  type="button"
-                  onClick={() => setAuthModalTab("register")}
-                  className={`flex-1 py-2 text-sm font-semibold transition-colors ${
-                    authModalTab === "register"
-                      ? "bg-emerald-700/70 text-white"
-                      : "bg-black/20 text-stone-400 hover:text-stone-200"
-                  }`}
-                >
-                  Registrieren
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAuthModalTab("migration")}
-                  className={`flex-1 py-2 text-sm font-semibold transition-colors ${
-                    authModalTab === "migration"
-                      ? "bg-emerald-700/70 text-white"
-                      : "bg-black/20 text-stone-400 hover:text-stone-200"
-                  }`}
-                >
-                  Migration
-                </button>
-              </div>
-
-              {authModalTab === "register" && (
-                <>
-                  <h3 className="text-xl font-semibold text-amber-50">
-                    Kostenlos registrieren
-                  </h3>
-                  <p className="text-sm text-stone-300 mt-1">
-                    Erstelle deinen Account und starte direkt mit deinem Naturbegleiter.
-                  </p>
-                </>
-              )}
-
-              {authModalTab === "migration" && (
-                <>
-                  <h3 className="text-xl font-semibold text-amber-50">
-                    Account migrieren
-                  </h3>
-                  <p className="text-sm text-stone-300 mt-1">
-                    Du hattest bereits einen Floralog-Account? Gib deine E-Mail ein und starte die Migration.
-                  </p>
-                </>
-              )}
+              <h3 className="text-xl font-semibold text-amber-50">
+                Kostenlos registrieren
+              </h3>
+              <p className="text-sm text-stone-300 mt-1">
+                Erstelle deinen Account und starte direkt mit deinem Naturbegleiter.
+              </p>
             </div>
 
-            {authModalTab === "register" && (
             <form onSubmit={handleRegisterSubmit} className="relative z-10 space-y-3 mt-4">
               {registerSuccess && (
                 <div className="rounded-xl border border-emerald-300/35 bg-emerald-900/30 px-3 py-2 text-sm text-emerald-100 flex items-start gap-2">
@@ -1225,34 +1166,6 @@ export default function GuestHomeFlow() {
                 Jetzt registrieren
               </button>
             </form>
-            )}
-
-            {authModalTab === "migration" && (
-            <div className="relative z-10 space-y-3 mt-4">
-              <label className="block space-y-1">
-                <span className="text-xs uppercase tracking-[0.14em] text-amber-100/75 flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> E-Mail</span>
-                <input
-                  type="email"
-                  value={migrateEmail}
-                  onChange={(e) => setMigrateEmail(e.target.value)}
-                  className="w-full rounded-xl border border-amber-100/25 bg-black/35 px-3 py-2.5 text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/55"
-                  placeholder="deine@email.de"
-                />
-              </label>
-
-              <button
-                type="button"
-                disabled={!migrateEmail}
-                onClick={() => {
-                  closeAuthModal();
-                  navigate('/migrate', { state: { email: migrateEmail } });
-                }}
-                className="w-full rounded-xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/85 via-emerald-500/75 to-emerald-700/85 py-2.5 text-white font-semibold hover:brightness-110 disabled:opacity-60 transition-all flex items-center justify-center gap-2"
-              >
-                Migration starten
-              </button>
-            </div>
-            )}
           </div>
         </div>
       )}

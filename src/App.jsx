@@ -11,8 +11,6 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import Register from '@/pages/Register';
 import ConfirmEmail from '@/pages/ConfirmEmail';
-import MigrateLogin from '@/pages/MigrateLogin';
-import SetPassword from '@/pages/SetPassword';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
 import GuestLoginModal from '@/components/GuestLoginModal';
@@ -90,9 +88,6 @@ function App() {
             <Route path="/confirm-email" element={<ConfirmEmail />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/migrate" element={<MigrateLogin />} />
-            <Route path="/migration/login" element={<MigrateLogin />} />
-            <Route path="/migration/set-password" element={<SetPassword />} />
             
             {/* Protected App Routes */}
             <Route path="/*" element={<AuthenticatedApp />} />
