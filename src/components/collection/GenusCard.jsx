@@ -181,25 +181,27 @@ export default function GenusCard({
               : `${getBorderColor()} ${isLightUi ? "opacity-85 hover:opacity-100 hover:border-stone-400 bg-stone-100/90" : "opacity-85 hover:opacity-100 hover:border-stone-400/70 bg-black/45"}`
           }`}
           onClick={handleClick}
-          onMouseDown={(event) => handleLongPressStart(event.clientX, event.clientY)}
-          onMouseMove={(event) => handleLongPressMove(event.clientX, event.clientY)}
-          onMouseUp={clearLongPress}
-          onMouseLeave={clearLongPress}
-          onTouchStart={(event) => {
-            const touch = event.touches?.[0] || event.changedTouches?.[0];
-            handleLongPressStart(touch?.clientX ?? null, touch?.clientY ?? null);
-          }}
-          onTouchMove={(event) => {
-            const touch = event.touches?.[0] || event.changedTouches?.[0];
-            handleLongPressMove(touch?.clientX ?? null, touch?.clientY ?? null);
-          }}
-          onTouchEnd={clearLongPress}
-          onTouchCancel={clearLongPress}
         >
           <CardContent className="p-2">
             {/* Dex Number Badge */}
             <div ref={headerRowRef} className="flex justify-between items-start mb-2">
-              <Badge className={"font-bold text-[10px] px-1.5 py-0.5 " + (isLightUi ? "bg-stone-800 text-white" : "bg-[#f0e5a5]/20 text-[#f8f1c8] border border-[#f0e5a5]/30") }>
+              <Badge
+                className={"font-bold text-[10px] px-1.5 py-0.5 " + (isLightUi ? "bg-stone-800 text-white" : "bg-[#f0e5a5]/20 text-[#f8f1c8] border border-[#f0e5a5]/30") }
+                onMouseDown={(event) => handleLongPressStart(event.clientX, event.clientY)}
+                onMouseMove={(event) => handleLongPressMove(event.clientX, event.clientY)}
+                onMouseUp={clearLongPress}
+                onMouseLeave={clearLongPress}
+                onTouchStart={(event) => {
+                  const touch = event.touches?.[0] || event.changedTouches?.[0];
+                  handleLongPressStart(touch?.clientX ?? null, touch?.clientY ?? null);
+                }}
+                onTouchMove={(event) => {
+                  const touch = event.touches?.[0] || event.changedTouches?.[0];
+                  handleLongPressMove(touch?.clientX ?? null, touch?.clientY ?? null);
+                }}
+                onTouchEnd={clearLongPress}
+                onTouchCancel={clearLongPress}
+              >
                 {showCategoryIcon && genus.category === "Bäume" && "🌳"}
                 {showCategoryIcon && genus.category === "Sträucher" && "🌿"}
                 {showCategoryIcon && genus.category === "Blumen" && "🌸"}

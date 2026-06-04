@@ -152,11 +152,15 @@ export default function CollectionFeatureRoot({
   const { data: genera = [], isLoading: generaLoading } = useQuery({
     queryKey: ['genera'],
     queryFn: () => Query.PlantGenus.list(),
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: plants = [], isLoading: plantsLoading } = useQuery({
     queryKey: ['plants'],
     queryFn: () => Query.Plant.list(),
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: userDiscoveries = [], isLoading: discoveriesLoading } = useQuery({
@@ -168,11 +172,15 @@ export default function CollectionFeatureRoot({
       return Query.UserPlantDiscovery.filter({ auth_id: targetUserId });
     },
     enabled: !!targetUserId,
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: collectionQuests = [] } = useQuery({
     queryKey: ['collectionQuests'],
     queryFn: () => Query.CollectionQuest.list(),
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: userCollections = [] } = useQuery({
@@ -182,22 +190,29 @@ export default function CollectionFeatureRoot({
       return Query.UserCollection.filter({ auth_id: targetUserId });
     },
     enabled: !!targetUserId,
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: visibleCollections = [] } = useQuery({
     queryKey: ["visibleCollections"],
     queryFn: () => Query.Collection.list(),
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: publicProfiles = [] } = useQuery({
     queryKey: ["collectionPublicProfiles"],
     queryFn: () => Query.PublicProfile.list(),
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: logoAssets = [] } = useQuery({
     queryKey: ["logoAssets"],
     queryFn: () => Query.LogoAsset.list(),
     staleTime: 60000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: allFriendRecords = [] } = useQuery({
@@ -205,6 +220,7 @@ export default function CollectionFeatureRoot({
     queryFn: () => Query.Friend.list(),
     enabled: !!user?.email && isOwnCollectionContext,
     staleTime: 10000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: ownedCollections = [] } = useQuery({
@@ -214,11 +230,15 @@ export default function CollectionFeatureRoot({
       return Query.Collection.filter({ auth_id: targetUserId });
     },
     enabled: !!targetUserId,
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: allCollectionItems = [] } = useQuery({
     queryKey: ['collectionItems'],
     queryFn: () => Query.CollectionItem.list(),
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const acceptedFriendProfiles = useMemo(() => {
@@ -282,6 +302,7 @@ export default function CollectionFeatureRoot({
     },
     enabled: isOwnCollectionContext && acceptedFriendAuthIds.length > 0,
     staleTime: 30000,
+    refetchOnWindowFocus: false,
   });
 
   const isLoading = generaLoading || plantsLoading || discoveriesLoading;
