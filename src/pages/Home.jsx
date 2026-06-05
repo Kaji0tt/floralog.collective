@@ -62,6 +62,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { resolveReferralEmail } from "@/lib/referralCode";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 import { resolveTitleValue } from "@/lib/profileCustomizationOptions";
+import { EXPLORER_PAGE_SIZE, getExplorerThresholdIso } from "@/lib/explorerLog";
 import { hexToFilter } from "@/lib/hexToFilter";
 import { useDeviceTiltOffset } from "@/lib/useDeviceTiltOffset";
 
@@ -84,6 +85,7 @@ const DISCOVERY_MARKER_SCALE_STORAGE_KEY = "home.discoveryMarkerScale";
 const DISCOVERY_MARKER_SCALE_MIN = 0.5;
 const DISCOVERY_MARKER_SCALE_MAX = 1.0;
 const DISCOVERY_MARKER_SCALE_DEFAULT = 0.8;
+const COLLECTION_WARMUP_BATCH_SIZE = 4;
 
 const clampDiscoveryMarkerScale = (value) => {
   const numeric = Number(value);
@@ -147,6 +149,7 @@ function HomeContent() {
   const scanFeedbackCooldownRef = useRef(false);
   const blockNavigationFeedbackRef = useRef(false);
   const mapViewTrackedForOpenRef = useRef(false);
+  const collectionWarmupByUserRef = useRef(new Set());
 
   // Cooldown-Schutz: scanFeedback kann nach Schließen für 1 Sekunde nicht erneut gesetzt werden
   const safeSetScanFeedback = (value) => {
@@ -207,6 +210,192 @@ function HomeContent() {
     mapViewTrackedForOpenRef.current = true;
     recordMapView({ source: "home_map" });
   }, [activePanel, user?.id]);
+
+  useEffect(() => {
+    const userId = user?.id;
+    const userEmail = user?.email;
+    if (!userId || !userEmail) return;
+
+    const warmupMarker = `${userId}:${userEmail.toLowerCase()}`;
+    if (collectionWarmupByUserRef.current.has(warmupMarker)) return;
+    collectionWarmupByUserRef.current.add(warmupMarker);
+
+    let cancelled = false;
+
+    const runWarmup = async () => {
+      try {
+        const ownEmailLower = userEmail.toLowerCase();
+        const explorerThresholdIso = getExplorerThresholdIso();
+        const connection =
+          typeof navigator !== "undefined"
+            ? (navigator.connection || navigator.mozConnection || navigator.webkitConnection)
+            : null;
+        const shouldSkipExplorerWarmup =
+          !!connection &&
+          (connection.saveData === true || ["slow-2g", "2g"].includes(String(connection.effectiveType || "")));
+
+        await Promise.all([
+          queryClient.prefetchQuery({
+            queryKey: ["genera"],
+            queryFn: () => Query.PlantGenus.list(),
+            staleTime: 10 * 60 * 1000,
+          }),
+          queryClient.prefetchQuery({
+            queryKey: ["plants"],
+            queryFn: () => Query.Plant.list(),
+            staleTime: 10 * 60 * 1000,
+          }),
+          queryClient.prefetchQuery({
+            queryKey: ["userDiscoveries", userId],
+            queryFn: () => Query.UserPlantDiscovery.filter({ auth_id: userId }),
+            staleTime: 15 * 60 * 1000,
+          }),
+          queryClient.prefetchQuery({
+            queryKey: ["userCollections", userId],
+            queryFn: () => Query.UserCollection.filter({ auth_id: userId }),
+            staleTime: 10 * 60 * 1000,
+          }),
+          queryClient.prefetchQuery({
+            queryKey: ["collectionItems"],
+            queryFn: () => Query.CollectionItem.list(),
+            staleTime: 10 * 60 * 1000,
+          }),
+          queryClient.prefetchQuery({
+            queryKey: ["visibleCollections"],
+            queryFn: () => Query.Collection.list(),
+            staleTime: 2 * 60 * 1000,
+          }),
+          queryClient.prefetchQuery({
+            queryKey: ["collectionPublicProfiles"],
+            queryFn: () => Query.PublicProfile.list(),
+            staleTime: 5 * 60 * 1000,
+          }),
+          queryClient.prefetchQuery({
+            queryKey: ["logoAssets"],
+            queryFn: () => Query.LogoAsset.list(),
+            staleTime: 5 * 60 * 1000,
+          }),
+          queryClient.prefetchQuery({
+            queryKey: ["collectionAllFriendRecords", userEmail],
+            queryFn: () => Query.Friend.list(),
+            staleTime: 10 * 1000,
+          }),
+          !shouldSkipExplorerWarmup
+            ? queryClient.prefetchInfiniteQuery({
+                queryKey: ["explorerDiscoveriesInfinite", ownEmailLower, "all", explorerThresholdIso],
+                initialPageParam: 0,
+                queryFn: async ({ pageParam = 0 }) => {
+                  const { data, error } = await supabase.rpc("get_explorer_discoveries", {
+                    p_audience: "all",
+                    p_since: explorerThresholdIso,
+                    p_limit: EXPLORER_PAGE_SIZE,
+                    p_offset: pageParam * EXPLORER_PAGE_SIZE,
+                  });
+                  if (error) throw error;
+                  return data || [];
+                },
+                getNextPageParam: (lastPage, allPages) =>
+                  lastPage.length < EXPLORER_PAGE_SIZE ? undefined : allPages.length,
+                staleTime: 30 * 1000,
+              })
+            : Promise.resolve(),
+          !shouldSkipExplorerWarmup
+            ? queryClient.prefetchQuery({
+                queryKey: ["scanLikesAll"],
+                queryFn: () => Query.ScanLike.list("-created_date", 2000),
+                staleTime: 60 * 1000,
+              })
+            : Promise.resolve(),
+          !shouldSkipExplorerWarmup
+            ? queryClient.prefetchQuery({
+                queryKey: ["allPlants"],
+                queryFn: () => Query.Plant.list(),
+                staleTime: 10 * 60 * 1000,
+              })
+            : Promise.resolve(),
+        ]);
+
+        if (cancelled) return;
+
+        const allFriendRecords = queryClient.getQueryData(["collectionAllFriendRecords", userEmail]) || [];
+        const publicProfiles = queryClient.getQueryData(["collectionPublicProfiles"]) || [];
+        const acceptedFriendEmails = new Set();
+
+        allFriendRecords.forEach((friendEntry) => {
+          if (friendEntry?.status !== "accepted") return;
+          const sender = String(friendEntry.request_sent_by || "").toLowerCase();
+          const receiver = String(friendEntry.request_sent_to || "").toLowerCase();
+          if (sender === ownEmailLower && receiver) acceptedFriendEmails.add(receiver);
+          else if (receiver === ownEmailLower && sender) acceptedFriendEmails.add(sender);
+        });
+
+        const acceptedFriendProfiles = Array.from(acceptedFriendEmails)
+          .map((emailLower) =>
+            publicProfiles.find((profile) => String(profile?.user_email || "").toLowerCase() === emailLower)
+          )
+          .filter((profile) => !!profile?.auth_id)
+          .map((profile) => ({
+            authId: profile.auth_id,
+            name: profile.display_name || profile.full_name || profile.user_email || "",
+          }))
+          .sort((a, b) => (a.name || "").localeCompare(b.name || "", "de"));
+
+        const acceptedFriendAuthIds = acceptedFriendProfiles
+          .map((entry) => entry.authId)
+          .filter(Boolean);
+
+        if (!acceptedFriendAuthIds.length) return;
+
+        const friendDiscoveriesByAuthId = {};
+        for (let index = 0; index < acceptedFriendAuthIds.length; index += COLLECTION_WARMUP_BATCH_SIZE) {
+          if (cancelled) return;
+          const batch = acceptedFriendAuthIds.slice(index, index + COLLECTION_WARMUP_BATCH_SIZE);
+          const batchRows = await Promise.all(
+            batch.map(async (authId) => {
+              const discoveries = await Query.UserPlantDiscovery.filter({ auth_id: authId });
+              return [authId, discoveries || []];
+            })
+          );
+
+          batchRows.forEach(([authId, discoveries]) => {
+            friendDiscoveriesByAuthId[authId] = discoveries;
+          });
+        }
+
+        if (cancelled) return;
+
+        queryClient.setQueryData(
+          ["collectionFriendDiscoveries", acceptedFriendAuthIds],
+          friendDiscoveriesByAuthId
+        );
+      } catch (error) {
+        console.warn("[Home] Collection warmup skipped:", error?.message || error);
+      }
+    };
+
+    let timeoutId = null;
+    let idleId = null;
+
+    if (typeof window !== "undefined" && typeof window.requestIdleCallback === "function") {
+      idleId = window.requestIdleCallback(() => {
+        runWarmup();
+      }, { timeout: 2000 });
+    } else {
+      timeoutId = window.setTimeout(() => {
+        runWarmup();
+      }, 600);
+    }
+
+    return () => {
+      cancelled = true;
+      if (idleId !== null && typeof window !== "undefined" && typeof window.cancelIdleCallback === "function") {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [queryClient, user?.email, user?.id]);
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],

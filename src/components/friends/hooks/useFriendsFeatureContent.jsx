@@ -24,6 +24,7 @@ import { de } from "date-fns/locale";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { encodeReferralCode } from "@/lib/referralCode";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
+import { EXPLORER_PAGE_SIZE, getExplorerThresholdIso } from "@/lib/explorerLog";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 
 const getAverageColor = (imageUrl) => {
@@ -59,8 +60,6 @@ const getAverageColor = (imageUrl) => {
     img.src = imageUrl;
   });
 };
-
-const EXPLORER_PAGE_SIZE = 40;
 
 const parseActivityDate = (primary, fallback) => {
   const value = primary || fallback;
@@ -205,10 +204,7 @@ export function useFriendsFeatureContent({
     staleTime: 60000,
   });
 
-  const explorerThresholdIso = useMemo(
-    () => new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-    []
-  );
+  const explorerThresholdIso = useMemo(() => getExplorerThresholdIso(), []);
 
   const {
     data: explorerDiscoveriesPages,

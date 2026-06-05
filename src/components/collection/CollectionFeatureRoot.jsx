@@ -55,6 +55,26 @@ const getAverageColor = (imageUrl) => {
   });
 };
 
+const fetchFriendDiscoveriesByAuthId = async (authIds, batchSize = 4) => {
+  const result = {};
+
+  for (let index = 0; index < authIds.length; index += batchSize) {
+    const batch = authIds.slice(index, index + batchSize);
+    const batchRows = await Promise.all(
+      batch.map(async (authId) => {
+        const discoveries = await Query.UserPlantDiscovery.filter({ auth_id: authId });
+        return [authId, discoveries || []];
+      })
+    );
+
+    batchRows.forEach(([authId, discoveries]) => {
+      result[authId] = discoveries;
+    });
+  }
+
+  return result;
+};
+
 export default function CollectionFeatureRoot({
   embedded = false,
   onRequestClose = null,
@@ -172,7 +192,9 @@ export default function CollectionFeatureRoot({
       return Query.UserPlantDiscovery.filter({ auth_id: targetUserId });
     },
     enabled: !!targetUserId,
-    staleTime: 30 * 1000,
+    staleTime: 15 * 60 * 1000,
+    gcTime: 24 * 60 * 60 * 1000,
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
   });
 
@@ -190,7 +212,9 @@ export default function CollectionFeatureRoot({
       return Query.UserCollection.filter({ auth_id: targetUserId });
     },
     enabled: !!targetUserId,
-    staleTime: 30 * 1000,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 24 * 60 * 60 * 1000,
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
   });
 
@@ -237,7 +261,9 @@ export default function CollectionFeatureRoot({
   const { data: allCollectionItems = [] } = useQuery({
     queryKey: ['collectionItems'],
     queryFn: () => Query.CollectionItem.list(),
-    staleTime: 2 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 24 * 60 * 60 * 1000,
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
   });
 
@@ -283,6 +309,10 @@ export default function CollectionFeatureRoot({
     () => acceptedFriendProfiles.map((entry) => entry.authId).filter(Boolean),
     [acceptedFriendProfiles]
   );
+  const acceptedFriendAuthIdsKey = useMemo(
+    () => acceptedFriendAuthIds.join(","),
+    [acceptedFriendAuthIds]
+  );
 
   const acceptedFriendProfilesByAuthId = useMemo(
     () => new Map(acceptedFriendProfiles.map((entry) => [entry.authId, entry])),
@@ -291,17 +321,11 @@ export default function CollectionFeatureRoot({
 
   const { data: friendDiscoveriesByAuthId = {} } = useQuery({
     queryKey: ["collectionFriendDiscoveries", acceptedFriendAuthIds],
-    queryFn: async () => {
-      const rows = await Promise.all(
-        acceptedFriendAuthIds.map(async (authId) => {
-          const discoveries = await Query.UserPlantDiscovery.filter({ auth_id: authId });
-          return [authId, discoveries || []];
-        })
-      );
-      return Object.fromEntries(rows);
-    },
+    queryFn: () => fetchFriendDiscoveriesByAuthId(acceptedFriendAuthIds),
     enabled: isOwnCollectionContext && acceptedFriendAuthIds.length > 0,
-    staleTime: 30000,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 24 * 60 * 60 * 1000,
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
   });
 
@@ -706,6 +730,53 @@ export default function CollectionFeatureRoot({
   useEffect(() => {
     restoreScrollForCollection(selectedCollectionId);
   }, [selectedCollectionId, sortedGenera.length, restoreScrollForCollection]);
+
+  useEffect(() => {
+    if (!targetUserId) return;
+
+    const refreshThrottleMs = 2 * 60 * 1000;
+    const refreshKey = `collection:bg-refresh:${targetUserId}`;
+    const now = Date.now();
+
+    try {
+      const lastRun = Number(window.sessionStorage.getItem(refreshKey) || 0);
+      if (Number.isFinite(lastRun) && now - lastRun < refreshThrottleMs) {
+        return;
+      }
+      window.sessionStorage.setItem(refreshKey, String(now));
+    } catch {
+      // sessionStorage may be unavailable in private contexts.
+    }
+
+    const baseQueryKeys = [
+      ["genera"],
+      ["plants"],
+      ["userDiscoveries", targetUserId],
+      ["userCollections", targetUserId],
+      ["collectionItems"],
+      ["visibleCollections"],
+      ["collectionPublicProfiles"],
+    ];
+
+    baseQueryKeys.forEach((queryKey) => {
+      if (typeof queryClient.getQueryData(queryKey) !== "undefined") {
+        queryClient.refetchQueries({ queryKey, exact: true, type: "active" });
+      }
+    });
+
+    if (isOwnCollectionContext && acceptedFriendAuthIds.length > 0) {
+      const friendQueryKey = ["collectionFriendDiscoveries", acceptedFriendAuthIds];
+      if (typeof queryClient.getQueryData(friendQueryKey) !== "undefined") {
+        queryClient.refetchQueries({ queryKey: friendQueryKey, exact: true, type: "active" });
+      }
+    }
+  }, [
+    acceptedFriendAuthIds,
+    acceptedFriendAuthIdsKey,
+    isOwnCollectionContext,
+    queryClient,
+    targetUserId,
+  ]);
 
   useEffect(() => {
     const backgroundSourceProfile = shouldUseSelectedOwnerTheme
