@@ -1180,16 +1180,36 @@ export default function GenusDetail() {
                         {(activeIndex + 1)}/{variants.length}
                       </div>
                     ) : <div />}
-                    {activeDiscovery && (
-                      <div className={"inline-flex h-5 items-center gap-1 rounded-full border px-1.5 text-[10px] " + (activeLikeCount > 0
-                        ? (activeLikedByUser
-                          ? (isLightUi ? "border-rose-300 bg-rose-50 text-rose-600" : "border-rose-400/60 bg-rose-400/15 text-rose-200")
-                          : (isLightUi ? "border-rose-200 bg-white/90 text-rose-500" : "border-rose-300/45 bg-black/60 text-rose-200"))
-                        : (isLightUi ? "border-stone-300 bg-white/90 text-stone-400" : "border-stone-500/70 bg-black/60 text-stone-300"))}>
-                        <Heart className={"w-3 h-3 " + (activeLikedByUser ? "fill-current" : "")} />
-                        <span>{activeLikeCount || 0}</span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {Array.isArray(plant.friendActors) && plant.friendActors.length > 0 && (
+                        <div className="flex items-center gap-1 min-w-0 overflow-x-auto pr-1" title="Freunde mit Scan dieser Pflanze">
+                          {plant.friendActors.map((actor, actorIndex) => (
+                            <div
+                              key={actor.authId || actor.email || actorIndex}
+                              className="w-5 h-5 rounded-full overflow-hidden bg-black/35 border border-white/20 shrink-0"
+                              title={actor.name || actor.email || "Freund"}
+                            >
+                              <CustomLogoAvatar
+                                logoAssets={actor.logoAssets}
+                                className="w-full h-full"
+                                fallbackText={(actor.name || actor.email || "?").charAt(0).toUpperCase()}
+                                fallbackClassName="text-[9px] font-bold text-white"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {activeDiscovery && (
+                        <div className={"inline-flex h-5 items-center gap-1 rounded-full border px-1.5 text-[10px] shrink-0 " + (activeLikeCount > 0
+                          ? (activeLikedByUser
+                            ? (isLightUi ? "border-rose-300 bg-rose-50 text-rose-600" : "border-rose-400/60 bg-rose-400/15 text-rose-200")
+                            : (isLightUi ? "border-rose-200 bg-white/90 text-rose-500" : "border-rose-300/45 bg-black/60 text-rose-200"))
+                          : (isLightUi ? "border-stone-300 bg-white/90 text-stone-400" : "border-stone-500/70 bg-black/60 text-stone-300"))}>
+                          <Heart className={"w-3 h-3 " + (activeLikedByUser ? "fill-current" : "")} />
+                          <span>{activeLikeCount || 0}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardContent>
