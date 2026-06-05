@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ArrowLeft, Leaf, CheckCircle2, Volume2, VolumeX, ChevronLeft, ChevronRight, Star, HelpCircle, X, Trash2, Heart } from "lucide-react";
 import { createPageUrl } from "@/utils";
 import { format } from "date-fns";
@@ -44,6 +45,7 @@ export default function GenusDetail() {
   const [averageColor, setAverageColor] = useState(null);
   const [plantDragOffsets, setPlantDragOffsets] = useState({});
   const [expandedDragOffset, setExpandedDragOffset] = useState(null);
+  const [openFriendTooltipKey, setOpenFriendTooltipKey] = useState(null);
   const deepLinkAppliedRef = useRef(false);
   const plantLongPressTimerRef = useRef(null);
   const plantLongPressTriggeredRef = useRef(false);
@@ -371,6 +373,39 @@ export default function GenusDetail() {
     },
   });
 
+  const toggleScanLikeMutation = useMutation({
+    mutationFn: async ({ discoveryId, nextLiked }) => {
+      if (!currentUser?.email || !discoveryId) return;
+
+      const ownEmailLower = currentUser.email.toLowerCase();
+      const existingLike = (allScanLikes || []).find(
+        (like) => like?.discovery_id === discoveryId && like?.liked_by?.toLowerCase() === ownEmailLower
+      );
+
+      if (nextLiked) {
+        if (existingLike) return;
+        await Query.ScanLike.create({
+          discovery_id: discoveryId,
+          liked_by: currentUser.email,
+          liked_date: new Date().toISOString(),
+          auth_id: currentUser.id,
+          created_by: currentUser.email,
+        });
+        return;
+      }
+
+      if (existingLike?.id) {
+        await Query.ScanLike.delete(existingLike.id);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["scanLikesAll"] });
+    },
+    onError: () => {
+      alert("Like konnte nicht gespeichert werden. Bitte versuche es erneut.");
+    },
+  });
+
 
 
   // Removed updateGenusMutation as it's no longer needed for dynamically loaded icons
@@ -662,6 +697,13 @@ export default function GenusDetail() {
   };
 
   const friendProfileLogoAssets = resolveEquippedLogoAssetsWithCatalog(friendProfile || {}, logoAssets);
+
+  const openFriendProfile = (actor) => {
+    const email = String(actor?.email || "").trim();
+    if (!email) return;
+    setOpenFriendTooltipKey(null);
+    navigate(createPageUrl(`FriendProfile?email=${encodeURIComponent(email)}`));
+  };
 
   const expandedPlantData = expandedPlant
     ? (genusPlants.find((plant) => plant.id === expandedPlant.id) || expandedPlant)
@@ -1182,30 +1224,102 @@ export default function GenusDetail() {
                     ) : <div />}
                     <div className="flex items-center gap-1.5 min-w-0">
                       {Array.isArray(plant.friendActors) && plant.friendActors.length > 0 && (
-                        <div className="flex items-center gap-1 min-w-0 overflow-x-auto pr-1" title="Freunde mit Scan dieser Pflanze">
+                        <div
+                          className="flex items-center gap-1 min-w-0 overflow-x-auto pr-1"
+                          title="Freunde mit Scan dieser Pflanze"
+                          onClick={(event) => event.stopPropagation()}
+                          onMouseDown={(event) => event.stopPropagation()}
+                          onTouchStart={(event) => event.stopPropagation()}
+                          onTouchEnd={(event) => event.stopPropagation()}
+                        >
                           {plant.friendActors.map((actor, actorIndex) => (
-                            <div
-                              key={actor.authId || actor.email || actorIndex}
-                              className="w-5 h-5 rounded-full overflow-hidden bg-black/35 border border-white/20 shrink-0"
-                              title={actor.name || actor.email || "Freund"}
-                            >
-                              <CustomLogoAvatar
-                                logoAssets={actor.logoAssets}
-                                className="w-full h-full"
-                                fallbackText={(actor.name || actor.email || "?").charAt(0).toUpperCase()}
-                                fallbackClassName="text-[9px] font-bold text-white"
-                              />
-                            </div>
+                            <TooltipProvider key={actor.authId || actor.email || actorIndex}>
+                              <Tooltip
+                                open={openFriendTooltipKey === `${plant.id}:${actor.authId || actor.email || actorIndex}`}
+                                onOpenChange={(isOpen) => {
+                                  if (isOpen) {
+                                    setOpenFriendTooltipKey(`${plant.id}:${actor.authId || actor.email || actorIndex}`);
+                                  } else if (openFriendTooltipKey === `${plant.id}:${actor.authId || actor.email || actorIndex}`) {
+                                    setOpenFriendTooltipKey(null);
+                                  }
+                                }}
+                              >
+                                <TooltipTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="w-5 h-5 rounded-full overflow-hidden bg-black/35 border border-white/20 shrink-0"
+                                    title={actor.name || actor.email || "Freund"}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      const key = `${plant.id}:${actor.authId || actor.email || actorIndex}`;
+                                      setOpenFriendTooltipKey((prev) => (prev === key ? null : key));
+                                    }}
+                                    onMouseDown={(event) => event.stopPropagation()}
+                                    onTouchStart={(event) => event.stopPropagation()}
+                                    onTouchEnd={(event) => event.stopPropagation()}
+                                  >
+                                    <CustomLogoAvatar
+                                      logoAssets={actor.logoAssets}
+                                      className="w-full h-full"
+                                      fallbackText={(actor.name || actor.email || "?").charAt(0).toUpperCase()}
+                                      fallbackClassName="text-[9px] font-bold text-white"
+                                    />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent
+                                  side="top"
+                                  className={"p-0 border-0 bg-transparent shadow-none"}
+                                  onClick={(event) => event.stopPropagation()}
+                                >
+                                  <button
+                                    type="button"
+                                    className={"rounded-md border px-2 py-1 text-[11px] font-medium shadow-sm " + (isLightUi
+                                      ? "border-stone-300 bg-white text-stone-800"
+                                      : "border-stone-500/70 bg-black/85 text-stone-100")}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      openFriendProfile(actor);
+                                    }}
+                                  >
+                                    {actor.name || actor.email || "Freund"}
+                                  </button>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           ))}
                         </div>
                       )}
                       {activeDiscovery && (
-                        <div className={"inline-flex h-5 items-center gap-1 rounded-full border px-1.5 text-[10px] shrink-0 " + (activeLikeCount > 0
-                          ? (activeLikedByUser
-                            ? (isLightUi ? "border-rose-300 bg-rose-50 text-rose-600" : "border-rose-400/60 bg-rose-400/15 text-rose-200")
-                            : (isLightUi ? "border-rose-200 bg-white/90 text-rose-500" : "border-rose-300/45 bg-black/60 text-rose-200"))
-                          : (isLightUi ? "border-stone-300 bg-white/90 text-stone-400" : "border-stone-500/70 bg-black/60 text-stone-300"))}>
-                          <Heart className={"w-3 h-3 " + (activeLikedByUser ? "fill-current" : "")} />
+                        <div
+                          className={"inline-flex h-5 items-center gap-1 rounded-full border px-1.5 text-[10px] shrink-0 " + (activeLikeCount > 0
+                            ? (activeLikedByUser
+                              ? (isLightUi ? "border-rose-300 bg-rose-50 text-rose-600" : "border-rose-400/60 bg-rose-400/15 text-rose-200")
+                              : (isLightUi ? "border-rose-200 bg-white/90 text-rose-500" : "border-rose-300/45 bg-black/60 text-rose-200"))
+                            : (isLightUi ? "border-stone-300 bg-white/90 text-stone-400" : "border-stone-500/70 bg-black/60 text-stone-300"))}
+                          onClick={(event) => event.stopPropagation()}
+                          onMouseDown={(event) => event.stopPropagation()}
+                          onTouchStart={(event) => event.stopPropagation()}
+                          onTouchEnd={(event) => event.stopPropagation()}
+                        >
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              if (!activeDiscovery?.id || !currentUser?.email) return;
+                              toggleScanLikeMutation.mutate({
+                                discoveryId: activeDiscovery.id,
+                                nextLiked: !activeLikedByUser,
+                              });
+                            }}
+                            onMouseDown={(event) => event.stopPropagation()}
+                            onTouchStart={(event) => event.stopPropagation()}
+                            onTouchEnd={(event) => event.stopPropagation()}
+                            aria-label={activeLikedByUser ? "Like entfernen" : "Scan liken"}
+                            disabled={toggleScanLikeMutation.isPending || !currentUser?.email}
+                          >
+                            <Heart className={"w-3 h-3 " + (activeLikedByUser ? "fill-current" : "")} />
+                          </button>
                           <span>{activeLikeCount || 0}</span>
                         </div>
                       )}

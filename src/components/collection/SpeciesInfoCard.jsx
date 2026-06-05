@@ -244,7 +244,13 @@ export default function SpeciesInfoCard({
         <div className="space-y-2">
           <button
             type="button"
-            onClick={() => setInfoOpen((prev) => !prev)}
+            onClick={(event) => {
+              event.stopPropagation();
+              setInfoOpen((prev) => !prev);
+            }}
+            onMouseDown={(event) => event.stopPropagation()}
+            onTouchStart={(event) => event.stopPropagation()}
+            onTouchEnd={(event) => event.stopPropagation()}
             className={"w-full rounded-md border px-2 py-1.5 flex items-center justify-between text-left " + (isLightUi
               ? "border-stone-200 bg-white text-stone-700"
               : "border-stone-600/60 bg-black/25 text-stone-200")}
@@ -256,6 +262,10 @@ export default function SpeciesInfoCard({
           {infoOpen && (
             <div className="space-y-2">
               {!!descriptionText && (
+              onClick={(event) => event.stopPropagation()}
+              onMouseDown={(event) => event.stopPropagation()}
+              onTouchStart={(event) => event.stopPropagation()}
+              onTouchEnd={(event) => event.stopPropagation()}
                 <div className={"rounded-md border p-2 " + (isLightUi ? "border-sky-200 bg-sky-50" : "border-sky-300/50 bg-sky-500/10")}>
                   <p className={"text-xs font-semibold mb-1 " + (isLightUi ? "text-sky-800" : "text-sky-200")}>Beschreibung</p>
                   <p className={"text-sm " + (isLightUi ? "text-stone-700" : "text-stone-200")}>{descriptionText}</p>
