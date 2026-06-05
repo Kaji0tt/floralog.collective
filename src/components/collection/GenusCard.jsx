@@ -37,6 +37,7 @@ export default function GenusCard({
   const longPressStartPointRef = React.useRef(null);
   const longPressMovementCancelledRef = React.useRef(false);
   const headerRowRef = React.useRef(null);
+  const [isCoarsePointer, setIsCoarsePointer] = React.useState(false);
   const CategoryIcon = categoryIcons[genus.category] || TreeDeciduous;
   const isLightUi = uiTheme === "light";
   const showFriendLogos = friendDiscoveryCount > 0;
@@ -151,6 +152,22 @@ export default function GenusCard({
   }, []);
 
   React.useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+
+    const mediaQuery = window.matchMedia("(pointer: coarse)");
+    const apply = () => setIsCoarsePointer(mediaQuery.matches);
+    apply();
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", apply);
+      return () => mediaQuery.removeEventListener("change", apply);
+    }
+
+    mediaQuery.addListener(apply);
+    return () => mediaQuery.removeListener(apply);
+  }, []);
+
+  React.useEffect(() => {
     const headerRow = headerRowRef.current;
     if (!headerRow || typeof ResizeObserver === "undefined") return;
 
@@ -172,7 +189,8 @@ export default function GenusCard({
     <>
       <motion.div
         whileHover={{ scale: discovered ? 1.05 : 1.02 }}
-        whileTap={{ scale: 0.95 }}
+        whileTap={isCoarsePointer ? undefined : { scale: 0.95 }}
+        style={{ touchAction: "pan-y" }}
       >
         <Card
           className={`relative cursor-pointer overflow-hidden border-2 shadow-sm transition-all duration-300 ${
@@ -180,6 +198,7 @@ export default function GenusCard({
               ? `${getBorderColor()} hover:shadow-lg ${isLightUi ? "bg-white/95" : "bg-black/45"}`
               : `${getBorderColor()} ${isLightUi ? "opacity-85 hover:opacity-100 hover:border-stone-400 bg-stone-100/90" : "opacity-85 hover:opacity-100 hover:border-stone-400/70 bg-black/45"}`
           }`}
+          style={{ touchAction: "pan-y" }}
           onClick={handleClick}
         >
           <CardContent className="p-2">

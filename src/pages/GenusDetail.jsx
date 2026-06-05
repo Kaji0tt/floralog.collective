@@ -20,6 +20,8 @@ import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets"
 export default function GenusDetail() {
   const LIST_SWIPE_THRESHOLD_PX = 60;
   const LIST_SWIPE_DOMINANCE_RATIO = 1.4;
+  const LIST_DRAG_INTENT_THRESHOLD_PX = 16;
+  const LIST_DRAG_SNAP_OFFSET_PX = 18;
   const EXPANDED_SWIPE_THRESHOLD_PX = 50;
   const EXPANDED_SWIPE_DOMINANCE_RATIO = 1.25;
   const VARIANT_RESET_TIMEOUT_MS = 5000;
@@ -52,6 +54,7 @@ export default function GenusDetail() {
   const plantLongPressMovementCancelledRef = useRef(false);
   const plantDragStartXRef = useRef({});
   const plantDragStartPointRef = useRef({});
+  const plantDragActivatedRef = useRef({});
   const plantTouchStartXRef = useRef({});
   const plantSwipeTriggeredRef = useRef({});
   const variantResetTimersRef = useRef({});
@@ -837,6 +840,7 @@ export default function GenusDetail() {
     if (!plantId) return;
     plantDragStartXRef.current[plantId] = null;
     delete plantDragStartPointRef.current[plantId];
+    delete plantDragActivatedRef.current[plantId];
     setPlantDragOffsets((prev) => {
       if (!(plantId in prev)) return prev;
       const next = { ...prev };
@@ -853,13 +857,35 @@ export default function GenusDetail() {
 
   const clampDragOffset = (deltaX) => Math.max(-88, Math.min(88, deltaX));
 
-  const updatePlantDrag = (plant, clientX) => {
+  const updatePlantDrag = (plant, clientX, clientY) => {
     if (!plant?.id || typeof clientX !== "number") return;
-    const startX = plantDragStartXRef.current[plant.id];
+    const startPoint = plantDragStartPointRef.current[plant.id];
+    const startX = typeof startPoint?.x === "number" ? startPoint.x : plantDragStartXRef.current[plant.id];
+    const startY = typeof startPoint?.y === "number" ? startPoint.y : null;
     if (typeof startX !== "number") return;
+
+    const deltaX = clientX - startX;
+    const absDeltaX = Math.abs(deltaX);
+    const deltaY = typeof startY === "number" && typeof clientY === "number" ? clientY - startY : 0;
+    const absDeltaY = Math.abs(deltaY);
+
+    const isActive = !!plantDragActivatedRef.current[plant.id];
+    if (!isActive) {
+      const hasEnoughHorizontalMovement = absDeltaX >= LIST_DRAG_INTENT_THRESHOLD_PX;
+      const hasHorizontalDominance = absDeltaX >= absDeltaY * LIST_SWIPE_DOMINANCE_RATIO;
+      if (!hasEnoughHorizontalMovement || !hasHorizontalDominance) {
+        return;
+      }
+      plantDragActivatedRef.current[plant.id] = true;
+    }
+
+    const direction = deltaX < 0 ? -1 : 1;
+    const dragBeyondIntent = Math.max(0, absDeltaX - LIST_DRAG_INTENT_THRESHOLD_PX);
+    const visualOffset = direction * (LIST_DRAG_SNAP_OFFSET_PX + dragBeyondIntent * 0.65);
+
     setPlantDragOffsets((prev) => ({
       ...prev,
-      [plant.id]: clampDragOffset(clientX - startX),
+      [plant.id]: clampDragOffset(visualOffset),
     }));
   };
 
@@ -872,12 +898,13 @@ export default function GenusDetail() {
     const endY = typeof clientY === "number" ? clientY : null;
     const deltaX = typeof startX === "number" && endX !== null ? endX - startX : 0;
     const deltaY = typeof startY === "number" && endY !== null ? endY - startY : 0;
+    const wasDragActivated = !!plantDragActivatedRef.current[plant.id];
     const shouldSwipe = isClearHorizontalSwipe(
       deltaX,
       deltaY,
       LIST_SWIPE_THRESHOLD_PX,
       LIST_SWIPE_DOMINANCE_RATIO
-    );
+    ) && wasDragActivated;
 
     if (shouldSwipe) {
       plantSwipeTriggeredRef.current[plant.id] = true;
@@ -1124,11 +1151,11 @@ export default function GenusDetail() {
               onMouseDown={(event) => {
                 plantDragStartXRef.current[plant.id] = event.clientX;
                 plantDragStartPointRef.current[plant.id] = { x: event.clientX, y: event.clientY };
-                setPlantDragOffsets((prev) => ({ ...prev, [plant.id]: 0 }));
+                plantDragActivatedRef.current[plant.id] = false;
               }}
               onMouseMove={(event) => {
                 if (event.buttons !== 1) return;
-                updatePlantDrag(plant, event.clientX);
+                updatePlantDrag(plant, event.clientX, event.clientY);
               }}
               onMouseUp={(event) => {
                 clearPlantLongPress();
@@ -1147,11 +1174,15 @@ export default function GenusDetail() {
                   x: touch?.clientX ?? 0,
                   y: touch?.clientY ?? 0,
                 };
-                setPlantDragOffsets((prev) => ({ ...prev, [plant.id]: 0 }));
+                plantDragActivatedRef.current[plant.id] = false;
                 plantSwipeTriggeredRef.current[plant.id] = false;
               }}
               onTouchMove={(event) => {
-                updatePlantDrag(plant, event.touches?.[0]?.clientX ?? null);
+                updatePlantDrag(
+                  plant,
+                  event.touches?.[0]?.clientX ?? null,
+                  event.touches?.[0]?.clientY ?? null
+                );
               }}
               onTouchEnd={(event) => {
                 clearPlantLongPress();
