@@ -2605,6 +2605,7 @@ function HomeContent() {
                 {activePanel === "collection" ? (
                   <Collection
                     embedded
+                    currentUser={user}
                     onRequestClose={() => {
                       setActivePanel(null);
                       setEmbeddedSelectedCollectionId("global");

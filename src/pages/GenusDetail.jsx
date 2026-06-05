@@ -18,7 +18,10 @@ import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 
 export default function GenusDetail() {
-  const SWIPE_THRESHOLD_PX = 36;
+  const LIST_SWIPE_THRESHOLD_PX = 60;
+  const LIST_SWIPE_DOMINANCE_RATIO = 1.4;
+  const EXPANDED_SWIPE_THRESHOLD_PX = 50;
+  const EXPANDED_SWIPE_DOMINANCE_RATIO = 1.25;
   const VARIANT_RESET_TIMEOUT_MS = 5000;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -48,10 +51,12 @@ export default function GenusDetail() {
   const plantLongPressStartPointRef = useRef(null);
   const plantLongPressMovementCancelledRef = useRef(false);
   const plantDragStartXRef = useRef({});
+  const plantDragStartPointRef = useRef({});
   const plantTouchStartXRef = useRef({});
   const plantSwipeTriggeredRef = useRef({});
   const variantResetTimersRef = useRef({});
   const expandedDragStartXRef = useRef(null);
+  const expandedDragStartPointRef = useRef(null);
   const expandedTouchStartXRef = useRef(null);
   const expandedSwipeTriggeredRef = useRef(false);
 
@@ -768,6 +773,12 @@ export default function GenusDetail() {
     }
   };
 
+  const isClearHorizontalSwipe = (deltaX, deltaY, thresholdPx, dominanceRatio) => {
+    const absDeltaX = Math.abs(deltaX);
+    const absDeltaY = Math.abs(deltaY);
+    return absDeltaX >= thresholdPx && absDeltaX >= absDeltaY * dominanceRatio;
+  };
+
   const scheduleVariantReset = ({ timerKey, plantId, defaultIndex, updateExpanded }) => {
     if (!timerKey || typeof plantId === "undefined") return;
     clearVariantResetTimer(timerKey);
@@ -802,12 +813,6 @@ export default function GenusDetail() {
 
     if (updateExpanded) {
       setExpandedActiveVariantIndex(nextIndex);
-      scheduleVariantReset({
-        timerKey: `expanded:${plant.id}`,
-        plantId: plant.id,
-        defaultIndex: plant.defaultVariantIndex || 0,
-        updateExpanded: true,
-      });
       return;
     }
 
@@ -831,6 +836,7 @@ export default function GenusDetail() {
   const resetPlantDrag = (plantId) => {
     if (!plantId) return;
     plantDragStartXRef.current[plantId] = null;
+    delete plantDragStartPointRef.current[plantId];
     setPlantDragOffsets((prev) => {
       if (!(plantId in prev)) return prev;
       const next = { ...prev };
@@ -841,6 +847,7 @@ export default function GenusDetail() {
 
   const resetExpandedDrag = () => {
     expandedDragStartXRef.current = null;
+    expandedDragStartPointRef.current = null;
     setExpandedDragOffset(null);
   };
 
@@ -856,12 +863,21 @@ export default function GenusDetail() {
     }));
   };
 
-  const finishPlantDrag = (plant, clientX) => {
+  const finishPlantDrag = (plant, clientX, clientY) => {
     if (!plant?.id) return;
-    const startX = plantDragStartXRef.current[plant.id];
+    const startPoint = plantDragStartPointRef.current[plant.id];
+    const startX = typeof startPoint?.x === "number" ? startPoint.x : plantDragStartXRef.current[plant.id];
+    const startY = typeof startPoint?.y === "number" ? startPoint.y : null;
     const endX = typeof clientX === "number" ? clientX : null;
+    const endY = typeof clientY === "number" ? clientY : null;
     const deltaX = typeof startX === "number" && endX !== null ? endX - startX : 0;
-    const shouldSwipe = Math.abs(deltaX) >= SWIPE_THRESHOLD_PX;
+    const deltaY = typeof startY === "number" && endY !== null ? endY - startY : 0;
+    const shouldSwipe = isClearHorizontalSwipe(
+      deltaX,
+      deltaY,
+      LIST_SWIPE_THRESHOLD_PX,
+      LIST_SWIPE_DOMINANCE_RATIO
+    );
 
     if (shouldSwipe) {
       plantSwipeTriggeredRef.current[plant.id] = true;
@@ -882,11 +898,20 @@ export default function GenusDetail() {
     setExpandedDragOffset(clampDragOffset(clientX - startX));
   };
 
-  const finishExpandedDrag = (clientX) => {
-    const startX = expandedDragStartXRef.current;
+  const finishExpandedDrag = (clientX, clientY) => {
+    const startPoint = expandedDragStartPointRef.current;
+    const startX = typeof startPoint?.x === "number" ? startPoint.x : expandedDragStartXRef.current;
+    const startY = typeof startPoint?.y === "number" ? startPoint.y : null;
     const endX = typeof clientX === "number" ? clientX : null;
+    const endY = typeof clientY === "number" ? clientY : null;
     const deltaX = typeof startX === "number" && endX !== null ? endX - startX : 0;
-    const shouldSwipe = Math.abs(deltaX) >= SWIPE_THRESHOLD_PX;
+    const deltaY = typeof startY === "number" && endY !== null ? endY - startY : 0;
+    const shouldSwipe = isClearHorizontalSwipe(
+      deltaX,
+      deltaY,
+      EXPANDED_SWIPE_THRESHOLD_PX,
+      EXPANDED_SWIPE_DOMINANCE_RATIO
+    );
 
     if (shouldSwipe) {
       expandedSwipeTriggeredRef.current = true;
@@ -1098,6 +1123,7 @@ export default function GenusDetail() {
               }}
               onMouseDown={(event) => {
                 plantDragStartXRef.current[plant.id] = event.clientX;
+                plantDragStartPointRef.current[plant.id] = { x: event.clientX, y: event.clientY };
                 setPlantDragOffsets((prev) => ({ ...prev, [plant.id]: 0 }));
               }}
               onMouseMove={(event) => {
@@ -1106,16 +1132,21 @@ export default function GenusDetail() {
               }}
               onMouseUp={(event) => {
                 clearPlantLongPress();
-                finishPlantDrag(plant, event.clientX);
+                finishPlantDrag(plant, event.clientX, event.clientY);
               }}
               onMouseLeave={() => {
                 clearPlantLongPress();
                 resetPlantDrag(plant.id);
               }}
               onTouchStart={(event) => {
-                const startX = event.changedTouches?.[0]?.clientX ?? null;
+                const touch = event.changedTouches?.[0] ?? null;
+                const startX = touch?.clientX ?? null;
                 plantTouchStartXRef.current[plant.id] = startX;
                 plantDragStartXRef.current[plant.id] = startX;
+                plantDragStartPointRef.current[plant.id] = {
+                  x: touch?.clientX ?? 0,
+                  y: touch?.clientY ?? 0,
+                };
                 setPlantDragOffsets((prev) => ({ ...prev, [plant.id]: 0 }));
                 plantSwipeTriggeredRef.current[plant.id] = false;
               }}
@@ -1125,8 +1156,9 @@ export default function GenusDetail() {
               onTouchEnd={(event) => {
                 clearPlantLongPress();
                 const endX = event.changedTouches?.[0]?.clientX ?? null;
+                const endY = event.changedTouches?.[0]?.clientY ?? null;
                 plantTouchStartXRef.current[plant.id] = null;
-                finishPlantDrag(plant, endX);
+                finishPlantDrag(plant, endX, endY);
               }}
               onTouchCancel={() => {
                 clearPlantLongPress();
@@ -1299,6 +1331,7 @@ export default function GenusDetail() {
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(event) => {
                 expandedDragStartXRef.current = event.clientX;
+                expandedDragStartPointRef.current = { x: event.clientX, y: event.clientY };
                 setExpandedDragOffset(0);
               }}
               onMouseMove={(event) => {
@@ -1306,15 +1339,20 @@ export default function GenusDetail() {
                 updateExpandedDrag(event.clientX);
               }}
               onMouseUp={(event) => {
-                finishExpandedDrag(event.clientX);
+                finishExpandedDrag(event.clientX, event.clientY);
               }}
               onMouseLeave={() => {
                 resetExpandedDrag();
               }}
               onTouchStart={(event) => {
-                const startX = event.changedTouches?.[0]?.clientX ?? null;
+                const touch = event.changedTouches?.[0] ?? null;
+                const startX = touch?.clientX ?? null;
                 expandedTouchStartXRef.current = startX;
                 expandedDragStartXRef.current = startX;
+                expandedDragStartPointRef.current = {
+                  x: touch?.clientX ?? 0,
+                  y: touch?.clientY ?? 0,
+                };
                 setExpandedDragOffset(0);
                 expandedSwipeTriggeredRef.current = false;
               }}
@@ -1323,8 +1361,9 @@ export default function GenusDetail() {
               }}
               onTouchEnd={(event) => {
                 const endX = event.changedTouches?.[0]?.clientX ?? null;
+                const endY = event.changedTouches?.[0]?.clientY ?? null;
                 expandedTouchStartXRef.current = null;
-                finishExpandedDrag(endX);
+                finishExpandedDrag(endX, endY);
               }}
               onTouchCancel={() => {
                 expandedTouchStartXRef.current = null;

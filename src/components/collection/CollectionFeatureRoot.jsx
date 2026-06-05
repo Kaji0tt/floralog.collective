@@ -83,6 +83,7 @@ export default function CollectionFeatureRoot({
   showPublicCollectionsPanel: externalShowPublicCollectionsPanel,
   onShowPublicCollectionsPanelChange = null,
   profileUser = null,
+  currentUser = null,
   friendEmail = "",
   readOnly = false,
 }) {
@@ -92,7 +93,7 @@ export default function CollectionFeatureRoot({
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedGenus, setSelectedGenus] = useState(null);
   const [showHintDialog, setShowHintDialog] = useState(false);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(currentUser || null);
   const [averageColor, setAverageColor] = useState(null);
   const [showPublicCollectionsPanelState, setShowPublicCollectionsPanelState] = useState(false);
   const [communitySearchQuery, setCommunitySearchQuery] = useState("");
@@ -104,6 +105,26 @@ export default function CollectionFeatureRoot({
     typeof externalShowPublicCollectionsPanel === "boolean"
       ? externalShowPublicCollectionsPanel
       : showPublicCollectionsPanelState;
+
+  useEffect(() => {
+    if (currentUser) {
+      setUser(currentUser);
+      return;
+    }
+
+    let isMounted = true;
+    const loadUser = async () => {
+      const current = await getCurrentUser();
+      if (isMounted) {
+        setUser(current || null);
+      }
+    };
+    loadUser();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser]);
 
   const setPublicCollectionsPanelOpen = (nextOrUpdater) => {
     const nextValue =
@@ -146,14 +167,6 @@ export default function CollectionFeatureRoot({
     searchParams,
     setSearchParams,
   });
-
-  useEffect(() => {
-    const loadUser = async () => {
-      const currentUser = await getCurrentUser();
-      setUser(currentUser);
-    };
-    loadUser();
-  }, []);
 
   const targetUser = profileUser || user;
   const targetUserId = targetUser?.auth_id || targetUser?.id || null;
