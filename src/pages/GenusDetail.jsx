@@ -45,6 +45,8 @@ export default function GenusDetail() {
   const deepLinkAppliedRef = useRef(false);
   const plantLongPressTimerRef = useRef(null);
   const plantLongPressTriggeredRef = useRef(false);
+  const plantLongPressStartPointRef = useRef(null);
+  const plantLongPressMovementCancelledRef = useRef(false);
   const plantDragStartXRef = useRef({});
   const plantTouchStartXRef = useRef({});
   const plantSwipeTriggeredRef = useRef({});
@@ -822,6 +824,8 @@ export default function GenusDetail() {
       window.clearTimeout(plantLongPressTimerRef.current);
       plantLongPressTimerRef.current = null;
     }
+    plantLongPressStartPointRef.current = null;
+    plantLongPressMovementCancelledRef.current = false;
   };
 
   const resetPlantDrag = (plantId) => {
@@ -896,15 +900,35 @@ export default function GenusDetail() {
     resetExpandedDrag();
   };
 
-  const handlePlantLongPressStart = (plant) => {
+  const handlePlantLongPressStart = (plant, clientX = null, clientY = null) => {
     if (currentUser?.role !== "admin") return;
 
     clearPlantLongPress();
     plantLongPressTriggeredRef.current = false;
+    plantLongPressMovementCancelledRef.current = false;
+    if (typeof clientX === "number" && typeof clientY === "number") {
+      plantLongPressStartPointRef.current = { x: clientX, y: clientY };
+    }
     plantLongPressTimerRef.current = window.setTimeout(() => {
+      if (plantLongPressMovementCancelledRef.current) return;
       plantLongPressTriggeredRef.current = true;
       setEditingPlant(plant);
-    }, 550);
+    }, 3000);
+  };
+
+  const handlePlantLongPressMove = (clientX = null, clientY = null) => {
+    if (currentUser?.role !== "admin") return;
+    if (!plantLongPressTimerRef.current || !plantLongPressStartPointRef.current) return;
+    if (typeof clientX !== "number" || typeof clientY !== "number") return;
+
+    const deltaX = Math.abs(clientX - plantLongPressStartPointRef.current.x);
+    const deltaY = Math.abs(clientY - plantLongPressStartPointRef.current.y);
+    const movementThresholdPx = 8;
+
+    if (deltaX > movementThresholdPx || deltaY > movementThresholdPx) {
+      plantLongPressMovementCancelledRef.current = true;
+      clearPlantLongPress();
+    }
   };
 
   const getLighterColor = (rgbString) => {
@@ -1073,7 +1097,6 @@ export default function GenusDetail() {
                 setExpandedActiveVariantIndex(activeIndex);
               }}
               onMouseDown={(event) => {
-                handlePlantLongPressStart(plant);
                 plantDragStartXRef.current[plant.id] = event.clientX;
                 setPlantDragOffsets((prev) => ({ ...prev, [plant.id]: 0 }));
               }}
@@ -1090,7 +1113,6 @@ export default function GenusDetail() {
                 resetPlantDrag(plant.id);
               }}
               onTouchStart={(event) => {
-                handlePlantLongPressStart(plant);
                 const startX = event.changedTouches?.[0]?.clientX ?? null;
                 plantTouchStartXRef.current[plant.id] = startX;
                 plantDragStartXRef.current[plant.id] = startX;
@@ -1140,35 +1162,6 @@ export default function GenusDetail() {
                             <Leaf className={"w-8 h-8 " + (isLightUi ? "text-stone-400" : "text-stone-500")} />
                           </div>
                         )}
-                        {plant.friendDiscoveryCount > 0 && (!activeVariant || activeVariant.isOwn) && (
-                          <div className="absolute top-1 right-1 flex items-center">
-                            {(plant.friendActors || []).slice(0, 3).map((actor, index) => (
-                              <div
-                                key={actor.authId || actor.email || index}
-                                className="w-5 h-5 rounded-full overflow-hidden bg-black/35"
-                                style={{ marginLeft: index === 0 ? 0 : -6 }}
-                                title={actor.name || actor.email || "Freund"}
-                              >
-                                <CustomLogoAvatar
-                                  logoAssets={actor.logoAssets}
-                                  className="w-full h-full"
-                                  fallbackText={(actor.name || actor.email || "?").charAt(0).toUpperCase()}
-                                  fallbackClassName="text-[9px] font-bold text-white"
-                                />
-                              </div>
-                            ))}
-                            {plant.friendDiscoveryCount > 3 && (
-                              <div
-                                className={"w-5 h-5 -ml-1.5 rounded-full text-[9px] font-semibold flex items-center justify-center " + (isLightUi
-                                  ? "bg-sky-100 text-sky-800"
-                                  : "bg-sky-500/20 text-sky-100")}
-                                title={`+${plant.friendDiscoveryCount - 3} weitere Freunde`}
-                              >
-                                +{plant.friendDiscoveryCount - 3}
-                              </div>
-                            )}
-                          </div>
-                        )}
                         {showStack && (
                           <div className="absolute bottom-1 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded-full">
                             {(activeIndex + 1)}/{variants.length}
@@ -1178,7 +1171,32 @@ export default function GenusDetail() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
-                            <h3 className={"text-base font-bold truncate " + (isLightUi ? "text-stone-900" : "text-stone-100")}>{plant.species_name}</h3>
+                            <div className="flex items-center gap-1 min-w-0">
+                              <h3
+                                className={"text-base font-bold truncate " + (isLightUi ? "text-stone-900" : "text-stone-100")}
+                                onMouseDown={(event) => handlePlantLongPressStart(plant, event.clientX, event.clientY)}
+                                onMouseMove={(event) => handlePlantLongPressMove(event.clientX, event.clientY)}
+                                onMouseUp={clearPlantLongPress}
+                                onMouseLeave={clearPlantLongPress}
+                                onTouchStart={(event) => {
+                                  const touch = event.touches?.[0] || event.changedTouches?.[0];
+                                  handlePlantLongPressStart(plant, touch?.clientX ?? null, touch?.clientY ?? null);
+                                }}
+                                onTouchMove={(event) => {
+                                  const touch = event.touches?.[0] || event.changedTouches?.[0];
+                                  handlePlantLongPressMove(touch?.clientX ?? null, touch?.clientY ?? null);
+                                }}
+                                onTouchEnd={clearPlantLongPress}
+                                onTouchCancel={clearPlantLongPress}
+                              >
+                                {plant.species_name}
+                              </h3>
+                              {plant.discovered ? (
+                                <CheckCircle2 className={"w-4 h-4 flex-shrink-0 " + (isLightUi ? "text-green-600" : "text-emerald-300")} />
+                              ) : (
+                                <HelpCircle className={"w-4 h-4 flex-shrink-0 " + (isLightUi ? "text-stone-500" : "text-stone-300")} />
+                              )}
+                            </div>
                             <p className={"text-xs italic truncate " + (isLightUi ? "text-stone-600" : "text-stone-300")}>{plant.scientific_name}</p>
                           </div>
                           <div className="flex-shrink-0">
@@ -1194,11 +1212,35 @@ export default function GenusDetail() {
                                   fallbackClassName="text-[9px] font-bold text-white"
                                 />
                               </div>
-                            ) : plant.discovered ? (
-                              <CheckCircle2 className={"w-5 h-5 " + (isLightUi ? "text-green-600" : "text-emerald-300")} />
-                            ) : (
-                              <HelpCircle className={"w-5 h-5 " + (isLightUi ? "text-stone-500" : "text-stone-300")} />
-                            )}
+                            ) : plant.friendDiscoveryCount > 0 ? (
+                              <div className="flex items-center">
+                                {(plant.friendActors || []).slice(0, 3).map((actor, index) => (
+                                  <div
+                                    key={actor.authId || actor.email || index}
+                                    className="w-5 h-5 rounded-full overflow-hidden bg-black/35"
+                                    style={{ marginLeft: index === 0 ? 0 : -6 }}
+                                    title={actor.name || actor.email || "Freund"}
+                                  >
+                                    <CustomLogoAvatar
+                                      logoAssets={actor.logoAssets}
+                                      className="w-full h-full"
+                                      fallbackText={(actor.name || actor.email || "?").charAt(0).toUpperCase()}
+                                      fallbackClassName="text-[9px] font-bold text-white"
+                                    />
+                                  </div>
+                                ))}
+                                {plant.friendDiscoveryCount > 3 && (
+                                  <div
+                                    className={"w-5 h-5 -ml-1.5 rounded-full text-[9px] font-semibold flex items-center justify-center " + (isLightUi
+                                      ? "bg-sky-100 text-sky-800"
+                                      : "bg-sky-500/20 text-sky-100")}
+                                    title={`+${plant.friendDiscoveryCount - 3} weitere Freunde`}
+                                  >
+                                    +{plant.friendDiscoveryCount - 3}
+                                  </div>
+                                )}
+                              </div>
+                            ) : null}
                           </div>
                         </div>
                         <div className="mt-1 flex items-center gap-1.5 flex-wrap">

@@ -257,19 +257,6 @@ export default function GenusCard({
                     <CategoryIcon className={"w-12 h-12 " + (isLightUi ? "text-stone-300" : "text-stone-500")} strokeWidth={1.5} />
                   </div>
                 )}
-
-                {discovered ? (
-                  <div className={"absolute bottom-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center shadow-sm " + (isLightUi ? "bg-emerald-600" : "bg-emerald-500/90") }>
-                    <CheckCircle className="w-4 h-4 text-white" />
-                  </div>
-                ) : (
-                  <div
-                    className={"absolute bottom-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center transition-colors cursor-pointer shadow-sm " + (isLightUi ? "bg-stone-400 hover:bg-stone-500" : "bg-stone-600 hover:bg-stone-500") }
-                    onClick={handleHelpClick}
-                  >
-                    <HelpCircle className="w-3 h-3 text-white" />
-                  </div>
-                )}
               </motion.div>
             </div>
 
@@ -277,9 +264,23 @@ export default function GenusCard({
             <div className="space-y-1">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
-                  <h3 className={`font-bold break-words text-xs leading-tight ${discovered ? (isLightUi ? 'text-stone-900' : 'text-stone-100') : (isLightUi ? 'text-stone-500' : 'text-stone-300')}`}>
-                    {genus.genus_name}
-                  </h3>
+                  <div className="flex items-start gap-1 min-w-0">
+                    {discovered ? (
+                      <CheckCircle className={"w-3.5 h-3.5 mt-0.5 flex-shrink-0 " + (isLightUi ? "text-emerald-600" : "text-emerald-300")} />
+                    ) : (
+                      <button
+                        type="button"
+                        className={"mt-0.5 flex-shrink-0 rounded-full transition-colors " + (isLightUi ? "text-stone-500 hover:text-stone-700" : "text-stone-300 hover:text-stone-100")}
+                        onClick={handleHelpClick}
+                        aria-label={`Hinweis zu ${genus.genus_name} anzeigen`}
+                      >
+                        <HelpCircle className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    <h3 className={`font-bold break-words text-xs leading-tight ${discovered ? (isLightUi ? 'text-stone-900' : 'text-stone-100') : (isLightUi ? 'text-stone-500' : 'text-stone-300')}`}>
+                      {genus.genus_name}
+                    </h3>
+                  </div>
                 </div>
 
                 <div className={"text-[10px] font-semibold whitespace-nowrap " + (discovered
