@@ -76,6 +76,18 @@ const extractCount = (value: string | null) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const normalizeQuarterValue = (value: string | null | undefined): string | null => {
+  const cleaned = cleanText(value);
+  if (!cleaned) return null;
+
+  const strictMatch = cleaned.match(/\b([0-4])\s*\/\s*4\b/);
+  if (strictMatch) {
+    return `${strictMatch[1]}/4`;
+  }
+
+  return null;
+};
+
 const extractLabelValue = (text: string, labels: string[], stopLabels: string[]): string | null => {
   const lowerText = text.toLowerCase();
   let labelIndex = -1;
@@ -149,8 +161,8 @@ const extractNaturaDbEcology = (rawHtml: string, naturadbUrl: string): NaturaDbE
     beetles_count: extractCount(beetlesRaw),
     red_list_threat: cleanText(threatRaw),
     red_list_population: cleanText(populationRaw),
-    nectar_value: cleanText(nectarRaw),
-    pollen_value: cleanText(pollenRaw),
+    nectar_value: normalizeQuarterValue(nectarRaw),
+    pollen_value: normalizeQuarterValue(pollenRaw),
     naturadb_url: naturadbUrl,
   };
 };

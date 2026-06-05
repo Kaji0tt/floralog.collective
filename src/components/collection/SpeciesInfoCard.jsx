@@ -26,6 +26,13 @@ const toDisplay = (value) => {
   return String(value);
 };
 
+const toQuarterDisplay = (value) => {
+  if (value === null || value === undefined || value === "") return "k.A.";
+  const match = String(value).match(/\b([0-4])\s*\/\s*4\b/);
+  if (!match) return "k.A.";
+  return `${match[1]}/4`;
+};
+
 const resolveField = (plant, key) => {
   if (plant?.[key] !== undefined && plant?.[key] !== null && plant?.[key] !== "") {
     return plant[key];
@@ -73,8 +80,8 @@ const ecologyItems = (plant) => [
   { label: "Schwebfliegen", value: toDisplay(plant?.hoverflies_count) },
   { label: "Käfer", value: toDisplay(plant?.beetles_count) },
   { label: "Gefährdung", value: toDisplay(plant?.red_list_threat) },
-  { label: "Nektarwert", value: toDisplay(plant?.nectar_value) },
-  { label: "Pollenwert", value: toDisplay(plant?.pollen_value) },
+  { label: "Nektarwert", value: toQuarterDisplay(plant?.nectar_value) },
+  { label: "Pollenwert", value: toQuarterDisplay(plant?.pollen_value) },
 ];
 
 const getRarityColor = (rarity) => {
