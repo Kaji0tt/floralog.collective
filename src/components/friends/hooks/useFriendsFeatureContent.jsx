@@ -96,6 +96,15 @@ export function useFriendsFeatureContent({
   const [showAdminNewsDialog, setShowAdminNewsDialog] = useState(false);
   const [adminNewsTitle, setAdminNewsTitle] = useState("");
   const [adminNewsText, setAdminNewsText] = useState("");
+  const [explorerPullOffset, setExplorerPullOffset] = useState(0);
+  const [isExplorerPulling, setIsExplorerPulling] = useState(false);
+  const [isExplorerRefreshing, setIsExplorerRefreshing] = useState(false);
+  const [explorerSnapPulse, setExplorerSnapPulse] = useState(false);
+  const explorerTouchStartYRef = useRef(null);
+  const explorerPullingRef = useRef(false);
+  const explorerThresholdReachedRef = useRef(false);
+  const explorerSnapTimeoutRef = useRef(null);
+  const explorerContainerRef = useRef(null);
   const autoMarkingNewsRef = useRef(false);
   const isFriendsTab = activeTab === "friends";
   const isExplorerTab = activeTab === "explorer";
@@ -212,6 +221,7 @@ export function useFriendsFeatureContent({
     fetchNextPage,
     isFetchingNextPage,
     isLoading: isExplorerLoading,
+    refetch: refetchExplorerDiscoveries,
   } = useInfiniteQuery({
     queryKey: ['explorerDiscoveriesInfinite', ownEmailLower, explorerAudienceFilter, explorerThresholdIso],
     queryFn: async ({ pageParam = 0 }) => {
@@ -236,6 +246,119 @@ export function useFriendsFeatureContent({
     () => explorerDiscoveriesPages?.pages?.flatMap((page) => page) || [],
     [explorerDiscoveriesPages]
   );
+
+  const PULL_TO_REFRESH_THRESHOLD = 84;
+
+  const clearExplorerSnapTimeout = useCallback(() => {
+    if (explorerSnapTimeoutRef.current) {
+      window.clearTimeout(explorerSnapTimeoutRef.current);
+      explorerSnapTimeoutRef.current = null;
+    }
+  }, []);
+
+  const resetExplorerPullState = useCallback(() => {
+    explorerTouchStartYRef.current = null;
+    explorerPullingRef.current = false;
+    explorerThresholdReachedRef.current = false;
+    setIsExplorerPulling(false);
+    setExplorerPullOffset(0);
+  }, []);
+
+  const triggerExplorerRefresh = useCallback(async () => {
+    if (isExplorerRefreshing) return;
+    setIsExplorerRefreshing(true);
+    try {
+      await Promise.all([
+        refetchExplorerDiscoveries({ cancelRefetch: false }),
+        queryClient.invalidateQueries({ queryKey: ["scanLikesAll"] }),
+      ]);
+    } finally {
+      setIsExplorerRefreshing(false);
+      setExplorerSnapPulse(false);
+      setExplorerPullOffset(0);
+    }
+  }, [isExplorerRefreshing, queryClient, refetchExplorerDiscoveries]);
+
+  const handleExplorerTouchStart = useCallback((event) => {
+    if (!isExplorerTab || isExplorerRefreshing) return;
+    const container = explorerContainerRef.current;
+    if (!container) return;
+    if (container.scrollTop > 0) return;
+
+    explorerTouchStartYRef.current = event.touches?.[0]?.clientY ?? null;
+    explorerPullingRef.current = false;
+    explorerThresholdReachedRef.current = false;
+    clearExplorerSnapTimeout();
+    setExplorerSnapPulse(false);
+  }, [isExplorerRefreshing, isExplorerTab]);
+
+  const handleExplorerTouchMove = useCallback((event) => {
+    if (!isExplorerTab || isExplorerRefreshing) return;
+    const startY = explorerTouchStartYRef.current;
+    const container = explorerContainerRef.current;
+    if (typeof startY !== "number" || !container) return;
+
+    if (container.scrollTop > 0) {
+      resetExplorerPullState();
+      return;
+    }
+
+    const currentY = event.touches?.[0]?.clientY ?? null;
+    if (typeof currentY !== "number") return;
+
+    const deltaY = currentY - startY;
+    if (deltaY <= 0) {
+      if (explorerPullingRef.current) {
+        setIsExplorerPulling(false);
+        setExplorerPullOffset(0);
+      }
+      return;
+    }
+
+    explorerPullingRef.current = true;
+    setIsExplorerPulling(true);
+    const dampedOffset = Math.min(120, deltaY * 0.45);
+
+    const reachedThreshold = dampedOffset >= PULL_TO_REFRESH_THRESHOLD;
+    if (reachedThreshold && !explorerThresholdReachedRef.current) {
+      explorerThresholdReachedRef.current = true;
+      clearExplorerSnapTimeout();
+      setExplorerSnapPulse(true);
+      explorerSnapTimeoutRef.current = window.setTimeout(() => {
+        setExplorerSnapPulse(false);
+        explorerSnapTimeoutRef.current = null;
+      }, 160);
+    } else if (!reachedThreshold) {
+      explorerThresholdReachedRef.current = false;
+    }
+
+    setExplorerPullOffset(dampedOffset);
+    event.preventDefault();
+  }, [clearExplorerSnapTimeout, isExplorerRefreshing, isExplorerTab, resetExplorerPullState]);
+
+  const handleExplorerTouchEnd = useCallback(async () => {
+    if (!isExplorerTab) {
+      resetExplorerPullState();
+      return;
+    }
+
+    const shouldRefresh = explorerPullingRef.current && explorerPullOffset >= PULL_TO_REFRESH_THRESHOLD;
+    resetExplorerPullState();
+
+    if (shouldRefresh) {
+      await triggerExplorerRefresh();
+    }
+  }, [explorerPullOffset, isExplorerTab, resetExplorerPullState, triggerExplorerRefresh]);
+
+  useEffect(() => {
+    if (!isExplorerTab) {
+      resetExplorerPullState();
+    }
+  }, [isExplorerTab, resetExplorerPullState]);
+
+  useEffect(() => () => {
+    clearExplorerSnapTimeout();
+  }, [clearExplorerSnapTimeout]);
 
   const { data: friendActivityDiscoveries = [] } = useQuery({
     queryKey: ['friendActivityDiscoveries'],
@@ -1242,7 +1365,25 @@ Viel Spaß beim Entdecken! 🌿`;
           </div>
 
           {/* Explorer Tab Content */}
-          <TabsContent value="explorer" className={explorerContentClass} style={embeddedContentMaskStyle}>
+          <TabsContent
+            value="explorer"
+            className={explorerContentClass}
+            style={embeddedContentMaskStyle}
+            ref={explorerContainerRef}
+            onTouchStart={handleExplorerTouchStart}
+            onTouchMove={handleExplorerTouchMove}
+            onTouchEnd={handleExplorerTouchEnd}
+            onTouchCancel={handleExplorerTouchEnd}
+          >
+            <div
+              className="will-change-transform"
+              style={{
+                transform: `translateY(${Math.min(16, explorerPullOffset * 0.16)}px) scale(${explorerSnapPulse ? 0.988 : 1})`,
+                transition: isExplorerPulling || isExplorerRefreshing
+                  ? "transform 70ms linear"
+                  : "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+              }}
+            >
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1415,6 +1556,7 @@ Viel Spaß beim Entdecken! 🌿`;
                 </>
               )}
             </motion.div>
+            </div>
           </TabsContent>
 
           {/* News Tab Content */}
