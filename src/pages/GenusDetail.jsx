@@ -6,13 +6,13 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Leaf, CheckCircle2, Volume2, VolumeX, ChevronLeft, ChevronRight, Star, HelpCircle, MapPin, X, ExternalLink, Trash2, Heart } from "lucide-react";
-import { Link } from "react-router-dom";
+import { ArrowLeft, Leaf, CheckCircle2, Volume2, VolumeX, ChevronLeft, ChevronRight, Star, HelpCircle, X, Trash2, Heart } from "lucide-react";
 import { createPageUrl } from "@/utils";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import EditPlantDialog from "../components/collection/EditPlantDialog";
+import SpeciesInfoCard from "../components/collection/SpeciesInfoCard";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
@@ -39,14 +39,11 @@ export default function GenusDetail() {
   const [enlargedImage, setEnlargedImage] = useState(null);
   const [expandedPlant, setExpandedPlant] = useState(null);
   const [editingPlant, setEditingPlant] = useState(null);
-  const [locationNames, setLocationNames] = useState({});
   const [deleteConfirmDiscoveryId, setDeleteConfirmDiscoveryId] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
   const [plantDragOffsets, setPlantDragOffsets] = useState({});
   const [expandedDragOffset, setExpandedDragOffset] = useState(null);
-  const geocodePendingRef = useRef(new Set());
-  const geocodeByCoordsRef = useRef({});
   const deepLinkAppliedRef = useRef(false);
   const plantLongPressTimerRef = useRef(null);
   const plantLongPressTriggeredRef = useRef(false);
@@ -60,6 +57,7 @@ export default function GenusDetail() {
   const variantResetTimersRef = useRef({});
   const expandedDragStartXRef = useRef(null);
   const expandedDragStartPointRef = useRef(null);
+  const expandedDragActivatedRef = useRef(false);
   const expandedTouchStartXRef = useRef(null);
   const expandedSwipeTriggeredRef = useRef(false);
 
@@ -298,65 +296,6 @@ export default function GenusDetail() {
     enabled: !friendEmail && acceptedFriendAuthIds.length > 0,
     staleTime: 30000,
   });
-
-  // Koordinaten zu Ortsnamen umwandeln
-  const getLocationName = async (coords, discoveryId) => {
-    if (!coords || locationNames[discoveryId]) return;
-    
-    // Prüfe ob es Koordinaten sind (Format: "lat, lng")
-    const coordMatch = coords.match(/^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/);
-    if (!coordMatch) {
-      // Ist bereits ein Name
-      setLocationNames(prev => ({ ...prev, [discoveryId]: coords }));
-      return;
-    }
-    
-    const [, lat, lng] = coordMatch;
-
-    const isLocalhost =
-      typeof window !== "undefined" &&
-      (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-    if (!isLocalhost) {
-      setLocationNames((prev) => ({ ...prev, [discoveryId]: coords }));
-      return;
-    }
-
-    const normalizedCoords = `${Number(lat).toFixed(6)},${Number(lng).toFixed(6)}`;
-    if (geocodeByCoordsRef.current[normalizedCoords]) {
-      setLocationNames((prev) => ({ ...prev, [discoveryId]: geocodeByCoordsRef.current[normalizedCoords] }));
-      return;
-    }
-    if (geocodePendingRef.current.has(normalizedCoords)) {
-      return;
-    }
-
-    geocodePendingRef.current.add(normalizedCoords);
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=10`
-      );
-      if (!response.ok) {
-        throw new Error(`Reverse geocode failed: ${response.status}`);
-      }
-      const data = await response.json();
-      const name = data.address?.city || data.address?.town || data.address?.village || data.address?.municipality || coords;
-      geocodeByCoordsRef.current[normalizedCoords] = name;
-      setLocationNames(prev => ({ ...prev, [discoveryId]: name }));
-    } catch {
-      setLocationNames(prev => ({ ...prev, [discoveryId]: coords }));
-    } finally {
-      geocodePendingRef.current.delete(normalizedCoords);
-    }
-  };
-
-  // Lade Ortsnamen für alle Discoveries
-  React.useEffect(() => {
-    userDiscoveries.forEach(d => {
-      if (d.discovery_location) {
-        getLocationName(d.discovery_location, d.id);
-      }
-    });
-  }, [userDiscoveries]);
 
   const setFrontImageMutation = useMutation({
     mutationFn: async ({ discoveryId }) => {
@@ -706,17 +645,6 @@ export default function GenusDetail() {
     );
   }
 
-  const getRarityColor = (rarity) => {
-    switch(rarity) {
-      case "Häufig": return "bg-gray-500";
-      case "Gelegentlich": return "bg-green-500"; 
-      case "Selten": return "bg-fuchsia-500";
-      case "Sehr Selten": return "bg-orange-500";
-      case "Extrem Selten": return "bg-red-500";
-      default: return "bg-gray-500";
-    }
-  };
-
   const getRarityBorderColor = (rarity) => {
     switch (rarity) {
       case "Extrem Selten":
@@ -730,17 +658,6 @@ export default function GenusDetail() {
       case "Häufig":
       default:
         return isLightUi ? "border-stone-300" : "border-stone-500/60";
-    }
-  };
-
-  const getRarityStars = (rarity) => {
-    switch(rarity) {
-      case "Häufig": return "⭐";
-      case "Gelegentlich": return "⭐⭐";
-      case "Selten": return "⭐⭐⭐";
-      case "Sehr Selten": return "⭐⭐⭐⭐";
-      case "Extrem Selten": return "⭐⭐⭐⭐⭐";
-      default: return "⭐";
     }
   };
 
@@ -852,6 +769,7 @@ export default function GenusDetail() {
   const resetExpandedDrag = () => {
     expandedDragStartXRef.current = null;
     expandedDragStartPointRef.current = null;
+    expandedDragActivatedRef.current = false;
     setExpandedDragOffset(null);
   };
 
@@ -918,11 +836,29 @@ export default function GenusDetail() {
     resetPlantDrag(plant.id);
   };
 
-  const updateExpandedDrag = (clientX) => {
+  const updateExpandedDrag = (clientX, clientY) => {
     if (typeof clientX !== "number") return;
-    const startX = expandedDragStartXRef.current;
+    const startPoint = expandedDragStartPointRef.current;
+    const startX = typeof startPoint?.x === "number" ? startPoint.x : expandedDragStartXRef.current;
+    const startY = typeof startPoint?.y === "number" ? startPoint.y : null;
     if (typeof startX !== "number") return;
-    setExpandedDragOffset(clampDragOffset(clientX - startX));
+
+    const deltaX = clientX - startX;
+    const absDeltaX = Math.abs(deltaX);
+    const deltaY = typeof startY === "number" && typeof clientY === "number" ? clientY - startY : 0;
+    const absDeltaY = Math.abs(deltaY);
+
+    if (!expandedDragActivatedRef.current) {
+      if (absDeltaX < EXPANDED_SWIPE_THRESHOLD_PX * 0.4 || absDeltaX < absDeltaY * EXPANDED_SWIPE_DOMINANCE_RATIO) {
+        return;
+      }
+      expandedDragActivatedRef.current = true;
+    }
+
+    const direction = deltaX < 0 ? -1 : 1;
+    const dragBeyondIntent = Math.max(0, absDeltaX - EXPANDED_SWIPE_THRESHOLD_PX * 0.4);
+    const visualOffset = direction * Math.min(88, EXPANDED_SWIPE_THRESHOLD_PX * 0.25 + dragBeyondIntent * 0.7);
+    setExpandedDragOffset(visualOffset);
   };
 
   const finishExpandedDrag = (clientX, clientY) => {
@@ -938,7 +874,7 @@ export default function GenusDetail() {
       deltaY,
       EXPANDED_SWIPE_THRESHOLD_PX,
       EXPANDED_SWIPE_DOMINANCE_RATIO
-    );
+    ) && expandedDragActivatedRef.current;
 
     if (shouldSwipe) {
       expandedSwipeTriggeredRef.current = true;
@@ -1208,143 +1144,54 @@ export default function GenusDetail() {
               }`}
             >
               <CardContent className="p-3">
-                <div className="space-y-3">
-                    {/* Header mit Bild */}
-                    <div className="flex gap-3">
-                      <div className="relative flex-shrink-0">
-                        {activeDiscovery?.image_url ? (
-                          <img
-                            src={activeDiscovery.image_url}
-                            alt={plant.species_name}
-                            className={"relative w-20 h-20 object-cover rounded-lg shadow-sm border " + (isLightUi ? "border-stone-200" : "border-stone-700/70")}
-                          />
+                <div className="space-y-2">
+                  <SpeciesInfoCard
+                    plant={{ ...plant, image_url: activeDiscovery?.image_url || null }}
+                    imageUrl={activeDiscovery?.image_url || null}
+                    isLightUi={isLightUi}
+                    compact={true}
+                    showNarrative={true}
+                    topRight={
+                      <div className="flex items-center gap-2">
+                        {plant.discovered ? (
+                          <CheckCircle2 className={"w-4 h-4 flex-shrink-0 " + (isLightUi ? "text-green-600" : "text-emerald-300")} />
                         ) : (
-                          <div className={"relative w-20 h-20 rounded-lg border flex items-center justify-center " + (isLightUi
-                            ? "bg-gradient-to-br from-stone-100 to-stone-200 border-stone-200"
-                            : "bg-gradient-to-br from-stone-800/85 to-stone-900 border-stone-700/70")}>
-                            <Leaf className={"w-8 h-8 " + (isLightUi ? "text-stone-400" : "text-stone-500")} />
-                          </div>
+                          <HelpCircle className={"w-4 h-4 flex-shrink-0 " + (isLightUi ? "text-stone-500" : "text-stone-300")} />
                         )}
-                        {showStack && (
-                          <div className="absolute bottom-1 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded-full">
-                            {(activeIndex + 1)}/{variants.length}
+                        {activeVariant && !activeVariant.isOwn ? (
+                          <div
+                            className="w-9 h-9 rounded-full overflow-hidden bg-black/35 ring-2 ring-white/20"
+                            title={activeVariant.actor?.name || activeVariant.actor?.email || "Freund"}
+                          >
+                            <CustomLogoAvatar
+                              logoAssets={activeVariant.actor?.logoAssets}
+                              className="w-full h-full"
+                              fallbackText={(activeVariant.actor?.name || activeVariant.actor?.email || "?").charAt(0).toUpperCase()}
+                              fallbackClassName="text-xs font-bold text-white"
+                            />
                           </div>
-                        )}
+                        ) : null}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1 min-w-0">
-                              <h3
-                                className={"text-base font-bold truncate " + (isLightUi ? "text-stone-900" : "text-stone-100")}
-                                onMouseDown={(event) => handlePlantLongPressStart(plant, event.clientX, event.clientY)}
-                                onMouseMove={(event) => handlePlantLongPressMove(event.clientX, event.clientY)}
-                                onMouseUp={clearPlantLongPress}
-                                onMouseLeave={clearPlantLongPress}
-                                onTouchStart={(event) => {
-                                  const touch = event.touches?.[0] || event.changedTouches?.[0];
-                                  handlePlantLongPressStart(plant, touch?.clientX ?? null, touch?.clientY ?? null);
-                                }}
-                                onTouchMove={(event) => {
-                                  const touch = event.touches?.[0] || event.changedTouches?.[0];
-                                  handlePlantLongPressMove(touch?.clientX ?? null, touch?.clientY ?? null);
-                                }}
-                                onTouchEnd={clearPlantLongPress}
-                                onTouchCancel={clearPlantLongPress}
-                              >
-                                {plant.species_name}
-                              </h3>
-                              {plant.discovered ? (
-                                <CheckCircle2 className={"w-4 h-4 flex-shrink-0 " + (isLightUi ? "text-green-600" : "text-emerald-300")} />
-                              ) : (
-                                <HelpCircle className={"w-4 h-4 flex-shrink-0 " + (isLightUi ? "text-stone-500" : "text-stone-300")} />
-                              )}
-                            </div>
-                            <p className={"text-xs italic truncate " + (isLightUi ? "text-stone-600" : "text-stone-300")}>{plant.scientific_name}</p>
-                          </div>
-                          <div className="flex-shrink-0">
-                            {activeVariant && !activeVariant.isOwn ? (
-                              <div
-                                className="w-6 h-6 rounded-full overflow-hidden bg-black/35"
-                                title={activeVariant.actor?.name || activeVariant.actor?.email || "Freund"}
-                              >
-                                <CustomLogoAvatar
-                                  logoAssets={activeVariant.actor?.logoAssets}
-                                  className="w-full h-full"
-                                  fallbackText={(activeVariant.actor?.name || activeVariant.actor?.email || "?").charAt(0).toUpperCase()}
-                                  fallbackClassName="text-[9px] font-bold text-white"
-                                />
-                              </div>
-                            ) : plant.friendDiscoveryCount > 0 ? (
-                              <div className="flex items-center">
-                                {(plant.friendActors || []).slice(0, 3).map((actor, index) => (
-                                  <div
-                                    key={actor.authId || actor.email || index}
-                                    className="w-5 h-5 rounded-full overflow-hidden bg-black/35"
-                                    style={{ marginLeft: index === 0 ? 0 : -6 }}
-                                    title={actor.name || actor.email || "Freund"}
-                                  >
-                                    <CustomLogoAvatar
-                                      logoAssets={actor.logoAssets}
-                                      className="w-full h-full"
-                                      fallbackText={(actor.name || actor.email || "?").charAt(0).toUpperCase()}
-                                      fallbackClassName="text-[9px] font-bold text-white"
-                                    />
-                                  </div>
-                                ))}
-                                {plant.friendDiscoveryCount > 3 && (
-                                  <div
-                                    className={"w-5 h-5 -ml-1.5 rounded-full text-[9px] font-semibold flex items-center justify-center " + (isLightUi
-                                      ? "bg-sky-100 text-sky-800"
-                                      : "bg-sky-500/20 text-sky-100")}
-                                    title={`+${plant.friendDiscoveryCount - 3} weitere Freunde`}
-                                  >
-                                    +{plant.friendDiscoveryCount - 3}
-                                  </div>
-                                )}
-                              </div>
-                            ) : null}
-                          </div>
-                        </div>
-                        <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                          {plant.rarity && (
-                            <Badge className={`h-5 ${getRarityColor(plant.rarity)} text-white text-[10px] px-1.5 py-0 rounded-full`}>
-                              {getRarityStars(plant.rarity)}
-                            </Badge>
-                          )}
-                          {activeDiscovery?.discovery_location && (
-                            <Link
-                              to={createPageUrl(`Map?lat=${activeDiscovery.discovery_location.split(',')[0]?.trim()}&lng=${activeDiscovery.discovery_location.split(',')[1]?.trim()}`)}
-                              onClick={(e) => e.stopPropagation()}
-                              className={"inline-flex h-5 w-5 items-center justify-center rounded-full border transition-colors " + (isLightUi
-                                ? "border-stone-300 bg-white/90 text-green-600 hover:text-green-700 hover:bg-white"
-                                : "border-stone-500/70 bg-black/60 text-emerald-300 hover:text-emerald-200 hover:bg-black/75")}
-                              title="Fundort auf Karte öffnen"
-                            >
-                              <MapPin className="w-3 h-3" />
-                            </Link>
-                          )}
-                          {activeDiscovery && (
-                            <div className={"inline-flex h-5 items-center gap-1 rounded-full border px-1.5 text-[10px] " + (activeLikeCount > 0
-                              ? (activeLikedByUser
-                                ? (isLightUi ? "border-rose-300 bg-rose-50 text-rose-600" : "border-rose-400/60 bg-rose-400/15 text-rose-200")
-                                : (isLightUi ? "border-rose-200 bg-white/90 text-rose-500" : "border-rose-300/45 bg-black/60 text-rose-200"))
-                              : (isLightUi ? "border-stone-300 bg-white/90 text-stone-400" : "border-stone-500/70 bg-black/60 text-stone-300"))}>
-                              <Heart className={"w-3 h-3 " + (activeLikedByUser ? "fill-current" : "")} />
-                              <span>{activeLikeCount || 0}</span>
-                            </div>
-                          )}
-                        </div>
+                    }
+                  />
+                  <div className="flex items-center justify-between gap-2">
+                    {showStack ? (
+                      <div className="inline-flex h-5 items-center rounded-full bg-black/60 text-white text-xs px-2 py-0.5">
+                        {(activeIndex + 1)}/{variants.length}
                       </div>
-                    </div>
-                    
-                    {/* Info Boxes kompakt */}
-                    {plant.description && (
-                      <div className="max-h-16 overflow-y-auto pr-1">
-                        <p className={"text-xs leading-snug " + (isLightUi ? "text-stone-600" : "text-stone-300")}>{plant.description}</p>
+                    ) : <div />}
+                    {activeDiscovery && (
+                      <div className={"inline-flex h-5 items-center gap-1 rounded-full border px-1.5 text-[10px] " + (activeLikeCount > 0
+                        ? (activeLikedByUser
+                          ? (isLightUi ? "border-rose-300 bg-rose-50 text-rose-600" : "border-rose-400/60 bg-rose-400/15 text-rose-200")
+                          : (isLightUi ? "border-rose-200 bg-white/90 text-rose-500" : "border-rose-300/45 bg-black/60 text-rose-200"))
+                        : (isLightUi ? "border-stone-300 bg-white/90 text-stone-400" : "border-stone-500/70 bg-black/60 text-stone-300"))}>
+                        <Heart className={"w-3 h-3 " + (activeLikedByUser ? "fill-current" : "")} />
+                        <span>{activeLikeCount || 0}</span>
                       </div>
                     )}
                   </div>
+                </div>
               </CardContent>
             </Card>
             );
@@ -1354,20 +1201,21 @@ export default function GenusDetail() {
         {/* Erweiterte Pflanzen-Ansicht Modal */}
         {expandedPlantData && (
           <div 
-            className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/80 z-50 overflow-y-auto"
             onClick={() => setExpandedPlant(null)}
           >
+            <div className="min-h-full flex items-start justify-center py-8 px-4">
             <div 
-              className={"rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto " + (isLightUi ? "bg-white" : "bg-[#141916] border border-[#f0e5a5]/25")}
+              className={"rounded-2xl max-w-lg w-full " + (isLightUi ? "bg-white" : "bg-[#141916] border border-[#f0e5a5]/25")}
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(event) => {
                 expandedDragStartXRef.current = event.clientX;
                 expandedDragStartPointRef.current = { x: event.clientX, y: event.clientY };
-                setExpandedDragOffset(0);
+                expandedDragActivatedRef.current = false;
               }}
               onMouseMove={(event) => {
                 if (event.buttons !== 1) return;
-                updateExpandedDrag(event.clientX);
+                updateExpandedDrag(event.clientX, event.clientY);
               }}
               onMouseUp={(event) => {
                 finishExpandedDrag(event.clientX, event.clientY);
@@ -1384,11 +1232,14 @@ export default function GenusDetail() {
                   x: touch?.clientX ?? 0,
                   y: touch?.clientY ?? 0,
                 };
-                setExpandedDragOffset(0);
+                expandedDragActivatedRef.current = false;
                 expandedSwipeTriggeredRef.current = false;
               }}
               onTouchMove={(event) => {
-                updateExpandedDrag(event.touches?.[0]?.clientX ?? null);
+                updateExpandedDrag(
+                  event.touches?.[0]?.clientX ?? null,
+                  event.touches?.[0]?.clientY ?? null
+                );
               }}
               onTouchEnd={(event) => {
                 const endX = event.changedTouches?.[0]?.clientX ?? null;
@@ -1527,12 +1378,13 @@ export default function GenusDetail() {
               
               {/* Info-Bereich */}
               <div className="p-4 space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1">
-                    <h2 className={"text-xl font-bold " + (isLightUi ? "text-stone-900" : "text-stone-100")}>{expandedPlantData.species_name}</h2>
-                    <p className={"text-sm italic " + (isLightUi ? "text-stone-600" : "text-stone-300")}>{expandedPlantData.scientific_name}</p>
-                  </div>
-                  <div className="flex gap-2 flex-shrink-0">
+                <SpeciesInfoCard
+                  plant={{ ...expandedPlantData, image_url: activeExpandedDiscovery?.image_url || null }}
+                  imageUrl={activeExpandedDiscovery?.image_url || null}
+                  isLightUi={isLightUi}
+                  compact={false}
+                  showNarrative={true}
+                  topRight={
                     <Button
                       onClick={() => speakPlantDescription(expandedPlantData)}
                       variant="outline"
@@ -1543,53 +1395,8 @@ export default function GenusDetail() {
                         ? <VolumeX className={"w-5 h-5 " + (isLightUi ? "text-green-600" : "text-emerald-300")} />
                         : <Volume2 className={"w-5 h-5 " + (isLightUi ? "text-stone-600" : "text-stone-200")} />}
                     </Button>
-                  </div>
-                </div>
-                
-                {expandedPlantData.rarity && (
-                  <Badge className={`${getRarityColor(expandedPlantData.rarity)} text-white`}>
-                    {getRarityStars(expandedPlantData.rarity)} {expandedPlantData.rarity}
-                  </Badge>
-                )}
-                
-                {/* Fundort - klickbar zur Karte */}
-                {activeExpandedDiscovery?.discovery_location && (() => {
-                  const currentDiscovery = activeExpandedDiscovery;
-                  const coords = currentDiscovery.discovery_location;
-                  const [lat, lng] = coords.split(',').map(s => s.trim());
-                  return (
-                    <Link
-                      to={createPageUrl(`Map?lat=${lat}&lng=${lng}`)}
-                      className={"flex items-center gap-2 text-sm rounded-lg p-2 border " + (isLightUi
-                        ? "text-green-600 hover:text-green-700 bg-green-50 border-green-100"
-                        : "text-emerald-300 hover:text-emerald-200 bg-emerald-900/20 border-emerald-700/40")}
-                    >
-                      <MapPin className="w-4 h-4" />
-                      <span>{locationNames[currentDiscovery.id] || coords}</span>
-                      <ExternalLink className="w-3 h-3 ml-auto" />
-                    </Link>
-                  );
-                })()}
-                
-                {expandedPlantData.description && (
-                  <div className="max-h-28 overflow-y-auto pr-1">
-                    <p className={"text-sm leading-snug " + (isLightUi ? "text-stone-700" : "text-stone-200")}>{expandedPlantData.description}</p>
-                  </div>
-                )}
-                
-                {expandedPlantData.fun_fact && (
-                  <div className={"border rounded-lg p-3 " + (isLightUi ? "bg-amber-50 border-amber-100" : "bg-amber-900/20 border-amber-700/45")}>
-                    <p className={"text-xs font-semibold mb-1 " + (isLightUi ? "text-amber-900" : "text-amber-200")}>💡 Wusstest du?</p>
-                    <p className={"text-sm " + (isLightUi ? "text-stone-700" : "text-stone-200")}>{expandedPlantData.fun_fact}</p>
-                  </div>
-                )}
-
-                {expandedPlantData.native_region && (
-                  <div className={"border rounded-lg p-3 " + (isLightUi ? "bg-teal-50 border-teal-100" : "bg-teal-900/20 border-teal-700/45")}>
-                    <p className={"text-xs font-semibold mb-1 " + (isLightUi ? "text-teal-900" : "text-teal-200")}>🌍 Herkunft</p>
-                    <p className={"text-sm " + (isLightUi ? "text-stone-700" : "text-stone-200")}>{expandedPlantData.native_region}</p>
-                  </div>
-                )}
+                  }
+                />
                 
                 {activeExpandedDiscovery?.created_at && (
                   <p className={"text-xs " + (isLightUi ? "text-stone-500" : "text-stone-300") }>
@@ -1597,6 +1404,7 @@ export default function GenusDetail() {
                   </p>
                 )}
               </div>
+            </div>
             </div>
           </div>
         )}

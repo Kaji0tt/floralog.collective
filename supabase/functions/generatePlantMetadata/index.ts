@@ -13,6 +13,7 @@ type GeneratePlantMetadataBody = {
   species_name: string | null;
   scientific_name: string | null;
   language?: string | null;
+  include_openai?: boolean | null;
 };
 
 type LlmResponse = {
@@ -23,6 +24,173 @@ type LlmResponse = {
   is_european: boolean;
   genus_name: string;
   category: string;
+};
+
+type NaturaDbEcology = {
+  wild_bees_count: number | null;
+  butterflies_count: number | null;
+  caterpillars_count: number | null;
+  hoverflies_count: number | null;
+  beetles_count: number | null;
+  red_list_threat: string | null;
+  red_list_population: string | null;
+  nectar_value: string | null;
+  pollen_value: string | null;
+  naturadb_url: string | null;
+};
+
+const NATURADB_BASE_URL = "https://www.naturadb.de/pflanzen/";
+
+const SLEEP_MS = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const normalizeSlug = (value: string) =>
+  value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+
+const cleanText = (value: string | null | undefined): string | null => {
+  if (!value) return null;
+  const cleaned = value
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&uuml;/gi, "ü")
+    .replace(/&ouml;/gi, "ö")
+    .replace(/&auml;/gi, "ä")
+    .replace(/&szlig;/gi, "ß")
+    .replace(/\|/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned.length > 0 ? cleaned : null;
+};
+
+const extractCount = (value: string | null) => {
+  if (!value) return null;
+  const match = value.match(/(\d+)/);
+  if (!match) return null;
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const extractLabelValue = (text: string, labels: string[], stopLabels: string[]): string | null => {
+  const lowerText = text.toLowerCase();
+  let labelIndex = -1;
+  let matchedLabel = "";
+
+  for (const label of labels) {
+    const idx = lowerText.indexOf(label.toLowerCase());
+    if (idx >= 0 && (labelIndex === -1 || idx < labelIndex)) {
+      labelIndex = idx;
+      matchedLabel = label;
+    }
+  }
+
+  if (labelIndex < 0) return null;
+
+  const from = labelIndex + matchedLabel.length;
+  const window = text.slice(from, from + 220);
+  const lowerWindow = window.toLowerCase();
+
+  let stopIndex = lowerWindow.length;
+  for (const stopLabel of stopLabels) {
+    const idx = lowerWindow.indexOf(stopLabel.toLowerCase());
+    if (idx >= 0 && idx < stopIndex) {
+      stopIndex = idx;
+    }
+  }
+
+  const raw = window.slice(0, stopIndex).replace(/^\s*:?\s*/, "");
+  return cleanText(raw);
+};
+
+const extractNaturaDbEcology = (rawHtml: string, naturadbUrl: string): NaturaDbEcology => {
+  const withoutScripts = rawHtml
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ");
+  const text = withoutScripts
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const stopLabels = [
+    "wildbienen",
+    "schmetterlinge",
+    "raupen",
+    "schwebfliegen",
+    "käfer",
+    "gefahrdung",
+    "gefährdung",
+    "bestandssituation",
+    "nektarwert",
+    "pollenwert",
+    "was sagen mir die daten",
+    "einheimische verbreitung",
+  ];
+
+  const wildBeesRaw = extractLabelValue(text, ["Wildbienen"], stopLabels);
+  const butterfliesRaw = extractLabelValue(text, ["Schmetterlinge"], stopLabels);
+  const caterpillarsRaw = extractLabelValue(text, ["Raupen"], stopLabels);
+  const hoverfliesRaw = extractLabelValue(text, ["Schwebfliegen", "Schwebfliegen"], stopLabels);
+  const beetlesRaw = extractLabelValue(text, ["Käfer", "Kafer"], stopLabels);
+  const threatRaw = extractLabelValue(text, ["Gefährdung (Rote Liste)", "Gefahrdung (Rote Liste)"], stopLabels);
+  const populationRaw = extractLabelValue(text, ["Bestandssituation (Rote Liste)"], stopLabels);
+  const nectarRaw = extractLabelValue(text, ["Nektarwert"], stopLabels);
+  const pollenRaw = extractLabelValue(text, ["Pollenwert"], stopLabels);
+
+  return {
+    wild_bees_count: extractCount(wildBeesRaw),
+    butterflies_count: extractCount(butterfliesRaw),
+    caterpillars_count: extractCount(caterpillarsRaw),
+    hoverflies_count: extractCount(hoverfliesRaw),
+    beetles_count: extractCount(beetlesRaw),
+    red_list_threat: cleanText(threatRaw),
+    red_list_population: cleanText(populationRaw),
+    nectar_value: cleanText(nectarRaw),
+    pollen_value: cleanText(pollenRaw),
+    naturadb_url: naturadbUrl,
+  };
+};
+
+const fetchNaturaDbEcology = async (
+  scientificName: string | null,
+): Promise<NaturaDbEcology | null> => {
+  if (!scientificName) return null;
+
+  const slug = normalizeSlug(scientificName);
+  if (!slug) return null;
+
+  const naturadbUrl = `${NATURADB_BASE_URL}${slug}/`;
+
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const response = await fetch(naturadbUrl, {
+      headers: {
+        "User-Agent": "floralog-ecology-backfill/1.0",
+      },
+    });
+
+    if (response.ok) {
+      const html = await response.text();
+      return extractNaturaDbEcology(html, naturadbUrl);
+    }
+
+    if (response.status === 404) {
+      return null;
+    }
+
+    if (response.status === 429 || response.status >= 500) {
+      const delayMs = (2 ** attempt) * 700 + Math.floor(Math.random() * 300);
+      await SLEEP_MS(delayMs);
+      continue;
+    }
+
+    return null;
+  }
+
+  return null;
 };
 
 Deno.serve(async (req) => {
@@ -60,6 +228,7 @@ Deno.serve(async (req) => {
     const body = (await req.json()) as GeneratePlantMetadataBody;
     const { species_name, scientific_name } = body;
     const language = body.language || "de";
+    const includeOpenAi = body.include_openai !== false;
 
     console.log("[generatePlantMetadata] Generating metadata for plant name:", species_name, scientific_name);
 
@@ -84,7 +253,15 @@ Deno.serve(async (req) => {
 
     let llmResult: LlmResponse | null = null;
 
+    let ecology: NaturaDbEcology | null = null;
     try {
+      ecology = await fetchNaturaDbEcology(scientific_name);
+    } catch (ecologyError) {
+      console.warn("[generatePlantMetadata] NaturaDB fetch failed, continuing with null ecology:", ecologyError);
+    }
+
+    if (includeOpenAi) {
+      try {
       console.log("[generatePlantMetadata] Calling OpenAI (responses API)...");
 
       const openAiResponse = await fetch("https://api.openai.com/v1/responses", {
@@ -204,13 +381,33 @@ Deno.serve(async (req) => {
         console.error("[generatePlantMetadata] Incomplete LLM result payload:", JSON.stringify(openAiJson).slice(0, 500));
         throw new Error("Incomplete LLM result");
       }
-    } catch (llmError) {
-      console.error("[generatePlantMetadata] LLM call failed:", llmError);
+      } catch (llmError) {
+        console.error("[generatePlantMetadata] LLM call failed:", llmError);
+        return new Response(
+          JSON.stringify({ error: "LLM call failed" }),
+          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
+        );
+      }
+    }
+
+    if (!includeOpenAi) {
       return new Response(
-        JSON.stringify({ error: "LLM call failed" }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
+        JSON.stringify({
+          wild_bees_count: ecology?.wild_bees_count ?? null,
+          butterflies_count: ecology?.butterflies_count ?? null,
+          caterpillars_count: ecology?.caterpillars_count ?? null,
+          hoverflies_count: ecology?.hoverflies_count ?? null,
+          beetles_count: ecology?.beetles_count ?? null,
+          red_list_threat: ecology?.red_list_threat ?? null,
+          red_list_population: ecology?.red_list_population ?? null,
+          nectar_value: ecology?.nectar_value ?? null,
+          pollen_value: ecology?.pollen_value ?? null,
+          naturadb_url: ecology?.naturadb_url ?? null,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
       );
     }
+
     console.log("[generatePlantMetadata] LLM result received, returning metadata preview...");
 
     return new Response(
@@ -222,6 +419,16 @@ Deno.serve(async (req) => {
         is_european: llmResult.is_european,
         genus_name: llmResult.genus_name,
         category: llmResult.category,
+        wild_bees_count: ecology?.wild_bees_count ?? null,
+        butterflies_count: ecology?.butterflies_count ?? null,
+        caterpillars_count: ecology?.caterpillars_count ?? null,
+        hoverflies_count: ecology?.hoverflies_count ?? null,
+        beetles_count: ecology?.beetles_count ?? null,
+        red_list_threat: ecology?.red_list_threat ?? null,
+        red_list_population: ecology?.red_list_population ?? null,
+        nectar_value: ecology?.nectar_value ?? null,
+        pollen_value: ecology?.pollen_value ?? null,
+        naturadb_url: ecology?.naturadb_url ?? null,
       }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
     );

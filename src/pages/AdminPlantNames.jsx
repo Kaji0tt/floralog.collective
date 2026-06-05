@@ -61,7 +61,35 @@ export default function AdminPlantNames() {
   };
 
   const handleExportPlants = () => {
-    const headers = ['id', 'genus_category', 'genus_number', 'species_name', 'scientific_name', 'description', 'habitat', 'identification_features', 'flowering_period', 'distribution', 'fun_fact', 'rarity', 'created_date', 'updated_date', 'created_by'];
+    const headers = [
+      'id',
+      'genus_category',
+      'genus_number',
+      'species_name',
+      'scientific_name',
+      'description',
+      'habitat',
+      'identification_features',
+      'flowering_period',
+      'distribution',
+      'fun_fact',
+      'rarity',
+      'native_region',
+      'wild_bees_count',
+      'butterflies_count',
+      'caterpillars_count',
+      'hoverflies_count',
+      'beetles_count',
+      'red_list_threat',
+      'red_list_population',
+      'nectar_value',
+      'pollen_value',
+      'naturadb_url',
+      'naturadb_synced_at',
+      'created_date',
+      'updated_date',
+      'created_by'
+    ];
     exportToCSV(plants, 'floralog_plants.csv', headers);
   };
 

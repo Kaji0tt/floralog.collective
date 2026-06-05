@@ -31,13 +31,14 @@ export default function GenusCard({
   const navigate = useNavigate();
   const discovered = genus.discovered;
   const [isEditOpen, setIsEditOpen] = React.useState(false);
-  const [showCategoryIcon, setShowCategoryIcon] = React.useState(true);
   const longPressTimerRef = React.useRef(null);
   const longPressTriggeredRef = React.useRef(false);
   const longPressStartPointRef = React.useRef(null);
   const longPressMovementCancelledRef = React.useRef(false);
   const headerRowRef = React.useRef(null);
   const [isCoarsePointer, setIsCoarsePointer] = React.useState(false);
+  const [logoOverlap, setLogoOverlap] = React.useState(-6);
+  const badgeRef = React.useRef(null);
   const CategoryIcon = categoryIcons[genus.category] || TreeDeciduous;
   const isLightUi = uiTheme === "light";
   const showFriendLogos = friendDiscoveryCount > 0;
@@ -168,22 +169,38 @@ export default function GenusCard({
   }, []);
 
   React.useEffect(() => {
-    const headerRow = headerRowRef.current;
-    if (!headerRow || typeof ResizeObserver === "undefined") return;
+    if (!showFriendLogos || typeof ResizeObserver === "undefined") return;
 
-    const updateCategoryIconVisibility = () => {
-      const rowWidth = headerRow.getBoundingClientRect().width;
-      const hasFriendLogos = showFriendLogos;
-      const compactThreshold = hasFriendLogos ? 154 : 132;
-      setShowCategoryIcon(rowWidth >= compactThreshold);
+    const update = () => {
+      const rowEl = headerRowRef.current;
+      const badgeEl = badgeRef.current;
+      if (!rowEl || !badgeEl) return;
+
+      const rowWidth = rowEl.getBoundingClientRect().width;
+      const badgeWidth = badgeEl.getBoundingClientRect().width;
+      const logoCount = visibleFriendLogos.length + (remainingFriendCount > 0 ? 1 : 0);
+      const logoSize = 20;
+      const availableForLogos = rowWidth - badgeWidth;
+      const minNeeded = logoSize + (logoCount - 1) * (logoSize - 10);
+
+      if (logoCount <= 1 || availableForLogos >= minNeeded) {
+        setLogoOverlap(-6);
+      } else {
+        const maxOverlap = logoSize - 6;
+        const needed = logoSize + (logoCount - 1) * (logoSize - maxOverlap);
+        const ratio = Math.min(1, (availableForLogos - logoSize) / Math.max(1, needed - logoSize));
+        const overlap = Math.round(-6 - (maxOverlap - 6) * (1 - ratio));
+        setLogoOverlap(Math.max(-14, overlap));
+      }
     };
 
-    updateCategoryIconVisibility();
-    const observer = new ResizeObserver(updateCategoryIconVisibility);
-    observer.observe(headerRow);
+    update();
+    const observer = new ResizeObserver(update);
+    if (headerRowRef.current) observer.observe(headerRowRef.current);
+    if (badgeRef.current) observer.observe(badgeRef.current);
 
     return () => observer.disconnect();
-  }, [showFriendLogos, selectedCollectionId, genus.category, genus.category_dex_number]);
+  }, [showFriendLogos, visibleFriendLogos.length, remainingFriendCount, selectedCollectionId]);
 
   return (
     <>
@@ -205,7 +222,8 @@ export default function GenusCard({
             {/* Dex Number Badge */}
             <div ref={headerRowRef} className="flex justify-between items-start mb-2">
               <Badge
-                className={"font-bold text-[10px] px-1.5 py-0.5 " + (isLightUi ? "bg-stone-800 text-white" : "bg-[#f0e5a5]/20 text-[#f8f1c8] border border-[#f0e5a5]/30") }
+                ref={badgeRef}
+                className={"font-bold text-[10px] px-1.5 py-0.5 shrink-0 " + (isLightUi ? "bg-stone-800 text-white" : "bg-[#f0e5a5]/20 text-[#f8f1c8] border border-[#f0e5a5]/30") }
                 onMouseDown={(event) => handleLongPressStart(event.clientX, event.clientY)}
                 onMouseMove={(event) => handleLongPressMove(event.clientX, event.clientY)}
                 onMouseUp={clearLongPress}
@@ -221,20 +239,20 @@ export default function GenusCard({
                 onTouchEnd={clearLongPress}
                 onTouchCancel={clearLongPress}
               >
-                {showCategoryIcon && genus.category === "Bäume" && "🌳"}
-                {showCategoryIcon && genus.category === "Sträucher" && "🌿"}
-                {showCategoryIcon && genus.category === "Blumen" && "🌸"}
-                {showCategoryIcon && genus.category === "Blumen & Kräuter" && "🌸"}
+                {genus.category === "Bäume" && "🌳"}
+                {genus.category === "Sträucher" && "🌿"}
+                {genus.category === "Blumen" && "🌸"}
+                {genus.category === "Blumen & Kräuter" && "🌸"}
                 #{String(genus.category_dex_number).padStart(3, '0')}
               </Badge>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center">
                 {showFriendLogos && (
-                  <div className="mr-1 flex items-center">
+                  <div className="flex items-center">
                     {visibleFriendLogos.map((entry, index) => (
                       <div
                         key={entry.authId || entry.email || index}
                         className="w-5 h-5 rounded-full overflow-hidden bg-black/35"
-                        style={{ marginLeft: index === 0 ? 0 : -6 }}
+                        style={{ marginLeft: index === 0 ? 0 : logoOverlap }}
                         title={entry.name || entry.email || "Freund"}
                       >
                         <CustomLogoAvatar
@@ -247,9 +265,10 @@ export default function GenusCard({
                     ))}
                     {remainingFriendCount > 0 && (
                       <div
-                        className={"w-5 h-5 -ml-1.5 rounded-full border text-[9px] font-semibold flex items-center justify-center " + (isLightUi
+                        className={"w-5 h-5 rounded-full border text-[9px] font-semibold flex items-center justify-center " + (isLightUi
                           ? "bg-sky-100 text-sky-800 border-sky-400/60"
                           : "bg-sky-500/20 text-sky-100 border-sky-200/55")}
+                        style={{ marginLeft: logoOverlap }}
                         title={`+${remainingFriendCount} weitere Freunde`}
                       >
                         +{remainingFriendCount}

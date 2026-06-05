@@ -22,6 +22,16 @@ type CreateGlobalPlantBody = {
     fun_fact?: string | null;
     rarity?: string | null;
     native_region?: string | null;
+    wild_bees_count?: number | null;
+    butterflies_count?: number | null;
+    caterpillars_count?: number | null;
+    hoverflies_count?: number | null;
+    beetles_count?: number | null;
+    red_list_threat?: string | null;
+    red_list_population?: string | null;
+    nectar_value?: string | null;
+    pollen_value?: string | null;
+    naturadb_url?: string | null;
   };
   image_url?: string | null;
   discovery_location?: string | null;
@@ -250,6 +260,17 @@ Deno.serve(async (req) => {
         fun_fact: plant.fun_fact || null,
         rarity: plant.rarity || "Gelegentlich",
         native_region: plant.native_region || null,
+        wild_bees_count: plant.wild_bees_count ?? null,
+        butterflies_count: plant.butterflies_count ?? null,
+        caterpillars_count: plant.caterpillars_count ?? null,
+        hoverflies_count: plant.hoverflies_count ?? null,
+        beetles_count: plant.beetles_count ?? null,
+        red_list_threat: plant.red_list_threat || null,
+        red_list_population: plant.red_list_population || null,
+        nectar_value: plant.nectar_value || null,
+        pollen_value: plant.pollen_value || null,
+        naturadb_url: plant.naturadb_url || null,
+        naturadb_synced_at: plant.naturadb_url ? new Date().toISOString() : null,
       })
       .select("*")
       .single();

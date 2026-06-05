@@ -32,7 +32,16 @@ import { updateQuestProgress } from "@/components/utils/questProgress";
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
 /**
- * Leitet einen menschenlesbaren Herkunftstext aus den GBIF-Verteilungsdaten ab.
+                    wild_bees_count: meta.wild_bees_count || null,
+                    butterflies_count: meta.butterflies_count || null,
+                    caterpillars_count: meta.caterpillars_count || null,
+                    hoverflies_count: meta.hoverflies_count || null,
+                    beetles_count: meta.beetles_count || null,
+                    red_list_threat: meta.red_list_threat || null,
+                    red_list_population: meta.red_list_population || null,
+                    nectar_value: meta.nectar_value || null,
+                    pollen_value: meta.pollen_value || null,
+                    naturadb_url: meta.naturadb_url || null,
  * Verwendet ausschließlich die harten GBIF-Daten – kein LLM.
  */
 function deriveNativeRegion(distribution) {
@@ -459,7 +468,18 @@ export default function Scanner() {
           description: newPlant.description,
           identification_features: newPlant.identification_features,
           fun_fact: newPlant.fun_fact,
-          rarity: newPlant.rarity || "Gelegentlich"
+          rarity: newPlant.rarity || "Gelegentlich",
+          wild_bees_count: newPlant.wild_bees_count || null,
+          butterflies_count: newPlant.butterflies_count || null,
+          caterpillars_count: newPlant.caterpillars_count || null,
+          hoverflies_count: newPlant.hoverflies_count || null,
+          beetles_count: newPlant.beetles_count || null,
+          red_list_threat: newPlant.red_list_threat || null,
+          red_list_population: newPlant.red_list_population || null,
+          nectar_value: newPlant.nectar_value || null,
+          pollen_value: newPlant.pollen_value || null,
+          naturadb_url: newPlant.naturadb_url || null,
+          naturadb_synced_at: newPlant.naturadb_url ? new Date().toISOString() : null,
         });
 
         targetPlantId = createdPlant.id;
@@ -975,7 +995,17 @@ export default function Scanner() {
             identification_features: plantData.identification_features,
             fun_fact: plantData.fun_fact,
             rarity: plantData.rarity || "Gelegentlich",
-            native_region: plantData.native_region || null
+            native_region: plantData.native_region || null,
+            wild_bees_count: plantData.wild_bees_count || null,
+            butterflies_count: plantData.butterflies_count || null,
+            caterpillars_count: plantData.caterpillars_count || null,
+            hoverflies_count: plantData.hoverflies_count || null,
+            beetles_count: plantData.beetles_count || null,
+            red_list_threat: plantData.red_list_threat || null,
+            red_list_population: plantData.red_list_population || null,
+            nectar_value: plantData.nectar_value || null,
+            pollen_value: plantData.pollen_value || null,
+            naturadb_url: plantData.naturadb_url || null,
           },
           image_url: imageUrl,
           discovery_location: locationString

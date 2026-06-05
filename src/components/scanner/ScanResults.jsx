@@ -1,16 +1,16 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { AlertCircle, RotateCcw, Volume2, VolumeX, BookOpen, Sparkles, ChevronLeft, ChevronRight, Search, X, RefreshCw, Gift } from "lucide-react";
+import { AlertCircle, RotateCcw, Volume2, VolumeX, Sparkles, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
+import { motion, useMotionValue, useTransform } from "framer-motion";
 // import ShareScanDialog from "./ShareScanDialog";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
+import SpeciesInfoCard from "@/components/collection/SpeciesInfoCard";
 
 export default function ScanResults({
   plant,
@@ -37,10 +37,6 @@ export default function ScanResults({
   const x = useMotionValue(0);
   const constraintsRef = useRef(null);
   const cardRef = useRef(null);
-
-  // Transform für Pfeile-Animation bei Swipe - verstärkte Responsiveness
-  const leftArrowX = useTransform(x, [0, 100], [0, -25]);
-  const rightArrowX = useTransform(x, [0, -100], [0, 25]);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -185,17 +181,6 @@ export default function ScanResults({
     return text;
   };
 
-  const getRarityColor = (rarity) => {
-    switch (rarity) {
-      case "Häufig":return "bg-gray-500";
-      case "Gelegentlich":return "bg-green-500";
-      case "Selten":return "bg-purple-500";
-      case "Sehr Selten":return "bg-orange-500";
-      case "Extrem Selten":return "bg-red-500";
-      default:return "bg-gray-500";
-    }
-  };
-
   const getRarityBorderColor = (rarity) => {
     switch (rarity) {
       case "Häufig":return "border-gray-300";
@@ -215,17 +200,6 @@ export default function ScanResults({
       case "Sehr Selten":return "bg-gradient-to-br from-amber-900/45 via-black/35 to-orange-950/60";
       case "Extrem Selten":return "bg-gradient-to-br from-rose-900/45 via-black/40 to-red-950/65";
       default:return "bg-gradient-to-br from-black/50 via-zinc-900/55 to-black/65";
-    }
-  };
-
-  const getRaritySymbol = (rarity) => {
-    switch (rarity) {
-      case "Häufig":return "🌿";
-      case "Gelegentlich":return "🌼";
-      case "Selten":return "🌸";
-      case "Sehr Selten":return "💎";
-      case "Extrem Selten":return "🌟";
-      default:return "🌿";
     }
   };
 
@@ -316,110 +290,55 @@ export default function ScanResults({
 
               <Card className="shadow-2xl bg-black/30 overflow-hidden border border-[#f0e5a5]/30 backdrop-blur-sm rounded-3xl">
                 <CardContent className="p-4 md:p-6 space-y-3 bg-gradient-to-br from-black/35 via-emerald-950/20 to-black/35">
-                  {/* Container mit Rarität-Border für Titel und Bild */}
-                  <div className={`relative rounded-2xl p-4 border-2 ${getRarityBorderColor(rarity)} ${getRarityBackgroundColor(rarity)}`} style={{ boxShadow: '8px 8px 24px rgba(0, 0, 0, 0.15)' }}>
-                    {/* Namen linksbündig mit Rarität Badge rechts */}
-                    <div className="mb-4 flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-stone-100 break-words" style={{
-                          fontSize: currentPlant.species_name?.length > 25 ? 'clamp(1.25rem, 5vw, 1.875rem)' : 'clamp(1.5rem, 6vw, 1.875rem)',
-                          lineHeight: '1.2'
-                        }}>
-                          {currentPlant.species_name}
-                        </h3>
-                        <p className="text-stone-300 italic mt-1 break-words flex items-center flex-wrap gap-1" style={{
-                          fontSize: currentPlant.scientific_name?.length > 30 ? 'clamp(0.875rem, 4vw, 1.25rem)' : 'clamp(1rem, 5vw, 1.25rem)',
-                          lineHeight: '1.3'
-                        }}>
-                          <span>{currentPlant.scientific_name}</span>
-                          {confidencePercentage &&
-                            <span className="text-stone-400 whitespace-nowrap">
-                              ({confidencePercentage}%)
-                            </span>
-                          }
-                        </p>
+                  <div className={`relative rounded-2xl p-2 border-2 ${getRarityBorderColor(rarity)} ${getRarityBackgroundColor(rarity)}`} style={{ boxShadow: '8px 8px 24px rgba(0, 0, 0, 0.15)' }}>
+                    {isBlockedResult && (
+                      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10">
+                        <Badge variant="secondary" className="bg-red-700/90 text-white border border-red-200/35 shadow-md hover:bg-red-700/90">
+                          Nicht speicherbar
+                        </Badge>
                       </div>
-                      <div className="flex-shrink-0">
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="text-black font-bold text-2xl cursor-pointer">
-                                {getRaritySymbol(rarity)}
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent className="bg-black/85 border border-[#f0e5a5]/35 shadow-lg p-3">
-                              <div className="space-y-1 text-sm text-stone-100">
-                                <div className="font-bold mb-2">Raritäten:</div>
-                                <div className="flex items-center gap-2"><span className="text-xl">🌿</span> Häufig</div>
-                                <div className="flex items-center gap-2"><span className="text-xl">🌼</span> Gelegentlich</div>
-                                <div className="flex items-center gap-2"><span className="text-xl">🌸</span> Selten</div>
-                                <div className="flex items-center gap-2"><span className="text-xl">💎</span> Sehr Selten</div>
-                                <div className="flex items-center gap-2"><span className="text-xl">🌟</span> Extrem Selten</div>
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </div>
-                    </div>
+                    )}
+                    <SpeciesInfoCard
+                      plant={currentPlant}
+                      imageUrl={imageUrl}
+                      compact={false}
+                      showNarrative={!isBlockedResult}
+                      isLightUi={false}
+                      topRight={confidencePercentage ? (
+                        <Badge className="bg-black/50 border border-stone-500/60 text-stone-100">{confidencePercentage}%</Badge>
+                      ) : null}
+                    />
 
+                    {(latestDiscoveryId || isPendingConfirmation) &&
+                    <div className="flex justify-evenly items-center mt-4 pb-2">
+                      <motion.button
+                        onClick={handleVerifyResult}
+                        className="w-11 h-11 bg-cyan-700 rounded-full flex items-center justify-center shadow-lg hover:bg-cyan-800 transition-all border border-cyan-200/25"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.95 }}>
+                        <Search className="w-5 h-5 text-white" />
+                      </motion.button>
 
-
-                    {/* Bild mit Navigation */}
-                    <div className="relative">
-                      {imageUrl &&
-                      <>
-                        <img
-                          src={imageUrl}
-                          alt={currentPlant.species_name}
-                          className="w-full aspect-square object-cover rounded-xl shadow-[inset_0_0_20px_rgba(0,0,0,0.35)] border border-white/70" />
-                        {isBlockedResult && (
-                          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10">
-                            <Badge variant="secondary" className="bg-red-700/90 text-white border border-red-200/35 shadow-md hover:bg-red-700/90">
-                              Nicht speicherbar
-                            </Badge>
-                          </div>
-                        )}
-                        </>
+                      <motion.button
+                        onClick={() => speakText(getDescriptionText(currentPlant))}
+                        className="w-11 h-11 bg-emerald-700 rounded-full flex items-center justify-center shadow-lg hover:bg-emerald-800 transition-all border border-lime-200/25"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.95 }}>
+                        {isSpeaking ?
+                          <VolumeX className="w-5 h-5 text-white" /> :
+                          <Volume2 className="w-5 h-5 text-white" />
                         }
-                        </div>
+                      </motion.button>
 
-                      {/* Action Buttons unterhalb des Bildes */}
-                      {(latestDiscoveryId || isPendingConfirmation) &&
-                      <div className="flex justify-evenly items-center mt-4">
-                        {/* Lupe (Search) */}
-                        <motion.button
-                          onClick={handleVerifyResult}
-                          className="w-11 h-11 bg-cyan-700 rounded-full flex items-center justify-center shadow-lg hover:bg-cyan-800 transition-all border border-cyan-200/25"
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.95 }}>
-                          <Search className="w-5 h-5 text-white" />
-                        </motion.button>
-
-                        {/* Lautsprecher */}
-                        <motion.button
-                          onClick={() => speakText(getDescriptionText(currentPlant))}
-                          className="w-11 h-11 bg-emerald-700 rounded-full flex items-center justify-center shadow-lg hover:bg-emerald-800 transition-all border border-lime-200/25"
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.95 }}>
-                          {isSpeaking ?
-                            <VolumeX className="w-5 h-5 text-white" /> :
-                            <Volume2 className="w-5 h-5 text-white" />
-                          }
-                        </motion.button>
-
-
-
-                        {/* Erneut Scannen */}
-                        <motion.button
-                          onClick={onRescan}
-                          className="w-11 h-11 bg-stone-700 rounded-full flex items-center justify-center shadow-lg hover:bg-stone-800 transition-all border border-stone-200/20"
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.95 }}>
-                          <RotateCcw className="w-5 h-5 text-white" />
-                        </motion.button>
-
-                      </div>
-                      }
+                      <motion.button
+                        onClick={onRescan}
+                        className="w-11 h-11 bg-stone-700 rounded-full flex items-center justify-center shadow-lg hover:bg-stone-800 transition-all border border-stone-200/20"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.95 }}>
+                        <RotateCcw className="w-5 h-5 text-white" />
+                      </motion.button>
+                    </div>
+                    }
                   </div>
 
                   {/* Navigation unterhalb der Rarität-Kachel - nur bei mehreren Ergebnissen */}
@@ -477,89 +396,7 @@ export default function ScanResults({
                               : 'Diese Pflanze kommt nicht in europäischen Ökosystemen vor und kann daher nicht ins Floralog aufgenommen werden. Floralog sammelt Pflanzen, die in Europa heimisch oder dauerhaft eingebürgert sind.'}
                           </p>
                         </div>
-                      ) : (
-                      <>
-                      {(currentPlant.description || currentPlant.aiData?.description) &&
-                      <div className="bg-gradient-to-br from-cyan-900/40 to-sky-950/45 rounded-xl p-4 border border-cyan-200/30 shadow-md">
-                          <h4 className="font-bold text-cyan-100 mb-2 flex items-center gap-2">
-                            <span className="text-xl">📖</span>
-                            <span>Beschreibung</span>
-                          </h4>
-                          <p className="text-stone-100/95 leading-relaxed">
-                            {currentPlant.description || currentPlant.aiData?.description}
-                          </p>
-                        </div>
-                      }
-
-                      {(currentPlant.identification_features || currentPlant.aiData?.identification_features) &&
-                      <div className="bg-gradient-to-br from-emerald-900/45 to-teal-950/45 rounded-xl p-4 border border-emerald-200/30 shadow-md">
-                          <h4 className="font-bold text-emerald-100 mb-2 flex items-center gap-2">
-                            <span className="text-xl">🔍</span>
-                            <span>Erkennungsmerkmale</span>
-                          </h4>
-                          <p className="text-stone-100/95 leading-relaxed">
-                            {currentPlant.identification_features || currentPlant.aiData?.identification_features}
-                          </p>
-                        </div>
-                      }
-
-                      {(currentPlant.fun_fact || currentPlant.aiData?.fun_fact) &&
-                      <div className="bg-gradient-to-br from-amber-900/45 to-orange-950/45 rounded-xl p-4 border border-amber-200/30 shadow-md">
-                          <h4 className="font-bold text-amber-100 mb-2 flex items-center gap-2">
-                            <span className="text-xl">💡</span>
-                            <span>Wusstest du?</span>
-                          </h4>
-                          <p className="text-stone-100/95 leading-relaxed">
-                            {currentPlant.fun_fact || currentPlant.aiData?.fun_fact}
-                          </p>
-                        </div>
-                      }
-
-                      {currentPlant.native_region &&
-                      <div className="bg-gradient-to-br from-teal-900/40 to-emerald-950/45 rounded-xl p-4 border border-teal-300/25 shadow-md">
-                          <h4 className="font-bold text-teal-100 mb-2 flex items-center gap-2">
-                            <span className="text-xl">🌍</span>
-                            <span>Herkunft</span>
-                          </h4>
-                          <p className="text-stone-100/95 leading-relaxed">
-                            {currentPlant.native_region}
-                          </p>
-                        </div>
-                      }
-
-                      {/* Herkunftsinformation */}
-                      {currentPlant.distribution && (
-                        <div className={`rounded-xl p-3 border ${
-                          currentPlant.is_european
-                            ? 'bg-gradient-to-br from-emerald-900/35 to-teal-950/40 border-emerald-300/30'
-                            : 'bg-gradient-to-br from-violet-900/30 to-indigo-950/40 border-violet-300/30'
-                        }`}>
-                          <h4 className="font-semibold text-stone-200 mb-1.5 flex items-center gap-2 text-sm">
-                            <span>🌍</span>
-                            <span>Herkunft</span>
-                            {currentPlant.distribution.source === 'gbif_species_distributions' && (
-                              <span className="text-xs text-stone-400 font-normal">(GBIF)</span>
-                            )}
-                          </h4>
-                          {currentPlant.is_european ? (
-                            <div>
-                              <p className="text-emerald-200 text-sm font-medium">Heimisch oder eingebürgert in Europa</p>
-                              {currentPlant.distribution.regions?.[0]?.countries?.length > 0 && (
-                                <p className="text-stone-300 text-xs mt-1">
-                                  {currentPlant.distribution.regions[0].countries.slice(0, 5).map(c => c.code).join(' · ')}
-                                </p>
-                              )}
-                            </div>
-                          ) : (
-                            <div>
-                              <p className="text-red-300 text-sm font-medium">Nicht in Europa</p>
-                              <p className="text-stone-300 text-xs mt-1">Diese Pflanze ist in Europa nicht heimisch oder eingebürgert und kann nicht gespeichert werden.</p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      </>
-                      )}
+                      ) : null}
 
                       {/* Mindest-Sicherheitshinweis für alternative Ergebnisse */}
                       {isLowConfidenceAlt && (
