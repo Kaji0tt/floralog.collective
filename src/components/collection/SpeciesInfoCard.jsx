@@ -262,10 +262,6 @@ export default function SpeciesInfoCard({
           {infoOpen && (
             <div className="space-y-2">
               {!!descriptionText && (
-              onClick={(event) => event.stopPropagation()}
-              onMouseDown={(event) => event.stopPropagation()}
-              onTouchStart={(event) => event.stopPropagation()}
-              onTouchEnd={(event) => event.stopPropagation()}
                 <div className={"rounded-md border p-2 " + (isLightUi ? "border-sky-200 bg-sky-50" : "border-sky-300/50 bg-sky-500/10")}>
                   <p className={"text-xs font-semibold mb-1 " + (isLightUi ? "text-sky-800" : "text-sky-200")}>Beschreibung</p>
                   <p className={"text-sm " + (isLightUi ? "text-stone-700" : "text-stone-200")}>{descriptionText}</p>
