@@ -119,6 +119,42 @@ const extractLabelValue = (text: string, labels: string[], stopLabels: string[])
   return cleanText(raw);
 };
 
+const extractEcologyBlockText = (text: string): string => {
+  const lowerText = text.toLowerCase();
+
+  const startCandidates = ["🐝 ökologie", "ökologie"];
+  let start = -1;
+  for (const marker of startCandidates) {
+    const idx = lowerText.indexOf(marker);
+    if (idx >= 0 && (start === -1 || idx < start)) {
+      start = idx;
+    }
+  }
+
+  if (start < 0) return text;
+
+  const endCandidates = [
+    "was sagen mir die daten",
+    "ℹ️ sonstiges",
+    "sonstiges",
+    "klassifizierung",
+    "wert für insekten und vögel",
+    "häufige fragen",
+    "wissenswertes",
+  ];
+
+  let end = lowerText.length;
+  for (const marker of endCandidates) {
+    const idx = lowerText.indexOf(marker, start + 1);
+    if (idx >= 0 && idx < end) {
+      end = idx;
+    }
+  }
+
+  const block = text.slice(start, end).trim();
+  return block || text;
+};
+
 const extractNaturaDbEcology = (rawHtml: string, naturadbUrl: string): NaturaDbEcology => {
   const withoutScripts = rawHtml
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
@@ -127,6 +163,7 @@ const extractNaturaDbEcology = (rawHtml: string, naturadbUrl: string): NaturaDbE
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+  const ecologyText = extractEcologyBlockText(text);
 
   const stopLabels = [
     "wildbienen",
@@ -143,15 +180,15 @@ const extractNaturaDbEcology = (rawHtml: string, naturadbUrl: string): NaturaDbE
     "einheimische verbreitung",
   ];
 
-  const wildBeesRaw = extractLabelValue(text, ["Wildbienen"], stopLabels);
-  const butterfliesRaw = extractLabelValue(text, ["Schmetterlinge"], stopLabels);
-  const caterpillarsRaw = extractLabelValue(text, ["Raupen"], stopLabels);
-  const hoverfliesRaw = extractLabelValue(text, ["Schwebfliegen", "Schwebfliegen"], stopLabels);
-  const beetlesRaw = extractLabelValue(text, ["Käfer", "Kafer"], stopLabels);
-  const threatRaw = extractLabelValue(text, ["Gefährdung (Rote Liste)", "Gefahrdung (Rote Liste)"], stopLabels);
-  const populationRaw = extractLabelValue(text, ["Bestandssituation (Rote Liste)"], stopLabels);
-  const nectarRaw = extractLabelValue(text, ["Nektarwert"], stopLabels);
-  const pollenRaw = extractLabelValue(text, ["Pollenwert"], stopLabels);
+  const wildBeesRaw = extractLabelValue(ecologyText, ["Wildbienen"], stopLabels);
+  const butterfliesRaw = extractLabelValue(ecologyText, ["Schmetterlinge"], stopLabels);
+  const caterpillarsRaw = extractLabelValue(ecologyText, ["Raupen"], stopLabels);
+  const hoverfliesRaw = extractLabelValue(ecologyText, ["Schwebfliegen", "Schwebfliegen"], stopLabels);
+  const beetlesRaw = extractLabelValue(ecologyText, ["Käfer", "Kafer"], stopLabels);
+  const threatRaw = extractLabelValue(ecologyText, ["Gefährdung (Rote Liste)", "Gefahrdung (Rote Liste)"], stopLabels);
+  const populationRaw = extractLabelValue(ecologyText, ["Bestandssituation (Rote Liste)"], stopLabels);
+  const nectarRaw = extractLabelValue(ecologyText, ["Nektarwert"], stopLabels);
+  const pollenRaw = extractLabelValue(ecologyText, ["Pollenwert"], stopLabels);
 
   return {
     wild_bees_count: extractCount(wildBeesRaw),

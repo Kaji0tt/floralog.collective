@@ -21,15 +21,15 @@ const buildNaturaDbUrl = (plant) => {
   return `${NATURADB_BASE_URL}${slug}/`;
 };
 
-const toDisplay = (value) => {
-  if (value === null || value === undefined || value === "") return "k.A.";
+const toDisplayOrNull = (value) => {
+  if (value === null || value === undefined || value === "") return null;
   return String(value);
 };
 
-const toQuarterDisplay = (value) => {
-  if (value === null || value === undefined || value === "") return "k.A.";
+const toQuarterOrNull = (value) => {
+  if (value === null || value === undefined || value === "") return null;
   const match = String(value).match(/\b([0-4])\s*\/\s*4\b/);
-  if (!match) return "k.A.";
+  if (!match) return null;
   return `${match[1]}/4`;
 };
 
@@ -74,15 +74,15 @@ const getRegionText = (plant) => {
 };
 
 const ecologyItems = (plant) => [
-  { label: "Wildbienen", value: toDisplay(plant?.wild_bees_count) },
-  { label: "Schmetterlinge", value: toDisplay(plant?.butterflies_count) },
-  { label: "Raupen", value: toDisplay(plant?.caterpillars_count) },
-  { label: "Schwebfliegen", value: toDisplay(plant?.hoverflies_count) },
-  { label: "Käfer", value: toDisplay(plant?.beetles_count) },
-  { label: "Gefährdung", value: toDisplay(plant?.red_list_threat) },
-  { label: "Nektarwert", value: toQuarterDisplay(plant?.nectar_value) },
-  { label: "Pollenwert", value: toQuarterDisplay(plant?.pollen_value) },
-];
+  { label: "Wildbienen", value: toDisplayOrNull(plant?.wild_bees_count) },
+  { label: "Schmetterlinge", value: toDisplayOrNull(plant?.butterflies_count) },
+  { label: "Raupen", value: toDisplayOrNull(plant?.caterpillars_count) },
+  { label: "Schwebfliegen", value: toDisplayOrNull(plant?.hoverflies_count) },
+  { label: "Käfer", value: toDisplayOrNull(plant?.beetles_count) },
+  { label: "Gefährdung", value: toDisplayOrNull(plant?.red_list_threat) },
+  { label: "Nektarwert", value: toQuarterOrNull(plant?.nectar_value) },
+  { label: "Pollenwert", value: toQuarterOrNull(plant?.pollen_value) },
+].filter((item) => item.value !== null);
 
 const getRarityColor = (rarity) => {
   switch (rarity) {
@@ -178,6 +178,7 @@ export default function SpeciesInfoCard({
     nectar_value: resolveField(safePlant, "nectar_value"),
     pollen_value: resolveField(safePlant, "pollen_value"),
   };
+  const visibleEcologyItems = ecologyItems(mergedEcologyPlant);
 
   return (
     <div className={"rounded-xl border p-3 space-y-3 " + (isLightUi
@@ -230,7 +231,7 @@ export default function SpeciesInfoCard({
             </a>
           </div>
           <div className={compact ? "grid grid-cols-2 gap-x-2 gap-y-1" : "grid grid-cols-1 sm:grid-cols-2 gap-x-2 gap-y-1"}>
-            {ecologyItems(mergedEcologyPlant).map((item) => (
+            {visibleEcologyItems.map((item) => (
               <div key={item.label} className="text-[11px] flex items-center justify-between gap-2">
                 <span className={isLightUi ? "text-stone-600" : "text-stone-300"}>{item.label}</span>
                 <span className={"font-semibold " + (isLightUi ? "text-stone-900" : "text-stone-100")}>{item.value}</span>
