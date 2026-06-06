@@ -154,31 +154,25 @@ export function useFriendsFeatureContent({
   });
 
   // Akzeptierte Freundschaften (wo ich ENTWEDER Sender ODER Empfänger bin)
-  const { data: friends = [] } = useQuery({
-    queryKey: ['friends', user?.email],
-    queryFn: async () => {
-      if (!user?.email) return [];
-      return allFriendRecords.filter((f) =>
-      (f.request_sent_by?.toLowerCase() === user.email.toLowerCase() ||
-      f.request_sent_to?.toLowerCase() === user.email.toLowerCase()) &&
-      f.status === 'accepted'
-      );
-    },
-    enabled: !!user?.email && allFriendRecords.length > 0
-  });
+  const friends = useMemo(() => {
+    if (!user?.email) return [];
+    const ownEmail = user.email.toLowerCase();
+    return allFriendRecords.filter((f) =>
+      (f.request_sent_by?.toLowerCase() === ownEmail ||
+        f.request_sent_to?.toLowerCase() === ownEmail) &&
+      f.status === "accepted"
+    );
+  }, [allFriendRecords, user?.email]);
 
   // Eingehende Anfragen (wo ICH Empfänger bin)
-  const { data: pendingRequests = [] } = useQuery({
-    queryKey: ['pendingRequests', user?.email],
-    queryFn: async () => {
-      if (!user?.email) return [];
-      return allFriendRecords.filter((f) =>
-      f.request_sent_to?.toLowerCase() === user.email.toLowerCase() &&
-      f.status === 'pending'
-      );
-    },
-    enabled: !!user?.email && allFriendRecords.length > 0
-  });
+  const pendingRequests = useMemo(() => {
+    if (!user?.email) return [];
+    const ownEmail = user.email.toLowerCase();
+    return allFriendRecords.filter((f) =>
+      f.request_sent_to?.toLowerCase() === ownEmail &&
+      f.status === "pending"
+    );
+  }, [allFriendRecords, user?.email]);
 
   const { data: allPublicProfiles = [] } = useQuery({
     queryKey: ['allPublicProfiles'],
@@ -192,6 +186,15 @@ export function useFriendsFeatureContent({
       (allPublicProfiles || [])
         .filter((profile) => !!profile.user_email)
         .map((profile) => [profile.user_email.toLowerCase(), profile])
+    ),
+    [allPublicProfiles]
+  );
+
+  const profileByAuthId = useMemo(
+    () => new Map(
+      (allPublicProfiles || [])
+        .filter((profile) => !!profile.auth_id)
+        .map((profile) => [profile.auth_id, profile])
     ),
     [allPublicProfiles]
   );
@@ -590,13 +593,15 @@ export function useFriendsFeatureContent({
   const acceptFriendRequestMutation = useMutation({
     mutationFn: async (request) => {
       const affected = await respondToFriendRequest(request.request_sent_by, "accept");
-      if (affected <= 0) {
-        throw new Error("Diese Anfrage ist nicht mehr offen.");
-      }
+      return { affected };
     },
-    onSuccess: async (data, variables) => {
+    onSuccess: async (result, variables) => {
       await queryClient.invalidateQueries({ queryKey: ['allFriendRecords'] });
       await queryClient.refetchQueries({ queryKey: ['allFriendRecords'] });
+
+      if (!result?.affected || result.affected <= 0) {
+        return;
+      }
 
       // Zeige Success-Message
       const requesterEmail = variables.request_sent_by;
@@ -628,6 +633,11 @@ export function useFriendsFeatureContent({
       }
     },
     onError: (error) => {
+      const message = String(error?.message || "").toLowerCase();
+      if (message.includes("nicht mehr offen") || message.includes("nicht mehr gültig") || message.includes("not open")) {
+        queryClient.invalidateQueries({ queryKey: ['allFriendRecords'] });
+        return;
+      }
       alert(`Fehler beim Annehmen der Anfrage: ${error.message}`);
     }
   });
@@ -635,15 +645,24 @@ export function useFriendsFeatureContent({
   const rejectFriendRequestMutation = useMutation({
     mutationFn: async (request) => {
       const affected = await respondToFriendRequest(request.request_sent_by, "reject");
-      if (affected <= 0) {
-        throw new Error("Diese Anfrage ist nicht mehr offen.");
-      }
+      return { affected };
     },
-    onSuccess: (data, variables) => {
+    onSuccess: async (result) => {
       queryClient.invalidateQueries({ queryKey: ['allFriendRecords'] });
+      await queryClient.refetchQueries({ queryKey: ['allFriendRecords'] });
+
+      if (!result?.affected || result.affected <= 0) {
+        return;
+      }
+
       alert(`❌ Freundschaftsanfrage abgelehnt`);
     },
     onError: (error) => {
+      const message = String(error?.message || "").toLowerCase();
+      if (message.includes("nicht mehr offen") || message.includes("nicht mehr gültig") || message.includes("not open")) {
+        queryClient.invalidateQueries({ queryKey: ['allFriendRecords'] });
+        return;
+      }
       alert(`Fehler beim Ablehnen der Anfrage: ${error.message}`);
     }
   });
@@ -995,7 +1014,6 @@ Viel Spaß beim Entdecken! 🌿`;
 
     const pendingRequest = getPendingRequestFromNews(newsItem);
     if (!pendingRequest) {
-      alert('Diese Anfrage ist nicht mehr offen.');
       markNewsAsSeenMutation.mutate(newsItem.id);
       await queryClient.invalidateQueries({ queryKey: ['allFriendRecords'] });
       return;
@@ -1092,7 +1110,19 @@ Viel Spaß beim Entdecken! 🌿`;
     return recentDiscoveries.map((entry) => {
       const entryEmail = getDiscoveryEmailLower(entry);
       const key = `${entryEmail}::${entry.plant_id}`;
-      const profile = profileByEmail.get(entryEmail);
+      const profile =
+        profileByEmail.get(entryEmail) ||
+        (entry.auth_id ? profileByAuthId.get(entry.auth_id) : null);
+      const isOwnEntry = Boolean(
+        (entry.auth_id && user?.id && entry.auth_id === user.id) ||
+        (entryEmail && ownEmailLower && entryEmail === ownEmailLower)
+      );
+      const actorName =
+        profile?.display_name ||
+        profile?.full_name ||
+        (isOwnEntry
+          ? (user?.display_name || user?.full_name || "Du")
+          : "Unbekannte Entdeckerin");
 
       return {
         id: entry.id,
@@ -1100,7 +1130,7 @@ Viel Spaß beim Entdecken! 🌿`;
         plant: plantById.get(entry.plant_id),
         actorEmail: entryEmail,
         actorAuthId: profile?.auth_id || entry.auth_id || null,
-        actorName: profile?.display_name || profile?.full_name || entryEmail,
+        actorName,
         actorLogoAssets: resolveEquippedLogoAssetsWithCatalog(profile || {}, logoAssets),
         scanCount: scanCountByUserPlant.get(key) || 0,
         likedByCurrentUser: likedDiscoveryIdSet.has(entry.id),
@@ -1108,7 +1138,7 @@ Viel Spaß beim Entdecken! 🌿`;
         timestamp: new Date(entry.created_date || entry.discovered_date || entry.updated_date || Date.now()),
       };
     });
-  }, [recentDiscoveries, profileByEmail, plantById, logoAssets, scanCountByUserPlant, likedDiscoveryIdSet, likeCountByDiscoveryId]);
+  }, [recentDiscoveries, profileByEmail, profileByAuthId, plantById, logoAssets, scanCountByUserPlant, likedDiscoveryIdSet, likeCountByDiscoveryId, ownEmailLower, user]);
 
   useEffect(() => {
     if (activeTab !== "explorer" || !hasNextPage || isFetchingNextPage) return;
@@ -1716,10 +1746,10 @@ Viel Spaß beim Entdecken! 🌿`;
                                           <p className={`text-[11px] mt-2 ${mutedTextClass}`}>{newsItem.description}</p>
                                         )}
                                         {showFriendRequestActions && (
-                                          <div className="flex gap-2 mt-3" onClick={(event) => event.stopPropagation()}>
+                                          <div className="mt-3 grid grid-cols-2 gap-2" onClick={(event) => event.stopPropagation()}>
                                             <Button
                                               size="sm"
-                                              className="h-6 px-2 text-xs bg-green-600 hover:bg-green-700"
+                                              className="h-8 w-full px-2 text-xs bg-green-600 hover:bg-green-700"
                                               disabled={acceptFriendRequestMutation.isPending || rejectFriendRequestMutation.isPending}
                                               onClick={(event) => handleFriendRequestActionFromNews(event, newsItem, 'accept')}
                                             >
@@ -1729,7 +1759,7 @@ Viel Spaß beim Entdecken! 🌿`;
                                             <Button
                                               size="sm"
                                               variant="outline"
-                                              className={`h-6 px-2 text-xs ${isLightUi ? "border-red-300 text-red-600 hover:bg-red-50" : "border-red-400/50 text-red-200 hover:bg-red-500/10"}`}
+                                              className={`h-8 w-full px-2 text-xs ${isLightUi ? "border-red-300 text-red-600 hover:bg-red-50" : "border-red-400/50 text-red-200 hover:bg-red-500/10"}`}
                                               disabled={acceptFriendRequestMutation.isPending || rejectFriendRequestMutation.isPending}
                                               onClick={(event) => handleFriendRequestActionFromNews(event, newsItem, 'reject')}
                                             >
@@ -1832,7 +1862,7 @@ Viel Spaß beim Entdecken! 🌿`;
                           transition={{ delay: index * 0.06 }}
                           className={`${nestedCardClass} p-3 md:p-4`}
                         >
-                          <div className="flex items-center justify-between gap-3 flex-wrap">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="flex items-center gap-3 min-w-0 flex-1">
                               <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-lg shadow-md flex-shrink-0">
                                 <CustomLogoAvatar
@@ -1848,12 +1878,12 @@ Viel Spaß beim Entdecken! 🌿`;
                                 <p className={`text-xs mt-1 truncate ${mutedTextClass}`}>{requesterData.title}</p>
                               </div>
                             </div>
-                            <div className="flex gap-2 flex-wrap">
+                            <div className="grid w-full grid-cols-2 gap-2 sm:w-auto sm:grid-cols-none sm:flex sm:justify-end">
                               <Button
                                 size="sm"
                                 onClick={() => acceptFriendRequestMutation.mutate(request)}
                                 disabled={acceptFriendRequestMutation.isPending}
-                                className="bg-emerald-600 hover:bg-emerald-700"
+                                className="h-9 w-full bg-emerald-600 hover:bg-emerald-700 sm:w-auto"
                               >
                                 <Check className="w-4 h-4 mr-1" />
                                 Annehmen
@@ -1863,7 +1893,7 @@ Viel Spaß beim Entdecken! 🌿`;
                                 variant="outline"
                                 onClick={() => rejectFriendRequestMutation.mutate(request)}
                                 disabled={rejectFriendRequestMutation.isPending}
-                                className={isLightUi ? "border-red-300 text-red-600 hover:bg-red-50" : "border-red-400/50 text-red-200 hover:bg-red-500/10"}
+                                className={`${isLightUi ? "border-red-300 text-red-600 hover:bg-red-50" : "border-red-400/50 text-red-200 hover:bg-red-500/10"} h-9 w-full sm:w-auto`}
                               >
                                 <X className="w-4 h-4 mr-1" />
                                 Ablehnen

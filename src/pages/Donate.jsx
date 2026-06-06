@@ -98,12 +98,25 @@ export default function Donate() {
             setLoading(true);
             try {
               console.log('🟢 Calling createPayPalOrder with amount:', amount || 5);
-              const response = await supabase.functions.invoke('createPayPalOrder', { 
-                amount: amount || 5 
+              const response = await supabase.functions.invoke('createPayPalOrder', {
+                body: { amount: amount || 5 }
               });
               console.log('🟢 Full response object:', response);
               console.log('🟢 Response status:', response.status);
               console.log('🟢 Response data:', response.data);
+
+              if (response.error) {
+                let detailedMessage = response.error.message || 'PayPal-Bestellung fehlgeschlagen.';
+                try {
+                  const errorPayload = await response.error.context?.json?.();
+                  if (errorPayload?.error) {
+                    detailedMessage = errorPayload.error;
+                  }
+                } catch (_parseError) {
+                  // Ignore response parse errors and keep fallback message.
+                }
+                throw new Error(detailedMessage);
+              }
               
               if (!response.data || !response.data.orderID) {
                 console.error('❌ No orderID in response');
@@ -135,10 +148,23 @@ export default function Donate() {
             console.log('🟢 onApprove called with data:', data);
             try {
               console.log('🟢 Calling capturePayPalPayment with orderID:', data.orderID);
-              const response = await supabase.functions.invoke('capturePayPalPayment', { 
-                orderID: data.orderID 
+              const response = await supabase.functions.invoke('capturePayPalPayment', {
+                body: { orderID: data.orderID }
               });
               console.log('🟢 capturePayPalPayment response:', response);
+
+              if (response.error) {
+                let detailedMessage = response.error.message || 'Zahlung fehlgeschlagen.';
+                try {
+                  const errorPayload = await response.error.context?.json?.();
+                  if (errorPayload?.error) {
+                    detailedMessage = errorPayload.error;
+                  }
+                } catch (_parseError) {
+                  // Ignore response parse errors and keep fallback message.
+                }
+                throw new Error(detailedMessage);
+              }
               
               if (response.data.success) {
                 console.log('✅ Payment successful!');

@@ -93,3 +93,13 @@ entrypoint = "./functions/sendFeedbackEmail/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/deleteAccount/index.ts"
+
+[functions.createPayPalOrder]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/createPayPalOrder/index.ts"
+
+[functions.capturePayPalPayment]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/capturePayPalPayment/index.ts"
