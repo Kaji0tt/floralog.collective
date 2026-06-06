@@ -12,6 +12,7 @@ console.log("[backfillPlantMetadata] Function loaded successfully");
 type BackfillBody = {
   limit?: number;
   startAfterId?: string | null;
+  offset?: number;
   includeOpenAi?: boolean;
   fullBackfill?: boolean;
 };
@@ -79,6 +80,9 @@ Deno.serve(async (req) => {
     const body = (await req.json().catch(() => ({}))) as BackfillBody;
     const limit = body.limit && body.limit > 0 && body.limit <= 200 ? body.limit : 50;
     const startAfterId = body.startAfterId || null;
+    const offset = Number.isFinite(Number(body.offset)) && Number(body.offset) >= 0
+      ? Number(body.offset)
+      : null;
     const includeOpenAi = body.includeOpenAi === true;
     const fullBackfill = body.fullBackfill !== false;
 
@@ -93,7 +97,9 @@ Deno.serve(async (req) => {
       .order("id", { ascending: true })
       .limit(limit);
 
-    if (startAfterId) {
+    if (offset !== null) {
+      plantsQuery = plantsQuery.range(offset, offset + limit - 1);
+    } else if (startAfterId) {
       plantsQuery = plantsQuery.gt("id", startAfterId);
     }
 
@@ -187,6 +193,9 @@ Deno.serve(async (req) => {
         updated: updatedIds.length,
         failed: failedIds.length,
         next_start_after_id: plants[plants.length - 1]?.id || null,
+        next_offset: offset !== null
+          ? (plants.length < limit ? null : offset + plants.length)
+          : null,
         updated_ids: updatedIds,
         failed_ids: failedIds,
       }),

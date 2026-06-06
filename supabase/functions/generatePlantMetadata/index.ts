@@ -56,6 +56,7 @@ const normalizeSlug = (value: string) =>
 const cleanText = (value: string | null | undefined): string | null => {
   if (!value) return null;
   const cleaned = value
+    .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")
     .replace(/&uuml;/gi, "ü")
@@ -88,114 +89,65 @@ const normalizeQuarterValue = (value: string | null | undefined): string | null 
   return null;
 };
 
-const extractLabelValue = (text: string, labels: string[], stopLabels: string[]): string | null => {
-  const lowerText = text.toLowerCase();
-  let labelIndex = -1;
-  let matchedLabel = "";
-
-  for (const label of labels) {
-    const idx = lowerText.indexOf(label.toLowerCase());
-    if (idx >= 0 && (labelIndex === -1 || idx < labelIndex)) {
-      labelIndex = idx;
-      matchedLabel = label;
-    }
-  }
-
-  if (labelIndex < 0) return null;
-
-  const from = labelIndex + matchedLabel.length;
-  const window = text.slice(from, from + 220);
-  const lowerWindow = window.toLowerCase();
-
-  let stopIndex = lowerWindow.length;
-  for (const stopLabel of stopLabels) {
-    const idx = lowerWindow.indexOf(stopLabel.toLowerCase());
-    if (idx >= 0 && idx < stopIndex) {
-      stopIndex = idx;
-    }
-  }
-
-  const raw = window.slice(0, stopIndex).replace(/^\s*:?\s*/, "");
-  return cleanText(raw);
+const extractEcologyCardTableHtml = (rawHtml: string): string | null => {
+  const cardPattern = /<div[^>]*class="card__title"[^>]*>[\s\S]*?(?:🐝\s*)?(?:&Ouml;|Ö)kologie[\s\S]*?<\/div>[\s\S]*?<table\b[\s\S]*?<\/table>/i;
+  const cardMatch = rawHtml.match(cardPattern);
+  if (!cardMatch) return null;
+  return cardMatch[0];
 };
 
-const extractEcologyBlockText = (text: string): string => {
-  const lowerText = text.toLowerCase();
+const extractTableRows = (tableHtml: string): Array<{ label: string; value: string }> => {
+  const rows: Array<{ label: string; value: string }> = [];
+  const rowPattern = /<tr[^>]*>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<\/tr>/gi;
 
-  const startCandidates = ["🐝 ökologie", "ökologie"];
-  let start = -1;
-  for (const marker of startCandidates) {
-    const idx = lowerText.indexOf(marker);
-    if (idx >= 0 && (start === -1 || idx < start)) {
-      start = idx;
+  for (const match of tableHtml.matchAll(rowPattern)) {
+    const label = cleanText(match[1]);
+    const value = cleanText(match[2]);
+    if (label && value) {
+      rows.push({ label, value });
     }
   }
 
-  if (start < 0) return text;
+  return rows;
+};
 
-  const endCandidates = [
-    "was sagen mir die daten",
-    "ℹ️ sonstiges",
-    "sonstiges",
-    "klassifizierung",
-    "wert für insekten und vögel",
-    "häufige fragen",
-    "wissenswertes",
-  ];
+const extractNumericValue = (value: string | null): number | null => {
+  if (!value) return null;
+  const match = value.match(/\b(\d+)\b/);
+  if (!match) return null;
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) ? parsed : null;
+};
 
-  let end = lowerText.length;
-  for (const marker of endCandidates) {
-    const idx = lowerText.indexOf(marker, start + 1);
-    if (idx >= 0 && idx < end) {
-      end = idx;
-    }
-  }
-
-  const block = text.slice(start, end).trim();
-  return block || text;
+const extractTableField = (rows: Array<{ label: string; value: string }>, labels: string[]): string | null => {
+  const normalizedLabels = labels.map((label) => label.toLowerCase());
+  const row = rows.find((entry) => normalizedLabels.includes(entry.label.toLowerCase().replace(/:$/, "")));
+  return row?.value ?? null;
 };
 
 const extractNaturaDbEcology = (rawHtml: string, naturadbUrl: string): NaturaDbEcology => {
   const withoutScripts = rawHtml
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ");
-  const text = withoutScripts
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  const ecologyText = extractEcologyBlockText(text);
+  const ecologyCardHtml = extractEcologyCardTableHtml(withoutScripts);
+  const tableRows = ecologyCardHtml ? extractTableRows(ecologyCardHtml) : [];
 
-  const stopLabels = [
-    "wildbienen",
-    "schmetterlinge",
-    "raupen",
-    "schwebfliegen",
-    "käfer",
-    "gefahrdung",
-    "gefährdung",
-    "bestandssituation",
-    "nektarwert",
-    "pollenwert",
-    "was sagen mir die daten",
-    "einheimische verbreitung",
-  ];
-
-  const wildBeesRaw = extractLabelValue(ecologyText, ["Wildbienen"], stopLabels);
-  const butterfliesRaw = extractLabelValue(ecologyText, ["Schmetterlinge"], stopLabels);
-  const caterpillarsRaw = extractLabelValue(ecologyText, ["Raupen"], stopLabels);
-  const hoverfliesRaw = extractLabelValue(ecologyText, ["Schwebfliegen", "Schwebfliegen"], stopLabels);
-  const beetlesRaw = extractLabelValue(ecologyText, ["Käfer", "Kafer"], stopLabels);
-  const threatRaw = extractLabelValue(ecologyText, ["Gefährdung (Rote Liste)", "Gefahrdung (Rote Liste)"], stopLabels);
-  const populationRaw = extractLabelValue(ecologyText, ["Bestandssituation (Rote Liste)"], stopLabels);
-  const nectarRaw = extractLabelValue(ecologyText, ["Nektarwert"], stopLabels);
-  const pollenRaw = extractLabelValue(ecologyText, ["Pollenwert"], stopLabels);
+  const wildBeesRaw = extractTableField(tableRows, ["Wildbienen"]);
+  const butterfliesRaw = extractTableField(tableRows, ["Schmetterlinge"]);
+  const caterpillarsRaw = extractTableField(tableRows, ["Raupen"]);
+  const hoverfliesRaw = extractTableField(tableRows, ["Schwebfliegen"]);
+  const beetlesRaw = extractTableField(tableRows, ["Käfer", "Kafer"]);
+  const threatRaw = extractTableField(tableRows, ["Gefährdung (Rote Liste)", "Gefahrdung (Rote Liste)"]);
+  const populationRaw = extractTableField(tableRows, ["Bestandssituation (Rote Liste)"]);
+  const nectarRaw = extractTableField(tableRows, ["Nektarwert"]);
+  const pollenRaw = extractTableField(tableRows, ["Pollenwert"]);
 
   return {
-    wild_bees_count: extractCount(wildBeesRaw),
-    butterflies_count: extractCount(butterfliesRaw),
-    caterpillars_count: extractCount(caterpillarsRaw),
-    hoverflies_count: extractCount(hoverfliesRaw),
-    beetles_count: extractCount(beetlesRaw),
+    wild_bees_count: extractNumericValue(wildBeesRaw),
+    butterflies_count: extractNumericValue(butterfliesRaw),
+    caterpillars_count: extractNumericValue(caterpillarsRaw),
+    hoverflies_count: extractNumericValue(hoverfliesRaw),
+    beetles_count: extractNumericValue(beetlesRaw),
     red_list_threat: cleanText(threatRaw),
     red_list_population: cleanText(populationRaw),
     nectar_value: normalizeQuarterValue(nectarRaw),
