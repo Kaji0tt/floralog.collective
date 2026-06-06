@@ -4,6 +4,7 @@ import {
   onAuthChange, 
   getCurrentAuthUser, 
   getUserProfile, 
+  ensureUserProfileExists,
   signOut as supabaseSignOut 
 } from '@/api/authService';
 import { trackCurrentUserPresence } from '@/api/onlinePresenceService';
@@ -53,7 +54,10 @@ export const AuthProvider = ({ children }) => {
 
         // Load user profile
         try {
-          const userProfile = await getUserProfile(session.user.id);
+          let userProfile = await getUserProfile(session.user.id);
+          if (!userProfile) {
+            userProfile = await ensureUserProfileExists(session.user);
+          }
           setProfile(userProfile);
         } catch (error) {
           console.error('Error loading user profile:', error);

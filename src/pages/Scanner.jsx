@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Query } from "@/api/entities";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
-import { upsertUserProfile } from "@/api/authService";
+import { upsertUserProfile, ensureUserProfileExists } from "@/api/authService";
 import { uploadFile } from "@/api/storage";
 import { supabase } from "@/api/supabaseClient";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
@@ -144,6 +144,13 @@ export default function Scanner() {
   useEffect(() => {
     const loadUser = async () => {
       const currentUser = await getCurrentUser();
+      if (currentUser?.id) {
+        try {
+          await ensureUserProfileExists(currentUser);
+        } catch (error) {
+          console.warn("[Scanner] Konnte PublicProfile nicht sicherstellen:", error);
+        }
+      }
       setUser(currentUser);
     };
     loadUser();
@@ -849,6 +856,14 @@ export default function Scanner() {
   };
 
   const handleAutoSave = async (plant, imageUrl, aiData, allResults = [], options = {}) => {
+    if (user?.id) {
+      try {
+        await ensureUserProfileExists(user);
+      } catch (error) {
+        console.warn("[Scanner] PublicProfile-Fallback vor AutoSave fehlgeschlagen:", error);
+      }
+    }
+
     const snapshot = options?.scanLocationSnapshot;
     const hasSnapshot = Number.isFinite(snapshot?.lat) && Number.isFinite(snapshot?.lng);
     const discoveryLocation = hasSnapshot

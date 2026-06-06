@@ -196,6 +196,37 @@ export const upsertUserProfile = async (authId, profileData) => {
   }
 };
 
+const resolveAuthDisplayName = (authUser) => {
+  const metadata = authUser?.user_metadata || {};
+  const candidate =
+    metadata.display_name ||
+    metadata.full_name ||
+    metadata.name ||
+    authUser?.email?.split?.('@')?.[0] ||
+    null;
+  return typeof candidate === 'string' ? candidate.trim() || null : null;
+};
+
+/**
+ * Ensure that an authenticated user has a PublicProfile row.
+ * This is a client-side fallback in case trigger/backfill is missing in an environment.
+ */
+export const ensureUserProfileExists = async (authUser) => {
+  if (!authUser?.id) return null;
+
+  const existingProfile = await getUserProfile(authUser.id);
+  if (existingProfile) {
+    return existingProfile;
+  }
+
+  const fallbackName = resolveAuthDisplayName(authUser);
+  return upsertUserProfile(authUser.id, {
+    user_email: authUser.email || null,
+    display_name: fallbackName,
+    full_name: fallbackName
+  });
+};
+
 /**
  * Listen to auth changes
  */
