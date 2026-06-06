@@ -5,7 +5,7 @@ import { upsertUserProfile } from "@/api/authService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   LogOut, Mail, Heart, FileText,
-  Star, Image as ImageIcon, Edit2, CheckCircle, X,
+  Star, Image as ImageIcon, Edit2, CheckCircle, X, Trash2,
   ChevronDown, ChevronUp, Lock, Sun,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -740,6 +740,18 @@ export default function SettingsPanel({
           >
             <Heart className="w-4 h-4" />
             Spenden
+          </button>
+
+          <button
+            onClick={() => navigate(createPageUrl("AccountDeletion"))}
+            className={`w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-sm font-medium transition-colors mb-1 ${
+              uiTheme === 'light'
+                ? 'border-red-500/50 bg-red-100/50 text-red-900 hover:bg-red-100/70'
+                : 'border-red-400/40 bg-red-900/25 text-red-200 hover:bg-red-900/40'
+            }`}
+          >
+            <Trash2 className="w-4 h-4" />
+            Konto dauerhaft loeschen
           </button>
 
           <button

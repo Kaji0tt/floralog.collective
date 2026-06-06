@@ -48,6 +48,7 @@
  * The mainPage value must match a key in the PAGES object exactly.
  */
 import Achievements from './pages/Achievements';
+import AccountDeletion from './pages/AccountDeletion';
 import AdminBackup from './pages/AdminBackup';
 import AdminBlumenList from './pages/AdminBlumenList';
 import AdminCategoryFix from './pages/AdminCategoryFix';
@@ -89,6 +90,7 @@ import __Layout from './Layout.jsx';
 
 export const PAGES = {
     "Achievements": Achievements,
+    "AccountDeletion": AccountDeletion,
     "AdminBackup": AdminBackup,
     "AdminBlumenList": AdminBlumenList,
     "AdminCategoryFix": AdminCategoryFix,

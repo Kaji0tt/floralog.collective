@@ -183,6 +183,9 @@ export default function Datenschutz() {
             <p className="text-stone-700 leading-relaxed mt-4">
               Sofern die Verarbeitung auf einer Einwilligung beruht, kann diese jederzeit mit Wirkung für die Zukunft widerrufen werden.
             </p>
+            <p className="text-stone-700 leading-relaxed">
+              Anleitung zur Kontoloeschung: <a href="/AccountDeletion" className="text-blue-700 underline">/AccountDeletion</a>
+            </p>
           </CardContent>
         </Card>
 

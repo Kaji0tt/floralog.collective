@@ -88,3 +88,8 @@ entrypoint = "./functions/purchaseAccessory/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/sendFeedbackEmail/index.ts"
+
+[functions.deleteAccount]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/deleteAccount/index.ts"
