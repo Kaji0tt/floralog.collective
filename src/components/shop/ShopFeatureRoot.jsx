@@ -6,6 +6,7 @@ import { Query } from "@/api/entities";
 import { supabase } from "@/api/supabaseClient";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { getUserWallet } from "@/api/walletService";
+import { listUserRewardsWithLegacyFallback } from "@/api/userRewardService";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
@@ -648,8 +649,11 @@ export default function ShopFeatureRoot({
   });
 
   const { data: userRewards = [], isPending: isUserRewardsPending, refetch: refetchUserRewards } = useQuery({
-    queryKey: ["userRewards", resolvedAuthId],
-    queryFn: () => Query.UserReward.filter({ auth_id: resolvedAuthId }),
+    queryKey: ["userRewards", resolvedAuthId, resolvedUserEmail],
+    queryFn: () => listUserRewardsWithLegacyFallback({
+      authId: resolvedAuthId,
+      userEmail: resolvedUserEmail,
+    }),
     enabled: !!resolvedAuthId,
     staleTime: Infinity,
     refetchOnWindowFocus: true,

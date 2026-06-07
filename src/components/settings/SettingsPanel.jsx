@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Query } from "@/api/entities";
 import { updateCurrentUserProfile, getCurrentUser } from "@/api/userApi";
 import { upsertUserProfile } from "@/api/authService";
+import { listUserRewardsWithLegacyFallback } from "@/api/userRewardService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   LogOut, Mail, Heart, FileText,
@@ -87,8 +88,11 @@ export default function SettingsPanel({
   });
 
   const { data: userRewards = [] } = useQuery({
-    queryKey: ["userRewards", user?.id],
-    queryFn: () => Query.UserReward.filter({ auth_id: user?.id }),
+    queryKey: ["userRewards", user?.id, user?.user_email || user?.email || null],
+    queryFn: () => listUserRewardsWithLegacyFallback({
+      authId: user?.id,
+      userEmail: user?.user_email || user?.email,
+    }),
     enabled: !!user?.id,
     staleTime: Infinity,
   });
