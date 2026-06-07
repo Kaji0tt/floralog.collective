@@ -14,6 +14,11 @@ import { persistLastSignedInUserSnapshot } from '@/lib/lastSignedInUserStorage';
 const getTodayKey = () => new Date().toISOString().slice(0, 10);
 const getZoneGenerationStorageKey = (authId) => `robotPlantZoneDay:${authId}`;
 
+const dispatchUserUpdatedEvent = (detail) => {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('userUpdated', { detail }));
+};
+
 
 const AuthContext = createContext(null);
 
@@ -28,11 +33,78 @@ export const AuthProvider = ({ children }) => {
   const [zoneGenerationDay, setZoneGenerationDay] = useState(null);
 
   useEffect(() => {
-    // Fallback timeout: if auth doesn't respond in 3 seconds, stop loading
+    let isMounted = true;
+
+    const clearAuthState = () => {
+      if (!isMounted) return;
+      setUser(null);
+      setProfile(null);
+      setIsAuthenticated(false);
+      setZoneGenerationDay(null);
+      dispatchUserUpdatedEvent(null);
+    };
+
+    const hydrateAuthenticatedState = async (sessionUser) => {
+      if (!sessionUser || !isMounted) return;
+
+      setUser(sessionUser);
+      setIsAuthenticated(true);
+      const storedZoneDay = localStorage.getItem(getZoneGenerationStorageKey(sessionUser.id));
+      setZoneGenerationDay(storedZoneDay || null);
+
+      try {
+        let userProfile = await getUserProfile(sessionUser.id);
+        if (!userProfile) {
+          userProfile = await ensureUserProfileExists(sessionUser);
+        }
+
+        if (!isMounted) return;
+
+        setProfile(userProfile);
+
+        const logoAssetsCatalog = await Query.LogoAsset.list();
+        persistLastSignedInUserSnapshot({
+          authUser: sessionUser,
+          profile: userProfile,
+          logoAssetsCatalog,
+        });
+
+        dispatchUserUpdatedEvent({
+          ...sessionUser,
+          ...(userProfile || {}),
+          id: sessionUser.id,
+          auth_id: sessionUser.id,
+        });
+      } catch (error) {
+        console.error('Error loading user profile:', error);
+      }
+    };
+
+    const bootstrapCurrentSession = async () => {
+      try {
+        const currentAuthUser = await getCurrentAuthUser();
+        if (currentAuthUser) {
+          await hydrateAuthenticatedState(currentAuthUser);
+        } else {
+          clearAuthState();
+        }
+      } catch (error) {
+        console.error('[AuthContext] Session bootstrap failed:', error);
+      } finally {
+        if (isMounted) {
+          setIsLoadingAuth(false);
+        }
+      }
+    };
+
+    // Fallback timeout: if auth doesn't respond in 3 seconds, bootstrap via getCurrentAuthUser.
     const timeoutId = setTimeout(() => {
-      console.log('[AuthContext] Auth timeout - stopping loading state');
-      setIsLoadingAuth(false);
+      console.log('[AuthContext] Auth timeout - running session bootstrap');
+      bootstrapCurrentSession();
     }, 3000);
+
+    // Bootstrap once on mount to avoid relying solely on auth events.
+    bootstrapCurrentSession();
 
     // Listen to auth state changes
     const { data: { subscription } } = onAuthChange(async (event, session) => {
@@ -48,42 +120,19 @@ export const AuthProvider = ({ children }) => {
       }
       
       if (session?.user) {
-        // User signed in
-        setUser(session.user);
-        setIsAuthenticated(true);
-        const storedZoneDay = localStorage.getItem(getZoneGenerationStorageKey(session.user.id));
-        setZoneGenerationDay(storedZoneDay || null);
-
-        // Load user profile
-        try {
-          let userProfile = await getUserProfile(session.user.id);
-          if (!userProfile) {
-            userProfile = await ensureUserProfileExists(session.user);
-          }
-          setProfile(userProfile);
-
-          const logoAssetsCatalog = await Query.LogoAsset.list();
-          persistLastSignedInUserSnapshot({
-            authUser: session.user,
-            profile: userProfile,
-            logoAssetsCatalog,
-          });
-        } catch (error) {
-          console.error('Error loading user profile:', error);
-        }
+        await hydrateAuthenticatedState(session.user);
       } else {
-        // User signed out
-        setUser(null);
-        setProfile(null);
-        setIsAuthenticated(false);
-        setZoneGenerationDay(null);
+        clearAuthState();
       }
 
-      setIsLoadingAuth(false);
+      if (isMounted) {
+        setIsLoadingAuth(false);
+      }
     });
 
     // Cleanup subscription on unmount
     return () => {
+      isMounted = false;
       clearTimeout(timeoutId);
       subscription?.unsubscribe();
     };

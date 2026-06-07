@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { getCurrentUser } from "@/api/userApi";
+import { onAuthChange } from "@/api/authService";
 import { encodeReferralCode } from "@/lib/referralCode";
 import NotificationManager from "./components/notifications/NotificationManager";
 import ToastNotificationManager from "./components/notifications/ToastNotificationManager";
@@ -39,6 +40,14 @@ export default function Layout({ children, currentPageName }) {
 
   useEffect(() => {
     loadUser();
+
+    const { data: { subscription } } = onAuthChange(async (_event, session) => {
+      if (session?.user) {
+        await loadUser();
+      } else {
+        setUser(null);
+      }
+    });
     
     // Referral-Code aus URL extrahieren und speichern
     const urlParams = new URLSearchParams(window.location.search);
@@ -64,6 +73,10 @@ export default function Layout({ children, currentPageName }) {
     } else {
       console.log('[Referral] Kein referral_code in URL gefunden');
     }
+
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
 
   return (
