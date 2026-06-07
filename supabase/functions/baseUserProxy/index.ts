@@ -27,6 +27,12 @@ const pickBaseUserFields = (row: Record<string, unknown> | null) => {
   }
 }
 
+const resolveDisplayNameFallback = (displayName: string | null | undefined, email: string) => {
+  const trimmed = displayName?.trim?.()
+  if (trimmed) return trimmed
+  return email.split("@")[0] || "Spieler"
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders })
@@ -207,6 +213,165 @@ Deno.serve(async (req) => {
       }
 
       return new Response(JSON.stringify({ data: pickBaseUserFields(data) }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      })
+    }
+
+    if (action === "syncEmail") {
+      const authId = body?.authId || null
+      const oldEmail = normalizeEmail(body?.oldEmail)
+      const newEmail = normalizeEmail(body?.newEmail)
+      const displayName = body?.displayName?.trim?.() || null
+
+      if (!newEmail || (!authId && !oldEmail)) {
+        return new Response(JSON.stringify({ error: "authId (oder oldEmail) und newEmail sind erforderlich." }), {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        })
+      }
+
+      const now = new Date().toISOString()
+
+      const { data: alreadyByNewEmail, error: byNewEmailError } = await supabaseAdmin
+        .from("baseUser")
+        .select("id,email,display_name,auth_id,created_date,updated_date")
+        .eq("email", newEmail)
+        .maybeSingle()
+
+      if (byNewEmailError) {
+        return new Response(JSON.stringify({ error: byNewEmailError.message }), {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        })
+      }
+
+      if (alreadyByNewEmail) {
+        const patch: Record<string, unknown> = {}
+        if (authId && !alreadyByNewEmail.auth_id) {
+          patch.auth_id = authId
+        }
+        if (!alreadyByNewEmail.display_name && displayName) {
+          patch.display_name = displayName
+        }
+
+        if (Object.keys(patch).length > 0) {
+          patch.updated_date = now
+          const { data: patched, error: patchError } = await supabaseAdmin
+            .from("baseUser")
+            .update(patch)
+            .eq("id", alreadyByNewEmail.id)
+            .select("id,email,display_name,auth_id,created_date,updated_date")
+            .single()
+
+          if (patchError) {
+            return new Response(JSON.stringify({ error: patchError.message }), {
+              status: 500,
+              headers: { "Content-Type": "application/json", ...corsHeaders },
+            })
+          }
+
+          return new Response(JSON.stringify({ data: pickBaseUserFields(patched) }), {
+            status: 200,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          })
+        }
+
+        return new Response(JSON.stringify({ data: pickBaseUserFields(alreadyByNewEmail) }), {
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        })
+      }
+
+      let existingByIdentity: Record<string, unknown> | null = null
+
+      if (authId) {
+        const { data: byAuthId, error: byAuthIdError } = await supabaseAdmin
+          .from("baseUser")
+          .select("id,email,display_name,auth_id,created_date,updated_date")
+          .eq("auth_id", authId)
+          .maybeSingle()
+
+        if (byAuthIdError) {
+          return new Response(JSON.stringify({ error: byAuthIdError.message }), {
+            status: 500,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          })
+        }
+        existingByIdentity = byAuthId
+      }
+
+      if (!existingByIdentity && oldEmail) {
+        const { data: byOldEmail, error: byOldEmailError } = await supabaseAdmin
+          .from("baseUser")
+          .select("id,email,display_name,auth_id,created_date,updated_date")
+          .eq("email", oldEmail)
+          .maybeSingle()
+
+        if (byOldEmailError) {
+          return new Response(JSON.stringify({ error: byOldEmailError.message }), {
+            status: 500,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          })
+        }
+        existingByIdentity = byOldEmail
+      }
+
+      if (existingByIdentity) {
+        const updatePayload: Record<string, unknown> = {
+          email: newEmail,
+          updated_date: now,
+        }
+        if (authId && !existingByIdentity.auth_id) {
+          updatePayload.auth_id = authId
+        }
+        if (!existingByIdentity.display_name && displayName) {
+          updatePayload.display_name = displayName
+        }
+
+        const { data: updated, error: updateError } = await supabaseAdmin
+          .from("baseUser")
+          .update(updatePayload)
+          .eq("id", existingByIdentity.id)
+          .select("id,email,display_name,auth_id,created_date,updated_date")
+          .single()
+
+        if (updateError) {
+          return new Response(JSON.stringify({ error: updateError.message }), {
+            status: 500,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          })
+        }
+
+        return new Response(JSON.stringify({ data: pickBaseUserFields(updated) }), {
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        })
+      }
+
+      const insertPayload = {
+        id: generateLegacyId(),
+        email: newEmail,
+        display_name: resolveDisplayNameFallback(displayName, newEmail),
+        auth_id: authId,
+        created_date: now,
+        updated_date: now,
+      }
+
+      const { data: inserted, error: insertError } = await supabaseAdmin
+        .from("baseUser")
+        .insert(insertPayload)
+        .select("id,email,display_name,auth_id,created_date,updated_date")
+        .single()
+
+      if (insertError) {
+        return new Response(JSON.stringify({ error: insertError.message }), {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        })
+      }
+
+      return new Response(JSON.stringify({ data: pickBaseUserFields(inserted) }), {
         status: 200,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       })

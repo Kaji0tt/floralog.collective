@@ -1,6 +1,8 @@
 // Supabase Auth Service
 import { supabase } from './supabaseClient';
 
+const baseUserProxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/baseUserProxy`;
+
 const getAuthRedirectBaseUrl = () => {
   return import.meta.env.VITE_APP_URL || window.location.origin;
 };
@@ -22,6 +24,70 @@ const normalizeAuthServiceError = (error) => {
   return new Error(
     'Auth-Service lieferte HTML statt JSON. Bitte pruefe VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY und moegliche Proxy/Rewrite-Regeln.'
   );
+};
+
+const normalizeEmail = (value) => value?.trim?.().toLowerCase() || null;
+
+const invokeBaseUserProxy = async (action, payload) => {
+  const response = await fetch(baseUserProxyUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      action,
+      ...payload
+    })
+  });
+
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(result?.error || `baseUserProxy request failed (${response.status})`);
+  }
+  if (result?.error) {
+    throw new Error(result.error);
+  }
+  return result?.data || null;
+};
+
+const syncEmailToProfileAndBaseUser = async ({ authId, oldEmail, newEmail, displayName }) => {
+  if (!authId || !newEmail) return;
+
+  const profileUpdatePromise = supabase
+    .from('PublicProfile')
+    .update({
+      user_email: newEmail,
+      updated_date: new Date().toISOString()
+    })
+    .eq('auth_id', authId);
+
+  const baseUserSyncPromise = invokeBaseUserProxy('syncEmail', {
+    authId,
+    oldEmail,
+    newEmail,
+    displayName
+  });
+
+  const [profileResult, baseUserResult] = await Promise.allSettled([
+    profileUpdatePromise,
+    baseUserSyncPromise
+  ]);
+
+  const failures = [];
+
+  if (profileResult.status === 'rejected') {
+    failures.push(`PublicProfile Sync fehlgeschlagen: ${profileResult.reason?.message || String(profileResult.reason)}`);
+  } else if (profileResult.value?.error) {
+    failures.push(`PublicProfile Sync fehlgeschlagen: ${profileResult.value.error.message}`);
+  }
+
+  if (baseUserResult.status === 'rejected') {
+    failures.push(`baseUser Sync fehlgeschlagen: ${baseUserResult.reason?.message || String(baseUserResult.reason)}`);
+  }
+
+  if (failures.length) {
+    throw new Error(failures.join(' | '));
+  }
 };
 
 const isMissingAuthSessionError = (error) => {
@@ -108,6 +174,52 @@ export const updateAuthUser = async (updates) => {
   });
   if (error) throw error;
   return data?.user || null;
+};
+
+/**
+ * Request auth email change (requires confirmation via email link)
+ */
+export const updateEmail = async (newEmail) => {
+  const trimmedEmail = normalizeEmail(newEmail);
+  if (!trimmedEmail) {
+    throw new Error('Bitte gib eine gueltige E-Mail-Adresse ein.');
+  }
+
+  const authUser = await getCurrentAuthUser();
+  if (!authUser?.id) {
+    throw new Error('Auth session missing');
+  }
+
+  const oldEmail = normalizeEmail(authUser.email);
+  const metadata = authUser.user_metadata || {};
+  const displayName =
+    metadata.display_name?.trim?.() ||
+    metadata.full_name?.trim?.() ||
+    metadata.name?.trim?.() ||
+    null;
+
+  try {
+    const { data, error } = await supabase.auth.updateUser(
+      {
+        email: trimmedEmail
+      },
+      {
+        emailRedirectTo: `${getAuthRedirectBaseUrl()}/confirm-email?email=${encodeURIComponent(trimmedEmail)}`
+      }
+    );
+    if (error) throw error;
+
+    await syncEmailToProfileAndBaseUser({
+      authId: authUser.id,
+      oldEmail,
+      newEmail: trimmedEmail,
+      displayName
+    });
+
+    return data?.user || null;
+  } catch (error) {
+    throw normalizeAuthServiceError(error);
+  }
 };
 
 /**

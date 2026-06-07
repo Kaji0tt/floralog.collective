@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Query } from "@/api/entities";
 import { updateCurrentUserProfile, getCurrentUser } from "@/api/userApi";
-import { upsertUserProfile } from "@/api/authService";
+import { upsertUserProfile, updateEmail } from "@/api/authService";
 import { listUserRewardsWithLegacyFallback } from "@/api/userRewardService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -48,6 +48,9 @@ export default function SettingsPanel({
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(user?.display_name || user?.full_name || "");
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [editedEmail, setEditedEmail] = useState(user?.email || "");
+  const [emailNotice, setEmailNotice] = useState(null);
   const [showBackgroundSelector, setShowBackgroundSelector] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState({
     colors: false,
@@ -60,6 +63,12 @@ export default function SettingsPanel({
       setEditedName(user?.display_name || user?.full_name || "");
     }
   }, [user?.display_name, user?.full_name, isEditingName]);
+
+  useEffect(() => {
+    if (!isEditingEmail) {
+      setEditedEmail(user?.email || "");
+    }
+  }, [user?.email, isEditingEmail]);
 
   const { data: userDiscoveries = [] } = useQuery({
     queryKey: ["userDiscoveries", user?.id],
@@ -135,6 +144,26 @@ export default function SettingsPanel({
     mutationFn: (theme) => upsertUserProfile(user?.id, { ui_theme: theme }),
   });
 
+  const updateEmailMutation = useMutation({
+    mutationFn: (nextEmail) => updateEmail(nextEmail),
+    onSuccess: async (_data, nextEmail) => {
+      setEmailNotice({
+        type: "success",
+        message: `Bitte bestaetige die Aenderung ueber den Link in ${nextEmail}.`,
+      });
+      setIsEditingEmail(false);
+      const freshUser = await getCurrentUser();
+      onUserUpdated?.(freshUser);
+      queryClient.invalidateQueries({ queryKey: ["user"] });
+    },
+    onError: (error) => {
+      setEmailNotice({
+        type: "error",
+        message: error?.message || "E-Mail konnte nicht aktualisiert werden.",
+      });
+    },
+  });
+
   const updatePublicProfile = async (userData) => {
     try {
       await upsertUserProfile(userData.id, {
@@ -199,6 +228,25 @@ export default function SettingsPanel({
       return;
     }
     await updateUserMutation.mutateAsync({ display_name: trimmed });
+  };
+
+  const handleSaveEmail = async () => {
+    const trimmed = editedEmail.trim().toLowerCase();
+    const currentEmail = (user?.email || "").trim().toLowerCase();
+
+    if (!trimmed || !/^\S+@\S+\.\S+$/.test(trimmed)) {
+      setEmailNotice({ type: "error", message: "Bitte gib eine gueltige E-Mail-Adresse ein." });
+      return;
+    }
+
+    if (trimmed === currentEmail) {
+      setIsEditingEmail(false);
+      setEmailNotice(null);
+      return;
+    }
+
+    setEmailNotice(null);
+    await updateEmailMutation.mutateAsync(trimmed);
   };
 
   const handleSetBackground = async (imageUrl, precomputedColor = null) => {
@@ -728,9 +776,78 @@ export default function SettingsPanel({
               : 'bg-white/5 border-[#f0e5a5]/10'
           }`}>
             <Mail className={`w-4 h-4 flex-shrink-0 ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-400'}`} />
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className={`text-[11px] ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-500'}`}>E-Mail</p>
-              <p className={`text-sm truncate ${uiTheme === 'light' ? 'text-stone-700' : 'text-stone-200'}`}>{user?.email}</p>
+              {isEditingEmail ? (
+                <div className="flex items-center gap-1.5 mt-1">
+                  <Input
+                    type="email"
+                    value={editedEmail}
+                    onChange={(e) => setEditedEmail(e.target.value)}
+                    className={`h-7 text-sm px-2 ${
+                      uiTheme === 'light'
+                        ? 'bg-stone-100/50 border-[#c8ac62]/30 text-stone-800 placeholder:text-stone-500'
+                        : 'bg-black/30 border-[#f0e5a5]/30 text-stone-100 placeholder:text-stone-400'
+                    }`}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSaveEmail();
+                      if (e.key === "Escape") {
+                        setIsEditingEmail(false);
+                        setEditedEmail(user?.email || "");
+                        setEmailNotice(null);
+                      }
+                    }}
+                    autoFocus
+                  />
+                  <button
+                    onClick={handleSaveEmail}
+                    disabled={updateEmailMutation.isPending}
+                    className="w-7 h-7 rounded-lg bg-green-600/70 flex items-center justify-center flex-shrink-0"
+                    aria-label="E-Mail speichern"
+                  >
+                    <CheckCircle className="w-3.5 h-3.5 text-white" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsEditingEmail(false);
+                      setEditedEmail(user?.email || "");
+                      setEmailNotice(null);
+                    }}
+                    className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0"
+                    aria-label="E-Mail-Bearbeitung abbrechen"
+                  >
+                    <X className="w-3.5 h-3.5 text-stone-300" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 min-w-0 mt-0.5">
+                  <p className={`text-sm truncate ${uiTheme === 'light' ? 'text-stone-700' : 'text-stone-200'}`}>
+                    {user?.email || "Keine E-Mail hinterlegt"}
+                  </p>
+                  <button
+                    onClick={() => {
+                      setEditedEmail(user?.email || "");
+                      setEmailNotice(null);
+                      setIsEditingEmail(true);
+                    }}
+                    className={`w-5 h-5 rounded flex items-center justify-center transition-colors flex-shrink-0 ${uiTheme === 'light' ? 'hover:bg-stone-200/30' : 'hover:bg-white/10'}`}
+                    aria-label="E-Mail bearbeiten"
+                  >
+                    <Edit2 className={`w-3 h-3 ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-400'}`} />
+                  </button>
+                </div>
+              )}
+              {emailNotice && (
+                <p
+                  className={`text-[11px] mt-1 leading-snug ${
+                    emailNotice.type === "error"
+                      ? 'text-red-400'
+                      : (uiTheme === 'light' ? 'text-green-700' : 'text-green-300')
+                  }`}
+                >
+                  {emailNotice.message}
+                </p>
+              )}
             </div>
           </div>
 
