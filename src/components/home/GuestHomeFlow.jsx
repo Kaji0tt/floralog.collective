@@ -911,19 +911,23 @@ export default function GuestHomeFlow() {
         >
           - Dein Naturbegleiter -
         </p>
-        {lastSignedInUserSnapshot?.logoAssets && (
-          <div className="mt-2 flex items-center gap-2 rounded-full border border-amber-100/25 bg-black/30 px-2.5 py-1 backdrop-blur-[2px]">
-            <CustomLogoAvatar
-              logoAssets={lastSignedInUserSnapshot.logoAssets}
-              className="h-8 w-8 border border-amber-100/40 bg-black/35"
-              innerClassName="scale-[1.2]"
-            />
-            <p className="text-[0.72rem] tracking-[0.03em] text-stone-100/90 max-w-[58vw] truncate">
-              {lastSignedInUserSnapshot.displayName || "Zuletzt angemeldet"}
-            </p>
-          </div>
-        )}
       </div>
+
+      {lastSignedInUserSnapshot?.logoAssets && (
+        <div
+          className="absolute inset-x-0 z-[24] flex items-center justify-center pointer-events-none px-6"
+          style={{
+            top: "clamp(8.9rem, 22vh, 13.8rem)",
+            bottom: "46%",
+          }}
+        >
+          <CustomLogoAvatar
+            logoAssets={lastSignedInUserSnapshot.logoAssets}
+            className="h-full w-full max-w-[78vw] max-h-full bg-transparent"
+            innerClassName="scale-[1.62]"
+          />
+        </div>
+      )}
 
       <div
         className="absolute inset-x-0 bottom-0 z-30 px-4"
