@@ -63,7 +63,49 @@ export async function checkAndUnlockAchievements(user) {
       friendsAcceptedForUser: friends.length
     });
 
-    const normalizeText = (value) => String(value || "").trim().toLowerCase();
+    const normalizeText = (value) =>
+      String(value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+        .toLowerCase();
+
+    const lineeAchievementAliases = [
+      "Carl von Linne",
+      "Carl von Linnee",
+      "Carl von Linee",
+      "Carl von Linée",
+      "Carl von Linné",
+      "Jahrhundertsammlung",
+    ];
+
+    const hasAllTokens = (text, tokens = []) => {
+      if (!text) return false;
+      return tokens.every((token) => text.includes(token));
+    };
+
+    const findRewardByTokenSets = (tokenSets = []) => {
+      if (!Array.isArray(tokenSets) || tokenSets.length === 0) return null;
+
+      const fieldsByPriority = ["name", "display_name", "value"];
+
+      for (const tokenSet of tokenSets) {
+        const normalizedTokens = (Array.isArray(tokenSet) ? tokenSet : [tokenSet])
+          .map((token) => normalizeText(token))
+          .filter(Boolean);
+
+        if (normalizedTokens.length === 0) continue;
+
+        for (const field of fieldsByPriority) {
+          const reward = rewards.find((entry) =>
+            hasAllTokens(normalizeText(entry?.[field]), normalizedTokens)
+          );
+          if (reward) return reward;
+        }
+      }
+
+      return null;
+    };
 
     const resolveRewardByCandidates = (candidates = []) => {
       const normalizedCandidates = (Array.isArray(candidates) ? candidates : [candidates])
@@ -85,9 +127,24 @@ export async function checkAndUnlockAchievements(user) {
 
     const resolveRewardForAchievement = (achievement) => {
       if (!achievement) return null;
-      return resolveRewardByCandidates([
+      const directMatch = resolveRewardByCandidates([
         achievement?.reward_name,
         achievement?.title_reward,
+      ]);
+
+      if (directMatch) return directMatch;
+
+      const isLineeAchievement = lineeAchievementAliases
+        .map((title) => normalizeText(title))
+        .includes(normalizeText(achievement?.title));
+
+      if (!isLineeAchievement) return null;
+
+      // Fallback for historic spelling/encoding variants of the Carl-von-Linne background reward.
+      return findRewardByTokenSets([
+        ["carl", "lin", "hintergrund"],
+        ["carl", "lin", "background"],
+        ["linee", "hintergrund"],
       ]);
     };
 
