@@ -109,8 +109,12 @@ export default function Donate() {
                 let detailedMessage = response.error.message || 'PayPal-Bestellung fehlgeschlagen.';
                 try {
                   const errorPayload = await response.error.context?.json?.();
-                  if (errorPayload?.error) {
-                    detailedMessage = errorPayload.error;
+                  const backendError = errorPayload?.error;
+                  const detailsError = errorPayload?.details?.error;
+                  const detailsDescription = errorPayload?.details?.error_description;
+                  const parts = [backendError, detailsError, detailsDescription].filter(Boolean);
+                  if (parts.length > 0) {
+                    detailedMessage = parts.join(': ');
                   }
                 } catch (_parseError) {
                   // Ignore response parse errors and keep fallback message.
@@ -157,8 +161,12 @@ export default function Donate() {
                 let detailedMessage = response.error.message || 'Zahlung fehlgeschlagen.';
                 try {
                   const errorPayload = await response.error.context?.json?.();
-                  if (errorPayload?.error) {
-                    detailedMessage = errorPayload.error;
+                  const backendError = errorPayload?.error;
+                  const detailsError = errorPayload?.details?.error;
+                  const detailsDescription = errorPayload?.details?.error_description;
+                  const parts = [backendError, detailsError, detailsDescription].filter(Boolean);
+                  if (parts.length > 0) {
+                    detailedMessage = parts.join(': ');
                   }
                 } catch (_parseError) {
                   // Ignore response parse errors and keep fallback message.
