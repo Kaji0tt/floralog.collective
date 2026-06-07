@@ -1,10 +1,13 @@
 ﻿import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Download, Mail, Lock, User, Loader2, AlertCircle, CheckCircle2, ChevronDown, FileText } from "lucide-react";
-import { signIn, signUp, updatePassword } from "@/api/authService";
+import { Camera, Download, Mail, Lock, User, Loader2, AlertCircle, CheckCircle2, ChevronDown, FileText, Instagram } from "lucide-react";
+import { signIn, signUp, updatePassword, getUserProfile } from "@/api/authService";
 import { supabase } from "@/api/supabaseClient";
 import { checkApkVersion } from "@/lib/apkVersionService";
+import { Query } from "@/api/entities";
+import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
+import { readLastSignedInUserSnapshot, persistLastSignedInUserSnapshot } from "@/lib/lastSignedInUserStorage";
 
 const GUEST_BG_IMAGE_URL = new URL("../../../guestfunnel-bg.png", import.meta.url).href;
 const GUEST_MG_IMAGE_URL = new URL("../../../guestfunnel-mg.png", import.meta.url).href;
@@ -18,6 +21,31 @@ const TILT_MAX_HORIZONTAL_DEG = 22;
 const TILT_MAX_VERTICAL_DEG = 28;
 const TILT_OFFSET_MAX_X = 24;
 const TILT_OFFSET_MAX_Y = 20;
+const LAST_LOGIN_EMAIL_STORAGE_KEY = "floralog:lastLoginEmail";
+
+const readLastLoginEmail = () => {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.localStorage.getItem(LAST_LOGIN_EMAIL_STORAGE_KEY) || "";
+  } catch {
+    return "";
+  }
+};
+
+const persistLastLoginEmail = (value) => {
+  if (typeof window === "undefined") return;
+
+  try {
+    const normalizedEmail = String(value || "").trim();
+    if (normalizedEmail) {
+      window.localStorage.setItem(LAST_LOGIN_EMAIL_STORAGE_KEY, normalizedEmail);
+    } else {
+      window.localStorage.removeItem(LAST_LOGIN_EMAIL_STORAGE_KEY);
+    }
+  } catch {
+    // Ignore localStorage failures (private mode, quotas, etc.)
+  }
+};
 
 
 /**
@@ -269,6 +297,8 @@ export default function GuestHomeFlow() {
   const [registerLoading, setRegisterLoading] = useState(false);
   const [registerError, setRegisterError] = useState(/** @type {string | null} */ (null));
   const [registerSuccess, setRegisterSuccess] = useState(/** @type {string | null} */ (null));
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const [lastSignedInUserSnapshot, setLastSignedInUserSnapshot] = useState(() => readLastSignedInUserSnapshot());
   const [communityCardIndex, setCommunityCardIndex] = useState(0);
   const [communityStats, setCommunityStats] = useState(/** @type {{ active_researchers_this_month: number, total_species: number, total_scans: number } | null} */ (null));
   const communityCardTouchStartXRef = useRef(/** @type {number | null} */ (null));
@@ -309,6 +339,26 @@ export default function GuestHomeFlow() {
   }, [isNativeRuntime]);
 
   useEffect(() => {
+    if (typeof window === "undefined" || !window.visualViewport) {
+      return undefined;
+    }
+
+    const viewport = window.visualViewport;
+    const initialHeight = viewport.height;
+
+    const handleViewportResize = () => {
+      const keyboardLikelyOpen = initialHeight - viewport.height > 140;
+      setIsKeyboardOpen(keyboardLikelyOpen);
+    };
+
+    viewport.addEventListener("resize", handleViewportResize);
+
+    return () => {
+      viewport.removeEventListener("resize", handleViewportResize);
+    };
+  }, []);
+
+  useEffect(() => {
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
     const queryParams = new URLSearchParams(window.location.search);
     const hasRecoveryType = hashParams.get("type") === "recovery" || queryParams.get("type") === "recovery";
@@ -330,7 +380,7 @@ export default function GuestHomeFlow() {
   }, []);
 
   const [authForm, setAuthForm] = useState({
-    email: "",
+    email: readLastLoginEmail(),
     password: "",
     confirmPassword: "",
     username: "",
@@ -555,6 +605,11 @@ export default function GuestHomeFlow() {
   /** @param {React.ChangeEvent<HTMLInputElement>} event */
   const handleAuthChange = (event) => {
     const { name, value } = event.target;
+
+    if (name === "email") {
+      persistLastLoginEmail(value);
+    }
+
     setAuthForm((prev) => ({
       ...prev,
       [name]: value,
@@ -573,6 +628,24 @@ export default function GuestHomeFlow() {
       const signInResult = await signIn(authForm.email, authForm.password);
       if (!signInResult?.session) {
         throw new Error("Anmeldung fehlgeschlagen. Bitte pruefe deine Zugangsdaten.");
+      }
+
+      const authUser = signInResult.session.user;
+      if (authUser?.id) {
+        const [profile, logoAssetsCatalog] = await Promise.all([
+          getUserProfile(authUser.id),
+          Query.LogoAsset.list(),
+        ]);
+
+        const snapshot = persistLastSignedInUserSnapshot({
+          authUser,
+          profile,
+          logoAssetsCatalog,
+        });
+
+        if (snapshot) {
+          setLastSignedInUserSnapshot(snapshot);
+        }
       }
 
       window.location.assign("/");
@@ -838,6 +911,18 @@ export default function GuestHomeFlow() {
         >
           - Dein Naturbegleiter -
         </p>
+        {lastSignedInUserSnapshot?.logoAssets && (
+          <div className="mt-2 flex items-center gap-2 rounded-full border border-amber-100/25 bg-black/30 px-2.5 py-1 backdrop-blur-[2px]">
+            <CustomLogoAvatar
+              logoAssets={lastSignedInUserSnapshot.logoAssets}
+              className="h-8 w-8 border border-amber-100/40 bg-black/35"
+              innerClassName="scale-[1.2]"
+            />
+            <p className="text-[0.72rem] tracking-[0.03em] text-stone-100/90 max-w-[58vw] truncate">
+              {lastSignedInUserSnapshot.displayName || "Zuletzt angemeldet"}
+            </p>
+          </div>
+        )}
       </div>
 
       <div
@@ -864,7 +949,7 @@ export default function GuestHomeFlow() {
               <form
                 onSubmit={handleInlineLoginSubmit}
                 className="w-[70vw] max-w-[380px] space-y-2"
-                style={{ paddingBottom: "clamp(3.5rem, 9vw, 5rem)" }}
+                style={{ paddingBottom: isKeyboardOpen ? "0.75rem" : "clamp(3.5rem, 9vw, 5rem)" }}
               >
                 {loginError && (
                   <div className="rounded-xl border border-red-300/35 bg-red-900/30 px-3 py-1.5 text-xs text-red-100 flex items-start gap-2 mb-1">
@@ -913,6 +998,16 @@ export default function GuestHomeFlow() {
                   {loginLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
                   Anmelden
                 </motion.button>
+
+                <a
+                  href="https://instagram.com/floralog.collective"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-pink-300/25 bg-black/40 px-3 py-1.5 text-xs font-medium text-pink-100/85 hover:bg-black/55 hover:text-pink-50 transition-colors backdrop-blur-sm"
+                >
+                  <Instagram className="w-3.5 h-3.5" />
+                  @floralog.collective
+                </a>
 
                 <div className="flex items-center justify-center gap-2 pt-1">
                   <button
@@ -1339,7 +1434,7 @@ export default function GuestHomeFlow() {
       )}
 
       <AnimatePresence>
-        {activeSnapIndex < SNAP_SECTION_COUNT - 1 && (
+        {activeSnapIndex < SNAP_SECTION_COUNT - 1 && !isKeyboardOpen && (
           <motion.div
             className="fixed left-1/2 bottom-[3.2rem] z-[120] -translate-x-1/2 text-stone-100/80 select-none pointer-events-none"
             aria-hidden="true"
@@ -1357,7 +1452,7 @@ export default function GuestHomeFlow() {
       </AnimatePresence>
 
       <div
-        className="fixed bottom-0 inset-x-0 z-[130] flex flex-col items-center justify-center py-4"
+        className={`fixed bottom-0 inset-x-0 z-[130] flex flex-col items-center justify-center py-4 transition-all duration-200 ${isKeyboardOpen ? "opacity-0 pointer-events-none translate-y-4" : "opacity-100"}`}
       >
         {/* APK update banner – shown when a newer APK is available (soft, non-forced) */}
         {apkUpdateManifest && !apkBannerDismissed && (

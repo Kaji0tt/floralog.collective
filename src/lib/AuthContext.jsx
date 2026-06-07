@@ -7,7 +7,9 @@ import {
   ensureUserProfileExists,
   signOut as supabaseSignOut 
 } from '@/api/authService';
+import { Query } from '@/api/entities';
 import { trackCurrentUserPresence } from '@/api/onlinePresenceService';
+import { persistLastSignedInUserSnapshot } from '@/lib/lastSignedInUserStorage';
 
 const getTodayKey = () => new Date().toISOString().slice(0, 10);
 const getZoneGenerationStorageKey = (authId) => `robotPlantZoneDay:${authId}`;
@@ -59,6 +61,13 @@ export const AuthProvider = ({ children }) => {
             userProfile = await ensureUserProfileExists(session.user);
           }
           setProfile(userProfile);
+
+          const logoAssetsCatalog = await Query.LogoAsset.list();
+          persistLastSignedInUserSnapshot({
+            authUser: session.user,
+            profile: userProfile,
+            logoAssetsCatalog,
+          });
         } catch (error) {
           console.error('Error loading user profile:', error);
         }
