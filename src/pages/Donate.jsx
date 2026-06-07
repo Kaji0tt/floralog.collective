@@ -20,6 +20,7 @@ export default function Donate() {
   const [customAmount, setCustomAmount] = useState("5");
   const paypalButtonsRendered = useRef(false);
   const { toast } = useToast();
+  const paypalClientId = (import.meta.env.VITE_PAYPAL_CLIENT_ID || "").trim();
   const query = new URLSearchParams(location.search);
   const isFromGuestFunnel = query.get("from") === "guest-funnel";
 
@@ -45,14 +46,19 @@ export default function Donate() {
 
   useEffect(() => {
     // PayPal SDK laden
+    if (!paypalClientId) {
+      console.error("VITE_PAYPAL_CLIENT_ID is missing.");
+      return;
+    }
+
     if (!document.getElementById('paypal-sdk')) {
       const script = document.createElement('script');
       script.id = 'paypal-sdk';
-      script.src = `https://www.paypal.com/sdk/js?client-id=ASv5xp3towIV_O7GNG5l9RE3iHqDT6mo6c-VKJO7aSQhtKvZVtN672jzTjzqOeOFKw-gIFWTbAsZhhy4&currency=EUR`;
+      script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&currency=EUR`;
       script.async = true;
       document.body.appendChild(script);
     }
-  }, []);
+  }, [paypalClientId]);
 
   const donationOptions = [
     {
