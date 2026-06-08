@@ -282,55 +282,86 @@ export function useAchievementsFeatureContent({
   const { data: achievements = [] } = useQuery({
     queryKey: ['achievements'],
     queryFn: () => Query.Achievement.list('achievement_number'),
-    staleTime: 10 * 60 * 1000, // 10 Minuten - statische Daten
+    staleTime: 60 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const { data: userAchievements = [] } = useQuery({
     queryKey: ['userAchievements', user?.id],
     queryFn: () => Query.UserAchievement.filter({ auth_id: user?.id }),
-    enabled: !!user?.id
+    enabled: !!user?.id,
+    staleTime: 60 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const { data: quests = [] } = useQuery({
     queryKey: ['quests'],
     queryFn: () => Query.Quest.list('quest_number'),
-    staleTime: 10 * 60 * 1000, // 10 Minuten - statische Daten
+    staleTime: 60 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const { data: userQuests = [] } = useQuery({
     queryKey: ['userQuests', user?.id],
     queryFn: () => Query.UserQuest.filter({ auth_id: user?.id }),
-    enabled: !!user?.id
+    enabled: !!user?.id,
+    staleTime: 60 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const { data: weeklyQuests = [] } = useQuery({
     queryKey: ['weeklyQuests'],
     queryFn: () => Query.WeeklyQuest.list('quest_number'),
-    staleTime: 10 * 60 * 1000, // 10 Minuten
+    staleTime: 60 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const { data: userWeeklyQuests = [] } = useQuery({
     queryKey: ['userWeeklyQuests', user?.id],
     queryFn: () => Query.UserWeeklyQuest.filter({ auth_id: user?.id }),
-    enabled: !!user?.id
+    enabled: !!user?.id,
+    staleTime: 60 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const { data: monthlyQuests = [] } = useQuery({
     queryKey: ['monthlyQuests'],
     queryFn: () => Query.MonthlyQuest.list('quest_number'),
-    staleTime: 10 * 60 * 1000, // 10 Minuten
+    staleTime: 60 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const { data: userMonthlyQuests = [] } = useQuery({
     queryKey: ['userMonthlyQuests', user?.id],
     queryFn: () => Query.UserMonthlyQuest.filter({ auth_id: user?.id }),
-    enabled: !!user?.id
+    enabled: !!user?.id,
+    staleTime: 60 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const { data: rewards = [] } = useQuery({
     queryKey: ['rewards'],
     queryFn: () => Query.Reward.list(),
-    staleTime: 10 * 60 * 1000, // 10 Minuten - statische Daten
+    staleTime: 60 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const { data: plants = [] } = useQuery({
@@ -348,13 +379,21 @@ export function useAchievementsFeatureContent({
   const { data: userCollectionQuests = [] } = useQuery({
     queryKey: ['userCollectionQuests', user?.id],
     queryFn: () => Query.UserCollectionQuest.filter({ auth_id: user?.id }),
-    enabled: !!user?.id
+    enabled: !!user?.id,
+    staleTime: 60 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const { data: userDiscoveries = [] } = useQuery({
     queryKey: ['userDiscoveries', user?.id],
     queryFn: () => Query.UserPlantDiscovery.filter({ auth_id: user?.id }),
-    enabled: !!user?.id
+    enabled: !!user?.id,
+    staleTime: 60 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const { data: allDiscoveries = [] } = useQuery({
