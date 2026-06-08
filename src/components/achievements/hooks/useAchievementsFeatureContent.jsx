@@ -199,6 +199,7 @@ export function useAchievementsFeatureContent({
   const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
   const [showCompleted, setShowCompleted] = useState(true);
   const [showGlobalComparisons, setShowGlobalComparisons] = useState(true);
+  const [showPersonalStats, setShowPersonalStats] = useState(true);
   const [expandedHighestScanEntryKey, setExpandedHighestScanEntryKey] = useState(null);
 
   useEffect(() => {
@@ -1878,29 +1879,30 @@ export function useAchievementsFeatureContent({
           </TabsContent>
 
           <TabsContent value="stats" className={statsContentClass} style={embeddedContentMaskStyle}>
-            <div className="max-w-6xl mx-auto space-y-4" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
-              <Card className={`${statsCardBaseClass} ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
-                <CardHeader className="pb-3">
+            <div className="max-w-6xl mx-auto flex flex-col gap-4" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
+              <Card className={`${statsCardBaseClass} ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"} order-2`}>
+                <CardHeader className="pt-2 pb-3">
                   <button
                     type="button"
                     onClick={() => setShowGlobalComparisons((prev) => !prev)}
-                    className="w-full flex items-center justify-between gap-3 text-left"
+                    className="relative w-full flex items-center justify-center text-center"
                   >
-                    <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
-                      <Users className={`w-4 h-4 ${isLightUi ? "text-indigo-600" : "text-indigo-300"}`} />
+                    <CardTitle className={`text-base ${statsTitleClass}`}>
                       Globale Vergleiche
                     </CardTitle>
-                    {showGlobalComparisons ? (
-                      <ChevronUp className={`w-4 h-4 ${statsBodyClass}`} />
-                    ) : (
-                      <ChevronDown className={`w-4 h-4 ${statsBodyClass}`} />
-                    )}
+                    <span className="absolute right-0 top-1/2 -translate-y-1/2">
+                      {showGlobalComparisons ? (
+                        <ChevronUp className={`w-4 h-4 ${statsBodyClass}`} />
+                      ) : (
+                        <ChevronDown className={`w-4 h-4 ${statsBodyClass}`} />
+                      )}
+                    </span>
                   </button>
                 </CardHeader>
                 {showGlobalComparisons && (
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 gap-4">
-                <Card className={`${statsCardBaseClass} ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
+                  <CardContent className="p-[2px] space-y-[2px]">
+                    <div className="grid grid-cols-1 gap-[2px]">
+                <Card className="border-0 bg-transparent shadow-none">
                   <CardHeader className="pb-2">
                     <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
                       <Users className={`w-4 h-4 ${isLightUi ? "text-indigo-600" : "text-indigo-300"}`} />
@@ -1990,7 +1992,7 @@ export function useAchievementsFeatureContent({
                   </CardContent>
                 </Card>
 
-                <Card className={`${statsCardBaseClass} ${isLightUi ? "border-amber-200" : "border-amber-300/30"}`}>
+                <Card className="border-0 bg-transparent shadow-none">
                   <CardHeader className="pb-2">
                     <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
                       <span className={isLightUi ? "text-amber-600" : "text-amber-300"}>🌱</span>
@@ -2087,7 +2089,7 @@ export function useAchievementsFeatureContent({
                   </CardContent>
                 </Card>
 
-                <Card className={`${statsCardBaseClass} ${isLightUi ? "border-fuchsia-200" : "border-fuchsia-300/35"}`}>
+                <Card className="border-0 bg-transparent shadow-none">
                   <CardHeader className="pb-2">
                     <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
                       <Trophy className={`w-4 h-4 ${isLightUi ? "text-fuchsia-600" : "text-fuchsia-300"}`} />
@@ -2271,8 +2273,8 @@ export function useAchievementsFeatureContent({
                 </Card>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <Card className={`${statsCardBaseClass} ${isLightUi ? "border-blue-200" : "border-blue-300/35"}`}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-[2px]">
+                      <Card className="border-0 bg-transparent shadow-none">
                         <CardContent className="p-4">
                           <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>Global haeufigster Scan</p>
                           <p className={`text-sm font-bold mt-1 truncate ${statsTitleClass}`}>
@@ -2284,7 +2286,7 @@ export function useAchievementsFeatureContent({
                         </CardContent>
                       </Card>
 
-                      <Card className={`${statsCardBaseClass} ${isLightUi ? "border-purple-200" : "border-purple-300/35"}`}>
+                      <Card className="border-0 bg-transparent shadow-none">
                         <CardContent className="p-4">
                           <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>Top Genus global</p>
                           <p className={`text-sm font-bold mt-1 truncate ${statsTitleClass}`}>
@@ -2300,8 +2302,29 @@ export function useAchievementsFeatureContent({
                 )}
               </Card>
 
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
-                <Card className={`${statsCardBaseClass} ${isLightUi ? "border-emerald-200" : "border-emerald-300/35"}`}>
+              <Card className={`${statsCardBaseClass} ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"} order-1`}>
+                <CardHeader className="pt-2 pb-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowPersonalStats((prev) => !prev)}
+                    className="relative w-full flex items-center justify-center text-center"
+                  >
+                    <CardTitle className={`text-base ${statsTitleClass}`}>
+                      Persönliche Statistik
+                    </CardTitle>
+                    <span className="absolute right-0 top-1/2 -translate-y-1/2">
+                      {showPersonalStats ? (
+                        <ChevronUp className={`w-4 h-4 ${statsBodyClass}`} />
+                      ) : (
+                        <ChevronDown className={`w-4 h-4 ${statsBodyClass}`} />
+                      )}
+                    </span>
+                  </button>
+                </CardHeader>
+                {showPersonalStats && (
+                <CardContent className="p-[2px]">
+                  <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-[2px]">
+                <Card className="border-0 bg-transparent shadow-none">
                   <CardContent className="p-4">
                     <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>Scans insgesamt</p>
                     <p className={`text-2xl font-bold mt-1 ${isLightUi ? "text-emerald-700" : "text-emerald-300"}`}>{totalScans}</p>
@@ -2309,7 +2332,7 @@ export function useAchievementsFeatureContent({
                   </CardContent>
                 </Card>
 
-                <Card className={`${statsCardBaseClass} ${isLightUi ? "border-blue-200" : "border-blue-300/35"}`}>
+                <Card className="border-0 bg-transparent shadow-none">
                   <CardContent className="p-4">
                     <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>Haeufigster Scan</p>
                     <p className={`text-sm font-bold mt-1 truncate ${statsTitleClass}`}>{topSpeciesEntry?.[0] || "Noch keine Daten"}</p>
@@ -2317,7 +2340,7 @@ export function useAchievementsFeatureContent({
                   </CardContent>
                 </Card>
 
-                <Card className={`${statsCardBaseClass} ${isLightUi ? "border-purple-200" : "border-purple-300/35"}`}>
+                <Card className="border-0 bg-transparent shadow-none">
                   <CardContent className="p-4">
                     <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>Top-Genus</p>
                     <p className={`text-sm font-bold mt-1 truncate ${statsTitleClass}`}>{topGenusEntry?.[0] || "Noch keine Daten"}</p>
@@ -2325,7 +2348,7 @@ export function useAchievementsFeatureContent({
                   </CardContent>
                 </Card>
 
-                <Card className={`${statsCardBaseClass} ${isLightUi ? "border-amber-200" : "border-amber-300/35"}`}>
+                <Card className="border-0 bg-transparent shadow-none">
                   <CardContent className="p-4">
                     <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>Monats-Trend</p>
                     <p className={`text-2xl font-bold mt-1 ${statsTitleClass}`}>{currentMonthScans}</p>
@@ -2334,7 +2357,10 @@ export function useAchievementsFeatureContent({
                     </p>
                   </CardContent>
                 </Card>
-              </div>
+                  </div>
+                </CardContent>
+                )}
+              </Card>
             </div>
           </TabsContent>
 
