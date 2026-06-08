@@ -51,45 +51,52 @@ const resolveLegacyNameFallback = async (authUser) => {
  * Get current user from Supabase Auth + Profile
  */
 export const getCurrentUser = async () => {
+  let authUser = null;
   try {
-    const authUser = await getCurrentAuthUser();
-    if (!authUser) {
-      return null;
-    }
-    
-    // Enrich with profile data
-    const profile = await getUserProfile(authUser.id);
-
-    const profileDisplayName = normalizeName(profile?.display_name);
-    const profileFullName = normalizeName(profile?.full_name);
-    const metadataName = getMetadataName(authUser);
-
-    const hasName = Boolean(profileDisplayName || profileFullName || metadataName);
-
-    let legacyFallback = null;
-    if (!hasName) {
-      legacyFallback = await resolveLegacyNameFallback(authUser);
-    }
-
-    const legacyName = normalizeName(legacyFallback?.display_name);
-    const resolvedDisplayName = profileDisplayName || metadataName || legacyName;
-    const resolvedFullName = profileFullName || metadataName || legacyName;
-
-    return {
-      ...authUser,
-      ...legacyFallback,
-      ...profile,
-      // WICHTIG: immer Supabase-Auth-ID als eindeutige User-ID verwenden
-      // und nicht von baseUser/legacy überschreiben lassen
-      id: authUser.id,
-      auth_id: authUser.id,
-      display_name: resolvedDisplayName || null,
-      full_name: resolvedFullName || null
-    };
+    authUser = await getCurrentAuthUser();
   } catch (error) {
-    console.error('Error getting current user:', error);
+    console.error('Error getting current auth user:', error);
     return null;
   }
+
+  if (!authUser) {
+    return null;
+  }
+
+  let profile = null;
+  try {
+    // Enrich with profile data
+    profile = await getUserProfile(authUser.id);
+  } catch (error) {
+    console.error('Error loading user profile for current user:', error);
+  }
+
+  const profileDisplayName = normalizeName(profile?.display_name);
+  const profileFullName = normalizeName(profile?.full_name);
+  const metadataName = getMetadataName(authUser);
+
+  const hasName = Boolean(profileDisplayName || profileFullName || metadataName);
+
+  let legacyFallback = null;
+  if (!hasName) {
+    legacyFallback = await resolveLegacyNameFallback(authUser);
+  }
+
+  const legacyName = normalizeName(legacyFallback?.display_name);
+  const resolvedDisplayName = profileDisplayName || metadataName || legacyName;
+  const resolvedFullName = profileFullName || metadataName || legacyName;
+
+  return {
+    ...authUser,
+    ...legacyFallback,
+    ...(profile || {}),
+    // WICHTIG: immer Supabase-Auth-ID als eindeutige User-ID verwenden
+    // und nicht von baseUser/legacy überschreiben lassen
+    id: authUser.id,
+    auth_id: authUser.id,
+    display_name: resolvedDisplayName || null,
+    full_name: resolvedFullName || null
+  };
 };
 
 /**
