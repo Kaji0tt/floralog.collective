@@ -762,10 +762,12 @@ export default function ShopFeatureRoot({
         throw new Error("Dieses Accessoire ist nicht kaufbar.");
       }
 
-      const matchingReward = (Array.isArray(rewards) ? rewards : []).find((reward) => {
-        const rewardType = String(reward?.type || reward?.reward_type || reward?.kind || "").trim().toLowerCase();
-        return ACCESSORY_PURCHASABLE_REWARD_TYPES.has(rewardType) && accessoryValueMatches(reward?.value, option?.value);
-      });
+      const rewardsList = Array.isArray(rewards) ? rewards : [];
+      const matchingReward = rewardsList.find((reward) => reward?.id && reward.id === option?.rewardId)
+        || rewardsList.find((reward) => {
+          const rewardType = String(reward?.type || reward?.reward_type || reward?.kind || "").trim().toLowerCase();
+          return ACCESSORY_PURCHASABLE_REWARD_TYPES.has(rewardType) && accessoryValueMatches(reward?.value, option?.value);
+        });
 
       if (!matchingReward?.id) {
         return {

@@ -40,6 +40,27 @@ const isLikelyAccessoryReward = (reward) => {
   return name.startsWith("accessory_") || name.startsWith("logo_accessory_") || looksLikeAccessoryId(valueCandidate);
 };
 
+const normalizeAccessoryTarget = (value) => {
+  const candidate = extractAccessoryIdCandidate(value);
+  return normalizeRewardAccessoryValue(candidate);
+};
+
+const getRewardAccessoryIds = (reward) => {
+  if (!isLikelyAccessoryReward(reward)) return [];
+
+  const candidates = [reward?.value, reward?.name, reward?.display_name]
+    .map((entry) => normalizeAccessoryTarget(entry))
+    .filter((entry) => looksLikeAccessoryId(entry));
+
+  return Array.from(new Set(candidates));
+};
+
+const rewardMatchesAccessory = (reward, accessoryId) => {
+  const normalizedAccessory = normalizeAccessoryId(accessoryId);
+  if (!normalizedAccessory) return false;
+  return getRewardAccessoryIds(reward).includes(normalizedAccessory);
+};
+
 const normalizeRewardAccessoryValue = (value) => {
   const normalized = normalizeAccessoryId(value);
   if (!normalized) return "";
@@ -49,12 +70,6 @@ const normalizeRewardAccessoryValue = (value) => {
 
   // Backward-compatible shorthand support, e.g. "blush" -> "face_blush".
   return `face_${normalized}`;
-};
-
-const accessoryValueMatches = (rewardValue, accessoryId) => {
-  const normalizedReward = normalizeRewardAccessoryValue(rewardValue);
-  const normalizedAccessory = normalizeAccessoryId(accessoryId);
-  return Boolean(normalizedReward) && Boolean(normalizedAccessory) && normalizedReward === normalizedAccessory;
 };
 
 const COLOR_ROWS = [
@@ -327,21 +342,19 @@ const getRewardUnlockedAccessoryIds = ({ rewards = [], userRewards = [] } = {}) 
 
   for (const userReward of Array.isArray(userRewards) ? userRewards : []) {
     const reward = rewardsById.get(userReward?.reward_id);
-    if (!reward || !isLikelyAccessoryReward(reward)) continue;
+    if (!reward) continue;
 
-    const normalizedId = normalizeRewardAccessoryValue(extractAccessoryIdCandidate(reward?.value));
-    if (looksLikeAccessoryId(normalizedId)) {
-      unlockedAccessoryIds.add(normalizedId);
+    const rewardAccessoryIds = getRewardAccessoryIds(reward);
+    for (const rewardAccessoryId of rewardAccessoryIds) {
+      unlockedAccessoryIds.add(rewardAccessoryId);
     }
   }
 
   for (const reward of Array.isArray(rewards) ? rewards : []) {
     if (!unlockedRewardIds.has(reward?.id)) continue;
-    if (!isLikelyAccessoryReward(reward)) continue;
-
-    const normalizedId = normalizeRewardAccessoryValue(extractAccessoryIdCandidate(reward?.value));
-    if (looksLikeAccessoryId(normalizedId)) {
-      unlockedAccessoryIds.add(normalizedId);
+    const rewardAccessoryIds = getRewardAccessoryIds(reward);
+    for (const rewardAccessoryId of rewardAccessoryIds) {
+      unlockedAccessoryIds.add(rewardAccessoryId);
     }
   }
 
@@ -350,7 +363,7 @@ const getRewardUnlockedAccessoryIds = ({ rewards = [], userRewards = [] } = {}) 
 
 const getAccessoryUnlockCondition = (accessoryId, rewards = [], genera = [], plants = []) => {
   const rewardsForAccessory = (Array.isArray(rewards) ? rewards : [])
-    .filter((reward) => LOGO_ACCESSORY_REWARD_TYPES.has(normalizeAccessoryRewardType(reward)) && accessoryValueMatches(reward?.value, accessoryId));
+    .filter((reward) => rewardMatchesAccessory(reward, accessoryId));
 
   if (rewardsForAccessory.length === 0) return null;
 
@@ -403,8 +416,16 @@ const getAccessoryUnlockCondition = (accessoryId, rewards = [], genera = [], pla
 };
 
 const getAccessoryPurchaseMeta = (accessoryId, rewards = []) => {
-  const matchingReward = (Array.isArray(rewards) ? rewards : [])
-    .find((reward) => LOGO_ACCESSORY_REWARD_TYPES.has(normalizeAccessoryRewardType(reward)) && accessoryValueMatches(reward?.value, accessoryId));
+  const matchingRewards = (Array.isArray(rewards) ? rewards : [])
+    .filter((reward) => rewardMatchesAccessory(reward, accessoryId));
+
+  if (matchingRewards.length === 0) return null;
+
+  const pricedReward = matchingRewards.find((reward) =>
+    Math.max(0, Math.round(Number(reward?.spark_price || 0))) > 0 ||
+    Math.max(0, Math.round(Number(reward?.amber_price || 0))) > 0
+  );
+  const matchingReward = pricedReward || matchingRewards[0];
 
   const configuredSparkPrice = Number(matchingReward?.spark_price || 0);
   const sparkPriceFromReward = Number.isFinite(configuredSparkPrice) && configuredSparkPrice > 0
@@ -423,6 +444,7 @@ const getAccessoryPurchaseMeta = (accessoryId, rewards = []) => {
   if (finalSparkPrice <= 0 && !amberPrice) return null;
 
   return {
+    rewardId: matchingReward?.id || null,
     isPurchasable: true,
     sparkPrice: finalSparkPrice,
     amberPrice,
