@@ -11,14 +11,17 @@ type FriendServiceBody =
   | {
       action?: "sendRequest";
       recipientEmail?: string | null;
+      recipientAuthId?: string | null;
     }
   | {
       action?: "removeFriendship";
       friendEmail?: string | null;
+      friendAuthId?: string | null;
     }
   | {
       action?: "respondToRequest";
       requesterEmail?: string | null;
+      requesterAuthId?: string | null;
       responseAction?: "accept" | "reject" | null;
     }
   | {
@@ -43,6 +46,54 @@ function jsonResponse(payload: unknown, status = 200): Response {
     status,
     headers: { "Content-Type": "application/json", ...corsHeaders },
   });
+}
+
+function normalizeEmail(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed.toLowerCase() : null;
+}
+
+function normalizeAuthId(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed || null;
+}
+
+async function getPublicProfileByEmail(
+  adminClient: ReturnType<typeof createClient>,
+  email: string | null,
+): Promise<{ auth_id: string | null; user_email: string | null } | null> {
+  if (!email) return null;
+  const { data, error } = await adminClient
+    .from("PublicProfile")
+    .select("auth_id, user_email")
+    .ilike("user_email", email)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`PublicProfile lookup by email failed: ${error.message}`);
+  }
+
+  return (data || null) as { auth_id: string | null; user_email: string | null } | null;
+}
+
+async function getPublicProfileByAuthId(
+  adminClient: ReturnType<typeof createClient>,
+  authId: string | null,
+): Promise<{ auth_id: string | null; user_email: string | null } | null> {
+  if (!authId) return null;
+  const { data, error } = await adminClient
+    .from("PublicProfile")
+    .select("auth_id, user_email")
+    .eq("auth_id", authId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`PublicProfile lookup by auth_id failed: ${error.message}`);
+  }
+
+  return (data || null) as { auth_id: string | null; user_email: string | null } | null;
 }
 
 Deno.serve(async (req) => {
@@ -82,45 +133,88 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Unauthorized" }, 401);
     }
 
-    const actorEmail = authData.user.email.trim();
+    const actorEmail = authData.user.email.trim().toLowerCase();
+    const actorAuthId = authData.user.id;
     const body = (await req.json()) as FriendServiceBody;
     const action = body?.action;
 
     if (action === "sendRequest") {
-      const recipientEmail = body?.recipientEmail?.trim();
+      const recipientAuthIdInput = normalizeAuthId(body?.recipientAuthId);
+      let recipientEmail = normalizeEmail(body?.recipientEmail);
+      let recipientAuthId = recipientAuthIdInput;
+
+      if (recipientAuthId && !recipientEmail) {
+        const profileByAuthId = await getPublicProfileByAuthId(adminClient, recipientAuthId);
+        recipientEmail = normalizeEmail(profileByAuthId?.user_email || null);
+      }
+
+      if (!recipientAuthId && recipientEmail) {
+        const profileByEmail = await getPublicProfileByEmail(adminClient, recipientEmail);
+        recipientAuthId = normalizeAuthId(profileByEmail?.auth_id || null);
+      }
+
       if (!recipientEmail) {
         return jsonResponse({ error: "recipientEmail is required" }, 400);
       }
 
-      if (actorEmail.toLowerCase() === recipientEmail.toLowerCase()) {
+      if ((recipientAuthId && recipientAuthId === actorAuthId) || actorEmail === recipientEmail) {
         return jsonResponse({ error: "Du kannst dir nicht selbst eine Anfrage senden!" }, 400);
       }
 
-      const { data: forward, error: forwardError } = await adminClient
-        .from("Friend")
-        .select("id, status, request_sent_by, request_sent_to")
-        .ilike("request_sent_by", actorEmail)
-        .ilike("request_sent_to", recipientEmail)
-        .limit(1)
-        .maybeSingle();
+      const lookupQueries: Array<Promise<{ data: unknown; error: unknown }>> = [];
 
-      if (forwardError) {
-        return jsonResponse({ error: forwardError.message }, 500);
+      lookupQueries.push(
+        adminClient
+          .from("Friend")
+          .select("id, status, request_sent_by, request_sent_to")
+          .ilike("request_sent_by", actorEmail)
+          .ilike("request_sent_to", recipientEmail)
+          .limit(1)
+          .maybeSingle(),
+      );
+
+      lookupQueries.push(
+        adminClient
+          .from("Friend")
+          .select("id, status, request_sent_by, request_sent_to")
+          .ilike("request_sent_by", recipientEmail)
+          .ilike("request_sent_to", actorEmail)
+          .limit(1)
+          .maybeSingle(),
+      );
+
+      if (recipientAuthId) {
+        lookupQueries.push(
+          adminClient
+            .from("Friend")
+            .select("id, status, request_sent_by, request_sent_to")
+            .eq("request_sent_by_auth_id", actorAuthId)
+            .eq("request_sent_to_auth_id", recipientAuthId)
+            .limit(1)
+            .maybeSingle(),
+        );
+        lookupQueries.push(
+          adminClient
+            .from("Friend")
+            .select("id, status, request_sent_by, request_sent_to")
+            .eq("request_sent_by_auth_id", recipientAuthId)
+            .eq("request_sent_to_auth_id", actorAuthId)
+            .limit(1)
+            .maybeSingle(),
+        );
       }
 
-      const { data: reverse, error: reverseError } = await adminClient
-        .from("Friend")
-        .select("id, status, request_sent_by, request_sent_to")
-        .ilike("request_sent_by", recipientEmail)
-        .ilike("request_sent_to", actorEmail)
-        .limit(1)
-        .maybeSingle();
-
-      if (reverseError) {
-        return jsonResponse({ error: reverseError.message }, 500);
+      const lookupResults = await Promise.all(lookupQueries);
+      for (const result of lookupResults) {
+        if (result.error) {
+          const err = result.error as { message?: string };
+          return jsonResponse({ error: err.message || "Friendship lookup failed" }, 500);
+        }
       }
 
-      const existing = forward || reverse;
+      const existing = lookupResults.map((result) => result.data).find(Boolean) as
+        | { status?: string | null; request_sent_by?: string | null }
+        | undefined;
       if (existing) {
         if (existing.status === "accepted") {
           return jsonResponse({ error: "Ihr seid bereits befreundet!" }, 409);
@@ -139,9 +233,11 @@ Deno.serve(async (req) => {
           id: generateLegacyHexId(),
           request_sent_by: actorEmail,
           request_sent_to: recipientEmail,
+          request_sent_by_auth_id: actorAuthId,
+          request_sent_to_auth_id: recipientAuthId,
           status: "pending",
           created_by: actorEmail,
-          auth_id: authData.user.id,
+          auth_id: actorAuthId,
         })
         .select("*")
         .single();
@@ -166,14 +262,17 @@ Deno.serve(async (req) => {
     }
 
     if (action === "connectViaReferral") {
-      const referrerEmail = body?.referrerEmail?.trim();
+      const referrerEmail = normalizeEmail(body?.referrerEmail);
       if (!referrerEmail) {
         return jsonResponse({ error: "referrerEmail is required" }, 400);
       }
 
-      if (actorEmail.toLowerCase() === referrerEmail.toLowerCase()) {
+      if (actorEmail === referrerEmail) {
         return jsonResponse({ error: "Self-referral is not allowed." }, 400);
       }
+
+      const referrerProfile = await getPublicProfileByEmail(adminClient, referrerEmail);
+      const referrerAuthId = normalizeAuthId(referrerProfile?.auth_id || null);
 
       const now = new Date().toISOString();
 
@@ -265,8 +364,27 @@ Deno.serve(async (req) => {
           .maybeSingle(),
       ]);
 
-      if (forwardRes.error || reverseRes.error) {
-        const firstError = forwardRes.error || reverseRes.error;
+      const [forwardByIdRes, reverseByIdRes] = referrerAuthId
+        ? await Promise.all([
+          adminClient
+            .from("Friend")
+            .select("id, status")
+            .eq("request_sent_by_auth_id", actorAuthId)
+            .eq("request_sent_to_auth_id", referrerAuthId)
+            .limit(1)
+            .maybeSingle(),
+          adminClient
+            .from("Friend")
+            .select("id, status")
+            .eq("request_sent_by_auth_id", referrerAuthId)
+            .eq("request_sent_to_auth_id", actorAuthId)
+            .limit(1)
+            .maybeSingle(),
+        ])
+        : [{ data: null, error: null }, { data: null, error: null }];
+
+      if (forwardRes.error || reverseRes.error || forwardByIdRes.error || reverseByIdRes.error) {
+        const firstError = forwardRes.error || reverseRes.error || forwardByIdRes.error || reverseByIdRes.error;
         return jsonResponse(
           {
             error: firstError?.message || "Friendship lookup failed",
@@ -278,13 +396,22 @@ Deno.serve(async (req) => {
         );
       }
 
-      const existingFriend = forwardRes.data || reverseRes.data;
+      const existingFriend = forwardByIdRes.data || reverseByIdRes.data || forwardRes.data || reverseRes.data;
 
       if (existingFriend) {
         if (existingFriend.status !== "accepted") {
+          const acceptPayload: Record<string, unknown> = {
+            status: "accepted",
+            added_date: now,
+            request_sent_to_auth_id: actorAuthId,
+          };
+          if (referrerAuthId) {
+            acceptPayload.request_sent_by_auth_id = referrerAuthId;
+          }
+
           const { error: acceptError } = await adminClient
             .from("Friend")
-            .update({ status: "accepted", added_date: now })
+            .update(acceptPayload)
             .eq("id", existingFriend.id);
 
           if (acceptError) {
@@ -309,10 +436,12 @@ Deno.serve(async (req) => {
           id: generateLegacyHexId(),
           request_sent_by: referrerEmail,
           request_sent_to: actorEmail,
+          request_sent_by_auth_id: referrerAuthId,
+          request_sent_to_auth_id: actorAuthId,
           status: "accepted",
           added_date: now,
           created_by: referrerEmail,
-          auth_id: authData.user.id,
+          auth_id: actorAuthId,
         });
 
       if (friendInsertError) {
@@ -331,26 +460,63 @@ Deno.serve(async (req) => {
     }
 
     if (action === "removeFriendship") {
-      const friendEmail = body?.friendEmail?.trim();
-      if (!friendEmail) {
-        return jsonResponse({ error: "friendEmail is required" }, 400);
+      const friendEmail = normalizeEmail(body?.friendEmail);
+      let friendAuthId = normalizeAuthId(body?.friendAuthId);
+
+      if (!friendAuthId && friendEmail) {
+        const friendProfile = await getPublicProfileByEmail(adminClient, friendEmail);
+        friendAuthId = normalizeAuthId(friendProfile?.auth_id || null);
       }
 
-      const [forwardRes, reverseRes] = await Promise.all([
-        adminClient
-          .from("Friend")
-          .select("id")
-          .ilike("request_sent_by", actorEmail)
-          .ilike("request_sent_to", friendEmail),
-        adminClient
-          .from("Friend")
-          .select("id")
-          .ilike("request_sent_by", friendEmail)
-          .ilike("request_sent_to", actorEmail),
-      ]);
+      if (!friendEmail && !friendAuthId) {
+        return jsonResponse({ error: "friendEmail or friendAuthId is required" }, 400);
+      }
 
-      if (forwardRes.error || reverseRes.error) {
-        const firstError = forwardRes.error || reverseRes.error;
+      const lookupQueries: Array<Promise<{ data: unknown; error: unknown }>> = [];
+
+      if (friendEmail) {
+        lookupQueries.push(
+          adminClient
+            .from("Friend")
+            .select("id")
+            .ilike("request_sent_by", actorEmail)
+            .ilike("request_sent_to", friendEmail),
+        );
+        lookupQueries.push(
+          adminClient
+            .from("Friend")
+            .select("id")
+            .ilike("request_sent_by", friendEmail)
+            .ilike("request_sent_to", actorEmail),
+        );
+      }
+
+      if (friendAuthId) {
+        lookupQueries.push(
+          adminClient
+            .from("Friend")
+            .select("id")
+            .eq("request_sent_by_auth_id", actorAuthId)
+            .eq("request_sent_to_auth_id", friendAuthId),
+        );
+        lookupQueries.push(
+          adminClient
+            .from("Friend")
+            .select("id")
+            .eq("request_sent_by_auth_id", friendAuthId)
+            .eq("request_sent_to_auth_id", actorAuthId),
+        );
+      }
+
+      const lookupResults = await Promise.all(lookupQueries);
+
+      if (lookupResults.some((result) => result.error)) {
+        const firstError = lookupResults.find((result) => result.error)?.error as {
+          message?: string;
+          code?: string;
+          details?: string;
+          hint?: string;
+        };
         return jsonResponse(
           {
             error: firstError?.message || "Friendship lookup failed",
@@ -362,9 +528,14 @@ Deno.serve(async (req) => {
         );
       }
 
-      const ids = [...(forwardRes.data || []), ...(reverseRes.data || [])]
-        .map((row) => row.id)
-        .filter(Boolean);
+      const ids = Array.from(
+        new Set(
+          lookupResults
+            .flatMap((result) => (result.data as Array<{ id?: string }> | null) || [])
+            .map((row) => row.id)
+            .filter(Boolean),
+        ),
+      );
 
       if (ids.length === 0) {
         return jsonResponse({ success: true, removed: 0 }, 200);
@@ -391,50 +562,94 @@ Deno.serve(async (req) => {
     }
 
     if (action === "respondToRequest") {
-      const requesterEmail = body?.requesterEmail?.trim();
+      const requesterEmail = normalizeEmail(body?.requesterEmail);
+      let requesterAuthId = normalizeAuthId(body?.requesterAuthId);
       const responseAction = body?.responseAction;
 
-      if (!requesterEmail) {
-        return jsonResponse({ error: "requesterEmail is required" }, 400);
+      if (!requesterEmail && !requesterAuthId) {
+        return jsonResponse({ error: "requesterEmail or requesterAuthId is required" }, 400);
       }
 
       if (responseAction !== "accept" && responseAction !== "reject") {
         return jsonResponse({ error: "responseAction must be 'accept' or 'reject'" }, 400);
       }
 
-      const { data: requests, error: requestError } = await adminClient
-        .from("Friend")
-        .select("id")
-        .ilike("request_sent_by", requesterEmail)
-        .ilike("request_sent_to", actorEmail)
-        .eq("status", "pending");
+      if (!requesterAuthId && requesterEmail) {
+        const requesterProfile = await getPublicProfileByEmail(adminClient, requesterEmail);
+        requesterAuthId = normalizeAuthId(requesterProfile?.auth_id || null);
+      }
 
-      if (requestError) {
+      const pendingLookupQueries: Array<Promise<{ data: unknown; error: unknown }>> = [];
+
+      if (requesterEmail) {
+        pendingLookupQueries.push(
+          adminClient
+            .from("Friend")
+            .select("id")
+            .ilike("request_sent_by", requesterEmail)
+            .ilike("request_sent_to", actorEmail)
+            .eq("status", "pending"),
+        );
+      }
+
+      if (requesterAuthId) {
+        pendingLookupQueries.push(
+          adminClient
+            .from("Friend")
+            .select("id")
+            .eq("request_sent_by_auth_id", requesterAuthId)
+            .eq("request_sent_to_auth_id", actorAuthId)
+            .eq("status", "pending"),
+        );
+      }
+
+      const pendingLookupResults = await Promise.all(pendingLookupQueries);
+      const firstPendingError = pendingLookupResults.find((result) => result.error)?.error as {
+        message?: string;
+        code?: string;
+        details?: string;
+        hint?: string;
+      } | undefined;
+
+      if (firstPendingError) {
         return jsonResponse(
           {
-            error: requestError.message,
-            code: requestError.code,
-            details: requestError.details,
-            hint: requestError.hint,
+            error: firstPendingError.message,
+            code: firstPendingError.code,
+            details: firstPendingError.details,
+            hint: firstPendingError.hint,
           },
           500,
         );
       }
 
-      const pendingIds = (requests || []).map((row) => row.id).filter(Boolean);
+      const pendingIds = Array.from(
+        new Set(
+          pendingLookupResults
+            .flatMap((result) => (result.data as Array<{ id?: string }> | null) || [])
+            .map((row) => row.id)
+            .filter(Boolean),
+        ),
+      );
       if (pendingIds.length === 0) {
         return jsonResponse({ success: true, affected: 0 }, 200);
       }
 
       if (responseAction === "accept") {
+        const acceptPayload: Record<string, unknown> = {
+          status: "accepted",
+          added_date: new Date().toISOString(),
+          request_sent_to_auth_id: actorAuthId,
+        };
+        if (requesterAuthId) {
+          acceptPayload.request_sent_by_auth_id = requesterAuthId;
+        }
+
         const { data: updatedRows, error: updateError } = await adminClient
           .from("Friend")
-          .update({
-            status: "accepted",
-            added_date: new Date().toISOString(),
-          })
+          .update(acceptPayload)
           .in("id", pendingIds)
-          .select("id, status, request_sent_by, request_sent_to, added_date");
+          .select("id, status, request_sent_by, request_sent_to, request_sent_by_auth_id, request_sent_to_auth_id, added_date");
 
         if (updateError) {
           return jsonResponse(

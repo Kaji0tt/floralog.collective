@@ -13,6 +13,7 @@ export default function FriendFriendsPanel({ friendUser, friendEmail, currentUse
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isLightUi } = useUiTheme();
+  const friendAuthId = friendUser?.auth_id || null;
 
   useEffect(() => {
     if (!friendEmail) return;
@@ -27,19 +28,21 @@ export default function FriendFriendsPanel({ friendUser, friendEmail, currentUse
   const { data: allFriendRecords = [], isLoading: recordsLoading } = useQuery({
     queryKey: ["allFriendRecords"],
     queryFn: () => Query.Friend.list(),
-    enabled: !!friendEmail,
+    enabled: !!friendEmail || !!friendAuthId,
   });
 
   const friends = useMemo(() => {
-    if (!friendEmail) return [];
-    const emailL = friendEmail.toLowerCase();
+    if (!friendEmail && !friendAuthId) return [];
+    const emailL = friendEmail?.toLowerCase() || "";
     return allFriendRecords.filter(
       (f) =>
-        (f.request_sent_by?.toLowerCase() === emailL ||
-          f.request_sent_to?.toLowerCase() === emailL) &&
+        ((emailL &&
+          (f.request_sent_by?.toLowerCase() === emailL ||
+            f.request_sent_to?.toLowerCase() === emailL)) ||
+          (friendAuthId && f.auth_id === friendAuthId)) &&
         f.status === "accepted"
     );
-  }, [allFriendRecords, friendEmail]);
+  }, [allFriendRecords, friendEmail, friendAuthId]);
 
   const { data: allPublicProfiles = [], isLoading: profilesLoading } = useQuery({
     queryKey: ["allPublicProfiles"],
@@ -52,30 +55,83 @@ export default function FriendFriendsPanel({ friendUser, friendEmail, currentUse
     staleTime: 60000,
   });
 
+  const profileByEmail = useMemo(
+    () =>
+      new Map(
+        (allPublicProfiles || [])
+          .filter((profile) => !!profile?.user_email)
+          .map((profile) => [String(profile.user_email).toLowerCase(), profile])
+      ),
+    [allPublicProfiles]
+  );
+
+  const profileByAuthId = useMemo(
+    () =>
+      new Map(
+        (allPublicProfiles || [])
+          .filter((profile) => !!profile?.auth_id)
+          .map((profile) => [profile.auth_id, profile])
+      ),
+    [allPublicProfiles]
+  );
+
   const getFriendData = (record) => {
-    if (!friendEmail) return null;
-    const otherEmail =
-      record.request_sent_by?.toLowerCase() === friendEmail.toLowerCase()
-        ? record.request_sent_to
-        : record.request_sent_by;
-    const profile = allPublicProfiles.find(
-      (p) => p.user_email?.toLowerCase() === otherEmail?.toLowerCase()
-    );
+    const sentBy = record.request_sent_by || "";
+    const sentTo = record.request_sent_to || "";
+    const sentByL = sentBy.toLowerCase();
+    const sentToL = sentTo.toLowerCase();
+    const friendEmailL = friendEmail?.toLowerCase() || "";
+
+    let otherEmail = null;
+    if (friendEmailL && sentByL === friendEmailL) {
+      otherEmail = sentTo;
+    } else if (friendEmailL && sentToL === friendEmailL) {
+      otherEmail = sentBy;
+    }
+
+    let otherProfile = otherEmail ? profileByEmail.get(otherEmail.toLowerCase()) : null;
+    let otherAuthId = otherProfile?.auth_id || null;
+
+    // Fall back to auth-based matching when participant emails are outdated.
+    if (!otherAuthId && record.auth_id && record.auth_id !== friendAuthId) {
+      otherAuthId = record.auth_id;
+    }
+
+    if (otherAuthId) {
+      otherProfile = profileByAuthId.get(otherAuthId) || otherProfile;
+    }
+
+    if (!otherEmail && otherProfile?.user_email) {
+      otherEmail = otherProfile.user_email;
+    }
+
+    if (!otherEmail && !otherProfile) return null;
+
     return {
       id: record.id,
+      authId: otherProfile?.auth_id || otherAuthId || null,
       email: otherEmail,
-      name: profile?.display_name || profile?.full_name || otherEmail,
-      logoAssets: resolveEquippedLogoAssetsWithCatalog(profile || {}, logoAssets),
-      level: profile?.level || 1,
-      title: profile?.selected_title || profile?.title || "Pflanzen-Anfänger",
+      name: otherProfile?.display_name || otherProfile?.full_name || otherEmail,
+      logoAssets: resolveEquippedLogoAssetsWithCatalog(otherProfile || {}, logoAssets),
+      level: otherProfile?.level || 1,
+      title: otherProfile?.selected_title || otherProfile?.title || "Pflanzen-Anfänger",
     };
   };
 
   const handleFriendClick = (data) => {
-    if (currentUser && data.email?.toLowerCase() === currentUser.email?.toLowerCase()) {
+    const isCurrentUserByAuth =
+      !!currentUser?.id && !!data.authId && data.authId === currentUser.id;
+    const isCurrentUserByEmail =
+      !!currentUser?.email &&
+      !!data.email &&
+      data.email.toLowerCase() === currentUser.email.toLowerCase();
+
+    if (isCurrentUserByAuth || isCurrentUserByEmail) {
       navigate(createPageUrl("Home"));
+    } else if (data.email) {
+      navigate(createPageUrl(`FriendProfile?email=${encodeURIComponent(data.email)}`));
     } else {
-      navigate(createPageUrl(`FriendProfile?email=${data.email}`));
+      navigate(createPageUrl("Friends"));
     }
   };
 
@@ -119,8 +175,11 @@ export default function FriendFriendsPanel({ friendUser, friendEmail, currentUse
             const data = getFriendData(record);
             if (!data) return null;
             const isSelf =
-              currentUser &&
-              data.email?.toLowerCase() === currentUser.email?.toLowerCase();
+              !!currentUser &&
+              ((currentUser.id && data.authId && currentUser.id === data.authId) ||
+                (currentUser.email &&
+                  data.email &&
+                  data.email.toLowerCase() === currentUser.email.toLowerCase()));
 
             return (
               <motion.button

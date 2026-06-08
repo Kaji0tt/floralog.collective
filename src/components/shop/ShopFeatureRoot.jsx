@@ -630,7 +630,8 @@ export default function ShopFeatureRoot({
     queryKey: ["userDiscoveries", resolvedAuthId],
     queryFn: () => Query.UserPlantDiscovery.filter({ auth_id: resolvedAuthId }),
     enabled: !!resolvedAuthId,
-    staleTime: Infinity,
+    staleTime: 60 * 1000,
+    refetchOnMount: "always",
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
@@ -639,14 +640,17 @@ export default function ShopFeatureRoot({
     queryKey: ["achievements"],
     queryFn: () => Query.Achievement.list(),
     staleTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const { data: userAchievements = [], isPending: isUserAchievementsPending, refetch: refetchUserAchievements } = useQuery({
     queryKey: ["userAchievements", resolvedAuthId],
     queryFn: () => Query.UserAchievement.filter({ auth_id: resolvedAuthId }),
     enabled: !!resolvedAuthId,
-    staleTime: Infinity,
+    staleTime: 60 * 1000,
+    refetchOnMount: "always",
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
@@ -655,7 +659,9 @@ export default function ShopFeatureRoot({
     queryKey: ["rewards"],
     queryFn: () => Query.Reward.list(),
     staleTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const { data: userRewards = [], isPending: isUserRewardsPending, refetch: refetchUserRewards, error: userRewardsError } = useQuery({
@@ -665,7 +671,8 @@ export default function ShopFeatureRoot({
       userEmail: resolvedUserEmail,
     }),
     enabled: !!resolvedAuthId || !!resolvedUserEmail,
-    staleTime: Infinity,
+    staleTime: 60 * 1000,
+    refetchOnMount: "always",
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });

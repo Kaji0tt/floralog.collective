@@ -38,16 +38,19 @@ async function invokeFriendService(body, fallbackMessage) {
   return data;
 }
 
-export async function sendFriendRequest(recipientEmail) {
+export async function sendFriendRequest(recipientEmail, recipientAuthId = null) {
   const normalizedEmail = recipientEmail?.trim?.();
-  if (!normalizedEmail) {
-    throw new Error("Bitte gib eine E-Mail-Adresse ein.");
+  const normalizedAuthId = String(recipientAuthId || "").trim() || null;
+
+  if (!normalizedEmail && !normalizedAuthId) {
+    throw new Error("Bitte gib eine E-Mail-Adresse oder eine gültige Nutzer-ID ein.");
   }
 
   const data = await invokeFriendService(
     {
       action: "sendRequest",
-      recipientEmail: normalizedEmail,
+      recipientEmail: normalizedEmail || null,
+      recipientAuthId: normalizedAuthId,
     },
     "Freundschaftsanfrage konnte nicht gesendet werden.",
   );
@@ -72,16 +75,19 @@ export async function connectViaReferral(referrerEmail) {
   return data;
 }
 
-export async function removeFriendship(friendEmail) {
+export async function removeFriendship(friendEmail, friendAuthId = null) {
   const normalizedEmail = friendEmail?.trim?.();
-  if (!normalizedEmail) {
-    throw new Error("Freund konnte nicht entfernt werden (fehlende E-Mail).");
+  const normalizedAuthId = String(friendAuthId || "").trim() || null;
+
+  if (!normalizedEmail && !normalizedAuthId) {
+    throw new Error("Freund konnte nicht entfernt werden (fehlende E-Mail/ID).");
   }
 
   const data = await invokeFriendService(
     {
       action: "removeFriendship",
-      friendEmail: normalizedEmail,
+      friendEmail: normalizedEmail || null,
+      friendAuthId: normalizedAuthId,
     },
     "Freund konnte nicht entfernt werden.",
   );
@@ -89,10 +95,12 @@ export async function removeFriendship(friendEmail) {
   return data.removed || 0;
 }
 
-export async function respondToFriendRequest(requesterEmail, action) {
+export async function respondToFriendRequest(requesterEmail, action, requesterAuthId = null) {
   const normalizedEmail = requesterEmail?.trim?.();
-  if (!normalizedEmail) {
-    throw new Error("Anfrage kann nicht verarbeitet werden (fehlende E-Mail).");
+  const normalizedAuthId = String(requesterAuthId || "").trim() || null;
+
+  if (!normalizedEmail && !normalizedAuthId) {
+    throw new Error("Anfrage kann nicht verarbeitet werden (fehlende E-Mail/ID).");
   }
 
   if (action !== "accept" && action !== "reject") {
@@ -102,7 +110,8 @@ export async function respondToFriendRequest(requesterEmail, action) {
   const data = await invokeFriendService(
     {
       action: "respondToRequest",
-      requesterEmail: normalizedEmail,
+      requesterEmail: normalizedEmail || null,
+      requesterAuthId: normalizedAuthId,
       responseAction: action,
     },
     "Freundschaftsanfrage konnte nicht verarbeitet werden.",

@@ -592,7 +592,11 @@ export function useFriendsFeatureContent({
 
   const acceptFriendRequestMutation = useMutation({
     mutationFn: async (request) => {
-      const affected = await respondToFriendRequest(request.request_sent_by, "accept");
+      const affected = await respondToFriendRequest(
+        request.request_sent_by,
+        "accept",
+        request.request_sent_by_auth_id || null,
+      );
       return { affected };
     },
     onSuccess: async (result, variables) => {
@@ -644,7 +648,11 @@ export function useFriendsFeatureContent({
 
   const rejectFriendRequestMutation = useMutation({
     mutationFn: async (request) => {
-      const affected = await respondToFriendRequest(request.request_sent_by, "reject");
+      const affected = await respondToFriendRequest(
+        request.request_sent_by,
+        "reject",
+        request.request_sent_by_auth_id || null,
+      );
       return { affected };
     },
     onSuccess: async (result) => {
@@ -669,7 +677,7 @@ export function useFriendsFeatureContent({
 
   const removeFriendMutation = useMutation({
     mutationFn: async (friendToRemove) => {
-      return removeFriendship(friendToRemove.email);
+      return removeFriendship(friendToRemove.email, friendToRemove.auth_id || null);
     },
     onSuccess: (removedCount) => {
       queryClient.invalidateQueries({ queryKey: ['allFriendRecords'] });
@@ -1043,30 +1051,45 @@ Viel Spaß beim Entdecken! 🌿`;
   const getFriendData = useCallback((friendEntry) => {
     if (!user || !user.email) return null;
 
-    const isCurrentUserSender = friendEntry.request_sent_by?.toLowerCase() === user.email.toLowerCase();
-    const friendEmail = isCurrentUserSender ? friendEntry.request_sent_to : friendEntry.request_sent_by;
-    const friendEmailLower = friendEmail?.toLowerCase() || "";
+    const ownEmailLower = user.email.toLowerCase();
+    const isCurrentUserSender = friendEntry.request_sent_by?.toLowerCase() === ownEmailLower;
+    const candidateFriendEmail = isCurrentUserSender
+      ? friendEntry.request_sent_to
+      : friendEntry.request_sent_by;
+    const candidateFriendEmailLower = candidateFriendEmail?.toLowerCase() || "";
 
-    // Suche PublicProfile (bevorzugt, inkl. auth_id)
-    const friendProfile = profileByEmail.get(friendEmailLower);
+    // Friend rows currently carry a single auth_id (creator). Use it when it is not me.
+    const recordAuthId =
+      friendEntry?.auth_id && user?.id && friendEntry.auth_id !== user.id
+        ? friendEntry.auth_id
+        : null;
 
-    const friendAuthId = friendProfile?.auth_id || null;
+    let friendProfile = profileByEmail.get(candidateFriendEmailLower) || null;
+    const friendAuthId = friendProfile?.auth_id || recordAuthId || null;
+    if (friendAuthId) {
+      friendProfile = profileByAuthId.get(friendAuthId) || friendProfile;
+    }
+
+    const resolvedFriendEmail = friendProfile?.user_email || candidateFriendEmail || null;
+    if (!resolvedFriendEmail && !friendProfile) return null;
+
+    const resolvedFriendEmailLower = resolvedFriendEmail?.toLowerCase() || "";
     const lastActivity =
       (friendAuthId ? latestFriendActivityByKey.get(`auth:${friendAuthId}`) : null) ||
-      (friendEmailLower ? latestFriendActivityByKey.get(`email:${friendEmailLower}`) : null) ||
+      (resolvedFriendEmailLower ? latestFriendActivityByKey.get(`email:${resolvedFriendEmailLower}`) : null) ||
       null;
 
     return {
       id: friendEntry.id,
-      email: friendEmail,
+      email: resolvedFriendEmail,
       auth_id: friendAuthId,
-      name: friendProfile?.display_name || friendProfile?.full_name || friendEmail,
+      name: friendProfile?.display_name || friendProfile?.full_name || resolvedFriendEmail,
       logoAssets: resolveEquippedLogoAssetsWithCatalog(friendProfile || {}, logoAssets),
       level: friendProfile?.level || 1,
       title: friendProfile?.selected_title || friendProfile?.title || "Pflanzen-Anfänger",
       lastActivity
     };
-  }, [user, profileByEmail, latestFriendActivityByKey, logoAssets]);
+  }, [user, profileByEmail, profileByAuthId, latestFriendActivityByKey, logoAssets]);
 
   const likedDiscoveryIdSet = useMemo(
     () => new Set(
@@ -1940,7 +1963,10 @@ Viel Spaß beim Entdecken! 🌿`;
                         className={`${friendTileClass} ${interactiveHoverClass} w-full max-w-full overflow-hidden p-2.5 md:p-3 transition-all flex items-center justify-between gap-2.5`}
                       >
                         <button
-                          onClick={() => navigate(createPageUrl(`FriendProfile?email=${friendData.email}`))}
+                          onClick={() => {
+                            if (!friendData.email) return;
+                            navigate(createPageUrl(`FriendProfile?email=${encodeURIComponent(friendData.email)}`));
+                          }}
                           className="flex items-center gap-2.5 flex-1 min-w-0 max-w-full text-left"
                         >
                           <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-sm shadow-md flex-shrink-0">
@@ -1955,7 +1981,7 @@ Viel Spaß beim Entdecken! 🌿`;
                             <div className="flex items-center gap-2 min-w-0">
                               <p className={`font-semibold truncate ${titleTextClass}`}>{friendData.name}</p>
                             </div>
-                            <p className={`text-xs truncate ${bodyTextClass}`}>{friendData.email}</p>
+                            <p className={`text-xs truncate ${bodyTextClass}`}>{friendData.email || "E-Mail nicht verfügbar"}</p>
                             {friendData.lastActivity && (
                               <div className={`mt-1 flex items-center gap-1 text-[10px] min-w-0 ${mutedTextClass}`}>
                                 {friendData.lastActivity.type === "discovery" ? (
