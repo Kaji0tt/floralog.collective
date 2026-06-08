@@ -1,5 +1,6 @@
 import { Query } from "@/api/entities";
 import { notifyAcceptedFriends } from "@/api/notificationService";
+import { listUserRewardsWithLegacyFallback } from "@/api/userRewardService";
 
 /**
  * Prüft alle Achievements und schaltet neue frei
@@ -34,7 +35,7 @@ export async function checkAndUnlockAchievements(user) {
       Query.Friend.list(),
       // Rewards und bereits freigeschaltete User-Rewards (für Backfill)
       Query.Reward.list(),
-      Query.UserReward.filter({ auth_id: user.id }),
+      listUserRewardsWithLegacyFallback({ authId: user.id, userEmail: user.email }),
       Query.Referral.list(),
       Query.RobotPlantWalletLedger.filter({ auth_id: user.id }),
     ]);
@@ -149,11 +150,10 @@ export async function checkAndUnlockAchievements(user) {
     };
 
     const unlockedAchievements = [];
+    const unlockedRewardIds = new Set((Array.isArray(userRewards) ? userRewards : []).map((ur) => ur?.reward_id).filter(Boolean));
 
     // Backfill: Fehlende Rewards für bereits freigeschaltete Achievements nachtragen
     try {
-      const unlockedRewardIds = new Set(userRewards.map((ur) => ur.reward_id));
-
       for (const userAchievement of userAchievements) {
         const achievement = achievements.find((a) => a.id === userAchievement.achievement_id);
         if (!achievement) continue;
@@ -256,9 +256,8 @@ export async function checkAndUnlockAchievements(user) {
       const reward = resolveRewardForAchievement(achievement);
 
       if (reward) {
-        // Prüfe ob User den Reward bereits hat
-        const userRewards = await Query.UserReward.filter({ auth_id: user.id });
-        const hasReward = userRewards.some(ur => ur.reward_id === reward.id);
+        // Prüfe konsistent gegen bereits geladenen/fortgeschriebenen Reward-Status.
+        const hasReward = unlockedRewardIds.has(reward.id);
 
         if (!hasReward) {
           console.log('[AchievementChecker] Unlocking reward:', reward.name, reward.display_name);
@@ -272,6 +271,7 @@ export async function checkAndUnlockAchievements(user) {
             user_name: user.display_name || user.full_name || user.email,
             unlocked_date: new Date().toISOString()
           });
+          unlockedRewardIds.add(reward.id);
 
           // Früher wurde hier eine UserNotification im Banner-Stil erstellt.
           // Belohnungs-Feedback wird nun direkt über UI-Komponenten (z.B. ScanFeedbackNotification)
@@ -321,9 +321,8 @@ export async function checkAndUnlockAchievements(user) {
       const reward = resolveRewardForAchievement(achievement);
 
       if (reward) {
-        // Prüfe ob User den Reward bereits hat
-        const userRewards = await Query.UserReward.filter({ auth_id: user.id });
-        const hasReward = userRewards.some(ur => ur.reward_id === reward.id);
+        // Prüfe konsistent gegen bereits geladenen/fortgeschriebenen Reward-Status.
+        const hasReward = unlockedRewardIds.has(reward.id);
 
         if (!hasReward) {
           console.log('[AchievementChecker] Unlocking reward:', reward.name, reward.display_name);
@@ -337,6 +336,7 @@ export async function checkAndUnlockAchievements(user) {
             user_name: user.display_name || user.full_name || user.email,
             unlocked_date: new Date().toISOString()
           });
+          unlockedRewardIds.add(reward.id);
 
           // Früher wurde hier eine UserNotification im Banner-Stil erstellt.
           // Belohnungs-Feedback wird nun direkt über UI-Komponenten (z.B. ScanFeedbackNotification)
@@ -393,8 +393,7 @@ export async function checkAndUnlockAchievements(user) {
       const reward = resolveRewardForAchievement(achievement);
 
       if (reward) {
-        const userRewards = await Query.UserReward.filter({ auth_id: user.id });
-        const hasReward = userRewards.some(ur => ur.reward_id === reward.id);
+        const hasReward = unlockedRewardIds.has(reward.id);
 
         if (!hasReward) {
           console.log('[AchievementChecker] Unlocking reward (by reward_name):', reward.name, reward.display_name);
@@ -406,6 +405,7 @@ export async function checkAndUnlockAchievements(user) {
             user_name: user.display_name || user.full_name || user.email,
             unlocked_date: new Date().toISOString()
           });
+          unlockedRewardIds.add(reward.id);
         } else {
           console.log('[AchievementChecker] User already has reward (by reward_name):', reward.name);
         }

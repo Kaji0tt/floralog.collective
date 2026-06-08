@@ -18,7 +18,7 @@ with profile_by_email as (
     pbe.resolved_name
   from public."UserRewards" ur
   join profile_by_email pbe
-    on pbe.normalized_email = lower(coalesce(nullif(trim(ur.user_email), ''), nullif(trim(ur.created_by), '')))
+    on pbe.normalized_email = lower(nullif(trim(ur.user_email), ''))
   where ur.auth_id is null
 ), non_conflicting as (
   select

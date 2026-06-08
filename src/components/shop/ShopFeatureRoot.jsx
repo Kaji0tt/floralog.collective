@@ -675,6 +675,13 @@ export default function ShopFeatureRoot({
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
+    retry: 2,
+    retryDelay: 1500,
+    refetchInterval: (query) => {
+      const assets = query?.state?.data;
+      if (Array.isArray(assets) && assets.length > 0) return false;
+      return 8000;
+    },
   });
 
   const { data: genera = [] } = useQuery({

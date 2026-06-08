@@ -11,6 +11,35 @@ const normalizeAccessoryId = (value) => String(value || "").trim().toLowerCase()
 
 const normalizeAccessoryRewardType = (reward) => String(reward?.type || reward?.reward_type || reward?.kind || "").trim().toLowerCase();
 
+const extractAccessoryIdCandidate = (value) => {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return "";
+
+  const withoutQuery = raw.split("?")[0].split("#")[0];
+  const lastPathSegment = withoutQuery.split("/").pop() || withoutQuery;
+  const withoutExtension = lastPathSegment.replace(/\.(png|jpe?g|gif|webp|svg)$/i, "");
+
+  if (!withoutExtension) return "";
+  if (withoutExtension.startsWith("logo_accessory_")) return withoutExtension.replace(/^logo_accessory_/, "");
+  if (withoutExtension.startsWith("accessory_")) return withoutExtension.replace(/^accessory_/, "");
+  return withoutExtension;
+};
+
+const looksLikeAccessoryId = (value) => {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized.startsWith("face_") || normalized.startsWith("plant_") || normalized.startsWith("border_");
+};
+
+const isLikelyAccessoryReward = (reward) => {
+  if (!reward) return false;
+  if (LOGO_ACCESSORY_REWARD_TYPES.has(normalizeAccessoryRewardType(reward))) return true;
+
+  const name = String(reward?.name || "").trim().toLowerCase();
+  const valueCandidate = extractAccessoryIdCandidate(reward?.value);
+
+  return name.startsWith("accessory_") || name.startsWith("logo_accessory_") || looksLikeAccessoryId(valueCandidate);
+};
+
 const normalizeRewardAccessoryValue = (value) => {
   const normalized = normalizeAccessoryId(value);
   if (!normalized) return "";
@@ -290,12 +319,33 @@ const getRewardUnlockedAccessoryIds = ({ rewards = [], userRewards = [] } = {}) 
     (Array.isArray(userRewards) ? userRewards : []).map((entry) => entry?.reward_id).filter(Boolean)
   );
 
-  return new Set(
-    (Array.isArray(rewards) ? rewards : [])
-      .filter((reward) => unlockedRewardIds.has(reward?.id) && LOGO_ACCESSORY_REWARD_TYPES.has(normalizeAccessoryRewardType(reward)))
-      .map((reward) => normalizeRewardAccessoryValue(reward?.value))
-      .filter(Boolean)
+  const rewardsById = new Map(
+    (Array.isArray(rewards) ? rewards : []).filter((reward) => reward?.id).map((reward) => [reward.id, reward])
   );
+
+  const unlockedAccessoryIds = new Set();
+
+  for (const userReward of Array.isArray(userRewards) ? userRewards : []) {
+    const reward = rewardsById.get(userReward?.reward_id);
+    if (!reward || !isLikelyAccessoryReward(reward)) continue;
+
+    const normalizedId = normalizeRewardAccessoryValue(extractAccessoryIdCandidate(reward?.value));
+    if (looksLikeAccessoryId(normalizedId)) {
+      unlockedAccessoryIds.add(normalizedId);
+    }
+  }
+
+  for (const reward of Array.isArray(rewards) ? rewards : []) {
+    if (!unlockedRewardIds.has(reward?.id)) continue;
+    if (!isLikelyAccessoryReward(reward)) continue;
+
+    const normalizedId = normalizeRewardAccessoryValue(extractAccessoryIdCandidate(reward?.value));
+    if (looksLikeAccessoryId(normalizedId)) {
+      unlockedAccessoryIds.add(normalizedId);
+    }
+  }
+
+  return unlockedAccessoryIds;
 };
 
 const getAccessoryUnlockCondition = (accessoryId, rewards = [], genera = [], plants = []) => {
