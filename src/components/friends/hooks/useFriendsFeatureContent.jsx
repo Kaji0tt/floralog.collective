@@ -837,7 +837,6 @@ Viel Spaß beim Entdecken! 🌿`;
         const likerName = user.display_name || user.full_name || user.email;
         const actionParams = new URLSearchParams();
         if (entry.plant?.genus_id) actionParams.set("id", entry.plant.genus_id);
-        if (entry.actorEmail) actionParams.set("email", entry.actorEmail);
         actionParams.set("discoveryId", entry.id);
 
         await Promise.allSettled([

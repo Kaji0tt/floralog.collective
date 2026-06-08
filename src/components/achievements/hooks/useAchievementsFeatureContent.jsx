@@ -5,7 +5,7 @@ import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Leaf, Target, CheckCircle2, Gift, Users } from "lucide-react";
+import { Trophy, Leaf, Target, CheckCircle2, Gift, Users, ChevronDown, ChevronUp } from "lucide-react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -198,6 +198,8 @@ export function useAchievementsFeatureContent({
   const [newAchievements, setNewAchievements] = useState([]);
   const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
   const [showCompleted, setShowCompleted] = useState(true);
+  const [showGlobalComparisons, setShowGlobalComparisons] = useState(true);
+  const [expandedHighestScanEntryKey, setExpandedHighestScanEntryKey] = useState(null);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -415,6 +417,23 @@ export function useAchievementsFeatureContent({
         throw error;
       }
       return Array.isArray(data) ? data : [];
+    },
+    staleTime: 60 * 1000,
+  });
+
+  const { data: globalScanTaxonomyHighlights = null } = useQuery({
+    queryKey: ['globalScanTaxonomyHighlights'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_global_scan_taxonomy_highlights');
+      if (error) {
+        if (isMissingRpcFunctionError(error)) {
+          console.warn('[AchievementsPage] get_global_scan_taxonomy_highlights not available yet.');
+          return null;
+        }
+        throw error;
+      }
+      if (Array.isArray(data)) return data[0] || null;
+      return data || null;
     },
     staleTime: 60 * 1000,
   });
@@ -1351,6 +1370,47 @@ export function useAchievementsFeatureContent({
 
   const ownGlobalScanRank = effectiveGlobalScanRanking.findIndex((entry) => entry.email === ownEmailLower) + 1;
 
+  const plantById = new Map((plants || []).map((plant) => [plant.id, plant]));
+  const genusNameByKey = new Map(
+    (genera || []).map((genus) => [`${genus.category}:${genus.category_dex_number}`, genus.genus_name])
+  );
+
+  const globalSpeciesCountMap = new Map();
+  const globalGenusCountMap = new Map();
+
+  (allDiscoveries || []).forEach((entry) => {
+    const plant = plantById.get(entry.plant_id);
+    if (!plant) return;
+
+    if (plant.species_name) {
+      globalSpeciesCountMap.set(plant.species_name, (globalSpeciesCountMap.get(plant.species_name) || 0) + 1);
+    }
+
+    const genusKey = `${plant.genus_category}:${plant.genus_number}`;
+    const genusName = genusNameByKey.get(genusKey);
+    if (genusName) {
+      globalGenusCountMap.set(genusName, (globalGenusCountMap.get(genusName) || 0) + 1);
+    }
+  });
+
+  const fallbackGlobalTopSpeciesEntry =
+    Array.from(globalSpeciesCountMap.entries()).sort((a, b) => b[1] - a[1])[0] || null;
+  const fallbackGlobalTopGenusEntry =
+    Array.from(globalGenusCountMap.entries()).sort((a, b) => b[1] - a[1])[0] || null;
+
+  const globalTopSpeciesName =
+    String(globalScanTaxonomyHighlights?.top_species_name || '').trim() || fallbackGlobalTopSpeciesEntry?.[0] || null;
+  const globalTopSpeciesCount =
+    Number(globalScanTaxonomyHighlights?.top_species_count ?? 0) > 0
+      ? Number(globalScanTaxonomyHighlights.top_species_count)
+      : Number(fallbackGlobalTopSpeciesEntry?.[1] ?? 0);
+  const globalTopGenusName =
+    String(globalScanTaxonomyHighlights?.top_genus_name || '').trim() || fallbackGlobalTopGenusEntry?.[0] || null;
+  const globalTopGenusCount =
+    Number(globalScanTaxonomyHighlights?.top_genus_count ?? 0) > 0
+      ? Number(globalScanTaxonomyHighlights.top_genus_count)
+      : Number(fallbackGlobalTopGenusEntry?.[1] ?? 0);
+
   const highestScanResultsRanking = (highestScanResultsLeaderboard || [])
     .map((entry) => {
       const email = String(entry?.user_email || "").trim().toLowerCase();
@@ -1361,14 +1421,32 @@ export function useAchievementsFeatureContent({
       const profile = participantEmail ? profileByEmail.get(participantEmail) : null;
       const parsedAwardedAt = entry?.awarded_at ? new Date(entry.awarded_at) : null;
       const hasValidAwardedAt = !!parsedAwardedAt && !Number.isNaN(parsedAwardedAt.getTime());
+      const parseMultiplier = (value) => {
+        const parsedValue = Number(value);
+        return Number.isFinite(parsedValue) ? parsedValue : null;
+      };
+      const scanDetailKey = `${entryAuthId || participantEmail || 'unknown'}:${entry?.event_reference || ''}:${entry?.awarded_at || ''}`;
 
       return {
         authId: entryAuthId,
         email: participantEmail,
         rewardAmount: Math.max(0, Number(entry?.reward_amount ?? 0)),
         eventSource: String(entry?.event_source || ""),
+        eventReference: String(entry?.event_reference || ""),
         awardedAt: entry?.awarded_at || null,
         formattedAwardedAt: hasValidAwardedAt ? format(parsedAwardedAt, "dd.MM.yyyy", { locale: de }) : null,
+        scanStatus: String(entry?.scan_status || '').trim() || String(entry?.event_source || ''),
+        plantSpeciesName: String(entry?.plant_species_name || '').trim() || null,
+        plantCommonName: String(entry?.plant_common_name || '').trim() || null,
+        zoneMultiplier: parseMultiplier(entry?.zone_multiplier),
+        rarityMultiplier: parseMultiplier(entry?.rarity_multiplier),
+        noveltyMultiplier: parseMultiplier(entry?.novelty_multiplier),
+        careMultiplier: parseMultiplier(entry?.care_multiplier),
+        streakMultiplier: parseMultiplier(entry?.streak_multiplier),
+        firstScanOfDayMultiplier: parseMultiplier(entry?.first_scan_of_day_multiplier),
+        tileClaimMultiplier: parseMultiplier(entry?.tile_claim_multiplier),
+        preTileClaimReward: Math.max(0, Number(entry?.pre_tile_claim_reward ?? 0)),
+        detailKey: scanDetailKey,
         name:
           profile?.display_name ||
           profile?.full_name ||
@@ -1392,6 +1470,39 @@ export function useAchievementsFeatureContent({
     if (eventSource === "new_global_scan") return "Neuer Global-Scan";
     if (eventSource === "new_scan") return "Neuer Scan";
     return "Scan";
+  };
+
+  const resolveScanStatusLabel = (scanStatus) => {
+    const normalized = String(scanStatus || "").trim().toLowerCase();
+    if (normalized === "new_global_scan") return "Global neu";
+    if (normalized === "new_scan") return "Neu fuer dich";
+    if (normalized === "scan") return "Wiederholungs-Scan";
+    return normalized || "Unbekannt";
+  };
+
+  const formatMultiplierValue = (value) => {
+    if (!Number.isFinite(value)) return null;
+    return `x${Number(value).toFixed(2)}`;
+  };
+
+  const getMultiplierChips = (entry) => {
+    const candidates = [
+      ["Zone", entry.zoneMultiplier],
+      ["Seltenheit", entry.rarityMultiplier],
+      ["Neuheit", entry.noveltyMultiplier],
+      ["Pflege", entry.careMultiplier],
+      ["Streak", entry.streakMultiplier],
+      ["Erster Scan/Tag", entry.firstScanOfDayMultiplier],
+      ["Tile", entry.tileClaimMultiplier],
+    ];
+
+    return candidates
+      .map(([label, value]) => {
+        const formattedValue = formatMultiplierValue(value);
+        if (!formattedValue) return null;
+        return `${label} ${formattedValue}`;
+      })
+      .filter(Boolean);
   };
 
   const emailByAuthIdFromDiscoveries = new Map();
@@ -1768,7 +1879,27 @@ export function useAchievementsFeatureContent({
 
           <TabsContent value="stats" className={statsContentClass} style={embeddedContentMaskStyle}>
             <div className="max-w-6xl mx-auto space-y-4" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
-              <div className="grid grid-cols-1 gap-4">
+              <Card className={`${statsCardBaseClass} ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
+                <CardHeader className="pb-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowGlobalComparisons((prev) => !prev)}
+                    className="w-full flex items-center justify-between gap-3 text-left"
+                  >
+                    <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
+                      <Users className={`w-4 h-4 ${isLightUi ? "text-indigo-600" : "text-indigo-300"}`} />
+                      Globale Vergleiche
+                    </CardTitle>
+                    {showGlobalComparisons ? (
+                      <ChevronUp className={`w-4 h-4 ${statsBodyClass}`} />
+                    ) : (
+                      <ChevronDown className={`w-4 h-4 ${statsBodyClass}`} />
+                    )}
+                  </button>
+                </CardHeader>
+                {showGlobalComparisons && (
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 gap-4">
                 <Card className={`${statsCardBaseClass} ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
                   <CardHeader className="pb-2">
                     <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
@@ -1991,36 +2122,78 @@ export function useAchievementsFeatureContent({
                         <>
                           {top5.map((entry, index) => {
                             const logo = leaderboardLogosByEmail.get(entry.email);
+                            const rowKey = entry.detailKey;
+                            const isExpanded = expandedHighestScanEntryKey === rowKey;
+                            const multiplierChips = getMultiplierChips(entry);
                             return (
                               <div
                                 key={`${entry.authId || entry.email || "unknown"}-${entry.eventSource}-${entry.rewardAmount}-${entry.awardedAt || ""}`}
-                                className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.email === ownEmailLower ? rankingHighlightClass : rankingDefaultClass}`}
+                                className={`rounded-lg border px-3 py-2 ${entry.email === ownEmailLower ? rankingHighlightClass : rankingDefaultClass}`}
                               >
-                                <div className="flex min-w-0 items-center gap-2 flex-1">
-                                  <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50">
-                                    <CustomLogoAvatar
-                                      logoAssets={logo}
-                                      className="w-full h-full"
-                                      fallbackText={entry.name?.charAt(0)?.toUpperCase() || "?"}
-                                      fallbackClassName="text-[10px] font-bold text-white"
-                                    />
-                                  </div>
+                                <div className="flex items-center justify-between gap-2">
                                   <button
                                     type="button"
-                                    onClick={() => navigateToPublicProfile(entry.email)}
-                                    disabled={!entry.email}
-                                    className={`p-0 m-0 min-w-0 border-0 bg-transparent text-left text-sm font-semibold truncate ${entry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
+                                    onClick={() => setExpandedHighestScanEntryKey((prev) => (prev === rowKey ? null : rowKey))}
+                                    className="min-w-0 flex items-center gap-2 flex-1 text-left"
                                   >
-                                    #{index + 1} {entry.name}
+                                    <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50">
+                                      <CustomLogoAvatar
+                                        logoAssets={logo}
+                                        className="w-full h-full"
+                                        fallbackText={entry.name?.charAt(0)?.toUpperCase() || "?"}
+                                        fallbackClassName="text-[10px] font-bold text-white"
+                                      />
+                                    </div>
+                                    <span className={`min-w-0 text-sm font-semibold truncate ${statsTitleClass}`}>
+                                      #{index + 1} {entry.name}
+                                    </span>
+                                    <span className={`hidden sm:inline text-[11px] ${statsBodyClass}`}>
+                                      {resolveScanEventLabel(entry.eventSource)}
+                                      {entry.formattedAwardedAt ? ` · ${entry.formattedAwardedAt}` : ""}
+                                    </span>
                                   </button>
-                                  <span className={`hidden sm:inline text-[11px] ${statsBodyClass}`}>
-                                    {resolveScanEventLabel(entry.eventSource)}
-                                    {entry.formattedAwardedAt ? ` · ${entry.formattedAwardedAt}` : ""}
-                                  </span>
+
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => navigateToPublicProfile(entry.email)}
+                                      disabled={!entry.email}
+                                      className={`text-[11px] ${entry.email ? "underline" : "opacity-50"} ${statsBodyClass}`}
+                                    >
+                                      Profil
+                                    </button>
+                                    <Badge className={entry.email === ownEmailLower ? (isLightUi ? "bg-fuchsia-600 text-white" : "bg-fuchsia-700 text-white border border-fuchsia-400/60") : rankingDefaultBadgeClass}>
+                                      {entry.rewardAmount.toLocaleString()}
+                                    </Badge>
+                                  </div>
                                 </div>
-                                <Badge className={entry.email === ownEmailLower ? (isLightUi ? "bg-fuchsia-600 text-white" : "bg-fuchsia-700 text-white border border-fuchsia-400/60") : rankingDefaultBadgeClass}>
-                                  {entry.rewardAmount.toLocaleString()}
-                                </Badge>
+
+                                {isExpanded && (
+                                  <div className={`mt-2 rounded-md border px-2 py-2 text-xs ${isLightUi ? "border-fuchsia-200/80 bg-white/75" : "border-fuchsia-300/35 bg-black/25"}`}>
+                                    <div className={`font-semibold ${statsTitleClass}`}>
+                                      Pflanze: {entry.plantSpeciesName || "Unbekannte Pflanze"}
+                                      {entry.plantCommonName ? ` (${entry.plantCommonName})` : ""}
+                                    </div>
+                                    <div className={`mt-0.5 ${statsBodyClass}`}>
+                                      Pflanzen-Status: {resolveScanStatusLabel(entry.scanStatus)}
+                                      {entry.formattedAwardedAt ? ` · ${entry.formattedAwardedAt}` : ""}
+                                    </div>
+                                    {multiplierChips.length > 0 ? (
+                                      <div className="mt-2 flex flex-wrap gap-1">
+                                        {multiplierChips.map((chip) => (
+                                          <Badge
+                                            key={`${rowKey}-${chip}`}
+                                            className={isLightUi ? "bg-fuchsia-100 text-fuchsia-800" : "bg-fuchsia-500/20 text-fuchsia-100 border border-fuchsia-300/40"}
+                                          >
+                                            {chip}
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <div className={`mt-1 ${statsBodyClass}`}>Keine Multiplikator-Daten vorhanden.</div>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
@@ -2028,28 +2201,66 @@ export function useAchievementsFeatureContent({
                           {ownEntry && (
                             <>
                               <p className={`text-xs text-center ${statsBodyClass}`}>…</p>
-                              <div className={`flex items-center justify-between rounded-lg border px-3 py-2 ${rankingHighlightClass}`}>
-                                <div className="flex min-w-0 items-center gap-2 flex-1">
-                                  <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50">
-                                    <CustomLogoAvatar
-                                      logoAssets={leaderboardLogosByEmail.get(ownEntry.email)}
-                                      className="w-full h-full"
-                                      fallbackText={ownEntry.name?.charAt(0)?.toUpperCase() || "?"}
-                                      fallbackClassName="text-[10px] font-bold text-white"
-                                    />
-                                  </div>
+                              <div className={`rounded-lg border px-3 py-2 ${rankingHighlightClass}`}>
+                                <div className="flex items-center justify-between gap-2">
                                   <button
                                     type="button"
-                                    onClick={() => navigateToPublicProfile(ownEntry.email)}
-                                    disabled={!ownEntry.email}
-                                    className={`p-0 m-0 min-w-0 border-0 bg-transparent text-left text-sm font-semibold truncate ${ownEntry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
+                                    onClick={() => setExpandedHighestScanEntryKey((prev) => (prev === ownEntry.detailKey ? null : ownEntry.detailKey))}
+                                    className="min-w-0 flex items-center gap-2 flex-1 text-left"
                                   >
-                                    #{ownHighestScanResultRank} {ownEntry.name}
+                                    <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50">
+                                      <CustomLogoAvatar
+                                        logoAssets={leaderboardLogosByEmail.get(ownEntry.email)}
+                                        className="w-full h-full"
+                                        fallbackText={ownEntry.name?.charAt(0)?.toUpperCase() || "?"}
+                                        fallbackClassName="text-[10px] font-bold text-white"
+                                      />
+                                    </div>
+                                    <span className={`min-w-0 text-sm font-semibold truncate ${statsTitleClass}`}>
+                                      #{ownHighestScanResultRank} {ownEntry.name}
+                                    </span>
                                   </button>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => navigateToPublicProfile(ownEntry.email)}
+                                      disabled={!ownEntry.email}
+                                      className={`text-[11px] ${ownEntry.email ? "underline" : "opacity-50"} ${statsBodyClass}`}
+                                    >
+                                      Profil
+                                    </button>
+                                    <Badge className={isLightUi ? "bg-fuchsia-600 text-white" : "bg-fuchsia-700 text-white border border-fuchsia-400/60"}>
+                                      {ownEntry.rewardAmount.toLocaleString()}
+                                    </Badge>
+                                  </div>
                                 </div>
-                                <Badge className={isLightUi ? "bg-fuchsia-600 text-white" : "bg-fuchsia-700 text-white border border-fuchsia-400/60"}>
-                                  {ownEntry.rewardAmount.toLocaleString()}
-                                </Badge>
+
+                                {expandedHighestScanEntryKey === ownEntry.detailKey && (
+                                  <div className={`mt-2 rounded-md border px-2 py-2 text-xs ${isLightUi ? "border-fuchsia-200/80 bg-white/75" : "border-fuchsia-300/35 bg-black/25"}`}>
+                                    <div className={`font-semibold ${statsTitleClass}`}>
+                                      Pflanze: {ownEntry.plantSpeciesName || "Unbekannte Pflanze"}
+                                      {ownEntry.plantCommonName ? ` (${ownEntry.plantCommonName})` : ""}
+                                    </div>
+                                    <div className={`mt-0.5 ${statsBodyClass}`}>
+                                      Pflanzen-Status: {resolveScanStatusLabel(ownEntry.scanStatus)}
+                                      {ownEntry.formattedAwardedAt ? ` · ${ownEntry.formattedAwardedAt}` : ""}
+                                    </div>
+                                    {getMultiplierChips(ownEntry).length > 0 ? (
+                                      <div className="mt-2 flex flex-wrap gap-1">
+                                        {getMultiplierChips(ownEntry).map((chip) => (
+                                          <Badge
+                                            key={`${ownEntry.detailKey}-${chip}`}
+                                            className={isLightUi ? "bg-fuchsia-100 text-fuchsia-800" : "bg-fuchsia-500/20 text-fuchsia-100 border border-fuchsia-300/40"}
+                                          >
+                                            {chip}
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <div className={`mt-1 ${statsBodyClass}`}>Keine Multiplikator-Daten vorhanden.</div>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             </>
                           )}
@@ -2058,7 +2269,36 @@ export function useAchievementsFeatureContent({
                     })()}
                   </CardContent>
                 </Card>
-              </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <Card className={`${statsCardBaseClass} ${isLightUi ? "border-blue-200" : "border-blue-300/35"}`}>
+                        <CardContent className="p-4">
+                          <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>Global haeufigster Scan</p>
+                          <p className={`text-sm font-bold mt-1 truncate ${statsTitleClass}`}>
+                            {globalTopSpeciesName || "Noch keine Daten"}
+                          </p>
+                          <p className={`text-xs mt-1 ${isLightUi ? "text-blue-700" : "text-blue-300"}`}>
+                            {globalTopSpeciesCount > 0 ? `${globalTopSpeciesCount}x global gescannt` : "Scans werden gesammelt"}
+                          </p>
+                        </CardContent>
+                      </Card>
+
+                      <Card className={`${statsCardBaseClass} ${isLightUi ? "border-purple-200" : "border-purple-300/35"}`}>
+                        <CardContent className="p-4">
+                          <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>Top Genus global</p>
+                          <p className={`text-sm font-bold mt-1 truncate ${statsTitleClass}`}>
+                            {globalTopGenusName || "Noch keine Daten"}
+                          </p>
+                          <p className={`text-xs mt-1 ${isLightUi ? "text-purple-700" : "text-purple-300"}`}>
+                            {globalTopGenusCount > 0 ? `${globalTopGenusCount}x global gescannt` : "Scans werden gesammelt"}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
 
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
                 <Card className={`${statsCardBaseClass} ${isLightUi ? "border-emerald-200" : "border-emerald-300/35"}`}>

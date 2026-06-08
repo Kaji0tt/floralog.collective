@@ -2249,7 +2249,6 @@ function HomeContent() {
       if (!isOwnDiscovery) {
         const actionParams = new URLSearchParams();
         if (genusId) actionParams.set("id", genusId);
-        if (scannerEmail) actionParams.set("email", scannerEmail);
         actionParams.set("discoveryId", discoveryId);
 
         await Promise.allSettled([
