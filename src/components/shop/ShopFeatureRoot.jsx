@@ -5,6 +5,7 @@ import { HexColorPicker } from "react-colorful";
 import { Query } from "@/api/entities";
 import { supabase } from "@/api/supabaseClient";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
+import { getCurrentAuthUser } from "@/api/authService";
 import { getUserWallet } from "@/api/walletService";
 import { listUserRewardsWithLegacyFallback } from "@/api/userRewardService";
 import { useUiTheme } from "@/lib/UiThemeContext";
@@ -608,10 +609,19 @@ export default function ShopFeatureRoot({
     refetchOnWindowFocus: false,
   });
 
-  const resolvedAuthId = authId || fallbackUser?.id || null;
+  const { data: fallbackAuthUser = null } = useQuery({
+    queryKey: ["shopCurrentAuthUser"],
+    queryFn: () => getCurrentAuthUser(),
+    enabled: !authId,
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const resolvedAuthId = authId || currentUser?.id || fallbackAuthUser?.id || fallbackUser?.id || null;
   const resolvedUserEmail =
     currentUser?.user_email ||
     currentUser?.email ||
+    fallbackAuthUser?.email ||
     fallbackUser?.user_email ||
     fallbackUser?.email ||
     null;
@@ -641,20 +651,20 @@ export default function ShopFeatureRoot({
     refetchOnReconnect: true,
   });
 
-  const { data: rewards = [], isPending: isRewardsPending, refetch: refetchRewards } = useQuery({
+  const { data: rewards = [], isPending: isRewardsPending, refetch: refetchRewards, error: rewardsError } = useQuery({
     queryKey: ["rewards"],
     queryFn: () => Query.Reward.list(),
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 
-  const { data: userRewards = [], isPending: isUserRewardsPending, refetch: refetchUserRewards } = useQuery({
+  const { data: userRewards = [], isPending: isUserRewardsPending, refetch: refetchUserRewards, error: userRewardsError } = useQuery({
     queryKey: ["userRewards", resolvedAuthId, resolvedUserEmail],
     queryFn: () => listUserRewardsWithLegacyFallback({
       authId: resolvedAuthId,
       userEmail: resolvedUserEmail,
     }),
-    enabled: !!resolvedAuthId,
+    enabled: !!resolvedAuthId || !!resolvedUserEmail,
     staleTime: Infinity,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
@@ -669,7 +679,7 @@ export default function ShopFeatureRoot({
     refetchOnReconnect: true,
   });
 
-  const { data: logoAssets = [], isPending: isLogoAssetsPending, refetch: refetchLogoAssets } = useQuery({
+  const { data: logoAssets = [], isPending: isLogoAssetsPending, refetch: refetchLogoAssets, error: logoAssetsError } = useQuery({
     queryKey: ["logoAssets"],
     queryFn: () => Query.LogoAsset.list(),
     staleTime: 5 * 60 * 1000,
@@ -887,7 +897,8 @@ export default function ShopFeatureRoot({
 
   const isAuthResolving = !resolvedAuthId;
   const isLoading = isAuthResolving || isDiscoveriesPending || isAchievementsPending || isUserAchievementsPending || isRewardsPending || isUserRewardsPending || isLogoAssetsPending || isUserWalletPending;
-  const resolvedCurrentUser = currentUser || fallbackUser || (authId ? { id: authId } : null);
+  const criticalDataError = rewardsError || userRewardsError || logoAssetsError || null;
+  const resolvedCurrentUser = currentUser || fallbackUser || fallbackAuthUser || (authId ? { id: authId } : null);
   const availableSparks = Math.max(0, Number(userWallet?.sparks_balance ?? 0));
   const availableAmber = Math.max(0, Number(userWallet?.amber_balance ?? 0));
 
@@ -1017,7 +1028,24 @@ export default function ShopFeatureRoot({
             </div>
           )}
 
-          {isLoading ? (
+          {criticalDataError ? (
+            <div className="px-1 py-6 flex flex-col items-center justify-center gap-3 text-center">
+              <div className={`text-sm font-medium ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Shop-Daten konnten nicht geladen werden</div>
+              <div className={`text-xs ${isLightUi ? "text-stone-500" : "text-stone-300/80"}`}>Bitte kurz neu laden. Solange Daten fehlen, koennen Freischaltungen nicht korrekt angezeigt werden.</div>
+              <button
+                type="button"
+                onClick={refetchAll}
+                className={`inline-flex items-center gap-2 h-9 px-3 rounded-xl text-xs font-semibold border ${
+                  isLightUi
+                    ? "border-[#c8ac62]/55 bg-white/65 text-stone-800"
+                    : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
+                }`}
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                Erneut laden
+              </button>
+            </div>
+          ) : isLoading ? (
             <div className="px-1 py-6 flex flex-col items-center justify-center gap-2 text-center">
               <Loader2 className={`w-6 h-6 animate-spin ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
               <div className={`text-sm font-medium ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Freischaltungen werden geladen</div>

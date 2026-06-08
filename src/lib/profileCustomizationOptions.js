@@ -20,8 +20,14 @@ const extractAccessoryIdCandidate = (value) => {
   const withoutExtension = lastPathSegment.replace(/\.(png|jpe?g|gif|webp|svg)$/i, "");
 
   if (!withoutExtension) return "";
+  if (withoutExtension.startsWith("reward_logo_accessory_")) return withoutExtension.replace(/^reward_logo_accessory_/, "");
+  if (withoutExtension.startsWith("reward_accessory_")) return withoutExtension.replace(/^reward_accessory_/, "");
   if (withoutExtension.startsWith("logo_accessory_")) return withoutExtension.replace(/^logo_accessory_/, "");
   if (withoutExtension.startsWith("accessory_")) return withoutExtension.replace(/^accessory_/, "");
+
+  const embeddedMatch = withoutExtension.match(/(face_[a-z0-9_]+|plant_[a-z0-9_]+|border_[a-z0-9_]+)/i);
+  if (embeddedMatch?.[1]) return embeddedMatch[1].toLowerCase();
+
   return withoutExtension;
 };
 
@@ -341,6 +347,15 @@ const getRewardUnlockedAccessoryIds = ({ rewards = [], userRewards = [] } = {}) 
   const unlockedAccessoryIds = new Set();
 
   for (const userReward of Array.isArray(userRewards) ? userRewards : []) {
+    const directAccessoryCandidates = [
+      normalizeAccessoryTarget(userReward?.reward_id),
+      normalizeAccessoryTarget(userReward?.reward_name),
+    ].filter((entry) => looksLikeAccessoryId(entry));
+
+    for (const directCandidate of directAccessoryCandidates) {
+      unlockedAccessoryIds.add(directCandidate);
+    }
+
     const reward = rewardsById.get(userReward?.reward_id);
     if (!reward) continue;
 
