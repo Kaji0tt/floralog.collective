@@ -4,7 +4,7 @@ import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { upsertUserProfile } from "@/api/authService";
 import { createUserNotification } from "@/api/notificationService";
 import { supabase } from "@/api/supabaseClient";
-import { sendFriendRequest } from "@/api/friendService";
+import { connectViaReferral } from "@/api/friendService";
 import {
   getRobotPlantDailyZones,
   listRobotPlantShopItems,
@@ -906,30 +906,20 @@ function HomeContent() {
     if (!referralCode) return;
 
     const referrerEmail = resolveReferralEmail(referralCode);
-    // Sofort löschen, um doppelte Verarbeitung zu verhindern
-    localStorage.removeItem('referral_code');
-
-    if (!referrerEmail) return;
-
-    if (referrerEmail.toLowerCase() === user.email.toLowerCase()) return;
+    if (!referrerEmail || referrerEmail.toLowerCase() === user.email.toLowerCase()) {
+      localStorage.removeItem('referral_code');
+      return;
+    }
 
     (async () => {
       try {
-        // Referral-Eintrag anlegen
-        await Query.Referral.create({
-          referrer_email: referrerEmail,
-          referred_email: user.email,
-          status: "completed",
-        });
-      } catch (_e) {
-        // Duplikat oder andere Fehler ignorieren
-      }
-      try {
-        // Freundschaftsanfrage an den Werber senden
-        await sendFriendRequest(referrerEmail);
+        // Nutzt den RLS-sicheren Backend-Flow für Referral + Freundschaft.
+        await connectViaReferral(referrerEmail);
+        localStorage.removeItem('referral_code');
         queryClient.invalidateQueries({ queryKey: ['pendingFriendRequests'] });
+        queryClient.invalidateQueries({ queryKey: ['friends'] });
       } catch (_e) {
-        // Anfrage existiert ggf. bereits
+        // Bei Fehler Referral-Code behalten, damit der Flow beim nächsten Login erneut versucht wird.
       }
     })();
   }, [user?.email, queryClient]);
