@@ -363,13 +363,41 @@ export default function GuestHomeFlow() {
     const queryParams = new URLSearchParams(window.location.search);
     const hasRecoveryType = hashParams.get("type") === "recovery" || queryParams.get("type") === "recovery";
     const hasAuthTokens = hashParams.has("access_token") && hashParams.has("refresh_token");
+    const recoveryCode = queryParams.get("code");
 
-    if (hasRecoveryType || hasAuthTokens) {
+    const normalizeRecoverySession = async () => {
+      if (!(hasRecoveryType || hasAuthTokens || recoveryCode)) {
+        return;
+      }
+
+      await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+
+      if (hasAuthTokens) {
+        const accessToken = hashParams.get("access_token");
+        const refreshToken = hashParams.get("refresh_token");
+        if (accessToken && refreshToken) {
+          await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+        }
+      } else if (recoveryCode) {
+        await supabase.auth.exchangeCodeForSession(recoveryCode);
+      }
+
+      window.history.replaceState({}, document.title, window.location.pathname);
+    };
+
+    if (hasRecoveryType || hasAuthTokens || recoveryCode) {
       setRecoveryModalOpen(true);
     }
 
+    normalizeRecoverySession().catch((error) => {
+      console.error("Failed to normalize recovery session:", error);
+    });
+
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY" || (event === "SIGNED_IN" && (hasRecoveryType || hasAuthTokens) && !!session?.user)) {
+      if (event === "PASSWORD_RECOVERY" || (event === "SIGNED_IN" && (hasRecoveryType || hasAuthTokens || recoveryCode) && !!session?.user)) {
         setRecoveryModalOpen(true);
       }
     });

@@ -35,6 +35,36 @@ export default function ResetPassword() {
 
     const resolveRecoverySession = async () => {
       try {
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        const queryParams = new URLSearchParams(window.location.search);
+        const hasRecoveryType = hashParams.get('type') === 'recovery' || queryParams.get('type') === 'recovery';
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        const hasTokenPair = !!accessToken && !!refreshToken;
+        const recoveryCode = queryParams.get('code');
+
+        if (hasRecoveryType || hasTokenPair || recoveryCode) {
+          // Ensure we never keep a previously logged-in browser session when opening reset links.
+          await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+
+          if (hasTokenPair) {
+            const { error: setSessionError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            if (setSessionError) {
+              throw setSessionError;
+            }
+          } else if (recoveryCode) {
+            const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(recoveryCode);
+            if (exchangeError) {
+              throw exchangeError;
+            }
+          }
+
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
         const session = await getSession();
 
         if (!isMounted) return;

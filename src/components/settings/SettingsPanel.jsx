@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { Query } from "@/api/entities";
 import { updateCurrentUserProfile, getCurrentUser } from "@/api/userApi";
-import { upsertUserProfile, updateEmail } from "@/api/authService";
+import { upsertUserProfile, updateEmail, updatePassword } from "@/api/authService";
 import { listUserRewardsWithLegacyFallback } from "@/api/userRewardService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   LogOut, Mail, Heart, FileText,
   Star, Image as ImageIcon, Edit2, CheckCircle, X, Trash2,
-  ChevronDown, ChevronUp, Lock, Sun,
+  ChevronDown, ChevronUp, Lock, Sun, Loader2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
@@ -51,6 +51,10 @@ export default function SettingsPanel({
   const [isEditingEmail, setIsEditingEmail] = useState(false);
   const [editedEmail, setEditedEmail] = useState(user?.email || "");
   const [emailNotice, setEmailNotice] = useState(null);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [passwordNotice, setPasswordNotice] = useState(null);
   const [showBackgroundSelector, setShowBackgroundSelector] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState({
     colors: false,
@@ -164,6 +168,10 @@ export default function SettingsPanel({
     },
   });
 
+  const updatePasswordMutation = useMutation({
+    mutationFn: (nextPassword) => updatePassword(nextPassword),
+  });
+
   const updatePublicProfile = async (userData) => {
     try {
       await upsertUserProfile(userData.id, {
@@ -249,6 +257,59 @@ export default function SettingsPanel({
     await updateEmailMutation.mutateAsync(trimmed);
   };
 
+  const handlePasswordDialogOpenChange = (open) => {
+    setChangePasswordOpen(open);
+    if (!open) {
+      setNewPassword("");
+      setConfirmNewPassword("");
+      setPasswordNotice(null);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    const trimmed = newPassword.trim();
+
+    if (trimmed.length < 8) {
+      setPasswordNotice({
+        type: "error",
+        message: "Passwort muss mindestens 8 Zeichen lang sein.",
+      });
+      return;
+    }
+
+    if (!/[a-z]/.test(trimmed) || !/[A-Z]/.test(trimmed) || !/\d/.test(trimmed)) {
+      setPasswordNotice({
+        type: "error",
+        message: "Passwort muss Klein-, Grossbuchstaben und Zahlen enthalten.",
+      });
+      return;
+    }
+
+    if (trimmed !== confirmNewPassword) {
+      setPasswordNotice({
+        type: "error",
+        message: "Passwoerter stimmen nicht ueberein.",
+      });
+      return;
+    }
+
+    try {
+      setPasswordNotice(null);
+      await updatePasswordMutation.mutateAsync(trimmed);
+      setPasswordNotice({
+        type: "success",
+        message: "Passwort erfolgreich geaendert.",
+      });
+      setNewPassword("");
+      setConfirmNewPassword("");
+    } catch (error) {
+      setPasswordNotice({
+        type: "error",
+        message: error?.message || "Passwort konnte nicht aktualisiert werden.",
+      });
+    }
+  };
+
   const handleSetBackground = async (imageUrl, precomputedColor = null) => {
     const color = precomputedColor || (await getAverageColor(imageUrl));
     await updateUserMutation.mutateAsync({ background_image_url: imageUrl, background_color: color });
@@ -308,6 +369,92 @@ export default function SettingsPanel({
 
   return (
     <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+      <Dialog open={changePasswordOpen} onOpenChange={handlePasswordDialogOpenChange}>
+        <DialogContent className={`max-w-md border ${
+          uiTheme === 'light'
+            ? 'bg-white text-stone-800 border-[#c8ac62]/40'
+            : 'bg-[#121b16] border-[#f0e5a5]/35 text-stone-100'
+        }`}>
+          <DialogHeader>
+            <DialogTitle className={uiTheme === 'light' ? 'text-stone-800' : 'text-stone-100'}>
+              Passwort aendern
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div>
+              <p className={`text-xs mb-1 ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-400'}`}>
+                Neues Passwort
+              </p>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                placeholder="Neues Passwort"
+                autoComplete="new-password"
+                className={uiTheme === 'light'
+                  ? 'bg-stone-100/40 border-[#c8ac62]/25 text-stone-800 placeholder:text-stone-500'
+                  : 'bg-black/30 border-[#f0e5a5]/25 text-stone-100 placeholder:text-stone-400'}
+              />
+            </div>
+
+            <div>
+              <p className={`text-xs mb-1 ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-400'}`}>
+                Passwort bestaetigen
+              </p>
+              <Input
+                type="password"
+                value={confirmNewPassword}
+                onChange={(event) => setConfirmNewPassword(event.target.value)}
+                placeholder="Passwort bestaetigen"
+                autoComplete="new-password"
+                className={uiTheme === 'light'
+                  ? 'bg-stone-100/40 border-[#c8ac62]/25 text-stone-800 placeholder:text-stone-500'
+                  : 'bg-black/30 border-[#f0e5a5]/25 text-stone-100 placeholder:text-stone-400'}
+              />
+            </div>
+
+            <p className={`text-[11px] leading-snug ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-400'}`}>
+              Anforderungen: Mindestens 8 Zeichen, Klein-/Grossbuchstaben und Zahlen.
+            </p>
+
+            {passwordNotice && (
+              <p className={`text-xs leading-snug ${
+                passwordNotice.type === 'error'
+                  ? 'text-red-400'
+                  : (uiTheme === 'light' ? 'text-green-700' : 'text-green-300')
+              }`}>
+                {passwordNotice.message}
+              </p>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => handlePasswordDialogOpenChange(false)}
+                disabled={updatePasswordMutation.isPending}
+                className={`px-3 py-1.5 text-sm rounded-lg border ${
+                  uiTheme === 'light'
+                    ? 'border-stone-300 text-stone-700 hover:bg-stone-100'
+                    : 'border-stone-600 text-stone-200 hover:bg-white/10'
+                }`}
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={handleChangePassword}
+                disabled={updatePasswordMutation.isPending}
+                className="px-3 py-1.5 text-sm rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {updatePasswordMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Passwort speichern
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showBackgroundSelector} onOpenChange={setShowBackgroundSelector}>
         <DialogContent className={`max-w-4xl max-h-[80vh] overflow-y-auto border ${
           uiTheme === 'light'
@@ -850,6 +997,18 @@ export default function SettingsPanel({
               )}
             </div>
           </div>
+
+          <button
+            onClick={() => handlePasswordDialogOpenChange(true)}
+            className={`w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-sm font-medium transition-colors ${
+              uiTheme === 'light'
+                ? 'border-[#c8ac62]/35 bg-stone-100/40 text-stone-800 hover:bg-stone-100/60'
+                : 'border-[#f0e5a5]/25 bg-white/5 text-stone-100 hover:bg-white/10'
+            }`}
+          >
+            <Lock className="w-4 h-4" />
+            Passwort aendern
+          </button>
 
           <button
             onClick={() => navigate(createPageUrl("Donate"))}

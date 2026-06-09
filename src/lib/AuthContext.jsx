@@ -114,6 +114,7 @@ export const AuthProvider = ({ children }) => {
       // Recovery session: user clicked the password-reset email link.
       // Keep them as guest and show the reset-password modal.
       if (event === 'PASSWORD_RECOVERY') {
+        clearAuthState();
         setIsPasswordRecovery(true);
         setIsLoadingAuth(false);
         return;

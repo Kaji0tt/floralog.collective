@@ -443,6 +443,9 @@ export function useAchievementsFeatureContent({
       return Array.isArray(data) ? data : [];
     },
     staleTime: 60 * 1000,
+    refetchInterval: 15 * 1000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const { data: highestScanResultsLeaderboard = null } = useQuery({
@@ -459,6 +462,9 @@ export function useAchievementsFeatureContent({
       return Array.isArray(data) ? data : [];
     },
     staleTime: 60 * 1000,
+    refetchInterval: 15 * 1000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const { data: globalScanTaxonomyHighlights = null } = useQuery({
@@ -476,6 +482,9 @@ export function useAchievementsFeatureContent({
       return data || null;
     },
     staleTime: 60 * 1000,
+    refetchInterval: 30 * 1000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
     // Resolve logos for all profiles
