@@ -96,6 +96,7 @@ type ScanRewardContext = {
   rewardDetails: RewardBreakdown;
   derivedEnergyDelta: number;
   derivedDataQualityDelta: number;
+  derivedCareDelta: number;
   matchedZoneId: string | null;
   nextZoneMultiplier: number | null;
 };
@@ -148,6 +149,9 @@ const NORMALIZED_RARITY_MULTIPLIERS: Record<string, number> = {
 
 const EARTH_RADIUS_M = 6371000;
 const SCAN_LIKE_CARE_GAIN_DAILY_CAP = 5;
+const FIRST_SCAN_BASE_CARE_DELTA = 3;
+const FIRST_SCAN_CARE_DELTA_MAX = 10;
+const FIRST_SCAN_CARE_MAX_INACTIVITY_DAYS = 7;
 const CLAIM_THRESHOLD = 4;
 const TILE_SIZE_M = 100;
 const EPSG_3035 = "+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +datum=ETRS89 +units=m +no_defs +type=crs";
@@ -194,6 +198,38 @@ function getUtcDayWindow(date = new Date()): { startIso: string; endIso: string 
     startIso: start.toISOString(),
     endIso: end.toISOString(),
   };
+}
+
+function computeInactiveDaysSinceLastScan(
+  lastScanIso: string | null | undefined,
+  currentUtcDayStart: Date,
+): number {
+  if (!lastScanIso) {
+    return FIRST_SCAN_CARE_MAX_INACTIVITY_DAYS;
+  }
+
+  const lastScanDate = new Date(lastScanIso);
+  if (Number.isNaN(lastScanDate.getTime())) {
+    return FIRST_SCAN_CARE_MAX_INACTIVITY_DAYS;
+  }
+
+  const lastScanUtcDayStart = new Date(Date.UTC(
+    lastScanDate.getUTCFullYear(),
+    lastScanDate.getUTCMonth(),
+    lastScanDate.getUTCDate(),
+    0,
+    0,
+    0,
+    0,
+  ));
+
+  const diffMs = currentUtcDayStart.getTime() - lastScanUtcDayStart.getTime();
+  if (diffMs <= 0) {
+    return 0;
+  }
+
+  const diffDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+  return clamp(diffDays - 1, 0, FIRST_SCAN_CARE_MAX_INACTIVITY_DAYS);
 }
 
 const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
@@ -758,6 +794,29 @@ async function tryResolveScanRewardContext(
 
   const isFirstScanOfDay = Number(todayScanCount ?? 0) <= 1;
 
+  let derivedCareDelta = 0;
+  if (isFirstScanOfDay) {
+    const { data: previousScanRow, error: previousScanError } = await adminClient
+      .from("UserPlantDiscovery")
+      .select("discovered_date")
+      .eq("auth_id", authId)
+      .lt("discovered_date", utcDayStart.toISOString())
+      .order("discovered_date", { ascending: false })
+      .limit(1)
+      .maybeSingle<{ discovered_date: string | null }>();
+
+    if (previousScanError) {
+      throw new Error(`Failed to load previous scan: ${previousScanError.message}`);
+    }
+
+    const inactivityDays = computeInactiveDaysSinceLastScan(previousScanRow?.discovered_date, utcDayStart);
+    derivedCareDelta = clamp(
+      FIRST_SCAN_BASE_CARE_DELTA + inactivityDays,
+      FIRST_SCAN_BASE_CARE_DELTA,
+      FIRST_SCAN_CARE_DELTA_MAX,
+    );
+  }
+
   const careValue = Number(robotPlantState?.care ?? ROBOT_PLANT_DEFAULT_STATE.care);
   const energyValue = Number(robotPlantState?.energy ?? ROBOT_PLANT_DEFAULT_STATE.energy);
   const dataQualityValue = Number(robotPlantState?.data_quality ?? ROBOT_PLANT_DEFAULT_STATE.data_quality);
@@ -840,6 +899,7 @@ async function tryResolveScanRewardContext(
     rewardDetails,
     derivedEnergyDelta: finalEnergyDelta,
     derivedDataQualityDelta,
+    derivedCareDelta,
     matchedZoneId: matchedZone?.id || null,
     nextZoneMultiplier,
   };
@@ -973,7 +1033,7 @@ Deno.serve(async (req) => {
       effectiveAmount = multipliedFinalReward;
       effectiveEnergyDelta = scanContext.derivedEnergyDelta;
       effectiveDataQualityDelta = scanContext.derivedDataQualityDelta;
-      effectiveCareDelta = 0;
+      effectiveCareDelta = scanContext.derivedCareDelta;
       currentRobotPlantState = scanContext.robotPlantState;
       metadata = {
         ...metadata,
@@ -982,6 +1042,7 @@ Deno.serve(async (req) => {
         reward_computed_server_side: true,
         derived_energy_delta: effectiveEnergyDelta,
         derived_data_quality_delta: effectiveDataQualityDelta,
+        derived_care_delta: effectiveCareDelta,
         zone_scan_applied: scanContext.matchedZoneId,
         tile_claim: tileClaimResolution
           ? {
@@ -1035,7 +1096,11 @@ Deno.serve(async (req) => {
 
     const currentCareValue = Number(currentRobotPlantState?.care ?? ROBOT_PLANT_DEFAULT_STATE.care);
 
-    if (effectiveCareDelta > 0 && effectiveEventSource !== "scan_like_received") {
+    if (
+      effectiveCareDelta > 0 &&
+      effectiveEventSource !== "scan_like_received" &&
+      !SCAN_EVENT_SOURCES.has(effectiveEventSource)
+    ) {
       effectiveCareDelta = applyRecoveryGain(effectiveCareDelta, currentCareValue);
     }
 

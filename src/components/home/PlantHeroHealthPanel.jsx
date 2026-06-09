@@ -6,10 +6,10 @@ import InventorySlotPickerPopover from "@/components/robotPlant/InventorySlotPic
 
 const HEALTH_TOOLTIP_TEXT = {
   energy:
-    "Energie bestimmt die Zonengroesse und den taeglichen Energiegewinn aus gelaufener Scan-Distanz. Niedrige Werte holen schneller auf: unter 50% gibt es 3x Zuwachs, unter 75% 2x, ab 75% 1x. Der taegliche Decay basiert auf der Gesamtgesundheit vor Decay (floor(Overall/10), mindestens 1).",
+    "Energie zeigt, wie fit deine Pflanze gerade ist. Mit mehr Energie hast du im Alltag mehr Spielraum. Wenn Energie niedrig ist, kann sie sich wieder schneller erholen.",
   "data-quality":
-    "Datenqualitaet bestimmt die Anzahl der taeglichen Zonen (mindestens 1, maximal 8) und steigt nur bei Scans innerhalb einer aktiven Zone. Niedrige Werte holen schneller auf: unter 50% gibt es 3x Zuwachs, unter 75% 2x, ab 75% 1x. Ausserhalb aktiver Zonen gibt es +0.",
-  care: "Pflege wirkt direkt als Multiplikator (1.0 bis 2.0) auf die Seed-Belohnung und bestimmt die taeglichen Zone-Rerolls (0/1/2/4 bei >=80/>=90/>=100). Niedrige Werte holen schneller auf: unter 50% gibt es 3x Zuwachs, unter 75% 2x, ab 75% 1x. Likes geben weiterhin zusaetzlich bis zu +1 (max. 5x pro Tag).",
+    "Datenqualitaet steht fuer die Genauigkeit deiner Scans. Gute Daten helfen dir dabei, bessere Ergebnisse zu bekommen. Sie steigt vor allem, wenn du in aktiven Zonen scannst.",
+  care: "Pflege zeigt, wie gut du dich um deine Pflanze kuemmerst. Hohe Pflege verbessert deine Belohnungen. Der erste Scan am Tag gibt extra Pflege, und nach Pausen sogar noch mehr.",
 };
 
 export default function PlantHeroHealthPanel({
