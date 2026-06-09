@@ -31,6 +31,21 @@ const extractLikeDate = (entry) =>
 const extractMapViewDate = (entry) =>
   toDate(entry?.created_date || entry?.created_at || entry?.updated_date);
 
+const formatDayKey = (date) => {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const startOfUtcDayMs = (date) => Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+
+const formatMonthKey = (date) => {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+};
+
 const getEntriesInWindow = (entries, getDate, startInclusiveMs, endExclusiveMs) =>
   entries.filter((entry) => {
     const date = getDate(entry);
@@ -187,5 +202,140 @@ export function buildGlobalKpiSummary({ discoveries = [], profiles = [], scanLik
         trend: calcTrend(likes30d, prevLikes30d),
       },
     ],
+  };
+}
+
+export function buildDauWauMauSeries({ discoveries = [], now = new Date(), days = 90 } = {}) {
+  const dayCount = Math.max(7, Number(days) || 90);
+  const endMs = startOfUtcDayMs(Number.isFinite(now?.getTime?.()) ? now : new Date());
+
+  const usersByDay = new Map();
+
+  discoveries.forEach((discovery) => {
+    const date = extractDiscoveryDate(discovery);
+    const userKey = extractUserKey(discovery);
+    if (!date || !userKey) return;
+
+    const dayKey = formatDayKey(date);
+    if (!usersByDay.has(dayKey)) usersByDay.set(dayKey, new Set());
+    usersByDay.get(dayKey).add(userKey);
+  });
+
+  const collectUsersInWindow = (anchorMs, windowDays) => {
+    const users = new Set();
+    for (let offset = 0; offset < windowDays; offset += 1) {
+      const dayMs = anchorMs - offset * DAY_MS;
+      const dayKey = formatDayKey(new Date(dayMs));
+      const dayUsers = usersByDay.get(dayKey);
+      if (!dayUsers) continue;
+      dayUsers.forEach((user) => users.add(user));
+    }
+    return users;
+  };
+
+  const series = [];
+
+  for (let i = dayCount - 1; i >= 0; i -= 1) {
+    const dayMs = endMs - i * DAY_MS;
+    const dayKey = formatDayKey(new Date(dayMs));
+    const dauUsers = usersByDay.get(dayKey) || new Set();
+    const wauUsers = collectUsersInWindow(dayMs, 7);
+    const mauUsers = collectUsersInWindow(dayMs, 30);
+
+    const dau = dauUsers.size;
+    const wau = wauUsers.size;
+    const mau = mauUsers.size;
+    const stickiness = mau > 0 ? Number(((dau / mau) * 100).toFixed(2)) : 0;
+
+    series.push({
+      dateKey: dayKey,
+      timestampMs: dayMs,
+      dau,
+      wau,
+      mau,
+      stickiness,
+    });
+  }
+
+  return series;
+}
+
+export function buildMonthlyTopScannerSummary({ discoveries = [], profiles = [], now = new Date(), topLimit = 10 } = {}) {
+  const monthCountsByUser = new Map();
+
+  discoveries.forEach((discovery) => {
+    const date = extractDiscoveryDate(discovery);
+    const userKey = extractUserKey(discovery);
+    if (!date || !userKey) return;
+
+    const monthKey = formatMonthKey(date);
+    if (!monthCountsByUser.has(monthKey)) monthCountsByUser.set(monthKey, new Map());
+    const monthMap = monthCountsByUser.get(monthKey);
+    monthMap.set(userKey, (monthMap.get(userKey) || 0) + 1);
+  });
+
+  const profileNameByKey = new Map();
+  profiles.forEach((profile) => {
+    const key = extractUserKey(profile);
+    if (!key) return;
+
+    const displayName =
+      profile?.display_name ||
+      profile?.full_name ||
+      profile?.email ||
+      profile?.user_email ||
+      profile?.auth_id ||
+      profile?.user_id ||
+      profile?.id ||
+      "Unbekannt";
+
+    profileNameByKey.set(key, String(displayName));
+  });
+
+  const nowDate = Number.isFinite(now?.getTime?.()) ? now : new Date();
+  const currentMonthKey = formatMonthKey(nowDate);
+  const currentMonthMap = monthCountsByUser.get(currentMonthKey) || new Map();
+
+  const currentMonthTop = Array.from(currentMonthMap.entries())
+    .map(([userKey, scans]) => ({
+      userKey,
+      playerName: profileNameByKey.get(userKey) || userKey,
+      scans,
+    }))
+    .sort((a, b) => b.scans - a.scans)
+    .slice(0, Math.max(1, Number(topLimit) || 10));
+
+  const monthKeys = Array.from(monthCountsByUser.keys()).sort();
+  const monthlyLeaders = monthKeys.map((monthKey) => {
+    const monthMap = monthCountsByUser.get(monthKey) || new Map();
+    let leader = null;
+    monthMap.forEach((scans, userKey) => {
+      if (!leader || scans > leader.scans) {
+        leader = {
+          monthKey,
+          userKey,
+          playerName: profileNameByKey.get(userKey) || userKey,
+          scans,
+        };
+      }
+    });
+    return leader;
+  }).filter(Boolean);
+
+  const monthlyRecord = monthlyLeaders.reduce((best, current) => {
+    if (!best || current.scans > best.scans) return current;
+    return best;
+  }, null);
+
+  const currentMonthTotalScans = Array.from(currentMonthMap.values()).reduce((sum, value) => sum + value, 0);
+  const currentMonthActivePlayers = currentMonthMap.size;
+
+  return {
+    currentMonthKey,
+    currentMonthTotalScans,
+    currentMonthActivePlayers,
+    currentMonthTop,
+    monthlyLeaders,
+    monthlyRecord,
   };
 }

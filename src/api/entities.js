@@ -71,6 +71,38 @@ function createEntity(tableName) {
       if (error) return handleMissingTable(tableName, error);
       return data || [];
     },
+    listAll: async (orderBy = null, pageSize = 1000) => {
+      const safePageSize = Math.max(1, Math.min(Number(pageSize) || 1000, 1000));
+      const allRows = [];
+      let from = 0;
+
+      while (true) {
+        let query = supabase
+          .from(tableName)
+          .select('*')
+          .range(from, from + safePageSize - 1);
+
+        if (orderBy) {
+          const [col, direction] = orderBy.startsWith('-')
+            ? [orderBy.slice(1), 'desc']
+            : [orderBy, 'asc'];
+          query = query.order(col, { ascending: direction === 'asc' });
+        }
+
+        const { data, error } = await query;
+        if (error) return handleMissingTable(tableName, error);
+
+        const chunk = data || [];
+        if (!chunk.length) break;
+
+        allRows.push(...chunk);
+        if (chunk.length < safePageSize) break;
+
+        from += safePageSize;
+      }
+
+      return allRows;
+    },
     filter: async (filters) => {
       let query = supabase.from(tableName).select('*');
       for (const [key, value] of Object.entries(filters)) {

@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, AlertCircle, BarChart3, RefreshCw } from "lucide-react";
+import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from "recharts";
 
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
-import { buildGlobalKpiSummary } from "@/api/kpiService";
+import { buildDauWauMauSeries, buildGlobalKpiSummary, buildMonthlyTopScannerSummary } from "@/api/kpiService";
 import { getOnlinePresenceDisplayName, subscribeToOnlineUsers } from "@/api/onlinePresenceService";
 import { createPageUrl } from "@/utils";
 
@@ -21,6 +22,31 @@ const formatMetricValue = (metric) => {
 };
 
 const formatAvg = (value) => Number(value || 0).toFixed(2);
+
+const formatMonth = (monthKey) => {
+  if (!monthKey) return "-";
+  const [year, month] = String(monthKey).split("-").map((value) => Number(value));
+  if (!year || !month) return monthKey;
+  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("de-DE", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+};
+
+const formatDateLabel = (dateKey) => {
+  if (!dateKey) return "-";
+  return new Date(`${dateKey}T00:00:00Z`).toLocaleDateString("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "UTC",
+  });
+};
+
+const calcAvg = (values) => {
+  if (!Array.isArray(values) || values.length === 0) return 0;
+  return values.reduce((sum, value) => sum + Number(value || 0), 0) / values.length;
+};
 
 const normalizeRole = (value) => String(value || "").trim().toLowerCase();
 
@@ -73,7 +99,7 @@ export default function KPIAdmin() {
     refetch: refetchDiscoveries,
   } = useQuery({
     queryKey: ["kpiAdminDiscoveries"],
-    queryFn: () => Query.UserPlantDiscovery.list("-created_date"),
+    queryFn: () => Query.UserPlantDiscovery.listAll("-created_date"),
     enabled: !!isAdmin,
     staleTime: 60 * 1000,
     refetchOnWindowFocus: true,
@@ -85,7 +111,7 @@ export default function KPIAdmin() {
     refetch: refetchProfiles,
   } = useQuery({
     queryKey: ["kpiAdminProfiles"],
-    queryFn: () => Query.PublicProfile.list(),
+    queryFn: () => Query.PublicProfile.listAll(),
     enabled: !!isAdmin,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
@@ -97,7 +123,7 @@ export default function KPIAdmin() {
     refetch: refetchLikes,
   } = useQuery({
     queryKey: ["kpiAdminLikes"],
-    queryFn: () => Query.ScanLike.list("-created_date"),
+    queryFn: () => Query.ScanLike.listAll("-created_date"),
     enabled: !!isAdmin,
     staleTime: 60 * 1000,
     refetchOnWindowFocus: true,
@@ -109,7 +135,7 @@ export default function KPIAdmin() {
     refetch: refetchMapViews,
   } = useQuery({
     queryKey: ["kpiAdminMapViews"],
-    queryFn: () => Query.MapViewEvent.list("-created_date", 10000),
+    queryFn: () => Query.MapViewEvent.listAll("-created_date"),
     enabled: !!isAdmin,
     staleTime: 60 * 1000,
     refetchOnWindowFocus: true,
@@ -126,6 +152,41 @@ export default function KPIAdmin() {
         mapViews,
       }),
     [discoveries, profiles, likes, mapViews]
+  );
+
+  const retentionSeries = useMemo(
+    () => buildDauWauMauSeries({ discoveries, days: 120 }),
+    [discoveries]
+  );
+
+  const monthlyScanSummary = useMemo(
+    () => buildMonthlyTopScannerSummary({ discoveries, profiles, topLimit: 12 }),
+    [discoveries, profiles]
+  );
+
+  const retentionTrendSummary = useMemo(() => {
+    if (!retentionSeries.length) return { current: 0, previous: 0, deltaPercent: 0 };
+
+    const recent = retentionSeries.slice(-14);
+    const previous = retentionSeries.slice(-28, -14);
+    const currentAvg = calcAvg(recent.map((entry) => entry.stickiness));
+    const previousAvg = calcAvg(previous.map((entry) => entry.stickiness));
+
+    if (previousAvg <= 0) {
+      return {
+        current: currentAvg,
+        previous: previousAvg,
+        deltaPercent: currentAvg > 0 ? 100 : 0,
+      };
+    }
+
+    const deltaPercent = ((currentAvg - previousAvg) / previousAvg) * 100;
+    return { current: currentAvg, previous: previousAvg, deltaPercent };
+  }, [retentionSeries]);
+
+  const retentionTableRows = useMemo(
+    () => [...retentionSeries].slice(-14).reverse(),
+    [retentionSeries]
   );
 
   const handleRefresh = async () => {
@@ -242,6 +303,125 @@ export default function KPIAdmin() {
             </CardContent>
           </Card>
         </div>
+
+        <Card className="border-2 border-stone-200 shadow-lg bg-white">
+          <CardHeader>
+            <CardTitle>Scans pro Monat: Top-Spieler</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
+              <div className="rounded-xl border border-stone-200 bg-stone-50 p-3">
+                <p className="text-xs text-stone-500">Aktiver Monat</p>
+                <p className="text-lg font-semibold text-stone-900">{formatMonth(monthlyScanSummary?.currentMonthKey)}</p>
+              </div>
+              <div className="rounded-xl border border-stone-200 bg-stone-50 p-3">
+                <p className="text-xs text-stone-500">Aktive Scanner (Monat)</p>
+                <p className="text-lg font-semibold text-stone-900">{Number(monthlyScanSummary?.currentMonthActivePlayers || 0).toLocaleString("de-DE")}</p>
+              </div>
+              <div className="rounded-xl border border-stone-200 bg-stone-50 p-3">
+                <p className="text-xs text-stone-500">Monatsrekord (ein Spieler)</p>
+                <p className="text-lg font-semibold text-stone-900">{Number(monthlyScanSummary?.monthlyRecord?.scans || 0).toLocaleString("de-DE")}</p>
+                <p className="text-xs text-stone-500 mt-1">
+                  {monthlyScanSummary?.monthlyRecord
+                    ? `${monthlyScanSummary.monthlyRecord.playerName} · ${formatMonth(monthlyScanSummary.monthlyRecord.monthKey)}`
+                    : "-"}
+                </p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-stone-200">
+              <table className="w-full text-sm">
+                <thead className="bg-stone-100 text-stone-700">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-medium">Rang</th>
+                    <th className="text-left px-3 py-2 font-medium">Spieler</th>
+                    <th className="text-right px-3 py-2 font-medium">Scans im Monat</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(monthlyScanSummary?.currentMonthTop || []).length > 0 ? (
+                    (monthlyScanSummary.currentMonthTop || []).map((entry, index) => (
+                      <tr key={`${entry.userKey}-${index}`} className="border-t border-stone-200">
+                        <td className="px-3 py-2">{index + 1}</td>
+                        <td className="px-3 py-2">{entry.playerName}</td>
+                        <td className="px-3 py-2 text-right font-semibold">{Number(entry.scans || 0).toLocaleString("de-DE")}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={3} className="px-3 py-4 text-stone-500">Keine Scan-Daten im aktuellen Monat vorhanden.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-2 border-stone-200 shadow-lg bg-white">
+          <CardHeader>
+            <CardTitle>Retention-Trend (DAU / WAU / MAU)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-stone-600 mb-3">
+              14-Tage Stickiness-Schnitt (DAU/MAU): <strong>{retentionTrendSummary.current.toFixed(2)}%</strong>
+              {" "}(vorher: {retentionTrendSummary.previous.toFixed(2)}%, Delta: {retentionTrendSummary.deltaPercent >= 0 ? "+" : ""}{retentionTrendSummary.deltaPercent.toFixed(1)}%)
+            </p>
+
+            <div className="h-80 w-full rounded-xl border border-stone-200 bg-stone-50 p-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={retentionSeries}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#d6d3d1" />
+                  <XAxis
+                    dataKey="dateKey"
+                    tickFormatter={formatDateLabel}
+                    minTickGap={24}
+                    stroke="#78716c"
+                  />
+                  <YAxis yAxisId="users" stroke="#78716c" allowDecimals={false} />
+                  <YAxis yAxisId="percent" orientation="right" stroke="#78716c" domain={[0, 100]} />
+                  <RechartsTooltip
+                    formatter={(value, name) => {
+                      if (name === "Stickiness") return [`${Number(value || 0).toFixed(2)}%`, name];
+                      return [Number(value || 0).toLocaleString("de-DE"), name];
+                    }}
+                    labelFormatter={(label) => formatDateLabel(label)}
+                  />
+                  <Legend />
+                  <Line yAxisId="users" type="monotone" dataKey="dau" name="DAU" stroke="#16a34a" strokeWidth={2} dot={false} />
+                  <Line yAxisId="users" type="monotone" dataKey="wau" name="WAU" stroke="#0ea5e9" strokeWidth={2} dot={false} />
+                  <Line yAxisId="users" type="monotone" dataKey="mau" name="MAU" stroke="#f97316" strokeWidth={2} dot={false} />
+                  <Line yAxisId="percent" type="monotone" dataKey="stickiness" name="Stickiness" stroke="#6d28d9" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="mt-4 overflow-x-auto rounded-xl border border-stone-200">
+              <table className="w-full text-sm">
+                <thead className="bg-stone-100 text-stone-700">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-medium">Datum</th>
+                    <th className="text-right px-3 py-2 font-medium">DAU</th>
+                    <th className="text-right px-3 py-2 font-medium">WAU</th>
+                    <th className="text-right px-3 py-2 font-medium">MAU</th>
+                    <th className="text-right px-3 py-2 font-medium">Stickiness</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {retentionTableRows.map((row) => (
+                    <tr key={row.dateKey} className="border-t border-stone-200">
+                      <td className="px-3 py-2">{formatDateLabel(row.dateKey)}</td>
+                      <td className="px-3 py-2 text-right">{Number(row.dau || 0).toLocaleString("de-DE")}</td>
+                      <td className="px-3 py-2 text-right">{Number(row.wau || 0).toLocaleString("de-DE")}</td>
+                      <td className="px-3 py-2 text-right">{Number(row.mau || 0).toLocaleString("de-DE")}</td>
+                      <td className="px-3 py-2 text-right font-semibold">{Number(row.stickiness || 0).toFixed(2)}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
 
         <Card className="border-2 border-stone-200 shadow-lg bg-white">
           <CardHeader>

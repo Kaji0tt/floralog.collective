@@ -908,8 +908,8 @@ export default function GuestHomeFlow() {
           <div
             className="absolute inset-x-auto top-1/2 -translate-y-1/2 rounded-full border border-amber-100/30 bg-black/18 backdrop-blur-[2px]"
             style={{
-              width: "min(74vw, 760px)",
-              height: "clamp(2.8rem, 7.4vw, 4.4rem)",
+              width: "clamp(2.8rem, min(7.4vw, 6.4vh), 4.4rem)",
+              height: "clamp(2.8rem, min(7.4vw, 6.4vh), 4.4rem)",
               boxShadow: "0 0 0 1px rgba(255,241,186,0.08), 0 8px 24px rgba(0,0,0,0.18)",
             }}
             aria-hidden="true"
