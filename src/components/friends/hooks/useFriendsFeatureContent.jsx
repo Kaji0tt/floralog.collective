@@ -887,6 +887,24 @@ Viel Spaß beim Entdecken! 🌿`;
     }
   };
 
+  const openExplorerDiscoveryInFriendCollection = useCallback((entry) => {
+    const genusId = entry?.plant?.genus_id;
+    const discoveryId = entry?.id;
+    const actorEmail = String(entry?.actorEmail || "").trim();
+
+    if (!genusId || !discoveryId || !actorEmail) {
+      return;
+    }
+
+    const nextParams = new URLSearchParams();
+    nextParams.set("id", genusId);
+    nextParams.set("email", actorEmail);
+    nextParams.set("collectionId", "global");
+    nextParams.set("discoveryId", discoveryId);
+
+    navigate(createPageUrl(`GenusDetail?${nextParams.toString()}`));
+  }, [navigate]);
+
   const latestFriendActivityByKey = useMemo(() => {
     const latestByKey = new Map();
 
@@ -1520,19 +1538,45 @@ Viel Spaß beim Entdecken! 🌿`;
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: index * 0.02 }}
                     >
-                      <Card className={`${nestedCardClass} ${isLightUi ? "bg-white" : ""} ${interactiveHoverClass} transition-all overflow-hidden`}>
+                      <Card
+                        className={`${nestedCardClass} ${isLightUi ? "bg-white" : ""} ${interactiveHoverClass} transition-all overflow-hidden`}
+                      >
                         {entry.discovery?.image_url ? (
-                          <div className={`aspect-[4/3] overflow-hidden ${isLightUi ? "bg-stone-100" : "bg-stone-900/60"}`}>
+                          <button
+                            type="button"
+                            onClick={() => openExplorerDiscoveryInFriendCollection(entry)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                openExplorerDiscoveryInFriendCollection(entry);
+                              }
+                            }}
+                            className={`block w-full aspect-[4/3] overflow-hidden ${isLightUi ? "bg-stone-100" : "bg-stone-900/60"}`}
+                            aria-label="Scan in Freundes-Kollektion oeffnen"
+                          >
                             <img
                               src={entry.discovery.image_url}
                               alt={entry.plant?.species_name || "Scan"}
                               className="w-full h-full object-cover"
                             />
-                          </div>
+                          </button>
                         ) : (
-                          <div className={`aspect-[4/3] flex items-center justify-center ${isLightUi ? "bg-gradient-to-br from-emerald-50 to-stone-100" : "bg-gradient-to-br from-emerald-500/10 to-stone-950/60"}`}>
+                          <button
+                            type="button"
+                            onClick={() => openExplorerDiscoveryInFriendCollection(entry)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                openExplorerDiscoveryInFriendCollection(entry);
+                              }
+                            }}
+                            className={`block w-full aspect-[4/3] ${isLightUi ? "bg-gradient-to-br from-emerald-50 to-stone-100" : "bg-gradient-to-br from-emerald-500/10 to-stone-950/60"}`}
+                            aria-label="Scan in Freundes-Kollektion oeffnen"
+                          >
+                          <div className="w-full h-full flex items-center justify-center">
                             <Leaf className={`w-10 h-10 ${isLightUi ? "text-emerald-500" : "text-emerald-300"}`} />
                           </div>
+                          </button>
                         )}
                         <CardContent className="p-3 space-y-2">
                           <div className="flex items-start justify-between gap-2">
@@ -1546,7 +1590,9 @@ Viel Spaß beim Entdecken! 🌿`;
                             )}
                           </div>
                           <button
-                            onClick={() => {
+                            onMouseDown={(event) => event.stopPropagation()}
+                            onClick={(event) => {
+                              event.stopPropagation();
                               if (entry.actorEmail && entry.actorEmail !== ownEmailLower) {
                                 navigate(createPageUrl(`FriendProfile?email=${entry.actorEmail}`));
                               }
@@ -1574,7 +1620,10 @@ Viel Spaß beim Entdecken! 🌿`;
                             {entry.actorEmail && entry.actorEmail !== ownEmailLower ? (
                               <button
                                 type="button"
-                                onClick={() => handleExplorerLike(entry, !entry.likedByCurrentUser)}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleExplorerLike(entry, !entry.likedByCurrentUser);
+                                }}
                                 className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors ${
                                   entry.likedByCurrentUser
                                     ? (isLightUi
