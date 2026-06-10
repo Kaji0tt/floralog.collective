@@ -36,11 +36,9 @@ const formatMonth = (monthKey) => {
 
 const formatDateLabel = (dateKey) => {
   if (!dateKey) return "-";
-  return new Date(`${dateKey}T00:00:00Z`).toLocaleDateString("de-DE", {
-    day: "2-digit",
-    month: "2-digit",
-    timeZone: "UTC",
-  });
+  const [year, month, day] = String(dateKey).split("-").map((value) => Number(value));
+  if (!year || !month || !day) return String(dateKey);
+  return `${String(day).padStart(2, "0")}.${String(month).padStart(2, "0")}`;
 };
 
 const calcAvg = (values) => {
@@ -193,6 +191,15 @@ export default function KPIAdmin() {
     () => [...retentionSeries].slice(-14).reverse(),
     [retentionSeries]
   );
+
+  const retentionAxisTicks = useMemo(() => {
+    if (!retentionSeries.length) return [];
+    const first = retentionSeries[0]?.dateKey;
+    const last = retentionSeries[retentionSeries.length - 1]?.dateKey;
+    if (!first || !last) return [];
+    if (first === last) return [first];
+    return [first, last];
+  }, [retentionSeries]);
 
   const handleRefresh = async () => {
     await Promise.all([refetchDiscoveries(), refetchProfiles(), refetchLikes(), refetchMapViews()]);
@@ -380,6 +387,8 @@ export default function KPIAdmin() {
                   <XAxis
                     dataKey="dateKey"
                     tickFormatter={formatDateLabel}
+                    ticks={retentionAxisTicks}
+                    interval="preserveStartEnd"
                     minTickGap={24}
                     stroke="#78716c"
                   />
