@@ -258,6 +258,7 @@ export default function GenusCard({
                         <CustomLogoAvatar
                           logoAssets={entry.logoAssets}
                           className="w-full h-full"
+                          tooltipText={entry.name || entry.email || "Freund"}
                           fallbackText={(entry.name || entry.email || "?").charAt(0).toUpperCase()}
                           fallbackClassName="text-[9px] font-bold text-white"
                         />

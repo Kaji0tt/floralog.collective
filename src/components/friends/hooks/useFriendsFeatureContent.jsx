@@ -1635,6 +1635,7 @@ Viel Spaß beim Entdecken! 🌿`;
                               <CustomLogoAvatar
                                 logoAssets={entry.actorLogoAssets}
                                 className="w-full h-full"
+                                tooltipText={entry.actorName || entry.actorEmail || "Freund"}
                                 fallbackText={entry.actorName?.charAt(0)?.toUpperCase() || "?"}
                                 fallbackClassName="text-[10px] font-bold text-white"
                               />
@@ -1801,6 +1802,7 @@ Viel Spaß beim Entdecken! 🌿`;
                                       <CustomLogoAvatar
                                         logoAssets={actor.logoAssets}
                                         className="w-full h-full"
+                                        tooltipText={actor.name || actor.email || "Freund"}
                                         fallbackText={avatarFallback}
                                         fallbackClassName={`text-xs font-semibold ${isLightUi ? "text-stone-700" : "text-stone-100"}`}
                                       />
@@ -1971,6 +1973,7 @@ Viel Spaß beim Entdecken! 🌿`;
                                 <CustomLogoAvatar
                                   logoAssets={requesterData.logoAssets}
                                   className="w-full h-full"
+                                  tooltipText={requesterData.name || requesterData.email || "Freund"}
                                   fallbackText={requesterData.name?.[0]?.toUpperCase() || "?"}
                                   fallbackClassName="text-lg font-bold text-white"
                                 />
@@ -2054,6 +2057,7 @@ Viel Spaß beim Entdecken! 🌿`;
                             <CustomLogoAvatar
                               logoAssets={friendData.logoAssets}
                               className="w-full h-full"
+                              tooltipText={friendData.name || friendData.email || "Freund"}
                               fallbackText={friendData.name?.[0]?.toUpperCase() || friendData.email?.[0]?.toUpperCase()}
                               fallbackClassName="text-sm font-bold text-white"
                             />

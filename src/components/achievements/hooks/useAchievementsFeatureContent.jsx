@@ -1988,6 +1988,7 @@ export function useAchievementsFeatureContent({
                                     <CustomLogoAvatar
                                       logoAssets={logo}
                                       className="w-full h-full"
+                                      tooltipText={entry.name || entry.email || "Unbekannt"}
                                       fallbackText={entry.name?.charAt(0)?.toUpperCase() || "?"}
                                       fallbackClassName="text-[10px] font-bold text-white"
                                     />
@@ -2016,6 +2017,7 @@ export function useAchievementsFeatureContent({
                                     <CustomLogoAvatar
                                       logoAssets={leaderboardLogosByEmail.get(ownEntry.email)}
                                       className="w-full h-full"
+                                      tooltipText={ownEntry.name || ownEntry.email || "Unbekannt"}
                                       fallbackText={ownEntry.name?.charAt(0)?.toUpperCase() || "?"}
                                       fallbackClassName="text-[10px] font-bold text-white"
                                     />
@@ -2083,6 +2085,7 @@ export function useAchievementsFeatureContent({
                                     <CustomLogoAvatar
                                       logoAssets={logo}
                                       className="w-full h-full"
+                                      tooltipText={entry.name || entry.email || "Unbekannt"}
                                       fallbackText={entry.name?.charAt(0)?.toUpperCase() || "?"}
                                       fallbackClassName="text-[10px] font-bold text-white"
                                     />
@@ -2112,6 +2115,7 @@ export function useAchievementsFeatureContent({
                                     <CustomLogoAvatar
                                       logoAssets={leaderboardLogosByEmail.get(ownEntry.email)}
                                       className="w-full h-full"
+                                      tooltipText={ownEntry.name || ownEntry.email || "Unbekannt"}
                                       fallbackText={ownEntry.name?.charAt(0)?.toUpperCase() || "?"}
                                       fallbackClassName="text-[10px] font-bold text-white"
                                     />
@@ -2190,6 +2194,7 @@ export function useAchievementsFeatureContent({
                                       <CustomLogoAvatar
                                         logoAssets={logo}
                                         className="w-full h-full"
+                                        tooltipText={entry.name || entry.email || "Unbekannt"}
                                         fallbackText={entry.name?.charAt(0)?.toUpperCase() || "?"}
                                         fallbackClassName="text-[10px] font-bold text-white"
                                       />
@@ -2262,6 +2267,7 @@ export function useAchievementsFeatureContent({
                                       <CustomLogoAvatar
                                         logoAssets={leaderboardLogosByEmail.get(ownEntry.email)}
                                         className="w-full h-full"
+                                        tooltipText={ownEntry.name || ownEntry.email || "Unbekannt"}
                                         fallbackText={ownEntry.name?.charAt(0)?.toUpperCase() || "?"}
                                         fallbackClassName="text-[10px] font-bold text-white"
                                       />

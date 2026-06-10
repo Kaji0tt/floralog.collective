@@ -1,3 +1,5 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -17,12 +19,31 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { name, email, message, reportType, subjectSuffix, source } = await req.json()
+    const {
+      name,
+      email,
+      message,
+      reportType,
+      subjectSuffix,
+      source,
+      platform,
+      notifyUpdates,
+    } = await req.json()
 
-    const normalizedReportType = reportType === "bug" ? "bug" : "feedback"
+    const normalizedReportType = reportType === "bug"
+      ? "bug"
+      : reportType === "playtest_signup"
+        ? "playtest_signup"
+        : "feedback"
     const normalizedSubjectSuffix = typeof subjectSuffix === "string" ? subjectSuffix.trim() : ""
+    const normalizedEmail = String(email || "").trim().toLowerCase()
+    const normalizedPlatform = platform === "ios" ? "ios" : platform === "android" ? "android" : null
+    const normalizedNotifyUpdates = Boolean(notifyUpdates)
 
-    if (!name || !email || !message) {
+    const hasMissingFeedbackFields = normalizedReportType !== "playtest_signup" && (!name || !normalizedEmail || !message)
+    const hasMissingPlaytestFields = normalizedReportType === "playtest_signup" && (!normalizedEmail || !normalizedPlatform)
+
+    if (hasMissingFeedbackFields || hasMissingPlaytestFields) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
         status: 400,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -32,13 +53,20 @@ Deno.serve(async (req) => {
     const resendKey = Deno.env.get("RESEND_API_KEY")
     const feedbackToAddress = Deno.env.get("FEEDBACK_TO_EMAIL") || "info@floralog.de"
     const bugReportToAddress = Deno.env.get("BUG_REPORT_TO_EMAIL") || "info@floralog.de"
+    const playtestToAddress = Deno.env.get("PLAYTEST_TO_EMAIL") || "info@floralog.de"
     const fromAddress = Deno.env.get("FEEDBACK_FROM_EMAIL") || "noreply@floralog.de"
-    const toAddress = normalizedReportType === "bug" ? bugReportToAddress : feedbackToAddress
+    const toAddress = normalizedReportType === "bug"
+      ? bugReportToAddress
+      : normalizedReportType === "playtest_signup"
+        ? playtestToAddress
+        : feedbackToAddress
     const subject = normalizedReportType === "bug"
       ? `[Bug-Report] ${normalizedSubjectSuffix || "Floralog"}`
-      : normalizedSubjectSuffix
-        ? `Floralog Feedback: ${normalizedSubjectSuffix}`
-        : `Floralog Feedback von ${name}`
+      : normalizedReportType === "playtest_signup"
+        ? `[Playtest Signup] ${normalizedPlatform === "ios" ? "iOS" : "Android"}`
+        : normalizedSubjectSuffix
+          ? `Floralog Feedback: ${normalizedSubjectSuffix}`
+          : `Floralog Feedback von ${name}`
 
     if (!resendKey) {
       return new Response(JSON.stringify({ error: "Email not configured" }), {
@@ -47,15 +75,57 @@ Deno.serve(async (req) => {
       })
     }
 
-    const bodyText = [
-      `Typ: ${normalizedReportType}`,
-      source ? `Quelle: ${source}` : null,
-      `Name: ${name}`,
-      `E-Mail: ${email}`,
-      "",
-      "Nachricht:",
-      message,
-    ].filter(Boolean).join("\n")
+    if (normalizedReportType === "playtest_signup") {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")
+      const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
+
+      if (!supabaseUrl || !serviceRoleKey) {
+        return new Response(JSON.stringify({ error: "Supabase service not configured" }), {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        })
+      }
+
+      const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { persistSession: false },
+      })
+
+      const { error: upsertError } = await adminClient
+        .from("playtest_waitlist")
+        .upsert({
+          email: normalizedEmail,
+          platform: normalizedPlatform,
+          wants_updates: normalizedNotifyUpdates,
+          source: source || "guest-playtest-direct",
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "email" })
+
+      if (upsertError) {
+        console.error("playtest_waitlist upsert error:", upsertError)
+        return new Response(JSON.stringify({ error: "Failed to persist signup" }), {
+          status: 502,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        })
+      }
+    }
+
+    const bodyText = normalizedReportType === "playtest_signup"
+      ? [
+        `Typ: ${normalizedReportType}`,
+        source ? `Quelle: ${source}` : null,
+        `Google-E-Mail: ${normalizedEmail}`,
+        `Plattform: ${normalizedPlatform}`,
+        `Ueber Neuigkeiten informieren: ${normalizedNotifyUpdates ? "Ja" : "Nein"}`,
+      ].filter(Boolean).join("\n")
+      : [
+        `Typ: ${normalizedReportType}`,
+        source ? `Quelle: ${source}` : null,
+        `Name: ${name}`,
+        `E-Mail: ${normalizedEmail}`,
+        "",
+        "Nachricht:",
+        message,
+      ].filter(Boolean).join("\n")
 
     const resendResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -68,7 +138,7 @@ Deno.serve(async (req) => {
         to: [toAddress],
         subject,
         text: bodyText,
-        reply_to: email,
+        reply_to: normalizedEmail,
       }),
     })
 

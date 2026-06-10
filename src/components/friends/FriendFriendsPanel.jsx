@@ -196,6 +196,7 @@ export default function FriendFriendsPanel({ friendUser, friendEmail, currentUse
                   <CustomLogoAvatar
                     logoAssets={data.logoAssets}
                     className="w-full h-full"
+                    tooltipText={data.name || data.email || "Freund"}
                     fallbackText={data.name?.[0]?.toUpperCase() || data.email?.[0]?.toUpperCase()}
                     fallbackClassName="text-white text-base font-bold"
                     leafClassName="w-5 h-5 text-white"

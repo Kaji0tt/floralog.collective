@@ -13,6 +13,7 @@ import Register from '@/pages/Register';
 import ConfirmEmail from '@/pages/ConfirmEmail';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
+import GuestPlaytestSignup from '@/pages/GuestPlaytestSignup';
 import GuestLoginModal from '@/components/GuestLoginModal';
 import ResetPasswordModal from '@/components/ResetPasswordModal';
 import HomeShellLoader from '@/components/navigation/HomeShellLoader';
@@ -82,6 +83,8 @@ function App() {
         <Router>
           <NavigationTracker />
           <Routes>
+            <Route path="/guest-playtest" element={<GuestPlaytestSignup />} />
+
             {/* Public Auth Routes - accessible without authentication */}
             <Route path="/login" element={<Navigate to="/" replace />} />
             <Route path="/register" element={<Register />} />

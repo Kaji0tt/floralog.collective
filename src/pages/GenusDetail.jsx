@@ -1209,6 +1209,7 @@ export default function GenusDetail() {
                           <CustomLogoAvatar
                             logoAssets={activeVariant.actor?.logoAssets}
                             className="w-full h-full"
+                            tooltipText={activeVariant.actor?.name || activeVariant.actor?.email || "Freund"}
                             fallbackText={(activeVariant.actor?.name || activeVariant.actor?.email || "?").charAt(0).toUpperCase()}
                             fallbackClassName="text-xs font-bold text-white"
                           />
@@ -1265,6 +1266,7 @@ export default function GenusDetail() {
                                     <CustomLogoAvatar
                                       logoAssets={actor.logoAssets}
                                       className="w-full h-full"
+                                      tooltipText={actor.name || actor.email || "Freund"}
                                       fallbackText={(actor.name || actor.email || "?").charAt(0).toUpperCase()}
                                       fallbackClassName="text-[9px] font-bold text-white"
                                     />
@@ -1424,6 +1426,9 @@ export default function GenusDetail() {
                     <CustomLogoAvatar
                       logoAssets={friendEmail ? friendProfileLogoAssets : activeExpandedFriendActor?.logoAssets}
                       className="w-full h-full"
+                      tooltipText={friendEmail
+                        ? (friendProfile?.display_name || friendProfile?.user_email || "Freund")
+                        : (activeExpandedFriendActor?.name || activeExpandedFriendActor?.email || "Freund")}
                       fallbackText={friendEmail
                         ? (friendProfile?.display_name || friendProfile?.user_email || "?").charAt(0).toUpperCase()
                         : (activeExpandedFriendActor?.name || activeExpandedFriendActor?.email || "?").charAt(0).toUpperCase()}
