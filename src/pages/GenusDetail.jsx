@@ -1193,46 +1193,50 @@ export default function GenusDetail() {
                     isLightUi={isLightUi}
                     compact={true}
                     showNarrative={true}
+                    titlePrefix={
+                      plant.discovered ? (
+                        <CheckCircle2 className={"w-4 h-4 flex-shrink-0 " + (isLightUi ? "text-green-600" : "text-emerald-300")} />
+                      ) : (
+                        <HelpCircle className={"w-4 h-4 flex-shrink-0 " + (isLightUi ? "text-stone-500" : "text-stone-300")} />
+                      )
+                    }
                     topRight={
-                      <div className="flex items-center gap-2">
-                        {plant.discovered ? (
-                          <CheckCircle2 className={"w-4 h-4 flex-shrink-0 " + (isLightUi ? "text-green-600" : "text-emerald-300")} />
-                        ) : (
-                          <HelpCircle className={"w-4 h-4 flex-shrink-0 " + (isLightUi ? "text-stone-500" : "text-stone-300")} />
-                        )}
-                        {activeVariant && !activeVariant.isOwn ? (
-                          <div
-                            className="w-9 h-9 rounded-full overflow-hidden bg-black/35 ring-2 ring-white/20"
-                            title={activeVariant.actor?.name || activeVariant.actor?.email || "Freund"}
-                          >
-                            <CustomLogoAvatar
-                              logoAssets={activeVariant.actor?.logoAssets}
-                              className="w-full h-full"
-                              fallbackText={(activeVariant.actor?.name || activeVariant.actor?.email || "?").charAt(0).toUpperCase()}
-                              fallbackClassName="text-xs font-bold text-white"
-                            />
-                          </div>
-                        ) : null}
-                      </div>
+                      activeVariant && !activeVariant.isOwn ? (
+                        <div
+                          className="w-8 h-8 rounded-full overflow-hidden bg-black/35 ring-2 ring-white/20"
+                          title={activeVariant.actor?.name || activeVariant.actor?.email || "Freund"}
+                        >
+                          <CustomLogoAvatar
+                            logoAssets={activeVariant.actor?.logoAssets}
+                            className="w-full h-full"
+                            fallbackText={(activeVariant.actor?.name || activeVariant.actor?.email || "?").charAt(0).toUpperCase()}
+                            fallbackClassName="text-xs font-bold text-white"
+                          />
+                        </div>
+                      ) : null
                     }
                   />
-                  <div className="flex items-center justify-between gap-2">
-                    {showStack ? (
-                      <div className="inline-flex h-5 items-center rounded-full bg-black/60 text-white text-xs px-2 py-0.5">
-                        {(activeIndex + 1)}/{variants.length}
-                      </div>
-                    ) : <div />}
-                    <div className="flex items-center gap-1.5 min-w-0">
+                  <div className="flex items-center justify-between gap-2 w-full">
+                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
                       {Array.isArray(plant.friendActors) && plant.friendActors.length > 0 && (
                         <div
-                          className="flex items-center gap-1 min-w-0 overflow-x-auto pr-1"
+                          className="flex items-center gap-1 min-w-0 overflow-x-auto pr-1 justify-start"
                           title="Freunde mit Scan dieser Pflanze"
                           onClick={(event) => event.stopPropagation()}
                           onMouseDown={(event) => event.stopPropagation()}
                           onTouchStart={(event) => event.stopPropagation()}
                           onTouchEnd={(event) => event.stopPropagation()}
                         >
-                          {plant.friendActors.map((actor, actorIndex) => (
+                          {plant.friendActors.map((actor, actorIndex) => {
+                            const activeActorAuthId = activeVariant?.actor?.authId || null;
+                            const activeActorEmail = String(activeVariant?.actor?.email || "").toLowerCase();
+                            const actorEmail = String(actor.email || "").toLowerCase();
+                            const isActiveVariantActor = Boolean(
+                              (activeActorAuthId && actor.authId === activeActorAuthId) ||
+                              (activeActorEmail && actorEmail && activeActorEmail === actorEmail)
+                            );
+
+                            return (
                             <TooltipProvider key={actor.authId || actor.email || actorIndex}>
                               <Tooltip
                                 open={openFriendTooltipKey === `${plant.id}:${actor.authId || actor.email || actorIndex}`}
@@ -1247,7 +1251,7 @@ export default function GenusDetail() {
                                 <TooltipTrigger asChild>
                                   <button
                                     type="button"
-                                    className="w-5 h-5 rounded-full overflow-hidden bg-black/35 border border-white/20 shrink-0"
+                                    className={`${isActiveVariantActor ? "w-7 h-7 ring-2 ring-emerald-400/70 border-white/60" : "w-5 h-5 border-white/20"} rounded-full overflow-hidden bg-black/35 border shrink-0 transition-all duration-200`}
                                     title={actor.name || actor.email || "Freund"}
                                     onClick={(event) => {
                                       event.stopPropagation();
@@ -1286,9 +1290,11 @@ export default function GenusDetail() {
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
+                    </div>
                       {activeDiscovery && (
                         <div
                           className={"inline-flex h-5 items-center gap-1 rounded-full border px-1.5 text-[10px] shrink-0 " + (activeLikeCount > 0
@@ -1323,7 +1329,6 @@ export default function GenusDetail() {
                           <span>{activeLikeCount || 0}</span>
                         </div>
                       )}
-                    </div>
                   </div>
                 </div>
               </CardContent>

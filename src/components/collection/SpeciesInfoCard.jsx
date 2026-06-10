@@ -153,6 +153,7 @@ export default function SpeciesInfoCard({
   isLightUi = false,
   compact = false,
   showNarrative = true,
+  titlePrefix,
   topRight,
 }) {
   const safePlant = plant || {};
@@ -165,6 +166,7 @@ export default function SpeciesInfoCard({
   const identificationText = resolveField(safePlant, "identification_features");
   const funFactText = resolveField(safePlant, "fun_fact");
   const [infoOpen, setInfoOpen] = React.useState(!compact);
+  const [ecologyOpen, setEcologyOpen] = React.useState(false);
 
   const mergedEcologyPlant = {
     ...safePlant,
@@ -179,70 +181,101 @@ export default function SpeciesInfoCard({
     pollen_value: resolveField(safePlant, "pollen_value"),
   };
   const visibleEcologyItems = ecologyItems(mergedEcologyPlant);
-
   return (
-    <div className={"rounded-xl border p-3 space-y-3 " + (isLightUi
-      ? "bg-white border-stone-200"
-      : "bg-black/35 border-[#f0e5a5]/30")}>
-      <div className={"rounded-lg border p-3 space-y-3 " + `${rarityAccent.border} ${rarityAccent.softBg}`}>
-        <div className="flex gap-3">
-          <div className={`w-20 h-20 rounded-lg overflow-hidden border shrink-0 ${rarityAccent.imageBorder}`}>
-            {image ? (
-              <img src={image} alt={safePlant.species_name || "Pflanze"} className="w-full h-full object-cover" />
-            ) : (
-              <div className={"w-full h-full flex items-center justify-center " + (isLightUi ? "bg-stone-100" : "bg-stone-900/70")}>
-                <Leaf className={"w-7 h-7 " + (isLightUi ? "text-stone-400" : "text-stone-500")} />
-              </div>
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <h3 className={"text-base font-bold truncate " + (isLightUi ? "text-stone-900" : "text-stone-100")}>
-                  {safePlant.species_name || "Unbekannte Pflanze"}
-                </h3>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <p className={"text-xs italic truncate " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
-                    {safePlant.scientific_name || "-"}
-                  </p>
-                  <Badge className={`h-5 ${getRarityColor(rarity)} text-white text-[10px] px-1.5 py-0 rounded-full`}>
-                    {getRarityStars(rarity)}
-                  </Badge>
-                </div>
-              </div>
-              {topRight || null}
+    <div className="space-y-3">
+      <div className="space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start gap-1 min-w-0">
+              {titlePrefix ? <span className="mt-0.5 shrink-0">{titlePrefix}</span> : null}
+              <h3 className={"text-base font-bold break-words leading-tight " + (isLightUi ? "text-stone-900" : "text-stone-100")}>
+                {safePlant.species_name || "Unbekannte Pflanze"}
+              </h3>
             </div>
+            <div className="mt-1 flex items-start justify-between gap-2">
+              <p className={"text-xs italic break-words min-w-0 " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
+                {safePlant.scientific_name || "-"}
+                <a
+                  href={naturadbUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={"inline-flex items-center gap-1 ml-2 text-[11px] not-italic font-normal " + (isLightUi ? "text-emerald-700" : "text-emerald-300")}
+                >
+                 
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </p>
+            </div>
+          </div>
+          <div className="shrink-0 flex items-center gap-2">
+            <Badge className={`h-5 ${getRarityColor(rarity)} text-white text-[10px] px-1.5 py-0 rounded-full shrink-0`}>
+              {getRarityStars(rarity)}
+            </Badge>
+            {topRight || null}
           </div>
         </div>
 
-        <div className={"rounded-md border p-2 " + (isLightUi ? "bg-white border-stone-200" : "bg-black/30 border-stone-600/50")}>
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <p className={"text-xs font-semibold " + (isLightUi ? "text-stone-700" : "text-stone-200")}>
-              Ökologie
+        <div className="flow-root">
+          <div className="float-right ml-3 mb-2 w-1/3">
+            <div className={`w-full aspect-square rounded-lg overflow-hidden border ${rarityAccent.imageBorder}`}>
+              {image ? (
+                <img src={image} alt={safePlant.species_name || "Pflanze"} className="w-full h-full object-cover" />
+              ) : (
+                <div className={"w-full h-full flex items-center justify-center " + (isLightUi ? "bg-stone-100" : "bg-stone-900/70")}>
+                  <Leaf className={"w-7 h-7 " + (isLightUi ? "text-stone-400" : "text-stone-500")} />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {!!descriptionText && (
+            <p className={"text-sm leading-relaxed " + (isLightUi ? "text-stone-700" : "text-stone-200")}>
+              {descriptionText}
             </p>
-            <a
-              href={naturadbUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={"inline-flex items-center gap-1 text-[11px] underline underline-offset-2 shrink-0 " + (isLightUi ? "text-emerald-700" : "text-emerald-300")}
-            >
-              NaturaDB
-              <ExternalLink className="w-3 h-3" />
-            </a>
-          </div>
-          <div className={compact ? "grid grid-cols-2 gap-x-2 gap-y-1" : "grid grid-cols-1 sm:grid-cols-2 gap-x-2 gap-y-1"}>
-            {visibleEcologyItems.map((item) => (
-              <div key={item.label} className="text-[11px] flex items-center justify-between gap-2">
-                <span className={isLightUi ? "text-stone-600" : "text-stone-300"}>{item.label}</span>
-                <span className={"font-semibold " + (isLightUi ? "text-stone-900" : "text-stone-100")}>{item.value}</span>
-              </div>
-            ))}
-          </div>
+          )}
         </div>
       </div>
 
       {showNarrative && (
         <div className="space-y-2">
+          <div className={"w-full rounded-md border " + (isLightUi
+            ? "border-stone-200 bg-white text-stone-700"
+            : "border-stone-600/60 bg-black/25 text-stone-200")}>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setEcologyOpen((prev) => !prev);
+              }}
+              onMouseDown={(event) => event.stopPropagation()}
+              onTouchStart={(event) => event.stopPropagation()}
+              onTouchEnd={(event) => event.stopPropagation()}
+              className="w-full px-2 py-1.5 flex items-center justify-between text-left"
+            >
+              <span className="text-xs font-semibold">Ökologie</span>
+              {ecologyOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+
+            {ecologyOpen && (
+              <div className="px-2 pb-2 pt-1">
+                <div className={compact ? "grid grid-cols-2 gap-x-2 gap-y-1" : "grid grid-cols-1 sm:grid-cols-2 gap-x-2 gap-y-1"}>
+                  {visibleEcologyItems.length > 0 ? (
+                    visibleEcologyItems.map((item) => (
+                      <div key={item.label} className="text-[11px] flex items-center justify-between gap-2">
+                        <span className={isLightUi ? "text-stone-600" : "text-stone-300"}>{item.label}</span>
+                        <span className={"font-semibold " + (isLightUi ? "text-stone-900" : "text-stone-100")}>{item.value}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className={"text-[11px] leading-relaxed " + (isLightUi ? "text-stone-500" : "text-stone-300") }>
+                      - Keine Werte verfügbar -
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           <button
             type="button"
             onClick={(event) => {
@@ -262,12 +295,6 @@ export default function SpeciesInfoCard({
 
           {infoOpen && (
             <div className="space-y-2">
-              {!!descriptionText && (
-                <div className={"rounded-md border p-2 " + (isLightUi ? "border-sky-200 bg-sky-50" : "border-sky-300/50 bg-sky-500/10")}>
-                  <p className={"text-xs font-semibold mb-1 " + (isLightUi ? "text-sky-800" : "text-sky-200")}>Beschreibung</p>
-                  <p className={"text-sm " + (isLightUi ? "text-stone-700" : "text-stone-200")}>{descriptionText}</p>
-                </div>
-              )}
               {!!identificationText && (
                 <div className={"rounded-md border p-2 " + (isLightUi ? "border-amber-200 bg-amber-50" : "border-amber-300/50 bg-amber-500/10")}>
                   <p className={"text-xs font-semibold mb-1 " + (isLightUi ? "text-amber-800" : "text-amber-200")}>Erkennungsmerkmale</p>
