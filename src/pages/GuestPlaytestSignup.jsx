@@ -63,7 +63,7 @@ export default function GuestPlaytestSignup() {
           <p className="text-xs uppercase tracking-[0.22em] text-emerald-200/70">Play Store Closed Test</p>
           <h1 className="mt-2 text-2xl font-semibold text-emerald-50 sm:text-3xl">Teilnahme anfragen</h1>
           <p className="mt-2 text-sm text-stone-300">
-            Gib bitte die Google-E-Mail-Adresse ein, mit der dein Play-Store-Konto verknuepft ist.
+            Gib bitte die Google-E-Mail-Adresse ein, mit der dein Play-Store-Konto verknüpft ist.
           </p>
 
           {isSuccess ? (
@@ -73,7 +73,7 @@ export default function GuestPlaytestSignup() {
                 <div>
                   <p className="font-medium text-emerald-100">Vielen Dank, du bist registriert.</p>
                   <p className="mt-1 text-sm text-emerald-50/85">
-                    Wir haben deine Angaben erfasst und an das Team weitergeleitet.
+                    Wir haben deine Angaben erfasst und weitergeleitet. Du wirst benachrichtigt, sobald du Zugriff auf die Testversion erhältst und die App aus dem Playstore herunterladen kannst.
                   </p>
                 </div>
               </div>
@@ -120,12 +120,12 @@ export default function GuestPlaytestSignup() {
                   onChange={(event) => setNotifyUpdates(event.target.checked)}
                   className="mt-0.5 h-4 w-4 rounded border-stone-500 bg-stone-800"
                 />
-                <span>Ueber Neuigkeiten informieren</span>
+                <span>über Neuigkeiten informieren</span>
               </label>
 
               {platform === "ios" ? (
                 <div className="rounded-xl border border-amber-300/30 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-100">
-                  Eine App fuer iOS wird derzeit leider nicht unterstuetzt. Du kannst das Spiel aber weiterhin im Browser spielen:
+                  Eine App für iOS wird derzeit leider nicht unterstützt. Du kannst das Spiel aber weiterhin im Browser spielen:
                   <div className="mt-2">
                     <Link to="/" className="font-semibold underline underline-offset-4">
                       Zum Browser-Start (Guest Funnel)
