@@ -10,24 +10,24 @@
   "background_color": "#ffffff",
   "icons": [
     {
-      "src": "https://base44.com/logo_v2.svg",
+      "src": "/floralog_logo.png",
       "sizes": "192x192",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "https://base44.com/logo_v2.svg",
+      "src": "/floralog_logo.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any"
     }
   ],
   "categories": ["lifestyle", "productivity"],
   "screenshots": [
     {
-      "src": "https://base44.com/logo_v2.svg",
-      "type": "image/svg+xml",
-      "sizes": "540x720",
+      "src": "/floralog_logo.png",
+      "type": "image/png",
+      "sizes": "1600x1600",
       "form_factor": "narrow"
     }
   ]

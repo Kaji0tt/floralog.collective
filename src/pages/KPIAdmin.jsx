@@ -48,6 +48,11 @@ const calcAvg = (values) => {
   return values.reduce((sum, value) => sum + Number(value || 0), 0) / values.length;
 };
 
+const getCurrentYearMayStartIso = () => {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), 4, 1, 0, 0, 0, 0)).toISOString();
+};
+
 const normalizeRole = (value) => String(value || "").trim().toLowerCase();
 
 export default function KPIAdmin() {
@@ -155,7 +160,7 @@ export default function KPIAdmin() {
   );
 
   const retentionSeries = useMemo(
-    () => buildDauWauMauSeries({ discoveries, days: 120 }),
+    () => buildDauWauMauSeries({ discoveries, days: 365, startDate: getCurrentYearMayStartIso() }),
     [discoveries]
   );
 

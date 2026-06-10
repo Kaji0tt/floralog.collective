@@ -390,6 +390,12 @@ export function useFriendsFeatureContent({
     enabled: !!user?.email && shouldLoadDiscoveryData,
   });
 
+  const { data: allGenera = [] } = useQuery({
+    queryKey: ['allGenera'],
+    queryFn: () => Query.PlantGenus.list(),
+    enabled: !!user?.email && shouldLoadDiscoveryData,
+  });
+
   const NEWS_TYPES = ['gift_received', 'collection_followed', 'friendship_accepted', 'friend_request_received', 'friend_achievement', 'scan_liked', 'admin_broadcast'];
 
   const { data: userNews = [] } = useQuery({
@@ -496,6 +502,32 @@ export function useFriendsFeatureContent({
     () => new Map((allPlants || []).map((plant) => [plant.id, plant])),
     [allPlants]
   );
+
+  const genusIdByPlantId = useMemo(() => {
+    const genusByKey = new Map(
+      (allGenera || []).map((genus) => [
+        `${String(genus?.category || "").trim().toLowerCase()}::${String(genus?.category_dex_number || "").trim()}`,
+        genus?.id,
+      ])
+    );
+
+    const result = new Map();
+    (allPlants || []).forEach((plant) => {
+      if (!plant?.id) return;
+      if (plant?.genus_id) {
+        result.set(plant.id, plant.genus_id);
+        return;
+      }
+
+      const key = `${String(plant?.genus_category || "").trim().toLowerCase()}::${String(plant?.genus_number || "").trim()}`;
+      const derivedGenusId = genusByKey.get(key);
+      if (derivedGenusId) {
+        result.set(plant.id, derivedGenusId);
+      }
+    });
+
+    return result;
+  }, [allGenera, allPlants]);
 
   const achievementById = useMemo(
     () => new Map((achievements || []).map((achievement) => [achievement.id, achievement])),
@@ -888,7 +920,7 @@ Viel Spaß beim Entdecken! 🌿`;
   };
 
   const openExplorerDiscoveryInFriendCollection = useCallback((entry) => {
-    const genusId = entry?.plant?.genus_id;
+    const genusId = entry?.plant?.genus_id || genusIdByPlantId.get(entry?.plant?.id);
     const discoveryId = entry?.id;
     const actorEmail = String(entry?.actorEmail || "").trim();
 
@@ -903,7 +935,7 @@ Viel Spaß beim Entdecken! 🌿`;
     nextParams.set("discoveryId", discoveryId);
 
     navigate(createPageUrl(`GenusDetail?${nextParams.toString()}`));
-  }, [navigate]);
+  }, [genusIdByPlantId, navigate]);
 
   const latestFriendActivityByKey = useMemo(() => {
     const latestByKey = new Map();
@@ -1168,7 +1200,7 @@ Viel Spaß beim Entdecken! 🌿`;
         id: entry.id,
         discovery: entry,
         plant: plantById.get(entry.plant_id),
-        actorEmail: entryEmail,
+        actorEmail: entryEmail || String(profile?.user_email || "").toLowerCase(),
         actorAuthId: profile?.auth_id || entry.auth_id || null,
         actorName,
         actorLogoAssets: resolveEquippedLogoAssetsWithCatalog(profile || {}, logoAssets),

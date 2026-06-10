@@ -205,9 +205,12 @@ export function buildGlobalKpiSummary({ discoveries = [], profiles = [], scanLik
   };
 }
 
-export function buildDauWauMauSeries({ discoveries = [], now = new Date(), days = 90 } = {}) {
+export function buildDauWauMauSeries({ discoveries = [], now = new Date(), days = 90, startDate = null } = {}) {
   const dayCount = Math.max(7, Number(days) || 90);
   const endMs = startOfUtcDayMs(Number.isFinite(now?.getTime?.()) ? now : new Date());
+  const startFilterMs = startDate
+    ? startOfUtcDayMs(Number.isFinite(new Date(startDate).getTime()) ? new Date(startDate) : new Date(0))
+    : null;
 
   const usersByDay = new Map();
 
@@ -237,6 +240,8 @@ export function buildDauWauMauSeries({ discoveries = [], now = new Date(), days 
 
   for (let i = dayCount - 1; i >= 0; i -= 1) {
     const dayMs = endMs - i * DAY_MS;
+    if (startFilterMs !== null && dayMs < startFilterMs) continue;
+
     const dayKey = formatDayKey(new Date(dayMs));
     const dauUsers = usersByDay.get(dayKey) || new Set();
     const wauUsers = collectUsersInWindow(dayMs, 7);
