@@ -63,7 +63,7 @@ export default function GuestPlaytestSignup() {
           <p className="text-xs uppercase tracking-[0.22em] text-emerald-200/70">Play Store Closed Test</p>
           <h1 className="mt-2 text-2xl font-semibold text-emerald-50 sm:text-3xl">Teilnahme anfragen</h1>
           <p className="mt-2 text-sm text-stone-300">
-            Gib bitte die Google-E-Mail-Adresse ein, mit der dein Play-Store-Konto verknüpft ist.
+            Trage deine Google-E-Mail-Adresse ein, mit der dein Play-Store-Konto verknüpft ist. Wir fügen dich anschließend zum geschlossenen Play-Store-Test hinzu. Sobald du eine Antwort von uns erhältst, kannst du die App aus dem Playstore herunterladen und mit dem Sammeln beginnen.
           </p>
 
           {isSuccess ? (
