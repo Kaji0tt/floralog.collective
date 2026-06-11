@@ -36,7 +36,9 @@ export default function GenusDetail() {
   const targetDiscoveryId = urlParams.get('discoveryId');
   const [speakingPlantId, setSpeakingPlantId] = useState(null);
   const [activeVariantIndexes, setActiveVariantIndexes] = useState({});
+  const [activeScanIndexes, setActiveScanIndexes] = useState({});
   const [expandedActiveVariantIndex, setExpandedActiveVariantIndex] = useState(0);
+  const [expandedOwnScanIndex, setExpandedOwnScanIndex] = useState(0);
   const [enlargedImage, setEnlargedImage] = useState(null);
   const [expandedPlant, setExpandedPlant] = useState(null);
   const [editingPlant, setEditingPlant] = useState(null);
@@ -526,40 +528,37 @@ export default function GenusDetail() {
     const discoveryVariants = [];
 
     if (friendEmail) {
-      if (sortedDiscoveries.length > 0) {
-        sortedDiscoveries.forEach((discovery, index) => {
-          discoveryVariants.push({
-            key: `friend-${friendProfile?.auth_id || "unknown"}-${discovery.id || index}`,
-            actor: {
-              authId: friendProfile?.auth_id || "friend",
-              email: friendEmail,
-              name: friendProfile?.display_name || friendProfile?.full_name || friendEmail,
-              logoAssets: resolveEquippedLogoAssetsWithCatalog(friendProfile || {}, logoAssets),
-              isOwn: false,
-            },
-            discovery,
-            isOwn: false,
-          });
-        });
-      } else {
-        discoveryVariants.push({
-          key: `friend-${friendProfile?.auth_id || "unknown"}-empty`,
-          actor: {
-            authId: friendProfile?.auth_id || "friend",
-            email: friendEmail,
-            name: friendProfile?.display_name || friendProfile?.full_name || friendEmail,
-            logoAssets: resolveEquippedLogoAssetsWithCatalog(friendProfile || {}, logoAssets),
-            isOwn: false,
-          },
-          discovery: null,
+      const preferredFriendDiscovery = pickPreferredDiscovery(sortedDiscoveries);
+      const friendDefaultScanIndex = preferredFriendDiscovery
+        ? Math.max(0, sortedDiscoveries.findIndex((entry) => entry?.id === preferredFriendDiscovery.id))
+        : 0;
+
+      discoveryVariants.push({
+        key: `friend-${friendProfile?.auth_id || "unknown"}-${plant.id}`,
+        actor: {
+          authId: friendProfile?.auth_id || "friend",
+          email: friendEmail,
+          name: friendProfile?.display_name || friendProfile?.full_name || friendEmail,
+          logoAssets: resolveEquippedLogoAssetsWithCatalog(friendProfile || {}, logoAssets),
           isOwn: false,
-        });
-      }
+        },
+        discoveries: sortedDiscoveries,
+        defaultScanIndex: friendDefaultScanIndex,
+        discovery: preferredFriendDiscovery,
+        isOwn: false,
+      });
     } else {
+      const ownPreferred = pickPreferredDiscovery(sortedDiscoveries);
+      const ownDefaultScanIndex = ownPreferred
+        ? Math.max(0, sortedDiscoveries.findIndex((entry) => entry?.id === ownPreferred.id))
+        : 0;
+
       discoveryVariants.push({
         key: `own-${ownActor.authId}-${plant.id}`,
         actor: ownActor,
-        discovery: pickPreferredDiscovery(sortedDiscoveries),
+        discoveries: sortedDiscoveries,
+        defaultScanIndex: ownDefaultScanIndex,
+        discovery: ownPreferred,
         isOwn: true,
       });
 
@@ -567,11 +566,24 @@ export default function GenusDetail() {
         const actorDiscoveries = Array.isArray(friendDiscoveriesByAuthId?.[actor.authId])
           ? friendDiscoveriesByAuthId[actor.authId].filter((entry) => entry?.plant_id === plant.id)
           : [];
-        const actorDiscovery = pickPreferredDiscovery(actorDiscoveries);
+        const sortedActorDiscoveries = [...actorDiscoveries].sort((a, b) => {
+          const aIsFront = Boolean(a?.is_front_image || a?.is_species_front_image);
+          const bIsFront = Boolean(b?.is_front_image || b?.is_species_front_image);
+          if (aIsFront && !bIsFront) return -1;
+          if (!aIsFront && bIsFront) return 1;
+          return getDiscoveryTimestamp(b) - getDiscoveryTimestamp(a);
+        });
+        const actorDiscovery = pickPreferredDiscovery(sortedActorDiscoveries);
         if (!actorDiscovery) return;
+        const actorDefaultScanIndex = Math.max(
+          0,
+          sortedActorDiscoveries.findIndex((entry) => entry?.id === actorDiscovery.id)
+        );
         discoveryVariants.push({
           key: `friend-${actor.authId}-${plant.id}`,
           actor: { ...actor, isOwn: false },
+          discoveries: sortedActorDiscoveries,
+          defaultScanIndex: actorDefaultScanIndex,
           discovery: actorDiscovery,
           isOwn: false,
         });
@@ -609,13 +621,34 @@ export default function GenusDetail() {
   }, [genusPlants]);
 
   useEffect(() => {
+    setActiveScanIndexes((prev) => {
+      const next = { ...prev };
+      genusPlants.forEach((plant) => {
+        if (typeof next[plant.id] !== "number") {
+          const variants = Array.isArray(plant.discoveryVariants) ? plant.discoveryVariants : [];
+          const variantIndex = Math.min(
+            Math.max(typeof activeVariantIndexes[plant.id] === "number" ? activeVariantIndexes[plant.id] : (plant.defaultVariantIndex || 0), 0),
+            Math.max(variants.length - 1, 0)
+          );
+          const variant = variants[variantIndex] || null;
+          next[plant.id] = variant?.defaultScanIndex || 0;
+        }
+      });
+      return next;
+    });
+  }, [genusPlants, activeVariantIndexes]);
+
+  useEffect(() => {
     if (!targetDiscoveryId || deepLinkAppliedRef.current) return;
     if (!Array.isArray(genusPlants) || genusPlants.length === 0) return;
 
-    const matchingPlant = genusPlants.find((plant) =>
-      Array.isArray(plant.discoveryVariants) &&
-      plant.discoveryVariants.some((variant) => variant?.discovery?.id === targetDiscoveryId)
-    );
+    const matchingPlant = genusPlants.find((plant) => {
+      const inVariants = Array.isArray(plant.discoveryVariants) &&
+        plant.discoveryVariants.some((variant) => variant?.discovery?.id === targetDiscoveryId);
+      const inOwnDiscoveries = Array.isArray(plant.allDiscoveries) &&
+        plant.allDiscoveries.some((entry) => entry?.id === targetDiscoveryId);
+      return inVariants || inOwnDiscoveries;
+    });
     if (!matchingPlant) return;
 
     const targetIndex = matchingPlant.discoveryVariants.findIndex((variant) => variant?.discovery?.id === targetDiscoveryId);
@@ -623,6 +656,11 @@ export default function GenusDetail() {
 
     setExpandedPlant(matchingPlant);
     setExpandedActiveVariantIndex(targetIndex);
+    const ownDiscoveryIndex = Math.max(
+      0,
+      (matchingPlant.allDiscoveries || []).findIndex((entry) => entry?.id === targetDiscoveryId)
+    );
+    setExpandedOwnScanIndex(ownDiscoveryIndex);
     setActiveVariantIndexes((prev) => ({
       ...prev,
       [matchingPlant.id]: targetIndex,
@@ -717,15 +755,26 @@ export default function GenusDetail() {
     Math.max(expandedVariants.length - 1, 0)
   );
   const activeExpandedVariant = expandedVariants[safeExpandedVariantIndex] || null;
-
-  const activeExpandedDiscovery = activeExpandedVariant?.discovery || null;
+  const expandedVariantDiscoveries = Array.isArray(activeExpandedVariant?.discoveries)
+    ? activeExpandedVariant.discoveries
+    : Array.isArray(expandedPlantData?.allDiscoveries)
+      ? expandedPlantData.allDiscoveries
+      : [];
+  const expandedOwnDiscoveries = expandedVariantDiscoveries;
+  const activeExpandedFriendActor = activeExpandedVariant && !activeExpandedVariant.isOwn
+    ? activeExpandedVariant.actor || null
+    : null;
+  const safeExpandedOwnScanIndex = Math.min(
+    Math.max(expandedOwnScanIndex || 0, 0),
+    Math.max(expandedOwnDiscoveries.length - 1, 0)
+  );
+  const activeExpandedDiscovery = expandedOwnDiscoveries[safeExpandedOwnScanIndex] || null;
   const activeExpandedLikeCount = activeExpandedDiscovery?.id
     ? (likeCountByDiscoveryId.get(activeExpandedDiscovery.id) || 0)
     : 0;
   const activeExpandedLikedByUser = activeExpandedDiscovery?.id
     ? likedDiscoveryIdSet.has(activeExpandedDiscovery.id)
     : false;
-  const activeExpandedFriendActor = activeExpandedVariant?.isOwn ? null : activeExpandedVariant?.actor || null;
 
   const clearVariantResetTimer = (timerKey) => {
     if (!timerKey) return;
@@ -743,6 +792,10 @@ export default function GenusDetail() {
 
   const scheduleVariantReset = ({ timerKey, plantId, defaultIndex, updateExpanded }) => {
     if (!timerKey || typeof plantId === "undefined") return;
+    if (friendEmail) {
+      clearVariantResetTimer(timerKey);
+      return;
+    }
     clearVariantResetTimer(timerKey);
     variantResetTimersRef.current[timerKey] = window.setTimeout(() => {
       setActiveVariantIndexes((prev) => ({
@@ -773,6 +826,12 @@ export default function GenusDetail() {
       [plant.id]: nextIndex,
     }));
 
+    const nextVariant = variants[nextIndex] || null;
+    setActiveScanIndexes((prev) => ({
+      ...prev,
+      [plant.id]: nextVariant?.defaultScanIndex || 0,
+    }));
+
     if (updateExpanded) {
       setExpandedActiveVariantIndex(nextIndex);
       return;
@@ -785,6 +844,39 @@ export default function GenusDetail() {
       updateExpanded: false,
     });
   };
+
+  const cyclePlantScan = ({ plantId, discoveries, direction, updateExpanded = false }) => {
+    const list = Array.isArray(discoveries) ? discoveries : [];
+    if (list.length <= 1) return;
+
+    const currentIndex = updateExpanded
+      ? safeExpandedOwnScanIndex
+      : Math.max(typeof activeScanIndexes[plantId] === "number" ? activeScanIndexes[plantId] : 0, 0);
+
+    const nextIndex = direction === "left"
+      ? (currentIndex + 1) % list.length
+      : (currentIndex - 1 + list.length) % list.length;
+
+    if (updateExpanded) {
+      setExpandedOwnScanIndex(nextIndex);
+      return;
+    }
+
+    setActiveScanIndexes((prev) => ({
+      ...prev,
+      [plantId]: nextIndex,
+    }));
+
+    // Any manual swipe interaction should keep the current friend-view selection stable.
+    clearVariantResetTimer(`list:${plantId}`);
+  };
+
+  useEffect(() => {
+    if (!friendEmail) return;
+    Object.keys(variantResetTimersRef.current).forEach((timerKey) => {
+      clearVariantResetTimer(timerKey);
+    });
+  }, [friendEmail]);
 
   const clearPlantLongPress = () => {
     if (plantLongPressTimerRef.current) {
@@ -920,8 +1012,9 @@ export default function GenusDetail() {
 
     if (shouldSwipe) {
       expandedSwipeTriggeredRef.current = true;
-      cyclePlantVariant({
-        plant: expandedPlantData,
+      cyclePlantScan({
+        plantId: expandedPlantData?.id,
+        discoveries: expandedOwnDiscoveries,
         direction: deltaX < 0 ? "left" : "right",
         updateExpanded: true,
       });
@@ -1109,10 +1202,22 @@ export default function GenusDetail() {
               Math.max(variants.length - 1, 0)
             );
             const activeVariant = variants[activeIndex] || null;
-            const activeDiscovery = activeVariant?.discovery || null;
+            const activeVariantDiscoveries = Array.isArray(activeVariant?.discoveries) ? activeVariant.discoveries : [];
+            const defaultScanIndex = activeVariant?.defaultScanIndex || 0;
+            const activeScanIndex = Math.min(
+              Math.max(typeof activeScanIndexes[plant.id] === "number" ? activeScanIndexes[plant.id] : defaultScanIndex, 0),
+              Math.max(activeVariantDiscoveries.length - 1, 0)
+            );
+            const activeDiscovery = activeVariantDiscoveries[activeScanIndex] || activeVariant?.discovery || null;
             const activeLikeCount = activeDiscovery?.id ? (likeCountByDiscoveryId.get(activeDiscovery.id) || 0) : 0;
             const activeLikedByUser = activeDiscovery?.id ? likedDiscoveryIdSet.has(activeDiscovery.id) : false;
             const showStack = variants.length > 1;
+            const orderedPreviewImages = activeVariantDiscoveries.length > 0
+              ? Array.from({ length: activeVariantDiscoveries.length }, (_, offset) => {
+                  const cyclicIndex = (activeScanIndex + offset) % activeVariantDiscoveries.length;
+                  return activeVariantDiscoveries[cyclicIndex]?.image_url || null;
+                }).filter(Boolean)
+              : (activeDiscovery?.image_url ? [activeDiscovery.image_url] : []);
 
             return (
             <Card
@@ -1125,6 +1230,7 @@ export default function GenusDetail() {
                 }
                 setExpandedPlant(plant);
                 setExpandedActiveVariantIndex(activeIndex);
+                setExpandedOwnScanIndex(activeScanIndex);
               }}
               onMouseDown={(event) => {
                 plantDragStartXRef.current[plant.id] = event.clientX;
@@ -1193,6 +1299,25 @@ export default function GenusDetail() {
                     isLightUi={isLightUi}
                     compact={true}
                     showNarrative={true}
+                    previewStackImages={orderedPreviewImages}
+                    onPreviewSwipeLeft={() => {
+                      plantSwipeTriggeredRef.current[plant.id] = true;
+                      cyclePlantScan({
+                        plantId: plant.id,
+                        discoveries: activeVariantDiscoveries,
+                        direction: "left",
+                        updateExpanded: false,
+                      });
+                    }}
+                    onPreviewSwipeRight={() => {
+                      plantSwipeTriggeredRef.current[plant.id] = true;
+                      cyclePlantScan({
+                        plantId: plant.id,
+                        discoveries: activeVariantDiscoveries,
+                        direction: "right",
+                        updateExpanded: false,
+                      });
+                    }}
                     titlePrefix={
                       plant.discovered ? (
                         <CheckCircle2 className={"w-4 h-4 flex-shrink-0 " + (isLightUi ? "text-green-600" : "text-emerald-300")} />
@@ -1440,13 +1565,14 @@ export default function GenusDetail() {
                 {/* Herz nur für Freundes-Scans (unten links), Stern+Löschen für eigene (unten links/rechts) */}
 
                 {/* Bild-Navigation */}
-                {expandedVariants.length > 1 && (
+                {expandedOwnDiscoveries.length > 1 && (
                     <>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          cyclePlantVariant({
-                            plant: expandedPlantData,
+                          cyclePlantScan({
+                            plantId: expandedPlantData?.id,
+                            discoveries: expandedOwnDiscoveries,
                             direction: "right",
                             updateExpanded: true,
                           });
@@ -1460,8 +1586,9 @@ export default function GenusDetail() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          cyclePlantVariant({
-                            plant: expandedPlantData,
+                          cyclePlantScan({
+                            plantId: expandedPlantData?.id,
+                            discoveries: expandedOwnDiscoveries,
                             direction: "left",
                             updateExpanded: true,
                           });
@@ -1473,13 +1600,13 @@ export default function GenusDetail() {
                         <ChevronRight className={"w-6 h-6 " + (isLightUi ? "text-stone-700" : "text-stone-100")} />
                       </button>
                       <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white text-sm px-3 py-1 rounded-full">
-                        {(safeExpandedVariantIndex || 0) + 1} / {expandedVariants.length}
+                        {(safeExpandedOwnScanIndex || 0) + 1} / {expandedOwnDiscoveries.length}
                       </div>
                     </>
                   )}
 
                 {/* Aktionen je nach Variante: eigener Scan → Stern + Löschen; Freundes-Scan → Herz */}
-                {activeExpandedVariant?.isOwn && activeExpandedDiscovery ? (
+                {(activeExpandedVariant?.isOwn ?? !friendEmail) && activeExpandedDiscovery ? (
                   <>
                     {genusDiscoveries.length > 1 && (
                       <button
