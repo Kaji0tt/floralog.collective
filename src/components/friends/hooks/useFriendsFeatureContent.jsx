@@ -174,7 +174,7 @@ export function useFriendsFeatureContent({
     );
   }, [allFriendRecords, user?.email]);
 
-  const { data: allPublicProfiles = [] } = useQuery({
+  const { data: allPublicProfiles = [], refetch: refetchAllPublicProfiles } = useQuery({
     queryKey: ['allPublicProfiles'],
     queryFn: () => Query.PublicProfile.list(),
     staleTime: 30000 // 30 Sekunden Cache
@@ -272,15 +272,26 @@ export function useFriendsFeatureContent({
     setIsExplorerRefreshing(true);
     try {
       await Promise.all([
+        queryClient.cancelQueries({ queryKey: ["explorerDiscoveriesInfinite"] }),
+        queryClient.cancelQueries({ queryKey: ["allPublicProfiles"] }),
+        queryClient.cancelQueries({ queryKey: ["scanLikesAll"] }),
+      ]);
+
+      queryClient.removeQueries({ queryKey: ["explorerDiscoveriesInfinite"] });
+      queryClient.removeQueries({ queryKey: ["allPublicProfiles"], exact: true });
+      queryClient.removeQueries({ queryKey: ["scanLikesAll"], exact: true });
+
+      await Promise.all([
         refetchExplorerDiscoveries({ cancelRefetch: false }),
-        queryClient.invalidateQueries({ queryKey: ["scanLikesAll"] }),
+        refetchAllPublicProfiles({ cancelRefetch: false }),
+        queryClient.invalidateQueries({ queryKey: ["scanLikesAll"], refetchType: "active" }),
       ]);
     } finally {
       setIsExplorerRefreshing(false);
       setExplorerSnapPulse(false);
       setExplorerPullOffset(0);
     }
-  }, [isExplorerRefreshing, queryClient, refetchExplorerDiscoveries]);
+  }, [isExplorerRefreshing, queryClient, refetchAllPublicProfiles, refetchExplorerDiscoveries]);
 
   const handleExplorerTouchStart = useCallback((event) => {
     if (!isExplorerTab || isExplorerRefreshing) return;
