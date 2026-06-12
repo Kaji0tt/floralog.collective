@@ -610,18 +610,21 @@ export default function GenusDetail() {
 
   useEffect(() => {
     setActiveVariantIndexes((prev) => {
+      let hasChanges = false;
       const next = { ...prev };
       genusPlants.forEach((plant) => {
         if (typeof next[plant.id] !== "number") {
           next[plant.id] = plant.defaultVariantIndex || 0;
+          hasChanges = true;
         }
       });
-      return next;
+      return hasChanges ? next : prev;
     });
   }, [genusPlants]);
 
   useEffect(() => {
     setActiveScanIndexes((prev) => {
+      let hasChanges = false;
       const next = { ...prev };
       genusPlants.forEach((plant) => {
         if (typeof next[plant.id] !== "number") {
@@ -632,9 +635,10 @@ export default function GenusDetail() {
           );
           const variant = variants[variantIndex] || null;
           next[plant.id] = variant?.defaultScanIndex || 0;
+          hasChanges = true;
         }
       });
-      return next;
+      return hasChanges ? next : prev;
     });
   }, [genusPlants, activeVariantIndexes]);
 
@@ -652,10 +656,12 @@ export default function GenusDetail() {
     if (!matchingPlant) return;
 
     const targetIndex = matchingPlant.discoveryVariants.findIndex((variant) => variant?.discovery?.id === targetDiscoveryId);
-    if (targetIndex < 0) return;
+    const resolvedVariantIndex = targetIndex >= 0
+      ? targetIndex
+      : Math.max(0, matchingPlant.defaultVariantIndex || 0);
 
     setExpandedPlant(matchingPlant);
-    setExpandedActiveVariantIndex(targetIndex);
+    setExpandedActiveVariantIndex(resolvedVariantIndex);
     const ownDiscoveryIndex = Math.max(
       0,
       (matchingPlant.allDiscoveries || []).findIndex((entry) => entry?.id === targetDiscoveryId)
@@ -663,7 +669,11 @@ export default function GenusDetail() {
     setExpandedOwnScanIndex(ownDiscoveryIndex);
     setActiveVariantIndexes((prev) => ({
       ...prev,
-      [matchingPlant.id]: targetIndex,
+      [matchingPlant.id]: resolvedVariantIndex,
+    }));
+    setActiveScanIndexes((prev) => ({
+      ...prev,
+      [matchingPlant.id]: ownDiscoveryIndex,
     }));
     deepLinkAppliedRef.current = true;
   }, [genusPlants, targetDiscoveryId]);
@@ -692,31 +702,6 @@ export default function GenusDetail() {
       variantResetTimersRef.current = {};
     };
   }, []);
-
-  if (generaLoading || plantsLoading || discoveriesLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Leaf className="w-12 h-12 text-green-600 animate-spin" />
-      </div>
-    );
-  }
-
-  if (!genus) {
-    // Determine the correct back URL even if genus is not found
-    const backUrl = friendEmail 
-      ? createPageUrl(`FriendCollection?email=${friendEmail}`)
-      : createPageUrl("Collection");
-    const backLabel = friendEmail ? "Zurück zum Freundes-Floralog" : "Zurück zur Sammlung";
-
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4">
-        <p className="text-gray-500 mb-4">Gattung nicht gefunden</p>
-        <Button onClick={() => navigate(backUrl)}>
-          {backLabel}
-        </Button>
-      </div>
-    );
-  }
 
   const getRarityBorderColor = (rarity) => {
     switch (rarity) {
@@ -775,6 +760,15 @@ export default function GenusDetail() {
   const activeExpandedLikedByUser = activeExpandedDiscovery?.id
     ? likedDiscoveryIdSet.has(activeExpandedDiscovery.id)
     : false;
+  const activeExpandedDiscoveryDate = (() => {
+    const rawDate =
+      activeExpandedDiscovery?.created_at ||
+      activeExpandedDiscovery?.created_date ||
+      activeExpandedDiscovery?.discovered_date;
+    if (!rawDate) return null;
+    const parsed = new Date(rawDate);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  })();
 
   const clearVariantResetTimer = (timerKey) => {
     if (!timerKey) return;
@@ -1076,7 +1070,7 @@ export default function GenusDetail() {
 
   // Bestimme Zurück-URL basierend auf Kontext
   const backUrl = friendEmail 
-    ? createPageUrl(`FriendCollection?email=${friendEmail}`)
+    ? createPageUrl(`FriendCollection?email=${encodeURIComponent(friendEmail)}`)
     : createPageUrl("Home");
   const backLabel = friendEmail ? "Zurück zum Freundes-PlantDex" : "Zurück zur Sammlung";
   const backState = friendEmail
@@ -1093,6 +1087,31 @@ export default function GenusDetail() {
 
     navigate(backUrl, { state: backState });
   };
+
+  if (generaLoading || plantsLoading || discoveriesLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Leaf className="w-12 h-12 text-green-600 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!genus) {
+    // Determine the correct back URL even if genus is not found
+    const notFoundBackUrl = friendEmail
+      ? createPageUrl(`FriendCollection?email=${encodeURIComponent(friendEmail)}`)
+      : createPageUrl("Collection");
+    const notFoundBackLabel = friendEmail ? "Zurück zum Freundes-Floralog" : "Zurück zur Sammlung";
+
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <p className="text-gray-500 mb-4">Gattung nicht gefunden</p>
+        <Button onClick={() => navigate(notFoundBackUrl)}>
+          {notFoundBackLabel}
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div 
@@ -1669,9 +1688,9 @@ export default function GenusDetail() {
                   }
                 />
                 
-                {activeExpandedDiscovery?.created_at && (
+                {activeExpandedDiscoveryDate && (
                   <p className={"text-xs " + (isLightUi ? "text-stone-500" : "text-stone-300") }>
-                    Entdeckt am: {format(new Date(activeExpandedDiscovery.created_at), "d. MMMM yyyy", { locale: de })}
+                    Entdeckt am: {format(activeExpandedDiscoveryDate, "d. MMMM yyyy", { locale: de })}
                   </p>
                 )}
               </div>
