@@ -2,6 +2,29 @@ import { QueryClient } from '@tanstack/react-query';
 import { persistQueryClient } from '@tanstack/query-persist-client-core';
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
 
+const NON_PERSISTED_QUERY_KEYS = new Set([
+	'allDiscoveries',
+	'allProfilesForStats',
+	'allFriendRecordsForStats',
+	'allRobotPlantsForStats',
+	'globalScanLeaderboard',
+	'highestScanResultsLeaderboard',
+	'globalScanTaxonomyHighlights',
+	'news',
+	'friendsNews',
+]);
+
+const shouldPersistQuery = (query) => {
+	if (query.state.status !== 'success') return false;
+
+	const queryKey = Array.isArray(query.queryKey) ? query.queryKey[0] : query.queryKey;
+	if (typeof queryKey === 'string' && NON_PERSISTED_QUERY_KEYS.has(queryKey)) {
+		return false;
+	}
+
+	return true;
+};
+
 
 export const queryClientInstance = new QueryClient({
 	defaultOptions: {
@@ -21,7 +44,7 @@ const canUseStorage = typeof window !== 'undefined' && !!window.localStorage;
 if (canUseStorage) {
 	const queryPersister = createSyncStoragePersister({
 		storage: window.localStorage,
-		key: 'floralog.reactQueryCache.v1',
+		key: 'floralog.reactQueryCache.v2',
 		throttleTime: 1000,
 	});
 
@@ -30,7 +53,7 @@ if (canUseStorage) {
 		persister: queryPersister,
 		maxAge: 24 * 60 * 60 * 1000,
 		dehydrateOptions: {
-			shouldDehydrateQuery: (query) => query.state.status === 'success',
+			shouldDehydrateQuery: shouldPersistQuery,
 		},
 	});
 }

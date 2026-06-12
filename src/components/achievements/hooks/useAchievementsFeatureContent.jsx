@@ -5,7 +5,7 @@ import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Leaf, Target, CheckCircle2, Gift, Users, ChevronDown, ChevronUp } from "lucide-react";
+import { Trophy, Leaf, Target, CheckCircle2, Gift, Users, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -201,6 +201,9 @@ export function useAchievementsFeatureContent({
   const [showGlobalComparisons, setShowGlobalComparisons] = useState(true);
   const [showPersonalStats, setShowPersonalStats] = useState(true);
   const [expandedHighestScanEntryKey, setExpandedHighestScanEntryKey] = useState(null);
+  const [isLeaderboardRefreshing, setIsLeaderboardRefreshing] = useState(
+    () => (searchParams.get("tab") || "stats") === "stats"
+  );
 
   useEffect(() => {
     const loadUser = async () => {
@@ -396,29 +399,41 @@ export function useAchievementsFeatureContent({
     refetchOnReconnect: true,
   });
 
-  const { data: allDiscoveries = [] } = useQuery({
+  const { data: allDiscoveries = [], refetch: refetchAllDiscoveries } = useQuery({
     queryKey: ['allDiscoveries'],
     queryFn: () => Query.UserPlantDiscovery.list('-created_date', 1500),
     staleTime: 60 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
-  const { data: allProfiles = [] } = useQuery({
+  const { data: allProfiles = [], refetch: refetchAllProfiles } = useQuery({
     queryKey: ['allProfilesForStats'],
     queryFn: () => Query.PublicProfile.list(),
     staleTime: 60 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
-  const { data: allFriendRecords = [] } = useQuery({
+  const { data: allFriendRecords = [], refetch: refetchAllFriendRecords } = useQuery({
     queryKey: ['allFriendRecordsForStats', user?.email],
     queryFn: () => Query.Friend.list(),
     enabled: !!user?.email,
     staleTime: 15 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
-  const { data: allRobotPlants = [] } = useQuery({
+  const { data: allRobotPlants = [], refetch: refetchAllRobotPlants } = useQuery({
     queryKey: ['allRobotPlantsForStats'],
     queryFn: () => Query.RobotPlant.list(),
     staleTime: 60 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
     const { data: logoAssets = [] } = useQuery({
@@ -429,7 +444,7 @@ export function useAchievementsFeatureContent({
       refetchOnReconnect: true,
     });
 
-  const { data: globalScanLeaderboard = null } = useQuery({
+  const { data: globalScanLeaderboard = null, refetch: refetchGlobalScanLeaderboard } = useQuery({
     queryKey: ['globalScanLeaderboard'],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_global_scan_leaderboard');
@@ -444,11 +459,12 @@ export function useAchievementsFeatureContent({
     },
     staleTime: 60 * 1000,
     refetchInterval: 15 * 1000,
+    refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
 
-  const { data: highestScanResultsLeaderboard = null } = useQuery({
+  const { data: highestScanResultsLeaderboard = null, refetch: refetchHighestScanResultsLeaderboard } = useQuery({
     queryKey: ['highestScanResultsLeaderboard'],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_highest_scan_results_leaderboard', { p_limit: 100 });
@@ -463,11 +479,12 @@ export function useAchievementsFeatureContent({
     },
     staleTime: 60 * 1000,
     refetchInterval: 15 * 1000,
+    refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
 
-  const { data: globalScanTaxonomyHighlights = null } = useQuery({
+  const { data: globalScanTaxonomyHighlights = null, refetch: refetchGlobalScanTaxonomyHighlights } = useQuery({
     queryKey: ['globalScanTaxonomyHighlights'],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_global_scan_taxonomy_highlights');
@@ -483,6 +500,7 @@ export function useAchievementsFeatureContent({
     },
     staleTime: 60 * 1000,
     refetchInterval: 30 * 1000,
+    refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
@@ -499,6 +517,50 @@ export function useAchievementsFeatureContent({
       });
       return logosByEmail;
     }, [allProfiles, logoAssets]);
+
+  // Beim Oeffnen der Statistik-Bestenliste immer harte Aktualisierung ausfuehren.
+  useEffect(() => {
+    if (activeTab !== "stats") return;
+
+    let cancelled = false;
+
+    const refreshLeaderboardData = async () => {
+      setIsLeaderboardRefreshing(true);
+      try {
+        await Promise.all([
+          refetchAllDiscoveries(),
+          refetchAllProfiles(),
+          refetchAllRobotPlants(),
+          refetchGlobalScanLeaderboard(),
+          refetchHighestScanResultsLeaderboard(),
+          refetchGlobalScanTaxonomyHighlights(),
+          ...(user?.email ? [refetchAllFriendRecords()] : []),
+        ]);
+      } catch (error) {
+        console.error('[AchievementsPage] Error while refreshing leaderboard data:', error);
+      } finally {
+        if (!cancelled) {
+          setIsLeaderboardRefreshing(false);
+        }
+      }
+    };
+
+    refreshLeaderboardData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeTab,
+    refetchAllDiscoveries,
+    refetchAllProfiles,
+    refetchAllRobotPlants,
+    refetchGlobalScanLeaderboard,
+    refetchHighestScanResultsLeaderboard,
+    refetchGlobalScanTaxonomyHighlights,
+    refetchAllFriendRecords,
+    user?.email,
+  ]);
 
   // Echtzeit-Subscriptions für UserAchievements
   useEffect(() => {
@@ -1765,7 +1827,16 @@ export function useAchievementsFeatureContent({
         {!embedded && <MobileBackButton />}
       
       <div className={embedded ? "w-full h-full min-h-0 flex flex-col" : "w-full"}>
-        <Tabs value={activeTab} onValueChange={setActiveTab} className={embedded ? "w-full h-full min-h-0 flex flex-col" : "w-full"}>
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => {
+            if (value === "stats") {
+              setIsLeaderboardRefreshing(true);
+            }
+            setActiveTab(value);
+          }}
+          className={embedded ? "w-full h-full min-h-0 flex flex-col" : "w-full"}
+        >
           <div className={`${tabsHeaderClass} ${embedded ? "shrink-0" : ""}`}>
             <div className="max-w-7xl mx-auto">
               {!embedded && (
@@ -1791,7 +1862,12 @@ export function useAchievementsFeatureContent({
                       <button
                         key={chip.id}
                         type="button"
-                        onClick={() => setActiveTab(chip.id)}
+                        onClick={() => {
+                          if (chip.id === "stats") {
+                            setIsLeaderboardRefreshing(true);
+                          }
+                          setActiveTab(chip.id);
+                        }}
                         className={
                           "relative flex items-center justify-center gap-2 px-2 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors min-w-0 " +
                           (isPrimary
@@ -1949,6 +2025,13 @@ export function useAchievementsFeatureContent({
                 </CardHeader>
                 {showGlobalComparisons && (
                   <CardContent className="p-[2px] space-y-[2px]">
+                    {isLeaderboardRefreshing ? (
+                      <div className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-6 ${isLightUi ? "border-stone-200 bg-stone-50" : "border-[#f0e5a5]/25 bg-black/25"}`}>
+                        <Loader2 className={`w-4 h-4 animate-spin ${statsBodyClass}`} />
+                        <span className={`text-sm ${statsBodyClass}`}>Bestenliste wird aktualisiert...</span>
+                      </div>
+                    ) : (
+                    <>
                     <div className="grid grid-cols-1 gap-[2px]">
                 <Card className="border-0 bg-transparent shadow-none">
                   <CardHeader className="pb-2">
@@ -2352,6 +2435,8 @@ export function useAchievementsFeatureContent({
                         </CardContent>
                       </Card>
                     </div>
+                    </>
+                    )}
                   </CardContent>
                 )}
               </Card>

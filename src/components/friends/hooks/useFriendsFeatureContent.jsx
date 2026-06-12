@@ -106,6 +106,9 @@ export function useFriendsFeatureContent({
   const explorerSnapTimeoutRef = useRef(null);
   const explorerContainerRef = useRef(null);
   const autoMarkingNewsRef = useRef(false);
+  const [isNewsRefreshing, setIsNewsRefreshing] = useState(
+    () => (searchParams.get("tab") || "explorer") === "news"
+  );
   const isFriendsTab = activeTab === "friends";
   const isExplorerTab = activeTab === "explorer";
   const shouldLoadDiscoveryData = isExplorerTab || isFriendsTab;
@@ -381,10 +384,13 @@ export function useFriendsFeatureContent({
     staleTime: 60 * 1000,
   });
 
-  const { data: adminNews = [] } = useQuery({
+  const { data: adminNews = [], refetch: refetchAdminNews } = useQuery({
     queryKey: ['news'],
     queryFn: () => Query.News.list('-created_date'),
     staleTime: 60000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const { data: scanLikes = [] } = useQuery({
@@ -409,7 +415,7 @@ export function useFriendsFeatureContent({
 
   const NEWS_TYPES = ['gift_received', 'collection_followed', 'friendship_accepted', 'friend_request_received', 'friend_achievement', 'scan_liked', 'admin_broadcast'];
 
-  const { data: userNews = [] } = useQuery({
+  const { data: userNews = [], refetch: refetchUserNews } = useQuery({
     queryKey: ['friendsNews', user?.id, user?.email],
     queryFn: async () => {
       if (!user?.email) return [];
@@ -450,7 +456,41 @@ export function useFriendsFeatureContent({
     },
     enabled: !!user?.email,
     staleTime: 15000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
+
+  // Beim Oeffnen des News-Tabs immer Aktivitaeten und Server-News neu laden.
+  useEffect(() => {
+    if (activeTab !== 'news' || !user?.email) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const refreshNewsTab = async () => {
+      setIsNewsRefreshing(true);
+      try {
+        await Promise.all([
+          refetchUserNews(),
+          refetchAdminNews(),
+        ]);
+      } catch (error) {
+        console.error('[Friends] Error while refreshing news tab:', error);
+      } finally {
+        if (!cancelled) {
+          setIsNewsRefreshing(false);
+        }
+      }
+    };
+
+    refreshNewsTab();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, user?.email, refetchUserNews, refetchAdminNews]);
 
   useEffect(() => {
     if (!user?.email) return;
@@ -1401,7 +1441,16 @@ Viel Spaß beim Entdecken! 🌿`;
       </AnimatePresence>
 
       <div className={`${embedded ? "w-full h-full min-h-0 flex flex-col" : "max-w-4xl mx-auto"} w-full`}>
-        <Tabs value={activeTab} onValueChange={setActiveTab} className={embedded ? "w-full h-full min-h-0 flex flex-col" : "w-full"}>
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => {
+            if (value === "news") {
+              setIsNewsRefreshing(true);
+            }
+            setActiveTab(value);
+          }}
+          className={embedded ? "w-full h-full min-h-0 flex flex-col" : "w-full"}
+        >
           {/* Tabs Header - Fixed am oberen Bildschirmrand */}
           <div className={`${tabsHeaderClass} ${embedded ? "shrink-0" : ""}`}>
             <div className="max-w-4xl mx-auto">
@@ -1451,7 +1500,12 @@ Viel Spaß beim Entdecken! 🌿`;
                       <button
                         key={chip.id}
                         type="button"
-                        onClick={() => setActiveTab(chip.id)}
+                        onClick={() => {
+                          if (chip.id === "news") {
+                            setIsNewsRefreshing(true);
+                          }
+                          setActiveTab(chip.id);
+                        }}
                         className={
                           "flex items-center justify-center gap-2 px-2 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors min-w-0 " +
                           (isPrimary
@@ -1714,7 +1768,12 @@ Viel Spaß beim Entdecken! 🌿`;
               style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}
             >
               {/* Kombinierte News-Liste mit Filter-Toggle */}
-              {userNews.length === 0 && adminNews.length === 0 ? (
+              {isNewsRefreshing ? (
+                <div className={`${sectionSurfaceClass} px-5 py-10 text-center`}>
+                  <Loader2 className={`w-12 h-12 mx-auto mb-4 animate-spin ${isLightUi ? "text-stone-400" : "text-stone-500"}`} />
+                  <p className={bodyTextClass}>Neuigkeiten werden aktualisiert...</p>
+                </div>
+              ) : userNews.length === 0 && adminNews.length === 0 ? (
                 <div className={`${sectionSurfaceClass} px-5 py-10 text-center`}>
                   <Bell className={`w-16 h-16 mx-auto mb-4 ${isLightUi ? "text-stone-300" : "text-stone-500"}`} />
                   <p className={`text-lg font-semibold mb-2 ${titleTextClass}`}>
