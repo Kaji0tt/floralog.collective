@@ -39,7 +39,8 @@ const normalizeSlug = (value) =>
 
 const buildNaturaDbUrl = (plant) => {
   if (plant?.naturadb_url) return plant.naturadb_url;
-  const slug = normalizeSlug(plant?.scientific_name);
+  const scientificName = plant?.scientific_name || plant?.aiData?.scientific_name;
+  const slug = normalizeSlug(scientificName);
   if (!slug) return NATURADB_BASE_URL;
   return `${NATURADB_BASE_URL}${slug}/`;
 };
@@ -175,6 +176,8 @@ export default function SpeciesInfoCard({
   imageUrl,
   isLightUi = false,
   compact = false,
+  showPrimaryImage = compact,
+  showScientificMeta = compact,
   showNarrative = true,
   titlePrefix,
   topRight,
@@ -188,6 +191,7 @@ export default function SpeciesInfoCard({
   const safePlant = plant || {};
   const naturadbUrl = buildNaturaDbUrl(safePlant);
   const image = imageUrl || safePlant.image_url || null;
+  const scientificName = resolveField(safePlant, "scientific_name") || "-";
   const rarity = resolveField(safePlant, "rarity") || "Gelegentlich";
   const rarityAccent = getRarityAccentClasses(rarity, isLightUi);
   const regionText = getRegionText(safePlant);
@@ -433,17 +437,17 @@ export default function SpeciesInfoCard({
                 {safePlant.species_name || "Unbekannte Pflanze"}
               </h3>
             </div>
-            {compact && (
+            {showScientificMeta && (
               <div className="mt-1 flex items-start justify-between gap-2">
                 <p className={"text-xs italic break-words min-w-0 " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
-                  {safePlant.scientific_name || "-"}
+                  {scientificName}
                   <a
                     href={naturadbUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className={"inline-flex items-center gap-1 ml-2 text-[11px] not-italic font-normal " + (isLightUi ? "text-emerald-700" : "text-emerald-300")}
                   >
-                   
+                    NaturaDB
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 </p>
@@ -573,6 +577,17 @@ export default function SpeciesInfoCard({
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {!compact && showPrimaryImage && image && (
+          <div className="w-full overflow-hidden rounded-xl border border-[#f0e5a5]/35 bg-black/20">
+            <img
+              src={image}
+              alt={safePlant.species_name || "Gescanntes Pflanzenbild"}
+              className="w-full h-56 md:h-72 object-cover"
+              loading="lazy"
+            />
           </div>
         )}
       </div>

@@ -302,6 +302,8 @@ export default function ScanResults({
                       plant={currentPlant}
                       imageUrl={imageUrl}
                       compact={false}
+                      showPrimaryImage={true}
+                      showScientificMeta={true}
                       showNarrative={!isBlockedResult}
                       isLightUi={false}
                       topRight={confidencePercentage ? (
