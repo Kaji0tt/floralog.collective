@@ -176,6 +176,8 @@ export default function SpeciesInfoCard({
   isLightUi = false,
   compact = false,
   showNarrative = true,
+  showScientificName = compact,
+  showLargeImage = false,
   titlePrefix,
   topRight,
   previewStackImages = [],
@@ -433,7 +435,7 @@ export default function SpeciesInfoCard({
                 {safePlant.species_name || "Unbekannte Pflanze"}
               </h3>
             </div>
-            {compact && (
+            {showScientificName && (
               <div className="mt-1 flex items-start justify-between gap-2">
                 <p className={"text-xs italic break-words min-w-0 " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
                   {safePlant.scientific_name || "-"}
@@ -560,6 +562,16 @@ export default function SpeciesInfoCard({
                         ) : (
                           <div className={"w-full h-full flex items-center justify-center " + (isLightUi ? "bg-stone-100" : "bg-stone-900/70")}>
                             <Leaf className={"w-7 h-7 " + (isLightUi ? "text-stone-400" : "text-stone-500")} />
+                          </div>
+                        )}
+
+                        {!compact && showLargeImage && image && (
+                          <div className="overflow-hidden rounded-xl border border-[#f0e5a5]/30">
+                            <img
+                              src={image}
+                              alt={safePlant.species_name || "Gescanntes Bild"}
+                              className="w-full h-72 md:h-96 object-cover"
+                            />
                           </div>
                         )}
                       </div>
