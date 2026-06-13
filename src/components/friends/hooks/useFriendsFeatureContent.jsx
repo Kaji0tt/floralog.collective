@@ -245,6 +245,9 @@ export function useFriendsFeatureContent({
       lastPage.length < EXPLORER_PAGE_SIZE ? undefined : allPages.length,
     enabled: !!user?.email && isExplorerTab,
     staleTime: 30 * 1000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     initialPageParam: 0,
   });
 
@@ -1441,16 +1444,7 @@ Viel Spaß beim Entdecken! 🌿`;
       </AnimatePresence>
 
       <div className={`${embedded ? "w-full h-full min-h-0 flex flex-col" : "max-w-4xl mx-auto"} w-full`}>
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) => {
-            if (value === "news") {
-              setIsNewsRefreshing(true);
-            }
-            setActiveTab(value);
-          }}
-          className={embedded ? "w-full h-full min-h-0 flex flex-col" : "w-full"}
-        >
+        <Tabs value={activeTab} onValueChange={setActiveTab} className={embedded ? "w-full h-full min-h-0 flex flex-col" : "w-full"}>
           {/* Tabs Header - Fixed am oberen Bildschirmrand */}
           <div className={`${tabsHeaderClass} ${embedded ? "shrink-0" : ""}`}>
             <div className="max-w-4xl mx-auto">
@@ -1500,12 +1494,7 @@ Viel Spaß beim Entdecken! 🌿`;
                       <button
                         key={chip.id}
                         type="button"
-                        onClick={() => {
-                          if (chip.id === "news") {
-                            setIsNewsRefreshing(true);
-                          }
-                          setActiveTab(chip.id);
-                        }}
+                        onClick={() => setActiveTab(chip.id)}
                         className={
                           "flex items-center justify-center gap-2 px-2 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors min-w-0 " +
                           (isPrimary
