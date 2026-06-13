@@ -451,6 +451,16 @@ export default function SpeciesInfoCard({
                 </p>
               </div>
             )}
+
+            {!compact && showLargeImage && image && (
+              <div className="overflow-hidden rounded-xl border border-[#f0e5a5]/30">
+                <img
+                  src={image}
+                  alt={safePlant.species_name || "Gescanntes Bild"}
+                  className="w-full h-72 md:h-96 object-cover"
+                />
+              </div>
+            )}
           </div>
           <div className="shrink-0 flex items-center gap-2">
             <Badge className={`h-5 ${getRarityColor(rarity)} text-white text-[10px] px-1.5 py-0 rounded-full shrink-0`}>
@@ -565,15 +575,6 @@ export default function SpeciesInfoCard({
                           </div>
                         )}
 
-                        {!compact && showLargeImage && image && (
-                          <div className="overflow-hidden rounded-xl border border-[#f0e5a5]/30">
-                            <img
-                              src={image}
-                              alt={safePlant.species_name || "Gescanntes Bild"}
-                              className="w-full h-72 md:h-96 object-cover"
-                            />
-                          </div>
-                        )}
                       </div>
                     );
                   })}
