@@ -763,6 +763,7 @@ export default function Scanner() {
                     genus_name: meta.genus_name || plantData.genus_name,
                     category: meta.category || plantData.category,
                     native_region: deriveNativeRegion(distribution),
+                    naturadb_url: meta.naturadb_url || plantData.naturadb_url || null,
                     notInDex: true,
                     inDatabase: false,
                     is_european: isEuropean,
@@ -1728,6 +1729,5 @@ export default function Scanner() {
     </>);
 
 }
-
 
 
