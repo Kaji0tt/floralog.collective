@@ -109,9 +109,36 @@ export default function QuestNotificationDisplay({ notification, onClose, onMark
 
   // Banner Display
   if (notification.display_location === "banner") {
+    const parseScanLikedMessage = (message) => {
+      const text = String(message || "").trim();
+      const match = text.match(/^(.+?)\s+gef[äa]llt\s+dein\s+Scan(?:\s*\((.+?)\))?\.?$/i);
+      return {
+        actorName: match?.[1]?.trim() || "Jemand",
+        scanName: match?.[2]?.trim() || "",
+      };
+    };
+
+    const isScanLikedNotification = notification.notification_type === "scan_liked";
+    const scanLikeParts = isScanLikedNotification ? parseScanLikedMessage(notification.message) : null;
+
     const handleBannerBodyClick = () => {
       onClose();
       navigate(createPageUrl("Friends?tab=news"));
+    };
+
+    const handleActorClick = (e) => {
+      e.stopPropagation();
+      const actorEmail = String(notification.created_by || "").trim();
+      if (!actorEmail || actorEmail === "system") return;
+      onClose();
+      navigate(createPageUrl(`FriendProfile?email=${encodeURIComponent(actorEmail)}`));
+    };
+
+    const handleScanClick = (e) => {
+      e.stopPropagation();
+      if (!notification.action_url) return;
+      onClose();
+      navigate(createPageUrl(notification.action_url));
     };
 
     const handleAnsehenClick = (e) => {
@@ -133,7 +160,35 @@ export default function QuestNotificationDisplay({ notification, onClose, onMark
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex-1">
             <strong className="font-bold">{notification.title}</strong>
-            <span className="ml-2">{notification.message}</span>
+            <span className="ml-2">
+              {isScanLikedNotification ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleActorClick}
+                    className={`font-semibold underline underline-offset-2 ${notification.created_by && notification.created_by !== "system" ? "" : "no-underline cursor-default"}`}
+                    disabled={!notification.created_by || notification.created_by === "system"}
+                  >
+                    {scanLikeParts?.actorName || "Jemand"}
+                  </button>
+                  {' gefällt dein Scan '}
+                  {scanLikeParts?.scanName ? (
+                    <button
+                      type="button"
+                      onClick={handleScanClick}
+                      className={`font-semibold underline underline-offset-2 ${notification.action_url ? "" : "no-underline cursor-default"}`}
+                      disabled={!notification.action_url}
+                    >
+                      {scanLikeParts.scanName}
+                    </button>
+                  ) : (
+                    <span>diesen Scan</span>
+                  )}
+                </>
+              ) : (
+                notification.message
+              )}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             {notification.action_url && (

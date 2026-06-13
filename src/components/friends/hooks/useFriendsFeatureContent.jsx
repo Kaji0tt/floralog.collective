@@ -72,6 +72,20 @@ const parseActivityDate = (primary, fallback) => {
   return d;
 };
 
+const parseScanLikedNotification = (newsItem, actorNameFallback = "Jemand") => {
+  const message = String(newsItem?.message || "").trim();
+  const match = message.match(/^(.+?)\s+gef[äa]llt\s+dein\s+Scan(?:\s*\((.+?)\))?\.?$/i);
+
+  const actorName = actorNameFallback || (match?.[1] ? match[1].trim() : "") || "Jemand";
+  const scanNameFromDescription = String(newsItem?.description || "").trim();
+  const scanNameFromMessage = match?.[2] ? match[2].trim() : "";
+
+  return {
+    actorName,
+    scanName: scanNameFromDescription || scanNameFromMessage,
+  };
+};
+
 export function useFriendsFeatureContent({
   embedded = false,
   onHeaderMetaChange,
@@ -940,6 +954,7 @@ Viel Spaß beim Entdecken! 🌿`;
             notificationType: "scan_liked",
             title: "❤️ Neuer Like",
             message: `${likerName} gefällt dein Scan${entry.plant?.species_name ? ` (${entry.plant.species_name})` : ""}.`,
+            description: entry.plant?.species_name || "",
             actionUrl: entry.plant?.genus_id
               ? `GenusDetail?${actionParams.toString()}`
               : "Friends?tab=explorer",
@@ -1149,6 +1164,28 @@ Viel Spaß beim Entdecken! 🌿`;
     if (notification.action_url) {
       navigate(createPageUrl(notification.action_url));
     }
+  };
+
+  const openNewsActorProfile = (event, newsItem, actorEmail) => {
+    event.stopPropagation();
+    if (!actorEmail) return;
+
+    if (newsItem.seen !== true) {
+      markNewsAsSeenMutation.mutate(newsItem.id);
+    }
+
+    navigate(createPageUrl(`FriendProfile?email=${encodeURIComponent(actorEmail)}`));
+  };
+
+  const openNewsScanDetail = (event, newsItem) => {
+    event.stopPropagation();
+    if (!newsItem?.action_url) return;
+
+    if (newsItem.seen !== true) {
+      markNewsAsSeenMutation.mutate(newsItem.id);
+    }
+
+    navigate(createPageUrl(newsItem.action_url));
   };
 
   // Helper: Hole Freundesdaten
@@ -1836,6 +1873,10 @@ Viel Spaß beim Entdecken! 🌿`;
                         const meta = getNewsMeta(newsItem.notification_type);
                         const Icon = meta.icon;
                         const actor = getNewsActor(newsItem);
+                        const parsedScanLike =
+                          newsItem.notification_type === 'scan_liked'
+                            ? parseScanLikedNotification(newsItem, actor.name)
+                            : null;
                         const avatarFallback = (actor.name || actor.email || '?').charAt(0).toUpperCase();
                         const pendingRequestFromNews = getPendingRequestFromNews(newsItem);
                         const showFriendRequestActions =
@@ -1885,6 +1926,31 @@ Viel Spaß beim Entdecken! 🌿`;
                                         {actor.name}{newsItem.description ? ` · ${newsItem.description}` : ''}
                                       </p>
                                     )}
+                                    {newsItem.notification_type === 'scan_liked' && (
+                                      <p className={`text-xs mt-0.5 truncate ${mutedTextClass}`}>
+                                        <button
+                                          type="button"
+                                          onClick={(event) => openNewsActorProfile(event, newsItem, actor.email)}
+                                          className={`font-semibold underline-offset-2 ${actor.email ? "underline" : "cursor-default no-underline"}`}
+                                          disabled={!actor.email}
+                                        >
+                                          {parsedScanLike?.actorName || actor.name || 'Jemand'}
+                                        </button>
+                                        {' gefällt dein Scan '}
+                                        {parsedScanLike?.scanName ? (
+                                          <button
+                                            type="button"
+                                            onClick={(event) => openNewsScanDetail(event, newsItem)}
+                                            className={`font-semibold underline underline-offset-2 ${newsItem.action_url ? "" : "no-underline cursor-default"}`}
+                                            disabled={!newsItem.action_url}
+                                          >
+                                            {parsedScanLike.scanName}
+                                          </button>
+                                        ) : (
+                                          <span>diesen Scan</span>
+                                        )}
+                                      </p>
+                                    )}
                                     <p className={`text-[10px] mt-1 ${faintTextClass}`}>
                                       {formatDistanceToNow(new Date(newsItem.created_date || newsItem.created_at || new Date().toISOString()), {
                                         addSuffix: true,
@@ -1903,9 +1969,35 @@ Viel Spaß beim Entdecken! 🌿`;
                                         <p className={`text-[11px] mb-2 ${mutedTextClass}`}>
                                           von {actor.name}
                                         </p>
-                                        <p className={`text-xs ${bodyTextClass}`}>
-                                          {newsItem.message}
-                                        </p>
+                                        {newsItem.notification_type === 'scan_liked' ? (
+                                          <p className={`text-xs ${bodyTextClass}`}>
+                                            <button
+                                              type="button"
+                                              onClick={(event) => openNewsActorProfile(event, newsItem, actor.email)}
+                                              className={`font-semibold underline-offset-2 ${actor.email ? "underline" : "cursor-default no-underline"}`}
+                                              disabled={!actor.email}
+                                            >
+                                              {parsedScanLike?.actorName || actor.name || 'Jemand'}
+                                            </button>
+                                            {' gefällt dein Scan '}
+                                            {parsedScanLike?.scanName ? (
+                                              <button
+                                                type="button"
+                                                onClick={(event) => openNewsScanDetail(event, newsItem)}
+                                                className={`font-semibold underline underline-offset-2 ${newsItem.action_url ? "" : "no-underline cursor-default"}`}
+                                                disabled={!newsItem.action_url}
+                                              >
+                                                {parsedScanLike.scanName}
+                                              </button>
+                                            ) : (
+                                              <span>diesen Scan</span>
+                                            )}
+                                          </p>
+                                        ) : (
+                                          <p className={`text-xs ${bodyTextClass}`}>
+                                            {newsItem.message}
+                                          </p>
+                                        )}
                                         {!!newsItem.description && (
                                           <p className={`text-[11px] mt-2 ${mutedTextClass}`}>{newsItem.description}</p>
                                         )}

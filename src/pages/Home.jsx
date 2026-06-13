@@ -618,6 +618,7 @@ function HomeContent() {
     queryFn: () => Query.UserPlantDiscovery.list('-created_date'),
     initialData: [],
     staleTime: 60 * 1000,
+    refetchOnMount: "always",
     refetchOnWindowFocus: true,
   });
 
@@ -639,6 +640,7 @@ function HomeContent() {
     queryFn: () => Query.PublicProfile.list(),
     initialData: [],
     staleTime: 5 * 60 * 1000,
+    refetchOnMount: "always",
     refetchOnWindowFocus: true,
   });
 
@@ -1100,10 +1102,6 @@ function HomeContent() {
 
     const loadMapDiscoveryData = async () => {
       if (activePanel !== "map") return;
-
-      const liveCachedLocation = getCachedLocation({ maxAgeMs: LOCATION_CACHE_MAX_AGE_MS });
-      const hasLiveLocation = Number.isFinite(liveCachedLocation?.lat) && Number.isFinite(liveCachedLocation?.lng);
-      if (!hasLiveLocation) return;
 
       setIsMapDiscoveryDataLoading(true);
       try {
@@ -2258,6 +2256,7 @@ function HomeContent() {
             notificationType: "scan_liked",
             title: "❤️ Neuer Like",
             message: `${user.display_name || user.full_name || user.email} gefällt dein Scan ${plantName ? `(${plantName})` : ""}.`,
+            description: plantName || "",
             actionUrl: `GenusDetail?${actionParams.toString()}`,
             displayLocation: "banner",
             createdBy: user.email,

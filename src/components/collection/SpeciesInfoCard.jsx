@@ -17,7 +17,7 @@ const readDisplayPrefs = () => {
   }
 };
 
-/** @param {{ infoOpen: boolean, ecologyOpen: boolean }} prefs */
+/** @param {{ infoOpen: boolean, ecologyOpen: boolean, regionOpen?: boolean }} prefs */
 const writeDisplayPrefs = (prefs) => {
   if (typeof window === "undefined") return;
   try {
@@ -206,6 +206,10 @@ export default function SpeciesInfoCard({
     const prefs = readDisplayPrefs();
     return typeof prefs?.ecologyOpen === "boolean" ? prefs.ecologyOpen : false;
   });
+  const [regionOpen, setRegionOpen] = React.useState(() => {
+    const prefs = readDisplayPrefs();
+    return typeof prefs?.regionOpen === "boolean" ? prefs.regionOpen : false;
+  });
   const [previewDragX, setPreviewDragX] = React.useState(0);
   const [previewPhase, setPreviewPhase] = React.useState("idle");
   const [commitDirection, setCommitDirection] = React.useState(0);
@@ -342,8 +346,8 @@ export default function SpeciesInfoCard({
   }, []);
 
   React.useEffect(() => {
-    writeDisplayPrefs({ infoOpen, ecologyOpen });
-  }, [infoOpen, ecologyOpen]);
+    writeDisplayPrefs({ infoOpen, ecologyOpen, regionOpen });
+  }, [infoOpen, ecologyOpen, regionOpen]);
 
   const handleSwipeRelease = (deltaX, deltaY = 0) => {
     const didSwipe = triggerPreviewSwipe(deltaX, deltaY);
@@ -672,8 +676,23 @@ export default function SpeciesInfoCard({
                 )}
                 {!!regionText && (
                   <div className={"rounded-md border p-2 " + (isLightUi ? "border-violet-200 bg-violet-50" : "border-violet-300/50 bg-violet-500/10")}>
-                    <p className={"text-xs font-semibold mb-1 " + (isLightUi ? "text-violet-800" : "text-violet-200")}>Heimat</p>
-                    <p className={"text-sm leading-relaxed " + (isLightUi ? "text-stone-700" : "text-stone-200")}>{regionText}</p>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setRegionOpen((prev) => !prev);
+                      }}
+                      onMouseDown={(event) => event.stopPropagation()}
+                      onTouchStart={(event) => event.stopPropagation()}
+                      onTouchEnd={(event) => event.stopPropagation()}
+                      className="w-full px-0 py-0 flex items-center justify-between text-left"
+                    >
+                      <span className={"text-xs font-semibold " + (isLightUi ? "text-violet-800" : "text-violet-200")}>Heimat</span>
+                      {regionOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
+                    {regionOpen && (
+                      <p className={"text-sm leading-relaxed mt-1 " + (isLightUi ? "text-stone-700" : "text-stone-200")}>{regionText}</p>
+                    )}
                   </div>
                 )}
                 {!descriptionText && !identificationText && !funFactText && !regionText && (
