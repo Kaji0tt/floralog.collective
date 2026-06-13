@@ -433,22 +433,20 @@ export default function SpeciesInfoCard({
                 {safePlant.species_name || "Unbekannte Pflanze"}
               </h3>
             </div>
-            {compact && (
-              <div className="mt-1 flex items-start justify-between gap-2">
-                <p className={"text-xs italic break-words min-w-0 " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
-                  {safePlant.scientific_name || "-"}
-                  <a
-                    href={naturadbUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={"inline-flex items-center gap-1 ml-2 text-[11px] not-italic font-normal " + (isLightUi ? "text-emerald-700" : "text-emerald-300")}
-                  >
-                   
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                </p>
-              </div>
-            )}
+            <div className="mt-1 flex items-start justify-between gap-2">
+              <p className={"text-xs italic break-words min-w-0 " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
+                {safePlant.scientific_name || "-"}
+                <a
+                  href={naturadbUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={"inline-flex items-center gap-1 ml-2 text-[11px] not-italic font-normal " + (isLightUi ? "text-emerald-700" : "text-emerald-300")}
+                >
+                 
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </p>
+            </div>
           </div>
           <div className="shrink-0 flex items-center gap-2">
             <Badge className={`h-5 ${getRarityColor(rarity)} text-white text-[10px] px-1.5 py-0 rounded-full shrink-0`}>

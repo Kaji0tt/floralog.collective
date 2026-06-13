@@ -298,6 +298,13 @@ export default function ScanResults({
                         </Badge>
                       </div>
                     )}
+                    {(imageUrl || currentPlant?.image_url) && (
+                      <img
+                        src={imageUrl || currentPlant?.image_url}
+                        alt={currentPlant?.species_name || "Gescannte Pflanze"}
+                        className="w-full h-48 object-cover rounded-xl mb-2"
+                      />
+                    )}
                     <SpeciesInfoCard
                       plant={currentPlant}
                       imageUrl={imageUrl}
