@@ -175,6 +175,8 @@ export default function SpeciesInfoCard({
   imageUrl,
   isLightUi = false,
   compact = false,
+  showImagePreview = compact,
+  showScientificMeta = compact,
   showNarrative = true,
   titlePrefix,
   topRight,
@@ -433,7 +435,7 @@ export default function SpeciesInfoCard({
                 {safePlant.species_name || "Unbekannte Pflanze"}
               </h3>
             </div>
-            {compact && (
+            {showScientificMeta && (
               <div className="mt-1 flex items-start justify-between gap-2">
                 <p className={"text-xs italic break-words min-w-0 " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
                   {safePlant.scientific_name || "-"}
@@ -443,7 +445,7 @@ export default function SpeciesInfoCard({
                     rel="noopener noreferrer"
                     className={"inline-flex items-center gap-1 ml-2 text-[11px] not-italic font-normal " + (isLightUi ? "text-emerald-700" : "text-emerald-300")}
                   >
-                   
+                    {!compact && <span>NaturaDB</span>}
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 </p>
@@ -458,10 +460,10 @@ export default function SpeciesInfoCard({
           </div>
         </div>
 
-        {compact && (
+        {showImagePreview && (
           <div className="flow-root">
             <div
-              className={previewWrapperClass}
+              className={compact ? previewWrapperClass : "w-full"}
               onTouchStart={handlePreviewTouchStart}
               onTouchEnd={handlePreviewTouchEnd}
               onTouchMove={handlePreviewTouchMove}
