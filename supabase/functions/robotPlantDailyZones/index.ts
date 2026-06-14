@@ -444,12 +444,13 @@ const computeOverallHealth = (energyValue: number, dataQualityValue: number, car
 
 const computeZoneCountFromDataQuality = (dataQualityValue: number): number => {
   const safeDataQuality = clamp(Number(dataQualityValue ?? 0), 0, 100);
-  return Math.min(8, Math.max(1, Math.floor(safeDataQuality / 10)));
+  const baseZoneCount = Math.min(8, Math.max(1, Math.floor(safeDataQuality / 10)));
+  const bonusZones = safeDataQuality >= 90 ? 4 : safeDataQuality >= 80 ? 2 : 0;
+  return baseZoneCount + bonusZones;
 };
 
 const computeZoneRerollsFromCare = (careValue: number): number => {
   const safeCare = clamp(Number(careValue ?? 0), 0, 100);
-  if (safeCare >= 100) return 4;
   if (safeCare >= 90) return 2;
   if (safeCare >= 80) return 1;
   return 0;

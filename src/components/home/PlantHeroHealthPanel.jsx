@@ -6,10 +6,10 @@ import InventorySlotPickerPopover from "@/components/robotPlant/InventorySlotPic
 
 const HEALTH_TOOLTIP_TEXT = {
   energy:
-    "Energie zeigt, wie fit deine Pflanze gerade ist. Mit mehr Energie hast du im Alltag mehr Spielraum. Wenn Energie niedrig ist, kann sie sich wieder schneller erholen.",
+    "Die Energie deines Florabots lädt sich auf, wenn du mit ihm spazieren gehst. Je mehr Strecke zwischen den Scans ist, desto mehr Energie lädt sich auf (max. 15 / Tag). Höhere Energie vergrößert die größe der Zonen, die dein Florabot aufspüren kann.",
   "data-quality":
-    "Datenqualitaet steht fuer die Genauigkeit deiner Scans. Gute Daten helfen dir dabei, bessere Ergebnisse zu bekommen. Sie steigt vor allem, wenn du in aktiven Zonen scannst.",
-  care: "Pflege zeigt, wie gut du dich um deine Pflanze kuemmerst. Hohe Pflege verbessert deine Belohnungen. Der erste Scan am Tag gibt extra Pflege, und nach Pausen sogar noch mehr.",
+    "Die Datenqualität steigt, wenn innerhalb einer Zone gescannt wird. Mit jedem weiteren Scan in der gleichen Zone, sinkt der Zuwachs. Je höher die Datenqualität, desto mehr Zonen kann der Florabot aufspüren. Ab 80 gibt es eine zusätzliche Bonuszone, ab 90 sogar 3 Bonuszonen. Du kannst somit bis zu 12 aktive Zonen pro Tag erreichen.  ",
+  care: "Der Pflegewert zeigt, wie regelmaessig du im Floralog aktiv bist. Durch regelmaessige Pflege kannst du den Pflegewert steigern. Ausserdem bringt der erste Scan am Tag +3 auf den Pflegewert. Je hoeher der Pflegewert, desto mehr Rerolls fuer die Tageszonen hast du zur Verfuegung. Ab 80 hast du insgesamt 2 Rerolls, ab 90 insgesamt 3. Darunter hast du 1 Reroll pro Tag.",
 };
 
 export default function PlantHeroHealthPanel({

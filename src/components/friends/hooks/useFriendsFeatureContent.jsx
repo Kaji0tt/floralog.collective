@@ -108,6 +108,7 @@ export function useFriendsFeatureContent({
   const [newsFilter, setNewsFilter] = useState("activities");
   const [expandedNewsIds, setExpandedNewsIds] = useState(new Set());
   const [showAddFriendDialog, setShowAddFriendDialog] = useState(false);
+  const [addFriendExpandedSection, setAddFriendExpandedSection] = useState(null);
   const [showAdminNewsDialog, setShowAdminNewsDialog] = useState(false);
   const [adminNewsTitle, setAdminNewsTitle] = useState("");
   const [adminNewsText, setAdminNewsText] = useState("");
@@ -135,6 +136,12 @@ export function useFriendsFeatureContent({
       setShowAddFriendDialog(true);
     }
   }, [embedded, openAddFriendDialogNonce]);
+
+  useEffect(() => {
+    if (showAddFriendDialog) {
+      setAddFriendExpandedSection(null);
+    }
+  }, [showAddFriendDialog]);
 
   useEffect(() => {
     const allowedTabs = new Set(["friends", "news", "explorer"]);
@@ -662,11 +669,9 @@ export function useFriendsFeatureContent({
         if (profileAuthId && ownAuthId && profileAuthId === ownAuthId) return false;
         if (profileEmailLower && ownEmailLower && profileEmailLower === ownEmailLower) return false;
 
-        const displayName = String(profile?.display_name || "").trim();
-        const fullName = String(profile?.full_name || "").trim();
-        const email = String(profile?.user_email || "").trim();
-        const haystack = `${displayName} ${fullName} ${email}`.toLowerCase();
-        return haystack.includes(query);
+        const displayName = String(profile?.display_name || "").trim().toLowerCase();
+        const fullName = String(profile?.full_name || "").trim().toLowerCase();
+        return displayName.startsWith(query) || fullName.startsWith(query);
       })
       .map((profile) => {
         const email = String(profile?.user_email || "").trim() || null;
@@ -2371,146 +2376,166 @@ Viel Spaß beim Entdecken! 🌿`;
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-4">
-            <div className="space-y-3">
-              <h3 className={`text-sm font-semibold ${!isLightUi ? "text-stone-200" : "text-stone-900"}`}>Freund suchen und hinzufuegen</h3>
-              <p className={`text-xs ${!isLightUi ? "text-stone-400" : "text-stone-600"}`}>
-                Suche nach Displayname oder nutze direkt die E-Mail-Adresse.
-              </p>
+            {[
+              { id: "name", title: "1.) Freund per Namen suchen" },
+              { id: "email", title: "2.) Freund per Mail hinzufuegen" },
+              { id: "invite", title: "3.) Freund zu Floralog einladen" },
+            ].map((section) => {
+              const isOpen = addFriendExpandedSection === section.id;
+              return (
+                <div key={section.id} className={`rounded-xl border ${!isLightUi ? "border-stone-700 bg-stone-900/20" : "border-stone-200 bg-stone-50/60"}`}>
+                  <button
+                    type="button"
+                    onClick={() => setAddFriendExpandedSection((current) => current === section.id ? null : section.id)}
+                    className={`w-full flex items-center justify-between gap-2 px-3 py-3 text-left ${!isLightUi ? "text-stone-100" : "text-stone-900"}`}
+                  >
+                    <span className="text-sm font-semibold">{section.title}</span>
+                    <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                  </button>
 
-              <Input
-                placeholder="Spielername suchen (Displayname)"
-                value={friendSearchQuery}
-                onChange={(e) => setFriendSearchQuery(e.target.value)}
-                className={`border-2 ${!isLightUi ? "border-stone-600 bg-stone-800/60 text-stone-100 placeholder:text-stone-500" : "border-stone-200"}`}
-              />
+                  {isOpen && section.id === "name" && (
+                    <div className={`px-3 pb-3 border-t ${!isLightUi ? "border-stone-700" : "border-stone-200"}`}>
+                      <div className="pt-3 space-y-3">
+                        <Input
+                          placeholder="Spielername suchen (Displayname)"
+                          value={friendSearchQuery}
+                          onChange={(e) => setFriendSearchQuery(e.target.value)}
+                          className={`border-2 ${!isLightUi ? "border-stone-600 bg-stone-800/60 text-stone-100 placeholder:text-stone-500" : "border-stone-200"}`}
+                        />
 
-              {friendSearchQuery.trim().length > 0 && (
-                <div className={`rounded-lg border p-2 max-h-56 overflow-y-auto ${!isLightUi ? "border-stone-700 bg-stone-900/40" : "border-stone-200 bg-stone-50/70"}`}>
-                  {friendSearchQuery.trim().length < 2 ? (
-                    <p className={`text-xs px-2 py-1 ${!isLightUi ? "text-stone-400" : "text-stone-500"}`}>
-                      Bitte mindestens 2 Zeichen eingeben.
-                    </p>
-                  ) : friendSearchResults.length === 0 ? (
-                    <p className={`text-xs px-2 py-1 ${!isLightUi ? "text-stone-400" : "text-stone-500"}`}>
-                      Keine passenden Spieler gefunden.
-                    </p>
-                  ) : (
-                    <div className="space-y-1">
-                      {friendSearchResults.map((result) => {
-                        const existingStatus = result.existingFriendship?.status || null;
-                        const isAccepted = existingStatus === "accepted";
-                        const isPending = existingStatus === "pending";
-                        const disabled = sendFriendRequestMutation.isPending || isAccepted || isPending;
-
-                        return (
-                          <div
-                            key={result.profile.id || `${result.authId || ""}:${result.email || ""}`}
-                            className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 ${!isLightUi ? "border-stone-700" : "border-stone-200 bg-white"}`}
-                          >
-                            <div className="min-w-0">
-                              <p className={`text-sm font-medium truncate ${!isLightUi ? "text-stone-100" : "text-stone-900"}`}>
-                                {result.displayName}
+                        {friendSearchQuery.trim().length > 0 && (
+                          <div className={`rounded-lg border p-2 max-h-56 overflow-y-auto ${!isLightUi ? "border-stone-700 bg-stone-900/40" : "border-stone-200 bg-stone-50/70"}`}>
+                            {friendSearchQuery.trim().length < 2 ? (
+                              <p className={`text-xs px-2 py-1 ${!isLightUi ? "text-stone-400" : "text-stone-500"}`}>
+                                Bitte mindestens 2 Zeichen eingeben.
                               </p>
-                              <p className={`text-[11px] truncate ${!isLightUi ? "text-stone-400" : "text-stone-500"}`}>
-                                {result.email || "Keine E-Mail verfuegbar"}
+                            ) : friendSearchResults.length === 0 ? (
+                              <p className={`text-xs px-2 py-1 ${!isLightUi ? "text-stone-400" : "text-stone-500"}`}>
+                                Keine passenden Spieler gefunden.
                               </p>
-                            </div>
-                            <Button
-                              size="sm"
-                              onClick={() => handleSendRequestToProfile(result)}
-                              disabled={disabled}
-                              className="h-8 px-2 bg-green-600 hover:bg-green-700"
-                            >
-                              {sendFriendRequestMutation.isPending ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : isAccepted ? (
-                                "Bereits Freund"
-                              ) : isPending ? (
-                                "Anfrage offen"
-                              ) : (
-                                <UserPlus className="w-3.5 h-3.5" />
-                              )}
-                            </Button>
+                            ) : (
+                              <div className="space-y-1">
+                                {friendSearchResults.map((result) => {
+                                  const existingStatus = result.existingFriendship?.status || null;
+                                  const isAccepted = existingStatus === "accepted";
+                                  const isPending = existingStatus === "pending";
+                                  const disabled = sendFriendRequestMutation.isPending || isAccepted || isPending;
+
+                                  return (
+                                    <div
+                                      key={result.profile.id || `${result.authId || ""}:${result.email || ""}`}
+                                      className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 ${!isLightUi ? "border-stone-700" : "border-stone-200 bg-white"}`}
+                                    >
+                                      <div className="min-w-0">
+                                        <p className={`text-sm font-medium truncate ${!isLightUi ? "text-stone-100" : "text-stone-900"}`}>
+                                          {result.displayName}
+                                        </p>
+                                        <p className={`text-[11px] truncate ${!isLightUi ? "text-stone-400" : "text-stone-500"}`}>
+                                          {result.email || "Keine E-Mail verfuegbar"}
+                                        </p>
+                                      </div>
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleSendRequestToProfile(result)}
+                                        disabled={disabled}
+                                        className="h-8 px-2 bg-green-600 hover:bg-green-700"
+                                      >
+                                        {sendFriendRequestMutation.isPending ? (
+                                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        ) : isAccepted ? (
+                                          "Bereits Freund"
+                                        ) : isPending ? (
+                                          "Anfrage offen"
+                                        ) : (
+                                          <UserPlus className="w-3.5 h-3.5" />
+                                        )}
+                                      </Button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
-                        );
-                      })}
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {isOpen && section.id === "email" && (
+                    <div className={`px-3 pb-3 border-t ${!isLightUi ? "border-stone-700" : "border-stone-200"}`}>
+                      <div className="pt-3 space-y-2">
+                        <p className={`text-xs ${!isLightUi ? "text-stone-400" : "text-stone-600"}`}>
+                          Sende eine Anfrage an jemanden, der bereits die App nutzt
+                        </p>
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="E-Mail des Freundes"
+                            value={friendEmail}
+                            onChange={(e) => setFriendEmail(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && handleSendRequest()}
+                            className={`border-2 flex-1 ${!isLightUi ? "border-stone-600 bg-stone-800/60 text-stone-100 placeholder:text-stone-500" : "border-stone-200"}`}
+                          />
+                          <Button
+                            onClick={async () => {
+                              const isSuccess = await handleSendRequest();
+                              if (isSuccess) {
+                                setShowAddFriendDialog(false);
+                              }
+                            }}
+                            disabled={!friendEmail || sendFriendRequestMutation.isPending}
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            {sendFriendRequestMutation.isPending ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <UserPlus className="w-4 h-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {isOpen && section.id === "invite" && (
+                    <div className={`px-3 pb-3 border-t ${!isLightUi ? "border-stone-700" : "border-stone-200"}`}>
+                      <div className="pt-3 space-y-3">
+                        <p className={`text-xs ${!isLightUi ? "text-stone-400" : "text-stone-600"}`}>
+                          Erstelle einen Einladungslink und teile ihn per WhatsApp, SMS oder E-Mail
+                        </p>
+                        <div className={`rounded-xl border-2 p-4 ${!isLightUi ? "border-amber-500/40 bg-amber-500/10" : "border-amber-400/60 bg-amber-50"}`}>
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-lg">🌟</span>
+                            <h3 className={`text-sm font-bold ${!isLightUi ? "text-amber-300" : "text-amber-800"}`}>Freunde einladen & Belohnungen sichern</h3>
+                          </div>
+                          <Button
+                            onClick={() => {
+                              const referralCode = encodeReferralCode(user.email);
+                              const referralLink = "https://floralog.de?ref=" + referralCode;
+                              const shareText = "Hallo!\n\n" + (user.display_name || user.full_name) + " lädt dich zu Floralog ein! 🌱\n\nFloralog ist eine App zum Entdecken und Sammeln von Pflanzen. Scanne Pflanzen in deiner Umgebung, baue deine Sammlung auf und tausche dich mit Freunden aus!\n\nStarte jetzt: " + referralLink + "\n\nViel Spaß beim Entdecken! 🌿";
+                              if (navigator.clipboard) {
+                                navigator.clipboard.writeText(shareText).then(() => {
+                                  alert("✅ Einladungstext wurde in die Zwischenablage kopiert!\n\nSende ihn per WhatsApp, SMS oder E-Mail!\n\nDein Referral-Link: " + referralLink);
+                                  setShowAddFriendDialog(false);
+                                }).catch(() => {
+                                  alert("✅ Dein Referral-Link: " + referralLink + "\n\nKopiere ihn und teile ihn mit deinen Freunden!");
+                                });
+                              } else {
+                                alert("✅ Dein Referral-Link: " + referralLink + "\n\nKopiere ihn und teile ihn mit deinen Freunden!");
+                              }
+                            }}
+                            className={`w-full font-semibold border-2 shadow-md transition-all duration-150 active:scale-95 ${!isLightUi ? "bg-amber-500/15 border-amber-400/60 text-amber-300 hover:bg-amber-500/30 hover:border-amber-400" : "bg-amber-50 border-amber-400 text-amber-800 hover:bg-amber-100 hover:border-amber-500"}`}
+                            variant="outline"
+                          >
+                            <Share2 className="w-4 h-4 mr-2 flex-shrink-0" />
+                            Einladungslink kopieren
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
-              )}
-
-              <div className={`border-t pt-3 ${!isLightUi ? "border-stone-700" : "border-stone-200"}`}>
-                <h4 className={`text-xs font-semibold uppercase tracking-wide ${!isLightUi ? "text-stone-300" : "text-stone-700"}`}>
-                  Per E-Mail hinzufuegen
-                </h4>
-              <p className={`text-xs ${!isLightUi ? "text-stone-400" : "text-stone-600"}`}>
-                Sende eine Anfrage an jemanden, der bereits die App nutzt
-              </p>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="E-Mail des Freundes"
-                  value={friendEmail}
-                  onChange={(e) => setFriendEmail(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSendRequest()}
-                  className={`border-2 flex-1 ${!isLightUi ? "border-stone-600 bg-stone-800/60 text-stone-100 placeholder:text-stone-500" : "border-stone-200"}`}
-                />
-                <Button
-                  onClick={async () => {
-                    const isSuccess = await handleSendRequest();
-                    if (isSuccess) {
-                      setShowAddFriendDialog(false);
-                    }
-                  }}
-                  disabled={!friendEmail || sendFriendRequestMutation.isPending}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  {sendFriendRequestMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <UserPlus className="w-4 h-4" />
-                  )}
-                </Button>
-              </div>
-              </div>
-            </div>
-
-            <div className={`border-t pt-4 ${!isLightUi ? "border-stone-700" : "border-stone-200"}`}>
-              <h3 className={`text-sm font-semibold mb-2 ${!isLightUi ? "text-stone-200" : "text-stone-900"}`}>Freund einladen</h3>
-              <p className={`text-xs mb-3 ${!isLightUi ? "text-stone-400" : "text-stone-600"}`}>
-                Erstelle einen Einladungslink und teile ihn per WhatsApp, SMS oder E-Mail
-              </p>
-            <div className={`rounded-xl border-2 p-4 ${!isLightUi ? "border-amber-500/40 bg-amber-500/10" : "border-amber-400/60 bg-amber-50"}`}>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-lg">🌟</span>
-                <h3 className={`text-sm font-bold ${!isLightUi ? "text-amber-300" : "text-amber-800"}`}>Freunde einladen & Belohnungen sichern</h3>
-              </div>
-              <p className={`text-xs mb-3 leading-relaxed ${!isLightUi ? "text-amber-200/70" : "text-amber-700/80"}`}>
-                Lade Freunde ein und ihr werdet automatisch in der Freundesliste verbunden. Für geworbene Spielende winken exklusive Belohnungen!
-              </p>
-              <Button
-                onClick={() => {
-                  const referralCode = encodeReferralCode(user.email);
-                  const referralLink = "https://floralog.de?ref=" + referralCode;
-                  const shareText = "Hallo!\n\n" + (user.display_name || user.full_name) + " lädt dich zu Floralog ein! 🌱\n\nFloralog ist eine App zum Entdecken und Sammeln von Pflanzen. Scanne Pflanzen in deiner Umgebung, baue deine Sammlung auf und tausche dich mit Freunden aus!\n\nStarte jetzt: " + referralLink + "\n\nViel Spaß beim Entdecken! 🌿";
-                  if (navigator.clipboard) {
-                    navigator.clipboard.writeText(shareText).then(() => {
-                      alert("✅ Einladungstext wurde in die Zwischenablage kopiert!\n\nSende ihn per WhatsApp, SMS oder E-Mail!\n\nDein Referral-Link: " + referralLink);
-                      setShowAddFriendDialog(false);
-                    }).catch(() => {
-                      alert("✅ Dein Referral-Link: " + referralLink + "\n\nKopiere ihn und teile ihn mit deinen Freunden!");
-                    });
-                  } else {
-                    alert("✅ Dein Referral-Link: " + referralLink + "\n\nKopiere ihn und teile ihn mit deinen Freunden!");
-                  }
-                }}
-                className={`w-full font-semibold border-2 shadow-md transition-all duration-150 active:scale-95 ${!isLightUi ? "bg-amber-500/15 border-amber-400/60 text-amber-300 hover:bg-amber-500/30 hover:border-amber-400" : "bg-amber-50 border-amber-400 text-amber-800 hover:bg-amber-100 hover:border-amber-500"}`}
-                variant="outline"
-              >
-                <Share2 className="w-4 h-4 mr-2 flex-shrink-0" />
-                Einladungslink kopieren
-              </Button>
-            </div>
-            </div>
+              );
+            })}
           </div>
         </DialogContent>
       </Dialog>
