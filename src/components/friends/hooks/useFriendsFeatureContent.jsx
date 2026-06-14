@@ -98,6 +98,7 @@ export function useFriendsFeatureContent({
   const [searchParams] = useSearchParams();
   const [user, setUser] = useState(null);
   const [friendEmail, setFriendEmail] = useState("");
+  const [friendSearchQuery, setFriendSearchQuery] = useState("");
   const [newAchievements, setNewAchievements] = useState([]);
   const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
   const [averageColor, setAverageColor] = useState(null);
@@ -623,30 +624,102 @@ export function useFriendsFeatureContent({
     [userNews]
   );
 
+  const getExistingFriendship = useCallback((targetEmailRaw, targetAuthIdRaw) => {
+    if (!user?.email) return null;
+
+    const myEmail = user.email.toLowerCase();
+    const myAuthId = String(user.id || "").trim() || null;
+    const targetEmail = String(targetEmailRaw || "").trim().toLowerCase() || null;
+    const targetAuthId = String(targetAuthIdRaw || "").trim() || null;
+
+    return allFriendRecords.find((record) => {
+      const byEmail = Boolean(targetEmail) && (
+        (record.request_sent_by?.toLowerCase() === myEmail && record.request_sent_to?.toLowerCase() === targetEmail) ||
+        (record.request_sent_by?.toLowerCase() === targetEmail && record.request_sent_to?.toLowerCase() === myEmail)
+      );
+
+      const byAuthId = Boolean(targetAuthId && myAuthId) && (
+        (record.request_sent_by_auth_id === myAuthId && record.request_sent_to_auth_id === targetAuthId) ||
+        (record.request_sent_by_auth_id === targetAuthId && record.request_sent_to_auth_id === myAuthId)
+      );
+
+      return byEmail || byAuthId;
+    }) || null;
+  }, [allFriendRecords, user?.email, user?.id]);
+
+  const friendSearchResults = useMemo(() => {
+    const query = friendSearchQuery.trim().toLowerCase();
+    if (query.length < 2) return [];
+
+    const ownAuthId = String(user?.id || "").trim() || null;
+    const ownEmailLower = user?.email?.toLowerCase() || "";
+
+    return (allPublicProfiles || [])
+      .filter((profile) => {
+        const profileAuthId = String(profile?.auth_id || "").trim() || null;
+        const profileEmailLower = String(profile?.user_email || "").trim().toLowerCase();
+
+        if (profileAuthId && ownAuthId && profileAuthId === ownAuthId) return false;
+        if (profileEmailLower && ownEmailLower && profileEmailLower === ownEmailLower) return false;
+
+        const displayName = String(profile?.display_name || "").trim();
+        const fullName = String(profile?.full_name || "").trim();
+        const email = String(profile?.user_email || "").trim();
+        const haystack = `${displayName} ${fullName} ${email}`.toLowerCase();
+        return haystack.includes(query);
+      })
+      .map((profile) => {
+        const email = String(profile?.user_email || "").trim() || null;
+        const authId = String(profile?.auth_id || "").trim() || null;
+        const displayName =
+          String(profile?.display_name || "").trim() ||
+          String(profile?.full_name || "").trim() ||
+          email ||
+          "Unbekannt";
+        const existingFriendship = getExistingFriendship(email, authId);
+
+        return {
+          profile,
+          email,
+          authId,
+          displayName,
+          existingFriendship,
+        };
+      })
+      .sort((left, right) => {
+        const leftName = left.displayName.toLowerCase();
+        const rightName = right.displayName.toLowerCase();
+        const leftStarts = leftName.startsWith(query) ? 0 : 1;
+        const rightStarts = rightName.startsWith(query) ? 0 : 1;
+        if (leftStarts !== rightStarts) return leftStarts - rightStarts;
+        return leftName.localeCompare(rightName, "de");
+      })
+      .slice(0, 8);
+  }, [allPublicProfiles, friendSearchQuery, getExistingFriendship, user?.email, user?.id]);
+
   const sendFriendRequestMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ recipientEmail = null, recipientAuthId = null } = {}) => {
       if (!user || !user.email) {
         throw new Error("User nicht geladen!");
       }
 
-      const targetEmail = friendEmail.trim();
-      if (!targetEmail) {
-        throw new Error("Bitte gib eine E-Mail-Adresse ein.");
+      const targetEmail = String(recipientEmail || "").trim() || null;
+      const targetAuthId = String(recipientAuthId || "").trim() || null;
+
+      if (!targetEmail && !targetAuthId) {
+        throw new Error("Bitte gib eine E-Mail-Adresse ein oder waehle einen Spieler aus.");
       }
 
       const myEmail = user.email.toLowerCase();
-      const friendEmailLower = targetEmail.toLowerCase();
+      const myAuthId = String(user.id || "").trim() || null;
+      const friendEmailLower = targetEmail?.toLowerCase() || null;
 
       // Selbst-Check
-      if (friendEmailLower === myEmail) {
+      if ((friendEmailLower && friendEmailLower === myEmail) || (targetAuthId && myAuthId && targetAuthId === myAuthId)) {
         throw new Error("Du kannst dir nicht selbst eine Anfrage senden!");
       }
 
-      // Prüfe ob bereits eine Freundschaft existiert (in BEIDE Richtungen!)
-      const existingFriendship = allFriendRecords.find((f) =>
-      f.request_sent_by?.toLowerCase() === myEmail && f.request_sent_to?.toLowerCase() === friendEmailLower ||
-      f.request_sent_by?.toLowerCase() === friendEmailLower && f.request_sent_to?.toLowerCase() === myEmail
-      );
+      const existingFriendship = getExistingFriendship(targetEmail, targetAuthId);
 
       if (existingFriendship) {
         if (existingFriendship.status === "accepted") {
@@ -661,15 +734,22 @@ export function useFriendsFeatureContent({
       }
 
       // Serverseitiger Insert (bypasst clientseitige RLS-Probleme)
-      await sendFriendRequest(targetEmail);
+      await sendFriendRequest(targetEmail, targetAuthId);
 
-      const targetProfile = profileByEmail.get(friendEmailLower);
+      const targetProfile =
+        (targetAuthId ? profileByAuthId.get(targetAuthId) : null) ||
+        (friendEmailLower ? profileByEmail.get(friendEmailLower) : null);
       const senderName = user.display_name || user.full_name || user.email;
+      const notificationRecipientEmail = targetProfile?.user_email || targetEmail;
+
+      if (!notificationRecipientEmail) {
+        return;
+      }
 
       try {
         await createUserNotification({
           authId: targetProfile?.auth_id,
-          userEmail: targetProfile?.user_email || targetEmail,
+          userEmail: notificationRecipientEmail,
           notificationType: "friend_request_received",
           title: "🤝 Neue Freundschaftsanfrage",
           message: `${senderName} hat dir eine Freundschaftsanfrage gesendet.`,
@@ -683,6 +763,7 @@ export function useFriendsFeatureContent({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['allFriendRecords'] });
+          setFriendSearchQuery("");
       setFriendEmail("");
     },
     onError: (error) => {
@@ -867,12 +948,12 @@ Viel Spaß beim Entdecken! 🌿`;
   const handleSendRequest = async () => {
     if (!user || !user.email) {
       alert("Bitte warte bis dein Profil geladen ist.");
-      return;
+      return false;
     }
 
     if (!friendEmail || !friendEmail.trim()) {
       alert("Bitte gib eine E-Mail-Adresse ein.");
-      return;
+      return false;
     }
 
     const trimmedEmail = friendEmail.trim();
@@ -881,23 +962,43 @@ Viel Spaß beim Entdecken! 🌿`;
     if (trimmedEmail.toLowerCase() === user.email.toLowerCase()) {
       alert("Du kannst dir nicht selbst eine Anfrage senden! 😄");
       setFriendEmail("");
-      return;
+      return false;
     }
 
     // Basic E-Mail Format Check
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(trimmedEmail)) {
       alert("Bitte gib eine gültige E-Mail-Adresse ein.");
-      return;
+      return false;
     }
 
     try {
-      await sendFriendRequestMutation.mutateAsync();
+      await sendFriendRequestMutation.mutateAsync({ recipientEmail: trimmedEmail });
       alert(`Freundschaftsanfrage an ${trimmedEmail} gesendet! ✅`);
+      return true;
     } catch (error) {
 
       // Error already shown by mutation
-    }};
+      return false;
+    }
+  };
+
+  const handleSendRequestToProfile = async (result) => {
+    if (!result) return;
+
+    const profileLabel = result.displayName || result.email || "diesem Spieler";
+
+    try {
+      await sendFriendRequestMutation.mutateAsync({
+        recipientEmail: result.email,
+        recipientAuthId: result.authId,
+      });
+      alert(`Freundschaftsanfrage an ${profileLabel} gesendet! ✅`);
+      setShowAddFriendDialog(false);
+    } catch (_error) {
+      // Error already shown by mutation
+    }
+  };
 
   const createPageUrl = (path) => {
     if (path.startsWith('/')) {
@@ -943,8 +1044,9 @@ Viel Spaß beim Entdecken! 🌿`;
         });
 
         const likerName = user.display_name || user.full_name || user.email;
+        const notificationGenusId = entry?.plant?.genus_id || genusIdByPlantId.get(entry?.plant?.id);
         const actionParams = new URLSearchParams();
-        if (entry.plant?.genus_id) actionParams.set("id", entry.plant.genus_id);
+        if (notificationGenusId) actionParams.set("id", notificationGenusId);
         actionParams.set("discoveryId", entry.id);
 
         await Promise.allSettled([
@@ -955,9 +1057,9 @@ Viel Spaß beim Entdecken! 🌿`;
             title: "❤️ Neuer Like",
             message: `${likerName} gefällt dein Scan${entry.plant?.species_name ? ` (${entry.plant.species_name})` : ""}.`,
             description: entry.plant?.species_name || "",
-            actionUrl: entry.plant?.genus_id
+            actionUrl: notificationGenusId
               ? `GenusDetail?${actionParams.toString()}`
-              : "Friends?tab=explorer",
+              : "Collection",
             displayLocation: "banner",
             createdBy: user.email,
           }),
@@ -2270,7 +2372,77 @@ Viel Spaß beim Entdecken! 🌿`;
           </DialogHeader>
           <div className="space-y-4 pt-4">
             <div className="space-y-3">
-              <h3 className={`text-sm font-semibold ${!isLightUi ? "text-stone-200" : "text-stone-900"}`}>Freundschaftsanfrage senden</h3>
+              <h3 className={`text-sm font-semibold ${!isLightUi ? "text-stone-200" : "text-stone-900"}`}>Freund suchen und hinzufuegen</h3>
+              <p className={`text-xs ${!isLightUi ? "text-stone-400" : "text-stone-600"}`}>
+                Suche nach Displayname oder nutze direkt die E-Mail-Adresse.
+              </p>
+
+              <Input
+                placeholder="Spielername suchen (Displayname)"
+                value={friendSearchQuery}
+                onChange={(e) => setFriendSearchQuery(e.target.value)}
+                className={`border-2 ${!isLightUi ? "border-stone-600 bg-stone-800/60 text-stone-100 placeholder:text-stone-500" : "border-stone-200"}`}
+              />
+
+              {friendSearchQuery.trim().length > 0 && (
+                <div className={`rounded-lg border p-2 max-h-56 overflow-y-auto ${!isLightUi ? "border-stone-700 bg-stone-900/40" : "border-stone-200 bg-stone-50/70"}`}>
+                  {friendSearchQuery.trim().length < 2 ? (
+                    <p className={`text-xs px-2 py-1 ${!isLightUi ? "text-stone-400" : "text-stone-500"}`}>
+                      Bitte mindestens 2 Zeichen eingeben.
+                    </p>
+                  ) : friendSearchResults.length === 0 ? (
+                    <p className={`text-xs px-2 py-1 ${!isLightUi ? "text-stone-400" : "text-stone-500"}`}>
+                      Keine passenden Spieler gefunden.
+                    </p>
+                  ) : (
+                    <div className="space-y-1">
+                      {friendSearchResults.map((result) => {
+                        const existingStatus = result.existingFriendship?.status || null;
+                        const isAccepted = existingStatus === "accepted";
+                        const isPending = existingStatus === "pending";
+                        const disabled = sendFriendRequestMutation.isPending || isAccepted || isPending;
+
+                        return (
+                          <div
+                            key={result.profile.id || `${result.authId || ""}:${result.email || ""}`}
+                            className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 ${!isLightUi ? "border-stone-700" : "border-stone-200 bg-white"}`}
+                          >
+                            <div className="min-w-0">
+                              <p className={`text-sm font-medium truncate ${!isLightUi ? "text-stone-100" : "text-stone-900"}`}>
+                                {result.displayName}
+                              </p>
+                              <p className={`text-[11px] truncate ${!isLightUi ? "text-stone-400" : "text-stone-500"}`}>
+                                {result.email || "Keine E-Mail verfuegbar"}
+                              </p>
+                            </div>
+                            <Button
+                              size="sm"
+                              onClick={() => handleSendRequestToProfile(result)}
+                              disabled={disabled}
+                              className="h-8 px-2 bg-green-600 hover:bg-green-700"
+                            >
+                              {sendFriendRequestMutation.isPending ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : isAccepted ? (
+                                "Bereits Freund"
+                              ) : isPending ? (
+                                "Anfrage offen"
+                              ) : (
+                                <UserPlus className="w-3.5 h-3.5" />
+                              )}
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className={`border-t pt-3 ${!isLightUi ? "border-stone-700" : "border-stone-200"}`}>
+                <h4 className={`text-xs font-semibold uppercase tracking-wide ${!isLightUi ? "text-stone-300" : "text-stone-700"}`}>
+                  Per E-Mail hinzufuegen
+                </h4>
               <p className={`text-xs ${!isLightUi ? "text-stone-400" : "text-stone-600"}`}>
                 Sende eine Anfrage an jemanden, der bereits die App nutzt
               </p>
@@ -2283,9 +2455,9 @@ Viel Spaß beim Entdecken! 🌿`;
                   className={`border-2 flex-1 ${!isLightUi ? "border-stone-600 bg-stone-800/60 text-stone-100 placeholder:text-stone-500" : "border-stone-200"}`}
                 />
                 <Button
-                  onClick={() => {
-                    handleSendRequest();
-                    if (!sendFriendRequestMutation.isPending) {
+                  onClick={async () => {
+                    const isSuccess = await handleSendRequest();
+                    if (isSuccess) {
                       setShowAddFriendDialog(false);
                     }
                   }}
@@ -2298,6 +2470,7 @@ Viel Spaß beim Entdecken! 🌿`;
                     <UserPlus className="w-4 h-4" />
                   )}
                 </Button>
+              </div>
               </div>
             </div>
 

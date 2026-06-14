@@ -2245,8 +2245,16 @@ function HomeContent() {
 
       const isOwnDiscovery = scannerEmail && scannerEmail.toLowerCase() === ownEmailLower;
       if (!isOwnDiscovery) {
+        const resolvedPlantId =
+          allDiscoveries.find((entry) => entry?.id === discoveryId)?.plant_id ||
+          "";
+        const resolvedGenusId =
+          genusId ||
+          plants.find((candidate) => candidate?.id === resolvedPlantId)?.genus_id ||
+          "";
+
         const actionParams = new URLSearchParams();
-        if (genusId) actionParams.set("id", genusId);
+        if (resolvedGenusId) actionParams.set("id", resolvedGenusId);
         actionParams.set("discoveryId", discoveryId);
 
         await Promise.allSettled([
@@ -2257,7 +2265,9 @@ function HomeContent() {
             title: "❤️ Neuer Like",
             message: `${user.display_name || user.full_name || user.email} gefällt dein Scan ${plantName ? `(${plantName})` : ""}.`,
             description: plantName || "",
-            actionUrl: `GenusDetail?${actionParams.toString()}`,
+            actionUrl: resolvedGenusId
+              ? `GenusDetail?${actionParams.toString()}`
+              : "Collection",
             displayLocation: "banner",
             createdBy: user.email,
           }),
