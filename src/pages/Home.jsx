@@ -188,6 +188,7 @@ function HomeContent() {
   const [embeddedFriendsAddDialogNonce, setEmbeddedFriendsAddDialogNonce] = useState(0);
   const [embeddedCollectionPublicPanelOpen, setEmbeddedCollectionPublicPanelOpen] = useState(false);
   const [embeddedSelectedCollectionId, setEmbeddedSelectedCollectionId] = useState("global");
+  const [embeddedCollectionEntryCategory, setEmbeddedCollectionEntryCategory] = useState(null);
   const [isMapDiscoveryDataLoading, setIsMapDiscoveryDataLoading] = useState(false);
   const [discoveryMarkerScale, setDiscoveryMarkerScale] = useState(() => {
     try {
@@ -210,6 +211,7 @@ function HomeContent() {
     if (activePanel !== "collection") {
       setEmbeddedCollectionPublicPanelOpen(false);
       setEmbeddedSelectedCollectionId("global");
+      setEmbeddedCollectionEntryCategory(null);
     }
   }, [activePanel]);
 
@@ -2155,6 +2157,7 @@ function HomeContent() {
       icon: Leaf,
       onClick: () => {
         setActivePanel("collection");
+        setEmbeddedCollectionEntryCategory(null);
         setShowHealthStatsPanel(false);
       },
       ...getNavButtonStyle({ palette: "green", isLightUi }),
@@ -2856,16 +2859,21 @@ function HomeContent() {
                 embeddedTitle={embeddedTitle}
                 embeddedSubtitle={embeddedSubtitle}
                 embeddedInfoLabel={embeddedInfoLabel}
-                embeddedCollectionPublicPanelOpen={embeddedCollectionPublicPanelOpen}
+                embeddedCollectionCanGoBack={activePanel === "collection" && embeddedCollectionEntryCategory !== null}
                 displayName={getDisplayName()}
                 userTitle={resolveTitleValue(user?.selected_title, user?.title) || "Pflanzen-Entdecker"}
-                onTogglePublicCollections={() => setEmbeddedCollectionPublicPanelOpen((prev) => !prev)}
+                onEmbeddedCollectionBack={() => {
+                  setEmbeddedCollectionEntryCategory(null);
+                  setEmbeddedCollectionPublicPanelOpen(false);
+                  setEmbeddedSelectedCollectionId("global");
+                }}
                 onOpenEmbeddedFriendsAddDialog={() => setEmbeddedFriendsAddDialogNonce((prev) => prev + 1)}
                 onOpenAmberPurchase={() => setShowAmberPurchaseModal(true)}
                 onPrimaryAction={() => {
                   if (activePanel === "collection") {
                     setEmbeddedCollectionPublicPanelOpen(false);
                     setEmbeddedSelectedCollectionId("global");
+                    setEmbeddedCollectionEntryCategory(null);
                   }
                   if (activePanel !== null) {
                     setActivePanel(null);
@@ -2886,9 +2894,12 @@ function HomeContent() {
                     onRequestClose={() => {
                       setActivePanel(null);
                       setEmbeddedSelectedCollectionId("global");
+                      setEmbeddedCollectionEntryCategory(null);
                     }}
                     initialCollectionId={embeddedSelectedCollectionId}
                     onSelectedCollectionIdChange={setEmbeddedSelectedCollectionId}
+                    entryCategory={embeddedCollectionEntryCategory}
+                    onEntryCategoryChange={setEmbeddedCollectionEntryCategory}
                     showPublicCollectionsPanel={embeddedCollectionPublicPanelOpen}
                     onShowPublicCollectionsPanelChange={setEmbeddedCollectionPublicPanelOpen}
                   />
@@ -3589,12 +3600,14 @@ function HomeContent() {
                 )}
               </div>
 
-              <HomeBottomNavigation
-                navItems={navItems}
-                controlsScale={controlsScale}
-                isNavVisible={isNavVisible}
-                onNavVisibleChange={setIsNavVisible}
-              />
+              <div className="pt-[clamp(0.35rem,0.9vh,0.7rem)] pb-[clamp(0.15rem,0.5vh,0.35rem)]">
+                <HomeBottomNavigation
+                  navItems={navItems}
+                  controlsScale={controlsScale}
+                  isNavVisible={isNavVisible}
+                  onNavVisibleChange={setIsNavVisible}
+                />
+              </div>
             </div>
           </motion.div>
 

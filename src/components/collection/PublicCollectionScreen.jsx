@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import { Leaf, Minus, Plus } from "lucide-react";
 import SearchSortBar from "./SearchSortBar";
 
@@ -57,6 +58,22 @@ export default function PublicCollectionScreen({
   isCollectionTogglePending,
   onCreateCollection,
 }) {
+  const [scopeFilter, setScopeFilter] = useState("all");
+
+  const scopedCollections = useMemo(() => {
+    if (scopeFilter === "followed") {
+      return followedPublicCollections;
+    }
+    if (scopeFilter === "discover") {
+      return discoverablePublicCollections;
+    }
+    return [...followedPublicCollections, ...discoverablePublicCollections];
+  }, [scopeFilter, followedPublicCollections, discoverablePublicCollections]);
+
+  const heroTotal = allPublicCollections.length;
+  const heroFollowed = followedPublicCollections.length;
+  const heroPercent = heroTotal > 0 ? Math.round((heroFollowed / heroTotal) * 100) : 0;
+
   const renderCollectionCard = (collectionEntry) => {
     const cardIsLightUi = collectionEntry.ownerUiTheme === "light";
     const accent = collectionEntry.ownerBackgroundColor || collectionEntry.background_color || "rgb(34,197,94)";
@@ -149,7 +166,95 @@ export default function PublicCollectionScreen({
 
   return (
     <div className="relative flex-1 min-h-0 flex flex-col gap-3">
-      <div className="shrink-0">
+      <div className="shrink-0 space-y-3">
+        <div className="-mx-4 px-4 pb-0">
+          <div
+            className={"rounded-2xl border shadow-sm backdrop-blur-sm px-2 py-2 " + (isLightUi ? "bg-white/58" : "bg-black/30")}
+            style={{
+              borderColor: isLightUi ? "rgba(200,172,98,0.32)" : "rgba(240,229,165,0.28)",
+            }}
+          >
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+              {[
+                { key: "all", label: "Alle", count: heroTotal },
+                { key: "followed", label: "Abos", count: heroFollowed },
+                { key: "discover", label: "Entdecken", count: discoverablePublicCollections.length },
+              ].map((chip) => {
+                const isActive = scopeFilter === chip.key;
+                return (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    onClick={() => setScopeFilter(chip.key)}
+                    className={
+                      "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors " +
+                      (isActive
+                        ? (isLightUi
+                          ? "bg-white/90 text-[#8f6b22] shadow-sm"
+                          : "bg-black/55 text-[#f7f0c1] shadow-sm")
+                        : (isLightUi
+                          ? "bg-white/55 text-stone-700 hover:bg-white/75"
+                          : "bg-black/35 text-stone-200 hover:bg-black/50"))
+                    }
+                    style={{
+                      borderColor: isActive
+                        ? (isLightUi ? "rgba(200,172,98,0.70)" : "rgba(240,229,165,0.75)")
+                        : (isLightUi ? "rgba(200,172,98,0.35)" : "rgba(255,255,255,0.3)"),
+                    }}
+                  >
+                    <span className="font-medium">{chip.label}</span>
+                    <span className={"text-[10px] " + (isLightUi ? "text-stone-600" : "text-stone-300")}>{chip.count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div
+          className={"rounded-2xl border shadow-sm p-3 flex flex-col gap-3 backdrop-blur-sm " + (isLightUi ? "bg-white/55" : "bg-black/35")}
+          style={{
+            borderColor: isLightUi ? "rgba(200,172,98,0.38)" : "rgba(240,229,165,0.35)",
+          }}
+        >
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <h1 className={"text-lg font-bold leading-tight flex-1 min-w-0 truncate " + (isLightUi ? "text-stone-900" : "text-[#f8f4d6]")}>Stoebern</h1>
+              <button
+                type="button"
+                onClick={onCreateCollection}
+                className={"shrink-0 w-8 h-8 rounded-full border flex items-center justify-center shadow-sm transition-colors " + (isLightUi
+                  ? "bg-white/75 border-[#c8ac62]/45 text-[#8f6b22] hover:bg-white"
+                  : "bg-black/45 border-[#f0e5a5]/40 text-[#f0e5a5] hover:bg-black/60")}
+                aria-label="Neue Kollektion anlegen"
+              >
+                <span className="text-lg leading-none">+</span>
+              </button>
+            </div>
+            <p className={"text-[11px] leading-snug " + (isLightUi ? "text-stone-700" : "text-stone-200/90")}>
+              Oeffentliche Nutzerkollektionen entdecken und abonnieren.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 mt-1">
+            <div className="flex-1 space-y-1">
+              <div className={"flex items-center justify-between text-[10px] " + (isLightUi ? "text-stone-700" : "text-stone-200/90")}>
+                <span>Abonnierte oeffentliche Kollektionen</span>
+                <span>{heroFollowed}/{heroTotal || 0}</span>
+              </div>
+              <div className={"w-full h-2 rounded-full overflow-hidden border " + (isLightUi ? "bg-stone-200/80 border-[#c8ac62]/30" : "bg-black/40 border-white/10")}>
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${heroPercent}%`,
+                    background: "linear-gradient(90deg, rgb(96, 165, 250) 0%, rgb(59, 130, 246) 100%)",
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
         <SearchSortBar
           placeholder="Titel, Beschreibung oder Owner durchsuchen..."
           searchQuery={searchQuery}
@@ -186,53 +291,17 @@ export default function PublicCollectionScreen({
             </p>
           </div>
         ) : (
-          <div className="space-y-3" style={{ paddingTop: listTopFadePx, paddingBottom: listBottomFadePx }}>
-            {followedPublicCollections.length > 0 && (
-              <div className="space-y-2">
-                <div className="px-1">
-                  <h3 className={"text-xs font-semibold uppercase tracking-wide " + (isLightUi ? "text-emerald-800" : "text-emerald-300")}>
-                    Deine Abos
-                  </h3>
-                </div>
-                <div className="space-y-2">
-                  {followedPublicCollections.map((collectionEntry) => renderCollectionCard(collectionEntry))}
-                </div>
+          <div className="space-y-2" style={{ paddingTop: listTopFadePx, paddingBottom: listBottomFadePx }}>
+            {scopedCollections.length > 0 ? (
+              scopedCollections.map((collectionEntry) => renderCollectionCard(collectionEntry))
+            ) : (
+              <div className={"text-center py-6 rounded-xl border border-dashed text-[12px] " + (isLightUi ? "bg-white/60 border-[#c8ac62]/35 text-stone-600" : "bg-black/28 border-[#f0e5a5]/30 text-stone-300") }>
+                Keine passenden oeffentlichen Kollektionen in diesem Bereich.
               </div>
             )}
-
-            <div className="space-y-2">
-              <div className="px-1">
-                <h3 className={"text-xs font-semibold uppercase tracking-wide " + (isLightUi ? "text-stone-700" : "text-stone-300")}>
-                  Oeffentliche Kollektionen
-                </h3>
-              </div>
-              <div className="space-y-2">
-                {discoverablePublicCollections.length > 0 ? (
-                  discoverablePublicCollections.map((collectionEntry) => renderCollectionCard(collectionEntry))
-                ) : (
-                  <div className={"text-center py-6 rounded-xl border border-dashed text-[12px] " + (isLightUi ? "bg-white/60 border-[#c8ac62]/35 text-stone-600" : "bg-black/28 border-[#f0e5a5]/30 text-stone-300") }>
-                    Aktuell keine weiteren oeffentlichen Kollektionen.
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
         )}
       </div>
-
-      <button
-        type="button"
-        onClick={onCreateCollection}
-        className={
-          "absolute bottom-2 left-1/2 -translate-x-1/2 z-20 w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors shadow-sm " +
-          (isLightUi
-            ? "bg-white/85 border-[#c8ac62]/40 text-[#8f6b22] hover:bg-white"
-            : "bg-black/30 border-[#f0e5a5]/35 text-[#f0e5a5] hover:bg-black/45")
-        }
-        aria-label="Neue Kollektion anlegen"
-      >
-        <Plus className="w-5 h-5" strokeWidth={2.3} />
-      </button>
     </div>
   );
 }

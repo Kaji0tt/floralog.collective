@@ -1,4 +1,4 @@
-import { Home as HomeIcon, List, Plus, Settings, Sparkles } from "lucide-react";
+import { ChevronLeft, Home as HomeIcon, Plus, Settings, Sparkles } from "lucide-react";
 import { useUiTheme } from "@/lib/UiThemeContext";
 
 /**
@@ -7,10 +7,10 @@ import { useUiTheme } from "@/lib/UiThemeContext";
  *   embeddedTitle?: string | null,
  *   embeddedSubtitle?: string | null,
  *   embeddedInfoLabel?: string | null,
- *   embeddedCollectionPublicPanelOpen?: boolean,
+ *   embeddedCollectionCanGoBack?: boolean,
  *   displayName?: string | null,
  *   userTitle?: string | null,
- *   onTogglePublicCollections?: () => void,
+ *   onEmbeddedCollectionBack?: () => void,
  *   onOpenEmbeddedFriendsAddDialog?: () => void,
  *   onOpenAmberPurchase?: () => void,
  *   onPrimaryAction: () => void,
@@ -21,10 +21,10 @@ export default function HomeHeaderBar({
   embeddedTitle,
   embeddedSubtitle,
   embeddedInfoLabel,
-  embeddedCollectionPublicPanelOpen,
+  embeddedCollectionCanGoBack,
   displayName,
   userTitle,
-  onTogglePublicCollections,
+  onEmbeddedCollectionBack,
   onOpenEmbeddedFriendsAddDialog,
   onOpenAmberPurchase,
   onPrimaryAction,
@@ -49,15 +49,28 @@ export default function HomeHeaderBar({
     <div className={`flex items-start justify-between gap-3 pb-3 border-b ${isLightUi ? "border-[#b99a48]/30" : "border-[#f0e5a5]/20"}`}>
       <div className="min-w-0">
         {resolvedEmbeddedTitle ? (
-          <div className="min-w-0">
-            <h1 className="font-bold leading-tight text-2xl md:text-3xl truncate" title={resolvedEmbeddedTitle}>
-              {resolvedEmbeddedTitle}
-            </h1>
-            {!showEmbeddedShop && embeddedSubtitle && (
-              <p className={`${isLightUi ? "text-stone-700/90" : "text-stone-200/85"} text-sm md:text-base truncate mt-0.5`}>
-                {embeddedSubtitle}
-              </p>
+          <div className="min-w-0 flex items-start gap-2">
+            {showEmbeddedCollection && embeddedCollectionCanGoBack && typeof onEmbeddedCollectionBack === "function" && (
+              <button
+                type="button"
+                onClick={onEmbeddedCollectionBack}
+                className={`w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors shrink-0 ${isLightUi ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80" : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"}`}
+                aria-label="Zur Kategorieauswahl"
+              >
+                <ChevronLeft className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+              </button>
             )}
+
+            <div className="min-w-0">
+              <h1 className="font-bold leading-tight text-2xl md:text-3xl truncate" title={resolvedEmbeddedTitle}>
+                {resolvedEmbeddedTitle}
+              </h1>
+              {!showEmbeddedShop && embeddedSubtitle && (
+                <p className={`${isLightUi ? "text-stone-700/90" : "text-stone-200/85"} text-sm md:text-base truncate mt-0.5`}>
+                  {embeddedSubtitle}
+                </p>
+              )}
+            </div>
           </div>
         ) : (
           <div className="min-w-0">
@@ -129,18 +142,6 @@ export default function HomeHeaderBar({
               </div>
             )}
           </>
-        )}
-
-        {showEmbeddedCollection && (
-          <button
-            type="button"
-            onClick={onTogglePublicCollections}
-            className={`w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors ${isLightUi ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80" : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"}`}
-            aria-label={embeddedCollectionPublicPanelOpen ? "Oeffentliche Kollektionen schliessen" : "Oeffentliche Kollektionen anzeigen"}
-            aria-pressed={embeddedCollectionPublicPanelOpen}
-          >
-            <List className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
-          </button>
         )}
 
         {showEmbeddedFriends && (

@@ -1,4 +1,4 @@
-import { Leaf, Minus, Plus, PencilLine, SlidersHorizontal } from "lucide-react";
+import { Leaf, Minus, Plus, PencilLine, SlidersHorizontal, Users2 } from "lucide-react";
 import GenusCard from "./GenusCard";
 import SearchSortBar from "./SearchSortBar";
 
@@ -11,9 +11,13 @@ const CATEGORY_CHIPS = [
 export default function CollectionScreen({
   readOnly = false,
   friendEmail = null,
+  selectedEntryCategory = "global",
+  selectedEntryCategoryLabel = null,
+  onBackToCategoryLanding,
   isQuestCollectionView,
   ownedCollections,
   followedCollections,
+  collectionChips = [],
   getCollectionStats,
   selectedCollectionId,
   onCollectionChipSelect,
@@ -55,10 +59,22 @@ export default function CollectionScreen({
   currentUser,
   uiTheme,
 }) {
+  const isSharedCategory = selectedEntryCategory === "shared";
+  const hasCollectionChips = collectionChips.length > 0;
+  const hasAnyThemeCollection = (ownedCollections.length + followedCollections.length) > 0;
+  const categoryInfoText =
+    selectedEntryCategory === "global"
+      ? "Globale und saisonale Kollektionen"
+      : selectedEntryCategory === "themes"
+        ? "User-Kollektionen aus deiner Community"
+        : selectedEntryCategory === "shared"
+          ? "Team-Kollektionen folgen in einem späteren Update"
+          : null;
+
   return (
     <>
       <div className="shrink-0 space-y-3">
-        {!isQuestCollectionView && (ownedCollections.length + followedCollections.length > 0) && (
+        {!isQuestCollectionView && hasCollectionChips && (
           <div className="-mx-4 px-4 pb-0">
             <div
               className={"rounded-2xl border shadow-sm backdrop-blur-sm px-2 py-2 " + (isLightUi ? "bg-white/58" : "bg-black/30")}
@@ -67,21 +83,7 @@ export default function CollectionScreen({
               }}
             >
               <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-              {(() => {
-                const followedCollectionsChips = followedCollections.map((collectionEntry) => ({
-                  id: collectionEntry.id,
-                  title: collectionEntry.title,
-                  isGlobal: false,
-                  isFollowed: true,
-                }));
-
-                const allChips = [
-                  { id: "global", title: "Global", isGlobal: true },
-                  ...ownedCollections.map((collectionEntry) => ({ id: collectionEntry.id, title: collectionEntry.title, isGlobal: false })),
-                  ...followedCollectionsChips,
-                ];
-
-                return allChips.map((chip) => {
+                {collectionChips.map((chip) => {
                   const stats = getCollectionStats(chip.id === "global" ? "global" : chip.id);
                   const isActive = selectedCollectionId === chip.id;
                   return (
@@ -111,8 +113,7 @@ export default function CollectionScreen({
                       </span>
                     </button>
                   );
-                });
-              })()}
+                })}
               </div>
             </div>
           </div>
@@ -130,7 +131,7 @@ export default function CollectionScreen({
                 <h1 className={"text-lg font-bold leading-tight flex-1 min-w-0 truncate " + (isLightUi ? "text-stone-900" : "text-[#f8f4d6]")}>
                   {heroTitle}
                 </h1>
-                {!readOnly && !isQuestCollectionView && (ownedCollections.length + followedCollections.length === 0) && (
+                {!readOnly && !isQuestCollectionView && selectedEntryCategory === "themes" && !hasAnyThemeCollection && (
                   <button
                     type="button"
                     onClick={onCreateCollection}
@@ -142,7 +143,7 @@ export default function CollectionScreen({
                     <span className="text-lg leading-none">+</span>
                   </button>
                 )}
-                {selectedCollection && !isQuestCollectionView && !readOnly && (
+                {selectedCollection && !isQuestCollectionView && !readOnly && selectedEntryCategory === "themes" && (
                   <div className="shrink-0 flex items-center gap-1.5">
                     {(selectedCollection.followers_count ?? 0) > 0 && (
                       <div
@@ -196,14 +197,13 @@ export default function CollectionScreen({
                   </div>
                 )}
               </div>
-              {selectedCollection?.description && (
-                <p className={"text-[11px] max-h-[4.5em] overflow-y-auto leading-snug rounded focus:outline-none focus:ring-1 " + (isLightUi ? "text-stone-700 focus:ring-[#c8ac62]/45" : "text-stone-200/90 focus:ring-[#f0e5a5]/40")} tabIndex={0}>
-                  {selectedCollection.description}
-                </p>
-              )}
+              <p className={"text-[11px] max-h-[4.5em] overflow-y-auto leading-snug rounded focus:outline-none focus:ring-1 " + (isLightUi ? "text-stone-700 focus:ring-[#c8ac62]/45" : "text-stone-200/90 focus:ring-[#f0e5a5]/40")} tabIndex={0}>
+                {selectedCollection?.description || categoryInfoText}
+              </p>
             </div>
 
-            <div className="flex items-center gap-3 mt-1">
+            {!isSharedCategory && (
+              <div className="flex items-center gap-3 mt-1">
               <div className="flex-1 space-y-1">
                 <div className={"flex items-center justify-between text-[10px] " + (isLightUi ? "text-stone-700" : "text-stone-200/90")}>
                   <div className="flex items-center gap-1">
@@ -268,11 +268,12 @@ export default function CollectionScreen({
                   />
                 </div>
               </div>
-            </div>
+              </div>
+            )}
           </div>
         )}
 
-        {sortChipsOpen && (
+        {!isSharedCategory && sortChipsOpen && (
           <div className="space-y-2">
             <SearchSortBar
               searchQuery={searchQuery}
@@ -304,14 +305,31 @@ export default function CollectionScreen({
           maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
         }}
       >
-        {filteredGenera.length === 0 ? (
+        {isSharedCategory ? (
+          <div className="text-center py-20">
+            <div className={"w-24 h-24 backdrop-blur-md rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border " + (isLightUi ? "bg-white/65 border-[#c8ac62]/35" : "bg-black/45 border-[#f0e5a5]/30")}>
+              <Users2 className={"w-12 h-12 " + (isLightUi ? "text-[#9a7728]" : "text-[#f0e5a5]")} />
+            </div>
+            <h3 className={"text-2xl font-bold mb-2 " + (isLightUi ? "text-stone-900" : "text-[#f8f4d6]")}>
+              Gemeinsame Kollektionen kommen bald
+            </h3>
+            <p className={"text-sm " + (isLightUi ? "text-stone-700" : "text-stone-300")}>
+              Team-Sammlungen werden in einem späteren Release ergänzt.
+            </p>
+          </div>
+        ) : filteredGenera.length === 0 ? (
           <div className="text-center py-20">
             <div className={"w-24 h-24 backdrop-blur-md rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border " + (isLightUi ? "bg-white/65 border-[#c8ac62]/35" : "bg-black/45 border-[#f0e5a5]/30")}>
               <Leaf className={"w-12 h-12 " + (isLightUi ? "text-[#9a7728]" : "text-[#f0e5a5]")} />
             </div>
             <h3 className={"text-2xl font-bold mb-2 " + (isLightUi ? "text-stone-900" : "text-[#f8f4d6]")}>
-              Keine Pflanzen gefunden
+              {selectedEntryCategory === "themes" ? "Keine Themen-Kollektionen gefunden" : "Keine Pflanzen gefunden"}
             </h3>
+            {selectedEntryCategory === "themes" && (
+              <p className={"text-sm " + (isLightUi ? "text-stone-700" : "text-stone-300")}>
+                Folge öffentlichen Kollektionen oder lege eine eigene an.
+              </p>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2" style={{ paddingTop: listTopFadePx, paddingBottom: listBottomFadePx }}>
