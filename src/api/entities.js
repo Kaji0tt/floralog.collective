@@ -188,7 +188,8 @@ const tables = [
   'PlantQuiz', 'PlantQuizSlotRoll', 'PlantQuizExcludedDiscovery',
   // Collections & Classroom
   'Collection', 'CollectionItem', 'UserCollection',
-  'ClassroomParticipant', 'ClassroomParticipantProgress'
+  'ClassroomParticipant', 'ClassroomParticipantProgress',
+  'ProjectIssue'
 ];
 
 const Query = {};

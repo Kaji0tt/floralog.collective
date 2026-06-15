@@ -77,6 +77,7 @@ import Map from './pages/Map';
 import News from './pages/News';
 import NewsAdmin from './pages/NewsAdmin';
 import PlantDetail from './pages/PlantDetail';
+import ProjectIssueAdmin from './pages/ProjectIssueAdmin';
 import Profile from './pages/Profile';
 import QuestNotificationTemplate from './pages/QuestNotificationTemplate';
 import Quests from './pages/Quests';
@@ -119,6 +120,7 @@ export const PAGES = {
     "News": News,
     "NewsAdmin": NewsAdmin,
     "PlantDetail": PlantDetail,
+    "ProjectIssueAdmin": ProjectIssueAdmin,
     "Profile": Profile,
     "QuestNotificationTemplate": QuestNotificationTemplate,
     "Quests": Quests,

@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   LogOut, Mail, Heart, FileText,
   Star, Image as ImageIcon, Edit2, CheckCircle, X, Trash2,
-  ChevronDown, ChevronUp, Lock, Sun, Loader2,
+  ChevronDown, ChevronUp, Lock, Sun, Loader2, ShieldCheck,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
@@ -334,6 +334,7 @@ export default function SettingsPanel({
   };
 
   const getDisplayName = () => user?.display_name || user?.full_name || "Spieler";
+  const isAdmin = String(user?.role || "").trim().toLowerCase() === "admin";
   const safeDiscoveryMarkerScale = clampDiscoveryMarkerScale(discoveryMarkerScale);
 
   const titleOptions = getUnlockedTitleOptions({
@@ -1021,6 +1022,20 @@ export default function SettingsPanel({
             <Heart className="w-4 h-4" />
             Spenden
           </button>
+
+          {isAdmin ? (
+            <button
+              onClick={() => navigate(createPageUrl("ProjectIssueAdmin"))}
+              className={`w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-sm font-medium transition-colors ${
+                uiTheme === 'light'
+                  ? 'border-emerald-400/50 bg-emerald-100/40 text-emerald-900 hover:bg-emerald-100/55'
+                  : 'border-emerald-500/35 bg-emerald-900/25 text-emerald-200 hover:bg-emerald-900/40'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4" />
+              Projekt-Issues (Admin)
+            </button>
+          ) : null}
 
           <button
             onClick={() => navigate(createPageUrl("AccountDeletion"))}

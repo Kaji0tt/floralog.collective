@@ -1,96 +1,157 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { AlertCircle, Bug, CheckCircle2, Loader2, Send } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/api/supabaseClient";
+import { Query } from "@/api/entities";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useUiTheme } from "@/lib/UiThemeContext";
 
-const createBugTemplate = ({ email, pathname }) => {
-  const browserInfo = typeof navigator !== "undefined" ? navigator.userAgent : "unbekannt";
+const ISSUE_CATEGORY_OPTIONS = [
+  { value: "leaderboards", label: "Ranglisten" },
+  { value: "quests", label: "Aufgaben" },
+  { value: "achievements", label: "Erfolge" },
+  { value: "collections", label: "Kollektionen" },
+  { value: "map", label: "Map" },
+  { value: "friends", label: "Freunde" },
+  { value: "infrastructure", label: "Infrastruktur" },
+  { value: "customization", label: "Anpassungen" },
+  { value: "display", label: "Anzeige" },
+  { value: "login", label: "Login" },
+  { value: "story", label: "Story" },
+  { value: "presentation", label: "Darstellung" },
+];
 
-  return [
-    "1. Was ist passiert?",
-    "- ",
-    "",
-    "2. Was haette passieren sollen?",
-    "- ",
-    "",
-    "3. Schritte zum Reproduzieren:",
-    "1. ",
-    "2. ",
-    "3. ",
-    "",
-    "4. Zusatzinfos:",
-    `- Seite: ${pathname || "/Home"}`,
-    `- Account: ${email || "nicht verfuegbar"}`,
-    `- Geraet/Browser: ${browserInfo}`,
-  ].join("\n");
+const ISSUE_STATUS_LABELS = {
+  not_started: "Nicht gestartet",
+  acknowledged: "Zur Kenntnis genommen",
+  planned: "Bearbeitung in Aussicht",
+  in_progress: "In Bearbeitung",
+  completed: "Bearbeitung abgeschlossen",
+};
+
+const resolveStatusLabel = (status) => ISSUE_STATUS_LABELS[status] || "Nicht gestartet";
+
+const resolveCategoryLabel = (category) => {
+  const found = ISSUE_CATEGORY_OPTIONS.find((item) => item.value === category);
+  return found?.label || category || "Unbekannt";
+};
+
+const formatDate = (value) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
 };
 
 export default function BugReportDialog({ open, onOpenChange, user, displayName }) {
+  const queryClient = useQueryClient();
   const { isLightUi } = useUiTheme();
   const location = useLocation();
   const [reporterName, setReporterName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
-  const [subject, setSubject] = useState("");
+  const [category, setCategory] = useState(ISSUE_CATEGORY_OPTIONS[0].value);
+  const [title, setTitle] = useState("");
   const [details, setDetails] = useState("");
-  const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
 
-  const template = useMemo(
-    () => createBugTemplate({ email: user?.email, pathname: location.pathname }),
-    [location.pathname, user?.email],
-  );
+  const ownIssuesQuery = useQuery({
+    queryKey: ["projectIssues", "mine", user?.id],
+    enabled: Boolean(open && user?.id),
+    queryFn: async () => {
+      const records = await Query.ProjectIssue.filter({ reporter_auth_id: user.id });
+      return [...records].sort((a, b) => {
+        const aDate = new Date(a?.created_at || 0).getTime();
+        const bDate = new Date(b?.created_at || 0).getTime();
+        return bDate - aDate;
+      });
+    },
+  });
+
+  const submitIssueMutation = useMutation({
+    mutationFn: async () => {
+      if (!user?.id) {
+        throw new Error("Bitte melde dich an, bevor du eine Meldung erstellst.");
+      }
+
+      const createdIssue = await Query.ProjectIssue.create({
+        reporter_auth_id: user.id,
+        reporter_display_name: reporterName.trim() || displayName || user?.email || "Floralog User",
+        reporter_email: contactEmail.trim(),
+        category,
+        title: title.trim(),
+        description: details.trim(),
+        source: "home-header-bug-report",
+        source_path: location.pathname || "/Home",
+      });
+
+      // Optionaler Mail-Hook bleibt als sekundaeres Signal bestehen.
+      try {
+        await supabase.functions.invoke("sendFeedbackEmail", {
+          body: {
+            name: reporterName.trim() || displayName || user?.email || "Floralog User",
+            email: contactEmail.trim(),
+            message: [
+              `Kategorie: ${resolveCategoryLabel(category)}`,
+              `Titel: ${title.trim()}`,
+              "",
+              details.trim(),
+              "",
+              `Quelle: ${location.pathname || "/Home"}`,
+            ].join("\n"),
+            reportType: "project-issue",
+            subjectSuffix: title.trim(),
+            source: "home-header-bug-report-db",
+          },
+        });
+      } catch (mailError) {
+        console.warn("[BugReportDialog] Optional sendFeedbackEmail hook failed", mailError);
+      }
+
+      return createdIssue;
+    },
+    onSuccess: async () => {
+      setSent(true);
+      setTitle("");
+      setDetails("");
+      await queryClient.invalidateQueries({ queryKey: ["projectIssues", "mine", user?.id] });
+    },
+    onError: (mutationError) => {
+      setError(mutationError?.message || "Die Meldung konnte nicht gespeichert werden.");
+    },
+  });
 
   useEffect(() => {
     if (!open) return;
 
     setReporterName(displayName || user?.display_name || user?.full_name || "");
     setContactEmail(user?.email || "");
-    setSubject("");
-    setDetails(template);
-    setSending(false);
+    setCategory(ISSUE_CATEGORY_OPTIONS[0].value);
+    setTitle("");
+    setDetails("");
     setSent(false);
     setError("");
-  }, [displayName, open, template, user?.display_name, user?.email, user?.full_name]);
+  }, [displayName, open, user?.display_name, user?.email, user?.full_name]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (!contactEmail.trim() || !subject.trim() || !details.trim()) {
-      setError("Bitte fuelle Titel, E-Mail und Beschreibung aus.");
+    if (!contactEmail.trim() || !title.trim() || !details.trim()) {
+      setError("Bitte fuelle Kategorie, Titel, E-Mail und Beschreibung aus.");
       return;
     }
 
-    setSending(true);
     setError("");
-
-    try {
-      const { error: sendError } = await supabase.functions.invoke("sendFeedbackEmail", {
-        body: {
-          name: reporterName.trim() || displayName || user?.email || "Floralog User",
-          email: contactEmail.trim(),
-          message: details.trim(),
-          reportType: "bug",
-          subjectSuffix: subject.trim(),
-          source: "home-header-bug-report",
-        },
-      });
-
-      if (sendError) {
-        throw sendError;
-      }
-
-      setSent(true);
-    } catch {
-      setError("Der Bug-Report konnte nicht gesendet werden. Bitte versuche es erneut.");
-    } finally {
-      setSending(false);
-    }
+    submitIssueMutation.mutate();
   };
 
   const surfaceClassName = isLightUi
@@ -113,9 +174,9 @@ export default function BugReportDialog({ open, onOpenChange, user, displayName 
             <div className={`mb-3 inline-flex h-11 w-11 items-center justify-center rounded-2xl border ${isLightUi ? "border-rose-200 bg-rose-50 text-rose-600" : "border-rose-300/20 bg-rose-500/10 text-rose-200"}`}>
               <Bug className="h-5 w-5" />
             </div>
-            <DialogTitle className={isLightUi ? "text-stone-900" : "text-stone-100"}>Bug melden</DialogTitle>
+            <DialogTitle className={isLightUi ? "text-stone-900" : "text-stone-100"}>Task oder Bug melden</DialogTitle>
             <DialogDescription className={mutedTextClassName}>
-              Beschreibe den Fehler moeglichst konkret. Die Maske ist bereits vorbereitet, damit der Report schneller bearbeitet werden kann.
+              Dieses Formular ist die Schnittstelle zwischen User-Feedback und Projektmanagement.
             </DialogDescription>
           </DialogHeader>
 
@@ -125,10 +186,10 @@ export default function BugReportDialog({ open, onOpenChange, user, displayName 
                 <CheckCircle2 className="h-6 w-6" />
               </div>
               <p className={`text-base font-semibold ${isLightUi ? "text-stone-900" : "text-stone-100"}`}>
-                Report wurde gesendet.
+                Meldung wurde gespeichert.
               </p>
               <p className={`mt-1 text-sm ${mutedTextClassName}`}>
-                Der Bug-Report wurde an info@floralog.de uebermittelt.
+                Dein Eintrag erscheint jetzt im Admin-Reporting.
               </p>
               <Button
                 type="button"
@@ -140,6 +201,24 @@ export default function BugReportDialog({ open, onOpenChange, user, displayName 
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+              <div className="space-y-2">
+                <label className={`block text-sm font-medium ${isLightUi ? "text-stone-700" : "text-stone-200"}`}>
+                  Kategorie
+                </label>
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger className={inputClassName}>
+                    <SelectValue placeholder="Kategorie waehlen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ISSUE_CATEGORY_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <label className={`block text-sm font-medium ${isLightUi ? "text-stone-700" : "text-stone-200"}`}>
@@ -172,23 +251,21 @@ export default function BugReportDialog({ open, onOpenChange, user, displayName 
                   Kurztitel
                 </label>
                 <Input
-                  value={subject}
-                  onChange={(event) => setSubject(event.target.value)}
-                  placeholder="z. B. Home friert nach dem Oeffnen der Karte ein"
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  placeholder="z. B. Rangliste laedt nicht"
                   className={inputClassName}
                 />
-                <p className={`text-xs ${mutedTextClassName}`}>
-                  Der Betreff wird automatisch mit [Bug-Report] versehen.
-                </p>
               </div>
 
               <div className="space-y-2">
                 <label className={`block text-sm font-medium ${isLightUi ? "text-stone-700" : "text-stone-200"}`}>
-                  Fehlerbeschreibung
+                  Beschreibung
                 </label>
                 <Textarea
                   value={details}
                   onChange={(event) => setDetails(event.target.value)}
+                  placeholder="Beschreibe Problem oder Idee moeglichst konkret."
                   className={`min-h-[240px] resize-y ${inputClassName}`}
                 />
               </div>
@@ -205,31 +282,74 @@ export default function BugReportDialog({ open, onOpenChange, user, displayName 
                   type="button"
                   variant="outline"
                   onClick={() => onOpenChange(false)}
-                  disabled={sending}
+                  disabled={submitIssueMutation.isPending}
                   className={`rounded-xl ${isLightUi ? "border-stone-300 bg-white/70 text-stone-700 hover:bg-stone-100" : "border-[#f0e5a5]/20 bg-white/5 text-stone-200 hover:bg-white/10"}`}
                 >
                   Abbrechen
                 </Button>
                 <Button
                   type="submit"
-                  disabled={sending}
+                  disabled={submitIssueMutation.isPending}
                   className="rounded-xl bg-rose-600 text-white hover:bg-rose-700"
                 >
-                  {sending ? (
+                  {submitIssueMutation.isPending ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Wird gesendet...
+                      Wird gespeichert...
                     </>
                   ) : (
                     <>
                       <Send className="h-4 w-4" />
-                      Senden
+                      Meldung erfassen
                     </>
                   )}
                 </Button>
               </div>
             </form>
           )}
+
+          <div className="mt-6 border-t pt-5 border-stone-400/20">
+            <h3 className={`text-sm font-semibold ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
+              Meine Meldungen
+            </h3>
+            <p className={`mt-1 text-xs ${mutedTextClassName}`}>
+              Hier siehst du den aktuellen Bearbeitungsstatus deiner letzten Eintraege.
+            </p>
+
+            {ownIssuesQuery.isLoading ? (
+              <div className={`mt-3 flex items-center gap-2 text-sm ${mutedTextClassName}`}>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Meldungen werden geladen...
+              </div>
+            ) : null}
+
+            {!ownIssuesQuery.isLoading && Array.isArray(ownIssuesQuery.data) && ownIssuesQuery.data.length === 0 ? (
+              <p className={`mt-3 text-sm ${mutedTextClassName}`}>Noch keine Meldungen vorhanden.</p>
+            ) : null}
+
+            {!ownIssuesQuery.isLoading && Array.isArray(ownIssuesQuery.data) && ownIssuesQuery.data.length > 0 ? (
+              <div className="mt-3 space-y-2">
+                {ownIssuesQuery.data.slice(0, 6).map((issue) => (
+                  <div
+                    key={issue.id}
+                    className={`rounded-xl border px-3 py-2 ${isLightUi ? "border-stone-300/60 bg-white/70" : "border-[#f0e5a5]/20 bg-white/5"}`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className={`text-sm font-medium truncate ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>{issue.title}</p>
+                      <span className={`text-xs rounded-full px-2 py-0.5 ${isLightUi ? "bg-stone-200 text-stone-700" : "bg-stone-700/60 text-stone-100"}`}>
+                        {resolveStatusLabel(issue.status)}
+                      </span>
+                    </div>
+                    <div className={`mt-1 flex items-center gap-2 text-xs ${mutedTextClassName}`}>
+                      <span>{resolveCategoryLabel(issue.category)}</span>
+                      <span>•</span>
+                      <span>{formatDate(issue.created_at)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
