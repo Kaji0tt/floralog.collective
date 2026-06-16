@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { motion, AnimatePresence, useAnimationControls } from "framer-motion";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import { useUiTheme } from "@/lib/UiThemeContext";
-import InventorySlotPickerPopover from "@/components/robotPlant/InventorySlotPickerPopover";
 
 const HEALTH_TOOLTIP_TEXT = {
   energy:
@@ -159,34 +158,31 @@ export default function PlantHeroHealthPanel({
               </span>
             </motion.button>
 
-            <InventorySlotPickerPopover
-              items={fertilizerInventoryItems}
-              activeItemId={activeFertilizerItemId}
-              disabled={isLoading || isFertilizerPending}
-              isPending={isFertilizerPending}
-              isLoading={isFertilizerInventoryLoading}
-              isLightUi={isLightUi}
-              emptyText="Keine Dünger vorhanden."
-              emptyActionLabel="Zum Shop ->"
-              onUseItem={onUseFertilizerItem}
-              onOpenShop={onOpenFertilizerShop}
+            <LockedTooltip
+              contentClassName={isLightUi ? "" : "text-white/90"}
+              content={
+                <span className="text-xs leading-relaxed">
+                  Die Partner-Funktion kommt mit einem spaeteren Update.
+                </span>
+              }
             >
               <button
                 type="button"
-                className={`h-14 rounded-xl border flex flex-col items-center justify-center disabled:opacity-60 ${
+                className={`h-14 rounded-xl border flex flex-col items-center justify-center ${
                   isLightUi
                     ? "border-[#c8ac62]/55 bg-white/60 text-stone-800"
                     : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
                 }`}
+                aria-label="Partner-Funktion Hinweis"
               >
                 <span className="text-[11px] md:text-xs font-semibold leading-none">
                   Partner
                 </span>
                 <span className="text-[10px] md:text-[11px] mt-1 leading-none opacity-90">
-                  -
+                  Bald
                 </span>
               </button>
-            </InventorySlotPickerPopover>
+            </LockedTooltip>
           </div>
         )}
 

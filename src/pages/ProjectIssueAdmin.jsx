@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { createPageUrl } from "@/utils";
@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const CATEGORY_OPTIONS = [
   { value: "leaderboards", label: "Ranglisten" },
@@ -43,6 +44,23 @@ const PRIORITY_OPTIONS = [
   { value: 5, label: "5 - Critical" },
 ];
 
+const ITERATION_OPTIONS = [
+  { value: "1", label: "1 - Sommer Saison 26", targetDate: "2026-09-21" },
+  { value: "1.1", label: "1.1 - 26, Juli", targetDate: "2026-07-21" },
+  { value: "1.2", label: "1.2 - 26, August", targetDate: "2026-08-21" },
+  { value: "2", label: "2 - Herbst Saison 26", targetDate: "2026-12-21" },
+  { value: "2.1", label: "2.1 - 26, Oktober", targetDate: "2026-10-21" },
+  { value: "2.2", label: "2.2 - 26, November", targetDate: "2026-11-21" },
+  { value: "3", label: "3 - Winter Saison 27", targetDate: "2027-03-21" },
+  { value: "3.1", label: "3.1 - 27, Januar", targetDate: "2027-01-21" },
+  { value: "3.2", label: "3.2 - 27, Februar", targetDate: "2027-02-21" },
+  { value: "4", label: "4 - Fruehling Saison 27", targetDate: "2027-06-21" },
+  { value: "4.1", label: "4.1 - 27, April", targetDate: "2027-04-21" },
+  { value: "4.2", label: "4.2 - 27, Mai", targetDate: "2027-05-21" },
+];
+
+const getIterationLabel = (value) => ITERATION_OPTIONS.find((opt) => opt.value === value)?.label || value || "-";
+
 const normalizedRole = (value) => String(value || "").trim().toLowerCase();
 const getCategoryLabel = (value) => CATEGORY_OPTIONS.find((opt) => opt.value === value)?.label || value || "-";
 const formatDate = (value) => {
@@ -66,8 +84,12 @@ export default function ProjectIssueAdmin() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
+  const [iterationFilter, setIterationFilter] = useState("all");
   const [drafts, setDrafts] = useState({});
   const [saveMessageById, setSaveMessageById] = useState({});
+  const [selectedIssueId, setSelectedIssueId] = useState(null);
+  const [sortField, setSortField] = useState("created_at");
+  const [sortDirection, setSortDirection] = useState("desc");
 
   useEffect(() => {
     const loadUser = async () => {
@@ -122,6 +144,7 @@ export default function ProjectIssueAdmin() {
       if (statusFilter !== "all" && issue.status !== statusFilter) return false;
       if (categoryFilter !== "all" && issue.category !== categoryFilter) return false;
       if (priorityFilter !== "all" && Number(issue.priority) !== Number(priorityFilter)) return false;
+      if (iterationFilter !== "all" && (issue.iteration_code || "") !== iterationFilter) return false;
 
       const search = searchText.trim().toLowerCase();
       if (!search) return true;
@@ -139,7 +162,77 @@ export default function ProjectIssueAdmin() {
 
       return haystack.includes(search);
     });
-  }, [issuesQuery.data, statusFilter, categoryFilter, priorityFilter, searchText]);
+  }, [issuesQuery.data, statusFilter, categoryFilter, priorityFilter, iterationFilter, searchText]);
+
+  const sortedIssues = useMemo(() => {
+    const items = [...filteredIssues];
+
+    const getSortValue = (issue) => {
+      switch (sortField) {
+        case "reporter":
+          return `${issue.reporter_display_name || ""} ${issue.reporter_email || ""}`.toLowerCase();
+        case "category":
+          return getCategoryLabel(issue.category).toLowerCase();
+        case "title":
+          return String(issue.title || "").toLowerCase();
+        case "status":
+          return String(issue.status || "").toLowerCase();
+        case "priority":
+          return Number(issue.priority || 0);
+        case "iteration":
+          return String(issue.iteration_code || "").toLowerCase();
+        case "target_date":
+          return issue.target_date ? new Date(issue.target_date).getTime() : 0;
+        case "updated_at":
+          return issue.updated_at ? new Date(issue.updated_at).getTime() : 0;
+        case "created_at":
+        default:
+          return issue.created_at ? new Date(issue.created_at).getTime() : 0;
+      }
+    };
+
+    items.sort((a, b) => {
+      const aValue = getSortValue(a);
+      const bValue = getSortValue(b);
+      if (aValue === bValue) return 0;
+
+      const compareResult = aValue > bValue ? 1 : -1;
+      return sortDirection === "asc" ? compareResult : -compareResult;
+    });
+
+    return items;
+  }, [filteredIssues, sortDirection, sortField]);
+
+  useEffect(() => {
+    if (!sortedIssues.length) {
+      setSelectedIssueId(null);
+      return;
+    }
+
+    if (!selectedIssueId || !sortedIssues.some((issue) => issue.id === selectedIssueId)) {
+      setSelectedIssueId(sortedIssues[0].id);
+    }
+  }, [sortedIssues, selectedIssueId]);
+
+  const selectedIssue = useMemo(
+    () => sortedIssues.find((issue) => issue.id === selectedIssueId) || null,
+    [sortedIssues, selectedIssueId]
+  );
+
+  const onSort = (field) => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortField(field);
+    setSortDirection("asc");
+  };
+
+  const renderSortIcon = (field) => {
+    if (sortField !== field) return <ArrowUpDown className="w-3.5 h-3.5" />;
+    return sortDirection === "asc" ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />;
+  };
 
   const updateDraft = (issue, patch) => {
     setDrafts((prev) => ({
@@ -246,7 +339,7 @@ export default function ProjectIssueAdmin() {
           <CardHeader>
             <CardTitle className="text-lg">Filter</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <CardContent className="grid grid-cols-1 md:grid-cols-5 gap-3">
             <Input
               value={searchText}
               onChange={(event) => setSearchText(event.target.value)}
@@ -282,6 +375,16 @@ export default function ProjectIssueAdmin() {
                 ))}
               </SelectContent>
             </Select>
+
+            <Select value={iterationFilter} onValueChange={setIterationFilter}>
+              <SelectTrigger><SelectValue placeholder="Iteration" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Alle Iterationen</SelectItem>
+                {ITERATION_OPTIONS.map((iteration) => (
+                  <SelectItem key={iteration.value} value={iteration.value}>{iteration.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </CardContent>
         </Card>
 
@@ -294,7 +397,7 @@ export default function ProjectIssueAdmin() {
           </Card>
         ) : null}
 
-        {!issuesQuery.isLoading && filteredIssues.length === 0 ? (
+        {!issuesQuery.isLoading && sortedIssues.length === 0 ? (
           <Card className="border border-stone-200 bg-white">
             <CardContent className="py-8 text-center text-stone-600">
               Keine Issues fuer die aktuellen Filter gefunden.
@@ -302,23 +405,87 @@ export default function ProjectIssueAdmin() {
           </Card>
         ) : null}
 
-        {!issuesQuery.isLoading && filteredIssues.map((issue) => {
+        {!issuesQuery.isLoading && sortedIssues.length > 0 ? (
+          <Card className="border border-stone-200 bg-white">
+            <CardHeader>
+              <CardTitle className="text-lg">Issue-Tabelle</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>
+                      <button type="button" className="inline-flex items-center gap-1 hover:text-stone-900" onClick={() => onSort("created_at")}>Erstellt {renderSortIcon("created_at")}</button>
+                    </TableHead>
+                    <TableHead>
+                      <button type="button" className="inline-flex items-center gap-1 hover:text-stone-900" onClick={() => onSort("reporter")}>Reporter {renderSortIcon("reporter")}</button>
+                    </TableHead>
+                    <TableHead>
+                      <button type="button" className="inline-flex items-center gap-1 hover:text-stone-900" onClick={() => onSort("category")}>Kategorie {renderSortIcon("category")}</button>
+                    </TableHead>
+                    <TableHead>
+                      <button type="button" className="inline-flex items-center gap-1 hover:text-stone-900" onClick={() => onSort("title")}>Titel {renderSortIcon("title")}</button>
+                    </TableHead>
+                    <TableHead>
+                      <button type="button" className="inline-flex items-center gap-1 hover:text-stone-900" onClick={() => onSort("status")}>Status {renderSortIcon("status")}</button>
+                    </TableHead>
+                    <TableHead>
+                      <button type="button" className="inline-flex items-center gap-1 hover:text-stone-900" onClick={() => onSort("priority")}>Prioritaet {renderSortIcon("priority")}</button>
+                    </TableHead>
+                    <TableHead>
+                      <button type="button" className="inline-flex items-center gap-1 hover:text-stone-900" onClick={() => onSort("iteration")}>Iteration {renderSortIcon("iteration")}</button>
+                    </TableHead>
+                    <TableHead>
+                      <button type="button" className="inline-flex items-center gap-1 hover:text-stone-900" onClick={() => onSort("target_date")}>Zieldatum {renderSortIcon("target_date")}</button>
+                    </TableHead>
+                    <TableHead>
+                      <button type="button" className="inline-flex items-center gap-1 hover:text-stone-900" onClick={() => onSort("updated_at")}>Aktualisiert {renderSortIcon("updated_at")}</button>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedIssues.map((issue) => (
+                    <TableRow
+                      key={issue.id}
+                      className={`cursor-pointer ${selectedIssueId === issue.id ? "bg-stone-100/70" : ""}`}
+                      onClick={() => setSelectedIssueId(issue.id)}
+                    >
+                      <TableCell className="whitespace-nowrap">{formatDate(issue.created_at)}</TableCell>
+                      <TableCell>
+                        <div className="max-w-[180px]">
+                          <p className="truncate font-medium">{issue.reporter_display_name || "Unbekannt"}</p>
+                          <p className="truncate text-xs text-stone-500">{issue.reporter_email || "-"}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">{getCategoryLabel(issue.category)}</TableCell>
+                      <TableCell>
+                        <div className="max-w-[260px] truncate" title={issue.title}>{issue.title}</div>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">{STATUS_OPTIONS.find((opt) => opt.value === issue.status)?.label || issue.status}</TableCell>
+                      <TableCell className="whitespace-nowrap">{issue.priority}</TableCell>
+                      <TableCell className="whitespace-nowrap">{issue.iteration_code ? getIterationLabel(issue.iteration_code) : "-"}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatDate(issue.target_date)}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatDate(issue.updated_at)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {selectedIssue ? (() => {
+          const issue = selectedIssue;
           const draft = getDraft(issue);
           const isSavingThisIssue = updateIssueMutation.isPending && updateIssueMutation.variables?.issueId === issue.id;
 
           return (
-            <Card key={issue.id} className="border border-stone-200 bg-white">
-              <CardContent className="pt-6 space-y-3">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                  <div>
-                    <p className="text-xs text-stone-500">
-                      {issue.reporter_display_name || "Unbekannt"} • {issue.reporter_email || "-"} • {formatDate(issue.created_at)}
-                    </p>
-                    <p className="text-sm text-stone-500">Kategorie: {getCategoryLabel(issue.category)}</p>
-                  </div>
-                  <div className="text-xs text-stone-500">ID: {issue.id}</div>
-                </div>
-
+            <Card className="border border-stone-200 bg-white">
+              <CardHeader>
+                <CardTitle className="text-lg">Issue bearbeiten</CardTitle>
+                <p className="text-xs text-stone-500">ID: {issue.id}</p>
+              </CardHeader>
+              <CardContent className="space-y-3">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <Select value={draft.category} onValueChange={(value) => updateDraft(issue, { category: value })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
@@ -362,11 +529,29 @@ export default function ProjectIssueAdmin() {
                 />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <Input
-                    value={draft.iteration_code}
-                    onChange={(event) => updateDraft(issue, { iteration_code: event.target.value })}
-                    placeholder="Iterationscode, z. B. Sommer26-1.1"
-                  />
+                  <Select
+                    value={draft.iteration_code || "none"}
+                    onValueChange={(value) => {
+                      if (value === "none") {
+                        updateDraft(issue, { iteration_code: "", target_date: "" });
+                        return;
+                      }
+
+                      const selectedIteration = ITERATION_OPTIONS.find((iteration) => iteration.value === value);
+                      updateDraft(issue, {
+                        iteration_code: value,
+                        target_date: selectedIteration?.targetDate || draft.target_date,
+                      });
+                    }}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Iteration waehlen" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Keine Iteration</SelectItem>
+                      {ITERATION_OPTIONS.map((iteration) => (
+                        <SelectItem key={iteration.value} value={iteration.value}>{iteration.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Input
                     type="date"
                     value={draft.target_date || ""}
@@ -401,7 +586,7 @@ export default function ProjectIssueAdmin() {
               </CardContent>
             </Card>
           );
-        })}
+        })() : null}
       </div>
     </div>
   );
