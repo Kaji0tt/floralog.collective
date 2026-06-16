@@ -40,6 +40,12 @@ const DEFAULT_QUEST_SEED_REWARD_BY_TYPE = {
   monthly: 1000,
 };
 
+const ALLOWED_ACHIEVEMENTS_TABS = new Set(["quests", "achievements", "stats"]);
+
+const resolveAchievementsTab = (tabValue) => (
+  ALLOWED_ACHIEVEMENTS_TABS.has(tabValue) ? tabValue : "stats"
+);
+
 /**
  * @param {{ questType: string, seedReward: number | string | null | undefined }} params
  */
@@ -179,6 +185,7 @@ const getAverageColor = (imageUrl) => {
 
 export function useAchievementsFeatureContent({
   embedded = false,
+  initialTab = null,
   onHeaderMetaChange,
   onRequestClose: _onRequestClose = null,
   onUserUpdated,
@@ -188,11 +195,14 @@ export function useAchievementsFeatureContent({
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const normalizedInitialTab = String(initialTab || "").toLowerCase();
+  const requestedSearchTab = String(searchParams.get("tab") || "").toLowerCase();
+  const requestedTab = embedded ? normalizedInitialTab : requestedSearchTab;
   const [user, setUser] = useState(null);
   const [showTitleDialog, setShowTitleDialog] = useState(false);
   const [selectedAchievement, setSelectedAchievement] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
-  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "stats");
+  const [activeTab, setActiveTab] = useState(() => resolveAchievementsTab(requestedTab));
   const [questFeedback, setQuestFeedback] = useState(null);
   const [seedRewardFeedback, setSeedRewardFeedback] = useState(null);
   const [newAchievements, setNewAchievements] = useState([]);
@@ -202,8 +212,16 @@ export function useAchievementsFeatureContent({
   const [showPersonalStats, setShowPersonalStats] = useState(true);
   const [expandedHighestScanEntryKey, setExpandedHighestScanEntryKey] = useState(null);
   const [isLeaderboardRefreshing, setIsLeaderboardRefreshing] = useState(
-    () => (searchParams.get("tab") || "stats") === "stats"
+    () => resolveAchievementsTab(requestedTab) === "stats"
   );
+
+  useEffect(() => {
+    const nextTab = resolveAchievementsTab(requestedTab);
+    setActiveTab((previousTab) => (previousTab === nextTab ? previousTab : nextTab));
+    if (nextTab === "stats") {
+      setIsLeaderboardRefreshing(true);
+    }
+  }, [requestedTab]);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -214,8 +232,7 @@ export function useAchievementsFeatureContent({
   }, []);
 
   useEffect(() => {
-    const allowedTabs = new Set(["quests", "achievements", "stats"]);
-    if (!allowedTabs.has(activeTab)) {
+    if (!ALLOWED_ACHIEVEMENTS_TABS.has(activeTab)) {
       setActiveTab("stats");
     }
   }, [activeTab]);
@@ -484,6 +501,26 @@ export function useAchievementsFeatureContent({
     refetchOnReconnect: true,
   });
 
+  const { data: weeklySeedLeaderboard = null, refetch: refetchWeeklySeedLeaderboard } = useQuery({
+    queryKey: ['weeklySeedLeaderboard'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_weekly_seed_leaderboard', { p_limit: 100 });
+      if (error) {
+        if (isMissingRpcFunctionError(error)) {
+          console.warn('[AchievementsPage] get_weekly_seed_leaderboard not available yet.');
+          return null;
+        }
+        throw error;
+      }
+      return Array.isArray(data) ? data : [];
+    },
+    staleTime: 60 * 1000,
+    refetchInterval: 15 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
+
   const { data: globalScanTaxonomyHighlights = null, refetch: refetchGlobalScanTaxonomyHighlights } = useQuery({
     queryKey: ['globalScanTaxonomyHighlights'],
     queryFn: async () => {
@@ -532,6 +569,7 @@ export function useAchievementsFeatureContent({
           refetchAllProfiles(),
           refetchAllRobotPlants(),
           refetchGlobalScanLeaderboard(),
+          refetchWeeklySeedLeaderboard(),
           refetchHighestScanResultsLeaderboard(),
           refetchGlobalScanTaxonomyHighlights(),
           ...(user?.email ? [refetchAllFriendRecords()] : []),
@@ -556,6 +594,7 @@ export function useAchievementsFeatureContent({
     refetchAllProfiles,
     refetchAllRobotPlants,
     refetchGlobalScanLeaderboard,
+    refetchWeeklySeedLeaderboard,
     refetchHighestScanResultsLeaderboard,
     refetchGlobalScanTaxonomyHighlights,
     refetchAllFriendRecords,
@@ -1657,6 +1696,36 @@ export function useAchievementsFeatureContent({
   const ownSeedRank = globalSeedRanking.findIndex((entry) => entry.isOwn) + 1;
   const ownSeeds = globalSeedRanking.find((entry) => entry.isOwn)?.seeds ?? 0;
 
+  const weeklySeedRanking = (weeklySeedLeaderboard || [])
+    .map((entry) => {
+      const email = String(entry?.user_email || '').trim().toLowerCase();
+      const entryAuthId = entry?.auth_id || null;
+      const isOwnByAuth = !!ownAuthId && !!entryAuthId && ownAuthId === entryAuthId;
+      const isOwnByEmail = !!ownEmailLower && !!email && ownEmailLower === email;
+      const participantEmail = isOwnByAuth ? ownEmailLower : email;
+      const profile = participantEmail ? profileByEmail.get(participantEmail) : null;
+
+      return {
+        authId: entryAuthId,
+        email: participantEmail,
+        seeds: Math.max(0, Number(entry?.weekly_seed_total ?? 0)),
+        isOwn: isOwnByAuth || isOwnByEmail,
+        name:
+          profile?.display_name ||
+          profile?.full_name ||
+          entry?.display_name ||
+          entry?.full_name ||
+          (isOwnByAuth || isOwnByEmail
+            ? (user?.display_name || user?.full_name || user?.email)
+            : (participantEmail || 'Unbekannt')),
+      };
+    })
+    .filter((entry) => Number(entry.seeds) > 0)
+    .sort((a, b) => b.seeds - a.seeds);
+
+  const ownWeeklySeedRank = weeklySeedRanking.findIndex((entry) => entry.isOwn) + 1;
+  const ownWeeklySeedEntry = ownWeeklySeedRank > 0 ? weeklySeedRanking[ownWeeklySeedRank - 1] : null;
+
   const navigateToPublicProfile = (email) => {
     const emailValue = String(email || "").trim();
     if (!emailValue) return;
@@ -2214,6 +2283,105 @@ export function useAchievementsFeatureContent({
                                 </div>
                                 <Badge className={isLightUi ? "bg-amber-600 text-white" : "bg-amber-700 text-white border border-amber-400/60"}>
                                   {ownEntry.seeds.toLocaleString()} 🌱
+                                </Badge>
+                              </div>
+                            </>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+
+                <Card className="border-0 bg-transparent shadow-none">
+                  <CardHeader className="pb-2">
+                    <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
+                      <Leaf className={`w-4 h-4 ${isLightUi ? "text-lime-600" : "text-lime-300"}`} />
+                      Wochenfortschritt: Meiste Samen
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className={`rounded-lg border px-3 py-2 ${isLightUi ? "border-lime-200 bg-lime-50" : "border-lime-300/40 bg-lime-500/10"}`}>
+                      <p className={`text-xs ${isLightUi ? "text-lime-700" : "text-lime-200"}`}>Dein Rang diese Woche</p>
+                      <p className={`text-lg font-bold ${isLightUi ? "text-lime-900" : "text-lime-100"}`}>
+                        {ownWeeklySeedRank > 0 ? `#${ownWeeklySeedRank} von ${weeklySeedRanking.length}` : "Noch kein Rang"}
+                      </p>
+                      {ownWeeklySeedEntry && (
+                        <p className={`text-xs mt-0.5 ${isLightUi ? "text-lime-700" : "text-lime-300"}`}>
+                          +{ownWeeklySeedEntry.seeds.toLocaleString()} Samen diese Woche
+                        </p>
+                      )}
+                    </div>
+
+                    {weeklySeedRanking.length === 0 && (
+                      <p className={`text-sm ${statsBodyClass}`}>Noch keine Wochenfortschritt-Daten verfügbar.</p>
+                    )}
+
+                    {(() => {
+                      const top5 = weeklySeedRanking.slice(0, 5);
+                      const ownInTop5 = top5.some((entry) => entry.isOwn);
+                      const ownEntry = !ownInTop5 && ownWeeklySeedRank > 0 ? weeklySeedRanking[ownWeeklySeedRank - 1] : null;
+
+                      return (
+                        <>
+                          {top5.map((entry, index) => {
+                            const logo = leaderboardLogosByEmail.get(entry.email);
+                            return (
+                              <div
+                                key={entry.authId || entry.email || `weekly-${index}`}
+                                className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.isOwn ? rankingHighlightClass : rankingDefaultClass}`}
+                              >
+                                <div className="flex min-w-0 items-center gap-2 flex-1">
+                                  <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50">
+                                    <CustomLogoAvatar
+                                      logoAssets={logo}
+                                      className="w-full h-full"
+                                      tooltipText={entry.name || entry.email || "Unbekannt"}
+                                      fallbackText={entry.name?.charAt(0)?.toUpperCase() || "?"}
+                                      fallbackClassName="text-[10px] font-bold text-white"
+                                    />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => navigateToPublicProfile(entry.email)}
+                                    disabled={!entry.email}
+                                    className={`p-0 m-0 min-w-0 border-0 bg-transparent text-left text-sm font-semibold truncate ${entry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
+                                  >
+                                    #{index + 1} {entry.name}
+                                  </button>
+                                </div>
+                                <Badge className={entry.isOwn ? (isLightUi ? "bg-lime-600 text-white" : "bg-lime-700 text-white border border-lime-400/60") : rankingDefaultBadgeClass}>
+                                  +{entry.seeds.toLocaleString()} 🌱
+                                </Badge>
+                              </div>
+                            );
+                          })}
+
+                          {ownEntry && (
+                            <>
+                              <p className={`text-xs text-center ${statsBodyClass}`}>…</p>
+                              <div className={`flex items-center justify-between rounded-lg border px-3 py-2 ${rankingHighlightClass}`}>
+                                <div className="flex min-w-0 items-center gap-2 flex-1">
+                                  <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50">
+                                    <CustomLogoAvatar
+                                      logoAssets={leaderboardLogosByEmail.get(ownEntry.email)}
+                                      className="w-full h-full"
+                                      tooltipText={ownEntry.name || ownEntry.email || "Unbekannt"}
+                                      fallbackText={ownEntry.name?.charAt(0)?.toUpperCase() || "?"}
+                                      fallbackClassName="text-[10px] font-bold text-white"
+                                    />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => navigateToPublicProfile(ownEntry.email)}
+                                    disabled={!ownEntry.email}
+                                    className={`p-0 m-0 min-w-0 border-0 bg-transparent text-left text-sm font-semibold truncate ${ownEntry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
+                                  >
+                                    #{ownWeeklySeedRank} {ownEntry.name}
+                                  </button>
+                                </div>
+                                <Badge className={isLightUi ? "bg-lime-600 text-white" : "bg-lime-700 text-white border border-lime-400/60"}>
+                                  +{ownEntry.seeds.toLocaleString()} 🌱
                                 </Badge>
                               </div>
                             </>

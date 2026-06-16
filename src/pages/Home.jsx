@@ -160,6 +160,7 @@ function HomeContent() {
     setScanFeedback(value);
   };
   const [activePanel, setActivePanel] = useState(null);
+  const [embeddedAchievementsInitialTab, setEmbeddedAchievementsInitialTab] = useState("stats");
   const [shopOpenCategory, setShopOpenCategory] = useState("accessories");
   const [careActionMessage, setCareActionMessage] = useState(null);
   const [careGainFeedback, setCareGainFeedback] = useState(null);
@@ -1998,8 +1999,7 @@ function HomeContent() {
       label: "Erfolge",
       icon: Scroll,
       onClick: () => {
-        setActivePanel("achievements");
-        setShowHealthStatsPanel(false);
+        openAchievementsPanel("stats");
       },
       showNotificationDot: hasRedeemableQuests,
       ...getNavButtonStyle({ palette: "amber", isLightUi }),
@@ -2301,6 +2301,12 @@ function HomeContent() {
     setActivePanel("shop");
     setShowHealthStatsPanel(false);
   };
+
+  function openAchievementsPanel(tab = "stats") {
+    setEmbeddedAchievementsInitialTab(tab);
+    setActivePanel("achievements");
+    setShowHealthStatsPanel(false);
+  }
 
   const handleWaterPlantClick = () => {
     setCareActionMessage(null);
@@ -2616,6 +2622,7 @@ function HomeContent() {
                 ) : activePanel === "achievements" ? (
                   <AchievementsFeatureRoot
                     embedded
+                    initialTab={embeddedAchievementsInitialTab}
                     onRequestClose={() => setActivePanel(null)}
                     onHeaderMetaChange={setEmbeddedHeaderMeta}
                     onUserUpdated={(freshUser) => setUser(freshUser)}
@@ -2911,8 +2918,7 @@ function HomeContent() {
                               }
 
                               if (monthlyReady || weeklyReady || regularReady) {
-                                setActivePanel("achievements");
-                                setShowHealthStatsPanel(false);
+                                openAchievementsPanel("quests");
                                 return;
                               }
 
@@ -2926,8 +2932,7 @@ function HomeContent() {
                                 return;
                               }
 
-                              setActivePanel("achievements");
-                              setShowHealthStatsPanel(false);
+                              openAchievementsPanel("quests");
                             }}
                             className={`absolute left-0 md:left-2 top-5 md:top-6 z-20 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${borderClass}`}
                             style={{ background: bgStyle }}
