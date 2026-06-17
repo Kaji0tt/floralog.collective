@@ -241,3 +241,653 @@ button:focus-visible {
   line-height: 1;
   padding: 2px 7px;
 }
+
+@keyframes rarityReflectionSweepPrimary {
+  0%,
+  72%,
+  100% {
+    opacity: 0;
+    transform: translate(-140%, -140%) rotate(-24deg);
+  }
+  76% {
+    opacity: 0.82;
+  }
+  88% {
+    opacity: 0.48;
+    transform: translate(120%, 120%) rotate(-24deg);
+  }
+}
+
+@keyframes rarityReflectionSweepSecondary {
+  0%,
+  74%,
+  100% {
+    opacity: 0;
+    transform: translate(-150%, -150%) rotate(-24deg);
+  }
+  79% {
+    opacity: 0.66;
+  }
+  90% {
+    opacity: 0.4;
+    transform: translate(140%, 140%) rotate(-24deg);
+  }
+}
+
+@keyframes rarityReflectionSweepPrimarySoft {
+  0%,
+  70%,
+  100% {
+    opacity: 0;
+    transform: translate(-145%, -145%) rotate(-24deg);
+  }
+  76% {
+    opacity: 0.58;
+  }
+  88% {
+    opacity: 0.3;
+    transform: translate(120%, 120%) rotate(-24deg);
+  }
+}
+
+@keyframes rarityReflectionSweepSecondarySoft {
+  0%,
+  74%,
+  100% {
+    opacity: 0;
+    transform: translate(-150%, -150%) rotate(-24deg);
+  }
+  80% {
+    opacity: 0.46;
+  }
+  90% {
+    opacity: 0.24;
+    transform: translate(140%, 140%) rotate(-24deg);
+  }
+}
+
+@keyframes threatBorderFlowLevel4 {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.012);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+@keyframes threatBorderPulseLevel4 {
+  0%,
+  100% {
+    opacity: 0.5;
+    filter: saturate(100%);
+  }
+  50% {
+    opacity: 0.64;
+    filter: saturate(115%);
+  }
+}
+
+@keyframes threatBorderAuraPulseLevel4 {
+  0%,
+  100% {
+    opacity: 0.12;
+    filter: blur(0.2px) saturate(105%);
+  }
+  50% {
+    opacity: 0.22;
+    filter: blur(0.8px) saturate(120%);
+  }
+}
+
+@keyframes threatBorderBubbleShift {
+  0% {
+    background-position:
+      -10% -10%,
+      20% -10%,
+      50% -10%,
+      80% -10%,
+      110% -10%,
+      118% 20%,
+      118% 50%,
+      118% 80%,
+      90% 118%,
+      60% 118%,
+      30% 118%,
+      0% 118%,
+      -16% 90%,
+      -16% 60%,
+      -16% 30%;
+  }
+  16% {
+    background-position:
+      20% -10%,
+      50% -10%,
+      80% -10%,
+      110% -10%,
+      118% 20%,
+      118% 50%,
+      118% 80%,
+      90% 118%,
+      60% 118%,
+      30% 118%,
+      0% 118%,
+      -16% 90%,
+      -16% 60%,
+      -16% 30%,
+      -10% -10%;
+  }
+  37% {
+    background-position:
+      80% -10%,
+      110% -10%,
+      118% 20%,
+      118% 50%,
+      118% 80%,
+      90% 118%,
+      60% 118%,
+      30% 118%,
+      0% 118%,
+      -16% 90%,
+      -16% 60%,
+      -16% 30%,
+      -10% -10%,
+      20% -10%,
+      50% -10%;
+  }
+  63% {
+    background-position:
+      118% 50%,
+      118% 80%,
+      90% 118%,
+      60% 118%,
+      30% 118%,
+      0% 118%,
+      -16% 90%,
+      -16% 60%,
+      -16% 30%,
+      -10% -10%,
+      20% -10%,
+      50% -10%,
+      80% -10%,
+      110% -10%,
+      118% 20%;
+  }
+  82% {
+    background-position:
+      -16% 90%,
+      -16% 60%,
+      -16% 30%,
+      -10% -10%,
+      20% -10%,
+      50% -10%,
+      80% -10%,
+      110% -10%,
+      118% 20%,
+      118% 50%,
+      118% 80%,
+      90% 118%,
+      60% 118%,
+      30% 118%,
+      0% 118%;
+  }
+  100% {
+    background-position:
+      -10% -10%,
+      20% -10%,
+      50% -10%,
+      80% -10%,
+      110% -10%,
+      118% 20%,
+      118% 50%,
+      118% 80%,
+      90% 118%,
+      60% 118%,
+      30% 118%,
+      0% 118%,
+      -16% 90%,
+      -16% 60%,
+      -16% 30%;
+  }
+}
+
+@keyframes threatBorderBubbleShiftPath2 {
+  0% {
+    background-position:
+      110% -10%,
+      118% 20%,
+      118% 50%,
+      118% 80%,
+      90% 118%,
+      60% 118%,
+      30% 118%,
+      0% 118%,
+      -16% 90%,
+      -16% 60%,
+      -16% 30%,
+      -10% -10%,
+      20% -10%,
+      50% -10%,
+      80% -10%;
+  }
+  25% {
+    background-position:
+      90% 118%,
+      60% 118%,
+      30% 118%,
+      0% 118%,
+      -16% 90%,
+      -16% 60%,
+      -16% 30%,
+      -10% -10%,
+      20% -10%,
+      50% -10%,
+      80% -10%,
+      110% -10%,
+      118% 20%,
+      118% 50%,
+      118% 80%;
+  }
+  50% {
+    background-position:
+      -16% 90%,
+      -16% 60%,
+      -16% 30%,
+      -10% -10%,
+      20% -10%,
+      50% -10%,
+      80% -10%,
+      110% -10%,
+      118% 20%,
+      118% 50%,
+      118% 80%,
+      90% 118%,
+      60% 118%,
+      30% 118%,
+      0% 118%;
+  }
+  75% {
+    background-position:
+      -10% -10%,
+      20% -10%,
+      50% -10%,
+      80% -10%,
+      110% -10%,
+      118% 20%,
+      118% 50%,
+      118% 80%,
+      90% 118%,
+      60% 118%,
+      30% 118%,
+      0% 118%,
+      -16% 90%,
+      -16% 60%,
+      -16% 30%;
+  }
+  100% {
+    background-position:
+      110% -10%,
+      118% 20%,
+      118% 50%,
+      118% 80%,
+      90% 118%,
+      60% 118%,
+      30% 118%,
+      0% 118%,
+      -16% 90%,
+      -16% 60%,
+      -16% 30%,
+      -10% -10%,
+      20% -10%,
+      50% -10%,
+      80% -10%;
+  }
+}
+
+@keyframes threatBorderBubbleShiftPath3 {
+  0% {
+    background-position:
+      90% 118%,
+      60% 118%,
+      30% 118%,
+      0% 118%,
+      -16% 90%,
+      -16% 60%,
+      -16% 30%,
+      -10% -10%,
+      20% -10%,
+      50% -10%,
+      80% -10%,
+      110% -10%,
+      118% 20%,
+      118% 50%,
+      118% 80%;
+  }
+  25% {
+    background-position:
+      -16% 90%,
+      -16% 60%,
+      -16% 30%,
+      -10% -10%,
+      20% -10%,
+      50% -10%,
+      80% -10%,
+      110% -10%,
+      118% 20%,
+      118% 50%,
+      118% 80%,
+      90% 118%,
+      60% 118%,
+      30% 118%,
+      0% 118%;
+  }
+  50% {
+    background-position:
+      -10% -10%,
+      20% -10%,
+      50% -10%,
+      80% -10%,
+      110% -10%,
+      118% 20%,
+      118% 50%,
+      118% 80%,
+      90% 118%,
+      60% 118%,
+      30% 118%,
+      0% 118%,
+      -16% 90%,
+      -16% 60%,
+      -16% 30%;
+  }
+  75% {
+    background-position:
+      110% -10%,
+      118% 20%,
+      118% 50%,
+      118% 80%,
+      90% 118%,
+      60% 118%,
+      30% 118%,
+      0% 118%,
+      -16% 90%,
+      -16% 60%,
+      -16% 30%,
+      -10% -10%,
+      20% -10%,
+      50% -10%,
+      80% -10%;
+  }
+  100% {
+    background-position:
+      90% 118%,
+      60% 118%,
+      30% 118%,
+      0% 118%,
+      -16% 90%,
+      -16% 60%,
+      -16% 30%,
+      -10% -10%,
+      20% -10%,
+      50% -10%,
+      80% -10%,
+      110% -10%,
+      118% 20%,
+      118% 50%,
+      118% 80%;
+  }
+}
+
+@keyframes threatBorderBubblePulse {
+  0%,
+  100% {
+    opacity: 0.62;
+    filter: saturate(132%) brightness(1.2) drop-shadow(0 0 5px color-mix(in srgb, var(--threat-glow-color, rgba(239, 68, 68, 0.82)) 78%, white));
+  }
+  18% {
+    opacity: 1;
+  }
+  41% {
+    opacity: 0.78;
+  }
+  63% {
+    opacity: 0.98;
+  }
+  82% {
+    opacity: 0.72;
+  }
+}
+
+@keyframes threatDefaultGlowFloat {
+  0%,
+  100% {
+    opacity: 0.38;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 0.56;
+    transform: translateY(-1.2px);
+  }
+}
+
+.threat-effect-level-2,
+.threat-effect-level-3,
+.threat-effect-level-4,
+.threat-effect-level-5 {
+  animation: none !important;
+}
+
+.threat-glow-border {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.threat-glow-border > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Keep the spark overlay full-size and above the glow pseudo-elements.
+   The generic `.threat-glow-border > *` rule would otherwise force the
+   absolutely-positioned spark layer into `position: relative`, collapsing
+   its height to 0 and bunching every spark at the top edge. */
+.threat-glow-border > .threat-spark-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+}
+
+.threat-glow-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 18;
+  border: 2.6px solid color-mix(in srgb, var(--threat-glow-color, rgba(239, 68, 68, 0.82)) 48%, transparent);
+  opacity: 0.74;
+  box-shadow:
+    inset 0 0 8px color-mix(in srgb, var(--threat-glow-color, rgba(239, 68, 68, 0.82)) 68%, transparent),
+    inset 0 0 20px color-mix(in srgb, var(--threat-glow-color, rgba(239, 68, 68, 0.82)) 44%, transparent);
+  animation: threatDefaultGlowFloat 2.8s ease-in-out infinite;
+}
+
+.threat-glow-border::after {
+  content: "";
+  position: absolute;
+  inset: -0.8px;
+  padding: 1.35px;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 19;
+  opacity: 0.84;
+  background:
+    radial-gradient(circle at center, color-mix(in srgb, var(--threat-glow-color, rgba(239, 68, 68, 0.82)) 70%, white) 0 32%, transparent 66%),
+    radial-gradient(circle at center, color-mix(in srgb, var(--threat-glow-color, rgba(239, 68, 68, 0.82)) 62%, white) 0 26%, transparent 62%),
+    radial-gradient(circle at center, color-mix(in srgb, var(--threat-glow-color, rgba(239, 68, 68, 0.82)) 58%, white) 0 29%, transparent 64%),
+    radial-gradient(circle at center, color-mix(in srgb, var(--threat-glow-color, rgba(239, 68, 68, 0.82)) 54%, white) 0 25%, transparent 60%),
+    radial-gradient(circle at center, color-mix(in srgb, var(--threat-glow-color, rgba(239, 68, 68, 0.82)) 64%, white) 0 36%, transparent 70%),
+    radial-gradient(circle at center, color-mix(in srgb, var(--threat-glow-color, rgba(239, 68, 68, 0.82)) 60%, white) 0 33%, transparent 67%),
+    radial-gradient(circle at center, color-mix(in srgb, var(--threat-glow-color, rgba(239, 68, 68, 0.82)) 66%, white) 0 30%, transparent 65%),
+    radial-gradient(circle at center, color-mix(in srgb, var(--threat-glow-color, rgba(239, 68, 68, 0.82)) 56%, white) 0 28%, transparent 63%),
+    radial-gradient(circle at center, color-mix(in srgb, var(--threat-glow-color, rgba(239, 68, 68, 0.82)) 68%, white) 0 34%, transparent 68%),
+    radial-gradient(circle at center, color-mix(in srgb, var(--threat-glow-color, rgba(239, 68, 68, 0.82)) 61%, white) 0 27%, transparent 61%),
+    radial-gradient(circle at center, color-mix(in srgb, var(--threat-glow-color, rgba(239, 68, 68, 0.82)) 59%, white) 0 31%, transparent 66%),
+    radial-gradient(circle at center, color-mix(in srgb, var(--threat-glow-color, rgba(239, 68, 68, 0.82)) 65%, white) 0 28%, transparent 62%),
+    radial-gradient(circle at center, color-mix(in srgb, var(--threat-glow-color, rgba(239, 68, 68, 0.82)) 57%, white) 0 32%, transparent 68%),
+    radial-gradient(circle at center, color-mix(in srgb, var(--threat-glow-color, rgba(239, 68, 68, 0.82)) 63%, white) 0 25%, transparent 60%),
+    radial-gradient(circle at center, color-mix(in srgb, var(--threat-glow-color, rgba(239, 68, 68, 0.82)) 69%, white) 0 35%, transparent 69%);
+  background-repeat: no-repeat;
+  background-size:
+    160px 160px,
+    150px 150px,
+    135px 135px,
+    123px 123px,
+    170px 170px,
+    155px 155px,
+    143px 143px,
+    128px 128px,
+    165px 165px,
+    118px 118px,
+    140px 140px,
+    125px 125px,
+    153px 153px,
+    133px 133px,
+    175px 175px;
+  background-position:
+    -10% -10%,
+    20% -10%,
+    50% -10%,
+    80% -10%,
+    110% -10%,
+    118% 20%,
+    118% 50%,
+    118% 80%,
+    90% 118%,
+    60% 118%,
+    30% 118%,
+    0% 118%,
+    -16% 90%,
+    -16% 60%,
+    -16% 30%;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  filter:
+    drop-shadow(0 0 10px color-mix(in srgb, var(--threat-glow-color, rgba(239, 68, 68, 0.82)) 66%, white))
+    drop-shadow(0 0 20px color-mix(in srgb, var(--threat-glow-color, rgba(239, 68, 68, 0.82)) 52%, white));
+  animation:
+    threatBorderBubbleShift 36s linear infinite,
+    threatBorderBubblePulse 1.35s ease-in-out infinite;
+}
+
+.threat-effect-level-4.threat-glow-border::after {
+  opacity: 1;
+  animation:
+    threatBorderBubbleShift 34s linear infinite,
+    threatBorderBubblePulse 1.2s ease-in-out infinite;
+}
+
+.threat-effect-level-5.threat-glow-border::after {
+  opacity: 1;
+  animation:
+    threatBorderBubbleShift 34s linear infinite,
+    threatBorderBubblePulse 1.2s ease-in-out infinite;
+}
+
+.threat-effect-level-4.threat-glow-border::before {
+  opacity: 0.68;
+  border: 1.65px solid color-mix(in srgb, var(--threat-glow-color, rgba(249, 177, 22, 0.9)) 40%, transparent);
+  box-shadow:
+    inset 0 0 10px color-mix(in srgb, var(--threat-glow-color, rgba(249, 177, 22, 0.9)) 68%, transparent),
+    inset 0 0 22px color-mix(in srgb, var(--threat-glow-color, rgba(249, 177, 22, 0.9)) 38%, transparent);
+  animation: threatBorderPulseLevel4 4.6s ease-in-out infinite;
+}
+
+.threat-effect-level-5.threat-glow-border::before {
+  opacity: 1;
+  box-shadow:
+    inset 0 0 18px color-mix(in srgb, var(--threat-glow-color, rgba(127, 29, 59, 0.92)) 96%, transparent),
+    inset 0 0 34px color-mix(in srgb, var(--threat-glow-color, rgba(127, 29, 59, 0.92)) 76%, transparent);
+}
+
+.rarity-reflection-host {
+  position: relative;
+  overflow: hidden;
+}
+
+.rarity-reflection-host::before,
+.rarity-reflection-host::after {
+  content: "";
+  position: absolute;
+  left: -38%;
+  top: -34%;
+  width: 34%;
+  height: 10px;
+  border-radius: 999px;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 12;
+}
+
+.rarity-reflection-host::before {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.92) 48%,
+    var(--rarity-reflection-color, rgba(255, 255, 255, 0.65)) 100%
+  );
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+}
+
+.rarity-reflection-host::after {
+  margin-top: 14px;
+  width: 26%;
+  height: 7px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    var(--rarity-reflection-color, rgba(255, 255, 255, 0.7)) 52%,
+    rgba(255, 255, 255, 0.7) 100%
+  );
+  box-shadow: 0 0 9px color-mix(in srgb, var(--rarity-reflection-color, rgba(255, 255, 255, 0.7)) 58%, white);
+}
+
+.threat-effect-level-4 .rarity-reflection-host::before {
+  animation: rarityReflectionSweepPrimarySoft 6.1s ease-in-out infinite;
+}
+
+.threat-effect-level-5 .rarity-reflection-host::before {
+  animation: rarityReflectionSweepPrimary 5.4s ease-in-out infinite;
+}
+
+.threat-effect-level-4 .rarity-reflection-host::after {
+  animation: rarityReflectionSweepSecondarySoft 6.1s ease-in-out infinite;
+}
+
+.threat-effect-level-5 .rarity-reflection-host::after {
+  animation: rarityReflectionSweepSecondary 5.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .threat-effect-level-2,
+  .threat-effect-level-3,
+  .threat-effect-level-4,
+  .threat-effect-level-5 {
+    animation: none;
+  }
+
+  .threat-glow-border::after,
+  .rarity-reflection-host::before,
+  .rarity-reflection-host::after {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+}

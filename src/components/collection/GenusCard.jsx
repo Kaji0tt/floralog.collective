@@ -7,6 +7,7 @@ import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
 import EditGenusDialog from "./EditGenusDialog";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
+import { getPopulationScore, getRarityBorderClass } from "@/lib/conservationStatus";
 
 const categoryIcons = {
   "Bäume": TreeDeciduous,
@@ -61,24 +62,20 @@ export default function GenusCard({
     genusDiscoveries.find((d) => d.is_species_front_image)?.image_url ||
     [...genusDiscoveries].sort((a, b) => getDiscoveryTimestamp(b) - getDiscoveryTimestamp(a))[0]?.image_url;
 
-  // Ermittle höchste Rarität der entdeckten Pflanzen dieser Gattung
-  const rarityOrder = { "Häufig": 0, "Gelegentlich": 1, "Selten": 2, "Sehr Selten": 3, "Extrem Selten": 4 };
+  // Ermittle höchste Seltenheit aus red_list_population der entdeckten Pflanzen.
   const discoveredPlants = plants.filter(p => 
     p.genus_category === genus.category && p.genus_number === genus.category_dex_number && userDiscoveries.some(d => d.plant_id === p.id)
   );
-  const highestRarity = discoveredPlants.reduce((max, plant) => {
-    const plantRarity = rarityOrder[plant.rarity] || 0;
-    return plantRarity > max ? plantRarity : max;
-  }, 0);
+  const highestConservation = discoveredPlants.reduce((max, plant) => {
+    const population = plant?.red_list_population ?? plant?.aiData?.red_list_population ?? null;
+    const score = getPopulationScore(population);
+    return score > max.score ? { score, population } : max;
+  }, { score: 0, population: null });
 
   // Bestimme Rahmenfarbe basierend auf höchster Rarität
   const getBorderColor = () => {
     if (!discovered) return isLightUi ? 'border-stone-300' : 'border-stone-500/55';
-    if (highestRarity === 4) return isLightUi ? 'border-red-500/80' : 'border-red-300/85';
-    if (highestRarity === 3) return isLightUi ? 'border-orange-500/80' : 'border-orange-300/85';
-    if (highestRarity === 2) return isLightUi ? 'border-fuchsia-500/75' : 'border-fuchsia-300/80';
-    if (highestRarity === 1) return isLightUi ? 'border-emerald-600/70' : 'border-emerald-300/80';
-    return isLightUi ? 'border-amber-700/55' : 'border-[#f0e5a5]/45';
+    return getRarityBorderClass(highestConservation.population, isLightUi);
   };
 
   const handleClick = () => {

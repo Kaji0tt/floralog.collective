@@ -11,6 +11,16 @@ import { motion, useMotionValue, useTransform } from "framer-motion";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import SpeciesInfoCard from "@/components/collection/SpeciesInfoCard";
+import ThreatLevelSparks from "@/components/effects/ThreatLevelSparks";
+import {
+  getConservationEffectLevel,
+  getConservationFromPlant,
+  getRarityBorderClass,
+  getRarityGlowColor,
+  getRarityReflectionColor,
+  getRarityScanBackgroundClass,
+  getThreatAnimationClass,
+} from "@/lib/conservationStatus";
 
 export default function ScanResults({
   plant,
@@ -181,28 +191,6 @@ export default function ScanResults({
     return text;
   };
 
-  const getRarityBorderColor = (rarity) => {
-    switch (rarity) {
-      case "Häufig":return "border-gray-300";
-      case "Gelegentlich":return "border-green-300";
-      case "Selten":return "border-purple-300";
-      case "Sehr Selten":return "border-orange-500";
-      case "Extrem Selten":return "border-red-500";
-      default:return "border-gray-500";
-    }
-  };
-
-  const getRarityBackgroundColor = (rarity) => {
-    switch (rarity) {
-      case "Häufig":return "bg-gradient-to-br from-black/50 via-zinc-900/55 to-black/65";
-      case "Gelegentlich":return "bg-gradient-to-br from-emerald-900/45 via-black/35 to-teal-950/60";
-      case "Selten":return "bg-gradient-to-br from-cyan-900/45 via-black/40 to-sky-950/60";
-      case "Sehr Selten":return "bg-gradient-to-br from-amber-900/45 via-black/35 to-orange-950/60";
-      case "Extrem Selten":return "bg-gradient-to-br from-rose-900/45 via-black/40 to-red-950/65";
-      default:return "bg-gradient-to-br from-black/50 via-zinc-900/55 to-black/65";
-    }
-  };
-
   const isUnidentified = plant?.notInDex === undefined && (plant?.identified === false || !plant?.species_name && !plant?.aiData);
 
   if (isUnidentified) {
@@ -254,7 +242,20 @@ export default function ScanResults({
   if (currentPlant?.species_name) {
     const isBlockedResult = currentPlant?.metadata_failed === true || (currentPlant?.notInDex && currentPlant?.is_european === false);
     const showBackToIntroButton = isBlockedResult;
-    const rarity = currentPlant.rarity || currentPlant.aiData?.rarity || "Häufig";
+    const conservation = getConservationFromPlant(currentPlant);
+    const rarityBorderClass = getRarityBorderClass(conservation.populationRaw, false);
+    const rarityBackgroundClass = getRarityScanBackgroundClass(conservation.populationRaw);
+    const rarityGlowColor = getRarityGlowColor(conservation.populationRaw);
+    const rarityReflectionColor = getRarityReflectionColor(conservation.populationRaw);
+    const conservationEffectLevel = getConservationEffectLevel(
+      conservation.threatRaw,
+      conservation.populationRaw
+    );
+    const threatAnimationClass = getThreatAnimationClass(
+      conservation.threatRaw,
+      conservation.populationRaw
+    );
+    const threatGlowClass = conservationEffectLevel >= 4 ? "threat-glow-border" : "";
     const isNewToPlantDex = currentPlant.isNewToPlantDex || false;
     const wasAlreadyDiscovered = currentPlant.discovered === true;
     const confidencePercentage = currentPlant.confidence_percentage || currentPlant.aiData?.confidence_percentage;
@@ -290,7 +291,15 @@ export default function ScanResults({
 
               <Card className="shadow-2xl bg-black/30 overflow-hidden border border-[#f0e5a5]/30 backdrop-blur-sm rounded-3xl">
                 <CardContent className="p-4 md:p-6 space-y-3 bg-gradient-to-br from-black/35 via-emerald-950/20 to-black/35">
-                  <div className={`relative rounded-2xl p-2 border-2 ${getRarityBorderColor(rarity)} ${getRarityBackgroundColor(rarity)}`} style={{ boxShadow: '8px 8px 24px rgba(0, 0, 0, 0.15)' }}>
+                  <div
+                    className={`relative rounded-2xl p-2 border-2 ${rarityBorderClass} ${rarityBackgroundClass} ${threatAnimationClass} ${threatGlowClass}`}
+                    style={{
+                      boxShadow: '8px 8px 24px rgba(0, 0, 0, 0.15)',
+                      "--threat-glow-color": rarityGlowColor,
+                      "--rarity-reflection-color": rarityReflectionColor,
+                    }}
+                  >
+                    <ThreatLevelSparks active={conservationEffectLevel >= 3} count={18} className="z-40" />
                     {isBlockedResult && (
                       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10">
                         <Badge variant="secondary" className="bg-red-700/90 text-white border border-red-200/35 shadow-md hover:bg-red-700/90">

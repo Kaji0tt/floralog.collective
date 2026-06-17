@@ -13,6 +13,12 @@ import { awardXP } from "../components/utils/xpSystem";
 import { motion } from "framer-motion";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
+import {
+  getConservationFromPlant,
+  getRarityBadgeClass,
+  getRarityLabel,
+  getRarityStars,
+} from "@/lib/conservationStatus";
 
 export default function ViewSharedScan() {
   const [user, setUser] = useState(null);
@@ -181,27 +187,7 @@ export default function ViewSharedScan() {
     }
   };
 
-  const getRarityColor = (rarity) => {
-    switch(rarity) {
-      case "Häufig": return "bg-green-100 text-green-800";
-      case "Gelegentlich": return "bg-blue-100 text-blue-800";
-      case "Selten": return "bg-purple-100 text-purple-800";
-      case "Sehr Selten": return "bg-amber-100 text-amber-800";
-      case "Extrem Selten": return "bg-red-100 text-red-800";
-      default: return "bg-stone-100 text-stone-800";
-    }
-  };
-
-  const getRarityStars = (rarity) => {
-    switch(rarity) {
-      case "Häufig": return "⭐";
-      case "Gelegentlich": return "⭐⭐";
-      case "Selten": return "⭐⭐⭐";
-      case "Sehr Selten": return "⭐⭐⭐⭐";
-      case "Extrem Selten": return "⭐⭐⭐⭐⭐";
-      default: return "⭐";
-    }
-  };
+  const conservation = plant ? getConservationFromPlant(plant) : null;
 
   if (isLoading || !user) {
     return (
@@ -311,10 +297,10 @@ export default function ViewSharedScan() {
                   )}
                 </div>
 
-                {plant.rarity && (
+                {conservation && (
                   <div className="flex gap-2">
-                    <Badge className={getRarityColor(plant.rarity)}>
-                      {getRarityStars(plant.rarity)} {plant.rarity}
+                    <Badge className={getRarityBadgeClass(conservation.populationRaw, { soft: true })}>
+                      {getRarityStars(conservation.populationRaw)} {getRarityLabel(conservation.populationRaw)}
                     </Badge>
                   </div>
                 )}

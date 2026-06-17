@@ -5,6 +5,22 @@ const limit = Number(process.env.BACKFILL_LIMIT || 50);
 const startOffset = Number(process.env.BACKFILL_START_OFFSET || 0);
 const maxBatches = Number(process.env.BACKFILL_MAX_BATCHES || 500);
 const timeoutMs = Number(process.env.BACKFILL_TIMEOUT_MS || 300000);
+const fullBackfill = process.env.BACKFILL_FULL_BACKFILL === "false" ? false : true;
+const authToken = process.env.BACKFILL_AUTH_TOKEN || process.env.SUPABASE_ANON_KEY || "";
+const apiKey = process.env.BACKFILL_API_KEY || process.env.SUPABASE_ANON_KEY || "";
+
+const requestHeaders = {
+  "Content-Type": "application/json",
+  "Connection": "close",
+};
+
+if (authToken) {
+  requestHeaders.Authorization = `Bearer ${authToken}`;
+}
+
+if (apiKey) {
+  requestHeaders.apikey = apiKey;
+}
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -15,11 +31,11 @@ async function callBatch(offset) {
   try {
     const res = await fetch(endpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Connection": "close" },
+      headers: requestHeaders,
       body: JSON.stringify({
         limit,
         offset,
-        fullBackfill: true,
+        fullBackfill,
         includeOpenAi: false,
       }),
       signal: controller.signal,
@@ -58,6 +74,8 @@ async function main() {
   let batches = 0;
 
   console.log(`START endpoint=${endpoint} limit=${limit} offset=${offset}`);
+  console.log(`AUTH authorization=${authToken ? "yes" : "no"} apikey=${apiKey ? "yes" : "no"}`);
+  console.log(`MODE fullBackfill=${fullBackfill}`);
 
   while (batches < maxBatches) {
     let data;

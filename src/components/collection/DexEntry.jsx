@@ -5,12 +5,12 @@ import { CheckCircle, Star, TreeDeciduous, Flower2, Leaf } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
-
-const rarityColors = {
-  "Häufig": "bg-green-500",
-  "Gelegentlich": "bg-blue-500",
-  "Selten": "bg-purple-500"
-};
+import {
+  getConservationFromPlant,
+  getRarityBadgeClass,
+  getRarityBorderClass,
+  getRarityStars,
+} from "@/lib/conservationStatus";
 
 const categoryColors = {
   "Bäume": "from-green-600 to-emerald-700",
@@ -28,6 +28,9 @@ export default function DexEntry({ plant }) {
   const navigate = useNavigate();
   const discovered = plant.discovered;
   const CategoryIcon = categoryIcons[plant.category] || TreeDeciduous;
+  const conservation = getConservationFromPlant(plant);
+  const rarityStars = getRarityStars(conservation.populationRaw);
+  const rarityBadgeClass = getRarityBadgeClass(conservation.populationRaw);
 
   return (
     <motion.div
@@ -37,7 +40,7 @@ export default function DexEntry({ plant }) {
       <Card
         className={`cursor-pointer overflow-hidden border-4 shadow-xl transition-all duration-300 ${
           discovered 
-            ? 'border-yellow-400 hover:shadow-2xl' 
+            ? `${getRarityBorderClass(conservation.populationRaw, true)} hover:shadow-2xl` 
             : 'border-gray-400 opacity-75 hover:opacity-90'
         }`}
         onClick={() => discovered && navigate(createPageUrl(`PlantDetail?id=${plant.id}`))}
@@ -50,9 +53,9 @@ export default function DexEntry({ plant }) {
             <Badge className="bg-gray-800 text-white font-black text-lg px-3 py-1">
               #{String(plant.dex_number).padStart(3, '0')}
             </Badge>
-            {discovered && plant.rarity && (
+            {discovered && (
               <div className="flex gap-1">
-                {Array.from({ length: plant.rarity === "Selten" ? 3 : plant.rarity === "Gelegentlich" ? 2 : 1 }).map((_, i) => (
+                {Array.from({ length: rarityStars.length }).map((_, i) => (
                   <Star key={i} className="w-4 h-4 text-yellow-500 fill-yellow-500" />
                 ))}
               </div>
@@ -91,7 +94,7 @@ export default function DexEntry({ plant }) {
 
           {/* Category and Subcategory Badges */}
           <div className="flex flex-wrap gap-2">
-            <Badge className={`${discovered ? rarityColors[plant.rarity] || 'bg-gray-500' : 'bg-gray-400'} text-white font-bold`}>
+            <Badge className={`${discovered ? rarityBadgeClass : 'bg-gray-400 text-white'} font-bold`}>
               {plant.category}
             </Badge>
             {discovered && plant.subcategory && (

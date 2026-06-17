@@ -14,9 +14,17 @@ import { de } from "date-fns/locale";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 import EditPlantDialog from "../components/collection/EditPlantDialog";
 import SpeciesInfoCard from "../components/collection/SpeciesInfoCard";
+import ThreatLevelSparks from "@/components/effects/ThreatLevelSparks";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
+import {
+  getConservationEffectLevel,
+  getConservationFromPlant,
+  getRarityBorderClass,
+  getRarityGlowColor,
+  getThreatAnimationClass,
+} from "@/lib/conservationStatus";
 
 export default function GenusDetail() {
   const LIST_SWIPE_THRESHOLD_PX = 60;
@@ -703,21 +711,11 @@ export default function GenusDetail() {
     };
   }, []);
 
-  const getRarityBorderColor = (rarity) => {
-    switch (rarity) {
-      case "Extrem Selten":
-        return isLightUi ? "border-red-300" : "border-red-300/70";
-      case "Sehr Selten":
-        return isLightUi ? "border-orange-300" : "border-orange-300/70";
-      case "Selten":
-        return isLightUi ? "border-fuchsia-300" : "border-fuchsia-300/70";
-      case "Gelegentlich":
-        return isLightUi ? "border-green-300" : "border-emerald-300/60";
-      case "Häufig":
-      default:
-        return isLightUi ? "border-stone-300" : "border-stone-500/60";
-    }
-  };
+  const getRarityBorderColor = (plant) =>
+    getRarityBorderClass(
+      plant?.red_list_population ?? plant?.aiData?.red_list_population ?? null,
+      isLightUi
+    );
 
   const friendProfileLogoAssets = resolveEquippedLogoAssetsWithCatalog(friendProfile || {}, logoAssets);
 
@@ -769,6 +767,25 @@ export default function GenusDetail() {
     const parsed = new Date(rawDate);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   })();
+  const expandedConservation = expandedPlantData
+    ? getConservationFromPlant(expandedPlantData)
+    : null;
+  const expandedConservationEffectLevel = expandedConservation
+    ? getConservationEffectLevel(
+      expandedConservation.threatRaw,
+      expandedConservation.populationRaw
+    )
+    : 0;
+  const expandedThreatAnimationClass = expandedConservation
+    ? getThreatAnimationClass(
+      expandedConservation.threatRaw,
+      expandedConservation.populationRaw
+    )
+    : "";
+  const expandedThreatGlowClass = expandedConservationEffectLevel >= 4 ? "threat-glow-border" : "";
+  const expandedRarityGlowColor = expandedConservation
+    ? getRarityGlowColor(expandedConservation.populationRaw)
+    : null;
 
   const clearVariantResetTimer = (timerKey) => {
     if (!timerKey) return;
@@ -1237,6 +1254,24 @@ export default function GenusDetail() {
                   return activeVariantDiscoveries[cyclicIndex]?.image_url || null;
                 }).filter(Boolean)
               : (activeDiscovery?.image_url ? [activeDiscovery.image_url] : []);
+            const conservation = getConservationFromPlant(plant);
+            const conservationEffectLevel = getConservationEffectLevel(
+              conservation.threatRaw,
+              conservation.populationRaw
+            );
+            const threatAnimationClass = getThreatAnimationClass(
+              conservation.threatRaw,
+              conservation.populationRaw
+            );
+            const threatGlowClass = conservationEffectLevel >= 4 ? "threat-glow-border" : "";
+            const rarityGlowColor = getRarityGlowColor(conservation.populationRaw);
+            const dragStyle = plantDragOffsets[plant.id] != null
+              ? {
+                  transform: `translateX(${plantDragOffsets[plant.id]}px) rotate(${plantDragOffsets[plant.id] / 30}deg)`,
+                  transition: "none",
+                  willChange: "transform",
+                }
+              : {};
 
             return (
             <Card
@@ -1299,18 +1334,18 @@ export default function GenusDetail() {
                 plantTouchStartXRef.current[plant.id] = null;
                 resetPlantDrag(plant.id);
               }}
-              style={plantDragOffsets[plant.id] != null ? {
-                transform: `translateX(${plantDragOffsets[plant.id]}px) rotate(${plantDragOffsets[plant.id] / 30}deg)`,
-                transition: "none",
-                willChange: "transform",
-              } : undefined}
-              className={`relative border shadow-sm transition-all duration-300 overflow-hidden cursor-pointer ${
+              style={{
+                ...dragStyle,
+                "--threat-glow-color": rarityGlowColor,
+              }}
+              className={`relative border shadow-sm transition-all duration-300 overflow-hidden cursor-pointer ${threatAnimationClass} ${threatGlowClass} ${
                 plant.discovered
-                  ? `${getRarityBorderColor(plant.rarity)} hover:shadow-md ${isLightUi ? 'bg-white' : 'bg-black/40'}`
+                  ? `${getRarityBorderColor(plant)} hover:shadow-md ${isLightUi ? 'bg-white' : 'bg-black/40'}`
                   : (isLightUi ? 'border-stone-200 bg-stone-50 hover:bg-white' : 'border-stone-700/60 bg-black/30 hover:bg-black/40')
               }`}
             >
-              <CardContent className="p-3">
+              <ThreatLevelSparks active={conservationEffectLevel >= 3} count={20} className="z-40" />
+              <CardContent className="p-3 relative z-20">
                 <div className="space-y-2">
                   <SpeciesInfoCard
                     plant={{ ...plant, image_url: activeDiscovery?.image_url || null }}
@@ -1318,6 +1353,7 @@ export default function GenusDetail() {
                     isLightUi={isLightUi}
                     compact={true}
                     showNarrative={true}
+                    disableThreatEffects={true}
                     previewStackImages={orderedPreviewImages}
                     onPreviewSwipeLeft={() => {
                       plantSwipeTriggeredRef.current[plant.id] = true;
@@ -1491,7 +1527,7 @@ export default function GenusDetail() {
           >
             <div className="min-h-full flex items-start justify-center py-8 px-4">
             <div 
-              className={"rounded-2xl max-w-lg w-full " + (isLightUi ? "bg-white" : "bg-[#141916] border border-[#f0e5a5]/25")}
+              className={`relative overflow-hidden rounded-2xl max-w-lg w-full border ${expandedThreatAnimationClass} ${expandedThreatGlowClass} ${expandedPlantData ? getRarityBorderColor(expandedPlantData) : (isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25")} ${isLightUi ? "bg-white" : "bg-[#141916]"}`}
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(event) => {
                 expandedDragStartXRef.current = event.clientX;
@@ -1540,10 +1576,14 @@ export default function GenusDetail() {
                 transform: `translateX(${expandedDragOffset}px) rotate(${expandedDragOffset / 34}deg)`,
                 transition: "none",
                 willChange: "transform",
-              } : undefined}
+                "--threat-glow-color": expandedRarityGlowColor || "rgba(239, 68, 68, 0.82)",
+              } : {
+                "--threat-glow-color": expandedRarityGlowColor || "rgba(239, 68, 68, 0.82)",
+              }}
             >
+              <ThreatLevelSparks active={expandedConservationEffectLevel >= 3} count={22} className="z-40" />
               {/* Großes Bild */}
-              <div className="relative">
+              <div className="relative z-20">
                 {activeExpandedDiscovery?.image_url ? (
                   <img
                     src={activeExpandedDiscovery.image_url}
@@ -1667,12 +1707,13 @@ export default function GenusDetail() {
               </div>
               
               {/* Info-Bereich */}
-              <div className="p-4 space-y-3">
+              <div className="p-4 space-y-3 relative z-20">
                 <SpeciesInfoCard
                   plant={{ ...expandedPlantData, image_url: activeExpandedDiscovery?.image_url || null }}
                   imageUrl={activeExpandedDiscovery?.image_url || null}
                   isLightUi={isLightUi}
                   compact={false}
+                  disableThreatEffects={true}
                   showNarrative={true}
                   topRight={
                     <Button

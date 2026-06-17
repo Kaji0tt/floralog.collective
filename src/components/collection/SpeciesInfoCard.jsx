@@ -1,6 +1,16 @@
 import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronUp, ExternalLink, Leaf } from "lucide-react";
+import {
+  getConservationFromPlant,
+  getRarityAccentClasses,
+  getRarityBadgeClass,
+  getRarityGlowColor,
+  getRarityReflectionColor,
+  getRarityStars,
+  getConservationEffectLevel,
+  getThreatAnimationClass,
+} from "@/lib/conservationStatus";
 
 const NATURADB_BASE_URL = "https://www.naturadb.de/pflanzen/";
 const DISPLAY_PREFS_STORAGE_KEY = "floralog.speciesInfoCard.displayPrefs.v1";
@@ -103,79 +113,18 @@ const ecologyItems = (plant) => [
   { label: "Raupen", value: toDisplayOrNull(plant?.caterpillars_count) },
   { label: "Schwebfliegen", value: toDisplayOrNull(plant?.hoverflies_count) },
   { label: "Käfer", value: toDisplayOrNull(plant?.beetles_count) },
+  { label: "Bestand", value: toDisplayOrNull(plant?.red_list_population) },
   { label: "Gefährdung", value: toDisplayOrNull(plant?.red_list_threat) },
   { label: "Nektarwert", value: toQuarterOrNull(plant?.nectar_value) },
   { label: "Pollenwert", value: toQuarterOrNull(plant?.pollen_value) },
 ].filter((item) => item.value !== null);
-
-const getRarityColor = (rarity) => {
-  switch (rarity) {
-    case "Häufig":
-      return "bg-gray-500";
-    case "Gelegentlich":
-      return "bg-green-500";
-    case "Selten":
-      return "bg-fuchsia-500";
-    case "Sehr Selten":
-    case "Sehr selten":
-      return "bg-orange-500";
-    case "Extrem Selten":
-      return "bg-red-500";
-    default:
-      return "bg-gray-500";
-  }
-};
-
-const getRarityAccentClasses = (rarity, isLightUi) => {
-  switch (rarity) {
-    case "Extrem Selten":
-      return isLightUi
-        ? { border: "border-red-400/80", softBg: "bg-red-100/55", imageBorder: "border-red-400/85" }
-        : { border: "border-red-400/75", softBg: "bg-red-500/12", imageBorder: "border-red-400/80" };
-    case "Sehr Selten":
-    case "Sehr selten":
-      return isLightUi
-        ? { border: "border-orange-400/80", softBg: "bg-orange-100/55", imageBorder: "border-orange-400/85" }
-        : { border: "border-orange-300/75", softBg: "bg-orange-500/12", imageBorder: "border-orange-300/80" };
-    case "Selten":
-      return isLightUi
-        ? { border: "border-fuchsia-400/80", softBg: "bg-fuchsia-100/50", imageBorder: "border-fuchsia-400/85" }
-        : { border: "border-fuchsia-300/75", softBg: "bg-fuchsia-500/12", imageBorder: "border-fuchsia-300/80" };
-    case "Gelegentlich":
-      return isLightUi
-        ? { border: "border-emerald-500/75", softBg: "bg-emerald-100/50", imageBorder: "border-emerald-500/80" }
-        : { border: "border-emerald-300/70", softBg: "bg-emerald-500/12", imageBorder: "border-emerald-300/75" };
-    case "Häufig":
-    default:
-      return isLightUi
-        ? { border: "border-stone-300", softBg: "bg-stone-100/70", imageBorder: "border-stone-400/70" }
-        : { border: "border-stone-500/60", softBg: "bg-stone-500/10", imageBorder: "border-stone-400/70" };
-  }
-};
-
-const getRarityStars = (rarity) => {
-  switch (rarity) {
-    case "Häufig":
-      return "⭐";
-    case "Gelegentlich":
-      return "⭐⭐";
-    case "Selten":
-      return "⭐⭐⭐";
-    case "Sehr Selten":
-    case "Sehr selten":
-      return "⭐⭐⭐⭐";
-    case "Extrem Selten":
-      return "⭐⭐⭐⭐⭐";
-    default:
-      return "⭐";
-  }
-};
 
 export default function SpeciesInfoCard({
   plant,
   imageUrl,
   isLightUi = false,
   compact = false,
+  disableThreatEffects = false,
   showPrimaryImage = compact,
   showScientificMeta = compact,
   showNarrative = true,
@@ -192,8 +141,23 @@ export default function SpeciesInfoCard({
   const naturadbUrl = buildNaturaDbUrl(safePlant);
   const image = imageUrl || safePlant.image_url || null;
   const scientificName = resolveField(safePlant, "scientific_name") || "-";
-  const rarity = resolveField(safePlant, "rarity") || "Gelegentlich";
-  const rarityAccent = getRarityAccentClasses(rarity, isLightUi);
+  const conservation = getConservationFromPlant(safePlant);
+  const rarityAccent = getRarityAccentClasses(conservation.populationRaw, isLightUi);
+  const rarityBadgeClass = getRarityBadgeClass(conservation.populationRaw);
+  const rarityStars = getRarityStars(conservation.populationRaw);
+  const rarityGlowColor = getRarityGlowColor(conservation.populationRaw);
+  const rarityReflectionColor = getRarityReflectionColor(conservation.populationRaw);
+  const conservationEffectLevel = getConservationEffectLevel(
+    conservation.threatRaw,
+    conservation.populationRaw
+  );
+  const threatAnimationClass = getThreatAnimationClass(
+    conservation.threatRaw,
+    conservation.populationRaw
+  );
+  const threatGlowClass = conservationEffectLevel >= 4 ? "threat-glow-border" : "";
+  const appliedThreatAnimationClass = disableThreatEffects ? "" : threatAnimationClass;
+  const appliedThreatGlowClass = disableThreatEffects ? "" : threatGlowClass;
   const regionText = getRegionText(safePlant);
   const descriptionText = resolveField(safePlant, "description");
   const identificationText = resolveField(safePlant, "identification_features");
@@ -243,6 +207,24 @@ export default function SpeciesInfoCard({
     : previewStackBase;
   const nextImage = stackedPreviewImages[1] || null;
   const secondNextImage = stackedPreviewImages[2] || null;
+  const hasStackedPreview = stackedPreviewImages.length > 1;
+  const hasThreePlusPreview = stackedPreviewImages.length > 2;
+  const frontPreviewWidth = hasStackedPreview ? 85 : 100;
+  const secondPreviewSlot = hasThreePlusPreview
+    ? { left: 85, top: 6, width: 10, height: 90, opacity: 0.44, zIndex: 20 }
+    : { left: 85, top: 6, width: 15, height: 90, opacity: 0.44, zIndex: 20 };
+  const thirdPreviewSlot = hasThreePlusPreview
+    ? { left: 95, top: 12, width: 5, height: 82, opacity: 0.3, zIndex: 10 }
+    : { left: 85, top: 6, width: 15, height: 90, opacity: 0.3, zIndex: 10 };
+  const recyclePreviewSlot = hasThreePlusPreview ? thirdPreviewSlot : secondPreviewSlot;
+  const previousPreviewSlot = {
+    left: -secondPreviewSlot.width,
+    top: secondPreviewSlot.top,
+    width: secondPreviewSlot.width,
+    height: secondPreviewSlot.height,
+    opacity: 0.34,
+    zIndex: 20,
+  };
   const previousImage = stackedPreviewImages.length > 1 ? stackedPreviewImages[stackedPreviewImages.length - 1] : null;
   const dragProgress = Math.min(Math.abs(previewDragX) / PREVIEW_SWIPE_THRESHOLD_PX, 1);
   const activeDirection = previewPhase === "dragging"
@@ -431,7 +413,13 @@ export default function SpeciesInfoCard({
     : "float-right ml-3 mb-2 w-1/3";
 
   return (
-    <div className="space-y-3">
+    <div
+      className={`space-y-3 ${appliedThreatAnimationClass} ${appliedThreatGlowClass}`}
+      style={/** @type {any} */ ({
+        "--threat-glow-color": rarityGlowColor,
+        "--rarity-reflection-color": rarityReflectionColor,
+      })}
+    >
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
@@ -459,8 +447,12 @@ export default function SpeciesInfoCard({
             )}
           </div>
           <div className="shrink-0 flex items-center gap-2">
-            <Badge className={`h-5 ${getRarityColor(rarity)} text-white text-[10px] px-1.5 py-0 rounded-full shrink-0`}>
-              {getRarityStars(rarity)}
+            <Badge
+              variant="secondary"
+              className={`h-5 ${rarityBadgeClass} text-[10px] px-1.5 py-0 rounded-full shrink-0`}
+              title={conservation.population.label}
+            >
+              {rarityStars}
             </Badge>
             {topRight || null}
           </div>
@@ -486,20 +478,20 @@ export default function SpeciesInfoCard({
                         {
                           key: `carousel-front-${image || "empty"}`,
                           src: image,
-                          from: { left: 0, top: 0, width: 74, height: 100, opacity: 1, zIndex: 30 },
-                          to: { left: 50, top: 15, width: 50, height: 78, opacity: 0.28, zIndex: 12 },
+                          from: { left: 0, top: 0, width: frontPreviewWidth, height: 100, opacity: 1, zIndex: 30 },
+                          to: recyclePreviewSlot,
                         },
                         {
                           key: `carousel-next-${nextImage || "empty"}`,
                           src: nextImage,
-                          from: { left: 34, top: 7, width: 56, height: 86, opacity: 0.42, zIndex: 20 },
-                          to: { left: 0, top: 0, width: 74, height: 100, opacity: 1, zIndex: 32 },
+                          from: secondPreviewSlot,
+                          to: { left: 0, top: 0, width: frontPreviewWidth, height: 100, opacity: 1, zIndex: 32 },
                         },
                         {
                           key: `carousel-next2-${secondNextImage || "empty"}`,
                           src: secondNextImage,
-                          from: { left: 50, top: 15, width: 50, height: 78, opacity: 0.3, zIndex: 10 },
-                          to: { left: 34, top: 7, width: 56, height: 86, opacity: 0.42, zIndex: 20 },
+                          from: thirdPreviewSlot,
+                          to: secondPreviewSlot,
                         },
                       ]
                     : activeDirection === 1
@@ -507,40 +499,40 @@ export default function SpeciesInfoCard({
                           {
                             key: `carousel-prev-${previousImage || "empty"}`,
                             src: previousImage,
-                            from: { left: -18, top: 7, width: 56, height: 86, opacity: 0.34, zIndex: 20 },
-                            to: { left: 0, top: 0, width: 74, height: 100, opacity: 1, zIndex: 32 },
+                            from: previousPreviewSlot,
+                            to: { left: 0, top: 0, width: frontPreviewWidth, height: 100, opacity: 1, zIndex: 32 },
                           },
                           {
                             key: `carousel-front-${image || "empty"}`,
                             src: image,
-                            from: { left: 0, top: 0, width: 74, height: 100, opacity: 1, zIndex: 30 },
-                            to: { left: 34, top: 7, width: 56, height: 86, opacity: 0.42, zIndex: 20 },
+                            from: { left: 0, top: 0, width: frontPreviewWidth, height: 100, opacity: 1, zIndex: 30 },
+                            to: secondPreviewSlot,
                           },
                           {
                             key: `carousel-next-${nextImage || "empty"}`,
                             src: nextImage,
-                            from: { left: 34, top: 7, width: 56, height: 86, opacity: 0.42, zIndex: 20 },
-                            to: { left: 50, top: 15, width: 50, height: 78, opacity: 0.3, zIndex: 10 },
+                            from: secondPreviewSlot,
+                            to: thirdPreviewSlot,
                           },
                         ]
                       : [
                           {
                             key: `carousel-front-${image || "empty"}`,
                             src: image,
-                            from: { left: 0, top: 0, width: 74, height: 100, opacity: 1, zIndex: 30 },
-                            to: { left: 0, top: 0, width: 74, height: 100, opacity: 1, zIndex: 30 },
+                            from: { left: 0, top: 0, width: frontPreviewWidth, height: 100, opacity: 1, zIndex: 30 },
+                            to: { left: 0, top: 0, width: frontPreviewWidth, height: 100, opacity: 1, zIndex: 30 },
                           },
                           {
                             key: `carousel-next-${nextImage || "empty"}`,
                             src: nextImage,
-                            from: { left: 34, top: 7, width: 56, height: 86, opacity: 0.42, zIndex: 20 },
-                            to: { left: 34, top: 7, width: 56, height: 86, opacity: 0.42, zIndex: 20 },
+                            from: secondPreviewSlot,
+                            to: secondPreviewSlot,
                           },
                           {
                             key: `carousel-next2-${secondNextImage || "empty"}`,
                             src: secondNextImage,
-                            from: { left: 50, top: 15, width: 50, height: 78, opacity: 0.3, zIndex: 10 },
-                            to: { left: 50, top: 15, width: 50, height: 78, opacity: 0.3, zIndex: 10 },
+                            from: thirdPreviewSlot,
+                            to: thirdPreviewSlot,
                           },
                         ]),
                 ]
@@ -585,7 +577,7 @@ export default function SpeciesInfoCard({
         )}
 
         {!compact && showPrimaryImage && image && (
-          <div className="w-full overflow-hidden rounded-xl border border-[#f0e5a5]/35 bg-black/20">
+          <div className="w-full overflow-hidden rounded-xl border border-[#f0e5a5]/35 bg-black/20 rarity-reflection-host">
             <img
               src={image}
               alt={safePlant.species_name || "Gescanntes Pflanzenbild"}
