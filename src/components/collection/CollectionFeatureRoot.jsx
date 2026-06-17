@@ -20,6 +20,18 @@ const CATEGORY_CHIPS = [
   { value: "Blumen", emoji: "🌸" },
 ];
 
+const isMissingFavoriteColumnError = (error) => {
+  if (!error) return false;
+  const message = String(error?.message || "").toLowerCase();
+  const details = String(error?.details || "").toLowerCase();
+  const hint = String(error?.hint || "").toLowerCase();
+  return (
+    message.includes("is_favorite") ||
+    details.includes("is_favorite") ||
+    hint.includes("is_favorite")
+  );
+};
+
 const getAverageColor = (imageUrl) => {
   return new Promise((resolve) => {
     const img = new window.Image();
@@ -81,6 +93,7 @@ export default function CollectionFeatureRoot({
   const [communitySort, setCommunitySort] = useState("newest");
   const [browseDeeplinkCollectionId, setBrowseDeeplinkCollectionId] = useState(null);
   const [browseDeeplinkAuthId, setBrowseDeeplinkAuthId] = useState(null);
+  const [favoriteColumnUnavailable, setFavoriteColumnUnavailable] = useState(false);
   const isRouteMode = !embedded;
   const isQuestCollectionView =
     isRouteMode && searchParams.get("from") === "quests" && !!searchParams.get("collectionId");
@@ -294,7 +307,7 @@ export default function CollectionFeatureRoot({
         console.error("[Collection] Could not create follow notification:", error);
       }
 
-      queryClient.invalidateQueries({ queryKey: ["userCollections", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["userCollections", targetUserId] });
       queryClient.invalidateQueries({ queryKey: ["visibleCollections"] });
       queryClient.invalidateQueries({ queryKey: ["allCollections"] });
     },
@@ -305,9 +318,34 @@ export default function CollectionFeatureRoot({
       return Query.UserCollection.delete(userCollectionId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["userCollections", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["userCollections", targetUserId] });
       queryClient.invalidateQueries({ queryKey: ["visibleCollections"] });
       queryClient.invalidateQueries({ queryKey: ["allCollections"] });
+    },
+  });
+
+  const toggleFavoriteMutation = useMutation({
+    mutationFn: async ({ userCollectionId, isFavorite }) => {
+      if (!userCollectionId) return null;
+      return Query.UserCollection.update(userCollectionId, { is_favorite: Boolean(isFavorite) });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["userCollections", targetUserId] });
+      queryClient.invalidateQueries({ queryKey: ["visibleCollections"] });
+      queryClient.invalidateQueries({ queryKey: ["allCollections"] });
+    },
+    onError: (error) => {
+      // NOTE(backport): If the official server runs an older schema without
+      // public."UserCollection".is_favorite, this mutation fails. Apply the
+      // matching Supabase migration first, then re-enable this toggle.
+      if (isMissingFavoriteColumnError(error)) {
+        setFavoriteColumnUnavailable(true);
+        console.warn(
+          '[Collection] Favorite toggle disabled because column public."UserCollection".is_favorite is missing. Please apply the favorite migration on the target backend.'
+        );
+        return;
+      }
+      console.error("[Collection] Could not toggle collection favorite:", error);
     },
   });
 
@@ -361,11 +399,22 @@ export default function CollectionFeatureRoot({
   const isCollectionFilter = typeof activeCategory === "string" && activeCategory.startsWith('collection_');
   const collectionId = isCollectionFilter ? activeCategory.replace('collection_', '') : null;
   
-  const followedCollections = visibleCollections.filter((c) =>
-    c.is_public &&
-    c.auth_id !== targetUserId &&
-    userCollections.some((uc) => uc.collection_id === c.id)
-  );
+  const followedCollections = visibleCollections
+    .filter(
+      (c) =>
+        c.is_public &&
+        c.auth_id !== targetUserId &&
+        userCollections.some((uc) => uc.collection_id === c.id)
+    )
+    .map((collectionEntry) => {
+      const userCollectionLink = userCollections.find((uc) => uc.collection_id === collectionEntry.id) || null;
+      return {
+        ...collectionEntry,
+        userCollectionLink,
+        // Backward-compatible: older backends may not return is_favorite yet.
+        isFavorite: Boolean(userCollectionLink?.is_favorite),
+      };
+    });
 
   const collectionsById = new Map();
   [
@@ -404,6 +453,7 @@ export default function CollectionFeatureRoot({
         title: entry.title,
         isGlobal: false,
         isFollowed: followedCollections.some((followed) => followed.id === entry.id),
+        isFavorite: Boolean(entry?.isFavorite),
       }));
     }
 
@@ -760,6 +810,7 @@ export default function CollectionFeatureRoot({
     ? userCollections.find((uc) => uc.collection_id === selectedCollection.id)
     : null;
   const isFollowingSelected = !!userCollectionLinkForSelected && !isOwnerOfSelected;
+  const isFavoriteSelected = Boolean(userCollectionLinkForSelected?.is_favorite);
   const selectedCollectionKey = selectedCollectionId || "global";
   const selectedCollectionFilters = {
     ...DEFAULT_COLLECTION_FILTERS,
@@ -827,6 +878,7 @@ export default function CollectionFeatureRoot({
       isOwnCollection,
       userCollectionLink,
       isFollowing,
+      isFavorite: Boolean(userCollectionLink?.is_favorite),
     };
   });
 
@@ -872,10 +924,14 @@ export default function CollectionFeatureRoot({
           total,
           remainingCount,
           remainingRatio,
+          isFavorite: Boolean(collectionEntry?.isFavorite),
         };
       })
       .filter((entry) => entry.total > 0)
       .sort((a, b) => {
+        if (a.isFavorite !== b.isFavorite) {
+          return Number(b.isFavorite) - Number(a.isFavorite);
+        }
         if (a.remainingRatio !== b.remainingRatio) {
           return a.remainingRatio - b.remainingRatio;
         }
@@ -886,7 +942,7 @@ export default function CollectionFeatureRoot({
       })
       .slice(0, 2);
 
-    return ranked.map((entry) => `${entry.title}: ${entry.discovered}/${entry.total}`);
+    return ranked.map((entry) => `${entry.isFavorite ? "★ " : ""}${entry.title}: ${entry.discovered}/${entry.total}`);
   }, [followedCollections, getCollectionStats]);
 
   const browseCollectionCounts = useMemo(() => {
@@ -1180,10 +1236,14 @@ export default function CollectionFeatureRoot({
               selectedCollection={selectedCollection}
               isOwnerOfSelected={isOwnerOfSelected}
               isFollowingSelected={isFollowingSelected}
+              isFavoriteSelected={isFavoriteSelected}
+              isFavoriteFeatureAvailable={!favoriteColumnUnavailable}
               userCollectionLinkForSelected={userCollectionLinkForSelected}
               onUnfollow={(userCollectionId) => unfollowMutation.mutate(userCollectionId)}
               onFollow={(collectionId) => followMutation.mutate(collectionId)}
+              onToggleFavorite={(payload) => toggleFavoriteMutation.mutate(payload)}
               isFollowLoading={!readOnly && (followMutation.isPending || unfollowMutation.isPending)}
+              isFavoriteLoading={!readOnly && toggleFavoriteMutation.isPending}
               onEditCollection={(collectionId) => {
                 if (!readOnly) navigate("/CollectionEditor?id=" + collectionId);
               }}

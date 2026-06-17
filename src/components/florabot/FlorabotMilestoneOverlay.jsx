@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUiTheme } from "@/lib/UiThemeContext";
-import FlorabotLogo from "./FlorabotLogo";
+import FlorabotOverlayShell from "./FlorabotOverlayShell";
 
 /**
  * Full-screen Florabot milestone overlay.
@@ -33,48 +33,39 @@ export default function FlorabotMilestoneOverlay({ milestone, profile, logoAsset
   };
 
   return (
-    <motion.div
-      className="fixed inset-0 z-[190] flex flex-col items-center justify-center px-6"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.35 }}
-      style={{
-        background: isLightUi
-          ? "rgba(245,240,230,0.82)"
-          : "rgba(10,14,10,0.88)",
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
-      }}
+    <FlorabotOverlayShell
+      eyebrow={`${milestone.threshold.toLocaleString("de")} Samen`}
+      profile={profile}
+      logoAssets={logoAssets}
+      footer={(
+        <>
+          <motion.button
+            type="button"
+            onClick={handleNext}
+            className={`mt-6 rounded-2xl px-8 py-3 text-sm font-semibold transition-colors ${
+              isLightUi
+                ? "bg-lime-600 text-white hover:bg-lime-700"
+                : "bg-lime-500/85 text-black hover:bg-lime-400"
+            }`}
+            whileTap={{ scale: 0.96 }}
+          >
+            {isLast ? "Verstanden!" : "Weiter"}
+          </motion.button>
+
+          <button
+            type="button"
+            onClick={() => onDismiss(milestone.id)}
+            className={`mt-3 text-xs transition-colors ${
+              isLightUi
+                ? "text-stone-400 hover:text-stone-600"
+                : "text-stone-600 hover:text-stone-400"
+            }`}
+          >
+            Schließen
+          </button>
+        </>
+      )}
     >
-      {/* Milestone label */}
-      <motion.p
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15, duration: 0.3 }}
-        className={`text-[0.68rem] uppercase tracking-[0.22em] font-medium mb-4 ${
-          isLightUi ? "text-lime-700" : "text-lime-400"
-        }`}
-      >
-        {milestone.threshold.toLocaleString("de")} Samen
-      </motion.p>
-
-      {/* Logo */}
-      <motion.div
-        initial={{ scale: 0.82, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
-      >
-        <FlorabotLogo
-          profile={profile}
-          logoAssets={logoAssets}
-          sizeClass="w-28 h-28"
-          padding="p-[8%]"
-          className="drop-shadow-[0_0_28px_rgba(190,242,100,0.5)]"
-        />
-      </motion.div>
-
-      {/* Speech bubble */}
       <AnimatePresence mode="wait">
         <motion.div
           key={slideIndex}
@@ -121,7 +112,6 @@ export default function FlorabotMilestoneOverlay({ milestone, profile, logoAsset
         </motion.div>
       </AnimatePresence>
 
-      {/* Progress dots (only when > 1 message) */}
       {messages.length > 1 && (
         <div className="flex gap-2 mt-5">
           {messages.map((_, i) => (
@@ -138,32 +128,6 @@ export default function FlorabotMilestoneOverlay({ milestone, profile, logoAsset
           ))}
         </div>
       )}
-
-      {/* CTA button */}
-      <motion.button
-        type="button"
-        onClick={handleNext}
-        className={`mt-6 rounded-2xl px-8 py-3 text-sm font-semibold transition-colors ${
-          isLightUi
-            ? "bg-lime-600 text-white hover:bg-lime-700"
-            : "bg-lime-500/85 text-black hover:bg-lime-400"
-        }`}
-        whileTap={{ scale: 0.96 }}
-      >
-        {isLast ? "Verstanden!" : "Weiter"}
-      </motion.button>
-
-      <button
-        type="button"
-        onClick={() => onDismiss(milestone.id)}
-        className={`mt-3 text-xs transition-colors ${
-          isLightUi
-            ? "text-stone-400 hover:text-stone-600"
-            : "text-stone-600 hover:text-stone-400"
-        }`}
-      >
-        Schließen
-      </button>
-    </motion.div>
+    </FlorabotOverlayShell>
   );
 }

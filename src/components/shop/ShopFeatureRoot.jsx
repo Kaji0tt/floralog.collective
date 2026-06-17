@@ -104,7 +104,7 @@ const getBackgroundButtonStyle = ({ isActive, isLightUi }) => {
     : "border-[#f0e5a5]/25 hover:border-[#f0e5a5]/45";
 };
 
-const BackgroundOptionCard = ({ option, user, isLightUi, isPending, onSelect }) => {
+const BackgroundOptionCard = ({ option, user, isLightUi, isPending, isSelected = false, onSelect }) => {
   const isActive = getBackgroundSelectionState(user, option);
   const isLocked = Boolean(option?.isLocked);
 
@@ -113,7 +113,11 @@ const BackgroundOptionCard = ({ option, user, isLightUi, isPending, onSelect }) 
       type="button"
       disabled={isPending || isLocked}
       onClick={() => onSelect(option)}
-      className={`relative overflow-hidden rounded-2xl border text-left transition-all duration-200 disabled:opacity-60 ${isLocked ? "cursor-help" : ""} ${getBackgroundButtonStyle({ isActive, isLightUi })}`}
+      className={`relative overflow-hidden rounded-2xl border text-left transition-all duration-200 disabled:opacity-60 ${isLocked ? "cursor-help" : ""} ${getBackgroundButtonStyle({ isActive, isLightUi })} ${
+        isSelected
+          ? (isLightUi ? "ring-2 ring-[#c8ac62]/70" : "ring-2 ring-[#f0e5a5]/70")
+          : ""
+      }`}
     >
       <div className="aspect-[1.1/1] w-full">
         {option.type === "color" ? (
@@ -158,7 +162,7 @@ const BackgroundOptionCard = ({ option, user, isLightUi, isPending, onSelect }) 
   );
 };
 
-const TitleOptionRow = ({ option, user, isLightUi, isPending, onSelect }) => {
+const TitleOptionRow = ({ option, user, isLightUi, isPending, isSelected = false, onSelect }) => {
   const isActive = resolveTitleValue(user?.selected_title) === resolveTitleValue(option?.value, option?.label);
 
   return (
@@ -174,7 +178,7 @@ const TitleOptionRow = ({ option, user, isLightUi, isPending, onSelect }) => {
           : (isLightUi
             ? "border-[#c8ac62]/30 bg-white/65 text-stone-800 hover:bg-white/85"
             : "border-[#f0e5a5]/20 bg-black/30 text-stone-100 hover:bg-black/45")
-      }`}
+          } ${isSelected ? (isLightUi ? "ring-2 ring-[#c8ac62]/60" : "ring-2 ring-[#f0e5a5]/65") : ""}`}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
@@ -204,7 +208,7 @@ const formatAccessoryPriceLabel = (sparkPrice, amberPrice) => {
   return parts.join(" + ");
 };
 
-const AccessoryOptionCard = ({ option, user, isLightUi, isPending, onSelect }) => {
+const AccessoryOptionCard = ({ option, user, isLightUi, isPending, isSelected = false, onSelect }) => {
   const isActive = getAccessorySelectionState(user, option);
   const isLocked = Boolean(option?.isLocked);
   const sparkPrice = Math.max(0, Number(option?.sparkPrice || 0));
@@ -221,7 +225,11 @@ const AccessoryOptionCard = ({ option, user, isLightUi, isPending, onSelect }) =
       type="button"
       disabled={isPending}
       onClick={() => onSelect(option)}
-      className={`relative overflow-hidden rounded-2xl border text-left transition-all duration-200 disabled:opacity-60 ${isLocked ? "cursor-help" : ""} ${getBackgroundButtonStyle({ isActive, isLightUi })}`}
+      className={`relative overflow-hidden rounded-2xl border text-left transition-all duration-200 disabled:opacity-60 ${isLocked ? "cursor-help" : ""} ${getBackgroundButtonStyle({ isActive, isLightUi })} ${
+        isSelected
+          ? (isLightUi ? "ring-2 ring-[#c8ac62]/70" : "ring-2 ring-[#f0e5a5]/70")
+          : ""
+      }`}
     >
       <div className="aspect-square w-full p-2">
         <img
@@ -480,7 +488,7 @@ const SectionCard = ({ title, icon: Icon, children, isLightUi }) => {
   );
 };
 
-const AccessoryPagedGrid = ({ options, user, isLightUi, isPending, onSelect }) => {
+const AccessoryPagedGrid = ({ options, user, isLightUi, isPending, onSelect, selectedOptionId = null }) => {
   const pages = chunkIntoAccessoryPages(options);
   const scrollRef = React.useRef(/** @type {HTMLDivElement | null} */ (null));
   const [canScrollLeft, setCanScrollLeft] = React.useState(false);
@@ -505,7 +513,7 @@ const AccessoryPagedGrid = ({ options, user, isLightUi, isPending, onSelect }) =
 
   return (
     <div className="space-y-2">
-      <div ref={scrollRef} className="overflow-x-auto pb-1">
+      <div ref={scrollRef} className="overflow-x-auto hide-scrollbar pb-1">
         <div className="flex snap-x snap-mandatory gap-3">
           {pages.map((pageOptions, pageIndex) => {
             const placeholders = Math.max(0, ACCESSORY_GRID_PAGE_SIZE - pageOptions.length);
@@ -520,6 +528,7 @@ const AccessoryPagedGrid = ({ options, user, isLightUi, isPending, onSelect }) =
                       user={user}
                       isLightUi={isLightUi}
                       isPending={isPending}
+                      isSelected={selectedOptionId === option.id}
                       onSelect={onSelect}
                     />
                   ))}
@@ -560,6 +569,8 @@ export default function ShopFeatureRoot({
   currentUser = null,
   onHeaderMetaChange,
   onUserUpdated,
+  externalActionMode = false,
+  onActionStateChange,
 }) {
   const { isLightUi } = useUiTheme();
   const queryClient = useQueryClient();
@@ -567,6 +578,7 @@ export default function ShopFeatureRoot({
   const [shopCategory, setShopCategory] = useState(initialCategory);
   const [shopMessage, setShopMessage] = useState(null);
   const [purchaseConfirmOption, setPurchaseConfirmOption] = useState(null);
+  const [selectedOptionForAction, setSelectedOptionForAction] = useState(null);
   const [collapsedBackgroundSections, setCollapsedBackgroundSections] = useState({
     presets: false,
     colors: false,
@@ -697,6 +709,10 @@ export default function ShopFeatureRoot({
     }
   }, [categories, shopCategory]);
 
+  useEffect(() => {
+    setSelectedOptionForAction(null);
+  }, [shopCategory]);
+
   const currentCategory = categories.find((category) => category.key === shopCategory) || categories[0] || null;
 
   const updateCustomizationMutation = useMutation({
@@ -786,6 +802,42 @@ export default function ShopFeatureRoot({
   });
 
   const handleSelectBackground = async (option) => {
+    if (externalActionMode) {
+      if (option?.isLocked) {
+        setShopMessage(option?.unlockCondition || "Dieser Hintergrund ist noch gesperrt.");
+        return;
+      }
+      setSelectedOptionForAction({
+        kind: "background",
+        option,
+        actionLabel: "Ausruesten",
+        actionDisabled: false,
+      });
+      return;
+    }
+
+    setShopMessage(null);
+
+    if (option?.isLocked) {
+      setShopMessage(option?.unlockCondition || "Dieser Hintergrund ist noch gesperrt.");
+      return;
+    }
+
+    if (option?.type === "color") {
+      await updateCustomizationMutation.mutateAsync({
+        background_image_url: null,
+        background_color: option.value,
+      });
+      return;
+    }
+
+    await updateCustomizationMutation.mutateAsync({
+      background_image_url: option?.value || null,
+      background_color: null,
+    });
+  };
+
+  const applyBackgroundSelection = async (option) => {
     setShopMessage(null);
 
     if (option?.isLocked) {
@@ -816,6 +868,22 @@ export default function ShopFeatureRoot({
   };
 
   const handleSelectTitle = async (option) => {
+    if (externalActionMode) {
+      setSelectedOptionForAction({
+        kind: "title",
+        option,
+        actionLabel: "Ausruesten",
+        actionDisabled: false,
+      });
+      return;
+    }
+
+    setShopMessage(null);
+    const nextTitle = resolveTitleValue(option?.value, option?.label);
+    await updateCustomizationMutation.mutateAsync({ selected_title: nextTitle || null });
+  };
+
+  const applyTitleSelection = async (option) => {
     setShopMessage(null);
     const nextTitle = resolveTitleValue(option?.value, option?.label);
     await updateCustomizationMutation.mutateAsync({ selected_title: nextTitle || null });
@@ -827,6 +895,26 @@ export default function ShopFeatureRoot({
   };
 
   const handleSelectAccessory = async (option) => {
+    if (externalActionMode) {
+      const sparkPrice = Math.max(0, Number(option?.sparkPrice || 0));
+      const amberPrice = Math.max(0, Number(option?.amberPrice || 0));
+      const canBeBought = Boolean(option?.isPurchasable) && (sparkPrice > 0 || amberPrice > 0);
+      const isLocked = Boolean(option?.isLocked);
+
+      if (isLocked && !canBeBought) {
+        setShopMessage("Dieses Accessoire ist noch gesperrt.");
+        return;
+      }
+
+      setSelectedOptionForAction({
+        kind: "accessory",
+        option,
+        actionLabel: isLocked ? "Kaufen" : "Ausruesten",
+        actionDisabled: false,
+      });
+      return;
+    }
+
     if (!option?.profileField) return;
     if (option?.isLocked) {
       if (option?.isPurchasable && (Number(option?.sparkPrice || 0) > 0 || Number(option?.amberPrice || 0) > 0)) {
@@ -841,7 +929,39 @@ export default function ShopFeatureRoot({
     await updateCustomizationMutation.mutateAsync({ [option.profileField]: option.value });
   };
 
+  const applyAccessorySelection = async (option) => {
+    if (!option?.profileField) return;
+
+    if (option?.isLocked) {
+      if (option?.isPurchasable && (Number(option?.sparkPrice || 0) > 0 || Number(option?.amberPrice || 0) > 0)) {
+        setShopMessage(null);
+        await purchaseAccessoryMutation.mutateAsync(option);
+      } else {
+        setShopMessage("Dieses Accessoire ist noch gesperrt.");
+      }
+      return;
+    }
+
+    setShopMessage(null);
+    await updateCustomizationMutation.mutateAsync({ [option.profileField]: option.value });
+  };
+
   const handleSelectBorderColor = async (hex) => {
+    if (externalActionMode) {
+      setSelectedOptionForAction({
+        kind: "border-color",
+        option: { value: hex || null },
+        actionLabel: "Ausruesten",
+        actionDisabled: false,
+      });
+      return;
+    }
+
+    setShopMessage(null);
+    await updateCustomizationMutation.mutateAsync({ selected_border_color: hex || null });
+  };
+
+  const applyBorderColorSelection = async (hex) => {
     setShopMessage(null);
     await updateCustomizationMutation.mutateAsync({ selected_border_color: hex || null });
   };
@@ -857,12 +977,8 @@ export default function ShopFeatureRoot({
     onHeaderMetaChange({
       title: "Shop",
       subtitle: null,
-      infoLabel: {
-        sparks: availableSparks,
-        amber: availableAmber,
-      },
     });
-  }, [availableAmber, availableSparks, currentCategory, embedded, onHeaderMetaChange]);
+  }, [currentCategory, embedded, onHeaderMetaChange]);
 
   const purchaseDialogSparkPrice = Math.max(0, Number(purchaseConfirmOption?.sparkPrice ?? 0));
   const purchaseDialogAmberPrice = Math.max(0, Number(purchaseConfirmOption?.amberPrice ?? 0));
@@ -871,6 +987,48 @@ export default function ShopFeatureRoot({
   const canAffordPurchaseDialogOption = canAffordDialogSparks && canAffordDialogAmber;
   const resolvedCurrentTitle = resolveTitleValue(resolvedCurrentUser?.selected_title, resolvedCurrentUser?.title) || "Pflanzen-Entdecker";
   const isMutationPending = updateCustomizationMutation.isPending || purchaseAccessoryMutation.isPending;
+  const selectedActionRef = React.useRef(null);
+
+  const executeSelectedAction = async () => {
+    const payload = selectedOptionForAction;
+    if (!payload || isMutationPending) return;
+
+    const { kind, option } = payload;
+    if (kind === "background") {
+      await applyBackgroundSelection(option);
+      return;
+    }
+    if (kind === "title") {
+      await applyTitleSelection(option);
+      return;
+    }
+    if (kind === "accessory") {
+      await applyAccessorySelection(option);
+      return;
+    }
+    if (kind === "border-color") {
+      await applyBorderColorSelection(option?.value || null);
+    }
+  };
+
+  selectedActionRef.current = executeSelectedAction;
+
+  useEffect(() => {
+    if (typeof onActionStateChange !== "function") return;
+
+    const canAct = Boolean(selectedOptionForAction) && !isMutationPending;
+    onActionStateChange({
+      label: selectedOptionForAction?.actionLabel || "Kaufen",
+      disabled: !canAct,
+      isBusy: isMutationPending,
+      onAction: async () => {
+        if (typeof selectedActionRef.current === "function") {
+          await selectedActionRef.current();
+        }
+      },
+      selectedOption: selectedOptionForAction,
+    });
+  }, [selectedOptionForAction, isMutationPending, onActionStateChange]);
 
   const handleClosePurchaseDialog = () => {
     if (purchaseAccessoryMutation.isPending) return;
@@ -893,15 +1051,16 @@ export default function ShopFeatureRoot({
     try {
       await purchaseAccessoryMutation.mutateAsync(purchaseConfirmOption);
       setPurchaseConfirmOption(null);
-    } catch (_error) {
+    } catch {
       // Die Fehlermeldung wird in onError/onSuccess gesetzt.
     }
   };
 
+  const embeddedDividerClass = isLightUi ? "border-[#b99a48]/30" : "border-[#f0e5a5]/20";
   const tabsHeaderClass = embedded
-    ? `sticky top-0 z-40 backdrop-blur-sm border-b ${isLightUi ? "bg-white/70 border-[#b99a48]/30" : "bg-black/20 border-[#f0e5a5]/20"}`
+    ? `sticky top-0 z-40 backdrop-blur-sm border-b ${isLightUi ? "bg-white/70" : "bg-transparent"} ${embeddedDividerClass}`
     : `sticky top-0 z-40 border-b ${isLightUi ? "bg-white/90 border-stone-200/80 backdrop-blur-xl" : "bg-stone-950/75 border-[#f0e5a5]/20 backdrop-blur-xl"}`;
-  const contentClass = embedded ? "mt-0 px-4 pb-4 flex-1 min-h-0 overflow-y-auto" : "px-4 pb-8 pt-4";
+  const contentClass = embedded ? "mt-0 px-4 pb-4 flex-1 min-h-0 overflow-y-auto hide-scrollbar" : "px-4 pb-8 pt-4";
   const listTopFadePx = 12;
   const listBottomFadePx = 18;
   const contentMaskStyle = embedded
@@ -927,11 +1086,11 @@ export default function ShopFeatureRoot({
     <section
       data-embedded-module="shop"
       data-theme={isLightUi ? "light" : "dark"}
-      className="flex-1 min-h-0 overflow-hidden flex flex-col"
+      className="h-full flex-1 min-h-0 overflow-hidden flex flex-col"
     >
       <div className={`${tabsHeaderClass} shrink-0`}>
         <div className="w-full px-2 pt-2">
-          <div className="overflow-x-auto pb-1">
+          <div className="overflow-x-auto hide-scrollbar pb-1">
             <div className="flex min-w-max gap-2 px-2">
               {categories.map((category) => {
                 const isPrimary = shopCategory === category.key;
@@ -1062,6 +1221,7 @@ export default function ShopFeatureRoot({
                               user={resolvedCurrentUser}
                               isLightUi={isLightUi}
                               isPending={isMutationPending}
+                              isSelected={selectedOptionForAction?.kind === "background" && selectedOptionForAction?.option?.id === option.id}
                               onSelect={handleSelectBackground}
                             />
                           ))}
@@ -1088,6 +1248,7 @@ export default function ShopFeatureRoot({
                         isLightUi={isLightUi}
                         isPending={isMutationPending}
                         onSelect={handleSelectAccessory}
+                        selectedOptionId={selectedOptionForAction?.kind === "accessory" ? selectedOptionForAction?.option?.id : null}
                       />
                       {section.key === "border" && (
                         <BorderColorPicker
@@ -1137,6 +1298,7 @@ export default function ShopFeatureRoot({
                         user={resolvedCurrentUser}
                         isLightUi={isLightUi}
                         isPending={isMutationPending}
+                        isSelected={selectedOptionForAction?.kind === "title" && selectedOptionForAction?.option?.id === option.id}
                         onSelect={handleSelectTitle}
                       />
                     ))}
@@ -1151,6 +1313,8 @@ export default function ShopFeatureRoot({
           )}
         </div>
       </div>
+
+      {embedded ? <div className={`w-full shrink-0 border-t ${embeddedDividerClass}`} aria-hidden="true" /> : null}
 
       <Dialog open={Boolean(purchaseConfirmOption)} onOpenChange={(open) => {
         if (!open) handleClosePurchaseDialog();

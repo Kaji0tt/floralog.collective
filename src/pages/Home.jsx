@@ -25,7 +25,7 @@ import {
 import { getOpenPlantQuiz, submitPlantQuizAnswer } from "@/api/plantQuizService";
 import { getTileClaims } from "@/api/tileClaimService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Camera, Loader2, Leaf, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, Zap, Palette } from "lucide-react";
+import { Camera, Loader2, Leaf, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, Palette } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
@@ -50,6 +50,8 @@ import HomeHeaderBar from "@/components/navigation/HomeHeaderBar";
 import HomeBottomNavigation from "@/components/navigation/HomeBottomNavigation";
 import { getNavButtonStyle } from "@/components/navigation/navButtonStyles";
 import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
+import HomeCollectionStripes from "@/components/home/HomeCollectionStripes";
+import HomeMilestoneOverlayToggle from "@/components/home/HomeMilestoneOverlayToggle";
 import GuestHomeFlow from "@/components/home/GuestHomeFlow";
 import HomeOtaGate from "@/components/home/HomeOtaGate";
 import HomeMapFeatureRoot from "@/components/home/HomeMapFeatureRoot.jsx";
@@ -74,7 +76,6 @@ import FlorabotMilestoneOverlay from "@/components/florabot/FlorabotMilestoneOve
 import FlorabotContextBubble from "@/components/florabot/FlorabotContextBubble";
 import FlorabotLogo from "@/components/florabot/FlorabotLogo";
 import {
-  STORY_PROGRESS_CONDITIONS,
   pickRandomPhaseAmbientComment,
   interpolatePercentVariables,
   buildStoryProfileVariables,
@@ -116,6 +117,25 @@ const SOCIAL_NEWS_NOTIFICATION_TYPES = [
   "scan_liked",
 ];
 
+const normalizeRarityText = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "");
+
+const rarityScoreFromLabel = (rarity) => {
+  const normalized = normalizeRarityText(rarity);
+  if (!normalized) return 0;
+  if (normalized.includes("extremselten") || normalized.includes("legend") || normalized.includes("mythisch")) return 7;
+  if (normalized.includes("sehrselten") || normalized.includes("episch")) return 6;
+  if (normalized.includes("selten")) return 5;
+  if (normalized.includes("gelegentlich") || normalized.includes("ungewohnlich")) return 3;
+  if (normalized.includes("haufig") || normalized.includes("haeufig") || normalized.includes("common")) return 1;
+  return 2;
+};
+
 function HomeContent() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -156,6 +176,9 @@ function HomeContent() {
   const [showDebugZonePanel, setShowDebugZonePanel] = useState(false);
   const [showFlorabotIntro, setShowFlorabotIntro] = useState(false);
   const [activeMilestone, setActiveMilestone] = useState(null);
+  const [isMilestoneOverlayToggled, setIsMilestoneOverlayToggled] = useState(false);
+  const [homeOverlayAmbientMessage, setHomeOverlayAmbientMessage] = useState("");
+  const homeOverlayAmbientCooldownUntilRef = useRef(0);
   const [florabotContextBubble, setFlorabotContextBubble] = useState(null);
   const [userStory, setUserStory] = useState(/** @type {any} */ (null));
   const [storyCreatedThisSession, setStoryCreatedThisSession] = useState(false);
@@ -168,7 +191,6 @@ function HomeContent() {
   const [showQuizFeedback, setShowQuizFeedback] = useState(false);
   const scanFeedbackCooldownRef = useRef(false);
   const blockNavigationFeedbackRef = useRef(false);
-  const ambientCommentLockRef = useRef(false);
 
   // Cooldown-Schutz: scanFeedback kann nach Schließen für 1 Sekunde nicht erneut gesetzt werden
   const safeSetScanFeedback = (value) => {
@@ -554,6 +576,32 @@ function HomeContent() {
     initialData: [],
     staleTime: 60 * 1000,
     refetchOnWindowFocus: false,
+  });
+
+  const { data: userCollections = [] } = useQuery({
+    queryKey: ['homeUserCollections', user?.id],
+    queryFn: () => Query.UserCollection.filter({ auth_id: user?.id }),
+    enabled: !!user?.id,
+    initialData: [],
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: allCollectionItems = [] } = useQuery({
+    queryKey: ['homeCollectionItems'],
+    queryFn: () => Query.CollectionItem.list(),
+    initialData: [],
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: allRobotPlants = [] } = useQuery({
+    queryKey: ['homeAllRobotPlants'],
+    queryFn: () => Query.RobotPlant.list(),
+    enabled: !!user?.id,
+    initialData: [],
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: true,
   });
 
   const { data: backgroundNotifications = [] } = useQuery({
@@ -1578,61 +1626,19 @@ function HomeContent() {
     storyCreatedThisSession,
   ]);
 
-  // Ambient comments: random, rate-limited comments when entering Home
+  const toggleMilestonePreview = useMemo(() => {
+    if (activeMilestone) return activeMilestone;
+    const reachedMilestones = FLORABOT_MILESTONES.filter((milestone) => playerSeeds >= milestone.threshold);
+    if (reachedMilestones.length > 0) return reachedMilestones[reachedMilestones.length - 1];
+    return FLORABOT_MILESTONES[0] || null;
+  }, [activeMilestone, playerSeeds]);
+
   useEffect(() => {
-    if (!user?.id || !userStory) return;
-    const rules = STORY_PROGRESS_CONDITIONS?.ambientCommentRules;
-    if (!rules) return;
-    // Prevent concurrent pulls of ambient comments
-    if (ambientCommentLockRef.current) return;
-
-    // Do not show if a higher-priority overlay is active
-    const blocked = showFlorabotIntro || activeMilestone || florabotContextBubble || showQuizFeedback || showScanFeedback || showScanZoneUnlock;
-    if (blocked) return;
-
-    try {
-      const lastAt = userStory?.last_ambient_comment_at ? new Date(userStory.last_ambient_comment_at) : null;
-      const minutesSince = lastAt ? (Date.now() - lastAt.getTime()) / (1000 * 60) : Infinity;
-      if (minutesSince < (rules.cooldownMinutes || 15)) return;
-
-      const todayCount = Number(userStory?.ambient_comment_count || 0);
-      if (todayCount >= (rules.maxPerDay || 6)) return;
-
-      if (Math.random() >= (rules.chanceOnHomeEnter || 0.3)) return;
-
-      const exclude = Array.isArray(userStory?.seen_ambient_comment_ids) ? userStory.seen_ambient_comment_ids : [];
-      const { comment } = pickRandomPhaseAmbientComment(storySeedProgress, exclude);
-      if (!comment) return;
-
-      const resolvedAmbientComment = interpolatePercentVariables(
-        comment,
-        buildStoryProfileVariables(user || {})
-      );
-
-      // Mark that we've pulled an ambient comment so another cannot be pulled concurrently
-      ambientCommentLockRef.current = true;
-      setFlorabotContextBubble({ panel: 'home', message: resolvedAmbientComment || comment });
-
-      // Persist ambient comment meta in UserStory
-      if (user?.id) {
-        const nextSeen = Array.from(new Set([...(userStory?.seen_ambient_comment_ids || []), comment]));
-        updateUserStory(user.id, {
-          last_ambient_comment_at: new Date().toISOString(),
-          ambient_comment_count: (Number(userStory?.ambient_comment_count || 0) + 1),
-          seen_ambient_comment_ids: nextSeen,
-        })
-          .then((nextStory) => {
-            if (nextStory) setUserStory(nextStory);
-          })
-          .catch((error) => {
-            console.warn("[Home] Could not persist ambient comment state:", error?.message || error);
-          });
-      }
-    } catch (e) {
-      // swallow errors to avoid breaking Home
-      console.warn('[Home] ambient comment check failed', e?.message || e);
+    if (showFlorabotIntro || activeMilestone) {
+      setIsMilestoneOverlayToggled(false);
+      setHomeOverlayAmbientMessage("");
     }
-  }, [user?.id, userStory, storySeedProgress, showFlorabotIntro, activeMilestone, florabotContextBubble, showQuizFeedback, showScanFeedback, showScanZoneUnlock]);
+  }, [showFlorabotIntro, activeMilestone]);
 
   const dismissFlorabotContextBubble = () => {
     if (!florabotContextBubble) return;
@@ -1665,11 +1671,7 @@ function HomeContent() {
           });
       }
     } finally {
-      const wasHomeBubble = florabotContextBubble?.panel === "home";
       setFlorabotContextBubble(null);
-      if (ambientCommentLockRef.current && wasHomeBubble) {
-        ambientCommentLockRef.current = false;
-      }
     }
   };
 
@@ -1918,6 +1920,8 @@ function HomeContent() {
     activeCollectionQuests.length;
 
   const getDisplayName = () => user.display_name || user.full_name;
+  const displayName = getDisplayName() || user?.email || "Spieler";
+  const resolvedUserTitle = resolveTitleValue(user?.selected_title, user?.title) || "Pflanzen-Entdecker";
 
   const getRgbaFromRgb = (rgbString, opacity) => {
     if (!rgbString) return null;
@@ -2009,6 +2013,8 @@ function HomeContent() {
       if (!coords) return null;
 
       const plant = plants.find((candidate) => candidate.id === entry?.plant_id);
+      const plantRarity = plant?.rarity || plant?.aiData?.rarity || "";
+      const rarityScore = rarityScoreFromLabel(plantRarity);
 
       const entryEmailUser = typeof entry?.user === "string" ? entry.user.toLowerCase() : null;
       const entryEmailCreatedBy = typeof entry?.created_by === "string" ? entry.created_by.toLowerCase() : null;
@@ -2046,6 +2052,8 @@ function HomeContent() {
         scannerEmail: discoveryUser?.user_email || entry?.user || entry?.created_by || "",
         scannerAuthId: discoveryUser?.auth_id || entry?.auth_id || entry?.created_by_id || "",
         plantName: plant?.species_name || "Unbekannte Pflanze",
+        plantRarity,
+        rarityScore,
         plantId: plant?.id || entry?.plant_id || "",
         genusId: plant?.genus_id || "",
         likedByCurrentUser: likedDiscoveryIdSet.has(entry?.id),
@@ -2081,6 +2089,249 @@ function HomeContent() {
       return emails;
     })
   );
+
+  const discoveredPlantIdSet = new Set(
+    (userDiscoveries || []).map((entry) => entry?.plant_id).filter(Boolean)
+  );
+
+  const ownDiscoveryIdSet = new Set(
+    (userDiscoveries || []).map((entry) => entry?.id).filter(Boolean)
+  );
+
+  const userDiscoveriesSortedByTime = [...(userDiscoveries || [])].sort((a, b) => {
+    const dateA = new Date(a?.created_date || a?.discovered_date || a?.updated_date || 0).getTime();
+    const dateB = new Date(b?.created_date || b?.discovered_date || b?.updated_date || 0).getTime();
+    return dateA - dateB;
+  });
+
+  const totalWalkedMetersBetweenScans = userDiscoveriesSortedByTime.reduce(
+    (sum, discovery, index, arr) => {
+      if (index === 0) return sum;
+      const prevCoords = parseDiscoveryCoordinates(arr[index - 1]?.discovery_location);
+      const currCoords = parseDiscoveryCoordinates(discovery?.discovery_location);
+      if (!prevCoords || !currCoords) return sum;
+
+      const distanceMeters = calculateDistanceMetersRaw(
+        prevCoords.lat,
+        prevCoords.lng,
+        currCoords.lat,
+        currCoords.lng
+      );
+
+      if (!Number.isFinite(distanceMeters) || distanceMeters < 0) return sum;
+      return sum + distanceMeters;
+    },
+    0
+  );
+
+  const totalWalkedKilometers = totalWalkedMetersBetweenScans / 1000;
+
+  const receivedLikesCount = (scanLikes || []).reduce((count, likeEntry) => {
+    if (!ownDiscoveryIdSet.has(likeEntry?.discovery_id)) return count;
+    return count + 1;
+  }, 0);
+
+  const plantsByGenusKey = (plants || []).reduce((acc, plant) => {
+    const key = `${plant?.genus_category || ""}::${plant?.genus_number || ""}`;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(plant);
+    return acc;
+  }, {});
+
+  const collectionById = new Map(
+    (publicCollections || [])
+      .filter((collection) => !!collection?.id)
+      .map((collection) => [collection.id, collection])
+  );
+
+  const genusById = new Map(
+    (genera || [])
+      .filter((genus) => !!genus?.id)
+      .map((genus) => [genus.id, genus])
+  );
+
+  const collectionItemsByCollectionId = (allCollectionItems || []).reduce((acc, item) => {
+    if (!item?.collection_id) return acc;
+    if (!acc[item.collection_id]) acc[item.collection_id] = [];
+    acc[item.collection_id].push(item);
+    return acc;
+  }, {});
+
+  const hasFavoriteColumnInPayload =
+    (userCollections || []).length === 0 ||
+    (userCollections || []).some((row) => Object.prototype.hasOwnProperty.call(row || {}, "is_favorite"));
+
+  const favoriteCollectionsForStripe = (userCollections || [])
+    .map((userCollectionRow) => {
+      const collectionId = userCollectionRow?.collection_id;
+      const collectionMeta = collectionById.get(collectionId);
+      if (!collectionId || !collectionMeta) return null;
+
+      const itemRows = collectionItemsByCollectionId[collectionId] || [];
+      const total = itemRows.length;
+      if (total <= 0) return null;
+
+      const discovered = itemRows.reduce((count, item) => {
+        if (item?.plant_id) {
+          return count + (discoveredPlantIdSet.has(item.plant_id) ? 1 : 0);
+        }
+
+        if (item?.genus_id) {
+          const genus = genusById.get(item.genus_id);
+          if (!genus) return count;
+          const key = `${genus.category || ""}::${genus.category_dex_number || ""}`;
+          const genusPlants = plantsByGenusKey[key] || [];
+          const hasAnyDiscovered = genusPlants.some((plant) => discoveredPlantIdSet.has(plant.id));
+          return count + (hasAnyDiscovered ? 1 : 0);
+        }
+
+        return count;
+      }, 0);
+
+      const missingCount = Math.max(0, total - discovered);
+      const percent = total > 0 ? (discovered / total) * 100 : 0;
+
+      return {
+        id: collectionId,
+        title: collectionMeta?.title || "Kollektion",
+        isFavorite: Boolean(userCollectionRow?.is_favorite),
+        discovered,
+        total,
+        missingCount,
+        percent,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => {
+      if (a.isFavorite !== b.isFavorite) return Number(b.isFavorite) - Number(a.isFavorite);
+      if (a.percent !== b.percent) return b.percent - a.percent;
+      if (a.missingCount !== b.missingCount) return a.missingCount - b.missingCount;
+      return (b.discovered || 0) - (a.discovered || 0);
+    })
+    .slice(0, 8);
+
+  const favoriteStripeNeedsMigrationHint =
+    (userCollections || []).length > 0 && !hasFavoriteColumnInPayload;
+
+  const nearCompleteGenera = (genera || [])
+    .map((genus) => {
+      const key = `${genus?.category || ""}::${genus?.category_dex_number || ""}`;
+      const genusPlants = plantsByGenusKey[key] || [];
+      const total = genusPlants.length;
+      if (total <= 0) return null;
+
+      const discovered = genusPlants.reduce(
+        (count, plant) => count + (discoveredPlantIdSet.has(plant?.id) ? 1 : 0),
+        0
+      );
+      const remaining = Math.max(0, total - discovered);
+
+      return {
+        id: genus?.id,
+        genusName: genus?.genus_name || "Genus",
+        discovered,
+        total,
+        remaining,
+      };
+    })
+    .filter((entry) => entry && entry.discovered >= 3 && entry.remaining > 0)
+    .sort((a, b) => {
+      if (a.remaining !== b.remaining) return a.remaining - b.remaining;
+      return b.discovered - a.discovered;
+    })
+    .slice(0, 2);
+
+  const nearbyRareDiscovery = hasLiveCachedLocation
+    ? nearbyDiscoveryPoints
+        .map((point) => ({
+          ...point,
+          distanceMeters: calculateDistanceMetersRaw(cachedLocation.lat, cachedLocation.lng, point.lat, point.lng),
+        }))
+        .filter((point) => Number(point?.rarityScore || 0) >= 5)
+        .sort((a, b) => {
+          if ((b.rarityScore || 0) !== (a.rarityScore || 0)) {
+            return (b.rarityScore || 0) - (a.rarityScore || 0);
+          }
+          return (a.distanceMeters || Number.POSITIVE_INFINITY) - (b.distanceMeters || Number.POSITIVE_INFINITY);
+        })[0] || null
+    : null;
+
+  const profileByAuthId = new Map(
+    (allUsers || [])
+      .filter((profile) => !!profile?.auth_id)
+      .map((profile) => [profile.auth_id, profile])
+  );
+
+  const globalSeedRanking = (allRobotPlants || [])
+    .filter((entry) => !!entry?.auth_id)
+    .map((entry) => {
+      const seeds = Math.max(0, Number(entry?.wallet_balance ?? entry?.walletBalance ?? 0));
+      const profile = profileByAuthId.get(entry.auth_id);
+      return {
+        authId: entry.auth_id,
+        seeds,
+        isOwn: Boolean(user?.id && entry.auth_id === user.id),
+        name: profile?.display_name || profile?.full_name || profile?.user_email || "Spieler",
+      };
+    })
+    .sort((a, b) => b.seeds - a.seeds);
+
+  const ownSeedRankIndex = globalSeedRanking.findIndex((entry) => entry.isOwn);
+  const ownSeedRank = ownSeedRankIndex >= 0 ? ownSeedRankIndex + 1 : 0;
+  const nextSeedRankTarget = ownSeedRank > 1 ? globalSeedRanking[ownSeedRank - 2] : null;
+  const seedsToNextRank = nextSeedRankTarget
+    ? Math.max(0, Math.floor(nextSeedRankTarget.seeds - playerSeeds + 1))
+    : 0;
+
+  const homeMilestoneFeed = [];
+
+  if (nearCompleteGenera.length > 0) {
+    nearCompleteGenera.forEach((entry) => {
+      homeMilestoneFeed.push({
+        id: `genus-${entry.id}`,
+        title: `${entry.genusName}: ${entry.discovered}/${entry.total}`,
+        detail: `Nur noch ${entry.remaining} Art${entry.remaining === 1 ? "" : "en"} bis zum naechsten Sammelabschluss.`,
+        actionType: "open_genus",
+        genusId: entry.id,
+      });
+    });
+  }
+
+  if (nearbyRareDiscovery) {
+    const distanceKm = (Number(nearbyRareDiscovery.distanceMeters || 0) / 1000).toFixed(1);
+    homeMilestoneFeed.push({
+      id: `rare-${nearbyRareDiscovery.discoveryId || `${nearbyRareDiscovery.lat}-${nearbyRareDiscovery.lng}`}`,
+      title: `Raritaet in ${distanceKm} km: ${nearbyRareDiscovery.plantName}`,
+      detail: `In deiner 2.5-km-Zone wurde ${nearbyRareDiscovery.plantRarity || "eine seltene Art"} gefunden. Karte oeffnen und einsammeln.`,
+      actionType: "open_map",
+    });
+  }
+
+  if (ownSeedRank > 1 && nextSeedRankTarget) {
+    homeMilestoneFeed.push({
+      id: "seed-rank-gap",
+      title: `Global Rank #${ownSeedRank} -> #${ownSeedRank - 1}`,
+      detail: `${seedsToNextRank} Samen fehlen bis ${nextSeedRankTarget.name || "Platz darueber"}.`,
+      actionType: "open_achievements",
+    });
+  } else if (ownSeedRank === 1) {
+    homeMilestoneFeed.push({
+      id: "seed-rank-top",
+      title: "Globales Samen-Ranking",
+      detail: "Du fuehrst aktuell das Ranking an. Halte den Vorsprung!",
+      actionType: "open_achievements",
+    });
+  }
+
+  if (homeMilestoneFeed.length === 0) {
+    homeMilestoneFeed.push({
+      id: "fallback-collections",
+      title: "Sammelfortschritt starten",
+      detail: "Folge einer Kollektion und setze einen Favoriten, damit dein Feed personalisiert wird.",
+      actionType: "open_collections",
+    });
+  }
+
   const heroMapCenter = hasLiveCachedLocation
     ? [cachedLocation.lat, cachedLocation.lng]
     : heroZones[0]
@@ -2149,6 +2400,40 @@ function HomeContent() {
   const formatMultiplier = (value) => {
     const safeValue = Number.isFinite(value) ? value : 1;
     return `x${safeValue.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1")}`;
+  };
+
+  const handleOpenCollectionFromHome = (collectionEntry) => {
+    const collectionId = collectionEntry?.id || "global";
+    setEmbeddedSelectedCollectionId(collectionId);
+    setEmbeddedCollectionEntryCategory(collectionId === "global" ? "global" : "themes");
+    setEmbeddedCollectionPublicPanelOpen(false);
+    setActivePanel("collection");
+    setShowHealthStatsPanel(false);
+  };
+
+  const handleHomeMilestoneAction = (milestone) => {
+    const actionType = milestone?.actionType;
+
+    if (actionType === "open_genus" && milestone?.genusId) {
+      navigate(createPageUrl(`GenusDetail?id=${encodeURIComponent(milestone.genusId)}`));
+      return;
+    }
+
+    if (actionType === "open_map") {
+      handleOpenHeroZoneMap();
+      setShowHealthStatsPanel(false);
+      return;
+    }
+
+    if (actionType === "open_achievements") {
+      setActivePanel("achievements");
+      setShowHealthStatsPanel(false);
+      return;
+    }
+
+    if (actionType === "open_collections") {
+      handleOpenCollectionFromHome({ id: "global" });
+    }
   };
 
   const navItems = [
@@ -2680,6 +2965,24 @@ function HomeContent() {
         )}
       </AnimatePresence>
 
+      <HomeMilestoneOverlayToggle
+        isOpen={Boolean(isMilestoneOverlayToggled && !showFlorabotIntro && !activeMilestone)}
+        milestone={toggleMilestonePreview}
+        profile={user}
+        authId={user?.id}
+        currentUser={user}
+        initialShopCategory="accessories"
+        logoAssets={logoAssets}
+        playerSparks={playerSparks}
+        playerAmber={playerAmber}
+        plantHealthState={resolvedPlantHealthState}
+        healthStats={healthStats}
+        ambientMessage={homeOverlayAmbientMessage}
+        onCustomize={() => {}}
+        onUserUpdated={(freshUser) => setUser(freshUser)}
+        onClose={() => setIsMilestoneOverlayToggled(false)}
+      />
+
       <AnimatePresence>
         {florabotContextBubble && florabotContextBubble.panel !== 'home' && !activeMilestone && !showFlorabotIntro && (
           <FlorabotContextBubble
@@ -2860,8 +3163,8 @@ function HomeContent() {
                 embeddedSubtitle={embeddedSubtitle}
                 embeddedInfoLabel={embeddedInfoLabel}
                 embeddedCollectionCanGoBack={activePanel === "collection" && embeddedCollectionEntryCategory !== null}
-                displayName={getDisplayName()}
-                userTitle={resolveTitleValue(user?.selected_title, user?.title) || "Pflanzen-Entdecker"}
+                displayName={displayName}
+                userTitle={resolvedUserTitle}
                 onEmbeddedCollectionBack={() => {
                   setEmbeddedCollectionEntryCategory(null);
                   setEmbeddedCollectionPublicPanelOpen(false);
@@ -2969,6 +3272,50 @@ function HomeContent() {
                   />
                 ) : (
                   <section data-ui="home-plant-hero-section" className="flex-1 min-h-0 rounded-3xl px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col bg-transparent">
+                  <HomeCollectionStripes
+                    isLightUi={isLightUi}
+                    equippedLogoAssets={equippedLogoAssets}
+                    onLogoClick={() => {
+                      if (toggleMilestonePreview) {
+                        const now = Date.now();
+                        const isAmbientCooldownActive = now < homeOverlayAmbientCooldownUntilRef.current;
+
+                        if (!isAmbientCooldownActive) {
+                          const { comment } = pickRandomPhaseAmbientComment(storySeedProgress, []);
+                          const resolvedAmbientComment = comment
+                            ? interpolatePercentVariables(comment, buildStoryProfileVariables(user || {}))
+                            : "";
+                          const nextAmbientComment = resolvedAmbientComment || comment || "";
+                          setHomeOverlayAmbientMessage(nextAmbientComment);
+                          if (nextAmbientComment) {
+                            homeOverlayAmbientCooldownUntilRef.current = now + (5 * 60 * 1000);
+                          }
+                        } else {
+                          setHomeOverlayAmbientMessage("");
+                        }
+
+                        setIsMilestoneOverlayToggled(true);
+                      }
+                    }}
+                    playerSeeds={playerSeeds}
+                    discoveryCount={userDiscoveries.length}
+                    totalDistanceKm={totalWalkedKilometers}
+                    receivedLikesCount={receivedLikesCount}
+                    playerSparks={playerSparks}
+                    playerAmber={playerAmber}
+                    milestoneFeed={homeMilestoneFeed}
+                    onMilestoneAction={handleHomeMilestoneAction}
+                    favoriteCollections={favoriteCollectionsForStripe}
+                    onOpenCollection={handleOpenCollectionFromHome}
+                    favoriteBackendHint={favoriteStripeNeedsMigrationHint}
+                    claimedTiles={playerClaimedTiles}
+                    activeZoneLabel={activeZoneMeta?.label || "Keine Zone"}
+                    isZoneLoading={!hasResolvedZoneBootstrap || isLoadingZone}
+                    securedMultiplier={securedNextScanMultiplier}
+                    streakMultiplier={streakMultiplier}
+                    zoneMultiplier={zoneMultiplier}
+                    careMultiplier={careMultiplier}
+                  />
                   <div
                     className={`w-full rounded-2xl border backdrop-blur-sm px-[clamp(0.625rem,2vw,0.875rem)] relative ${
                       isLightUi ? "border-[#c8ac62]/45" : "border-[#f0e5a5]/45"
@@ -3439,138 +3786,6 @@ function HomeContent() {
                         </motion.div>
                       )}
                     </AnimatePresence>
-                  </div>
-
-                  <div
-                    className={`mt-[clamp(0.375rem,1vh,0.75rem)] w-full grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center text-xs md:text-sm font-semibold rounded-xl border ${
-                      isLightUi
-                        ? "text-stone-700 border-[#c8ac62]/35 bg-white/50"
-                        : "text-white/95 border-[#f0e5a5]/20 bg-black/35"
-                    }`}
-                  >
-                    <LockedTooltip
-                      unstyled
-                      content={(
-                        <div
-                          className={`rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl ${
-                            isLightUi
-                              ? "border-amber-400/60 bg-white/88"
-                              : "border-amber-300/40 bg-black/75"
-                          }`}
-                        >
-                          <p className={`text-[10px] font-semibold uppercase tracking-wide mb-0.5 ${
-                            isLightUi ? "text-amber-600" : "text-amber-400/80"
-                          }`}>
-                            Währung
-                          </p>
-                          <p className={`font-bold text-sm leading-tight mb-2 ${
-                            isLightUi ? "text-amber-800" : "text-amber-300"
-                          }`}>
-                            Samen
-                          </p>
-                          <p className={`text-xs leading-snug ${
-                            isLightUi ? "text-stone-700" : "text-white/80"
-                          }`}>
-                            Zeigt deinen Spielfortschritt und schaltet neue Funktionen und Inhalte frei.
-                          </p>
-                        </div>
-                      )}
-                    >
-                      <button
-                        type="button"
-                        className="inline-flex w-full min-w-0 items-center justify-center py-2.5"
-                        aria-label="Samen anzeigen"
-                      >
-                        <span className="inline-flex max-w-full items-center justify-center gap-1.5 whitespace-nowrap text-center">
-                          <span>{playerSeeds}</span>
-                          <Leaf className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
-                        </span>
-                      </button>
-                    </LockedTooltip>
-
-                    <span className={`flex items-center justify-center px-1 ${isLightUi ? "text-stone-400/70" : "text-white/35"}`}>|</span>
-
-                    <LockedTooltip
-                      unstyled
-                      content={(
-                        <div
-                          className={`rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl ${
-                            isLightUi
-                              ? "border-amber-400/60 bg-white/88"
-                              : "border-amber-300/40 bg-black/75"
-                          }`}
-                        >
-                          <p className={`text-[10px] font-semibold uppercase tracking-wide mb-0.5 ${
-                            isLightUi ? "text-amber-600" : "text-amber-400/80"
-                          }`}>
-                            Währung
-                          </p>
-                          <p className={`font-bold text-sm leading-tight mb-2 ${
-                            isLightUi ? "text-amber-800" : "text-amber-300"
-                          }`}>
-                            Funken
-                          </p>
-                          <p className={`text-xs leading-snug ${
-                            isLightUi ? "text-stone-700" : "text-white/80"
-                          }`}>
-                            Verdient durch Login, dem abschließen der Monats-Quest und neuen Scans in Geo-Zonen. Wird benötigt zum Freischalten von Anpassungen.
-                          </p>
-                        </div>
-                      )}
-                    >
-                      <button
-                        type="button"
-                        className="inline-flex w-full min-w-0 items-center justify-center py-2.5"
-                        aria-label="Funken anzeigen"
-                      >
-                        <span className="inline-flex max-w-full items-center justify-center gap-1.5 whitespace-nowrap text-center">
-                          <span>{playerSparks}</span>
-                          <Zap className="w-3.5 h-3.5 shrink-0 text-amber-500" />
-                        </span>
-                      </button>
-                    </LockedTooltip>
-
-                    <span className={`flex items-center justify-center px-1 ${isLightUi ? "text-stone-400/70" : "text-white/35"}`}>|</span>
-
-                    <LockedTooltip
-                      unstyled
-                      content={(
-                        <div
-                          className={`rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl ${
-                            isLightUi
-                              ? "border-amber-400/60 bg-white/88"
-                              : "border-amber-300/40 bg-black/75"
-                          }`}
-                        >
-                          <p className={`text-[10px] font-semibold uppercase tracking-wide mb-0.5 ${
-                            isLightUi ? "text-amber-600" : "text-amber-400/80"
-                          }`}>
-                            Währung
-                          </p>
-                          <p className={`font-bold text-sm leading-tight mb-2 ${
-                            isLightUi ? "text-amber-800" : "text-amber-300"
-                          }`}>
-                            Bernstein
-                          </p>
-                          <p className={`text-xs leading-snug ${
-                            isLightUi ? "text-stone-700" : "text-white/80"
-                          }`}>
-                            Premiumwährung für besondere Anpassungen. Kann im Shop erworben und zukünftig durch besondere Aktionen verdient werden.
-                          </p>
-                        </div>
-                      )}
-                    >
-                      <button
-                        type="button"
-                        className="inline-flex w-full min-w-0 items-center justify-center py-2.5"
-                        aria-label="Bernstein anzeigen"
-                      >
-                        <span className="inline-flex max-w-full items-center justify-center gap-1.5 whitespace-nowrap text-center">
-                          <span>{playerAmber}</span>
-                          <span className="inline-flex items-center justify-center w-3.5 h-3.5 shrink-0 text-orange-500" aria-hidden="true">🔸</span>
-                        </span>
-                      </button>
-                    </LockedTooltip>
                   </div>
 
                   <motion.button

@@ -1,4 +1,4 @@
-import { Leaf, Minus, Plus, PencilLine, SlidersHorizontal, Users2 } from "lucide-react";
+import { Leaf, Minus, Plus, PencilLine, SlidersHorizontal, Star, Users2 } from "lucide-react";
 import GenusCard from "./GenusCard";
 import SearchSortBar from "./SearchSortBar";
 
@@ -28,10 +28,14 @@ export default function CollectionScreen({
   selectedCollection,
   isOwnerOfSelected,
   isFollowingSelected,
+  isFavoriteSelected = false,
+  isFavoriteFeatureAvailable = true,
   userCollectionLinkForSelected,
   onUnfollow,
   onFollow,
+  onToggleFavorite = () => {},
   isFollowLoading,
+  isFavoriteLoading = false,
   onEditCollection,
   heroStats,
   heroProgressPercent,
@@ -107,6 +111,12 @@ export default function CollectionScreen({
                           : (isLightUi ? "rgba(200,172,98,0.35)" : "rgba(255,255,255,0.3)"),
                       }}
                     >
+                      {chip.isFavorite && (
+                        <Star
+                          className={"w-3 h-3 shrink-0 " + (isLightUi ? "text-amber-600" : "text-amber-300")}
+                          fill="currentColor"
+                        />
+                      )}
                       <span className="font-medium">{chip.title}</span>
                       <span className={"text-[10px] " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
                         {stats.discovered}/{stats.total || "–"}
@@ -157,29 +167,61 @@ export default function CollectionScreen({
                     )}
 
                     {selectedCollection.is_public && !isOwnerOfSelected && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (isFollowingSelected && userCollectionLinkForSelected) {
-                            onUnfollow(userCollectionLinkForSelected.id);
-                          } else if (!isFollowingSelected) {
-                            onFollow(selectedCollection.id);
+                      <>
+                        {isFollowingSelected && userCollectionLinkForSelected && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onToggleFavorite({
+                                userCollectionId: userCollectionLinkForSelected.id,
+                                isFavorite: !isFavoriteSelected,
+                              })
+                            }
+                            disabled={isFavoriteLoading || !isFavoriteFeatureAvailable}
+                            title={
+                              isFavoriteFeatureAvailable
+                                ? (isFavoriteSelected ? "Favorit entfernen" : "Als Favorit markieren")
+                                : "Favoriten-Feld im Backend fehlt noch. Bitte Migration für public.UserCollection.is_favorite anwenden."
+                            }
+                            className={
+                              isFavoriteSelected
+                                ? (isLightUi
+                                  ? "shrink-0 p-1 rounded-full border bg-white/85 text-amber-600 hover:bg-white border-amber-500/70 transition-colors disabled:opacity-60"
+                                  : "shrink-0 p-1 rounded-full border bg-black/45 text-amber-300 hover:bg-black/60 border-amber-300/80 transition-colors disabled:opacity-60")
+                                : (isLightUi
+                                  ? "shrink-0 p-1 rounded-full border bg-white/85 text-stone-500 hover:bg-white border-[#c8ac62]/45 transition-colors disabled:opacity-60"
+                                  : "shrink-0 p-1 rounded-full border bg-black/45 text-stone-300 hover:bg-black/60 border-[#f0e5a5]/35 transition-colors disabled:opacity-60")
+                            }
+                            aria-label={isFavoriteSelected ? "Favorit entfernen" : "Als Favorit markieren"}
+                          >
+                            <Star className="w-3 h-3" fill={isFavoriteSelected ? "currentColor" : "none"} />
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isFollowingSelected && userCollectionLinkForSelected) {
+                              onUnfollow(userCollectionLinkForSelected.id);
+                            } else if (!isFollowingSelected) {
+                              onFollow(selectedCollection.id);
+                            }
+                          }}
+                          disabled={isFollowLoading}
+                          className={
+                            isFollowingSelected
+                              ? (isLightUi
+                                ? "shrink-0 p-1 rounded-full border bg-white/85 text-red-700 hover:bg-white border-red-500/70 transition-colors disabled:opacity-60"
+                                : "shrink-0 p-1 rounded-full border bg-black/45 text-stone-100 hover:bg-black/60 border-red-300/80 transition-colors disabled:opacity-60")
+                              : (isLightUi
+                                ? "shrink-0 p-1 rounded-full border bg-white/85 text-emerald-700 hover:bg-white border-emerald-500/70 transition-colors disabled:opacity-60"
+                                : "shrink-0 p-1 rounded-full border bg-black/45 text-stone-100 hover:bg-black/60 border-emerald-300/80 transition-colors disabled:opacity-60")
                           }
-                        }}
-                        disabled={isFollowLoading}
-                        className={
-                          isFollowingSelected
-                            ? (isLightUi
-                              ? "shrink-0 p-1 rounded-full border bg-white/85 text-red-700 hover:bg-white border-red-500/70 transition-colors disabled:opacity-60"
-                              : "shrink-0 p-1 rounded-full border bg-black/45 text-stone-100 hover:bg-black/60 border-red-300/80 transition-colors disabled:opacity-60")
-                            : (isLightUi
-                              ? "shrink-0 p-1 rounded-full border bg-white/85 text-emerald-700 hover:bg-white border-emerald-500/70 transition-colors disabled:opacity-60"
-                              : "shrink-0 p-1 rounded-full border bg-black/45 text-stone-100 hover:bg-black/60 border-emerald-300/80 transition-colors disabled:opacity-60")
-                        }
-                        aria-label={isFollowingSelected ? "Abo beenden" : "Abonnieren"}
-                      >
-                        {isFollowingSelected ? <Minus className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
-                      </button>
+                          aria-label={isFollowingSelected ? "Abo beenden" : "Abonnieren"}
+                        >
+                          {isFollowingSelected ? <Minus className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                        </button>
+                      </>
                     )}
 
                     {isOwnerOfSelected && (
