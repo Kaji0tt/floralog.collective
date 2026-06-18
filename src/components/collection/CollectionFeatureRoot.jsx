@@ -1128,8 +1128,6 @@ export default function CollectionFeatureRoot({
                   icon={Leaf}
                   accent="global"
                   className="h-full max-h-[10.5rem]"
-                  description="Systemkurierte Basis-Sammlung mit allen Hauptgattungen als Fortschrittsanker."
-                  info="Ideal für tägliches Tracking und Vollständigkeitsfortschritt"
                   detailContent={(
                     <div className="space-y-1.5">
                       <div className={"flex items-center justify-between text-[11px] " + (isLightUi ? "text-white/75" : "text-white/75")}>
@@ -1159,8 +1157,6 @@ export default function CollectionFeatureRoot({
                   icon={List}
                   accent="themes"
                   className="h-full max-h-[10.5rem]"
-                  description="Fokus-Sammlungen zu Habitaten, Jahreszeiten und spezifischen Beobachtungszielen."
-                  info="Eigene und abonnierte Kollektionen der Community"
                   metaChips={
                     followedThemeCollectionChips.length > 0
                       ? followedThemeCollectionChips
@@ -1180,8 +1176,6 @@ export default function CollectionFeatureRoot({
                   icon={Users}
                   accent="shared"
                   className="h-full max-h-[10.5rem]"
-                  description="Kooperative Sammlungen für Teams und Exkursionen mit geteilter Pflege."
-                  info="In Vorbereitung: gemeinsame Bearbeitung und Rollen"
                   metaChips={["Feature folgt in einem späteren Release"]}
                   descriptionMaxHeightClass="max-h-14"
                   onClick={() => {
@@ -1194,8 +1188,6 @@ export default function CollectionFeatureRoot({
                   icon={Compass}
                   accent="browse"
                   className="h-full max-h-[10.5rem]"
-                  description="Entdecke öffentliche Kollektionen anderer Nutzer und folge relevanten Themen."
-                  info="Sortierbar nach Neuheit, Reichweite und Umfang"
                   metaChips={[
                     `${browseCollectionCounts.totalPublicCollections} User-Kollektionen`,
                     `${browseCollectionCounts.followedPublicCollections} abonniert`,

@@ -1,4 +1,4 @@
-import { ChevronLeft, Home as HomeIcon, Plus, Settings, Sparkles } from "lucide-react";
+import { ChevronLeft, Gem, Home as HomeIcon, Plus, Settings, Sparkles } from "lucide-react";
 import { useUiTheme } from "@/lib/UiThemeContext";
 
 /**
@@ -10,6 +10,8 @@ import { useUiTheme } from "@/lib/UiThemeContext";
  *   embeddedCollectionCanGoBack?: boolean,
  *   displayName?: string | null,
  *   userTitle?: string | null,
+ *   playerSparks?: number,
+ *   playerAmber?: number,
  *   onEmbeddedCollectionBack?: () => void,
  *   onOpenEmbeddedFriendsAddDialog?: () => void,
  *   onOpenAmberPurchase?: () => void,
@@ -24,6 +26,8 @@ export default function HomeHeaderBar({
   embeddedCollectionCanGoBack,
   displayName,
   userTitle,
+  playerSparks,
+  playerAmber,
   onEmbeddedCollectionBack,
   onOpenEmbeddedFriendsAddDialog,
   onOpenAmberPurchase,
@@ -36,6 +40,12 @@ export default function HomeHeaderBar({
   const isEmbeddedMode = activePanel !== null;
   const shopCurrencyInfo = showEmbeddedShop && embeddedInfoLabel && typeof embeddedInfoLabel === "object"
     ? embeddedInfoLabel
+    : null;
+  const homeCurrencyInfo = !isEmbeddedMode
+    ? {
+        sparks: Math.max(0, Number(playerSparks ?? 0)),
+        amber: Math.max(0, Number(playerAmber ?? 0)),
+      }
     : null;
   const shouldShowEmbeddedInfoChip = Boolean(embeddedInfoLabel) && isEmbeddedMode && !showEmbeddedShop;
 
@@ -106,6 +116,30 @@ export default function HomeHeaderBar({
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
+        {homeCurrencyInfo && (
+          <>
+            <div
+              className={`w-11 h-11 rounded-full border backdrop-blur-md flex flex-col items-center justify-center gap-0.5 ${isLightUi ? "border-[#c8ac62]/55 bg-white/65" : "border-[#f0e5a5]/35 bg-black/30"}`}
+              aria-label="Funken"
+            >
+              <Sparkles className={`w-3.5 h-3.5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} aria-hidden="true" />
+              <span className={`text-[10px] font-semibold leading-none ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}>
+                {homeCurrencyInfo.sparks}
+              </span>
+            </div>
+
+            <div
+              className={`w-11 h-11 rounded-full border backdrop-blur-md flex flex-col items-center justify-center gap-0.5 ${isLightUi ? "border-[#c8ac62]/55 bg-white/65" : "border-[#f0e5a5]/35 bg-black/30"}`}
+              aria-label="Bernstein"
+            >
+              <Gem className={`w-3.5 h-3.5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} aria-hidden="true" />
+              <span className={`text-[10px] font-semibold leading-none ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}>
+                {homeCurrencyInfo.amber}
+              </span>
+            </div>
+          </>
+        )}
+
         {shopCurrencyInfo && (
           <>
             <div

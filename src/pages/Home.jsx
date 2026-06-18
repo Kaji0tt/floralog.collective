@@ -25,7 +25,7 @@ import {
 import { getOpenPlantQuiz, submitPlantQuizAnswer } from "@/api/plantQuizService";
 import { getTileClaims } from "@/api/tileClaimService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Camera, Loader2, Leaf, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, Palette } from "lucide-react";
+import { Camera, Loader2, Leaf, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, InspectionPanel, HeartPulse } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
@@ -57,11 +57,9 @@ import HomeOtaGate from "@/components/home/HomeOtaGate";
 import HomeMapFeatureRoot from "@/components/home/HomeMapFeatureRoot.jsx";
 
 import ShopFeatureRoot from "@/components/shop/ShopFeatureRoot";
-import PlantHeroHealthPanel from "@/components/home/PlantHeroHealthPanel";
 import PlantQuizDialog from "@/components/home/PlantQuizDialog";
 import AchievementsFeatureRoot from "@/components/achievements/AchievementsFeatureRoot";
 import FriendsFeatureRoot from "@/components/friends/FriendsFeatureRoot";
-import { LockedTooltip } from "@/components/ui/locked-tooltip";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
@@ -70,11 +68,15 @@ import { useAuth } from "@/lib/AuthContext";
 import { resolveReferralEmail } from "@/lib/referralCode";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 import { resolveTitleValue } from "@/lib/profileCustomizationOptions";
-import { hexToFilter } from "@/lib/hexToFilter";
+import {
+  buildSelectedProfileBadges,
+  evaluateProfileBadges,
+  PROFILE_BADGE_MAX_SELECTED,
+} from "@/lib/profileBadges";
+import { getProfileBadgeIconComponent } from "@/lib/profileBadgeIcons";
 import FlorabotIntroOverlay from "@/components/florabot/FlorabotIntroOverlay";
 import FlorabotMilestoneOverlay from "@/components/florabot/FlorabotMilestoneOverlay";
 import FlorabotContextBubble from "@/components/florabot/FlorabotContextBubble";
-import FlorabotLogo from "@/components/florabot/FlorabotLogo";
 import {
   pickRandomPhaseAmbientComment,
   interpolatePercentVariables,
@@ -134,6 +136,51 @@ const rarityScoreFromLabel = (rarity) => {
   if (normalized.includes("gelegentlich") || normalized.includes("ungewohnlich")) return 3;
   if (normalized.includes("haufig") || normalized.includes("haeufig") || normalized.includes("common")) return 1;
   return 2;
+};
+
+const hashSeedToIndex = (seed, length) => {
+  if (!length || length <= 0) return 0;
+  const source = String(seed || "seed");
+  let hash = 0;
+  for (let i = 0; i < source.length; i += 1) {
+    hash = ((hash << 5) - hash + source.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash) % length;
+};
+
+const getCompassDirectionLabel = (bearingDegrees) => {
+  if (!Number.isFinite(bearingDegrees)) return "";
+  const normalized = ((bearingDegrees % 360) + 360) % 360;
+  const directions = [
+    { arrow: "↑", label: "N" },
+    { arrow: "↗", label: "NO" },
+    { arrow: "→", label: "O" },
+    { arrow: "↘", label: "SO" },
+    { arrow: "↓", label: "S" },
+    { arrow: "↙", label: "SW" },
+    { arrow: "←", label: "W" },
+    { arrow: "↖", label: "NW" },
+  ];
+  const index = Math.round(normalized / 45) % directions.length;
+  const selected = directions[index] || null;
+  return selected ? `${selected.arrow} ${selected.label}` : "";
+};
+
+const calculateBearingDegrees = (lat1, lon1, lat2, lon2) => {
+  const toRadians = (value) => (Number(value) * Math.PI) / 180;
+  const toDegrees = (value) => (value * 180) / Math.PI;
+
+  const lat1Rad = toRadians(lat1);
+  const lat2Rad = toRadians(lat2);
+  const deltaLonRad = toRadians(Number(lon2) - Number(lon1));
+
+  const y = Math.sin(deltaLonRad) * Math.cos(lat2Rad);
+  const x =
+    Math.cos(lat1Rad) * Math.sin(lat2Rad) -
+    Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(deltaLonRad);
+  const bearing = toDegrees(Math.atan2(y, x));
+
+  return ((bearing % 360) + 360) % 360;
 };
 
 function HomeContent() {
@@ -201,7 +248,7 @@ function HomeContent() {
     setScanFeedback(value);
   };
   const [activePanel, setActivePanel] = useState(null);
-  const [shopOpenCategory, setShopOpenCategory] = useState("accessories");
+  const [shopOpenCategory, setShopOpenCategory] = useState("root");
   const [careActionMessage, setCareActionMessage] = useState(null);
   const [careGainFeedback, setCareGainFeedback] = useState(null);
   const [dailySparkClaimFeedback, setDailySparkClaimFeedback] = useState(null);
@@ -599,6 +646,39 @@ function HomeContent() {
     queryKey: ['homeAllRobotPlants'],
     queryFn: () => Query.RobotPlant.list(),
     enabled: !!user?.id,
+    initialData: [],
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: rewards = [] } = useQuery({
+    queryKey: ['homeRewardsCatalog'],
+    queryFn: () => Query.Reward.list(),
+    initialData: [],
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: userRewards = [] } = useQuery({
+    queryKey: ['homeUserRewards', user?.id],
+    queryFn: () => Query.UserReward.filter({ auth_id: user?.id }),
+    enabled: !!user?.id,
+    initialData: [],
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: highestScanResultsLeaderboard = [] } = useQuery({
+    queryKey: ['homeHighestScanResultsLeaderboard'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_highest_scan_results_leaderboard', { p_limit: 100 });
+      if (error) {
+        console.warn('[Home] get_highest_scan_results_leaderboard unavailable:', error?.message || error);
+        return [];
+      }
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: !!user?.email,
     initialData: [],
     staleTime: 60 * 1000,
     refetchOnWindowFocus: true,
@@ -1687,6 +1767,17 @@ function HomeContent() {
     return <GuestHomeFlow />;
   }
 
+  const ownEmailLower = String(user?.email || "").trim().toLowerCase();
+
+  const rewardsList = Array.isArray(rewards) ? rewards : [];
+  const userRewardsList = Array.isArray(userRewards) ? userRewards : [];
+  const highestScanResultsRows = Array.isArray(highestScanResultsLeaderboard)
+    ? highestScanResultsLeaderboard
+    : [];
+  const allUsersList = Array.isArray(allUsers) ? allUsers : [];
+  const userDiscoveriesList = Array.isArray(userDiscoveries) ? userDiscoveries : [];
+  const allDiscoveriesList = Array.isArray(allDiscoveries) ? allDiscoveries : [];
+
   const discoveredGenera = genera.filter(g => {
     const genusPlants = plants.filter(p => 
       p.genus_category === g.category && p.genus_number === g.category_dex_number
@@ -1998,7 +2089,7 @@ function HomeContent() {
     : activeZone
     ? THEME_MAP_COLORS[activeZone.theme] || "#84cc16"
     : "#6b7280";
-  const currentUserEmailLower = (user?.email || "").toLowerCase();
+  const currentUserEmailLower = ownEmailLower;
 
   const isMapDataPending = isMapDiscoveryDataLoading || isLoadingAllDiscoveries || isLoadingAllUsers;
   const likedDiscoveryIdSet = new Set(
@@ -2131,6 +2222,30 @@ function HomeContent() {
     return count + 1;
   }, 0);
 
+  const unlockedRewardIds = new Set(
+    userRewardsList
+      .map((entry) => String(entry?.reward_id || "").trim())
+      .filter(Boolean)
+  );
+  const unlockedZoneAccessoryCount = rewardsList.reduce((count, reward) => {
+    const rewardType = String(reward?.type || reward?.reward_type || reward?.kind || "").trim().toLowerCase();
+    const rewardId = String(reward?.id || "").trim();
+    if (!rewardId || !unlockedRewardIds.has(rewardId)) return count;
+    if (rewardType !== 'logo_accessory' && rewardType !== 'accessory') return count;
+    if (!String(reward?.requires_zone_theme || "").trim()) return count;
+    return count + 1;
+  }, 0);
+
+  const completedWeeklyQuestCount = (userWeeklyQuests || []).reduce(
+    (count, entry) => count + (isCompletedStatus(entry) ? 1 : 0),
+    0,
+  );
+
+  const completedMonthlyQuestCount = (userMonthlyQuests || []).reduce(
+    (count, entry) => count + (isCompletedStatus(entry) ? 1 : 0),
+    0,
+  );
+
   const plantsByGenusKey = (plants || []).reduce((acc, plant) => {
     const key = `${plant?.genus_category || ""}::${plant?.genus_number || ""}`;
     if (!acc[key]) acc[key] = [];
@@ -2213,6 +2328,25 @@ function HomeContent() {
   const favoriteStripeNeedsMigrationHint =
     (userCollections || []).length > 0 && !hasFavoriteColumnInPayload;
 
+  const getDiscoveryTimestamp = (discovery) => {
+    const raw = discovery?.discovered_date || discovery?.created_date || discovery?.created_at;
+    const parsed = raw ? new Date(raw).getTime() : 0;
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+  const milestonePreviewDayKey = new Date().toISOString().slice(0, 10);
+
+  const publicProfilesByAuthId = new Map(
+    allUsersList
+      .filter((profile) => profile?.public_profile !== false && !!profile?.auth_id)
+      .map((profile) => [profile.auth_id, profile])
+  );
+
+  const publicProfileEmailSet = new Set(
+    allUsersList
+      .filter((profile) => profile?.public_profile !== false && typeof profile?.user_email === "string")
+      .map((profile) => profile.user_email.toLowerCase())
+  );
+
   const nearCompleteGenera = (genera || [])
     .map((genus) => {
       const key = `${genus?.category || ""}::${genus?.category_dex_number || ""}`;
@@ -2225,6 +2359,48 @@ function HomeContent() {
         0
       );
       const remaining = Math.max(0, total - discovered);
+      const genusPlantIds = new Set(genusPlants.map((plant) => plant?.id).filter(Boolean));
+      const genusDiscoveries = userDiscoveriesList.filter(
+        (discovery) => genusPlantIds.has(discovery?.plant_id) && discovery?.image_url
+      );
+
+      const publicOtherUserGenusDiscoveries = allDiscoveriesList.filter((discovery) => {
+        if (!genusPlantIds.has(discovery?.plant_id) || !discovery?.image_url) return false;
+
+        const ownerAuthId = String(discovery?.auth_id || discovery?.created_by_id || "");
+        const ownerEmail = String(discovery?.user || discovery?.created_by || "").toLowerCase();
+        const isOwnByAuth = Boolean(ownerAuthId && user?.id && ownerAuthId === user.id);
+        const isOwnByEmail = Boolean(ownerEmail && user?.email && ownerEmail === user.email.toLowerCase());
+        if (isOwnByAuth || isOwnByEmail) return false;
+
+        if (ownerAuthId && publicProfilesByAuthId.has(ownerAuthId)) return true;
+        if (ownerEmail && publicProfileEmailSet.has(ownerEmail)) return true;
+        return false;
+      });
+
+      const randomPublicDiscovery =
+        publicOtherUserGenusDiscoveries.length > 0
+          ? publicOtherUserGenusDiscoveries[
+              hashSeedToIndex(
+                `${genus?.id || genus?.genus_name || "genus"}:${user?.id || "anon"}:${milestonePreviewDayKey}`,
+                publicOtherUserGenusDiscoveries.length
+              )
+            ]
+          : null;
+
+      const ownFallbackDiscovery =
+        genusDiscoveries.find((discovery) => discovery?.is_front_image) ||
+        genusDiscoveries.find((discovery) => discovery?.is_species_front_image) ||
+        [...genusDiscoveries].sort((a, b) => getDiscoveryTimestamp(b) - getDiscoveryTimestamp(a))[0] ||
+        null;
+
+      const ownFallbackPreviewImageUrl = ownFallbackDiscovery?.image_url || "";
+
+      const previewImageUrl =
+        randomPublicDiscovery?.image_url ||
+        ownFallbackPreviewImageUrl;
+
+      const previewDiscovery = randomPublicDiscovery || ownFallbackDiscovery;
 
       return {
         id: genus?.id,
@@ -2232,6 +2408,10 @@ function HomeContent() {
         discovered,
         total,
         remaining,
+        previewImageUrl,
+        previewDiscoveryId: previewDiscovery?.id || "",
+        previewPlantId: previewDiscovery?.plant_id || "",
+        previewScannerEmail: previewDiscovery?.user || previewDiscovery?.created_by || "",
       };
     })
     .filter((entry) => entry && entry.discovered >= 3 && entry.remaining > 0)
@@ -2283,6 +2463,36 @@ function HomeContent() {
     ? Math.max(0, Math.floor(nextSeedRankTarget.seeds - playerSeeds + 1))
     : 0;
 
+  const highestScanResultsRanking = highestScanResultsRows
+    .map((entry) => ({
+      email: String(entry?.public_profile_email || entry?.user_email || entry?.profile_email || entry?.email || "").toLowerCase(),
+      rewardAmount: Math.max(0, Number(entry?.reward_amount ?? 0)),
+      awardedAtMs: new Date(entry?.awarded_at || entry?.created_at || 0).getTime(),
+    }))
+    .filter((entry) => Boolean(entry.email) && Number(entry.rewardAmount) > 0)
+    .sort((a, b) => {
+      if (b.rewardAmount !== a.rewardAmount) return b.rewardAmount - a.rewardAmount;
+      return (b.awardedAtMs || 0) - (a.awardedAtMs || 0);
+    });
+
+  const ownHighestScanRankIndex = highestScanResultsRanking.findIndex((entry) => entry.email === ownEmailLower);
+  const ownHighestScanRank = ownHighestScanRankIndex >= 0 ? ownHighestScanRankIndex + 1 : 0;
+  const ownHighestScanRewardSeeds = ownHighestScanRank > 0
+    ? Math.round(highestScanResultsRanking[ownHighestScanRankIndex]?.rewardAmount || 0)
+    : 0;
+
+  const rarestDiscoveredPlantScore = userDiscoveriesList.reduce((maxScore, discovery) => {
+    const plant = plants.find((candidate) => candidate?.id === discovery?.plant_id);
+    const rarityLabel = plant?.rarity || plant?.aiData?.rarity || "";
+    return Math.max(maxScore, rarityScoreFromLabel(rarityLabel));
+  }, 0);
+
+  const profileCreatedAtRaw = user?.created_date || user?.created_at || user?.updated_date || null;
+  const profileCreatedAtMs = profileCreatedAtRaw ? new Date(profileCreatedAtRaw).getTime() : 0;
+  const memberSinceDays = Number.isFinite(profileCreatedAtMs) && profileCreatedAtMs > 0
+    ? Math.max(0, Math.floor((Date.now() - profileCreatedAtMs) / (24 * 60 * 60 * 1000)))
+    : 0;
+
   const homeMilestoneFeed = [];
 
   if (nearCompleteGenera.length > 0) {
@@ -2290,9 +2500,16 @@ function HomeContent() {
       homeMilestoneFeed.push({
         id: `genus-${entry.id}`,
         title: `${entry.genusName}: ${entry.discovered}/${entry.total}`,
-        detail: `Nur noch ${entry.remaining} Art${entry.remaining === 1 ? "" : "en"} bis zum naechsten Sammelabschluss.`,
+        detail: entry.remaining === 1
+          ? `Dir fehlt nur noch 1 Art der ${entry.genusName}!`
+          : `Dir fehlen nur noch ${entry.remaining} Arten der ${entry.genusName}!`,
         actionType: "open_genus",
         genusId: entry.id,
+        genusName: entry.genusName,
+        previewImageUrl: entry.previewImageUrl || "",
+        previewDiscoveryId: entry.previewDiscoveryId || "",
+        previewPlantId: entry.previewPlantId || "",
+        previewScannerEmail: entry.previewScannerEmail || "",
       });
     });
   }
@@ -2339,6 +2556,42 @@ function HomeContent() {
       : [51.1657, 10.4515];
 
   const activeZoneMeta = activeZone?.theme ? THEME_MAP_META[activeZone.theme] : null;
+  const nearestZoneInfo = hasLiveCachedLocation && Array.isArray(heroZones) && heroZones.length > 0
+    ? heroZones
+        .map((zone) => {
+          const centerLat = Number(zone?.centerLat);
+          const centerLng = Number(zone?.centerLng);
+          if (!Number.isFinite(centerLat) || !Number.isFinite(centerLng)) return null;
+
+          const distanceMeters = calculateDistanceMetersRaw(cachedLocation.lat, cachedLocation.lng, centerLat, centerLng);
+          if (!Number.isFinite(distanceMeters)) return null;
+
+          const bearingDegrees = calculateBearingDegrees(cachedLocation.lat, cachedLocation.lng, centerLat, centerLng);
+          return {
+            zone,
+            distanceMeters,
+            directionLabel: getCompassDirectionLabel(bearingDegrees),
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.distanceMeters - b.distanceMeters)[0] || null
+    : null;
+
+  const isZoneLoading = !hasResolvedZoneBootstrap || isLoadingZone;
+
+  const zoneHintText = isZoneLoading || !hasResolvedZoneBootstrap
+    ? "Zone wird geladen"
+    : activeZoneMeta?.label
+      ? `Aktiv: ${activeZoneMeta.label}`
+      : nearestZoneInfo
+        ? `Naechste: ${(nearestZoneInfo.distanceMeters / 1000).toFixed(1)} km ${nearestZoneInfo.directionLabel ? `(${nearestZoneInfo.directionLabel})` : ""}`
+        : "Keine Zone aktiv";
+  const nearestZoneDirectionIcon = nearestZoneInfo?.directionLabel
+    ? String(nearestZoneInfo.directionLabel).trim().split(/\s+/)[0]
+    : "";
+  const nearestZoneDistanceKm = nearestZoneInfo && Number.isFinite(nearestZoneInfo.distanceMeters)
+    ? Number((nearestZoneInfo.distanceMeters / 1000).toFixed(1))
+    : null;
   const isAdminUser = user?.role === "admin";
   const ZoneIcon = activeZoneMeta?.Icon || MapPin;
   const healthStats = [
@@ -2354,6 +2607,37 @@ function HomeContent() {
     0,
     Number(robotPlantState?.streakDays ?? robotPlantState?.streak_days ?? 0)
   );
+  const highestPlantStatusValue = Math.max(
+    0,
+    Number.isFinite(Number(displayedOverallPlantHealth))
+      ? Number(displayedOverallPlantHealth)
+      : Math.max(safeEnergy, safeDataQuality, safeCare),
+  );
+  const profileBadgeMetrics = {
+    total_distance_between_scans_km: totalWalkedKilometers,
+    total_scans: userDiscoveries.length,
+    global_seed_rank: ownSeedRank,
+    received_likes_count: receivedLikesCount,
+    total_seeds: playerSeeds,
+    claimed_tiles: playerClaimedTiles,
+    highest_scan_result: ownHighestScanRewardSeeds,
+    highest_plant_status: highestPlantStatusValue,
+    rarest_plant_score: rarestDiscoveredPlantScore,
+    weekly_quests_completed: completedWeeklyQuestCount,
+    monthly_quests_completed: completedMonthlyQuestCount,
+    daily_streak_days: streakDays,
+    member_since_days: memberSinceDays,
+    zone_unlocked_plant_accessories: unlockedZoneAccessoryCount,
+  };
+  const evaluatedProfileBadges = evaluateProfileBadges(profileBadgeMetrics);
+  const selectedProfileBadges = buildSelectedProfileBadges(
+    user?.selected_badge_ids,
+    evaluatedProfileBadges,
+    PROFILE_BADGE_MAX_SELECTED,
+  ).map((badge) => ({
+    ...badge,
+    Icon: getProfileBadgeIconComponent(badge.iconKey),
+  }));
   const streakMultiplier = Math.max(1, Math.min(7, streakDays <= 1 ? 1 : streakDays));
 
   const zoneMultiplierCandidate = Number(
@@ -2396,6 +2680,9 @@ function HomeContent() {
     florabotContextBubble?.panel === "home" && !activeMilestone && !showFlorabotIntro
       ? florabotContextBubble?.message
       : null;
+  const playerSeedsDisplay = Math.max(0, Math.round(Number(playerSeeds) || 0)).toLocaleString("de-DE");
+  const conqueredZonesDisplay = Math.max(0, Math.round(Number(playerClaimedTiles) || 0)).toLocaleString("de-DE");
+  const healthSeedBonusDisplay = Math.max(0, Math.round(Number(healthStateBonus) || 0));
 
   const formatMultiplier = (value) => {
     const safeValue = Number.isFinite(value) ? value : 1;
@@ -2434,6 +2721,22 @@ function HomeContent() {
     if (actionType === "open_collections") {
       handleOpenCollectionFromHome({ id: "global" });
     }
+  };
+
+  const handleHomeMilestonePreviewImageClick = (milestone) => {
+    if (!milestone) return;
+
+    if (milestone?.previewDiscoveryId) {
+      handleDiscoveryImageClick({
+        discoveryId: milestone.previewDiscoveryId,
+        scannerEmail: milestone.previewScannerEmail || "",
+        genusId: milestone.genusId || "",
+        plantId: milestone.previewPlantId || "",
+      });
+      return;
+    }
+
+    handleHomeMilestoneAction(milestone);
   };
 
   const navItems = [
@@ -2739,7 +3042,7 @@ function HomeContent() {
     return nextLiked;
   };
 
-  const openShop = (category = "accessories") => {
+  const openShop = (category = "root") => {
     if (!isShopUnlocked) {
       window.alert("Der Shop wird ab 5.000 Samen freigeschaltet.");
       return false;
@@ -2971,7 +3274,8 @@ function HomeContent() {
         profile={user}
         authId={user?.id}
         currentUser={user}
-        initialShopCategory="accessories"
+        badgeMetrics={profileBadgeMetrics}
+        initialShopCategory="root"
         logoAssets={logoAssets}
         playerSparks={playerSparks}
         playerAmber={playerAmber}
@@ -3134,7 +3438,7 @@ function HomeContent() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, ease: 'easeOut' }}
             data-ui="home-main-content-shell"
-            className={`relative h-full w-full max-w-md md:max-w-3xl rounded-[2rem] overflow-hidden border ${isLightUi ? "border-white/65 shadow-[0_20px_64px_rgba(0,0,0,0.14)]" : "border-[#d7cf9c]/65 shadow-[0_20px_80px_rgba(0,0,0,0.55)]"}`}
+            className={`relative h-full w-full max-w-md md:max-w-3xl rounded-[2rem] ${activePanel === null ? "overflow-visible" : "overflow-hidden"} border ${isLightUi ? "border-white/65 shadow-[0_20px_64px_rgba(0,0,0,0.14)]" : "border-[#d7cf9c]/65 shadow-[0_20px_80px_rgba(0,0,0,0.55)]"}`}
           >
             <div
               className="absolute inset-0"
@@ -3165,6 +3469,8 @@ function HomeContent() {
                 embeddedCollectionCanGoBack={activePanel === "collection" && embeddedCollectionEntryCategory !== null}
                 displayName={displayName}
                 userTitle={resolvedUserTitle}
+                playerSparks={playerSparks}
+                playerAmber={playerAmber}
                 onEmbeddedCollectionBack={() => {
                   setEmbeddedCollectionEntryCategory(null);
                   setEmbeddedCollectionPublicPanelOpen(false);
@@ -3188,7 +3494,7 @@ function HomeContent() {
               />
 
               <div
-                className={`relative flex flex-1 min-h-0 flex-col overflow-hidden ${shouldDockEmbeddedChipHeader ? "py-0" : "py-[clamp(0.5rem,1.5vh,1rem)]"}`}
+                className={`relative flex flex-1 min-h-0 flex-col ${activePanel === null ? "overflow-visible" : "overflow-hidden"} ${shouldDockEmbeddedChipHeader ? "py-0" : "py-[clamp(0.5rem,1.5vh,1rem)]"}`}
                 data-ui="home-content-stack"
               >
                 {activePanel === "collection" ? (
@@ -3225,6 +3531,7 @@ function HomeContent() {
                     embedded
                     authId={user?.id}
                     currentUser={user}
+                    badgeMetrics={profileBadgeMetrics}
                     onHeaderMetaChange={setEmbeddedHeaderMeta}
                     onUserUpdated={(freshUser) => setUser(freshUser)}
                     initialCategory={shopOpenCategory}
@@ -3271,526 +3578,102 @@ function HomeContent() {
                     discoveryMarkerScale={discoveryMarkerScale}
                   />
                 ) : (
-                  <section data-ui="home-plant-hero-section" className="flex-1 min-h-0 rounded-3xl px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.75rem,2vh,1.5rem)] flex flex-col bg-transparent">
-                  <HomeCollectionStripes
-                    isLightUi={isLightUi}
-                    equippedLogoAssets={equippedLogoAssets}
-                    onLogoClick={() => {
-                      if (toggleMilestonePreview) {
-                        const now = Date.now();
-                        const isAmbientCooldownActive = now < homeOverlayAmbientCooldownUntilRef.current;
+                  <section data-ui="home-plant-hero-section" className="flex-1 min-h-0 rounded-3xl px-[clamp(0.75rem,2vw,1.5rem)] pt-[clamp(0.75rem,2vh,1.5rem)] pb-[clamp(0.12rem,0.35vh,0.28rem)] flex flex-col bg-transparent">
+                    <HomeCollectionStripes
+                      className="flex-1 min-h-0"
+                      isLightUi={isLightUi}
+                      equippedLogoAssets={equippedLogoAssets}
+                      selectedProfileBadges={selectedProfileBadges}
+                      onLogoClick={() => {
+                        if (toggleMilestonePreview) {
+                          const now = Date.now();
+                          const isAmbientCooldownActive = now < homeOverlayAmbientCooldownUntilRef.current;
 
-                        if (!isAmbientCooldownActive) {
-                          const { comment } = pickRandomPhaseAmbientComment(storySeedProgress, []);
-                          const resolvedAmbientComment = comment
-                            ? interpolatePercentVariables(comment, buildStoryProfileVariables(user || {}))
-                            : "";
-                          const nextAmbientComment = resolvedAmbientComment || comment || "";
-                          setHomeOverlayAmbientMessage(nextAmbientComment);
-                          if (nextAmbientComment) {
-                            homeOverlayAmbientCooldownUntilRef.current = now + (5 * 60 * 1000);
+                          if (!isAmbientCooldownActive) {
+                            const { comment } = pickRandomPhaseAmbientComment(storySeedProgress, []);
+                            const resolvedAmbientComment = comment
+                              ? interpolatePercentVariables(comment, buildStoryProfileVariables(user || {}))
+                              : "";
+                            const nextAmbientComment = resolvedAmbientComment || comment || "";
+                            setHomeOverlayAmbientMessage(nextAmbientComment);
+                            if (nextAmbientComment) {
+                              homeOverlayAmbientCooldownUntilRef.current = now + (5 * 60 * 1000);
+                            }
+                          } else {
+                            setHomeOverlayAmbientMessage("");
                           }
-                        } else {
-                          setHomeOverlayAmbientMessage("");
+
+                          setIsMilestoneOverlayToggled(true);
                         }
-
-                        setIsMilestoneOverlayToggled(true);
-                      }
-                    }}
-                    playerSeeds={playerSeeds}
-                    discoveryCount={userDiscoveries.length}
-                    totalDistanceKm={totalWalkedKilometers}
-                    receivedLikesCount={receivedLikesCount}
-                    playerSparks={playerSparks}
-                    playerAmber={playerAmber}
-                    milestoneFeed={homeMilestoneFeed}
-                    onMilestoneAction={handleHomeMilestoneAction}
-                    favoriteCollections={favoriteCollectionsForStripe}
-                    onOpenCollection={handleOpenCollectionFromHome}
-                    favoriteBackendHint={favoriteStripeNeedsMigrationHint}
-                    claimedTiles={playerClaimedTiles}
-                    activeZoneLabel={activeZoneMeta?.label || "Keine Zone"}
-                    isZoneLoading={!hasResolvedZoneBootstrap || isLoadingZone}
-                    securedMultiplier={securedNextScanMultiplier}
-                    streakMultiplier={streakMultiplier}
-                    zoneMultiplier={zoneMultiplier}
-                    careMultiplier={careMultiplier}
-                  />
-                  <div
-                    className={`w-full rounded-2xl border backdrop-blur-sm px-[clamp(0.625rem,2vw,0.875rem)] relative ${
-                      isLightUi ? "border-[#c8ac62]/45" : "border-[#f0e5a5]/45"
-                    }`}
-                    style={{
-                      height: `${(2.4 * controlsScale).toFixed(2)}rem`,
-                      background: isLightUi
-                        ? `linear-gradient(90deg, ${resolvedPlantHealthState.color}2e 0%, rgba(255,255,255,0.44) 50%, ${resolvedPlantHealthState.color}24 100%)`
-                        : `linear-gradient(90deg, ${resolvedPlantHealthState.color}66 0%, rgba(0,0,0,0.30) 50%, ${resolvedPlantHealthState.color}4a 100%)`,
-                    }}
-                  >
-                    <div className={`h-full w-full grid grid-cols-3 divide-x ${isLightUi ? "divide-[#c8ac62]/35" : "divide-[#f0e5a5]/30"}`}>
-                      {/* status columns */}
-                      <LockedTooltip
-                        unstyled
-                        content={(
-                          <div
-                            className={`rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl ${
-                              isLightUi
-                                ? "border-amber-400/60 bg-white/88"
-                                : "border-amber-300/40 bg-black/75"
-                            }`}
-                          >
-                            <p className={`text-[10px] font-semibold uppercase tracking-wide mb-0.5 ${
-                              isLightUi ? "text-amber-600" : "text-amber-400/80"
-                            }`}>
-                              Pflanzengesundheit
-                            </p>
-                            <p className={`font-bold text-sm leading-tight mb-2 ${
-                              isLightUi ? "text-amber-800" : "text-amber-300"
-                            }`}>
-                              {resolvedPlantHealthState.label}
-                            </p>
-                            <p className={`text-xs leading-snug ${
-                              isLightUi ? "text-stone-700" : "text-white/80"
-                            }`}>
-                              Eine hohe Pflanzengesundheit verbessert deinen Scan-Fortschritt: sie beeinflusst Zonen, Multiplikatoren, taegliche Gewinne und Pflege-Boni.
-                            </p>
-                          </div>
-                        )}
-                      >
-                        <button
-                          type="button"
-                          className={`flex items-center justify-center gap-1.5 min-w-0 px-2 text-xs md:text-sm font-semibold transition-colors ${isLightUi ? "text-stone-700 hover:text-stone-800" : "text-white/95 hover:text-white"}`}
-                          aria-label="Pflanzengesundheit Info"
-                        >
-                          <Leaf className="w-4 h-4 shrink-0 text-emerald-500" />
-                          <span className="truncate">{resolvedPlantHealthState.label}</span>
-                        </button>
-                      </LockedTooltip>
-                      <LockedTooltip
-                        unstyled
-                        content={(
-                          <div
-                            className={`rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl ${
-                              isLightUi
-                                ? "border-amber-400/60 bg-white/88"
-                                : "border-amber-300/40 bg-black/75"
-                            }`}
-                          >
-                            <p className={`text-[10px] font-semibold uppercase tracking-wide mb-0.5 ${
-                              isLightUi ? "text-amber-600" : "text-amber-400/80"
-                            }`}>
-                              Scan-Zone & Geclaimte Tiles
-                            </p>
-                            <p className={`font-bold text-sm leading-tight mb-2 ${
-                              isLightUi ? "text-amber-800" : "text-amber-300"
-                            }`}>
-                              {(!hasResolvedZoneBootstrap || isLoadingZone) ? "Wird geladen…" : activeZoneMeta?.label || "Keine Zone"} · {playerClaimedTiles} Tiles
-                            </p>
-                            <p className={`text-xs leading-snug mb-2 ${
-                              isLightUi ? "text-stone-700" : "text-white/80"
-                            }`}>
-                              {activeZone
-                                ? `Du befindest dich in einer aktiven ${activeZoneMeta?.label || ""}-Zone. Scans hier erhalten einen Zonen-Bonus.`
-                                : "Du befindest dich aktuell in keiner aktiven Scan-Zone. Begib dich in eine Zone, um einen Bonus-Multiplikator zu erhalten."}
-                            </p>
-                            <p className={`text-xs leading-snug ${
-                              isLightUi ? "text-stone-700" : "text-white/80"
-                            }`}>
-                              Jede geclaimte Tile erhöht deinen Scan-Multiplikator um +10%. Aktueller Bonus: x{(1 + playerClaimedTiles * 0.1).toFixed(1)}.
-                            </p>
-                          </div>
-                        )}
-                      >
-                        <button
-                          type="button"
-                          className={`flex items-center justify-center gap-1.5 min-w-0 w-full h-full px-2 text-xs md:text-sm font-semibold transition-colors ${isLightUi ? "text-stone-700 hover:text-stone-800" : "text-white/95 hover:text-white"}`}
-                          aria-label="Scan-Zone Info"
-                        >
-                          <MapPin className="w-4 h-4 shrink-0" style={{ color: currentZoneColor }} />
-                          <span className="truncate">{(!hasResolvedZoneBootstrap || isLoadingZone) ? "..." : playerClaimedTiles}</span>
-                        </button>
-                      </LockedTooltip>
-                      <LockedTooltip
-                        unstyled
-                        content={(
-                          <div
-                            className={`rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl ${
-                              isLightUi
-                                ? "border-amber-400/60 bg-white/88"
-                                : "border-amber-300/40 bg-black/75"
-                            }`}
-                          >
-                            <p className={`text-[10px] font-semibold uppercase tracking-wide mb-0.5 ${
-                              isLightUi ? "text-amber-600" : "text-amber-400/80"
-                            }`}>
-                              Scan-Multiplikator
-                            </p>
-                            <p className={`font-bold text-sm leading-tight mb-2 ${
-                              isLightUi ? "text-amber-800" : "text-amber-300"
-                            }`}>
-                              {formatMultiplier(securedNextScanMultiplier)}
-                            </p>
-                            <p className={`text-xs leading-snug ${
-                              isLightUi ? "text-stone-700" : "text-white/80"
-                            }`}>
-                              Mindestens gesichert aus Streak ({formatMultiplier(streakMultiplier)}), Zone ({formatMultiplier(zoneMultiplier)}), Pflege ({formatMultiplier(careMultiplier)}), Tagesbonus ({formatMultiplier(dailyBonusMultiplier)}), Tiles ({formatMultiplier(claimedTileMultiplier)}) und dem konservativen Scan-Minimum.
-                            </p>
-                          </div>
-                        )}
-                      >
-                        <button
-                          type="button"
-                          className={`flex items-center justify-center gap-1.5 min-w-0 w-full h-full px-2 text-xs md:text-sm font-semibold transition-colors ${isLightUi ? "text-stone-700 hover:text-stone-800" : "text-white/95 hover:text-white"}`}
-                          aria-label="Scan-Multiplikator Info"
-                        >
-                          <Camera className={`w-4 h-4 shrink-0 ${isLightUi ? "text-amber-700" : "text-amber-300"}`} />
-                          <span className="truncate">{formatMultiplier(securedNextScanMultiplier)}</span>
-                        </button>
-                      </LockedTooltip>
-                    </div>
-
-                    {/* botName removed here; rendered inside inner hero container per request */}
-
-                  </div>
-
-
-                  <div ref={healthStatsPanelRef} className="relative flex-1 min-h-0 flex items-start justify-center pt-[clamp(0.2rem,1vh,0.5rem)]">
-                    <div
-                      className="relative mx-auto"
-                      style={{
-                        width: showHealthStatsPanel
-                          ? "100%"
-                          : (heroStageSizePx > 0 ? `${heroStageSizePx}px` : "100%"),
-                        height: showHealthStatsPanel
-                          ? "100%"
-                          : (heroStageSizePx > 0 ? `${heroStageSizePx}px` : "100%"),
-                        maxWidth: "100%",
-                        maxHeight: "100%",
-                        aspectRatio: showHealthStatsPanel ? undefined : "1 / 1",
                       }}
+                      playerSeeds={playerSeeds}
+                      discoveryCount={userDiscoveries.length}
+                      totalDistanceKm={totalWalkedKilometers}
+                      receivedLikesCount={receivedLikesCount}
+                      milestoneFeed={homeMilestoneFeed}
+                      onMilestoneAction={handleHomeMilestoneAction}
+                      onMilestonePreviewClick={handleHomeMilestonePreviewImageClick}
+                      favoriteCollections={favoriteCollectionsForStripe}
+                      onOpenCollection={handleOpenCollectionFromHome}
+                      favoriteBackendHint={favoriteStripeNeedsMigrationHint}
+                      claimedTiles={playerClaimedTiles}
+                      activeZoneLabel={activeZoneMeta?.label || "Keine Zone"}
+                      zoneHintText={zoneHintText}
+                      nearestZoneDirectionIcon={nearestZoneDirectionIcon}
+                      nearestZoneDistanceKm={nearestZoneDistanceKm}
+                      isZoneLoading={!hasResolvedZoneBootstrap || isLoadingZone}
+                      securedMultiplier={securedNextScanMultiplier}
+                      streakMultiplier={streakMultiplier}
+                      zoneMultiplier={zoneMultiplier}
+                      careMultiplier={careMultiplier}
+                      healthSeedBonus={healthStateBonus}
+                      globalSeedRank={ownSeedRank}
+                      globalBestScanRank={ownHighestScanRank}
+                      globalBestScanRewardSeeds={ownHighestScanRewardSeeds}
+                    />
+                  </section>
+                )}
+              </div>
+
+              <div className={`${activePanel === null ? "pt-0" : "pt-[clamp(0.35rem,0.9vh,0.7rem)]"} pb-[clamp(0.15rem,0.5vh,0.35rem)]`}>
+                {activePanel === null ? (
+                  <div className="mb-[clamp(0.45rem,1vh,0.75rem)] grid grid-cols-3 gap-2">
+                    <div
+                      className={`px-2 py-1 flex items-center justify-center gap-1.5 ${
+                        isLightUi ? "text-stone-800" : "text-stone-100"
+                      }`}
+                      aria-label={`Samen: ${playerSeedsDisplay}`}
                     >
-                      {!showHealthStatsPanel && isQuestButtonUnlocked && (() => {
-                        const monthlyReady = activeMonthlyQuest?.isCompleted;
-                        const weeklyReady = activeWeeklyQuest?.isCompleted;
-                        const regularReady = activeRegularQuests.some(q => q.isCompleted);
-                        const anyReady = monthlyReady || weeklyReady || regularReady;
-
-                        const questUnseen = currentWeeklyQuest && weeklyQuestSeen !== String(currentWeeklyQuest.id);
-
-                        const borderClass = quizAvailable
-                          ? isLightUi ? "border-orange-500/80" : "border-orange-300/70"
-                          : monthlyReady
-                            ? isLightUi ? "border-purple-500/70" : "border-purple-400/60"
-                            : weeklyReady
-                              ? isLightUi ? "border-emerald-500/70" : "border-emerald-400/60"
-                              : regularReady
-                                ? isLightUi ? "border-stone-400/70" : "border-white/50"
-                                : questUnseen
-                                  ? isLightUi ? "border-amber-400/60" : "border-amber-300/50"
-                                  : isLightUi ? "border-[#c8ac62]/40" : "border-[#f0e5a5]/25";
-
-                        const bgStyle = quizAvailable
-                          ? isLightUi
-                            ? "linear-gradient(135deg, rgba(249,115,22,0.34) 0%, rgba(239,68,68,0.18) 100%)"
-                            : "linear-gradient(135deg, rgba(249,115,22,0.56) 0%, rgba(239,68,68,0.36) 100%)"
-                          : monthlyReady
-                            ? isLightUi
-                              ? "linear-gradient(135deg, rgba(168,85,247,0.30) 0%, rgba(168,85,247,0.12) 100%)"
-                              : "linear-gradient(135deg, rgba(168,85,247,0.52) 0%, rgba(168,85,247,0.30) 100%)"
-                            : weeklyReady
-                              ? isLightUi
-                                ? "linear-gradient(135deg, rgba(16,185,129,0.30) 0%, rgba(16,185,129,0.12) 100%)"
-                                : "linear-gradient(135deg, rgba(16,185,129,0.52) 0%, rgba(16,185,129,0.30) 100%)"
-                              : regularReady
-                                ? isLightUi
-                                  ? "linear-gradient(135deg, rgba(200,200,200,0.38) 0%, rgba(200,200,200,0.16) 100%)"
-                                  : "linear-gradient(135deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.12) 100%)"
-                                : questUnseen
-                                  ? isLightUi
-                                    ? "linear-gradient(135deg, rgba(234,179,8,0.28) 0%, rgba(234,179,8,0.10) 100%)"
-                                    : "linear-gradient(135deg, rgba(234,179,8,0.48) 0%, rgba(234,179,8,0.28) 100%)"
-                                  : isLightUi
-                                    ? "linear-gradient(135deg, rgba(107,114,128,0.22) 0%, rgba(107,114,128,0.08) 100%)"
-                                    : "linear-gradient(135deg, rgba(107,114,128,0.38) 0%, rgba(107,114,128,0.18) 100%)";
-
-                        const iconColor = quizAvailable
-                          ? isLightUi ? "text-orange-700" : "text-orange-200"
-                          : monthlyReady
-                            ? isLightUi ? "text-purple-700" : "text-purple-300"
-                            : weeklyReady
-                              ? isLightUi ? "text-emerald-700" : "text-emerald-300"
-                              : regularReady
-                                ? isLightUi ? "text-stone-600" : "text-white"
-                                : questUnseen
-                                  ? isLightUi ? "text-amber-700" : "text-amber-300"
-                                  : isLightUi ? "text-stone-500" : "text-stone-400";
-
-                        return (
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (quizAvailable) {
-                                setShowPlantQuizDialog(true);
-                                setPlantQuizResult(null);
-                                return;
-                              }
-
-                              // Force-refresh quiz state on click so login-time cache races
-                              // cannot hide an existing open quiz.
-                              if (user?.id) {
-                                const refreshed = await refetchOpenPlantQuiz();
-                                if (refreshed?.data?.id) {
-                                  setShowPlantQuizDialog(true);
-                                  setPlantQuizResult(null);
-                                  return;
-                                }
-                              }
-
-                              if (anyReady) {
-                                setActivePanel("achievements");
-                                setShowHealthStatsPanel(false);
-                              } else {
-                                setShowWeeklyQuestTooltip((prev) => !prev);
-                                if (currentWeeklyQuest?.id) {
-                                  const key = String(currentWeeklyQuest.id);
-                                  setWeeklyQuestSeen(key);
-                                  try { localStorage.setItem('weeklyQuestSeen', key); } catch {}
-                                }
-                              }
-                            }}
-                            className={`absolute left-0 md:left-2 top-5 md:top-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${borderClass}`}
-                            style={{ background: bgStyle }}
-                            aria-label={quizAvailable ? "Quiz öffnen" : (anyReady ? "Quest abgeben" : "Wochenquest anzeigen")}
-                            disabled={isOpenPlantQuizFetching}
-                          >
-                            <span className={`text-[1.35rem] font-black leading-none ${iconColor}`}>
-                              {quizAvailable ? "!" : (anyReady ? "?" : "!")}
-                            </span>
-                            <span className={`font-semibold text-[10px] md:text-[11px] leading-none mt-0.5 ${isLightUi ? "text-stone-800" : "text-white"}`}>{quizAvailable ? "Quiz" : "Quest"}</span>
-                          </button>
-                        );
-                      })()}
-
-                      {isQuestButtonUnlocked && showWeeklyQuestTooltip && (
-                        <>
-                          <div
-                            className="absolute inset-0 z-[19]"
-                            onClick={() => setShowWeeklyQuestTooltip(false)}
-                          />
-                          <div
-                            className={`absolute left-0 z-[21] right-0 rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl overflow-y-auto ${
-                              isLightUi
-                                ? "border-amber-400/60 bg-white/88"
-                                : "border-amber-300/40 bg-black/75"
-                            }`}
-                            style={{
-                              top: "calc(1.25rem + 3.6rem + 0.5rem)",
-                              maxHeight: isNavVisible
-                                ? "calc(100vh - 11rem)"
-                                : "calc(100vh - 7rem)",
-                            }}
-                          >
-                            <p className={`text-[10px] font-semibold uppercase tracking-wide mb-0.5 ${
-                              isLightUi ? "text-amber-600" : "text-amber-400/80"
-                            }`}>
-                              Pflanze der Woche:
-                            </p>
-                            <p className={`font-bold text-sm leading-tight mb-2 ${
-                              isLightUi ? "text-amber-800" : "text-amber-300"
-                            }`}>
-                              {currentWeeklyQuest
-                                ? (currentWeeklyQuest.target_species_name || currentWeeklyQuest.target_genus_name || currentWeeklyQuest.title)
-                                : "Keine Wochenquest"}
-                            </p>
-                            {currentWeeklyQuest?.description && (
-                              <p className={`text-xs leading-snug ${
-                                isLightUi ? "text-stone-700" : "text-white/80"
-                              }`}>
-                                {currentWeeklyQuest.description}
-                              </p>
-                            )}
-                          </div>
-                        </>
-                      )}
-
-                    {!showHealthStatsPanel && isShopUnlocked && (
-                      <button
-                        type="button"
-                        onClick={() => openShop("accessories")}
-                        aria-label="Profil anpassen"
-                        className={`absolute right-0 md:right-2 top-5 md:top-6 z-20 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${
-                          isLightUi
-                            ? "border-[#c8ac62]/60"
-                            : "border-[#f0e5a5]/40"
-                        }`}
-                        style={{
-                          background: isLightUi
-                            ? "linear-gradient(135deg, rgba(107,114,128,0.28) 0%, rgba(107,114,128,0.12) 100%)"
-                            : "linear-gradient(135deg, rgba(107,114,128,0.48) 0%, rgba(107,114,128,0.30) 100%)",
-                          opacity: isShopUnlocked ? 1 : 0.72,
-                        }}
-                      >
-                        <Palette className={`w-4 h-4 ${isLightUi ? "text-stone-700" : "text-white/90"}`} />
-                        <span className={`font-semibold text-[11px] md:text-xs leading-none mt-0.5 ${isLightUi ? "text-stone-800" : "text-white"}`}>
-                          Anpassen
-                        </span>
-                      </button>
-                    )}
-
-                    <div className={`absolute inset-0 w-full rounded-2xl px-3 py-3 space-y-2.5 max-h-[calc(100vh-7rem)] overflow-y-scroll hide-scrollbar pointer-events-auto z-[15] ${
-                      isLightUi ? "text-stone-700" : "text-stone-100"
-                    }`}>
-                      <AnimatePresence mode="wait">
-                        {showHealthStatsPanel ? (
-                          <PlantHeroHealthPanel
-                            plantHealthState={resolvedPlantHealthState}
-                            healthStateBonus={healthStateBonus}
-                            healthStats={healthStats}
-                            isLoading={isPlantHealthPending}
-                            isDailyCareLoading={isDailyCareStatusLoading}
-                            wateringCountToday={wateringCountToday}
-                            wateringLimitPerDay={wateringLimitPerDay}
-                            remainingWatersToday={remainingWatersToday}
-                            isWateringPending={waterPlantMutation.isPending}
-                            isFertilizerPending={useInventoryItemMutation.isPending}
-                            isFertilizerInventoryLoading={isFertilizerInventoryLoading}
-                            fertilizerInventoryItems={ownedFertilizerItems}
-                            activeFertilizerItemId={activeFertilizerItemId}
-                            activeFertilizerRemainingDays={activeFertilizerRemainingDays}
-                            activeDecayEffects={activeDecayEffects}
-                            activeDecayPercent={activeDecayPercent}
-                            careActionMessage={careActionMessage}
-                            careGainFeedback={careGainFeedback}
-                            onWaterPlant={handleWaterPlantClick}
-                            onUseFertilizerItem={handleUseFertilizerItem}
-                            onOpenFertilizerShop={handleOpenFertilizerShop}
-                            currentPartnerLabel={currentPartnerRelation ? resolvePublicProfileLabel(currentPartnerRelation.request_sent_by?.toLowerCase() === (user?.email || '').toLowerCase() ? currentPartnerRelation.request_sent_to : currentPartnerRelation.request_sent_by) : null}
-                            partnerCandidates={partnerCandidates.map((friend) => {
-                              const email = friend.request_sent_by?.toLowerCase() === (user?.email || '').toLowerCase() ? friend.request_sent_to : friend.request_sent_by;
-                              return {
-                                email,
-                                name: resolvePublicProfileLabel(email),
-                                title: 'Partner',
-                              };
-                            })}
-                            isPartnerFeatureUnlocked={isPartnerFunctionUnlocked}
-                            isPartnerPending={partnerPendingRelations.length > 0}
-                            onRequestPartner={handleRequestPartner}
-                          />
-                        ) : (
-                          <motion.div
-                            key="hero-plant"
-                            initial={{ opacity: 0, y: 6 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -6 }}
-                            transition={{ duration: 0.16, ease: "easeOut" }}
-                            className="absolute inset-0"
-                          >
-                            {showPulse && (
-                              <div
-                                className="absolute left-1/2 top-1/2 w-[75%] aspect-square -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl animate-pulse pointer-events-none"
-                                style={{
-                                  background: `radial-gradient(circle, ${resolvedPlantHealthState.color}${pulseInnerOpacity} 0%, ${resolvedPlantHealthState.color}${pulseOuterOpacity} 46%, transparent 74%)`,
-                                  animationDuration: pulseDuration,
-                                }}
-                              />
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => setShowHealthStatsPanel(true)}
-                              className="absolute left-1/2 top-1/2 w-[82%] aspect-square -translate-x-1/2 -translate-y-1/2 cursor-pointer"
-                              aria-label="Pflanzenstatus-Panel öffnen"
-                            >
-                              <div className="relative w-full h-full p-[10%] drop-shadow-[0_0_24px_rgba(190,242,100,0.6)]">
-                                {(equippedLogoAssets.border?.imageUrl || equippedLogoAssets.plant?.imageUrl || equippedLogoAssets.face?.imageUrl) && (
-                                  <div className="absolute left-1/2 top-1/2 h-[56%] w-[56%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/35" />
-                                )}
-                                {equippedLogoAssets.border?.imageUrl && (
-                                  <img
-                                    src={equippedLogoAssets.border.imageUrl}
-                                    alt="Logo Rahmen"
-                                    className="absolute inset-0 w-full h-full object-contain"
-                                    style={equippedLogoAssets.borderColor
-                                      ? { filter: `brightness(0) saturate(100%) ${hexToFilter(equippedLogoAssets.borderColor)}` }
-                                      : undefined}
-                                  />
-                                )}
-                                {equippedLogoAssets.plant?.imageUrl && (
-                                  <img
-                                    src={equippedLogoAssets.plant.imageUrl}
-                                    alt="Logo Pflanze"
-                                    className="absolute inset-0 w-full h-full object-contain"
-                                  />
-                                )}
-                                {equippedLogoAssets.face?.imageUrl && (
-                                  <img
-                                    src={equippedLogoAssets.face.imageUrl}
-                                    alt="Logo Gesicht"
-                                    className="absolute inset-0 w-full h-full object-contain"
-                                  />
-                                )}
-                              </div>
-                            </button>
-
-
-
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-
+                      <Leaf className={`h-3.5 w-3.5 ${isLightUi ? "text-emerald-700" : "text-emerald-300"}`} />
+                      <span className="text-[11px] font-semibold leading-none">{playerSeedsDisplay}</span>
                     </div>
 
-                    {botName && !showHealthStatsPanel && !homeContextBubbleMessage && (
-                      <div className="absolute left-1/2 transform -translate-x-1/2 z-30 pointer-events-none" style={{ bottom: 0 }}>
-                        <div className={`px-3 py-1 rounded-full border ${isLightUi ? "bg-white/80 text-stone-800 border-[#c8ac62]/45" : "bg-black/50 text-white/90 border-[#f0e5a5]/30"}`}>
-                          <span className="font-semibold text-sm truncate max-w-[12rem] block text-center">{botName}</span>
-                        </div>
-                      </div>
-                    )}
-
+                    <div
+                      className={`px-2 py-1 flex items-center justify-center gap-1.5 ${
+                        isLightUi ? "text-stone-800" : "text-stone-100"
+                      }`}
+                      aria-label={`Eroberte Zonen: ${conqueredZonesDisplay}`}
+                    >
+                      <InspectionPanel className={`h-3.5 w-3.5 ${isLightUi ? "text-sky-700" : "text-sky-300"}`} />
+                      <span className="text-[11px] font-semibold leading-none">{conqueredZonesDisplay}</span>
                     </div>
 
-                    <AnimatePresence>
-                      {homeContextBubbleMessage && (
-                        <motion.div
-                          key="home-ambient-bubble"
-                          initial={{ opacity: 0, y: 8, scale: 0.97 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: 8, scale: 0.97 }}
-                          transition={{ duration: 0.2, ease: "easeOut" }}
-                          className="absolute bottom-0 left-0 right-0 z-[35] flex justify-center pointer-events-none px-2 pb-1"
-                        >
-                          <div
-                            className={`pointer-events-auto flex items-start gap-3 w-full max-w-[26rem] rounded-2xl px-4 py-3 border shadow-xl ${
-                              isLightUi ? "bg-black/72 border-white/25" : "bg-black/78 border-white/22"
-                            }`}
-                            style={{ backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" }}
-                          >
-                            <FlorabotLogo profile={user} logoAssets={logoAssets} sizeClass="w-12 h-12 shrink-0 mt-0.5" padding="p-[6%]" />
-                            <p className="flex-1 text-sm leading-relaxed text-white/95">
-                              {homeContextBubbleMessage}
-                            </p>
-                            <button
-                              type="button"
-                              onClick={dismissFlorabotContextBubble}
-                              aria-label="Schließen"
-                              className={`shrink-0 mt-0.5 p-1 rounded-full transition-colors ${
-                                isLightUi
-                                  ? "text-white/65 hover:text-white hover:bg-white/12"
-                                  : "text-white/60 hover:text-white hover:bg-white/14"
-                              }`}
-                            >
-                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"></path><path d="M6 6l12 12"></path></svg>
-                            </button>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                    <div
+                      className={`px-2 py-1 flex items-center justify-center gap-1.5 ${
+                        isLightUi ? "text-stone-800" : "text-stone-100"
+                      }`}
+                      aria-label={`Gesundheitsbonus: +${healthSeedBonusDisplay} Samen`}
+                    >
+                      <HeartPulse className={`h-3.5 w-3.5 ${isLightUi ? "text-rose-700" : "text-rose-300"}`} />
+                      <span className="text-[11px] font-semibold leading-none">+{healthSeedBonusDisplay}</span>
+                    </div>
                   </div>
+                ) : null}
 
+                {activePanel === null ? (
                   <motion.button
                     onClick={() => navigate(createPageUrl('Scanner'))}
-                    className={`mt-[clamp(0.625rem,1.6vh,1.25rem)] w-full rounded-2xl border flex items-center justify-center font-semibold tracking-wide transition-shadow ${
+                    className={`mb-[clamp(0.55rem,1.25vh,0.95rem)] w-full shrink-0 rounded-2xl border flex items-center justify-center font-semibold tracking-wide transition-shadow ${
                       isLightUi
                         ? "border-emerald-400/50 bg-gradient-to-r from-emerald-500/85 via-emerald-400/75 to-emerald-500/85 text-white shadow-[0_8px_24px_rgba(34,197,94,0.2)] hover:shadow-[0_12px_32px_rgba(34,197,94,0.35)]"
                         : "border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 text-white shadow-[0_8px_24px_rgba(34,197,94,0.3)]"
@@ -3811,11 +3694,7 @@ function HomeContent() {
                     />
                     Scannen
                   </motion.button>
-                  </section>
-                )}
-              </div>
-
-              <div className="pt-[clamp(0.35rem,0.9vh,0.7rem)] pb-[clamp(0.15rem,0.5vh,0.35rem)]">
+                ) : null}
                 <HomeBottomNavigation
                   navItems={navItems}
                   controlsScale={controlsScale}
@@ -3838,5 +3717,4 @@ export default function Home() {
     </HomeOtaGate>
   );
 }
-
 

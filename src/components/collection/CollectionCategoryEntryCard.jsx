@@ -83,6 +83,8 @@ export default function CollectionCategoryEntryCard({
   title,
   description,
   info,
+  descriptionClassName = "",
+  infoClassName = "",
   icon: Icon,
   accent = "global",
   onClick,
@@ -98,6 +100,7 @@ export default function CollectionCategoryEntryCard({
   leadingVisual = null,
   leadingBadges = null,
   metaChips = [],
+  metaChipClassName = "",
   detailContent = null,
   showChevron = false,
 }) {
@@ -107,6 +110,9 @@ export default function CollectionCategoryEntryCard({
     ? `linear-gradient(135deg, ${toRgba(customBackgroundColor, 0.38) || customBackgroundColor} 0%, rgba(9, 12, 17, 0.84) 100%)`
     : null;
   const baseBackground = customGradient || `linear-gradient(145deg, ${style.tint} 0%, rgba(10, 13, 19, 0.86) 58%, rgba(7, 10, 16, 0.94) 100%)`;
+  const descriptionToneClass = descriptionClassName || (isLightUi ? "text-white/86" : "text-white/84");
+  const infoToneClass = infoClassName || (isLightUi ? "text-white/70" : "text-white/68");
+  const chipToneClass = metaChipClassName || (isLightUi ? "border-white/25 bg-black/26 text-white/84" : "border-white/25 bg-black/28 text-white/84");
 
   return (
     <button
@@ -148,12 +154,12 @@ export default function CollectionCategoryEntryCard({
           {(description || info) && (
             <div className={`mt-0.5 min-h-0 overflow-y-auto pr-1 ${descriptionMaxHeightClass}`}>
               {description && (
-                <p className={"text-sm md:text-[0.95rem] leading-snug " + (isLightUi ? "text-white/86" : "text-white/84")}>
+                <p className={"text-sm md:text-[0.95rem] leading-snug " + descriptionToneClass}>
                   {description}
                 </p>
               )}
               {info && (
-                <p className={"mt-1 text-xs md:text-sm font-medium leading-snug " + (isLightUi ? "text-white/70" : "text-white/68")}>
+                <p className={"mt-1 text-xs md:text-sm font-medium leading-snug " + infoToneClass}>
                   {info}
                 </p>
               )}
@@ -164,7 +170,7 @@ export default function CollectionCategoryEntryCard({
               {metaChips.map((chip) => (
                 <span
                   key={chip}
-                  className={"inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] md:text-[11px] font-medium " + (isLightUi ? "border-white/25 bg-black/26 text-white/84" : "border-white/25 bg-black/28 text-white/84")}
+                  className={"inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] md:text-[11px] font-medium " + chipToneClass}
                 >
                   {chip}
                 </span>
