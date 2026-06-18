@@ -34,11 +34,16 @@ export default function HomeFlorabotOverlay({
     onAction: null,
   });
   const [shopViewportHeight, setShopViewportHeight] = useState(null);
+  const onCustomizeRef = useRef(onCustomize);
 
   const statusPanelSlotRef = useRef(null);
   const speechBubbleRef = useRef(null);
   const fixedFooterRef = useRef(null);
   const shopViewportRef = useRef(null);
+    useEffect(() => {
+      onCustomizeRef.current = onCustomize;
+    }, [onCustomize]);
+
   const fixedFooterReservedHeightExpression = "7.5rem + env(safe-area-inset-bottom)";
   const shopFooterGapPx = 10;
 
@@ -116,6 +121,12 @@ export default function HomeFlorabotOverlay({
     };
   }, [isShopOpen]);
 
+  useEffect(() => {
+    return () => {
+      onCustomizeRef.current?.(false);
+    };
+  }, []);
+
   const handleStatusToggle = () => {
     if (!showHealthDetails) {
       setShowHealthDetails(true);
@@ -132,6 +143,7 @@ export default function HomeFlorabotOverlay({
       setIsShopOpen(false);
       setShowHealthDetails(false);
       setIsSpeechBubbleVisible(Boolean(ambientMessage));
+      onCustomize?.(false);
       return;
     }
 
@@ -143,7 +155,12 @@ export default function HomeFlorabotOverlay({
     setIsSpeechBubbleVisible(false);
     setActiveShopCategory(initialShopCategory || "root");
     setIsShopOpen(true);
-    onCustomize?.();
+    onCustomize?.(true);
+  };
+
+  const handleCloseOverlay = () => {
+    onCustomize?.(false);
+    onClose?.();
   };
 
   const currencyLine = (
@@ -177,7 +194,7 @@ export default function HomeFlorabotOverlay({
       titleBadge={isShopOpen ? null : healthBadge}
       profile={profile}
       logoAssets={logoAssets}
-      showLogo={!isShopOpen}
+      showLogo={false}
       logoSizeClass="w-48 h-48 sm:w-56 sm:h-56"
       logoPadding="p-[7%]"
       dockContentBottom
@@ -326,7 +343,7 @@ export default function HomeFlorabotOverlay({
               <div className="w-full flex items-center justify-center">
                 <button
                   type="button"
-                  onClick={() => onClose?.()}
+                  onClick={handleCloseOverlay}
                   className={`text-xs leading-none transition-colors ${
                     isLightUi
                       ? "text-stone-400 hover:text-stone-600"

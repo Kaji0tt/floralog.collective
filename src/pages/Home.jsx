@@ -25,7 +25,7 @@ import {
 import { getOpenPlantQuiz, submitPlantQuizAnswer } from "@/api/plantQuizService";
 import { getTileClaims } from "@/api/tileClaimService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Camera, Loader2, Leaf, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, InspectionPanel, HeartPulse } from "lucide-react";
+import { Camera, Loader2, Leaf, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
@@ -50,7 +50,7 @@ import HomeHeaderBar from "@/components/navigation/HomeHeaderBar";
 import HomeBottomNavigation from "@/components/navigation/HomeBottomNavigation";
 import { getNavButtonStyle } from "@/components/navigation/navButtonStyles";
 import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
-import HomeCollectionStripes from "@/components/home/HomeCollectionStripes";
+import HomeCollectionStripes, { HomeMilestoneStripe } from "@/components/home/HomeCollectionStripes";
 import HomeMilestoneOverlayToggle from "@/components/home/HomeMilestoneOverlayToggle";
 import GuestHomeFlow from "@/components/home/GuestHomeFlow";
 import HomeOtaGate from "@/components/home/HomeOtaGate";
@@ -224,6 +224,7 @@ function HomeContent() {
   const [showFlorabotIntro, setShowFlorabotIntro] = useState(false);
   const [activeMilestone, setActiveMilestone] = useState(null);
   const [isMilestoneOverlayToggled, setIsMilestoneOverlayToggled] = useState(false);
+  const [isHomeOverlayShopOpen, setIsHomeOverlayShopOpen] = useState(false);
   const [homeOverlayAmbientMessage, setHomeOverlayAmbientMessage] = useState("");
   const homeOverlayAmbientCooldownUntilRef = useRef(0);
   const [florabotContextBubble, setFlorabotContextBubble] = useState(null);
@@ -615,31 +616,6 @@ function HomeContent() {
     initialData: [],
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
-  });
-
-  const { data: publicCollections = [] } = useQuery({
-    queryKey: ['publicCollectionsForGuests'],
-    queryFn: () => Query.Collection.list('-created_date'),
-    initialData: [],
-    staleTime: 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
-
-  const { data: userCollections = [] } = useQuery({
-    queryKey: ['homeUserCollections', user?.id],
-    queryFn: () => Query.UserCollection.filter({ auth_id: user?.id }),
-    enabled: !!user?.id,
-    initialData: [],
-    staleTime: 30 * 1000,
-    refetchOnWindowFocus: true,
-  });
-
-  const { data: allCollectionItems = [] } = useQuery({
-    queryKey: ['homeCollectionItems'],
-    queryFn: () => Query.CollectionItem.list(),
-    initialData: [],
-    staleTime: 60 * 1000,
-    refetchOnWindowFocus: false,
   });
 
   const { data: allRobotPlants = [] } = useQuery({
@@ -1716,9 +1692,16 @@ function HomeContent() {
   useEffect(() => {
     if (showFlorabotIntro || activeMilestone) {
       setIsMilestoneOverlayToggled(false);
+      setIsHomeOverlayShopOpen(false);
       setHomeOverlayAmbientMessage("");
     }
   }, [showFlorabotIntro, activeMilestone]);
+
+  useEffect(() => {
+    if (!isMilestoneOverlayToggled) {
+      setIsHomeOverlayShopOpen(false);
+    }
+  }, [isMilestoneOverlayToggled]);
 
   const dismissFlorabotContextBubble = () => {
     if (!florabotContextBubble) return;
@@ -2253,81 +2236,6 @@ function HomeContent() {
     return acc;
   }, {});
 
-  const collectionById = new Map(
-    (publicCollections || [])
-      .filter((collection) => !!collection?.id)
-      .map((collection) => [collection.id, collection])
-  );
-
-  const genusById = new Map(
-    (genera || [])
-      .filter((genus) => !!genus?.id)
-      .map((genus) => [genus.id, genus])
-  );
-
-  const collectionItemsByCollectionId = (allCollectionItems || []).reduce((acc, item) => {
-    if (!item?.collection_id) return acc;
-    if (!acc[item.collection_id]) acc[item.collection_id] = [];
-    acc[item.collection_id].push(item);
-    return acc;
-  }, {});
-
-  const hasFavoriteColumnInPayload =
-    (userCollections || []).length === 0 ||
-    (userCollections || []).some((row) => Object.prototype.hasOwnProperty.call(row || {}, "is_favorite"));
-
-  const favoriteCollectionsForStripe = (userCollections || [])
-    .map((userCollectionRow) => {
-      const collectionId = userCollectionRow?.collection_id;
-      const collectionMeta = collectionById.get(collectionId);
-      if (!collectionId || !collectionMeta) return null;
-
-      const itemRows = collectionItemsByCollectionId[collectionId] || [];
-      const total = itemRows.length;
-      if (total <= 0) return null;
-
-      const discovered = itemRows.reduce((count, item) => {
-        if (item?.plant_id) {
-          return count + (discoveredPlantIdSet.has(item.plant_id) ? 1 : 0);
-        }
-
-        if (item?.genus_id) {
-          const genus = genusById.get(item.genus_id);
-          if (!genus) return count;
-          const key = `${genus.category || ""}::${genus.category_dex_number || ""}`;
-          const genusPlants = plantsByGenusKey[key] || [];
-          const hasAnyDiscovered = genusPlants.some((plant) => discoveredPlantIdSet.has(plant.id));
-          return count + (hasAnyDiscovered ? 1 : 0);
-        }
-
-        return count;
-      }, 0);
-
-      const missingCount = Math.max(0, total - discovered);
-      const percent = total > 0 ? (discovered / total) * 100 : 0;
-
-      return {
-        id: collectionId,
-        title: collectionMeta?.title || "Kollektion",
-        isFavorite: Boolean(userCollectionRow?.is_favorite),
-        discovered,
-        total,
-        missingCount,
-        percent,
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => {
-      if (a.isFavorite !== b.isFavorite) return Number(b.isFavorite) - Number(a.isFavorite);
-      if (a.percent !== b.percent) return b.percent - a.percent;
-      if (a.missingCount !== b.missingCount) return a.missingCount - b.missingCount;
-      return (b.discovered || 0) - (a.discovered || 0);
-    })
-    .slice(0, 8);
-
-  const favoriteStripeNeedsMigrationHint =
-    (userCollections || []).length > 0 && !hasFavoriteColumnInPayload;
-
   const getDiscoveryTimestamp = (discovery) => {
     const raw = discovery?.discovered_date || discovery?.created_date || discovery?.created_at;
     const parsed = raw ? new Date(raw).getTime() : 0;
@@ -2723,7 +2631,7 @@ function HomeContent() {
     }
   };
 
-  const handleHomeMilestonePreviewImageClick = (milestone) => {
+  const handleHomeMilestonePreviewClick = (milestone) => {
     if (!milestone) return;
 
     if (milestone?.previewDiscoveryId) {
@@ -3282,9 +3190,14 @@ function HomeContent() {
         plantHealthState={resolvedPlantHealthState}
         healthStats={healthStats}
         ambientMessage={homeOverlayAmbientMessage}
-        onCustomize={() => {}}
+        onCustomize={(isCustomizeOpen) => {
+          setIsHomeOverlayShopOpen(Boolean(isCustomizeOpen));
+        }}
         onUserUpdated={(freshUser) => setUser(freshUser)}
-        onClose={() => setIsMilestoneOverlayToggled(false)}
+        onClose={() => {
+          setIsHomeOverlayShopOpen(false);
+          setIsMilestoneOverlayToggled(false);
+        }}
       />
 
       <AnimatePresence>
@@ -3582,8 +3495,10 @@ function HomeContent() {
                     <HomeCollectionStripes
                       className="flex-1 min-h-0"
                       isLightUi={isLightUi}
-                      equippedLogoAssets={equippedLogoAssets}
+                      profile={user}
+                      logoAssets={logoAssets}
                       selectedProfileBadges={selectedProfileBadges}
+                      elevateLogo={Boolean(isMilestoneOverlayToggled && !showFlorabotIntro && !activeMilestone && !isHomeOverlayShopOpen)}
                       onLogoClick={() => {
                         if (toggleMilestonePreview) {
                           const now = Date.now();
@@ -3604,96 +3519,57 @@ function HomeContent() {
                           }
 
                           setIsMilestoneOverlayToggled(true);
+                          setIsHomeOverlayShopOpen(false);
                         }
                       }}
                       playerSeeds={playerSeeds}
-                      discoveryCount={userDiscoveries.length}
-                      totalDistanceKm={totalWalkedKilometers}
-                      receivedLikesCount={receivedLikesCount}
-                      milestoneFeed={homeMilestoneFeed}
-                      onMilestoneAction={handleHomeMilestoneAction}
-                      onMilestonePreviewClick={handleHomeMilestonePreviewImageClick}
-                      favoriteCollections={favoriteCollectionsForStripe}
-                      onOpenCollection={handleOpenCollectionFromHome}
-                      favoriteBackendHint={favoriteStripeNeedsMigrationHint}
-                      claimedTiles={playerClaimedTiles}
-                      activeZoneLabel={activeZoneMeta?.label || "Keine Zone"}
+                      playerSeedsDisplay={playerSeedsDisplay}
+                      conqueredZonesDisplay={conqueredZonesDisplay}
+                      healthSeedBonusDisplay={healthSeedBonusDisplay}
                       zoneHintText={zoneHintText}
                       nearestZoneDirectionIcon={nearestZoneDirectionIcon}
                       nearestZoneDistanceKm={nearestZoneDistanceKm}
-                      isZoneLoading={!hasResolvedZoneBootstrap || isLoadingZone}
                       securedMultiplier={securedNextScanMultiplier}
-                      streakMultiplier={streakMultiplier}
-                      zoneMultiplier={zoneMultiplier}
-                      careMultiplier={careMultiplier}
-                      healthSeedBonus={healthStateBonus}
-                      globalSeedRank={ownSeedRank}
-                      globalBestScanRank={ownHighestScanRank}
-                      globalBestScanRewardSeeds={ownHighestScanRewardSeeds}
                     />
                   </section>
                 )}
               </div>
 
-              <div className={`${activePanel === null ? "pt-0" : "pt-[clamp(0.35rem,0.9vh,0.7rem)]"} pb-[clamp(0.15rem,0.5vh,0.35rem)]`}>
+              <div className={`${activePanel === null ? "pt-0" : "pt-[clamp(0.35rem,0.9vh,0.7rem)]"} pb-[clamp(0.15rem,0.5vh,0.35rem)] flex min-h-0 flex-col`}>
                 {activePanel === null ? (
-                  <div className="mb-[clamp(0.45rem,1vh,0.75rem)] grid grid-cols-3 gap-2">
-                    <div
-                      className={`px-2 py-1 flex items-center justify-center gap-1.5 ${
-                        isLightUi ? "text-stone-800" : "text-stone-100"
-                      }`}
-                      aria-label={`Samen: ${playerSeedsDisplay}`}
-                    >
-                      <Leaf className={`h-3.5 w-3.5 ${isLightUi ? "text-emerald-700" : "text-emerald-300"}`} />
-                      <span className="text-[11px] font-semibold leading-none">{playerSeedsDisplay}</span>
-                    </div>
-
-                    <div
-                      className={`px-2 py-1 flex items-center justify-center gap-1.5 ${
-                        isLightUi ? "text-stone-800" : "text-stone-100"
-                      }`}
-                      aria-label={`Eroberte Zonen: ${conqueredZonesDisplay}`}
-                    >
-                      <InspectionPanel className={`h-3.5 w-3.5 ${isLightUi ? "text-sky-700" : "text-sky-300"}`} />
-                      <span className="text-[11px] font-semibold leading-none">{conqueredZonesDisplay}</span>
-                    </div>
-
-                    <div
-                      className={`px-2 py-1 flex items-center justify-center gap-1.5 ${
-                        isLightUi ? "text-stone-800" : "text-stone-100"
-                      }`}
-                      aria-label={`Gesundheitsbonus: +${healthSeedBonusDisplay} Samen`}
-                    >
-                      <HeartPulse className={`h-3.5 w-3.5 ${isLightUi ? "text-rose-700" : "text-rose-300"}`} />
-                      <span className="text-[11px] font-semibold leading-none">+{healthSeedBonusDisplay}</span>
-                    </div>
-                  </div>
-                ) : null}
-
-                {activePanel === null ? (
-                  <motion.button
-                    onClick={() => navigate(createPageUrl('Scanner'))}
-                    className={`mb-[clamp(0.55rem,1.25vh,0.95rem)] w-full shrink-0 rounded-2xl border flex items-center justify-center font-semibold tracking-wide transition-shadow ${
-                      isLightUi
-                        ? "border-emerald-400/50 bg-gradient-to-r from-emerald-500/85 via-emerald-400/75 to-emerald-500/85 text-white shadow-[0_8px_24px_rgba(34,197,94,0.2)] hover:shadow-[0_12px_32px_rgba(34,197,94,0.35)]"
-                        : "border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 text-white shadow-[0_8px_24px_rgba(34,197,94,0.3)]"
-                    }`}
-                    style={{
-                      height: `${(3.35 * controlsScale).toFixed(2)}rem`,
-                      gap: `${(0.56 * controlsScale).toFixed(2)}rem`,
-                      fontSize: `${(1.15 * controlsScale).toFixed(2)}rem`,
-                    }}
-                    animate={showScannerHighlight ? { scale: [1, 1.02, 1] } : {}}
-                    transition={showScannerHighlight ? { duration: 1.8, repeat: Infinity, ease: 'easeInOut' } : {}}
-                  >
-                    <Camera
-                      style={{
-                        width: `${(1.45 * controlsScale).toFixed(2)}rem`,
-                        height: `${(1.45 * controlsScale).toFixed(2)}rem`,
-                      }}
+                  <>
+                    <HomeMilestoneStripe
+                      className="mb-[clamp(0.35rem,0.8vh,0.55rem)] min-h-0 flex-1"
+                      isLightUi={isLightUi}
+                      milestoneFeed={homeMilestoneFeed}
+                      onMilestoneAction={handleHomeMilestoneAction}
+                      onMilestonePreviewClick={handleHomeMilestonePreviewClick}
                     />
-                    Scannen
-                  </motion.button>
+
+                    <motion.button
+                      onClick={() => navigate(createPageUrl('Scanner'))}
+                      className={`mb-[clamp(0.35rem,0.8vh,0.55rem)] w-full shrink-0 rounded-2xl border flex items-center justify-center font-semibold tracking-wide transition-shadow ${
+                        isLightUi
+                          ? "border-emerald-400/50 bg-gradient-to-r from-emerald-500/85 via-emerald-400/75 to-emerald-500/85 text-white shadow-[0_8px_24px_rgba(34,197,94,0.2)] hover:shadow-[0_12px_32px_rgba(34,197,94,0.35)]"
+                          : "border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 text-white shadow-[0_8px_24px_rgba(34,197,94,0.3)]"
+                      }`}
+                      style={{
+                        height: `${(3.35 * controlsScale).toFixed(2)}rem`,
+                        gap: `${(0.56 * controlsScale).toFixed(2)}rem`,
+                        fontSize: `${(1.15 * controlsScale).toFixed(2)}rem`,
+                      }}
+                      animate={showScannerHighlight ? { scale: [1, 1.02, 1] } : {}}
+                      transition={showScannerHighlight ? { duration: 1.8, repeat: Infinity, ease: 'easeInOut' } : {}}
+                    >
+                      <Camera
+                        style={{
+                          width: `${(1.45 * controlsScale).toFixed(2)}rem`,
+                          height: `${(1.45 * controlsScale).toFixed(2)}rem`,
+                        }}
+                      />
+                      Scannen
+                    </motion.button>
+                  </>
                 ) : null}
                 <HomeBottomNavigation
                   navItems={navItems}
