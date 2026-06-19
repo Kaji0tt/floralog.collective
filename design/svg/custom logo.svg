@@ -6,7 +6,7 @@
    height="2048"
    id="svg6"
    sodipodi:docname="custom logo.svg"
-   inkscape:export-filename="..\face_marien.png"
+   inkscape:export-filename="C:\Users\jasch\Documents\face_reh.png"
    inkscape:export-xdpi="96"
    inkscape:export-ydpi="96"
    inkscape:version="1.4.2 (f4327f4, 2025-05-13)"
@@ -58,7 +58,7 @@
      inkscape:window-x="-8"
      inkscape:window-y="-8"
      inkscape:window-maximized="1"
-     inkscape:current-layer="Background-553" />
+     inkscape:current-layer="Layer 1-90" />
   <style
      id="style1">
 		.s0 { fill: #c7af8b;stroke: #c7af8b;stroke-width: .4 } 
@@ -660,10 +660,11 @@
          id="Layer 1-92"
          transform="matrix(1.388052,0,0,1.388052,-110.36528,9.7011412)"
          inkscape:label="Raupe"
-         style="display:inline">
+         style="display:none">
         <g
            id="Background-553"
-           inkscape:label="Raupe">
+           inkscape:label="Raupe"
+           style="display:inline">
           <path
              id="Path 62-8"
              fill-rule="evenodd"
@@ -764,7 +765,7 @@
       </g>
       <g
          id="Layer 1-90"
-         transform="translate(-41.5549,154.03037)"
+         transform="matrix(1.3735284,0,0,1.2191062,-101.70077,161.64077)"
          style="display:none;opacity:1"
          inkscape:label="Teufel">
         <g
@@ -821,7 +822,7 @@
       </g>
       <g
          id="Layer 1-39"
-         transform="translate(-39.6945,102.34162)"
+         transform="matrix(1.1242746,0,0,0.99498181,107.54236,341.63818)"
          style="display:none;opacity:1"
          inkscape:label="Golem">
         <g
@@ -908,9 +909,9 @@
       </g>
       <g
          id="Layer 1-95"
-         transform="translate(215.31722,215.84015)"
+         transform="matrix(1.4453853,0,0,1.3882378,-156.31005,-114.51294)"
          inkscape:label="Reh"
-         style="display:none;opacity:1">
+         style="display:inline;opacity:1">
         <g
            id="Background-32">
           <path

@@ -1,4 +1,4 @@
-import { Leaf, Minus, Plus, PencilLine, Send, SlidersHorizontal } from "lucide-react";
+import { Leaf, Minus, Plus, PencilLine, Search, Send, SlidersHorizontal, X } from "lucide-react";
 import GenusCard from "./GenusCard";
 import SearchSortBar from "./SearchSortBar";
 
@@ -53,13 +53,17 @@ export default function CollectionScreen({
   filteredGenera,
   sortedGenera,
   canShowCollectionProposalControls,
+  proposalEditorMode = false,
+  onToggleProposalEditorMode,
   canSubmitToSelectedCollection,
   isProposalBlockedByPrivateMaintained,
   proposalSearchQuery,
   onProposalSearchQueryChange,
-  proposalPlantId,
-  onProposalPlantIdChange,
-  proposalPlantOptions,
+  proposalSearchOptions = [],
+  onAddProposalSelection,
+  proposalSelections = [],
+  onProposalSelectionNoteChange,
+  onRemoveProposalSelection,
   isProposalSubmitting,
   onSubmitCollectionProposal,
   proposalFeedback,
@@ -207,16 +211,38 @@ export default function CollectionScreen({
                         <PencilLine className="w-3 h-3" />
                       </button>
                     )}
+
+                    {canShowCollectionProposalControls && (
+                      <button
+                        type="button"
+                        onClick={onToggleProposalEditorMode}
+                        className={
+                          "shrink-0 px-2 py-1 rounded-full border text-[10px] font-semibold transition-colors " +
+                          (proposalEditorMode
+                            ? (isLightUi
+                              ? "bg-white text-red-700 border-red-400/70 hover:bg-red-50"
+                              : "bg-black/55 text-red-200 border-red-300/70 hover:bg-black/70")
+                            : (isLightUi
+                              ? "bg-white text-[#8f6b22] border-[#c8ac62]/60 hover:bg-stone-50"
+                              : "bg-black/45 text-[#f0e5a5] border-[#f0e5a5]/45 hover:bg-black/60"))
+                        }
+                        aria-pressed={proposalEditorMode}
+                        aria-label={proposalEditorMode ? "Anfrage-Editor schliessen" : "Anfrage-Editor oeffnen"}
+                      >
+                        {proposalEditorMode ? "Schliessen" : "Anfragen"}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
-              {selectedCollection?.description && (
+              {selectedCollection?.description && !proposalEditorMode && (
                 <p className={"text-[11px] max-h-[4.5em] overflow-y-auto leading-snug rounded focus:outline-none focus:ring-1 " + (isLightUi ? "text-stone-700 focus:ring-[#c8ac62]/45" : "text-stone-200/90 focus:ring-[#f0e5a5]/40")} tabIndex={0}>
                   {selectedCollection.description}
                 </p>
               )}
             </div>
 
+            {!proposalEditorMode && (
             <div className="flex items-center gap-3 mt-1">
               <div className="flex-1 space-y-1">
                 <div className={"flex items-center justify-between text-[10px] " + (isLightUi ? "text-stone-700" : "text-stone-200/90")}>
@@ -283,10 +309,11 @@ export default function CollectionScreen({
                 </div>
               </div>
             </div>
+            )}
           </div>
         )}
 
-        {sortChipsOpen && (
+        {sortChipsOpen && !proposalEditorMode && (
           <div className="space-y-2">
             <SearchSortBar
               searchQuery={searchQuery}
@@ -307,101 +334,173 @@ export default function CollectionScreen({
             />
           </div>
         )}
+      </div>
 
-        {canShowCollectionProposalControls && (
+      <div
+        ref={listScrollContainerRef}
+        onScroll={proposalEditorMode ? undefined : onCollectionListScroll}
+        className={"relative flex-1 min-h-0 " + (proposalEditorMode ? "overflow-hidden pb-0" : "overflow-y-auto pb-20")}
+        style={proposalEditorMode ? undefined : {
+          WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
+          maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
+        }}
+      >
+        {proposalEditorMode && canShowCollectionProposalControls ? (
           <div
-            className={"rounded-2xl border shadow-sm p-3 backdrop-blur-sm space-y-2 " + (isLightUi ? "bg-white/60" : "bg-black/35")}
+            className={"h-full rounded-2xl border shadow-sm p-3 backdrop-blur-sm flex flex-col gap-2 " + (isLightUi ? "bg-white/62" : "bg-black/35")}
             style={{
-              borderColor: isLightUi ? "rgba(200,172,98,0.35)" : "rgba(240,229,165,0.35)",
+              borderColor: isLightUi ? "rgba(200,172,98,0.38)" : "rgba(240,229,165,0.38)",
             }}
           >
             <div className="flex items-center justify-between gap-2">
-              <p className={"text-[11px] font-semibold " + (isLightUi ? "text-stone-800" : "text-[#f8f4d6]")}>
-                Pflanze zur Kollektion vorschlagen
+              <p className={"text-[12px] font-semibold " + (isLightUi ? "text-stone-800" : "text-[#f8f4d6]")}>
+                Anfrage-Editor
               </p>
               <span className={"text-[10px] " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
-                moderiert
+                {proposalSelections.length} ausgewaehlt
               </span>
             </div>
 
             {!canSubmitToSelectedCollection && isProposalBlockedByPrivateMaintained && (
               <p className={"text-[10px] " + (isLightUi ? "text-amber-700" : "text-amber-200")}>
-                Diese Kollektion ist privat gepflegt. Nur Owner/Admins koennen Vorschlaege einreichen.
+                Diese Kollektion ist privat gepflegt. Nur Owner/Admins koennen Anfragen senden.
               </p>
             )}
 
-            <div className="flex flex-col gap-1.5">
+            <div className="relative">
+              <Search className={"w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 " + (isLightUi ? "text-stone-500" : "text-stone-300")} />
               <input
                 type="text"
                 value={proposalSearchQuery}
                 onChange={(event) => onProposalSearchQueryChange(event.target.value)}
-                placeholder="Pflanze suchen..."
-                className={"h-8 rounded-md border px-2 text-[11px] " + (isLightUi
+                placeholder="Pflanzen oder Gattungen suchen..."
+                className={"h-8 w-full rounded-md border pl-7 pr-2 text-[11px] " + (isLightUi
                   ? "border-stone-300 bg-white text-stone-800"
                   : "border-stone-600 bg-black/50 text-stone-100")}
                 disabled={!canSubmitToSelectedCollection}
               />
+            </div>
 
-              <div className="flex items-center gap-1.5">
-                <select
-                  value={proposalPlantId}
-                  onChange={(event) => onProposalPlantIdChange(event.target.value)}
-                  className={"h-8 flex-1 rounded-md border px-2 text-[11px] " + (isLightUi
-                    ? "border-stone-300 bg-white text-stone-800"
-                    : "border-stone-600 bg-black/50 text-stone-100")}
-                  disabled={!canSubmitToSelectedCollection || isProposalSubmitting}
-                >
-                  <option value="">Pflanze auswaehlen...</option>
-                  {proposalPlantOptions.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label} - {option.genusLabel}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={onSubmitCollectionProposal}
-                  disabled={!canSubmitToSelectedCollection || isProposalSubmitting || !proposalPlantId}
-                  className={"h-8 px-2 rounded-md border text-[11px] inline-flex items-center gap-1 transition-colors disabled:opacity-60 " + (isLightUi
-                    ? "bg-white text-[#8f6b22] border-[#c8ac62]/60 hover:bg-stone-50"
-                    : "bg-black/45 text-[#f0e5a5] border-[#f0e5a5]/45 hover:bg-black/60")}
-                >
-                  <Send className="w-3 h-3" />
-                  Vorschlagen
-                </button>
+            <div className="min-h-0 flex-1 grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div className={"min-h-0 rounded-xl border p-2 flex flex-col " + (isLightUi
+                ? "bg-white/80 border-stone-300/70"
+                : "bg-black/35 border-white/15")}
+              >
+                <p className={"text-[10px] font-semibold mb-1 " + (isLightUi ? "text-stone-700" : "text-stone-200")}>Treffer</p>
+                <div className="min-h-0 overflow-y-auto space-y-1 pr-1">
+                  {proposalSearchOptions.length === 0 ? (
+                    <p className={"text-[10px] " + (isLightUi ? "text-stone-500" : "text-stone-300")}>Keine Treffer.</p>
+                  ) : proposalSearchOptions.map((option) => {
+                    const isBlocked = option.isAlreadyIncluded || option.isAlreadyPending;
+                    const blockedReason = option.isAlreadyIncluded
+                      ? "Bereits enthalten"
+                      : option.isAlreadyPending
+                        ? "Bereits angefragt"
+                        : "";
+
+                    return (
+                      <button
+                        key={option.key}
+                        type="button"
+                        onClick={() => onAddProposalSelection(option)}
+                        disabled={!canSubmitToSelectedCollection || isProposalSubmitting}
+                        className={
+                          "w-full text-left rounded-md border px-2 py-1.5 transition-colors disabled:opacity-60 " +
+                          (isBlocked
+                            ? (isLightUi
+                              ? "bg-stone-100 border-stone-300 text-stone-500"
+                              : "bg-black/45 border-white/15 text-stone-300")
+                            : (isLightUi
+                              ? "bg-white border-stone-300 text-stone-800 hover:bg-stone-50"
+                              : "bg-black/35 border-white/20 text-stone-100 hover:bg-black/55"))
+                        }
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-medium truncate">{option.title}</p>
+                            {!!option.subtitle && <p className="text-[10px] opacity-80 truncate">{option.subtitle}</p>}
+                            <p className="text-[10px] opacity-70">{option.meta}</p>
+                          </div>
+                          <span className={"text-[10px] " + (isBlocked ? "text-red-500" : "text-emerald-500")}>
+                            {isBlocked ? blockedReason : "+"}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
-              {proposalPlantOptions.length === 0 && canSubmitToSelectedCollection && (
-                <p className={"text-[10px] " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
-                  Keine weiteren passenden Pflanzen verfuegbar.
-                </p>
-              )}
-
-              {!!proposalFeedback?.message && (
-                <p className={
-                  "text-[10px] " +
-                  (proposalFeedback.type === "error"
-                    ? (isLightUi ? "text-red-600" : "text-red-300")
-                    : (isLightUi ? "text-emerald-700" : "text-emerald-300"))
-                }>
-                  {proposalFeedback.message}
-                </p>
-              )}
+              <div className={"min-h-0 rounded-xl border p-2 flex flex-col " + (isLightUi
+                ? "bg-white/80 border-stone-300/70"
+                : "bg-black/35 border-white/15")}
+              >
+                <p className={"text-[10px] font-semibold mb-1 " + (isLightUi ? "text-stone-700" : "text-stone-200")}>Ausgewaehlt</p>
+                <div className="min-h-0 overflow-y-auto space-y-2 pr-1">
+                  {proposalSelections.length === 0 ? (
+                    <p className={"text-[10px] " + (isLightUi ? "text-stone-500" : "text-stone-300")}>Noch nichts ausgewaehlt.</p>
+                  ) : proposalSelections.map((entry) => (
+                    <div
+                      key={entry.key}
+                      className={"rounded-md border p-2 " + (isLightUi
+                        ? "bg-white border-stone-300"
+                        : "bg-black/45 border-white/20")}
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-medium truncate">{entry.title}</p>
+                          {!!entry.subtitle && <p className="text-[10px] opacity-75 truncate">{entry.subtitle}</p>}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => onRemoveProposalSelection(entry.key)}
+                          className={"p-1 rounded-full border transition-colors " + (isLightUi
+                            ? "border-stone-300 text-stone-600 hover:bg-stone-100"
+                            : "border-white/20 text-stone-200 hover:bg-black/60")}
+                          aria-label={`${entry.title} entfernen`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <textarea
+                        value={entry.note || ""}
+                        onChange={(event) => onProposalSelectionNoteChange(entry.key, event.target.value)}
+                        rows={2}
+                        className={"w-full rounded-md border px-2 py-1 text-[11px] resize-y " + (isLightUi
+                          ? "border-stone-300 bg-white text-stone-800"
+                          : "border-stone-600 bg-black/50 text-stone-100")}
+                        placeholder="Optionale Beschreibung fuer diese Anfrage"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
-        )}
-      </div>
 
-      <div
-        ref={listScrollContainerRef}
-        onScroll={onCollectionListScroll}
-        className="relative flex-1 min-h-0 overflow-y-auto pb-20"
-        style={{
-          WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
-          maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
-        }}
-      >
-        {filteredGenera.length === 0 ? (
+            <button
+              type="button"
+              onClick={onSubmitCollectionProposal}
+              disabled={!canSubmitToSelectedCollection || isProposalSubmitting || proposalSelections.length === 0}
+              className={"h-9 rounded-md border text-[12px] font-semibold inline-flex items-center justify-center gap-1.5 transition-colors disabled:opacity-60 " + (isLightUi
+                ? "bg-white text-[#8f6b22] border-[#c8ac62]/60 hover:bg-stone-50"
+                : "bg-black/45 text-[#f0e5a5] border-[#f0e5a5]/45 hover:bg-black/60")}
+            >
+              <Send className="w-3.5 h-3.5" />
+              Anfragen senden
+            </button>
+
+            {!!proposalFeedback?.message && (
+              <p className={
+                "text-[10px] " +
+                (proposalFeedback.type === "error"
+                  ? (isLightUi ? "text-red-600" : "text-red-300")
+                  : (isLightUi ? "text-emerald-700" : "text-emerald-300"))
+              }>
+                {proposalFeedback.message}
+              </p>
+            )}
+          </div>
+        ) : filteredGenera.length === 0 ? (
           <div className="text-center py-20">
             <div className={"w-24 h-24 backdrop-blur-md rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border " + (isLightUi ? "bg-white/65 border-[#c8ac62]/35" : "bg-black/45 border-[#f0e5a5]/30")}>
               <Leaf className={"w-12 h-12 " + (isLightUi ? "text-[#9a7728]" : "text-[#f0e5a5]")} />

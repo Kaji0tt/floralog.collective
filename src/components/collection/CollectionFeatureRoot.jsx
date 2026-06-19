@@ -100,8 +100,9 @@ export default function CollectionFeatureRoot({
   const [showPublicCollectionsPanelState, setShowPublicCollectionsPanelState] = useState(false);
   const [communitySearchQuery, setCommunitySearchQuery] = useState("");
   const [communitySort, setCommunitySort] = useState("newest");
+  const [isProposalEditorMode, setIsProposalEditorMode] = useState(false);
   const [proposalSearchQuery, setProposalSearchQuery] = useState("");
-  const [proposalPlantId, setProposalPlantId] = useState("");
+  const [proposalSelections, setProposalSelections] = useState([]);
   const [proposalFeedback, setProposalFeedback] = useState(null);
   const isRouteMode = !embedded;
   const isQuestCollectionView =
@@ -940,6 +941,18 @@ export default function CollectionFeatureRoot({
 
     return ids;
   }, [genusById, plants, selectedCollection, selectedCollectionItems]);
+  const includedGenusIdsForSelectedCollection = useMemo(() => {
+    const ids = new Set();
+    if (!selectedCollection) return ids;
+
+    selectedCollectionItems.forEach((item) => {
+      if (item.genus_id) {
+        ids.add(item.genus_id);
+      }
+    });
+
+    return ids;
+  }, [selectedCollection, selectedCollectionItems]);
   const pendingPlantIdsForSelectedCollection = useMemo(() => {
     const ids = new Set();
     if (!selectedCollection) return ids;
@@ -967,6 +980,20 @@ export default function CollectionFeatureRoot({
 
     return ids;
   }, [genusById, myPendingCollectionProposals, plants, selectedCollection]);
+  const pendingGenusIdsForSelectedCollection = useMemo(() => {
+    const ids = new Set();
+    if (!selectedCollection) return ids;
+
+    (myPendingCollectionProposals || [])
+      .filter((proposal) => proposal.status === "pending" && proposal.collection_id === selectedCollection.id)
+      .forEach((proposal) => {
+        if (proposal.genus_id) {
+          ids.add(proposal.genus_id);
+        }
+      });
+
+    return ids;
+  }, [myPendingCollectionProposals, selectedCollection]);
   const canShowCollectionProposalControls =
     !readOnly &&
     !!user?.id &&
@@ -977,68 +1004,202 @@ export default function CollectionFeatureRoot({
     !!selectedCollection?.private_maintained && !isMaintainerOfSelected;
   const canSubmitToSelectedCollection =
     canShowCollectionProposalControls && !isProposalBlockedByPrivateMaintained;
-  const proposalPlantOptions = useMemo(() => {
+  const proposalSearchOptions = useMemo(() => {
     if (!canShowCollectionProposalControls) return [];
 
     const normalized = proposalSearchQuery.trim().toLowerCase();
-    return (plants || [])
-      .filter((plant) => !includedPlantIdsForSelectedCollection.has(plant.id))
-      .filter((plant) => !pendingPlantIdsForSelectedCollection.has(plant.id))
-      .filter((plant) => {
-        if (!normalized) return true;
-        return (
-          String(plant.species_name || "").toLowerCase().includes(normalized) ||
-          String(plant.scientific_name || "").toLowerCase().includes(normalized)
-        );
-      })
-      .sort((a, b) => String(a.species_name || "").localeCompare(String(b.species_name || ""), "de"))
-      .slice(0, 120)
-      .map((plant) => {
-        const genus = genera.find(
-          (entry) =>
-            entry.category === plant.genus_category &&
-            entry.category_dex_number === plant.genus_number
-        );
+    const plantEntries = (plants || []).map((plant) => {
+      const genus = genusByCategoryAndNumber.get(`${plant.genus_category}::${plant.genus_number}`);
+      const speciesLabel = plant.species_name || "Unbekannte Pflanze";
+      const scientificLabel = plant.scientific_name || "ohne wiss. Namen";
+      const genusLabel = genus?.genus_name || "Unbekannte Gattung";
+      const isAlreadyIncluded = includedPlantIdsForSelectedCollection.has(plant.id);
+      const isAlreadyPending = pendingPlantIdsForSelectedCollection.has(plant.id);
 
-        return {
-          id: plant.id,
-          label: `${plant.species_name || "Unbekannt"} (${plant.scientific_name || "ohne Namen"})`,
-          genusLabel: genus?.genus_name || "Unbekannte Gattung",
-        };
-      });
+      return {
+        key: `plant:${plant.id}`,
+        kind: "plant",
+        targetId: plant.id,
+        title: speciesLabel,
+        subtitle: scientificLabel,
+        meta: `Pflanze in ${genusLabel}`,
+        isAlreadyIncluded,
+        isAlreadyPending,
+      };
+    });
+
+    const genusEntries = (genera || []).map((genus) => {
+      const genusTitle = genus.genus_name || genus.scientific_genus || "Unbekannte Gattung";
+      const genusSubtitle = genus.scientific_genus || "";
+      const isAlreadyIncluded = includedGenusIdsForSelectedCollection.has(genus.id);
+      const isAlreadyPending = pendingGenusIdsForSelectedCollection.has(genus.id);
+
+      return {
+        key: `genus:${genus.id}`,
+        kind: "genus",
+        targetId: genus.id,
+        title: genusTitle,
+        subtitle: genusSubtitle,
+        meta: "Gattung",
+        isAlreadyIncluded,
+        isAlreadyPending,
+      };
+    });
+
+    return [...plantEntries, ...genusEntries]
+      .filter((entry) => {
+        if (!normalized) return true;
+        const haystack = `${entry.title} ${entry.subtitle} ${entry.meta}`.toLowerCase();
+        return haystack.includes(normalized);
+      })
+      .sort((a, b) => {
+        const aBlocked = a.isAlreadyIncluded || a.isAlreadyPending;
+        const bBlocked = b.isAlreadyIncluded || b.isAlreadyPending;
+        if (aBlocked !== bBlocked) return aBlocked ? 1 : -1;
+        if (a.kind !== b.kind) return a.kind.localeCompare(b.kind);
+        return a.title.localeCompare(b.title, "de");
+      })
+      .slice(0, 160);
   }, [
     canShowCollectionProposalControls,
+    genusByCategoryAndNumber,
     genera,
+    includedGenusIdsForSelectedCollection,
     includedPlantIdsForSelectedCollection,
+    pendingGenusIdsForSelectedCollection,
     pendingPlantIdsForSelectedCollection,
     plants,
     proposalSearchQuery,
   ]);
 
+  const handleAddProposalSelection = (option) => {
+    if (!option) return;
+    if (!canSubmitToSelectedCollection) {
+      setProposalFeedback({ type: "error", message: "Du kannst aktuell keine Anfrage senden." });
+      return;
+    }
+
+    if (option.isAlreadyIncluded) {
+      setProposalFeedback({ type: "error", message: `${option.title} ist bereits in der Kollektion.` });
+      return;
+    }
+
+    if (option.isAlreadyPending) {
+      setProposalFeedback({ type: "error", message: `Fuer ${option.title} wurde bereits eine Anfrage gesendet.` });
+      return;
+    }
+
+    setProposalSelections((prev) => {
+      if (prev.some((entry) => entry.key === option.key)) {
+        setProposalFeedback({ type: "error", message: `${option.title} ist bereits ausgewaehlt.` });
+        return prev;
+      }
+
+      setProposalFeedback(null);
+      return [
+        ...prev,
+        {
+          key: option.key,
+          kind: option.kind,
+          targetId: option.targetId,
+          title: option.title,
+          subtitle: option.subtitle,
+          note: "",
+        },
+      ];
+    });
+  };
+
   const submitCollectionProposalMutation = useMutation({
-    mutationFn: async ({ plantId }) => {
+    mutationFn: async ({ entries }) => {
       if (!selectedCollection?.id) throw new Error("Keine Kollektion ausgewaehlt.");
-      const targetPlant = (plants || []).find((plant) => plant.id === plantId);
-      if (!targetPlant) throw new Error("Pflanze nicht gefunden.");
+      const successKeys = [];
+      const failedEntries = [];
 
-      const targetGenus = (genera || []).find(
-        (genus) =>
-          genus.category === targetPlant.genus_category &&
-          genus.category_dex_number === targetPlant.genus_number
-      );
+      for (const entry of entries || []) {
+        const alreadyIncluded =
+          entry.kind === "genus"
+            ? includedGenusIdsForSelectedCollection.has(entry.targetId)
+            : includedPlantIdsForSelectedCollection.has(entry.targetId);
+        const alreadyPending =
+          entry.kind === "genus"
+            ? pendingGenusIdsForSelectedCollection.has(entry.targetId)
+            : pendingPlantIdsForSelectedCollection.has(entry.targetId);
 
-      return submitCollectionItemProposal({
-        collectionId: selectedCollection.id,
-        plant: targetPlant,
-        genusId: targetGenus?.id || null,
-        actorUser: user,
-      });
+        if (alreadyIncluded) {
+          failedEntries.push({ key: entry.key, title: entry.title, reason: "bereits enthalten" });
+          continue;
+        }
+
+        if (alreadyPending) {
+          failedEntries.push({ key: entry.key, title: entry.title, reason: "bereits angefragt" });
+          continue;
+        }
+
+        try {
+          if (entry.kind === "genus") {
+            await submitCollectionItemProposal({
+              collectionId: selectedCollection.id,
+              plant: null,
+              genusId: entry.targetId,
+              actorUser: user,
+              note: entry.note,
+            });
+          } else {
+            const targetPlant = (plants || []).find((plant) => plant.id === entry.targetId);
+            if (!targetPlant) {
+              failedEntries.push({ key: entry.key, title: entry.title, reason: "Pflanze nicht gefunden" });
+              continue;
+            }
+
+            const targetGenus = genusByCategoryAndNumber.get(
+              `${targetPlant.genus_category}::${targetPlant.genus_number}`
+            );
+
+            await submitCollectionItemProposal({
+              collectionId: selectedCollection.id,
+              plant: targetPlant,
+              genusId: targetGenus?.id || null,
+              actorUser: user,
+              note: entry.note,
+            });
+          }
+
+          successKeys.push(entry.key);
+        } catch (error) {
+          failedEntries.push({
+            key: entry.key,
+            title: entry.title,
+            reason: error?.message || "Anfrage fehlgeschlagen",
+          });
+        }
+      }
+
+      return { successKeys, failedEntries };
     },
-    onSuccess: () => {
-      setProposalPlantId("");
-      setProposalFeedback({ type: "success", message: "Vorschlag gesendet." });
-      queryClient.invalidateQueries({ queryKey: ["collectionMyPendingProposals", user?.id] });
-      queryClient.invalidateQueries({ queryKey: ["collectionItems"] });
+    onSuccess: ({ successKeys, failedEntries }) => {
+      if (successKeys.length > 0) {
+        setProposalSelections((prev) => prev.filter((entry) => !successKeys.includes(entry.key)));
+        queryClient.invalidateQueries({ queryKey: ["collectionMyPendingProposals", user?.id] });
+        queryClient.invalidateQueries({ queryKey: ["collectionItems"] });
+      }
+
+      if (failedEntries.length > 0) {
+        const firstFailure = failedEntries[0];
+        const suffix = failedEntries.length > 1 ? ` (+${failedEntries.length - 1} weitere)` : "";
+        setProposalFeedback({
+          type: "error",
+          message: `${firstFailure.title}: ${firstFailure.reason}${suffix}`,
+        });
+        return;
+      }
+
+      if (successKeys.length > 0) {
+        setProposalFeedback({
+          type: "success",
+          message: successKeys.length === 1 ? "Anfrage gesendet." : `${successKeys.length} Anfragen gesendet.`,
+        });
+      }
     },
     onError: (error) => {
       setProposalFeedback({
@@ -1049,9 +1210,15 @@ export default function CollectionFeatureRoot({
   });
 
   useEffect(() => {
-    setProposalPlantId("");
+    setIsProposalEditorMode(false);
+    setProposalSearchQuery("");
+    setProposalSelections([]);
     setProposalFeedback(null);
   }, [selectedCollection?.id]);
+  useEffect(() => {
+    if (canShowCollectionProposalControls) return;
+    setIsProposalEditorMode(false);
+  }, [canShowCollectionProposalControls]);
   const userCollectionLinkForSelected = selectedCollection
     ? userCollections.find((uc) => uc.collection_id === selectedCollection.id)
     : null;
@@ -1330,20 +1497,33 @@ export default function CollectionFeatureRoot({
               filteredGenera={filteredGenera}
               sortedGenera={sortedGenera}
               canShowCollectionProposalControls={canShowCollectionProposalControls}
+              proposalEditorMode={isProposalEditorMode}
+              onToggleProposalEditorMode={() => {
+                setProposalFeedback(null);
+                setIsProposalEditorMode((prev) => !prev);
+              }}
               canSubmitToSelectedCollection={canSubmitToSelectedCollection}
               isProposalBlockedByPrivateMaintained={isProposalBlockedByPrivateMaintained}
               proposalSearchQuery={proposalSearchQuery}
               onProposalSearchQueryChange={(nextQuery) => setProposalSearchQuery(nextQuery)}
-              proposalPlantId={proposalPlantId}
-              onProposalPlantIdChange={(nextPlantId) => {
-                setProposalFeedback(null);
-                setProposalPlantId(nextPlantId);
+              proposalSearchOptions={proposalSearchOptions}
+              onAddProposalSelection={handleAddProposalSelection}
+              proposalSelections={proposalSelections}
+              onProposalSelectionNoteChange={(key, nextNote) => {
+                setProposalSelections((prev) =>
+                  prev.map((entry) => (entry.key === key ? { ...entry, note: nextNote } : entry))
+                );
               }}
-              proposalPlantOptions={proposalPlantOptions}
+              onRemoveProposalSelection={(key) => {
+                setProposalSelections((prev) => prev.filter((entry) => entry.key !== key));
+              }}
               isProposalSubmitting={submitCollectionProposalMutation.isPending}
               onSubmitCollectionProposal={() => {
-                if (!proposalPlantId) return;
-                submitCollectionProposalMutation.mutate({ plantId: proposalPlantId });
+                if (!proposalSelections.length) {
+                  setProposalFeedback({ type: "error", message: "Waehle zuerst mindestens einen Eintrag." });
+                  return;
+                }
+                submitCollectionProposalMutation.mutate({ entries: proposalSelections });
               }}
               proposalFeedback={proposalFeedback}
               onShowHint={handleShowHint}
