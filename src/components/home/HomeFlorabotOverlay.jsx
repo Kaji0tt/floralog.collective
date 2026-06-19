@@ -1,9 +1,25 @@
 import { useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { Settings2, HeartPulse, Sparkles, Gem, ArrowLeft } from "lucide-react";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import FlorabotOverlayShell from "@/components/florabot/FlorabotOverlayShell";
 import ShopFeatureRoot from "@/components/shop/ShopFeatureRoot";
+
+const PLAYFUL_CARE_ANIMATION_KEYS = Object.freeze(["flip", "squash", "orbit"]);
+const PORTAL_CARE_DEBUG_PREFIX = "[PortalCareDebug]";
+
+/**
+ * @param {EventTarget | null} target
+ */
+const getEventTargetLabel = (target) => {
+  if (!target || typeof target !== "object") return "unknown";
+  const element = /** @type {{ tagName?: string, className?: string }} */ (target);
+  const tag = String(element.tagName || "node").toLowerCase();
+  const className = String(element.className || "").trim();
+  if (!className) return tag;
+  const shortClasses = className.split(/\s+/).slice(0, 3).join(".");
+  return `${tag}.${shortClasses}`;
+};
 
 export default function HomeFlorabotOverlay({
   profile,
@@ -17,6 +33,12 @@ export default function HomeFlorabotOverlay({
   plantHealthState,
   healthStats = [],
   ambientMessage,
+  wateringCountToday = 0,
+  wateringLimitPerDay = 3,
+  remainingWatersToday = 0,
+  isDailyCareLoading = false,
+  isWateringPending = false,
+  onWaterPlant = () => {},
   onCustomize,
   onUserUpdated,
   onClose,
@@ -27,19 +49,25 @@ export default function HomeFlorabotOverlay({
   const [isShopOpen, setIsShopOpen] = useState(false);
   const [activeShopCategory, setActiveShopCategory] = useState(initialShopCategory || "root");
   const [isHealthPanelCompact, setIsHealthPanelCompact] = useState(false);
+  const [activePlayfulCareAnimation, setActivePlayfulCareAnimation] = useState("");
+  const [careAnimationVisualTarget, setCareAnimationVisualTarget] = useState("bubble");
+  const [playfulCareAnimationNonce, setPlayfulCareAnimationNonce] = useState(0);
+  const [floatingLogoHitRect, setFloatingLogoHitRect] = useState(/** @type {{left:number,top:number,width:number,height:number} | null} */ (null));
   const [shopActionState, setShopActionState] = useState({
     label: "Kaufen",
     disabled: true,
     isBusy: false,
-    onAction: null,
+    onAction: () => {},
   });
-  const [shopViewportHeight, setShopViewportHeight] = useState(null);
+  const [shopViewportHeight, setShopViewportHeight] = useState(/** @type {number | null} */ (null));
   const onCustomizeRef = useRef(onCustomize);
 
   const statusPanelSlotRef = useRef(null);
   const speechBubbleRef = useRef(null);
   const fixedFooterRef = useRef(null);
   const shopViewportRef = useRef(null);
+  const careAnimationTimeoutRef = useRef(/** @type {number | null} */ (null));
+  const lastPortalTapTsRef = useRef(0);
     useEffect(() => {
       onCustomizeRef.current = onCustomize;
     }, [onCustomize]);
@@ -50,8 +78,77 @@ export default function HomeFlorabotOverlay({
   const shouldRenderSpeechBubble = !isShopOpen && isSpeechBubbleVisible && (showHealthDetails || Boolean(ambientMessage));
 
   useEffect(() => {
+    console.log(`${PORTAL_CARE_DEBUG_PREFIX} overlay render state`, {
+      isShopOpen,
+      isSpeechBubbleVisible,
+      showHealthDetails,
+      hasAmbientMessage: Boolean(ambientMessage),
+      shouldRenderSpeechBubble,
+    });
+  }, [isShopOpen, isSpeechBubbleVisible, showHealthDetails, ambientMessage, shouldRenderSpeechBubble]);
+
+  useEffect(() => {
     setActiveShopCategory(initialShopCategory || "root");
   }, [initialShopCategory]);
+
+  useEffect(() => {
+    if (isShopOpen || typeof document === "undefined") {
+      setFloatingLogoHitRect(null);
+      return;
+    }
+
+    const measureFloatingLogoRect = () => {
+      const floatingNode = document.querySelector('[data-floating-logo-overlay="true"]');
+      if (!floatingNode || typeof floatingNode.getBoundingClientRect !== "function") {
+        setFloatingLogoHitRect(null);
+        return;
+      }
+
+      const nextRect = floatingNode.getBoundingClientRect();
+      if (!nextRect.width || !nextRect.height) {
+        setFloatingLogoHitRect(null);
+        return;
+      }
+
+      setFloatingLogoHitRect((prev) => {
+        if (
+          prev &&
+          Math.abs(prev.left - nextRect.left) < 0.5 &&
+          Math.abs(prev.top - nextRect.top) < 0.5 &&
+          Math.abs(prev.width - nextRect.width) < 0.5 &&
+          Math.abs(prev.height - nextRect.height) < 0.5
+        ) {
+          return prev;
+        }
+
+        return {
+          left: nextRect.left,
+          top: nextRect.top,
+          width: nextRect.width,
+          height: nextRect.height,
+        };
+      });
+    };
+
+    let rafId = window.requestAnimationFrame(measureFloatingLogoRect);
+    const onLayoutChange = () => {
+      if (rafId) {
+        window.cancelAnimationFrame(rafId);
+      }
+      rafId = window.requestAnimationFrame(measureFloatingLogoRect);
+    };
+
+    window.addEventListener("resize", onLayoutChange);
+    window.addEventListener("scroll", onLayoutChange, true);
+
+    return () => {
+      if (rafId) {
+        window.cancelAnimationFrame(rafId);
+      }
+      window.removeEventListener("resize", onLayoutChange);
+      window.removeEventListener("scroll", onLayoutChange, true);
+    };
+  }, [isShopOpen]);
 
   useEffect(() => {
     const target = statusPanelSlotRef.current;
@@ -124,8 +221,92 @@ export default function HomeFlorabotOverlay({
   useEffect(() => {
     return () => {
       onCustomizeRef.current?.(false);
+      if (careAnimationTimeoutRef.current) {
+        window.clearTimeout(careAnimationTimeoutRef.current);
+        careAnimationTimeoutRef.current = null;
+      }
     };
   }, []);
+
+  const safeWateringLimitPerDay = Math.max(1, Number(wateringLimitPerDay) || 3);
+  const safeWateringCountToday = Math.max(0, Math.min(safeWateringLimitPerDay, Number(wateringCountToday) || 0));
+  const canPerformCareAction = !isDailyCareLoading && !isWateringPending && safeWateringCountToday < safeWateringLimitPerDay;
+  const triggerPlayfulCareAnimation = (visualTarget = "bubble") => {
+    const randomIndex = Math.floor(Math.random() * PLAYFUL_CARE_ANIMATION_KEYS.length);
+    const nextAnimation = PLAYFUL_CARE_ANIMATION_KEYS[randomIndex] || PLAYFUL_CARE_ANIMATION_KEYS[0];
+
+    if (careAnimationTimeoutRef.current) {
+      window.clearTimeout(careAnimationTimeoutRef.current);
+    }
+
+    setCareAnimationVisualTarget(visualTarget);
+    setActivePlayfulCareAnimation(nextAnimation);
+    setPlayfulCareAnimationNonce((prev) => prev + 1);
+
+    careAnimationTimeoutRef.current = window.setTimeout(() => {
+      setActivePlayfulCareAnimation("");
+      setCareAnimationVisualTarget("bubble");
+      careAnimationTimeoutRef.current = null;
+    }, 920);
+
+    return nextAnimation;
+  };
+
+  const handlePortalCopyTap = (source = "unknown") => {
+    const now = Date.now();
+    const tapIntervalMs = now - lastPortalTapTsRef.current;
+    console.log(`${PORTAL_CARE_DEBUG_PREFIX} tap received`, {
+      source,
+      tapIntervalMs,
+      showHealthDetails,
+      hasAmbientMessage: Boolean(ambientMessage),
+      isWateringPending,
+      isDailyCareLoading,
+      wateringCountToday: safeWateringCountToday,
+      wateringLimitPerDay: safeWateringLimitPerDay,
+      remainingWatersToday: Number(remainingWatersToday) || 0,
+      canPerformCareAction,
+    });
+
+    if (now - lastPortalTapTsRef.current < 220) {
+      console.log(`${PORTAL_CARE_DEBUG_PREFIX} tap ignored (throttled)`, {
+        source,
+        tapIntervalMs,
+      });
+      return;
+    }
+    lastPortalTapTsRef.current = now;
+
+    if (showHealthDetails) {
+      console.log(`${PORTAL_CARE_DEBUG_PREFIX} tap ignored (health details open)`);
+      return;
+    }
+
+    if (!canPerformCareAction) {
+      console.log(`${PORTAL_CARE_DEBUG_PREFIX} tap ignored (care not available)`, {
+        isDailyCareLoading,
+        isWateringPending,
+        wateringCountToday: safeWateringCountToday,
+        wateringLimitPerDay: safeWateringLimitPerDay,
+      });
+      return;
+    }
+
+    const animationTarget = source.startsWith("logo-hit") ? "logo" : "bubble";
+    const animationName = triggerPlayfulCareAnimation(animationTarget);
+    console.log(`${PORTAL_CARE_DEBUG_PREFIX} animation started`, {
+      animationName,
+      animationTarget,
+    });
+
+    if (!isWateringPending) {
+      console.log(`${PORTAL_CARE_DEBUG_PREFIX} invoking onWaterPlant`);
+      onWaterPlant?.();
+      return;
+    }
+
+    console.log(`${PORTAL_CARE_DEBUG_PREFIX} skip onWaterPlant (pending)`);
+  };
 
   const handleStatusToggle = () => {
     if (!showHealthDetails) {
@@ -186,12 +367,21 @@ export default function HomeFlorabotOverlay({
     </span>
   );
 
+  const healthBadgeWithCare = (
+    <div className="flex flex-col items-center gap-1">
+      {healthBadge}
+      <span className={`${isLightUi ? "text-stone-500" : "text-stone-400"} text-[10px] font-medium`}>
+        Pflege: {safeWateringCountToday} / {safeWateringLimitPerDay}
+      </span>
+    </div>
+  );
+
   return (
     <FlorabotOverlayShell
       title="Florabot Schaltzentrale"
       titleSubline={currencyLine}
       titleSublineClassName="mt-1"
-      titleBadge={isShopOpen ? null : healthBadge}
+      titleBadge={isShopOpen ? null : healthBadgeWithCare}
       profile={profile}
       logoAssets={logoAssets}
       showLogo={false}
@@ -211,6 +401,11 @@ export default function HomeFlorabotOverlay({
               ref={statusPanelSlotRef}
               className="w-full max-w-[340px] min-h-0 flex-1 overflow-y-auto hide-scrollbar flex items-start justify-center py-3 mx-auto"
               style={{ height: `calc(100% - (${fixedFooterReservedHeightExpression}))` }}
+              onPointerDownCapture={(event) => {
+                console.log(`${PORTAL_CARE_DEBUG_PREFIX} status panel pointerdown capture`, {
+                  target: getEventTargetLabel(event.target),
+                });
+              }}
             >
               {shouldRenderSpeechBubble ? (
                 <div className="w-full max-w-[340px] mx-auto" ref={speechBubbleRef}>
@@ -256,9 +451,112 @@ export default function HomeFlorabotOverlay({
                         ))}
                       </div>
                     ) : (
-                      <p className={`${isHealthPanelCompact ? "text-[13px]" : "text-sm"} leading-relaxed ${isLightUi ? "text-stone-600" : "text-stone-300"}`}>
-                        {ambientMessage}
-                      </p>
+                      <div
+                        className="relative"
+                        onPointerDownCapture={(event) => {
+                          console.log(`${PORTAL_CARE_DEBUG_PREFIX} bubble pointerdown capture`, {
+                            target: getEventTargetLabel(event.target),
+                            currentTarget: getEventTargetLabel(event.currentTarget),
+                          });
+                        }}
+                        onClickCapture={(event) => {
+                          console.log(`${PORTAL_CARE_DEBUG_PREFIX} bubble click capture`, {
+                            target: getEventTargetLabel(event.target),
+                            currentTarget: getEventTargetLabel(event.currentTarget),
+                          });
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => handlePortalCopyTap("click")}
+                          onPointerUp={() => handlePortalCopyTap("pointerup")}
+                          onPointerDown={(event) => {
+                            console.log(`${PORTAL_CARE_DEBUG_PREFIX} portal button pointerdown`, {
+                              target: getEventTargetLabel(event.target),
+                            });
+                          }}
+                          className={`w-full border-0 bg-transparent p-0 cursor-pointer touch-manipulation ${isHealthPanelCompact ? "text-[13px]" : "text-sm"} leading-relaxed text-left transition-transform duration-200 hover:scale-[1.01] active:scale-[0.99] ${isLightUi ? "text-stone-600" : "text-stone-300"}`}
+                        >
+                          {ambientMessage}
+                        </button>
+
+                        <AnimatePresence mode="wait">
+                          {activePlayfulCareAnimation && careAnimationVisualTarget === "bubble" ? (
+                            <motion.div
+                              key={`${activePlayfulCareAnimation}-${playfulCareAnimationNonce}`}
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              transition={{ duration: 0.16 }}
+                              className="pointer-events-none absolute inset-0"
+                              aria-hidden="true"
+                            >
+                              <motion.div
+                                className={`absolute -inset-2 rounded-2xl border ${isLightUi ? "border-emerald-300/70" : "border-emerald-200/60"}`}
+                                initial={{ opacity: 0, scale: 0.94 }}
+                                animate={{ opacity: [0, 1, 0], scale: [0.94, 1.02, 1.08] }}
+                                transition={{ duration: 0.56, ease: "easeOut" }}
+                              />
+
+                              {activePlayfulCareAnimation === "flip" ? (
+                                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-2">
+                                  {[-1, 0, 1].map((offset) => (
+                                    <motion.span
+                                      key={`flip-${offset}`}
+                                      className={`inline-block h-1.5 w-1.5 rounded-full ${isLightUi ? "bg-sky-400/90" : "bg-sky-300/90"}`}
+                                      initial={{ opacity: 0, y: 4, x: 0, scale: 0.7 }}
+                                      animate={{
+                                        opacity: [0, 1, 0],
+                                        y: [4, -8, 6],
+                                        x: [0, offset * 5, offset * 8],
+                                        scale: [0.7, 1.05, 0.8],
+                                      }}
+                                      transition={{ duration: 0.56, ease: "easeOut", delay: (offset + 1) * 0.06 }}
+                                    />
+                                  ))}
+                                </div>
+                              ) : null}
+
+                              {activePlayfulCareAnimation === "squash" ? (
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <motion.span
+                                    className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${isLightUi ? "bg-lime-200/80 text-lime-700" : "bg-lime-300/20 text-lime-200"}`}
+                                    initial={{ opacity: 0, scale: 0.85, rotate: -7 }}
+                                    animate={{
+                                      opacity: [0, 1, 1, 0],
+                                      scale: [0.85, 1.02, 0.98, 1],
+                                      rotate: [-7, 7, -5, 0],
+                                    }}
+                                    transition={{ duration: 0.62, ease: "easeOut" }}
+                                  >
+                                    plopp
+                                  </motion.span>
+                                </div>
+                              ) : null}
+
+                              {activePlayfulCareAnimation === "orbit" ? (
+                                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                                  {[0, 1, 2, 3, 4, 5].map((index) => {
+                                    const angle = (index / 6) * Math.PI * 2;
+                                    const x = Math.cos(angle) * 14;
+                                    const y = Math.sin(angle) * 14;
+
+                                    return (
+                                      <motion.span
+                                        key={`burst-${index}`}
+                                        className={`absolute left-1/2 top-1/2 inline-block h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-sm ${isLightUi ? "bg-amber-400/90" : "bg-amber-300/90"}`}
+                                        initial={{ opacity: 0, x: 0, y: 0, scale: 0.6 }}
+                                        animate={{ opacity: [0, 1, 0], x: [0, x], y: [0, y], scale: [0.6, 1, 0.7] }}
+                                        transition={{ duration: 0.54, ease: "easeOut", delay: index * 0.03 }}
+                                      />
+                                    );
+                                  })}
+                                </div>
+                              ) : null}
+                            </motion.div>
+                          ) : null}
+                        </AnimatePresence>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -391,8 +689,102 @@ export default function HomeFlorabotOverlay({
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.26, ease: "easeInOut" }}
-          className="h-full w-full"
-        />
+          className="relative h-full w-full"
+        >
+          <div className="absolute inset-0 pointer-events-none">
+            <AnimatePresence mode="wait">
+              {activePlayfulCareAnimation && careAnimationVisualTarget === "logo" ? (
+                <motion.div
+                  key={`logo-${activePlayfulCareAnimation}-${playfulCareAnimationNonce}`}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1.06 }}
+                  transition={{ duration: 0.16 }}
+                  className="pointer-events-none fixed"
+                  style={floatingLogoHitRect
+                    ? {
+                        left: `${floatingLogoHitRect.left}px`,
+                        top: `${floatingLogoHitRect.top}px`,
+                        width: `${floatingLogoHitRect.width}px`,
+                        height: `${floatingLogoHitRect.height}px`,
+                      }
+                    : {
+                        left: "50%",
+                        top: "50%",
+                        width: "13rem",
+                        height: "13rem",
+                        transform: "translate(-50%, -50%)",
+                      }}
+                  aria-hidden="true"
+                >
+                  <motion.div
+                    className="absolute inset-[-8%] rounded-full"
+                    style={{
+                      background: isLightUi
+                        ? "radial-gradient(circle, rgba(163,230,53,0.42) 0%, rgba(163,230,53,0.22) 38%, rgba(163,230,53,0) 76%)"
+                        : "radial-gradient(circle, rgba(190,242,100,0.55) 0%, rgba(190,242,100,0.28) 40%, rgba(190,242,100,0) 78%)",
+                      filter: "blur(10px)",
+                    }}
+                    initial={{ opacity: 0, scale: 0.78 }}
+                    animate={{ opacity: [0, 1, 0], scale: [0.78, 1.08, 1.28] }}
+                    transition={{ duration: 0.72, ease: "easeOut" }}
+                  />
+
+                  <motion.div
+                    className={`absolute inset-0 rounded-full border-2 ${isLightUi ? "border-lime-400/70" : "border-lime-300/65"}`}
+                    style={{
+                      boxShadow: isLightUi
+                        ? "0 0 26px rgba(132,204,22,0.75), 0 0 52px rgba(163,230,53,0.45)"
+                        : "0 0 32px rgba(190,242,100,0.9), 0 0 60px rgba(190,242,100,0.5)",
+                    }}
+                    initial={{ opacity: 0, scale: 0.82 }}
+                    animate={{ opacity: [0, 1, 0], scale: [0.82, 1.04, 1.15] }}
+                    transition={{ duration: 0.68, ease: "easeOut" }}
+                  />
+                  <motion.div
+                    className={`absolute inset-3 rounded-full border ${isLightUi ? "border-emerald-300/60" : "border-emerald-200/55"}`}
+                    style={{
+                      boxShadow: isLightUi
+                        ? "0 0 18px rgba(110,231,183,0.5)"
+                        : "0 0 20px rgba(110,231,183,0.6)",
+                    }}
+                    initial={{ opacity: 0, scale: 0.92 }}
+                    animate={{ opacity: [0, 0.9, 0], scale: [0.92, 1, 1.1] }}
+                    transition={{ duration: 0.64, ease: "easeOut", delay: 0.05 }}
+                  />
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+
+            <button
+              type="button"
+              onClick={() => handlePortalCopyTap("logo-hit-click")}
+              onPointerUp={() => handlePortalCopyTap("logo-hit-pointerup")}
+              onPointerDown={(event) => {
+                console.log(`${PORTAL_CARE_DEBUG_PREFIX} logo hit-target pointerdown`, {
+                  target: getEventTargetLabel(event.target),
+                  rect: floatingLogoHitRect,
+                });
+              }}
+              className="pointer-events-auto fixed rounded-full bg-transparent border-0 p-0"
+              style={floatingLogoHitRect
+                ? {
+                    left: `${floatingLogoHitRect.left}px`,
+                    top: `${floatingLogoHitRect.top}px`,
+                    width: `${floatingLogoHitRect.width}px`,
+                    height: `${floatingLogoHitRect.height}px`,
+                  }
+                : {
+                    left: "50%",
+                    top: "50%",
+                    width: "12rem",
+                    height: "12rem",
+                    transform: "translate(-50%, -50%)",
+                  }}
+              aria-label="Pflege auslösen"
+            />
+          </div>
+        </motion.div>
       )}
     </FlorabotOverlayShell>
   );

@@ -15,6 +15,12 @@ export default function HomeMilestoneOverlayToggle({
   plantHealthState,
   healthStats = [],
   ambientMessage,
+  wateringCountToday = 0,
+  wateringLimitPerDay = 3,
+  remainingWatersToday = 0,
+  isDailyCareLoading = false,
+  isWateringPending = false,
+  onWaterPlant = () => {},
   onCustomize,
   onUserUpdated,
   onClose,
@@ -34,6 +40,12 @@ export default function HomeMilestoneOverlayToggle({
           plantHealthState={plantHealthState}
           healthStats={healthStats}
           ambientMessage={ambientMessage}
+          wateringCountToday={wateringCountToday}
+          wateringLimitPerDay={wateringLimitPerDay}
+          remainingWatersToday={remainingWatersToday}
+          isDailyCareLoading={isDailyCareLoading}
+          isWateringPending={isWateringPending}
+          onWaterPlant={onWaterPlant}
           onCustomize={onCustomize}
           onUserUpdated={onUserUpdated}
           onClose={() => onClose?.()}

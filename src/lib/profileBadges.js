@@ -33,7 +33,7 @@ const PROFILE_BADGE_DEFINITIONS = [
     id: "seed_rank_medal",
     label: "Samen-Rang",
     description: "Globale Platzierung nach Samenbestand (niedriger ist besser).",
-    iconKey: "medal",
+    iconKey: "leaf",
     metricKey: "global_seed_rank",
     direction: "lower",
     thresholds: { white: 500, bronze: 250, silver: 100, gold: 25 },

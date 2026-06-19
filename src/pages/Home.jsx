@@ -110,6 +110,7 @@ const clampDiscoveryMarkerScale = (value) => {
   if (!Number.isFinite(numeric)) return DISCOVERY_MARKER_SCALE_DEFAULT;
   return Math.min(DISCOVERY_MARKER_SCALE_MAX, Math.max(DISCOVERY_MARKER_SCALE_MIN, numeric));
 };
+const PORTAL_CARE_DEBUG_PREFIX = "[PortalCareDebug]";
 const SOCIAL_NEWS_NOTIFICATION_TYPES = [
   "gift_received",
   "collection_followed",
@@ -794,8 +795,14 @@ function HomeContent() {
   });
 
   const waterPlantMutation = useMutation({
-    mutationFn: () => waterRobotPlant(),
+    mutationFn: async () => {
+      console.log(`${PORTAL_CARE_DEBUG_PREFIX} water mutation start`);
+      const mutationResult = await waterRobotPlant();
+      console.log(`${PORTAL_CARE_DEBUG_PREFIX} water mutation response`, mutationResult);
+      return mutationResult;
+    },
     onSuccess: async (result) => {
+      console.log(`${PORTAL_CARE_DEBUG_PREFIX} water mutation success`, result);
       if (!result?.applied) {
         setCareActionMessage('Heute wurde bereits 3x gegossen.');
         setCareGainFeedback(null);
@@ -814,8 +821,15 @@ function HomeContent() {
       await queryClient.invalidateQueries({ queryKey: ['robotPlantState'] });
       await queryClient.invalidateQueries({ queryKey: ['robotPlantDailyCareStatus'] });
     },
-    onError: () => {
+    onError: (error) => {
+      console.log(`${PORTAL_CARE_DEBUG_PREFIX} water mutation error`, {
+        message: String(error?.message || "unknown_error"),
+        error,
+      });
       setCareActionMessage('Giessen fehlgeschlagen.');
+    },
+    onSettled: () => {
+      console.log(`${PORTAL_CARE_DEBUG_PREFIX} water mutation settled`);
     },
   });
 
@@ -2963,6 +2977,13 @@ function HomeContent() {
   };
 
   const handleWaterPlantClick = () => {
+    console.log(`${PORTAL_CARE_DEBUG_PREFIX} handleWaterPlantClick`, {
+      mutationPending: waterPlantMutation.isPending,
+      wateringCountToday,
+      wateringLimitPerDay,
+      remainingWatersToday,
+      isDailyCareStatusLoading,
+    });
     setCareActionMessage(null);
     waterPlantMutation.mutate();
   };
@@ -3190,6 +3211,12 @@ function HomeContent() {
         plantHealthState={resolvedPlantHealthState}
         healthStats={healthStats}
         ambientMessage={homeOverlayAmbientMessage}
+        wateringCountToday={wateringCountToday}
+        wateringLimitPerDay={wateringLimitPerDay}
+        remainingWatersToday={remainingWatersToday}
+        isDailyCareLoading={isDailyCareStatusLoading}
+        isWateringPending={waterPlantMutation.isPending}
+        onWaterPlant={handleWaterPlantClick}
         onCustomize={(isCustomizeOpen) => {
           setIsHomeOverlayShopOpen(Boolean(isCustomizeOpen));
         }}

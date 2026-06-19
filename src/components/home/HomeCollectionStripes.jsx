@@ -467,6 +467,7 @@ export default function HomeCollectionStripes({
           <div
             className="pointer-events-none fixed transition-opacity duration-[350ms] ease-out"
             aria-hidden="true"
+            data-floating-logo-overlay="true"
             style={{
               left: `${floatingLogoRect.left}px`,
               top: `${floatingLogoRect.top}px`,
