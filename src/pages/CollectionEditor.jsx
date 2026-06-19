@@ -3,6 +3,11 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
+import {
+  addCollectionMaintainerByEmail,
+  removeCollectionMaintainer,
+  reviewCollectionItemProposal,
+} from "@/api/collectionCollaborationService";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +36,7 @@ export default function CollectionEditor() {
     description: "",
     background_color: "",
     is_public: false,
+    private_maintained: false,
     is_classroom: false,
     show_participant_codes: false,
   });
@@ -106,6 +112,30 @@ export default function CollectionEditor() {
     queryFn: () => Query.Plant.list(),
   });
 
+  const { data: publicProfiles = [] } = useQuery({
+    queryKey: ["collectionEditorPublicProfiles"],
+    queryFn: () => Query.PublicProfile.list(),
+    staleTime: 60000,
+  });
+
+  const { data: collectionMaintainers = [] } = useQuery({
+    queryKey: ["collectionMaintainers", collectionId],
+    queryFn: () => {
+      if (!collectionId) return Promise.resolve([]);
+      return Query.CollectionMaintainer.filter({ collection_id: collectionId });
+    },
+    enabled: !!collectionId,
+  });
+
+  const { data: collectionItemProposals = [] } = useQuery({
+    queryKey: ["collectionItemProposals", collectionId],
+    queryFn: () => {
+      if (!collectionId) return Promise.resolve([]);
+      return Query.CollectionItemProposal.filter({ collection_id: collectionId });
+    },
+    enabled: !!collectionId,
+  });
+
   const [itemNotes, setItemNotes] = useState({});
   const [searchMode, setSearchMode] = useState("genus"); // "genus" | "plant"
   const [searchQuery, setSearchQuery] = useState("");
@@ -113,6 +143,9 @@ export default function CollectionEditor() {
   // Pending items buffered locally when creating a new collection (before save)
   const [pendingItems, setPendingItems] = useState([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [maintainerEmail, setMaintainerEmail] = useState("");
+  const [maintainerRole, setMaintainerRole] = useState("admin");
+  const [reviewNotesByProposalId, setReviewNotesByProposalId] = useState({});
 
   const navigateBackToCollection = (targetCollectionId = null) => {
     if (targetCollectionId) {
@@ -142,11 +175,55 @@ export default function CollectionEditor() {
         description: existingCollection.description || "",
         background_color: existingCollection.background_color || "",
         is_public: !!existingCollection.is_public,
+        private_maintained: !!existingCollection.private_maintained,
         is_classroom: !!existingCollection.is_classroom,
         show_participant_codes: !!existingCollection.show_participant_codes,
       });
     }
   }, [existingCollection]);
+
+  const addMaintainerMutation = useMutation({
+    mutationFn: async () => {
+      if (!collectionId) return null;
+      return addCollectionMaintainerByEmail({
+        collectionId,
+        email: maintainerEmail,
+        role: maintainerRole,
+        actorUser: user,
+      });
+    },
+    onSuccess: () => {
+      setMaintainerEmail("");
+      queryClient.invalidateQueries({ queryKey: ["collectionMaintainers", collectionId] });
+    },
+  });
+
+  const removeMaintainerMutation = useMutation({
+    mutationFn: async (maintainerId) => removeCollectionMaintainer(maintainerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["collectionMaintainers", collectionId] });
+    },
+  });
+
+  const reviewProposalMutation = useMutation({
+    mutationFn: async ({ proposalId, status }) => {
+      return reviewCollectionItemProposal({
+        proposalId,
+        status,
+        reviewNote: reviewNotesByProposalId[proposalId] || "",
+        actorUser: user,
+      });
+    },
+    onSuccess: (_data, variables) => {
+      setReviewNotesByProposalId((prev) => ({
+        ...prev,
+        [variables.proposalId]: "",
+      }));
+      queryClient.invalidateQueries({ queryKey: ["collectionItemProposals", collectionId] });
+      queryClient.invalidateQueries({ queryKey: ["collectionItemsForEditor", collectionId] });
+      queryClient.invalidateQueries({ queryKey: ["collectionItems"] });
+    },
+  });
 
   const createMutation = useMutation({
     mutationFn: async ({ collectionData, itemsToCreate }) => {
@@ -246,6 +323,7 @@ export default function CollectionEditor() {
       description: formData.description.trim() || null,
       background_color: formData.background_color || null,
       is_public: formData.is_public,
+      private_maintained: formData.private_maintained,
       is_classroom: formData.is_classroom,
       show_participant_codes: formData.show_participant_codes,
     };
@@ -287,6 +365,10 @@ export default function CollectionEditor() {
   };
 
   const normalizedSearch = searchQuery.trim().toLowerCase();
+  const profileByAuthId = new Map((publicProfiles || []).map((profile) => [profile.auth_id, profile]));
+  const pendingProposals = (collectionItemProposals || [])
+    .filter((proposal) => proposal.status === "pending")
+    .sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
 
   const existingGenusIds = new Set(
     collectionItems.filter((item) => item.genus_id).map((item) => item.genus_id)
@@ -427,6 +509,20 @@ export default function CollectionEditor() {
                       id="is_public"
                       checked={formData.is_public}
                       onCheckedChange={(v) => handleChange("is_public", v)}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label htmlFor="private_maintained">Private Maintained</Label>
+                      <p className="text-[11px] text-stone-500">
+                        Wenn aktiv, koennen nur Owner/Admins Pflanzen direkt einreichen.
+                      </p>
+                    </div>
+                    <Switch
+                      id="private_maintained"
+                      checked={formData.private_maintained}
+                      onCheckedChange={(v) => handleChange("private_maintained", v)}
                     />
                   </div>
 
@@ -742,6 +838,181 @@ export default function CollectionEditor() {
                     </>
                   )}
                 </div>
+
+                {collectionId && (
+                  <div className="mt-4 border-t border-stone-100 pt-3 space-y-3">
+                    <h2 className="text-sm font-semibold text-stone-800">Kollektion-Admins</h2>
+                    <p className="text-[11px] text-stone-500">
+                      Weise anderen Spielern Owner- oder Admin-Rechte zu.
+                    </p>
+
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={maintainerEmail}
+                        onChange={(e) => setMaintainerEmail(e.target.value)}
+                        placeholder="E-Mail des Spielers"
+                        className="h-8 text-sm"
+                      />
+                      <select
+                        className="h-8 rounded-md border border-stone-200 bg-white px-2 text-xs"
+                        value={maintainerRole}
+                        onChange={(e) => setMaintainerRole(e.target.value)}
+                      >
+                        <option value="admin">Admin</option>
+                        <option value="owner">Owner</option>
+                      </select>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-8 px-3 text-[11px]"
+                        disabled={addMaintainerMutation.isPending || !maintainerEmail.trim()}
+                        onClick={() => addMaintainerMutation.mutate()}
+                      >
+                        {addMaintainerMutation.isPending ? "..." : "Hinzufuegen"}
+                      </Button>
+                    </div>
+
+                    {addMaintainerMutation.error && (
+                      <p className="text-[11px] text-red-600">
+                        {addMaintainerMutation.error.message || "Rolle konnte nicht gesetzt werden."}
+                      </p>
+                    )}
+
+                    <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                      {(collectionMaintainers || []).map((maintainer) => {
+                        const profile = profileByAuthId.get(maintainer.auth_id);
+                        const isOwner = maintainer.role === "owner";
+                        return (
+                          <div
+                            key={maintainer.id}
+                            className="flex items-center justify-between rounded-md border border-stone-200 bg-stone-50/80 px-2 py-1.5"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-[12px] font-medium text-stone-800">
+                                {profile?.display_name || profile?.full_name || profile?.user_email || maintainer.auth_id}
+                              </p>
+                              <p className="truncate text-[10px] text-stone-500">
+                                {profile?.user_email || maintainer.auth_id}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] rounded-full border border-stone-300 bg-white px-2 py-0.5 text-stone-700">
+                                {isOwner ? "Owner" : "Admin"}
+                              </span>
+                              {maintainer.auth_id !== user?.id && (
+                                <button
+                                  type="button"
+                                  className="text-[10px] text-stone-400 hover:text-red-500 transition-colors"
+                                  onClick={() => removeMaintainerMutation.mutate(maintainer.id)}
+                                  disabled={removeMaintainerMutation.isPending}
+                                >
+                                  Entfernen
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {collectionId && (
+                  <div className="mt-4 border-t border-stone-100 pt-3 space-y-2">
+                    <h2 className="text-sm font-semibold text-stone-800">Offene Vorschlaege</h2>
+                    <p className="text-[11px] text-stone-500">
+                      Andere Spieler koennen Pflanzen einreichen, die hier bestaetigt oder abgelehnt werden.
+                    </p>
+
+                    {pendingProposals.length === 0 ? (
+                      <p className="text-[12px] text-stone-500">Keine offenen Vorschlaege.</p>
+                    ) : (
+                      <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                        {pendingProposals.map((proposal) => {
+                          const proposalPlant = plants.find((plant) => plant.id === proposal.plant_id);
+                          const proposalGenus = genera.find((genus) => genus.id === proposal.genus_id);
+                          const proposerProfile = profileByAuthId.get(proposal.proposed_by_auth_id);
+                          const label =
+                            proposalPlant?.species_name ||
+                            proposalPlant?.scientific_name ||
+                            proposalGenus?.genus_name ||
+                            proposalGenus?.scientific_genus ||
+                            "Pflanze";
+                          const proposerLabel =
+                            proposerProfile?.display_name ||
+                            proposerProfile?.full_name ||
+                            proposerProfile?.user_email ||
+                            proposal.proposed_by_auth_id;
+
+                          return (
+                            <div
+                              key={proposal.id}
+                              className="rounded-md border border-stone-200 bg-stone-50/80 p-2"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="text-[12px] font-semibold text-stone-800 truncate">{label}</p>
+                                  <p className="text-[10px] text-stone-500 truncate">Vorgeschlagen von: {proposerLabel}</p>
+                                  {!!proposal.note && (
+                                    <p className="text-[10px] text-stone-600 mt-1 line-clamp-2">{proposal.note}</p>
+                                  )}
+                                </div>
+                                <span className="text-[10px] rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-amber-700">
+                                  pending
+                                </span>
+                              </div>
+
+                              <Textarea
+                                rows={2}
+                                className="text-[11px] mt-2"
+                                placeholder="Optionale Antwort / Begruendung"
+                                value={reviewNotesByProposalId[proposal.id] || ""}
+                                onChange={(e) =>
+                                  setReviewNotesByProposalId((prev) => ({
+                                    ...prev,
+                                    [proposal.id]: e.target.value,
+                                  }))
+                                }
+                              />
+
+                              <div className="mt-2 flex items-center justify-end gap-2">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-[11px] border-red-200 text-red-700 hover:bg-red-50"
+                                  disabled={reviewProposalMutation.isPending}
+                                  onClick={() =>
+                                    reviewProposalMutation.mutate({
+                                      proposalId: proposal.id,
+                                      status: "rejected",
+                                    })
+                                  }
+                                >
+                                  Ablehnen
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  className="h-7 px-2 text-[11px]"
+                                  disabled={reviewProposalMutation.isPending}
+                                  onClick={() =>
+                                    reviewProposalMutation.mutate({
+                                      proposalId: proposal.id,
+                                      status: "approved",
+                                    })
+                                  }
+                                >
+                                  Bestaetigen
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="pt-4 mt-2 border-t border-stone-100 flex flex-col gap-2">
                   {!collectionId && pendingItems.length < MIN_COLLECTION_ITEMS && formData.title.trim() && (

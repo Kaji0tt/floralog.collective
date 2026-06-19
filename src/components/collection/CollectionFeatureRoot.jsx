@@ -14,6 +14,7 @@ import useCollectionViewState, { DEFAULT_COLLECTION_FILTERS } from "./hooks/useC
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 import { getPopulationScore } from "@/lib/conservationStatus";
+import { submitCollectionItemProposal } from "@/api/collectionCollaborationService";
 
 const CATEGORY_CHIPS = [
   { value: "Bäume", emoji: "🌳" },
@@ -99,6 +100,9 @@ export default function CollectionFeatureRoot({
   const [showPublicCollectionsPanelState, setShowPublicCollectionsPanelState] = useState(false);
   const [communitySearchQuery, setCommunitySearchQuery] = useState("");
   const [communitySort, setCommunitySort] = useState("newest");
+  const [proposalSearchQuery, setProposalSearchQuery] = useState("");
+  const [proposalPlantId, setProposalPlantId] = useState("");
+  const [proposalFeedback, setProposalFeedback] = useState(null);
   const isRouteMode = !embedded;
   const isQuestCollectionView =
     isRouteMode && searchParams.get("from") === "quests" && !!searchParams.get("collectionId");
@@ -279,6 +283,26 @@ export default function CollectionFeatureRoot({
     gcTime: 24 * 60 * 60 * 1000,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
+  });
+
+  const { data: myCollectionMaintainers = [] } = useQuery({
+    queryKey: ["myCollectionMaintainers", user?.id],
+    queryFn: () => {
+      if (!user?.id) return Promise.resolve([]);
+      return Query.CollectionMaintainer.filter({ auth_id: user.id });
+    },
+    enabled: !!user?.id,
+    staleTime: 60000,
+  });
+
+  const { data: myPendingCollectionProposals = [] } = useQuery({
+    queryKey: ["collectionMyPendingProposals", user?.id],
+    queryFn: () => {
+      if (!user?.id) return Promise.resolve([]);
+      return Query.CollectionItemProposal.filter({ proposed_by_auth_id: user.id });
+    },
+    enabled: !!user?.id,
+    staleTime: 30000,
   });
 
   const acceptedFriendProfiles = useMemo(() => {
@@ -879,6 +903,155 @@ export default function CollectionFeatureRoot({
   const listBottomFadePx = 18;
   const isOwnerOfSelected =
     !!selectedCollection && !!targetUserId && selectedCollection.auth_id === targetUserId;
+  const isMaintainerOfSelected = !!selectedCollection && (
+    selectedCollection.auth_id === user?.id ||
+    (myCollectionMaintainers || []).some((entry) => entry.collection_id === selectedCollection.id)
+  );
+  const selectedCollectionItems = useMemo(
+    () => selectedCollection ? allCollectionItems.filter((item) => item.collection_id === selectedCollection.id) : [],
+    [allCollectionItems, selectedCollection]
+  );
+  const genusById = useMemo(
+    () => new Map((genera || []).map((genus) => [genus.id, genus])),
+    [genera]
+  );
+  const includedPlantIdsForSelectedCollection = useMemo(() => {
+    const ids = new Set();
+    if (!selectedCollection) return ids;
+
+    selectedCollectionItems.forEach((item) => {
+      if (item.plant_id) {
+        ids.add(item.plant_id);
+      }
+
+      if (item.genus_id) {
+        const genus = genusById.get(item.genus_id);
+        if (!genus) return;
+        (plants || []).forEach((plant) => {
+          if (
+            plant.genus_category === genus.category &&
+            plant.genus_number === genus.category_dex_number
+          ) {
+            ids.add(plant.id);
+          }
+        });
+      }
+    });
+
+    return ids;
+  }, [genusById, plants, selectedCollection, selectedCollectionItems]);
+  const pendingPlantIdsForSelectedCollection = useMemo(() => {
+    const ids = new Set();
+    if (!selectedCollection) return ids;
+
+    (myPendingCollectionProposals || [])
+      .filter((proposal) => proposal.status === "pending" && proposal.collection_id === selectedCollection.id)
+      .forEach((proposal) => {
+        if (proposal.plant_id) {
+          ids.add(proposal.plant_id);
+        }
+
+        if (proposal.genus_id) {
+          const genus = genusById.get(proposal.genus_id);
+          if (!genus) return;
+          (plants || []).forEach((plant) => {
+            if (
+              plant.genus_category === genus.category &&
+              plant.genus_number === genus.category_dex_number
+            ) {
+              ids.add(plant.id);
+            }
+          });
+        }
+      });
+
+    return ids;
+  }, [genusById, myPendingCollectionProposals, plants, selectedCollection]);
+  const canShowCollectionProposalControls =
+    !readOnly &&
+    !!user?.id &&
+    !!selectedCollection &&
+    selectedCollectionId !== "global" &&
+    !!selectedCollection.is_public;
+  const isProposalBlockedByPrivateMaintained =
+    !!selectedCollection?.private_maintained && !isMaintainerOfSelected;
+  const canSubmitToSelectedCollection =
+    canShowCollectionProposalControls && !isProposalBlockedByPrivateMaintained;
+  const proposalPlantOptions = useMemo(() => {
+    if (!canShowCollectionProposalControls) return [];
+
+    const normalized = proposalSearchQuery.trim().toLowerCase();
+    return (plants || [])
+      .filter((plant) => !includedPlantIdsForSelectedCollection.has(plant.id))
+      .filter((plant) => !pendingPlantIdsForSelectedCollection.has(plant.id))
+      .filter((plant) => {
+        if (!normalized) return true;
+        return (
+          String(plant.species_name || "").toLowerCase().includes(normalized) ||
+          String(plant.scientific_name || "").toLowerCase().includes(normalized)
+        );
+      })
+      .sort((a, b) => String(a.species_name || "").localeCompare(String(b.species_name || ""), "de"))
+      .slice(0, 120)
+      .map((plant) => {
+        const genus = genera.find(
+          (entry) =>
+            entry.category === plant.genus_category &&
+            entry.category_dex_number === plant.genus_number
+        );
+
+        return {
+          id: plant.id,
+          label: `${plant.species_name || "Unbekannt"} (${plant.scientific_name || "ohne Namen"})`,
+          genusLabel: genus?.genus_name || "Unbekannte Gattung",
+        };
+      });
+  }, [
+    canShowCollectionProposalControls,
+    genera,
+    includedPlantIdsForSelectedCollection,
+    pendingPlantIdsForSelectedCollection,
+    plants,
+    proposalSearchQuery,
+  ]);
+
+  const submitCollectionProposalMutation = useMutation({
+    mutationFn: async ({ plantId }) => {
+      if (!selectedCollection?.id) throw new Error("Keine Kollektion ausgewaehlt.");
+      const targetPlant = (plants || []).find((plant) => plant.id === plantId);
+      if (!targetPlant) throw new Error("Pflanze nicht gefunden.");
+
+      const targetGenus = (genera || []).find(
+        (genus) =>
+          genus.category === targetPlant.genus_category &&
+          genus.category_dex_number === targetPlant.genus_number
+      );
+
+      return submitCollectionItemProposal({
+        collectionId: selectedCollection.id,
+        plant: targetPlant,
+        genusId: targetGenus?.id || null,
+        actorUser: user,
+      });
+    },
+    onSuccess: () => {
+      setProposalPlantId("");
+      setProposalFeedback({ type: "success", message: "Vorschlag gesendet." });
+      queryClient.invalidateQueries({ queryKey: ["collectionMyPendingProposals", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["collectionItems"] });
+    },
+    onError: (error) => {
+      setProposalFeedback({
+        type: "error",
+        message: error?.message || "Vorschlag fehlgeschlagen.",
+      });
+    },
+  });
+
+  useEffect(() => {
+    setProposalPlantId("");
+    setProposalFeedback(null);
+  }, [selectedCollection?.id]);
   const userCollectionLinkForSelected = selectedCollection
     ? userCollections.find((uc) => uc.collection_id === selectedCollection.id)
     : null;
@@ -1112,6 +1285,7 @@ export default function CollectionFeatureRoot({
               heroTitle={heroTitle}
               selectedCollection={selectedCollection}
               isOwnerOfSelected={isOwnerOfSelected}
+              canEditSelectedCollection={isMaintainerOfSelected && !readOnly}
               isFollowingSelected={isFollowingSelected}
               userCollectionLinkForSelected={userCollectionLinkForSelected}
               onUnfollow={(userCollectionId) => unfollowMutation.mutate(userCollectionId)}
@@ -1155,6 +1329,23 @@ export default function CollectionFeatureRoot({
               listBottomFadePx={listBottomFadePx}
               filteredGenera={filteredGenera}
               sortedGenera={sortedGenera}
+              canShowCollectionProposalControls={canShowCollectionProposalControls}
+              canSubmitToSelectedCollection={canSubmitToSelectedCollection}
+              isProposalBlockedByPrivateMaintained={isProposalBlockedByPrivateMaintained}
+              proposalSearchQuery={proposalSearchQuery}
+              onProposalSearchQueryChange={(nextQuery) => setProposalSearchQuery(nextQuery)}
+              proposalPlantId={proposalPlantId}
+              onProposalPlantIdChange={(nextPlantId) => {
+                setProposalFeedback(null);
+                setProposalPlantId(nextPlantId);
+              }}
+              proposalPlantOptions={proposalPlantOptions}
+              isProposalSubmitting={submitCollectionProposalMutation.isPending}
+              onSubmitCollectionProposal={() => {
+                if (!proposalPlantId) return;
+                submitCollectionProposalMutation.mutate({ plantId: proposalPlantId });
+              }}
+              proposalFeedback={proposalFeedback}
               onShowHint={handleShowHint}
               userDiscoveries={userDiscoveries}
               plants={plants}

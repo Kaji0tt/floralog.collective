@@ -1,4 +1,4 @@
-import { Leaf, Minus, Plus, PencilLine, SlidersHorizontal } from "lucide-react";
+import { Leaf, Minus, Plus, PencilLine, Send, SlidersHorizontal } from "lucide-react";
 import GenusCard from "./GenusCard";
 import SearchSortBar from "./SearchSortBar";
 
@@ -25,6 +25,7 @@ export default function CollectionScreen({
   heroTitle,
   selectedCollection,
   isOwnerOfSelected,
+  canEditSelectedCollection,
   isFollowingSelected,
   userCollectionLinkForSelected,
   onUnfollow,
@@ -51,6 +52,17 @@ export default function CollectionScreen({
   listBottomFadePx,
   filteredGenera,
   sortedGenera,
+  canShowCollectionProposalControls,
+  canSubmitToSelectedCollection,
+  isProposalBlockedByPrivateMaintained,
+  proposalSearchQuery,
+  onProposalSearchQueryChange,
+  proposalPlantId,
+  onProposalPlantIdChange,
+  proposalPlantOptions,
+  isProposalSubmitting,
+  onSubmitCollectionProposal,
+  proposalFeedback,
   onShowHint,
   userDiscoveries,
   plants,
@@ -183,7 +195,7 @@ export default function CollectionScreen({
                       </button>
                     )}
 
-                    {isOwnerOfSelected && (
+                    {canEditSelectedCollection && (
                       <button
                         type="button"
                         onClick={() => onEditCollection(selectedCollection.id)}
@@ -293,6 +305,89 @@ export default function CollectionScreen({
               onDiscoveredFilterChange={onDiscoveredFilterChange}
               uiTheme={uiTheme}
             />
+          </div>
+        )}
+
+        {canShowCollectionProposalControls && (
+          <div
+            className={"rounded-2xl border shadow-sm p-3 backdrop-blur-sm space-y-2 " + (isLightUi ? "bg-white/60" : "bg-black/35")}
+            style={{
+              borderColor: isLightUi ? "rgba(200,172,98,0.35)" : "rgba(240,229,165,0.35)",
+            }}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <p className={"text-[11px] font-semibold " + (isLightUi ? "text-stone-800" : "text-[#f8f4d6]")}>
+                Pflanze zur Kollektion vorschlagen
+              </p>
+              <span className={"text-[10px] " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
+                moderiert
+              </span>
+            </div>
+
+            {!canSubmitToSelectedCollection && isProposalBlockedByPrivateMaintained && (
+              <p className={"text-[10px] " + (isLightUi ? "text-amber-700" : "text-amber-200")}>
+                Diese Kollektion ist privat gepflegt. Nur Owner/Admins koennen Vorschlaege einreichen.
+              </p>
+            )}
+
+            <div className="flex flex-col gap-1.5">
+              <input
+                type="text"
+                value={proposalSearchQuery}
+                onChange={(event) => onProposalSearchQueryChange(event.target.value)}
+                placeholder="Pflanze suchen..."
+                className={"h-8 rounded-md border px-2 text-[11px] " + (isLightUi
+                  ? "border-stone-300 bg-white text-stone-800"
+                  : "border-stone-600 bg-black/50 text-stone-100")}
+                disabled={!canSubmitToSelectedCollection}
+              />
+
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={proposalPlantId}
+                  onChange={(event) => onProposalPlantIdChange(event.target.value)}
+                  className={"h-8 flex-1 rounded-md border px-2 text-[11px] " + (isLightUi
+                    ? "border-stone-300 bg-white text-stone-800"
+                    : "border-stone-600 bg-black/50 text-stone-100")}
+                  disabled={!canSubmitToSelectedCollection || isProposalSubmitting}
+                >
+                  <option value="">Pflanze auswaehlen...</option>
+                  {proposalPlantOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label} - {option.genusLabel}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={onSubmitCollectionProposal}
+                  disabled={!canSubmitToSelectedCollection || isProposalSubmitting || !proposalPlantId}
+                  className={"h-8 px-2 rounded-md border text-[11px] inline-flex items-center gap-1 transition-colors disabled:opacity-60 " + (isLightUi
+                    ? "bg-white text-[#8f6b22] border-[#c8ac62]/60 hover:bg-stone-50"
+                    : "bg-black/45 text-[#f0e5a5] border-[#f0e5a5]/45 hover:bg-black/60")}
+                >
+                  <Send className="w-3 h-3" />
+                  Vorschlagen
+                </button>
+              </div>
+
+              {proposalPlantOptions.length === 0 && canSubmitToSelectedCollection && (
+                <p className={"text-[10px] " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
+                  Keine weiteren passenden Pflanzen verfuegbar.
+                </p>
+              )}
+
+              {!!proposalFeedback?.message && (
+                <p className={
+                  "text-[10px] " +
+                  (proposalFeedback.type === "error"
+                    ? (isLightUi ? "text-red-600" : "text-red-300")
+                    : (isLightUi ? "text-emerald-700" : "text-emerald-300"))
+                }>
+                  {proposalFeedback.message}
+                </p>
+              )}
+            </div>
           </div>
         )}
       </div>

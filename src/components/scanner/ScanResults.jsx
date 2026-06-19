@@ -9,9 +9,11 @@ import { createPageUrl } from "@/utils";
 import { motion, useMotionValue, useTransform } from "framer-motion";
 // import ShareScanDialog from "./ShareScanDialog";
 import { Query } from "@/api/entities";
-import { getCurrentUser } from "@/api/userApi";
 import SpeciesInfoCard from "@/components/collection/SpeciesInfoCard";
 import ThreatLevelSparks from "@/components/effects/ThreatLevelSparks";
+import {
+  buildCollectionMembershipIndex,
+} from "@/api/collectionCollaborationService";
 import {
   getConservationEffectLevel,
   getConservationFromPlant,
@@ -40,8 +42,12 @@ export default function ScanResults({
   const [currentResultIndex, setCurrentResultIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isChanging, setIsChanging] = useState(false);
+  const [collectionState, setCollectionState] = useState({
+    collections: [],
+    collectionItems: [],
+    genera: [],
+  });
   // Share-Dialog State entfernt, solange kein Dialog existiert
-  const [user, setUser] = useState(null);
   const [discovery, setDiscovery] = useState(null);
   const navigate = useNavigate();
   const x = useMotionValue(0);
@@ -49,11 +55,21 @@ export default function ScanResults({
   const cardRef = useRef(null);
 
   useEffect(() => {
-    const loadUser = async () => {
-      const currentUser = await getCurrentUser();
-      setUser(currentUser);
+    const loadCollectionData = async () => {
+      const [collections, collectionItems, genera] = await Promise.all([
+        Query.Collection.list(),
+        Query.CollectionItem.list(),
+        Query.PlantGenus.list(),
+      ]);
+
+      setCollectionState({
+        collections: collections || [],
+        collectionItems: collectionItems || [],
+        genera: genera || [],
+      });
     };
-    loadUser();
+
+    loadCollectionData();
   }, []);
 
   useEffect(() => {
@@ -70,6 +86,15 @@ export default function ScanResults({
   // Wenn allResults leer ist, aber plant vorhanden ist, nutze plant als einziges Ergebnis
   const results = allResults.length > 0 ? allResults : plant ? [plant] : [];
   const currentPlant = results[currentResultIndex] || plant;
+
+  const { membershipsByPlantId } = buildCollectionMembershipIndex({
+    plants: results,
+    collectionItems: collectionState.collectionItems,
+    collections: collectionState.collections,
+    genera: collectionState.genera,
+  });
+
+  const currentCollectionMemberships = membershipsByPlantId[currentPlant?.id] || [];
 
 
 
@@ -394,6 +419,27 @@ export default function ScanResults({
 
                   {/* Informations-Container - direkt unter dem Hauptcontainer */}
                   <div className="space-y-3 bg-black/30 backdrop-blur-md rounded-xl p-4 border border-[#f0e5a5]/20">
+
+                  {!isBlockedResult && (
+                    <div className="space-y-2 rounded-xl border border-emerald-300/25 bg-black/20 p-3">
+                      <p className="text-[11px] font-semibold text-emerald-200">Kollektionen mit dieser Art</p>
+                      {currentCollectionMemberships.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {currentCollectionMemberships.map((entry) => (
+                            <Badge
+                              key={entry.id}
+                              className="bg-emerald-800/65 border border-emerald-300/35 text-emerald-100 hover:bg-emerald-800/65"
+                            >
+                              {entry.title}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-stone-300">Noch in keiner sichtbaren Kollektion.</p>
+                      )}
+
+                    </div>
+                  )}
 
                   {isBlockedResult ? (
                       <div className="bg-gradient-to-br from-orange-900/45 to-red-900/40 rounded-xl p-4 border border-orange-300/35 shadow-md">

@@ -19,6 +19,9 @@ import { useUiTheme } from "@/lib/UiThemeContext";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 import {
+  buildCollectionMembershipIndex,
+} from "@/api/collectionCollaborationService";
+import {
   getConservationEffectLevel,
   getConservationFromPlant,
   getRarityBorderClass,
@@ -220,6 +223,18 @@ export default function GenusDetail() {
     queryFn: () => Query.Friend.list(),
     enabled: !friendEmail && !!currentUser?.email,
     staleTime: 10000,
+  });
+
+  const { data: visibleCollections = [] } = useQuery({
+    queryKey: ["genusDetailVisibleCollections"],
+    queryFn: () => Query.Collection.list(),
+    staleTime: 120000,
+  });
+
+  const { data: allCollectionItems = [] } = useQuery({
+    queryKey: ["genusDetailCollectionItems"],
+    queryFn: () => Query.CollectionItem.list(),
+    staleTime: 120000,
   });
 
   const acceptedFriendProfiles = useMemo(() => {
@@ -614,6 +629,18 @@ export default function GenusDetail() {
       defaultVariantIndex,
     };
   });
+
+  const { membershipsByPlantId } = useMemo(
+    () =>
+      buildCollectionMembershipIndex({
+        plants: genusPlants,
+        collectionItems: allCollectionItems,
+        collections: visibleCollections,
+        genera,
+      }),
+    [allCollectionItems, genera, genusPlants, visibleCollections]
+  );
+
   const discoveredSpecies = genusPlants.filter(p => p.discovered);
 
   useEffect(() => {
@@ -1397,6 +1424,34 @@ export default function GenusDetail() {
                       ) : null
                     }
                   />
+                  <div
+                    className="space-y-1"
+                    onClick={(event) => event.stopPropagation()}
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onTouchStart={(event) => event.stopPropagation()}
+                    onTouchEnd={(event) => event.stopPropagation()}
+                  >
+                    <div className="flex flex-wrap gap-1">
+                      {(membershipsByPlantId[plant.id] || []).slice(0, 4).map((entry) => (
+                        <Badge
+                          key={`${plant.id}-${entry.id}`}
+                          className={"text-[10px] px-1.5 py-0 " + (isLightUi
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            : "bg-emerald-900/45 text-emerald-100 border border-emerald-300/35")}
+                        >
+                          {entry.title}
+                        </Badge>
+                      ))}
+                      {(membershipsByPlantId[plant.id] || []).length > 4 && (
+                        <Badge className={"text-[10px] px-1.5 py-0 " + (isLightUi
+                          ? "bg-stone-100 text-stone-700 border border-stone-200"
+                          : "bg-black/45 text-stone-200 border border-stone-500/45")}
+                        >
+                          +{(membershipsByPlantId[plant.id] || []).length - 4}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
                   <div className="flex items-center justify-between gap-2 w-full">
                     <div className="flex items-center gap-1.5 min-w-0 flex-1">
                       {Array.isArray(plant.friendActors) && plant.friendActors.length > 0 && (
