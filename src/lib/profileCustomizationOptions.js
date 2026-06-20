@@ -255,13 +255,10 @@ export const getUnlockedScanBackgrounds = ({ userDiscoveries = [], uniqueSpecies
 export const getUnlockedBackgroundSections = ({
   rewards = [],
   userRewards = [],
-  userDiscoveries = [],
   scannedPlantsCount = 0,
-  uniqueSpeciesCount = 0,
 } = {}) => {
   const presetOptions = getUnlockedPresetBackgrounds({ rewards, userRewards });
   const colorOptions = getUnlockedColorBackgrounds(scannedPlantsCount);
-  const scanOptions = getUnlockedScanBackgrounds({ userDiscoveries, uniqueSpeciesCount });
 
   return [
     {
@@ -275,12 +272,6 @@ export const getUnlockedBackgroundSections = ({
       title: "Einfarbiger Hintergrund",
       emptyLabel: "Noch keine Hintergrundfarben verfuegbar.",
       options: colorOptions,
-    },
-    {
-      key: "scans",
-      title: "Pflanzenbild als Hintergrund",
-      emptyLabel: "Scan-Hintergründe werden ab 50 verschiedenen Arten freigeschaltet.",
-      options: scanOptions,
     },
   ];
 };

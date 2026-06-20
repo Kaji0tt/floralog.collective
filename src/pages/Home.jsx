@@ -751,6 +751,7 @@ function HomeContent() {
 
   const {
     data: robotPlantDailyCareStatus = null,
+    isPending: isRobotPlantDailyCareStatusPending,
     isFetching: isRobotPlantDailyCareStatusFetching,
     refetch: refetchRobotPlantDailyCareStatus,
   } = useQuery({
@@ -1881,7 +1882,8 @@ function HomeContent() {
   const wateringCountToday = Math.max(0, Number(robotPlantDailyCareStatus?.wateringCountToday ?? 0));
   const wateringLimitPerDay = Math.max(1, Number(robotPlantDailyCareStatus?.wateringLimitPerDay ?? 3));
   const remainingWatersToday = Math.max(0, Number(robotPlantDailyCareStatus?.remainingWatersToday ?? (wateringLimitPerDay - wateringCountToday)));
-  const isDailyCareStatusLoading = Boolean(user?.id) && (isRobotPlantDailyCareStatusFetching || !robotPlantDailyCareStatus);
+  // Only treat the first fetch as loading; background refetches should not disable care taps.
+  const isDailyCareStatusLoading = Boolean(user?.id) && isRobotPlantDailyCareStatusPending;
 
   const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
   const currentMonthlyQuest = getCurrentMonthlyQuest(monthlyQuests);

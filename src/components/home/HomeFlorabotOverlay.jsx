@@ -21,6 +21,27 @@ const getEventTargetLabel = (target) => {
   return `${tag}.${shortClasses}`;
 };
 
+/**
+ * @param {{left:number,top:number,width:number,height:number} | DOMRect} rect
+ */
+const rectToCenterPx = (rect) => ({
+  x: Number((rect.left + rect.width / 2).toFixed(2)),
+  y: Number((rect.top + rect.height / 2).toFixed(2)),
+});
+
+/**
+ * @param {{left:number,top:number,width:number,height:number} | DOMRect | null | undefined} rect
+ */
+const toDebugRect = (rect) => {
+  if (!rect) return null;
+  return {
+    left: Number(rect.left.toFixed(2)),
+    top: Number(rect.top.toFixed(2)),
+    width: Number(rect.width.toFixed(2)),
+    height: Number(rect.height.toFixed(2)),
+  };
+};
+
 export default function HomeFlorabotOverlay({
   profile,
   authId = null,
@@ -59,6 +80,10 @@ export default function HomeFlorabotOverlay({
     isBusy: false,
     onAction: () => {},
   });
+  const [shopBackState, setShopBackState] = useState({
+    canGoBack: false,
+    onBack: () => {},
+  });
   const [shopViewportHeight, setShopViewportHeight] = useState(/** @type {number | null} */ (null));
   const onCustomizeRef = useRef(onCustomize);
 
@@ -68,6 +93,7 @@ export default function HomeFlorabotOverlay({
   const shopViewportRef = useRef(null);
   const careAnimationTimeoutRef = useRef(/** @type {number | null} */ (null));
   const lastPortalTapTsRef = useRef(0);
+  const lastLogoAlignmentLogKeyRef = useRef("");
     useEffect(() => {
       onCustomizeRef.current = onCustomize;
     }, [onCustomize]);
@@ -121,6 +147,11 @@ export default function HomeFlorabotOverlay({
           return prev;
         }
 
+        console.log(`${PORTAL_CARE_DEBUG_PREFIX} portal logo measured`, {
+          portalRectPx: toDebugRect(nextRect),
+          portalCenterPx: rectToCenterPx(nextRect),
+        });
+
         return {
           left: nextRect.left,
           top: nextRect.top,
@@ -149,6 +180,43 @@ export default function HomeFlorabotOverlay({
       window.removeEventListener("scroll", onLayoutChange, true);
     };
   }, [isShopOpen]);
+
+  useEffect(() => {
+    if (isShopOpen || typeof document === "undefined") return;
+
+    const floatingNode = document.querySelector('[data-floating-logo-overlay="true"]');
+    const portalRect = floatingNode && typeof floatingNode.getBoundingClientRect === "function"
+      ? floatingNode.getBoundingClientRect()
+      : null;
+
+    const portalCenterPx = portalRect ? rectToCenterPx(portalRect) : null;
+    const animationCenterPx = floatingLogoHitRect ? rectToCenterPx(floatingLogoHitRect) : null;
+    const deltaPx = portalCenterPx && animationCenterPx
+      ? {
+          dx: Number((animationCenterPx.x - portalCenterPx.x).toFixed(2)),
+          dy: Number((animationCenterPx.y - portalCenterPx.y).toFixed(2)),
+        }
+      : null;
+
+    const logKey = JSON.stringify({
+      portalCenterPx,
+      animationCenterPx,
+      hasAnimation: Boolean(activePlayfulCareAnimation),
+      careAnimationVisualTarget,
+    });
+    if (lastLogoAlignmentLogKeyRef.current === logKey) return;
+    lastLogoAlignmentLogKeyRef.current = logKey;
+
+    console.log(`${PORTAL_CARE_DEBUG_PREFIX} overlay logo center alignment`, {
+      portalRectPx: toDebugRect(portalRect),
+      portalCenterPx,
+      animationRectPx: toDebugRect(floatingLogoHitRect),
+      animationCenterPx,
+      deltaPx,
+      hasAnimation: Boolean(activePlayfulCareAnimation),
+      careAnimationVisualTarget,
+    });
+  }, [floatingLogoHitRect, isShopOpen, activePlayfulCareAnimation, careAnimationVisualTarget, playfulCareAnimationNonce]);
 
   useEffect(() => {
     const target = statusPanelSlotRef.current;
@@ -321,6 +389,11 @@ export default function HomeFlorabotOverlay({
 
   const handleBackAction = () => {
     if (isShopOpen) {
+      if (shopBackState?.canGoBack) {
+        shopBackState.onBack?.();
+        return;
+      }
+
       setIsShopOpen(false);
       setShowHealthDetails(false);
       setIsSpeechBubbleVisible(Boolean(ambientMessage));
@@ -335,6 +408,7 @@ export default function HomeFlorabotOverlay({
     setShowHealthDetails(false);
     setIsSpeechBubbleVisible(false);
     setActiveShopCategory(initialShopCategory || "root");
+    setShopBackState({ canGoBack: false, onBack: () => {} });
     setIsShopOpen(true);
     onCustomize?.(true);
   };
@@ -343,6 +417,11 @@ export default function HomeFlorabotOverlay({
     onCustomize?.(false);
     onClose?.();
   };
+
+  useEffect(() => {
+    if (isShopOpen) return;
+    setShopBackState({ canGoBack: false, onBack: () => {} });
+  }, [isShopOpen]);
 
   const currencyLine = (
     <span className="inline-flex items-center gap-3 text-[13px] sm:text-sm font-semibold text-white">
@@ -570,8 +649,8 @@ export default function HomeFlorabotOverlay({
           >
             {isShopOpen ? (
               <div
-                className={`absolute left-1/2 h-px w-full max-w-[340px] -translate-x-1/2 ${
-                  isLightUi ? "bg-stone-300/70" : "bg-[#f0e5a5]/20"
+                className={`absolute left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen border-t-2 ${
+                  isLightUi ? "border-stone-300/70" : "border-[#f0e5a5]/20"
                 }`}
                 style={{ top: `-${shopFooterGapPx}px` }}
                 aria-hidden="true"
@@ -681,13 +760,17 @@ export default function HomeFlorabotOverlay({
               initialCategory={activeShopCategory}
               externalActionMode
               onActionStateChange={setShopActionState}
+              onBackStateChange={setShopBackState}
             />
           </div>
         </motion.div>
       ) : (
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
+          // IMPORTANT: keep this wrapper free of transform animations.
+          // The logo ring + hit-target are `position: fixed` and use viewport rects.
+          // A transformed ancestor changes their containing block and causes visual offset.
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
           transition={{ duration: 0.26, ease: "easeInOut" }}
           className="relative h-full w-full"
         >
@@ -758,7 +841,11 @@ export default function HomeFlorabotOverlay({
 
             <button
               type="button"
-              onClick={() => handlePortalCopyTap("logo-hit-click")}
+              onClick={(event) => {
+                // Pointer devices also fire click after pointerup; keep click only for keyboard activation.
+                if (event.detail !== 0) return;
+                handlePortalCopyTap("logo-hit-click");
+              }}
               onPointerUp={() => handlePortalCopyTap("logo-hit-pointerup")}
               onPointerDown={(event) => {
                 console.log(`${PORTAL_CARE_DEBUG_PREFIX} logo hit-target pointerdown`, {

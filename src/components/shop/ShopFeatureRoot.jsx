@@ -7,8 +7,6 @@ import {
   BadgeCheck,
   PaintBucket,
   Lock,
-  ArrowLeft,
-  ArrowRight,
   ChevronDown,
   ChevronUp,
   Gem,
@@ -56,19 +54,19 @@ const BORDER_COLOR_PRESETS = [
 
 const CATEGORY_META = {
   backgrounds: {
-    title: "Hintergruende",
-    subtitle: "Alle freigeschalteten Hintergründe fuer dein Profil",
+    title: "Hintergründe",
+    subtitle: "Alle freigeschalteten Hintergründe für dein Profil",
     emptyLabel: "Noch keine Hintergrundoptionen freigeschaltet.",
   },
   titles: {
     title: "Titel",
-    subtitle: "Alle freigeschalteten Titel fuer dein Profil",
+    subtitle: "Alle freigeschalteten Titel für dein Profil",
     emptyLabel: "Noch keine Titel freigeschaltet.",
   },
   accessories: {
     title: "Accessoires",
-    subtitle: "Austauschbare Teile fuer dein Home-Logo",
-    emptyLabel: "Noch keine Accessoires verfuegbar.",
+    subtitle: "Austauschbare Teile für dein Home-Logo",
+    emptyLabel: "Noch keine Accessoires verfügbar.",
   },
 };
 
@@ -76,21 +74,21 @@ const ROOT_CATEGORY_META = {
   shop: {
     key: "shop",
     title: "Shop",
-    subtitle: "Bernstein kaufen und Gegenstaende mit Bernstein oder Funken freischalten.",
+    subtitle: "Bernstein kaufen und Gegenstände mit Bernstein oder Funken freischalten.",
     accent: "global",
     icon: Gem,
   },
   florabot: {
     key: "florabot",
     title: "Florabot",
-    subtitle: "Freigeschaltete Anpassungen fuer Rahmen, Pflanze und Gesicht.",
+    subtitle: "Freigeschaltete Anpassungen für Rahmen, Pflanze und Gesicht.",
     accent: "themes",
     icon: Bot,
   },
   profile: {
     key: "profile",
     title: "Profil",
-    subtitle: "Abzeichen, Hintergruende und Titel fuer dein Profil.",
+    subtitle: "Abzeichen, Hintergründe und Titel für dein Profil.",
     accent: "shared",
     icon: User,
   },
@@ -205,9 +203,9 @@ const orderByCategoryList = (items, order) => {
 };
 
 const ACCESSORY_PURCHASABLE_REWARD_TYPES = new Set(["logo_accessory", "accessory"]);
-const ACCESSORY_GRID_COLUMNS = 2;
-const ACCESSORY_GRID_ROWS = 2;
-const ACCESSORY_GRID_PAGE_SIZE = ACCESSORY_GRID_COLUMNS * ACCESSORY_GRID_ROWS;
+const PROFILE_NAV_CHIP_WIDTH = 136;
+const PROFILE_NAV_CHIP_GAP = 12;
+const PROFILE_NAV_SNAP_STEP = PROFILE_NAV_CHIP_WIDTH + PROFILE_NAV_CHIP_GAP;
 
 const normalizeAccessoryId = (value) => String(value || "").trim().toLowerCase();
 
@@ -226,17 +224,6 @@ const accessoryValueMatches = (rewardValue, accessoryId) => {
   const normalizedReward = normalizeRewardAccessoryValue(rewardValue);
   const normalizedAccessory = normalizeAccessoryId(accessoryId);
   return Boolean(normalizedReward) && Boolean(normalizedAccessory) && normalizedReward === normalizedAccessory;
-};
-
-const chunkIntoAccessoryPages = (options) => {
-  const source = Array.isArray(options) ? options : [];
-  if (source.length === 0) return [];
-
-  const pages = [];
-  for (let index = 0; index < source.length; index += ACCESSORY_GRID_PAGE_SIZE) {
-    pages.push(source.slice(index, index + ACCESSORY_GRID_PAGE_SIZE));
-  }
-  return pages;
 };
 
 const getBackgroundSelectionState = (user, option) => {
@@ -643,76 +630,193 @@ const SectionCard = ({ title, icon: Icon, children, isLightUi }) => {
   );
 };
 
-const AccessoryPagedGrid = ({ options, user, isLightUi, isPending, onSelect, selectedOptionId = null }) => {
-  const pages = chunkIntoAccessoryPages(options);
-  const scrollRef = React.useRef(/** @type {HTMLDivElement | null} */ (null));
-  const [canScrollLeft, setCanScrollLeft] = React.useState(false);
-  const [canScrollRight, setCanScrollRight] = React.useState(pages.length > 1);
-
-  const updateScrollState = React.useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    setCanScrollLeft(el.scrollLeft > 1);
-    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
-  }, []);
+const ProfileCategorySnapCarousel = ({ categories, activeKey, isLightUi, onSelect }) => {
+  const safeCategories = Array.isArray(categories) ? categories : [];
+  const activeIndex = Math.max(0, safeCategories.findIndex((category) => category?.key === activeKey));
+  const [dragOffset, setDragOffset] = React.useState(0);
+  const [isDragging, setIsDragging] = React.useState(false);
+  const [snapStep, setSnapStep] = React.useState(PROFILE_NAV_SNAP_STEP);
+  const chipRefs = React.useRef([]);
+  const dragStateRef = React.useRef({
+    pointerId: null,
+    startX: 0,
+    startIndex: 0,
+    snapStep: PROFILE_NAV_SNAP_STEP,
+  });
 
   React.useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    updateScrollState();
-    el.addEventListener("scroll", updateScrollState, { passive: true });
-    return () => el.removeEventListener("scroll", updateScrollState);
-  }, [updateScrollState, pages.length]);
+    setDragOffset(0);
+    setIsDragging(false);
+  }, [activeKey]);
 
-  const showArrows = canScrollLeft || canScrollRight;
+  React.useEffect(() => {
+    const firstChip = chipRefs.current[0];
+    const secondChip = chipRefs.current[1];
+    if (!firstChip || !secondChip) return;
+
+    const firstRect = firstChip.getBoundingClientRect();
+    const secondRect = secondChip.getBoundingClientRect();
+    const firstCenter = firstRect.left + (firstRect.width / 2);
+    const secondCenter = secondRect.left + (secondRect.width / 2);
+    const measuredStep = Math.abs(secondCenter - firstCenter);
+
+    if (Number.isFinite(measuredStep) && measuredStep > 0) {
+      setSnapStep(measuredStep);
+    }
+  }, [safeCategories.length, activeKey]);
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      const firstChip = chipRefs.current[0];
+      const secondChip = chipRefs.current[1];
+      if (!firstChip || !secondChip) return;
+
+      const firstRect = firstChip.getBoundingClientRect();
+      const secondRect = secondChip.getBoundingClientRect();
+      const firstCenter = firstRect.left + (firstRect.width / 2);
+      const secondCenter = secondRect.left + (secondRect.width / 2);
+      const measuredStep = Math.abs(secondCenter - firstCenter);
+
+      if (Number.isFinite(measuredStep) && measuredStep > 0) {
+        setSnapStep(measuredStep);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  if (safeCategories.length <= 1) return null;
+
+  const clampIndex = (value) => {
+    if (safeCategories.length <= 1) return 0;
+    return Math.min(Math.max(value, 0), safeCategories.length - 1);
+  };
+
+  const completeDrag = (clientX) => {
+    const step = dragStateRef.current.snapStep > 0 ? dragStateRef.current.snapStep : PROFILE_NAV_SNAP_STEP;
+    const deltaX = clientX - dragStateRef.current.startX;
+    const floatIndex = dragStateRef.current.startIndex - (deltaX / step);
+    const nextIndex = clampIndex(Math.round(floatIndex));
+    const nextKey = safeCategories[nextIndex]?.key;
+
+    setIsDragging(false);
+    setDragOffset(0);
+
+    if (nextKey && nextKey !== activeKey) {
+      onSelect(nextKey);
+    }
+  };
+
+  const handlePointerDown = (event) => {
+    if (!event.isPrimary) return;
+
+    dragStateRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startIndex: activeIndex,
+      snapStep: snapStep > 0 ? snapStep : PROFILE_NAV_SNAP_STEP,
+    };
+    setIsDragging(true);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+
+  const handlePointerMove = (event) => {
+    if (!isDragging) return;
+    if (dragStateRef.current.pointerId !== event.pointerId) return;
+
+    const step = dragStateRef.current.snapStep > 0 ? dragStateRef.current.snapStep : PROFILE_NAV_SNAP_STEP;
+    const deltaX = event.clientX - dragStateRef.current.startX;
+    const minOffset = -(safeCategories.length - 1 - dragStateRef.current.startIndex) * step;
+    const maxOffset = dragStateRef.current.startIndex * step;
+    const clampedOffset = Math.min(Math.max(deltaX, minOffset), maxOffset);
+    setDragOffset(clampedOffset);
+  };
+
+  const handlePointerUp = (event) => {
+    if (!isDragging) return;
+    if (dragStateRef.current.pointerId !== event.pointerId) return;
+
+    completeDrag(event.clientX);
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+  };
+
+  const handlePointerCancel = (event) => {
+    if (!isDragging) return;
+    if (dragStateRef.current.pointerId !== event.pointerId) return;
+
+    setIsDragging(false);
+    setDragOffset(0);
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+  };
+
+  const visualCenterIndex = (safeCategories.length - 1) / 2;
+  const translateX = dragOffset + ((visualCenterIndex - activeIndex) * snapStep);
 
   return (
-    <div className="space-y-2">
-      <div ref={scrollRef} className="overflow-x-auto hide-scrollbar pb-1">
-        <div className="flex snap-x snap-mandatory gap-3">
-          {pages.map((pageOptions, pageIndex) => {
-            const placeholders = Math.max(0, ACCESSORY_GRID_PAGE_SIZE - pageOptions.length);
+    <div className="relative h-full w-full min-w-0 flex items-center justify-center" style={{ touchAction: "pan-y" }}>
+      <div
+        className={`pointer-events-none absolute left-1/2 top-1/2 h-10 w-[8.5rem] -translate-x-1/2 -translate-y-1/2 rounded-full border ${
+          isLightUi ? "border-[#b99a48]/70" : "border-[#f0e5a5]/65"
+        }`}
+        aria-hidden="true"
+      />
 
+      <div
+        className="w-full min-w-0 overflow-hidden"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+      >
+        <div
+          className="w-full flex items-center justify-center gap-3 select-none"
+          style={{
+            transform: `translate3d(${translateX}px, 0, 0)`,
+            transition: isDragging ? "none" : "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
+        >
+          {safeCategories.map((category, categoryIndex) => {
+            const isActive = category?.key === activeKey;
             return (
-              <div key={`accessory-page-${pageIndex}`} className="min-w-full snap-start">
-                <div className="grid grid-cols-2 gap-2 md:gap-3">
-                  {pageOptions.map((option) => (
-                    <AccessoryOptionCard
-                      key={option.id}
-                      option={option}
-                      user={user}
-                      isLightUi={isLightUi}
-                      isPending={isPending}
-                      isSelected={selectedOptionId === option.id}
-                      onSelect={onSelect}
-                    />
-                  ))}
-                  {Array.from({ length: placeholders }).map((_, placeholderIndex) => (
-                    <div
-                      key={`accessory-placeholder-${pageIndex}-${placeholderIndex}`}
-                      aria-hidden="true"
-                      className={`aspect-square rounded-2xl border border-dashed ${
-                        isLightUi ? "border-[#c8ac62]/25 bg-white/35" : "border-[#f0e5a5]/15 bg-black/20"
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
+              <button
+                key={category.key}
+                ref={(node) => {
+                  chipRefs.current[categoryIndex] = node;
+                }}
+                type="button"
+                onClick={() => onSelect(category.key)}
+                className={`inline-flex h-10 w-[8.5rem] shrink-0 items-center justify-center truncate px-2 text-center text-sm font-semibold transition-colors ${
+                  isActive
+                    ? (isLightUi ? "text-[#6f5314]" : "text-[#f8efbe]")
+                    : (isLightUi ? "text-stone-500" : "text-stone-300/80")
+                }`}
+                style={{ WebkitTapHighlightColor: "transparent" }}
+              >
+                {category.title}
+              </button>
             );
           })}
         </div>
       </div>
+    </div>
+  );
+};
 
-      {showArrows && (
-        <div className="flex items-center justify-between gap-2" aria-hidden="true">
-          <div className={`flex items-center gap-1 text-[11px] font-medium ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"} ${canScrollLeft ? "visible" : "invisible"}`}>
-            <ArrowLeft className="h-3.5 w-3.5" />
-          </div>
-          <div className={`flex items-center gap-1 text-[11px] font-medium ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"} ${canScrollRight ? "visible" : "invisible"}`}>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </div>
-        </div>
-      )}
+const AccessoryOptionGrid = ({ options, user, isLightUi, isPending, onSelect, selectedOptionId = null }) => {
+  return (
+    <div className="grid grid-cols-2 gap-2 md:gap-3">
+      {(Array.isArray(options) ? options : []).map((option) => (
+        <AccessoryOptionCard
+          key={option.id}
+          option={option}
+          user={user}
+          isLightUi={isLightUi}
+          isPending={isPending}
+          isSelected={selectedOptionId === option.id}
+          onSelect={onSelect}
+        />
+      ))}
     </div>
   );
 };
@@ -729,6 +833,7 @@ const AccessoryPagedGrid = ({ options, user, isLightUi, isPending, onSelect, sel
  *   onUserUpdated?: (user: any) => void,
  *   externalActionMode?: boolean,
  *   onActionStateChange?: any,
+ *   onBackStateChange?: any,
  * }} props
  */
 export default function ShopFeatureRoot({
@@ -742,6 +847,7 @@ export default function ShopFeatureRoot({
   onUserUpdated,
   externalActionMode = false,
   onActionStateChange,
+  onBackStateChange,
 }) {
   const { isLightUi } = useUiTheme();
   const queryClient = useQueryClient();
@@ -755,6 +861,7 @@ export default function ShopFeatureRoot({
   const [shopMessage, setShopMessage] = useState(null);
   const [purchaseConfirmOption, setPurchaseConfirmOption] = useState(null);
   const [selectedOptionForAction, setSelectedOptionForAction] = useState(null);
+  const [activeFlorabotSectionKey, setActiveFlorabotSectionKey] = useState(null);
   const [collapsedBackgroundSections, setCollapsedBackgroundSections] = useState({
     presets: false,
     colors: false,
@@ -883,12 +990,12 @@ export default function ShopFeatureRoot({
     return {
       key: "badges",
       title: "Abzeichen",
-      subtitle: "Metrik-Abzeichen mit 5 Raengen (Grau, Weiss, Bronze, Silber, Gold)",
+      subtitle: "Metrik-Abzeichen mit 5 Rängen (Grau, Weiß, Bronze, Silber, Gold)",
       sections: [
         {
           key: "metric_badges",
           title: "Metrik-Abzeichen",
-          emptyLabel: "Noch keine Abzeichen verfuegbar.",
+          emptyLabel: "Noch keine Abzeichen verfügbar.",
           options: evaluatedBadges,
         },
       ],
@@ -960,6 +1067,28 @@ export default function ShopFeatureRoot({
   }, [shopCategory, shopRootCategory, isRootCategoryLandingVisible]);
 
   const currentCategory = activeSubcategories.find((category) => category.key === shopCategory) || activeSubcategories[0] || null;
+  const florabotAccessorySections = useMemo(() => {
+    if (shopRootCategory !== "florabot" || currentCategory?.key !== "accessories") return [];
+    return Array.isArray(currentCategory?.sections) ? currentCategory.sections : [];
+  }, [shopRootCategory, currentCategory?.key, currentCategory?.sections]);
+
+  useEffect(() => {
+    if (florabotAccessorySections.length === 0) {
+      if (activeFlorabotSectionKey !== null) {
+        setActiveFlorabotSectionKey(null);
+      }
+      return;
+    }
+
+    const hasActiveSection = florabotAccessorySections.some((section) => section?.key === activeFlorabotSectionKey);
+    if (!hasActiveSection) {
+      setActiveFlorabotSectionKey(florabotAccessorySections[0]?.key || null);
+    }
+  }, [florabotAccessorySections, activeFlorabotSectionKey]);
+
+  const activeFlorabotSection = florabotAccessorySections.find((section) => section?.key === activeFlorabotSectionKey)
+    || florabotAccessorySections[0]
+    || null;
 
   const handleSelectRootCategory = (nextRootCategory) => {
     if (!nextRootCategory) return;
@@ -1069,7 +1198,7 @@ export default function ShopFeatureRoot({
       setSelectedOptionForAction({
         kind: "background",
         option,
-        actionLabel: "Ausruesten",
+        actionLabel: "Ausrüsten",
         actionDisabled: false,
       });
       return;
@@ -1131,7 +1260,7 @@ export default function ShopFeatureRoot({
       setSelectedOptionForAction({
         kind: "title",
         option,
-        actionLabel: "Ausruesten",
+        actionLabel: "Ausrüsten",
         actionDisabled: false,
       });
       return;
@@ -1186,7 +1315,7 @@ export default function ShopFeatureRoot({
       setSelectedOptionForAction({
         kind: "accessory",
         option,
-        actionLabel: isLocked ? "Kaufen" : "Ausruesten",
+        actionLabel: isLocked ? "Kaufen" : "Ausrüsten",
         actionDisabled: false,
       });
       return;
@@ -1228,7 +1357,7 @@ export default function ShopFeatureRoot({
       setSelectedOptionForAction({
         kind: "border-color",
         option: { value: hex || null },
-        actionLabel: "Ausruesten",
+        actionLabel: "Ausrüsten",
         actionDisabled: false,
       });
       return;
@@ -1260,7 +1389,7 @@ export default function ShopFeatureRoot({
     if (!embedded || typeof onHeaderMetaChange !== "function") return;
     onHeaderMetaChange({
       title: isRootCategoryLandingVisible ? "Shop" : (activeRootMeta?.title || "Shop"),
-      subtitle: isRootCategoryLandingVisible ? "Kategorie waehlen" : null,
+      subtitle: isRootCategoryLandingVisible ? "Kategorie wählen" : null,
       infoLabel: {
         sparks: availableSparks,
         amber: availableAmber,
@@ -1276,6 +1405,7 @@ export default function ShopFeatureRoot({
   const resolvedCurrentTitle = resolveTitleValue(resolvedCurrentUser?.selected_title, resolvedCurrentUser?.title) || "Pflanzen-Entdecker";
   const isMutationPending = updateCustomizationMutation.isPending || purchaseAccessoryMutation.isPending;
   const selectedActionRef = React.useRef(null);
+  const backActionRef = React.useRef(null);
 
   const executeSelectedAction = async () => {
     const payload = selectedOptionForAction;
@@ -1300,6 +1430,11 @@ export default function ShopFeatureRoot({
   };
 
   selectedActionRef.current = executeSelectedAction;
+  backActionRef.current = () => {
+    if (!isRootCategoryLandingVisible) {
+      handleBackToRootCategories();
+    }
+  };
 
   useEffect(() => {
     if (typeof onActionStateChange !== "function") return;
@@ -1317,6 +1452,20 @@ export default function ShopFeatureRoot({
       selectedOption: selectedOptionForAction,
     });
   }, [selectedOptionForAction, isMutationPending, onActionStateChange]);
+
+  useEffect(() => {
+    if (typeof onBackStateChange !== "function") return;
+
+    const canGoBack = !isRootCategoryLandingVisible;
+    onBackStateChange({
+      canGoBack,
+      onBack: () => {
+        if (typeof backActionRef.current === "function") {
+          backActionRef.current();
+        }
+      },
+    });
+  }, [isRootCategoryLandingVisible, onBackStateChange]);
 
   const handleClosePurchaseDialog = () => {
     if (purchaseAccessoryMutation.isPending) return;
@@ -1367,39 +1516,52 @@ export default function ShopFeatureRoot({
     ]);
   };
 
-  const florabotOptionCount = florabotCategories.reduce((sum, category) => sum + getCategoryOptionCount(category), 0);
-  const profileOptionCount = profileCategories.reduce((sum, category) => sum + getCategoryOptionCount(category), 0);
-  const unlockableAccessoryCount = florabotCategories.reduce(
-    (sum, category) => sum + getCategoryOptionCount(category, (option) => Boolean(option?.isLocked) && Boolean(option?.isPurchasable)),
-    0,
-  );
-
   const rootCategoryEntries = [
     {
       ...ROOT_CATEGORY_META.shop,
-      count: 2,
-      chips: [
-        `${availableAmber} Bernstein`,
-        `${availableSparks} Funken`,
-      ],
     },
     {
       ...ROOT_CATEGORY_META.florabot,
-      count: florabotOptionCount,
-      chips: [
-        `${florabotOptionCount} Anpassungen`,
-        unlockableAccessoryCount > 0 ? `${unlockableAccessoryCount} kaufbar` : "Alles freigeschaltet",
-      ],
     },
     {
       ...ROOT_CATEGORY_META.profile,
-      count: profileOptionCount,
-      chips: [
-        `${profileOptionCount} Profiloptionen`,
-        `${selectedBadgeIds.length}/${PROFILE_BADGE_MAX_SELECTED} Abzeichen ausgewaehlt`,
-      ],
     },
   ];
+
+  const shouldShowProfileCarousel = !isRootCategoryLandingVisible && shopRootCategory === "profile" && profileCategories.length > 0;
+  const shouldShowFlorabotCarousel = !isRootCategoryLandingVisible && shopRootCategory === "florabot" && florabotAccessorySections.length > 1;
+  const florabotCarouselItems = florabotAccessorySections.map((section) => ({ key: section.key, title: section.title }));
+
+  const profileCarouselBlock = shouldShowProfileCarousel ? (
+    <ProfileCategorySnapCarousel
+      categories={profileCategories}
+      activeKey={shopCategory}
+      isLightUi={isLightUi}
+      onSelect={setShopCategory}
+    />
+  ) : null;
+
+  const florabotCarouselBlock = shouldShowFlorabotCarousel ? (
+    <ProfileCategorySnapCarousel
+      categories={florabotCarouselItems}
+      activeKey={activeFlorabotSection?.key || florabotCarouselItems[0]?.key || null}
+      isLightUi={isLightUi}
+      onSelect={setActiveFlorabotSectionKey}
+    />
+  ) : null;
+
+  const shouldShowFixedTopNav = shouldShowProfileCarousel || shouldShowFlorabotCarousel;
+  const fixedTopNavBar = shouldShowFixedTopNav ? (
+    <div className={`shrink-0 px-4 ${embedded ? "h-20" : "h-24"} flex items-center`}>
+      <div className="max-w-5xl mx-auto w-full min-w-0 h-full flex items-center justify-center">
+        {shouldShowProfileCarousel ? profileCarouselBlock : florabotCarouselBlock}
+      </div>
+    </div>
+  ) : null;
+
+  const topNavDivider = shouldShowFixedTopNav
+    ? <div className={`relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen shrink-0 border-t-2 ${embeddedDividerClass}`} aria-hidden="true" />
+    : null;
 
   return (
     <section
@@ -1407,6 +1569,9 @@ export default function ShopFeatureRoot({
       data-theme={isLightUi ? "light" : "dark"}
       className="h-full flex-1 min-h-0 overflow-hidden flex flex-col"
     >
+      {fixedTopNavBar}
+      {topNavDivider}
+
       <div className={contentClass} style={contentMaskStyle}>
         <div
           className="max-w-5xl mx-auto space-y-3"
@@ -1422,10 +1587,9 @@ export default function ShopFeatureRoot({
                   accent={entry.accent}
                   info={entry.subtitle}
                   infoClassName={isLightUi ? "text-white/90" : "text-stone-200"}
-                  metaChips={entry.chips}
-                  metaChipClassName={isLightUi ? "text-white border-white/35 bg-black/20" : "text-stone-100 border-white/30 bg-black/26"}
+                  descriptionScrollable={false}
+                  descriptionMaxHeightClass="max-h-none"
                   showChevron
-                  className="max-h-[10.5rem]"
                   onClick={() => handleSelectRootCategory(entry.key)}
                 />
               ))}
@@ -1433,7 +1597,7 @@ export default function ShopFeatureRoot({
           ) : !currentCategory ? (
             <div className="px-1 py-6 flex flex-col items-center justify-center gap-3 text-center">
               <Sparkles className={`w-6 h-6 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
-              <div className={`text-sm font-medium ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Noch keine Anpassungskategorien verfuegbar</div>
+              <div className={`text-sm font-medium ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Noch keine Anpassungskategorien verfügbar</div>
               <button
                 type="button"
                 onClick={refetchAll}
@@ -1474,7 +1638,7 @@ export default function ShopFeatureRoot({
             <div className="space-y-3">
               <SectionCard title="Mit Funken freischalten" icon={Sparkles} isLightUi={isLightUi}>
                 <div className={`rounded-2xl border border-dashed px-3 py-4 text-xs ${isLightUi ? "border-[#c8ac62]/30 text-stone-600" : "border-[#f0e5a5]/20 text-stone-300/80"}`}>
-                  Items mit Funken werden hier gesammelt angezeigt. Bereits integrierte Florabot-Accessoires sind weiterhin im Bereich Florabot verfuegbar.
+                  Items mit Funken werden hier gesammelt angezeigt. Bereits integrierte Florabot-Accessoires sind weiterhin im Bereich Florabot verfügbar.
                 </div>
               </SectionCard>
 
@@ -1491,7 +1655,7 @@ export default function ShopFeatureRoot({
                   <div>
                     <div className={`text-sm font-semibold ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Aktiver Hintergrund</div>
                     <div className={`mt-1 text-xs ${isLightUi ? "text-stone-500" : "text-stone-300/75"}`}>
-                      Presets, Farben und eigene Scans werden direkt auf dein Profil angewendet.
+                      Presets und Farben werden direkt auf dein Profil angewendet.
                     </div>
                   </div>
                   <button
@@ -1558,40 +1722,42 @@ export default function ShopFeatureRoot({
             </div>
           ) : currentCategory.key === "accessories" ? (
             <div className="space-y-3">
-              {currentCategory.sections.map((section) => (
-                <SectionCard key={section.key} title={section.title} icon={Sparkles} isLightUi={isLightUi}>
-                  {section.options.length === 0 ? (
-                    <div className={`rounded-2xl border border-dashed px-3 py-4 text-xs ${isLightUi ? "border-[#c8ac62]/30 text-stone-500" : "border-[#f0e5a5]/20 text-stone-300/75"}`}>
-                      {section.emptyLabel}
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <AccessoryPagedGrid
-                        options={section.options}
-                        user={resolvedCurrentUser}
+              {activeFlorabotSection ? (
+                activeFlorabotSection.options.length === 0 ? (
+                  <div className={`rounded-2xl border border-dashed px-3 py-4 text-xs ${isLightUi ? "border-[#c8ac62]/30 text-stone-500" : "border-[#f0e5a5]/20 text-stone-300/75"}`}>
+                    {activeFlorabotSection.emptyLabel}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <AccessoryOptionGrid
+                      options={activeFlorabotSection.options}
+                      user={resolvedCurrentUser}
+                      isLightUi={isLightUi}
+                      isPending={isMutationPending}
+                      onSelect={handleSelectAccessory}
+                      selectedOptionId={selectedOptionForAction?.kind === "accessory" ? selectedOptionForAction?.option?.id : null}
+                    />
+                    {activeFlorabotSection.key === "border" && (
+                      <BorderColorPicker
+                        currentColor={resolvedCurrentUser?.selected_border_color || null}
                         isLightUi={isLightUi}
                         isPending={isMutationPending}
-                        onSelect={handleSelectAccessory}
-                        selectedOptionId={selectedOptionForAction?.kind === "accessory" ? selectedOptionForAction?.option?.id : null}
+                        onSelectColor={handleSelectBorderColor}
                       />
-                      {section.key === "border" && (
-                        <BorderColorPicker
-                          currentColor={resolvedCurrentUser?.selected_border_color || null}
-                          isLightUi={isLightUi}
-                          isPending={isMutationPending}
-                          onSelectColor={handleSelectBorderColor}
-                        />
-                      )}
-                    </div>
-                  )}
-                </SectionCard>
-              ))}
+                    )}
+                  </div>
+                )
+              ) : (
+                <div className={`rounded-2xl border border-dashed px-3 py-4 text-xs ${isLightUi ? "border-[#c8ac62]/30 text-stone-500" : "border-[#f0e5a5]/20 text-stone-300/75"}`}>
+                  {CATEGORY_META.accessories.emptyLabel}
+                </div>
+              )}
             </div>
           ) : currentCategory.key === "badges" ? (
             <div className="space-y-3">
-              <SectionCard title="Abzeichen auswaehlen" icon={BadgeCheck} isLightUi={isLightUi}>
+              <SectionCard title="Abzeichen auswählen" icon={BadgeCheck} isLightUi={isLightUi}>
                 <div className={`mb-3 rounded-xl border px-3 py-2 text-xs ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50 text-stone-700" : "border-[#f0e5a5]/25 bg-black/25 text-stone-200"}`}>
-                  Du kannst bis zu {PROFILE_BADGE_MAX_SELECTED} Abzeichen im Profilbanner anzeigen. Aktuell ausgewaehlt: {selectedBadgeIds.length}/{PROFILE_BADGE_MAX_SELECTED}.
+                  Du kannst bis zu {PROFILE_BADGE_MAX_SELECTED} Abzeichen im Profilbanner anzeigen. Aktuell ausgewählt: {selectedBadgeIds.length}/{PROFILE_BADGE_MAX_SELECTED}.
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
@@ -1644,7 +1810,7 @@ export default function ShopFeatureRoot({
                               {badge.rankMeta?.label || "Grau"}
                             </span>
                             <span className={`text-[10px] ${isLightUi ? "text-[#9a7a33]" : "text-stone-300/75"}`}>
-                              Tippen zum {isSelected ? "Abwaehlen" : "Auswaehlen"}
+                              Tippen zum {isSelected ? "Abwählen" : "Auswählen"}
                             </span>
                           </div>
                         </button>
@@ -1654,7 +1820,7 @@ export default function ShopFeatureRoot({
                 </div>
 
                 <div className={`mt-3 rounded-xl border px-3 py-2 text-xs ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50 text-stone-700" : "border-[#f0e5a5]/25 bg-black/25 text-stone-200"}`}>
-                  Verfuegbare Abzeichen: {PROFILE_BADGE_DEFINITIONS.length}. Ausgewaehlte Abzeichen erscheinen neben Florabot im Home-Banner.
+                  Verfügbare Abzeichen: {PROFILE_BADGE_DEFINITIONS.length}. Ausgewählte Abzeichen erscheinen neben Florabot im Home-Banner.
                 </div>
               </SectionCard>
             </div>
@@ -1709,7 +1875,7 @@ export default function ShopFeatureRoot({
         </div>
       </div>
 
-      {embedded && showEmbeddedBottomDivider ? <div className={`w-full shrink-0 border-t ${embeddedDividerClass}`} aria-hidden="true" /> : null}
+      {embedded && showEmbeddedBottomDivider ? <div className={`relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen shrink-0 border-t-2 ${embeddedDividerClass}`} aria-hidden="true" /> : null}
 
       <Dialog open={Boolean(purchaseConfirmOption)} onOpenChange={(open) => {
         if (!open) handleClosePurchaseDialog();

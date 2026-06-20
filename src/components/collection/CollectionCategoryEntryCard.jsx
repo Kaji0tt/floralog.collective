@@ -92,6 +92,7 @@ export default function CollectionCategoryEntryCard({
   className = "",
   customBackgroundColor = null,
   descriptionMaxHeightClass = "max-h-12",
+  descriptionScrollable = true,
   secondaryActionIcon: SecondaryActionIcon = null,
   secondaryActionLabel = "Aktion",
   onSecondaryAction = null,
@@ -113,6 +114,9 @@ export default function CollectionCategoryEntryCard({
   const descriptionToneClass = descriptionClassName || (isLightUi ? "text-white/86" : "text-white/84");
   const infoToneClass = infoClassName || (isLightUi ? "text-white/70" : "text-white/68");
   const chipToneClass = metaChipClassName || (isLightUi ? "border-white/25 bg-black/26 text-white/84" : "border-white/25 bg-black/28 text-white/84");
+  const descriptionOverflowClass = descriptionScrollable
+    ? `min-h-0 overflow-y-auto pr-1 ${descriptionMaxHeightClass}`
+    : "overflow-visible";
 
   return (
     <button
@@ -152,7 +156,7 @@ export default function CollectionCategoryEntryCard({
         <div className="min-w-0 flex-1 h-full min-h-0 flex flex-col justify-center">
           <h3 className={"w-full text-lg md:text-xl font-semibold tracking-[0.01em] leading-tight text-left " + (isLightUi ? "text-white" : "text-white")}>{title}</h3>
           {(description || info) && (
-            <div className={`mt-0.5 min-h-0 overflow-y-auto pr-1 ${descriptionMaxHeightClass}`}>
+            <div className={`mt-0.5 ${descriptionOverflowClass}`}>
               {description && (
                 <p className={"text-sm md:text-[0.95rem] leading-snug " + descriptionToneClass}>
                   {description}

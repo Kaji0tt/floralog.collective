@@ -8,6 +8,19 @@ const SWIPE_THRESHOLD_PX = 36;
 const SLIDE_DURATION_MS = 6500;
 const PROGRESS_TICK_MS = 50;
 const OVERLAY_EXIT_FADE_MS = 350;
+const BADGE_LOGO_MIN_SCALE = 0.24;
+const BADGE_LOGO_MAX_SCALE = 1.56;
+const BADGE_LOGO_FILL_HEIGHT_RATIO = 0.98;
+const BADGE_LOGO_FILL_WIDTH_RATIO = 0.96;
+const BADGE_LOGO_VISIBLE_HEIGHT_RATIO = 0.72;
+const BADGE_LOGO_UNIT_HEIGHT_REM = 10;
+const BADGE_LOGO_UNIT_MAX_WIDTH_REM = 22;
+const BADGE_ROW_HEIGHT_REM = 7.25;
+const LOGO_ROW_TOP_REM = 4.9;
+const BADGE_TOP_SIDE_REM = 2.9;
+const BADGE_TOP_CENTER_REM = 1.1;
+const KPI_STRIPE_HIDE_THRESHOLD_REM = 18.5;
+const KPI_STRIPE_SHOW_THRESHOLD_REM = 19.0;
 
 const clampIndex = (index, size) => {
   if (!Number.isFinite(index) || size <= 0) return 0;
@@ -341,11 +354,147 @@ export default function HomeCollectionStripes({
   healthSeedBonusDisplay = 0,
   className = "",
 }) {
-  const logoButtonRef = useRef(null);
-  const floatingLogoUnmountTimeoutRef = useRef(null);
-  const [floatingLogoRect, setFloatingLogoRect] = useState(null);
+  const collectionRootRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+  const badgeLogoViewportRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+  const badgeLogoUnitRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+  const logoButtonRef = useRef(/** @type {HTMLButtonElement | null} */ (null));
+  const floatingLogoUnmountTimeoutRef = useRef(/** @type {number | null} */ (null));
+  const [floatingLogoRect, setFloatingLogoRect] = useState(/** @type {{left:number,top:number,width:number,height:number} | null} */ (null));
   const [isFloatingLogoMounted, setIsFloatingLogoMounted] = useState(false);
   const [isFloatingLogoVisible, setIsFloatingLogoVisible] = useState(false);
+  const [badgeLogoScale, setBadgeLogoScale] = useState(1);
+  const [centerBadgeLogoUnit, setCenterBadgeLogoUnit] = useState(false);
+  const [showKpiStripe, setShowKpiStripe] = useState(true);
+  const badgeLogoScaleRef = useRef(1);
+
+  useEffect(() => {
+    const rootNode = collectionRootRef.current;
+    if (!rootNode) return undefined;
+
+    const evaluateKpiVisibility = () => {
+      const rootFontSize = Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
+      const hideThresholdPx = KPI_STRIPE_HIDE_THRESHOLD_REM * rootFontSize;
+      const showThresholdPx = KPI_STRIPE_SHOW_THRESHOLD_REM * rootFontSize;
+      const availableHeight = rootNode.clientHeight;
+
+      setShowKpiStripe((prevShow) => {
+        if (prevShow && availableHeight < hideThresholdPx) return false;
+        if (!prevShow && availableHeight > showThresholdPx) return true;
+        return prevShow;
+      });
+    };
+
+    /** @type {number | null} */
+    let rafId = null;
+    const scheduleEvaluate = () => {
+      if (rafId) {
+        window.cancelAnimationFrame(rafId);
+      }
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        evaluateKpiVisibility();
+      });
+    };
+
+    scheduleEvaluate();
+
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => scheduleEvaluate()) : null;
+    observer?.observe(rootNode);
+
+    window.addEventListener("resize", scheduleEvaluate);
+    const viewport = window.visualViewport;
+    viewport?.addEventListener("resize", scheduleEvaluate);
+    viewport?.addEventListener("scroll", scheduleEvaluate);
+
+    return () => {
+      if (rafId) {
+        window.cancelAnimationFrame(rafId);
+      }
+      observer?.disconnect();
+      window.removeEventListener("resize", scheduleEvaluate);
+      viewport?.removeEventListener("resize", scheduleEvaluate);
+      viewport?.removeEventListener("scroll", scheduleEvaluate);
+    };
+  }, []);
+
+  useEffect(() => {
+    badgeLogoScaleRef.current = badgeLogoScale;
+  }, [badgeLogoScale]);
+
+  const updateBadgeLogoScale = useCallback(() => {
+    const viewportNode = badgeLogoViewportRef.current;
+    const unitNode = badgeLogoUnitRef.current;
+    if (!viewportNode || !unitNode) return;
+
+    const availableHeight = Math.max(1, viewportNode.clientHeight);
+    const availableWidth = Math.max(1, viewportNode.clientWidth);
+    const currentUnitScale = Math.max(0.01, badgeLogoScaleRef.current || 1);
+    const unitRect = unitNode.getBoundingClientRect();
+    const unitHeight = Math.max(1, unitRect.height / currentUnitScale);
+    const unitWidth = Math.max(1, unitRect.width / currentUnitScale);
+
+    const logoNode = logoButtonRef.current;
+    const logoRect = logoNode?.getBoundingClientRect();
+    const logoHeight = Math.max(1, (logoRect?.height || 0) / currentUnitScale);
+    const transparentLogoCompensation = logoHeight * (1 - BADGE_LOGO_VISIBLE_HEIGHT_RATIO);
+    const effectiveUnitHeight = Math.max(1, unitHeight - transparentLogoCompensation);
+
+    const heightScale = (availableHeight * BADGE_LOGO_FILL_HEIGHT_RATIO) / effectiveUnitHeight;
+    const widthScale = (availableWidth * BADGE_LOGO_FILL_WIDTH_RATIO) / unitWidth;
+    const nextScale = Math.max(
+      BADGE_LOGO_MIN_SCALE,
+      Math.min(BADGE_LOGO_MAX_SCALE, heightScale, widthScale)
+    );
+
+    const scaledEffectiveHeight = effectiveUnitHeight * nextScale;
+    const verticalSparePx = availableHeight - scaledEffectiveHeight;
+    const shouldCenterVertically = nextScale >= BADGE_LOGO_MAX_SCALE - 0.01 && verticalSparePx > 10;
+
+    setBadgeLogoScale((prevScale) => (Math.abs(prevScale - nextScale) < 0.01 ? prevScale : nextScale));
+    setCenterBadgeLogoUnit((prevCenter) => (prevCenter === shouldCenterVertically ? prevCenter : shouldCenterVertically));
+  }, []);
+
+  useEffect(() => {
+    /** @type {number | null} */
+    let rafId = null;
+    const scheduleUpdate = () => {
+      if (rafId) {
+        window.cancelAnimationFrame(rafId);
+      }
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        updateBadgeLogoScale();
+      });
+    };
+
+    scheduleUpdate();
+
+    window.addEventListener("resize", scheduleUpdate);
+    const viewport = window.visualViewport;
+    viewport?.addEventListener("resize", scheduleUpdate);
+    viewport?.addEventListener("scroll", scheduleUpdate);
+
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => scheduleUpdate()) : null;
+    if (observer && badgeLogoViewportRef.current) {
+      observer.observe(badgeLogoViewportRef.current);
+    }
+    if (observer && badgeLogoUnitRef.current) {
+      observer.observe(badgeLogoUnitRef.current);
+    }
+    if (observer && logoButtonRef.current) {
+      observer.observe(logoButtonRef.current);
+    }
+
+    return () => {
+      if (rafId) {
+        window.cancelAnimationFrame(rafId);
+      }
+      observer?.disconnect();
+      window.removeEventListener("resize", scheduleUpdate);
+      viewport?.removeEventListener("resize", scheduleUpdate);
+      viewport?.removeEventListener("scroll", scheduleUpdate);
+    };
+  }, [updateBadgeLogoScale]);
 
   useEffect(() => {
     return () => {
@@ -419,7 +568,9 @@ export default function HomeCollectionStripes({
       return undefined;
     }
 
+    /** @type {number | null} */
     let firstRaf = null;
+    /** @type {number | null} */
     let secondRaf = null;
 
     const scheduleMeasure = () => {
@@ -431,6 +582,10 @@ export default function HomeCollectionStripes({
       });
     };
 
+    // IMPORTANT (AI patch note): Keep this effect dependent on layout toggles that can move
+    // the logo without resize/scroll events (e.g. centerBadgeLogoUnit/showKpiStripe).
+    // HomeFlorabotOverlay measures the portal rect to render its ring animation; stale rects
+    // break centering and the logo is no longer correctly encircled.
     // Measure twice at startup to settle transforms/responsive layout before pinning.
     scheduleMeasure();
     secondRaf = window.requestAnimationFrame(() => {
@@ -456,7 +611,7 @@ export default function HomeCollectionStripes({
       viewport?.removeEventListener("resize", scheduleMeasure);
       viewport?.removeEventListener("scroll", scheduleMeasure);
     };
-  }, [elevateLogo, updateFloatingLogoRect]);
+  }, [badgeLogoScale, centerBadgeLogoUnit, elevateLogo, showKpiStripe, updateFloatingLogoRect]);
 
   const floatingLogoPortal =
     isFloatingLogoMounted &&
@@ -494,9 +649,9 @@ export default function HomeCollectionStripes({
     : [];
   const badgeSlots = Array.from({ length: 3 }, (_, index) => selectedBadges[index] || null);
   const badgeArcPositions = [
-    "left-1/2 top-[3.3rem] -translate-x-[6.5rem]",
-    "left-1/2 top-[1.05rem] -translate-x-1/2",
-    "left-1/2 top-[3.3rem] translate-x-[2.5rem]",
+    { left: "16.6667%", topRem: BADGE_TOP_SIDE_REM },
+    { left: "50%", topRem: BADGE_TOP_CENTER_REM },
+    { left: "83.3333%", topRem: BADGE_TOP_SIDE_REM },
   ];
   const badgeGlassClassName = "border-[#f0e5a5]/55 bg-black/88 text-stone-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_12px_30px_rgba(0,0,0,0.4)] backdrop-blur-xl";
 
@@ -512,113 +667,142 @@ export default function HomeCollectionStripes({
   };
 
   return (
-    <div className={`flex min-h-0 flex-col gap-2 ${className}`}>
-      <div className="relative min-h-[17.25rem] flex-1 text-stone-100 sm:min-h-[19.25rem]" aria-label="Florabot und Abzeichen">
-        <div className="absolute inset-x-0 top-0 z-20 h-[7.25rem]" aria-label="Ausgewaehlte Abzeichen">
-          {badgeSlots.map((badge, slotIndex) => {
-            const positionClassName = badgeArcPositions[slotIndex] || badgeArcPositions[1];
+    <div ref={collectionRootRef} className={`flex min-h-0 flex-col gap-2 ${className}`}>
+      <div ref={badgeLogoViewportRef} className="relative min-h-[17.25rem] flex-1 text-stone-100 sm:min-h-[19.25rem]" aria-label="Florabot und Abzeichen">
+        <div
+          className={`absolute inset-0 flex justify-center ${centerBadgeLogoUnit ? "items-center" : "items-start"}`}
+          style={{ pointerEvents: "none" }}
+        >
+          <div
+            ref={badgeLogoUnitRef}
+            className="relative w-[20rem] max-w-full"
+            style={{
+              maxWidth: `${BADGE_LOGO_UNIT_MAX_WIDTH_REM}rem`,
+              height: `${BADGE_LOGO_UNIT_HEIGHT_REM}rem`,
+              transform: `scale(${badgeLogoScale})`,
+              transformOrigin: "top center",
+              pointerEvents: "auto",
+            }}
+          >
+          <div
+          className="absolute inset-x-0 top-0 z-[220] pointer-events-none"
+          style={{ height: `${BADGE_ROW_HEIGHT_REM}rem` }}
+          aria-label="Ausgewaehlte Abzeichen"
+        >
+            {badgeSlots.map((badge, slotIndex) => {
+              const badgePosition = badgeArcPositions[slotIndex] || badgeArcPositions[1];
+              const badgePositionStyle = {
+                left: badgePosition.left,
+                top: `${badgePosition.topRem}rem`,
+              };
 
-            if (!badge) {
-              return (
-                <div
-                  key={`badge-slot-empty-${slotIndex}`}
-                  className={`absolute ${positionClassName} h-16 w-16 overflow-hidden rounded-full border flex items-center justify-center text-[9px] font-medium ${badgeGlassClassName}`}
-                >
-                  <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_30%_18%,rgba(255,255,255,0.34),rgba(255,255,255,0.08)_34%,rgba(255,255,255,0)_66%)]" />
-                  <span className="pointer-events-none absolute inset-[2px] rounded-full border border-white/10" />
-                  <span className="relative z-[1] text-stone-300/70">Leer</span>
-                </div>
-              );
-            }
-
-            const Icon = badge?.Icon || Leaf;
-            const rankKey = String(badge?.rankKey || "gray").toLowerCase();
-            const rankLabel = badge?.rankMeta?.label || "Grau";
-            const iconToneClass = BADGE_RANK_ICON_STYLE[rankKey] || BADGE_RANK_ICON_STYLE.gray;
-            const valueLabel = resolveBadgeValueLabel(badge);
-
-            return (
-              <LockedTooltip
-                key={badge.id}
-                content={(
-                  <div className="space-y-1">
-                    <p className="text-xs font-semibold">{badge.label}</p>
-                    <p className="text-[11px] leading-snug">{badge.description}</p>
-                    <p className="text-[11px]"><span className="font-semibold">Wert:</span> {valueLabel}</p>
-                    <p className="text-[11px]"><span className="font-semibold">Rang:</span> {rankLabel}</p>
+              if (!badge) {
+                return (
+                  <div
+                    key={`badge-slot-empty-${slotIndex}`}
+                    style={badgePositionStyle}
+                    className={`pointer-events-auto absolute -translate-x-1/2 h-16 w-16 overflow-hidden rounded-full border flex items-center justify-center text-[9px] font-medium ${badgeGlassClassName}`}
+                  >
+                    <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_30%_18%,rgba(255,255,255,0.34),rgba(255,255,255,0.08)_34%,rgba(255,255,255,0)_66%)]" />
+                    <span className="pointer-events-none absolute inset-[2px] rounded-full border border-white/10" />
+                    <span className="relative z-[1] text-stone-300/70">Leer</span>
                   </div>
-                )}
-                contentClassName={isLightUi ? "" : "text-white/90"}
-              >
-                <button
-                  type="button"
-                  className={`absolute ${positionClassName} h-16 w-16 overflow-hidden rounded-full border flex flex-col items-center justify-center gap-1 ${badgeGlassClassName}`}
-                  aria-label={`${badge.label}: ${valueLabel}, Rang ${rankLabel}`}
+                );
+              }
+
+              const Icon = badge?.Icon || Leaf;
+              const rankKey = String(badge?.rankKey || "gray").toLowerCase();
+              const rankLabel = badge?.rankMeta?.label || "Grau";
+              const iconToneClass = BADGE_RANK_ICON_STYLE[rankKey] || BADGE_RANK_ICON_STYLE.gray;
+              const valueLabel = resolveBadgeValueLabel(badge);
+
+              return (
+                <LockedTooltip
+                  key={badge.id}
+                  content={(
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold">{badge.label}</p>
+                      <p className="text-[11px] leading-snug">{badge.description}</p>
+                      <p className="text-[11px]"><span className="font-semibold">Wert:</span> {valueLabel}</p>
+                      <p className="text-[11px]"><span className="font-semibold">Rang:</span> {rankLabel}</p>
+                    </div>
+                  )}
+                  contentClassName={isLightUi ? "" : "text-white/90"}
                 >
-                  <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_30%_18%,rgba(255,255,255,0.34),rgba(255,255,255,0.08)_34%,rgba(255,255,255,0)_66%)]" />
-                  <span className="pointer-events-none absolute inset-[2px] rounded-full border border-white/10" />
-                  <Icon className={`relative z-[1] h-6 w-6 ${iconToneClass}`} />
-                  <span className="relative z-[1] w-full max-w-[3.3rem] text-center text-[10px] leading-none font-bold text-stone-100">
-                    {valueLabel}
-                  </span>
-                </button>
-              </LockedTooltip>
-            );
-          })}
-        </div>
-
-        <div className="absolute inset-x-0 bottom-0 top-[3.25rem] flex items-center justify-center pt-8 sm:top-[3.75rem]">
-          <button
-            type="button"
-            ref={logoButtonRef}
-            onClick={() => onLogoClick?.()}
-            className={`relative shrink-0 translate-y-3 scale-[1.2] sm:translate-y-4 ${elevateLogo ? "z-[260]" : ""}`}
-            aria-label="Florabot Overlay öffnen"
-          >
-            <FlorabotLogo
-              profile={profile}
-              logoAssets={logoAssets}
-              sizeClass="w-48 h-48 sm:w-56 sm:h-56"
-              padding="p-[7%]"
-              className="drop-shadow-[0_0_28px_rgba(190,242,100,0.5)]"
-            />
-          </button>
-        </div>
-      </div>
-
-      <div className="shrink-0 px-1 py-1">
-        <div className="grid grid-cols-3 gap-2">
-          <div
-            className={`px-2 py-1 flex items-center justify-center gap-1.5 ${
-              isLightUi ? "text-stone-700/85" : "text-stone-200/80"
-            }`}
-            aria-label={`Samen: ${playerSeedsDisplay}`}
-          >
-            <Leaf className={`h-3.5 w-3.5 ${isLightUi ? "text-emerald-700/85" : "text-emerald-300/85"}`} />
-            <span className="text-[11px] font-medium leading-none">{playerSeedsDisplay}</span>
+                  <button
+                    type="button"
+                    style={badgePositionStyle}
+                    className={`pointer-events-auto absolute -translate-x-1/2 h-16 w-16 overflow-hidden rounded-full border flex flex-col items-center justify-center gap-1 ${badgeGlassClassName}`}
+                    aria-label={`${badge.label}: ${valueLabel}, Rang ${rankLabel}`}
+                  >
+                    <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_30%_18%,rgba(255,255,255,0.34),rgba(255,255,255,0.08)_34%,rgba(255,255,255,0)_66%)]" />
+                    <span className="pointer-events-none absolute inset-[2px] rounded-full border border-white/10" />
+                    <Icon className={`relative z-[1] h-6 w-6 ${iconToneClass}`} />
+                    <span className="relative z-[1] w-full max-w-[3.3rem] text-center text-[10px] leading-none font-bold text-stone-100">
+                      {valueLabel}
+                    </span>
+                  </button>
+                </LockedTooltip>
+              );
+            })}
           </div>
 
-          <div
-            className={`px-2 py-1 flex items-center justify-center gap-1.5 ${
-              isLightUi ? "text-stone-700/85" : "text-stone-200/80"
-            }`}
-            aria-label={`Eroberte Zonen: ${conqueredZonesDisplay}`}
-          >
-            <InspectionPanel className={`h-3.5 w-3.5 ${isLightUi ? "text-sky-700/85" : "text-sky-300/85"}`} />
-            <span className="text-[11px] font-medium leading-none">{conqueredZonesDisplay}</span>
+          <div className="absolute inset-x-0 z-[120] flex items-center justify-center" style={{ top: `${LOGO_ROW_TOP_REM}rem` }}>
+            <button
+              type="button"
+              ref={logoButtonRef}
+              onClick={() => onLogoClick?.()}
+              className={`relative shrink-0 scale-[1.24] ${elevateLogo ? "z-[260]" : ""}`}
+              aria-label="Florabot Overlay öffnen"
+            >
+              <FlorabotLogo
+                profile={profile}
+                logoAssets={logoAssets}
+                sizeClass="w-[12.75rem] h-[12.75rem] sm:w-[14.75rem] sm:h-[14.75rem]"
+                padding="p-[7%]"
+                className="drop-shadow-[0_0_28px_rgba(190,242,100,0.5)]"
+              />
+            </button>
           </div>
-
-          <div
-            className={`px-2 py-1 flex items-center justify-center gap-1.5 ${
-              isLightUi ? "text-stone-700/85" : "text-stone-200/80"
-            }`}
-            aria-label={`Gesundheitsbonus: +${healthSeedBonusDisplay} Samen`}
-          >
-            <HeartPulse className={`h-3.5 w-3.5 ${isLightUi ? "text-rose-700/85" : "text-rose-300/85"}`} />
-            <span className="text-[11px] font-medium leading-none">+{healthSeedBonusDisplay}</span>
           </div>
         </div>
       </div>
+
+      {showKpiStripe ? (
+        <div className="shrink-0 px-1 py-1">
+          <div className="grid grid-cols-3 gap-2">
+            <div
+              className={`px-2 py-1 flex items-center justify-center gap-1.5 ${
+                isLightUi ? "text-stone-700/85" : "text-stone-200/80"
+              }`}
+              aria-label={`Samen: ${playerSeedsDisplay}`}
+            >
+              <Leaf className={`h-3.5 w-3.5 ${isLightUi ? "text-emerald-700/85" : "text-emerald-300/85"}`} />
+              <span className="text-[11px] font-medium leading-none">{playerSeedsDisplay}</span>
+            </div>
+
+            <div
+              className={`px-2 py-1 flex items-center justify-center gap-1.5 ${
+                isLightUi ? "text-stone-700/85" : "text-stone-200/80"
+              }`}
+              aria-label={`Eroberte Zonen: ${conqueredZonesDisplay}`}
+            >
+              <InspectionPanel className={`h-3.5 w-3.5 ${isLightUi ? "text-sky-700/85" : "text-sky-300/85"}`} />
+              <span className="text-[11px] font-medium leading-none">{conqueredZonesDisplay}</span>
+            </div>
+
+            <div
+              className={`px-2 py-1 flex items-center justify-center gap-1.5 ${
+                isLightUi ? "text-stone-700/85" : "text-stone-200/80"
+              }`}
+              aria-label={`Gesundheitsbonus: +${healthSeedBonusDisplay} Samen`}
+            >
+              <HeartPulse className={`h-3.5 w-3.5 ${isLightUi ? "text-rose-700/85" : "text-rose-300/85"}`} />
+              <span className="text-[11px] font-medium leading-none">+{healthSeedBonusDisplay}</span>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {floatingLogoPortal}
     </div>
