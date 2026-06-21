@@ -726,6 +726,7 @@ export default function MapboxZoneMap({
   onMapReady = null,
   onDiscoveryImageClick = null,
   onDiscoveryLike = null,
+  onPinSelect = null,
   allowDiscoveryLike = true,
   discoveryMarkerScale = DISCOVERY_MARKER_UNIFIED_SCALE_DEFAULT,
   hideClaimLogos = false,
@@ -1213,6 +1214,16 @@ export default function MapboxZoneMap({
             domEvent.preventDefault();
             domEvent.stopPropagation();
 
+            if (typeof onPinSelect === "function") {
+              onPinSelect({
+                point,
+                properties,
+                mergedCount: Number(point?.mergedCount || 1),
+                mergedDiscoveryIds: point?.mergedDiscoveryIds || [properties.discoveryId].filter(Boolean),
+              });
+              return;
+            }
+
             if (Number(point?.mergedCount || 1) > 1) {
               openMergedDiscoveryPopup({ map, lng, lat, point });
               return;
@@ -1256,6 +1267,7 @@ export default function MapboxZoneMap({
     isLightUi,
     onDiscoveryImageClick,
     onDiscoveryLike,
+    onPinSelect,
     discoveryMarkerScale,
     userLocation?.lat,
     userLocation?.lng,

@@ -3535,6 +3535,7 @@ function HomeContent() {
                     allDiscoveryPoints={allDiscoveryPoints}
                     friendEmailSet={friendEmailSet}
                     discoveryMarkerScale={discoveryMarkerScale}
+                    plants={plants}
                   />
                 ) : (
                   <section data-ui="home-plant-hero-section" className="flex-1 min-h-0 rounded-3xl px-[clamp(0.75rem,2vw,1.5rem)] pt-[clamp(0.75rem,2vh,1.5rem)] pb-[clamp(0.12rem,0.35vh,0.28rem)] flex flex-col bg-transparent">
