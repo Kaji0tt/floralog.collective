@@ -92,6 +92,7 @@ export default function CollectionFeatureRoot({
   const [showPublicCollectionsPanelState, setShowPublicCollectionsPanelState] = useState(false);
   const [communitySearchQuery, setCommunitySearchQuery] = useState("");
   const [communitySort, setCommunitySort] = useState("newest");
+  const [globalSubPickerDismissed, setGlobalSubPickerDismissed] = useState(false);
   const [browseDeeplinkCollectionId, setBrowseDeeplinkCollectionId] = useState(null);
   const [browseDeeplinkAuthId, setBrowseDeeplinkAuthId] = useState(null);
   const [favoriteColumnUnavailable, setFavoriteColumnUnavailable] = useState(false);
@@ -1192,6 +1193,7 @@ export default function CollectionFeatureRoot({
                   )}
                   descriptionMaxHeightClass="max-h-14"
                   onClick={() => {
+                    setGlobalSubPickerDismissed(false);
                     setEntryCategory("global");
                     setPublicCollectionsPanelOpen(false);
                   }}
@@ -1244,7 +1246,7 @@ export default function CollectionFeatureRoot({
                 />
               </div>
             </div>
-          ) : selectedEntryCategory === "global" && selectedCollectionId !== "global" && selectedCollectionId !== "season" ? (
+          ) : selectedEntryCategory === "global" && !globalSubPickerDismissed && selectedCollectionId !== "season" ? (
             <div className="flex-1 min-h-0 max-h-full">
               <div className="h-full max-h-full grid grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3" style={{ paddingTop: listTopFadePx, paddingBottom: listBottomFadePx }}>
                 <CollectionCategoryEntryCard
@@ -1271,6 +1273,7 @@ export default function CollectionFeatureRoot({
                   )}
                   descriptionMaxHeightClass="max-h-14"
                   onClick={() => {
+                    setGlobalSubPickerDismissed(true);
                     handleCollectionChipSelect("global");
                   }}
                 />
