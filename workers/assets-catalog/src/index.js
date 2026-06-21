@@ -172,17 +172,9 @@ const jsonResponse = (payload, status = 200, extraHeaders = {}) => {
   });
 };
 
-const triggerLogoAssetSync = async (env, reason = "manual") => {
-  const endpoint = String(env.LOGO_ASSET_SYNC_ENDPOINT || "").trim();
-  const syncSecret = String(env.LOGO_ASSET_SYNC_SECRET || "").trim();
-
+const triggerSyncEndpoint = async (endpoint, secret, reason, label) => {
   if (!endpoint) {
-    return {
-      ok: false,
-      reason,
-      status: 0,
-      error: "LOGO_ASSET_SYNC_ENDPOINT missing",
-    };
+    return { ok: false, reason, status: 0, error: `${label} endpoint missing` };
   }
 
   try {
@@ -190,7 +182,7 @@ const triggerLogoAssetSync = async (env, reason = "manual") => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(syncSecret ? { "x-sync-secret": syncSecret } : {}),
+        ...(secret ? { "x-sync-secret": secret } : {}),
       },
       body: JSON.stringify({ source: "assets-catalog-worker", reason }),
     });
@@ -201,16 +193,23 @@ const triggerLogoAssetSync = async (env, reason = "manual") => {
       reason,
       status: response.status,
       data,
-      error: response.ok ? null : `syncLogoAssets failed (${response.status})`,
+      error: response.ok ? null : `${label} failed (${response.status})`,
     };
   } catch (error) {
-    return {
-      ok: false,
-      reason,
-      status: 0,
-      error: error?.message || String(error),
-    };
+    return { ok: false, reason, status: 0, error: error?.message || String(error) };
   }
+};
+
+const triggerLogoAssetSync = async (env, reason = "manual") => {
+  const endpoint = String(env.LOGO_ASSET_SYNC_ENDPOINT || "").trim();
+  const secret = String(env.LOGO_ASSET_SYNC_SECRET || "").trim();
+  return triggerSyncEndpoint(endpoint, secret, reason, "syncLogoAssets");
+};
+
+const triggerProfileAssetSync = async (env, reason = "manual") => {
+  const endpoint = String(env.PROFILE_ASSET_SYNC_ENDPOINT || "").trim();
+  const secret = String(env.PROFILE_ASSET_SYNC_SECRET || "").trim();
+  return triggerSyncEndpoint(endpoint, secret, reason, "syncProfileAssets");
 };
 
 export default {
@@ -236,6 +235,19 @@ export default {
       }
 
       const result = await triggerLogoAssetSync(env, "manual-endpoint");
+      return jsonResponse(result, result.ok ? 200 : 502, { "Cache-Control": "no-store" });
+    }
+
+    if (request.method === "POST" && url.pathname === "/profile/sync") {
+      const workerSecret = String(env.WORKER_TRIGGER_SECRET || "").trim();
+      if (workerSecret) {
+        const providedSecret = request.headers.get("X-Worker-Secret");
+        if (providedSecret !== workerSecret) {
+          return jsonResponse({ ok: false, error: "Unauthorized" }, 401);
+        }
+      }
+
+      const result = await triggerProfileAssetSync(env, "manual-endpoint");
       return jsonResponse(result, result.ok ? 200 : 502, { "Cache-Control": "no-store" });
     }
 
@@ -271,5 +283,6 @@ export default {
 
   async scheduled(_event, env, ctx) {
     ctx.waitUntil(triggerLogoAssetSync(env, "cron"));
+    ctx.waitUntil(triggerProfileAssetSync(env, "cron"));
   },
 };
