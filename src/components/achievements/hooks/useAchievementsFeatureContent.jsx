@@ -209,6 +209,7 @@ export function useAchievementsFeatureContent({
   const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
   const [showCompleted, setShowCompleted] = useState(true);
   const [showGlobalComparisons, setShowGlobalComparisons] = useState(true);
+  const [showWeeklyScore, setShowWeeklyScore] = useState(true);
   const [showPersonalStats, setShowPersonalStats] = useState(true);
   const [expandedHighestScanEntryKey, setExpandedHighestScanEntryKey] = useState(null);
   const [isLeaderboardRefreshing, setIsLeaderboardRefreshing] = useState(
@@ -2296,105 +2297,6 @@ export function useAchievementsFeatureContent({
                 <Card className="border-0 bg-transparent shadow-none">
                   <CardHeader className="pb-2">
                     <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
-                      <Leaf className={`w-4 h-4 ${isLightUi ? "text-lime-600" : "text-lime-300"}`} />
-                      Wochenfortschritt: Meiste Samen
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <div className={`rounded-lg border px-3 py-2 ${isLightUi ? "border-lime-200 bg-lime-50" : "border-lime-300/40 bg-lime-500/10"}`}>
-                      <p className={`text-xs ${isLightUi ? "text-lime-700" : "text-lime-200"}`}>Dein Rang diese Woche</p>
-                      <p className={`text-lg font-bold ${isLightUi ? "text-lime-900" : "text-lime-100"}`}>
-                        {ownWeeklySeedRank > 0 ? `#${ownWeeklySeedRank} von ${weeklySeedRanking.length}` : "Noch kein Rang"}
-                      </p>
-                      {ownWeeklySeedEntry && (
-                        <p className={`text-xs mt-0.5 ${isLightUi ? "text-lime-700" : "text-lime-300"}`}>
-                          +{ownWeeklySeedEntry.seeds.toLocaleString()} Samen diese Woche
-                        </p>
-                      )}
-                    </div>
-
-                    {weeklySeedRanking.length === 0 && (
-                      <p className={`text-sm ${statsBodyClass}`}>Noch keine Wochenfortschritt-Daten verfügbar.</p>
-                    )}
-
-                    {(() => {
-                      const top5 = weeklySeedRanking.slice(0, 5);
-                      const ownInTop5 = top5.some((entry) => entry.isOwn);
-                      const ownEntry = !ownInTop5 && ownWeeklySeedRank > 0 ? weeklySeedRanking[ownWeeklySeedRank - 1] : null;
-
-                      return (
-                        <>
-                          {top5.map((entry, index) => {
-                            const logo = leaderboardLogosByEmail.get(entry.email);
-                            return (
-                              <div
-                                key={entry.authId || entry.email || `weekly-${index}`}
-                                className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.isOwn ? rankingHighlightClass : rankingDefaultClass}`}
-                              >
-                                <div className="flex min-w-0 items-center gap-2 flex-1">
-                                  <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50">
-                                    <CustomLogoAvatar
-                                      logoAssets={logo}
-                                      className="w-full h-full"
-                                      tooltipText={entry.name || entry.email || "Unbekannt"}
-                                      fallbackText={entry.name?.charAt(0)?.toUpperCase() || "?"}
-                                      fallbackClassName="text-[10px] font-bold text-white"
-                                    />
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => navigateToPublicProfile(entry.email)}
-                                    disabled={!entry.email}
-                                    className={`p-0 m-0 min-w-0 border-0 bg-transparent text-left text-sm font-semibold truncate ${entry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
-                                  >
-                                    #{index + 1} {entry.name}
-                                  </button>
-                                </div>
-                                <Badge className={entry.isOwn ? (isLightUi ? "bg-lime-600 text-white" : "bg-lime-700 text-white border border-lime-400/60") : rankingDefaultBadgeClass}>
-                                  +{entry.seeds.toLocaleString()} 🌱
-                                </Badge>
-                              </div>
-                            );
-                          })}
-
-                          {ownEntry && (
-                            <>
-                              <p className={`text-xs text-center ${statsBodyClass}`}>…</p>
-                              <div className={`flex items-center justify-between rounded-lg border px-3 py-2 ${rankingHighlightClass}`}>
-                                <div className="flex min-w-0 items-center gap-2 flex-1">
-                                  <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50">
-                                    <CustomLogoAvatar
-                                      logoAssets={leaderboardLogosByEmail.get(ownEntry.email)}
-                                      className="w-full h-full"
-                                      tooltipText={ownEntry.name || ownEntry.email || "Unbekannt"}
-                                      fallbackText={ownEntry.name?.charAt(0)?.toUpperCase() || "?"}
-                                      fallbackClassName="text-[10px] font-bold text-white"
-                                    />
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => navigateToPublicProfile(ownEntry.email)}
-                                    disabled={!ownEntry.email}
-                                    className={`p-0 m-0 min-w-0 border-0 bg-transparent text-left text-sm font-semibold truncate ${ownEntry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
-                                  >
-                                    #{ownWeeklySeedRank} {ownEntry.name}
-                                  </button>
-                                </div>
-                                <Badge className={isLightUi ? "bg-lime-600 text-white" : "bg-lime-700 text-white border border-lime-400/60"}>
-                                  +{ownEntry.seeds.toLocaleString()} 🌱
-                                </Badge>
-                              </div>
-                            </>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </CardContent>
-                </Card>
-
-                <Card className="border-0 bg-transparent shadow-none">
-                  <CardHeader className="pb-2">
-                    <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
                       <Trophy className={`w-4 h-4 ${isLightUi ? "text-fuchsia-600" : "text-fuchsia-300"}`} />
                       Hoechste Scan-Ergebnisse (Global)
                     </CardTitle>
@@ -2605,6 +2507,131 @@ export function useAchievementsFeatureContent({
                     </div>
                     </>
                     )}
+                  </CardContent>
+                )}
+              </Card>
+
+              <Card className={`${statsCardBaseClass} ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"} order-3`}>
+                <CardHeader className="pt-2 pb-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowWeeklyScore((prev) => !prev)}
+                    className="relative w-full flex items-center justify-center text-center"
+                  >
+                    <CardTitle className={`text-base ${statsTitleClass}`}>
+                      Wochen-Score
+                    </CardTitle>
+                    <span className="absolute right-0 top-1/2 -translate-y-1/2">
+                      {showWeeklyScore ? (
+                        <ChevronUp className={`w-4 h-4 ${statsBodyClass}`} />
+                      ) : (
+                        <ChevronDown className={`w-4 h-4 ${statsBodyClass}`} />
+                      )}
+                    </span>
+                  </button>
+                </CardHeader>
+                {showWeeklyScore && (
+                  <CardContent className="p-[2px] space-y-[2px]">
+                    <div className="grid grid-cols-1 gap-[2px]">
+                      <Card className="border-0 bg-transparent shadow-none">
+                        <CardHeader className="pb-2">
+                          <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
+                            <Leaf className={`w-4 h-4 ${isLightUi ? "text-lime-600" : "text-lime-300"}`} />
+                            Wochenfortschritt: Meiste Samen
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          <div className={`rounded-lg border px-3 py-2 ${isLightUi ? "border-lime-200 bg-lime-50" : "border-lime-300/40 bg-lime-500/10"}`}>
+                            <p className={`text-xs ${isLightUi ? "text-lime-700" : "text-lime-200"}`}>Dein Rang diese Woche</p>
+                            <p className={`text-lg font-bold ${isLightUi ? "text-lime-900" : "text-lime-100"}`}>
+                              {ownWeeklySeedRank > 0 ? `#${ownWeeklySeedRank} von ${weeklySeedRanking.length}` : "Noch kein Rang"}
+                            </p>
+                            {ownWeeklySeedEntry && (
+                              <p className={`text-xs mt-0.5 ${isLightUi ? "text-lime-700" : "text-lime-300"}`}>
+                                +{ownWeeklySeedEntry.seeds.toLocaleString()} Samen diese Woche
+                              </p>
+                            )}
+                          </div>
+
+                          {weeklySeedRanking.length === 0 && (
+                            <p className={`text-sm ${statsBodyClass}`}>Noch keine Wochenfortschritt-Daten verfügbar.</p>
+                          )}
+
+                          {(() => {
+                            const top5 = weeklySeedRanking.slice(0, 5);
+                            const ownInTop5 = top5.some((entry) => entry.isOwn);
+                            const ownEntry = !ownInTop5 && ownWeeklySeedRank > 0 ? weeklySeedRanking[ownWeeklySeedRank - 1] : null;
+
+                            return (
+                              <>
+                                {top5.map((entry, index) => {
+                                  const logo = leaderboardLogosByEmail.get(entry.email);
+                                  return (
+                                    <div
+                                      key={entry.authId || entry.email || `weekly-${index}`}
+                                      className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.isOwn ? rankingHighlightClass : rankingDefaultClass}`}
+                                    >
+                                      <div className="flex min-w-0 items-center gap-2 flex-1">
+                                        <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50">
+                                          <CustomLogoAvatar
+                                            logoAssets={logo}
+                                            className="w-full h-full"
+                                            tooltipText={entry.name || entry.email || "Unbekannt"}
+                                            fallbackText={entry.name?.charAt(0)?.toUpperCase() || "?"}
+                                            fallbackClassName="text-[10px] font-bold text-white"
+                                          />
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => navigateToPublicProfile(entry.email)}
+                                          disabled={!entry.email}
+                                          className={`p-0 m-0 min-w-0 border-0 bg-transparent text-left text-sm font-semibold truncate ${entry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
+                                        >
+                                          #{index + 1} {entry.name}
+                                        </button>
+                                      </div>
+                                      <Badge className={entry.isOwn ? (isLightUi ? "bg-lime-600 text-white" : "bg-lime-700 text-white border border-lime-400/60") : rankingDefaultBadgeClass}>
+                                        +{entry.seeds.toLocaleString()} 🌱
+                                      </Badge>
+                                    </div>
+                                  );
+                                })}
+
+                                {ownEntry && (
+                                  <>
+                                    <p className={`text-xs text-center ${statsBodyClass}`}>…</p>
+                                    <div className={`flex items-center justify-between rounded-lg border px-3 py-2 ${rankingHighlightClass}`}>
+                                      <div className="flex min-w-0 items-center gap-2 flex-1">
+                                        <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50">
+                                          <CustomLogoAvatar
+                                            logoAssets={leaderboardLogosByEmail.get(ownEntry.email)}
+                                            className="w-full h-full"
+                                            tooltipText={ownEntry.name || ownEntry.email || "Unbekannt"}
+                                            fallbackText={ownEntry.name?.charAt(0)?.toUpperCase() || "?"}
+                                            fallbackClassName="text-[10px] font-bold text-white"
+                                          />
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => navigateToPublicProfile(ownEntry.email)}
+                                          disabled={!ownEntry.email}
+                                          className={`p-0 m-0 min-w-0 border-0 bg-transparent text-left text-sm font-semibold truncate ${ownEntry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
+                                        >
+                                          #{ownWeeklySeedRank} {ownEntry.name}
+                                        </button>
+                                      </div>
+                                      <Badge className={isLightUi ? "bg-lime-600 text-white" : "bg-lime-700 text-white border border-lime-400/60"}>
+                                        +{ownEntry.seeds.toLocaleString()} 🌱
+                                      </Badge>
+                                    </div>
+                                  </>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </CardContent>
+                      </Card>
+                    </div>
                   </CardContent>
                 )}
               </Card>
