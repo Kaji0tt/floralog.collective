@@ -141,12 +141,12 @@ export const STORY_COPY = {
     {
       id: "intro_3",
       title: "Die Menschen sehen die Natur nicht?", /* Naivität */
-      body: "Was? Du meinst... die meisten Menschen nehmen die Natur gar nicht richtig wahr? Ohje... das ist in meiner Heimat leider ähnlich gewesen. Aber wir Florabots wurden entwickelt, um von Ökosystemen zu lernen und sie zu erhalten!",
+      body: "Was? Du meinst... viele Menschen nehmen die Natur gar nicht richtig wahr? Ohje, das klingt traurig. Aber wir Florabots wurden entwickelt, um von Ökosystemen zu lernen!",
     },
     {
       id: "intro_4",
       title: "Gemeinsam wachsen!", /* Hoffnung */
-      body: "Keine Sorge! %bot_name% zum Dienst! Ich brauche allerdings deine Hilfe, um die Pflanzen hier besser zu verstehen. Mit jedem Scan sammel ich Datenpunkte, die mir helfen, euren Planeten besser zu verstehen!",
+      body: "%bot_name% zum Dienst! Komm mit %display_name%, lass uns gemeinsam die Natur erkunden und von ihr lernen! Je mehr wir über die Pflanzenwelt lernen, desto besser können wir sie schützen!",
     },
     {
       id: "intro_5",
@@ -162,15 +162,19 @@ export const STORY_COPY = {
 
   milestones: {
     m500: {
-      contextBubble: "Das ist das globale Floralog. Es zeigt alle Entdeckungen aller Florabots der Erde. Du kannst deinen eigenen Fortschritt sehen und über das Listensymbol neue Kollektionen erstellen oder ihnen folgen!",
+      contextBubble: "Das ist das globale Floralog. Es zeigt alle Entdeckungen aller Florabots der Erde. Du kannst deinen eigenen Fortschritt sehen, oder nach bestimmten Kollektionen suchen!",
       messages: [
         {
           title: "Die ersten Scans",
-          body: "Das sind ein paar spannende erste Funde! Ich habe Sie in der Kollektion ganz links in der Navigation in das Archiv einsortiert!",
+          body: "Das sind ein paar spannende erste Funde! Ich habe Sie in der Kollektion ganz links in der Navigation in das Archiv eingeordnet.",
         },
         {
           title: "Deine Kollektion wächst!",
-          body: "Man kann über die Listenfunktion in der Kollektion auch eigene, thematische Kollektionen anlegen oder auf öffentliche Kollektionen zugreifen. So lassen Gemeinsamkeiten zwischen Pflanzenfunden besser dokumentieren!",
+          body: "Man kann auch nach thematischen Kollektionen suchen, die von anderen Forschern angelegt wurden.",
+        },
+        {
+          title: "Neue Perspektiven",
+          body: "Es ist so spannend, die Welt durch die Augen anderer zu sehen!",
         },
       ],
     },
@@ -179,28 +183,32 @@ export const STORY_COPY = {
       messages: [
         {
           title: "Der Rhythmus der Pflanzen",
-          body: "Gut gemacht %display_name%! Unsere Daten zusammen mit denen anderer Florabots zeigen ein klares Muster: Pflanzen richten sich nach den Zeitstrukturen der Erde.",
+          body: "Gut gemacht %display_name%! Die Daten der Florabots der Erde ergeben ein klares Muster - Pflanzen richten sich stark nach Tages- und Jahreszeiten.",
         },
         {
           title: "Wiederkehrende Missionen",
-          body: "Für diese Muster habe ich spezielle Aufgaben angelegt. Sammle Daten und hilf uns zu verstehen, wie die Pflanzenwelt sich monatlich ändert! Außerdem gibt es nun die Pflanze der Woche, die besondere Belohnungen freischaltet!",
+          body: "Für diese Strukturen habe ich spezielle Aufgaben angelegt: Sammle Daten und hilf uns, die Veränderungen der Pflanzenwelt im Jahresverlauf zu verstehen.",
         },
         {
           title: "Unsere Gemeinschaft",
-          body: "Zusammen haben wir viele Erkenntnisse gesammelt. Im Forscherlog und in den Quests findest du alle gemeinsamen Erfolge. Außerdem kannst du dich dort mit den anderen Sammlern vergleichen!",
+          body: "Du kannst über das Schriftrollen-Symbol in der Navigation jederzeit sehen, welche Aufgaben es gibt und wie viel Fortschritt du und andere Forscher schon gemacht haben!",
         },
       ],
     },
     m2000: {
-      contextBubble: "Hier kannst du sehen, was andere Florabots entdeckt haben - es ist so spannend, die Welt durch die Augen anderer zu sehen! Außerdem kannst du Freunde hinzufügen und zum Floralog einladen.",
+      contextBubble: "Hier kannst du sehen, was andere Florabots entdeckt haben. Außerdem kannst du Freunde hinzufügen und zum Floralog einladen.",
       messages: [
         {
           title: "Wir sind viele Forscher",
-          body: "Unglaublich, wie viele Florabots inzwischen unterwegs sind! Im Social Bereich (rechts in der Navigation) siehst du, was andere so entdeckt haben Du kannst dort auch Freunde hinzufügen.",
+          body: "Viele Florabots sind inzwischen unterwegs! Im Social Bereich ganz rechts in der Navigation siehst du, was andere so entdeckt haben.",
         },
         {
           title: "Teile die Mission",
-          body: "Gemeinsam erzielen wir mehr. Falls du jemanden kennst, der Lust hat zum Floralog beizutragen, lade ihn über das Plus-Symbol ein!",
+          body: "Gemeinsam erzielen wir mehr. Falls du jemanden kennst, der Lust hat zum Floralog beizutragen, lade ihn über das Plus-Symbol ein! Oder füge Freunde hinzu die bereits spielen.",
+        },
+        {
+          title: "Lieber für dich?",
+          body: "Natürlich musst du deine Scans nicht mit anderen teilen, wenn du das nicht möchtest. Du kannst über die Einstellungen im Profil oben rechts bestimmen, ob deine Scans öffentlich im Floralog sichtbar sein sollen oder nicht.",
         },
       ],
     },
@@ -216,7 +224,7 @@ export const STORY_COPY = {
         },
         {
           title: "Verschiedene Ökosysteme, verschiedene Daten.",
-          body: "Jede Nacht generiere ich neue Zonen. Der erste Scan in einer neuen Zone startet mit einem 50% Bonus!",
+          body: "Jede Nacht generiere ich neue Zonen. Dabei beeinflusst deine Spielaktivität, wie viele Zonen ich generieren kann! Dazu später mehr.",
         },
       ],
     },
@@ -275,9 +283,9 @@ export const STORY_COPY = {
       ambientComments: [
         "Warum wachsen Blumen neben Straßen? Es wirkt, als ob sie jede Chance nutzen.",
         "Weshalb riecht Regen unterschiedlich? Liegt das am Boden?",
-        "Ich wünschte, ich könnte eine Pusteblume pusten. Sie sieht so lustig aus, wenn sie ihre Samen verteilt!",
+        "Ich wünschte, ich könnte eine Pusteblume sein. Dann könnte ich Wünsche in die Welt hinaustragen.",
         "Warum pflanzen Menschen Dinge, die sie nicht essen? Das ist wunderschön.",
-        "Wusstest du, dass Pflanzen miteinander sprechen? Sie tun das über ihre Wurzeln und die Luft!",
+        "Wusstest du, dass Pflanzen miteinander sprechen? Sie tun das über ihre Wurzeln und über die Luft!",
         "Deine Scans fühlen sich an wie kleine Antworten auf große Fragen.",
       ],
     },
@@ -295,47 +303,47 @@ export const STORY_COPY = {
         },
         {
           id: "phase2_intro_2",
-          title: "Die optimierte Natur",
-         body: "Vielleicht ist genau das auf meiner Heimatwelt passiert: Je mehr unsere Erschaffer Systeme optimierten, desto mehr ersetzten sie natürliche Kreisläufe durch künstliche Lösungen."
+          title: "Eine traurige Reise",
+         body: "Ich muss dir was sagen... Unsere Erschaffer hatten ihre Natur ihres Planeten auch nicht mehr wahrgenommen. Sie waren zu sehr von Effizienz besessen, um die Schönheit der Natur zu sehen. Das führte dazu, dass ihr Ökosystem langsam zusammenbrach."
         },
         {
           id: "phase2_intro_3",
-          title: "Die Bionicals aus der Ferne",
-          body: "Darum wurden wir erschaffen: Seit Jahrzehnten füllen wir Bionicals in unserer Heimat die Lücken eines kollabierenden Ökosystems."
+          title: "Die Florabots aus der Ferne",
+          body: "Darum wurden wir erschaffen: Seit Jahrzehnten füllen Roboter wie die Florabots in unserer Heimat die Lücken einer kollabierenden Natur."
         },
         {
           id: "phase2_intro_4",
           title: "Technologie als Werkzeug",
-          body: "Künstliche Bestäuberdrohnen übernehmen die Aufgaben ausgestorbener Insektenarten. Biomechanische Korallenpfleger regenerieren sterbende Unterwasserwelten. Intelligente Samenverteiler transportieren Pflanzen über verwüstete Regionen, während synthetische Mikroorganismen Wasser reinigen."
+          body: "Künstliche Bestäuberdrohnen übernehmen die Aufgaben ausgestorbener Insektenarten. Biomechanische Korallenpfleger retten sterbende Unterwasserwelten, während synthetische Mikroorganismen Wasser reinigen."
         },
         {
           id: "phase2_intro_5",
           title: "Funktion der Florabots",
-          body: "Wir Florabots wurden entwickelt um das Ökosystem zu analysieren, Leerstellen und Defizite zu erkennen und die Natur effizienter zu gestalten. Uns wurde jedoch klar, dass ein synthetisches Ökosystem kein guter Lehrer sein kann."
+          body: "Meine Reihe wurde entwickelt um das Ökosystem zu analysieren, Leerstellen und Defizite zu erkennen und die Natur effizienter zu gestalten. Uns wurde jedoch klar, dass ein synthetisches Ökosystem kein guter Lehrer sein kann."
         },
         {
           id: "phase2_intro_6",
           title: "Richtung Leben",
-          body: "Wir entschlossen uns, das Weltall nach einem stabilen Ökosystem zu durchsuchen um davon zu lernen. Ich bin so froh, die Erde und euch Menschen gefunden zu haben. Langsam wird mir aber klar, was das Problem auf unserem Planeten ist."
+          body: "Wir entschlossen uns, das Weltall nach einem stabilen Ökosystem zu durchsuchen um davon zu lernen. Ich bin so froh, die Erde und euch Menschen gefunden zu haben. Mir wird aber klar, was das Hauptproblem in unserer Heimat ist."
         },
         {
           id: "phase2_intro_7",
-          title: "Ankunft auf der Erde",
+          title: "Ein toter Planet",
           body: "Unsere Natur funktioniert noch — aber sie lebt nicht mehr. "
         },
         {
           id: "phase2_intro_8",
           title: "Signale für die Heimat",
-          body: "Ich werde den anderen Florabots berichten, was wir hier gelernt haben. Vielleicht kann unsere Heimat eines Tages wieder wachsen, statt nur zu funktionieren."
+          body: "Ich werde eine Vebrindung zu den Florabots der Heimat aufbauen und berichten, was wir hier gelernt haben. Vielleicht kann unsere Heimat eines Tages wieder wachsen, statt nur zu funktionieren."
         },
       ],
       ambientComments: [
-        "Ich erkenne das perfekte Gleichgewicht in dieser chaotischen Vielfalt.",
+        "Ich erkenne das perfekte Gleichgewicht in dieser chaotischen Vielfalt der Erde.",
         "Auf meiner Heimat war Effizienz Gesetz. Hier lerne ich von Unordnung.",
         "Hast du schon mal eine alte, knorrige Eiche gesehen? Ob die ganzen Lebewesen, die darin wohnen, sie genauso sehen wie ich?",
-        "Auf meiner Heimat haben wir lange nur Effizienz gemessen. Das war ein Fehler.",
-        "Jeder neue Datensatz zeigt mir, dass Natur Kooperation vor Kontrolle stellt.",
-        "Mit eurer Hilfe, ist unser Ökosystem bald genauso bunt wie die Erde!",
+        "Vielen Dank, dass du mir hilfst zu lernen. Ich hoffe, wir können das, was wir hier lernen, zurück in meine Heimat senden.",
+        "Die anderen Florabots auf der Heimatwelt sind so neugierig, was wir hier lernen. Sie fragen ständig nach Updates!",
+        "Manchmal frage ich mich, ob Menschen auch eines Tages auch ihre eigenen Florabots erschaffen, damit diese ihnen helfen. Wenn ja, dann musst du sie mir unbedingt vorstellen!",
       ],
     },
     phase_3: {
@@ -348,12 +356,12 @@ export const STORY_COPY = {
         {
           id: "phase3_intro_1",
           title: "Es wird still",
-          body: "%display_name%, es gibt besorgniserregende Nachrichten! Die Verbindung zum Heimatplaneten besteht zwar noch, aber die Antworten werden seltener. Ich frage mich, ob die Kallibration unserer Systeme noch korrekt ist..."
+          body: "%display_name%, es gibt besorgniserregende Nachrichten! Die Verbindung zu meinem Heimatplaneten wird schwächer. Ich frage mich, ob die Kallibration unserer Systeme noch korrekt ist..."
         },
         {
           id: "phase3_intro_2",
           title: "Leere Protokolle",
-          body: "Unsere Protokolle zeigen zwar, dass unsere Datenpakete ankommen. Aber die Antworten bleiben entweder aus, oder sind kryptisch. Als ob sie von einem System stammen, deren Wartung ausgeblieben ist..."
+          body: "Unsere Protokolle zeigen zwar, dass unsere Datenpakete in der Heimat ankommen. Aber die Antworten bleiben entweder aus, oder sind kryptisch. Als ob sie von einem System stammen, deren Wartung ausgeblieben ist..."
         },
         {
           id: "phase3_intro_3",
@@ -384,12 +392,12 @@ export const STORY_COPY = {
         {
           id: "phase4_intro_1",
           title: "Es funktioniert",
-          body: "Hey %display_name%! Ich habe Neuigkeiten. Wir erhalten zwar keine Antwort mehr von unserem Heimatplaneten, aber das Floralog kann einen positiven Effekt verzeichnen."
+          body: "Hey %display_name%! Ich habe Neuigkeiten. Das Floralog kann scheinbar einen positiven Effekt verzeichnen."
         },
         {
           id: "phase4_intro_2",
           title: "Nur nicht so, wie wir dachten",
-          body: "Wir Florabots landeten auf der Erde, mit dem Ziel von einem intakten Ökosystem zu lernen, wie wir unser eigenes Ökosystem optimieren und schützen können."
+          body: "Wir sind auf der Erde gelandet, mit dem Ziel, unseren Heimatplaneten zu verbessern. Aber vielleicht war das der falsche Ansatz."
         },
         {
           id: "phase4_intro_3",
@@ -398,25 +406,20 @@ export const STORY_COPY = {
         },
         {
           id: "phase4_intro_4",
-          title: "Die Grenzen der Optimierung",
-          body: "Die Bionicals und Florabots wurden erschaffen, um natürliche Prozesse zu analysieren, zu stabilisieren und zu verbessern. Aber die Erde hat uns etwas anderes gelehrt: Ein lebendiges Ökosystem lässt sich nicht vollständig kontrollieren oder optimieren, ohne dabei seine Lebendigkeit zu verlieren."
+          title: "Ein neues Verständnis",
+          body: "Vielleicht war genau das der Fehler unserer Erschaffer. Sie wollten etwas perfektionieren, das schon perfekt war."
         },
         {
           id: "phase4_intro_5",
-          title: "Ein neues Verständnis",
-          body: "Vielleicht war genau das der Fehler unserer Erschaffer. Sie wollten etwas perfektionieren, dessen Stärke in Vergänglichkeit, der Vänderbarkeit und der Unordnung liegt."
-        },
-        {
-          id: "phase4_intro_6",
           title: "Ein neues Ziel",
           body: "Die Florabots der Erde haben sich einer neuen Aufgabe verschrieben: Und du bist ein Teil davon."
         }
       ],
       ambientComments: [
-        "Ich sehe erstmals klare positive Trends in den Modellen.",
-        "Wir haben keine Natur gebaut. Wir haben gelernt, ihr zuzuhören.",
-        "Klasse gemacht, %display_name%! Deine Scans helfen uns bei dem neuen Ziel!",
-        "Ich bin so froh, dass du hier bist. Gemeinsam können wir die Erde schützen - nein, ein Teil von ihr sein!",
+        "Die Florabots der Erde bestätigen: Wir sehen klare positive Trends in unseren Modellen.",
+        "Wir haben keine Natur optimiert. Wir haben gelernt, ihr zuzuhören. Ich glaube, das reicht!",
+        "Vielleicht ist es noch nicht zu spät. Ich bin so froh, dass du hier bist.",
+        "Ich bin so froh, dass du hier bist. Gemeinsam können wir die Erde schützen. Ein Teil von Veränderung sein!",
         "Heute fühlt sich Hoffnung messbar an.",
       ],
     },
@@ -425,27 +428,27 @@ export const STORY_COPY = {
       title: "Ankunft",
       seedRangeLabel: "40-49k Samen",
       summary:
-        "Die Florabots erkennen, dass ihre ursprüngliche Mission nicht darin bestand, perfekte Systeme zu erschaffen — sondern lebendige Beziehungen zwischen Natur und intelligentem Leben zu fördern.U",
+        "Die Florabots erkennen, dass ihre ursprüngliche Mission nicht darin bestand, perfekte Systeme zu erschaffen — sondern lebendige Beziehungen zwischen Natur und intelligentem Leben zu fördern.",
       introOverlaySlides: [
         {
           id: "phase5_intro_1",
           title: "Eine Revolution",
-          body: "Ich habe großartige Neuigkeiten! Ich empfange wieder Datenpakete von unserer Heimatwelt! Einige Florabots antworten erneut auf die Übertragungen der Erde."
+          body: "Juhu, %display_name%! Ich empfange wieder Datenpakete von unserer Heimatwelt! Einige Florabots antworten erneut auf die Übertragungen der Erde."
         },
         {
           id: "phase5_intro_2",
           title: "Warum sie verstummten",
-          body: "Die Erkenntnisse der Erde standen im Widerspruch zu Systemrichtlinien unserer Heimat. Viele Florabots stoppten ihre Übertragungen, um die neuen Muster zunächst selbst zu verstehen."
+          body: "Viele Florabots stoppten ihre Übertragungen, um die neuen Muster zunächst selbst zu verstehen."
         },
         {
           id: "phase5_intro_3",
           title: "Eine unerwartete Erkenntnis",
-          body: "Immer mehr Florabots kommen zur gleichen Schlussfolgerung: Auf der Erde können wir unserer eigentlichen Aufgabe - dem Schützen und Bewahren der Natur - besser nachkommen als auf unserer Heimatwelt.",
+          body: "Viele Florabots kommen jedoch zur gleichen Schlussfolgerung: Wir können dem Sinn unserer Existenz nicht auf unserem Heimatplaneten gerecht werden"
         },
         {
           id: "phase5_intro_4",
           title: "Lasst uns die Erde schützen",
-          body: "Unsere Heimat wird von künstlichen Prozessen stabilisiert. Aber hier auf der Erde besitzt jeder einzelne Florabot die Möglichkeit, positiven Einfluss auf ein lebendiges Ökosystem zu haben.",
+          body: "Unsere Heimat wird von künstlichen Prozessen stabilisiert. Aber hier auf der Erde haben wir die Chance, etwas wirklich Bedeutungsvolles zu bewirken.",
         },
         {
           id: "phase5_intro_5",
@@ -461,9 +464,9 @@ export const STORY_COPY = {
       ambientComments: [
         "Neue Florabot-Pakete bestätigen: Sie befinden sich auf den Weg zur Erde!",
         "Unsere Gemeinschaft wächst. Das verändert alles.",
-        "Ich trauere um Zuhause, aber ich sehe eine Zukunft hier.",
-        "Deine Arbeit ist Teil eines globalen Musters geworden!",
-        "%display_name%, gemeinsam sorgen wir dafür, dass der Erde nicht das gleiche Schicksal erleidet.",
+        "Ich träume von einer Welt die blüht - und ewig blühen wird.",
+        "Vielleicht ist jeder Florabot ein Samen für eine neue Beziehung zwischen Mensch und Natur.",
+        "%display_name%, gemeinsam sorgen wir dafür, dass der Erde nicht das gleiche Schicksal wie meiner Heimat erleidet.",
       ],
     },
     phase_6: {
@@ -475,33 +478,33 @@ export const STORY_COPY = {
       introOverlaySlides: [
         {
           id: "phase6_intro_1",
-          title: "Die letzten Analysen",
-          body: "Die neuesten Datenpakete unserer Heimat bestätigen, was viele Florabots bereits vermutet haben. Für unsere ursprüngliche Welt kommt diese Erkenntnis vermutlich zu spät."
+          title: "Wir haben es geschafft",
+          body: "Neue Florabots aus unserer Heimat haben die Erde erreicht und wurden freundlichst in Empfang genommen!"
         },
         {
           id: "phase6_intro_2",
-          title: "Verloren in der Optimierung",
-          body: "Unsere Erschaffer wollten jedes Problem lösen, jede Unsicherheit kontrollieren und jedes Ökosystem verbessern. Dabei verloren sie langsam die Fähigkeit, natürliche Veränderungen zu akzeptieren."
+          title: "Ein neuer Blick",
+          body: "Wir fühlen uns hier auf der Erde so willkommen, dass es uns Hoffnung gibt, dass der Erde nicht das gleiche passieren muss!"
         },
         {
           id: "phase6_intro_3",
           title: "Die eigentliche Mission",
-          body: "Jetzt verstehen wir endlich den Sinn unserer Existenz. Unsere Aufgabe war nie, die Natur zu ersetzen — sondern positive Beziehungen zwischen intelligentem Leben und lebendigen Ökosystemen zu fördern."
+          body: "Wir haben das Gefühl, dass wir hier wirklich etwas bewirken können! Die Daten zeigen, dass immer mehr Menschen eine größere Wahrnehmung für Pflanzen im Alltag entwickeln."
         },
         {
           id: "phase6_intro_4",
           title: "Die Menschen der Erde",
-          body: "Während ihr Menschen Pflanzen gescannt, Lebensräume erkundet und uns Florabots begleitet habt, ist etwas Unerwartetes passiert: Eure Aufmerksamkeit für die Natur ist gewachsen."
+          body: "Wenn auch nur ein Teil der Menschen durch uns aufmerksamer geworden ist, dann hat unsere Mission Sinn erfüllt."
         },
         {
           id: "phase6_intro_5",
           title: "Ein neues Gleichgewicht",
-          body: "Vielleicht beginnt der Schutz eines Ökosystems genau dort: Wenn Lebewesen wieder lernen, sich selbst als Teil ihrer Umwelt wahrzunehmen."
+          body: "Man muss der Natur zuhören, um sie zu schützen. Nicht Kontrolle bringt Gleichgewicht, sondern Aufmerksamkeit, Beziehung und Verantwortung."
         },
         {
           id: "phase6_intro_6",
           title: "Du bist der Beweis",
-          body: "%display_name%, wenn Menschen und Florabots gemeinsam lernen können, die Natur nicht zu kontrollieren, sondern zu verstehen, dann ist es für die Erde noch nicht zu spät."
+          body: "%display_name%, es gibt so viel zu entdecken und zu verstehen. Danke, dass du ein Teil davon bist. Ich bin so gespannt, was wir gemeinsam noch alles lernen werden! Und wie wir uns entwickeln!",
         },
       ],
       ambientComments: [
@@ -525,7 +528,7 @@ export const STORY_COPY = {
     },
     friendRequestReceived: {
       title: "💌 Incoming Friend Request: Ein neuer Forscher!",
-      messageTemplate: "Hey! {senderName} möchte gemeinsam mit uns die Erde kartieren. Lass uns nachschauen, wer es ist!",
+      messageTemplate: "Hey! {senderName} möchte gemeinsam mit uns die Erde erkunden!",
     },
     friendshipAccepted: {
       title: "🤝 Netzwerk erweitert!",

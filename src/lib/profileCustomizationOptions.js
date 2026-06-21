@@ -1,6 +1,8 @@
 import { LOGO_ACCESSORY_SECTIONS } from "@/lib/logoAccessoryAssets";
 
 const LOGO_ACCESSORY_REWARD_TYPES = new Set(["logo_accessory", "accessory"]);
+const PROFILE_EFFECT_REWARD_TYPES = new Set(["profile_effect"]);
+const LOGO_EFFECT_REWARD_TYPES = new Set(["logo_effect"]);
 const DEFAULT_ACCESSORY_SPARK_SHOP_PRICES = new Map([
   ["face_sus", 10],
   ["face_annoyed", 10],
@@ -9,7 +11,9 @@ const DEFAULT_ACCESSORY_SPARK_SHOP_PRICES = new Map([
 
 const normalizeAccessoryId = (value) => String(value || "").trim().toLowerCase();
 
-const normalizeAccessoryRewardType = (reward) => String(reward?.type || reward?.reward_type || reward?.kind || "").trim().toLowerCase();
+const normalizeRewardType = (reward) => String(reward?.type || reward?.reward_type || reward?.kind || "").trim().toLowerCase();
+
+const normalizeAccessoryRewardType = (reward) => normalizeRewardType(reward);
 
 const normalizeRewardAccessoryValue = (value) => {
   const normalized = normalizeAccessoryId(value);
@@ -127,6 +131,109 @@ const getBackgroundUnlockCondition = (reward) => {
   return "Noch nicht freigeschaltet.";
 };
 
+const getProfileEffectUnlockCondition = (reward) => {
+  if (!reward) return null;
+
+  if (reward?.requires_donor) return "Nur fuer Unterstuetzer freischaltbar.";
+
+  const requiredReferrals = Math.max(0, Number(reward?.requires_referrals || 0));
+  if (requiredReferrals > 0) {
+    return `Wirb ${requiredReferrals} Freund${requiredReferrals > 1 ? "e" : ""}.`;
+  }
+
+  const requiredRarePlants = Math.max(0, Number(reward?.requires_rare_plants || 0));
+  if (requiredRarePlants > 0) {
+    return `Entdecke ${requiredRarePlants} seltene Pflanze${requiredRarePlants > 1 ? "n" : ""}.`;
+  }
+
+  const requiredWeeklyQuests = Math.max(0, Number(reward?.requires_weekly_quests || 0));
+  if (requiredWeeklyQuests > 0) {
+    return `Nimm an ${requiredWeeklyQuests} Wochenquests teil.`;
+  }
+
+  if (reward?.requires_quest) {
+    return "Schliesse eine Quest ab.";
+  }
+
+  return "Noch nicht freigeschaltet.";
+};
+
+const getProfileEffectPurchaseMeta = (reward) => {
+  const configuredSparkPrice = Number(reward?.spark_price || 0);
+  const sparkPrice = Number.isFinite(configuredSparkPrice) && configuredSparkPrice > 0
+    ? Math.round(configuredSparkPrice)
+    : 0;
+
+  const configuredAmberPrice = Number(reward?.amber_price || 0);
+  const amberPrice = Number.isFinite(configuredAmberPrice) && configuredAmberPrice > 0
+    ? Math.round(configuredAmberPrice)
+    : null;
+
+  if (sparkPrice <= 0 && !amberPrice) return null;
+
+  return {
+    isPurchasable: true,
+    sparkPrice,
+    amberPrice,
+  };
+};
+
+export const getUnlockedProfileEffectOptions = ({ rewards = [], userRewards = [] } = {}) => {
+  const unlockedRewardIds = new Set(
+    (Array.isArray(userRewards) ? userRewards : []).map((entry) => entry?.reward_id).filter(Boolean)
+  );
+
+  return (Array.isArray(rewards) ? rewards : [])
+    .filter((reward) => PROFILE_EFFECT_REWARD_TYPES.has(normalizeRewardType(reward)) && reward?.value)
+    .map((reward) => {
+      const isLocked = !unlockedRewardIds.has(reward?.id);
+      const purchaseMeta = isLocked ? getProfileEffectPurchaseMeta(reward) : null;
+
+      return {
+        id: `reward-profile-effect:${reward.id}`,
+        rewardId: reward.id,
+        type: "profile_effect",
+        value: String(reward.value),
+        label: reward.display_name || reward.value,
+        profileField: "selected_profile_effect",
+        purchaseKind: "profile_effect",
+        source: "reward",
+        isLocked,
+        unlockCondition: isLocked ? getProfileEffectUnlockCondition(reward) : null,
+        ...(purchaseMeta || {}),
+      };
+    })
+    .sort((left, right) => String(left.label || "").localeCompare(String(right.label || ""), "de"));
+};
+
+export const getUnlockedLogoEffectOptions = ({ rewards = [], userRewards = [] } = {}) => {
+  const unlockedRewardIds = new Set(
+    (Array.isArray(userRewards) ? userRewards : []).map((entry) => entry?.reward_id).filter(Boolean)
+  );
+
+  return (Array.isArray(rewards) ? rewards : [])
+    .filter((reward) => LOGO_EFFECT_REWARD_TYPES.has(normalizeRewardType(reward)) && reward?.value)
+    .map((reward) => {
+      const isLocked = !unlockedRewardIds.has(reward?.id);
+      const purchaseMeta = isLocked ? getProfileEffectPurchaseMeta(reward) : null;
+
+      return {
+        id: `reward-logo-effect:${reward.id}`,
+        rewardId: reward.id,
+        type: "logo_effect",
+        value: String(reward.value),
+        label: reward.display_name || reward.value,
+        profileField: "selected_logo_effect",
+        purchaseKind: "logo_effect",
+        source: "reward",
+        isLocked,
+        unlockCondition: isLocked ? getProfileEffectUnlockCondition(reward) : null,
+        ...(purchaseMeta || {}),
+      };
+    })
+    .sort((left, right) => String(left.label || "").localeCompare(String(right.label || ""), "de"));
+};
+
 export const getUnlockedTitleOptions = ({
   achievements = [],
   userAchievements = [],
@@ -179,7 +286,7 @@ export const getUnlockedTitleOptions = ({
     .filter((reward) => {
       if (!reward || !unlockedRewardIds.has(reward.id)) return false;
 
-      const rewardType = String(reward?.type || reward?.reward_type || reward?.kind || "").trim().toLowerCase();
+      const rewardType = normalizeRewardType(reward);
       if (rewardType === "title") return true;
 
       const rewardValue = String(reward?.value || "").trim();
@@ -453,7 +560,7 @@ export const getAccessorySections = ({ logoAssets = [], rewards = [], userReward
   ];
 };
 
-export const PROFILE_CUSTOMIZATION_CATEGORY_ORDER = ["accessories", "backgrounds", "titles"];
+export const PROFILE_CUSTOMIZATION_CATEGORY_ORDER = ["accessories", "backgrounds", "titles", "effects"];
 
 export const getUnlockedProfileCustomizationCatalog = ({
   achievements = [],
@@ -483,6 +590,8 @@ export const getUnlockedProfileCustomizationCatalog = ({
     rewards,
     userRewards,
   });
+  const profileEffectOptions = getUnlockedProfileEffectOptions({ rewards, userRewards });
+  const logoEffectOptions = getUnlockedLogoEffectOptions({ rewards, userRewards });
   const accessorySections = getAccessorySections({ logoAssets, rewards, userRewards, genera, plants });
 
   return {
@@ -516,6 +625,26 @@ export const getUnlockedProfileCustomizationCatalog = ({
         subtitle: "Austauschbare Teile fuer dein Home-Logo",
         sections: accessorySections,
         optionCount: accessorySections.reduce((sum, section) => sum + section.options.length, 0),
+      },
+      {
+        key: "effects",
+        title: "Effekte",
+        subtitle: "Freischaltbare Effekte fuer Profil und Florabot",
+        sections: [
+          {
+            key: "profile_effects",
+            title: "Profileffekte",
+            emptyLabel: "Noch keine Effekte freigeschaltet.",
+            options: profileEffectOptions,
+          },
+          {
+            key: "logo_effects",
+            title: "Florabot-Effekte",
+            emptyLabel: "Noch keine Florabot-Effekte freigeschaltet.",
+            options: logoEffectOptions,
+          },
+        ],
+        optionCount: profileEffectOptions.length + logoEffectOptions.length,
       },
     ],
   };

@@ -13,6 +13,8 @@ import {
   Bot,
   User,
   Check,
+  Smile,
+  ScanSearch,
 } from "lucide-react";
 import { HexColorPicker } from "react-colorful";
 import { Query } from "@/api/entities";
@@ -58,6 +60,21 @@ const CATEGORY_META = {
     subtitle: "Alle freigeschalteten Hintergründe für dein Profil",
     emptyLabel: "Noch keine Hintergrundoptionen freigeschaltet.",
   },
+  face: {
+    title: "Gesicht",
+    subtitle: "Freigeschaltete Gesichts-Assets für dein Home-Logo",
+    emptyLabel: "Noch keine Gesichtsoptionen verfügbar.",
+  },
+  effects: {
+    title: "Effekte",
+    subtitle: "Freischaltbare visuelle Effekte für dein Profil",
+    emptyLabel: "Noch keine Effekte verfügbar.",
+  },
+  scans: {
+    title: "Scans",
+    subtitle: "Scan-basierte Inhalte folgen bald",
+    emptyLabel: "Diese Kategorie ist aktuell ein Platzhalter.",
+  },
   titles: {
     title: "Titel",
     subtitle: "Alle freigeschalteten Titel für dein Profil",
@@ -95,24 +112,25 @@ const ROOT_CATEGORY_META = {
 };
 
 const ROOT_DEFAULT_SUBCATEGORY = {
-  shop: "offers",
+  shop: "backgrounds",
   florabot: "accessories",
   profile: "backgrounds",
 };
 
 const ROOT_SUBCATEGORY_ORDER = {
-  shop: ["offers", "unlocks"],
-  florabot: ["accessories"],
-  profile: ["badges", "backgrounds", "titles"],
+  shop: ["backgrounds", "face", "effects", "scans"],
+  florabot: ["accessories", "effects"],
+  profile: ["badges", "backgrounds", "titles", "effects"],
 };
 
 const ROOT_SHOP_CATEGORY_MAP = {
   accessories: "florabot",
-  backgrounds: "profile",
+  backgrounds: "shop",
+  face: "shop",
+  effects: "shop",
+  scans: "shop",
   titles: "profile",
   badges: "profile",
-  offers: "shop",
-  unlocks: "shop",
   shop: "shop",
   florabot: "florabot",
   profile: "profile",
@@ -171,6 +189,25 @@ const getCategoryOptionCount = (category, predicate = null) => {
     if (typeof predicate !== "function") return sum + options.length;
     return sum + options.filter(predicate).length;
   }, 0);
+};
+
+const isOptionLockedAndPurchasable = (option) => {
+  if (!option?.isLocked || !option?.isPurchasable) return false;
+  const sparkPrice = Math.max(0, Number(option?.sparkPrice || 0));
+  const amberPrice = Math.max(0, Number(option?.amberPrice || 0));
+  return sparkPrice > 0 || amberPrice > 0;
+};
+
+const isOptionUnlocked = (option) => !Boolean(option?.isLocked);
+
+const mapSectionsWithOptionFilter = (sections, predicate) => {
+  const safeSections = Array.isArray(sections) ? sections : [];
+  if (typeof predicate !== "function") return safeSections;
+
+  return safeSections.map((section) => ({
+    ...section,
+    options: (Array.isArray(section?.options) ? section.options : []).filter(predicate),
+  }));
 };
 
 const getRootCategoryFromInitialCategory = (initialCategory) => {
@@ -343,6 +380,13 @@ const getAccessorySelectionState = (user, option) => {
   return activeValue === option.value;
 };
 
+const getProfileEffectSelectionState = (user, option) => {
+  const profileField = option?.profileField || "selected_profile_effect";
+  const activeValue = String(user?.[profileField] || "").trim().toLowerCase();
+  const optionValue = String(option?.value || "").trim().toLowerCase();
+  return Boolean(optionValue) && activeValue === optionValue;
+};
+
 const formatAccessoryPriceLabel = (sparkPrice, amberPrice) => {
   const parts = [];
   if (sparkPrice > 0) parts.push(`${sparkPrice} Funken`);
@@ -404,6 +448,91 @@ const AccessoryOptionCard = ({ option, user, isLightUi, isPending, isSelected = 
           {isLocked && (
             <div className={`mt-1 text-[10px] ${isLightUi ? "text-stone-600" : "text-stone-300/80"}`}>
               {isPurchasable ? formatAccessoryPriceLabel(sparkPrice, amberPrice) : "Noch gesperrt"}
+            </div>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+
+  return (
+    <LockedTooltip
+      content={tooltipContent}
+      contentClassName={isLightUi ? "" : "text-white/90"}
+    >
+      {buttonContent}
+    </LockedTooltip>
+  );
+};
+
+const ProfileEffectOptionCard = ({ option, user, isLightUi, isPending, isSelected = false, onSelect }) => {
+  const isActive = getProfileEffectSelectionState(user, option);
+  const isLocked = Boolean(option?.isLocked);
+  const sparkPrice = Math.max(0, Number(option?.sparkPrice || 0));
+  const amberPrice = Math.max(0, Number(option?.amberPrice || 0));
+  const isPurchasable = isLocked && Boolean(option?.isPurchasable) && (sparkPrice > 0 || amberPrice > 0);
+  const unlockCondition = option?.unlockCondition;
+  const tooltipContent = isLocked
+    ? (isPurchasable ? formatAccessoryPriceLabel(sparkPrice, amberPrice) : (unlockCondition || "Freischaltung noch nicht erreicht."))
+    : null;
+
+  const buttonContent = (
+    <button
+      type="button"
+      disabled={isPending}
+      onClick={() => onSelect(option)}
+      className={`relative overflow-hidden rounded-2xl border text-left transition-all duration-200 disabled:opacity-60 ${isLocked ? "cursor-help" : ""} ${getBackgroundButtonStyle({ isActive, isLightUi })} ${
+        isSelected
+          ? (isLightUi ? "ring-2 ring-[#c8ac62]/70" : "ring-2 ring-[#f0e5a5]/70")
+          : ""
+      }`}
+    >
+      <div className="relative aspect-[1.1/1] w-full p-3">
+        <div
+          className={`absolute inset-0 ${
+            isLightUi
+              ? "bg-[radial-gradient(circle_at_center,rgba(240,229,165,0.35)_0%,rgba(240,229,165,0.12)_45%,rgba(0,0,0,0)_80%)]"
+              : "bg-[radial-gradient(circle_at_center,rgba(240,229,165,0.48)_0%,rgba(240,229,165,0.2)_45%,rgba(0,0,0,0)_80%)]"
+          }`}
+        />
+        <div className={`absolute inset-[16%] rounded-full border ${isLightUi ? "border-[#c8ac62]/55" : "border-[#f0e5a5]/60"}`} />
+        <div className="absolute inset-0 flex items-end justify-center pb-3">
+          <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+            isLightUi
+              ? "border-[#c8ac62]/45 bg-[#f4e7bf]/70 text-stone-700"
+              : "border-[#f0e5a5]/45 bg-[#4f4826]/55 text-stone-100"
+          }`}>
+            Effekt
+          </span>
+        </div>
+      </div>
+      {isLocked && <div className="absolute inset-0 bg-black/45" />}
+      <div className={`absolute inset-0 ${isActive ? (isLightUi ? "bg-white/10" : "bg-black/10") : "bg-transparent"}`} />
+      <div className="absolute inset-x-0 bottom-0 p-2">
+        <div className={`rounded-xl border px-2 py-2 backdrop-blur-md ${
+          isLightUi
+            ? "border-white/65 bg-white/75 text-stone-800"
+            : "border-white/10 bg-black/45 text-stone-100"
+        }`}>
+          <div className="flex items-center justify-between gap-2">
+            <span className="truncate text-xs font-semibold">{option.label}</span>
+            {isLocked ? (
+              isPurchasable ? (
+                <Sparkles className={`h-3.5 w-3.5 shrink-0 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+              ) : (
+                <Lock className={`h-3.5 w-3.5 shrink-0 ${isLightUi ? "text-stone-600" : "text-stone-200/90"}`} />
+              )
+            ) : (
+              isActive && <BadgeCheck className={`h-3.5 w-3.5 shrink-0 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+            )}
+          </div>
+          {isLocked ? (
+            <div className={`mt-1 text-[10px] ${isLightUi ? "text-stone-600" : "text-stone-300/80"}`}>
+              {isPurchasable ? formatAccessoryPriceLabel(sparkPrice, amberPrice) : (unlockCondition || "Noch gesperrt")}
+            </div>
+          ) : (
+            <div className={`mt-1 text-[10px] ${isLightUi ? "text-stone-600" : "text-stone-300/80"}`}>
+              {isActive ? "Aktiv" : "Tippen zum Ausrüsten"}
             </div>
           )}
         </div>
@@ -1003,43 +1132,175 @@ export default function ShopFeatureRoot({
     };
   }, [evaluatedBadges]);
 
+  const accessoriesCategory = useMemo(() => {
+    return customizationCategories.find((category) => category.key === "accessories") || null;
+  }, [customizationCategories]);
+
+  const faceSection = useMemo(() => {
+    if (!accessoriesCategory) return null;
+    return (accessoriesCategory.sections || []).find((section) => section?.key === "face") || null;
+  }, [accessoriesCategory]);
+
+  const effectsCategory = useMemo(() => {
+    return customizationCategories.find((category) => category.key === "effects") || null;
+  }, [customizationCategories]);
+
+  const profileEffectsSection = useMemo(() => {
+    if (!effectsCategory) return null;
+    return (effectsCategory.sections || []).find((section) => section?.key === "profile_effects") || null;
+  }, [effectsCategory]);
+
+  const logoEffectsSection = useMemo(() => {
+    if (!effectsCategory) return null;
+    return (effectsCategory.sections || []).find((section) => section?.key === "logo_effects") || null;
+  }, [effectsCategory]);
+
   const florabotCategories = useMemo(() => {
-    return orderByCategoryList(
-      customizationCategories.filter((category) => category.key === "accessories"),
-      ROOT_SUBCATEGORY_ORDER.florabot,
+    const unlockedLogoEffects = mapSectionsWithOptionFilter(
+      logoEffectsSection ? [logoEffectsSection] : [],
+      isOptionUnlocked,
     );
+
+    const florabotEffectsCategory = {
+      key: "effects",
+      title: "Effekte",
+      subtitle: "Freigeschaltete Florabot-Effekte",
+      sections: unlockedLogoEffects.length > 0
+        ? unlockedLogoEffects
+        : [
+            {
+              key: "logo_effects",
+              title: "Florabot-Effekte",
+              emptyLabel: "Noch keine Florabot-Effekte freigeschaltet.",
+              options: [],
+            },
+          ],
+      optionCount: unlockedLogoEffects.reduce((sum, section) => sum + (section?.options?.length || 0), 0),
+    };
+
+    const resolved = [
+      ...customizationCategories.filter((category) => category.key === "accessories"),
+      florabotEffectsCategory,
+    ].map((category) => ({
+      ...category,
+      optionCount: typeof category.optionCount === "number" ? category.optionCount : getCategoryOptionCount(category),
+    }));
+
+    return orderByCategoryList(resolved, ROOT_SUBCATEGORY_ORDER.florabot);
+  }, [customizationCategories, logoEffectsSection]);
+
+  const backgroundsCategory = useMemo(() => {
+    return customizationCategories.find((category) => category.key === "backgrounds") || null;
   }, [customizationCategories]);
 
   const profileCategories = useMemo(() => {
+    const unlockedProfileEffects = mapSectionsWithOptionFilter(
+      profileEffectsSection ? [profileEffectsSection] : [],
+      isOptionUnlocked,
+    );
+
+    const profileEffectsCategory = {
+      key: "effects",
+      title: "Effekte",
+      subtitle: "Freigeschaltete Profileffekte",
+      sections: unlockedProfileEffects.length > 0
+        ? unlockedProfileEffects
+        : [
+            {
+              key: "profile_effects",
+              title: "Profileffekte",
+              emptyLabel: "Noch keine Effekte freigeschaltet.",
+              options: [],
+            },
+          ],
+      optionCount: unlockedProfileEffects.reduce((sum, section) => sum + (section?.options?.length || 0), 0),
+    };
+
     const resolved = [
       ...customizationCategories.filter((category) => category.key === "backgrounds" || category.key === "titles"),
       badgeCategory,
+      profileEffectsCategory,
     ].map((category) => ({
       ...category,
       optionCount: typeof category.optionCount === "number" ? category.optionCount : getCategoryOptionCount(category),
     }));
 
     return orderByCategoryList(resolved, ROOT_SUBCATEGORY_ORDER.profile);
-  }, [customizationCategories, badgeCategory]);
+  }, [customizationCategories, badgeCategory, profileEffectsSection]);
 
   const shopCategories = useMemo(() => {
-    return [
-      {
-        key: "offers",
-        title: "Bernstein",
-        subtitle: "Pakete und Zahlungsarten (Vorbereitung)",
-        optionCount: 3,
-        sections: [],
-      },
-      {
-        key: "unlocks",
-        title: "Freischalten",
-        subtitle: "Items mit Funken oder Bernstein",
-        optionCount: 2,
-        sections: [],
-      },
-    ];
-  }, []);
+    const resolved = [];
+
+    if (backgroundsCategory) {
+      const lockedPurchasableBackgroundSections = mapSectionsWithOptionFilter(
+        backgroundsCategory.sections,
+        isOptionLockedAndPurchasable,
+      );
+
+      resolved.push({
+        ...backgroundsCategory,
+        key: "backgrounds",
+        title: "Hintergründe",
+        subtitle: "Kaufbare, noch gesperrte Hintergründe",
+        sections: lockedPurchasableBackgroundSections,
+        optionCount: getCategoryOptionCount({
+          ...backgroundsCategory,
+          sections: lockedPurchasableBackgroundSections,
+        }),
+      });
+    }
+
+    const lockedPurchasableFaceOptions = mapSectionsWithOptionFilter(
+      faceSection
+        ? [
+            {
+              ...faceSection,
+              key: "face",
+              title: "Gesicht",
+            },
+          ]
+        : [],
+      isOptionLockedAndPurchasable,
+    );
+
+    resolved.push({
+      key: "face",
+      title: "Gesicht",
+      subtitle: "Kaufbare, noch gesperrte Gesichts-Assets",
+      sections: lockedPurchasableFaceOptions,
+      optionCount: lockedPurchasableFaceOptions.reduce((sum, section) => sum + (section?.options?.length || 0), 0),
+    });
+
+    if (effectsCategory) {
+      const lockedPurchasableEffectSections = mapSectionsWithOptionFilter(
+        effectsCategory.sections,
+        isOptionLockedAndPurchasable,
+      );
+
+      resolved.push({
+        ...effectsCategory,
+        key: "effects",
+        title: "Effekte",
+        subtitle: "Kaufbare, noch gesperrte Effekte",
+        sections: lockedPurchasableEffectSections,
+        optionCount: getCategoryOptionCount({
+          ...effectsCategory,
+          sections: lockedPurchasableEffectSections,
+        }),
+      });
+    }
+
+    resolved.push({
+      key: "scans",
+      title: "Scans",
+      subtitle: "Scan-basierte Inhalte folgen bald",
+      sections: [],
+      optionCount: 0,
+      isPlaceholder: true,
+    });
+
+    return orderByCategoryList(resolved, ROOT_SUBCATEGORY_ORDER.shop);
+  }, [backgroundsCategory, effectsCategory, faceSection]);
 
   const activeSubcategories = useMemo(() => {
     if (shopRootCategory === "shop") return shopCategories;
@@ -1125,12 +1386,32 @@ export default function ShopFeatureRoot({
 
       const sparkPrice = Math.max(0, Math.round(Number(option?.sparkPrice || 0)));
       const amberPrice = Math.max(0, Math.round(Number(option?.amberPrice || 0)));
+      const purchaseKind = String(option?.purchaseKind || "accessory").trim().toLowerCase();
       if (!option?.isPurchasable || (sparkPrice <= 0 && amberPrice <= 0)) {
-        throw new Error("Dieses Accessoire ist nicht kaufbar.");
+        throw new Error("Diese Belohnung ist nicht kaufbar.");
       }
+
+      const normalizedOptionValue = String(option?.value || "").trim().toLowerCase();
+      const normalizedOptionRewardId = String(option?.rewardId || "").trim();
 
       const matchingReward = (Array.isArray(rewards) ? rewards : []).find((reward) => {
         const rewardType = String(reward?.type || reward?.reward_type || reward?.kind || "").trim().toLowerCase();
+        const rewardId = String(reward?.id || "").trim();
+
+        if (normalizedOptionRewardId && rewardId === normalizedOptionRewardId) {
+          if (purchaseKind === "profile_effect") return rewardType === "profile_effect";
+          if (purchaseKind === "logo_effect") return rewardType === "logo_effect";
+          return ACCESSORY_PURCHASABLE_REWARD_TYPES.has(rewardType);
+        }
+
+        if (purchaseKind === "profile_effect") {
+          return rewardType === "profile_effect" && String(reward?.value || "").trim().toLowerCase() === normalizedOptionValue;
+        }
+
+        if (purchaseKind === "logo_effect") {
+          return rewardType === "logo_effect" && String(reward?.value || "").trim().toLowerCase() === normalizedOptionValue;
+        }
+
         return ACCESSORY_PURCHASABLE_REWARD_TYPES.has(rewardType) && accessoryValueMatches(reward?.value, option?.value);
       });
 
@@ -1141,13 +1422,16 @@ export default function ShopFeatureRoot({
         };
       }
 
-      const eventReference = `shop-accessory:${String(option.value)}:${Date.now()}`;
+      const eventReference = `shop-${purchaseKind}:${String(option.value || matchingReward.id)}:${Date.now()}`;
       const { data, error } = await supabase.functions.invoke("purchaseAccessory", {
         body: {
           authId: resolvedAuthId,
           userEmail: resolvedUserEmail,
           rewardId: matchingReward.id,
-          accessoryId: String(option.value),
+          accessoryId: purchaseKind === "profile_effect" || purchaseKind === "logo_effect" ? null : String(option.value),
+          purchaseKind,
+          rewardType: String(matchingReward?.type || "").trim().toLowerCase(),
+          rewardValue: String(option?.value || matchingReward?.value || ""),
           sparkPrice,
           amberPrice,
           eventReference,
@@ -1166,14 +1450,14 @@ export default function ShopFeatureRoot({
         } else if (result?.errorCode === "insufficient_both") {
           setShopMessage(`Nicht genug Funken und Bernstein. Benötigt: ${formatAccessoryPriceLabel(result.sparkPrice, result.amberPrice)}.`);
         } else if (result?.errorCode === "reward_not_configured") {
-          setShopMessage("Dieses Accessoire kann aktuell nicht gekauft werden.");
+          setShopMessage("Diese Belohnung kann aktuell nicht gekauft werden.");
         } else {
           setShopMessage("Kauf konnte nicht abgeschlossen werden.");
         }
       } else if (result?.alreadyOwned) {
-        setShopMessage("Dieses Accessoire ist bereits freigeschaltet.");
+        setShopMessage("Diese Belohnung ist bereits freigeschaltet.");
       } else {
-        setShopMessage("Accessoire gekauft. Du kannst es jetzt ausrüsten.");
+        setShopMessage("Belohnung gekauft. Du kannst sie jetzt ausrüsten.");
       }
 
       await Promise.all([
@@ -1280,6 +1564,71 @@ export default function ShopFeatureRoot({
   const handleResetTitle = async () => {
     setShopMessage(null);
     await updateCustomizationMutation.mutateAsync({ selected_title: null });
+  };
+
+  const handleSelectProfileEffect = async (option) => {
+    const sparkPrice = Math.max(0, Number(option?.sparkPrice || 0));
+    const amberPrice = Math.max(0, Number(option?.amberPrice || 0));
+    const canBeBought = Boolean(option?.isPurchasable) && (sparkPrice > 0 || amberPrice > 0);
+    const isLocked = Boolean(option?.isLocked);
+
+    if (externalActionMode) {
+      if (isLocked && !canBeBought) {
+        setShopMessage(option?.unlockCondition || "Dieser Effekt ist noch gesperrt.");
+        return;
+      }
+
+      setSelectedOptionForAction({
+        kind: "profile-effect",
+        option,
+        actionLabel: isLocked ? "Kaufen" : "Ausrüsten",
+        actionDisabled: false,
+      });
+      return;
+    }
+
+    if (isLocked) {
+      if (canBeBought) {
+        setShopMessage(null);
+        setPurchaseConfirmOption(option);
+      } else {
+        setShopMessage(option?.unlockCondition || "Dieser Effekt ist noch gesperrt.");
+      }
+      return;
+    }
+
+    setShopMessage(null);
+    await updateCustomizationMutation.mutateAsync({ selected_profile_effect: option?.value || null });
+  };
+
+  const applyProfileEffectSelection = async (option) => {
+    const sparkPrice = Math.max(0, Number(option?.sparkPrice || 0));
+    const amberPrice = Math.max(0, Number(option?.amberPrice || 0));
+    const canBeBought = Boolean(option?.isPurchasable) && (sparkPrice > 0 || amberPrice > 0);
+    const isLocked = Boolean(option?.isLocked);
+
+    if (isLocked) {
+      if (canBeBought) {
+        setShopMessage(null);
+        await purchaseAccessoryMutation.mutateAsync(option);
+      } else {
+        setShopMessage(option?.unlockCondition || "Dieser Effekt ist noch gesperrt.");
+      }
+      return;
+    }
+
+    setShopMessage(null);
+    await updateCustomizationMutation.mutateAsync({ selected_profile_effect: option?.value || null });
+  };
+
+  const handleResetProfileEffect = async () => {
+    setShopMessage(null);
+    await updateCustomizationMutation.mutateAsync({ selected_profile_effect: null });
+  };
+
+  const handleResetLogoEffect = async () => {
+    setShopMessage(null);
+    await updateCustomizationMutation.mutateAsync({ selected_logo_effect: null });
   };
 
   const handleSelectBadge = async (badgeId) => {
@@ -1424,6 +1773,10 @@ export default function ShopFeatureRoot({
       await applyAccessorySelection(option);
       return;
     }
+    if (kind === "profile-effect") {
+      await applyProfileEffectSelection(option);
+      return;
+    }
     if (kind === "border-color") {
       await applyBorderColorSelection(option?.value || null);
     }
@@ -1529,8 +1882,18 @@ export default function ShopFeatureRoot({
   ];
 
   const shouldShowProfileCarousel = !isRootCategoryLandingVisible && shopRootCategory === "profile" && profileCategories.length > 0;
-  const shouldShowFlorabotCarousel = !isRootCategoryLandingVisible && shopRootCategory === "florabot" && florabotAccessorySections.length > 1;
-  const florabotCarouselItems = florabotAccessorySections.map((section) => ({ key: section.key, title: section.title }));
+  const shouldShowFlorabotCarousel = !isRootCategoryLandingVisible && shopRootCategory === "florabot" && florabotCategories.length > 1;
+  const shouldShowShopCarousel = !isRootCategoryLandingVisible && shopRootCategory === "shop" && shopCategories.length > 1;
+  const florabotCarouselItems = florabotCategories.map((category) => ({ key: category.key, title: category.title }));
+
+  const shopCarouselBlock = shouldShowShopCarousel ? (
+    <ProfileCategorySnapCarousel
+      categories={shopCategories}
+      activeKey={shopCategory}
+      isLightUi={isLightUi}
+      onSelect={setShopCategory}
+    />
+  ) : null;
 
   const profileCarouselBlock = shouldShowProfileCarousel ? (
     <ProfileCategorySnapCarousel
@@ -1544,17 +1907,17 @@ export default function ShopFeatureRoot({
   const florabotCarouselBlock = shouldShowFlorabotCarousel ? (
     <ProfileCategorySnapCarousel
       categories={florabotCarouselItems}
-      activeKey={activeFlorabotSection?.key || florabotCarouselItems[0]?.key || null}
+      activeKey={shopCategory}
       isLightUi={isLightUi}
-      onSelect={setActiveFlorabotSectionKey}
+      onSelect={setShopCategory}
     />
   ) : null;
 
-  const shouldShowFixedTopNav = shouldShowProfileCarousel || shouldShowFlorabotCarousel;
+  const shouldShowFixedTopNav = shouldShowProfileCarousel || shouldShowFlorabotCarousel || shouldShowShopCarousel;
   const fixedTopNavBar = shouldShowFixedTopNav ? (
     <div className={`shrink-0 px-4 ${embedded ? "h-20" : "h-24"} flex items-center`}>
       <div className="max-w-5xl mx-auto w-full min-w-0 h-full flex items-center justify-center">
-        {shouldShowProfileCarousel ? profileCarouselBlock : florabotCarouselBlock}
+        {shouldShowShopCarousel ? shopCarouselBlock : (shouldShowProfileCarousel ? profileCarouselBlock : florabotCarouselBlock)}
       </div>
     </div>
   ) : null;
@@ -1610,43 +1973,6 @@ export default function ShopFeatureRoot({
                 <RefreshCw className="w-3.5 h-3.5" />
                 Erneut laden
               </button>
-            </div>
-          ) : shopRootCategory === "shop" && currentCategory.key === "offers" ? (
-            <div className="space-y-3">
-              <SectionCard title="Bernstein kaufen" icon={Gem} isLightUi={isLightUi}>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {[
-                    { amount: 120, price: "2,99 EUR" },
-                    { amount: 350, price: "6,99 EUR" },
-                    { amount: 900, price: "14,99 EUR" },
-                  ].map((pack) => (
-                    <div
-                      key={pack.amount}
-                      className={`rounded-2xl border px-3 py-3 ${isLightUi ? "border-[#c8ac62]/35 bg-white/65" : "border-[#f0e5a5]/25 bg-black/30"}`}
-                    >
-                      <div className={`text-sm font-semibold ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>{pack.amount} Bernstein</div>
-                      <div className={`text-xs mt-1 ${isLightUi ? "text-stone-500" : "text-stone-300/75"}`}>{pack.price}</div>
-                    </div>
-                  ))}
-                </div>
-                <div className={`mt-3 rounded-xl border px-3 py-2 text-xs ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50 text-stone-700" : "border-[#f0e5a5]/25 bg-black/25 text-stone-200"}`}>
-                  Zahlungsarten sind vorbereitet (Apple Pay, Google Pay, PayPal, Kreditkarte), aber noch nicht aktiv.
-                </div>
-              </SectionCard>
-            </div>
-          ) : shopRootCategory === "shop" && currentCategory.key === "unlocks" ? (
-            <div className="space-y-3">
-              <SectionCard title="Mit Funken freischalten" icon={Sparkles} isLightUi={isLightUi}>
-                <div className={`rounded-2xl border border-dashed px-3 py-4 text-xs ${isLightUi ? "border-[#c8ac62]/30 text-stone-600" : "border-[#f0e5a5]/20 text-stone-300/80"}`}>
-                  Items mit Funken werden hier gesammelt angezeigt. Bereits integrierte Florabot-Accessoires sind weiterhin im Bereich Florabot verfügbar.
-                </div>
-              </SectionCard>
-
-              <SectionCard title="Mit Bernstein freischalten" icon={Gem} isLightUi={isLightUi}>
-                <div className={`rounded-2xl border border-dashed px-3 py-4 text-xs ${isLightUi ? "border-[#c8ac62]/30 text-stone-600" : "border-[#f0e5a5]/20 text-stone-300/80"}`}>
-                  Premium-Freischaltungen mit Bernstein folgen in den naechsten Shop-Designs.
-                </div>
-              </SectionCard>
             </div>
           ) : currentCategory.key === "backgrounds" ? (
             <div className="space-y-3">
@@ -1720,8 +2046,103 @@ export default function ShopFeatureRoot({
                 );
               })}
             </div>
+          ) : shopRootCategory === "shop" && currentCategory.key === "face" ? (
+            <div className="space-y-3">
+              <SectionCard title="Gesicht auswählen" icon={Smile} isLightUi={isLightUi}>
+                {(currentCategory.sections?.[0]?.options || []).length ? (
+                  <AccessoryOptionGrid
+                    options={currentCategory.sections[0].options}
+                    user={resolvedCurrentUser}
+                    isLightUi={isLightUi}
+                    isPending={isMutationPending}
+                    onSelect={handleSelectAccessory}
+                    selectedOptionId={selectedOptionForAction?.kind === "accessory" ? selectedOptionForAction?.option?.id : null}
+                  />
+                ) : (
+                  <div className={`rounded-2xl border border-dashed px-3 py-4 text-xs ${isLightUi ? "border-[#c8ac62]/30 text-stone-500" : "border-[#f0e5a5]/20 text-stone-300/75"}`}>
+                    {CATEGORY_META.face.emptyLabel}
+                  </div>
+                )}
+              </SectionCard>
+            </div>
+          ) : currentCategory.key === "effects" ? (
+            <div className="space-y-3">
+              {shopRootCategory !== "shop" && (
+                <div className={`rounded-[1.5rem] border px-3 py-3 ${isLightUi ? "border-[#c8ac62]/30 bg-white/72" : "border-[#f0e5a5]/20 bg-black/28"}`}>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className={`text-sm font-semibold ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Aktiver Effekt</div>
+                      <div className={`mt-1 text-xs ${isLightUi ? "text-stone-500" : "text-stone-300/75"}`}>
+                        {shopRootCategory === "florabot"
+                          ? (resolvedCurrentUser?.selected_logo_effect ? "Ein Florabot-Effekt ist aktiv." : "Kein Florabot-Effekt aktiv.")
+                          : (resolvedCurrentUser?.selected_profile_effect ? "Ein Profileffekt ist aktiv." : "Kein Profileffekt aktiv.")}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isMutationPending}
+                      onClick={shopRootCategory === "florabot" ? handleResetLogoEffect : handleResetProfileEffect}
+                      className={`h-9 rounded-xl border px-3 text-xs font-semibold disabled:opacity-60 ${
+                        isLightUi
+                          ? "border-[#c8ac62]/40 bg-white/75 text-stone-700 hover:bg-white"
+                          : "border-[#f0e5a5]/25 bg-black/35 text-stone-100 hover:bg-black/50"
+                      }`}
+                    >
+                      Effekt entfernen
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {(currentCategory.sections || []).map((section) => (
+                <SectionCard key={section.key} title={section.title} icon={Sparkles} isLightUi={isLightUi}>
+                  {section.options?.length ? (
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                      {section.options.map((option) => {
+                        const isLogoEffectOption = section.key === "logo_effects" || option?.profileField === "selected_logo_effect";
+                        const isSelected = selectedOptionForAction?.option?.id === option.id
+                          && (isLogoEffectOption ? selectedOptionForAction?.kind === "accessory" : selectedOptionForAction?.kind === "profile-effect");
+
+                        return (
+                          <ProfileEffectOptionCard
+                            key={option.id}
+                            option={option}
+                            user={resolvedCurrentUser}
+                            isLightUi={isLightUi}
+                            isPending={isMutationPending}
+                            isSelected={isSelected}
+                            onSelect={isLogoEffectOption ? handleSelectAccessory : handleSelectProfileEffect}
+                          />
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className={`rounded-2xl border border-dashed px-3 py-4 text-xs ${isLightUi ? "border-[#c8ac62]/30 text-stone-500" : "border-[#f0e5a5]/20 text-stone-300/75"}`}>
+                      {section.emptyLabel || CATEGORY_META.effects.emptyLabel}
+                    </div>
+                  )}
+                </SectionCard>
+              ))}
+            </div>
+          ) : shopRootCategory === "shop" && currentCategory.key === "scans" ? (
+            <div className="space-y-3">
+              <SectionCard title="Scans" icon={ScanSearch} isLightUi={isLightUi}>
+                <div className={`rounded-2xl border border-dashed px-3 py-4 text-xs ${isLightUi ? "border-[#c8ac62]/30 text-stone-600" : "border-[#f0e5a5]/20 text-stone-300/80"}`}>
+                  Scan-Angebote folgen bald. Hier entsteht die nächste Shop-Kategorie.
+                </div>
+              </SectionCard>
+            </div>
           ) : currentCategory.key === "accessories" ? (
             <div className="space-y-3">
+              {florabotAccessorySections.length > 1 && (
+                <ProfileCategorySnapCarousel
+                  categories={florabotAccessorySections.map((section) => ({ key: section.key, title: section.title }))}
+                  activeKey={activeFlorabotSection?.key || florabotAccessorySections[0]?.key || null}
+                  isLightUi={isLightUi}
+                  onSelect={setActiveFlorabotSectionKey}
+                />
+              )}
+
               {activeFlorabotSection ? (
                 activeFlorabotSection.options.length === 0 ? (
                   <div className={`rounded-2xl border border-dashed px-3 py-4 text-xs ${isLightUi ? "border-[#c8ac62]/30 text-stone-500" : "border-[#f0e5a5]/20 text-stone-300/75"}`}>
@@ -1883,7 +2304,7 @@ export default function ShopFeatureRoot({
         <DialogContent className={`max-w-[min(92vw,25rem)] rounded-2xl ${isLightUi ? "border-[#c8ac62]/45 bg-white" : "border-[#f0e5a5]/35 bg-[#1a1d1a]"}`}>
           <DialogHeader>
             <DialogTitle className={`${isLightUi ? "text-stone-900" : "text-stone-100"}`}>
-              Accessoire freischalten?
+              Belohnung freischalten?
             </DialogTitle>
           </DialogHeader>
 
@@ -1903,7 +2324,7 @@ export default function ShopFeatureRoot({
             )}
 
             <p className={`text-sm ${isLightUi ? "text-stone-700" : "text-stone-200"}`}>
-              Möchtest du <span className="font-semibold">{purchaseConfirmOption?.label || "dieses Accessoire"}</span> für <span className="font-semibold">{formatAccessoryPriceLabel(purchaseDialogSparkPrice, purchaseDialogAmberPrice)}</span> kaufen?
+              Möchtest du <span className="font-semibold">{purchaseConfirmOption?.label || "diese Belohnung"}</span> für <span className="font-semibold">{formatAccessoryPriceLabel(purchaseDialogSparkPrice, purchaseDialogAmberPrice)}</span> kaufen?
             </p>
 
             <div className={`rounded-lg border px-3 py-2 text-xs space-y-1 ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50 text-stone-700" : "border-[#f0e5a5]/25 bg-black/25 text-stone-200"}`}>
