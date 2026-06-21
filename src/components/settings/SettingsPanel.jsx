@@ -536,7 +536,7 @@ export default function SettingsPanel({
               )}
             </div>
 
-            {allRewards.filter((r) => r.type === "background").length > 0 && (
+            {allRewards.filter((r) => r.type === "background" && (!r.shop_hidden || userRewards.some((ur) => ur.reward_id === r.id))).length > 0 && (
               <div>
                 <button
                   onClick={() => setCollapsedSections((p) => ({ ...p, presets: !p.presets }))}
@@ -556,7 +556,7 @@ export default function SettingsPanel({
                 {!collapsedSections.presets && (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     {allRewards
-                      .filter((r) => r.type === "background")
+                      .filter((r) => r.type === "background" && (!r.shop_hidden || userRewards.some((ur) => ur.reward_id === r.id)))
                       .map((reward) => {
                         const isUnlocked = userRewards.some((ur) => ur.reward_id === reward.id);
                         let tooltipText = "";
