@@ -24,9 +24,32 @@ const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
 const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
 
+const isMaintenanceModeEnabled =
+  String(import.meta.env.VITE_MAINTENANCE_MODE ?? 'true').toLowerCase() === 'true';
+
+const maintenanceTitle =
+  import.meta.env.VITE_MAINTENANCE_TITLE || 'Floralog ist voruebergehend nicht verfuegbar';
+
+const maintenanceMessage =
+  import.meta.env.VITE_MAINTENANCE_MESSAGE || 'Wir spielen gerade ein Update ein. Bitte versuche es spaeter erneut.';
+
 const LayoutWrapper = ({ children, currentPageName }) => Layout ?
   <Layout currentPageName={currentPageName}>{children}</Layout>
   : <>{children}</>;
+
+function MaintenanceScreen() {
+  return (
+    <div className="min-h-screen w-full bg-gradient-to-b from-stone-950 via-stone-900 to-emerald-950 text-stone-100 flex items-center justify-center p-6">
+      <div className="w-full max-w-lg rounded-3xl border border-emerald-400/30 bg-stone-900/70 backdrop-blur p-8 text-center shadow-2xl">
+        <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-emerald-500/20 border border-emerald-300/40 flex items-center justify-center">
+          <span className="text-xl">!</span>
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight mb-3">{maintenanceTitle}</h1>
+        <p className="text-stone-300 leading-relaxed">{maintenanceMessage}</p>
+      </div>
+    </div>
+  );
+}
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, authError, isAuthenticated, loginModalOpen, closeLoginModal, isPasswordRecovery, clearPasswordRecovery } = useAuth();
@@ -75,6 +98,10 @@ const AuthenticatedApp = () => {
 
 
 function App() {
+
+  if (isMaintenanceModeEnabled) {
+    return <MaintenanceScreen />;
+  }
 
   return (
     <UiThemeProvider>

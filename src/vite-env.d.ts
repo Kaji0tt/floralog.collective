@@ -6,6 +6,9 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_SERVICE_KEY?: string;
   readonly VITE_APP_URL?: string;
   readonly VITE_MAPBOX_ACCESS_TOKEN: string;
+  readonly VITE_MAINTENANCE_MODE?: string;
+  readonly VITE_MAINTENANCE_TITLE?: string;
+  readonly VITE_MAINTENANCE_MESSAGE?: string;
 }
 
 interface ImportMeta {
