@@ -78,6 +78,7 @@ import { getProfileBadgeIconComponent } from "@/lib/profileBadgeIcons";
 import { resolveOwnedUniqueBadges } from "@/lib/profileUniqueBadges";
 import FlorabotIntroOverlay from "@/components/florabot/FlorabotIntroOverlay";
 import FlorabotMilestoneOverlay from "@/components/florabot/FlorabotMilestoneOverlay";
+import { getActiveSeason } from "@/lib/seasonConfig";
 import FlorabotContextBubble from "@/components/florabot/FlorabotContextBubble";
 import HomeShellBorderGlow from "@/components/effects/HomeShellBorderGlow";
 import {
@@ -699,7 +700,11 @@ function HomeContent() {
   const { data: highestScanResultsLeaderboard = [] } = useQuery({
     queryKey: ['homeHighestScanResultsLeaderboard'],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_highest_scan_results_leaderboard', { p_limit: 100 });
+      const season = getActiveSeason();
+      const { data, error } = await supabase.rpc('get_highest_scan_results_leaderboard', {
+        p_limit: 100,
+        p_from_date: season?.startDate || null,
+      });
       if (error) {
         console.warn('[Home] get_highest_scan_results_leaderboard unavailable:', error?.message || error);
         return [];

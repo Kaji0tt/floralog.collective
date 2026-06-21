@@ -32,6 +32,7 @@ import { supabase } from "@/api/supabaseClient";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 import { hexToFilter } from "@/lib/hexToFilter";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
+import { getActiveSeason } from "@/lib/seasonConfig";
 
 /** @type {{ regular: number, weekly: number, monthly: number }} */
 const DEFAULT_QUEST_SEED_REWARD_BY_TYPE = {
@@ -465,7 +466,10 @@ export function useAchievementsFeatureContent({
   const { data: globalScanLeaderboard = null, refetch: refetchGlobalScanLeaderboard } = useQuery({
     queryKey: ['globalScanLeaderboard'],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_global_scan_leaderboard');
+      const season = getActiveSeason();
+      const { data, error } = await supabase.rpc('get_global_scan_leaderboard', {
+        p_from_date: season?.startDate || null,
+      });
       if (error) {
         if (isMissingRpcFunctionError(error)) {
           console.warn('[AchievementsPage] get_global_scan_leaderboard not available yet, using discovery fallback.');
@@ -485,7 +489,11 @@ export function useAchievementsFeatureContent({
   const { data: highestScanResultsLeaderboard = null, refetch: refetchHighestScanResultsLeaderboard } = useQuery({
     queryKey: ['highestScanResultsLeaderboard'],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_highest_scan_results_leaderboard', { p_limit: 100 });
+      const season = getActiveSeason();
+      const { data, error } = await supabase.rpc('get_highest_scan_results_leaderboard', {
+        p_limit: 100,
+        p_from_date: season?.startDate || null,
+      });
       if (error) {
         if (isMissingRpcFunctionError(error)) {
           console.warn('[AchievementsPage] get_highest_scan_results_leaderboard not available yet.');
@@ -505,7 +513,11 @@ export function useAchievementsFeatureContent({
   const { data: weeklySeedLeaderboard = null, refetch: refetchWeeklySeedLeaderboard } = useQuery({
     queryKey: ['weeklySeedLeaderboard'],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_weekly_seed_leaderboard', { p_limit: 100 });
+      const season = getActiveSeason();
+      const { data, error } = await supabase.rpc('get_weekly_seed_leaderboard', {
+        p_limit: 100,
+        p_from_date: season?.startDate || null,
+      });
       if (error) {
         if (isMissingRpcFunctionError(error)) {
           console.warn('[AchievementsPage] get_weekly_seed_leaderboard not available yet.');
