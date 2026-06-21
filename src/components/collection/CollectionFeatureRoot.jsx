@@ -513,6 +513,25 @@ export default function CollectionFeatureRoot({
     popThemeOverride,
   ]);
 
+  const seasonCategoryStats = useMemo(() => {
+    const season = getActiveSeason();
+    if (!season) return { discovered: 0, total: 0, percent: 0 };
+    const seasonDiscoveries = userDiscoveries.filter(
+      (d) => d.discovered_date >= season.startDate
+    );
+    const seasonPlantIds = new Set(seasonDiscoveries.map((d) => d.plant_id));
+    const seasonGenusKeys = new Set();
+    plants.forEach((p) => {
+      if (seasonPlantIds.has(p.id)) {
+        seasonGenusKeys.add(`${p.genus_category}::${p.genus_number}`);
+      }
+    });
+    const discovered = seasonGenusKeys.size;
+    const total = generaWithDiscovery.length;
+    const percent = total > 0 ? Math.round((discovered / total) * 100) : 0;
+    return { discovered, total, percent };
+  }, [userDiscoveries, plants, generaWithDiscovery]);
+
   const getCollectionStats = (collectionKey) => {
     if (!collectionKey || collectionKey === 'global') {
       const total = generaWithDiscovery.length;
@@ -935,25 +954,6 @@ export default function CollectionFeatureRoot({
     const percent = total > 0 ? Math.round((discovered / total) * 100) : 0;
     return { discovered, total, percent };
   }, [generaWithDiscovery]);
-
-  const seasonCategoryStats = useMemo(() => {
-    const season = getActiveSeason();
-    if (!season) return { discovered: 0, total: 0, percent: 0 };
-    const seasonDiscoveries = userDiscoveries.filter(
-      (d) => d.discovered_date >= season.startDate
-    );
-    const seasonPlantIds = new Set(seasonDiscoveries.map((d) => d.plant_id));
-    const seasonGenusKeys = new Set();
-    plants.forEach((p) => {
-      if (seasonPlantIds.has(p.id)) {
-        seasonGenusKeys.add(`${p.genus_category}::${p.genus_number}`);
-      }
-    });
-    const discovered = seasonGenusKeys.size;
-    const total = generaWithDiscovery.length;
-    const percent = total > 0 ? Math.round((discovered / total) * 100) : 0;
-    return { discovered, total, percent };
-  }, [userDiscoveries, plants, generaWithDiscovery]);
 
   const followedThemeCollectionChips = useMemo(() => {
     const ranked = followedCollections
