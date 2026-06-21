@@ -275,9 +275,34 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Propagate legacy flag: mark rewards for legacy assets as inactive
-    // (This doesn't use a column on Rewards but ensures the sync response tracks it)
+    // Propagate legacy flag: hide rewards for legacy assets from the shop
     const legacyAssetIds = deduped.filter((asset) => asset.legacy).map((asset) => asset.asset_id);
+    const activeAssetIds = deduped.filter((asset) => !asset.legacy).map((asset) => asset.asset_id);
+
+    if (legacyAssetIds.length > 0) {
+      const legacyRewardIds = legacyAssetIds.map((id) => `reward_logo_accessory_${id}`);
+      const { error: hideError } = await adminClient
+        .from("Rewards")
+        .update({ shop_hidden: true })
+        .in("id", legacyRewardIds);
+
+      if (hideError) {
+        console.warn("[syncLogoAssets] Failed to hide legacy rewards:", hideError);
+      }
+    }
+
+    // Ensure active (non-legacy) assets have shop_hidden = false
+    if (activeAssetIds.length > 0) {
+      const activeRewardIds = activeAssetIds.map((id) => `reward_logo_accessory_${id}`);
+      const { error: unhideError } = await adminClient
+        .from("Rewards")
+        .update({ shop_hidden: false })
+        .in("id", activeRewardIds);
+
+      if (unhideError) {
+        console.warn("[syncLogoAssets] Failed to unhide active rewards:", unhideError);
+      }
+    }
 
     return new Response(
       JSON.stringify({

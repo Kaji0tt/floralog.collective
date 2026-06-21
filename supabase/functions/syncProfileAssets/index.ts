@@ -150,6 +150,44 @@ Deno.serve(async (req) => {
       rewardsSynced = rewardsToCreate.length;
     }
 
+    // Unhide all currently active profile background rewards
+    const activeRewardIds = backgroundAssets.map((asset) => `reward_profile_bg_${asset.asset_id}`);
+    if (activeRewardIds.length > 0) {
+      const { error: unhideError } = await adminClient
+        .from("Rewards")
+        .update({ shop_hidden: false })
+        .in("id", activeRewardIds);
+
+      if (unhideError) {
+        console.warn("[syncProfileAssets] Failed to unhide active rewards:", unhideError);
+      }
+    }
+
+    // Hide rewards for backgrounds no longer in R2
+    const { data: allProfileBgRewards, error: allBgError } = await adminClient
+      .from("Rewards")
+      .select("id")
+      .eq("type", "background")
+      .like("id", "reward_profile_bg_%");
+
+    if (!allBgError && allProfileBgRewards) {
+      const activeSet = new Set(activeRewardIds);
+      const rewardsToHide = allProfileBgRewards
+        .map((r) => String(r.id))
+        .filter((id) => !activeSet.has(id));
+
+      if (rewardsToHide.length > 0) {
+        const { error: hideError } = await adminClient
+          .from("Rewards")
+          .update({ shop_hidden: true })
+          .in("id", rewardsToHide);
+
+        if (hideError) {
+          console.warn("[syncProfileAssets] Failed to hide removed rewards:", hideError);
+        }
+      }
+    }
+
     return jsonResponse({
       ok: true,
       synced: rewardsSynced,

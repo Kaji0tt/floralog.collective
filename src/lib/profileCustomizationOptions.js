@@ -374,7 +374,12 @@ export const getUnlockedPresetBackgrounds = ({ rewards = [], userRewards = [] } 
   );
 
   return (Array.isArray(rewards) ? rewards : [])
-    .filter((reward) => reward?.type === "background" && reward?.value)
+    .filter((reward) => {
+      if (reward?.type !== "background" || !reward?.value) return false;
+      // Hide shop_hidden (legacy/retired) backgrounds unless user already owns them
+      if (reward?.shop_hidden && !unlockedRewardIds.has(reward?.id)) return false;
+      return true;
+    })
     .map((reward) => ({
       id: `reward-background:${reward.id}`,
       type: "preset",
