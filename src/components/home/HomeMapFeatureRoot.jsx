@@ -1,6 +1,7 @@
 import { Bug, Loader2, Map as MapIcon, RefreshCw, Search, X } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import MapboxZoneMap from "@/components/map/MapboxZoneMap";
+import MapPinDetailOverlay from "@/components/map/MapPinDetailOverlay";
 import { TileVisualizationPanel } from "@/components/admin/TileVisualizationPanel";
 
 export default function HomeMapFeatureRoot({
@@ -35,8 +36,44 @@ export default function HomeMapFeatureRoot({
   allDiscoveryPoints = [],
   friendEmailSet = new Set(),
   discoveryMarkerScale = 0.8,
+  plants = [],
 }) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [pinOverlayData, setPinOverlayData] = useState(null);
+
+  const handlePinSelect = useCallback(({ point, properties, mergedCount, mergedDiscoveryIds }) => {
+    // Build logo assets from the point data
+    const scannerLogoAssets = (point?.scannerLogoBorderUrl || point?.scannerLogoPlantUrl || point?.scannerLogoFaceUrl)
+      ? {
+          border: point.scannerLogoBorderUrl ? { imageUrl: point.scannerLogoBorderUrl } : undefined,
+          plant: point.scannerLogoPlantUrl ? { imageUrl: point.scannerLogoPlantUrl } : undefined,
+          face: point.scannerLogoFaceUrl ? { imageUrl: point.scannerLogoFaceUrl } : undefined,
+          borderColor: point.scannerLogoBorderColor || null,
+        }
+      : null;
+
+    // Resolve discoveries for the selected pin
+    const discoveryIds = mergedDiscoveryIds || [properties?.discoveryId].filter(Boolean);
+    const resolvedDiscoveries = discoveryIds.map((id) => {
+      const matchingPoint = allDiscoveryPoints.find((dp) => dp.discoveryId === id);
+      const plantObj = matchingPoint?.plantId
+        ? plants.find((p) => p.id === matchingPoint.plantId) || null
+        : null;
+      return {
+        discoveryId: id,
+        imageUrl: matchingPoint?.imageUrl || "",
+        plantName: matchingPoint?.plantName || properties?.plantName || "Unbekannte Pflanze",
+        plantId: matchingPoint?.plantId || "",
+        plant: plantObj,
+      };
+    });
+
+    setPinOverlayData({
+      scannerDisplayName: properties?.scannerDisplayName || point?.scannerDisplayName || "Unbekannt",
+      scannerLogoAssets,
+      discoveries: resolvedDiscoveries,
+    });
+  }, [allDiscoveryPoints, plants]);
 
   const trimmedQuery = searchQuery.trim().toLowerCase();
   const displayedDiscoveryPoints = trimmedQuery
@@ -126,6 +163,7 @@ export default function HomeMapFeatureRoot({
           isLightUi={isLightUi}
           onDiscoveryImageClick={onDiscoveryImageClick}
           onDiscoveryLike={onDiscoveryLike}
+          onPinSelect={handlePinSelect}
           allowDiscoveryLike={allowDiscoveryLike}
           discoveryMarkerScale={discoveryMarkerScale}
           hideClaimLogos={!!trimmedQuery}
@@ -246,6 +284,16 @@ export default function HomeMapFeatureRoot({
           {zoneRerollsRemaining !== null && !isAdminUser ? `Neu (${zoneRerollsRemaining})` : "Neu"}
         </button>
       </div>
+
+      {/* Pin detail overlay */}
+      <MapPinDetailOverlay
+        open={!!pinOverlayData}
+        onClose={() => setPinOverlayData(null)}
+        scannerDisplayName={pinOverlayData?.scannerDisplayName || "Unbekannt"}
+        scannerLogoAssets={pinOverlayData?.scannerLogoAssets || null}
+        discoveries={pinOverlayData?.discoveries || []}
+        isLightUi={isLightUi}
+      />
     </section>
   );
 }
