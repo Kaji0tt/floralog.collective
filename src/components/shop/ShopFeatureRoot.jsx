@@ -85,6 +85,11 @@ const CATEGORY_META = {
     subtitle: "Austauschbare Teile für dein Home-Logo",
     emptyLabel: "Noch keine Accessoires verfügbar.",
   },
+  bernstein: {
+    title: "Bernstein",
+    subtitle: "Bernstein-Pakete kaufen",
+    emptyLabel: "Keine Bernstein-Pakete verfügbar.",
+  },
 };
 
 const ROOT_CATEGORY_META = {
@@ -118,7 +123,7 @@ const ROOT_DEFAULT_SUBCATEGORY = {
 };
 
 const ROOT_SUBCATEGORY_ORDER = {
-  shop: ["backgrounds", "face", "effects", "scans"],
+  shop: ["backgrounds", "face", "effects", "scans", "bernstein"],
   florabot: ["accessories", "effects"],
   profile: ["badges", "backgrounds", "titles", "effects"],
 };
@@ -129,6 +134,7 @@ const ROOT_SHOP_CATEGORY_MAP = {
   face: "shop",
   effects: "shop",
   scans: "shop",
+  bernstein: "shop",
   titles: "profile",
   badges: "profile",
   shop: "shop",
@@ -950,6 +956,197 @@ const AccessoryOptionGrid = ({ options, user, isLightUi, isPending, onSelect, se
   );
 };
 
+const AMBER_PACKAGES = [
+  { id: "amber-30", price: 1.30, amber: 30, label: "30 Bernstein" },
+  { id: "amber-100", price: 3.90, amber: 100, label: "100 Bernstein" },
+  { id: "amber-240", price: 7.90, amber: 240, label: "240 Bernstein" },
+];
+
+const BernsteinShopSection = ({ isLightUi }) => {
+  const [selectedPackage, setSelectedPackage] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [message, setMessage] = React.useState(null);
+  const paypalButtonsRendered = React.useRef(false);
+  const paypalClientId = (typeof import.meta !== "undefined" && import.meta.env?.VITE_PAYPAL_CLIENT_ID || "").trim();
+
+  React.useEffect(() => {
+    if (!paypalClientId) return;
+    if (!document.getElementById("paypal-sdk")) {
+      const script = document.createElement("script");
+      script.id = "paypal-sdk";
+      script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&currency=EUR`;
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  }, [paypalClientId]);
+
+  const handleBuyPackage = (pkg) => {
+    setSelectedPackage(pkg);
+    setMessage(null);
+
+    setTimeout(() => {
+      const container = document.getElementById("paypal-amber-button-container");
+      if (container && window.paypal && !paypalButtonsRendered.current) {
+        container.innerHTML = "";
+
+        window.paypal.Buttons({
+          createOrder: async () => {
+            setLoading(true);
+            try {
+              const response = await supabase.functions.invoke("createPayPalAmberOrder", {
+                body: { price: pkg.price },
+              });
+
+              if (response.error) {
+                let detailedMessage = response.error.message || "Bestellung fehlgeschlagen.";
+                try {
+                  const errorPayload = await response.error.context?.json?.();
+                  const parts = [errorPayload?.error, errorPayload?.details?.error].filter(Boolean);
+                  if (parts.length > 0) detailedMessage = parts.join(": ");
+                } catch (_) {}
+                throw new Error(detailedMessage);
+              }
+
+              if (!response.data?.orderID) {
+                throw new Error("Keine OrderID erhalten.");
+              }
+
+              return response.data.orderID;
+            } catch (error) {
+              setMessage(`Fehler: ${error.message}`);
+              setLoading(false);
+              throw error;
+            }
+          },
+          onApprove: async (data) => {
+            try {
+              const response = await supabase.functions.invoke("capturePayPalAmberPayment", {
+                body: { orderID: data.orderID, amber: pkg.amber },
+              });
+
+              if (response.error) {
+                let detailedMessage = response.error.message || "Zahlung fehlgeschlagen.";
+                try {
+                  const errorPayload = await response.error.context?.json?.();
+                  const parts = [errorPayload?.error, errorPayload?.details?.error].filter(Boolean);
+                  if (parts.length > 0) detailedMessage = parts.join(": ");
+                } catch (_) {}
+                throw new Error(detailedMessage);
+              }
+
+              if (response.data?.success) {
+                setMessage(`✅ ${response.data.message}`);
+                setSelectedPackage(null);
+                paypalButtonsRendered.current = false;
+              }
+            } catch (error) {
+              setMessage(`Fehler: ${error.message}`);
+            } finally {
+              setLoading(false);
+            }
+          },
+          onCancel: () => {
+            setLoading(false);
+            setSelectedPackage(null);
+            paypalButtonsRendered.current = false;
+            setMessage("Kauf abgebrochen.");
+          },
+          onError: (err) => {
+            setLoading(false);
+            setSelectedPackage(null);
+            paypalButtonsRendered.current = false;
+            setMessage(`PayPal Fehler: ${String(err)}`);
+          },
+        }).render("#paypal-amber-button-container");
+
+        paypalButtonsRendered.current = true;
+      }
+    }, 100);
+  };
+
+  return (
+    <div className="space-y-3">
+      <SectionCard title="Bernstein kaufen" icon={Gem} isLightUi={isLightUi}>
+        {message && (
+          <div className={`mb-3 rounded-xl border px-3 py-2 text-xs ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50 text-stone-700" : "border-[#f0e5a5]/25 bg-black/25 text-stone-200"}`}>
+            {message}
+          </div>
+        )}
+
+        {selectedPackage ? (
+          <div className="space-y-3">
+            <div className={`rounded-xl border px-3 py-3 text-center ${isLightUi ? "border-[#c8ac62]/45 bg-white/80" : "border-[#f0e5a5]/35 bg-black/35"}`}>
+              <div className={`text-sm font-semibold ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
+                {selectedPackage.label}
+              </div>
+              <div className={`mt-1 text-lg font-bold ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}>
+                {selectedPackage.price.toFixed(2).replace(".", ",")} €
+              </div>
+            </div>
+
+            {loading && (
+              <div className="flex items-center justify-center py-3">
+                <RefreshCw className={`w-5 h-5 animate-spin ${isLightUi ? "text-stone-600" : "text-stone-300"}`} />
+              </div>
+            )}
+
+            <div id="paypal-amber-button-container" className={loading ? "opacity-50 pointer-events-none" : ""} />
+
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedPackage(null);
+                paypalButtonsRendered.current = false;
+              }}
+              className={`w-full h-9 rounded-xl border px-3 text-xs font-semibold ${isLightUi ? "border-[#c8ac62]/40 bg-white/75 text-stone-700 hover:bg-white" : "border-[#f0e5a5]/25 bg-black/35 text-stone-100 hover:bg-black/50"}`}
+            >
+              Abbrechen
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {AMBER_PACKAGES.map((pkg) => (
+              <button
+                key={pkg.id}
+                type="button"
+                onClick={() => handleBuyPackage(pkg)}
+                className={`w-full flex items-center justify-between rounded-2xl border px-4 py-3 text-left transition-all ${
+                  isLightUi
+                    ? "border-[#c8ac62]/35 bg-white/70 hover:border-[#c8ac62]/60 hover:shadow-[0_6px_16px_rgba(162,129,48,0.12)]"
+                    : "border-[#f0e5a5]/25 bg-black/25 hover:border-[#f0e5a5]/50 hover:shadow-[0_6px_16px_rgba(0,0,0,0.3)]"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${isLightUi ? "bg-amber-100 text-amber-700" : "bg-amber-500/20 text-amber-300"}`}>
+                    <Gem className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className={`text-sm font-semibold ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
+                      {pkg.amber} Bernstein
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm font-bold ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}>
+                    {pkg.price.toFixed(2).replace(".", ",")} €
+                  </span>
+                  <span className={`inline-flex h-8 items-center rounded-lg border px-3 text-xs font-semibold ${
+                    isLightUi
+                      ? "border-[#c8ac62]/50 bg-[#f4e7bf] text-stone-800"
+                      : "border-[#f0e5a5]/40 bg-[#4f4826] text-[#f7f0c1]"
+                  }`}>
+                    Kaufen
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </SectionCard>
+    </div>
+  );
+};
+
 /**
  * @param {{
  *   embedded?: boolean,
@@ -1297,6 +1494,14 @@ export default function ShopFeatureRoot({
       sections: [],
       optionCount: 0,
       isPlaceholder: true,
+    });
+
+    resolved.push({
+      key: "bernstein",
+      title: "Bernstein",
+      subtitle: "Bernstein-Pakete kaufen",
+      sections: [],
+      optionCount: 0,
     });
 
     return orderByCategoryList(resolved, ROOT_SUBCATEGORY_ORDER.shop);
@@ -2132,6 +2337,8 @@ export default function ShopFeatureRoot({
                 </div>
               </SectionCard>
             </div>
+          ) : shopRootCategory === "shop" && currentCategory.key === "bernstein" ? (
+            <BernsteinShopSection isLightUi={isLightUi} />
           ) : currentCategory.key === "accessories" ? (
             <div className="space-y-3">
               {florabotAccessorySections.length > 1 && (
