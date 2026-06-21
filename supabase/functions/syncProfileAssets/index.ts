@@ -58,8 +58,13 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY");
-    const catalogUrl = Deno.env.get("PROFILE_ASSET_CATALOG_URL");
-    const syncSecret = Deno.env.get("PROFILE_ASSET_SYNC_SECRET");
+    // Fall back to deriving profile catalog URL from the logo catalog URL
+    const catalogUrl =
+      Deno.env.get("PROFILE_ASSET_CATALOG_URL") ||
+      (Deno.env.get("LOGO_ASSET_CATALOG_URL") || "").replace(/\/logo-assets\/catalog$/, "/profile/catalog") ||
+      "";
+    const syncSecret =
+      Deno.env.get("PROFILE_ASSET_SYNC_SECRET") || Deno.env.get("LOGO_ASSET_SYNC_SECRET");
 
     if (!supabaseUrl || !serviceRoleKey || !catalogUrl) {
       return jsonResponse({ error: "Missing required environment variables" }, 500);

@@ -208,7 +208,7 @@ const triggerLogoAssetSync = async (env, reason = "manual") => {
 
 const triggerProfileAssetSync = async (env, reason = "manual") => {
   const endpoint = String(env.PROFILE_ASSET_SYNC_ENDPOINT || "").trim();
-  const secret = String(env.PROFILE_ASSET_SYNC_SECRET || "").trim();
+  const secret = String(env.PROFILE_ASSET_SYNC_SECRET || env.LOGO_ASSET_SYNC_SECRET || "").trim();
   return triggerSyncEndpoint(endpoint, secret, reason, "syncProfileAssets");
 };
 
