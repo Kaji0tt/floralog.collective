@@ -42,6 +42,7 @@ const buildPublicAssetUrl = (requestUrl, env, key) => {
 
 const ACTIVE_PREFIX = "custom_logo/";
 const LEGACY_PREFIX = "custom_logo/legacy/";
+const PROFILE_PREFIX = "profile/";
 
 const buildCatalog = async (requestUrl, env) => {
   const assets = [];
@@ -86,6 +87,68 @@ const buildCatalog = async (requestUrl, env) => {
   assets.sort((left, right) => {
     if (left.asset_type !== right.asset_type) {
       return left.asset_type.localeCompare(right.asset_type);
+    }
+    return left.asset_id.localeCompare(right.asset_id);
+  });
+
+  return {
+    source: "r2",
+    generated_at: new Date().toISOString(),
+    count: assets.length,
+    assets,
+  };
+};
+
+const ALLOWED_IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|webp)$/i;
+
+const contentTypeFromKey = (key) => {
+  if (/\.png$/i.test(key)) return "image/png";
+  if (/\.jpe?g$/i.test(key)) return "image/jpeg";
+  if (/\.gif$/i.test(key)) return "image/gif";
+  if (/\.webp$/i.test(key)) return "image/webp";
+  return "application/octet-stream";
+};
+
+const buildProfileCatalog = async (requestUrl, env) => {
+  const assets = [];
+  let cursor = undefined;
+
+  do {
+    const listed = await env.ASSET_BUCKET.list({
+      prefix: PROFILE_PREFIX,
+      limit: 100,
+      cursor,
+    });
+
+    for (const object of listed.objects) {
+      const key = object.key;
+      if (!ALLOWED_IMAGE_EXTENSIONS.test(key)) continue;
+
+      const relativePath = key.slice(PROFILE_PREFIX.length);
+      const parts = relativePath.split("/");
+      const fileName = parts.pop();
+      if (!fileName) continue;
+
+      const category = parts[0] || "uncategorized";
+      const assetId = fileName.replace(/\.[^.]+$/, "");
+
+      assets.push({
+        asset_id: assetId,
+        category,
+        file_name: fileName,
+        r2_key: key,
+        public_url: buildPublicAssetUrl(requestUrl, env, key),
+        display_name: toDisplayName(assetId),
+        active: true,
+      });
+    }
+
+    cursor = listed.truncated ? listed.cursor : undefined;
+  } while (cursor);
+
+  assets.sort((left, right) => {
+    if (left.category !== right.category) {
+      return left.category.localeCompare(right.category);
     }
     return left.asset_id.localeCompare(right.asset_id);
   });
@@ -176,9 +239,15 @@ export default {
       return jsonResponse(result, result.ok ? 200 : 502, { "Cache-Control": "no-store" });
     }
 
+    if (request.method === "GET" && url.pathname === "/profile/catalog") {
+      const catalog = await buildProfileCatalog(request.url, env);
+      return jsonResponse(catalog, 200, { "Cache-Control": "no-store" });
+    }
+
     if (request.method === "GET" && url.pathname.startsWith("/asset/")) {
       const key = decodeURIComponent(url.pathname.slice("/asset/".length));
-      if (!key || key.includes("..") || !key.startsWith("custom_logo/")) {
+      const allowedPrefixes = ["custom_logo/", "profile/"];
+      if (!key || key.includes("..") || !allowedPrefixes.some((p) => key.startsWith(p))) {
         return new Response("Bad request", { status: 400, headers: CORS_HEADERS });
       }
 
@@ -190,7 +259,7 @@ export default {
       return new Response(object.body, {
         headers: {
           ...CORS_HEADERS,
-          "Content-Type": "image/png",
+          "Content-Type": contentTypeFromKey(key),
           "Content-Length": String(object.size),
           "Cache-Control": "public, max-age=31536000, immutable",
         },
