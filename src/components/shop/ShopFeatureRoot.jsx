@@ -38,6 +38,7 @@ import {
   sanitizeSelectedProfileBadgeIds,
 } from "@/lib/profileBadges";
 import { getProfileBadgeIconComponent } from "@/lib/profileBadgeIcons";
+import { resolveOwnedUniqueBadges } from "@/lib/profileUniqueBadges";
 
 const BORDER_COLOR_PRESETS = [
   "#ff3b30",
@@ -1155,6 +1156,7 @@ const BernsteinShopSection = ({ isLightUi }) => {
  *   authId?: string | null,
  *   currentUser?: any,
  *   badgeMetrics?: Record<string, number> | null,
+ *   ownedUniqueBadgeIds?: string[] | null,
  *   onHeaderMetaChange?: any,
  *   onUserUpdated?: (user: any) => void,
  *   externalActionMode?: boolean,
@@ -1169,6 +1171,7 @@ export default function ShopFeatureRoot({
   authId = null,
   currentUser = null,
   badgeMetrics = null,
+  ownedUniqueBadgeIds = null,
   onHeaderMetaChange,
   onUserUpdated,
   externalActionMode = false,
@@ -1312,22 +1315,36 @@ export default function ShopFeatureRoot({
     return evaluateProfileBadges(badgeMetrics || {});
   }, [badgeMetrics]);
 
+  const ownedUniqueBadges = useMemo(() => {
+    return resolveOwnedUniqueBadges(ownedUniqueBadgeIds || []);
+  }, [ownedUniqueBadgeIds]);
+
   const badgeCategory = useMemo(() => {
+    const sections = [
+      {
+        key: "metric_badges",
+        title: "Metrik-Abzeichen",
+        emptyLabel: "Noch keine Abzeichen verfügbar.",
+        options: evaluatedBadges,
+      },
+    ];
+    if (ownedUniqueBadges.length > 0) {
+      sections.unshift({
+        key: "unique_badges",
+        title: "Einzigartige Abzeichen",
+        emptyLabel: "",
+        options: ownedUniqueBadges,
+      });
+    }
+    const totalCount = evaluatedBadges.length + ownedUniqueBadges.length;
     return {
       key: "badges",
       title: "Abzeichen",
       subtitle: "Metrik-Abzeichen mit 5 Rängen (Grau, Weiß, Bronze, Silber, Gold)",
-      sections: [
-        {
-          key: "metric_badges",
-          title: "Metrik-Abzeichen",
-          emptyLabel: "Noch keine Abzeichen verfügbar.",
-          options: evaluatedBadges,
-        },
-      ],
-      optionCount: evaluatedBadges.length,
+      sections,
+      optionCount: totalCount,
     };
-  }, [evaluatedBadges]);
+  }, [evaluatedBadges, ownedUniqueBadges]);
 
   const accessoriesCategory = useMemo(() => {
     return customizationCategories.find((category) => category.key === "accessories") || null;
@@ -2388,8 +2405,15 @@ export default function ShopFeatureRoot({
                   Du kannst bis zu {PROFILE_BADGE_MAX_SELECTED} Abzeichen im Profilbanner anzeigen. Aktuell ausgewählt: {selectedBadgeIds.length}/{PROFILE_BADGE_MAX_SELECTED}.
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                  {(currentCategory.sections[0]?.options || []).map((badge) => {
+                {(currentCategory.sections || []).map((section) => (
+                  <div key={section.key} className="mb-4 last:mb-0">
+                    {currentCategory.sections.length > 1 && (
+                      <div className={`mb-2 text-xs font-semibold ${isLightUi ? "text-[#8f6b22]" : "text-stone-200/90"}`}>
+                        {section.title}
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                      {(section.options || []).map((badge) => {
                     const Icon = getProfileBadgeIconComponent(badge.iconKey);
                     const rankChipClass = BADGE_RANK_BADGE_STYLE[badge.rankKey] || BADGE_RANK_BADGE_STYLE.gray;
                     const iconToneClass = BADGE_RANK_ICON_STYLE[badge.rankKey] || BADGE_RANK_ICON_STYLE.gray;
@@ -2399,7 +2423,7 @@ export default function ShopFeatureRoot({
                       <div className="space-y-1 text-[11px] leading-snug">
                         <div className="font-semibold">{badge.label}</div>
                         <div>{badge.description}</div>
-                        <div className="opacity-85">Wert: {badge.valueLabel}</div>
+                        {!badge.isUnique && <div className="opacity-85">Wert: {badge.valueLabel}</div>}
                         <div className="opacity-85">Rang: {badge.rankMeta?.label || "Grau"}</div>
                       </div>
                     );
@@ -2445,10 +2469,12 @@ export default function ShopFeatureRoot({
                       </LockedTooltip>
                     );
                   })}
-                </div>
+                    </div>
+                  </div>
+                ))}
 
                 <div className={`mt-3 rounded-xl border px-3 py-2 text-xs ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50 text-stone-700" : "border-[#f0e5a5]/25 bg-black/25 text-stone-200"}`}>
-                  Verfügbare Abzeichen: {PROFILE_BADGE_DEFINITIONS.length}. Ausgewählte Abzeichen erscheinen neben Florabot im Home-Banner.
+                  Verfügbare Abzeichen: {currentCategory.optionCount}. Ausgewählte Abzeichen erscheinen neben Florabot im Home-Banner.
                 </div>
               </SectionCard>
             </div>
