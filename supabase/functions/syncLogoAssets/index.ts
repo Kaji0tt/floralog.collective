@@ -16,6 +16,7 @@ type CatalogAsset = {
   display_name?: string | null;
   active?: boolean;
   default_unlocked?: boolean;
+  legacy?: boolean;
 };
 
 type CatalogResponse = {
@@ -59,6 +60,7 @@ const normalizeAsset = (asset: CatalogAsset) => {
     display_name: (asset.display_name || assetId).trim(),
     active: asBoolean(asset.active, true),
     default_unlocked: asBoolean(asset.default_unlocked, DEFAULT_UNLOCKED_IDS.has(assetId)),
+    legacy: asBoolean(asset.legacy, false),
     spark_price: asNonNegativeIntegerOrNull(asset.spark_price),
     amber_price: asNonNegativeIntegerOrNull(asset.amber_price),
     source: "r2",
@@ -273,11 +275,16 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Propagate legacy flag: mark rewards for legacy assets as inactive
+    // (This doesn't use a column on Rewards but ensures the sync response tracks it)
+    const legacyAssetIds = deduped.filter((asset) => asset.legacy).map((asset) => asset.asset_id);
+
     return new Response(
       JSON.stringify({
         ok: true,
         synced: deduped.length,
         rewards_synced: rewardsSynced,
+        legacy_count: legacyAssetIds.length,
         defaults_unlocked: Array.from(DEFAULT_UNLOCKED_IDS),
       }),
       {

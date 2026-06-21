@@ -604,10 +604,15 @@ export const getAccessorySections = ({ logoAssets = [], rewards = [], userReward
     const assetId = String(asset?.asset_id || "").trim();
     if (!grouped[assetType] || !assetId) continue;
 
+    const isLegacy = Boolean(asset?.legacy);
     const isDefaultUnlocked = Boolean(asset?.default_unlocked);
     const isUnlocked = isDefaultUnlocked || rewardUnlockedIds.has(assetId);
+
+    // Legacy assets are hidden from the shop unless the user already owns them.
+    if (isLegacy && !isUnlocked) continue;
+
     const unlockCondition = !isUnlocked ? getAccessoryUnlockCondition(assetId, rewards, genera, plants) : null;
-    const purchaseMeta = !isUnlocked ? getAccessoryPurchaseMeta(assetId, rewards) : null;
+    const purchaseMeta = (!isUnlocked && !isLegacy) ? getAccessoryPurchaseMeta(assetId, rewards) : null;
 
     grouped[assetType].push({
       id: assetId,
@@ -617,6 +622,7 @@ export const getAccessorySections = ({ logoAssets = [], rewards = [], userReward
       imageUrl: asset?.public_url,
       type: "accessory",
       isLocked: !isUnlocked,
+      isLegacy,
       unlockCondition,
       ...(purchaseMeta || {}),
     });

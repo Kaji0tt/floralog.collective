@@ -40,13 +40,16 @@ const buildPublicAssetUrl = (requestUrl, env, key) => {
   return `${origin}/asset/${key}`;
 };
 
+const ACTIVE_PREFIX = "custom_logo/";
+const LEGACY_PREFIX = "custom_logo/legacy/";
+
 const buildCatalog = async (requestUrl, env) => {
   const assets = [];
   let cursor = undefined;
 
   do {
     const listed = await env.ASSET_BUCKET.list({
-      prefix: "custom_logo/",
+      prefix: ACTIVE_PREFIX,
       limit: 100,
       cursor,
     });
@@ -62,6 +65,8 @@ const buildCatalog = async (requestUrl, env) => {
       const assetType = parseAssetType(assetId);
       if (!assetType) continue;
 
+      const isLegacy = key.startsWith(LEGACY_PREFIX);
+
       assets.push({
         asset_id: assetId,
         asset_type: assetType,
@@ -71,6 +76,7 @@ const buildCatalog = async (requestUrl, env) => {
         display_name: toDisplayName(assetId),
         default_unlocked: DEFAULT_UNLOCKED_IDS.has(assetId),
         active: true,
+        legacy: isLegacy,
       });
     }
 
