@@ -398,7 +398,7 @@ const formatAccessoryPriceLabel = (sparkPrice, amberPrice) => {
   const parts = [];
   if (sparkPrice > 0) parts.push(`${sparkPrice} Funken`);
   if (amberPrice > 0) parts.push(`${amberPrice} Bernstein`);
-  return parts.join(" + ");
+  return parts.join(" oder ");
 };
 
 const AccessoryOptionCard = ({ option, user, isLightUi, isPending, isSelected = false, onSelect }) => {
@@ -1189,6 +1189,7 @@ export default function ShopFeatureRoot({
   });
   const [shopMessage, setShopMessage] = useState(null);
   const [purchaseConfirmOption, setPurchaseConfirmOption] = useState(null);
+  const [purchaseCurrency, setPurchaseCurrency] = useState(null); // "sparks" | "amber" | null
   const [selectedOptionForAction, setSelectedOptionForAction] = useState(null);
   const [activeFlorabotSectionKey, setActiveFlorabotSectionKey] = useState(null);
   const [collapsedBackgroundSections, setCollapsedBackgroundSections] = useState({
@@ -1656,6 +1657,7 @@ export default function ShopFeatureRoot({
           rewardValue: String(option?.value || matchingReward?.value || ""),
           sparkPrice,
           amberPrice,
+          paymentCurrency: option.paymentCurrency || "sparks",
           eventReference,
         },
       });
@@ -1669,8 +1671,6 @@ export default function ShopFeatureRoot({
           setShopMessage(`Nicht genug Funken. Benötigt: ${result.sparkPrice}, verfügbar: ${result.sparksBalance}.`);
         } else if (result?.errorCode === "insufficient_amber") {
           setShopMessage(`Nicht genug Bernstein. Benötigt: ${result.amberPrice}, verfügbar: ${result.amberBalance}.`);
-        } else if (result?.errorCode === "insufficient_both") {
-          setShopMessage(`Nicht genug Funken und Bernstein. Benötigt: ${formatAccessoryPriceLabel(result.sparkPrice, result.amberPrice)}.`);
         } else if (result?.errorCode === "reward_not_configured") {
           setShopMessage("Diese Belohnung kann aktuell nicht gekauft werden.");
         } else {
@@ -1970,9 +1970,14 @@ export default function ShopFeatureRoot({
 
   const purchaseDialogSparkPrice = Math.max(0, Number(purchaseConfirmOption?.sparkPrice ?? 0));
   const purchaseDialogAmberPrice = Math.max(0, Number(purchaseConfirmOption?.amberPrice ?? 0));
-  const canAffordDialogSparks = purchaseDialogSparkPrice <= 0 || availableSparks >= purchaseDialogSparkPrice;
-  const canAffordDialogAmber = purchaseDialogAmberPrice <= 0 || availableAmber >= purchaseDialogAmberPrice;
-  const canAffordPurchaseDialogOption = canAffordDialogSparks && canAffordDialogAmber;
+  const purchaseDialogHasBothPrices = purchaseDialogSparkPrice > 0 && purchaseDialogAmberPrice > 0;
+  // Auto-select currency when only one price is set; default to sparks when both available
+  const effectivePurchaseCurrency = purchaseDialogHasBothPrices
+    ? (purchaseCurrency || "sparks")
+    : (purchaseDialogSparkPrice > 0 ? "sparks" : "amber");
+  const canAffordDialogSparks = availableSparks >= purchaseDialogSparkPrice;
+  const canAffordDialogAmber = availableAmber >= purchaseDialogAmberPrice;
+  const canAffordPurchaseDialogOption = effectivePurchaseCurrency === "sparks" ? canAffordDialogSparks : canAffordDialogAmber;
   const resolvedCurrentTitle = resolveTitleValue(resolvedCurrentUser?.selected_title, resolvedCurrentUser?.title) || "Pflanzen-Entdecker";
   const isMutationPending = updateCustomizationMutation.isPending || purchaseAccessoryMutation.isPending;
   const selectedActionRef = React.useRef(null);
@@ -2045,14 +2050,13 @@ export default function ShopFeatureRoot({
   const handleClosePurchaseDialog = () => {
     if (purchaseAccessoryMutation.isPending) return;
     setPurchaseConfirmOption(null);
+    setPurchaseCurrency(null);
   };
 
   const handleConfirmAccessoryPurchase = async () => {
     if (!purchaseConfirmOption || purchaseAccessoryMutation.isPending) return;
     if (!canAffordPurchaseDialogOption) {
-      if (!canAffordDialogSparks && !canAffordDialogAmber) {
-        setShopMessage("Nicht genug Funken und Bernstein.");
-      } else if (!canAffordDialogSparks) {
+      if (effectivePurchaseCurrency === "sparks") {
         setShopMessage(`Nicht genug Funken. Benötigt: ${purchaseDialogSparkPrice}, verfügbar: ${availableSparks}.`);
       } else {
         setShopMessage(`Nicht genug Bernstein. Benötigt: ${purchaseDialogAmberPrice}, verfügbar: ${availableAmber}.`);
@@ -2061,8 +2065,9 @@ export default function ShopFeatureRoot({
     }
 
     try {
-      await purchaseAccessoryMutation.mutateAsync(purchaseConfirmOption);
+      await purchaseAccessoryMutation.mutateAsync({ ...purchaseConfirmOption, paymentCurrency: effectivePurchaseCurrency });
       setPurchaseConfirmOption(null);
+      setPurchaseCurrency(null);
     } catch {
       // Die Fehlermeldung wird in onError/onSuccess gesetzt.
     }
@@ -2557,29 +2562,51 @@ export default function ShopFeatureRoot({
             )}
 
             <p className={`text-sm ${isLightUi ? "text-stone-700" : "text-stone-200"}`}>
-              Möchtest du <span className="font-semibold">{purchaseConfirmOption?.label || "diese Belohnung"}</span> für <span className="font-semibold">{formatAccessoryPriceLabel(purchaseDialogSparkPrice, purchaseDialogAmberPrice)}</span> kaufen?
+              Möchtest du <span className="font-semibold">{purchaseConfirmOption?.label || "diese Belohnung"}</span> freischalten?
             </p>
 
-            <div className={`rounded-lg border px-3 py-2 text-xs space-y-1 ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50 text-stone-700" : "border-[#f0e5a5]/25 bg-black/25 text-stone-200"}`}>
-              {purchaseDialogSparkPrice > 0 && (
-                <div className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1"><Sparkles className="w-3 h-3 opacity-80" /> Funken</span>
-                  <span className={`font-semibold ${!canAffordDialogSparks ? (isLightUi ? "text-red-600" : "text-red-400") : ""}`}>{availableSparks} / {purchaseDialogSparkPrice}</span>
-                </div>
-              )}
-              {purchaseDialogAmberPrice > 0 && (
-                <div className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1"><span className="text-[11px]">🔸</span> Bernstein</span>
-                  <span className={`font-semibold ${!canAffordDialogAmber ? (isLightUi ? "text-red-600" : "text-red-400") : ""}`}>{availableAmber} / {purchaseDialogAmberPrice}</span>
-                </div>
-              )}
-            </div>
+            {purchaseDialogHasBothPrices ? (
+              <div className={`rounded-lg border px-3 py-2 text-xs space-y-2 ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50 text-stone-700" : "border-[#f0e5a5]/25 bg-black/25 text-stone-200"}`}>
+                <p className="font-medium text-[11px] uppercase tracking-wide opacity-70">Bezahlen mit:</p>
+                <label className={`flex items-center justify-between gap-2 cursor-pointer rounded-md px-2 py-1.5 transition-colors ${effectivePurchaseCurrency === "sparks" ? (isLightUi ? "bg-amber-100/70 ring-1 ring-amber-300" : "bg-amber-900/30 ring-1 ring-amber-500/50") : ""}`}>
+                  <span className="flex items-center gap-1.5">
+                    <input type="radio" name="purchaseCurrency" value="sparks" checked={effectivePurchaseCurrency === "sparks"} onChange={() => setPurchaseCurrency("sparks")} className="accent-amber-500" />
+                    <Sparkles className="w-3 h-3 opacity-80" /> {purchaseDialogSparkPrice} Funken
+                  </span>
+                  <span className={`font-semibold ${!canAffordDialogSparks ? (isLightUi ? "text-red-600" : "text-red-400") : ""}`}>
+                    (Guthaben: {availableSparks})
+                  </span>
+                </label>
+                <label className={`flex items-center justify-between gap-2 cursor-pointer rounded-md px-2 py-1.5 transition-colors ${effectivePurchaseCurrency === "amber" ? (isLightUi ? "bg-amber-100/70 ring-1 ring-amber-300" : "bg-amber-900/30 ring-1 ring-amber-500/50") : ""}`}>
+                  <span className="flex items-center gap-1.5">
+                    <input type="radio" name="purchaseCurrency" value="amber" checked={effectivePurchaseCurrency === "amber"} onChange={() => setPurchaseCurrency("amber")} className="accent-amber-500" />
+                    <span className="text-[11px]">🔸</span> {purchaseDialogAmberPrice} Bernstein
+                  </span>
+                  <span className={`font-semibold ${!canAffordDialogAmber ? (isLightUi ? "text-red-600" : "text-red-400") : ""}`}>
+                    (Guthaben: {availableAmber})
+                  </span>
+                </label>
+              </div>
+            ) : (
+              <div className={`rounded-lg border px-3 py-2 text-xs space-y-1 ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50 text-stone-700" : "border-[#f0e5a5]/25 bg-black/25 text-stone-200"}`}>
+                {purchaseDialogSparkPrice > 0 && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1"><Sparkles className="w-3 h-3 opacity-80" /> Funken</span>
+                    <span className={`font-semibold ${!canAffordDialogSparks ? (isLightUi ? "text-red-600" : "text-red-400") : ""}`}>{availableSparks} / {purchaseDialogSparkPrice}</span>
+                  </div>
+                )}
+                {purchaseDialogAmberPrice > 0 && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1"><span className="text-[11px]">🔸</span> Bernstein</span>
+                    <span className={`font-semibold ${!canAffordDialogAmber ? (isLightUi ? "text-red-600" : "text-red-400") : ""}`}>{availableAmber} / {purchaseDialogAmberPrice}</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {!canAffordPurchaseDialogOption && (
               <div className={`rounded-lg border px-3 py-2 text-xs ${isLightUi ? "border-red-200 bg-red-50 text-red-700" : "border-red-500/35 bg-red-900/25 text-red-200"}`}>
-                {!canAffordDialogSparks && !canAffordDialogAmber
-                  ? "Du hast nicht genug Funken und Bernstein für diesen Kauf."
-                  : !canAffordDialogSparks
+                {effectivePurchaseCurrency === "sparks"
                   ? "Du hast nicht genug Funken für diesen Kauf."
                   : "Du hast nicht genug Bernstein für diesen Kauf."}
               </div>
