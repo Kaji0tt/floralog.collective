@@ -77,6 +77,15 @@ const ACCENT_STYLES = {
     iconFgLight: "text-blue-100",
     iconFgDark: "text-blue-100",
   },
+  season: {
+    tint: "rgba(251, 191, 36, 0.34)",
+    borderLight: "rgba(217, 171, 67, 0.44)",
+    borderDark: "rgba(251, 191, 36, 0.30)",
+    iconBgLight: "bg-amber-100/20",
+    iconBgDark: "bg-amber-300/16",
+    iconFgLight: "text-amber-100",
+    iconFgDark: "text-amber-100",
+  },
 };
 
 export default function CollectionCategoryEntryCard({

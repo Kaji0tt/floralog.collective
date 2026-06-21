@@ -5,7 +5,7 @@ import { createUserNotification, getUserDisplayName } from "@/api/notificationSe
 import { getCurrentUser } from "@/api/userApi";
 import { createPageUrl } from "@/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Home, List, Leaf, Compass, Plus, Users } from "lucide-react";
+import { Home, List, Leaf, Compass, Plus, Users, Sun } from "lucide-react";
 import HintDialog from "./HintDialog";
 import CollectionScreen from "./CollectionScreen";
 import CollectionCategoryEntryCard from "./CollectionCategoryEntryCard";
@@ -13,6 +13,7 @@ import FlorabotLogo from "@/components/florabot/FlorabotLogo";
 import HomeShellLoader from "../navigation/HomeShellLoader";
 import useCollectionViewState, { DEFAULT_COLLECTION_FILTERS } from "./hooks/useCollectionViewState";
 import { useUiTheme } from "@/lib/UiThemeContext";
+import { getActiveSeason } from "@/lib/seasonConfig";
 
 const CATEGORY_CHIPS = [
   { value: "Bäume", emoji: "🌳" },
@@ -444,6 +445,9 @@ export default function CollectionFeatureRoot({
 
   const collectionChips = useMemo(() => {
     if (selectedEntryCategory === "global") {
+      if (selectedCollectionId === "season") {
+        return [{ id: "season", title: "☀️ Sommer 2026", isGlobal: false, isFollowed: false, isSeason: true }];
+      }
       return [{ id: "global", title: "Global", isGlobal: true, isFollowed: false }];
     }
 
@@ -458,11 +462,11 @@ export default function CollectionFeatureRoot({
     }
 
     return [];
-  }, [selectedEntryCategory, uniqueThemeCollections, followedCollections]);
+  }, [selectedEntryCategory, selectedCollectionId, uniqueThemeCollections, followedCollections]);
 
   const selectedEntryCategoryLabel =
     selectedEntryCategory === "global"
-      ? "Globale"
+      ? (selectedCollectionId === "season" ? (getActiveSeason()?.title || "Saison") : "Globale")
       : selectedEntryCategory === "themes"
         ? "Themen"
         : selectedEntryCategory === "shared"
@@ -482,12 +486,6 @@ export default function CollectionFeatureRoot({
     }
   }, [selectedEntryCategory, collectionChips, selectedCollectionId, handleCollectionChipSelect]);
 
-  useEffect(() => {
-    if (selectedEntryCategory !== "global") return;
-    if (selectedCollectionId !== "global") {
-      handleCollectionChipSelect("global");
-    }
-  }, [selectedEntryCategory, selectedCollectionId, handleCollectionChipSelect]);
   const selectedCollectionOwnerProfile = selectedCollection
     ? (publicProfiles || []).find((p) => p.auth_id === selectedCollection.auth_id) || null
     : null;
@@ -519,6 +517,10 @@ export default function CollectionFeatureRoot({
       const total = generaWithDiscovery.length;
       const discovered = generaWithDiscovery.filter((g) => g.discovered).length;
       return { discovered, total };
+    }
+
+    if (collectionKey === 'season') {
+      return { discovered: seasonCategoryStats.discovered, total: seasonCategoryStats.total };
     }
 
     const itemsForCollection = allCollectionItems.filter(
@@ -560,6 +562,28 @@ export default function CollectionFeatureRoot({
 
   if (selectedEntryCategory === "shared") {
     filteredGenera = [];
+  }
+
+  // Season filter: nur Gattungen mit Entdeckungen seit Season-Start zeigen
+  if (selectedCollectionId === "season") {
+    const season = getActiveSeason();
+    if (season) {
+      const seasonDiscoveries = userDiscoveries.filter(
+        (d) => d.discovered_date >= season.startDate
+      );
+      const seasonPlantIds = new Set(seasonDiscoveries.map((d) => d.plant_id));
+      const seasonGenusKeys = new Set();
+      plants.forEach((p) => {
+        if (seasonPlantIds.has(p.id)) {
+          seasonGenusKeys.add(`${p.genus_category}::${p.genus_number}`);
+        }
+      });
+      filteredGenera = filteredGenera.filter((g) =>
+        seasonGenusKeys.has(`${g.category}::${g.category_dex_number}`)
+      );
+    } else {
+      filteredGenera = [];
+    }
   }
 
   if (selectedEntryCategory === "themes" && !selectedCollection) {
@@ -787,7 +811,7 @@ export default function CollectionFeatureRoot({
 
   const heroStats = selectedEntryCategory === "shared"
     ? { discovered: 0, total: 0 }
-    : getCollectionStats(selectedCollection ? selectedCollection.id : 'global');
+    : getCollectionStats(selectedCollectionId === "season" ? "season" : (selectedCollection ? selectedCollection.id : 'global'));
   const heroProgressPercent = heroStats.total
     ? Math.round((heroStats.discovered / heroStats.total) * 100)
     : 0;
@@ -795,13 +819,15 @@ export default function CollectionFeatureRoot({
   const ownerName = targetUser?.display_name || targetUser?.full_name || "Dein";
   const heroTitle = selectedCollection
     ? selectedCollection.title
-    : selectedEntryCategory === "global"
-      ? "Globale Kollektionen"
-      : selectedEntryCategory === "themes"
-        ? "Themen-Kollektionen"
-        : selectedEntryCategory === "shared"
-          ? "Gemeinsame Kollektionen"
-          : ownerName + "'s Floralog";
+    : selectedCollectionId === "season"
+      ? (getActiveSeason()?.title || "Saison")
+      : selectedEntryCategory === "global"
+        ? "Globale Kollektionen"
+        : selectedEntryCategory === "themes"
+          ? "Themen-Kollektionen"
+          : selectedEntryCategory === "shared"
+            ? "Gemeinsame Kollektionen"
+            : ownerName + "'s Floralog";
   const listTopFadePx = 14;
   const listBottomFadePx = 14;
   const isOwnerOfSelected =
@@ -908,6 +934,25 @@ export default function CollectionFeatureRoot({
     const percent = total > 0 ? Math.round((discovered / total) * 100) : 0;
     return { discovered, total, percent };
   }, [generaWithDiscovery]);
+
+  const seasonCategoryStats = useMemo(() => {
+    const season = getActiveSeason();
+    if (!season) return { discovered: 0, total: 0, percent: 0 };
+    const seasonDiscoveries = userDiscoveries.filter(
+      (d) => d.discovered_date >= season.startDate
+    );
+    const seasonPlantIds = new Set(seasonDiscoveries.map((d) => d.plant_id));
+    const seasonGenusKeys = new Set();
+    plants.forEach((p) => {
+      if (seasonPlantIds.has(p.id)) {
+        seasonGenusKeys.add(`${p.genus_category}::${p.genus_number}`);
+      }
+    });
+    const discovered = seasonGenusKeys.size;
+    const total = generaWithDiscovery.length;
+    const percent = total > 0 ? Math.round((discovered / total) * 100) : 0;
+    return { discovered, total, percent };
+  }, [userDiscoveries, plants, generaWithDiscovery]);
 
   const followedThemeCollectionChips = useMemo(() => {
     const ranked = followedCollections
@@ -1149,7 +1194,6 @@ export default function CollectionFeatureRoot({
                   onClick={() => {
                     setEntryCategory("global");
                     setPublicCollectionsPanelOpen(false);
-                    handleCollectionChipSelect("global");
                   }}
                 />
                 <CollectionCategoryEntryCard
@@ -1196,6 +1240,65 @@ export default function CollectionFeatureRoot({
                   onClick={() => {
                     setEntryCategory("browse");
                     setPublicCollectionsPanelOpen(false);
+                  }}
+                />
+              </div>
+            </div>
+          ) : selectedEntryCategory === "global" && selectedCollectionId !== "global" && selectedCollectionId !== "season" ? (
+            <div className="flex-1 min-h-0 max-h-full">
+              <div className="h-full max-h-full grid grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3" style={{ paddingTop: listTopFadePx, paddingBottom: listBottomFadePx }}>
+                <CollectionCategoryEntryCard
+                  title="Global"
+                  icon={Leaf}
+                  accent="global"
+                  className="h-full max-h-[12rem]"
+                  detailContent={(
+                    <div className="space-y-1.5">
+                      <div className={"flex items-center justify-between text-[11px] " + (isLightUi ? "text-white/75" : "text-white/75")}>
+                        <span>Fortschritt</span>
+                        <span>{globalCategoryStats.discovered}/{globalCategoryStats.total} ({globalCategoryStats.percent}%)</span>
+                      </div>
+                      <div className={"h-2 rounded-full overflow-hidden border " + (isLightUi ? "bg-black/30 border-white/15" : "bg-black/35 border-white/15")}>
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${globalCategoryStats.percent}%`,
+                            background: "linear-gradient(90deg, rgba(182, 220, 126, 0.92) 0%, rgba(132, 176, 86, 0.92) 100%)",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  descriptionMaxHeightClass="max-h-14"
+                  onClick={() => {
+                    handleCollectionChipSelect("global");
+                  }}
+                />
+                <CollectionCategoryEntryCard
+                  title="☀️ Sommer 2026"
+                  icon={Sun}
+                  accent="season"
+                  className="h-full max-h-[12rem]"
+                  detailContent={(
+                    <div className="space-y-1.5">
+                      <div className={"flex items-center justify-between text-[11px] " + (isLightUi ? "text-white/75" : "text-white/75")}>
+                        <span>Entdeckt diese Saison</span>
+                        <span>{seasonCategoryStats.discovered}</span>
+                      </div>
+                      <div className={"h-2 rounded-full overflow-hidden border " + (isLightUi ? "bg-black/30 border-white/15" : "bg-black/35 border-white/15")}>
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${seasonCategoryStats.percent}%`,
+                            background: "linear-gradient(90deg, rgba(251, 191, 36, 0.92) 0%, rgba(245, 158, 11, 0.92) 100%)",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  descriptionMaxHeightClass="max-h-14"
+                  onClick={() => {
+                    handleCollectionChipSelect("season");
                   }}
                 />
               </div>

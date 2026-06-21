@@ -28,6 +28,7 @@ import {
 } from "@/api/robotPlantService";
 import { grantScanZoneUnlocks } from "@/api/rewardUnlockService";
 import { ROBOT_PLANT_EVENT_SOURCES } from "@/lib/robotPlantConfig";
+import { getActiveSeason, classifyScan } from "@/lib/seasonConfig";
 import { updateQuestProgress } from "@/components/utils/questProgress";
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
@@ -882,9 +883,45 @@ export default function Scanner() {
 
     const alreadyDiscovered = currentDiscoveries.some((d) => d.plant_id === plant.id);
     const duplicateScanCount = currentDiscoveries.filter((d) => d.plant_id === plant.id).length;
-    const eventSource = alreadyDiscovered
-      ? ROBOT_PLANT_EVENT_SOURCES.scan
-      : ROBOT_PLANT_EVENT_SOURCES.newScan;
+
+    // Season-Klassifikation
+    const activeSeason = getActiveSeason();
+    let seasonScanType = null;
+    let discoveredThisSeasonByUser = false;
+    let discoveredThisSeasonByAnyone = false;
+
+    if (activeSeason) {
+      discoveredThisSeasonByUser = currentDiscoveries.some(
+        (d) => d.plant_id === plant.id && d.discovered_date >= activeSeason.startDate
+      );
+
+      try {
+        const { count } = await supabase
+          .from("UserPlantDiscovery")
+          .select("id", { count: "exact", head: true })
+          .eq("plant_id", plant.id)
+          .gte("discovered_date", activeSeason.startDate);
+        discoveredThisSeasonByAnyone = (count || 0) > 0;
+      } catch (e) {
+        console.warn("[Scanner] Season discovery check failed:", e);
+        discoveredThisSeasonByAnyone = alreadyDiscovered;
+      }
+
+      seasonScanType = classifyScan({
+        isNewGlobal: false,
+        alreadyDiscoveredByUser: alreadyDiscovered,
+        discoveredThisSeasonByUser,
+        discoveredThisSeasonByAnyone,
+      });
+    }
+
+    const eventSource = seasonScanType === "newSeasonScan"
+      ? ROBOT_PLANT_EVENT_SOURCES.newSeasonScan
+      : seasonScanType === "seasonRediscovery"
+        ? ROBOT_PLANT_EVENT_SOURCES.seasonRediscovery
+        : alreadyDiscovered
+          ? ROBOT_PLANT_EVENT_SOURCES.scan
+          : ROBOT_PLANT_EVENT_SOURCES.newScan;
 
     console.log("  ✅ alreadyDiscovered:", alreadyDiscovered);
 
@@ -980,7 +1017,7 @@ export default function Scanner() {
 
     setScanning(false);
 
-    return { alreadyDiscovered, rewardDetails, activeZone, energyDelta, dataQualityDelta, scanZoneUnlocks };
+    return { alreadyDiscovered, rewardDetails, activeZone, energyDelta, dataQualityDelta, scanZoneUnlocks, seasonScanType };
   };
 
   const handleAutoAddNewPlant = async (plantData, imageUrl, allResults = [], options = {}) => {
@@ -1199,7 +1236,7 @@ export default function Scanner() {
 
       if (selectedPlant.inDatabase) {
         // Pflanze existiert bereits im Floralog
-        const { alreadyDiscovered, rewardDetails, activeZone, energyDelta, dataQualityDelta, scanZoneUnlocks } = await handleAutoSave(
+        const { alreadyDiscovered, rewardDetails, activeZone, energyDelta, dataQualityDelta, scanZoneUnlocks, seasonScanType } = await handleAutoSave(
           selectedPlant,
           imageUrl,
           selectedPlant.aiData || plant?.aiData,
@@ -1210,10 +1247,15 @@ export default function Scanner() {
         setShowConfirmDialog(false);
         setPendingScanData(null);
 
+        // Feedback-Typ: Season-Scan-Typen haben Vorrang
+        let feedbackType = alreadyDiscovered ? "rescanned" : "newDiscovery";
+        if (seasonScanType === "newSeasonScan") feedbackType = "newSeasonScan";
+        else if (seasonScanType === "seasonRediscovery") feedbackType = "seasonRediscovery";
+
         navigate(createPageUrl("Home"), {
           state: {
             scanFeedback: {
-              type: alreadyDiscovered ? "rescanned" : "newDiscovery",
+              type: feedbackType,
               plantName: selectedPlant.species_name,
               rewardDetails,
               isInActiveZone: !!activeZone,
