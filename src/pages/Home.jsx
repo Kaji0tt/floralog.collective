@@ -75,6 +75,7 @@ import {
   PROFILE_BADGE_MAX_SELECTED,
 } from "@/lib/profileBadges";
 import { getProfileBadgeIconComponent } from "@/lib/profileBadgeIcons";
+import { resolveOwnedUniqueBadges } from "@/lib/profileUniqueBadges";
 import FlorabotIntroOverlay from "@/components/florabot/FlorabotIntroOverlay";
 import FlorabotMilestoneOverlay from "@/components/florabot/FlorabotMilestoneOverlay";
 import FlorabotContextBubble from "@/components/florabot/FlorabotContextBubble";
@@ -674,6 +675,25 @@ function HomeContent() {
     initialData: [],
     staleTime: 60 * 1000,
     refetchOnWindowFocus: true,
+  });
+
+  const { data: ownedUniqueBadgeIds = [] } = useQuery({
+    queryKey: ['homeUniqueBadges', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('unique_badges')
+        .select('badge_id')
+        .eq('auth_id', user?.id);
+      if (error) {
+        console.warn('[Home] unique_badges query failed:', error?.message || error);
+        return [];
+      }
+      return (data || []).map((row) => row.badge_id);
+    },
+    enabled: !!user?.id,
+    initialData: [],
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: highestScanResultsLeaderboard = [] } = useQuery({
@@ -2583,10 +2603,12 @@ function HomeContent() {
     zone_unlocked_plant_accessories: unlockedZoneAccessoryCount,
   };
   const evaluatedProfileBadges = evaluateProfileBadges(profileBadgeMetrics);
+  const ownedUniqueBadges = resolveOwnedUniqueBadges(ownedUniqueBadgeIds);
   const selectedProfileBadges = buildSelectedProfileBadges(
     user?.selected_badge_ids,
     evaluatedProfileBadges,
     PROFILE_BADGE_MAX_SELECTED,
+    ownedUniqueBadges,
   ).map((badge) => ({
     ...badge,
     Icon: getProfileBadgeIconComponent(badge.iconKey),
@@ -3491,6 +3513,7 @@ function HomeContent() {
                     authId={user?.id}
                     currentUser={user}
                     badgeMetrics={profileBadgeMetrics}
+                    ownedUniqueBadgeIds={ownedUniqueBadgeIds}
                     onHeaderMetaChange={setEmbeddedHeaderMeta}
                     onUserUpdated={(freshUser) => setUser(freshUser)}
                     initialCategory={shopOpenCategory}

@@ -1,3 +1,5 @@
+import { UNIQUE_BADGE_IDS } from "@/lib/profileUniqueBadges";
+
 const PROFILE_BADGE_MAX_SELECTED = 3;
 
 const PROFILE_BADGE_RANK_META = {
@@ -273,7 +275,7 @@ export const sanitizeSelectedProfileBadgeIds = (selectedValue, maxSelected = PRO
 
   for (const rawId of source) {
     const badgeId = String(rawId || "").trim();
-    if (!badgeId || seen.has(badgeId) || !PROFILE_BADGE_IDS.has(badgeId)) continue;
+    if (!badgeId || seen.has(badgeId) || (!PROFILE_BADGE_IDS.has(badgeId) && !UNIQUE_BADGE_IDS.has(badgeId))) continue;
     seen.add(badgeId);
     uniqueIds.push(badgeId);
     if (uniqueIds.length >= normalizedMax) break;
@@ -286,12 +288,14 @@ export const buildSelectedProfileBadges = (
   selectedBadgeIds,
   evaluatedBadges,
   maxSelected = PROFILE_BADGE_MAX_SELECTED,
+  ownedUniqueBadges = [],
 ) => {
   const safeSelectedIds = sanitizeSelectedProfileBadgeIds(selectedBadgeIds, maxSelected);
   const badgeMap = new Map((Array.isArray(evaluatedBadges) ? evaluatedBadges : []).map((badge) => [badge.id, badge]));
+  const uniqueMap = new Map((Array.isArray(ownedUniqueBadges) ? ownedUniqueBadges : []).map((badge) => [badge.id, badge]));
 
   return safeSelectedIds
-    .map((badgeId) => badgeMap.get(badgeId) || null)
+    .map((badgeId) => badgeMap.get(badgeId) || uniqueMap.get(badgeId) || null)
     .filter(Boolean)
     .slice(0, maxSelected);
 };
