@@ -371,6 +371,35 @@ function HomeContent() {
     } catch { /* ignore */ }
   }, [activePanel, user?.id, userStory]);
 
+  // Florabot Context-Bubble: Health-Panel (separater State, nicht über activePanel)
+  useEffect(() => {
+    if (!user?.id || !showHealthStatsPanel) return;
+    const panelKey = "health";
+    const bubbleKey = `florabot_ctx_bubble_v1:${user.id}:${panelKey}`;
+    const milestone = FLORABOT_MILESTONES.find(
+      (m) => m.contextBubble?.panel === panelKey
+    );
+    if (!milestone?.contextBubble) return;
+    try {
+      const seenMilestones = new Set(
+        Array.isArray(userStory?.seen_milestone_ids)
+          ? userStory.seen_milestone_ids
+          : Array.from(getSeenMilestoneIds(user.id))
+      );
+      if (!seenMilestones.has(milestone.id)) return;
+
+      const seenContextKeys = new Set(
+        Array.isArray(userStory?.seen_context_bubble_keys)
+          ? userStory.seen_context_bubble_keys
+          : []
+      );
+
+      if (seenContextKeys.has(panelKey)) return;
+      if (localStorage.getItem(bubbleKey)) return;
+      setFlorabotContextBubble({ panel: panelKey, message: milestone.contextBubble.message });
+    } catch { /* ignore */ }
+  }, [showHealthStatsPanel, user?.id, userStory]);
+
   // Migration states
   const [isMigrating, setIsMigrating] = useState(false);
   const [migrationSteps, setMigrationSteps] = useState([]);
