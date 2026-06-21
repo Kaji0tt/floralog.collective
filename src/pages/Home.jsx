@@ -78,6 +78,7 @@ import { getProfileBadgeIconComponent } from "@/lib/profileBadgeIcons";
 import FlorabotIntroOverlay from "@/components/florabot/FlorabotIntroOverlay";
 import FlorabotMilestoneOverlay from "@/components/florabot/FlorabotMilestoneOverlay";
 import FlorabotContextBubble from "@/components/florabot/FlorabotContextBubble";
+import HomeShellBorderGlow from "@/components/effects/HomeShellBorderGlow";
 import {
   pickRandomPhaseAmbientComment,
   interpolatePercentVariables,
@@ -1244,6 +1245,7 @@ function HomeContent() {
         selected_plant_asset: userData.selected_plant_asset,
         selected_border_asset: userData.selected_border_asset,
         selected_border_color: userData.selected_border_color,
+        selected_profile_effect: userData.selected_profile_effect,
         background_image_url: userData.background_image_url,
         background_color: userData.background_color
       };
@@ -3407,6 +3409,7 @@ function HomeContent() {
               }}
             />
             <div className={`absolute inset-0 pointer-events-none rounded-[2rem] border ${isLightUi ? "border-white/70" : "border-[#f0e5a5]/30"}`} />
+            <HomeShellBorderGlow active={user?.selected_profile_effect === "shell_border_glow"} />
 
             <div className={`relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6 ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
               <HomeHeaderBar
