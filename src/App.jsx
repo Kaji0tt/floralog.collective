@@ -25,7 +25,7 @@ const mainPageKey = mainPage ?? Object.keys(Pages)[0];
 const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
 
 const isMaintenanceModeEnabled =
-  String(import.meta.env.VITE_MAINTENANCE_MODE ?? 'true').toLowerCase() === 'true';
+  String(import.meta.env.VITE_MAINTENANCE_MODE ?? 'false').toLowerCase() === 'true';
 
 const maintenanceTitle =
   import.meta.env.VITE_MAINTENANCE_TITLE || 'Floralog ist voruebergehend nicht verfuegbar';
