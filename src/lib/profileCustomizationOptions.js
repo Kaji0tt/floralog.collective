@@ -234,7 +234,12 @@ export const getUnlockedProfileEffectOptions = ({ rewards = [], userRewards = []
   );
 
   return (Array.isArray(rewards) ? rewards : [])
-    .filter((reward) => PROFILE_EFFECT_REWARD_TYPES.has(normalizeRewardType(reward)) && reward?.value)
+    .filter((reward) => {
+      if (!PROFILE_EFFECT_REWARD_TYPES.has(normalizeRewardType(reward)) || !reward?.value) return false;
+      // Hide shop_hidden rewards unless user already owns them
+      if (reward?.shop_hidden && !unlockedRewardIds.has(reward?.id)) return false;
+      return true;
+    })
     .map((reward) => {
       const isLocked = !unlockedRewardIds.has(reward?.id);
       const purchaseMeta = isLocked ? getProfileEffectPurchaseMeta(reward) : null;
@@ -262,7 +267,12 @@ export const getUnlockedLogoEffectOptions = ({ rewards = [], userRewards = [] } 
   );
 
   return (Array.isArray(rewards) ? rewards : [])
-    .filter((reward) => LOGO_EFFECT_REWARD_TYPES.has(normalizeRewardType(reward)) && reward?.value)
+    .filter((reward) => {
+      if (!LOGO_EFFECT_REWARD_TYPES.has(normalizeRewardType(reward)) || !reward?.value) return false;
+      // Hide shop_hidden rewards unless user already owns them
+      if (reward?.shop_hidden && !unlockedRewardIds.has(reward?.id)) return false;
+      return true;
+    })
     .map((reward) => {
       const isLocked = !unlockedRewardIds.has(reward?.id);
       const purchaseMeta = isLocked ? getProfileEffectPurchaseMeta(reward) : null;
@@ -374,7 +384,12 @@ export const getUnlockedPresetBackgrounds = ({ rewards = [], userRewards = [] } 
   );
 
   return (Array.isArray(rewards) ? rewards : [])
-    .filter((reward) => reward?.type === "background" && reward?.value)
+    .filter((reward) => {
+      if (reward?.type !== "background" || !reward?.value) return false;
+      // Hide shop_hidden (legacy/retired) backgrounds unless user already owns them
+      if (reward?.shop_hidden && !unlockedRewardIds.has(reward?.id)) return false;
+      return true;
+    })
     .map((reward) => ({
       id: `reward-background:${reward.id}`,
       type: "preset",

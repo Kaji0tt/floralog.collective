@@ -42,6 +42,7 @@ const buildPublicAssetUrl = (requestUrl, env, key) => {
 
 const ACTIVE_PREFIX = "custom_logo/";
 const LEGACY_PREFIX = "custom_logo/legacy/";
+const PROFILE_PREFIX = "profile/";
 
 const buildCatalog = async (requestUrl, env) => {
   const assets = [];
@@ -98,6 +99,68 @@ const buildCatalog = async (requestUrl, env) => {
   };
 };
 
+const ALLOWED_IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|webp)$/i;
+
+const contentTypeFromKey = (key) => {
+  if (/\.png$/i.test(key)) return "image/png";
+  if (/\.jpe?g$/i.test(key)) return "image/jpeg";
+  if (/\.gif$/i.test(key)) return "image/gif";
+  if (/\.webp$/i.test(key)) return "image/webp";
+  return "application/octet-stream";
+};
+
+const buildProfileCatalog = async (requestUrl, env) => {
+  const assets = [];
+  let cursor = undefined;
+
+  do {
+    const listed = await env.ASSET_BUCKET.list({
+      prefix: PROFILE_PREFIX,
+      limit: 100,
+      cursor,
+    });
+
+    for (const object of listed.objects) {
+      const key = object.key;
+      if (!ALLOWED_IMAGE_EXTENSIONS.test(key)) continue;
+
+      const relativePath = key.slice(PROFILE_PREFIX.length);
+      const parts = relativePath.split("/");
+      const fileName = parts.pop();
+      if (!fileName) continue;
+
+      const category = parts[0] || "uncategorized";
+      const assetId = fileName.replace(/\.[^.]+$/, "");
+
+      assets.push({
+        asset_id: assetId,
+        category,
+        file_name: fileName,
+        r2_key: key,
+        public_url: buildPublicAssetUrl(requestUrl, env, key),
+        display_name: toDisplayName(assetId),
+        active: true,
+      });
+    }
+
+    cursor = listed.truncated ? listed.cursor : undefined;
+  } while (cursor);
+
+  assets.sort((left, right) => {
+    if (left.category !== right.category) {
+      return left.category.localeCompare(right.category);
+    }
+    return left.asset_id.localeCompare(right.asset_id);
+  });
+
+  return {
+    source: "r2",
+    generated_at: new Date().toISOString(),
+    count: assets.length,
+    assets,
+  };
+};
+
 const jsonResponse = (payload, status = 200, extraHeaders = {}) => {
   return new Response(JSON.stringify(payload), {
     status,
@@ -109,17 +172,9 @@ const jsonResponse = (payload, status = 200, extraHeaders = {}) => {
   });
 };
 
-const triggerLogoAssetSync = async (env, reason = "manual") => {
-  const endpoint = String(env.LOGO_ASSET_SYNC_ENDPOINT || "").trim();
-  const syncSecret = String(env.LOGO_ASSET_SYNC_SECRET || "").trim();
-
+const triggerSyncEndpoint = async (endpoint, secret, reason, label) => {
   if (!endpoint) {
-    return {
-      ok: false,
-      reason,
-      status: 0,
-      error: "LOGO_ASSET_SYNC_ENDPOINT missing",
-    };
+    return { ok: false, reason, status: 0, error: `${label} endpoint missing` };
   }
 
   try {
@@ -127,7 +182,7 @@ const triggerLogoAssetSync = async (env, reason = "manual") => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(syncSecret ? { "x-sync-secret": syncSecret } : {}),
+        ...(secret ? { "x-sync-secret": secret } : {}),
       },
       body: JSON.stringify({ source: "assets-catalog-worker", reason }),
     });
@@ -138,16 +193,23 @@ const triggerLogoAssetSync = async (env, reason = "manual") => {
       reason,
       status: response.status,
       data,
-      error: response.ok ? null : `syncLogoAssets failed (${response.status})`,
+      error: response.ok ? null : `${label} failed (${response.status})`,
     };
   } catch (error) {
-    return {
-      ok: false,
-      reason,
-      status: 0,
-      error: error?.message || String(error),
-    };
+    return { ok: false, reason, status: 0, error: error?.message || String(error) };
   }
+};
+
+const triggerLogoAssetSync = async (env, reason = "manual") => {
+  const endpoint = String(env.LOGO_ASSET_SYNC_ENDPOINT || "").trim();
+  const secret = String(env.LOGO_ASSET_SYNC_SECRET || "").trim();
+  return triggerSyncEndpoint(endpoint, secret, reason, "syncLogoAssets");
+};
+
+const triggerProfileAssetSync = async (env, reason = "manual") => {
+  const endpoint = String(env.PROFILE_ASSET_SYNC_ENDPOINT || "").trim();
+  const secret = String(env.PROFILE_ASSET_SYNC_SECRET || "").trim();
+  return triggerSyncEndpoint(endpoint, secret, reason, "syncProfileAssets");
 };
 
 export default {
@@ -176,9 +238,28 @@ export default {
       return jsonResponse(result, result.ok ? 200 : 502, { "Cache-Control": "no-store" });
     }
 
+    if (request.method === "POST" && url.pathname === "/profile/sync") {
+      const workerSecret = String(env.WORKER_TRIGGER_SECRET || "").trim();
+      if (workerSecret) {
+        const providedSecret = request.headers.get("X-Worker-Secret");
+        if (providedSecret !== workerSecret) {
+          return jsonResponse({ ok: false, error: "Unauthorized" }, 401);
+        }
+      }
+
+      const result = await triggerProfileAssetSync(env, "manual-endpoint");
+      return jsonResponse(result, result.ok ? 200 : 502, { "Cache-Control": "no-store" });
+    }
+
+    if (request.method === "GET" && url.pathname === "/profile/catalog") {
+      const catalog = await buildProfileCatalog(request.url, env);
+      return jsonResponse(catalog, 200, { "Cache-Control": "no-store" });
+    }
+
     if (request.method === "GET" && url.pathname.startsWith("/asset/")) {
       const key = decodeURIComponent(url.pathname.slice("/asset/".length));
-      if (!key || key.includes("..") || !key.startsWith("custom_logo/")) {
+      const allowedPrefixes = ["custom_logo/", "profile/"];
+      if (!key || key.includes("..") || !allowedPrefixes.some((p) => key.startsWith(p))) {
         return new Response("Bad request", { status: 400, headers: CORS_HEADERS });
       }
 
@@ -190,7 +271,7 @@ export default {
       return new Response(object.body, {
         headers: {
           ...CORS_HEADERS,
-          "Content-Type": "image/png",
+          "Content-Type": contentTypeFromKey(key),
           "Content-Length": String(object.size),
           "Cache-Control": "public, max-age=31536000, immutable",
         },
@@ -202,5 +283,6 @@ export default {
 
   async scheduled(_event, env, ctx) {
     ctx.waitUntil(triggerLogoAssetSync(env, "cron"));
+    ctx.waitUntil(triggerProfileAssetSync(env, "cron"));
   },
 };

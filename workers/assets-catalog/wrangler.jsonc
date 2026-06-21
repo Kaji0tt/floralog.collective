@@ -21,6 +21,7 @@
 		}
 	},
 	"vars": {
-		"LOGO_ASSET_SYNC_ENDPOINT": "https://mppxozsltkgjozcastgv.supabase.co/functions/v1/syncLogoAssets"
+		"LOGO_ASSET_SYNC_ENDPOINT": "https://mppxozsltkgjozcastgv.supabase.co/functions/v1/syncLogoAssets",
+		"PROFILE_ASSET_SYNC_ENDPOINT": "https://mppxozsltkgjozcastgv.supabase.co/functions/v1/syncProfileAssets"
 	}
 }

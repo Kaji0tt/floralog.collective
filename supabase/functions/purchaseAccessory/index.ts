@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
   const allowedRewardTypes = PURCHASE_KIND_ALLOWED_REWARD_TYPES[purchaseKind] || PURCHASE_KIND_ALLOWED_REWARD_TYPES.accessory;
   const { data: reward, error: rewardError } = await adminClient
     .from("Rewards")
-    .select("id, display_name, name, value, type, spark_price, amber_price")
+    .select("id, display_name, name, value, type, spark_price, amber_price, shop_hidden")
     .eq("id", rewardId)
     .maybeSingle();
 
@@ -146,6 +146,11 @@ Deno.serve(async (req) => {
   const rewardType = normalizeLower(String(reward?.type || ""));
   if (!reward || !allowedRewardTypes.includes(rewardType)) {
     return jsonResponse({ applied: false, errorCode: "reward_not_configured" });
+  }
+
+  // Block purchases of shop-hidden rewards (legacy/retired items)
+  if (reward.shop_hidden) {
+    return jsonResponse({ applied: false, errorCode: "asset_legacy" });
   }
 
   const rewardValue = normalizeText(String(reward?.value || ""));
