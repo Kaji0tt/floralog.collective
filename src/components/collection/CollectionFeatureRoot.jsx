@@ -5,22 +5,32 @@ import { createUserNotification, getUserDisplayName } from "@/api/notificationSe
 import { getCurrentUser } from "@/api/userApi";
 import { createPageUrl } from "@/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Home, List, Leaf } from "lucide-react";
+import { Home, List, Leaf, Compass, Plus, Users } from "lucide-react";
 import HintDialog from "./HintDialog";
 import CollectionScreen from "./CollectionScreen";
-import PublicCollectionScreen from "./PublicCollectionScreen";
+import CollectionCategoryEntryCard from "./CollectionCategoryEntryCard";
+import FlorabotLogo from "@/components/florabot/FlorabotLogo";
 import HomeShellLoader from "../navigation/HomeShellLoader";
 import useCollectionViewState, { DEFAULT_COLLECTION_FILTERS } from "./hooks/useCollectionViewState";
 import { useUiTheme } from "@/lib/UiThemeContext";
-import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
-import { getPopulationScore } from "@/lib/conservationStatus";
-import { submitCollectionItemProposal } from "@/api/collectionCollaborationService";
 
 const CATEGORY_CHIPS = [
   { value: "Bäume", emoji: "🌳" },
   { value: "Sträucher", emoji: "🌿" },
   { value: "Blumen", emoji: "🌸" },
 ];
+
+const isMissingFavoriteColumnError = (error) => {
+  if (!error) return false;
+  const message = String(error?.message || "").toLowerCase();
+  const details = String(error?.details || "").toLowerCase();
+  const hint = String(error?.hint || "").toLowerCase();
+  return (
+    message.includes("is_favorite") ||
+    details.includes("is_favorite") ||
+    hint.includes("is_favorite")
+  );
+};
 
 const getAverageColor = (imageUrl) => {
   return new Promise((resolve) => {
@@ -57,35 +67,16 @@ const getAverageColor = (imageUrl) => {
   });
 };
 
-const fetchFriendDiscoveriesByAuthId = async (authIds, batchSize = 4) => {
-  const result = {};
-
-  for (let index = 0; index < authIds.length; index += batchSize) {
-    const batch = authIds.slice(index, index + batchSize);
-    const batchRows = await Promise.all(
-      batch.map(async (authId) => {
-        const discoveries = await Query.UserPlantDiscovery.filter({ auth_id: authId });
-        return [authId, discoveries || []];
-      })
-    );
-
-    batchRows.forEach(([authId, discoveries]) => {
-      result[authId] = discoveries;
-    });
-  }
-
-  return result;
-};
-
 export default function CollectionFeatureRoot({
   embedded = false,
   onRequestClose = null,
   initialCollectionId = "global",
   onSelectedCollectionIdChange = null,
+  entryCategory: externalEntryCategory,
+  onEntryCategoryChange = null,
   showPublicCollectionsPanel: externalShowPublicCollectionsPanel,
   onShowPublicCollectionsPanelChange = null,
   profileUser = null,
-  currentUser = null,
   friendEmail = "",
   readOnly = false,
 }) {
@@ -95,42 +86,52 @@ export default function CollectionFeatureRoot({
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedGenus, setSelectedGenus] = useState(null);
   const [showHintDialog, setShowHintDialog] = useState(false);
-  const [user, setUser] = useState(currentUser || null);
+  const [user, setUser] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
   const [showPublicCollectionsPanelState, setShowPublicCollectionsPanelState] = useState(false);
   const [communitySearchQuery, setCommunitySearchQuery] = useState("");
   const [communitySort, setCommunitySort] = useState("newest");
-  const [isProposalEditorMode, setIsProposalEditorMode] = useState(false);
-  const [proposalSearchQuery, setProposalSearchQuery] = useState("");
-  const [proposalSelections, setProposalSelections] = useState([]);
-  const [proposalFeedback, setProposalFeedback] = useState(null);
+  const [browseDeeplinkCollectionId, setBrowseDeeplinkCollectionId] = useState(null);
+  const [browseDeeplinkAuthId, setBrowseDeeplinkAuthId] = useState(null);
+  const [favoriteColumnUnavailable, setFavoriteColumnUnavailable] = useState(false);
   const isRouteMode = !embedded;
   const isQuestCollectionView =
     isRouteMode && searchParams.get("from") === "quests" && !!searchParams.get("collectionId");
+  const routeCollectionId = isRouteMode ? searchParams.get("collectionId") : null;
+  const initialEntryCategory = isQuestCollectionView
+    ? "global"
+    : routeCollectionId
+      ? (routeCollectionId === "global" ? "global" : "themes")
+      : (embedded ? null : "global");
+  const [selectedEntryCategoryState, setSelectedEntryCategoryState] = useState(initialEntryCategory);
+  const selectedEntryCategory =
+    typeof externalEntryCategory === "undefined"
+      ? selectedEntryCategoryState
+      : externalEntryCategory;
   const showPublicCollectionsPanel =
     typeof externalShowPublicCollectionsPanel === "boolean"
       ? externalShowPublicCollectionsPanel
       : showPublicCollectionsPanelState;
 
   useEffect(() => {
-    if (currentUser) {
-      setUser(currentUser);
-      return;
+    if (!showPublicCollectionsPanel) return;
+    setEntryCategory("browse");
+  }, [showPublicCollectionsPanel]);
+
+  const setEntryCategory = (nextOrUpdater) => {
+    const nextValue =
+      typeof nextOrUpdater === "function"
+        ? nextOrUpdater(selectedEntryCategory)
+        : nextOrUpdater;
+
+    if (typeof externalEntryCategory === "undefined") {
+      setSelectedEntryCategoryState(nextValue);
     }
 
-    let isMounted = true;
-    const loadUser = async () => {
-      const current = await getCurrentUser();
-      if (isMounted) {
-        setUser(current || null);
-      }
-    };
-    loadUser();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [currentUser]);
+    if (typeof onEntryCategoryChange === "function") {
+      onEntryCategoryChange(nextValue);
+    }
+  };
 
   const setPublicCollectionsPanelOpen = (nextOrUpdater) => {
     const nextValue =
@@ -174,54 +175,57 @@ export default function CollectionFeatureRoot({
     setSearchParams,
   });
 
+  useEffect(() => {
+    const loadUser = async () => {
+      const currentUser = await getCurrentUser();
+      setUser(currentUser);
+    };
+    loadUser();
+  }, []);
+
   const targetUser = profileUser || user;
   const targetUserId = targetUser?.auth_id || targetUser?.id || null;
-  const isOwnCollectionContext =
-    !readOnly &&
-    !!user?.id &&
-    !!targetUserId &&
-    targetUserId === user.id;
-  // Nur die explizit übergebene friendEmail weitergeben.
-  // targetUser?.user_email darf NICHT als Fallback dienen, weil es sonst die eigene
-  // E-Mail als friendEmail setzt und GenusDetail in den Fremd-Ansichts-Modus versetzt.
-  const resolvedFriendEmail = friendEmail
-    ? friendEmail.toString().trim()
-    : (isOwnCollectionContext ? "" : (targetUser?.user_email || "").toString().trim());
+  const resolvedFriendEmail =
+    (friendEmail || targetUser?.user_email || "").toString().trim();
 
   const { data: genera = [], isLoading: generaLoading } = useQuery({
     queryKey: ['genera'],
     queryFn: () => Query.PlantGenus.list(),
-    staleTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
   });
 
   const { data: plants = [], isLoading: plantsLoading } = useQuery({
     queryKey: ['plants'],
     queryFn: () => Query.Plant.list(),
-    staleTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
   });
 
+  const { data: visibleCollections = [] } = useQuery({
+    queryKey: ["visibleCollections"],
+    queryFn: () => Query.Collection.list(),
+  });
+
+  const shouldUseBrowseDeeplinkDiscoveries =
+    selectedEntryCategory === "themes" &&
+    !!browseDeeplinkCollectionId &&
+    selectedCollectionId === browseDeeplinkCollectionId &&
+    !!browseDeeplinkAuthId;
+  const selectedDiscoveryAuthId = shouldUseBrowseDeeplinkDiscoveries
+    ? browseDeeplinkAuthId
+    : targetUserId;
+
   const { data: userDiscoveries = [], isLoading: discoveriesLoading } = useQuery({
-    queryKey: ['userDiscoveries', targetUserId],
+    queryKey: ['userDiscoveries', selectedDiscoveryAuthId],
     queryFn: async () => {
-      if (!targetUserId) {
+      if (!selectedDiscoveryAuthId) {
         return [];
       }
-      return Query.UserPlantDiscovery.filter({ auth_id: targetUserId });
+      return Query.UserPlantDiscovery.filter({ auth_id: selectedDiscoveryAuthId });
     },
-    enabled: !!targetUserId,
-    staleTime: 15 * 60 * 1000,
-    gcTime: 24 * 60 * 60 * 1000,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
+    enabled: !!selectedDiscoveryAuthId,
   });
 
   const { data: collectionQuests = [] } = useQuery({
     queryKey: ['collectionQuests'],
     queryFn: () => Query.CollectionQuest.list(),
-    staleTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
   });
 
   const { data: userCollections = [] } = useQuery({
@@ -231,39 +235,16 @@ export default function CollectionFeatureRoot({
       return Query.UserCollection.filter({ auth_id: targetUserId });
     },
     enabled: !!targetUserId,
-    staleTime: 10 * 60 * 1000,
-    gcTime: 24 * 60 * 60 * 1000,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-  });
-
-  const { data: visibleCollections = [] } = useQuery({
-    queryKey: ["visibleCollections"],
-    queryFn: () => Query.Collection.list(),
-    staleTime: 2 * 60 * 1000,
-    refetchOnWindowFocus: false,
   });
 
   const { data: publicProfiles = [] } = useQuery({
     queryKey: ["collectionPublicProfiles"],
     queryFn: () => Query.PublicProfile.list(),
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
   });
 
   const { data: logoAssets = [] } = useQuery({
     queryKey: ["logoAssets"],
     queryFn: () => Query.LogoAsset.list(),
-    staleTime: 60000,
-    refetchOnWindowFocus: false,
-  });
-
-  const { data: allFriendRecords = [] } = useQuery({
-    queryKey: ["collectionAllFriendRecords", user?.email],
-    queryFn: () => Query.Friend.list(),
-    enabled: !!user?.email && isOwnCollectionContext,
-    staleTime: 10000,
-    refetchOnWindowFocus: false,
   });
 
   const { data: ownedCollections = [] } = useQuery({
@@ -273,157 +254,14 @@ export default function CollectionFeatureRoot({
       return Query.Collection.filter({ auth_id: targetUserId });
     },
     enabled: !!targetUserId,
-    staleTime: 2 * 60 * 1000,
-    refetchOnWindowFocus: false,
   });
 
   const { data: allCollectionItems = [] } = useQuery({
     queryKey: ['collectionItems'],
     queryFn: () => Query.CollectionItem.list(),
-    staleTime: 10 * 60 * 1000,
-    gcTime: 24 * 60 * 60 * 1000,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-  });
-
-  const { data: myCollectionMaintainers = [] } = useQuery({
-    queryKey: ["myCollectionMaintainers", user?.id],
-    queryFn: () => {
-      if (!user?.id) return Promise.resolve([]);
-      return Query.CollectionMaintainer.filter({ auth_id: user.id });
-    },
-    enabled: !!user?.id,
-    staleTime: 60000,
-  });
-
-  const { data: myPendingCollectionProposals = [] } = useQuery({
-    queryKey: ["collectionMyPendingProposals", user?.id],
-    queryFn: () => {
-      if (!user?.id) return Promise.resolve([]);
-      return Query.CollectionItemProposal.filter({ proposed_by_auth_id: user.id });
-    },
-    enabled: !!user?.id,
-    staleTime: 30000,
-  });
-
-  const acceptedFriendProfiles = useMemo(() => {
-    if (!isOwnCollectionContext || !user?.email) return [];
-
-    const ownEmailLower = user.email.toLowerCase();
-    const profileByEmail = new Map(
-      (publicProfiles || [])
-        .filter((profile) => !!profile?.user_email)
-        .map((profile) => [profile.user_email.toLowerCase(), profile])
-    );
-
-    const acceptedEmails = new Set();
-    (allFriendRecords || []).forEach((friendEntry) => {
-      if (friendEntry?.status !== "accepted") return;
-
-      const sender = String(friendEntry.request_sent_by || "").toLowerCase();
-      const receiver = String(friendEntry.request_sent_to || "").toLowerCase();
-
-      if (sender === ownEmailLower && receiver) {
-        acceptedEmails.add(receiver);
-      } else if (receiver === ownEmailLower && sender) {
-        acceptedEmails.add(sender);
-      }
-    });
-
-    return Array.from(acceptedEmails)
-      .map((emailLower) => {
-        const profile = profileByEmail.get(emailLower);
-        if (!profile?.auth_id) return null;
-        return {
-          authId: profile.auth_id,
-          email: profile.user_email,
-          name: profile.display_name || profile.full_name || profile.user_email,
-          logoAssets: resolveEquippedLogoAssetsWithCatalog(profile, logoAssets),
-        };
-      })
-      .filter(Boolean);
-  }, [allFriendRecords, isOwnCollectionContext, logoAssets, publicProfiles, user?.email]);
-
-  const acceptedFriendAuthIds = useMemo(
-    () => acceptedFriendProfiles.map((entry) => entry.authId).filter(Boolean),
-    [acceptedFriendProfiles]
-  );
-  const acceptedFriendAuthIdsKey = useMemo(
-    () => acceptedFriendAuthIds.join(","),
-    [acceptedFriendAuthIds]
-  );
-
-  const acceptedFriendProfilesByAuthId = useMemo(
-    () => new Map(acceptedFriendProfiles.map((entry) => [entry.authId, entry])),
-    [acceptedFriendProfiles]
-  );
-
-  const { data: friendDiscoveriesByAuthId = {} } = useQuery({
-    queryKey: ["collectionFriendDiscoveries", acceptedFriendAuthIds],
-    queryFn: () => fetchFriendDiscoveriesByAuthId(acceptedFriendAuthIds),
-    enabled: isOwnCollectionContext && acceptedFriendAuthIds.length > 0,
-    staleTime: 10 * 60 * 1000,
-    gcTime: 24 * 60 * 60 * 1000,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
   });
 
   const isLoading = generaLoading || plantsLoading || discoveriesLoading;
-
-  const plantById = useMemo(
-    () => new Map((plants || []).map((plant) => [plant.id, plant])),
-    [plants]
-  );
-
-  const genusByCategoryAndNumber = useMemo(
-    () => new Map((genera || []).map((genus) => [`${genus.category}::${genus.category_dex_number}`, genus])),
-    [genera]
-  );
-
-  const friendDiscoveryMetaByGenusId = useMemo(() => {
-    if (!isOwnCollectionContext) return {};
-
-    const friendMapByGenus = new Map();
-
-    Object.entries(friendDiscoveriesByAuthId || {}).forEach(([authId, discoveries]) => {
-      const friendProfile = acceptedFriendProfilesByAuthId.get(authId);
-      if (!friendProfile || !Array.isArray(discoveries)) return;
-
-      discoveries.forEach((discovery) => {
-        const plant = plantById.get(discovery?.plant_id);
-        if (!plant) return;
-
-        const genus = genusByCategoryAndNumber.get(`${plant.genus_category}::${plant.genus_number}`);
-        if (!genus?.id) return;
-
-        if (!friendMapByGenus.has(genus.id)) {
-          friendMapByGenus.set(genus.id, new Map());
-        }
-
-        friendMapByGenus.get(genus.id).set(authId, friendProfile);
-      });
-    });
-
-    const meta = {};
-    friendMapByGenus.forEach((friendsByAuthId, genusId) => {
-      const friends = Array.from(friendsByAuthId.values()).sort((a, b) =>
-        (a.name || "").localeCompare(b.name || "", "de")
-      );
-
-      meta[genusId] = {
-        count: friends.length,
-        friends,
-      };
-    });
-
-    return meta;
-  }, [
-    acceptedFriendProfilesByAuthId,
-    friendDiscoveriesByAuthId,
-    genusByCategoryAndNumber,
-    isOwnCollectionContext,
-    plantById,
-  ]);
 
   const followMutation = useMutation({
     mutationFn: async (collectionId) => {
@@ -452,8 +290,8 @@ export default function CollectionFeatureRoot({
             authId: collection.auth_id,
             userEmail: ownerProfile?.user_email,
             notificationType: "collection_followed",
-            title: "👀 Neuer Kollektion-Follower",
-            message: `${followerName} folgt jetzt deiner Kollektion!`,
+            title: "🤖 Florabot meldet: Neue Verbindung!",
+            message: `${followerName} folgt jetzt deiner Kollektion. Deine Daten sind wertvoll für das Netzwerk!`,
             description: collection.title || "",
             actionUrl: `Collection?collectionId=${collection.id}`,
             displayLocation: "banner",
@@ -469,7 +307,7 @@ export default function CollectionFeatureRoot({
         console.error("[Collection] Could not create follow notification:", error);
       }
 
-      queryClient.invalidateQueries({ queryKey: ["userCollections", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["userCollections", targetUserId] });
       queryClient.invalidateQueries({ queryKey: ["visibleCollections"] });
       queryClient.invalidateQueries({ queryKey: ["allCollections"] });
     },
@@ -480,11 +318,38 @@ export default function CollectionFeatureRoot({
       return Query.UserCollection.delete(userCollectionId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["userCollections", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["userCollections", targetUserId] });
       queryClient.invalidateQueries({ queryKey: ["visibleCollections"] });
       queryClient.invalidateQueries({ queryKey: ["allCollections"] });
     },
   });
+
+  const toggleFavoriteMutation = useMutation({
+    mutationFn: async ({ userCollectionId, isFavorite }) => {
+      if (!userCollectionId) return null;
+      return Query.UserCollection.update(userCollectionId, { is_favorite: Boolean(isFavorite) });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["userCollections", targetUserId] });
+      queryClient.invalidateQueries({ queryKey: ["visibleCollections"] });
+      queryClient.invalidateQueries({ queryKey: ["allCollections"] });
+    },
+    onError: (error) => {
+      // NOTE(backport): If the official server runs an older schema without
+      // public."UserCollection".is_favorite, this mutation fails. Apply the
+      // matching Supabase migration first, then re-enable this toggle.
+      if (isMissingFavoriteColumnError(error)) {
+        setFavoriteColumnUnavailable(true);
+        console.warn(
+          '[Collection] Favorite toggle disabled because column public."UserCollection".is_favorite is missing. Please apply the favorite migration on the target backend.'
+        );
+        return;
+      }
+      console.error("[Collection] Could not toggle collection favorite:", error);
+    },
+  });
+
+  const rarityOrder = { "Häufig": 1, "Gelegentlich": 2, "Selten": 3, "Sehr Selten": 4, "Extrem Selten": 5 };
 
   const generaWithDiscovery = genera.map(genus => {
     const genusPlants = plants.filter(p => 
@@ -495,7 +360,7 @@ export default function CollectionFeatureRoot({
     );
 
     const maxRarityScore = genusPlants.reduce((max, plant) => {
-      const score = getPopulationScore(plant?.red_list_population ?? plant?.aiData?.red_list_population ?? null);
+      const score = rarityOrder[plant.rarity] || 0;
       return score > max ? score : max;
     }, 0);
 
@@ -515,7 +380,7 @@ export default function CollectionFeatureRoot({
       discovered: discoveredSpecies.length > 0,
       discoveredCount: discoveredSpecies.length,
       totalSpecies: genusPlants.length,
-      hasRareSpecies: maxRarityScore >= 3,
+      hasRareSpecies: maxRarityScore >= 2,
       maxRarityScore,
       lastDiscoveryDate,
     };
@@ -534,11 +399,22 @@ export default function CollectionFeatureRoot({
   const isCollectionFilter = typeof activeCategory === "string" && activeCategory.startsWith('collection_');
   const collectionId = isCollectionFilter ? activeCategory.replace('collection_', '') : null;
   
-  const followedCollections = visibleCollections.filter((c) =>
-    c.is_public &&
-    c.auth_id !== targetUserId &&
-    userCollections.some((uc) => uc.collection_id === c.id)
-  );
+  const followedCollections = visibleCollections
+    .filter(
+      (c) =>
+        c.is_public &&
+        c.auth_id !== targetUserId &&
+        userCollections.some((uc) => uc.collection_id === c.id)
+    )
+    .map((collectionEntry) => {
+      const userCollectionLink = userCollections.find((uc) => uc.collection_id === collectionEntry.id) || null;
+      return {
+        ...collectionEntry,
+        userCollectionLink,
+        // Backward-compatible: older backends may not return is_favorite yet.
+        isFavorite: Boolean(userCollectionLink?.is_favorite),
+      };
+    });
 
   const collectionsById = new Map();
   [
@@ -555,6 +431,63 @@ export default function CollectionFeatureRoot({
     selectedCollectionId !== 'global'
       ? collectionsById.get(selectedCollectionId) || null
       : null;
+
+  const uniqueThemeCollections = useMemo(() => {
+    const map = new Map();
+    [...ownedCollections, ...followedCollections].forEach((entry) => {
+      if (entry?.id && !map.has(entry.id)) {
+        map.set(entry.id, entry);
+      }
+    });
+    return Array.from(map.values());
+  }, [ownedCollections, followedCollections]);
+
+  const collectionChips = useMemo(() => {
+    if (selectedEntryCategory === "global") {
+      return [{ id: "global", title: "Global", isGlobal: true, isFollowed: false }];
+    }
+
+    if (selectedEntryCategory === "themes") {
+      return uniqueThemeCollections.map((entry) => ({
+        id: entry.id,
+        title: entry.title,
+        isGlobal: false,
+        isFollowed: followedCollections.some((followed) => followed.id === entry.id),
+        isFavorite: Boolean(entry?.isFavorite),
+      }));
+    }
+
+    return [];
+  }, [selectedEntryCategory, uniqueThemeCollections, followedCollections]);
+
+  const selectedEntryCategoryLabel =
+    selectedEntryCategory === "global"
+      ? "Globale"
+      : selectedEntryCategory === "themes"
+        ? "Themen"
+        : selectedEntryCategory === "shared"
+          ? "Gemeinsame"
+          : null;
+
+  const isCategoryLandingVisible =
+    !isQuestCollectionView &&
+    selectedEntryCategory !== "browse" &&
+    !selectedEntryCategory;
+
+  useEffect(() => {
+    if (selectedEntryCategory !== "themes") return;
+    if (!collectionChips.length) return;
+    if (!collectionChips.some((chip) => chip.id === selectedCollectionId)) {
+      handleCollectionChipSelect(collectionChips[0].id);
+    }
+  }, [selectedEntryCategory, collectionChips, selectedCollectionId, handleCollectionChipSelect]);
+
+  useEffect(() => {
+    if (selectedEntryCategory !== "global") return;
+    if (selectedCollectionId !== "global") {
+      handleCollectionChipSelect("global");
+    }
+  }, [selectedEntryCategory, selectedCollectionId, handleCollectionChipSelect]);
   const selectedCollectionOwnerProfile = selectedCollection
     ? (publicProfiles || []).find((p) => p.auth_id === selectedCollection.auth_id) || null
     : null;
@@ -624,6 +557,14 @@ export default function CollectionFeatureRoot({
   };
   
   let filteredGenera = generaWithDiscovery;
+
+  if (selectedEntryCategory === "shared") {
+    filteredGenera = [];
+  }
+
+  if (selectedEntryCategory === "themes" && !selectedCollection) {
+    filteredGenera = [];
+  }
   
   if (isCollectionFilter && collectionId) {
     const collection = collectionQuests.find(c => c.id === collectionId);
@@ -769,53 +710,6 @@ export default function CollectionFeatureRoot({
   }, [selectedCollectionId, sortedGenera.length, restoreScrollForCollection]);
 
   useEffect(() => {
-    if (!targetUserId) return;
-
-    const refreshThrottleMs = 2 * 60 * 1000;
-    const refreshKey = `collection:bg-refresh:${targetUserId}`;
-    const now = Date.now();
-
-    try {
-      const lastRun = Number(window.sessionStorage.getItem(refreshKey) || 0);
-      if (Number.isFinite(lastRun) && now - lastRun < refreshThrottleMs) {
-        return;
-      }
-      window.sessionStorage.setItem(refreshKey, String(now));
-    } catch {
-      // sessionStorage may be unavailable in private contexts.
-    }
-
-    const baseQueryKeys = [
-      ["genera"],
-      ["plants"],
-      ["userDiscoveries", targetUserId],
-      ["userCollections", targetUserId],
-      ["collectionItems"],
-      ["visibleCollections"],
-      ["collectionPublicProfiles"],
-    ];
-
-    baseQueryKeys.forEach((queryKey) => {
-      if (typeof queryClient.getQueryData(queryKey) !== "undefined") {
-        queryClient.refetchQueries({ queryKey, exact: true, type: "active" });
-      }
-    });
-
-    if (isOwnCollectionContext && acceptedFriendAuthIds.length > 0) {
-      const friendQueryKey = ["collectionFriendDiscoveries", acceptedFriendAuthIds];
-      if (typeof queryClient.getQueryData(friendQueryKey) !== "undefined") {
-        queryClient.refetchQueries({ queryKey: friendQueryKey, exact: true, type: "active" });
-      }
-    }
-  }, [
-    acceptedFriendAuthIds,
-    acceptedFriendAuthIdsKey,
-    isOwnCollectionContext,
-    queryClient,
-    targetUserId,
-  ]);
-
-  useEffect(() => {
     const backgroundSourceProfile = shouldUseSelectedOwnerTheme
       ? selectedCollectionOwnerProfile
       : targetUser;
@@ -891,7 +785,9 @@ export default function CollectionFeatureRoot({
         background: "radial-gradient(circle at top, rgb(167, 243, 208) 0%, rgb(22, 101, 52) 60%, rgb(10, 30, 18) 100%)",
       };
 
-  const heroStats = getCollectionStats(selectedCollection ? selectedCollection.id : 'global');
+  const heroStats = selectedEntryCategory === "shared"
+    ? { discovered: 0, total: 0 }
+    : getCollectionStats(selectedCollection ? selectedCollection.id : 'global');
   const heroProgressPercent = heroStats.total
     ? Math.round((heroStats.discovered / heroStats.total) * 100)
     : 0;
@@ -899,330 +795,22 @@ export default function CollectionFeatureRoot({
   const ownerName = targetUser?.display_name || targetUser?.full_name || "Dein";
   const heroTitle = selectedCollection
     ? selectedCollection.title
-    : ownerName + "'s Floralog";
-  const listTopFadePx = 12;
-  const listBottomFadePx = 18;
+    : selectedEntryCategory === "global"
+      ? "Globale Kollektionen"
+      : selectedEntryCategory === "themes"
+        ? "Themen-Kollektionen"
+        : selectedEntryCategory === "shared"
+          ? "Gemeinsame Kollektionen"
+          : ownerName + "'s Floralog";
+  const listTopFadePx = 14;
+  const listBottomFadePx = 14;
   const isOwnerOfSelected =
     !!selectedCollection && !!targetUserId && selectedCollection.auth_id === targetUserId;
-  const isMaintainerOfSelected = !!selectedCollection && (
-    selectedCollection.auth_id === user?.id ||
-    (myCollectionMaintainers || []).some((entry) => entry.collection_id === selectedCollection.id)
-  );
-  const selectedCollectionItems = useMemo(
-    () => selectedCollection ? allCollectionItems.filter((item) => item.collection_id === selectedCollection.id) : [],
-    [allCollectionItems, selectedCollection]
-  );
-  const genusById = useMemo(
-    () => new Map((genera || []).map((genus) => [genus.id, genus])),
-    [genera]
-  );
-  const includedPlantIdsForSelectedCollection = useMemo(() => {
-    const ids = new Set();
-    if (!selectedCollection) return ids;
-
-    selectedCollectionItems.forEach((item) => {
-      if (item.plant_id) {
-        ids.add(item.plant_id);
-      }
-
-      if (item.genus_id) {
-        const genus = genusById.get(item.genus_id);
-        if (!genus) return;
-        (plants || []).forEach((plant) => {
-          if (
-            plant.genus_category === genus.category &&
-            plant.genus_number === genus.category_dex_number
-          ) {
-            ids.add(plant.id);
-          }
-        });
-      }
-    });
-
-    return ids;
-  }, [genusById, plants, selectedCollection, selectedCollectionItems]);
-  const includedGenusIdsForSelectedCollection = useMemo(() => {
-    const ids = new Set();
-    if (!selectedCollection) return ids;
-
-    selectedCollectionItems.forEach((item) => {
-      if (item.genus_id) {
-        ids.add(item.genus_id);
-      }
-    });
-
-    return ids;
-  }, [selectedCollection, selectedCollectionItems]);
-  const pendingPlantIdsForSelectedCollection = useMemo(() => {
-    const ids = new Set();
-    if (!selectedCollection) return ids;
-
-    (myPendingCollectionProposals || [])
-      .filter((proposal) => proposal.status === "pending" && proposal.collection_id === selectedCollection.id)
-      .forEach((proposal) => {
-        if (proposal.plant_id) {
-          ids.add(proposal.plant_id);
-        }
-
-        if (proposal.genus_id) {
-          const genus = genusById.get(proposal.genus_id);
-          if (!genus) return;
-          (plants || []).forEach((plant) => {
-            if (
-              plant.genus_category === genus.category &&
-              plant.genus_number === genus.category_dex_number
-            ) {
-              ids.add(plant.id);
-            }
-          });
-        }
-      });
-
-    return ids;
-  }, [genusById, myPendingCollectionProposals, plants, selectedCollection]);
-  const pendingGenusIdsForSelectedCollection = useMemo(() => {
-    const ids = new Set();
-    if (!selectedCollection) return ids;
-
-    (myPendingCollectionProposals || [])
-      .filter((proposal) => proposal.status === "pending" && proposal.collection_id === selectedCollection.id)
-      .forEach((proposal) => {
-        if (proposal.genus_id) {
-          ids.add(proposal.genus_id);
-        }
-      });
-
-    return ids;
-  }, [myPendingCollectionProposals, selectedCollection]);
-  const canShowCollectionProposalControls =
-    !readOnly &&
-    !!user?.id &&
-    !!selectedCollection &&
-    selectedCollectionId !== "global" &&
-    !!selectedCollection.is_public;
-  const isProposalBlockedByPrivateMaintained =
-    !!selectedCollection?.private_maintained && !isMaintainerOfSelected;
-  const canSubmitToSelectedCollection =
-    canShowCollectionProposalControls && !isProposalBlockedByPrivateMaintained;
-  const proposalSearchOptions = useMemo(() => {
-    if (!canShowCollectionProposalControls) return [];
-
-    const normalized = proposalSearchQuery.trim().toLowerCase();
-    const plantEntries = (plants || []).map((plant) => {
-      const genus = genusByCategoryAndNumber.get(`${plant.genus_category}::${plant.genus_number}`);
-      const speciesLabel = plant.species_name || "Unbekannte Pflanze";
-      const scientificLabel = plant.scientific_name || "ohne wiss. Namen";
-      const genusLabel = genus?.genus_name || "Unbekannte Gattung";
-      const isAlreadyIncluded = includedPlantIdsForSelectedCollection.has(plant.id);
-      const isAlreadyPending = pendingPlantIdsForSelectedCollection.has(plant.id);
-
-      return {
-        key: `plant:${plant.id}`,
-        kind: "plant",
-        targetId: plant.id,
-        title: speciesLabel,
-        subtitle: scientificLabel,
-        meta: `Pflanze in ${genusLabel}`,
-        isAlreadyIncluded,
-        isAlreadyPending,
-      };
-    });
-
-    const genusEntries = (genera || []).map((genus) => {
-      const genusTitle = genus.genus_name || genus.scientific_genus || "Unbekannte Gattung";
-      const genusSubtitle = genus.scientific_genus || "";
-      const isAlreadyIncluded = includedGenusIdsForSelectedCollection.has(genus.id);
-      const isAlreadyPending = pendingGenusIdsForSelectedCollection.has(genus.id);
-
-      return {
-        key: `genus:${genus.id}`,
-        kind: "genus",
-        targetId: genus.id,
-        title: genusTitle,
-        subtitle: genusSubtitle,
-        meta: "Gattung",
-        isAlreadyIncluded,
-        isAlreadyPending,
-      };
-    });
-
-    return [...plantEntries, ...genusEntries]
-      .filter((entry) => {
-        if (!normalized) return true;
-        const haystack = `${entry.title} ${entry.subtitle} ${entry.meta}`.toLowerCase();
-        return haystack.includes(normalized);
-      })
-      .sort((a, b) => {
-        const aBlocked = a.isAlreadyIncluded || a.isAlreadyPending;
-        const bBlocked = b.isAlreadyIncluded || b.isAlreadyPending;
-        if (aBlocked !== bBlocked) return aBlocked ? 1 : -1;
-        if (a.kind !== b.kind) return a.kind.localeCompare(b.kind);
-        return a.title.localeCompare(b.title, "de");
-      })
-      .slice(0, 160);
-  }, [
-    canShowCollectionProposalControls,
-    genusByCategoryAndNumber,
-    genera,
-    includedGenusIdsForSelectedCollection,
-    includedPlantIdsForSelectedCollection,
-    pendingGenusIdsForSelectedCollection,
-    pendingPlantIdsForSelectedCollection,
-    plants,
-    proposalSearchQuery,
-  ]);
-
-  const handleAddProposalSelection = (option) => {
-    if (!option) return;
-    if (!canSubmitToSelectedCollection) {
-      setProposalFeedback({ type: "error", message: "Du kannst aktuell keine Anfrage senden." });
-      return;
-    }
-
-    if (option.isAlreadyIncluded) {
-      setProposalFeedback({ type: "error", message: `${option.title} ist bereits in der Kollektion.` });
-      return;
-    }
-
-    if (option.isAlreadyPending) {
-      setProposalFeedback({ type: "error", message: `Fuer ${option.title} wurde bereits eine Anfrage gesendet.` });
-      return;
-    }
-
-    setProposalSelections((prev) => {
-      if (prev.some((entry) => entry.key === option.key)) {
-        setProposalFeedback({ type: "error", message: `${option.title} ist bereits ausgewaehlt.` });
-        return prev;
-      }
-
-      setProposalFeedback(null);
-      return [
-        ...prev,
-        {
-          key: option.key,
-          kind: option.kind,
-          targetId: option.targetId,
-          title: option.title,
-          subtitle: option.subtitle,
-          note: "",
-        },
-      ];
-    });
-  };
-
-  const submitCollectionProposalMutation = useMutation({
-    mutationFn: async ({ entries }) => {
-      if (!selectedCollection?.id) throw new Error("Keine Kollektion ausgewaehlt.");
-      const successKeys = [];
-      const failedEntries = [];
-
-      for (const entry of entries || []) {
-        const alreadyIncluded =
-          entry.kind === "genus"
-            ? includedGenusIdsForSelectedCollection.has(entry.targetId)
-            : includedPlantIdsForSelectedCollection.has(entry.targetId);
-        const alreadyPending =
-          entry.kind === "genus"
-            ? pendingGenusIdsForSelectedCollection.has(entry.targetId)
-            : pendingPlantIdsForSelectedCollection.has(entry.targetId);
-
-        if (alreadyIncluded) {
-          failedEntries.push({ key: entry.key, title: entry.title, reason: "bereits enthalten" });
-          continue;
-        }
-
-        if (alreadyPending) {
-          failedEntries.push({ key: entry.key, title: entry.title, reason: "bereits angefragt" });
-          continue;
-        }
-
-        try {
-          if (entry.kind === "genus") {
-            await submitCollectionItemProposal({
-              collectionId: selectedCollection.id,
-              plant: null,
-              genusId: entry.targetId,
-              actorUser: user,
-              note: entry.note,
-            });
-          } else {
-            const targetPlant = (plants || []).find((plant) => plant.id === entry.targetId);
-            if (!targetPlant) {
-              failedEntries.push({ key: entry.key, title: entry.title, reason: "Pflanze nicht gefunden" });
-              continue;
-            }
-
-            const targetGenus = genusByCategoryAndNumber.get(
-              `${targetPlant.genus_category}::${targetPlant.genus_number}`
-            );
-
-            await submitCollectionItemProposal({
-              collectionId: selectedCollection.id,
-              plant: targetPlant,
-              genusId: targetGenus?.id || null,
-              actorUser: user,
-              note: entry.note,
-            });
-          }
-
-          successKeys.push(entry.key);
-        } catch (error) {
-          failedEntries.push({
-            key: entry.key,
-            title: entry.title,
-            reason: error?.message || "Anfrage fehlgeschlagen",
-          });
-        }
-      }
-
-      return { successKeys, failedEntries };
-    },
-    onSuccess: ({ successKeys, failedEntries }) => {
-      if (successKeys.length > 0) {
-        setProposalSelections((prev) => prev.filter((entry) => !successKeys.includes(entry.key)));
-        queryClient.invalidateQueries({ queryKey: ["collectionMyPendingProposals", user?.id] });
-        queryClient.invalidateQueries({ queryKey: ["collectionItems"] });
-      }
-
-      if (failedEntries.length > 0) {
-        const firstFailure = failedEntries[0];
-        const suffix = failedEntries.length > 1 ? ` (+${failedEntries.length - 1} weitere)` : "";
-        setProposalFeedback({
-          type: "error",
-          message: `${firstFailure.title}: ${firstFailure.reason}${suffix}`,
-        });
-        return;
-      }
-
-      if (successKeys.length > 0) {
-        setProposalFeedback({
-          type: "success",
-          message: successKeys.length === 1 ? "Anfrage gesendet." : `${successKeys.length} Anfragen gesendet.`,
-        });
-      }
-    },
-    onError: (error) => {
-      setProposalFeedback({
-        type: "error",
-        message: error?.message || "Vorschlag fehlgeschlagen.",
-      });
-    },
-  });
-
-  useEffect(() => {
-    setIsProposalEditorMode(false);
-    setProposalSearchQuery("");
-    setProposalSelections([]);
-    setProposalFeedback(null);
-  }, [selectedCollection?.id]);
-  useEffect(() => {
-    if (canShowCollectionProposalControls) return;
-    setIsProposalEditorMode(false);
-  }, [canShowCollectionProposalControls]);
   const userCollectionLinkForSelected = selectedCollection
     ? userCollections.find((uc) => uc.collection_id === selectedCollection.id)
     : null;
   const isFollowingSelected = !!userCollectionLinkForSelected && !isOwnerOfSelected;
+  const isFavoriteSelected = Boolean(userCollectionLinkForSelected?.is_favorite);
   const selectedCollectionKey = selectedCollectionId || "global";
   const selectedCollectionFilters = {
     ...DEFAULT_COLLECTION_FILTERS,
@@ -1276,6 +864,7 @@ export default function CollectionFeatureRoot({
 
     return {
       ...c,
+      ownerProfile,
       ownerNameForCard,
       ownerUiTheme: ownerProfile?.ui_theme || null,
       ownerBackgroundColor: ownerProfile?.background_color || c.background_color || null,
@@ -1289,6 +878,7 @@ export default function CollectionFeatureRoot({
       isOwnCollection,
       userCollectionLink,
       isFollowing,
+      isFavorite: Boolean(userCollectionLink?.is_favorite),
     };
   });
 
@@ -1311,15 +901,74 @@ export default function CollectionFeatureRoot({
   } else {
     filteredPublicCollections.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
   }
-  const followedPublicCollections = filteredPublicCollections.filter((c) => c.isFollowing);
-  const discoverablePublicCollections = filteredPublicCollections.filter((c) => !c.isFollowing);
+
+  const globalCategoryStats = useMemo(() => {
+    const discovered = generaWithDiscovery.filter((entry) => entry.discovered).length;
+    const total = generaWithDiscovery.length;
+    const percent = total > 0 ? Math.round((discovered / total) * 100) : 0;
+    return { discovered, total, percent };
+  }, [generaWithDiscovery]);
+
+  const followedThemeCollectionChips = useMemo(() => {
+    const ranked = followedCollections
+      .map((collectionEntry) => {
+        const stats = getCollectionStats(collectionEntry.id);
+        const total = stats.total || 0;
+        const discovered = stats.discovered || 0;
+        const remainingCount = Math.max(0, total - discovered);
+        const remainingRatio = total > 0 ? remainingCount / total : Number.POSITIVE_INFINITY;
+
+        return {
+          title: collectionEntry.title || "Kollektion",
+          discovered,
+          total,
+          remainingCount,
+          remainingRatio,
+          isFavorite: Boolean(collectionEntry?.isFavorite),
+        };
+      })
+      .filter((entry) => entry.total > 0)
+      .sort((a, b) => {
+        if (a.isFavorite !== b.isFavorite) {
+          return Number(b.isFavorite) - Number(a.isFavorite);
+        }
+        if (a.remainingRatio !== b.remainingRatio) {
+          return a.remainingRatio - b.remainingRatio;
+        }
+        if (a.remainingCount !== b.remainingCount) {
+          return a.remainingCount - b.remainingCount;
+        }
+        return (b.discovered || 0) - (a.discovered || 0);
+      })
+      .slice(0, 2);
+
+    return ranked.map((entry) => `${entry.isFavorite ? "★ " : ""}${entry.title}: ${entry.discovered}/${entry.total}`);
+  }, [followedCollections, getCollectionStats]);
+
+  const browseCollectionCounts = useMemo(() => {
+    const totalPublicCollections = allPublicCollections.length;
+    const followedPublicCollections = publicCollectionsWithMeta.filter((entry) => entry.isFollowing).length;
+    return { totalPublicCollections, followedPublicCollections };
+  }, [allPublicCollections.length, publicCollectionsWithMeta]);
+
   const hasAdditionalCollections = (ownedCollections.length + followedCollections.length) > 0;
   const isHeroSegmentOpen = hasAdditionalCollections
     ? selectedCollectionFilters.heroSegmentOpen !== false
     : true;
-  const isCollectionTogglePending = followMutation.isPending || unfollowMutation.isPending;
   const handleOpenPublicCollection = (collectionId) => {
+    const openedCollection = (visibleCollections || []).find((entry) => entry.id === collectionId) || null;
+    const deeplinkAuthId =
+      openedCollection?.is_public &&
+      openedCollection?.auth_id &&
+      openedCollection.auth_id !== targetUserId
+        ? openedCollection.auth_id
+        : null;
+
+    setBrowseDeeplinkCollectionId(collectionId || null);
+    setBrowseDeeplinkAuthId(deeplinkAuthId);
+
     setPublicCollectionsPanelOpen(false);
+    setEntryCategory(collectionId === "global" ? "global" : "themes");
     setSelectedCollectionId(collectionId);
     if (typeof onSelectedCollectionIdChange === "function") {
       onSelectedCollectionIdChange(collectionId);
@@ -1332,17 +981,6 @@ export default function CollectionFeatureRoot({
     setSearchParams(nextParams, { replace: true });
   };
 
-  const handlePublicCollectionFollowToggle = (collectionEntry) => {
-    if (readOnly) return;
-    if (collectionEntry.isFollowing && collectionEntry.userCollectionLink) {
-      unfollowMutation.mutate(collectionEntry.userCollectionLink.id);
-      return;
-    }
-    if (!collectionEntry.isFollowing) {
-      followMutation.mutate(collectionEntry.id);
-    }
-  };
-
   const handleBack = () => {
     if (embedded && typeof onRequestClose === "function") {
       onRequestClose();
@@ -1350,6 +988,19 @@ export default function CollectionFeatureRoot({
     }
     navigate(createPageUrl("Home"));
   };
+
+  useEffect(() => {
+    if (!browseDeeplinkCollectionId) return;
+    if (selectedEntryCategory !== "themes") {
+      setBrowseDeeplinkCollectionId(null);
+      setBrowseDeeplinkAuthId(null);
+      return;
+    }
+    if (selectedCollectionId !== browseDeeplinkCollectionId) {
+      setBrowseDeeplinkCollectionId(null);
+      setBrowseDeeplinkAuthId(null);
+    }
+  }, [selectedEntryCategory, selectedCollectionId, browseDeeplinkCollectionId]);
 
   return (
     <div className={embedded ? "h-full min-h-0" : "fixed inset-0 overflow-hidden"} data-ui={embedded ? "collection-embedded-root" : "home-page-shell"}>
@@ -1378,20 +1029,28 @@ export default function CollectionFeatureRoot({
           <div className={embedded ? "h-full flex flex-col text-stone-100" : "relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6 text-stone-100"}>
             {!embedded && (
               <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#f0e5a5]/20" data-ui="home-header-bar">
-                <div className="min-w-0">
+                <div className="min-w-0 flex items-center gap-2">
+                  {!isQuestCollectionView && selectedEntryCategory && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEntryCategory(null);
+                        setPublicCollectionsPanelOpen(false);
+                        const nextParams = new URLSearchParams(searchParams);
+                        nextParams.delete("collectionId");
+                        nextParams.delete("from");
+                        setSearchParams(nextParams, { replace: true });
+                      }}
+                      className="w-11 h-11 rounded-full border border-[#f0e5a5]/35 bg-black/30 backdrop-blur-md flex items-center justify-center hover:bg-black/45 transition-colors shrink-0"
+                      aria-label="Zur Kategorieauswahl"
+                    >
+                      <span className="text-[#f0e5a5] text-xl leading-none">‹</span>
+                    </button>
+                  )}
                   <h1 className="font-bold leading-tight text-2xl md:text-3xl">Kollektionen</h1>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setPublicCollectionsPanelOpen((prev) => !prev)}
-                    className="w-11 h-11 rounded-full border border-[#f0e5a5]/35 bg-black/30 backdrop-blur-md flex items-center justify-center hover:bg-black/45 transition-colors shrink-0"
-                    aria-label={showPublicCollectionsPanel ? "Öffentliche Kollektionen schließen" : "Öffentliche Kollektionen anzeigen"}
-                    aria-pressed={showPublicCollectionsPanel}
-                  >
-                    <List className="w-5 h-5 text-[#f0e5a5]" />
-                  </button>
                   <button
                     type="button"
                     onClick={handleBack}
@@ -1411,36 +1070,152 @@ export default function CollectionFeatureRoot({
               isLightUi={isLightUi}
             />
 
-            <div className="flex-1 min-h-0 py-[clamp(0.5rem,1.5vh,1rem)] flex flex-col gap-3" data-ui={embedded ? "collection-content-stack" : "home-content-stack"}>
-          {showPublicCollectionsPanel ? (
-            <PublicCollectionScreen
-              isLightUi={isLightUi}
-              uiTheme={uiTheme}
-              listTopFadePx={listTopFadePx}
-              listBottomFadePx={listBottomFadePx}
-              allPublicCollections={allPublicCollections}
-              followedPublicCollections={followedPublicCollections}
-              discoverablePublicCollections={discoverablePublicCollections}
-              searchQuery={communitySearchQuery}
-              onSearchQueryChange={setCommunitySearchQuery}
-              sortValue={communitySort}
-              onSortChange={setCommunitySort}
-              onOpenCollection={handleOpenPublicCollection}
-              onToggleFollow={handlePublicCollectionFollowToggle}
-              isCollectionTogglePending={isCollectionTogglePending}
-              onCreateCollection={() => {
-                if (!readOnly) navigate("/CollectionEditor");
-              }}
-            />
+            <div className="flex-1 min-h-0 pt-[clamp(0.5rem,1.5vh,1rem)] pb-[clamp(0.85rem,2.2vh,1.4rem)] flex flex-col gap-3" data-ui={embedded ? "collection-content-stack" : "home-content-stack"}>
+          {selectedEntryCategory === "browse" ? (
+            <div className="flex-1 min-h-0 max-h-full overflow-y-auto" style={{ paddingTop: listTopFadePx, paddingBottom: listBottomFadePx }}>
+              <div className="space-y-3">
+                {filteredPublicCollections.length > 0 ? (
+                  filteredPublicCollections.map((collectionEntry) => (
+                    <CollectionCategoryEntryCard
+                      key={collectionEntry.id}
+                      title={collectionEntry.title || "Unbenannte Kollektion"}
+                      description={null}
+                      info={collectionEntry.description || "Öffentliche Nutzerkollektion"}
+                      icon={Compass}
+                      accent="browse"
+                      showChevron={false}
+                      customBackgroundColor={collectionEntry.background_color || collectionEntry.ownerBackgroundColor || null}
+                      descriptionMaxHeightClass="max-h-14"
+                      className="max-h-[9.75rem]"
+                      metaChips={[
+                        `${collectionEntry.progress?.discovered ?? 0}/${collectionEntry.progress?.total ?? 0} entdeckt · ${collectionEntry.itemsCount || 0} Einträge`,
+                      ]}
+                      secondaryActionIcon={Plus}
+                      secondaryActionLabel="Kollektion folgen"
+                      secondaryActionVisible={!readOnly && !!user?.id && !collectionEntry.isOwnCollection && !collectionEntry.isFollowing}
+                      secondaryActionDisabled={followMutation.isPending}
+                      onSecondaryAction={() => followMutation.mutate(collectionEntry.id)}
+                      leadingVisual={(
+                        <div className={"h-12 w-12 md:h-14 md:w-14 rounded-2xl border overflow-hidden " + (isLightUi ? "border-white/70 bg-white/45" : "border-white/30 bg-black/30")}>
+                          <FlorabotLogo
+                            profile={collectionEntry.ownerProfile || null}
+                            logoAssets={logoAssets}
+                            sizeClass="w-full h-full"
+                            padding="p-[10%]"
+                          />
+                        </div>
+                      )}
+                      leadingBadges={(
+                        <span className={"inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none border whitespace-nowrap " + (isLightUi ? "border-stone-500/30 bg-white/60 text-stone-700" : "border-white/30 bg-black/30 text-white/90")}>
+                          {collectionEntry.followersCount || 0} Follower
+                        </span>
+                      )}
+                      onClick={() => handleOpenPublicCollection(collectionEntry.id)}
+                    />
+                  ))
+                ) : (
+                  <div className={"rounded-2xl border border-dashed px-4 py-6 text-center text-sm " + (isLightUi ? "bg-white/50 border-[#c8ac62]/35 text-stone-700" : "bg-black/30 border-[#f0e5a5]/30 text-stone-300") }>
+                    Keine öffentlichen Nutzerkollektionen verfügbar.
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : isCategoryLandingVisible ? (
+            <div className="flex-1 min-h-0 max-h-full">
+              <div className="h-full max-h-full grid grid-rows-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3" style={{ paddingTop: listTopFadePx, paddingBottom: listBottomFadePx }}>
+                <CollectionCategoryEntryCard
+                  title="Globale"
+                  icon={Leaf}
+                  accent="global"
+                  className="h-full max-h-[10.5rem]"
+                  detailContent={(
+                    <div className="space-y-1.5">
+                      <div className={"flex items-center justify-between text-[11px] " + (isLightUi ? "text-white/75" : "text-white/75")}>
+                        <span>Fortschritt</span>
+                        <span>{globalCategoryStats.percent}%</span>
+                      </div>
+                      <div className={"h-2 rounded-full overflow-hidden border " + (isLightUi ? "bg-black/30 border-white/15" : "bg-black/35 border-white/15")}>
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${globalCategoryStats.percent}%`,
+                            background: "linear-gradient(90deg, rgba(182, 220, 126, 0.92) 0%, rgba(132, 176, 86, 0.92) 100%)",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  descriptionMaxHeightClass="max-h-14"
+                  onClick={() => {
+                    setEntryCategory("global");
+                    setPublicCollectionsPanelOpen(false);
+                    handleCollectionChipSelect("global");
+                  }}
+                />
+                <CollectionCategoryEntryCard
+                  title="Themen"
+                  icon={List}
+                  accent="themes"
+                  className="h-full max-h-[10.5rem]"
+                  metaChips={
+                    followedThemeCollectionChips.length > 0
+                      ? followedThemeCollectionChips
+                      : ["Noch keine Abos vorhanden"]
+                  }
+                  descriptionMaxHeightClass="max-h-14"
+                  onClick={() => {
+                    setEntryCategory("themes");
+                    const firstThemeCollectionId = uniqueThemeCollections[0]?.id;
+                    if (firstThemeCollectionId) {
+                      handleCollectionChipSelect(firstThemeCollectionId);
+                    }
+                  }}
+                />
+                <CollectionCategoryEntryCard
+                  title="Gemeinsame"
+                  icon={Users}
+                  accent="shared"
+                  className="h-full max-h-[10.5rem]"
+                  metaChips={["Feature folgt in einem späteren Release"]}
+                  descriptionMaxHeightClass="max-h-14"
+                  onClick={() => {
+                    setEntryCategory("shared");
+                    setPublicCollectionsPanelOpen(false);
+                  }}
+                />
+                <CollectionCategoryEntryCard
+                  title="Stöbern"
+                  icon={Compass}
+                  accent="browse"
+                  className="h-full max-h-[10.5rem]"
+                  metaChips={[
+                    `${browseCollectionCounts.totalPublicCollections} User-Kollektionen`,
+                    `${browseCollectionCounts.followedPublicCollections} abonniert`,
+                  ]}
+                  descriptionMaxHeightClass="max-h-14"
+                  onClick={() => {
+                    setEntryCategory("browse");
+                    setPublicCollectionsPanelOpen(false);
+                  }}
+                />
+              </div>
+            </div>
           ) : (
             <CollectionScreen
               readOnly={readOnly}
               friendEmail={resolvedFriendEmail || null}
-              showFriendHighlights={isOwnCollectionContext}
-              friendDiscoveryMetaByGenusId={friendDiscoveryMetaByGenusId}
+              selectedEntryCategory={selectedEntryCategory}
+              selectedEntryCategoryLabel={selectedEntryCategoryLabel}
+              onBackToCategoryLanding={embedded
+                ? () => {
+                  setEntryCategory(null);
+                  setPublicCollectionsPanelOpen(false);
+                }
+                : undefined}
               isQuestCollectionView={isQuestCollectionView}
               ownedCollections={ownedCollections}
               followedCollections={followedCollections}
+              collectionChips={collectionChips}
               getCollectionStats={getCollectionStats}
               selectedCollectionId={selectedCollectionId}
               onCollectionChipSelect={handleCollectionChipSelect}
@@ -1452,12 +1227,15 @@ export default function CollectionFeatureRoot({
               heroTitle={heroTitle}
               selectedCollection={selectedCollection}
               isOwnerOfSelected={isOwnerOfSelected}
-              canEditSelectedCollection={isMaintainerOfSelected && !readOnly}
               isFollowingSelected={isFollowingSelected}
+              isFavoriteSelected={isFavoriteSelected}
+              isFavoriteFeatureAvailable={!favoriteColumnUnavailable}
               userCollectionLinkForSelected={userCollectionLinkForSelected}
               onUnfollow={(userCollectionId) => unfollowMutation.mutate(userCollectionId)}
               onFollow={(collectionId) => followMutation.mutate(collectionId)}
+              onToggleFavorite={(payload) => toggleFavoriteMutation.mutate(payload)}
               isFollowLoading={!readOnly && (followMutation.isPending || unfollowMutation.isPending)}
+              isFavoriteLoading={!readOnly && toggleFavoriteMutation.isPending}
               onEditCollection={(collectionId) => {
                 if (!readOnly) navigate("/CollectionEditor?id=" + collectionId);
               }}
@@ -1496,36 +1274,6 @@ export default function CollectionFeatureRoot({
               listBottomFadePx={listBottomFadePx}
               filteredGenera={filteredGenera}
               sortedGenera={sortedGenera}
-              canShowCollectionProposalControls={canShowCollectionProposalControls}
-              proposalEditorMode={isProposalEditorMode}
-              onToggleProposalEditorMode={() => {
-                setProposalFeedback(null);
-                setIsProposalEditorMode((prev) => !prev);
-              }}
-              canSubmitToSelectedCollection={canSubmitToSelectedCollection}
-              isProposalBlockedByPrivateMaintained={isProposalBlockedByPrivateMaintained}
-              proposalSearchQuery={proposalSearchQuery}
-              onProposalSearchQueryChange={(nextQuery) => setProposalSearchQuery(nextQuery)}
-              proposalSearchOptions={proposalSearchOptions}
-              onAddProposalSelection={handleAddProposalSelection}
-              proposalSelections={proposalSelections}
-              onProposalSelectionNoteChange={(key, nextNote) => {
-                setProposalSelections((prev) =>
-                  prev.map((entry) => (entry.key === key ? { ...entry, note: nextNote } : entry))
-                );
-              }}
-              onRemoveProposalSelection={(key) => {
-                setProposalSelections((prev) => prev.filter((entry) => entry.key !== key));
-              }}
-              isProposalSubmitting={submitCollectionProposalMutation.isPending}
-              onSubmitCollectionProposal={() => {
-                if (!proposalSelections.length) {
-                  setProposalFeedback({ type: "error", message: "Waehle zuerst mindestens einen Eintrag." });
-                  return;
-                }
-                submitCollectionProposalMutation.mutate({ entries: proposalSelections });
-              }}
-              proposalFeedback={proposalFeedback}
               onShowHint={handleShowHint}
               userDiscoveries={userDiscoveries}
               plants={plants}

@@ -418,7 +418,7 @@ export default function NotificationManager({ user, showInProfile = false }) {
                     Aktiviere Benachrichtigungen! 🎁
                   </h3>
                   <p className="text-sm text-stone-600 mb-3">
-                    Erhalte sofort eine Nachricht, wenn dir ein Freund eine Pflanze schenkt.
+                    Werde mit Push-Mitteilungen benachrichtigt, wenn dein Florabot Neues zu berichten hat.
                   </p>
                   <div className="flex gap-2">
                     <Button

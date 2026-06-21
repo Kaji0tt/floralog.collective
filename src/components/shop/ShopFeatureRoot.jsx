@@ -1,22 +1,43 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Sparkles, Loader2, RefreshCw, Image as ImageIcon, BadgeCheck, PaintBucket, Lock, ArrowLeft, ArrowRight, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Sparkles,
+  RefreshCw,
+  Image as ImageIcon,
+  BadgeCheck,
+  PaintBucket,
+  Lock,
+  ChevronDown,
+  ChevronUp,
+  Gem,
+  Bot,
+  User,
+  Check,
+  Smile,
+  ScanSearch,
+} from "lucide-react";
 import { HexColorPicker } from "react-colorful";
 import { Query } from "@/api/entities";
 import { supabase } from "@/api/supabaseClient";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
-import { getCurrentAuthUser } from "@/api/authService";
 import { getUserWallet } from "@/api/walletService";
-import { listUserRewardsWithLegacyFallback } from "@/api/userRewardService";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
+import CollectionCategoryEntryCard from "@/components/collection/CollectionCategoryEntryCard";
 import {
   getUnlockedProfileCustomizationCatalog,
   profileCustomizationCategoryComparator,
   resolveTitleValue,
 } from "@/lib/profileCustomizationOptions";
 import { LOGO_ACCESSORY_DEFAULTS } from "@/lib/logoAccessoryAssets";
+import {
+  evaluateProfileBadges,
+  PROFILE_BADGE_DEFINITIONS,
+  PROFILE_BADGE_MAX_SELECTED,
+  sanitizeSelectedProfileBadgeIds,
+} from "@/lib/profileBadges";
+import { getProfileBadgeIconComponent } from "@/lib/profileBadgeIcons";
 
 const BORDER_COLOR_PRESETS = [
   "#ff3b30",
@@ -35,26 +56,193 @@ const BORDER_COLOR_PRESETS = [
 
 const CATEGORY_META = {
   backgrounds: {
-    title: "Hintergruende",
-    subtitle: "Alle freigeschalteten Hintergründe fuer dein Profil",
+    title: "Hintergründe",
+    subtitle: "Alle freigeschalteten Hintergründe für dein Profil",
     emptyLabel: "Noch keine Hintergrundoptionen freigeschaltet.",
+  },
+  face: {
+    title: "Gesicht",
+    subtitle: "Freigeschaltete Gesichts-Assets für dein Home-Logo",
+    emptyLabel: "Noch keine Gesichtsoptionen verfügbar.",
+  },
+  effects: {
+    title: "Effekte",
+    subtitle: "Freischaltbare visuelle Effekte für dein Profil",
+    emptyLabel: "Noch keine Effekte verfügbar.",
+  },
+  scans: {
+    title: "Scans",
+    subtitle: "Scan-basierte Inhalte folgen bald",
+    emptyLabel: "Diese Kategorie ist aktuell ein Platzhalter.",
   },
   titles: {
     title: "Titel",
-    subtitle: "Alle freigeschalteten Titel fuer dein Profil",
+    subtitle: "Alle freigeschalteten Titel für dein Profil",
     emptyLabel: "Noch keine Titel freigeschaltet.",
   },
   accessories: {
     title: "Accessoires",
-    subtitle: "Austauschbare Teile fuer dein Home-Logo",
-    emptyLabel: "Noch keine Accessoires verfuegbar.",
+    subtitle: "Austauschbare Teile für dein Home-Logo",
+    emptyLabel: "Noch keine Accessoires verfügbar.",
   },
 };
 
+const ROOT_CATEGORY_META = {
+  shop: {
+    key: "shop",
+    title: "Shop",
+    subtitle: "Bernstein kaufen und Gegenstände mit Bernstein oder Funken freischalten.",
+    accent: "global",
+    icon: Gem,
+  },
+  florabot: {
+    key: "florabot",
+    title: "Florabot",
+    subtitle: "Freigeschaltete Anpassungen für Rahmen, Pflanze und Gesicht.",
+    accent: "themes",
+    icon: Bot,
+  },
+  profile: {
+    key: "profile",
+    title: "Profil",
+    subtitle: "Abzeichen, Hintergründe und Titel für dein Profil.",
+    accent: "shared",
+    icon: User,
+  },
+};
+
+const ROOT_DEFAULT_SUBCATEGORY = {
+  shop: "backgrounds",
+  florabot: "accessories",
+  profile: "backgrounds",
+};
+
+const ROOT_SUBCATEGORY_ORDER = {
+  shop: ["backgrounds", "face", "effects", "scans"],
+  florabot: ["accessories", "effects"],
+  profile: ["badges", "backgrounds", "titles", "effects"],
+};
+
+const ROOT_SHOP_CATEGORY_MAP = {
+  accessories: "florabot",
+  backgrounds: "shop",
+  face: "shop",
+  effects: "shop",
+  scans: "shop",
+  titles: "profile",
+  badges: "profile",
+  shop: "shop",
+  florabot: "florabot",
+  profile: "profile",
+};
+
+const BADGE_RANK_BADGE_STYLE = {
+  gray: "bg-[#9ca3af]/20 text-[#6b7280] border-[#9ca3af]/55",
+  white: "bg-white/50 text-stone-700 border-white/70",
+  bronze: "bg-[#cd7f32]/18 text-[#9a5c22] border-[#cd7f32]/45",
+  silver: "bg-[#c0c7d1]/20 text-[#7d8798] border-[#c0c7d1]/50",
+  gold: "bg-[#f5c542]/20 text-[#9a6b00] border-[#f5c542]/50",
+};
+
+const BADGE_RANK_ICON_STYLE = {
+  gray: "text-[#9ca3af]",
+  white: "text-white",
+  bronze: "text-[#cd7f32]",
+  silver: "text-[#c0c7d1]",
+  gold: "text-[#f5c542]",
+};
+
+const getBadgeCardSurfaceClassName = (rankKey, isLightUi) => {
+  if (rankKey === "gold") {
+    return isLightUi
+      ? "border-[#f5c542]/50 bg-gradient-to-br from-[#fef3c7]/75 via-white/80 to-[#fde68a]/60"
+      : "border-[#f5c542]/50 bg-gradient-to-br from-[#3a2d12]/70 via-[#2b2414]/65 to-[#4b3a16]/70";
+  }
+
+  if (rankKey === "silver") {
+    return isLightUi
+      ? "border-[#c0c7d1]/50 bg-gradient-to-br from-[#eef2f7]/80 via-white/80 to-[#dce3ef]/65"
+      : "border-[#c0c7d1]/45 bg-gradient-to-br from-[#242a33]/70 via-[#1e232d]/65 to-[#2d3542]/70";
+  }
+
+  if (rankKey === "bronze") {
+    return isLightUi
+      ? "border-[#cd7f32]/45 bg-gradient-to-br from-[#fde6d0]/78 via-white/80 to-[#f7cfac]/65"
+      : "border-[#cd7f32]/45 bg-gradient-to-br from-[#332114]/70 via-[#2a1c12]/65 to-[#473122]/70";
+  }
+
+  if (rankKey === "white") {
+    return isLightUi
+      ? "border-[#e2e8f0]/70 bg-white/82"
+      : "border-white/40 bg-white/12";
+  }
+
+  return isLightUi
+    ? "border-[#cbd5e1]/45 bg-white/72"
+    : "border-white/15 bg-black/30";
+};
+
+const getCategoryOptionCount = (category, predicate = null) => {
+  if (!category?.sections?.length) return 0;
+  return category.sections.reduce((sum, section) => {
+    const options = Array.isArray(section?.options) ? section.options : [];
+    if (typeof predicate !== "function") return sum + options.length;
+    return sum + options.filter(predicate).length;
+  }, 0);
+};
+
+const isOptionLockedAndPurchasable = (option) => {
+  if (!option?.isLocked || !option?.isPurchasable) return false;
+  const sparkPrice = Math.max(0, Number(option?.sparkPrice || 0));
+  const amberPrice = Math.max(0, Number(option?.amberPrice || 0));
+  return sparkPrice > 0 || amberPrice > 0;
+};
+
+const isOptionUnlocked = (option) => !Boolean(option?.isLocked);
+
+const mapSectionsWithOptionFilter = (sections, predicate) => {
+  const safeSections = Array.isArray(sections) ? sections : [];
+  if (typeof predicate !== "function") return safeSections;
+
+  return safeSections.map((section) => ({
+    ...section,
+    options: (Array.isArray(section?.options) ? section.options : []).filter(predicate),
+  }));
+};
+
+const getRootCategoryFromInitialCategory = (initialCategory) => {
+  const normalized = String(initialCategory || "").trim().toLowerCase();
+  return ROOT_SHOP_CATEGORY_MAP[normalized] || "florabot";
+};
+
+const getInitialSubcategoryForRoot = (rootCategory, initialCategory) => {
+  const normalized = String(initialCategory || "").trim().toLowerCase();
+  const preferredOrder = ROOT_SUBCATEGORY_ORDER[rootCategory] || [];
+  if (preferredOrder.includes(normalized)) return normalized;
+  return preferredOrder[0] || ROOT_DEFAULT_SUBCATEGORY[rootCategory] || "backgrounds";
+};
+
+const shouldStartOnRootCategoryLanding = (initialCategory) => {
+  const normalized = String(initialCategory || "").trim().toLowerCase();
+  return !normalized || normalized === "root" || normalized === "categories" || normalized === "landing";
+};
+
+const orderByCategoryList = (items, order) => {
+  const safeItems = Array.isArray(items) ? items : [];
+  const safeOrder = Array.isArray(order) ? order : [];
+  return [...safeItems].sort((left, right) => {
+    const leftIndex = safeOrder.indexOf(left?.key);
+    const rightIndex = safeOrder.indexOf(right?.key);
+    const normalizedLeftIndex = leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex;
+    const normalizedRightIndex = rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex;
+    return normalizedLeftIndex - normalizedRightIndex;
+  });
+};
+
 const ACCESSORY_PURCHASABLE_REWARD_TYPES = new Set(["logo_accessory", "accessory"]);
-const ACCESSORY_GRID_COLUMNS = 2;
-const ACCESSORY_GRID_ROWS = 2;
-const ACCESSORY_GRID_PAGE_SIZE = ACCESSORY_GRID_COLUMNS * ACCESSORY_GRID_ROWS;
+const PROFILE_NAV_CHIP_WIDTH = 136;
+const PROFILE_NAV_CHIP_GAP = 12;
+const PROFILE_NAV_SNAP_STEP = PROFILE_NAV_CHIP_WIDTH + PROFILE_NAV_CHIP_GAP;
 
 const normalizeAccessoryId = (value) => String(value || "").trim().toLowerCase();
 
@@ -73,17 +261,6 @@ const accessoryValueMatches = (rewardValue, accessoryId) => {
   const normalizedReward = normalizeRewardAccessoryValue(rewardValue);
   const normalizedAccessory = normalizeAccessoryId(accessoryId);
   return Boolean(normalizedReward) && Boolean(normalizedAccessory) && normalizedReward === normalizedAccessory;
-};
-
-const chunkIntoAccessoryPages = (options) => {
-  const source = Array.isArray(options) ? options : [];
-  if (source.length === 0) return [];
-
-  const pages = [];
-  for (let index = 0; index < source.length; index += ACCESSORY_GRID_PAGE_SIZE) {
-    pages.push(source.slice(index, index + ACCESSORY_GRID_PAGE_SIZE));
-  }
-  return pages;
 };
 
 const getBackgroundSelectionState = (user, option) => {
@@ -106,7 +283,7 @@ const getBackgroundButtonStyle = ({ isActive, isLightUi }) => {
     : "border-[#f0e5a5]/25 hover:border-[#f0e5a5]/45";
 };
 
-const BackgroundOptionCard = ({ option, user, isLightUi, isPending, onSelect }) => {
+const BackgroundOptionCard = ({ option, user, isLightUi, isPending, isSelected = false, onSelect }) => {
   const isActive = getBackgroundSelectionState(user, option);
   const isLocked = Boolean(option?.isLocked);
 
@@ -115,7 +292,11 @@ const BackgroundOptionCard = ({ option, user, isLightUi, isPending, onSelect }) 
       type="button"
       disabled={isPending || isLocked}
       onClick={() => onSelect(option)}
-      className={`relative overflow-hidden rounded-2xl border text-left transition-all duration-200 disabled:opacity-60 ${isLocked ? "cursor-help" : ""} ${getBackgroundButtonStyle({ isActive, isLightUi })}`}
+      className={`relative overflow-hidden rounded-2xl border text-left transition-all duration-200 disabled:opacity-60 ${isLocked ? "cursor-help" : ""} ${getBackgroundButtonStyle({ isActive, isLightUi })} ${
+        isSelected
+          ? (isLightUi ? "ring-2 ring-[#c8ac62]/70" : "ring-2 ring-[#f0e5a5]/70")
+          : ""
+      }`}
     >
       <div className="aspect-[1.1/1] w-full">
         {option.type === "color" ? (
@@ -160,7 +341,7 @@ const BackgroundOptionCard = ({ option, user, isLightUi, isPending, onSelect }) 
   );
 };
 
-const TitleOptionRow = ({ option, user, isLightUi, isPending, onSelect }) => {
+const TitleOptionRow = ({ option, user, isLightUi, isPending, isSelected = false, onSelect }) => {
   const isActive = resolveTitleValue(user?.selected_title) === resolveTitleValue(option?.value, option?.label);
 
   return (
@@ -176,7 +357,7 @@ const TitleOptionRow = ({ option, user, isLightUi, isPending, onSelect }) => {
           : (isLightUi
             ? "border-[#c8ac62]/30 bg-white/65 text-stone-800 hover:bg-white/85"
             : "border-[#f0e5a5]/20 bg-black/30 text-stone-100 hover:bg-black/45")
-      }`}
+          } ${isSelected ? (isLightUi ? "ring-2 ring-[#c8ac62]/60" : "ring-2 ring-[#f0e5a5]/65") : ""}`}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
@@ -199,6 +380,13 @@ const getAccessorySelectionState = (user, option) => {
   return activeValue === option.value;
 };
 
+const getProfileEffectSelectionState = (user, option) => {
+  const profileField = option?.profileField || "selected_profile_effect";
+  const activeValue = String(user?.[profileField] || "").trim().toLowerCase();
+  const optionValue = String(option?.value || "").trim().toLowerCase();
+  return Boolean(optionValue) && activeValue === optionValue;
+};
+
 const formatAccessoryPriceLabel = (sparkPrice, amberPrice) => {
   const parts = [];
   if (sparkPrice > 0) parts.push(`${sparkPrice} Funken`);
@@ -206,7 +394,7 @@ const formatAccessoryPriceLabel = (sparkPrice, amberPrice) => {
   return parts.join(" + ");
 };
 
-const AccessoryOptionCard = ({ option, user, isLightUi, isPending, onSelect }) => {
+const AccessoryOptionCard = ({ option, user, isLightUi, isPending, isSelected = false, onSelect }) => {
   const isActive = getAccessorySelectionState(user, option);
   const isLocked = Boolean(option?.isLocked);
   const sparkPrice = Math.max(0, Number(option?.sparkPrice || 0));
@@ -223,7 +411,11 @@ const AccessoryOptionCard = ({ option, user, isLightUi, isPending, onSelect }) =
       type="button"
       disabled={isPending}
       onClick={() => onSelect(option)}
-      className={`relative overflow-hidden rounded-2xl border text-left transition-all duration-200 disabled:opacity-60 ${isLocked ? "cursor-help" : ""} ${getBackgroundButtonStyle({ isActive, isLightUi })}`}
+      className={`relative overflow-hidden rounded-2xl border text-left transition-all duration-200 disabled:opacity-60 ${isLocked ? "cursor-help" : ""} ${getBackgroundButtonStyle({ isActive, isLightUi })} ${
+        isSelected
+          ? (isLightUi ? "ring-2 ring-[#c8ac62]/70" : "ring-2 ring-[#f0e5a5]/70")
+          : ""
+      }`}
     >
       <div className="aspect-square w-full p-2">
         <img
@@ -256,6 +448,91 @@ const AccessoryOptionCard = ({ option, user, isLightUi, isPending, onSelect }) =
           {isLocked && (
             <div className={`mt-1 text-[10px] ${isLightUi ? "text-stone-600" : "text-stone-300/80"}`}>
               {isPurchasable ? formatAccessoryPriceLabel(sparkPrice, amberPrice) : "Noch gesperrt"}
+            </div>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+
+  return (
+    <LockedTooltip
+      content={tooltipContent}
+      contentClassName={isLightUi ? "" : "text-white/90"}
+    >
+      {buttonContent}
+    </LockedTooltip>
+  );
+};
+
+const ProfileEffectOptionCard = ({ option, user, isLightUi, isPending, isSelected = false, onSelect }) => {
+  const isActive = getProfileEffectSelectionState(user, option);
+  const isLocked = Boolean(option?.isLocked);
+  const sparkPrice = Math.max(0, Number(option?.sparkPrice || 0));
+  const amberPrice = Math.max(0, Number(option?.amberPrice || 0));
+  const isPurchasable = isLocked && Boolean(option?.isPurchasable) && (sparkPrice > 0 || amberPrice > 0);
+  const unlockCondition = option?.unlockCondition;
+  const tooltipContent = isLocked
+    ? (isPurchasable ? formatAccessoryPriceLabel(sparkPrice, amberPrice) : (unlockCondition || "Freischaltung noch nicht erreicht."))
+    : null;
+
+  const buttonContent = (
+    <button
+      type="button"
+      disabled={isPending}
+      onClick={() => onSelect(option)}
+      className={`relative overflow-hidden rounded-2xl border text-left transition-all duration-200 disabled:opacity-60 ${isLocked ? "cursor-help" : ""} ${getBackgroundButtonStyle({ isActive, isLightUi })} ${
+        isSelected
+          ? (isLightUi ? "ring-2 ring-[#c8ac62]/70" : "ring-2 ring-[#f0e5a5]/70")
+          : ""
+      }`}
+    >
+      <div className="relative aspect-[1.1/1] w-full p-3">
+        <div
+          className={`absolute inset-0 ${
+            isLightUi
+              ? "bg-[radial-gradient(circle_at_center,rgba(240,229,165,0.35)_0%,rgba(240,229,165,0.12)_45%,rgba(0,0,0,0)_80%)]"
+              : "bg-[radial-gradient(circle_at_center,rgba(240,229,165,0.48)_0%,rgba(240,229,165,0.2)_45%,rgba(0,0,0,0)_80%)]"
+          }`}
+        />
+        <div className={`absolute inset-[16%] rounded-full border ${isLightUi ? "border-[#c8ac62]/55" : "border-[#f0e5a5]/60"}`} />
+        <div className="absolute inset-0 flex items-end justify-center pb-3">
+          <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+            isLightUi
+              ? "border-[#c8ac62]/45 bg-[#f4e7bf]/70 text-stone-700"
+              : "border-[#f0e5a5]/45 bg-[#4f4826]/55 text-stone-100"
+          }`}>
+            Effekt
+          </span>
+        </div>
+      </div>
+      {isLocked && <div className="absolute inset-0 bg-black/45" />}
+      <div className={`absolute inset-0 ${isActive ? (isLightUi ? "bg-white/10" : "bg-black/10") : "bg-transparent"}`} />
+      <div className="absolute inset-x-0 bottom-0 p-2">
+        <div className={`rounded-xl border px-2 py-2 backdrop-blur-md ${
+          isLightUi
+            ? "border-white/65 bg-white/75 text-stone-800"
+            : "border-white/10 bg-black/45 text-stone-100"
+        }`}>
+          <div className="flex items-center justify-between gap-2">
+            <span className="truncate text-xs font-semibold">{option.label}</span>
+            {isLocked ? (
+              isPurchasable ? (
+                <Sparkles className={`h-3.5 w-3.5 shrink-0 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+              ) : (
+                <Lock className={`h-3.5 w-3.5 shrink-0 ${isLightUi ? "text-stone-600" : "text-stone-200/90"}`} />
+              )
+            ) : (
+              isActive && <BadgeCheck className={`h-3.5 w-3.5 shrink-0 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+            )}
+          </div>
+          {isLocked ? (
+            <div className={`mt-1 text-[10px] ${isLightUi ? "text-stone-600" : "text-stone-300/80"}`}>
+              {isPurchasable ? formatAccessoryPriceLabel(sparkPrice, amberPrice) : (unlockCondition || "Noch gesperrt")}
+            </div>
+          ) : (
+            <div className={`mt-1 text-[10px] ${isLightUi ? "text-stone-600" : "text-stone-300/80"}`}>
+              {isActive ? "Aktiv" : "Tippen zum Ausrüsten"}
             </div>
           )}
         </div>
@@ -482,119 +759,238 @@ const SectionCard = ({ title, icon: Icon, children, isLightUi }) => {
   );
 };
 
-const AccessoryPagedGrid = ({ options, user, isLightUi, isPending, onSelect }) => {
-  const pages = chunkIntoAccessoryPages(options);
-  const scrollRef = React.useRef(/** @type {HTMLDivElement | null} */ (null));
-  const [canScrollLeft, setCanScrollLeft] = React.useState(false);
-  const [canScrollRight, setCanScrollRight] = React.useState(pages.length > 1);
-
-  const updateScrollState = React.useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    setCanScrollLeft(el.scrollLeft > 1);
-    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
-  }, []);
+const ProfileCategorySnapCarousel = ({ categories, activeKey, isLightUi, onSelect }) => {
+  const safeCategories = Array.isArray(categories) ? categories : [];
+  const activeIndex = Math.max(0, safeCategories.findIndex((category) => category?.key === activeKey));
+  const [dragOffset, setDragOffset] = React.useState(0);
+  const [isDragging, setIsDragging] = React.useState(false);
+  const [snapStep, setSnapStep] = React.useState(PROFILE_NAV_SNAP_STEP);
+  const chipRefs = React.useRef([]);
+  const dragStateRef = React.useRef({
+    pointerId: null,
+    startX: 0,
+    startIndex: 0,
+    snapStep: PROFILE_NAV_SNAP_STEP,
+  });
 
   React.useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    updateScrollState();
-    el.addEventListener("scroll", updateScrollState, { passive: true });
-    return () => el.removeEventListener("scroll", updateScrollState);
-  }, [updateScrollState, pages.length]);
+    setDragOffset(0);
+    setIsDragging(false);
+  }, [activeKey]);
 
-  const handleArrowNavigation = React.useCallback((direction) => {
-    const el = scrollRef.current;
-    if (!el || pages.length <= 1) return;
+  React.useEffect(() => {
+    const firstChip = chipRefs.current[0];
+    const secondChip = chipRefs.current[1];
+    if (!firstChip || !secondChip) return;
 
-    const pageWidth = el.clientWidth || 1;
-    const currentPage = Math.round(el.scrollLeft / pageWidth);
-    const nextPage = Math.min(pages.length - 1, Math.max(0, currentPage + direction));
+    const firstRect = firstChip.getBoundingClientRect();
+    const secondRect = secondChip.getBoundingClientRect();
+    const firstCenter = firstRect.left + (firstRect.width / 2);
+    const secondCenter = secondRect.left + (secondRect.width / 2);
+    const measuredStep = Math.abs(secondCenter - firstCenter);
 
-    el.scrollTo({
-      left: nextPage * pageWidth,
-      behavior: "smooth",
-    });
-  }, [pages.length]);
+    if (Number.isFinite(measuredStep) && measuredStep > 0) {
+      setSnapStep(measuredStep);
+    }
+  }, [safeCategories.length, activeKey]);
 
-  const showArrows = canScrollLeft || canScrollRight;
+  React.useEffect(() => {
+    const handleResize = () => {
+      const firstChip = chipRefs.current[0];
+      const secondChip = chipRefs.current[1];
+      if (!firstChip || !secondChip) return;
+
+      const firstRect = firstChip.getBoundingClientRect();
+      const secondRect = secondChip.getBoundingClientRect();
+      const firstCenter = firstRect.left + (firstRect.width / 2);
+      const secondCenter = secondRect.left + (secondRect.width / 2);
+      const measuredStep = Math.abs(secondCenter - firstCenter);
+
+      if (Number.isFinite(measuredStep) && measuredStep > 0) {
+        setSnapStep(measuredStep);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  if (safeCategories.length <= 1) return null;
+
+  const clampIndex = (value) => {
+    if (safeCategories.length <= 1) return 0;
+    return Math.min(Math.max(value, 0), safeCategories.length - 1);
+  };
+
+  const completeDrag = (clientX) => {
+    const step = dragStateRef.current.snapStep > 0 ? dragStateRef.current.snapStep : PROFILE_NAV_SNAP_STEP;
+    const deltaX = clientX - dragStateRef.current.startX;
+    const floatIndex = dragStateRef.current.startIndex - (deltaX / step);
+    const nextIndex = clampIndex(Math.round(floatIndex));
+    const nextKey = safeCategories[nextIndex]?.key;
+
+    setIsDragging(false);
+    setDragOffset(0);
+
+    if (nextKey && nextKey !== activeKey) {
+      onSelect(nextKey);
+    }
+  };
+
+  const handlePointerDown = (event) => {
+    if (!event.isPrimary) return;
+
+    dragStateRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startIndex: activeIndex,
+      snapStep: snapStep > 0 ? snapStep : PROFILE_NAV_SNAP_STEP,
+    };
+    setIsDragging(true);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+
+  const handlePointerMove = (event) => {
+    if (!isDragging) return;
+    if (dragStateRef.current.pointerId !== event.pointerId) return;
+
+    const step = dragStateRef.current.snapStep > 0 ? dragStateRef.current.snapStep : PROFILE_NAV_SNAP_STEP;
+    const deltaX = event.clientX - dragStateRef.current.startX;
+    const minOffset = -(safeCategories.length - 1 - dragStateRef.current.startIndex) * step;
+    const maxOffset = dragStateRef.current.startIndex * step;
+    const clampedOffset = Math.min(Math.max(deltaX, minOffset), maxOffset);
+    setDragOffset(clampedOffset);
+  };
+
+  const handlePointerUp = (event) => {
+    if (!isDragging) return;
+    if (dragStateRef.current.pointerId !== event.pointerId) return;
+
+    completeDrag(event.clientX);
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+  };
+
+  const handlePointerCancel = (event) => {
+    if (!isDragging) return;
+    if (dragStateRef.current.pointerId !== event.pointerId) return;
+
+    setIsDragging(false);
+    setDragOffset(0);
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+  };
+
+  const visualCenterIndex = (safeCategories.length - 1) / 2;
+  const translateX = dragOffset + ((visualCenterIndex - activeIndex) * snapStep);
 
   return (
-    <div className="space-y-2">
-      <div ref={scrollRef} className="overflow-x-auto pb-1">
-        <div className="flex snap-x snap-mandatory gap-3">
-          {pages.map((pageOptions, pageIndex) => {
-            const placeholders = Math.max(0, ACCESSORY_GRID_PAGE_SIZE - pageOptions.length);
+    <div className="relative h-full w-full min-w-0 flex items-center justify-center" style={{ touchAction: "pan-y" }}>
+      <div
+        className={`pointer-events-none absolute left-1/2 top-1/2 h-10 w-[8.5rem] -translate-x-1/2 -translate-y-1/2 rounded-full border ${
+          isLightUi ? "border-[#b99a48]/70" : "border-[#f0e5a5]/65"
+        }`}
+        aria-hidden="true"
+      />
 
+      <div
+        className="w-full min-w-0 overflow-hidden"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+      >
+        <div
+          className="w-full flex items-center justify-center gap-3 select-none"
+          style={{
+            transform: `translate3d(${translateX}px, 0, 0)`,
+            transition: isDragging ? "none" : "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
+        >
+          {safeCategories.map((category, categoryIndex) => {
+            const isActive = category?.key === activeKey;
             return (
-              <div key={`accessory-page-${pageIndex}`} className="min-w-full snap-start">
-                <div className="grid grid-cols-2 gap-2 md:gap-3">
-                  {pageOptions.map((option) => (
-                    <AccessoryOptionCard
-                      key={option.id}
-                      option={option}
-                      user={user}
-                      isLightUi={isLightUi}
-                      isPending={isPending}
-                      onSelect={onSelect}
-                    />
-                  ))}
-                  {Array.from({ length: placeholders }).map((_, placeholderIndex) => (
-                    <div
-                      key={`accessory-placeholder-${pageIndex}-${placeholderIndex}`}
-                      aria-hidden="true"
-                      className={`aspect-square rounded-2xl border border-dashed ${
-                        isLightUi ? "border-[#c8ac62]/25 bg-white/35" : "border-[#f0e5a5]/15 bg-black/20"
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
+              <button
+                key={category.key}
+                ref={(node) => {
+                  chipRefs.current[categoryIndex] = node;
+                }}
+                type="button"
+                onClick={() => onSelect(category.key)}
+                className={`inline-flex h-10 w-[8.5rem] shrink-0 items-center justify-center truncate px-2 text-center text-sm font-semibold transition-colors ${
+                  isActive
+                    ? (isLightUi ? "text-[#6f5314]" : "text-[#f8efbe]")
+                    : (isLightUi ? "text-stone-500" : "text-stone-300/80")
+                }`}
+                style={{ WebkitTapHighlightColor: "transparent" }}
+              >
+                {category.title}
+              </button>
             );
           })}
         </div>
       </div>
-
-      {showArrows && (
-        <div className="flex items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={() => handleArrowNavigation(-1)}
-            disabled={!canScrollLeft}
-            aria-label="Vorherige Shop-Seite"
-            className={`inline-flex h-7 w-7 items-center justify-center rounded-full border transition disabled:pointer-events-none disabled:opacity-35 ${isLightUi ? "border-[#c8ac62]/45 bg-white/80 text-[#8f6b22] hover:bg-[#f6efdc]" : "border-[#f0e5a5]/30 bg-black/35 text-[#f0e5a5] hover:bg-black/55"}`}
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => handleArrowNavigation(1)}
-            disabled={!canScrollRight}
-            aria-label="Naechste Shop-Seite"
-            className={`inline-flex h-7 w-7 items-center justify-center rounded-full border transition disabled:pointer-events-none disabled:opacity-35 ${isLightUi ? "border-[#c8ac62]/45 bg-white/80 text-[#8f6b22] hover:bg-[#f6efdc]" : "border-[#f0e5a5]/30 bg-black/35 text-[#f0e5a5] hover:bg-black/55"}`}
-          >
-            <ArrowRight className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      )}
     </div>
   );
 };
 
+const AccessoryOptionGrid = ({ options, user, isLightUi, isPending, onSelect, selectedOptionId = null }) => {
+  return (
+    <div className="grid grid-cols-2 gap-2 md:gap-3">
+      {(Array.isArray(options) ? options : []).map((option) => (
+        <AccessoryOptionCard
+          key={option.id}
+          option={option}
+          user={user}
+          isLightUi={isLightUi}
+          isPending={isPending}
+          isSelected={selectedOptionId === option.id}
+          onSelect={onSelect}
+        />
+      ))}
+    </div>
+  );
+};
+
+/**
+ * @param {{
+ *   embedded?: boolean,
+ *   showEmbeddedBottomDivider?: boolean,
+ *   initialCategory?: string,
+ *   authId?: string | null,
+ *   currentUser?: any,
+ *   badgeMetrics?: Record<string, number> | null,
+ *   onHeaderMetaChange?: any,
+ *   onUserUpdated?: (user: any) => void,
+ *   externalActionMode?: boolean,
+ *   onActionStateChange?: any,
+ *   onBackStateChange?: any,
+ * }} props
+ */
 export default function ShopFeatureRoot({
   embedded = true,
+  showEmbeddedBottomDivider = true,
   initialCategory = "accessories",
   authId = null,
   currentUser = null,
+  badgeMetrics = null,
   onHeaderMetaChange,
   onUserUpdated,
+  externalActionMode = false,
+  onActionStateChange,
+  onBackStateChange,
 }) {
   const { isLightUi } = useUiTheme();
   const queryClient = useQueryClient();
 
-  const [shopCategory, setShopCategory] = useState(initialCategory);
+  const [shopRootCategory, setShopRootCategory] = useState(() => getRootCategoryFromInitialCategory(initialCategory));
+  const [isRootCategoryLandingVisible, setIsRootCategoryLandingVisible] = useState(() => shouldStartOnRootCategoryLanding(initialCategory));
+  const [shopCategory, setShopCategory] = useState(() => {
+    const initialRoot = getRootCategoryFromInitialCategory(initialCategory);
+    return getInitialSubcategoryForRoot(initialRoot, initialCategory);
+  });
   const [shopMessage, setShopMessage] = useState(null);
   const [purchaseConfirmOption, setPurchaseConfirmOption] = useState(null);
+  const [selectedOptionForAction, setSelectedOptionForAction] = useState(null);
+  const [activeFlorabotSectionKey, setActiveFlorabotSectionKey] = useState(null);
   const [collapsedBackgroundSections, setCollapsedBackgroundSections] = useState({
     presets: false,
     colors: false,
@@ -609,19 +1005,10 @@ export default function ShopFeatureRoot({
     refetchOnWindowFocus: false,
   });
 
-  const { data: fallbackAuthUser = null } = useQuery({
-    queryKey: ["shopCurrentAuthUser"],
-    queryFn: () => getCurrentAuthUser(),
-    enabled: !authId,
-    staleTime: 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
-
-  const resolvedAuthId = authId || currentUser?.id || fallbackAuthUser?.id || fallbackUser?.id || null;
+  const resolvedAuthId = authId || fallbackUser?.id || null;
   const resolvedUserEmail =
     currentUser?.user_email ||
     currentUser?.email ||
-    fallbackAuthUser?.email ||
     fallbackUser?.user_email ||
     fallbackUser?.email ||
     null;
@@ -630,8 +1017,7 @@ export default function ShopFeatureRoot({
     queryKey: ["userDiscoveries", resolvedAuthId],
     queryFn: () => Query.UserPlantDiscovery.filter({ auth_id: resolvedAuthId }),
     enabled: !!resolvedAuthId,
-    staleTime: 60 * 1000,
-    refetchOnMount: "always",
+    staleTime: Infinity,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
@@ -640,39 +1026,30 @@ export default function ShopFeatureRoot({
     queryKey: ["achievements"],
     queryFn: () => Query.Achievement.list(),
     staleTime: 10 * 60 * 1000,
-    refetchOnMount: "always",
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
+    refetchOnWindowFocus: false,
   });
 
   const { data: userAchievements = [], isPending: isUserAchievementsPending, refetch: refetchUserAchievements } = useQuery({
     queryKey: ["userAchievements", resolvedAuthId],
     queryFn: () => Query.UserAchievement.filter({ auth_id: resolvedAuthId }),
     enabled: !!resolvedAuthId,
-    staleTime: 60 * 1000,
-    refetchOnMount: "always",
+    staleTime: Infinity,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
 
-  const { data: rewards = [], isPending: isRewardsPending, refetch: refetchRewards, error: rewardsError } = useQuery({
+  const { data: rewards = [], isPending: isRewardsPending, refetch: refetchRewards } = useQuery({
     queryKey: ["rewards"],
     queryFn: () => Query.Reward.list(),
     staleTime: 10 * 60 * 1000,
-    refetchOnMount: "always",
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
+    refetchOnWindowFocus: false,
   });
 
-  const { data: userRewards = [], isPending: isUserRewardsPending, refetch: refetchUserRewards, error: userRewardsError } = useQuery({
-    queryKey: ["userRewards", resolvedAuthId, resolvedUserEmail],
-    queryFn: () => listUserRewardsWithLegacyFallback({
-      authId: resolvedAuthId,
-      userEmail: resolvedUserEmail,
-    }),
-    enabled: !!resolvedAuthId || !!resolvedUserEmail,
-    staleTime: 60 * 1000,
-    refetchOnMount: "always",
+  const { data: userRewards = [], isPending: isUserRewardsPending, refetch: refetchUserRewards } = useQuery({
+    queryKey: ["userRewards", resolvedAuthId],
+    queryFn: () => Query.UserReward.filter({ auth_id: resolvedAuthId }),
+    enabled: !!resolvedAuthId,
+    staleTime: Infinity,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
@@ -686,19 +1063,12 @@ export default function ShopFeatureRoot({
     refetchOnReconnect: true,
   });
 
-  const { data: logoAssets = [], isPending: isLogoAssetsPending, refetch: refetchLogoAssets, error: logoAssetsError } = useQuery({
+  const { data: logoAssets = [], isPending: isLogoAssetsPending, refetch: refetchLogoAssets } = useQuery({
     queryKey: ["logoAssets"],
     queryFn: () => Query.LogoAsset.list(),
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
-    retry: 2,
-    retryDelay: 1500,
-    refetchInterval: (query) => {
-      const assets = query?.state?.data;
-      if (Array.isArray(assets) && assets.length > 0) return false;
-      return 8000;
-    },
   });
 
   const { data: genera = [] } = useQuery({
@@ -737,21 +1107,262 @@ export default function ShopFeatureRoot({
     });
   }, [achievements, logoAssets, rewards, userAchievements, userDiscoveries, userRewards, genera, rewardPlants]);
 
-  const categories = useMemo(() => {
+  const customizationCategories = useMemo(() => {
     return [...(catalog.categories || [])].sort(profileCustomizationCategoryComparator);
   }, [catalog.categories]);
 
+  const evaluatedBadges = useMemo(() => {
+    return evaluateProfileBadges(badgeMetrics || {});
+  }, [badgeMetrics]);
+
+  const badgeCategory = useMemo(() => {
+    return {
+      key: "badges",
+      title: "Abzeichen",
+      subtitle: "Metrik-Abzeichen mit 5 Rängen (Grau, Weiß, Bronze, Silber, Gold)",
+      sections: [
+        {
+          key: "metric_badges",
+          title: "Metrik-Abzeichen",
+          emptyLabel: "Noch keine Abzeichen verfügbar.",
+          options: evaluatedBadges,
+        },
+      ],
+      optionCount: evaluatedBadges.length,
+    };
+  }, [evaluatedBadges]);
+
+  const accessoriesCategory = useMemo(() => {
+    return customizationCategories.find((category) => category.key === "accessories") || null;
+  }, [customizationCategories]);
+
+  const faceSection = useMemo(() => {
+    if (!accessoriesCategory) return null;
+    return (accessoriesCategory.sections || []).find((section) => section?.key === "face") || null;
+  }, [accessoriesCategory]);
+
+  const effectsCategory = useMemo(() => {
+    return customizationCategories.find((category) => category.key === "effects") || null;
+  }, [customizationCategories]);
+
+  const profileEffectsSection = useMemo(() => {
+    if (!effectsCategory) return null;
+    return (effectsCategory.sections || []).find((section) => section?.key === "profile_effects") || null;
+  }, [effectsCategory]);
+
+  const logoEffectsSection = useMemo(() => {
+    if (!effectsCategory) return null;
+    return (effectsCategory.sections || []).find((section) => section?.key === "logo_effects") || null;
+  }, [effectsCategory]);
+
+  const florabotCategories = useMemo(() => {
+    const unlockedLogoEffects = mapSectionsWithOptionFilter(
+      logoEffectsSection ? [logoEffectsSection] : [],
+      isOptionUnlocked,
+    );
+
+    const florabotEffectsCategory = {
+      key: "effects",
+      title: "Effekte",
+      subtitle: "Freigeschaltete Florabot-Effekte",
+      sections: unlockedLogoEffects.length > 0
+        ? unlockedLogoEffects
+        : [
+            {
+              key: "logo_effects",
+              title: "Florabot-Effekte",
+              emptyLabel: "Noch keine Florabot-Effekte freigeschaltet.",
+              options: [],
+            },
+          ],
+      optionCount: unlockedLogoEffects.reduce((sum, section) => sum + (section?.options?.length || 0), 0),
+    };
+
+    const resolved = [
+      ...customizationCategories.filter((category) => category.key === "accessories"),
+      florabotEffectsCategory,
+    ].map((category) => ({
+      ...category,
+      optionCount: typeof category.optionCount === "number" ? category.optionCount : getCategoryOptionCount(category),
+    }));
+
+    return orderByCategoryList(resolved, ROOT_SUBCATEGORY_ORDER.florabot);
+  }, [customizationCategories, logoEffectsSection]);
+
+  const backgroundsCategory = useMemo(() => {
+    return customizationCategories.find((category) => category.key === "backgrounds") || null;
+  }, [customizationCategories]);
+
+  const profileCategories = useMemo(() => {
+    const unlockedProfileEffects = mapSectionsWithOptionFilter(
+      profileEffectsSection ? [profileEffectsSection] : [],
+      isOptionUnlocked,
+    );
+
+    const profileEffectsCategory = {
+      key: "effects",
+      title: "Effekte",
+      subtitle: "Freigeschaltete Profileffekte",
+      sections: unlockedProfileEffects.length > 0
+        ? unlockedProfileEffects
+        : [
+            {
+              key: "profile_effects",
+              title: "Profileffekte",
+              emptyLabel: "Noch keine Effekte freigeschaltet.",
+              options: [],
+            },
+          ],
+      optionCount: unlockedProfileEffects.reduce((sum, section) => sum + (section?.options?.length || 0), 0),
+    };
+
+    const resolved = [
+      ...customizationCategories.filter((category) => category.key === "backgrounds" || category.key === "titles"),
+      badgeCategory,
+      profileEffectsCategory,
+    ].map((category) => ({
+      ...category,
+      optionCount: typeof category.optionCount === "number" ? category.optionCount : getCategoryOptionCount(category),
+    }));
+
+    return orderByCategoryList(resolved, ROOT_SUBCATEGORY_ORDER.profile);
+  }, [customizationCategories, badgeCategory, profileEffectsSection]);
+
+  const shopCategories = useMemo(() => {
+    const resolved = [];
+
+    if (backgroundsCategory) {
+      const lockedPurchasableBackgroundSections = mapSectionsWithOptionFilter(
+        backgroundsCategory.sections,
+        isOptionLockedAndPurchasable,
+      );
+
+      resolved.push({
+        ...backgroundsCategory,
+        key: "backgrounds",
+        title: "Hintergründe",
+        subtitle: "Kaufbare, noch gesperrte Hintergründe",
+        sections: lockedPurchasableBackgroundSections,
+        optionCount: getCategoryOptionCount({
+          ...backgroundsCategory,
+          sections: lockedPurchasableBackgroundSections,
+        }),
+      });
+    }
+
+    const lockedPurchasableFaceOptions = mapSectionsWithOptionFilter(
+      faceSection
+        ? [
+            {
+              ...faceSection,
+              key: "face",
+              title: "Gesicht",
+            },
+          ]
+        : [],
+      isOptionLockedAndPurchasable,
+    );
+
+    resolved.push({
+      key: "face",
+      title: "Gesicht",
+      subtitle: "Kaufbare, noch gesperrte Gesichts-Assets",
+      sections: lockedPurchasableFaceOptions,
+      optionCount: lockedPurchasableFaceOptions.reduce((sum, section) => sum + (section?.options?.length || 0), 0),
+    });
+
+    if (effectsCategory) {
+      const lockedPurchasableEffectSections = mapSectionsWithOptionFilter(
+        effectsCategory.sections,
+        isOptionLockedAndPurchasable,
+      );
+
+      resolved.push({
+        ...effectsCategory,
+        key: "effects",
+        title: "Effekte",
+        subtitle: "Kaufbare, noch gesperrte Effekte",
+        sections: lockedPurchasableEffectSections,
+        optionCount: getCategoryOptionCount({
+          ...effectsCategory,
+          sections: lockedPurchasableEffectSections,
+        }),
+      });
+    }
+
+    resolved.push({
+      key: "scans",
+      title: "Scans",
+      subtitle: "Scan-basierte Inhalte folgen bald",
+      sections: [],
+      optionCount: 0,
+      isPlaceholder: true,
+    });
+
+    return orderByCategoryList(resolved, ROOT_SUBCATEGORY_ORDER.shop);
+  }, [backgroundsCategory, effectsCategory, faceSection]);
+
+  const activeSubcategories = useMemo(() => {
+    if (shopRootCategory === "shop") return shopCategories;
+    if (shopRootCategory === "florabot") return florabotCategories;
+    if (shopRootCategory === "profile") return profileCategories;
+    return [];
+  }, [shopRootCategory, shopCategories, florabotCategories, profileCategories]);
+
   useEffect(() => {
-    setShopCategory(initialCategory || "backgrounds");
+    const nextRoot = getRootCategoryFromInitialCategory(initialCategory);
+    setShopRootCategory(nextRoot);
+    setIsRootCategoryLandingVisible(shouldStartOnRootCategoryLanding(initialCategory));
+    setShopCategory(getInitialSubcategoryForRoot(nextRoot, initialCategory));
   }, [initialCategory]);
 
   useEffect(() => {
-    if (!categories.some((category) => category.key === shopCategory)) {
-      setShopCategory(categories[0]?.key || "backgrounds");
+    if (isRootCategoryLandingVisible) return;
+    if (!activeSubcategories.some((category) => category.key === shopCategory)) {
+      setShopCategory(activeSubcategories[0]?.key || null);
     }
-  }, [categories, shopCategory]);
+  }, [activeSubcategories, isRootCategoryLandingVisible, shopCategory]);
 
-  const currentCategory = categories.find((category) => category.key === shopCategory) || categories[0] || null;
+  useEffect(() => {
+    setSelectedOptionForAction(null);
+  }, [shopCategory, shopRootCategory, isRootCategoryLandingVisible]);
+
+  const currentCategory = activeSubcategories.find((category) => category.key === shopCategory) || activeSubcategories[0] || null;
+  const florabotAccessorySections = useMemo(() => {
+    if (shopRootCategory !== "florabot" || currentCategory?.key !== "accessories") return [];
+    return Array.isArray(currentCategory?.sections) ? currentCategory.sections : [];
+  }, [shopRootCategory, currentCategory?.key, currentCategory?.sections]);
+
+  useEffect(() => {
+    if (florabotAccessorySections.length === 0) {
+      if (activeFlorabotSectionKey !== null) {
+        setActiveFlorabotSectionKey(null);
+      }
+      return;
+    }
+
+    const hasActiveSection = florabotAccessorySections.some((section) => section?.key === activeFlorabotSectionKey);
+    if (!hasActiveSection) {
+      setActiveFlorabotSectionKey(florabotAccessorySections[0]?.key || null);
+    }
+  }, [florabotAccessorySections, activeFlorabotSectionKey]);
+
+  const activeFlorabotSection = florabotAccessorySections.find((section) => section?.key === activeFlorabotSectionKey)
+    || florabotAccessorySections[0]
+    || null;
+
+  const handleSelectRootCategory = (nextRootCategory) => {
+    if (!nextRootCategory) return;
+    setShopRootCategory(nextRootCategory);
+    setShopCategory(getInitialSubcategoryForRoot(nextRootCategory, null));
+    setIsRootCategoryLandingVisible(false);
+    setShopMessage(null);
+  };
+
+  const handleBackToRootCategories = () => {
+    setIsRootCategoryLandingVisible(true);
+    setSelectedOptionForAction(null);
+  };
 
   const updateCustomizationMutation = useMutation({
     mutationFn: async (updates) => updateCurrentUserProfile(updates),
@@ -775,16 +1386,34 @@ export default function ShopFeatureRoot({
 
       const sparkPrice = Math.max(0, Math.round(Number(option?.sparkPrice || 0)));
       const amberPrice = Math.max(0, Math.round(Number(option?.amberPrice || 0)));
+      const purchaseKind = String(option?.purchaseKind || "accessory").trim().toLowerCase();
       if (!option?.isPurchasable || (sparkPrice <= 0 && amberPrice <= 0)) {
-        throw new Error("Dieses Accessoire ist nicht kaufbar.");
+        throw new Error("Diese Belohnung ist nicht kaufbar.");
       }
 
-      const rewardsList = Array.isArray(rewards) ? rewards : [];
-      const matchingReward = rewardsList.find((reward) => reward?.id && reward.id === option?.rewardId)
-        || rewardsList.find((reward) => {
-          const rewardType = String(reward?.type || reward?.reward_type || reward?.kind || "").trim().toLowerCase();
-          return ACCESSORY_PURCHASABLE_REWARD_TYPES.has(rewardType) && accessoryValueMatches(reward?.value, option?.value);
-        });
+      const normalizedOptionValue = String(option?.value || "").trim().toLowerCase();
+      const normalizedOptionRewardId = String(option?.rewardId || "").trim();
+
+      const matchingReward = (Array.isArray(rewards) ? rewards : []).find((reward) => {
+        const rewardType = String(reward?.type || reward?.reward_type || reward?.kind || "").trim().toLowerCase();
+        const rewardId = String(reward?.id || "").trim();
+
+        if (normalizedOptionRewardId && rewardId === normalizedOptionRewardId) {
+          if (purchaseKind === "profile_effect") return rewardType === "profile_effect";
+          if (purchaseKind === "logo_effect") return rewardType === "logo_effect";
+          return ACCESSORY_PURCHASABLE_REWARD_TYPES.has(rewardType);
+        }
+
+        if (purchaseKind === "profile_effect") {
+          return rewardType === "profile_effect" && String(reward?.value || "").trim().toLowerCase() === normalizedOptionValue;
+        }
+
+        if (purchaseKind === "logo_effect") {
+          return rewardType === "logo_effect" && String(reward?.value || "").trim().toLowerCase() === normalizedOptionValue;
+        }
+
+        return ACCESSORY_PURCHASABLE_REWARD_TYPES.has(rewardType) && accessoryValueMatches(reward?.value, option?.value);
+      });
 
       if (!matchingReward?.id) {
         return {
@@ -793,13 +1422,16 @@ export default function ShopFeatureRoot({
         };
       }
 
-      const eventReference = `shop-accessory:${String(option.value)}:${Date.now()}`;
+      const eventReference = `shop-${purchaseKind}:${String(option.value || matchingReward.id)}:${Date.now()}`;
       const { data, error } = await supabase.functions.invoke("purchaseAccessory", {
         body: {
           authId: resolvedAuthId,
           userEmail: resolvedUserEmail,
           rewardId: matchingReward.id,
-          accessoryId: String(option.value),
+          accessoryId: purchaseKind === "profile_effect" || purchaseKind === "logo_effect" ? null : String(option.value),
+          purchaseKind,
+          rewardType: String(matchingReward?.type || "").trim().toLowerCase(),
+          rewardValue: String(option?.value || matchingReward?.value || ""),
           sparkPrice,
           amberPrice,
           eventReference,
@@ -818,14 +1450,14 @@ export default function ShopFeatureRoot({
         } else if (result?.errorCode === "insufficient_both") {
           setShopMessage(`Nicht genug Funken und Bernstein. Benötigt: ${formatAccessoryPriceLabel(result.sparkPrice, result.amberPrice)}.`);
         } else if (result?.errorCode === "reward_not_configured") {
-          setShopMessage("Dieses Accessoire kann aktuell nicht gekauft werden.");
+          setShopMessage("Diese Belohnung kann aktuell nicht gekauft werden.");
         } else {
           setShopMessage("Kauf konnte nicht abgeschlossen werden.");
         }
       } else if (result?.alreadyOwned) {
-        setShopMessage("Dieses Accessoire ist bereits freigeschaltet.");
+        setShopMessage("Diese Belohnung ist bereits freigeschaltet.");
       } else {
-        setShopMessage("Accessoire gekauft. Du kannst es jetzt ausrüsten.");
+        setShopMessage("Belohnung gekauft. Du kannst sie jetzt ausrüsten.");
       }
 
       await Promise.all([
@@ -842,6 +1474,42 @@ export default function ShopFeatureRoot({
   });
 
   const handleSelectBackground = async (option) => {
+    if (externalActionMode) {
+      if (option?.isLocked) {
+        setShopMessage(option?.unlockCondition || "Dieser Hintergrund ist noch gesperrt.");
+        return;
+      }
+      setSelectedOptionForAction({
+        kind: "background",
+        option,
+        actionLabel: "Ausrüsten",
+        actionDisabled: false,
+      });
+      return;
+    }
+
+    setShopMessage(null);
+
+    if (option?.isLocked) {
+      setShopMessage(option?.unlockCondition || "Dieser Hintergrund ist noch gesperrt.");
+      return;
+    }
+
+    if (option?.type === "color") {
+      await updateCustomizationMutation.mutateAsync({
+        background_image_url: null,
+        background_color: option.value,
+      });
+      return;
+    }
+
+    await updateCustomizationMutation.mutateAsync({
+      background_image_url: option?.value || null,
+      background_color: null,
+    });
+  };
+
+  const applyBackgroundSelection = async (option) => {
     setShopMessage(null);
 
     if (option?.isLocked) {
@@ -872,6 +1540,22 @@ export default function ShopFeatureRoot({
   };
 
   const handleSelectTitle = async (option) => {
+    if (externalActionMode) {
+      setSelectedOptionForAction({
+        kind: "title",
+        option,
+        actionLabel: "Ausrüsten",
+        actionDisabled: false,
+      });
+      return;
+    }
+
+    setShopMessage(null);
+    const nextTitle = resolveTitleValue(option?.value, option?.label);
+    await updateCustomizationMutation.mutateAsync({ selected_title: nextTitle || null });
+  };
+
+  const applyTitleSelection = async (option) => {
     setShopMessage(null);
     const nextTitle = resolveTitleValue(option?.value, option?.label);
     await updateCustomizationMutation.mutateAsync({ selected_title: nextTitle || null });
@@ -882,7 +1566,110 @@ export default function ShopFeatureRoot({
     await updateCustomizationMutation.mutateAsync({ selected_title: null });
   };
 
+  const handleSelectProfileEffect = async (option) => {
+    const sparkPrice = Math.max(0, Number(option?.sparkPrice || 0));
+    const amberPrice = Math.max(0, Number(option?.amberPrice || 0));
+    const canBeBought = Boolean(option?.isPurchasable) && (sparkPrice > 0 || amberPrice > 0);
+    const isLocked = Boolean(option?.isLocked);
+
+    if (externalActionMode) {
+      if (isLocked && !canBeBought) {
+        setShopMessage(option?.unlockCondition || "Dieser Effekt ist noch gesperrt.");
+        return;
+      }
+
+      setSelectedOptionForAction({
+        kind: "profile-effect",
+        option,
+        actionLabel: isLocked ? "Kaufen" : "Ausrüsten",
+        actionDisabled: false,
+      });
+      return;
+    }
+
+    if (isLocked) {
+      if (canBeBought) {
+        setShopMessage(null);
+        setPurchaseConfirmOption(option);
+      } else {
+        setShopMessage(option?.unlockCondition || "Dieser Effekt ist noch gesperrt.");
+      }
+      return;
+    }
+
+    setShopMessage(null);
+    await updateCustomizationMutation.mutateAsync({ selected_profile_effect: option?.value || null });
+  };
+
+  const applyProfileEffectSelection = async (option) => {
+    const sparkPrice = Math.max(0, Number(option?.sparkPrice || 0));
+    const amberPrice = Math.max(0, Number(option?.amberPrice || 0));
+    const canBeBought = Boolean(option?.isPurchasable) && (sparkPrice > 0 || amberPrice > 0);
+    const isLocked = Boolean(option?.isLocked);
+
+    if (isLocked) {
+      if (canBeBought) {
+        setShopMessage(null);
+        await purchaseAccessoryMutation.mutateAsync(option);
+      } else {
+        setShopMessage(option?.unlockCondition || "Dieser Effekt ist noch gesperrt.");
+      }
+      return;
+    }
+
+    setShopMessage(null);
+    await updateCustomizationMutation.mutateAsync({ selected_profile_effect: option?.value || null });
+  };
+
+  const handleResetProfileEffect = async () => {
+    setShopMessage(null);
+    await updateCustomizationMutation.mutateAsync({ selected_profile_effect: null });
+  };
+
+  const handleResetLogoEffect = async () => {
+    setShopMessage(null);
+    await updateCustomizationMutation.mutateAsync({ selected_logo_effect: null });
+  };
+
+  const handleSelectBadge = async (badgeId) => {
+    const normalizedBadgeId = String(badgeId || "").trim();
+    if (!normalizedBadgeId) return;
+
+    const isAlreadySelected = selectedBadgeIds.includes(normalizedBadgeId);
+    const nextSelection = isAlreadySelected
+      ? selectedBadgeIds.filter((entry) => entry !== normalizedBadgeId)
+      : [...selectedBadgeIds, normalizedBadgeId].slice(0, PROFILE_BADGE_MAX_SELECTED);
+
+    if (!isAlreadySelected && selectedBadgeIds.length >= PROFILE_BADGE_MAX_SELECTED) {
+      setShopMessage(`Maximal ${PROFILE_BADGE_MAX_SELECTED} Abzeichen gleichzeitig.`);
+      return;
+    }
+
+    setShopMessage(null);
+    await updateCustomizationMutation.mutateAsync({ selected_badge_ids: nextSelection });
+  };
+
   const handleSelectAccessory = async (option) => {
+    if (externalActionMode) {
+      const sparkPrice = Math.max(0, Number(option?.sparkPrice || 0));
+      const amberPrice = Math.max(0, Number(option?.amberPrice || 0));
+      const canBeBought = Boolean(option?.isPurchasable) && (sparkPrice > 0 || amberPrice > 0);
+      const isLocked = Boolean(option?.isLocked);
+
+      if (isLocked && !canBeBought) {
+        setShopMessage("Dieses Accessoire ist noch gesperrt.");
+        return;
+      }
+
+      setSelectedOptionForAction({
+        kind: "accessory",
+        option,
+        actionLabel: isLocked ? "Kaufen" : "Ausrüsten",
+        actionDisabled: false,
+      });
+      return;
+    }
+
     if (!option?.profileField) return;
     if (option?.isLocked) {
       if (option?.isPurchasable && (Number(option?.sparkPrice || 0) > 0 || Number(option?.amberPrice || 0) > 0)) {
@@ -897,29 +1684,67 @@ export default function ShopFeatureRoot({
     await updateCustomizationMutation.mutateAsync({ [option.profileField]: option.value });
   };
 
+  const applyAccessorySelection = async (option) => {
+    if (!option?.profileField) return;
+
+    if (option?.isLocked) {
+      if (option?.isPurchasable && (Number(option?.sparkPrice || 0) > 0 || Number(option?.amberPrice || 0) > 0)) {
+        setShopMessage(null);
+        await purchaseAccessoryMutation.mutateAsync(option);
+      } else {
+        setShopMessage("Dieses Accessoire ist noch gesperrt.");
+      }
+      return;
+    }
+
+    setShopMessage(null);
+    await updateCustomizationMutation.mutateAsync({ [option.profileField]: option.value });
+  };
+
   const handleSelectBorderColor = async (hex) => {
+    if (externalActionMode) {
+      setSelectedOptionForAction({
+        kind: "border-color",
+        option: { value: hex || null },
+        actionLabel: "Ausrüsten",
+        actionDisabled: false,
+      });
+      return;
+    }
+
+    setShopMessage(null);
+    await updateCustomizationMutation.mutateAsync({ selected_border_color: hex || null });
+  };
+
+  const applyBorderColorSelection = async (hex) => {
     setShopMessage(null);
     await updateCustomizationMutation.mutateAsync({ selected_border_color: hex || null });
   };
 
   const isAuthResolving = !resolvedAuthId;
   const isLoading = isAuthResolving || isDiscoveriesPending || isAchievementsPending || isUserAchievementsPending || isRewardsPending || isUserRewardsPending || isLogoAssetsPending || isUserWalletPending;
-  const criticalDataError = rewardsError || userRewardsError || logoAssetsError || null;
-  const resolvedCurrentUser = currentUser || fallbackUser || fallbackAuthUser || (authId ? { id: authId } : null);
+  const resolvedCurrentUser = currentUser || fallbackUser || (authId ? { id: authId } : null);
+  const selectedBadgeIds = useMemo(() => {
+    return sanitizeSelectedProfileBadgeIds(
+      resolvedCurrentUser?.selected_badge_ids,
+      PROFILE_BADGE_MAX_SELECTED,
+    );
+  }, [resolvedCurrentUser?.selected_badge_ids]);
   const availableSparks = Math.max(0, Number(userWallet?.sparks_balance ?? 0));
   const availableAmber = Math.max(0, Number(userWallet?.amber_balance ?? 0));
+  const activeRootMeta = ROOT_CATEGORY_META[shopRootCategory] || null;
 
   useEffect(() => {
-    if (!embedded || typeof onHeaderMetaChange !== "function" || !currentCategory) return;
+    if (!embedded || typeof onHeaderMetaChange !== "function") return;
     onHeaderMetaChange({
-      title: "Shop",
-      subtitle: null,
+      title: isRootCategoryLandingVisible ? "Shop" : (activeRootMeta?.title || "Shop"),
+      subtitle: isRootCategoryLandingVisible ? "Kategorie wählen" : null,
       infoLabel: {
         sparks: availableSparks,
         amber: availableAmber,
       },
     });
-  }, [availableAmber, availableSparks, currentCategory, embedded, onHeaderMetaChange]);
+  }, [activeRootMeta?.title, availableAmber, availableSparks, embedded, isRootCategoryLandingVisible, onHeaderMetaChange]);
 
   const purchaseDialogSparkPrice = Math.max(0, Number(purchaseConfirmOption?.sparkPrice ?? 0));
   const purchaseDialogAmberPrice = Math.max(0, Number(purchaseConfirmOption?.amberPrice ?? 0));
@@ -928,6 +1753,72 @@ export default function ShopFeatureRoot({
   const canAffordPurchaseDialogOption = canAffordDialogSparks && canAffordDialogAmber;
   const resolvedCurrentTitle = resolveTitleValue(resolvedCurrentUser?.selected_title, resolvedCurrentUser?.title) || "Pflanzen-Entdecker";
   const isMutationPending = updateCustomizationMutation.isPending || purchaseAccessoryMutation.isPending;
+  const selectedActionRef = React.useRef(null);
+  const backActionRef = React.useRef(null);
+
+  const executeSelectedAction = async () => {
+    const payload = selectedOptionForAction;
+    if (!payload || isMutationPending) return;
+
+    const { kind, option } = payload;
+    if (kind === "background") {
+      await applyBackgroundSelection(option);
+      return;
+    }
+    if (kind === "title") {
+      await applyTitleSelection(option);
+      return;
+    }
+    if (kind === "accessory") {
+      await applyAccessorySelection(option);
+      return;
+    }
+    if (kind === "profile-effect") {
+      await applyProfileEffectSelection(option);
+      return;
+    }
+    if (kind === "border-color") {
+      await applyBorderColorSelection(option?.value || null);
+    }
+  };
+
+  selectedActionRef.current = executeSelectedAction;
+  backActionRef.current = () => {
+    if (!isRootCategoryLandingVisible) {
+      handleBackToRootCategories();
+    }
+  };
+
+  useEffect(() => {
+    if (typeof onActionStateChange !== "function") return;
+
+    const canAct = Boolean(selectedOptionForAction) && !isMutationPending;
+    onActionStateChange({
+      label: selectedOptionForAction?.actionLabel || "Kaufen",
+      disabled: !canAct,
+      isBusy: isMutationPending,
+      onAction: async () => {
+        if (typeof selectedActionRef.current === "function") {
+          await selectedActionRef.current();
+        }
+      },
+      selectedOption: selectedOptionForAction,
+    });
+  }, [selectedOptionForAction, isMutationPending, onActionStateChange]);
+
+  useEffect(() => {
+    if (typeof onBackStateChange !== "function") return;
+
+    const canGoBack = !isRootCategoryLandingVisible;
+    onBackStateChange({
+      canGoBack,
+      onBack: () => {
+        if (typeof backActionRef.current === "function") {
+          backActionRef.current();
+        }
+      },
+    });
+  }, [isRootCategoryLandingVisible, onBackStateChange]);
 
   const handleClosePurchaseDialog = () => {
     if (purchaseAccessoryMutation.isPending) return;
@@ -950,15 +1841,13 @@ export default function ShopFeatureRoot({
     try {
       await purchaseAccessoryMutation.mutateAsync(purchaseConfirmOption);
       setPurchaseConfirmOption(null);
-    } catch (_error) {
+    } catch {
       // Die Fehlermeldung wird in onError/onSuccess gesetzt.
     }
   };
 
-  const tabsHeaderClass = embedded
-    ? `sticky top-0 z-40 backdrop-blur-sm border-b ${isLightUi ? "bg-white/70 border-[#b99a48]/30" : "bg-black/20 border-[#f0e5a5]/20"}`
-    : `sticky top-0 z-40 border-b ${isLightUi ? "bg-white/90 border-stone-200/80 backdrop-blur-xl" : "bg-stone-950/75 border-[#f0e5a5]/20 backdrop-blur-xl"}`;
-  const contentClass = embedded ? "mt-0 px-4 pb-4 flex-1 min-h-0 overflow-y-auto" : "px-4 pb-8 pt-4";
+  const embeddedDividerClass = isLightUi ? "border-[#b99a48]/30" : "border-[#f0e5a5]/20";
+  const contentClass = embedded ? "mt-0 px-4 pb-4 flex-1 min-h-0 overflow-y-auto hide-scrollbar" : "px-4 pb-8 pt-4";
   const listTopFadePx = 12;
   const listBottomFadePx = 18;
   const contentMaskStyle = embedded
@@ -980,88 +1869,98 @@ export default function ShopFeatureRoot({
     ]);
   };
 
+  const rootCategoryEntries = [
+    {
+      ...ROOT_CATEGORY_META.shop,
+    },
+    {
+      ...ROOT_CATEGORY_META.florabot,
+    },
+    {
+      ...ROOT_CATEGORY_META.profile,
+    },
+  ];
+
+  const shouldShowProfileCarousel = !isRootCategoryLandingVisible && shopRootCategory === "profile" && profileCategories.length > 0;
+  const shouldShowFlorabotCarousel = !isRootCategoryLandingVisible && shopRootCategory === "florabot" && florabotCategories.length > 1;
+  const shouldShowShopCarousel = !isRootCategoryLandingVisible && shopRootCategory === "shop" && shopCategories.length > 1;
+  const florabotCarouselItems = florabotCategories.map((category) => ({ key: category.key, title: category.title }));
+
+  const shopCarouselBlock = shouldShowShopCarousel ? (
+    <ProfileCategorySnapCarousel
+      categories={shopCategories}
+      activeKey={shopCategory}
+      isLightUi={isLightUi}
+      onSelect={setShopCategory}
+    />
+  ) : null;
+
+  const profileCarouselBlock = shouldShowProfileCarousel ? (
+    <ProfileCategorySnapCarousel
+      categories={profileCategories}
+      activeKey={shopCategory}
+      isLightUi={isLightUi}
+      onSelect={setShopCategory}
+    />
+  ) : null;
+
+  const florabotCarouselBlock = shouldShowFlorabotCarousel ? (
+    <ProfileCategorySnapCarousel
+      categories={florabotCarouselItems}
+      activeKey={shopCategory}
+      isLightUi={isLightUi}
+      onSelect={setShopCategory}
+    />
+  ) : null;
+
+  const shouldShowFixedTopNav = shouldShowProfileCarousel || shouldShowFlorabotCarousel || shouldShowShopCarousel;
+  const fixedTopNavBar = shouldShowFixedTopNav ? (
+    <div className={`shrink-0 px-4 ${embedded ? "h-20" : "h-24"} flex items-center`}>
+      <div className="max-w-5xl mx-auto w-full min-w-0 h-full flex items-center justify-center">
+        {shouldShowShopCarousel ? shopCarouselBlock : (shouldShowProfileCarousel ? profileCarouselBlock : florabotCarouselBlock)}
+      </div>
+    </div>
+  ) : null;
+
+  const topNavDivider = shouldShowFixedTopNav
+    ? <div className={`relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen shrink-0 border-t-2 ${embeddedDividerClass}`} aria-hidden="true" />
+    : null;
+
   return (
     <section
       data-embedded-module="shop"
       data-theme={isLightUi ? "light" : "dark"}
-      className="flex-1 min-h-0 overflow-hidden flex flex-col"
+      className="h-full flex-1 min-h-0 overflow-hidden flex flex-col"
     >
-      <div className={`${tabsHeaderClass} shrink-0`}>
-        <div className="w-full px-2 pt-2">
-          <div className="overflow-x-auto pb-1">
-            <div className="flex min-w-max gap-2 px-2">
-              {categories.map((category) => {
-                const isPrimary = shopCategory === category.key;
-                return (
-                  <button
-                    key={category.key}
-                    type="button"
-                    onClick={() => setShopCategory(category.key)}
-                    className={
-                      "flex items-center justify-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors min-w-fit " +
-                      (isPrimary
-                        ? (isLightUi
-                          ? "bg-white/90 text-[#8f6b22] shadow-sm"
-                          : "bg-black/55 text-[#f7f0c1] shadow-sm")
-                        : (isLightUi
-                          ? "bg-white/55 text-stone-700 hover:bg-white/75"
-                          : "bg-black/35 text-stone-200 hover:bg-black/50"))
-                    }
-                    style={{
-                      borderColor: isPrimary
-                        ? (isLightUi ? "rgba(200,172,98,0.70)" : "rgba(240,229,165,0.75)")
-                        : (isLightUi ? "rgba(200,172,98,0.35)" : "rgba(255,255,255,0.3)"),
-                    }}
-                  >
-                    <span className="font-medium truncate">{category.title}</span>
-                    <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${
-                      isLightUi ? "bg-[#c8ac62]/12 text-stone-600" : "bg-white/10 text-stone-200/80"
-                    }`}>
-                      {category.optionCount}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
+      {fixedTopNavBar}
+      {topNavDivider}
 
       <div className={contentClass} style={contentMaskStyle}>
-        <div className="max-w-5xl mx-auto space-y-3" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
-          {!!shopMessage && (
-            <div className={`text-[11px] md:text-xs ${isLightUi ? "text-stone-700" : "text-stone-200/90"}`}>
-              {shopMessage}
-            </div>
-          )}
-
-          {criticalDataError ? (
-            <div className="px-1 py-6 flex flex-col items-center justify-center gap-3 text-center">
-              <div className={`text-sm font-medium ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Shop-Daten konnten nicht geladen werden</div>
-              <div className={`text-xs ${isLightUi ? "text-stone-500" : "text-stone-300/80"}`}>Bitte kurz neu laden. Solange Daten fehlen, koennen Freischaltungen nicht korrekt angezeigt werden.</div>
-              <button
-                type="button"
-                onClick={refetchAll}
-                className={`inline-flex items-center gap-2 h-9 px-3 rounded-xl text-xs font-semibold border ${
-                  isLightUi
-                    ? "border-[#c8ac62]/55 bg-white/65 text-stone-800"
-                    : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
-                }`}
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                Erneut laden
-              </button>
-            </div>
-          ) : isLoading ? (
-            <div className="px-1 py-6 flex flex-col items-center justify-center gap-2 text-center">
-              <Loader2 className={`w-6 h-6 animate-spin ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
-              <div className={`text-sm font-medium ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Freischaltungen werden geladen</div>
-              <div className={`text-xs ${isLightUi ? "text-stone-500" : "text-stone-300/80"}`}>Der Shop sammelt deine bereits freigeschalteten Anpassungen.</div>
+        <div
+          className="max-w-5xl mx-auto space-y-3"
+          style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}
+        >
+          {isRootCategoryLandingVisible ? (
+            <div className="space-y-2">
+              {rootCategoryEntries.map((entry) => (
+                <CollectionCategoryEntryCard
+                  key={entry.key}
+                  title={entry.title}
+                  icon={entry.icon}
+                  accent={entry.accent}
+                  info={entry.subtitle}
+                  infoClassName={isLightUi ? "text-white/90" : "text-stone-200"}
+                  descriptionScrollable={false}
+                  descriptionMaxHeightClass="max-h-none"
+                  showChevron
+                  onClick={() => handleSelectRootCategory(entry.key)}
+                />
+              ))}
             </div>
           ) : !currentCategory ? (
             <div className="px-1 py-6 flex flex-col items-center justify-center gap-3 text-center">
               <Sparkles className={`w-6 h-6 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
-              <div className={`text-sm font-medium ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Noch keine Anpassungskategorien verfuegbar</div>
+              <div className={`text-sm font-medium ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Noch keine Anpassungskategorien verfügbar</div>
               <button
                 type="button"
                 onClick={refetchAll}
@@ -1082,7 +1981,7 @@ export default function ShopFeatureRoot({
                   <div>
                     <div className={`text-sm font-semibold ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Aktiver Hintergrund</div>
                     <div className={`mt-1 text-xs ${isLightUi ? "text-stone-500" : "text-stone-300/75"}`}>
-                      Presets, Farben und eigene Scans werden direkt auf dein Profil angewendet.
+                      Presets und Farben werden direkt auf dein Profil angewendet.
                     </div>
                   </div>
                   <button
@@ -1136,6 +2035,7 @@ export default function ShopFeatureRoot({
                               user={resolvedCurrentUser}
                               isLightUi={isLightUi}
                               isPending={isMutationPending}
+                              isSelected={selectedOptionForAction?.kind === "background" && selectedOptionForAction?.option?.id === option.id}
                               onSelect={handleSelectBackground}
                             />
                           ))}
@@ -1146,35 +2046,204 @@ export default function ShopFeatureRoot({
                 );
               })}
             </div>
-          ) : currentCategory.key === "accessories" ? (
+          ) : shopRootCategory === "shop" && currentCategory.key === "face" ? (
             <div className="space-y-3">
-              {currentCategory.sections.map((section) => (
+              <SectionCard title="Gesicht auswählen" icon={Smile} isLightUi={isLightUi}>
+                {(currentCategory.sections?.[0]?.options || []).length ? (
+                  <AccessoryOptionGrid
+                    options={currentCategory.sections[0].options}
+                    user={resolvedCurrentUser}
+                    isLightUi={isLightUi}
+                    isPending={isMutationPending}
+                    onSelect={handleSelectAccessory}
+                    selectedOptionId={selectedOptionForAction?.kind === "accessory" ? selectedOptionForAction?.option?.id : null}
+                  />
+                ) : (
+                  <div className={`rounded-2xl border border-dashed px-3 py-4 text-xs ${isLightUi ? "border-[#c8ac62]/30 text-stone-500" : "border-[#f0e5a5]/20 text-stone-300/75"}`}>
+                    {CATEGORY_META.face.emptyLabel}
+                  </div>
+                )}
+              </SectionCard>
+            </div>
+          ) : currentCategory.key === "effects" ? (
+            <div className="space-y-3">
+              {shopRootCategory !== "shop" && (
+                <div className={`rounded-[1.5rem] border px-3 py-3 ${isLightUi ? "border-[#c8ac62]/30 bg-white/72" : "border-[#f0e5a5]/20 bg-black/28"}`}>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className={`text-sm font-semibold ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Aktiver Effekt</div>
+                      <div className={`mt-1 text-xs ${isLightUi ? "text-stone-500" : "text-stone-300/75"}`}>
+                        {shopRootCategory === "florabot"
+                          ? (resolvedCurrentUser?.selected_logo_effect ? "Ein Florabot-Effekt ist aktiv." : "Kein Florabot-Effekt aktiv.")
+                          : (resolvedCurrentUser?.selected_profile_effect ? "Ein Profileffekt ist aktiv." : "Kein Profileffekt aktiv.")}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isMutationPending}
+                      onClick={shopRootCategory === "florabot" ? handleResetLogoEffect : handleResetProfileEffect}
+                      className={`h-9 rounded-xl border px-3 text-xs font-semibold disabled:opacity-60 ${
+                        isLightUi
+                          ? "border-[#c8ac62]/40 bg-white/75 text-stone-700 hover:bg-white"
+                          : "border-[#f0e5a5]/25 bg-black/35 text-stone-100 hover:bg-black/50"
+                      }`}
+                    >
+                      Effekt entfernen
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {(currentCategory.sections || []).map((section) => (
                 <SectionCard key={section.key} title={section.title} icon={Sparkles} isLightUi={isLightUi}>
-                  {section.options.length === 0 ? (
-                    <div className={`rounded-2xl border border-dashed px-3 py-4 text-xs ${isLightUi ? "border-[#c8ac62]/30 text-stone-500" : "border-[#f0e5a5]/20 text-stone-300/75"}`}>
-                      {section.emptyLabel}
+                  {section.options?.length ? (
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                      {section.options.map((option) => {
+                        const isLogoEffectOption = section.key === "logo_effects" || option?.profileField === "selected_logo_effect";
+                        const isSelected = selectedOptionForAction?.option?.id === option.id
+                          && (isLogoEffectOption ? selectedOptionForAction?.kind === "accessory" : selectedOptionForAction?.kind === "profile-effect");
+
+                        return (
+                          <ProfileEffectOptionCard
+                            key={option.id}
+                            option={option}
+                            user={resolvedCurrentUser}
+                            isLightUi={isLightUi}
+                            isPending={isMutationPending}
+                            isSelected={isSelected}
+                            onSelect={isLogoEffectOption ? handleSelectAccessory : handleSelectProfileEffect}
+                          />
+                        );
+                      })}
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      <AccessoryPagedGrid
-                        options={section.options}
-                        user={resolvedCurrentUser}
-                        isLightUi={isLightUi}
-                        isPending={isMutationPending}
-                        onSelect={handleSelectAccessory}
-                      />
-                      {section.key === "border" && (
-                        <BorderColorPicker
-                          currentColor={resolvedCurrentUser?.selected_border_color || null}
-                          isLightUi={isLightUi}
-                          isPending={isMutationPending}
-                          onSelectColor={handleSelectBorderColor}
-                        />
-                      )}
+                    <div className={`rounded-2xl border border-dashed px-3 py-4 text-xs ${isLightUi ? "border-[#c8ac62]/30 text-stone-500" : "border-[#f0e5a5]/20 text-stone-300/75"}`}>
+                      {section.emptyLabel || CATEGORY_META.effects.emptyLabel}
                     </div>
                   )}
                 </SectionCard>
               ))}
+            </div>
+          ) : shopRootCategory === "shop" && currentCategory.key === "scans" ? (
+            <div className="space-y-3">
+              <SectionCard title="Scans" icon={ScanSearch} isLightUi={isLightUi}>
+                <div className={`rounded-2xl border border-dashed px-3 py-4 text-xs ${isLightUi ? "border-[#c8ac62]/30 text-stone-600" : "border-[#f0e5a5]/20 text-stone-300/80"}`}>
+                  Scan-Angebote folgen bald. Hier entsteht die nächste Shop-Kategorie.
+                </div>
+              </SectionCard>
+            </div>
+          ) : currentCategory.key === "accessories" ? (
+            <div className="space-y-3">
+              {florabotAccessorySections.length > 1 && (
+                <ProfileCategorySnapCarousel
+                  categories={florabotAccessorySections.map((section) => ({ key: section.key, title: section.title }))}
+                  activeKey={activeFlorabotSection?.key || florabotAccessorySections[0]?.key || null}
+                  isLightUi={isLightUi}
+                  onSelect={setActiveFlorabotSectionKey}
+                />
+              )}
+
+              {activeFlorabotSection ? (
+                activeFlorabotSection.options.length === 0 ? (
+                  <div className={`rounded-2xl border border-dashed px-3 py-4 text-xs ${isLightUi ? "border-[#c8ac62]/30 text-stone-500" : "border-[#f0e5a5]/20 text-stone-300/75"}`}>
+                    {activeFlorabotSection.emptyLabel}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <AccessoryOptionGrid
+                      options={activeFlorabotSection.options}
+                      user={resolvedCurrentUser}
+                      isLightUi={isLightUi}
+                      isPending={isMutationPending}
+                      onSelect={handleSelectAccessory}
+                      selectedOptionId={selectedOptionForAction?.kind === "accessory" ? selectedOptionForAction?.option?.id : null}
+                    />
+                    {activeFlorabotSection.key === "border" && (
+                      <BorderColorPicker
+                        currentColor={resolvedCurrentUser?.selected_border_color || null}
+                        isLightUi={isLightUi}
+                        isPending={isMutationPending}
+                        onSelectColor={handleSelectBorderColor}
+                      />
+                    )}
+                  </div>
+                )
+              ) : (
+                <div className={`rounded-2xl border border-dashed px-3 py-4 text-xs ${isLightUi ? "border-[#c8ac62]/30 text-stone-500" : "border-[#f0e5a5]/20 text-stone-300/75"}`}>
+                  {CATEGORY_META.accessories.emptyLabel}
+                </div>
+              )}
+            </div>
+          ) : currentCategory.key === "badges" ? (
+            <div className="space-y-3">
+              <SectionCard title="Abzeichen auswählen" icon={BadgeCheck} isLightUi={isLightUi}>
+                <div className={`mb-3 rounded-xl border px-3 py-2 text-xs ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50 text-stone-700" : "border-[#f0e5a5]/25 bg-black/25 text-stone-200"}`}>
+                  Du kannst bis zu {PROFILE_BADGE_MAX_SELECTED} Abzeichen im Profilbanner anzeigen. Aktuell ausgewählt: {selectedBadgeIds.length}/{PROFILE_BADGE_MAX_SELECTED}.
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                  {(currentCategory.sections[0]?.options || []).map((badge) => {
+                    const Icon = getProfileBadgeIconComponent(badge.iconKey);
+                    const rankChipClass = BADGE_RANK_BADGE_STYLE[badge.rankKey] || BADGE_RANK_BADGE_STYLE.gray;
+                    const iconToneClass = BADGE_RANK_ICON_STYLE[badge.rankKey] || BADGE_RANK_ICON_STYLE.gray;
+                    const isSelected = selectedBadgeIds.includes(badge.id);
+
+                    const tooltipContent = (
+                      <div className="space-y-1 text-[11px] leading-snug">
+                        <div className="font-semibold">{badge.label}</div>
+                        <div>{badge.description}</div>
+                        <div className="opacity-85">Wert: {badge.valueLabel}</div>
+                        <div className="opacity-85">Rang: {badge.rankMeta?.label || "Grau"}</div>
+                      </div>
+                    );
+
+                    return (
+                      <LockedTooltip key={badge.id} content={tooltipContent} contentClassName={isLightUi ? "" : "text-white/90"}>
+                        <button
+                          type="button"
+                          disabled={isMutationPending}
+                          onClick={() => handleSelectBadge(badge.id)}
+                          className={`relative rounded-2xl border px-3 py-3 text-left transition-all disabled:opacity-60 ${getBadgeCardSurfaceClassName(badge.rankKey, isLightUi)} ${
+                            isSelected
+                              ? (isLightUi ? "ring-2 ring-[#c8ac62]/70" : "ring-2 ring-[#f0e5a5]/70")
+                              : ""
+                          }`}
+                        >
+                          {isSelected ? (
+                            <span className={`absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full border ${isLightUi ? "border-[#c8ac62]/60 bg-white/80 text-[#8f6b22]" : "border-[#f0e5a5]/45 bg-black/45 text-[#f0e5a5]"}`}>
+                              <Check className="h-3 w-3" />
+                            </span>
+                          ) : null}
+
+                          <div className="flex items-start gap-2">
+                            <div className={`h-8 w-8 rounded-lg border flex items-center justify-center ${isLightUi ? "border-[#c8ac62]/35 bg-white/70" : "border-[#f0e5a5]/30 bg-black/35"} ${iconToneClass}`}>
+                              <Icon className="h-4 w-4" />
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className={`truncate text-xs font-semibold ${isLightUi ? "text-[#8f6b22]" : "text-stone-100"}`}>{badge.label}</div>
+                              <div className={`mt-1 text-[11px] ${isLightUi ? "text-[#b08a3a]" : "text-stone-300/80"}`}>{badge.valueLabel}</div>
+                            </div>
+                          </div>
+
+                          <div className="mt-2 flex items-center justify-between gap-2">
+                            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${rankChipClass}`}>
+                              {badge.rankMeta?.label || "Grau"}
+                            </span>
+                            <span className={`text-[10px] ${isLightUi ? "text-[#9a7a33]" : "text-stone-300/75"}`}>
+                              Tippen zum {isSelected ? "Abwählen" : "Auswählen"}
+                            </span>
+                          </div>
+                        </button>
+                      </LockedTooltip>
+                    );
+                  })}
+                </div>
+
+                <div className={`mt-3 rounded-xl border px-3 py-2 text-xs ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50 text-stone-700" : "border-[#f0e5a5]/25 bg-black/25 text-stone-200"}`}>
+                  Verfügbare Abzeichen: {PROFILE_BADGE_DEFINITIONS.length}. Ausgewählte Abzeichen erscheinen neben Florabot im Home-Banner.
+                </div>
+              </SectionCard>
             </div>
           ) : (
             <div className="space-y-3">
@@ -1211,6 +2280,7 @@ export default function ShopFeatureRoot({
                         user={resolvedCurrentUser}
                         isLightUi={isLightUi}
                         isPending={isMutationPending}
+                        isSelected={selectedOptionForAction?.kind === "title" && selectedOptionForAction?.option?.id === option.id}
                         onSelect={handleSelectTitle}
                       />
                     ))}
@@ -1226,13 +2296,15 @@ export default function ShopFeatureRoot({
         </div>
       </div>
 
+      {embedded && showEmbeddedBottomDivider ? <div className={`relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen shrink-0 border-t-2 ${embeddedDividerClass}`} aria-hidden="true" /> : null}
+
       <Dialog open={Boolean(purchaseConfirmOption)} onOpenChange={(open) => {
         if (!open) handleClosePurchaseDialog();
       }}>
         <DialogContent className={`max-w-[min(92vw,25rem)] rounded-2xl ${isLightUi ? "border-[#c8ac62]/45 bg-white" : "border-[#f0e5a5]/35 bg-[#1a1d1a]"}`}>
           <DialogHeader>
             <DialogTitle className={`${isLightUi ? "text-stone-900" : "text-stone-100"}`}>
-              Accessoire freischalten?
+              Belohnung freischalten?
             </DialogTitle>
           </DialogHeader>
 
@@ -1252,7 +2324,7 @@ export default function ShopFeatureRoot({
             )}
 
             <p className={`text-sm ${isLightUi ? "text-stone-700" : "text-stone-200"}`}>
-              Möchtest du <span className="font-semibold">{purchaseConfirmOption?.label || "dieses Accessoire"}</span> für <span className="font-semibold">{formatAccessoryPriceLabel(purchaseDialogSparkPrice, purchaseDialogAmberPrice)}</span> kaufen?
+              Möchtest du <span className="font-semibold">{purchaseConfirmOption?.label || "diese Belohnung"}</span> für <span className="font-semibold">{formatAccessoryPriceLabel(purchaseDialogSparkPrice, purchaseDialogAmberPrice)}</span> kaufen?
             </p>
 
             <div className={`rounded-lg border px-3 py-2 text-xs space-y-1 ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50 text-stone-700" : "border-[#f0e5a5]/25 bg-black/25 text-stone-200"}`}>
