@@ -17,6 +17,7 @@ type PurchaseBody = {
   purchaseKind?: string;
   sparkPrice?: number;
   amberPrice?: number;
+  paymentCurrency?: string; // "sparks" | "amber"
   eventReference?: string;
 };
 
@@ -116,6 +117,7 @@ Deno.serve(async (req) => {
   const itemValue = purchaseKind === "accessory" ? accessoryId : rewardValueInput;
   const sparkPrice = Math.max(0, Math.round(Number(body.sparkPrice ?? 0)));
   const amberPrice = Math.max(0, Math.round(Number(body.amberPrice ?? 0)));
+  const paymentCurrency = normalizeLower(body.paymentCurrency) === "amber" ? "amber" : "sparks";
   const eventReference = normalizeText(body.eventReference || `shop-${purchaseKind}:${itemValue || rewardId}:${Date.now()}`);
 
   if (!rewardId) {
@@ -128,6 +130,12 @@ Deno.serve(async (req) => {
 
   if (sparkPrice <= 0 && amberPrice <= 0) {
     return jsonResponse({ error: "Item has no price configured" }, 400);
+  }
+
+  // Validate chosen currency has a price configured
+  const chosenPrice = paymentCurrency === "amber" ? amberPrice : sparkPrice;
+  if (chosenPrice <= 0) {
+    return jsonResponse({ error: `Item has no ${paymentCurrency} price configured` }, 400);
   }
 
   // Verify reward exists and is a purchasable type for the requested purchase kind.
@@ -229,29 +237,31 @@ Deno.serve(async (req) => {
 
   const sparksBalance = Math.max(0, Number(wallet?.sparks_balance ?? 0));
   const amberBalance = Math.max(0, Number(wallet?.amber_balance ?? 0));
-  const insufficientSparks = dbSparkPrice > 0 && sparksBalance < dbSparkPrice;
-  const insufficientAmber = dbAmberPrice > 0 && amberBalance < dbAmberPrice;
+
+  // Only check balance for the chosen currency
+  const effectiveSparkCost = paymentCurrency === "sparks" ? dbSparkPrice : 0;
+  const effectiveAmberCost = paymentCurrency === "amber" ? dbAmberPrice : 0;
+  const insufficientSparks = effectiveSparkCost > 0 && sparksBalance < effectiveSparkCost;
+  const insufficientAmber = effectiveAmberCost > 0 && amberBalance < effectiveAmberCost;
 
   if (insufficientSparks || insufficientAmber) {
     return jsonResponse({
       applied: false,
-      errorCode: insufficientSparks && insufficientAmber
-        ? "insufficient_both"
-        : insufficientSparks ? "insufficient_sparks" : "insufficient_amber",
+      errorCode: insufficientSparks ? "insufficient_sparks" : "insufficient_amber",
       sparksBalance,
       amberBalance,
-      sparkPrice: dbSparkPrice,
-      amberPrice: dbAmberPrice,
+      sparkPrice: effectiveSparkCost,
+      amberPrice: effectiveAmberCost,
     });
   }
 
-  // --- Atomic: debit currencies then insert UserReward ---
+  // --- Atomic: debit chosen currency then insert UserReward ---
 
   let newSparksBalance = sparksBalance;
   let newAmberBalance = amberBalance;
 
-  // Debit sparks
-  if (dbSparkPrice > 0) {
+  // Debit sparks (only if paying with sparks)
+  if (paymentCurrency === "sparks" && dbSparkPrice > 0) {
     const sparkEventSource = `shop_${purchaseKind}_purchase`;
     const sparkMetadata = {
       source: "profile_shop",
@@ -280,8 +290,8 @@ Deno.serve(async (req) => {
     newSparksBalance = Math.max(0, Number(sparkResult[0].sparks_balance ?? sparksBalance - dbSparkPrice));
   }
 
-  // Debit amber
-  if (dbAmberPrice > 0) {
+  // Debit amber (only if paying with amber)
+  if (paymentCurrency === "amber" && dbAmberPrice > 0) {
     const amberEventSource = `shop_${purchaseKind}_purchase`;
     const amberMetadata = {
       source: "profile_shop",
@@ -304,28 +314,6 @@ Deno.serve(async (req) => {
 
     if (amberError || !amberResult?.[0]?.applied) {
       console.error("[purchaseAccessory] Amber debit failed:", amberError);
-
-      // Refund sparks
-      if (dbSparkPrice > 0) {
-        await adminClient.rpc("wallet_grant_currency", {
-          p_auth_id: authId,
-          p_currency_code: "sparks",
-          p_event_source: `shop_${purchaseKind}_purchase_refund`,
-          p_event_reference: eventReference,
-          p_amount: dbSparkPrice,
-          p_direction: "credit",
-          p_metadata: {
-            source: "profile_shop",
-            purchase_kind: purchaseKind,
-            reward_id: rewardId,
-            reward_type: rewardType,
-            reward_value: rewardValue,
-            item_value: itemValue || rewardValue,
-            reason: "amber_debit_failed",
-          },
-        });
-      }
-
       return jsonResponse({ error: "Kauf fehlgeschlagen: Bernstein konnte nicht abgebucht werden." }, 500);
     }
 
@@ -353,8 +341,8 @@ Deno.serve(async (req) => {
   if (insertError) {
     console.error("[purchaseAccessory] UserRewards insert failed:", insertError);
 
-    // Full refund
-    if (dbSparkPrice > 0) {
+    // Full refund — only refund the currency that was actually debited
+    if (paymentCurrency === "sparks" && dbSparkPrice > 0) {
       await adminClient.rpc("wallet_grant_currency", {
         p_auth_id: authId,
         p_currency_code: "sparks",
@@ -374,7 +362,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (dbAmberPrice > 0) {
+    if (paymentCurrency === "amber" && dbAmberPrice > 0) {
       await adminClient.rpc("wallet_grant_currency", {
         p_auth_id: authId,
         p_currency_code: "amber",
