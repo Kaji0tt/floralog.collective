@@ -161,6 +161,19 @@ Deno.serve(async (req) => {
     return jsonResponse({ applied: false, errorCode: "reward_not_configured" });
   }
 
+  // Block purchases of legacy/retired logo accessories
+  if (purchaseKind === "accessory" && accessoryId) {
+    const { data: logoAsset } = await adminClient
+      .from("LogoAsset")
+      .select("legacy")
+      .eq("asset_id", accessoryId)
+      .maybeSingle();
+
+    if (logoAsset?.legacy) {
+      return jsonResponse({ applied: false, errorCode: "asset_legacy" });
+    }
+  }
+
   // Cross-check: prices sent by client must match DB prices (prevent price tampering)
   const dbSparkPrice = Math.max(0, Math.round(Number(reward.spark_price ?? 0)));
   const dbAmberPrice = Math.max(0, Math.round(Number(reward.amber_price ?? 0)));
