@@ -67,6 +67,8 @@ export const ROBOT_PLANT_HEALTH_STATES = Object.freeze([
 export const ROBOT_PLANT_EVENT_SOURCES = Object.freeze({
   scan: "scan",
   newScan: "new_scan",
+  newSeasonScan: "new_season_scan",
+  seasonRediscovery: "season_rediscovery",
   newGlobalScan: "new_global_scan",
   userQuestCompletion: "user_quest_completion",
   weeklyQuestCompletion: "weekly_quest_completion",
@@ -86,6 +88,8 @@ export const REWARD_FORMULA_CONFIG = Object.freeze({
   baseByEvent: {
     [ROBOT_PLANT_EVENT_SOURCES.scan]: 10,
     [ROBOT_PLANT_EVENT_SOURCES.newScan]: 30,
+    [ROBOT_PLANT_EVENT_SOURCES.newSeasonScan]: 40,
+    [ROBOT_PLANT_EVENT_SOURCES.seasonRediscovery]: 20,
     [ROBOT_PLANT_EVENT_SOURCES.newGlobalScan]: 50,
     [ROBOT_PLANT_EVENT_SOURCES.userQuestCompletion]: 22,
     [ROBOT_PLANT_EVENT_SOURCES.weeklyQuestCompletion]: 30,
