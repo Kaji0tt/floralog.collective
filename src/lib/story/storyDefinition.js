@@ -65,6 +65,11 @@ export const STORY_PROGRESS_CONDITIONS = {
       triggerPanel: "map",
     },
     {
+      id: "ctx_health_after_m4000",
+      requiresMilestoneSeen: "m4000",
+      triggerPanel: "health",
+    },
+    {
       id: "ctx_shop_after_m5000",
       requiresMilestoneSeen: "m5000",
       triggerPanel: "shop",
@@ -213,6 +218,7 @@ export const STORY_COPY = {
       ],
     },
     m3000: {
+      contextBubble: "Auf der Karte siehst du alle Entdeckungen in deiner Umgebung. Erforsche verschiedene Geozonen und entdecke, welche Pflanzen wo wachsen!",
       messages: [
         {
           title: "Die Karte füllt sich!",
