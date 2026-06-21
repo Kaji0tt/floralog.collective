@@ -108,3 +108,13 @@ entrypoint = "./functions/createPayPalOrder/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/capturePayPalPayment/index.ts"
+
+[functions.createPayPalAmberOrder]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/createPayPalAmberOrder/index.ts"
+
+[functions.capturePayPalAmberPayment]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/capturePayPalAmberPayment/index.ts"
