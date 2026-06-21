@@ -16,6 +16,7 @@ type CatalogAsset = {
   display_name?: string | null;
   active?: boolean;
   default_unlocked?: boolean;
+  legacy?: boolean;
 };
 
 type CatalogResponse = {
@@ -59,6 +60,7 @@ const normalizeAsset = (asset: CatalogAsset) => {
     display_name: (asset.display_name || assetId).trim(),
     active: asBoolean(asset.active, true),
     default_unlocked: asBoolean(asset.default_unlocked, DEFAULT_UNLOCKED_IDS.has(assetId)),
+    legacy: asBoolean(asset.legacy, false),
     spark_price: asNonNegativeIntegerOrNull(asset.spark_price),
     amber_price: asNonNegativeIntegerOrNull(asset.amber_price),
     source: "r2",
@@ -273,11 +275,41 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Propagate legacy flag: hide rewards for legacy assets from the shop
+    const legacyAssetIds = deduped.filter((asset) => asset.legacy).map((asset) => asset.asset_id);
+    const activeAssetIds = deduped.filter((asset) => !asset.legacy).map((asset) => asset.asset_id);
+
+    if (legacyAssetIds.length > 0) {
+      const legacyRewardIds = legacyAssetIds.map((id) => `reward_logo_accessory_${id}`);
+      const { error: hideError } = await adminClient
+        .from("Rewards")
+        .update({ shop_hidden: true })
+        .in("id", legacyRewardIds);
+
+      if (hideError) {
+        console.warn("[syncLogoAssets] Failed to hide legacy rewards:", hideError);
+      }
+    }
+
+    // Ensure active (non-legacy) assets have shop_hidden = false
+    if (activeAssetIds.length > 0) {
+      const activeRewardIds = activeAssetIds.map((id) => `reward_logo_accessory_${id}`);
+      const { error: unhideError } = await adminClient
+        .from("Rewards")
+        .update({ shop_hidden: false })
+        .in("id", activeRewardIds);
+
+      if (unhideError) {
+        console.warn("[syncLogoAssets] Failed to unhide active rewards:", unhideError);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         ok: true,
         synced: deduped.length,
         rewards_synced: rewardsSynced,
+        legacy_count: legacyAssetIds.length,
         defaults_unlocked: Array.from(DEFAULT_UNLOCKED_IDS),
       }),
       {

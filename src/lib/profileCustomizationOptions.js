@@ -234,7 +234,12 @@ export const getUnlockedProfileEffectOptions = ({ rewards = [], userRewards = []
   );
 
   return (Array.isArray(rewards) ? rewards : [])
-    .filter((reward) => PROFILE_EFFECT_REWARD_TYPES.has(normalizeRewardType(reward)) && reward?.value)
+    .filter((reward) => {
+      if (!PROFILE_EFFECT_REWARD_TYPES.has(normalizeRewardType(reward)) || !reward?.value) return false;
+      // Hide shop_hidden rewards unless user already owns them
+      if (reward?.shop_hidden && !unlockedRewardIds.has(reward?.id)) return false;
+      return true;
+    })
     .map((reward) => {
       const isLocked = !unlockedRewardIds.has(reward?.id);
       const purchaseMeta = isLocked ? getProfileEffectPurchaseMeta(reward) : null;
@@ -262,7 +267,12 @@ export const getUnlockedLogoEffectOptions = ({ rewards = [], userRewards = [] } 
   );
 
   return (Array.isArray(rewards) ? rewards : [])
-    .filter((reward) => LOGO_EFFECT_REWARD_TYPES.has(normalizeRewardType(reward)) && reward?.value)
+    .filter((reward) => {
+      if (!LOGO_EFFECT_REWARD_TYPES.has(normalizeRewardType(reward)) || !reward?.value) return false;
+      // Hide shop_hidden rewards unless user already owns them
+      if (reward?.shop_hidden && !unlockedRewardIds.has(reward?.id)) return false;
+      return true;
+    })
     .map((reward) => {
       const isLocked = !unlockedRewardIds.has(reward?.id);
       const purchaseMeta = isLocked ? getProfileEffectPurchaseMeta(reward) : null;
@@ -374,7 +384,12 @@ export const getUnlockedPresetBackgrounds = ({ rewards = [], userRewards = [] } 
   );
 
   return (Array.isArray(rewards) ? rewards : [])
-    .filter((reward) => reward?.type === "background" && reward?.value)
+    .filter((reward) => {
+      if (reward?.type !== "background" || !reward?.value) return false;
+      // Hide shop_hidden (legacy/retired) backgrounds unless user already owns them
+      if (reward?.shop_hidden && !unlockedRewardIds.has(reward?.id)) return false;
+      return true;
+    })
     .map((reward) => ({
       id: `reward-background:${reward.id}`,
       type: "preset",
@@ -604,10 +619,15 @@ export const getAccessorySections = ({ logoAssets = [], rewards = [], userReward
     const assetId = String(asset?.asset_id || "").trim();
     if (!grouped[assetType] || !assetId) continue;
 
+    const isLegacy = Boolean(asset?.legacy);
     const isDefaultUnlocked = Boolean(asset?.default_unlocked);
     const isUnlocked = isDefaultUnlocked || rewardUnlockedIds.has(assetId);
+
+    // Legacy assets are hidden from the shop unless the user already owns them.
+    if (isLegacy && !isUnlocked) continue;
+
     const unlockCondition = !isUnlocked ? getAccessoryUnlockCondition(assetId, rewards, genera, plants) : null;
-    const purchaseMeta = !isUnlocked ? getAccessoryPurchaseMeta(assetId, rewards) : null;
+    const purchaseMeta = (!isUnlocked && !isLegacy) ? getAccessoryPurchaseMeta(assetId, rewards) : null;
 
     grouped[assetType].push({
       id: assetId,
@@ -617,6 +637,7 @@ export const getAccessorySections = ({ logoAssets = [], rewards = [], userReward
       imageUrl: asset?.public_url,
       type: "accessory",
       isLocked: !isUnlocked,
+      isLegacy,
       unlockCondition,
       ...(purchaseMeta || {}),
     });

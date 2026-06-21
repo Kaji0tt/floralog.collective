@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
   const allowedRewardTypes = PURCHASE_KIND_ALLOWED_REWARD_TYPES[purchaseKind] || PURCHASE_KIND_ALLOWED_REWARD_TYPES.accessory;
   const { data: reward, error: rewardError } = await adminClient
     .from("Rewards")
-    .select("id, display_name, name, value, type, spark_price, amber_price")
+    .select("id, display_name, name, value, type, spark_price, amber_price, shop_hidden")
     .eq("id", rewardId)
     .maybeSingle();
 
@@ -148,6 +148,11 @@ Deno.serve(async (req) => {
     return jsonResponse({ applied: false, errorCode: "reward_not_configured" });
   }
 
+  // Block purchases of shop-hidden rewards (legacy/retired items)
+  if (reward.shop_hidden) {
+    return jsonResponse({ applied: false, errorCode: "asset_legacy" });
+  }
+
   const rewardValue = normalizeText(String(reward?.value || ""));
   if (purchaseKind === "accessory") {
     if (normalizeLower(rewardValue) !== normalizeLower(accessoryId)) {
@@ -159,6 +164,19 @@ Deno.serve(async (req) => {
 
   if (requestedRewardType && requestedRewardType !== rewardType) {
     return jsonResponse({ applied: false, errorCode: "reward_not_configured" });
+  }
+
+  // Block purchases of legacy/retired logo accessories
+  if (purchaseKind === "accessory" && accessoryId) {
+    const { data: logoAsset } = await adminClient
+      .from("LogoAsset")
+      .select("legacy")
+      .eq("asset_id", accessoryId)
+      .maybeSingle();
+
+    if (logoAsset?.legacy) {
+      return jsonResponse({ applied: false, errorCode: "asset_legacy" });
+    }
   }
 
   // Cross-check: prices sent by client must match DB prices (prevent price tampering)

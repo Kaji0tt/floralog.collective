@@ -101,12 +101,14 @@ type ScanRewardContext = {
   nextZoneMultiplier: number | null;
 };
 
-const SCAN_EVENT_SOURCES = new Set(["scan", "new_scan", "new_global_scan"]);
+const SCAN_EVENT_SOURCES = new Set(["scan", "new_scan", "new_season_scan", "season_rediscovery", "new_global_scan"]);
 
 const REWARD_FORMULA_CONFIG = {
   baseByEvent: {
     scan: 10,
     new_scan: 30,
+    new_season_scan: 40,
+    season_rediscovery: 20,
     new_global_scan: 50,
   },
   zoneMultiplier: { min: 1, max: 1.5, default: 1, start: 1.5, decrementPerAdditionalScan: 0.1 },
