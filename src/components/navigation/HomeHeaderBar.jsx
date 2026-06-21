@@ -1,4 +1,5 @@
-import { Bug, Home as HomeIcon, List, Plus, Settings, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { ChevronLeft, Gem, Home as HomeIcon, Plus, Settings, Sparkles, Bug } from "lucide-react";
 import { useUiTheme } from "@/lib/UiThemeContext";
 
 /**
@@ -7,10 +8,12 @@ import { useUiTheme } from "@/lib/UiThemeContext";
  *   embeddedTitle?: string | null,
  *   embeddedSubtitle?: string | null,
  *   embeddedInfoLabel?: string | null,
- *   embeddedCollectionPublicPanelOpen?: boolean,
+ *   embeddedCollectionCanGoBack?: boolean,
  *   displayName?: string | null,
  *   userTitle?: string | null,
- *   onTogglePublicCollections?: () => void,
+ *   playerSparks?: number,
+ *   playerAmber?: number,
+ *   onEmbeddedCollectionBack?: () => void,
  *   onOpenEmbeddedFriendsAddDialog?: () => void,
  *   onOpenAmberPurchase?: () => void,
  *   onOpenBugReport?: () => void,
@@ -22,22 +25,31 @@ export default function HomeHeaderBar({
   embeddedTitle,
   embeddedSubtitle,
   embeddedInfoLabel,
-  embeddedCollectionPublicPanelOpen,
+  embeddedCollectionCanGoBack,
   displayName,
   userTitle,
-  onTogglePublicCollections,
+  playerSparks,
+  playerAmber,
+  onEmbeddedCollectionBack,
   onOpenEmbeddedFriendsAddDialog,
   onOpenAmberPurchase,
   onOpenBugReport,
   onPrimaryAction,
 }) {
   const { isLightUi } = useUiTheme();
+  const [showActionModal, setShowActionModal] = useState(false);
   const showEmbeddedCollection = activePanel === "collection";
   const showEmbeddedFriends = activePanel === "friends";
   const showEmbeddedShop = activePanel === "shop";
   const isEmbeddedMode = activePanel !== null;
   const shopCurrencyInfo = showEmbeddedShop && embeddedInfoLabel && typeof embeddedInfoLabel === "object"
     ? embeddedInfoLabel
+    : null;
+  const homeCurrencyInfo = !isEmbeddedMode
+    ? {
+        sparks: Math.max(0, Number(playerSparks ?? 0)),
+        amber: Math.max(0, Number(playerAmber ?? 0)),
+      }
     : null;
   const shouldShowEmbeddedInfoChip = Boolean(embeddedInfoLabel) && isEmbeddedMode && !showEmbeddedShop;
 
@@ -51,15 +63,28 @@ export default function HomeHeaderBar({
     <div className={`flex items-start justify-between gap-3 pb-3 border-b ${isLightUi ? "border-[#b99a48]/30" : "border-[#f0e5a5]/20"}`}>
       <div className="min-w-0">
         {resolvedEmbeddedTitle ? (
-          <div className="min-w-0">
-            <h1 className="font-bold leading-tight text-2xl md:text-3xl truncate" title={resolvedEmbeddedTitle}>
-              {resolvedEmbeddedTitle}
-            </h1>
-            {!showEmbeddedShop && embeddedSubtitle && (
-              <p className={`${isLightUi ? "text-stone-700/90" : "text-stone-200/85"} text-sm md:text-base truncate mt-0.5`}>
-                {embeddedSubtitle}
-              </p>
+          <div className="min-w-0 flex items-start gap-2">
+            {showEmbeddedCollection && embeddedCollectionCanGoBack && typeof onEmbeddedCollectionBack === "function" && (
+              <button
+                type="button"
+                onClick={onEmbeddedCollectionBack}
+                className={`w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors shrink-0 ${isLightUi ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80" : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"}`}
+                aria-label="Zur Kategorieauswahl"
+              >
+                <ChevronLeft className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+              </button>
             )}
+
+            <div className="min-w-0">
+              <h1 className="font-bold leading-tight text-2xl md:text-3xl truncate" title={resolvedEmbeddedTitle}>
+                {resolvedEmbeddedTitle}
+              </h1>
+              {!showEmbeddedShop && embeddedSubtitle && (
+                <p className={`${isLightUi ? "text-stone-700/90" : "text-stone-200/85"} text-sm md:text-base truncate mt-0.5`}>
+                  {embeddedSubtitle}
+                </p>
+              )}
+            </div>
           </div>
         ) : (
           <div className="min-w-0">
@@ -95,15 +120,28 @@ export default function HomeHeaderBar({
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        {!isEmbeddedMode && typeof onOpenBugReport === "function" && (
-          <button
-            type="button"
-            onClick={onOpenBugReport}
-            className={`w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors ${isLightUi ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80" : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"}`}
-            aria-label="Bug melden"
-          >
-            <Bug className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
-          </button>
+        {homeCurrencyInfo && (
+          <>
+            <div
+              className={`w-11 h-11 rounded-full border backdrop-blur-md flex flex-col items-center justify-center gap-0.5 ${isLightUi ? "border-[#c8ac62]/55 bg-white/65" : "border-[#f0e5a5]/35 bg-black/30"}`}
+              aria-label="Funken"
+            >
+              <Sparkles className={`w-3.5 h-3.5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} aria-hidden="true" />
+              <span className={`text-[10px] font-semibold leading-none ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}>
+                {homeCurrencyInfo.sparks}
+              </span>
+            </div>
+
+            <div
+              className={`w-11 h-11 rounded-full border backdrop-blur-md flex flex-col items-center justify-center gap-0.5 ${isLightUi ? "border-[#c8ac62]/55 bg-white/65" : "border-[#f0e5a5]/35 bg-black/30"}`}
+              aria-label="Bernstein"
+            >
+              <Gem className={`w-3.5 h-3.5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} aria-hidden="true" />
+              <span className={`text-[10px] font-semibold leading-none ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}>
+                {homeCurrencyInfo.amber}
+              </span>
+            </div>
+          </>
         )}
 
         {shopCurrencyInfo && (
@@ -144,18 +182,6 @@ export default function HomeHeaderBar({
           </>
         )}
 
-        {showEmbeddedCollection && (
-          <button
-            type="button"
-            onClick={onTogglePublicCollections}
-            className={`w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors ${isLightUi ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80" : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"}`}
-            aria-label={embeddedCollectionPublicPanelOpen ? "Oeffentliche Kollektionen schliessen" : "Oeffentliche Kollektionen anzeigen"}
-            aria-pressed={embeddedCollectionPublicPanelOpen}
-          >
-            <List className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
-          </button>
-        )}
-
         {showEmbeddedFriends && (
           <button
             type="button"
@@ -169,16 +195,44 @@ export default function HomeHeaderBar({
 
         <button
           type="button"
-          onClick={onPrimaryAction}
-          className={`w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors ${isLightUi ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80" : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"}`}
-          aria-label={isEmbeddedMode ? "Zur Home-Ansicht" : "Einstellungen"}
+          onClick={() => isEmbeddedMode ? onPrimaryAction() : setShowActionModal(true)}
+          className={`w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors relative ${isLightUi ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80" : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"}`}
+          aria-label={isEmbeddedMode ? "Zur Home-Ansicht" : "Menü"}
         >
           {isEmbeddedMode ? (
             <HomeIcon className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
           ) : (
-            <Settings className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+            <div className="flex items-center gap-0.5">
+              <Bug className={`w-3.5 h-3.5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+              <span className={`text-[9px] font-bold ${isLightUi ? "text-[#8f6b22]/60" : "text-[#f0e5a5]/60"}`}>/</span>
+              <Settings className={`w-3.5 h-3.5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+            </div>
           )}
         </button>
+
+        {showActionModal && !isEmbeddedMode && (
+          <>
+            <div className="fixed inset-0 z-[999] bg-black/40" onClick={() => setShowActionModal(false)} />
+            <div className={`absolute right-0 top-14 z-[1000] rounded-xl border shadow-xl p-2 min-w-[160px] ${isLightUi ? "border-[#c8ac62]/55 bg-white/95" : "border-[#f0e5a5]/35 bg-stone-900/95"}`}>
+              <button
+                type="button"
+                onClick={() => { setShowActionModal(false); onOpenBugReport?.(); }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-colors ${isLightUi ? "hover:bg-stone-100" : "hover:bg-stone-800"}`}
+              >
+                <Bug className={`w-4 h-4 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+                <span className={`text-sm font-medium ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Bug melden</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowActionModal(false); onPrimaryAction(); }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-colors ${isLightUi ? "hover:bg-stone-100" : "hover:bg-stone-800"}`}
+              >
+                <Settings className={`w-4 h-4 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+                <span className={`text-sm font-medium ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Einstellungen</span>
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

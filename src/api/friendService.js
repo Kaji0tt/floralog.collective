@@ -58,6 +58,23 @@ export async function sendFriendRequest(recipientEmail, recipientAuthId = null) 
   return data.friend;
 }
 
+export async function sendPartnerRequest(partnerEmail) {
+  const normalizedEmail = partnerEmail?.trim?.();
+  if (!normalizedEmail) {
+    throw new Error("Bitte wähle einen Partner aus.");
+  }
+
+  const data = await invokeFriendService(
+    {
+      action: "sendPartnerRequest",
+      recipientEmail: normalizedEmail,
+    },
+    "Partner-Anfrage konnte nicht gesendet werden.",
+  );
+
+  return data.friend;
+}
+
 export async function connectViaReferral(referrerEmail) {
   const normalizedEmail = referrerEmail?.trim?.();
   if (!normalizedEmail) {
@@ -115,6 +132,28 @@ export async function respondToFriendRequest(requesterEmail, action, requesterAu
       responseAction: action,
     },
     "Freundschaftsanfrage konnte nicht verarbeitet werden.",
+  );
+
+  return data.affected || 0;
+}
+
+export async function respondToPartnerRequest(requesterEmail, action) {
+  const normalizedEmail = requesterEmail?.trim?.();
+  if (!normalizedEmail) {
+    throw new Error("Partner-Anfrage kann nicht verarbeitet werden (fehlende E-Mail).");
+  }
+
+  if (action !== "accept" && action !== "reject") {
+    throw new Error("Ungültige Aktion für Partner-Anfrage.");
+  }
+
+  const data = await invokeFriendService(
+    {
+      action: "respondToPartnerRequest",
+      requesterEmail: normalizedEmail,
+      responseAction: action,
+    },
+    "Partner-Anfrage konnte nicht verarbeitet werden.",
   );
 
   return data.affected || 0;

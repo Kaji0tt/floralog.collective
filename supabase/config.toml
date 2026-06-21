@@ -22,6 +22,11 @@ verify_jwt = false
 import_map = "./functions/generatePlantMetadata/deno.json"
 entrypoint = "./functions/generatePlantMetadata/index.ts"
 
+[functions.generateBotName]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/generateBotName/index.ts"
+
 [functions.createGlobalPlant]
 enabled = true
 verify_jwt = true

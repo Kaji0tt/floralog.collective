@@ -12,10 +12,36 @@ type PurchaseBody = {
   userEmail?: string | null;
   rewardId?: string;
   accessoryId?: string;
+  rewardValue?: string;
+  rewardType?: string;
+  purchaseKind?: string;
   sparkPrice?: number;
   amberPrice?: number;
   eventReference?: string;
 };
+
+type PurchaseKind = "accessory" | "profile_effect" | "logo_effect";
+
+const PURCHASE_KIND_ALLOWED_REWARD_TYPES: Record<PurchaseKind, string[]> = {
+  accessory: ["logo_accessory", "accessory"],
+  profile_effect: ["profile_effect"],
+  logo_effect: ["logo_effect"],
+};
+
+function normalizeText(value: string | null | undefined): string {
+  return String(value || "").trim();
+}
+
+function normalizeLower(value: string | null | undefined): string {
+  return normalizeText(value).toLowerCase();
+}
+
+function resolvePurchaseKind(value: string | null | undefined): PurchaseKind {
+  const normalized = normalizeLower(value);
+  if (normalized === "profile_effect") return "profile_effect";
+  if (normalized === "logo_effect") return "logo_effect";
+  return "accessory";
+}
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
@@ -82,26 +108,34 @@ Deno.serve(async (req) => {
 
   const userEmail = resolvedUser.email || "";
 
-  const rewardId = String(body.rewardId || "").trim();
-  const accessoryId = String(body.accessoryId || "").trim();
+  const rewardId = normalizeText(body.rewardId);
+  const accessoryId = normalizeText(body.accessoryId);
+  const rewardValueInput = normalizeText(body.rewardValue);
+  const requestedRewardType = normalizeLower(body.rewardType);
+  const purchaseKind = resolvePurchaseKind(body.purchaseKind);
+  const itemValue = purchaseKind === "accessory" ? accessoryId : rewardValueInput;
   const sparkPrice = Math.max(0, Math.round(Number(body.sparkPrice ?? 0)));
   const amberPrice = Math.max(0, Math.round(Number(body.amberPrice ?? 0)));
-  const eventReference = String(body.eventReference || `shop-accessory:${accessoryId}:${Date.now()}`).trim();
+  const eventReference = normalizeText(body.eventReference || `shop-${purchaseKind}:${itemValue || rewardId}:${Date.now()}`);
 
-  if (!rewardId || !accessoryId) {
-    return jsonResponse({ error: "rewardId and accessoryId are required" }, 400);
+  if (!rewardId) {
+    return jsonResponse({ error: "rewardId is required" }, 400);
+  }
+
+  if (purchaseKind === "accessory" && !accessoryId) {
+    return jsonResponse({ error: "accessoryId is required for accessory purchases" }, 400);
   }
 
   if (sparkPrice <= 0 && amberPrice <= 0) {
     return jsonResponse({ error: "Item has no price configured" }, 400);
   }
 
-  // Verify reward exists and is a purchasable accessory type
+  // Verify reward exists and is a purchasable type for the requested purchase kind.
+  const allowedRewardTypes = PURCHASE_KIND_ALLOWED_REWARD_TYPES[purchaseKind] || PURCHASE_KIND_ALLOWED_REWARD_TYPES.accessory;
   const { data: reward, error: rewardError } = await adminClient
     .from("Rewards")
     .select("id, display_name, name, value, type, spark_price, amber_price")
     .eq("id", rewardId)
-    .in("type", ["logo_accessory", "accessory"])
     .maybeSingle();
 
   if (rewardError) {
@@ -109,7 +143,21 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Failed to verify reward" }, 500);
   }
 
-  if (!reward) {
+  const rewardType = normalizeLower(String(reward?.type || ""));
+  if (!reward || !allowedRewardTypes.includes(rewardType)) {
+    return jsonResponse({ applied: false, errorCode: "reward_not_configured" });
+  }
+
+  const rewardValue = normalizeText(String(reward?.value || ""));
+  if (purchaseKind === "accessory") {
+    if (normalizeLower(rewardValue) !== normalizeLower(accessoryId)) {
+      return jsonResponse({ applied: false, errorCode: "reward_not_configured" });
+    }
+  } else if (rewardValueInput && normalizeLower(rewardValueInput) !== normalizeLower(rewardValue)) {
+    return jsonResponse({ applied: false, errorCode: "reward_not_configured" });
+  }
+
+  if (requestedRewardType && requestedRewardType !== rewardType) {
     return jsonResponse({ applied: false, errorCode: "reward_not_configured" });
   }
 
@@ -186,14 +234,24 @@ Deno.serve(async (req) => {
 
   // Debit sparks
   if (dbSparkPrice > 0) {
+    const sparkEventSource = `shop_${purchaseKind}_purchase`;
+    const sparkMetadata = {
+      source: "profile_shop",
+      purchase_kind: purchaseKind,
+      reward_id: rewardId,
+      reward_type: rewardType,
+      reward_value: rewardValue,
+      item_value: itemValue || rewardValue,
+    };
+
     const { data: sparkResult, error: sparkError } = await adminClient.rpc("wallet_grant_currency", {
       p_auth_id: authId,
       p_currency_code: "sparks",
-      p_event_source: "shop_accessory_purchase",
+      p_event_source: sparkEventSource,
       p_event_reference: eventReference,
       p_amount: dbSparkPrice,
       p_direction: "debit",
-      p_metadata: { source: "profile_shop", accessory_id: accessoryId, reward_id: rewardId },
+      p_metadata: sparkMetadata,
     });
 
     if (sparkError || !sparkResult?.[0]?.applied) {
@@ -206,14 +264,24 @@ Deno.serve(async (req) => {
 
   // Debit amber
   if (dbAmberPrice > 0) {
+    const amberEventSource = `shop_${purchaseKind}_purchase`;
+    const amberMetadata = {
+      source: "profile_shop",
+      purchase_kind: purchaseKind,
+      reward_id: rewardId,
+      reward_type: rewardType,
+      reward_value: rewardValue,
+      item_value: itemValue || rewardValue,
+    };
+
     const { data: amberResult, error: amberError } = await adminClient.rpc("wallet_grant_currency", {
       p_auth_id: authId,
       p_currency_code: "amber",
-      p_event_source: "shop_accessory_purchase",
+      p_event_source: amberEventSource,
       p_event_reference: eventReference,
       p_amount: dbAmberPrice,
       p_direction: "debit",
-      p_metadata: { source: "profile_shop", accessory_id: accessoryId, reward_id: rewardId },
+      p_metadata: amberMetadata,
     });
 
     if (amberError || !amberResult?.[0]?.applied) {
@@ -224,11 +292,19 @@ Deno.serve(async (req) => {
         await adminClient.rpc("wallet_grant_currency", {
           p_auth_id: authId,
           p_currency_code: "sparks",
-          p_event_source: "shop_accessory_purchase_refund",
+          p_event_source: `shop_${purchaseKind}_purchase_refund`,
           p_event_reference: eventReference,
           p_amount: dbSparkPrice,
           p_direction: "credit",
-          p_metadata: { source: "profile_shop", accessory_id: accessoryId, reason: "amber_debit_failed" },
+          p_metadata: {
+            source: "profile_shop",
+            purchase_kind: purchaseKind,
+            reward_id: rewardId,
+            reward_type: rewardType,
+            reward_value: rewardValue,
+            item_value: itemValue || rewardValue,
+            reason: "amber_debit_failed",
+          },
         });
       }
 
@@ -249,7 +325,7 @@ Deno.serve(async (req) => {
 
   const { error: insertError } = await adminClient.from("UserRewards").insert({
     reward_id: rewardId,
-    reward_name: reward.display_name || reward.name || reward.value || accessoryId,
+    reward_name: reward.display_name || reward.name || reward.value || itemValue || rewardId,
     auth_id: authId,
     user_email: userEmail,
     user_name: displayName,
@@ -264,11 +340,19 @@ Deno.serve(async (req) => {
       await adminClient.rpc("wallet_grant_currency", {
         p_auth_id: authId,
         p_currency_code: "sparks",
-        p_event_source: "shop_accessory_purchase_refund",
+        p_event_source: `shop_${purchaseKind}_purchase_refund`,
         p_event_reference: eventReference,
         p_amount: dbSparkPrice,
         p_direction: "credit",
-        p_metadata: { source: "profile_shop", accessory_id: accessoryId, reason: "user_reward_insert_failed" },
+        p_metadata: {
+          source: "profile_shop",
+          purchase_kind: purchaseKind,
+          reward_id: rewardId,
+          reward_type: rewardType,
+          reward_value: rewardValue,
+          item_value: itemValue || rewardValue,
+          reason: "user_reward_insert_failed",
+        },
       });
     }
 
@@ -276,11 +360,19 @@ Deno.serve(async (req) => {
       await adminClient.rpc("wallet_grant_currency", {
         p_auth_id: authId,
         p_currency_code: "amber",
-        p_event_source: "shop_accessory_purchase_refund",
+        p_event_source: `shop_${purchaseKind}_purchase_refund`,
         p_event_reference: eventReference,
         p_amount: dbAmberPrice,
         p_direction: "credit",
-        p_metadata: { source: "profile_shop", accessory_id: accessoryId, reason: "user_reward_insert_failed" },
+        p_metadata: {
+          source: "profile_shop",
+          purchase_kind: purchaseKind,
+          reward_id: rewardId,
+          reward_type: rewardType,
+          reward_value: rewardValue,
+          item_value: itemValue || rewardValue,
+          reason: "user_reward_insert_failed",
+        },
       });
     }
 

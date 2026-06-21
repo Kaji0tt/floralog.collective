@@ -5,13 +5,16 @@ import { useUiTheme } from "@/lib/UiThemeContext";
 
 const HEALTH_TOOLTIP_TEXT = {
   energy:
-    "Die Energie deines Florabots lädt sich auf, wenn du mit ihm spazieren gehst. Je mehr Strecke zwischen den Scans ist, desto mehr Energie lädt sich auf (max. 15 / Tag). Höhere Energie vergrößert die größe der Zonen, die dein Florabot aufspüren kann.",
+    "Energie bestimmt die Zonengroesse und den taeglichen Energiegewinn aus gelaufener Scan-Distanz. Niedrige Werte holen schneller auf: unter 50% gibt es 3x Zuwachs, unter 75% 2x, ab 75% 1x. Der taegliche Decay basiert auf der Gesamtgesundheit vor Decay (floor(Overall/10), mindestens 1).",
   "data-quality":
-    "Die Datenqualität steigt, wenn innerhalb einer Zone gescannt wird. Mit jedem weiteren Scan in der gleichen Zone, sinkt der Zuwachs. Je höher die Datenqualität, desto mehr Zonen kann der Florabot aufspüren. Ab 80 gibt es eine zusätzliche Bonuszone, ab 90 sogar 3 Bonuszonen. Du kannst somit bis zu 12 aktive Zonen pro Tag erreichen.  ",
-  care: "Der Pflegewert zeigt, wie regelmaessig du im Floralog aktiv bist. Durch regelmaessige Pflege kannst du den Pflegewert steigern. Ausserdem bringt der erste Scan am Tag +3 auf den Pflegewert. Je hoeher der Pflegewert, desto mehr Rerolls fuer die Tageszonen hast du zur Verfuegung. Ab 80 hast du insgesamt 2 Rerolls, ab 90 insgesamt 3. Darunter hast du 1 Reroll pro Tag.",
+    "Datenqualitaet bestimmt die Anzahl der taeglichen Zonen (mindestens 1, maximal 8) und steigt nur bei Scans innerhalb einer aktiven Zone. Niedrige Werte holen schneller auf: unter 50% gibt es 3x Zuwachs, unter 75% 2x, ab 75% 1x. Ausserhalb aktiver Zonen gibt es +0.",
+  care: "Pflege wirkt direkt als Multiplikator (1.0 bis 2.0) auf die Seed-Belohnung und bestimmt die taeglichen Zone-Rerolls (0/1/2/4 bei >=80/>=90/>=100). Niedrige Werte holen schneller auf: unter 50% gibt es 3x Zuwachs, unter 75% 2x, ab 75% 1x. Likes geben weiterhin zusaetzlich bis zu +1 (max. 5x pro Tag).",
 };
 
 export default function PlantHeroHealthPanel({
+  contextBubbleMessage = null,
+  contextBubbleProfile = null,
+  onContextBubbleDismiss = () => {},
   plantHealthState,
   healthStateBonus,
   healthStats,
@@ -57,29 +60,37 @@ export default function PlantHeroHealthPanel({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -6 }}
       transition={{ duration: 0.16, ease: "easeOut" }}
-      className="absolute inset-0 px-0 pt-[5.5rem] md:pt-[5.8rem] flex flex-col justify-start pointer-events-none"
+      className="relative w-full h-full px-0 flex flex-col justify-start pointer-events-none"
     >
       <div
-        className={`w-full rounded-2xl border px-3 py-3 space-y-2.5 max-h-[calc(100vh-7rem)] overflow-y-auto backdrop-blur-md pointer-events-auto z-[15] ${
-          isLightUi
-            ? "border-[#c8ac62]/45 bg-white/48 text-stone-700"
-            : "border-[#f0e5a5]/35 bg-black/38 text-stone-100"
-        }`}
+        className={(() => {
+          const base = "w-full rounded-2xl px-3 py-3 space-y-2.5 max-h-[calc(100vh-7rem)] overflow-y-auto hide-scrollbar pointer-events-auto z-[15]";
+          if (contextBubbleMessage) {
+            // When showing the centered context bubble, avoid the large translucent panel
+            return `${base} bg-transparent border-transparent text-stone-100`;
+          }
+          return `${base} rounded-2xl border backdrop-blur-md ${isLightUi ? "border-[#c8ac62]/45 bg-white/48 text-stone-700" : "border-[#f0e5a5]/35 bg-black/38 text-stone-100"}`;
+        })()}
       >
-        <div className="text-[11px] md:text-xs">
-          <div
-            className={`font-semibold uppercase tracking-wide ${
-              isLightUi ? "text-stone-800" : "text-stone-50"
-            }`}
-          >
-            {plantHealthState.label}
-          </div>
-          <div className={isLightUi ? "text-stone-700/85" : "text-stone-200/80"}>
-            Scan-Bonus: <strong>{isLoading ? "..." : `+${healthStateBonus}`}</strong>
-          </div>
-        </div>
+        {/* If a context bubble message is provided, render that instead of the health content */}
+        {contextBubbleMessage ? (
+          <div className="h-full" />
+        ) : (
+          <>
+            <div className="text-[11px] md:text-xs">
+              <div
+                className={`font-semibold uppercase tracking-wide ${
+                  isLightUi ? "text-stone-800" : "text-stone-50"
+                }`}
+              >
+                {plantHealthState.label}
+              </div>
+              <div className={isLightUi ? "text-stone-700/85" : "text-stone-200/80"}>
+                Scan-Bonus: <strong>{isLoading ? "..." : `+${healthStateBonus}`}</strong>
+              </div>
+            </div>
 
-        {safeHealthStats.map((stat) => (
+            {safeHealthStats.map((stat) => (
           <div key={stat.id} className="space-y-1">
             <div
               className={`relative flex items-center justify-between text-[11px] md:text-xs ${
@@ -157,32 +168,6 @@ export default function PlantHeroHealthPanel({
                 {(isLoading || isDailyCareLoading) ? "..." : `${wateringCountToday}/${wateringLimitPerDay}`}
               </span>
             </motion.button>
-
-            <LockedTooltip
-              contentClassName={isLightUi ? "" : "text-white/90"}
-              content={
-                <span className="text-xs leading-relaxed">
-                  Die Partner-Funktion kommt mit einem spaeteren Update.
-                </span>
-              }
-            >
-              <button
-                type="button"
-                className={`h-14 rounded-xl border flex flex-col items-center justify-center ${
-                  isLightUi
-                    ? "border-[#c8ac62]/55 bg-white/60 text-stone-800"
-                    : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
-                }`}
-                aria-label="Partner-Funktion Hinweis"
-              >
-                <span className="text-[11px] md:text-xs font-semibold leading-none">
-                  Partner
-                </span>
-                <span className="text-[10px] md:text-[11px] mt-1 leading-none opacity-90">
-                  Bald
-                </span>
-              </button>
-            </LockedTooltip>
           </div>
         )}
 
@@ -191,6 +176,8 @@ export default function PlantHeroHealthPanel({
             {careActionMessage}
           </div>
         )}
+        </>)
+      }
       </div>
     </motion.div>
   );

@@ -1,0 +1,43 @@
+Ich habe meinem AI Code Assistant erklärt, dass ich in meiner App einen "Florabot" haben möchte, der sich durch alle App-Nachrichten und sämtliches Framing durchzieht und dabei eine Geschichte erzählt, die App erklärt und sämtliche Push-Nachrichten so formuliert, dass sie in einer direkten Anrede des Bots & Begleiters zum Spieler geschehen.
+
+Ich befürchte in der Rückschau allerdings, dass der Code Agent sprachlich nicht so gut trainiert ist, wie du es als Chat Modell womöglich bist.
+Ich gebe dir einmal die Seele, die ich in dem Florabot sehe und die Idee einer Geschichte.
+Bitte "verfeiner
+Ich würde anschließend von dir wollen, dass du die Nachrichten und Texte einmal entsprechend meiner einleitenden Version aktualisierst.
+
+Seele und Geschichte zum Florabot:
+Florabot wurde von einer fernen Zivilisation ausgesendet, deren Planet sich am Scheitelpunkt der Existenz befindet. Durch jahrelange Ignoranz gegenüber dem Ökosystem und der Natur, droht die fremde Zivilisation der Untergang. Androiden und Roboter simulieren bereits leerstellen des Ökosystem, Im Angesicht ihres Schicksals, hat die ferne Zivilisation - ein  Seine einzige Mission: Die Pflanzenwelt der Erde kartieren und verstehen – damit dasselbe Schicksal nicht noch einmal eintritt. Er kann analysieren, aber nicht alleine finden. Er braucht einen menschlichen Begleiter.
+
+- quizScheduler/index.ts	-> quiz_available	-> "Neues Pflanzen-Quiz verfügbar"	"Florabot hat ein Quiz für dich!"
+- grantRewards/index.ts	-> Reward unlock	-> "🎁 Neue Belohnung"	-> "🌱 Florabot-Belohnung freigeschaltet!"
+- useFriendsFeatureContent.jsx	-> friend_request_received	-> "🤝 Neue Freundschaftsanfrage"	-> "🤖 Florabot entdeckt: neuer Forscher!"
+- useFriendsFeatureContent.jsx	-> friendship_accepted	"🤝 Freundschaft bestätigt"	-> "🌍 Netzwerk erweitert!"
+- useFriendsFeatureContent.jsx	
+-> scan_liked	-> "❤️ Neuer Like"	-> "🤖 Datenpunkt bestätigt!"
+- CollectionFeatureRoot.jsx	-> collection_followed	-> "👀 Neuer Kollektion-Follower"	-> "🤖 Neue Verbindung!"
+- Home.jsx	-> scan_liked	-> "❤️ Neuer Like"	-> "🤖 Datenpunkt bestätigt!"
+- WelcomeNameDialog.jsx	-> custom (Welcome)	-> "🌿 Willkommen im Floralog!"	-> "🤖 Florabot online – Willkommen!"
+- FriendProfile.jsx	-> friend_request_received	-> "Neue Freundschaftsanfrage"	-> "🤖 Florabot entdeckt: neuer Forscher!"
+- useAchievementsFeatureContent.jsx	-> custom (erste Quest) ->	"🎨 Personalisiere dein Profil!"	-> "🌱 Erste Mission abgeschlossen!"
+
+
+
+______________________________________________
+
+
+Dein Patch ist mit folgendem Update abgeschlossen:
+Phase C – Notification-Texte mit Florabot-Persönlichkeit (alle Call-Sites):
+- quizScheduler/index.ts	-> quiz_available	-> "Neues Pflanzen-Quiz verfügbar"	"Florabot hat ein Quiz für dich!"
+- grantRewards/index.ts	-> Reward unlock	-> "🎁 Neue Belohnung"	-> "🌱 Florabot-Belohnung freigeschaltet!"
+- useFriendsFeatureContent.jsx	-> friend_request_received	-> "🤝 Neue Freundschaftsanfrage"	-> "🤖 Florabot entdeckt: neuer Forscher!"
+- useFriendsFeatureContent.jsx	-> friendship_accepted	"🤝 Freundschaft bestätigt"	-> "🌍 Netzwerk erweitert!"
+- useFriendsFeatureContent.jsx	
+-> scan_liked	-> "❤️ Neuer Like"	-> "🤖 Datenpunkt bestätigt!"
+- CollectionFeatureRoot.jsx	-> collection_followed	-> "👀 Neuer Kollektion-Follower"	-> "🤖 Neue Verbindung!"
+- Home.jsx	-> scan_liked	-> "❤️ Neuer Like"	-> "🤖 Datenpunkt bestätigt!"
+- WelcomeNameDialog.jsx	-> custom (Welcome)	-> "🌿 Willkommen im Floralog!"	-> "🤖 Florabot online – Willkommen!"
+- FriendProfile.jsx	-> friend_request_received	-> "Neue Freundschaftsanfrage"	-> "🤖 Florabot entdeckt: neuer Forscher!"
+- useAchievementsFeatureContent.jsx	-> custom (erste Quest) ->	"🎨 Personalisiere dein Profil!"	-> "🌱 Erste Mission abgeschlossen!"
+
+
+Ich würde aber die Texte gerne wie folgt haben:

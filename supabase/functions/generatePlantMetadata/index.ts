@@ -1,4 +1,5 @@
 import { buildOriginDeniedResponse } from "../_shared/origin.ts";
+import { getOpenAiKey, getOpenAiModel } from "../_shared/openai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -216,7 +217,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const openAiKey = Deno.env.get("OPENAI_API_KEY");
+    const openAiKey = getOpenAiKey();
+    const openAiModel = getOpenAiModel();
+    console.log("[generatePlantMetadata] Using OpenAI model:", openAiModel);
 
     if (!openAiKey) {
       console.error("[generatePlantMetadata] Missing OPENAI_API_KEY env var");
@@ -272,7 +275,7 @@ Deno.serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "gpt-5-mini",
+          model: openAiModel,
           input: [
             {
               role: "system",
