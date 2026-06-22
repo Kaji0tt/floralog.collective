@@ -254,14 +254,28 @@ const PROFILE_NAV_SNAP_STEP = PROFILE_NAV_CHIP_WIDTH + PROFILE_NAV_CHIP_GAP;
 const normalizeAccessoryId = (value) => String(value || "").trim().toLowerCase();
 
 const normalizeRewardAccessoryValue = (value) => {
-  const normalized = normalizeAccessoryId(value);
-  if (!normalized) return "";
-  if (normalized.startsWith("face_") || normalized.startsWith("plant_") || normalized.startsWith("border_")) {
-    return normalized;
+  const raw = normalizeAccessoryId(value);
+  if (!raw) return "";
+
+  const withoutQuery = raw.split("?")[0].split("#")[0];
+  const lastPathSegment = withoutQuery.split("/").pop() || withoutQuery;
+  const withoutExtension = lastPathSegment.replace(/\.(png|jpe?g|gif|webp|svg)$/i, "");
+  if (!withoutExtension) return "";
+
+  if (withoutExtension.startsWith("reward_logo_accessory_")) return withoutExtension.replace(/^reward_logo_accessory_/, "");
+  if (withoutExtension.startsWith("reward_accessory_")) return withoutExtension.replace(/^reward_accessory_/, "");
+  if (withoutExtension.startsWith("logo_accessory_")) return withoutExtension.replace(/^logo_accessory_/, "");
+  if (withoutExtension.startsWith("accessory_")) return withoutExtension.replace(/^accessory_/, "");
+
+  const embeddedMatch = withoutExtension.match(/(face_[a-z0-9_]+|plant_[a-z0-9_]+|border_[a-z0-9_]+)/i);
+  if (embeddedMatch?.[1]) return embeddedMatch[1].toLowerCase();
+
+  if (withoutExtension.startsWith("face_") || withoutExtension.startsWith("plant_") || withoutExtension.startsWith("border_")) {
+    return withoutExtension;
   }
 
   // Backward-compatible shorthand support, e.g. "v" -> "face_v".
-  return `face_${normalized}`;
+  return `face_${withoutExtension}`;
 };
 
 const accessoryValueMatches = (rewardValue, accessoryId) => {
