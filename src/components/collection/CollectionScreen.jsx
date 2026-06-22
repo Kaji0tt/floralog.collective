@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { Leaf, Minus, Plus, PencilLine, SlidersHorizontal, Star, Users2 } from "lucide-react";
 import GenusCard from "./GenusCard";
 import SearchSortBar from "./SearchSortBar";
@@ -7,6 +8,53 @@ const CATEGORY_CHIPS = [
   { value: "Sträucher", emoji: "🌿" },
   { value: "Blumen", emoji: "🌸" },
 ];
+
+function AnimatedHeroTitle({ title, isLightUi }) {
+  const containerRef = useRef(null);
+  const textRef = useRef(null);
+  const [overflowPx, setOverflowPx] = useState(0);
+
+  useEffect(() => {
+    const containerNode = containerRef.current;
+    const textNode = textRef.current;
+    if (!containerNode || !textNode) return;
+
+    const measureOverflow = () => {
+      const nextOverflow = Math.max(0, Math.ceil(textNode.scrollWidth - containerNode.clientWidth));
+      setOverflowPx((prevOverflow) => (prevOverflow === nextOverflow ? prevOverflow : nextOverflow));
+    };
+
+    measureOverflow();
+
+    if (typeof window === "undefined" || typeof window.ResizeObserver === "undefined") return;
+    const resizeObserver = new window.ResizeObserver(measureOverflow);
+    resizeObserver.observe(containerNode);
+    resizeObserver.observe(textNode);
+    return () => resizeObserver.disconnect();
+  }, [title]);
+
+  const shouldAnimate = overflowPx > 0;
+  const marqueeDuration = Math.max(6, overflowPx / 24 + 4);
+
+  return (
+    <h1 className={"text-lg font-bold leading-tight flex-1 min-w-0 " + (isLightUi ? "text-stone-900" : "text-[#f8f4d6]")}>
+      <span ref={containerRef} className="block min-w-0 overflow-hidden">
+        <span
+          ref={textRef}
+          className={"inline-block max-w-full whitespace-nowrap " + (shouldAnimate ? "collection-hero-title-marquee" : "truncate")}
+          style={shouldAnimate
+            ? {
+              "--collection-title-overflow": overflowPx + "px",
+              animationDuration: marqueeDuration + "s",
+            }
+            : undefined}
+        >
+          {title}
+        </span>
+      </span>
+    </h1>
+  );
+}
 
 export default function CollectionScreen({
   readOnly = false,
@@ -138,9 +186,7 @@ export default function CollectionScreen({
           >
             <div className="space-y-1">
               <div className="flex items-center justify-between gap-2">
-                <h1 className={"text-lg font-bold leading-tight flex-1 min-w-0 truncate " + (isLightUi ? "text-stone-900" : "text-[#f8f4d6]")}>
-                  {heroTitle}
-                </h1>
+                <AnimatedHeroTitle title={heroTitle} isLightUi={isLightUi} />
                 {!readOnly && !isQuestCollectionView && selectedEntryCategory === "themes" && !hasAnyThemeCollection && (
                   <button
                     type="button"
