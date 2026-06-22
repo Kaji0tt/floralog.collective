@@ -62,44 +62,44 @@ export function HomeMilestoneStripe({
   const scanButtonHeightRem = Math.max(2.8, 3.35 * (Number(controlsScale) || 1));
 
   const stripeTwoSlides = useMemo(() => {
-    const milestones = Array.isArray(milestoneFeed)
-      ? milestoneFeed.map((item) => ({
-          id: `milestone-${item.id}`,
-          kind: "milestone",
-          title: item.title,
-          detail: item.detail,
-          previewImageUrl: item.previewImageUrl || "",
-          payload: item,
-        }))
-      : [];
+    const slides = [];
 
-    const merged = [];
-
-    if (kpiSummary) {
-      merged.push({
-        id: "kpi-overview",
-        kind: "kpi",
-        title: "Deine KPI",
-        payload: {
-          playerSeedsDisplay: String(kpiSummary.playerSeedsDisplay || "0"),
-          conqueredZonesDisplay: String(kpiSummary.conqueredZonesDisplay || "0"),
-          healthSeedBonusDisplay: Math.max(0, Math.round(Number(kpiSummary.healthSeedBonusDisplay) || 0)),
-          securedMultiplier: Number.isFinite(Number(kpiSummary.securedMultiplier))
-            ? Number(kpiSummary.securedMultiplier)
-            : null,
-          zoneHintText: String(kpiSummary.zoneHintText || "").trim(),
-          nearestZoneDirectionIcon: String(kpiSummary.nearestZoneDirectionIcon || "").trim(),
-          nearestZoneDistanceKm: Number.isFinite(Number(kpiSummary.nearestZoneDistanceKm))
-            ? Number(kpiSummary.nearestZoneDistanceKm)
-            : null,
-        },
+    if (Array.isArray(milestoneFeed)) {
+      milestoneFeed.forEach((item) => {
+        if (item?.kind === "kpi") {
+          slides.push({
+            id: item.id || "kpi-overview",
+            kind: "kpi",
+            title: item.title || "Deine KPI",
+            payload: {
+              playerSeedsDisplay: String(item.kpiSummary?.playerSeedsDisplay || kpiSummary?.playerSeedsDisplay || "0"),
+              conqueredZonesDisplay: String(item.kpiSummary?.conqueredZonesDisplay || kpiSummary?.conqueredZonesDisplay || "0"),
+              healthSeedBonusDisplay: Math.max(0, Math.round(Number(item.kpiSummary?.healthSeedBonusDisplay || kpiSummary?.healthSeedBonusDisplay) || 0)),
+              securedMultiplier: Number.isFinite(Number(item.kpiSummary?.securedMultiplier || kpiSummary?.securedMultiplier))
+                ? Number(item.kpiSummary?.securedMultiplier || kpiSummary?.securedMultiplier)
+                : null,
+              zoneHintText: String(item.kpiSummary?.zoneHintText || kpiSummary?.zoneHintText || "").trim(),
+              nearestZoneDirectionIcon: String(item.kpiSummary?.nearestZoneDirectionIcon || kpiSummary?.nearestZoneDirectionIcon || "").trim(),
+              nearestZoneDistanceKm: Number.isFinite(Number(item.kpiSummary?.nearestZoneDistanceKm || kpiSummary?.nearestZoneDistanceKm))
+                ? Number(item.kpiSummary?.nearestZoneDistanceKm || kpiSummary?.nearestZoneDistanceKm)
+                : null,
+            },
+          });
+        } else {
+          slides.push({
+            id: `milestone-${item.id}`,
+            kind: "milestone",
+            title: item.title,
+            detail: item.detail,
+            previewImageUrl: item.previewImageUrl || "",
+            payload: item,
+          });
+        }
       });
     }
 
-    merged.push(...milestones);
-
-    if (merged.length === 0) {
-      merged.push({
+    if (slides.length === 0) {
+      slides.push({
         id: "fallback-empty",
         kind: "fallback",
         title: "Noch keine Highlights verfügbar",
@@ -108,7 +108,7 @@ export function HomeMilestoneStripe({
       });
     }
 
-    return merged;
+    return slides;
   }, [kpiSummary, milestoneFeed]);
 
   const stripeTwoCount = stripeTwoSlides.length;
