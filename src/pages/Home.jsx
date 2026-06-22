@@ -2708,6 +2708,15 @@ function HomeContent() {
   const playerSeedsDisplay = Math.max(0, Math.round(Number(playerSeeds) || 0)).toLocaleString("de-DE");
   const conqueredZonesDisplay = Math.max(0, Math.round(Number(playerClaimedTiles) || 0)).toLocaleString("de-DE");
   const healthSeedBonusDisplay = Math.max(0, Math.round(Number(healthStateBonus) || 0));
+  const homeMilestoneKpiSummary = {
+    playerSeedsDisplay,
+    conqueredZonesDisplay,
+    healthSeedBonusDisplay,
+    zoneHintText,
+    nearestZoneDirectionIcon,
+    nearestZoneDistanceKm,
+    securedMultiplier: securedNextScanMultiplier,
+  };
 
   const formatMultiplier = (value) => {
     const safeValue = Number.isFinite(value) ? value : 1;
@@ -3645,9 +3654,6 @@ function HomeContent() {
                         }
                       }}
                       playerSeeds={playerSeeds}
-                      playerSeedsDisplay={playerSeedsDisplay}
-                      conqueredZonesDisplay={conqueredZonesDisplay}
-                      healthSeedBonusDisplay={healthSeedBonusDisplay}
                       zoneHintText={zoneHintText}
                       nearestZoneDirectionIcon={nearestZoneDirectionIcon}
                       nearestZoneDistanceKm={nearestZoneDistanceKm}
@@ -3664,6 +3670,8 @@ function HomeContent() {
                       className="mb-[clamp(0.35rem,0.8vh,0.55rem)] min-h-0 flex-1"
                       isLightUi={isLightUi}
                       milestoneFeed={homeMilestoneFeed}
+                      kpiSummary={homeMilestoneKpiSummary}
+                      controlsScale={controlsScale}
                       onMilestoneAction={handleHomeMilestoneAction}
                       onMilestonePreviewClick={handleHomeMilestonePreviewClick}
                     />
