@@ -2549,7 +2549,7 @@ function HomeContent() {
     homeMilestoneFeed.push({
       id: "seed-rank-gap",
       title: `Globaler Rank #${ownSeedRank} -> #${ownSeedRank - 1}`,
-      detail: `Dir fehlen noch ${seedsToNextRank} Samen bis Platz ${ownSeedRank - 1} von ${nextSeedRankTarget.name || "Unbekannt"}.`,
+      detail: `Noch ${seedsToNextRank} Samen bis du ${nextSeedRankTarget.name || "Unbekannt"} erreichst.`,
       actionType: "open_achievements",
     });
   } else if (ownSeedRank === 1) {
