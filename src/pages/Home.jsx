@@ -2413,10 +2413,10 @@ function HomeContent() {
         previewScannerEmail: previewDiscovery?.user || previewDiscovery?.created_by || "",
       };
     })
-    .filter((entry) => entry && entry.discovered >= 3 && entry.remaining > 0)
-    .sort((a, b) => {
-      if (a.remaining !== b.remaining) return a.remaining - b.remaining;
-      return b.discovered - a.discovered;
+    .filter((entry) => entry && entry.discovered >= 3 && entry.remaining > 0 && entry.remaining <= 2)
+    .sort(() => {
+      const seed = `daily-genus-select:${user?.id || "anon"}:${milestonePreviewDayKey}`;
+      return hashSeedToIndex(seed, 10000) % 2 - 0.5;
     })
     .slice(0, 2);
 
@@ -2523,9 +2523,7 @@ function HomeContent() {
       homeMilestoneFeed.push({
         id: `genus-${entry.id}`,
         title: `${entry.genusName}: ${entry.discovered}/${entry.total}`,
-        detail: entry.remaining === 1
-          ? `Dir fehlt nur noch 1 Art der ${entry.genusName}!`
-          : `Dir fehlen nur noch ${entry.remaining} Arten der ${entry.genusName}!`,
+        detail: entry.remaining === 1 ? "Dir fehlt nur noch 1 Art." : `Dir fehlen nur noch ${entry.remaining} Arten.`,
         actionType: "open_genus",
         genusId: entry.id,
         genusName: entry.genusName,
@@ -2560,6 +2558,15 @@ function HomeContent() {
       title: "Globales Samen-Ranking",
       detail: "Du fuehrst aktuell das Ranking an. Halte den Vorsprung!",
       actionType: "open_achievements",
+    });
+  }
+
+  if (homeMilestoneFeed.length > 0) {
+    homeMilestoneFeed.push({
+      id: "kpi-slide",
+      kind: "kpi",
+      title: "Deine KPI",
+      kpiSummary: homeMilestoneKpiSummary,
     });
   }
 
