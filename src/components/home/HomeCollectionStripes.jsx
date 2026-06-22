@@ -8,6 +8,7 @@ const SWIPE_THRESHOLD_PX = 36;
 const SLIDE_DURATION_MS = 6500;
 const PROGRESS_TICK_MS = 50;
 const OVERLAY_EXIT_FADE_MS = 350;
+const FLOW_TEXT_SINGLE_LINE_MAX_CHARS = 84;
 const BADGE_LOGO_MIN_SCALE = 0.24;
 const BADGE_LOGO_MAX_SCALE = 1.56;
 const BADGE_LOGO_FILL_HEIGHT_RATIO = 0.98;
@@ -112,6 +113,13 @@ export function HomeMilestoneStripe({
 
   const stripeTwoCount = stripeTwoSlides.length;
   const currentStripeTwoSlide = stripeTwoSlides[clampIndex(stripeTwoIndex, stripeTwoCount)] || null;
+  const shouldGrowStripeForFlowText =
+    isCompactLayout &&
+    currentStripeTwoSlide?.kind === "milestone" &&
+    String(currentStripeTwoSlide?.detail || "").trim().length > FLOW_TEXT_SINGLE_LINE_MAX_CHARS;
+  const compactStripeHeightRem = shouldGrowStripeForFlowText
+    ? Math.max(scanButtonHeightRem + 0.85, scanButtonHeightRem * 1.25)
+    : scanButtonHeightRem;
   const isMissingSpeciesMilestone = (() => {
     const normalizedText = `${currentStripeTwoSlide?.title || ""} ${currentStripeTwoSlide?.detail || ""}`.toLowerCase();
     const hasMissingPhrase = /dir\s+fehl(?:t|en)\s+nur\s+noch/.test(normalizedText);
@@ -193,6 +201,20 @@ export function HomeMilestoneStripe({
     const genusName = String(milestonePayload?.genusName || "").trim();
     const canOpenOwnGenus =
       Boolean(milestonePayload?.actionType === "open_genus" && milestonePayload?.genusId && genusName);
+    const shouldRelaxCompactMilestoneText =
+      isCompactLayout && String(slide.detail || "").trim().length > FLOW_TEXT_SINGLE_LINE_MAX_CHARS;
+    const milestoneTitleClass = isCompactLayout
+      ? `text-[10px] font-semibold uppercase tracking-wide mb-0.5 text-right ${
+          isLightUi ? "text-emerald-200/90" : "text-emerald-200/85"
+        }`
+      : `text-[11px] font-semibold uppercase tracking-wide mb-1 text-right ${
+          isLightUi ? "text-emerald-200/90" : "text-emerald-200/85"
+        }`;
+    const milestoneDetailClass = isCompactLayout
+      ? shouldRelaxCompactMilestoneText
+        ? `mt-0.5 text-right text-[0.8rem] leading-snug ${isLightUi ? "text-stone-100/90" : "text-stone-200/90"}`
+        : `mt-0.5 whitespace-nowrap truncate text-right text-[0.8rem] leading-tight ${isLightUi ? "text-stone-100/90" : "text-stone-200/90"}`
+      : `mt-1 text-right text-[0.88rem] leading-snug line-clamp-3 ${isLightUi ? "text-stone-100/90" : "text-stone-200/90"}`;
 
     const handleOpenMilestoneGenus = (event) => {
       if (!canOpenOwnGenus) return;
@@ -232,10 +254,10 @@ export function HomeMilestoneStripe({
 
     return (
       <>
-        <p className={`text-[11px] font-semibold uppercase tracking-wide mb-1 text-right ${isLightUi ? "text-emerald-200/90" : "text-emerald-200/85"}`}>
+        <p className={milestoneTitleClass}>
           {renderTextWithClickableGenus(slide.title, `${slide.id}-title`)}
         </p>
-        <p className={`mt-1 text-right text-[0.88rem] leading-snug line-clamp-3 ${isLightUi ? "text-stone-100/90" : "text-stone-200/90"}`}>
+        <p className={milestoneDetailClass}>
           {renderTextWithClickableGenus(slide.detail, `${slide.id}-detail`)}
         </p>
       </>
@@ -349,7 +371,7 @@ export function HomeMilestoneStripe({
         className={`relative h-full flex flex-col overflow-hidden rounded-2xl border border-[#f0e5a5]/45 bg-black/52 text-stone-100 ${
           isCompactLayout ? "px-2.5 py-1.5" : "px-3 py-2.5"
         }`}
-        style={isCompactLayout ? { height: `${scanButtonHeightRem.toFixed(2)}rem` } : undefined}
+        style={isCompactLayout ? { height: `${compactStripeHeightRem.toFixed(2)}rem` } : undefined}
       >
         <div className="pointer-events-none absolute inset-0 rounded-2xl overflow-hidden">
           {currentSlidePreviewImage ? (
