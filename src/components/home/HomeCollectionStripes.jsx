@@ -19,8 +19,6 @@ const BADGE_ROW_HEIGHT_REM = 7.25;
 const LOGO_ROW_TOP_REM = 4.9;
 const BADGE_TOP_SIDE_REM = 2.9;
 const BADGE_TOP_CENTER_REM = 1.1;
-const KPI_STRIPE_HIDE_THRESHOLD_REM = 18.5;
-const KPI_STRIPE_SHOW_THRESHOLD_REM = 19.0;
 
 const clampIndex = (index, size) => {
   if (!Number.isFinite(index) || size <= 0) return 0;
@@ -47,15 +45,20 @@ const BADGE_RANK_ICON_STYLE = {
 export function HomeMilestoneStripe({
   isLightUi,
   milestoneFeed,
+  kpiSummary = null,
+  controlsScale = 1,
   onMilestoneAction,
   onMilestonePreviewClick,
   className = "",
 }) {
+  const stripeRootRef = useRef(/** @type {HTMLDivElement | null} */ (null));
   const [stripeTwoIndex, setStripeTwoIndex] = useState(0);
   const [stripeTwoContentHeight, setStripeTwoContentHeight] = useState(null);
   const [stripeProgressPercent, setStripeProgressPercent] = useState(0);
+  const [isCompactLayout, setIsCompactLayout] = useState(false);
   const stripeTwoTouchStartX = useRef(null);
   const stripeTwoMeasureRefs = useRef(new Map());
+  const scanButtonHeightRem = Math.max(2.8, 3.35 * (Number(controlsScale) || 1));
 
   const stripeTwoSlides = useMemo(() => {
     const milestones = Array.isArray(milestoneFeed)
@@ -69,7 +72,30 @@ export function HomeMilestoneStripe({
         }))
       : [];
 
-    const merged = [...milestones];
+    const merged = [];
+
+    if (kpiSummary) {
+      merged.push({
+        id: "kpi-overview",
+        kind: "kpi",
+        title: "Deine KPI",
+        payload: {
+          playerSeedsDisplay: String(kpiSummary.playerSeedsDisplay || "0"),
+          conqueredZonesDisplay: String(kpiSummary.conqueredZonesDisplay || "0"),
+          healthSeedBonusDisplay: Math.max(0, Math.round(Number(kpiSummary.healthSeedBonusDisplay) || 0)),
+          securedMultiplier: Number.isFinite(Number(kpiSummary.securedMultiplier))
+            ? Number(kpiSummary.securedMultiplier)
+            : null,
+          zoneHintText: String(kpiSummary.zoneHintText || "").trim(),
+          nearestZoneDirectionIcon: String(kpiSummary.nearestZoneDirectionIcon || "").trim(),
+          nearestZoneDistanceKm: Number.isFinite(Number(kpiSummary.nearestZoneDistanceKm))
+            ? Number(kpiSummary.nearestZoneDistanceKm)
+            : null,
+        },
+      });
+    }
+
+    merged.push(...milestones);
 
     if (merged.length === 0) {
       merged.push({
@@ -82,7 +108,7 @@ export function HomeMilestoneStripe({
     }
 
     return merged;
-  }, [milestoneFeed]);
+  }, [kpiSummary, milestoneFeed]);
 
   const stripeTwoCount = stripeTwoSlides.length;
   const currentStripeTwoSlide = stripeTwoSlides[clampIndex(stripeTwoIndex, stripeTwoCount)] || null;
@@ -103,6 +129,65 @@ export function HomeMilestoneStripe({
 
   const renderStripeTwoSlideBody = (slide) => {
     if (!slide) return null;
+    if (slide.kind === "kpi") {
+      const payload = slide.payload || {};
+      const multiplierLabel =
+        Number.isFinite(payload.securedMultiplier) && payload.securedMultiplier > 0
+          ? `x${payload.securedMultiplier.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1")}`
+          : "x1";
+      const nearestDistanceLabel =
+        Number.isFinite(payload.nearestZoneDistanceKm) && payload.nearestZoneDistanceKm >= 0
+          ? `${payload.nearestZoneDistanceKm.toFixed(1).replace(".", ",")} km`
+          : "";
+      const nearestHintRaw = [payload.nearestZoneDirectionIcon, payload.zoneHintText, nearestDistanceLabel]
+        .filter(Boolean)
+        .join(" ");
+
+      if (isCompactLayout) {
+        return (
+          <div className="flex h-full w-full items-center justify-between gap-1.5 text-[0.72rem] leading-none text-stone-100">
+            <span className="inline-flex min-w-0 items-center gap-1">
+              <Leaf className="h-3.5 w-3.5 shrink-0 text-emerald-200/90" />
+              <span className="truncate font-semibold">{payload.playerSeedsDisplay}</span>
+            </span>
+            <span className="inline-flex min-w-0 items-center gap-1">
+              <InspectionPanel className="h-3.5 w-3.5 shrink-0 text-sky-200/90" />
+              <span className="truncate font-semibold">{payload.conqueredZonesDisplay}</span>
+            </span>
+            <span className="inline-flex min-w-0 items-center gap-1">
+              <HeartPulse className="h-3.5 w-3.5 shrink-0 text-rose-200/90" />
+              <span className="truncate font-semibold">+{payload.healthSeedBonusDisplay}</span>
+            </span>
+            <span className="truncate text-[0.68rem] text-stone-200/90">{multiplierLabel}</span>
+          </div>
+        );
+      }
+
+      return (
+        <div className="flex h-full w-full flex-col justify-center gap-1.5">
+          <p className={`text-[10px] font-semibold uppercase tracking-wide ${isLightUi ? "text-emerald-200/95" : "text-emerald-200/85"}`}>
+            {slide.title}
+          </p>
+          <div className="flex w-full items-center justify-between gap-2 text-stone-100">
+            <span className="inline-flex min-w-0 items-center gap-1.5 text-[0.8rem]">
+              <Leaf className="h-3.5 w-3.5 shrink-0 text-emerald-200/90" />
+              <span className="truncate font-semibold">{payload.playerSeedsDisplay}</span>
+            </span>
+            <span className="inline-flex min-w-0 items-center gap-1.5 text-[0.8rem]">
+              <InspectionPanel className="h-3.5 w-3.5 shrink-0 text-sky-200/90" />
+              <span className="truncate font-semibold">{payload.conqueredZonesDisplay}</span>
+            </span>
+            <span className="inline-flex min-w-0 items-center gap-1.5 text-[0.8rem]">
+              <HeartPulse className="h-3.5 w-3.5 shrink-0 text-rose-200/90" />
+              <span className="truncate font-semibold">+{payload.healthSeedBonusDisplay}</span>
+            </span>
+          </div>
+          <p className="truncate text-right text-[10px] text-stone-200/85">
+            {nearestHintRaw ? `${nearestHintRaw}  |  Nächster Scan ${multiplierLabel}` : `Nächster Scan ${multiplierLabel}`}
+          </p>
+        </div>
+      );
+    }
 
     const milestonePayload = slide.kind === "milestone" ? slide.payload : null;
     const genusName = String(milestonePayload?.genusName || "").trim();
@@ -209,6 +294,39 @@ export function HomeMilestoneStripe({
   }, [stripeTwoCount, stripeTwoIndex]);
 
   useEffect(() => {
+    const rootNode = stripeRootRef.current;
+    if (!rootNode) return undefined;
+
+    const compactThresholdPx = scanButtonHeightRem * 16 * 1.75;
+
+    /** @type {number | null} */
+    let rafId = null;
+    const scheduleCompactMeasure = () => {
+      if (rafId) {
+        window.cancelAnimationFrame(rafId);
+      }
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        const availableHeight = rootNode.clientHeight;
+        setIsCompactLayout(availableHeight > 0 && availableHeight <= compactThresholdPx);
+      });
+    };
+
+    scheduleCompactMeasure();
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => scheduleCompactMeasure()) : null;
+    observer?.observe(rootNode);
+    window.addEventListener("resize", scheduleCompactMeasure);
+
+    return () => {
+      if (rafId) {
+        window.cancelAnimationFrame(rafId);
+      }
+      observer?.disconnect();
+      window.removeEventListener("resize", scheduleCompactMeasure);
+    };
+  }, [scanButtonHeightRem]);
+
+  useEffect(() => {
     const rafId = window.requestAnimationFrame(() => {
       measureStripeTwoHeight();
     });
@@ -226,9 +344,12 @@ export function HomeMilestoneStripe({
   }, [measureStripeTwoHeight]);
 
   return (
-    <div className={`relative min-h-0 flex-1 ${className}`}>
+    <div ref={stripeRootRef} className={`relative min-h-0 flex-1 ${className}`}>
       <div
-        className="relative h-full flex flex-col overflow-hidden rounded-2xl border border-[#f0e5a5]/45 bg-black/52 px-3 py-2.5 text-stone-100"
+        className={`relative h-full flex flex-col overflow-hidden rounded-2xl border border-[#f0e5a5]/45 bg-black/52 text-stone-100 ${
+          isCompactLayout ? "px-2.5 py-1.5" : "px-3 py-2.5"
+        }`}
+        style={isCompactLayout ? { height: `${scanButtonHeightRem.toFixed(2)}rem` } : undefined}
       >
         <div className="pointer-events-none absolute inset-0 rounded-2xl overflow-hidden">
           {currentSlidePreviewImage ? (
@@ -290,39 +411,53 @@ export function HomeMilestoneStripe({
         >
           {currentStripeTwoSlide ? (
             <>
-              <button
-                type="button"
-                onClick={() => {
-                  if (canOpenCurrentSlidePreview) {
-                    onMilestonePreviewClick?.(currentStripeTwoSlide.payload);
-                  }
-                }}
-                disabled={!canOpenCurrentSlidePreview}
-                className={`absolute inset-y-0 left-0 z-[2] w-[20%] sm:w-1/2 ${canOpenCurrentSlidePreview ? "cursor-pointer" : "cursor-default"}`}
-                aria-label={canOpenCurrentSlidePreview ? "Scan-Detail öffnen" : "Kein Scan-Detail verfügbar"}
-              />
-
-              <div className="absolute inset-y-0 right-0 z-[2] w-[80%] sm:w-1/2 min-w-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (currentStripeTwoSlide.kind === "milestone" && currentStripeTwoSlide.payload) {
-                      onMilestoneAction?.(currentStripeTwoSlide.payload);
-                    }
-                  }}
-                  className="flex h-full w-full min-w-0 flex-col justify-center overflow-hidden px-3 text-right sm:px-4"
-                >
+              {currentStripeTwoSlide.kind === "kpi" ? (
+                <div className="absolute inset-0 z-[2] flex min-w-0 items-center px-1">
                   {renderStripeTwoSlideBody(currentStripeTwoSlide)}
-                </button>
-              </div>
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (canOpenCurrentSlidePreview) {
+                        onMilestonePreviewClick?.(currentStripeTwoSlide.payload);
+                      }
+                    }}
+                    disabled={!canOpenCurrentSlidePreview}
+                    className={`absolute inset-y-0 left-0 z-[2] w-[20%] sm:w-1/2 ${canOpenCurrentSlidePreview ? "cursor-pointer" : "cursor-default"}`}
+                    aria-label={canOpenCurrentSlidePreview ? "Scan-Detail öffnen" : "Kein Scan-Detail verfügbar"}
+                  />
+
+                  <div className="absolute inset-y-0 right-0 z-[2] w-[80%] sm:w-1/2 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (currentStripeTwoSlide.kind === "milestone" && currentStripeTwoSlide.payload) {
+                          onMilestoneAction?.(currentStripeTwoSlide.payload);
+                        }
+                      }}
+                      className="flex h-full w-full min-w-0 flex-col justify-center overflow-hidden px-3 text-right sm:px-4"
+                    >
+                      {renderStripeTwoSlideBody(currentStripeTwoSlide)}
+                    </button>
+                  </div>
+                </>
+              )}
             </>
           ) : null}
         </div>
 
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-[-1] w-[80%] sm:w-1/2 min-w-0 opacity-0" aria-hidden="true">
-          <div className="px-3 sm:px-4">
+        <div className="pointer-events-none absolute inset-0 z-[-1] opacity-0" aria-hidden="true">
+          <div className="h-full px-1 sm:px-2">
             {stripeTwoSlides.map((slide) => (
-              <div key={`measure-${slide.id}`} ref={setStripeTwoMeasureRef(slide.id)} className="w-full">
+              <div
+                key={`measure-${slide.id}`}
+                ref={setStripeTwoMeasureRef(slide.id)}
+                className={`${
+                  slide.kind === "kpi" ? "w-full" : "ml-auto w-[80%] sm:w-1/2"
+                }`}
+              >
                 {renderStripeTwoSlideBody(slide)}
               </div>
             ))}
@@ -349,9 +484,6 @@ export default function HomeCollectionStripes({
   onLogoClick,
   elevateLogo = false,
   playerSeeds = 0,
-  playerSeedsDisplay = "0",
-  conqueredZonesDisplay = "0",
-  healthSeedBonusDisplay = 0,
   className = "",
 }) {
   const collectionRootRef = useRef(/** @type {HTMLDivElement | null} */ (null));
@@ -364,58 +496,7 @@ export default function HomeCollectionStripes({
   const [isFloatingLogoVisible, setIsFloatingLogoVisible] = useState(false);
   const [badgeLogoScale, setBadgeLogoScale] = useState(1);
   const [centerBadgeLogoUnit, setCenterBadgeLogoUnit] = useState(false);
-  const [showKpiStripe, setShowKpiStripe] = useState(true);
   const badgeLogoScaleRef = useRef(1);
-
-  useEffect(() => {
-    const rootNode = collectionRootRef.current;
-    if (!rootNode) return undefined;
-
-    const evaluateKpiVisibility = () => {
-      const rootFontSize = Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
-      const hideThresholdPx = KPI_STRIPE_HIDE_THRESHOLD_REM * rootFontSize;
-      const showThresholdPx = KPI_STRIPE_SHOW_THRESHOLD_REM * rootFontSize;
-      const availableHeight = rootNode.clientHeight;
-
-      setShowKpiStripe((prevShow) => {
-        if (prevShow && availableHeight < hideThresholdPx) return false;
-        if (!prevShow && availableHeight > showThresholdPx) return true;
-        return prevShow;
-      });
-    };
-
-    /** @type {number | null} */
-    let rafId = null;
-    const scheduleEvaluate = () => {
-      if (rafId) {
-        window.cancelAnimationFrame(rafId);
-      }
-      rafId = window.requestAnimationFrame(() => {
-        rafId = null;
-        evaluateKpiVisibility();
-      });
-    };
-
-    scheduleEvaluate();
-
-    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => scheduleEvaluate()) : null;
-    observer?.observe(rootNode);
-
-    window.addEventListener("resize", scheduleEvaluate);
-    const viewport = window.visualViewport;
-    viewport?.addEventListener("resize", scheduleEvaluate);
-    viewport?.addEventListener("scroll", scheduleEvaluate);
-
-    return () => {
-      if (rafId) {
-        window.cancelAnimationFrame(rafId);
-      }
-      observer?.disconnect();
-      window.removeEventListener("resize", scheduleEvaluate);
-      viewport?.removeEventListener("resize", scheduleEvaluate);
-      viewport?.removeEventListener("scroll", scheduleEvaluate);
-    };
-  }, []);
 
   useEffect(() => {
     badgeLogoScaleRef.current = badgeLogoScale;
@@ -583,7 +664,7 @@ export default function HomeCollectionStripes({
     };
 
     // IMPORTANT (AI patch note): Keep this effect dependent on layout toggles that can move
-    // the logo without resize/scroll events (e.g. centerBadgeLogoUnit/showKpiStripe).
+    // the logo without resize/scroll events (e.g. centerBadgeLogoUnit).
     // HomeFlorabotOverlay measures the portal rect to render its ring animation; stale rects
     // break centering and the logo is no longer correctly encircled.
     // Measure twice at startup to settle transforms/responsive layout before pinning.
@@ -611,7 +692,7 @@ export default function HomeCollectionStripes({
       viewport?.removeEventListener("resize", scheduleMeasure);
       viewport?.removeEventListener("scroll", scheduleMeasure);
     };
-  }, [badgeLogoScale, centerBadgeLogoUnit, elevateLogo, showKpiStripe, updateFloatingLogoRect]);
+  }, [badgeLogoScale, centerBadgeLogoUnit, elevateLogo, updateFloatingLogoRect]);
 
   const floatingLogoPortal =
     isFloatingLogoMounted &&
@@ -767,42 +848,6 @@ export default function HomeCollectionStripes({
           </div>
         </div>
       </div>
-
-      {showKpiStripe ? (
-        <div className="shrink-0 px-1 py-1">
-          <div className="grid grid-cols-3 gap-2">
-            <div
-              className={`px-2 py-1 flex items-center justify-center gap-1.5 ${
-                isLightUi ? "text-stone-700/85" : "text-stone-200/80"
-              }`}
-              aria-label={`Samen: ${playerSeedsDisplay}`}
-            >
-              <Leaf className={`h-3.5 w-3.5 ${isLightUi ? "text-emerald-700/85" : "text-emerald-300/85"}`} />
-              <span className="text-[11px] font-medium leading-none">{playerSeedsDisplay}</span>
-            </div>
-
-            <div
-              className={`px-2 py-1 flex items-center justify-center gap-1.5 ${
-                isLightUi ? "text-stone-700/85" : "text-stone-200/80"
-              }`}
-              aria-label={`Eroberte Zonen: ${conqueredZonesDisplay}`}
-            >
-              <InspectionPanel className={`h-3.5 w-3.5 ${isLightUi ? "text-sky-700/85" : "text-sky-300/85"}`} />
-              <span className="text-[11px] font-medium leading-none">{conqueredZonesDisplay}</span>
-            </div>
-
-            <div
-              className={`px-2 py-1 flex items-center justify-center gap-1.5 ${
-                isLightUi ? "text-stone-700/85" : "text-stone-200/80"
-              }`}
-              aria-label={`Gesundheitsbonus: +${healthSeedBonusDisplay} Samen`}
-            >
-              <HeartPulse className={`h-3.5 w-3.5 ${isLightUi ? "text-rose-700/85" : "text-rose-300/85"}`} />
-              <span className="text-[11px] font-medium leading-none">+{healthSeedBonusDisplay}</span>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       {floatingLogoPortal}
     </div>
