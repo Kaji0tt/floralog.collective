@@ -2145,22 +2145,28 @@ export function useAchievementsFeatureContent({
             <div className="max-w-6xl mx-auto flex flex-col gap-4" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
               {hasActiveSeason && (
                 <div className="flex items-center justify-center gap-2 pb-1">
-                  <Button
+                  <button
                     type="button"
-                    variant={statsComparisonScope === "season" ? "default" : "outline"}
                     onClick={() => setStatsComparisonScope("season")}
-                    className={statsComparisonScope === "season" ? "" : (isLightUi ? "border-stone-300" : "border-[#f0e5a5]/35 text-stone-100")}
+                    className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all bg-black/60 backdrop-blur-sm text-stone-100 border-2 ${
+                      statsComparisonScope === "season"
+                        ? "border-[#d4af37] shadow-[0_0_8px_rgba(212,175,55,0.4)]"
+                        : "border-transparent opacity-70 hover:opacity-90"
+                    }`}
                   >
                     {activeSeason?.title || "Saison"}
-                  </Button>
-                  <Button
+                  </button>
+                  <button
                     type="button"
-                    variant={statsComparisonScope === "alltime" ? "default" : "outline"}
                     onClick={() => setStatsComparisonScope("alltime")}
-                    className={statsComparisonScope === "alltime" ? "" : (isLightUi ? "border-stone-300" : "border-[#f0e5a5]/35 text-stone-100")}
+                    className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all bg-black/60 backdrop-blur-sm text-stone-100 border-2 ${
+                      statsComparisonScope === "alltime"
+                        ? "border-[#d4af37] shadow-[0_0_8px_rgba(212,175,55,0.4)]"
+                        : "border-transparent opacity-70 hover:opacity-90"
+                    }`}
                   >
                     All-Time
-                  </Button>
+                  </button>
                 </div>
               )}
               <section className="order-2">
@@ -2600,6 +2606,7 @@ export function useAchievementsFeatureContent({
                 )}
               </section>
 
+              {statsComparisonScope !== "alltime" && (
               <section className="order-3">
                 <div className="pb-2">
                   <button
@@ -2730,6 +2737,7 @@ export function useAchievementsFeatureContent({
                   </div>
                 )}
               </section>
+              )}
 
               <section className="order-1">
                 <div className="pb-2">
