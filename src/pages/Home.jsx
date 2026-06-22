@@ -2413,10 +2413,10 @@ function HomeContent() {
         previewScannerEmail: previewDiscovery?.user || previewDiscovery?.created_by || "",
       };
     })
-    .filter((entry) => entry && entry.discovered >= 3 && entry.remaining > 0 && entry.remaining <= 2)
-    .sort(() => {
-      const seed = `daily-genus-select:${user?.id || "anon"}:${milestonePreviewDayKey}`;
-      return hashSeedToIndex(seed, 10000) % 2 - 0.5;
+    .filter((entry) => entry && entry.discovered >= 3 && entry.remaining > 0)
+    .sort((a, b) => {
+      if (a.remaining !== b.remaining) return a.remaining - b.remaining;
+      return b.discovered - a.discovered;
     })
     .slice(0, 2);
 
@@ -2548,8 +2548,8 @@ function HomeContent() {
   if (ownSeedRank > 1 && nextSeedRankTarget) {
     homeMilestoneFeed.push({
       id: "seed-rank-gap",
-      title: `Global Rank #${ownSeedRank} -> #${ownSeedRank - 1}`,
-      detail: `${seedsToNextRank} Samen fehlen bis ${nextSeedRankTarget.name || "Platz darueber"}.`,
+      title: `Globaler Rank #${ownSeedRank} -> #${ownSeedRank - 1}`,
+      detail: `Dir fehlen noch ${seedsToNextRank} Samen bis Platz ${ownSeedRank - 1} von ${nextSeedRankTarget.name || "Unbekannt"}.`,
       actionType: "open_achievements",
     });
   } else if (ownSeedRank === 1) {
@@ -2712,7 +2712,7 @@ function HomeContent() {
     florabotContextBubble?.panel === "home" && !activeMilestone && !showFlorabotIntro
       ? florabotContextBubble?.message
       : null;
-  const playerSeedsDisplay = Math.max(0, Math.round(Number(playerSeeds) || 0)).toLocaleString("de-DE");
+  const playerSeedsDisplay = Math.max(0, Math.round(Number(seedMetricValue) || 0)).toLocaleString("de-DE");
   const conqueredZonesDisplay = Math.max(0, Math.round(Number(playerClaimedTiles) || 0)).toLocaleString("de-DE");
   const healthSeedBonusDisplay = Math.max(0, Math.round(Number(healthStateBonus) || 0));
   const homeMilestoneKpiSummary = {
