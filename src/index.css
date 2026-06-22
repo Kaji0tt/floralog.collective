@@ -251,3 +251,24 @@ button:focus-visible {
 .hide-scrollbar::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Opera */
 }
+
+@keyframes collection-hero-title-marquee {
+  0%,
+  18% {
+    transform: translateX(0);
+  }
+  52%,
+  68% {
+    transform: translateX(calc(-1 * var(--collection-title-overflow, 0px)));
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.collection-hero-title-marquee {
+  animation-name: collection-hero-title-marquee;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}

@@ -93,8 +93,6 @@ export default function CollectionFeatureRoot({
   const [communitySearchQuery, setCommunitySearchQuery] = useState("");
   const [communitySort, setCommunitySort] = useState("newest");
   const [globalSubPickerDismissed, setGlobalSubPickerDismissed] = useState(false);
-  const [browseDeeplinkCollectionId, setBrowseDeeplinkCollectionId] = useState(null);
-  const [browseDeeplinkAuthId, setBrowseDeeplinkAuthId] = useState(null);
   const [favoriteColumnUnavailable, setFavoriteColumnUnavailable] = useState(false);
   const isRouteMode = !embedded;
   const isQuestCollectionView =
@@ -205,14 +203,7 @@ export default function CollectionFeatureRoot({
     queryFn: () => Query.Collection.list(),
   });
 
-  const shouldUseBrowseDeeplinkDiscoveries =
-    selectedEntryCategory === "themes" &&
-    !!browseDeeplinkCollectionId &&
-    selectedCollectionId === browseDeeplinkCollectionId &&
-    !!browseDeeplinkAuthId;
-  const selectedDiscoveryAuthId = shouldUseBrowseDeeplinkDiscoveries
-    ? browseDeeplinkAuthId
-    : targetUserId;
+  const selectedDiscoveryAuthId = targetUserId;
 
   const { data: userDiscoveries = [], isLoading: discoveriesLoading } = useQuery({
     queryKey: ['userDiscoveries', selectedDiscoveryAuthId],
@@ -1002,17 +993,6 @@ export default function CollectionFeatureRoot({
     ? selectedCollectionFilters.heroSegmentOpen !== false
     : true;
   const handleOpenPublicCollection = (collectionId) => {
-    const openedCollection = (visibleCollections || []).find((entry) => entry.id === collectionId) || null;
-    const deeplinkAuthId =
-      openedCollection?.is_public &&
-      openedCollection?.auth_id &&
-      openedCollection.auth_id !== targetUserId
-        ? openedCollection.auth_id
-        : null;
-
-    setBrowseDeeplinkCollectionId(collectionId || null);
-    setBrowseDeeplinkAuthId(deeplinkAuthId);
-
     setPublicCollectionsPanelOpen(false);
     setEntryCategory(collectionId === "global" ? "global" : "themes");
     setSelectedCollectionId(collectionId);
@@ -1034,19 +1014,6 @@ export default function CollectionFeatureRoot({
     }
     navigate(createPageUrl("Home"));
   };
-
-  useEffect(() => {
-    if (!browseDeeplinkCollectionId) return;
-    if (selectedEntryCategory !== "themes") {
-      setBrowseDeeplinkCollectionId(null);
-      setBrowseDeeplinkAuthId(null);
-      return;
-    }
-    if (selectedCollectionId !== browseDeeplinkCollectionId) {
-      setBrowseDeeplinkCollectionId(null);
-      setBrowseDeeplinkAuthId(null);
-    }
-  }, [selectedEntryCategory, selectedCollectionId, browseDeeplinkCollectionId]);
 
   return (
     <div className={embedded ? "h-full min-h-0" : "fixed inset-0 overflow-hidden"} data-ui={embedded ? "collection-embedded-root" : "home-page-shell"}>
@@ -1394,4 +1361,3 @@ export default function CollectionFeatureRoot({
     </div>
   );
 }
-
