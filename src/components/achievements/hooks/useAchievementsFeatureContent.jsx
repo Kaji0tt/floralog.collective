@@ -1900,6 +1900,12 @@ export function useAchievementsFeatureContent({
     ? "border-stone-200 bg-stone-50"
     : "border-[#f0e5a5]/25 bg-stone-900/30";
   const rankingDefaultBadgeClass = isLightUi ? "bg-stone-800 text-white" : "bg-stone-700 text-stone-50 border border-stone-500/60";
+  const leaderboardAvatarContainerClass = "w-7 h-7 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50";
+  const leaderboardNameButtonClass = "p-0 m-0 min-w-0 border-0 bg-transparent text-left text-[15px] font-semibold truncate";
+  const leaderboardNameTextClass = "min-w-0 text-[15px] font-semibold truncate";
+  const statsPanelClass = isLightUi
+    ? "w-full flex flex-col gap-4"
+    : "w-full flex flex-col gap-4 rounded-2xl border border-[#f0e5a5]/20 bg-black/45 backdrop-blur-md p-3 sm:p-4";
 
   return (
     <>
@@ -2142,7 +2148,7 @@ export function useAchievementsFeatureContent({
           </TabsContent>
 
           <TabsContent value="stats" className={statsContentClass} style={embeddedContentMaskStyle}>
-            <div className="max-w-6xl mx-auto flex flex-col gap-4" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
+            <div className={statsPanelClass} style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
               {hasActiveSeason && (
                 <div className="flex items-center justify-center gap-2 pb-1">
                   <button
@@ -2232,7 +2238,7 @@ export function useAchievementsFeatureContent({
                                 className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.email === ownEmailLower ? rankingHighlightClass : rankingDefaultClass}`}
                               >
                                 <div className="flex min-w-0 items-center gap-2 flex-1">
-                                  <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50">
+                                  <div className={leaderboardAvatarContainerClass}>
                                     <CustomLogoAvatar
                                       logoAssets={logo}
                                       className="w-full h-full"
@@ -2244,7 +2250,7 @@ export function useAchievementsFeatureContent({
                                   <button
                                     type="button"
                                     onClick={() => navigateToPublicProfile(entry.email)}
-                                    className={`p-0 m-0 min-w-0 border-0 bg-transparent text-left text-sm font-semibold truncate ${statsTitleClass}`}
+                                    className={`${leaderboardNameButtonClass} ${statsTitleClass}`}
                                   >
                                     #{index + 1} {entry.name}
                                   </button>
@@ -2261,7 +2267,7 @@ export function useAchievementsFeatureContent({
                               <p className={`text-xs text-center ${statsBodyClass}`}>…</p>
                               <div className={`flex items-center justify-between rounded-lg border px-3 py-2 ${rankingHighlightClass}`}>
                                 <div className="flex min-w-0 items-center gap-2 flex-1">
-                                  <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50">
+                                  <div className={leaderboardAvatarContainerClass}>
                                     <CustomLogoAvatar
                                       logoAssets={leaderboardLogosByEmail.get(ownEntry.email)}
                                       className="w-full h-full"
@@ -2273,7 +2279,7 @@ export function useAchievementsFeatureContent({
                                   <button
                                     type="button"
                                     onClick={() => navigateToPublicProfile(ownEntry.email)}
-                                    className={`p-0 m-0 min-w-0 border-0 bg-transparent text-left text-sm font-semibold truncate ${statsTitleClass}`}
+                                    className={`${leaderboardNameButtonClass} ${statsTitleClass}`}
                                   >
                                     #{ownGlobalScanRank} {ownEntry.name}
                                   </button>
@@ -2329,7 +2335,7 @@ export function useAchievementsFeatureContent({
                                 className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.isOwn ? rankingHighlightClass : rankingDefaultClass}`}
                               >
                                 <div className="flex min-w-0 items-center gap-2 flex-1">
-                                  <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50">
+                                  <div className={leaderboardAvatarContainerClass}>
                                     <CustomLogoAvatar
                                       logoAssets={logo}
                                       className="w-full h-full"
@@ -2342,7 +2348,7 @@ export function useAchievementsFeatureContent({
                                     type="button"
                                     onClick={() => navigateToPublicProfile(entry.email)}
                                     disabled={!entry.email}
-                                    className={`p-0 m-0 min-w-0 border-0 bg-transparent text-left text-sm font-semibold truncate ${entry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
+                                    className={`${leaderboardNameButtonClass} ${entry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
                                   >
                                     #{index + 1} {entry.name}
                                   </button>
@@ -2359,7 +2365,7 @@ export function useAchievementsFeatureContent({
                               <p className={`text-xs text-center ${statsBodyClass}`}>…</p>
                               <div className={`flex items-center justify-between rounded-lg border px-3 py-2 ${rankingHighlightClass}`}>
                                 <div className="flex min-w-0 items-center gap-2 flex-1">
-                                  <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50">
+                                  <div className={leaderboardAvatarContainerClass}>
                                     <CustomLogoAvatar
                                       logoAssets={leaderboardLogosByEmail.get(ownEntry.email)}
                                       className="w-full h-full"
@@ -2372,7 +2378,7 @@ export function useAchievementsFeatureContent({
                                     type="button"
                                     onClick={() => navigateToPublicProfile(ownEntry.email)}
                                     disabled={!ownEntry.email}
-                                    className={`p-0 m-0 min-w-0 border-0 bg-transparent text-left text-sm font-semibold truncate ${ownEntry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
+                                    className={`${leaderboardNameButtonClass} ${ownEntry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
                                   >
                                     #{ownSeedRank} {ownEntry.name}
                                   </button>
@@ -2438,7 +2444,7 @@ export function useAchievementsFeatureContent({
                                     onClick={() => setExpandedHighestScanEntryKey((prev) => (prev === rowKey ? null : rowKey))}
                                     className="min-w-0 flex items-center gap-2 flex-1 text-left"
                                   >
-                                    <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50">
+                                    <div className={leaderboardAvatarContainerClass}>
                                       <CustomLogoAvatar
                                         logoAssets={logo}
                                         className="w-full h-full"
@@ -2447,7 +2453,7 @@ export function useAchievementsFeatureContent({
                                         fallbackClassName="text-[10px] font-bold text-white"
                                       />
                                     </div>
-                                    <span className={`min-w-0 text-sm font-semibold truncate ${statsTitleClass}`}>
+                                    <span className={`${leaderboardNameTextClass} ${statsTitleClass}`}>
                                       #{index + 1} {entry.name}
                                     </span>
                                     <span className={`hidden sm:inline text-[11px] ${statsBodyClass}`}>
@@ -2511,7 +2517,7 @@ export function useAchievementsFeatureContent({
                                     onClick={() => setExpandedHighestScanEntryKey((prev) => (prev === ownEntry.detailKey ? null : ownEntry.detailKey))}
                                     className="min-w-0 flex items-center gap-2 flex-1 text-left"
                                   >
-                                    <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50">
+                                    <div className={leaderboardAvatarContainerClass}>
                                       <CustomLogoAvatar
                                         logoAssets={leaderboardLogosByEmail.get(ownEntry.email)}
                                         className="w-full h-full"
@@ -2520,7 +2526,7 @@ export function useAchievementsFeatureContent({
                                         fallbackClassName="text-[10px] font-bold text-white"
                                       />
                                     </div>
-                                    <span className={`min-w-0 text-sm font-semibold truncate ${statsTitleClass}`}>
+                                    <span className={`${leaderboardNameTextClass} ${statsTitleClass}`}>
                                       #{ownHighestScanResultRank} {ownEntry.name}
                                     </span>
                                   </button>
@@ -2674,7 +2680,7 @@ export function useAchievementsFeatureContent({
                                       className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.isOwn ? rankingHighlightClass : rankingDefaultClass}`}
                                     >
                                       <div className="flex min-w-0 items-center gap-2 flex-1">
-                                        <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50">
+                                        <div className={leaderboardAvatarContainerClass}>
                                           <CustomLogoAvatar
                                             logoAssets={logo}
                                             className="w-full h-full"
@@ -2687,7 +2693,7 @@ export function useAchievementsFeatureContent({
                                           type="button"
                                           onClick={() => navigateToPublicProfile(entry.email)}
                                           disabled={!entry.email}
-                                          className={`p-0 m-0 min-w-0 border-0 bg-transparent text-left text-sm font-semibold truncate ${entry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
+                                          className={`${leaderboardNameButtonClass} ${entry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
                                         >
                                           #{index + 1} {entry.name}
                                         </button>
@@ -2704,7 +2710,7 @@ export function useAchievementsFeatureContent({
                                     <p className={`text-xs text-center ${statsBodyClass}`}>…</p>
                                     <div className={`flex items-center justify-between rounded-lg border px-3 py-2 ${rankingHighlightClass}`}>
                                       <div className="flex min-w-0 items-center gap-2 flex-1">
-                                        <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50">
+                                        <div className={leaderboardAvatarContainerClass}>
                                           <CustomLogoAvatar
                                             logoAssets={leaderboardLogosByEmail.get(ownEntry.email)}
                                             className="w-full h-full"
@@ -2717,7 +2723,7 @@ export function useAchievementsFeatureContent({
                                           type="button"
                                           onClick={() => navigateToPublicProfile(ownEntry.email)}
                                           disabled={!ownEntry.email}
-                                          className={`p-0 m-0 min-w-0 border-0 bg-transparent text-left text-sm font-semibold truncate ${ownEntry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
+                                          className={`${leaderboardNameButtonClass} ${ownEntry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
                                         >
                                           #{ownWeeklySeedRank} {ownEntry.name}
                                         </button>
