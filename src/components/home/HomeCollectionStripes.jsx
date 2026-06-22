@@ -298,11 +298,11 @@ export function HomeMilestoneStripe({
                   }
                 }}
                 disabled={!canOpenCurrentSlidePreview}
-                className={`absolute inset-y-0 left-0 z-[2] w-1/2 ${canOpenCurrentSlidePreview ? "cursor-pointer" : "cursor-default"}`}
+                className={`absolute inset-y-0 left-0 z-[2] w-[20%] sm:w-1/2 ${canOpenCurrentSlidePreview ? "cursor-pointer" : "cursor-default"}`}
                 aria-label={canOpenCurrentSlidePreview ? "Scan-Detail öffnen" : "Kein Scan-Detail verfügbar"}
               />
 
-              <div className="absolute inset-y-0 right-0 z-[2] w-1/2 min-w-0">
+              <div className="absolute inset-y-0 right-0 z-[2] w-[80%] sm:w-1/2 min-w-0">
                 <button
                   type="button"
                   onClick={() => {
@@ -319,7 +319,7 @@ export function HomeMilestoneStripe({
           ) : null}
         </div>
 
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-[-1] w-1/2 min-w-0 opacity-0" aria-hidden="true">
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-[-1] w-[80%] sm:w-1/2 min-w-0 opacity-0" aria-hidden="true">
           <div className="px-3 sm:px-4">
             {stripeTwoSlides.map((slide) => (
               <div key={`measure-${slide.id}`} ref={setStripeTwoMeasureRef(slide.id)} className="w-full">
