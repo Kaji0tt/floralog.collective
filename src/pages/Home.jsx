@@ -273,6 +273,8 @@ function HomeContent() {
       return DISCOVERY_MARKER_SCALE_DEFAULT;
     }
   });
+  const activeSeason = getActiveSeason();
+  const seasonStartDate = activeSeason?.startDate || null;
 
   useEffect(() => {
     try {
@@ -698,12 +700,11 @@ function HomeContent() {
   });
 
   const { data: highestScanResultsLeaderboard = [] } = useQuery({
-    queryKey: ['homeHighestScanResultsLeaderboard'],
+    queryKey: ['homeHighestScanResultsLeaderboard', seasonStartDate || 'alltime'],
     queryFn: async () => {
-      const season = getActiveSeason();
       const { data, error } = await supabase.rpc('get_highest_scan_results_leaderboard', {
         p_limit: 100,
-        p_from_date: season?.startDate || null,
+        p_from_date: seasonStartDate,
       });
       if (error) {
         console.warn('[Home] get_highest_scan_results_leaderboard unavailable:', error?.message || error);
@@ -712,6 +713,26 @@ function HomeContent() {
       return Array.isArray(data) ? data : [];
     },
     enabled: !!user?.email,
+    initialData: [],
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: seasonSeedLeaderboard = [] } = useQuery({
+    queryKey: ['homeSeasonSeedLeaderboard', seasonStartDate || 'alltime'],
+    queryFn: async () => {
+      if (!seasonStartDate) return [];
+      const { data, error } = await supabase.rpc('get_weekly_seed_leaderboard', {
+        p_limit: 500,
+        p_from_date: seasonStartDate,
+      });
+      if (error) {
+        console.warn('[Home] get_weekly_seed_leaderboard unavailable:', error?.message || error);
+        return [];
+      }
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: !!user?.id && !!seasonStartDate,
     initialData: [],
     staleTime: 60 * 1000,
     refetchOnWindowFocus: true,
@@ -2420,7 +2441,7 @@ function HomeContent() {
       .map((profile) => [profile.auth_id, profile])
   );
 
-  const globalSeedRanking = (allRobotPlants || [])
+  const alltimeGlobalSeedRanking = (allRobotPlants || [])
     .filter((entry) => !!entry?.auth_id)
     .map((entry) => {
       const seeds = Math.max(0, Number(entry?.wallet_balance ?? entry?.walletBalance ?? 0));
@@ -2434,11 +2455,35 @@ function HomeContent() {
     })
     .sort((a, b) => b.seeds - a.seeds);
 
+  const seasonGlobalSeedRanking = (seasonSeedLeaderboard || [])
+    .map((entry) => {
+      const authId = entry?.auth_id || null;
+      const profile = authId ? profileByAuthId.get(authId) : null;
+      return {
+        authId,
+        seeds: Math.max(0, Number(entry?.weekly_seed_total ?? 0)),
+        isOwn: Boolean(user?.id && authId && authId === user.id),
+        name:
+          profile?.display_name ||
+          profile?.full_name ||
+          entry?.display_name ||
+          entry?.full_name ||
+          profile?.user_email ||
+          "Spieler",
+      };
+    })
+    .filter((entry) => Number(entry.seeds) > 0)
+    .sort((a, b) => b.seeds - a.seeds);
+
+  const globalSeedRanking = seasonStartDate ? seasonGlobalSeedRanking : alltimeGlobalSeedRanking;
+
   const ownSeedRankIndex = globalSeedRanking.findIndex((entry) => entry.isOwn);
   const ownSeedRank = ownSeedRankIndex >= 0 ? ownSeedRankIndex + 1 : 0;
   const nextSeedRankTarget = ownSeedRank > 1 ? globalSeedRanking[ownSeedRank - 2] : null;
+  const ownSeasonSeedTotal = ownSeedRank > 0 ? Math.max(0, Number(globalSeedRanking[ownSeedRankIndex]?.seeds ?? 0)) : 0;
+  const seedMetricValue = seasonStartDate ? ownSeasonSeedTotal : playerSeeds;
   const seedsToNextRank = nextSeedRankTarget
-    ? Math.max(0, Math.floor(nextSeedRankTarget.seeds - playerSeeds + 1))
+    ? Math.max(0, Math.floor(nextSeedRankTarget.seeds - seedMetricValue + 1))
     : 0;
 
   const highestScanResultsRanking = highestScanResultsRows
@@ -2596,7 +2641,7 @@ function HomeContent() {
     total_scans: userDiscoveries.length,
     global_seed_rank: ownSeedRank,
     received_likes_count: receivedLikesCount,
-    total_seeds: playerSeeds,
+    total_seeds: seedMetricValue,
     claimed_tiles: playerClaimedTiles,
     highest_scan_result: ownHighestScanRewardSeeds,
     highest_plant_status: highestPlantStatusValue,
@@ -3668,4 +3713,3 @@ export default function Home() {
     </HomeOtaGate>
   );
 }
-

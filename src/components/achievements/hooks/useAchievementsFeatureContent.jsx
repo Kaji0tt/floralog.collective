@@ -216,6 +216,21 @@ export function useAchievementsFeatureContent({
   const [isLeaderboardRefreshing, setIsLeaderboardRefreshing] = useState(
     () => resolveAchievementsTab(requestedTab) === "stats"
   );
+  const activeSeason = getActiveSeason();
+  const seasonStartDate = activeSeason?.startDate || null;
+  const hasActiveSeason = Boolean(seasonStartDate);
+  const [statsComparisonScope, setStatsComparisonScope] = useState(() => (hasActiveSeason ? "season" : "alltime"));
+  const comparisonFromDate = statsComparisonScope === "season" ? seasonStartDate : null;
+  const comparisonRangeLabel = statsComparisonScope === "season"
+    ? (activeSeason?.title || "Saison")
+    : "All-Time";
+  const comparisonDateFloor = comparisonFromDate ? new Date(`${comparisonFromDate}T00:00:00`) : null;
+
+  useEffect(() => {
+    if (!hasActiveSeason && statsComparisonScope !== "alltime") {
+      setStatsComparisonScope("alltime");
+    }
+  }, [hasActiveSeason, statsComparisonScope]);
 
   useEffect(() => {
     const nextTab = resolveAchievementsTab(requestedTab);
@@ -464,16 +479,23 @@ export function useAchievementsFeatureContent({
     });
 
   const { data: globalScanLeaderboard = null, refetch: refetchGlobalScanLeaderboard } = useQuery({
-    queryKey: ['globalScanLeaderboard'],
+    queryKey: ['globalScanLeaderboard', comparisonFromDate || 'alltime'],
     queryFn: async () => {
-      const season = getActiveSeason();
       const { data, error } = await supabase.rpc('get_global_scan_leaderboard', {
-        p_from_date: season?.startDate || null,
+        p_from_date: comparisonFromDate,
       });
       if (error) {
         if (isMissingRpcFunctionError(error)) {
-          console.warn('[AchievementsPage] get_global_scan_leaderboard not available yet, using discovery fallback.');
-          return null;
+          if (comparisonFromDate) {
+            console.warn('[AchievementsPage] get_global_scan_leaderboard with p_from_date unavailable, keeping seasonal fallback only.');
+            return null;
+          }
+          const legacyCall = await supabase.rpc('get_global_scan_leaderboard');
+          if (legacyCall.error) {
+            console.warn('[AchievementsPage] legacy get_global_scan_leaderboard unavailable, using discovery fallback.');
+            return null;
+          }
+          return Array.isArray(legacyCall.data) ? legacyCall.data : [];
         }
         throw error;
       }
@@ -487,17 +509,26 @@ export function useAchievementsFeatureContent({
   });
 
   const { data: highestScanResultsLeaderboard = null, refetch: refetchHighestScanResultsLeaderboard } = useQuery({
-    queryKey: ['highestScanResultsLeaderboard'],
+    queryKey: ['highestScanResultsLeaderboard', comparisonFromDate || 'alltime'],
     queryFn: async () => {
-      const season = getActiveSeason();
       const { data, error } = await supabase.rpc('get_highest_scan_results_leaderboard', {
         p_limit: 100,
-        p_from_date: season?.startDate || null,
+        p_from_date: comparisonFromDate,
       });
       if (error) {
         if (isMissingRpcFunctionError(error)) {
-          console.warn('[AchievementsPage] get_highest_scan_results_leaderboard not available yet.');
-          return null;
+          if (comparisonFromDate) {
+            console.warn('[AchievementsPage] get_highest_scan_results_leaderboard with p_from_date unavailable.');
+            return null;
+          }
+          const legacyCall = await supabase.rpc('get_highest_scan_results_leaderboard', {
+            p_limit: 100,
+          });
+          if (legacyCall.error) {
+            console.warn('[AchievementsPage] legacy get_highest_scan_results_leaderboard unavailable.');
+            return null;
+          }
+          return Array.isArray(legacyCall.data) ? legacyCall.data : [];
         }
         throw error;
       }
@@ -511,17 +542,26 @@ export function useAchievementsFeatureContent({
   });
 
   const { data: weeklySeedLeaderboard = null, refetch: refetchWeeklySeedLeaderboard } = useQuery({
-    queryKey: ['weeklySeedLeaderboard'],
+    queryKey: ['weeklySeedLeaderboard', comparisonFromDate || 'alltime'],
     queryFn: async () => {
-      const season = getActiveSeason();
       const { data, error } = await supabase.rpc('get_weekly_seed_leaderboard', {
         p_limit: 100,
-        p_from_date: season?.startDate || null,
+        p_from_date: comparisonFromDate,
       });
       if (error) {
         if (isMissingRpcFunctionError(error)) {
-          console.warn('[AchievementsPage] get_weekly_seed_leaderboard not available yet.');
-          return null;
+          if (comparisonFromDate) {
+            console.warn('[AchievementsPage] get_weekly_seed_leaderboard with p_from_date unavailable.');
+            return null;
+          }
+          const legacyCall = await supabase.rpc('get_weekly_seed_leaderboard', {
+            p_limit: 100,
+          });
+          if (legacyCall.error) {
+            console.warn('[AchievementsPage] legacy get_weekly_seed_leaderboard unavailable.');
+            return null;
+          }
+          return Array.isArray(legacyCall.data) ? legacyCall.data : [];
         }
         throw error;
       }
@@ -535,13 +575,24 @@ export function useAchievementsFeatureContent({
   });
 
   const { data: globalScanTaxonomyHighlights = null, refetch: refetchGlobalScanTaxonomyHighlights } = useQuery({
-    queryKey: ['globalScanTaxonomyHighlights'],
+    queryKey: ['globalScanTaxonomyHighlights', comparisonFromDate || 'alltime'],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_global_scan_taxonomy_highlights');
+      const { data, error } = await supabase.rpc('get_global_scan_taxonomy_highlights', {
+        p_from_date: comparisonFromDate,
+      });
       if (error) {
         if (isMissingRpcFunctionError(error)) {
-          console.warn('[AchievementsPage] get_global_scan_taxonomy_highlights not available yet.');
-          return null;
+          if (comparisonFromDate) {
+            console.warn('[AchievementsPage] get_global_scan_taxonomy_highlights with p_from_date unavailable.');
+            return null;
+          }
+          const legacyCall = await supabase.rpc('get_global_scan_taxonomy_highlights');
+          if (legacyCall.error) {
+            console.warn('[AchievementsPage] legacy get_global_scan_taxonomy_highlights unavailable.');
+            return null;
+          }
+          if (Array.isArray(legacyCall.data)) return legacyCall.data[0] || null;
+          return legacyCall.data || null;
         }
         throw error;
       }
@@ -1373,6 +1424,12 @@ export function useAchievementsFeatureContent({
     const parsed = new Date(raw);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   };
+  const isInComparisonRange = (entry) => {
+    const parsed = discoveryDate(entry);
+    if (!parsed) return false;
+    if (!comparisonDateFloor) return true;
+    return parsed >= comparisonDateFloor;
+  };
 
   const monthKey = (value) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}`;
   const nowDate = new Date();
@@ -1380,7 +1437,8 @@ export function useAchievementsFeatureContent({
   const previousMonthDate = new Date(nowDate.getFullYear(), nowDate.getMonth() - 1, 1);
   const previousMonthKey = monthKey(previousMonthDate);
 
-  const ownDiscoveriesList = (userDiscoveries || []).filter((entry) => !!discoveryDate(entry));
+  const ownDiscoveriesList = (userDiscoveries || []).filter((entry) => isInComparisonRange(entry));
+  const filteredAllDiscoveries = (allDiscoveries || []).filter((entry) => isInComparisonRange(entry));
   const totalScans = ownDiscoveriesList.length;
 
   const speciesCountMap = new Map();
@@ -1441,7 +1499,7 @@ export function useAchievementsFeatureContent({
   const socialEmailSet = new Set([ownEmailLower, ...Array.from(acceptedFriendEmailsLower)]);
   const socialScanCounts = new Map();
 
-  (allDiscoveries || []).forEach((entry) => {
+  filteredAllDiscoveries.forEach((entry) => {
     const email = (entry.user || entry.created_by || entry.user_email || "").toLowerCase();
     const entryAuth = entry.auth_id || null;
     const isOwnByAuth = !!ownAuthId && !!entryAuth && ownAuthId === entryAuth;
@@ -1476,7 +1534,7 @@ export function useAchievementsFeatureContent({
 
   // Globales Scan-Ranking: alle Nutzer aus allDiscoveries (nicht nur Freunde)
   const globalScanCounts = new Map();
-  (allDiscoveries || []).forEach((entry) => {
+  filteredAllDiscoveries.forEach((entry) => {
     const email = (entry.user || entry.created_by || entry.user_email || "").toLowerCase();
     const entryAuth = entry.auth_id || null;
     const isOwnByAuth = !!ownAuthId && !!entryAuth && ownAuthId === entryAuth;
@@ -1541,7 +1599,7 @@ export function useAchievementsFeatureContent({
   const globalSpeciesCountMap = new Map();
   const globalGenusCountMap = new Map();
 
-  (allDiscoveries || []).forEach((entry) => {
+  filteredAllDiscoveries.forEach((entry) => {
     const plant = plantById.get(entry.plant_id);
     if (!plant) return;
 
@@ -1669,7 +1727,7 @@ export function useAchievementsFeatureContent({
   };
 
   const emailByAuthIdFromDiscoveries = new Map();
-  (allDiscoveries || []).forEach((entry) => {
+  filteredAllDiscoveries.forEach((entry) => {
     const authId = entry?.auth_id || null;
     const email = String(entry?.user || entry?.created_by || entry?.user_email || "").trim().toLowerCase();
     if (!authId || !email || emailByAuthIdFromDiscoveries.has(authId)) return;
@@ -1683,7 +1741,7 @@ export function useAchievementsFeatureContent({
       .map((profile) => [profile.auth_id, profile])
   );
 
-  const globalSeedRanking = (allRobotPlants || [])
+  const alltimeSeedRanking = (allRobotPlants || [])
     .filter((rp) => !!rp.auth_id && Number(rp.wallet_balance) > 0)
     .map((rp) => {
       const profile = profileByAuthId.get(rp.auth_id);
@@ -1706,10 +1764,7 @@ export function useAchievementsFeatureContent({
     })
     .sort((a, b) => b.seeds - a.seeds);
 
-  const ownSeedRank = globalSeedRanking.findIndex((entry) => entry.isOwn) + 1;
-  const ownSeeds = globalSeedRanking.find((entry) => entry.isOwn)?.seeds ?? 0;
-
-  const weeklySeedRanking = (weeklySeedLeaderboard || [])
+  const seasonSeedRanking = (weeklySeedLeaderboard || [])
     .map((entry) => {
       const email = String(entry?.user_email || '').trim().toLowerCase();
       const entryAuthId = entry?.auth_id || null;
@@ -1736,8 +1791,13 @@ export function useAchievementsFeatureContent({
     .filter((entry) => Number(entry.seeds) > 0)
     .sort((a, b) => b.seeds - a.seeds);
 
-  const ownWeeklySeedRank = weeklySeedRanking.findIndex((entry) => entry.isOwn) + 1;
-  const ownWeeklySeedEntry = ownWeeklySeedRank > 0 ? weeklySeedRanking[ownWeeklySeedRank - 1] : null;
+  const globalSeedRanking = statsComparisonScope === "season" ? seasonSeedRanking : alltimeSeedRanking;
+  const ownSeedRank = globalSeedRanking.findIndex((entry) => entry.isOwn) + 1;
+  const ownSeeds = globalSeedRanking.find((entry) => entry.isOwn)?.seeds ?? 0;
+
+  const progressSeedRanking = statsComparisonScope === "season" ? seasonSeedRanking : alltimeSeedRanking;
+  const ownWeeklySeedRank = progressSeedRanking.findIndex((entry) => entry.isOwn) + 1;
+  const ownWeeklySeedEntry = ownWeeklySeedRank > 0 ? progressSeedRanking[ownWeeklySeedRank - 1] : null;
 
   const navigateToPublicProfile = (email) => {
     const emailValue = String(email || "").trim();
@@ -1830,9 +1890,6 @@ export function useAchievementsFeatureContent({
   const achievementLockedRewardClass = isLightUi
     ? "bg-stone-100 text-stone-400"
     : "bg-stone-700/35 text-stone-400";
-  const statsCardBaseClass = isLightUi
-    ? "border bg-white/90 backdrop-blur-sm"
-    : "border bg-black/35 backdrop-blur-sm";
   const statsLabelClass = isLightUi ? "text-stone-500" : "text-stone-300/80";
   const statsTitleClass = isLightUi ? "text-stone-900" : "text-stone-100";
   const statsBodyClass = isLightUi ? "text-stone-500" : "text-stone-300/80";
@@ -2086,8 +2143,28 @@ export function useAchievementsFeatureContent({
 
           <TabsContent value="stats" className={statsContentClass} style={embeddedContentMaskStyle}>
             <div className="max-w-6xl mx-auto flex flex-col gap-4" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
-              <Card className={`${statsCardBaseClass} ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"} order-2`}>
-                <CardHeader className="pt-2 pb-3">
+              {hasActiveSeason && (
+                <div className="flex items-center justify-center gap-2 pb-1">
+                  <Button
+                    type="button"
+                    variant={statsComparisonScope === "season" ? "default" : "outline"}
+                    onClick={() => setStatsComparisonScope("season")}
+                    className={statsComparisonScope === "season" ? "" : (isLightUi ? "border-stone-300" : "border-[#f0e5a5]/35 text-stone-100")}
+                  >
+                    {activeSeason?.title || "Saison"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={statsComparisonScope === "alltime" ? "default" : "outline"}
+                    onClick={() => setStatsComparisonScope("alltime")}
+                    className={statsComparisonScope === "alltime" ? "" : (isLightUi ? "border-stone-300" : "border-[#f0e5a5]/35 text-stone-100")}
+                  >
+                    All-Time
+                  </Button>
+                </div>
+              )}
+              <section className="order-2">
+                <div className="pb-2">
                   <button
                     type="button"
                     onClick={() => setShowGlobalComparisons((prev) => !prev)}
@@ -2104,9 +2181,9 @@ export function useAchievementsFeatureContent({
                       )}
                     </span>
                   </button>
-                </CardHeader>
+                </div>
                 {showGlobalComparisons && (
-                  <CardContent className="p-[2px] space-y-[2px]">
+                  <div className="space-y-[2px]">
                     {isLeaderboardRefreshing ? (
                       <div className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-6 ${isLightUi ? "border-stone-200 bg-stone-50" : "border-[#f0e5a5]/25 bg-black/25"}`}>
                         <Loader2 className={`w-4 h-4 animate-spin ${statsBodyClass}`} />
@@ -2119,7 +2196,7 @@ export function useAchievementsFeatureContent({
                   <CardHeader className="pb-2">
                     <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
                       <Users className={`w-4 h-4 ${isLightUi ? "text-indigo-600" : "text-indigo-300"}`} />
-                      Scan-Vergleich (Global)
+                      Scan-Vergleich ({comparisonRangeLabel})
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
@@ -2211,7 +2288,7 @@ export function useAchievementsFeatureContent({
                   <CardHeader className="pb-2">
                     <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
                       <span className={isLightUi ? "text-amber-600" : "text-amber-300"}>🌱</span>
-                      Samenstand-Vergleich (Global)
+                      Samenstand-Vergleich ({comparisonRangeLabel})
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
@@ -2310,7 +2387,7 @@ export function useAchievementsFeatureContent({
                   <CardHeader className="pb-2">
                     <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
                       <Trophy className={`w-4 h-4 ${isLightUi ? "text-fuchsia-600" : "text-fuchsia-300"}`} />
-                      Hoechste Scan-Ergebnisse (Global)
+                      Hoechste Scan-Ergebnisse ({comparisonRangeLabel})
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
@@ -2519,19 +2596,19 @@ export function useAchievementsFeatureContent({
                     </div>
                     </>
                     )}
-                  </CardContent>
+                  </div>
                 )}
-              </Card>
+              </section>
 
-              <Card className={`${statsCardBaseClass} ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"} order-3`}>
-                <CardHeader className="pt-2 pb-3">
+              <section className="order-3">
+                <div className="pb-2">
                   <button
                     type="button"
                     onClick={() => setShowWeeklyScore((prev) => !prev)}
                     className="relative w-full flex items-center justify-center text-center"
                   >
                     <CardTitle className={`text-base ${statsTitleClass}`}>
-                      Wochen-Score
+                      {statsComparisonScope === "season" ? "Wochen-Score (Saison)" : "Wochen-Score (All-Time)"}
                     </CardTitle>
                     <span className="absolute right-0 top-1/2 -translate-y-1/2">
                       {showWeeklyScore ? (
@@ -2541,38 +2618,44 @@ export function useAchievementsFeatureContent({
                       )}
                     </span>
                   </button>
-                </CardHeader>
+                </div>
                 {showWeeklyScore && (
-                  <CardContent className="p-[2px] space-y-[2px]">
+                  <div className="space-y-[2px]">
                     <div className="grid grid-cols-1 gap-[2px]">
                       <Card className="border-0 bg-transparent shadow-none">
                         <CardHeader className="pb-2">
                           <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
                             <Leaf className={`w-4 h-4 ${isLightUi ? "text-lime-600" : "text-lime-300"}`} />
-                            Wochenfortschritt: Meiste Samen
+                            {statsComparisonScope === "season" ? "Wochenfortschritt: Meiste Samen" : "All-Time: Meiste Samen"}
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-2">
                           <div className={`rounded-lg border px-3 py-2 ${isLightUi ? "border-lime-200 bg-lime-50" : "border-lime-300/40 bg-lime-500/10"}`}>
-                            <p className={`text-xs ${isLightUi ? "text-lime-700" : "text-lime-200"}`}>Dein Rang diese Woche</p>
+                            <p className={`text-xs ${isLightUi ? "text-lime-700" : "text-lime-200"}`}>
+                              {statsComparisonScope === "season" ? "Dein Rang seit Saisonstart" : "Dein All-Time Rang"}
+                            </p>
                             <p className={`text-lg font-bold ${isLightUi ? "text-lime-900" : "text-lime-100"}`}>
-                              {ownWeeklySeedRank > 0 ? `#${ownWeeklySeedRank} von ${weeklySeedRanking.length}` : "Noch kein Rang"}
+                              {ownWeeklySeedRank > 0 ? `#${ownWeeklySeedRank} von ${progressSeedRanking.length}` : "Noch kein Rang"}
                             </p>
                             {ownWeeklySeedEntry && (
                               <p className={`text-xs mt-0.5 ${isLightUi ? "text-lime-700" : "text-lime-300"}`}>
-                                +{ownWeeklySeedEntry.seeds.toLocaleString()} Samen diese Woche
+                                {statsComparisonScope === "season" ? "+" : ""}{ownWeeklySeedEntry.seeds.toLocaleString()} Samen
                               </p>
                             )}
                           </div>
 
-                          {weeklySeedRanking.length === 0 && (
-                            <p className={`text-sm ${statsBodyClass}`}>Noch keine Wochenfortschritt-Daten verfügbar.</p>
+                          {progressSeedRanking.length === 0 && (
+                            <p className={`text-sm ${statsBodyClass}`}>
+                              {statsComparisonScope === "season"
+                                ? "Noch keine Saisonfortschritt-Daten verfügbar."
+                                : "Noch keine All-Time Daten verfügbar."}
+                            </p>
                           )}
 
                           {(() => {
-                            const top5 = weeklySeedRanking.slice(0, 5);
+                            const top5 = progressSeedRanking.slice(0, 5);
                             const ownInTop5 = top5.some((entry) => entry.isOwn);
-                            const ownEntry = !ownInTop5 && ownWeeklySeedRank > 0 ? weeklySeedRanking[ownWeeklySeedRank - 1] : null;
+                            const ownEntry = !ownInTop5 && ownWeeklySeedRank > 0 ? progressSeedRanking[ownWeeklySeedRank - 1] : null;
 
                             return (
                               <>
@@ -2603,7 +2686,7 @@ export function useAchievementsFeatureContent({
                                         </button>
                                       </div>
                                       <Badge className={entry.isOwn ? (isLightUi ? "bg-lime-600 text-white" : "bg-lime-700 text-white border border-lime-400/60") : rankingDefaultBadgeClass}>
-                                        +{entry.seeds.toLocaleString()} 🌱
+                                        {statsComparisonScope === "season" ? "+" : ""}{entry.seeds.toLocaleString()} 🌱
                                       </Badge>
                                     </div>
                                   );
@@ -2633,7 +2716,7 @@ export function useAchievementsFeatureContent({
                                         </button>
                                       </div>
                                       <Badge className={isLightUi ? "bg-lime-600 text-white" : "bg-lime-700 text-white border border-lime-400/60"}>
-                                        +{ownEntry.seeds.toLocaleString()} 🌱
+                                        {statsComparisonScope === "season" ? "+" : ""}{ownEntry.seeds.toLocaleString()} 🌱
                                       </Badge>
                                     </div>
                                   </>
@@ -2644,19 +2727,19 @@ export function useAchievementsFeatureContent({
                         </CardContent>
                       </Card>
                     </div>
-                  </CardContent>
+                  </div>
                 )}
-              </Card>
+              </section>
 
-              <Card className={`${statsCardBaseClass} ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"} order-1`}>
-                <CardHeader className="pt-2 pb-3">
+              <section className="order-1">
+                <div className="pb-2">
                   <button
                     type="button"
                     onClick={() => setShowPersonalStats((prev) => !prev)}
                     className="relative w-full flex items-center justify-center text-center"
                   >
                     <CardTitle className={`text-base ${statsTitleClass}`}>
-                      Persönliche Statistik
+                      Persönliche Statistik ({comparisonRangeLabel})
                     </CardTitle>
                     <span className="absolute right-0 top-1/2 -translate-y-1/2">
                       {showPersonalStats ? (
@@ -2666,13 +2749,13 @@ export function useAchievementsFeatureContent({
                       )}
                     </span>
                   </button>
-                </CardHeader>
+                </div>
                 {showPersonalStats && (
-                <CardContent className="p-[2px]">
+                <div>
                   <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-[2px]">
                 <Card className="border-0 bg-transparent shadow-none">
                   <CardContent className="p-4">
-                    <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>Scans insgesamt</p>
+                    <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>{statsComparisonScope === "season" ? "Scans seit Saisonstart" : "Scans insgesamt"}</p>
                     <p className={`text-2xl font-bold mt-1 ${isLightUi ? "text-emerald-700" : "text-emerald-300"}`}>{totalScans}</p>
                     <p className={`text-xs mt-1 ${statsBodyClass}`}>{activeDaysSet.size} aktive Tage</p>
                   </CardContent>
@@ -2696,7 +2779,7 @@ export function useAchievementsFeatureContent({
 
                 <Card className="border-0 bg-transparent shadow-none">
                   <CardContent className="p-4">
-                    <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>Monats-Trend</p>
+                    <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>{statsComparisonScope === "season" ? "Saison-Trend" : "Monats-Trend"}</p>
                     <p className={`text-2xl font-bold mt-1 ${statsTitleClass}`}>{currentMonthScans}</p>
                     <p className={`text-xs mt-1 ${monthTrendDelta >= 0 ? (isLightUi ? "text-emerald-700" : "text-emerald-300") : (isLightUi ? "text-rose-700" : "text-rose-300")}`}>
                       {monthTrendDelta >= 0 ? "+" : ""}{monthTrendDelta} vs. letzter Monat
@@ -2704,9 +2787,9 @@ export function useAchievementsFeatureContent({
                   </CardContent>
                 </Card>
                   </div>
-                </CardContent>
+                </div>
                 )}
-              </Card>
+              </section>
             </div>
           </TabsContent>
 
@@ -2959,4 +3042,3 @@ export function useAchievementsFeatureContent({
     </>);
 
 }
-
