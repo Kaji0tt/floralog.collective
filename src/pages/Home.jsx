@@ -2540,7 +2540,7 @@ function HomeContent() {
     homeMilestoneFeed.push({
       id: `rare-${nearbyRareDiscovery.discoveryId || `${nearbyRareDiscovery.lat}-${nearbyRareDiscovery.lng}`}`,
       title: `Raritaet in ${distanceKm} km: ${nearbyRareDiscovery.plantName}`,
-      detail: `In deiner 2.5-km-Zone wurde ${nearbyRareDiscovery.plantRarity || "eine seltene Art"} gefunden. Karte oeffnen und einsammeln.`,
+      detail: ` ${nearbyRareDiscovery.plantRarity || "eine seltene Art"} gefunden. Entdeckt von ${nearbyRareDiscovery.scannerDisplayName || "einem Spieler"}.`,
       actionType: "open_map",
     });
   }
@@ -2556,7 +2556,7 @@ function HomeContent() {
     homeMilestoneFeed.push({
       id: "seed-rank-top",
       title: "Globales Samen-Ranking",
-      detail: "Du fuehrst aktuell das Ranking an. Halte den Vorsprung!",
+      detail: "Du führst aktuell das Ranking an. Halte den Vorsprung!",
       actionType: "open_achievements",
     });
   }
