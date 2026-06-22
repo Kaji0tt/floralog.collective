@@ -1836,9 +1836,9 @@ export function useAchievementsFeatureContent({
     ? `sticky top-0 z-40 backdrop-blur-sm border-b ${isLightUi ? "bg-white/70 border-[#b99a48]/30" : "bg-black/20 border-[#f0e5a5]/20"}`
     : "fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200";
 
-  const achievementsContentClass = embedded ? "mt-0 px-4 pb-20 flex-1 min-h-0 overflow-y-auto" : "pt-36 px-4 pb-4";
-  const statsContentClass = embedded ? "mt-0 px-4 pb-20 flex-1 min-h-0 overflow-y-auto" : "pt-36 px-4 pb-4";
-  const questsContentClass = embedded ? "mt-0 px-4 pb-20 flex-1 min-h-0 overflow-y-auto overflow-x-hidden" : "pt-44 px-4 pb-4 overflow-x-hidden";
+  const achievementsContentClass = embedded ? "mt-0 pb-20 flex-1 min-h-0 overflow-y-auto" : "pt-36 px-4 pb-4";
+  const statsContentClass = embedded ? "mt-0 pb-20 flex-1 min-h-0 overflow-y-auto" : "pt-36 px-4 pb-4";
+  const questsContentClass = embedded ? "mt-0 pb-20 flex-1 min-h-0 overflow-y-auto overflow-x-hidden" : "pt-44 px-4 pb-4 overflow-x-hidden";
   const listTopFadePx = 12;
   const listBottomFadePx = 18;
   const embeddedContentMaskStyle = embedded ? {
@@ -1905,7 +1905,7 @@ export function useAchievementsFeatureContent({
   const leaderboardNameTextClass = "min-w-0 text-[15px] font-semibold truncate";
   const statsPanelClass = isLightUi
     ? "w-full flex flex-col gap-4"
-    : "w-full flex flex-col gap-4 rounded-2xl border border-[#f0e5a5]/20 bg-black/45 backdrop-blur-md p-3 sm:p-4";
+    : "w-full flex flex-col gap-4 border border-[#f0e5a5]/20 bg-black/45 backdrop-blur-md p-1 sm:p-4";
 
   return (
     <>
@@ -1985,7 +1985,7 @@ export function useAchievementsFeatureContent({
           <div className={`${tabsHeaderClass} ${embedded ? "shrink-0" : ""}`}>
             <div className="max-w-7xl mx-auto">
               {!embedded && (
-                <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-3">
+                <div className="px-1 pt-3 pb-2 flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <h1 className="text-xl sm:text-2xl font-bold text-stone-900 truncate">
                       {activeTab === "quests" ? "Aufgaben" : activeTab === "achievements" ? "Erfolge" : "Statistik"}
@@ -2154,7 +2154,7 @@ export function useAchievementsFeatureContent({
                   <button
                     type="button"
                     onClick={() => setStatsComparisonScope("season")}
-                    className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all bg-black/60 backdrop-blur-sm text-stone-100 border-2 ${
+                    className={`px-1 py-1.5 rounded-lg text-sm font-semibold transition-all bg-black/60 backdrop-blur-sm text-stone-100 border-2 ${
                       statsComparisonScope === "season"
                         ? "border-[#d4af37] shadow-[0_0_8px_rgba(212,175,55,0.4)]"
                         : "border-transparent opacity-70 hover:opacity-90"
@@ -2165,7 +2165,7 @@ export function useAchievementsFeatureContent({
                   <button
                     type="button"
                     onClick={() => setStatsComparisonScope("alltime")}
-                    className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all bg-black/60 backdrop-blur-sm text-stone-100 border-2 ${
+                    className={`px-1 py-1.5 rounded-lg text-sm font-semibold transition-all bg-black/60 backdrop-blur-sm text-stone-100 border-2 ${
                       statsComparisonScope === "alltime"
                         ? "border-[#d4af37] shadow-[0_0_8px_rgba(212,175,55,0.4)]"
                         : "border-transparent opacity-70 hover:opacity-90"
@@ -2211,7 +2211,7 @@ export function useAchievementsFeatureContent({
                       Scan-Vergleich ({comparisonRangeLabel})
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2">
+                  <CardContent className="p-0 pt-0 space-y-2">
                     <div className={`rounded-lg border px-3 py-2 ${isLightUi ? "border-indigo-200 bg-indigo-50" : "border-indigo-300/40 bg-indigo-500/10"}`}>
                       <p className={`text-xs ${isLightUi ? "text-indigo-700" : "text-indigo-200"}`}>Dein globaler Rang</p>
                       <p className={`text-lg font-bold ${isLightUi ? "text-indigo-900" : "text-indigo-100"}`}>
@@ -2303,7 +2303,7 @@ export function useAchievementsFeatureContent({
                       Samenstand-Vergleich ({comparisonRangeLabel})
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2">
+                  <CardContent className="p-0 pt-0 space-y-2">
                     <div className={`rounded-lg border px-3 py-2 ${isLightUi ? "border-amber-200 bg-amber-50" : "border-amber-300/40 bg-amber-500/10"}`}>
                       <p className={`text-xs ${isLightUi ? "text-amber-700" : "text-amber-200"}`}>Dein globaler Rang</p>
                       <p className={`text-lg font-bold ${isLightUi ? "text-amber-900" : "text-amber-100"}`}>
@@ -2402,7 +2402,7 @@ export function useAchievementsFeatureContent({
                       Hoechste Scan-Ergebnisse ({comparisonRangeLabel})
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2">
+                  <CardContent className="p-0 pt-0 space-y-2">
                     <div className={`rounded-lg border px-3 py-2 ${isLightUi ? "border-fuchsia-200 bg-fuchsia-50" : "border-fuchsia-300/40 bg-fuchsia-500/10"}`}>
                       <p className={`text-xs ${isLightUi ? "text-fuchsia-700" : "text-fuchsia-200"}`}>Dein bester Scan-Score</p>
                       <p className={`text-lg font-bold ${isLightUi ? "text-fuchsia-900" : "text-fuchsia-100"}`}>
@@ -2642,7 +2642,7 @@ export function useAchievementsFeatureContent({
                             {statsComparisonScope === "season" ? "Wochenfortschritt: Meiste Samen" : "All-Time: Meiste Samen"}
                           </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-2">
+                        <CardContent className="p-0 pt-0 space-y-2">
                           <div className={`rounded-lg border px-3 py-2 ${isLightUi ? "border-lime-200 bg-lime-50" : "border-lime-300/40 bg-lime-500/10"}`}>
                             <p className={`text-xs ${isLightUi ? "text-lime-700" : "text-lime-200"}`}>
                               {statsComparisonScope === "season" ? "Dein Rang seit Saisonstart" : "Dein All-Time Rang"}
