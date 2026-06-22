@@ -2561,15 +2561,6 @@ function HomeContent() {
     });
   }
 
-  if (homeMilestoneFeed.length > 0) {
-    homeMilestoneFeed.push({
-      id: "kpi-slide",
-      kind: "kpi",
-      title: "Deine KPI",
-      kpiSummary: homeMilestoneKpiSummary,
-    });
-  }
-
   if (homeMilestoneFeed.length === 0) {
     homeMilestoneFeed.push({
       id: "fallback-collections",
@@ -2724,6 +2715,15 @@ function HomeContent() {
     nearestZoneDistanceKm,
     securedMultiplier: securedNextScanMultiplier,
   };
+
+  if (homeMilestoneFeed.length > 0) {
+    homeMilestoneFeed.push({
+      id: "kpi-slide",
+      kind: "kpi",
+      title: "Deine KPI",
+      kpiSummary: homeMilestoneKpiSummary,
+    });
+  }
 
   const formatMultiplier = (value) => {
     const safeValue = Number.isFinite(value) ? value : 1;
