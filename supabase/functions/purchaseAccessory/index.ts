@@ -37,6 +37,42 @@ function normalizeLower(value: string | null | undefined): string {
   return normalizeText(value).toLowerCase();
 }
 
+function normalizeAccessoryValue(value: string | null | undefined): string {
+  const raw = normalizeLower(value);
+  if (!raw) return "";
+
+  const withoutQuery = raw.split("?")[0]?.split("#")[0] || "";
+  const lastPathSegment = withoutQuery.split("/").pop() || withoutQuery;
+  const withoutExtension = lastPathSegment.replace(/\.(png|jpe?g|gif|webp|svg)$/i, "");
+  if (!withoutExtension) return "";
+
+  if (withoutExtension.startsWith("reward_logo_accessory_")) {
+    return withoutExtension.replace(/^reward_logo_accessory_/, "");
+  }
+  if (withoutExtension.startsWith("reward_accessory_")) {
+    return withoutExtension.replace(/^reward_accessory_/, "");
+  }
+  if (withoutExtension.startsWith("logo_accessory_")) {
+    return withoutExtension.replace(/^logo_accessory_/, "");
+  }
+  if (withoutExtension.startsWith("accessory_")) {
+    return withoutExtension.replace(/^accessory_/, "");
+  }
+
+  const embeddedMatch = withoutExtension.match(/(face_[a-z0-9_]+|plant_[a-z0-9_]+|border_[a-z0-9_]+)/i);
+  if (embeddedMatch?.[1]) return embeddedMatch[1].toLowerCase();
+
+  if (
+    withoutExtension.startsWith("face_")
+    || withoutExtension.startsWith("plant_")
+    || withoutExtension.startsWith("border_")
+  ) {
+    return withoutExtension;
+  }
+
+  return `face_${withoutExtension}`;
+}
+
 function resolvePurchaseKind(value: string | null | undefined): PurchaseKind {
   const normalized = normalizeLower(value);
   if (normalized === "profile_effect") return "profile_effect";
@@ -163,7 +199,7 @@ Deno.serve(async (req) => {
 
   const rewardValue = normalizeText(String(reward?.value || ""));
   if (purchaseKind === "accessory") {
-    if (normalizeLower(rewardValue) !== normalizeLower(accessoryId)) {
+    if (normalizeAccessoryValue(rewardValue) !== normalizeAccessoryValue(accessoryId)) {
       return jsonResponse({ applied: false, errorCode: "reward_not_configured" });
     }
   } else if (rewardValueInput && normalizeLower(rewardValueInput) !== normalizeLower(rewardValue)) {
