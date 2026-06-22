@@ -2517,6 +2517,8 @@ function HomeContent() {
     : 0;
 
   const homeMilestoneFeed = [];
+  const TARGET_HOME_MILESTONE_KPI_SLIDE_COUNT = 4;
+  const TARGET_HOME_MILESTONE_FEED_ITEMS = Math.max(1, TARGET_HOME_MILESTONE_KPI_SLIDE_COUNT - 1);
 
   if (nearCompleteGenera.length > 0) {
     nearCompleteGenera.forEach((entry) => {
@@ -2568,6 +2570,38 @@ function HomeContent() {
       detail: "Folge einer Kollektion und setze einen Favoriten, damit dein Feed personalisiert wird.",
       actionType: "open_collections",
     });
+  }
+
+  const homeMilestoneFallbackSlides = [
+    {
+      id: "fallback-map-hunt",
+      title: "Zonen erkunden",
+      detail: "Auf der Karte siehst du seltene Funde in deiner Umgebung. Starte dort deinen naechsten Scan.",
+      actionType: "open_map",
+    },
+    {
+      id: "fallback-rank-push",
+      title: "Ranking verbessern",
+      detail: "Im Erfolgspanel siehst du deinen Platz und was dir bis zum naechsten Rang fehlt.",
+      actionType: "open_achievements",
+    },
+    {
+      id: "fallback-collection-track",
+      title: "Kollektion planen",
+      detail: "Waehle eine Kollektion als Fokus, um deinen Fortschritt schneller sichtbar zu machen.",
+      actionType: "open_collections",
+    },
+  ];
+
+  for (const fallbackSlide of homeMilestoneFallbackSlides) {
+    if (homeMilestoneFeed.length >= TARGET_HOME_MILESTONE_FEED_ITEMS) break;
+    if (!homeMilestoneFeed.some((item) => item.id === fallbackSlide.id)) {
+      homeMilestoneFeed.push(fallbackSlide);
+    }
+  }
+
+  if (homeMilestoneFeed.length > TARGET_HOME_MILESTONE_FEED_ITEMS) {
+    homeMilestoneFeed.splice(TARGET_HOME_MILESTONE_FEED_ITEMS);
   }
 
   const heroMapCenter = hasLiveCachedLocation
@@ -2716,14 +2750,12 @@ function HomeContent() {
     securedMultiplier: securedNextScanMultiplier,
   };
 
-  if (homeMilestoneFeed.length > 0) {
-    homeMilestoneFeed.push({
-      id: "kpi-slide",
-      kind: "kpi",
-      title: "Deine KPI",
-      kpiSummary: homeMilestoneKpiSummary,
-    });
-  }
+  homeMilestoneFeed.push({
+    id: "kpi-slide",
+    kind: "kpi",
+    title: "Deine KPI",
+    kpiSummary: homeMilestoneKpiSummary,
+  });
 
   const formatMultiplier = (value) => {
     const safeValue = Number.isFinite(value) ? value : 1;
