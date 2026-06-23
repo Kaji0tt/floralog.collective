@@ -1687,7 +1687,8 @@ function HomeContent() {
   const isLoadingCriticalData = isLoadingDiscoveries || isLoadingQuests || isLoadingAchievements || isLoadingFriends || isLoadingWeeklyQuests || isLoadingMonthlyQuests || isLoadingCollectionQuests;
 
   // Computed here (before conditional returns) so the useEffect below can reference it
-  const playerSeeds = Math.max(
+  // playerSeeds: Uses seasonal seeds when available, falls back to all-time
+  const allTimeSeeds = Math.max(
     0,
     Number(robotPlantState?.wallet_balance ?? robotPlantState?.walletBalance ?? 0)
   );
@@ -1698,9 +1699,9 @@ function HomeContent() {
     );
     return Math.max(0, Number(ownEntry?.weekly_seed_total ?? 0));
   }, [seasonStartDate, seasonSeedLeaderboard, user?.id]);
-  const milestoneSeedProgress = seasonStartDate
+  const playerSeeds = seasonStartDate
     ? Math.max(0, Number(ownSeasonSeedProgress ?? 0))
-    : playerSeeds;
+    : allTimeSeeds;
 
   const referralPhase6UnlockCount = useMemo(() => {
     if (!user?.email || !Array.isArray(allReferrals)) return 0;
@@ -1775,7 +1776,7 @@ function HomeContent() {
     // New UserStory rows for existing users should not replay historic milestones.
     if (storyCreatedThisSession) {
       const reachedMilestoneIds = FLORABOT_MILESTONES
-        .filter((milestone) => milestoneSeedProgress >= milestone.threshold)
+        .filter((milestone) => playerSeeds >= milestone.threshold)
         .map((milestone) => buildScopedMilestoneId(milestoneScopeKey, milestone.id))
         .filter(Boolean);
 
@@ -1785,7 +1786,7 @@ function HomeContent() {
 
         updateUserStory(user.id, {
           seen_milestone_ids: mergedScopedSeenIds,
-          seed_progress_at_last_eval: milestoneSeedProgress,
+          seed_progress_at_last_eval: playerSeeds,
           last_story_eval_at: new Date().toISOString(),
         })
           .then((nextStory) => {
@@ -1799,10 +1800,10 @@ function HomeContent() {
       setStoryCreatedThisSession(false);
     }
 
-    const next = getNextUnseenMilestone(milestoneSeedProgress, seenIds);
+    const next = getNextUnseenMilestone(playerSeeds, seenIds);
     if (next) setActiveMilestone(next);
   }, [
-    milestoneSeedProgress,
+    playerSeeds,
     user?.id,
     isRobotPlantStateFetched,
     activeMilestone,
@@ -1816,11 +1817,11 @@ function HomeContent() {
   const toggleMilestonePreview = useMemo(() => {
     if (activeMilestone) return activeMilestone;
     const reachedMilestones = FLORABOT_MILESTONES.filter(
-      (milestone) => milestoneSeedProgress >= milestone.threshold
+      (milestone) => playerSeeds >= milestone.threshold
     );
     if (reachedMilestones.length > 0) return reachedMilestones[reachedMilestones.length - 1];
     return FLORABOT_MILESTONES[0] || null;
-  }, [activeMilestone, milestoneSeedProgress]);
+  }, [activeMilestone, playerSeeds]);
 
   useEffect(() => {
     if (showFlorabotIntro || activeMilestone) {
@@ -2692,6 +2693,8 @@ function HomeContent() {
     daily_streak_days: streakDays,
     member_since_days: memberSinceDays,
     zone_unlocked_plant_accessories: unlockedZoneAccessoryCount,
+    season_seeds: playerSeeds,
+    alltime_seeds: allTimeSeeds,
   };
   const evaluatedProfileBadges = evaluateProfileBadges(profileBadgeMetrics);
   const ownedUniqueBadges = resolveOwnedUniqueBadges(ownedUniqueBadgeIds);
