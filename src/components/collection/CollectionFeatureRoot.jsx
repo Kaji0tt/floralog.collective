@@ -818,18 +818,18 @@ export default function CollectionFeatureRoot({
     ? Math.round((heroStats.discovered / heroStats.total) * 100)
     : 0;
 
-  const ownerName = targetUser?.display_name || targetUser?.full_name || "Dein";
+  const ownerDisplayName = targetUser?.display_name || targetUser?.full_name || "";
   const heroTitle = selectedCollection
     ? selectedCollection.title
     : selectedCollectionId === "season"
       ? (getActiveSeason()?.title || "Saison")
       : selectedEntryCategory === "global"
-        ? "Globale Kollektionen"
+        ? (ownerDisplayName ? `${ownerDisplayName}'s globale Kollektion` : "Deine globale Kollektion")
         : selectedEntryCategory === "themes"
           ? "Gefolgte Kollektionen"
           : selectedEntryCategory === "shared"
             ? "Gemeinsame Kollektionen"
-            : ownerName + "'s Floralog";
+            : (ownerDisplayName ? `${ownerDisplayName}'s Floralog` : "Dein Floralog");
   const listTopFadePx = 14;
   const listBottomFadePx = 14;
   const isOwnerOfSelected =
