@@ -187,6 +187,31 @@ const calculateBearingDegrees = (lat1, lon1, lat2, lon2) => {
   return ((bearing % 360) + 360) % 360;
 };
 
+const buildMilestoneScopeKey = (seasonId) => {
+  const normalizedSeasonId = String(seasonId || "").trim();
+  return normalizedSeasonId ? `season:${normalizedSeasonId}` : "alltime";
+};
+
+const buildScopedMilestoneId = (scopeKey, milestoneId) => {
+  const normalizedMilestoneId = String(milestoneId || "").trim();
+  if (!normalizedMilestoneId) return "";
+  return `${scopeKey}:${normalizedMilestoneId}`;
+};
+
+const extractScopeMilestoneIds = (seenIds, scopeKey) => {
+  const prefix = `${scopeKey}:`;
+  const scopedIds = new Set();
+
+  (Array.isArray(seenIds) ? seenIds : []).forEach((entry) => {
+    const value = String(entry || "").trim();
+    if (!value || !value.startsWith(prefix)) return;
+    const rawMilestoneId = value.slice(prefix.length).trim();
+    if (rawMilestoneId) scopedIds.add(rawMilestoneId);
+  });
+
+  return scopedIds;
+};
+
 function HomeContent() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -275,6 +300,22 @@ function HomeContent() {
   });
   const activeSeason = getActiveSeason();
   const seasonStartDate = activeSeason?.startDate || null;
+  const milestoneScopeKey = buildMilestoneScopeKey(activeSeason?.id);
+  const persistedStorySeenMilestoneIds = Array.isArray(userStory?.seen_milestone_ids)
+    ? userStory.seen_milestone_ids
+    : [];
+  const localSeenMilestoneIds = useMemo(
+    () => (user?.id ? Array.from(getSeenMilestoneIds(user.id, milestoneScopeKey)) : []),
+    [user?.id, milestoneScopeKey, persistedStorySeenMilestoneIds]
+  );
+  const mergedSeenMilestoneIds = useMemo(
+    () => mergeSeenMilestoneIds(persistedStorySeenMilestoneIds, localSeenMilestoneIds),
+    [persistedStorySeenMilestoneIds, localSeenMilestoneIds]
+  );
+  const seenMilestonesInScope = useMemo(
+    () => extractScopeMilestoneIds(mergedSeenMilestoneIds, milestoneScopeKey),
+    [mergedSeenMilestoneIds, milestoneScopeKey]
+  );
 
   useEffect(() => {
     try {
@@ -357,12 +398,7 @@ function HomeContent() {
     if (!milestone?.contextBubble) return;
     // Nur anzeigen wenn das Milestone bereits gesehen wurde und die Bubble noch nicht
     try {
-      const seenMilestones = new Set(
-        Array.isArray(userStory?.seen_milestone_ids)
-          ? userStory.seen_milestone_ids
-          : Array.from(getSeenMilestoneIds(user.id))
-      );
-      if (!seenMilestones.has(milestone.id)) return;
+      if (!seenMilestonesInScope.has(milestone.id)) return;
 
       const seenContextKeys = new Set(
         Array.isArray(userStory?.seen_context_bubble_keys)
@@ -374,7 +410,7 @@ function HomeContent() {
       if (localStorage.getItem(bubbleKey(activePanel))) return;
       setFlorabotContextBubble({ panel: activePanel, message: milestone.contextBubble.message });
     } catch { /* ignore */ }
-  }, [activePanel, user?.id, userStory]);
+  }, [activePanel, user?.id, userStory, seenMilestonesInScope]);
 
   // Florabot Context-Bubble: Health-Panel (separater State, nicht über activePanel)
   useEffect(() => {
@@ -386,12 +422,7 @@ function HomeContent() {
     );
     if (!milestone?.contextBubble) return;
     try {
-      const seenMilestones = new Set(
-        Array.isArray(userStory?.seen_milestone_ids)
-          ? userStory.seen_milestone_ids
-          : Array.from(getSeenMilestoneIds(user.id))
-      );
-      if (!seenMilestones.has(milestone.id)) return;
+      if (!seenMilestonesInScope.has(milestone.id)) return;
 
       const seenContextKeys = new Set(
         Array.isArray(userStory?.seen_context_bubble_keys)
@@ -403,7 +434,7 @@ function HomeContent() {
       if (localStorage.getItem(bubbleKey)) return;
       setFlorabotContextBubble({ panel: panelKey, message: milestone.contextBubble.message });
     } catch { /* ignore */ }
-  }, [showHealthStatsPanel, user?.id, userStory]);
+  }, [showHealthStatsPanel, user?.id, userStory, seenMilestonesInScope]);
 
   // Migration states
   const [isMigrating, setIsMigrating] = useState(false);
@@ -1660,6 +1691,16 @@ function HomeContent() {
     0,
     Number(robotPlantState?.wallet_balance ?? robotPlantState?.walletBalance ?? 0)
   );
+  const ownSeasonSeedProgress = useMemo(() => {
+    if (!seasonStartDate || !user?.id) return null;
+    const ownEntry = (seasonSeedLeaderboard || []).find(
+      (entry) => String(entry?.auth_id || "") === String(user.id)
+    );
+    return Math.max(0, Number(ownEntry?.weekly_seed_total ?? 0));
+  }, [seasonStartDate, seasonSeedLeaderboard, user?.id]);
+  const milestoneSeedProgress = seasonStartDate
+    ? Math.max(0, Number(ownSeasonSeedProgress ?? 0))
+    : playerSeeds;
 
   const referralPhase6UnlockCount = useMemo(() => {
     if (!user?.email || !Array.isArray(allReferrals)) return 0;
@@ -1729,25 +1770,22 @@ function HomeContent() {
 
     if (!introSeen) return;
 
-    let seenIds = new Set(
-      Array.isArray(userStory?.seen_milestone_ids)
-        ? userStory.seen_milestone_ids
-        : Array.from(getSeenMilestoneIds(user.id))
-    );
+    let seenIds = new Set(seenMilestonesInScope);
 
     // New UserStory rows for existing users should not replay historic milestones.
     if (storyCreatedThisSession) {
       const reachedMilestoneIds = FLORABOT_MILESTONES
-        .filter((milestone) => playerSeeds >= milestone.threshold)
-        .map((milestone) => milestone.id);
+        .filter((milestone) => milestoneSeedProgress >= milestone.threshold)
+        .map((milestone) => buildScopedMilestoneId(milestoneScopeKey, milestone.id))
+        .filter(Boolean);
 
       if (reachedMilestoneIds.length > 0) {
-        const mergedSeenIds = mergeSeenMilestoneIds(Array.from(seenIds), reachedMilestoneIds);
-        seenIds = new Set(mergedSeenIds);
+        const mergedScopedSeenIds = mergeSeenMilestoneIds(mergedSeenMilestoneIds, reachedMilestoneIds);
+        seenIds = extractScopeMilestoneIds(mergedScopedSeenIds, milestoneScopeKey);
 
         updateUserStory(user.id, {
-          seen_milestone_ids: mergedSeenIds,
-          seed_progress_at_last_eval: playerSeeds,
+          seen_milestone_ids: mergedScopedSeenIds,
+          seed_progress_at_last_eval: milestoneSeedProgress,
           last_story_eval_at: new Date().toISOString(),
         })
           .then((nextStory) => {
@@ -1761,23 +1799,28 @@ function HomeContent() {
       setStoryCreatedThisSession(false);
     }
 
-    const next = getNextUnseenMilestone(playerSeeds, seenIds);
+    const next = getNextUnseenMilestone(milestoneSeedProgress, seenIds);
     if (next) setActiveMilestone(next);
   }, [
-    playerSeeds,
+    milestoneSeedProgress,
     user?.id,
     isRobotPlantStateFetched,
     activeMilestone,
     userStory,
     storyCreatedThisSession,
+    seenMilestonesInScope,
+    mergedSeenMilestoneIds,
+    milestoneScopeKey,
   ]);
 
   const toggleMilestonePreview = useMemo(() => {
     if (activeMilestone) return activeMilestone;
-    const reachedMilestones = FLORABOT_MILESTONES.filter((milestone) => playerSeeds >= milestone.threshold);
+    const reachedMilestones = FLORABOT_MILESTONES.filter(
+      (milestone) => milestoneSeedProgress >= milestone.threshold
+    );
     if (reachedMilestones.length > 0) return reachedMilestones[reachedMilestones.length - 1];
     return FLORABOT_MILESTONES[0] || null;
-  }, [activeMilestone, playerSeeds]);
+  }, [activeMilestone, milestoneSeedProgress]);
 
   useEffect(() => {
     if (showFlorabotIntro || activeMilestone) {
@@ -3268,17 +3311,27 @@ function HomeContent() {
             profile={user}
             logoAssets={logoAssets}
             onDismiss={(milestoneId) => {
-              markMilestoneSeen(user?.id, milestoneId);
+              const scopedMilestoneId = buildScopedMilestoneId(milestoneScopeKey, milestoneId);
+              if (!scopedMilestoneId) {
+                setActiveMilestone(null);
+                return;
+              }
+              markMilestoneSeen(user?.id, scopedMilestoneId, milestoneScopeKey);
 
               if (user?.id) {
                 const nextSeenIds = mergeSeenMilestoneIds(
-                  Array.isArray(userStory?.seen_milestone_ids) ? userStory.seen_milestone_ids : [],
-                  [milestoneId]
+                  mergedSeenMilestoneIds,
+                  [scopedMilestoneId]
                 );
+
+                setUserStory((previousStory) => ({
+                  ...(previousStory || {}),
+                  seen_milestone_ids: nextSeenIds,
+                }));
 
                 updateUserStory(user.id, {
                   seen_milestone_ids: nextSeenIds,
-                  seed_progress_at_last_eval: playerSeeds,
+                  seed_progress_at_last_eval: milestoneSeedProgress,
                   last_story_eval_at: new Date().toISOString(),
                 })
                   .then((nextStory) => {

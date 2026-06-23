@@ -563,7 +563,7 @@ export const STORY_MODEL_NOTES = {
     table: "public.UserStory",
     versionColumn: "story_version",
   },
-  currentlyUsedSeedSourceInHome: "robotPlantState.wallet_balance",
+  currentlyUsedSeedSourceInHome: "homeSeasonSeedLeaderboard.weekly_seed_total (fallback: robotPlantState.wallet_balance)",
   preferredSeedSourceForStoryProgress: "UserWallet.seeds_progress",
 };
 

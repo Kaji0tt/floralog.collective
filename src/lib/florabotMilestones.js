@@ -4,8 +4,8 @@
  * Milestone data is derived from storyDefinition.js (single source of truth).
  * This file provides FLORABOT_MILESTONES and localStorage helpers.
  *
- * localStorage key: florabot_milestones_seen_v1:<auth_id>
- * Value: JSON array of milestone ids that have been shown, e.g. ["m500","m1000"]
+ * localStorage key: florabot_milestones_seen_v1:<auth_id>:<scope>
+ * Value: JSON array of scoped milestone ids, e.g. ["season:sommer-2026:m500"]
  */
 
 import { STORY_PROGRESS_CONDITIONS, STORY_COPY } from "@/lib/story/storyDefinition";
@@ -38,8 +38,9 @@ export const FLORABOT_MILESTONES = STORY_PROGRESS_CONDITIONS.milestones.map(
  * Returns the localStorage key for milestone state for a given auth id.
  * @param {string} authId
  */
-export function getMilestoneStorageKey(authId) {
-  return `florabot_milestones_seen_v1:${authId}`;
+export function getMilestoneStorageKey(authId, scope = "alltime") {
+  const resolvedScope = String(scope || "alltime").trim() || "alltime";
+  return `florabot_milestones_seen_v1:${authId}:${resolvedScope}`;
 }
 
 /**
@@ -47,9 +48,9 @@ export function getMilestoneStorageKey(authId) {
  * @param {string} authId
  * @returns {Set<string>}
  */
-export function getSeenMilestoneIds(authId) {
+export function getSeenMilestoneIds(authId, scope = "alltime") {
   try {
-    const raw = localStorage.getItem(getMilestoneStorageKey(authId));
+    const raw = localStorage.getItem(getMilestoneStorageKey(authId, scope));
     if (!raw) return new Set();
     const parsed = JSON.parse(raw);
     return new Set(Array.isArray(parsed) ? parsed : []);
@@ -63,10 +64,10 @@ export function getSeenMilestoneIds(authId) {
  * @param {string} authId
  * @param {string} milestoneId
  */
-export function markMilestoneSeen(authId, milestoneId) {
+export function markMilestoneSeen(authId, milestoneId, scope = "alltime") {
   try {
-    const key = getMilestoneStorageKey(authId);
-    const seen = getSeenMilestoneIds(authId);
+    const key = getMilestoneStorageKey(authId, scope);
+    const seen = getSeenMilestoneIds(authId, scope);
     seen.add(milestoneId);
     localStorage.setItem(key, JSON.stringify(Array.from(seen)));
   } catch {
