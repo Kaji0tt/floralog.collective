@@ -20,6 +20,7 @@ const BADGE_ROW_HEIGHT_REM = 7.25;
 const LOGO_ROW_TOP_REM = 4.9;
 const BADGE_TOP_SIDE_REM = 2.9;
 const BADGE_TOP_CENTER_REM = 1.1;
+const FLORABOT_NAME_FALLBACK = "Florabot";
 
 const clampIndex = (index, size) => {
   if (!Number.isFinite(index) || size <= 0) return 0;
@@ -716,6 +717,30 @@ export default function HomeCollectionStripes({
     };
   }, [badgeLogoScale, centerBadgeLogoUnit, elevateLogo, updateFloatingLogoRect]);
 
+  const selectedBadges = Array.isArray(selectedProfileBadges)
+    ? selectedProfileBadges.filter(Boolean).slice(0, 3)
+    : [];
+  const badgeSlots = Array.from({ length: 3 }, (_, index) => selectedBadges[index] || null);
+  const badgeArcPositions = [
+    { left: "16.6667%", topRem: BADGE_TOP_SIDE_REM },
+    { left: "50%", topRem: BADGE_TOP_CENTER_REM },
+    { left: "83.3333%", topRem: BADGE_TOP_SIDE_REM },
+  ];
+  const badgeGlassClassName = "border-[#f0e5a5]/55 bg-black/88 text-stone-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_12px_30px_rgba(0,0,0,0.4)] backdrop-blur-xl";
+  const florabotName = String(profile?.bot_name || FLORABOT_NAME_FALLBACK).trim() || FLORABOT_NAME_FALLBACK;
+  const florabotNameLabel = florabotName.length > 26 ? `${florabotName.slice(0, 25)}…` : florabotName;
+  const florabotNameBadgeClassName = `inline-flex max-w-[11.5rem] items-center justify-center rounded-full border px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.04em] ${badgeGlassClassName}`;
+
+  const renderFlorabotNameBadge = (extraClassName = "") => (
+    <div
+      className={`${florabotNameBadgeClassName} ${extraClassName}`.trim()}
+      aria-label={`Florabot Name: ${florabotName}`}
+      title={florabotName}
+    >
+      <span className="truncate">{florabotNameLabel}</span>
+    </div>
+  );
+
   const floatingLogoPortal =
     isFloatingLogoMounted &&
     floatingLogoRect &&
@@ -735,28 +760,22 @@ export default function HomeCollectionStripes({
               opacity: isFloatingLogoVisible ? 1 : 0,
             }}
           >
-            <FlorabotLogo
-              profile={profile}
-              logoAssets={logoAssets}
-              sizeClass="w-full h-full"
-              padding="p-[7%]"
-              className="drop-shadow-[0_0_28px_rgba(190,242,100,0.5)]"
-            />
+            <div className="relative h-full w-full">
+              <FlorabotLogo
+                profile={profile}
+                logoAssets={logoAssets}
+                sizeClass="w-full h-full"
+                padding="p-[7%]"
+                className="drop-shadow-[0_0_28px_rgba(190,242,100,0.5)]"
+              />
+              <div className="absolute left-1/2 top-[calc(100%+0.45rem)] -translate-x-1/2">
+                {renderFlorabotNameBadge()}
+              </div>
+            </div>
           </div>,
           document.body
         )
       : null;
-
-  const selectedBadges = Array.isArray(selectedProfileBadges)
-    ? selectedProfileBadges.filter(Boolean).slice(0, 3)
-    : [];
-  const badgeSlots = Array.from({ length: 3 }, (_, index) => selectedBadges[index] || null);
-  const badgeArcPositions = [
-    { left: "16.6667%", topRem: BADGE_TOP_SIDE_REM },
-    { left: "50%", topRem: BADGE_TOP_CENTER_REM },
-    { left: "83.3333%", topRem: BADGE_TOP_SIDE_REM },
-  ];
-  const badgeGlassClassName = "border-[#f0e5a5]/55 bg-black/88 text-stone-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_12px_30px_rgba(0,0,0,0.4)] backdrop-blur-xl";
 
   const resolveBadgeValueLabel = (badge) => {
     if (!badge) return "-";
@@ -771,7 +790,11 @@ export default function HomeCollectionStripes({
 
   return (
     <div ref={collectionRootRef} className={`flex min-h-0 flex-col gap-2 ${className}`}>
-      <div ref={badgeLogoViewportRef} className="relative min-h-[17.25rem] flex-1 text-stone-100 sm:min-h-[19.25rem]" aria-label="Florabot und Abzeichen">
+      <div
+        ref={badgeLogoViewportRef}
+        className="relative min-h-[17.25rem] flex-1 overflow-hidden text-stone-100 sm:min-h-[19.25rem]"
+        aria-label="Florabot und Abzeichen"
+      >
         <div
           className={`absolute inset-0 flex justify-center ${centerBadgeLogoUnit ? "items-center" : "items-start"}`}
           style={{ pointerEvents: "none" }}
@@ -850,22 +873,25 @@ export default function HomeCollectionStripes({
             })}
           </div>
 
-          <div className="absolute inset-x-0 z-[120] flex items-center justify-center" style={{ top: `${LOGO_ROW_TOP_REM}rem` }}>
-            <button
-              type="button"
-              ref={logoButtonRef}
-              onClick={() => onLogoClick?.()}
-              className={`relative shrink-0 scale-[1.24] ${elevateLogo ? "z-[260]" : ""}`}
-              aria-label="Florabot Overlay öffnen"
-            >
-              <FlorabotLogo
-                profile={profile}
-                logoAssets={logoAssets}
-                sizeClass="w-[12.75rem] h-[12.75rem] sm:w-[14.75rem] sm:h-[14.75rem]"
-                padding="p-[7%]"
-                className="drop-shadow-[0_0_28px_rgba(190,242,100,0.5)]"
-              />
-            </button>
+          <div className="absolute inset-x-0 z-[120] flex justify-center" style={{ top: `${LOGO_ROW_TOP_REM}rem` }}>
+            <div className="flex flex-col items-center gap-2">
+              <button
+                type="button"
+                ref={logoButtonRef}
+                onClick={() => onLogoClick?.()}
+                className={`relative shrink-0 scale-[1.24] ${elevateLogo ? "z-[260]" : ""}`}
+                aria-label="Florabot Overlay öffnen"
+              >
+                <FlorabotLogo
+                  profile={profile}
+                  logoAssets={logoAssets}
+                  sizeClass="w-[12.75rem] h-[12.75rem] sm:w-[14.75rem] sm:h-[14.75rem]"
+                  padding="p-[7%]"
+                  className="drop-shadow-[0_0_28px_rgba(190,242,100,0.5)]"
+                />
+              </button>
+              {renderFlorabotNameBadge("pointer-events-auto")}
+            </div>
           </div>
           </div>
         </div>
