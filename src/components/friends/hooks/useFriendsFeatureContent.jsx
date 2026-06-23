@@ -4,7 +4,7 @@ import { createUserNotification } from "@/api/notificationService";
 import { supabase } from "@/api/supabaseClient";
 import { sendFriendRequest, removeFriendship, respondToFriendRequest } from "@/api/friendService";
 import { getCurrentUser } from "@/api/userApi";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -60,9 +60,7 @@ const getAverageColor = (imageUrl) => {
   });
 };
 
-const MAX_EXPLORER_DISCOVERIES = 200;
-const EXPLORER_BATCH_SIZE = 10;
-const EXPLORER_PREFETCH_REMAINING = 5;
+const EXPLORER_PAGE_SIZE = 40;
 
 export function useFriendsFeatureContent({
   embedded = false,
@@ -82,8 +80,16 @@ export function useFriendsFeatureContent({
   const [averageColor, setAverageColor] = useState(null);
   const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "explorer");
   const [explorerAudienceFilter, setExplorerAudienceFilter] = useState("all");
-  const [visibleExplorerCount, setVisibleExplorerCount] = useState(EXPLORER_BATCH_SIZE);
   const explorerSentinelRef = useRef(null);
+  const explorerContainerRef = useRef(null);
+  const explorerTouchStartYRef = useRef(0);
+  const explorerPullingRef = useRef(false);
+  const explorerThresholdReachedRef = useRef(false);
+  const explorerSnapTimeoutRef = useRef(null);
+  const [explorerPullOffset, setExplorerPullOffset] = useState(0);
+  const [isExplorerPulling, setIsExplorerPulling] = useState(false);
+  const [isExplorerRefreshing, setIsExplorerRefreshing] = useState(false);
+  const [explorerSnapPulse, setExplorerSnapPulse] = useState(false);
   const [newsFilter, setNewsFilter] = useState("activities");
   const [expandedNewsIds, setExpandedNewsIds] = useState(new Set());
   const [showAddFriendDialog, setShowAddFriendDialog] = useState(false);
@@ -100,10 +106,6 @@ export function useFriendsFeatureContent({
     }
   }, [embedded, openAddFriendDialogNonce]);
 
-  // Sichtbare Einträge zurücksetzen wenn Filter wechselt
-  useEffect(() => {
-    setVisibleExplorerCount(EXPLORER_BATCH_SIZE);
-  }, [explorerAudienceFilter]);
 
   useEffect(() => {
     const allowedTabs = new Set(["friends", "news", "explorer"]);
@@ -268,16 +270,58 @@ export function useFriendsFeatureContent({
     staleTime: 60000,
   });
 
-  // Lade alle Discoveries - mit höherem Limit
-  const { data: allDiscoveries = [] } = useQuery({
-    queryKey: ['explorerDiscoveries', MAX_EXPLORER_DISCOVERIES],
+  const isExplorerTab = activeTab === "explorer";
+  const isFriendsTab = activeTab === "friends";
+
+  const explorerThresholdIso = '2026-06-21T00:00:00.000Z';
+  const explorerQueryEmail = user?.email?.toLowerCase() || "";
+
+  // Infinite-paginated explorer discoveries via RPC
+  const {
+    data: explorerPages,
+    fetchNextPage: fetchNextExplorerPage,
+    hasNextPage: hasNextExplorerPage,
+    isFetchingNextPage: isFetchingNextExplorerPage,
+    isLoading: isExplorerLoading,
+    refetch: refetchExplorerDiscoveries,
+  } = useInfiniteQuery({
+    queryKey: ['explorerDiscoveriesInfinite', explorerQueryEmail, explorerAudienceFilter, explorerThresholdIso],
+    queryFn: async ({ pageParam = 0 }) => {
+      const { data, error } = await supabase.rpc('get_explorer_discoveries', {
+        p_viewer_email: explorerQueryEmail,
+        p_audience: explorerAudienceFilter,
+        p_since: explorerThresholdIso,
+        p_limit: EXPLORER_PAGE_SIZE,
+        p_offset: pageParam * EXPLORER_PAGE_SIZE,
+      });
+      if (error) throw error;
+      return data || [];
+    },
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length < EXPLORER_PAGE_SIZE ? undefined : allPages.length,
+    enabled: !!user?.email && isExplorerTab,
+    staleTime: 60 * 1000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+
+  const explorerDiscoveries = useMemo(
+    () => (explorerPages?.pages ?? []).flatMap((page) => page),
+    [explorerPages]
+  );
+
+  // Separate query for friends tab last-activity lookup (no dedup needed)
+  const { data: friendActivityDiscoveries = [] } = useQuery({
+    queryKey: ['friendActivityDiscoveries'],
     queryFn: async () => {
-      const discoveries = await Query.UserPlantDiscovery.list('-created_date', MAX_EXPLORER_DISCOVERIES);
-      console.log("📊 Geladene Discoveries:", discoveries.length);
+      const discoveries = await Query.UserPlantDiscovery.list('-created_date', 600);
       return discoveries;
     },
-    staleTime: 60 * 1000,
+    enabled: !!user?.email && isFriendsTab,
+    staleTime: 2 * 60 * 1000,
   });
+
 
   const { data: adminNews = [] } = useQuery({
     queryKey: ['news'],
@@ -748,6 +792,16 @@ Viel Spaß beim Entdecken! 🌿`;
     }
   };
 
+  const openExplorerDiscoveryInFriendCollection = useCallback((entry) => {
+    if (!entry?.plant?.genus_id) return;
+    const params = new URLSearchParams();
+    params.set("id", entry.plant.genus_id);
+    if (entry.actorEmail) params.set("email", entry.actorEmail);
+    params.set("collectionId", "global");
+    params.set("discoveryId", entry.id);
+    navigate(createPageUrl(`GenusDetail?${params.toString()}`));
+  }, [navigate]);
+
   const parseActivityDate = (primary, fallback) => {
     const value = primary || fallback;
     if (!value) return null;
@@ -779,7 +833,7 @@ Viel Spaß beim Entdecken! 🌿`;
     };
 
     // Letzte Discovery - prüfe auth_id und fallweise Email
-    const friendDiscoveries = allDiscoveries.filter((d) => matchesFriend(d));
+    const friendDiscoveries = friendActivityDiscoveries.filter((d) => matchesFriend(d));
     console.log(`📦 ${friendDiscoveries.length} Discoveries gefunden`);
 
     const validSortedDiscoveries = friendDiscoveries
@@ -1037,86 +1091,108 @@ Viel Spaß beim Entdecken! 🌿`;
   const getDiscoveryEmailLower = (entry) =>
     (entry.user || entry.created_by || entry.user_email || "").toLowerCase();
 
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const acceptedEmailSet = new Set([ownEmailLower, ...Array.from(friendEmailSet)]);
   const showFriendsOnlyInExplorer = explorerAudienceFilter === "friends";
 
-  const recentDiscoveries = (allDiscoveries || [])
-    .filter((entry) => {
+  const recentDiscoveries = useMemo(() => explorerDiscoveries || [], [explorerDiscoveries]);
+
+  const explorerLogEntries = useMemo(() => {
+    return recentDiscoveries.map((entry) => {
       const entryEmail = getDiscoveryEmailLower(entry);
-      if (!entryEmail) return false;
-      const actorProfile = profileByEmail.get(entryEmail);
-      const isCurrentUserEntry = entryEmail === ownEmailLower;
-      const isVisibleInGlobalExplorer = actorProfile?.global_explorer_visibility !== false;
-      if (!showFriendsOnlyInExplorer && !isCurrentUserEntry && !isVisibleInGlobalExplorer) return false;
-      if (showFriendsOnlyInExplorer && !acceptedEmailSet.has(entryEmail)) return false;
-      const date = new Date(entry.created_date || entry.discovered_date || entry.updated_date || 0);
-      if (Number.isNaN(date.getTime())) return false;
-      return date >= thirtyDaysAgo;
-    })
-    .sort((a, b) =>
-      new Date(b.created_date || b.discovered_date || b.updated_date || 0).getTime() -
-      new Date(a.created_date || a.discovered_date || a.updated_date || 0).getTime()
-    );
-
-  const seenPlantKeys = new Set();
-  const explorerLogEntries = [];
-
-  recentDiscoveries.forEach((entry) => {
-    const entryEmail = getDiscoveryEmailLower(entry);
-    const key = `${entryEmail}::${entry.plant_id}`;
-    if (seenPlantKeys.has(key)) return;
-    seenPlantKeys.add(key);
-
-    const scansBySameUserPlant = recentDiscoveries.filter((candidate) => {
-      return getDiscoveryEmailLower(candidate) === entryEmail && candidate.plant_id === entry.plant_id;
+      const plant = allPlants.find((p) => p.id === entry.plant_id);
+      const profile = profileByEmail.get(entryEmail);
+      return {
+        id: entry.id,
+        discovery: entry,
+        plant,
+        actorEmail: entryEmail,
+        actorAuthId: profile?.auth_id || entry.auth_id || null,
+        actorName: profile?.display_name || profile?.full_name || entryEmail,
+        actorLogoAssets: resolveEquippedLogoAssetsWithCatalog(profile || {}, logoAssets),
+        scanCount: 1,
+        likedByCurrentUser: likedDiscoveryIdSet.has(entry.id),
+        likeCount: likeCountByDiscoveryId.get(entry.id) || 0,
+        timestamp: new Date(entry.created_date || entry.discovered_date || entry.updated_date || Date.now()),
+      };
     });
-
-    const plant = allPlants.find((plantItem) => plantItem.id === entry.plant_id);
-    const profile = profileByEmail.get(entryEmail);
-
-    explorerLogEntries.push({
-      id: entry.id,
-      discovery: entry,
-      plant,
-      actorEmail: entryEmail,
-      actorAuthId: profile?.auth_id || entry.auth_id || null,
-      actorName: profile?.display_name || profile?.full_name || entryEmail,
-      actorLogoAssets: resolveEquippedLogoAssetsWithCatalog(profile || {}, logoAssets),
-      scanCount: scansBySameUserPlant.length,
-      likedByCurrentUser: likedDiscoveryIdSet.has(entry.id),
-      likeCount: likeCountByDiscoveryId.get(entry.id) || 0,
-      timestamp: new Date(entry.created_date || entry.discovered_date || entry.updated_date || Date.now()),
-    });
-  });
-
-  const hasMoreExplorerEntries = visibleExplorerCount < explorerLogEntries.length;
-  const visibleExplorerEntries = explorerLogEntries.slice(0, visibleExplorerCount);
-  const explorerPrefetchIndex = hasMoreExplorerEntries
-    ? Math.max(0, visibleExplorerEntries.length - EXPLORER_PREFETCH_REMAINING)
-    : -1;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recentDiscoveries, allPlants, profileByEmail, likedDiscoveryIdSet, likeCountByDiscoveryId, logoAssets]);
 
   useEffect(() => {
-    if (activeTab !== "explorer" || !hasMoreExplorerEntries) return;
-
+    if (!isExplorerTab || !hasNextExplorerPage) return;
     const sentinel = explorerSentinelRef.current;
     if (!sentinel) return;
-
-    let didTrigger = false;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (!entries[0]?.isIntersecting || didTrigger) return;
-        didTrigger = true;
-        setVisibleExplorerCount((prev) =>
-          Math.min(prev + EXPLORER_BATCH_SIZE, explorerLogEntries.length)
-        );
+        if (entries[0]?.isIntersecting && !isFetchingNextExplorerPage) {
+          fetchNextExplorerPage();
+        }
       },
-      { rootMargin: "0px 0px 200px 0px" }
+      { rootMargin: "0px 0px 300px 0px" }
     );
-
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [activeTab, explorerLogEntries.length, hasMoreExplorerEntries, visibleExplorerCount]);
+  }, [isExplorerTab, hasNextExplorerPage, isFetchingNextExplorerPage, fetchNextExplorerPage]);
+
+  const PULL_TO_REFRESH_THRESHOLD = 84;
+
+  const clearExplorerSnapTimeout = useCallback(() => {
+    if (explorerSnapTimeoutRef.current) {
+      clearTimeout(explorerSnapTimeoutRef.current);
+      explorerSnapTimeoutRef.current = null;
+    }
+  }, []);
+
+  const resetExplorerPullState = useCallback(() => {
+    clearExplorerSnapTimeout();
+    explorerPullingRef.current = false;
+    explorerThresholdReachedRef.current = false;
+    setIsExplorerPulling(false);
+    setExplorerPullOffset(0);
+    setExplorerSnapPulse(false);
+  }, [clearExplorerSnapTimeout]);
+
+  const triggerExplorerRefresh = useCallback(() => {
+    setIsExplorerRefreshing(true);
+    queryClient.invalidateQueries({ queryKey: ['scanLikesAll'] });
+    refetchExplorerDiscoveries().finally(() => {
+      setIsExplorerRefreshing(false);
+      resetExplorerPullState();
+    });
+  }, [refetchExplorerDiscoveries, queryClient, resetExplorerPullState]);
+
+  const handleExplorerTouchStart = useCallback((e) => {
+    const container = explorerContainerRef.current;
+    if (!container || container.scrollTop !== 0) return;
+    explorerTouchStartYRef.current = e.touches[0].clientY;
+    explorerPullingRef.current = true;
+  }, []);
+
+  const handleExplorerTouchMove = useCallback((e) => {
+    if (!explorerPullingRef.current) return;
+    const deltaY = e.touches[0].clientY - explorerTouchStartYRef.current;
+    if (deltaY <= 0) { resetExplorerPullState(); return; }
+    const dampedOffset = Math.min(120, deltaY * 0.45);
+    setIsExplorerPulling(true);
+    setExplorerPullOffset(dampedOffset);
+    const reached = dampedOffset >= PULL_TO_REFRESH_THRESHOLD;
+    if (reached !== explorerThresholdReachedRef.current) {
+      explorerThresholdReachedRef.current = reached;
+      if (reached) { setExplorerSnapPulse(true); clearExplorerSnapTimeout(); explorerSnapTimeoutRef.current = setTimeout(() => setExplorerSnapPulse(false), 300); }
+    }
+  }, [resetExplorerPullState, clearExplorerSnapTimeout]);
+
+  const handleExplorerTouchEnd = useCallback(() => {
+    if (!explorerPullingRef.current) return;
+    if (explorerThresholdReachedRef.current) {
+      triggerExplorerRefresh();
+    } else {
+      resetExplorerPullState();
+    }
+  }, [triggerExplorerRefresh, resetExplorerPullState]);
+
+  useEffect(() => {
+    return () => clearExplorerSnapTimeout();
+  }, [clearExplorerSnapTimeout]);
 
   const friendCards = friends
     .map((friendEntry) => ({
@@ -1345,7 +1421,26 @@ Viel Spaß beim Entdecken! 🌿`;
           </div>
 
           {/* Explorer Tab Content */}
-          <TabsContent value="explorer" className={explorerContentClass} style={embeddedContentMaskStyle}>
+          <TabsContent
+            value="explorer"
+            className={explorerContentClass}
+            style={embeddedContentMaskStyle}
+            ref={explorerContainerRef}
+            onTouchStart={handleExplorerTouchStart}
+            onTouchMove={handleExplorerTouchMove}
+            onTouchEnd={handleExplorerTouchEnd}
+          >
+            <div
+              style={{
+                transform: `translateY(${explorerPullOffset}px)`,
+                transition: isExplorerPulling ? 'none' : 'transform 0.3s ease',
+              }}
+            >
+            {(isExplorerRefreshing || (explorerPullOffset > 0)) && (
+              <div className={`flex justify-center py-2 ${isLightUi ? "text-stone-400" : "text-stone-500"}`}>
+                <Loader2 className={`w-5 h-5 ${isExplorerRefreshing ? "animate-spin" : ""}`} />
+              </div>
+            )}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1353,7 +1448,11 @@ Viel Spaß beim Entdecken! 🌿`;
               className="max-w-5xl mx-auto space-y-4"
               style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}
             >
-              {explorerLogEntries.length === 0 ? (
+              {isExplorerLoading ? (
+                <div className="flex justify-center py-10">
+                  <Loader2 className={`w-8 h-8 animate-spin ${isLightUi ? "text-stone-400" : "text-stone-500"}`} />
+                </div>
+              ) : explorerLogEntries.length === 0 ? (
                 <div className={`${sectionSurfaceClass} px-5 py-10 text-center`}>
                   <BookOpenText className={`w-16 h-16 mx-auto mb-4 ${isLightUi ? "text-stone-300" : "text-stone-500"}`} />
                   <p className={`text-lg font-semibold mb-2 ${titleTextClass}`}>
@@ -1413,50 +1512,54 @@ Viel Spaß beim Entdecken! 🌿`;
                           );
                         })}
                       </div>
-                      <Badge className={accentBadgeClass}>{explorerLogEntries.length}</Badge>
+                      <Badge className={accentBadgeClass}>{explorerLogEntries.length}{hasNextExplorerPage ? "+" : ""}</Badge>
                     </div>
                   </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {visibleExplorerEntries.map((entry, index) => (
+                  {explorerLogEntries.map((entry, index) => (
                     <motion.div
                       key={entry.id}
-                      ref={index === explorerPrefetchIndex ? explorerSentinelRef : null}
                       initial={{ opacity: 0, scale: 0.94 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: index * 0.02 }}
+                      transition={{ delay: Math.min(index, 10) * 0.02 }}
                     >
                       <Card className={`${nestedCardClass} ${isLightUi ? "bg-white" : ""} ${interactiveHoverClass} transition-all overflow-hidden`}>
                         {entry.discovery?.image_url ? (
-                          <div className={`aspect-[4/3] overflow-hidden ${isLightUi ? "bg-stone-100" : "bg-stone-900/60"}`}>
+                          <button
+                            type="button"
+                            className={`block w-full aspect-[4/3] overflow-hidden ${isLightUi ? "bg-stone-100" : "bg-stone-900/60"}`}
+                            onClick={() => openExplorerDiscoveryInFriendCollection(entry)}
+                          >
                             <img
                               src={entry.discovery.image_url}
                               alt={entry.plant?.species_name || "Scan"}
                               className="w-full h-full object-cover"
                             />
-                          </div>
+                          </button>
                         ) : (
-                          <div className={`aspect-[4/3] flex items-center justify-center ${isLightUi ? "bg-gradient-to-br from-emerald-50 to-stone-100" : "bg-gradient-to-br from-emerald-500/10 to-stone-950/60"}`}>
+                          <button
+                            type="button"
+                            className={`block w-full aspect-[4/3] flex items-center justify-center ${isLightUi ? "bg-gradient-to-br from-emerald-50 to-stone-100" : "bg-gradient-to-br from-emerald-500/10 to-stone-950/60"}`}
+                            onClick={() => openExplorerDiscoveryInFriendCollection(entry)}
+                          >
                             <Leaf className={`w-10 h-10 ${isLightUi ? "text-emerald-500" : "text-emerald-300"}`} />
-                          </div>
+                          </button>
                         )}
                         <CardContent className="p-3 space-y-2">
                           <div className="flex items-start justify-between gap-2">
                             <p className={`text-sm font-bold truncate ${titleTextClass}`}>
                             {entry.plant?.species_name || "Unbekannte Pflanze"}
                             </p>
-                            {entry.scanCount > 1 && (
-                              <Badge className={isLightUi ? "bg-emerald-600 text-white" : "bg-emerald-300 text-stone-900"}>
-                                {entry.scanCount}x
-                              </Badge>
-                            )}
                           </div>
                           <button
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               if (entry.actorEmail && entry.actorEmail !== ownEmailLower) {
                                 navigate(createPageUrl(`FriendProfile?email=${entry.actorEmail}`));
                               }
                             }}
+                            onMouseDown={(e) => e.stopPropagation()}
                             className={`flex items-center gap-2 w-full text-left transition-opacity ${entry.actorEmail && entry.actorEmail !== ownEmailLower ? "hover:opacity-80" : "cursor-default"}`}
                           >
                             <div className="w-5 h-5 rounded-full overflow-hidden flex items-center justify-center text-white text-[10px] font-bold">
@@ -1480,7 +1583,8 @@ Viel Spaß beim Entdecken! 🌿`;
                             {entry.actorEmail && entry.actorEmail !== ownEmailLower ? (
                               <button
                                 type="button"
-                                onClick={() => handleExplorerLike(entry, !entry.likedByCurrentUser)}
+                                onClick={(e) => { e.stopPropagation(); handleExplorerLike(entry, !entry.likedByCurrentUser); }}
+                                onMouseDown={(e) => e.stopPropagation()}
                                 className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors ${
                                   entry.likedByCurrentUser
                                     ? (isLightUi
@@ -1496,7 +1600,7 @@ Viel Spaß beim Entdecken! 🌿`;
                                 <span>{entry.likeCount}</span>
                               </button>
                             ) : (
-                              <span className={faintTextClass}>30 Tage Fenster</span>
+                              <span className={faintTextClass}>Saison 2026</span>
                             )}
                           </div>
                         </CardContent>
@@ -1504,8 +1608,10 @@ Viel Spaß beim Entdecken! 🌿`;
                     </motion.div>
                   ))}
                 </div>
+                {/* Infinite scroll sentinel */}
+                <div ref={explorerSentinelRef} className="h-px" />
                 </section>
-              {hasMoreExplorerEntries && (
+              {isFetchingNextExplorerPage && (
                 <div className={`flex justify-center py-3 ${isLightUi ? "text-stone-400" : "text-stone-500"}`}>
                   <Loader2 className="w-5 h-5 animate-spin" />
                 </div>
@@ -1513,6 +1619,7 @@ Viel Spaß beim Entdecken! 🌿`;
                 </>
               )}
             </motion.div>
+            </div>
           </TabsContent>
 
           {/* News Tab Content */}
