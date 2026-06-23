@@ -314,29 +314,29 @@ export default function CollectionScreen({
               </div>
             </div>
           )}
-        </div>
 
-        {!isSharedCategory && sortChipsOpen && (
-          <div className="space-y-2">
-            <SearchSortBar
-              searchQuery={searchQuery}
-              onSearchQueryChange={onSearchQueryChange}
-              sortOptions={[
-                { value: "index", label: "Index" },
-                { value: "newest", label: "Neu" },
-                { value: "title", label: "Titel" },
-                { value: "rarity", label: "Rarität" },
-              ]}
-              sortValue={collectionSort}
-              onSortChange={onCollectionSortChange}
-              showSortControls={sortChipsOpen}
-              showDiscoveredToggle
-              discoveredFilter={discoveredFilter}
-              onDiscoveredFilterChange={onDiscoveredFilterChange}
-              uiTheme={uiTheme}
-            />
-          </div>
-        )}
+          {isHeroSegmentOpen && !isSharedCategory && sortChipsOpen && (
+            <div className="space-y-2">
+              <SearchSortBar
+                searchQuery={searchQuery}
+                onSearchQueryChange={onSearchQueryChange}
+                sortOptions={[
+                  { value: "index", label: "Index" },
+                  { value: "newest", label: "Neu" },
+                  { value: "title", label: "Titel" },
+                  { value: "rarity", label: "Rarität" },
+                ]}
+                sortValue={collectionSort}
+                onSortChange={onCollectionSortChange}
+                showSortControls={sortChipsOpen}
+                showDiscoveredToggle
+                discoveredFilter={discoveredFilter}
+                onDiscoveredFilterChange={onDiscoveredFilterChange}
+                uiTheme={uiTheme}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       <div
