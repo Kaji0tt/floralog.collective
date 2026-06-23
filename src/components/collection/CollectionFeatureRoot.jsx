@@ -5,7 +5,7 @@ import { createUserNotification, getUserDisplayName } from "@/api/notificationSe
 import { getCurrentUser } from "@/api/userApi";
 import { createPageUrl } from "@/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Home, List, Leaf, Compass, Plus, Users, Sun } from "lucide-react";
+import { BookmarkCheck, Home, Leaf, Compass, Plus, Users, Sun } from "lucide-react";
 import HintDialog from "./HintDialog";
 import CollectionScreen from "./CollectionScreen";
 import CollectionCategoryEntryCard from "./CollectionCategoryEntryCard";
@@ -456,15 +456,6 @@ export default function CollectionFeatureRoot({
     return [];
   }, [selectedEntryCategory, selectedCollectionId, uniqueThemeCollections, followedCollections]);
 
-  const selectedEntryCategoryLabel =
-    selectedEntryCategory === "global"
-      ? (selectedCollectionId === "season" ? (getActiveSeason()?.title || "Saison") : "Globale")
-      : selectedEntryCategory === "themes"
-        ? "Themen"
-        : selectedEntryCategory === "shared"
-          ? "Gemeinsame"
-          : null;
-
   const isCategoryLandingVisible =
     !isQuestCollectionView &&
     selectedEntryCategory !== "browse" &&
@@ -835,7 +826,7 @@ export default function CollectionFeatureRoot({
       : selectedEntryCategory === "global"
         ? "Globale Kollektionen"
         : selectedEntryCategory === "themes"
-          ? "Themen-Kollektionen"
+          ? "Gefolgte Kollektionen"
           : selectedEntryCategory === "shared"
             ? "Gemeinsame Kollektionen"
             : ownerName + "'s Floralog";
@@ -987,6 +978,10 @@ export default function CollectionFeatureRoot({
     const followedPublicCollections = publicCollectionsWithMeta.filter((entry) => entry.isFollowing).length;
     return { totalPublicCollections, followedPublicCollections };
   }, [allPublicCollections.length, publicCollectionsWithMeta]);
+  const followedPublicCollectionsWithMeta = useMemo(
+    () => publicCollectionsWithMeta.filter((entry) => entry.isFollowing),
+    [publicCollectionsWithMeta]
+  );
 
   const hasAdditionalCollections = (ownedCollections.length + followedCollections.length) > 0;
   const isHeroSegmentOpen = hasAdditionalCollections
@@ -995,6 +990,20 @@ export default function CollectionFeatureRoot({
   const handleOpenPublicCollection = (collectionId) => {
     setPublicCollectionsPanelOpen(false);
     setEntryCategory(collectionId === "global" ? "global" : "themes");
+    setSelectedCollectionId(collectionId);
+    if (typeof onSelectedCollectionIdChange === "function") {
+      onSelectedCollectionIdChange(collectionId);
+    }
+    if (!isRouteMode) return;
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("collectionId", collectionId);
+    nextParams.delete("from");
+    setSearchParams(nextParams, { replace: true });
+  };
+  const handleOpenFollowedCollection = (collectionId) => {
+    setPublicCollectionsPanelOpen(false);
+    setEntryCategory("themes");
     setSelectedCollectionId(collectionId);
     if (typeof onSelectedCollectionIdChange === "function") {
       onSelectedCollectionIdChange(collectionId);
@@ -1084,7 +1093,56 @@ export default function CollectionFeatureRoot({
             />
 
             <div className="flex-1 min-h-0 pt-[clamp(0.5rem,1.5vh,1rem)] pb-[clamp(0.85rem,2.2vh,1.4rem)] flex flex-col gap-3" data-ui={embedded ? "collection-content-stack" : "home-content-stack"}>
-          {selectedEntryCategory === "browse" ? (
+          {selectedEntryCategory === "followed" ? (
+            <div className="flex-1 min-h-0 max-h-full overflow-y-auto" style={{ paddingTop: listTopFadePx, paddingBottom: listBottomFadePx }}>
+              <div className="space-y-3">
+                {followedPublicCollectionsWithMeta.length > 0 ? (
+                  followedPublicCollectionsWithMeta.map((collectionEntry) => (
+                    <CollectionCategoryEntryCard
+                      key={collectionEntry.id}
+                      title={collectionEntry.title || "Unbenannte Kollektion"}
+                      description={null}
+                      info={collectionEntry.description || "Abonnierte Nutzerkollektion"}
+                      icon={BookmarkCheck}
+                      accent="themes"
+                      showChevron={false}
+                      customBackgroundColor={collectionEntry.background_color || collectionEntry.ownerBackgroundColor || null}
+                      descriptionMaxHeightClass="max-h-14"
+                      className="max-h-[9.75rem]"
+                      metaChips={[
+                        `${collectionEntry.progress?.discovered ?? 0}/${collectionEntry.progress?.total ?? 0} entdeckt · ${collectionEntry.itemsCount || 0} Einträge`,
+                      ]}
+                      secondaryActionIcon={Plus}
+                      secondaryActionLabel="Kollektion öffnen"
+                      secondaryActionVisible={false}
+                      secondaryActionDisabled={false}
+                      onSecondaryAction={null}
+                      leadingVisual={(
+                        <div className={"h-12 w-12 md:h-14 md:w-14 rounded-2xl border overflow-hidden " + (isLightUi ? "border-white/70 bg-white/45" : "border-white/30 bg-black/30")}>
+                          <FlorabotLogo
+                            profile={collectionEntry.ownerProfile || null}
+                            logoAssets={logoAssets}
+                            sizeClass="w-full h-full"
+                            padding="p-[10%]"
+                          />
+                        </div>
+                      )}
+                      leadingBadges={(
+                        <span className={"inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none border whitespace-nowrap " + (isLightUi ? "border-stone-500/30 bg-white/60 text-stone-700" : "border-white/30 bg-black/30 text-white/90")}>
+                          {collectionEntry.followersCount || 0} Follower
+                        </span>
+                      )}
+                      onClick={() => handleOpenFollowedCollection(collectionEntry.id)}
+                    />
+                  ))
+                ) : (
+                  <div className={"rounded-2xl border border-dashed px-4 py-6 text-center text-sm " + (isLightUi ? "bg-white/50 border-[#c8ac62]/35 text-stone-700" : "bg-black/30 border-[#f0e5a5]/30 text-stone-300") }>
+                    Du folgst derzeit keinen öffentlichen Kollektionen.
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : selectedEntryCategory === "browse" ? (
             <div className="flex-1 min-h-0 max-h-full overflow-y-auto" style={{ paddingTop: listTopFadePx, paddingBottom: listBottomFadePx }}>
               <div className="space-y-3">
                 {filteredPublicCollections.length > 0 ? (
@@ -1166,8 +1224,8 @@ export default function CollectionFeatureRoot({
                   }}
                 />
                 <CollectionCategoryEntryCard
-                  title="Themen"
-                  icon={List}
+                  title="Gefolgte Kollektionen"
+                  icon={BookmarkCheck}
                   accent="themes"
                   className="h-full max-h-[10.5rem]"
                   metaChips={
@@ -1177,11 +1235,8 @@ export default function CollectionFeatureRoot({
                   }
                   descriptionMaxHeightClass="max-h-14"
                   onClick={() => {
-                    setEntryCategory("themes");
-                    const firstThemeCollectionId = uniqueThemeCollections[0]?.id;
-                    if (firstThemeCollectionId) {
-                      handleCollectionChipSelect(firstThemeCollectionId);
-                    }
+                    setEntryCategory("followed");
+                    setPublicCollectionsPanelOpen(false);
                   }}
                 />
                 <CollectionCategoryEntryCard
@@ -1278,25 +1333,19 @@ export default function CollectionFeatureRoot({
               readOnly={readOnly}
               friendEmail={resolvedFriendEmail || null}
               selectedEntryCategory={selectedEntryCategory}
-              selectedEntryCategoryLabel={selectedEntryCategoryLabel}
-              onBackToCategoryLanding={embedded
-                ? () => {
-                  setEntryCategory(null);
-                  setPublicCollectionsPanelOpen(false);
-                }
-                : undefined}
               isQuestCollectionView={isQuestCollectionView}
               ownedCollections={ownedCollections}
               followedCollections={followedCollections}
-              collectionChips={collectionChips}
-              getCollectionStats={getCollectionStats}
-              selectedCollectionId={selectedCollectionId}
-              onCollectionChipSelect={handleCollectionChipSelect}
               isLightUi={isLightUi}
               onCreateCollection={() => {
                 if (!readOnly) navigate("/CollectionEditor");
               }}
               isHeroSegmentOpen={isHeroSegmentOpen}
+              onToggleHeroSegmentOpen={() => {
+                saveFiltersForCollection(selectedCollectionId, {
+                  heroSegmentOpen: !isHeroSegmentOpen,
+                });
+              }}
               heroTitle={heroTitle}
               selectedCollection={selectedCollection}
               isOwnerOfSelected={isOwnerOfSelected}

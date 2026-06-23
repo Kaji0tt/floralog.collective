@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Leaf, Minus, Plus, PencilLine, SlidersHorizontal, Star, Users2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Leaf, Minus, Plus, PencilLine, SlidersHorizontal, Star, Users2 } from "lucide-react";
 import GenusCard from "./GenusCard";
 import SearchSortBar from "./SearchSortBar";
 
@@ -60,18 +60,13 @@ export default function CollectionScreen({
   readOnly = false,
   friendEmail = null,
   selectedEntryCategory = "global",
-  selectedEntryCategoryLabel = null,
-  onBackToCategoryLanding,
   isQuestCollectionView,
   ownedCollections,
   followedCollections,
-  collectionChips = [],
-  getCollectionStats,
-  selectedCollectionId,
-  onCollectionChipSelect,
   isLightUi,
   onCreateCollection,
   isHeroSegmentOpen,
+  onToggleHeroSegmentOpen = () => {},
   heroTitle,
   selectedCollection,
   isOwnerOfSelected,
@@ -112,13 +107,12 @@ export default function CollectionScreen({
   uiTheme,
 }) {
   const isSharedCategory = selectedEntryCategory === "shared";
-  const hasCollectionChips = collectionChips.length > 0;
   const hasAnyThemeCollection = (ownedCollections.length + followedCollections.length) > 0;
   const categoryInfoText =
     selectedEntryCategory === "global"
       ? "Globale und saisonale Kollektionen"
       : selectedEntryCategory === "themes"
-        ? "User-Kollektionen aus deiner Community"
+        ? "Gefolgte User-Kollektionen aus deiner Community"
         : selectedEntryCategory === "shared"
           ? "Team-Kollektionen folgen in einem späteren Update"
           : null;
@@ -126,67 +120,16 @@ export default function CollectionScreen({
   return (
     <>
       <div className="shrink-0 space-y-3">
-        {!isQuestCollectionView && hasCollectionChips && (
-          <div className="-mx-4 px-4 pb-0">
-            <div
-              className={"rounded-2xl border shadow-sm backdrop-blur-sm px-2 py-2 " + (isLightUi ? "bg-white/58" : "bg-black/30")}
-              style={{
-                borderColor: isLightUi ? "rgba(200,172,98,0.32)" : "rgba(240,229,165,0.28)",
-              }}
-            >
-              <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-                {collectionChips.map((chip) => {
-                  const stats = getCollectionStats(chip.id === "global" ? "global" : chip.id);
-                  const isActive = selectedCollectionId === chip.id;
-                  return (
-                    <button
-                      key={chip.id}
-                      type="button"
-                      onClick={() => onCollectionChipSelect(chip.id)}
-                      className={
-                        "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors " +
-                        (isActive
-                          ? (isLightUi
-                            ? "bg-white/90 text-[#8f6b22] shadow-sm"
-                            : "bg-black/55 text-[#f7f0c1] shadow-sm")
-                          : (isLightUi
-                            ? "bg-white/55 text-stone-700 hover:bg-white/75"
-                            : "bg-black/35 text-stone-200 hover:bg-black/50"))
-                      }
-                      style={{
-                        borderColor: isActive
-                          ? (isLightUi ? "rgba(200,172,98,0.70)" : "rgba(240,229,165,0.75)")
-                          : (isLightUi ? "rgba(200,172,98,0.35)" : "rgba(255,255,255,0.3)"),
-                      }}
-                    >
-                      {chip.isFavorite && (
-                        <Star
-                          className={"w-3 h-3 shrink-0 " + (isLightUi ? "text-amber-600" : "text-amber-300")}
-                          fill="currentColor"
-                        />
-                      )}
-                      <span className="font-medium">{chip.title}</span>
-                      <span className={"text-[10px] " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
-                        {stats.discovered}/{stats.total || "–"}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {isHeroSegmentOpen && (
-          <div
-            className={"rounded-2xl border shadow-sm p-3 flex flex-col gap-3 backdrop-blur-sm " + (isLightUi ? "bg-white/55" : "bg-black/35")}
-            style={{
-              borderColor: isLightUi ? "rgba(200,172,98,0.38)" : "rgba(240,229,165,0.35)",
-            }}
-          >
-            <div className="space-y-1">
-              <div className="flex items-center justify-between gap-2">
-                <AnimatedHeroTitle title={heroTitle} isLightUi={isLightUi} />
+        <div
+          className={"rounded-2xl border shadow-sm p-3 flex flex-col gap-3 backdrop-blur-sm " + (isLightUi ? "bg-white/55" : "bg-black/35")}
+          style={{
+            borderColor: isLightUi ? "rgba(200,172,98,0.38)" : "rgba(240,229,165,0.35)",
+          }}
+        >
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <AnimatedHeroTitle title={heroTitle} isLightUi={isLightUi} />
+              <div className="shrink-0 flex items-center gap-1.5">
                 {!readOnly && !isQuestCollectionView && selectedEntryCategory === "themes" && !hasAnyThemeCollection && (
                   <button
                     type="button"
@@ -200,7 +143,7 @@ export default function CollectionScreen({
                   </button>
                 )}
                 {selectedCollection && !isQuestCollectionView && !readOnly && selectedEntryCategory === "themes" && (
-                  <div className="shrink-0 flex items-center gap-1.5">
+                  <>
                     {(selectedCollection.followers_count ?? 0) > 0 && (
                       <div
                         className={"p-1 rounded-full border flex items-center justify-center text-[10px] font-bold " + (isLightUi
@@ -282,16 +225,29 @@ export default function CollectionScreen({
                         <PencilLine className="w-3 h-3" />
                       </button>
                     )}
-                  </div>
+                  </>
                 )}
+                <button
+                  type="button"
+                  onClick={onToggleHeroSegmentOpen}
+                  className={"shrink-0 p-1 rounded-full border transition-colors " + (isLightUi
+                    ? "bg-white/75 border-[#c8ac62]/45 text-[#8f6b22] hover:bg-white"
+                    : "bg-black/45 border-[#f0e5a5]/40 text-[#f0e5a5] hover:bg-black/60")}
+                  aria-label={isHeroSegmentOpen ? "Collection Hero ausblenden" : "Collection Hero einblenden"}
+                >
+                  {isHeroSegmentOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
               </div>
+            </div>
+            {isHeroSegmentOpen && (
               <p className={"text-[11px] max-h-[4.5em] overflow-y-auto leading-snug rounded focus:outline-none focus:ring-1 " + (isLightUi ? "text-stone-700 focus:ring-[#c8ac62]/45" : "text-stone-200/90 focus:ring-[#f0e5a5]/40")} tabIndex={0}>
                 {selectedCollection?.description || categoryInfoText}
               </p>
-            </div>
+            )}
+          </div>
 
-            {!isSharedCategory && (
-              <div className="flex items-center gap-3 mt-1">
+          {isHeroSegmentOpen && !isSharedCategory && (
+            <div className="flex items-center gap-3 mt-1">
               <div className="flex-1 space-y-1">
                 <div className={"flex items-center justify-between text-[10px] " + (isLightUi ? "text-stone-700" : "text-stone-200/90")}>
                   <div className="flex items-center gap-1">
@@ -356,10 +312,9 @@ export default function CollectionScreen({
                   />
                 </div>
               </div>
-              </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
 
         {!isSharedCategory && sortChipsOpen && (
           <div className="space-y-2">
@@ -411,7 +366,7 @@ export default function CollectionScreen({
               <Leaf className={"w-12 h-12 " + (isLightUi ? "text-[#9a7728]" : "text-[#f0e5a5]")} />
             </div>
             <h3 className={"text-2xl font-bold mb-2 " + (isLightUi ? "text-stone-900" : "text-[#f8f4d6]")}>
-              {selectedEntryCategory === "themes" ? "Keine Themen-Kollektionen gefunden" : "Keine Pflanzen gefunden"}
+              {selectedEntryCategory === "themes" ? "Keine Kollektionen gefunden" : "Keine Pflanzen gefunden"}
             </h3>
             {selectedEntryCategory === "themes" && (
               <p className={"text-sm " + (isLightUi ? "text-stone-700" : "text-stone-300")}>
