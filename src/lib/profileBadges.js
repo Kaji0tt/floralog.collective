@@ -151,6 +151,26 @@ const PROFILE_BADGE_DEFINITIONS = [
     thresholds: { white: 1, bronze: 3, silver: 6, gold: 10 },
     format: "count",
   },
+  {
+    id: "season_seeds_seedling",
+    label: "Saisonsamen",
+    description: "Dein Samenbestand in dieser Saison (seit 21.06).",
+    iconKey: "leaf",
+    metricKey: "season_seeds",
+    direction: "higher",
+    thresholds: { white: 100, bronze: 500, silver: 2500, gold: 10000 },
+    format: "count",
+  },
+  {
+    id: "alltime_seeds_tree",
+    label: "Samen aller Zeiten",
+    description: "Dein gesamter Samenbestand aller Zeiten.",
+    iconKey: "leaf",
+    metricKey: "alltime_seeds",
+    direction: "higher",
+    thresholds: { white: 1000, bronze: 10000, silver: 50000, gold: 200000 },
+    format: "count",
+  },
 ];
 
 const PROFILE_BADGE_BY_ID = Object.fromEntries(
