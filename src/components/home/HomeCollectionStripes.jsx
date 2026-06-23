@@ -72,6 +72,7 @@ export function HomeMilestoneStripe({
             id: item.id || "kpi-overview",
             kind: "kpi",
             title: item.title || "Deine KPI",
+            previewImageUrl: "",
             payload: {
               playerSeedsDisplay: String(item.kpiSummary?.playerSeedsDisplay || kpiSummary?.playerSeedsDisplay || "0"),
               conqueredZonesDisplay: String(item.kpiSummary?.conqueredZonesDisplay || kpiSummary?.conqueredZonesDisplay || "0"),
@@ -105,6 +106,7 @@ export function HomeMilestoneStripe({
         kind: "fallback",
         title: "Noch keine Highlights verfügbar",
         detail: "Sobald neue Meilensteine vorliegen, erscheinen sie hier.",
+        previewImageUrl: "",
         payload: null,
       });
     }
@@ -135,6 +137,8 @@ export function HomeMilestoneStripe({
     currentStripeTwoSlide?.kind === "milestone" &&
     Boolean(currentStripeTwoSlide?.payload) &&
     Boolean(onMilestonePreviewClick);
+  const currentSlideUsesFullWidth =
+    currentStripeTwoSlide?.kind !== "milestone" || !currentSlidePreviewImage;
 
   const renderStripeTwoSlideBody = (slide) => {
     if (!slide) return null;
@@ -440,19 +444,25 @@ export function HomeMilestoneStripe({
                 </div>
               ) : (
                 <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (canOpenCurrentSlidePreview) {
-                        onMilestonePreviewClick?.(currentStripeTwoSlide.payload);
-                      }
-                    }}
-                    disabled={!canOpenCurrentSlidePreview}
-                    className={`absolute inset-y-0 left-0 z-[2] w-[20%] sm:w-1/2 ${canOpenCurrentSlidePreview ? "cursor-pointer" : "cursor-default"}`}
-                    aria-label={canOpenCurrentSlidePreview ? "Scan-Detail öffnen" : "Kein Scan-Detail verfügbar"}
-                  />
+                  {!currentSlideUsesFullWidth ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (canOpenCurrentSlidePreview) {
+                          onMilestonePreviewClick?.(currentStripeTwoSlide.payload);
+                        }
+                      }}
+                      disabled={!canOpenCurrentSlidePreview}
+                      className={`absolute inset-y-0 left-0 z-[2] w-[20%] sm:w-1/2 ${canOpenCurrentSlidePreview ? "cursor-pointer" : "cursor-default"}`}
+                      aria-label={canOpenCurrentSlidePreview ? "Scan-Detail öffnen" : "Kein Scan-Detail verfügbar"}
+                    />
+                  ) : null}
 
-                  <div className="absolute inset-y-0 right-0 z-[2] w-[80%] sm:w-1/2 min-w-0">
+                  <div
+                    className={`absolute inset-y-0 right-0 z-[2] min-w-0 ${
+                      currentSlideUsesFullWidth ? "left-0 w-full" : "w-[80%] sm:w-1/2"
+                    }`}
+                  >
                     <button
                       type="button"
                       onClick={() => {
@@ -478,7 +488,7 @@ export function HomeMilestoneStripe({
                 key={`measure-${slide.id}`}
                 ref={setStripeTwoMeasureRef(slide.id)}
                 className={`${
-                  slide.kind === "kpi" ? "w-full" : "ml-auto w-[80%] sm:w-1/2"
+                  slide.kind === "kpi" || !slide.previewImageUrl ? "w-full" : "ml-auto w-[80%] sm:w-1/2"
                 }`}
               >
                 {renderStripeTwoSlideBody(slide)}
