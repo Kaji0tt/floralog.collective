@@ -1416,7 +1416,17 @@ export default function Scanner() {
           }}
         />
         <div className="absolute inset-0 backdrop-blur-3xl" />
-        <div className="relative z-10 flex flex-col items-center justify-center w-full h-full text-stone-100" style={{minHeight:'100dvh',height:'100dvh',width:'100vw',overflow:'auto'}}>
+        <div
+          className="relative z-10 flex flex-col items-center justify-center w-full h-full text-stone-100"
+          style={{
+            minHeight: '100dvh',
+            height: '100dvh',
+            width: '100vw',
+            overflow: 'auto',
+            paddingTop: 'env(safe-area-inset-top, 0px)',
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          }}
+        >
           <motion.div
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}

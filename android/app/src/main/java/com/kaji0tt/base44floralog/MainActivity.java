@@ -2,7 +2,9 @@ package de.floralog.app;
 
 import com.getcapacitor.BridgeActivity;
 import android.os.Bundle;
+import android.graphics.Color;
 import android.util.Log;
+import androidx.core.view.WindowCompat;
 import java.io.File;
 import com.base44.floralog.ota.OtaUpdateChecker;
 
@@ -16,6 +18,13 @@ public class MainActivity extends BridgeActivity {
 		registerPlugin(OtaUpdatePlugin.class);
 
 		super.onCreate(savedInstanceState);
+
+		// Edge-to-Edge: WebView rendert hinter Status- und Navigationsleiste.
+		// CSS env(safe-area-inset-*) (siehe #root in index.css) übernimmt das Padding.
+		// Deterministisch über alle API-Level inkl. Android 15+ (API 35).
+		WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+		getWindow().setStatusBarColor(Color.TRANSPARENT);
+		getWindow().setNavigationBarColor(Color.TRANSPARENT);
 
 		// Apply a previously staged OTA bundle so the WebView loads from it
 		OtaManager otaManager = new OtaManager(this);

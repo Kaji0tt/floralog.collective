@@ -1485,7 +1485,7 @@ export default function GuestHomeFlow() {
       </AnimatePresence>
 
       <div
-        className={`fixed bottom-0 inset-x-0 z-[130] flex flex-col items-center justify-center py-4 transition-all duration-200 ${isKeyboardOpen ? "opacity-0 pointer-events-none translate-y-4" : "opacity-100"}`}
+        className={`fixed bottom-0 inset-x-0 z-[130] flex flex-col items-center justify-center py-4 pb-[max(1rem,env(safe-area-inset-bottom))] transition-all duration-200 ${isKeyboardOpen ? "opacity-0 pointer-events-none translate-y-4" : "opacity-100"}`}
       >
         {/* APK update banner – shown when a newer APK is available (soft, non-forced) */}
         {apkUpdateManifest && !apkBannerDismissed && (

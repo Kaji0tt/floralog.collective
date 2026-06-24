@@ -7,7 +7,9 @@ const config: CapacitorConfig = {
   plugins: {
     StatusBar: {
       style: 'DARK',
-      backgroundColor: '#141a12',
+      // Edge-to-Edge: WebView rendert hinter den System-Bars.
+      // Safe-Areas werden app-weit via CSS env(safe-area-inset-*) in #root kompensiert.
+      // Kein backgroundColor im Overlay-Modus (wäre wirkungslos/irreführend).
       overlaysWebView: true
     }
   }
