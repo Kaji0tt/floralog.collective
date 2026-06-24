@@ -555,7 +555,7 @@ export default function HomeFlorabotOverlay({
         <button
           type="button"
           aria-label={tooltipCopy.aria.watering}
-          className={`${isLightUi ? "text-stone-500" : "text-stone-400"} text-[10px] font-medium underline decoration-dotted underline-offset-2`}
+          className={`${isLightUi ? "text-stone-500" : "text-stone-400"} text-[10px] font-medium`}
         >
           Pflege: {safeWateringCountToday} / {safeWateringLimitPerDay}
         </button>
@@ -633,7 +633,7 @@ export default function HomeFlorabotOverlay({
                                 <button
                                   type="button"
                                   aria-label={`${stat.label} ${tooltipCopy.aria.stat}`}
-                                  className={`font-medium underline decoration-dotted underline-offset-2 ${isLightUi ? "text-stone-700" : "text-stone-200"}`}
+                                  className={`font-medium ${isLightUi ? "text-stone-700" : "text-stone-200"}`}
                                 >
                                   {stat.label}
                                 </button>

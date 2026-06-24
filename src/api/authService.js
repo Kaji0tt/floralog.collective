@@ -1,7 +1,23 @@
 // Supabase Auth Service
 import { supabase } from './supabaseClient';
+import { resolveReferralEmail } from '@/lib/referralCode';
 
 const baseUserProxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/baseUserProxy`;
+
+/**
+ * Resolve the referrer email from a referral code stored in localStorage.
+ * Returns null when no (valid) referral code is present.
+ */
+const resolveStoredReferrerEmail = () => {
+  try {
+    if (typeof localStorage === 'undefined') return null;
+    const referralCode = localStorage.getItem('referral_code');
+    if (!referralCode) return null;
+    return resolveReferralEmail(referralCode) || null;
+  } catch {
+    return null;
+  }
+};
 
 const getAuthRedirectBaseUrl = () => {
   return import.meta.env.VITE_APP_URL || window.location.origin;
@@ -101,16 +117,25 @@ const isMissingAuthSessionError = (error) => {
 export const signUp = async (email, password, displayName) => {
   const trimmedDisplayName = displayName?.trim?.() || '';
 
+  // Bind the referrer permanently to the new auth user via user_metadata.
+  // This survives email confirmation, device/browser switches and app installs,
+  // whereas localStorage alone is fragile.
+  const referrerEmail = resolveStoredReferrerEmail();
+  const signUpMetadata = {
+    display_name: trimmedDisplayName,
+    full_name: trimmedDisplayName,
+    name: trimmedDisplayName
+  };
+  if (referrerEmail && referrerEmail.toLowerCase() !== email?.trim?.().toLowerCase()) {
+    signUpMetadata.referred_by = referrerEmail;
+  }
+
   try {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: {
-          display_name: trimmedDisplayName,
-          full_name: trimmedDisplayName,
-          name: trimmedDisplayName
-        },
+        data: signUpMetadata,
         emailRedirectTo: `${getAuthRedirectBaseUrl()}/login`
       }
     });

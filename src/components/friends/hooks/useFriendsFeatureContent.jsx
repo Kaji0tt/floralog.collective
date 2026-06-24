@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { UserPlus, Users, Loader2, Check, X, Bell, UserMinus, Leaf, Trophy, Share2, Plus, Heart, UserCheck, BookOpenText, Clock, Newspaper, Send, ChevronDown } from "lucide-react";
+import { UserPlus, Users, Loader2, Check, X, Bell, UserMinus, Leaf, Trophy, Share2, Plus, Heart, UserCheck, BookOpenText, Clock, Newspaper, Send, ChevronDown, Handshake } from "lucide-react";
 import { motion } from "framer-motion";
 import { checkAndUnlockAchievements } from "@/components/achievements/achievementChecker";
 import AchievementNotification from "@/components/achievements/AchievementNotification";
@@ -180,6 +180,14 @@ export function useFriendsFeatureContent({
     queryKey: ['allPublicProfiles'],
     queryFn: () => Query.PublicProfile.list(),
     staleTime: 30000 // 30 Sekunden Cache
+  });
+
+  // Referrals, bei denen der aktuelle User der Werber ist (für Handshake-Markierung)
+  const { data: myReferrals = [] } = useQuery({
+    queryKey: ['myReferrals', user?.email],
+    queryFn: () => Query.Referral.list(),
+    enabled: !!user?.email,
+    staleTime: 60000 // 1 Minute Cache
   });
 
   const normalizedRole = (value) => String(value || '').trim().toLowerCase();
@@ -1030,6 +1038,18 @@ Viel Spaß beim Entdecken! 🌿`;
   };
 
   // Helper: Hole Freundesdaten
+  // E-Mails der Spieler, die der aktuelle User selbst eingeladen (geworben) hat
+  const invitedEmailSet = useMemo(() => {
+    const ownEmail = user?.email?.toLowerCase() || "";
+    if (!ownEmail) return new Set();
+    return new Set(
+      (myReferrals || [])
+        .filter((referral) => String(referral?.referrer_email || "").trim().toLowerCase() === ownEmail)
+        .map((referral) => String(referral?.referred_email || "").trim().toLowerCase())
+        .filter(Boolean)
+    );
+  }, [myReferrals, user?.email]);
+
   const getFriendData = (friendEntry) => {
     if (!user || !user.email) return null;
 
@@ -1058,7 +1078,8 @@ Viel Spaß beim Entdecken! 🌿`;
       logoAssets: resolveEquippedLogoAssetsWithCatalog(friendProfile || friendUser || {}, logoAssets),
       level: friendProfile?.level || friendUser?.level || 1,
       title: friendProfile?.selected_title || friendProfile?.title || friendUser?.selected_title || friendUser?.title || "Pflanzen-Anfänger",
-      lastActivity
+      lastActivity,
+      invitedByMe: invitedEmailSet.has(String(friendEmail || "").trim().toLowerCase())
     };
   };
 
@@ -1991,6 +2012,15 @@ Viel Spaß beim Entdecken! 🌿`;
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 min-w-0">
                               <p className={`font-semibold truncate ${titleTextClass}`}>{friendData.name}</p>
+                              {friendData.invitedByMe && (
+                                <span
+                                  title="Von dir eingeladen"
+                                  aria-label="Von dir eingeladen"
+                                  className={`flex-shrink-0 inline-flex items-center justify-center ${isLightUi ? "text-emerald-600" : "text-emerald-300"}`}
+                                >
+                                  <Handshake className="w-4 h-4" />
+                                </span>
+                              )}
                             </div>
                             <p className={`text-xs truncate ${bodyTextClass}`}>{friendData.email}</p>
                             {friendData.lastActivity && (

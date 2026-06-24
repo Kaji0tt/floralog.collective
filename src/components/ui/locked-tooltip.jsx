@@ -84,7 +84,7 @@ const LockedTooltip = ({ children, content, unstyled = false, contentClassName =
       <Tooltip open={open} onOpenChange={handleOpenChange}>
         <TooltipTrigger asChild>{enhancedChild}</TooltipTrigger>
         <TooltipContent
-          className="max-w-xs whitespace-normal break-words border-0 bg-transparent p-0 shadow-none"
+          className="z-[250] max-w-xs whitespace-normal break-words border-0 bg-transparent p-0 shadow-none"
           collisionPadding={8}
         >
           {renderedContent}

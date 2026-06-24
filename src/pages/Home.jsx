@@ -250,7 +250,6 @@ function HomeContent() {
   const healthStatsPanelRef = useRef(null);
   const [heroStageSizePx, setHeroStageSizePx] = useState(0);
   const [heroMapInstance, setHeroMapInstance] = useState(null);
-  const [showDebugZonePanel, setShowDebugZonePanel] = useState(false);
   const [bugReportDialogOpen, setBugReportDialogOpen] = useState(false);
   const [showFlorabotIntro, setShowFlorabotIntro] = useState(false);
   const [activeMilestone, setActiveMilestone] = useState(null);
@@ -1036,28 +1035,48 @@ function HomeContent() {
   // Referral-Code aus localStorage verarbeiten, sobald User eingeloggt ist (einmalig)
   useEffect(() => {
     if (!user?.email) return;
+
     const referralCode = localStorage.getItem('referral_code');
-    if (!referralCode) return;
+    const referrerEmailFromCode = referralCode ? resolveReferralEmail(referralCode) : null;
 
-    const referrerEmail = resolveReferralEmail(referralCode);
-    // Sofort löschen, um doppelte Verarbeitung zu verhindern
-    localStorage.removeItem('referral_code');
+    // Robuste Quelle: beim Signup wurde der Werber dauerhaft in user_metadata.referred_by
+    // gebunden. Dieser Wert überlebt E-Mail-Bestätigung, Geräte-/Browser-Wechsel und App-Installation.
+    const referrerEmailFromMetadata = String(user?.user_metadata?.referred_by || '').trim() || null;
 
-    if (!referrerEmail) return;
+    // localStorage sofort löschen, um doppelte Verarbeitung zu verhindern
+    if (referralCode) localStorage.removeItem('referral_code');
 
-    if (referrerEmail.toLowerCase() === user.email.toLowerCase()) return;
+    const hasLocalReferrer = Boolean(
+      referrerEmailFromCode && referrerEmailFromCode.toLowerCase() !== user.email.toLowerCase()
+    );
+    const hasMetadataReferrer = Boolean(
+      referrerEmailFromMetadata && referrerEmailFromMetadata.toLowerCase() !== user.email.toLowerCase()
+    );
+
+    if (!hasLocalReferrer && !hasMetadataReferrer) return;
+
+    // Einmal pro User die serverseitige Verknüpfung anstoßen. Der Edge-Endpunkt ist
+    // idempotent; das Flag verhindert nur unnötige Aufrufe bei jedem Login.
+    const connectedFlagKey = `referral_connected:${user.email.toLowerCase()}`;
+    if (!hasLocalReferrer && localStorage.getItem(connectedFlagKey) === '1') return;
 
     (async () => {
       try {
-        // Erstellt/aktualisiert Referral inkl. Account-Referenz und verbindet beide Accounts.
-        await connectViaReferral(referrerEmail);
-        queryClient.invalidateQueries({ queryKey: ['referralsForStoryUnlock', referrerEmail] });
+        // Bei vorhandenem localStorage-Code diesen mitgeben, sonst löst das Backend
+        // den Werber aus user_metadata.referred_by auf.
+        await connectViaReferral(hasLocalReferrer ? referrerEmailFromCode : null);
+        try { localStorage.setItem(connectedFlagKey, '1'); } catch (_storageError) { /* ignore */ }
+        const invalidateEmail = hasLocalReferrer ? referrerEmailFromCode : referrerEmailFromMetadata;
+        if (invalidateEmail) {
+          queryClient.invalidateQueries({ queryKey: ['referralsForStoryUnlock', invalidateEmail] });
+        }
         queryClient.invalidateQueries({ queryKey: ['pendingFriendRequests'] });
+        queryClient.invalidateQueries({ queryKey: ['myReferrals'] });
       } catch (_e) {
         // Duplikat oder bereits bestehende Verknüpfung ignorieren
       }
     })();
-  }, [user?.email, queryClient]);
+  }, [user?.email, user?.user_metadata?.referred_by, queryClient]);
 
   useEffect(() => {
     if (!user?.email) return;
@@ -3674,16 +3693,12 @@ function HomeContent() {
                     onMapReady={setHeroMapInstance}
                     heroMapInstance={heroMapInstance}
                     authId={user?.id}
-                    isAdminUser={isAdminUser}
-                    showDebugZonePanel={showDebugZonePanel}
-                    onDebugZonePanelChange={setShowDebugZonePanel}
                     onClose={() => setActivePanel(null)}
                     onRegenerateZones={handleRegenerateZones}
                     canRegenerateZones={hasCalledZoneGenerationToday && !isLoadingZone && (isAdminUser || zoneRerollsRemaining !== 0)}
                     isRegeneratingZones={isRegeneratingZones}
                     zoneRerollsRemaining={zoneRerollsRemaining}
                     allDiscoveryPoints={allDiscoveryPoints}
-                    friendEmailSet={friendEmailSet}
                     discoveryMarkerScale={discoveryMarkerScale}
                     plants={plants}
                   />

@@ -262,9 +262,21 @@ Deno.serve(async (req) => {
     }
 
     if (action === "connectViaReferral") {
-      const referrerEmail = normalizeEmail(body?.referrerEmail);
+      // Resolve the referrer from the request body (legacy localStorage path) and
+      // fall back to the durable user_metadata.referred_by that was bound at signup.
+      // The metadata is the robust source: it survives email confirmation,
+      // device/browser switches and app installs.
+      const metadataReferrer = normalizeEmail(
+        (authData.user.user_metadata as Record<string, unknown> | null)?.["referred_by"] as
+          | string
+          | null
+          | undefined,
+      );
+      const referrerEmail = normalizeEmail(body?.referrerEmail) || metadataReferrer;
       if (!referrerEmail) {
-        return jsonResponse({ error: "referrerEmail is required" }, 400);
+        // Nothing to connect (user has no referrer). Treat as a no-op success so
+        // the client can call this speculatively without producing errors.
+        return jsonResponse({ success: true, connected: false, reason: "no_referrer" }, 200);
       }
 
       if (actorEmail === referrerEmail) {

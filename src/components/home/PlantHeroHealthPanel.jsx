@@ -130,7 +130,7 @@ export default function PlantHeroHealthPanel({
               >
                 <button
                   type="button"
-                  className={`font-semibold uppercase tracking-wide underline decoration-dotted underline-offset-2 ${
+                  className={`font-semibold uppercase tracking-wide ${
                     isLightUi ? "text-stone-800" : "text-stone-50"
                   }`}
                   aria-label="Pflanzenstatus Info"
@@ -160,7 +160,7 @@ export default function PlantHeroHealthPanel({
               >
                 <button
                   type="button"
-                  className="font-semibold uppercase tracking-wide underline decoration-dotted underline-offset-2"
+                  className="font-semibold uppercase tracking-wide"
                   aria-label={`${stat.label} Info`}
                 >
                   {stat.label}

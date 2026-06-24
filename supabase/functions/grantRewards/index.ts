@@ -257,7 +257,10 @@ Deno.serve(async (req) => {
       adminClient.from("Quest").select("id, reward_name"),
       adminClient.from("WeeklyQuest").select("id, reward_name"),
       adminClient.from("MonthlyQuest").select("id, reward_name"),
-      adminClient.from("Referral").select("referred_email, status").eq("referrer_email", userEmail),
+      // Case-insensitive match: referrer_email is normalized to lowercase on write,
+      // but auth user.email casing is not guaranteed. ilike keeps this robust and
+      // is consistent with friendService's referral lookups.
+      adminClient.from("Referral").select("referred_email, status").ilike("referrer_email", userEmail),
     ] as const);
 
     const rewards = (rewardsRes.data || []) as RewardRow[];

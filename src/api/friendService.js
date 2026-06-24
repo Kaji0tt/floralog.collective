@@ -75,11 +75,10 @@ export async function sendPartnerRequest(partnerEmail) {
   return data.friend;
 }
 
-export async function connectViaReferral(referrerEmail) {
-  const normalizedEmail = referrerEmail?.trim?.();
-  if (!normalizedEmail) {
-    throw new Error("Referrer E-Mail fehlt.");
-  }
+export async function connectViaReferral(referrerEmail = null) {
+  // referrerEmail is optional: when omitted, the backend resolves the referrer
+  // from the authenticated user's durable user_metadata.referred_by.
+  const normalizedEmail = referrerEmail?.trim?.() || null;
 
   const data = await invokeFriendService(
     {
