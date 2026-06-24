@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Query } from "@/api/entities";
 import { createUserNotification } from "@/api/notificationService";
+import { buildNotificationPayload } from "@/lib/story/storyDefinition";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1001,9 +1002,7 @@ export function useAchievementsFeatureContent({
             authId: currentUser.id,
             userEmail: currentUser.email,
             notificationType: "custom",
-            title: "🌱 Florabot: Erste Mission abgeschlossen!",
-            message: "Beeindruckend! Deine erste Quest ist in meinen Logs. Jetzt wäre ein guter Zeitpunkt, dein Profil zu personalisieren.",
-            description: "Tippe auf dein Profilbild auf der Startseite und wähle einen Hintergrund aus.",
+            ...buildNotificationPayload("firstQuestCompleted"),
             actionUrl: "Profile",
             priority: "high",
             displayLocation: "modal",

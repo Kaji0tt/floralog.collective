@@ -85,6 +85,7 @@ import {
   pickRandomPhaseAmbientComment,
   interpolatePercentVariables,
   buildStoryProfileVariables,
+  buildNotificationPayload,
 } from "@/lib/story/storyDefinition";
 import { getSeenMilestoneIds, getNextUnseenMilestone, markMilestoneSeen, FLORABOT_MILESTONES } from "@/lib/florabotMilestones";
 
@@ -3098,8 +3099,10 @@ function HomeContent() {
             authId: scannerAuthId || null,
             userEmail: scannerEmail || null,
             notificationType: "scan_liked",
-            title: "🤖 Florabot meldet: Datenpunkt bestätigt!",
-            message: `${user.display_name || user.full_name || user.email} hat deinen Fund${plantName ? ` (${plantName})` : ""} markiert. Diese Daten fließen in meine Datenbank ein!`,
+            ...buildNotificationPayload("scanLiked", {
+              likerName: user.display_name || user.full_name || user.email,
+              plantNameOptional: plantName || "",
+            }),
             actionUrl: `GenusDetail?${actionParams.toString()}`,
             displayLocation: "banner",
             createdBy: user.email,

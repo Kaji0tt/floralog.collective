@@ -2,11 +2,77 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Settings2, HeartPulse, Sparkles, Gem, ArrowLeft } from "lucide-react";
 import { useUiTheme } from "@/lib/UiThemeContext";
+import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import FlorabotOverlayShell from "@/components/florabot/FlorabotOverlayShell";
 import ShopFeatureRoot from "@/components/shop/ShopFeatureRoot";
 
 const PLAYFUL_CARE_ANIMATION_KEYS = Object.freeze(["flip", "squash", "orbit"]);
 const PORTAL_CARE_DEBUG_PREFIX = "[PortalCareDebug]";
+const TOOLTIP_COPY = {
+  de: {
+    sparks: "Funken sind die Ingame-Währung. Du bekommst sie für Teilnahme und aktive Nutzung der App.",
+    amber: "Bernstein ist eine kaufbare Premium-Währung für besondere Inhalte und Vorteile.",
+    status: "Der Pflanzenstatus ist dein Gesamtzustand aus Energie, Datenqualität und Pflege. Ein hoher Status verbessert Belohnungen und stabilisiert deinen täglichen Fortschritt.",
+    watering: "Gießen startet Pflegeaktionen. Tippe mich an, um mit mir zu interagieren. Wer mag das nicht?",
+    stat: {
+      energy: "Energie bekommst du vor allem durch gelaufene Scan-Distanz. Mehr Energie vergrößert deine Zone und verbessert den täglichen Energiegewinn.",
+      "data-quality": "Datenqualität bekommst du durch Scans innerhalb aktiver Zonen. Mehr Datenqualität erhöht die Anzahl deiner täglichen Zonen.",
+      care: "Pflege bekommst du durch Gießen und den ersten Scan des Tages, sowie erhaltene Likes. Mehr Pflege erhöht den Samen-Multiplikator und gewährt zusätzliche Zone-Rerolls.",
+    },
+    aria: {
+      sparks: "Funken Info",
+      amber: "Bernstein Info",
+      status: "Pflanzenstatus Info",
+      watering: "Gießen Info",
+      stat: "Statuswert Info",
+    },
+  },
+  en: {
+    sparks: "Sparks are the in-game currency. You earn them through participation and active app usage.",
+    amber: "Amber is a purchasable premium currency for special content and advantages.",
+    status: "Plant status is your overall state from Energy, Data Quality, and Care. Higher status improves rewards and daily progress stability.",
+    watering: "Watering triggers care actions. Tap the speech bubble or care button while daily attempts are available. More care improves your care value and rewards.",
+    stat: {
+      energy: "You gain Energy mainly from scanned walking distance. More Energy expands your zone and improves daily energy gain.",
+      "data-quality": "You gain Data Quality by scanning within active zones. Higher Data Quality increases your daily zone count.",
+      care: "You gain Care through watering and additional interactions. Higher Care boosts reward multipliers and extra zone rerolls.",
+    },
+    aria: {
+      sparks: "Sparks info",
+      amber: "Amber info",
+      status: "Plant status info",
+      watering: "Watering info",
+      stat: "Status stat info",
+    },
+  },
+};
+
+/** @param {unknown} value */
+const normalizeLanguageCode = (value) => {
+  if (typeof value !== "string") return "";
+  return value.trim().toLowerCase().replace("_", "-");
+};
+
+/** @param {...unknown} values */
+const resolveTooltipLanguage = (...values) => {
+  for (const rawValue of values) {
+    const language = normalizeLanguageCode(rawValue);
+    if (!language) continue;
+    if (language.startsWith("en")) return "en";
+    if (language.startsWith("de")) return "de";
+  }
+  return "de";
+};
+
+/** @param {unknown} source */
+const extractLanguageCandidates = (source) => {
+  if (!source || typeof source !== "object") return [];
+  const record = /** @type {Record<string, unknown>} */ (source);
+  const keys = ["app_language", "preferred_language", "language", "locale"];
+  return keys
+    .map((key) => normalizeLanguageCode(record[key]))
+    .filter(Boolean);
+};
 
 /**
  * @param {EventTarget | null} target
@@ -65,6 +131,12 @@ export default function HomeFlorabotOverlay({
   onClose,
 }) {
   const { isLightUi } = useUiTheme();
+  const tooltipLanguage = resolveTooltipLanguage(
+    ...extractLanguageCandidates(currentUser),
+    ...extractLanguageCandidates(profile),
+    typeof navigator !== "undefined" ? navigator.language : ""
+  );
+  const tooltipCopy = TOOLTIP_COPY[tooltipLanguage] || TOOLTIP_COPY.de;
   const [showHealthDetails, setShowHealthDetails] = useState(false);
   const [isSpeechBubbleVisible, setIsSpeechBubbleVisible] = useState(Boolean(ambientMessage));
   const [isShopOpen, setIsShopOpen] = useState(false);
@@ -425,33 +497,69 @@ export default function HomeFlorabotOverlay({
 
   const currencyLine = (
     <span className="inline-flex items-center gap-3 text-[13px] sm:text-sm font-semibold text-white">
-      <span className="inline-flex items-center gap-1">
-        <Sparkles className="w-4 h-4" />
-        <span>{Math.max(0, Number(playerSparks) || 0)}</span>
-      </span>
+      <LockedTooltip
+        contentClassName={isLightUi ? "" : "text-white/90"}
+        content={<span className="text-xs leading-relaxed">{tooltipCopy.sparks}</span>}
+      >
+        <button
+          type="button"
+          aria-label={tooltipCopy.aria.sparks}
+          className="inline-flex items-center gap-1 rounded-md px-1 py-0.5 -mx-1 -my-0.5 transition-colors hover:bg-white/10"
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>{Math.max(0, Number(playerSparks) || 0)}</span>
+        </button>
+      </LockedTooltip>
       <span className="opacity-70">·</span>
-      <span className="inline-flex items-center gap-1">
-        <Gem className="w-4 h-4" />
-        <span>{Math.max(0, Number(playerAmber) || 0)}</span>
-      </span>
+      <LockedTooltip
+        contentClassName={isLightUi ? "" : "text-white/90"}
+        content={<span className="text-xs leading-relaxed">{tooltipCopy.amber}</span>}
+      >
+        <button
+          type="button"
+          aria-label={tooltipCopy.aria.amber}
+          className="inline-flex items-center gap-1 rounded-md px-1 py-0.5 -mx-1 -my-0.5 transition-colors hover:bg-white/10"
+        >
+          <Gem className="w-4 h-4" />
+          <span>{Math.max(0, Number(playerAmber) || 0)}</span>
+        </button>
+      </LockedTooltip>
     </span>
   );
 
   const healthBadge = (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-      isLightUi ? "bg-emerald-100 text-emerald-700" : "bg-emerald-500/20 text-emerald-300"
-    }`}>
-      <HeartPulse className="w-3.5 h-3.5" />
-      {plantHealthState?.label || "Status unbekannt"}
-    </span>
+    <LockedTooltip
+      contentClassName={isLightUi ? "" : "text-white/90"}
+      content={<span className="text-xs leading-relaxed">{tooltipCopy.status}</span>}
+    >
+      <button
+        type="button"
+        aria-label={tooltipCopy.aria.status}
+        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+          isLightUi ? "bg-emerald-100 text-emerald-700" : "bg-emerald-500/20 text-emerald-300"
+        }`}
+      >
+        <HeartPulse className="w-3.5 h-3.5" />
+        {plantHealthState?.label || "Status unbekannt"}
+      </button>
+    </LockedTooltip>
   );
 
   const healthBadgeWithCare = (
     <div className="flex flex-col items-center gap-1">
       {healthBadge}
-      <span className={`${isLightUi ? "text-stone-500" : "text-stone-400"} text-[10px] font-medium`}>
-        Pflege: {safeWateringCountToday} / {safeWateringLimitPerDay}
-      </span>
+      <LockedTooltip
+        contentClassName={isLightUi ? "" : "text-white/90"}
+        content={<span className="text-xs leading-relaxed">{tooltipCopy.watering}</span>}
+      >
+        <button
+          type="button"
+          aria-label={tooltipCopy.aria.watering}
+          className={`${isLightUi ? "text-stone-500" : "text-stone-400"} text-[10px] font-medium underline decoration-dotted underline-offset-2`}
+        >
+          Pflege: {safeWateringCountToday} / {safeWateringLimitPerDay}
+        </button>
+      </LockedTooltip>
     </div>
   );
 
@@ -514,7 +622,22 @@ export default function HomeFlorabotOverlay({
                         {healthStats.map((stat) => (
                           <div key={stat.id} className={isHealthPanelCompact ? "space-y-0.5" : "space-y-1"}>
                             <div className={`flex items-center justify-between ${isHealthPanelCompact ? "text-[10px]" : "text-[11px]"}`}>
-                              <span className={isLightUi ? "text-stone-700" : "text-stone-200"}>{stat.label}</span>
+                              <LockedTooltip
+                                contentClassName={isLightUi ? "" : "text-white/90"}
+                                content={
+                                  <span className="text-xs leading-relaxed">
+                                    {(/** @type {Record<string, string>} */ (tooltipCopy.stat))[String(stat.id)] || tooltipCopy.status}
+                                  </span>
+                                }
+                              >
+                                <button
+                                  type="button"
+                                  aria-label={`${stat.label} ${tooltipCopy.aria.stat}`}
+                                  className={`font-medium underline decoration-dotted underline-offset-2 ${isLightUi ? "text-stone-700" : "text-stone-200"}`}
+                                >
+                                  {stat.label}
+                                </button>
+                              </LockedTooltip>
                               <span className={isLightUi ? "text-stone-700" : "text-stone-200"}>{stat.value}%</span>
                             </div>
                             <div className={`${isHealthPanelCompact ? "h-1" : "h-1.5"} rounded-full ${isLightUi ? "bg-stone-200" : "bg-white/15"}`}>
@@ -656,7 +779,7 @@ export default function HomeFlorabotOverlay({
                 aria-hidden="true"
               />
             ) : null}
-            <div className="mx-auto w-full max-w-[340px] pointer-events-auto flex flex-col gap-2">
+            <div className="mx-auto w-full max-w-[340px] pointer-events-auto flex flex-col gap-3">
               {isShopOpen ? (
                 <div className="w-full flex gap-2">
                   <button
@@ -717,11 +840,11 @@ export default function HomeFlorabotOverlay({
                 </div>
               )}
 
-              <div className="w-full flex items-center justify-center">
+              <div className="w-full flex items-center justify-center pt-1">
                 <button
                   type="button"
                   onClick={handleCloseOverlay}
-                  className={`text-xs leading-none transition-colors ${
+                  className={`inline-flex min-h-8 items-center justify-center rounded-lg px-3 py-1.5 text-[13px] font-medium leading-none transition-colors ${
                     isLightUi
                       ? "text-stone-400 hover:text-stone-600"
                       : "text-stone-600 hover:text-stone-400"

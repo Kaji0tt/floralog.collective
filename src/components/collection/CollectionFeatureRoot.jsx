@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Query } from "@/api/entities";
 import { createUserNotification, getUserDisplayName } from "@/api/notificationService";
+import { buildNotificationPayload } from "@/lib/story/storyDefinition";
 import { getCurrentUser } from "@/api/userApi";
 import { createPageUrl } from "@/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -283,8 +284,7 @@ export default function CollectionFeatureRoot({
             authId: collection.auth_id,
             userEmail: ownerProfile?.user_email,
             notificationType: "collection_followed",
-            title: "🤖 Florabot meldet: Neue Verbindung!",
-            message: `${followerName} folgt jetzt deiner Kollektion. Deine Daten sind wertvoll für das Netzwerk!`,
+            ...buildNotificationPayload("collectionFollowed", { followerName }),
             description: collection.title || "",
             actionUrl: `Collection?collectionId=${collection.id}`,
             displayLocation: "banner",

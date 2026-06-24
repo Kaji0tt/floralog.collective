@@ -530,11 +530,11 @@ export const STORY_COPY = {
     },
     rewardUnlocked: {
       title: "🌱 Belohnung freigeschaltet!",
-      messageTemplate: "Ausgezeichnete Arbeit! Du hast \"{rewardName}\" freigeschaltet!",
+      messageTemplate: "Ausgezeichnete Arbeit {displayName}! Du hast \"{rewardName}\" freigeschaltet!",
     },
     friendRequestReceived: {
       title: "💌 Incoming Friend Request: Ein neuer Forscher!",
-      messageTemplate: "Hey! {senderName} möchte gemeinsam mit uns die Erde erkunden!",
+      messageTemplate: "Hey! {senderName} möchte unserer Feldforschung folgen!",
     },
     friendshipAccepted: {
       title: "🤝 Netzwerk erweitert!",
@@ -700,5 +700,45 @@ export const pickRandomPhaseAmbientComment = (seedProgress, exclude = []) => {
   return {
     phaseId,
     comment: pool[randomIndex],
+  };
+};
+
+const BRACE_VARIABLE_PATTERN = /\{([A-Za-z0-9_]+)\}/g;
+
+/**
+ * @param {string} text
+ * @param {Record<string, string | number | null | undefined>} variables
+ * @returns {string}
+ */
+const interpolateBraceVariables = (text, variables) => {
+  if (!text) return "";
+  const safeVars = /** @type {Record<string, string | number | null | undefined>} */ (variables || {});
+  return String(text).replace(BRACE_VARIABLE_PATTERN, (fullMatch, key) => {
+    if (!Object.prototype.hasOwnProperty.call(safeVars, key)) return fullMatch;
+    const val = safeVars[key];
+    return val !== null && val !== undefined ? String(val) : "";
+  });
+};
+
+/**
+ * Resolves a push/in-app notification payload from STORY_COPY.notifications.
+ * Placeholders use {varName} syntax.
+ *
+ * @param {string} key - Key in STORY_COPY.notifications
+ * @param {Record<string, string | number | null | undefined>} [variables]
+ * @returns {{ title: string; message: string; description: string }}
+ */
+export const buildNotificationPayload = (key, variables) => {
+  const notificationsMap = /** @type {Record<string, any>} */ (STORY_COPY.notifications);
+  const template = notificationsMap?.[key];
+  if (!template) return { title: "", message: "", description: "" };
+  /** @param {string} text */
+  const interpolate = (text) => interpolateBraceVariables(text || "", variables || {});
+  return {
+    title: interpolate(template.title),
+    message: template.messageTemplate
+      ? interpolate(template.messageTemplate)
+      : interpolate(template.message || ""),
+    description: template.description || "",
   };
 };

@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildOriginDeniedResponse } from "../_shared/origin.ts";
+import { buildNotificationPayload } from "../_shared/notificationCopy.ts";
 
 const BERLIN_TZ = "Europe/Berlin";
 const SLOT_WINDOWS = {
@@ -140,12 +141,13 @@ async function sendQuizNotification(
   userEmail: string | null,
   quizId: string,
 ): Promise<{ sent: boolean; error?: string }> {
+  const notifCopy = buildNotificationPayload("quizAvailable");
   const payload = {
     authId,
     userEmail,
     notificationType: "quiz_available",
-    title: "🤖 Florabot hat ein Quiz für dich!",
-    message: "Meine Datenbank hat eine Lücke gefunden. Kannst du sie schließen? Ein neues Pflanzen-Quiz wartet auf dich.",
+    title: notifCopy.title,
+    message: notifCopy.message,
     actionUrl: "Home?quiz=open",
     displayLocation: "banner",
     priority: "high",

@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildOriginDeniedResponse } from "../_shared/origin.ts";
+import { buildNotificationPayload } from "../_shared/notificationCopy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -378,13 +379,16 @@ Deno.serve(async (req) => {
       unlockedRewardIds.add(reward.id);
 
       try {
+        const rewardNotif = buildNotificationPayload("rewardUnlocked", {
+          rewardName: reward.display_name || reward.name || "eine Belohnung",
+        });
         await createRewardNotification({
           adminClient,
           accessToken,
           authId,
           userEmail,
-          title: "🌱 Florabot-Belohnung freigeschaltet!",
-          message: `Ausgezeichnete Arbeit! Du hast "${reward.display_name || reward.name || "eine Belohnung"}" freigeschaltet!`,
+          title: rewardNotif.title,
+          message: rewardNotif.message,
           imageUrl: reward.image_url || reward.value,
         });
       } catch (notifError) {

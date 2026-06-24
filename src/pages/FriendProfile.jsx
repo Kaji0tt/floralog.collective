@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { Query } from "@/api/entities";
 import { createUserNotification } from "@/api/notificationService";
+import { buildNotificationPayload } from "@/lib/story/storyDefinition";
 import { sendFriendRequest } from "@/api/friendService";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { useFriendData } from "@/components/friends/hooks/useFriendData";
@@ -343,8 +344,7 @@ export default function FriendProfile() {
           authId: friendUser?.auth_id,
           userEmail: friendUser?.user_email || friendEmail,
           notificationType: "friend_request_received",
-          title: "🤖 Florabot entdeckt: neuer Forscher!",
-          message: `${senderName} möchte gemeinsam mit dir die Erde kartieren. Verbindet euch!`,
+          ...buildNotificationPayload("friendRequestReceived", { senderName }),
           actionUrl: "Friends",
           displayLocation: "banner",
           createdBy: currentUser?.email,

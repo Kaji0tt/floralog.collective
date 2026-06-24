@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Query } from "@/api/entities";
 import { createUserNotification } from "@/api/notificationService";
+import { buildNotificationPayload } from "@/lib/story/storyDefinition";
 import { supabase } from "@/api/supabaseClient";
 import { sendFriendRequest, removeFriendship, respondToFriendRequest } from "@/api/friendService";
 import { getCurrentUser } from "@/api/userApi";
@@ -491,8 +492,7 @@ export function useFriendsFeatureContent({
           authId: targetProfile?.auth_id,
           userEmail: targetProfile?.user_email || targetEmail,
           notificationType: "friend_request_received",
-          title: "🤖 Florabot entdeckt: neuer Forscher!",
-          message: `${senderName} möchte gemeinsam mit dir die Erde kartieren. Verbindet euch!`,
+          ...buildNotificationPayload("friendRequestReceived", { senderName }),
           actionUrl: "Friends",
           displayLocation: "banner",
           createdBy: user.email,
@@ -536,8 +536,7 @@ export function useFriendsFeatureContent({
           authId: requesterProfile?.auth_id,
           userEmail: requesterProfile?.user_email || requesterEmail,
           notificationType: "friendship_accepted",
-          title: "🌍 Netzwerk erweitert!",
-          message: `${accepterName} ist jetzt Teil deines Forscherteams. Gemeinsam decken wir mehr ab!`,
+          ...buildNotificationPayload("friendshipAccepted", { accepterName }),
           actionUrl: `FriendProfile?email=${encodeURIComponent(user.email)}`,
           displayLocation: "banner",
           createdBy: user.email
@@ -757,8 +756,10 @@ Viel Spaß beim Entdecken! 🌿`;
             authId: entry.actorAuthId || null,
             userEmail: entry.actorEmail || null,
             notificationType: "scan_liked",
-            title: "🤖 Florabot meldet: Datenpunkt bestätigt!",
-            message: `${likerName} hat deinen Fund${entry.plant?.species_name ? ` (${entry.plant.species_name})` : ""} markiert. Diese Daten fließen in meine Datenbank ein!`,
+            ...buildNotificationPayload("scanLiked", {
+              likerName,
+              plantNameOptional: entry.plant?.species_name || "",
+            }),
             actionUrl: entry.plant?.genus_id
               ? `GenusDetail?${actionParams.toString()}`
               : "Friends?tab=explorer",
