@@ -154,7 +154,9 @@ const SCAN_LIKE_CARE_GAIN_DAILY_CAP = 5;
 const FIRST_SCAN_BASE_CARE_DELTA = 3;
 const FIRST_SCAN_CARE_DELTA_MAX = 10;
 const FIRST_SCAN_CARE_MAX_INACTIVITY_DAYS = 7;
-const CLAIM_THRESHOLD = 4;
+// Minimum scans by one user on a tile to claim it.
+// Lowered from 4 → 3: 3 scans at the same location are sufficient to claim.
+const CLAIM_THRESHOLD = 3;
 const TILE_SIZE_M = 100;
 const EPSG_3035 = "+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +datum=ETRS89 +units=m +no_defs +type=crs";
 
@@ -463,11 +465,15 @@ const resolveTileClaimForScan = async (
     .eq("tile_y", tileY)
     .maybeSingle<TileClaimRow>();
 
+  // Only count scans from Sommer 2026 (ab 21.06.2026) for zone/tile-claim ownership.
+  const SOMMER_2026_CUTOFF = "2026-06-21T00:00:00.000Z";
+
   const { data: allDiscoveries, error: allDiscoveriesError } = await adminClient
     .from("UserPlantDiscovery")
     .select("auth_id, discovery_location")
     .not("discovery_location", "is", null)
-    .not("auth_id", "is", null);
+    .not("auth_id", "is", null)
+    .gte("created_date", SOMMER_2026_CUTOFF);
 
   if (allDiscoveriesError) {
     throw new Error(`Failed to load discoveries for tile claim aggregation: ${allDiscoveriesError.message}`);

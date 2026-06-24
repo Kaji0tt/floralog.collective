@@ -1204,6 +1204,7 @@ export default function ShopFeatureRoot({
   const [shopMessage, setShopMessage] = useState(null);
   const [purchaseConfirmOption, setPurchaseConfirmOption] = useState(null);
   const [purchaseCurrency, setPurchaseCurrency] = useState(null); // "sparks" | "amber" | null
+  const [purchaseDialogStep, setPurchaseDialogStep] = useState("select"); // "select" | "confirm"
   const [selectedOptionForAction, setSelectedOptionForAction] = useState(null);
   const [activeFlorabotSectionKey, setActiveFlorabotSectionKey] = useState(null);
   const [collapsedBackgroundSections, setCollapsedBackgroundSections] = useState({
@@ -1827,6 +1828,8 @@ export default function ShopFeatureRoot({
       if (canBeBought) {
         setShopMessage(null);
         setPurchaseConfirmOption(option);
+        setPurchaseCurrency(null);
+        setPurchaseDialogStep("select");
       } else {
         setShopMessage(option?.unlockCondition || "Dieser Effekt ist noch gesperrt.");
       }
@@ -1846,7 +1849,9 @@ export default function ShopFeatureRoot({
     if (isLocked) {
       if (canBeBought) {
         setShopMessage(null);
-        await purchaseAccessoryMutation.mutateAsync(option);
+        setPurchaseConfirmOption(option);
+        setPurchaseCurrency(null);
+        setPurchaseDialogStep("select");
       } else {
         setShopMessage(option?.unlockCondition || "Dieser Effekt ist noch gesperrt.");
       }
@@ -1911,6 +1916,8 @@ export default function ShopFeatureRoot({
       if (option?.isPurchasable && (Number(option?.sparkPrice || 0) > 0 || Number(option?.amberPrice || 0) > 0)) {
         setShopMessage(null);
         setPurchaseConfirmOption(option);
+        setPurchaseCurrency(null);
+        setPurchaseDialogStep("select");
       } else {
         setShopMessage("Dieses Accessoire ist noch gesperrt.");
       }
@@ -1926,7 +1933,9 @@ export default function ShopFeatureRoot({
     if (option?.isLocked) {
       if (option?.isPurchasable && (Number(option?.sparkPrice || 0) > 0 || Number(option?.amberPrice || 0) > 0)) {
         setShopMessage(null);
-        await purchaseAccessoryMutation.mutateAsync(option);
+        setPurchaseConfirmOption(option);
+        setPurchaseCurrency(null);
+        setPurchaseDialogStep("select");
       } else {
         setShopMessage("Dieses Accessoire ist noch gesperrt.");
       }
@@ -1985,13 +1994,25 @@ export default function ShopFeatureRoot({
   const purchaseDialogSparkPrice = Math.max(0, Number(purchaseConfirmOption?.sparkPrice ?? 0));
   const purchaseDialogAmberPrice = Math.max(0, Number(purchaseConfirmOption?.amberPrice ?? 0));
   const purchaseDialogHasBothPrices = purchaseDialogSparkPrice > 0 && purchaseDialogAmberPrice > 0;
-  // Auto-select currency when only one price is set; default to sparks when both available
+  // Keep currency unset when both prices exist to force an explicit user choice.
   const effectivePurchaseCurrency = purchaseDialogHasBothPrices
-    ? (purchaseCurrency || "sparks")
+    ? purchaseCurrency
     : (purchaseDialogSparkPrice > 0 ? "sparks" : "amber");
+  const hasSelectedPurchaseCurrency = Boolean(effectivePurchaseCurrency);
   const canAffordDialogSparks = availableSparks >= purchaseDialogSparkPrice;
   const canAffordDialogAmber = availableAmber >= purchaseDialogAmberPrice;
-  const canAffordPurchaseDialogOption = effectivePurchaseCurrency === "sparks" ? canAffordDialogSparks : canAffordDialogAmber;
+  const canAffordPurchaseDialogOption = !effectivePurchaseCurrency
+    ? false
+    : (effectivePurchaseCurrency === "sparks" ? canAffordDialogSparks : canAffordDialogAmber);
+  const projectedSparksBalance = effectivePurchaseCurrency === "sparks"
+    ? Math.max(0, availableSparks - purchaseDialogSparkPrice)
+    : availableSparks;
+  const projectedAmberBalance = effectivePurchaseCurrency === "amber"
+    ? Math.max(0, availableAmber - purchaseDialogAmberPrice)
+    : availableAmber;
+  const selectedCurrencyLabel = effectivePurchaseCurrency === "amber" ? "Bernstein" : "Funken";
+  const selectedCurrencyPrice = effectivePurchaseCurrency === "amber" ? purchaseDialogAmberPrice : purchaseDialogSparkPrice;
+  const isPurchaseSafetyStep = purchaseDialogStep === "confirm";
   const resolvedCurrentTitle = resolveTitleValue(resolvedCurrentUser?.selected_title, resolvedCurrentUser?.title) || "Pflanzen-Entdecker";
   const isMutationPending = updateCustomizationMutation.isPending || purchaseAccessoryMutation.isPending;
   const selectedActionRef = React.useRef(null);
@@ -2065,10 +2086,38 @@ export default function ShopFeatureRoot({
     if (purchaseAccessoryMutation.isPending) return;
     setPurchaseConfirmOption(null);
     setPurchaseCurrency(null);
+    setPurchaseDialogStep("select");
+  };
+
+  const handleProceedToPurchaseSafetyStep = () => {
+    if (!purchaseConfirmOption || purchaseAccessoryMutation.isPending) return;
+    if (purchaseDialogHasBothPrices && !purchaseCurrency) {
+      setShopMessage("Bitte wähle zuerst, ob du mit Funken oder Bernstein kaufen möchtest.");
+      return;
+    }
+    if (!canAffordPurchaseDialogOption) {
+      if (effectivePurchaseCurrency === "sparks") {
+        setShopMessage(`Nicht genug Funken. Benötigt: ${purchaseDialogSparkPrice}, verfügbar: ${availableSparks}.`);
+      } else {
+        setShopMessage(`Nicht genug Bernstein. Benötigt: ${purchaseDialogAmberPrice}, verfügbar: ${availableAmber}.`);
+      }
+      return;
+    }
+    setShopMessage(null);
+    setPurchaseDialogStep("confirm");
+  };
+
+  const handleBackToPurchaseSelectionStep = () => {
+    if (purchaseAccessoryMutation.isPending) return;
+    setPurchaseDialogStep("select");
   };
 
   const handleConfirmAccessoryPurchase = async () => {
     if (!purchaseConfirmOption || purchaseAccessoryMutation.isPending) return;
+    if (purchaseDialogHasBothPrices && !purchaseCurrency) {
+      setShopMessage("Bitte wähle zuerst, ob du mit Funken oder Bernstein kaufen möchtest.");
+      return;
+    }
     if (!canAffordPurchaseDialogOption) {
       if (effectivePurchaseCurrency === "sparks") {
         setShopMessage(`Nicht genug Funken. Benötigt: ${purchaseDialogSparkPrice}, verfügbar: ${availableSparks}.`);
@@ -2082,6 +2131,7 @@ export default function ShopFeatureRoot({
       await purchaseAccessoryMutation.mutateAsync({ ...purchaseConfirmOption, paymentCurrency: effectivePurchaseCurrency });
       setPurchaseConfirmOption(null);
       setPurchaseCurrency(null);
+      setPurchaseDialogStep("select");
     } catch {
       // Die Fehlermeldung wird in onError/onSuccess gesetzt.
     }
@@ -2556,7 +2606,7 @@ export default function ShopFeatureRoot({
         <DialogContent className={`max-w-[min(92vw,25rem)] rounded-2xl ${isLightUi ? "border-[#c8ac62]/45 bg-white" : "border-[#f0e5a5]/35 bg-[#1a1d1a]"}`}>
           <DialogHeader>
             <DialogTitle className={`${isLightUi ? "text-stone-900" : "text-stone-100"}`}>
-              Belohnung freischalten?
+              {isPurchaseSafetyStep ? "Kauf bestätigen" : "Belohnung freischalten"}
             </DialogTitle>
           </DialogHeader>
 
@@ -2576,7 +2626,16 @@ export default function ShopFeatureRoot({
             )}
 
             <p className={`text-sm ${isLightUi ? "text-stone-700" : "text-stone-200"}`}>
-              Möchtest du <span className="font-semibold">{purchaseConfirmOption?.label || "diese Belohnung"}</span> freischalten?
+              {isPurchaseSafetyStep ? (
+                <>
+                  Möchtest du <span className="font-semibold">{purchaseConfirmOption?.label || "diese Belohnung"}</span> wirklich mit {" "}
+                  <span className="font-semibold">{selectedCurrencyPrice} {selectedCurrencyLabel}</span> kaufen?
+                </>
+              ) : (
+                <>
+                  Möchtest du <span className="font-semibold">{purchaseConfirmOption?.label || "diese Belohnung"}</span> freischalten?
+                </>
+              )}
             </p>
 
             {purchaseDialogHasBothPrices ? (
@@ -2618,11 +2677,25 @@ export default function ShopFeatureRoot({
               </div>
             )}
 
-            {!canAffordPurchaseDialogOption && (
+            {hasSelectedPurchaseCurrency && !canAffordPurchaseDialogOption && (
               <div className={`rounded-lg border px-3 py-2 text-xs ${isLightUi ? "border-red-200 bg-red-50 text-red-700" : "border-red-500/35 bg-red-900/25 text-red-200"}`}>
-                {effectivePurchaseCurrency === "sparks"
+                {(effectivePurchaseCurrency || "sparks") === "sparks"
                   ? "Du hast nicht genug Funken für diesen Kauf."
                   : "Du hast nicht genug Bernstein für diesen Kauf."}
+              </div>
+            )}
+
+            {isPurchaseSafetyStep && hasSelectedPurchaseCurrency && (
+              <div className={`rounded-lg border px-3 py-2 text-xs space-y-1 ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50 text-stone-700" : "border-[#f0e5a5]/25 bg-black/25 text-stone-200"}`}>
+                <p className="font-medium text-[11px] uppercase tracking-wide opacity-70">Kontostand nach dem Kauf</p>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1"><Sparkles className="w-3 h-3 opacity-80" /> Funken</span>
+                  <span className="font-semibold">{projectedSparksBalance}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1"><span className="text-[11px]">🔸</span> Bernstein</span>
+                  <span className="font-semibold">{projectedAmberBalance}</span>
+                </div>
               </div>
             )}
 
@@ -2630,18 +2703,20 @@ export default function ShopFeatureRoot({
               <button
                 type="button"
                 disabled={purchaseAccessoryMutation.isPending}
-                onClick={handleClosePurchaseDialog}
+                onClick={isPurchaseSafetyStep ? handleBackToPurchaseSelectionStep : handleClosePurchaseDialog}
                 className={`h-9 rounded-lg border px-3 text-xs font-semibold whitespace-nowrap disabled:opacity-60 ${isLightUi ? "border-[#c8ac62]/45 bg-white/70 text-stone-700 hover:bg-white" : "border-[#f0e5a5]/25 bg-black/30 text-stone-200 hover:bg-black/50"}`}
               >
-                Abbrechen
+                {isPurchaseSafetyStep ? "Zurück" : "Abbrechen"}
               </button>
               <button
                 type="button"
-                disabled={purchaseAccessoryMutation.isPending || !canAffordPurchaseDialogOption}
-                onClick={handleConfirmAccessoryPurchase}
+                disabled={purchaseAccessoryMutation.isPending || (isPurchaseSafetyStep ? !canAffordPurchaseDialogOption : (!hasSelectedPurchaseCurrency || !canAffordPurchaseDialogOption))}
+                onClick={isPurchaseSafetyStep ? handleConfirmAccessoryPurchase : handleProceedToPurchaseSafetyStep}
                 className={`h-9 rounded-lg border px-3 text-xs font-semibold whitespace-nowrap disabled:opacity-60 ${isLightUi ? "border-[#c8ac62]/50 bg-[#f4e7bf] text-stone-800 hover:bg-[#f7edd0]" : "border-[#f0e5a5]/40 bg-[#4f4826] text-[#f7f0c1] hover:bg-[#5a512b]"}`}
               >
-                {purchaseAccessoryMutation.isPending ? "Kaufe..." : "Freischalten"}
+                {purchaseAccessoryMutation.isPending
+                  ? "Kaufe..."
+                  : (isPurchaseSafetyStep ? "Jetzt kaufen" : "Weiter")}
               </button>
             </div>
           </div>

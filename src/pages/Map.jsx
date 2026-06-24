@@ -6,8 +6,10 @@ import { useQuery } from "@tanstack/react-query";
 import { getTileClaims } from "@/api/tileClaimService";
 import MapboxZoneMap from "@/components/map/MapboxZoneMap";
 import { parseDiscoveryCoordinates } from "@/lib/discoveryMap";
-import { cacheLocation, requestCurrentLocation } from "@/lib/locationSync";
-import { AlertCircle, Loader2, MapPin, Navigation } from "lucide-react";
+import { cacheLocation, getCachedLocation, requestCurrentLocation } from "@/lib/locationSync";
+import { getRobotPlantDailyZones } from "@/api/robotPlantService";
+import { useAuth } from "@/lib/AuthContext";
+import { AlertCircle, ChevronDown, Loader2, Navigation, RefreshCw } from "lucide-react";
 import MobileBackButton from "../components/navigation/MobileBackButton";
 
 const AnyMapboxZoneMap = /** @type {any} */ (MapboxZoneMap);
@@ -26,6 +28,38 @@ export default function Map() {
   const [locationReady, setLocationReady] = useState(false);
   const [claimsCenterLat, setClaimsCenterLat] = useState(null);
   const [claimsCenterLng, setClaimsCenterLng] = useState(null);
+  const [mapTimeFilter, setMapTimeFilter] = useState("all-time");
+  const [heroZones, setHeroZones] = useState([]);
+  const [zoneRerollsRemaining, setZoneRerollsRemaining] = useState(null);
+  const [isLoadingZone, setIsLoadingZone] = useState(false);
+  const [isRegeneratingZones, setIsRegeneratingZones] = useState(false);
+
+  const SOMMER_2026_CUTOFF = "2026-06-21";
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const getDailyZoneStorageKey = (uid) => `robotPlantDailyZones:${uid}:${todayKey}`;
+
+  const persistDailyZoneSnapshot = (uid, zones, rerollsRemainingToday) => {
+    if (!uid) return;
+    localStorage.setItem(
+      getDailyZoneStorageKey(uid),
+      JSON.stringify({ zones: Array.isArray(zones) ? zones : [], rerollsRemainingToday: rerollsRemainingToday ?? null }),
+    );
+  };
+
+  const readDailyZoneSnapshot = (uid) => {
+    if (!uid) return null;
+    try {
+      const raw = localStorage.getItem(getDailyZoneStorageKey(uid));
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed?.zones)) return null;
+      return { zones: parsed.zones, rerollsRemainingToday: parsed.rerollsRemainingToday ?? null };
+    } catch {
+      return null;
+    }
+  };
+
+  const { zoneGenerationDay, hasCalledZoneGenerationToday, setZoneGenerationDayForUser } = useAuth();
 
   useEffect(() => {
     const loadUser = async () => {
@@ -43,9 +77,24 @@ export default function Map() {
     refetchOnWindowFocus: false,
   });
 
+  const filteredDiscoveries = useMemo(() => {
+    if (mapTimeFilter === "all-time") return allDiscoveries;
+    if (mapTimeFilter === "sommer2026") {
+      return allDiscoveries.filter((d) => {
+        const date = d.created_date || d.discovered_date;
+        return date && date >= SOMMER_2026_CUTOFF;
+      });
+    }
+    // legacy: scans before 21.06.2026
+    return allDiscoveries.filter((d) => {
+      const date = d.created_date || d.discovered_date;
+      return !date || date < SOMMER_2026_CUTOFF;
+    });
+  }, [allDiscoveries, mapTimeFilter, SOMMER_2026_CUTOFF]);
+
   const discoveryPoints = useMemo(
-    () => allDiscoveries.map((entry) => parseDiscoveryCoordinates(entry?.discovery_location)).filter(Boolean),
-    [allDiscoveries]
+    () => filteredDiscoveries.map((entry) => parseDiscoveryCoordinates(entry?.discovery_location)).filter(Boolean),
+    [filteredDiscoveries]
   );
 
   const { data: claimedTiles = [], error: tileClaimsError, isLoading: isTileClaimsLoading } = useQuery({
@@ -68,7 +117,6 @@ export default function Map() {
   const liveLng = Number(userLocation?.lng);
   const hasUserLocation = Number.isFinite(liveLat) && Number.isFinite(liveLng);
   const mapCenter = hasUserLocation ? { lat: liveLat, lng: liveLng } : null;
-  const title = user?.display_name || user?.full_name || "Floralog Karte";
 
   const handleGetLocation = async () => {
     if (!navigator.geolocation) {
@@ -127,36 +175,95 @@ export default function Map() {
     handleGetLocation();
   }, []);
 
+  // Zone loading
+  useEffect(() => {
+    let isCancelled = false;
+    if (!user?.id) return;
+
+    const loadZones = async () => {
+      // Try cached snapshot first
+      if (hasCalledZoneGenerationToday) {
+        const snapshot = readDailyZoneSnapshot(user.id);
+        if (snapshot) {
+          if (!isCancelled) {
+            setHeroZones(snapshot.zones);
+            if (snapshot.rerollsRemainingToday !== null) setZoneRerollsRemaining(snapshot.rerollsRemainingToday);
+          }
+          return;
+        }
+      }
+
+      // Wait for location before calling the API
+      const location = getCachedLocation({ maxAgeMs: 5 * 60 * 1000 }) ||
+        (userLocation?.lat && userLocation?.lng ? { lat: userLocation.lat, lng: userLocation.lng } : null);
+      if (!location) return;
+
+      if (!isCancelled) setIsLoadingZone(true);
+      try {
+        const authDayKeyForRequest = zoneGenerationDay || todayKey;
+        const daily = await getRobotPlantDailyZones({
+          latitude: location.lat,
+          longitude: location.lng,
+          authDayKey: authDayKeyForRequest,
+          mode: "initial",
+        });
+        if (isCancelled) return;
+        setZoneGenerationDayForUser(todayKey);
+        persistDailyZoneSnapshot(user.id, daily?.zones || [], daily?.rerollsRemainingToday ?? null);
+        setHeroZones(daily?.zones || []);
+        if (daily?.rerollsRemainingToday != null) setZoneRerollsRemaining(daily.rerollsRemainingToday);
+      } catch (err) {
+        if (!isCancelled) console.warn("[Map] Zone load failed:", err?.message);
+      } finally {
+        if (!isCancelled) setIsLoadingZone(false);
+      }
+    };
+
+    loadZones();
+    return () => { isCancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, locationReady, hasCalledZoneGenerationToday]);
+
+  const handleRegenerateZones = async () => {
+    if (isRegeneratingZones || !user?.id || !hasCalledZoneGenerationToday) return;
+    setIsRegeneratingZones(true);
+    try {
+      const location = await requestCurrentLocation({ enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+      if (!Number.isFinite(location?.lat) || !Number.isFinite(location?.lng)) throw new Error("Standort fehlt.");
+      cacheLocation(location);
+      const authDayKeyForRequest = zoneGenerationDay || todayKey;
+      const daily = await getRobotPlantDailyZones({
+        latitude: location.lat,
+        longitude: location.lng,
+        forceRegenerate: true,
+        authDayKey: authDayKeyForRequest,
+        mode: "reroll",
+      });
+      setZoneGenerationDayForUser(todayKey);
+      persistDailyZoneSnapshot(user.id, daily?.zones || [], daily?.rerollsRemainingToday ?? null);
+      setHeroZones(daily?.zones || []);
+      if (daily?.rerollsRemainingToday != null) setZoneRerollsRemaining(daily.rerollsRemainingToday);
+    } catch (err) {
+      console.warn("[Map] Reroll failed:", err?.message);
+      const nextRemaining = Number.isFinite(Number(err?.rerollsRemainingToday))
+        ? Math.max(0, Number(err.rerollsRemainingToday))
+        : (err?.rateLimited ? 0 : null);
+      if (nextRemaining !== null) {
+        setZoneRerollsRemaining(nextRemaining);
+        persistDailyZoneSnapshot(user.id, heroZones, nextRemaining);
+      }
+    } finally {
+      setIsRegeneratingZones(false);
+    }
+  };
+
+  const canReroll = hasCalledZoneGenerationToday && !isLoadingZone && zoneRerollsRemaining !== 0;
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(52,211,153,0.14),_transparent_38%),linear-gradient(180deg,_#122015_0%,_#0a120d_100%)] text-stone-100">
       <div className="relative min-h-screen overflow-hidden px-4 py-4 md:px-6 md:py-6">
-        <div className="mx-auto flex min-h-[calc(100vh-2rem)] max-w-6xl flex-col overflow-hidden rounded-[2rem] border border-[#d7cf9c]/35 bg-black/25 shadow-[0_20px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-          <div className="border-b border-[#f0e5a5]/20 bg-black/20 px-5 py-4 md:px-6 md:py-5">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="space-y-1">
-                <p className="text-xs uppercase tracking-[0.22em] text-lime-300/80">Mapbox</p>
-                <h1 className="text-2xl font-semibold text-stone-100">{title}</h1>
-                <p className="text-sm text-stone-300">Aktuelle Entdeckungen werden als Mapbox-Punkte gerendert. Die Kartenansicht nutzt jetzt nur noch die gemeinsame Mapbox-Komponente.</p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="rounded-xl border border-[#f0e5a5]/25 bg-black/25 px-3 py-2 text-xs font-medium text-stone-200">
-                  Funde: {discoveryPoints.length}
-                </div>
-                <button
-                  type="button"
-                  onClick={handleGetLocation}
-                  disabled={gettingLocation}
-                  className="rounded-xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 text-white hover:brightness-110"
-                >
-                  {gettingLocation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Navigation className="mr-2 h-4 w-4" />}
-                  Standort zentrieren
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="relative flex-1 min-h-[70vh]">
+        <div className="mx-auto min-h-[calc(100vh-2rem)] max-w-6xl overflow-hidden rounded-[2rem] border border-[#d7cf9c]/35 bg-black/25 shadow-[0_20px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+          <div className="relative min-h-[calc(100vh-2rem)]">
             {gettingLocation ? (
               <div className="absolute inset-0 flex items-center justify-center bg-black/25">
                 <div className="flex items-center gap-3 rounded-2xl border border-[#f0e5a5]/25 bg-black/35 px-4 py-3 text-sm text-stone-200">
@@ -194,7 +301,7 @@ export default function Map() {
               </div>
             ) : (
               <AnyMapboxZoneMap
-                zones={[]}
+                zones={heroZones}
                 userLocation={hasUserLocation ? mapCenter : null}
                 fallbackCenter={mapCenter}
                 discoveryPoints={discoveryPoints}
@@ -207,11 +314,45 @@ export default function Map() {
             <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/55 to-transparent" />
 
             <div className="absolute left-4 top-4 z-[1200] flex flex-col gap-2 md:left-6 md:top-6">
-              <div className="rounded-xl border border-[#f0e5a5]/30 bg-black/55 px-3 py-2 text-xs font-semibold text-stone-100 backdrop-blur-sm">
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-lime-300" />
-                  <span>Zentrum: {hasUserLocation ? "Dein Standort" : urlCenter ? "URL-Koordinaten" : "Nicht verfuegbar"}</span>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <select
+                    value={mapTimeFilter}
+                    onChange={(e) => setMapTimeFilter(e.target.value)}
+                    className="appearance-none cursor-pointer rounded-xl border border-[#f0e5a5]/30 bg-black/55 py-2 pl-3 pr-8 text-xs font-semibold text-stone-100 backdrop-blur-sm focus:outline-none focus:ring-1 focus:ring-lime-300/50"
+                  >
+                    <option value="all-time">All Time</option>
+                    <option value="sommer2026">Sommer 2026</option>
+                    <option value="legacy">Legacy</option>
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-300" />
                 </div>
+                <button
+                  type="button"
+                  onClick={handleGetLocation}
+                  disabled={gettingLocation}
+                  className="flex items-center justify-center rounded-xl border border-[#f0e5a5]/30 bg-black/55 p-2 text-stone-100 backdrop-blur-sm hover:bg-black/70 disabled:opacity-60"
+                  title="Standort zentrieren"
+                >
+                  {gettingLocation ? <Loader2 className="h-4 w-4 animate-spin" /> : <Navigation className="h-4 w-4" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRegenerateZones}
+                  disabled={!canReroll || isRegeneratingZones}
+                  className="relative flex items-center gap-1.5 rounded-xl border border-[#f0e5a5]/30 bg-black/55 py-2 pl-2.5 pr-3 text-xs font-semibold text-stone-100 backdrop-blur-sm hover:bg-black/70 disabled:opacity-50"
+                  title="Zonen neu würfeln"
+                >
+                  {isRegeneratingZones
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : <RefreshCw className="h-3.5 w-3.5" />}
+                  <span>Neu</span>
+                  {zoneRerollsRemaining !== null && (
+                    <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full border border-[#f0e5a5]/50 bg-emerald-700/90 px-1 text-[10px] font-bold text-white">
+                      {zoneRerollsRemaining}
+                    </span>
+                  )}
+                </button>
               </div>
 
               {mapError && (

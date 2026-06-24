@@ -1,4 +1,4 @@
-import { Bug, Loader2, Map as MapIcon, RefreshCw, Search, X } from "lucide-react";
+import { Bug, ChevronDown, Loader2, Map as MapIcon, RefreshCw, Search, X } from "lucide-react";
 import { useCallback, useState } from "react";
 import MapboxZoneMap from "@/components/map/MapboxZoneMap";
 import MapPinDetailOverlay from "@/components/map/MapPinDetailOverlay";
@@ -40,6 +40,24 @@ export default function HomeMapFeatureRoot({
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [pinOverlayData, setPinOverlayData] = useState(null);
+  const [mapTimeFilter, setMapTimeFilter] = useState("all-time");
+
+  const SOMMER_2026_CUTOFF = "2026-06-21";
+
+  const applyTimeFilter = (points) => {
+    if (mapTimeFilter === "all-time") return points;
+    if (mapTimeFilter === "sommer2026") {
+      return points.filter((p) => {
+        const d = p.discoveredAt;
+        return d && d >= SOMMER_2026_CUTOFF;
+      });
+    }
+    // legacy: scans before 21.06.2026
+    return points.filter((p) => {
+      const d = p.discoveredAt;
+      return !d || d < SOMMER_2026_CUTOFF;
+    });
+  };
 
   const handlePinSelect = useCallback(({ point, properties, mergedCount, mergedDiscoveryIds }) => {
     // Build logo assets from the point data
@@ -76,14 +94,16 @@ export default function HomeMapFeatureRoot({
   }, [allDiscoveryPoints, plants]);
 
   const trimmedQuery = searchQuery.trim().toLowerCase();
-  const displayedDiscoveryPoints = trimmedQuery
-    ? allDiscoveryPoints.filter((point) => {
-        const nameMatch = point.scannerName.toLowerCase().includes(trimmedQuery);
-        const isFriend = friendEmailSet.has(point.scannerEmail.toLowerCase());
-        const plantMatch = point.plantName.toLowerCase().includes(trimmedQuery);
-        return (nameMatch && isFriend) || plantMatch;
-      })
-    : nearbyDiscoveryPoints;
+  const displayedDiscoveryPoints = applyTimeFilter(
+    trimmedQuery
+      ? allDiscoveryPoints.filter((point) => {
+          const nameMatch = point.scannerName.toLowerCase().includes(trimmedQuery);
+          const isFriend = friendEmailSet.has(point.scannerEmail.toLowerCase());
+          const plantMatch = point.plantName.toLowerCase().includes(trimmedQuery);
+          return (nameMatch && isFriend) || plantMatch;
+        })
+      : nearbyDiscoveryPoints
+  );
   return (
     <section
       className={`relative flex-1 min-h-0 rounded-3xl border overflow-hidden ${
@@ -187,7 +207,7 @@ export default function HomeMapFeatureRoot({
           : "bg-gradient-to-b from-black/60 to-transparent"
       }`} />
 
-      {/* Top bar: stats chip */}
+      {/* Top bar: stats chip + time filter */}
       <div className="absolute left-4 right-4 top-4 z-[1200] flex items-center justify-between gap-2">
         <div className={`rounded-xl border backdrop-blur-sm px-3 py-1.5 text-[11px] md:text-xs font-semibold flex items-center gap-1.5 ${
           isLightUi
@@ -198,6 +218,24 @@ export default function HomeMapFeatureRoot({
           {trimmedQuery
             ? `Funde: ${displayedDiscoveryPoints.length}`
             : `Zonen: ${heroZones.length} | Funde: ${nearbyDiscoveryPoints.length} | Claims: ${claimedTiles?.length || 0}`}
+        </div>
+        <div className="relative">
+          <select
+            value={mapTimeFilter}
+            onChange={(e) => setMapTimeFilter(e.target.value)}
+            className={`appearance-none cursor-pointer rounded-xl border backdrop-blur-sm py-1.5 pl-3 pr-7 text-[11px] md:text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-lime-300/50 ${
+              isLightUi
+                ? "border-[#c8ac62]/50 bg-white/55 text-stone-800"
+                : "border-[#f0e5a5]/35 bg-black/55 text-stone-100"
+            }`}
+          >
+            <option value="all-time">All Time</option>
+            <option value="sommer2026">Sommer 2026</option>
+            <option value="legacy">Legacy</option>
+          </select>
+          <ChevronDown className={`pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 ${
+            isLightUi ? "text-stone-600" : "text-stone-300"
+          }`} />
         </div>
       </div>
 
