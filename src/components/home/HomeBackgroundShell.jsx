@@ -57,7 +57,13 @@ export default function HomeBackgroundShell({
       <div className="absolute inset-0" style={movingBackgroundStyle} />
       <div className={`absolute inset-0 backdrop-blur-3xl ${isLightUi ? "bg-white/15" : ""}`} />
 
-      <div className="relative z-10 h-full w-full p-3 md:p-6 flex items-start justify-center">
+      <div
+        className="relative z-10 h-full w-full px-3 md:px-6 flex items-start justify-center"
+        style={{
+          paddingTop: "max(0.75rem, env(safe-area-inset-top, 0px))",
+          paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0px))",
+        }}
+      >
         {children}
       </div>
 

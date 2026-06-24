@@ -11,9 +11,9 @@
       "type": "SINGLE",
       "filters": [],
       "attributes": [],
-      "versionCode": 7,
-      "versionName": "0.2.5",
-      "outputFile": "floralog-v0.2.5-code7.apk"
+      "versionCode": 12,
+      "versionName": "0.2.10",
+      "outputFile": "floralog-v0.2.10-code12.apk"
     }
   ],
   "elementType": "File",
@@ -22,14 +22,14 @@
       "minApi": 28,
       "maxApi": 30,
       "baselineProfiles": [
-        "baselineProfiles/1/floralog-v0.2.5-code7.dm"
+        "baselineProfiles/1/floralog-v0.2.10-code12.dm"
       ]
     },
     {
       "minApi": 31,
       "maxApi": 2147483647,
       "baselineProfiles": [
-        "baselineProfiles/0/floralog-v0.2.5-code7.dm"
+        "baselineProfiles/0/floralog-v0.2.10-code12.dm"
       ]
     }
   ],
