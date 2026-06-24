@@ -47,7 +47,7 @@ export default function GenusCard({
   const remainingFriendCount = Math.max(0, friendDiscoveryCount - visibleFriendLogos.length);
 
   const getDiscoveryTimestamp = (discovery) => {
-    const raw = discovery?.discovered_date || discovery?.created_date || discovery?.created_at;
+    const raw = discovery?.discovered_date;
     const parsed = raw ? new Date(raw).getTime() : 0;
     return Number.isFinite(parsed) ? parsed : 0;
   };

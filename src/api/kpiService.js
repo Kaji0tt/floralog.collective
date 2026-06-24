@@ -23,7 +23,7 @@ const extractUserKey = (entry) => {
 };
 
 const extractDiscoveryDate = (entry) =>
-  toDate(entry?.created_date || entry?.discovered_date || entry?.updated_date || entry?.created_at);
+  toDate(entry?.discovered_date);
 
 const extractLikeDate = (entry) =>
   toDate(entry?.created_date || entry?.liked_date || entry?.created_at || entry?.updated_date);

@@ -72,7 +72,7 @@ export default function Map() {
 
   const { data: allDiscoveries = [], isLoading } = useQuery({
     queryKey: ["mapDiscoveries"],
-    queryFn: () => Query.UserPlantDiscovery.list("-created_date", 500),
+    queryFn: () => Query.UserPlantDiscovery.list("-discovered_date", 500),
     staleTime: 30 * 1000,
     refetchOnWindowFocus: false,
   });
@@ -81,13 +81,13 @@ export default function Map() {
     if (mapTimeFilter === "all-time") return allDiscoveries;
     if (mapTimeFilter === "sommer2026") {
       return allDiscoveries.filter((d) => {
-        const date = d.created_date || d.discovered_date;
+        const date = d.discovered_date;
         return date && date >= SOMMER_2026_CUTOFF;
       });
     }
     // legacy: scans before 21.06.2026
     return allDiscoveries.filter((d) => {
-      const date = d.created_date || d.discovered_date;
+      const date = d.discovered_date;
       return !date || date < SOMMER_2026_CUTOFF;
     });
   }, [allDiscoveries, mapTimeFilter, SOMMER_2026_CUTOFF]);

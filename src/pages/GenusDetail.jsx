@@ -77,7 +77,7 @@ export default function GenusDetail() {
   const expandedSwipeTriggeredRef = useRef(false);
 
   const getDiscoveryTimestamp = (discovery) => {
-    const raw = discovery?.discovered_date || discovery?.created_date || discovery?.created_at;
+    const raw = discovery?.discovered_date;
     const parsed = raw ? new Date(raw).getTime() : 0;
     return Number.isFinite(parsed) ? parsed : 0;
   };
@@ -786,10 +786,7 @@ export default function GenusDetail() {
     ? likedDiscoveryIdSet.has(activeExpandedDiscovery.id)
     : false;
   const activeExpandedDiscoveryDate = (() => {
-    const rawDate =
-      activeExpandedDiscovery?.created_at ||
-      activeExpandedDiscovery?.created_date ||
-      activeExpandedDiscovery?.discovered_date;
+    const rawDate = activeExpandedDiscovery?.discovered_date;
     if (!rawDate) return null;
     const parsed = new Date(rawDate);
     return Number.isNaN(parsed.getTime()) ? null : parsed;

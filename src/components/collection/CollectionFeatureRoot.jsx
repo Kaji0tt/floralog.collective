@@ -362,7 +362,7 @@ export default function CollectionFeatureRoot({
       genusPlants.some(p => p.id === d.plant_id)
     );
     const lastDiscoveryDate = genusDiscoveries.reduce((latest, d) => {
-      const dateStr = d.created_date || d.discovered_date;
+      const dateStr = d.discovered_date;
       if (!dateStr) return latest;
       const time = new Date(dateStr).getTime();
       return time > latest ? time : latest;

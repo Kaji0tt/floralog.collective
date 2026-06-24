@@ -435,7 +435,7 @@ export function useAchievementsFeatureContent({
 
   const { data: allDiscoveries = [], refetch: refetchAllDiscoveries } = useQuery({
     queryKey: ['allDiscoveries'],
-    queryFn: () => Query.UserPlantDiscovery.list('-created_date', 1500),
+    queryFn: () => Query.UserPlantDiscovery.list('-discovered_date', 1500),
     staleTime: 60 * 1000,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
@@ -1419,7 +1419,7 @@ export function useAchievementsFeatureContent({
   const ownAuthId = user?.id || null;
 
   const discoveryDate = (entry) => {
-    const raw = entry?.created_date || entry?.discovered_date || entry?.updated_date;
+    const raw = entry?.discovered_date;
     if (!raw) return null;
     const parsed = new Date(raw);
     return Number.isNaN(parsed.getTime()) ? null : parsed;

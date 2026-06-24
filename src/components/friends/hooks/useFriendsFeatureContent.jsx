@@ -315,7 +315,7 @@ export function useFriendsFeatureContent({
   const { data: friendActivityDiscoveries = [] } = useQuery({
     queryKey: ['friendActivityDiscoveries'],
     queryFn: async () => {
-      const discoveries = await Query.UserPlantDiscovery.list('-created_date', 600);
+      const discoveries = await Query.UserPlantDiscovery.list('-discovered_date', 600);
       return discoveries;
     },
     enabled: !!user?.email && isFriendsTab,
@@ -839,7 +839,7 @@ Viel Spaß beim Entdecken! 🌿`;
     const validSortedDiscoveries = friendDiscoveries
       .map((d) => ({
         row: d,
-        date: parseActivityDate(d.discovered_date, d.created_date)
+        date: parseActivityDate(d.discovered_date)
       }))
       .filter((x) => x.date)
       .sort((a, b) => b.date - a.date);
@@ -1111,7 +1111,7 @@ Viel Spaß beim Entdecken! 🌿`;
         scanCount: 1,
         likedByCurrentUser: likedDiscoveryIdSet.has(entry.id),
         likeCount: likeCountByDiscoveryId.get(entry.id) || 0,
-        timestamp: new Date(entry.created_date || entry.discovered_date || entry.updated_date || Date.now()),
+        timestamp: new Date(entry.discovered_date || Date.now()),
       };
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps

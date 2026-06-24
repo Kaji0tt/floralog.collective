@@ -658,7 +658,7 @@ function HomeContent() {
     refetch: refetchAllDiscoveries,
   } = useQuery({
     queryKey: ['allDiscoveries'],
-    queryFn: () => Query.UserPlantDiscovery.list('-created_date'),
+    queryFn: () => Query.UserPlantDiscovery.list('-discovered_date'),
     initialData: [],
     staleTime: 60 * 1000,
     refetchOnWindowFocus: true,
@@ -2266,7 +2266,7 @@ function HomeContent() {
         plantId: plant?.id || entry?.plant_id || "",
         genusId: plant?.genus_id || "",
         likedByCurrentUser: likedDiscoveryIdSet.has(entry?.id),
-        discoveredAt: entry?.created_date || entry?.discovered_date || entry?.updated_date || null,
+        discoveredAt: entry?.discovered_date || null,
         scannerLogoBorderUrl: discoveryLogoAssets?.border?.imageUrl || "",
         scannerLogoPlantUrl: discoveryLogoAssets?.plant?.imageUrl || "",
         scannerLogoFaceUrl: discoveryLogoAssets?.face?.imageUrl || "",
@@ -2308,8 +2308,8 @@ function HomeContent() {
   );
 
   const userDiscoveriesSortedByTime = [...(userDiscoveries || [])].sort((a, b) => {
-    const dateA = new Date(a?.created_date || a?.discovered_date || a?.updated_date || 0).getTime();
-    const dateB = new Date(b?.created_date || b?.discovered_date || b?.updated_date || 0).getTime();
+    const dateA = new Date(a?.discovered_date || 0).getTime();
+    const dateB = new Date(b?.discovered_date || 0).getTime();
     return dateA - dateB;
   });
 
@@ -2372,7 +2372,7 @@ function HomeContent() {
   }, {});
 
   const getDiscoveryTimestamp = (discovery) => {
-    const raw = discovery?.discovered_date || discovery?.created_date || discovery?.created_at;
+    const raw = discovery?.discovered_date;
     const parsed = raw ? new Date(raw).getTime() : 0;
     return Number.isFinite(parsed) ? parsed : 0;
   };
@@ -2719,7 +2719,7 @@ function HomeContent() {
   const careMultiplier = computeCareMultiplier(safeCare);
 
   const hasScanToday = userDiscoveries.some((discovery) => {
-    const rawDate = discovery?.created_date || discovery?.discovered_date || discovery?.updated_date;
+    const rawDate = discovery?.discovered_date;
     if (!rawDate) return false;
     const scanDate = new Date(rawDate);
     if (Number.isNaN(scanDate.getTime())) return false;

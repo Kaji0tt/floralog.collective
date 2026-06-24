@@ -102,7 +102,7 @@ export default function KPIAdmin() {
     refetch: refetchDiscoveries,
   } = useQuery({
     queryKey: ["kpiAdminDiscoveries"],
-    queryFn: () => Query.UserPlantDiscovery.listAll("-created_date"),
+    queryFn: () => Query.UserPlantDiscovery.listAll("-discovered_date"),
     enabled: !!isAdmin,
     staleTime: 60 * 1000,
     refetchOnWindowFocus: true,

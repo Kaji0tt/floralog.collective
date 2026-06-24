@@ -473,7 +473,7 @@ const resolveTileClaimForScan = async (
     .select("auth_id, discovery_location")
     .not("discovery_location", "is", null)
     .not("auth_id", "is", null)
-    .gte("created_date", SOMMER_2026_CUTOFF);
+    .gte("discovered_date", SOMMER_2026_CUTOFF);
 
   if (allDiscoveriesError) {
     throw new Error(`Failed to load discoveries for tile claim aggregation: ${allDiscoveriesError.message}`);

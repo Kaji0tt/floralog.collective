@@ -55,8 +55,6 @@ export default function DebugDiscoveries() {
                         {discovery.created_by || "❌ FEHLT"}
                       </span>
                     </p>
-                    <p className="text-sm"><strong>created_date:</strong> {discovery.created_date}</p>
-                    <p className="text-sm"><strong>updated_date:</strong> {discovery.updated_date}</p>
                   </div>
                   
                   <div>
