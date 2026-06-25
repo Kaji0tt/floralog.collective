@@ -29,6 +29,10 @@ export default function FlorabotIntroOverlay({ profile, logoAssets = [], onDismi
     }
   };
 
+  const handleBack = () => {
+    setSlideIndex((i) => Math.max(0, i - 1));
+  };
+
   const currentSlide = introSlides[slideIndex];
 
   return (
@@ -126,19 +130,35 @@ export default function FlorabotIntroOverlay({ profile, logoAssets = [], onDismi
         ))}
       </div>
 
-      {/* CTA button */}
-      <motion.button
-        type="button"
-        onClick={handleNext}
-        className={`mt-6 rounded-2xl px-8 py-3 text-sm font-semibold transition-colors ${
-          isLightUi
-            ? "bg-lime-600 text-white hover:bg-lime-700"
-            : "bg-lime-500/85 text-black hover:bg-lime-400"
-        }`}
-        whileTap={{ scale: 0.96 }}
-      >
-        {isLast ? "Los geht's!" : "Weiter"}
-      </motion.button>
+      {/* Navigation buttons */}
+      <div className="mt-6 flex items-center gap-3">
+        {slideIndex > 0 && (
+          <motion.button
+            type="button"
+            onClick={handleBack}
+            className={`rounded-2xl px-5 py-3 text-sm font-semibold transition-colors ${
+              isLightUi
+                ? "bg-stone-200 text-stone-700 hover:bg-stone-300"
+                : "bg-white/10 text-stone-300 hover:bg-white/20"
+            }`}
+            whileTap={{ scale: 0.96 }}
+          >
+            Zurück
+          </motion.button>
+        )}
+        <motion.button
+          type="button"
+          onClick={handleNext}
+          className={`rounded-2xl px-8 py-3 text-sm font-semibold transition-colors ${
+            isLightUi
+              ? "bg-lime-600 text-white hover:bg-lime-700"
+              : "bg-lime-500/85 text-black hover:bg-lime-400"
+          }`}
+          whileTap={{ scale: 0.96 }}
+        >
+          {isLast ? "Los geht's!" : "Weiter"}
+        </motion.button>
+      </div>
 
       {/* Skip */}
       <button
