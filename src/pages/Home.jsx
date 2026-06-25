@@ -3324,6 +3324,8 @@ function HomeContent() {
               }
 
               setShowFlorabotIntro(false);
+              setActivePanel(null);
+              setShowHealthStatsPanel(false);
             }}
           />
         )}
@@ -3339,6 +3341,8 @@ function HomeContent() {
               const scopedMilestoneId = buildScopedMilestoneId(milestoneScopeKey, milestoneId);
               if (!scopedMilestoneId) {
                 setActiveMilestone(null);
+                setActivePanel(null);
+                setShowHealthStatsPanel(false);
                 return;
               }
               markMilestoneSeen(user?.id, scopedMilestoneId, milestoneScopeKey);
@@ -3368,6 +3372,8 @@ function HomeContent() {
               }
 
               setActiveMilestone(null);
+              setActivePanel(null);
+              setShowHealthStatsPanel(false);
             }}
           />
         )}
