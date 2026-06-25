@@ -542,18 +542,18 @@ export const STORY_COPY = {
     },
     scanLiked: {
       title: "👍 Dein {plantNameOptional} wird gemocht!",
-      messageTemplate: "{likerName} mag deinen {plantNameOptional} Fund! Mega, ich freu mich, wenn jemand unsere Arbeit schätzt!",
+      messageTemplate: "Es kam gerade das Signal rein, dass {likerName} deinen {plantNameOptional} Fund mag!",
     },
     collectionFollowed: {
       title: "🫆 Neuer Follower für deine Kollektion!",
-      messageTemplate: "Sehr gut, {followerName} folgt jetzt einer Kollektion von dir. Du hast einen positiven Einfluss auf die Gemeinschaft!",
+      messageTemplate: "Es sieht so aus, als ob {followerName} jetzt einer Kollektion von dir folgt. Du hast Interesse geweckt!",
     },
     firstQuestCompleted: {
       title: "🪐 Die erste Mission abgeschlossen!",
       message:
-        "Deine erste Quest ist in meinen Logs. Ein kleiner Schritt für die Menscheit, aber ein großer Schritt für uns!",
+        "Deine erste Quest ist in meinen Logs als erfolgreich abgeschlossen vermerkt. {displayName}, herzlichen Glückwunsch!",
       description:
-        "Tippe auf dein Profilbild auf der Startseite und wähle einen Hintergrund aus.",
+        "Tippe auf dein Profilbild auf der Startseite und wähle Anpassen aus, um den neuen Hintergrund zu setzen.",
     },
   },
 };
