@@ -9,7 +9,27 @@ const baseUserProxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/base
  * @returns {string}
  */
 const getErrorMessage = (error) => {
-  return error instanceof Error ? error.message : String(error || 'Unknown error');
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (error && typeof error === 'object') {
+    const record = /** @type {Record<string, unknown>} */ (error);
+    const preferredMessage = [record.message, record.error, record.details, record.hint]
+      .find((value) => typeof value === 'string' && value.trim());
+
+    if (typeof preferredMessage === 'string') {
+      return preferredMessage;
+    }
+
+    try {
+      return JSON.stringify(record);
+    } catch {
+      // Fall through to generic string conversion.
+    }
+  }
+
+  return String(error || 'Unknown error');
 };
 
 const BOT_NAME_STORY_CONTEXT = [

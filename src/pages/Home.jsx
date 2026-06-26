@@ -260,6 +260,8 @@ function HomeContent() {
   const [florabotContextBubble, setFlorabotContextBubble] = useState(null);
   const [userStory, setUserStory] = useState(/** @type {any} */ (null));
   const [storyCreatedThisSession, setStoryCreatedThisSession] = useState(false);
+  const introDismissedThisSessionRef = useRef(false);
+  const dismissedMilestoneIdsRef = useRef(new Set());
 
   const [scanFeedback, setScanFeedback] = useState(null);
   const [showScanFeedback, setShowScanFeedback] = useState(false);
@@ -318,6 +320,11 @@ function HomeContent() {
   );
 
   useEffect(() => {
+    introDismissedThisSessionRef.current = false;
+    dismissedMilestoneIdsRef.current = new Set();
+  }, [user?.id]);
+
+  useEffect(() => {
     try {
       localStorage.setItem(DISCOVERY_MARKER_SCALE_STORAGE_KEY, String(discoveryMarkerScale));
     } catch {
@@ -363,7 +370,9 @@ function HomeContent() {
         setStoryCreatedThisSession(createdNow);
 
         if (nextStory) {
-          setShowFlorabotIntro(nextStory.intro_seen !== true);
+          setShowFlorabotIntro(
+            introDismissedThisSessionRef.current ? false : nextStory.intro_seen !== true
+          );
           return;
         }
       } catch (error) {
@@ -375,9 +384,10 @@ function HomeContent() {
 
       const key = `florabot_intro_seen_v1:${user.id}`;
       try {
-        setShowFlorabotIntro(!localStorage.getItem(key));
+        const shouldShowIntro = !localStorage.getItem(key);
+        setShowFlorabotIntro(introDismissedThisSessionRef.current ? false : shouldShowIntro);
       } catch {
-        setShowFlorabotIntro(true);
+        setShowFlorabotIntro(introDismissedThisSessionRef.current ? false : true);
       }
     };
 
@@ -1821,6 +1831,7 @@ function HomeContent() {
     }
 
     const next = getNextUnseenMilestone(playerSeeds, seenIds);
+    if (next && dismissedMilestoneIdsRef.current.has(next.id)) return;
     if (next) setActiveMilestone(next);
   }, [
     playerSeeds,
@@ -3308,6 +3319,11 @@ function HomeContent() {
             profile={user}
             logoAssets={logoAssets}
             onDismiss={() => {
+              introDismissedThisSessionRef.current = true;
+              setShowFlorabotIntro(false);
+              setActivePanel(null);
+              setShowHealthStatsPanel(false);
+
               try { localStorage.setItem(`florabot_intro_seen_v1:${user?.id}`, "1"); } catch {}
 
               if (user?.id) {
@@ -3322,10 +3338,6 @@ function HomeContent() {
                     console.warn("[Home] Could not persist intro_seen:", error?.message || error);
                   });
               }
-
-              setShowFlorabotIntro(false);
-              setActivePanel(null);
-              setShowHealthStatsPanel(false);
             }}
           />
         )}
@@ -3338,6 +3350,11 @@ function HomeContent() {
             profile={user}
             logoAssets={logoAssets}
             onDismiss={(milestoneId) => {
+              const normalizedMilestoneId = String(milestoneId || "").trim();
+              if (normalizedMilestoneId) {
+                dismissedMilestoneIdsRef.current.add(normalizedMilestoneId);
+              }
+
               const scopedMilestoneId = buildScopedMilestoneId(milestoneScopeKey, milestoneId);
               if (!scopedMilestoneId) {
                 setActiveMilestone(null);
