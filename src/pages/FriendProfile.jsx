@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { Query } from "@/api/entities";
+import { supabase } from "@/api/supabaseClient";
 import { createUserNotification } from "@/api/notificationService";
 import { buildNotificationPayload } from "@/lib/story/storyDefinition";
 import { sendFriendRequest } from "@/api/friendService";
@@ -13,12 +14,154 @@ import FriendAchievementsPanel from "@/components/friends/FriendAchievementsPane
 import FriendFriendsPanel from "@/components/friends/FriendFriendsPanel";
 import { computeOverallPlantHealth, computePlantHealthState } from "@/lib/robotPlantEconomy";
 import { motion, AnimatePresence } from "framer-motion";
-import { Leaf, UserPlus, Clock, Heart, Zap } from "lucide-react";
-import PlantHeroHealthPanel from "@/components/home/PlantHeroHealthPanel";
-import { hexToFilter } from "@/lib/hexToFilter";
+import { Leaf, UserPlus, Clock } from "lucide-react";
+import { HomeMilestoneStripe } from "@/components/home/HomeCollectionStripes";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
+import FlorabotLogo from "@/components/florabot/FlorabotLogo";
+import { evaluateProfileBadges, buildSelectedProfileBadges } from "@/lib/profileBadges";
+import { getProfileBadgeIconComponent } from "@/lib/profileBadgeIcons";
+import { LockedTooltip } from "@/components/ui/locked-tooltip";
 
 const VALID_FRIEND_TABS = ["profile", "collection", "achievements", "friends"];
+
+const PET_DAILY_LIMIT = 1;
+
+const FRIEND_HEALTH_STAT_COLORS = {
+  energy: "#f97316",
+  "data-quality": "#06b6d4",
+  care: "#22c55e",
+};
+
+const FRIEND_HEALTH_STAT_LABELS = {
+  energy: "Energie",
+  "data-quality": "Daten",
+  care: "Pflege",
+};
+
+const BADGE_RANK_ICON_STYLE = {
+  gray: "text-[#9ca3af]",
+  white: "text-white",
+  bronze: "text-[#cd7f32]",
+  silver: "text-[#c0c7d1]",
+  gold: "text-[#f5c542]",
+};
+
+const BADGE_GLASS_CLASS = "border-[#f0e5a5]/55 bg-black/88 text-stone-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_12px_30px_rgba(0,0,0,0.4)] backdrop-blur-xl";
+
+// Mirror HomeCollectionStripes layout constants exactly
+const HERO_UNIT_HEIGHT_REM = 10;
+const HERO_UNIT_MAX_WIDTH_REM = 22;
+const HERO_BADGE_ROW_HEIGHT_REM = 7.25;
+const HERO_LOGO_TOP_REM = 4.9;
+const HERO_BADGE_TOP_SIDE_REM = 2.9;
+const HERO_BADGE_TOP_CENTER_REM = 1.1;
+const HERO_BADGE_LOGO_MIN_SCALE = 0.24;
+const HERO_BADGE_LOGO_MAX_SCALE = 1.56;
+const HERO_BADGE_LOGO_VISIBLE_HEIGHT_RATIO = 0.72;
+
+const BADGE_ARC_POSITIONS = [
+  { left: "16.6667%", topRem: HERO_BADGE_TOP_SIDE_REM },
+  { left: "50%",      topRem: HERO_BADGE_TOP_CENTER_REM },
+  { left: "83.3333%", topRem: HERO_BADGE_TOP_SIDE_REM },
+];
+
+function buildFriendKpiFeed(friendSeeds, friendClaimedTiles, overallHealth) {
+  return [
+    {
+      id: "friend-kpi",
+      kind: "kpi",
+      title: "Statistiken",
+      kpiSummary: {
+        playerSeedsDisplay: String(Math.round(friendSeeds)),
+        conqueredZonesDisplay: String(Math.round(friendClaimedTiles)),
+        healthSeedBonusDisplay: overallHealth != null ? Math.round(overallHealth) : 0,
+        securedMultiplier: null,
+        zoneHintText: "",
+        nearestZoneDirectionIcon: "",
+        nearestZoneDistanceKm: null,
+      },
+    },
+  ];
+}
+
+function PetAnimation({ attribute, nonce, logoRef }) {
+  const color = FRIEND_HEALTH_STAT_COLORS[attribute] || "#22c55e";
+
+  return (
+    <AnimatePresence mode="wait">
+      {attribute && nonce ? (
+        <motion.div
+          key={`pet-anim-${nonce}`}
+          className="pointer-events-none absolute inset-0 z-20"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.16 }}
+          aria-hidden="true"
+        >
+          <motion.div
+            className="absolute inset-[-8%] rounded-full"
+            style={{
+              background: `radial-gradient(circle, ${color}55 0%, ${color}2a 38%, transparent 76%)`,
+              filter: "blur(10px)",
+            }}
+            initial={{ opacity: 0, scale: 0.78 }}
+            animate={{ opacity: [0, 1, 0], scale: [0.78, 1.08, 1.28] }}
+            transition={{ duration: 0.72, ease: "easeOut" }}
+          />
+          <motion.div
+            className="absolute inset-0 rounded-full border-2"
+            style={{
+              borderColor: color,
+              boxShadow: `0 0 32px ${color}cc, 0 0 60px ${color}55`,
+            }}
+            initial={{ opacity: 0, scale: 0.82 }}
+            animate={{ opacity: [0, 1, 0], scale: [0.82, 1.04, 1.15] }}
+            transition={{ duration: 0.68, ease: "easeOut" }}
+          />
+          <motion.div
+            className="absolute inset-3 rounded-full border"
+            style={{
+              borderColor: `${color}99`,
+              boxShadow: `0 0 18px ${color}66`,
+            }}
+            initial={{ opacity: 0, scale: 0.92 }}
+            animate={{ opacity: [0, 0.9, 0], scale: [0.92, 1, 1.1] }}
+            transition={{ duration: 0.64, ease: "easeOut", delay: 0.05 }}
+          />
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
+function PetFloatingBadge({ attribute, nonce }) {
+  const color = FRIEND_HEALTH_STAT_COLORS[attribute] || "#22c55e";
+  const label = FRIEND_HEALTH_STAT_LABELS[attribute] || attribute;
+
+  return (
+    <AnimatePresence>
+      {attribute && nonce ? (
+        <motion.div
+          key={`pet-badge-${nonce}`}
+          className="pointer-events-none absolute z-30 left-1/2 -translate-x-1/2"
+          style={{ top: "15%" }}
+          initial={{ opacity: 1, y: 0 }}
+          animate={{ opacity: 0, y: -52 }}
+          transition={{ duration: 0.9, ease: "easeOut" }}
+          aria-hidden="true"
+        >
+          <span
+            className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-bold text-white shadow-lg"
+            style={{ background: color }}
+          >
+            +3 {label}
+          </span>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
+}
 
 function FriendProfileHomePanel({
   isLightUi,
@@ -30,226 +173,254 @@ function FriendProfileHomePanel({
   textSecondary,
   friendSeeds,
   friendClaimedTiles,
-  resolvedPlantHealthState,
   displayedOverallPlantHealth,
-  healthStateBonus,
-  healthStats,
-  isPlantHealthPending,
-  friendLogoAssets,
+  friendUser,
+  logoAssets,
+  selectedFriendBadges,
+  botName,
+  petsMadeToday,
+  petFriendMutation,
   sendFriendRequestMutation,
   showNoFriendAccessHint,
 }) {
-  const [showHealthStatsPanel, setShowHealthStatsPanel] = useState(false);
-  const [heroStageSizePx, setHeroStageSizePx] = useState(0);
-  const healthStatsPanelRef = useRef(null);
-  const controlsScale = heroStageSizePx > 0
-    ? Math.max(0.86, Math.min(1.18, heroStageSizePx / 250))
-    : 1;
+  const [petAnimAttribute, setPetAnimAttribute] = useState(null);
+  const [petAnimNonce, setPetAnimNonce] = useState(0);
+  const [petBadgeNonce, setPetBadgeNonce] = useState(0);
+  const [unitScale, setUnitScale] = useState(1);
+  const heroViewportRef = useRef(null);
+  const heroUnitRef = useRef(null);
+  const unitScaleRef = useRef(1);
+  const petAnimTimeoutRef = useRef(null);
 
+  // Scale the badge+logo unit to fill the available space — same logic as HomeCollectionStripes
   useEffect(() => {
-    const panel = healthStatsPanelRef.current;
-    if (!panel) return;
+    const computeScale = () => {
+      const viewportNode = heroViewportRef.current;
+      const unitNode = heroUnitRef.current;
+      if (!viewportNode || !unitNode) return;
 
-    const updateHeroStageSize = () => {
-      const bounds = panel.getBoundingClientRect();
-      const nextSize = Math.floor(Math.min(bounds.width, bounds.height));
-      if (!Number.isFinite(nextSize) || nextSize <= 0) return;
-      setHeroStageSizePx((prev) => (prev === nextSize ? prev : nextSize));
+      const availableHeight = Math.max(1, viewportNode.clientHeight);
+      const availableWidth = Math.max(1, viewportNode.clientWidth);
+      const currentScale = Math.max(0.01, unitScaleRef.current || 1);
+      const unitRect = unitNode.getBoundingClientRect();
+      const unitHeight = Math.max(1, unitRect.height / currentScale);
+      const unitWidth = Math.max(1, unitRect.width / currentScale);
+
+      // Logo extends beyond the unit — compensate for transparent region
+      const remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const logoHeightPx = 12.75 * 1.24 * remPx;
+      const transparentCompensation = logoHeightPx * (1 - HERO_BADGE_LOGO_VISIBLE_HEIGHT_RATIO);
+      const effectiveUnitHeight = Math.max(1, unitHeight - transparentCompensation);
+
+      const heightScale = (availableHeight * 0.98) / effectiveUnitHeight;
+      const widthScale = (availableWidth * 0.96) / unitWidth;
+      const nextScale = Math.max(
+        HERO_BADGE_LOGO_MIN_SCALE,
+        Math.min(HERO_BADGE_LOGO_MAX_SCALE, heightScale, widthScale)
+      );
+
+      unitScaleRef.current = nextScale;
+      setUnitScale((prev) => (Math.abs(prev - nextScale) < 0.01 ? prev : nextScale));
     };
 
-    updateHeroStageSize();
+    computeScale();
+    if (typeof ResizeObserver === "undefined") return undefined;
+    const observer = new ResizeObserver(computeScale);
+    if (heroViewportRef.current) observer.observe(heroViewportRef.current);
+    if (heroUnitRef.current) observer.observe(heroUnitRef.current);
+    return () => observer.disconnect();
+  }, []);
 
-    if (typeof ResizeObserver !== "undefined") {
-      const observer = new ResizeObserver(updateHeroStageSize);
-      observer.observe(panel);
-      return () => observer.disconnect();
-    }
+  useEffect(() => {
+    return () => {
+      if (petAnimTimeoutRef.current) window.clearTimeout(petAnimTimeoutRef.current);
+    };
+  }, []);
 
-    window.addEventListener("resize", updateHeroStageSize);
-    return () => window.removeEventListener("resize", updateHeroStageSize);
-  }, [showHealthStatsPanel]);
+  const handlePetFriend = useCallback(() => {
+    if (petFriendMutation.isPending) return;
+    petFriendMutation.mutate(undefined, {
+      onSuccess: (result) => {
+        const attr = result?.attribute || null;
+        if (!attr) return;
+        if (petAnimTimeoutRef.current) window.clearTimeout(petAnimTimeoutRef.current);
+        const nonce = Date.now();
+        setPetAnimAttribute(attr);
+        setPetAnimNonce(nonce);
+        setPetBadgeNonce(nonce);
+        petAnimTimeoutRef.current = window.setTimeout(() => {
+          setPetAnimAttribute(null);
+          petAnimTimeoutRef.current = null;
+        }, 950);
+      },
+    });
+  }, [petFriendMutation]);
+
+  const petsRemaining = Math.max(0, PET_DAILY_LIMIT - (petsMadeToday ?? 0));
+  const canPet = isFriend && petsRemaining > 0 && !petFriendMutation.isPending;
+  const safeBotName = String(botName || "Florabot").trim() || "Florabot";
+
+  const kpiFeed = useMemo(
+    () => buildFriendKpiFeed(friendSeeds, friendClaimedTiles, displayedOverallPlantHealth),
+    [friendSeeds, friendClaimedTiles, displayedOverallPlantHealth]
+  );
+
+  const badgeSlots = Array.from({ length: 3 }, (_, i) => selectedFriendBadges?.[i] || null);
 
   return (
     <div className="h-full flex min-h-0 flex-col overflow-hidden">
       <div className="h-full flex flex-1 min-h-0 flex-col overflow-y-auto p-[clamp(0.75rem,2vw,1.25rem)] gap-3" data-ui="friend-content-stack">
-        <section className="flex min-h-0 flex-1 flex-col px-[clamp(0.25rem,1vw,0.75rem)] py-[clamp(0.2rem,1vh,0.5rem)]">
-          <div ref={healthStatsPanelRef} className="flex-1 min-h-0 flex items-start justify-center pt-[clamp(0.2rem,1vh,0.5rem)]">
+
+        {/* Hero area — identical layout to HomeCollectionStripes */}
+        <section className="flex min-h-0 flex-1 flex-col px-[clamp(0.25rem,1vw,0.75rem)]">
+          <div
+            ref={heroViewportRef}
+            className="relative min-h-[17.25rem] flex-1 overflow-hidden text-stone-100 sm:min-h-[19.25rem]"
+            aria-label="Florabot und Abzeichen"
+          >
             <motion.div
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
-              className="relative mx-auto"
-              style={{
-                width: showHealthStatsPanel
-                  ? "100%"
-                  : (heroStageSizePx > 0 ? `${heroStageSizePx}px` : "100%"),
-                height: showHealthStatsPanel
-                  ? "100%"
-                  : (heroStageSizePx > 0 ? `${heroStageSizePx}px` : "100%"),
-                maxWidth: "100%",
-                maxHeight: "100%",
-                aspectRatio: showHealthStatsPanel ? undefined : "1 / 1",
-              }}
+              className="absolute inset-0 flex justify-center items-start"
+              style={{ pointerEvents: "none" }}
             >
-              <button
-                type="button"
-                onClick={() => setShowHealthStatsPanel((prev) => !prev)}
-                className={`absolute left-0 md:left-2 top-5 md:top-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${
-                  isLightUi
-                    ? "border-[#c8ac62]/60"
-                    : "border-[#f0e5a5]/40"
-                }`}
-                style={{
-                  background: isLightUi
-                    ? `linear-gradient(135deg, ${resolvedPlantHealthState.color}35 0%, ${resolvedPlantHealthState.color}15 100%)`
-                    : `linear-gradient(135deg, ${resolvedPlantHealthState.color}7a 0%, ${resolvedPlantHealthState.color}4d 100%)`,
-                }}
-                aria-label="Pflanzenstatus ein- oder ausklappen"
-              >
-                <Leaf className={`w-4 h-4 ${isLightUi ? "text-stone-700" : "text-white/90"}`} />
-                <span className={`font-bold text-[11px] md:text-xs leading-none mt-0.5 ${isLightUi ? "text-stone-800" : "text-white"}`}>
-                  {displayedOverallPlantHealth === null ? "..." : `${displayedOverallPlantHealth}%`}
-                </span>
-              </button>
-
+              {/* Scaled unit — same geometry as HomeCollectionStripes */}
               <div
-                className={`absolute right-0 md:right-2 top-5 md:top-6 z-10 w-[4.4rem] h-[3.6rem] md:w-[4.9rem] md:h-[3.9rem] rounded-2xl border backdrop-blur-sm flex flex-col items-center justify-center ${
-                  isLightUi
-                    ? "border-[#c8ac62]/60"
-                    : "border-[#f0e5a5]/40"
-                }`}
+                ref={heroUnitRef}
+                className="relative w-[20rem] max-w-full"
                 style={{
-                  background: isLightUi
-                    ? `linear-gradient(135deg, ${resolvedPlantHealthState.color}35 0%, ${resolvedPlantHealthState.color}15 100%)`
-                    : `linear-gradient(135deg, ${resolvedPlantHealthState.color}7a 0%, ${resolvedPlantHealthState.color}4d 100%)`,
+                  maxWidth: `${HERO_UNIT_MAX_WIDTH_REM}rem`,
+                  height: `${HERO_UNIT_HEIGHT_REM}rem`,
+                  transform: `scale(${unitScale})`,
+                  transformOrigin: "top center",
+                  pointerEvents: "auto",
                 }}
-                aria-hidden="true"
               >
-                <span className={`font-semibold text-[11px] md:text-xs leading-none mt-0.5 truncate max-w-[85%] ${isLightUi ? "text-stone-800" : "text-white"}`}>
-                  {resolvedPlantHealthState.label}
-                </span>
-              </div>
+                {/* Badge arc row */}
+                <div
+                  className="absolute inset-x-0 top-0 z-20 pointer-events-none"
+                  style={{ height: `${HERO_BADGE_ROW_HEIGHT_REM}rem` }}
+                  aria-label="Ausgewählte Abzeichen"
+                >
+                  {badgeSlots.map((badge, slotIndex) => {
+                    const pos = BADGE_ARC_POSITIONS[slotIndex] || BADGE_ARC_POSITIONS[1];
+                    const posStyle = {
+                      left: pos.left,
+                      top: `${pos.topRem}rem`,
+                      transform: "translateX(-50%)",
+                    };
 
-              <AnimatePresence mode="wait">
-                {showHealthStatsPanel ? (
-                  <PlantHeroHealthPanel
-                    plantHealthState={resolvedPlantHealthState}
-                    healthStateBonus={healthStateBonus}
-                    healthStats={healthStats}
-                    isLoading={isPlantHealthPending}
-                    showCareActions={false}
-                  />
-                ) : (
-                  <motion.div
-                    key="friend-hero-plant"
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.16, ease: "easeOut" }}
-                    className="absolute inset-0"
-                  >
-                    <div
-                      className={`absolute left-1/2 top-1/2 w-[82%] -translate-x-1/2 -translate-y-1/2 aspect-square rounded-full border backdrop-blur-sm shadow-[inset_0_0_30px_rgba(190,242,100,0.15)] ${
-                        isLightUi
-                          ? "border-[#b8d4a8]/55 bg-gradient-to-b from-emerald-50/75 to-emerald-100/45"
-                          : "border-[#f0e5a5]/35 bg-gradient-to-b from-emerald-100/25 to-emerald-900/45"
-                      }`}
-                    />
+                    if (!badge) {
+                      return (
+                        <div
+                          key={`badge-slot-empty-${slotIndex}`}
+                          style={posStyle}
+                          className={`pointer-events-none absolute h-16 w-16 overflow-hidden rounded-full border flex items-center justify-center text-[9px] font-medium ${BADGE_GLASS_CLASS}`}
+                        >
+                          <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_30%_18%,rgba(255,255,255,0.34),rgba(255,255,255,0.08)_34%,rgba(255,255,255,0)_66%)]" />
+                          <span className="pointer-events-none absolute inset-[2px] rounded-full border border-white/10" />
+                          <span className="relative z-[1] text-stone-300/70">Leer</span>
+                        </div>
+                      );
+                    }
 
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="relative w-[74%] h-[74%] drop-shadow-[0_0_24px_rgba(190,242,100,0.6)]">
-                        {(friendLogoAssets?.border?.imageUrl || friendLogoAssets?.plant?.imageUrl || friendLogoAssets?.face?.imageUrl) && (
-                          <div className="absolute left-1/2 top-1/2 h-[56%] w-[56%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/35" />
+                    const Icon = badge?.Icon || Leaf;
+                    const rankKey = String(badge?.rankKey || "gray").toLowerCase();
+                    const rankLabel = badge?.rankMeta?.label || "Grau";
+                    const iconToneClass = BADGE_RANK_ICON_STYLE[rankKey] || BADGE_RANK_ICON_STYLE.gray;
+                    const valueLabel = String(badge?.valueLabel || "-");
+
+                    return (
+                      <LockedTooltip
+                        key={badge.id}
+                        content={(
+                          <div className="space-y-1">
+                            <p className="text-xs font-semibold">{badge.label}</p>
+                            <p className="text-[11px] leading-snug">{badge.description}</p>
+                            <p className="text-[11px]"><span className="font-semibold">Wert:</span> {valueLabel}</p>
+                            <p className="text-[11px]"><span className="font-semibold">Rang:</span> {rankLabel}</p>
+                          </div>
                         )}
-                        {friendLogoAssets?.border?.imageUrl && (
-                          <img
-                            src={friendLogoAssets.border.imageUrl}
-                            alt="Logo Rahmen"
-                            className="absolute inset-0 w-full h-full object-contain"
-                            style={friendLogoAssets.borderColor
-                              ? { filter: `brightness(0) saturate(100%) ${hexToFilter(friendLogoAssets.borderColor)}` }
-                              : undefined}
-                          />
-                        )}
-                        {friendLogoAssets?.plant?.imageUrl && (
-                          <img
-                            src={friendLogoAssets.plant.imageUrl}
-                            alt="Logo Pflanze"
-                            className="absolute inset-0 w-full h-full object-contain"
-                          />
-                        )}
-                        {friendLogoAssets?.face?.imageUrl && (
-                          <img
-                            src={friendLogoAssets.face.imageUrl}
-                            alt="Logo Gesicht"
-                            className="absolute inset-0 w-full h-full object-contain"
-                          />
-                        )}
-                        {!friendLogoAssets?.border?.imageUrl && !friendLogoAssets?.plant?.imageUrl && !friendLogoAssets?.face?.imageUrl && (
-                          <Leaf
-                            className={`w-20 h-20 md:w-24 md:h-24 ${
-                              isLightUi ? "text-emerald-600" : "text-lime-200"
-                            }`}
-                          />
-                        )}
-                      </div>
+                        contentClassName={isLightUi ? "" : "text-white/90"}
+                      >
+                        <button
+                          type="button"
+                          style={posStyle}
+                          className={`pointer-events-auto absolute h-16 w-16 overflow-hidden rounded-full border flex flex-col items-center justify-center gap-1 ${BADGE_GLASS_CLASS}`}
+                          aria-label={`${badge.label}: ${valueLabel}, Rang ${rankLabel}`}
+                        >
+                          <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_30%_18%,rgba(255,255,255,0.34),rgba(255,255,255,0.08)_34%,rgba(255,255,255,0)_66%)]" />
+                          <span className="pointer-events-none absolute inset-[2px] rounded-full border border-white/10" />
+                          <Icon className={`relative z-[1] h-6 w-6 ${iconToneClass}`} />
+                          <span className="relative z-[1] w-full max-w-[3.3rem] text-center text-[10px] leading-none font-bold text-stone-100 truncate">
+                            {valueLabel}
+                          </span>
+                        </button>
+                      </LockedTooltip>
+                    );
+                  })}
+                </div>
+
+                {/* Logo row — same position as HomeCollectionStripes */}
+                <div
+                  className="absolute inset-x-0 z-10 flex justify-center"
+                  style={{ top: `${HERO_LOGO_TOP_REM}rem` }}
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    {/* Logo with pet animation overlay */}
+                    <div className="relative scale-[1.24]">
+                      <PetAnimation attribute={petAnimAttribute} nonce={petAnimNonce} />
+                      <PetFloatingBadge attribute={petAnimAttribute} nonce={petBadgeNonce} />
+                      <FlorabotLogo
+                        profile={friendUser}
+                        logoAssets={logoAssets}
+                        sizeClass="w-[12.75rem] h-[12.75rem] sm:w-[14.75rem] sm:h-[14.75rem]"
+                        padding="p-[7%]"
+                        className="drop-shadow-[0_0_28px_rgba(190,242,100,0.5)]"
+                      />
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  </div>
+                </div>
+              </div>
             </motion.div>
           </div>
         </section>
 
-        <div className="shrink-0">
-          <div
-            className={`w-full rounded-2xl border backdrop-blur-sm px-[clamp(0.625rem,2vw,0.875rem)] ${
-              isLightUi
-                ? "border-[#c8ac62]/45 bg-gradient-to-r from-emerald-100/50 via-white/40 to-emerald-100/50"
-                : "border-[#f0e5a5]/45 bg-gradient-to-r from-emerald-900/45 via-black/30 to-emerald-900/45"
-            }`}
-            style={{ height: `${(2.4 * controlsScale).toFixed(2)}rem` }}
-          >
-            <div className={`h-full w-full flex items-center justify-between text-xs md:text-sm font-semibold ${
-              isLightUi ? "text-stone-700" : "text-white/95"
-            }`}>
-              <div className={`flex items-center gap-1.5 min-w-0 ${isLightUi ? "text-stone-700" : "text-lime-100/95"}`}>
-                <Leaf className={`w-4 h-4 ${isLightUi ? "text-emerald-600" : "text-lime-200"}`} />
-                <span className="truncate">Samen {friendSeeds} · Tiles {friendClaimedTiles}</span>
-              </div>
-
-              <div className={`flex items-center gap-1.5 min-w-0 ${isLightUi ? "text-stone-700" : "text-amber-100/95"}`}>
-                <div className={`h-5 w-px ${isLightUi ? "bg-[#c8ac62]/40" : "bg-[#f0e5a5]/35"}`} />
-                <Zap className={`w-4 h-4 ${isLightUi ? "text-amber-700" : "text-amber-300"}`} />
-                <span className="truncate">Status {resolvedPlantHealthState.label}</span>
-              </div>
-            </div>
-          </div>
+        {/* KPI Stripe — below logo, same position as in Home screen */}
+        <div className="shrink-0" style={{ height: "3.35rem" }}>
+          <HomeMilestoneStripe
+            isLightUi={isLightUi}
+            milestoneFeed={kpiFeed}
+            controlsScale={1}
+          />
         </div>
 
+        {/* Action button */}
         <div className="shrink-0">
           {isFriend ? (
             <button
-              onClick={() => alert("Share a Scan kommt bald.")}
-              className={`w-full rounded-2xl border flex items-center justify-center font-semibold tracking-wide transition-shadow ${
-                isLightUi
-                  ? "border-red-400/50 bg-gradient-to-r from-red-500/85 via-rose-400/75 to-red-500/85 text-white shadow-[0_8px_24px_rgba(239,68,68,0.2)] hover:shadow-[0_12px_32px_rgba(239,68,68,0.35)]"
-                  : "border-red-200/35 bg-gradient-to-r from-red-700/80 via-rose-500/70 to-red-700/80 text-white shadow-[0_8px_24px_rgba(239,68,68,0.3)]"
+              onClick={handlePetFriend}
+              disabled={!canPet}
+              className={`w-full rounded-2xl border flex items-center justify-center font-semibold tracking-wide transition-all ${
+                canPet
+                  ? isLightUi
+                    ? "border-emerald-400/60 bg-gradient-to-r from-emerald-500/85 via-green-400/75 to-emerald-500/85 text-white shadow-[0_8px_24px_rgba(34,197,94,0.25)] hover:shadow-[0_12px_32px_rgba(34,197,94,0.4)] active:scale-[0.98]"
+                    : "border-emerald-300/35 bg-gradient-to-r from-emerald-700/80 via-green-600/70 to-emerald-700/80 text-white shadow-[0_8px_24px_rgba(34,197,94,0.3)]"
+                  : isLightUi
+                    ? "border-stone-200/40 bg-stone-100/40 text-stone-400/60 saturate-50 cursor-not-allowed"
+                    : "border-stone-700/30 bg-stone-800/30 text-stone-500/50 saturate-50 cursor-not-allowed"
               }`}
-              style={{
-                height: `${(3.35 * controlsScale).toFixed(2)}rem`,
-                gap: "0.56rem",
-                fontSize: `${(1.05 * controlsScale).toFixed(2)}rem`,
-              }}
+              style={{ height: "3.35rem", fontSize: "1.05rem" }}
+              aria-label={canPet ? `${safeBotName} streicheln` : `${safeBotName} wurde heute bereits gestreichelt`}
             >
-              <Heart className="w-5 h-5" />
-              Share a Scan
+              <span>{petFriendMutation.isPending ? "…" : `${safeBotName} streicheln.`}</span>
             </button>
           ) : hasPendingRequest ? (
             <button
               disabled
               className={`w-full flex items-center justify-center gap-2 opacity-55 cursor-not-allowed font-semibold rounded-2xl border ${cardBase} ${textSecondary}`}
-              style={{ height: `${(3.35 * controlsScale).toFixed(2)}rem` }}
+              style={{ height: "3.35rem" }}
             >
               <div className="w-9 h-9 rounded-full bg-gradient-to-br from-stone-400 to-stone-500 flex items-center justify-center shadow-md">
                 <Clock className="w-4 h-4 text-white" />
@@ -261,7 +432,7 @@ function FriendProfileHomePanel({
               onClick={() => sendFriendRequestMutation.mutate()}
               disabled={sendFriendRequestMutation.isPending}
               className={`w-full flex items-center justify-center gap-2 font-semibold transition-opacity hover:opacity-80 disabled:opacity-50 rounded-2xl border ${cardBase} ${textPrimary}`}
-              style={{ height: `${(3.35 * controlsScale).toFixed(2)}rem` }}
+              style={{ height: "3.35rem" }}
             >
               <div
                 className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md ${
@@ -272,7 +443,7 @@ function FriendProfileHomePanel({
               >
                 <UserPlus className="w-4 h-4 text-white" />
               </div>
-              <span>{sendFriendRequestMutation.isPending ? "Wird gesendet..." : "Freund hinzufuegen"}</span>
+              <span>{sendFriendRequestMutation.isPending ? "Wird gesendet..." : "Freund hinzufügen"}</span>
             </button>
           )}
         </div>
@@ -332,6 +503,59 @@ export default function FriendProfile() {
     },
     enabled: !!friendUser?.auth_id && activeTab === "profile",
     staleTime: 30_000,
+  });
+
+  // ── Pet count today ────────────────────────────────────────────────────────
+  const { data: petsMadeToday = 0, refetch: refetchPetsToday } = useQuery({
+    queryKey: ["petFriendToday", friendUser?.auth_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_pet_friend_count_today", {
+        p_friend_auth_id: friendUser?.auth_id,
+      });
+      if (error) return 0;
+      return Number(data) || 0;
+    },
+    enabled: !!friendUser?.auth_id && isFriend && activeTab === "profile",
+    staleTime: 60_000,
+  });
+
+  // ── Pet mutation ───────────────────────────────────────────────────────────
+  const petFriendMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc("robot_plant_pet_friend", {
+        p_friend_auth_id: friendUser?.auth_id,
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      refetchPetsToday();
+      queryClient.invalidateQueries({ queryKey: ["friendRobotPlant", friendUser?.auth_id] });
+
+      // Push notification to the friend whose bot was petted
+      const attribute = data?.attribute;
+      const attributeLabel =
+        attribute === "energy" ? "Energie" :
+        attribute === "data_quality" ? "Daten" :
+        attribute === "care" ? "Pflege" :
+        attribute || "Attribut";
+      const petter =
+        currentUser?.display_name || currentUser?.full_name || currentUser?.email || "Jemand";
+      const botName = friendUser?.bot_name || "Florabot";
+      try {
+        createUserNotification({
+          authId: friendUser?.auth_id,
+          userEmail: friendUser?.user_email,
+          notificationType: "florabot_petted",
+          ...buildNotificationPayload("florabotPetted", { petter, botName, attribute: attributeLabel }),
+          displayLocation: "banner",
+          createdBy: currentUser?.email,
+        });
+      } catch (err) {
+        console.error("[FriendProfile] pet notification error:", err);
+      }
+    },
   });
 
   const sendFriendRequestMutation = useMutation({
@@ -402,9 +626,9 @@ export default function FriendProfile() {
     : plantHealthState;
   const healthStateBonus = Number(resolvedPlantHealthState?.scanEventBonus ?? 0);
   const healthStats = [
-    { id: "energy", label: "Energie", value: Math.round(energyValue), color: "#10b981" },
-    { id: "data-quality", label: "Daten", value: Math.round(dataQualityValue), color: "#06b6d4" },
-    { id: "care", label: "Pflege", value: Math.round(careValue), color: "#f59e0b" },
+    { id: "energy", label: "Energie", value: Math.round(energyValue), color: FRIEND_HEALTH_STAT_COLORS.energy },
+    { id: "data-quality", label: "Daten", value: Math.round(dataQualityValue), color: FRIEND_HEALTH_STAT_COLORS["data-quality"] },
+    { id: "care", label: "Pflege", value: Math.round(careValue), color: FRIEND_HEALTH_STAT_COLORS.care },
   ];
 
   const displayedOverallPlantHealth = isPlantHealthPending ? null : overallPlantHealth;
@@ -422,6 +646,25 @@ export default function FriendProfile() {
     : "bg-black/28 border border-[#f0e5a5]/22";
   const textPrimary = isLightUi ? "text-stone-900" : "text-white";
   const textSecondary = isLightUi ? "text-stone-700" : "text-stone-200";
+
+  // ── Friend badges ──────────────────────────────────────────────────────────
+  const selectedFriendBadges = useMemo(() => {
+    const partialMetrics = {
+      total_seeds: friendSeeds,
+      claimed_tiles: friendClaimedTiles,
+      highest_plant_status: displayedOverallPlantHealth ?? 0,
+    };
+    const evaluated = evaluateProfileBadges(partialMetrics);
+    return buildSelectedProfileBadges(
+      friendUser?.selected_badge_ids,
+      evaluated,
+    ).map((badge) => ({
+      ...badge,
+      Icon: getProfileBadgeIconComponent(badge.iconKey),
+    }));
+  }, [friendUser?.selected_badge_ids, friendSeeds, friendClaimedTiles, displayedOverallPlantHealth]);
+
+  const friendBotName = String(friendUser?.bot_name || "Florabot").trim() || "Florabot";
 
   const isPublicProfile = friendUser?.public_profile !== false;
   const showNoFriendAccessHint = !isFriend && !hasPendingRequest && !isPublicProfile && !isLoading;
@@ -472,12 +715,13 @@ export default function FriendProfile() {
           textSecondary={textSecondary}
           friendSeeds={friendSeeds}
           friendClaimedTiles={friendClaimedTiles}
-          resolvedPlantHealthState={resolvedPlantHealthState}
           displayedOverallPlantHealth={displayedOverallPlantHealth}
-          healthStateBonus={healthStateBonus}
-          healthStats={healthStats}
-          isPlantHealthPending={isPlantHealthPending}
-          friendLogoAssets={friendLogoAssets}
+          friendUser={friendUser}
+          logoAssets={logoAssets}
+          selectedFriendBadges={selectedFriendBadges}
+          botName={friendBotName}
+          petsMadeToday={petsMadeToday}
+          petFriendMutation={petFriendMutation}
           sendFriendRequestMutation={sendFriendRequestMutation}
           showNoFriendAccessHint={showNoFriendAccessHint}
         />

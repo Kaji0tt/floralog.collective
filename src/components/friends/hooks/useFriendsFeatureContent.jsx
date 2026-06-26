@@ -243,7 +243,7 @@ export function useFriendsFeatureContent({
         const displayName =
           String(profile?.display_name || "").trim() ||
           String(profile?.full_name || "").trim() ||
-          email || "Unbekannt";
+          "Unbekannt";
         const existingFriendship = getExistingFriendship(email, authId);
         return { profile, email, authId, displayName, existingFriendship };
       })
@@ -980,7 +980,7 @@ Viel Spaß beim Entdecken! 🌿`;
       name:
         actorProfile?.display_name ||
         actorProfile?.full_name ||
-        actorEmail,
+        "Unbekannt",
       avatarUrl: actorProfile?.avatar_url || null,
       logoAssets: resolveEquippedLogoAssetsWithCatalog(actorProfile || {}, logoAssets),
       email: actorEmail,
@@ -1074,7 +1074,7 @@ Viel Spaß beim Entdecken! 🌿`;
       id: friendEntry.id,
       email: friendEmail,
       auth_id: friendAuthId,
-      name: friendProfile?.display_name || friendProfile?.full_name || friendUser?.display_name || friendUser?.full_name || friendEmail,
+      name: friendProfile?.display_name || friendProfile?.full_name || friendUser?.display_name || friendUser?.full_name || "Unbekannt",
       logoAssets: resolveEquippedLogoAssetsWithCatalog(friendProfile || friendUser || {}, logoAssets),
       level: friendProfile?.level || friendUser?.level || 1,
       title: friendProfile?.selected_title || friendProfile?.title || friendUser?.selected_title || friendUser?.title || "Pflanzen-Anfänger",
@@ -1128,7 +1128,7 @@ Viel Spaß beim Entdecken! 🌿`;
         plant,
         actorEmail: entryEmail,
         actorAuthId: profile?.auth_id || entry.auth_id || null,
-        actorName: profile?.display_name || profile?.full_name || entryEmail,
+        actorName: profile?.display_name || profile?.full_name || "Unbekannt",
         actorLogoAssets: resolveEquippedLogoAssetsWithCatalog(profile || {}, logoAssets),
         scanCount: 1,
         likedByCurrentUser: likedDiscoveryIdSet.has(entry.id),
@@ -1176,6 +1176,7 @@ Viel Spaß beim Entdecken! 🌿`;
   const triggerExplorerRefresh = useCallback(() => {
     setIsExplorerRefreshing(true);
     queryClient.invalidateQueries({ queryKey: ['scanLikesAll'] });
+    queryClient.invalidateQueries({ queryKey: ['allPlants'] });
     refetchExplorerDiscoveries().finally(() => {
       setIsExplorerRefreshing(false);
       resetExplorerPullState();

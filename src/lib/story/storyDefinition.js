@@ -548,6 +548,10 @@ export const STORY_COPY = {
       title: "🫆 Neuer Follower für deine Kollektion!",
       messageTemplate: "Es sieht so aus, als ob {followerName} jetzt einer Kollektion von dir folgt. Du hast Interesse geweckt!",
     },
+    florabotPetted: {
+      title: "🤗 {petter} war zu Besuch!",
+      messageTemplate: " {petter} hat in unserem Profil vorbei geschaut und uns {attribute} geschenkt!",
+    },
     firstQuestCompleted: {
       title: "🪐 Die erste Mission abgeschlossen!",
       message:

@@ -186,8 +186,11 @@ export default function CollectionFeatureRoot({
 
   const targetUser = profileUser || user;
   const targetUserId = targetUser?.auth_id || targetUser?.id || null;
+  // resolvedFriendEmail darf nur gesetzt werden, wenn ein fremdes profileUser übergeben wurde
+  // (Fremdprofil-Kontext). Bei eigener Kollektion aus Home wäre sonst die eigene E-Mail
+  // als ?email=-Param in GenusDetail gesetzt, was den Fremdprofil-Modus auslöst.
   const resolvedFriendEmail =
-    (friendEmail || targetUser?.user_email || "").toString().trim();
+    (friendEmail || (profileUser ? targetUser?.user_email : "") || "").toString().trim();
 
   const { data: genera = [], isLoading: generaLoading } = useQuery({
     queryKey: ['genera'],
@@ -762,6 +765,52 @@ export default function CollectionFeatureRoot({
     setShowHintDialog(true);
   };
 
+  // These useMemo hooks MUST stay above the `if (isLoading)` early return to
+  // comply with React's Rules of Hooks — hooks must be called unconditionally.
+  const allPublicCollections = (visibleCollections || []).filter((c) => c.is_public);
+
+  const globalCategoryStats = useMemo(() => {
+    const discovered = generaWithDiscovery.filter((entry) => entry.discovered).length;
+    const total = generaWithDiscovery.length;
+    const percent = total > 0 ? Math.round((discovered / total) * 100) : 0;
+    return { discovered, total, percent };
+  }, [generaWithDiscovery]);
+
+  const followedThemeCollectionChips = useMemo(() => {
+    const ranked = followedCollections
+      .map((collectionEntry) => {
+        const stats = getCollectionStats(collectionEntry.id);
+        const total = stats.total || 0;
+        const discovered = stats.discovered || 0;
+        const remainingCount = Math.max(0, total - discovered);
+        const remainingRatio = total > 0 ? remainingCount / total : Number.POSITIVE_INFINITY;
+        return {
+          title: collectionEntry.title || "Kollektion",
+          discovered,
+          total,
+          remainingCount,
+          remainingRatio,
+          isFavorite: Boolean(collectionEntry?.isFavorite),
+        };
+      })
+      .filter((entry) => entry.total > 0)
+      .sort((a, b) => {
+        if (a.isFavorite !== b.isFavorite) return Number(b.isFavorite) - Number(a.isFavorite);
+        if (a.remainingRatio !== b.remainingRatio) return a.remainingRatio - b.remainingRatio;
+        if (a.remainingCount !== b.remainingCount) return a.remainingCount - b.remainingCount;
+        return (b.discovered || 0) - (a.discovered || 0);
+      })
+      .slice(0, 2);
+    return ranked.map((entry) => `${entry.isFavorite ? "\u2605 " : ""}${entry.title}: ${entry.discovered}/${entry.total}`);
+  }, [followedCollections, getCollectionStats]);
+
+  const browseCollectionCounts = useMemo(() => {
+    const followedCount = allPublicCollections.filter(
+      (c) => c.auth_id !== targetUserId && userCollections.some((uc) => uc.collection_id === c.id)
+    ).length;
+    return { totalPublicCollections: allPublicCollections.length, followedPublicCollections: followedCount };
+  }, [allPublicCollections, targetUserId, userCollections]);
+
   if (isLoading) {
     return (
       embedded ? (
@@ -844,7 +893,6 @@ export default function CollectionFeatureRoot({
     ...DEFAULT_COLLECTION_FILTERS,
     ...(filterSettingsByCollection[selectedCollectionKey] || {}),
   };
-  const allPublicCollections = (visibleCollections || []).filter((c) => c.is_public);
   const collectionItemsByCollectionId = (allCollectionItems || []).reduce((acc, item) => {
     if (!item?.collection_id) return acc;
     if (!acc[item.collection_id]) acc[item.collection_id] = [];
@@ -930,58 +978,7 @@ export default function CollectionFeatureRoot({
     filteredPublicCollections.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
   }
 
-  const globalCategoryStats = useMemo(() => {
-    const discovered = generaWithDiscovery.filter((entry) => entry.discovered).length;
-    const total = generaWithDiscovery.length;
-    const percent = total > 0 ? Math.round((discovered / total) * 100) : 0;
-    return { discovered, total, percent };
-  }, [generaWithDiscovery]);
-
-  const followedThemeCollectionChips = useMemo(() => {
-    const ranked = followedCollections
-      .map((collectionEntry) => {
-        const stats = getCollectionStats(collectionEntry.id);
-        const total = stats.total || 0;
-        const discovered = stats.discovered || 0;
-        const remainingCount = Math.max(0, total - discovered);
-        const remainingRatio = total > 0 ? remainingCount / total : Number.POSITIVE_INFINITY;
-
-        return {
-          title: collectionEntry.title || "Kollektion",
-          discovered,
-          total,
-          remainingCount,
-          remainingRatio,
-          isFavorite: Boolean(collectionEntry?.isFavorite),
-        };
-      })
-      .filter((entry) => entry.total > 0)
-      .sort((a, b) => {
-        if (a.isFavorite !== b.isFavorite) {
-          return Number(b.isFavorite) - Number(a.isFavorite);
-        }
-        if (a.remainingRatio !== b.remainingRatio) {
-          return a.remainingRatio - b.remainingRatio;
-        }
-        if (a.remainingCount !== b.remainingCount) {
-          return a.remainingCount - b.remainingCount;
-        }
-        return (b.discovered || 0) - (a.discovered || 0);
-      })
-      .slice(0, 2);
-
-    return ranked.map((entry) => `${entry.isFavorite ? "★ " : ""}${entry.title}: ${entry.discovered}/${entry.total}`);
-  }, [followedCollections, getCollectionStats]);
-
-  const browseCollectionCounts = useMemo(() => {
-    const totalPublicCollections = allPublicCollections.length;
-    const followedPublicCollections = publicCollectionsWithMeta.filter((entry) => entry.isFollowing).length;
-    return { totalPublicCollections, followedPublicCollections };
-  }, [allPublicCollections.length, publicCollectionsWithMeta]);
-  const followedPublicCollectionsWithMeta = useMemo(
-    () => publicCollectionsWithMeta.filter((entry) => entry.isFollowing),
-    [publicCollectionsWithMeta]
-  );
+  const followedPublicCollectionsWithMeta = publicCollectionsWithMeta.filter((entry) => entry.isFollowing);
 
   const hasAdditionalCollections = (ownedCollections.length + followedCollections.length) > 0;
   const isHeroSegmentOpen = hasAdditionalCollections
@@ -1193,7 +1190,14 @@ export default function CollectionFeatureRoot({
             </div>
           ) : isCategoryLandingVisible ? (
             <div className="flex-1 min-h-0 max-h-full">
-              <div className="h-full max-h-full grid grid-rows-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3" style={{ paddingTop: listTopFadePx, paddingBottom: listBottomFadePx }}>
+              <div
+                className={`h-full max-h-full grid gap-3 ${
+                  readOnly
+                    ? "grid-rows-[minmax(0,1fr)_minmax(0,1fr)]"
+                    : "grid-rows-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]"
+                }`}
+                style={{ paddingTop: listTopFadePx, paddingBottom: listBottomFadePx }}
+              >
                 <CollectionCategoryEntryCard
                   title="Globale"
                   icon={Leaf}
@@ -1239,33 +1243,37 @@ export default function CollectionFeatureRoot({
                     setPublicCollectionsPanelOpen(false);
                   }}
                 />
-                <CollectionCategoryEntryCard
-                  title="Gemeinsame"
-                  icon={Users}
-                  accent="shared"
-                  className="h-full max-h-[10.5rem]"
-                  metaChips={["Feature folgt in einem späteren Release"]}
-                  descriptionMaxHeightClass="max-h-14"
-                  onClick={() => {
-                    setEntryCategory("shared");
-                    setPublicCollectionsPanelOpen(false);
-                  }}
-                />
-                <CollectionCategoryEntryCard
-                  title="Stöbern"
-                  icon={Compass}
-                  accent="browse"
-                  className="h-full max-h-[10.5rem]"
-                  metaChips={[
-                    `${browseCollectionCounts.totalPublicCollections} User-Kollektionen`,
-                    `${browseCollectionCounts.followedPublicCollections} abonniert`,
-                  ]}
-                  descriptionMaxHeightClass="max-h-14"
-                  onClick={() => {
-                    setEntryCategory("browse");
-                    setPublicCollectionsPanelOpen(false);
-                  }}
-                />
+                {!readOnly && (
+                  <>
+                    <CollectionCategoryEntryCard
+                      title="Gemeinsame"
+                      icon={Users}
+                      accent="shared"
+                      className="h-full max-h-[10.5rem]"
+                      metaChips={["Feature folgt in einem späteren Release"]}
+                      descriptionMaxHeightClass="max-h-14"
+                      onClick={() => {
+                        setEntryCategory("shared");
+                        setPublicCollectionsPanelOpen(false);
+                      }}
+                    />
+                    <CollectionCategoryEntryCard
+                      title="Stöbern"
+                      icon={Compass}
+                      accent="browse"
+                      className="h-full max-h-[10.5rem]"
+                      metaChips={[
+                        `${browseCollectionCounts.totalPublicCollections} User-Kollektionen`,
+                        `${browseCollectionCounts.followedPublicCollections} abonniert`,
+                      ]}
+                      descriptionMaxHeightClass="max-h-14"
+                      onClick={() => {
+                        setEntryCategory("browse");
+                        setPublicCollectionsPanelOpen(false);
+                      }}
+                    />
+                  </>
+                )}
               </div>
             </div>
           ) : selectedEntryCategory === "global" && !globalSubPickerDismissed && selectedCollectionId !== "season" ? (

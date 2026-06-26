@@ -2,6 +2,7 @@ import { useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Query } from "@/api/entities";
+import { supabase } from "@/api/supabaseClient";
 import { createPageUrl } from "@/utils";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { motion } from "framer-motion";
@@ -16,33 +17,33 @@ export default function FriendFriendsPanel({ friendUser, friendEmail, currentUse
   const friendAuthId = friendUser?.auth_id || null;
 
   useEffect(() => {
-    if (!friendEmail) return;
+    if (!friendAuthId) return;
+    // Invalidate on any Friend change so the panel stays in sync
     const unsubscribe = Query.Friend.subscribe((event) => {
       if (["create", "update", "delete"].includes(event.type)) {
-        queryClient.invalidateQueries({ queryKey: ["allFriendRecords"] });
+        queryClient.invalidateQueries({ queryKey: ["friendFriendsList", friendAuthId] });
       }
     });
     return unsubscribe;
-  }, [friendEmail, queryClient]);
+  }, [friendAuthId, queryClient]);
 
   const { data: allFriendRecords = [], isLoading: recordsLoading } = useQuery({
-    queryKey: ["allFriendRecords"],
-    queryFn: () => Query.Friend.list(),
-    enabled: !!friendEmail || !!friendAuthId,
+    queryKey: ["friendFriendsList", friendAuthId],
+    queryFn: async () => {
+      if (!friendAuthId) return [];
+      const { data, error } = await supabase.rpc("get_user_friends_public", {
+        p_user_auth_id: friendAuthId,
+      });
+      if (error) {
+        console.error("[FriendFriendsPanel] get_user_friends_public error:", error);
+        return [];
+      }
+      return data || [];
+    },
+    enabled: !!friendAuthId,
   });
 
-  const friends = useMemo(() => {
-    if (!friendEmail && !friendAuthId) return [];
-    const emailL = friendEmail?.toLowerCase() || "";
-    return allFriendRecords.filter(
-      (f) =>
-        ((emailL &&
-          (f.request_sent_by?.toLowerCase() === emailL ||
-            f.request_sent_to?.toLowerCase() === emailL)) ||
-          (friendAuthId && f.auth_id === friendAuthId)) &&
-        f.status === "accepted"
-    );
-  }, [allFriendRecords, friendEmail, friendAuthId]);
+  const friends = useMemo(() => allFriendRecords, [allFriendRecords]);
 
   const { data: allPublicProfiles = [], isLoading: profilesLoading } = useQuery({
     queryKey: ["allPublicProfiles"],

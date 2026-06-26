@@ -63,7 +63,7 @@ import AchievementsFeatureRoot from "@/components/achievements/AchievementsFeatu
 import FriendsFeatureRoot from "@/components/friends/FriendsFeatureRoot";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
+import { getCurrentWeeklyQuest, getCurrentMonthlyQuest, getWeekNumber } from "@/components/quests/QuestRotationHelper";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { useAuth } from "@/lib/AuthContext";
 import { resolveReferralEmail } from "@/lib/referralCode";
@@ -1753,7 +1753,7 @@ function HomeContent() {
   const resolvePublicProfileLabel = (email) => {
     if (!email) return null;
     const profile = allUsers.find((entry) => entry?.user_email?.toLowerCase() === String(email).toLowerCase());
-    return profile?.display_name || profile?.full_name || profile?.user_email || email;
+    return profile?.display_name || profile?.full_name || null;
   };
 
   useEffect(() => {
@@ -2160,7 +2160,7 @@ function HomeContent() {
     activeCollectionQuests.length;
 
   const getDisplayName = () => user.display_name || user.full_name;
-  const displayName = getDisplayName() || user?.email || "Spieler";
+  const displayName = getDisplayName() || "Spieler";
   const resolvedUserTitle = resolveTitleValue(user?.selected_title, user?.title) || "Pflanzen-Entdecker";
 
   const getRgbaFromRgb = (rgbString, opacity) => {
@@ -2407,6 +2407,13 @@ function HomeContent() {
     const parsed = raw ? new Date(raw).getTime() : 0;
     return Number.isFinite(parsed) ? parsed : 0;
   };
+  const currentIsoWeek = getWeekNumber();
+  const isDiscoveryInCurrentWeek = (discoveredAtValue) => {
+    if (!discoveredAtValue) return false;
+    const discoveredAtDate = new Date(discoveredAtValue);
+    if (!Number.isFinite(discoveredAtDate.getTime())) return false;
+    return getWeekNumber(discoveredAtDate) === currentIsoWeek;
+  };
   const milestonePreviewDayKey = new Date().toISOString().slice(0, 10);
 
   const publicProfilesByAuthId = new Map(
@@ -2501,7 +2508,11 @@ function HomeContent() {
           ...point,
           distanceMeters: calculateDistanceMetersRaw(cachedLocation.lat, cachedLocation.lng, point.lat, point.lng),
         }))
-        .filter((point) => Number(point?.rarityScore || 0) >= 5)
+        .filter(
+          (point) =>
+            Number(point?.rarityScore || 0) >= 5 &&
+            isDiscoveryInCurrentWeek(point?.discoveredAt)
+        )
         .sort((a, b) => {
           if ((b.rarityScore || 0) !== (a.rarityScore || 0)) {
             return (b.rarityScore || 0) - (a.rarityScore || 0);
