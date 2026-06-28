@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getCurrentUser } from "@/api/userApi";
 import { Query } from "@/api/entities";
-import { grantWalletCurrency } from "@/api/walletService";
+import { adminGrantSparks } from "@/api/walletService";
 import { createUserNotification } from "@/api/notificationService";
 import { createPageUrl } from "@/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -122,13 +122,10 @@ export default function AdminScanOfTheWeek() {
     try {
       const plantName = getPlantName(selectedDiscovery);
 
-      await grantWalletCurrency({
-        authId: selectedProfile.auth_id,
-        currencyCode: "sparks",
-        eventSource: "scan_of_the_week",
+      await adminGrantSparks({
+        targetAuthId: selectedProfile.auth_id,
         eventReference: selectedDiscovery.id,
         amount: 10,
-        direction: "credit",
         metadata: {
           scanName: plantName,
           discoveryId: selectedDiscovery.id,

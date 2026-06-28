@@ -93,3 +93,26 @@ export const grantWalletCurrency = async ({
 
   return Array.isArray(data) ? data[0] || null : data || null;
 };
+
+export const adminGrantSparks = async ({
+  targetAuthId,
+  eventReference,
+  amount = 10,
+  metadata = {},
+}) => {
+  if (!targetAuthId) throw new Error("targetAuthId is required");
+  if (!eventReference) throw new Error("eventReference is required");
+
+  const { data, error } = await supabase.rpc("admin_grant_sparks", {
+    p_target_auth_id: targetAuthId,
+    p_event_reference: eventReference,
+    p_amount: Math.max(1, Math.round(Number(amount || 10))),
+    p_metadata: metadata,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return Array.isArray(data) ? data[0] || null : data || null;
+};

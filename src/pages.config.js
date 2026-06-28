@@ -58,6 +58,7 @@ import AdminPlantImporter from './pages/AdminPlantImporter';
 import AdminPlantNames from './pages/AdminPlantNames';
 import AdminQuestCreator from './pages/AdminQuestCreator';
 import AdminScanOfTheWeek from './pages/AdminScanOfTheWeek';
+import AdminWeeklyReport from './pages/AdminWeeklyReport';
 import Classroom from './pages/Classroom';
 import Collection from './pages/Collection';
 import CollectionEditor from './pages/CollectionEditor';
@@ -102,6 +103,7 @@ export const PAGES = {
     "AdminPlantNames": AdminPlantNames,
     "AdminQuestCreator": AdminQuestCreator,
     "AdminScanOfTheWeek": AdminScanOfTheWeek,
+    "AdminWeeklyReport": AdminWeeklyReport,
     "Classroom": Classroom,
     "Collection": Collection,
     "CollectionEditor": CollectionEditor,
