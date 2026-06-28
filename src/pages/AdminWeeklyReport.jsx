@@ -52,26 +52,37 @@ const formatDateRange = (weekStartIso) => {
 // ─── Data fetching ────────────────────────────────────────────────────────────
 
 async function fetchWeeklyStats(weekStartIso) {
-  const [ledgerRes, discoveryRes, newProfileRes, likesRes, leaderboardRes] = await Promise.all([
-    supabase.from("RobotPlantWalletLedger").select("amount, direction").gte("created_at", weekStartIso),
+  // Discoveries + new profiles in parallel; leaderboard RPC bypasses RLS on WalletLedger
+  const [discoveryRes, newProfileRes, leaderboardRes] = await Promise.all([
     supabase.from("UserPlantDiscovery").select("id, plant_id, auth_id, image_url").gte("discovered_date", weekStartIso),
     supabase.from("PublicProfile").select("id").gte("created_date", weekStartIso),
-    supabase.from("ScanLike").select("discovery_id, created_date").gte("created_date", weekStartIso),
-    supabase.rpc("get_weekly_seed_leaderboard", { p_limit: 5 }),
+    // p_limit 200 = max supported by the RPC; sum gives platform-wide total
+    supabase.rpc("get_weekly_seed_leaderboard", { p_limit: 200 }),
   ]);
 
-  if (ledgerRes.error) throw new Error(`Ledger: ${ledgerRes.error.message}`);
   if (discoveryRes.error) throw new Error(`Discoveries: ${discoveryRes.error.message}`);
 
-  const ledger = ledgerRes.data ?? [];
   const discoveries = discoveryRes.data ?? [];
   const newProfiles = newProfileRes.data ?? [];
-  const likes = likesRes.data ?? [];
-  const leaderboard = Array.isArray(leaderboardRes.data) ? leaderboardRes.data : [];
+  const fullLeaderboard = Array.isArray(leaderboardRes.data) ? leaderboardRes.data : [];
 
-  const seedsEarned = ledger.filter((l) => l.direction === "credit").reduce((s, l) => s + (l.amount || 0), 0);
-  const seedsSpent = ledger.filter((l) => l.direction === "debit").reduce((s, l) => s + (l.amount || 0), 0);
+  // Platform-wide seeds earned this week (sum of all players via SECURITY DEFINER RPC)
+  const seedsEarned = fullLeaderboard.reduce((s, e) => s + Number(e.weekly_seed_total ?? 0), 0);
+  const leaderboard = fullLeaderboard.slice(0, 5);
+
   const uniqueScanners = new Set(discoveries.map((d) => d.auth_id).filter(Boolean)).size;
+
+  // Likes for this week's scans – query by discovery_id to avoid null created_date issues
+  const discoveryIds = discoveries.map((d) => d.id).filter(Boolean);
+  let likes = [];
+  const LIKE_CHUNK = 500;
+  for (let i = 0; i < discoveryIds.length; i += LIKE_CHUNK) {
+    const { data: chunk } = await supabase
+      .from("ScanLike")
+      .select("discovery_id")
+      .in("discovery_id", discoveryIds.slice(i, i + LIKE_CHUNK));
+    if (chunk) likes.push(...chunk);
+  }
   const totalLikes = likes.length;
 
   // Rarity lookup
@@ -137,7 +148,6 @@ async function fetchWeeklyStats(weekStartIso) {
 
   return {
     seedsEarned,
-    seedsSpent,
     uniqueScanners,
     newPlayers: newProfiles.length,
     totalScans: discoveries.length,
@@ -206,8 +216,6 @@ function Slide1({ stats, weekRange }) {
   return (
     <SlideShell>
       <div className="flex flex-col flex-1 px-6 py-6 gap-5 justify-between z-10">
-        <SlideHeader label="Wochenrückblick" />
-
         <div className="flex flex-col gap-2">
           <p className="text-stone-500 text-xs font-medium uppercase tracking-widest">Samen verdient</p>
           <div className="flex items-end gap-2">
@@ -216,11 +224,6 @@ function Slide1({ stats, weekRange }) {
             </span>
             <span className="text-2xl mb-2">🌱</span>
           </div>
-          {stats.seedsSpent > 0 && (
-            <span className="text-xs text-stone-500">
-              −{Number(stats.seedsSpent).toLocaleString("de-DE")} ausgegeben diese Woche
-            </span>
-          )}
         </div>
 
         <Divider />
@@ -294,8 +297,6 @@ function Slide2({ stats, weekRange }) {
   return (
     <SlideShell>
       <div className="flex flex-col flex-1 px-6 py-6 gap-4 justify-between z-10">
-        <SlideHeader label="Rangliste" />
-
         <div className="flex flex-col gap-1">
           <h2 className="text-xl font-black text-white tracking-tight">Top 5 Samen</h2>
           <p className="text-xs text-stone-500">Meiste Samen gesammelt diese Woche</p>
@@ -324,8 +325,6 @@ function Slide3({ stats, weekRange }) {
   return (
     <SlideShell>
       <div className="flex flex-col flex-1 px-6 py-6 gap-5 justify-between z-10">
-        <SlideHeader label="Scan-Statistiken" />
-
         <div className="flex flex-col gap-2">
           <p className="text-stone-500 text-xs font-medium uppercase tracking-widest">Scans gesamt</p>
           <span className="text-[64px] font-black leading-none tabular-nums text-white">
@@ -343,16 +342,6 @@ function Slide3({ stats, weekRange }) {
             </div>
             <span className="text-2xl font-black text-amber-300 tabular-nums">
               {Number(stats.rareScans).toLocaleString("de-DE")}
-            </span>
-          </div>
-
-          <div className="flex justify-between items-center rounded-xl px-4 py-3 bg-pink-500/10 border border-pink-500/20">
-            <div className="flex flex-col">
-              <span className="text-sm font-semibold text-pink-300">Likes vergeben</span>
-              <span className="text-[10px] text-stone-500">Diese Woche insgesamt</span>
-            </div>
-            <span className="text-2xl font-black text-pink-300 tabular-nums">
-              {Number(stats.totalLikes).toLocaleString("de-DE")}
             </span>
           </div>
         </div>
@@ -393,8 +382,7 @@ function Slide4({ stats, weekRange }) {
 
       <div className="flex flex-col flex-1 px-6 py-6 gap-4 justify-between z-10">
         {/* Top badge */}
-        <div className="flex items-center justify-between">
-          <SlideHeader label="Scan der Woche" />
+          <div className="flex items-center justify-end">
           <div className="flex items-center gap-1 rounded-full px-2.5 py-1 bg-pink-500/20 border border-pink-500/30">
             <span className="text-xs text-pink-300 font-semibold">
               {topScan ? `${topScan.likeCount} ♥` : "–"}
@@ -622,10 +610,10 @@ export default function AdminWeeklyReport() {
             {/* Quick summary grid */}
             <div className="w-full max-w-sm grid grid-cols-2 gap-3">
               {[
-                { label: "Samen verdient", value: stats.seedsEarned, sub: stats.seedsSpent > 0 ? `−${stats.seedsSpent.toLocaleString("de-DE")} ausgegeben` : null, accent: true },
+                { label: "Samen verdient", value: stats.seedsEarned, sub: null, accent: true },
                 { label: "Aktive Spieler", value: stats.uniqueScanners, sub: `+${stats.newPlayers} neu` },
                 { label: "Scans gesamt", value: stats.totalScans, sub: `${stats.rareScans} selten+` },
-                { label: "Likes vergeben", value: stats.totalLikes },
+                { label: "Likes auf Scans", value: stats.totalLikes },
               ].map(({ label, value, sub, accent }) => (
                 <div
                   key={label}
