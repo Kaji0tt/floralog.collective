@@ -549,9 +549,15 @@ export default function HomeCollectionStripes({
 
     const logoNode = logoButtonRef.current;
     const logoRect = logoNode?.getBoundingClientRect();
+    // logoHeight: height of logo button in unit-coordinate space (removes unit scale, keeps button's own scale-[1.24])
     const logoHeight = Math.max(1, (logoRect?.height || 0) / currentUnitScale);
-    const transparentLogoCompensation = logoHeight * (1 - BADGE_LOGO_VISIBLE_HEIGHT_RATIO);
-    const effectiveUnitHeight = Math.max(1, unitHeight - transparentLogoCompensation);
+
+    // Effective content bottom in unit's natural coordinate system:
+    // = top offset of logo button + visible portion of logo height.
+    // pxPerRem derived from the unit's own measured height to respect non-default font sizes.
+    const pxPerRem = unitHeight / BADGE_LOGO_UNIT_HEIGHT_REM;
+    const logoRowTopPx = LOGO_ROW_TOP_REM * pxPerRem;
+    const effectiveUnitHeight = Math.max(1, logoRowTopPx + logoHeight * BADGE_LOGO_VISIBLE_HEIGHT_RATIO);
 
     const heightScale = (availableHeight * BADGE_LOGO_FILL_HEIGHT_RATIO) / effectiveUnitHeight;
     const widthScale = (availableWidth * BADGE_LOGO_FILL_WIDTH_RATIO) / unitWidth;
@@ -562,7 +568,9 @@ export default function HomeCollectionStripes({
 
     const scaledEffectiveHeight = effectiveUnitHeight * nextScale;
     const verticalSparePx = availableHeight - scaledEffectiveHeight;
-    const shouldCenterVertically = nextScale >= BADGE_LOGO_MAX_SCALE - 0.01 && verticalSparePx > 10;
+    // Only center if there is substantial spare space; a small threshold prevents centering
+    // from pushing the logo (transform-origin: top center) below the viewport boundary.
+    const shouldCenterVertically = nextScale >= BADGE_LOGO_MAX_SCALE - 0.01 && verticalSparePx > 60;
 
     setBadgeLogoScale((prevScale) => (Math.abs(prevScale - nextScale) < 0.01 ? prevScale : nextScale));
     setCenterBadgeLogoUnit((prevCenter) => (prevCenter === shouldCenterVertically ? prevCenter : shouldCenterVertically));
@@ -802,7 +810,7 @@ export default function HomeCollectionStripes({
     <div ref={collectionRootRef} className={`flex min-h-0 flex-col gap-2 ${className}`}>
       <div
         ref={badgeLogoViewportRef}
-        className="relative min-h-[17.25rem] flex-1 overflow-hidden text-stone-100 sm:min-h-[19.25rem]"
+        className="relative min-h-0 flex-1 overflow-hidden text-stone-100"
         aria-label="Florabot und Abzeichen"
       >
         <div

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Settings2, HeartPulse, Sparkles, Gem, ArrowLeft } from "lucide-react";
 import { useUiTheme } from "@/lib/UiThemeContext";
@@ -563,10 +564,120 @@ export default function HomeFlorabotOverlay({
     </div>
   );
 
+  const logoAnimationPortal = !isShopOpen && typeof document !== "undefined" && document.body
+    ? createPortal(
+        <>
+          <AnimatePresence mode="wait">
+            {activePlayfulCareAnimation && careAnimationVisualTarget === "logo" ? (
+              <motion.div
+                key={`logo-${activePlayfulCareAnimation}-${playfulCareAnimationNonce}`}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 1.06 }}
+                transition={{ duration: 0.16 }}
+                className="pointer-events-none"
+                style={floatingLogoHitRect
+                  ? {
+                      position: "fixed",
+                      zIndex: 410,
+                      left: `${floatingLogoHitRect.left}px`,
+                      top: `${floatingLogoHitRect.top}px`,
+                      width: `${floatingLogoHitRect.width}px`,
+                      height: `${floatingLogoHitRect.height}px`,
+                    }
+                  : {
+                      position: "fixed",
+                      zIndex: 410,
+                      left: "50%",
+                      top: "50%",
+                      width: "13rem",
+                      height: "13rem",
+                      transform: "translate(-50%, -50%)",
+                    }}
+                aria-hidden="true"
+              >
+                <motion.div
+                  className="absolute inset-[-8%] rounded-full"
+                  style={{
+                    background: isLightUi
+                      ? "radial-gradient(circle, rgba(163,230,53,0.42) 0%, rgba(163,230,53,0.22) 38%, rgba(163,230,53,0) 76%)"
+                      : "radial-gradient(circle, rgba(190,242,100,0.55) 0%, rgba(190,242,100,0.28) 40%, rgba(190,242,100,0) 78%)",
+                    filter: "blur(10px)",
+                  }}
+                  initial={{ opacity: 0, scale: 0.78 }}
+                  animate={{ opacity: [0, 1, 0], scale: [0.78, 1.08, 1.28] }}
+                  transition={{ duration: 0.72, ease: "easeOut" }}
+                />
+                <motion.div
+                  className={`absolute inset-0 rounded-full border-2 ${isLightUi ? "border-lime-400/70" : "border-lime-300/65"}`}
+                  style={{
+                    boxShadow: isLightUi
+                      ? "0 0 26px rgba(132,204,22,0.75), 0 0 52px rgba(163,230,53,0.45)"
+                      : "0 0 32px rgba(190,242,100,0.9), 0 0 60px rgba(190,242,100,0.5)",
+                  }}
+                  initial={{ opacity: 0, scale: 0.82 }}
+                  animate={{ opacity: [0, 1, 0], scale: [0.82, 1.04, 1.15] }}
+                  transition={{ duration: 0.68, ease: "easeOut" }}
+                />
+                <motion.div
+                  className={`absolute inset-3 rounded-full border ${isLightUi ? "border-emerald-300/60" : "border-emerald-200/55"}`}
+                  style={{
+                    boxShadow: isLightUi
+                      ? "0 0 18px rgba(110,231,183,0.5)"
+                      : "0 0 20px rgba(110,231,183,0.6)",
+                  }}
+                  initial={{ opacity: 0, scale: 0.92 }}
+                  animate={{ opacity: [0, 0.9, 0], scale: [0.92, 1, 1.1] }}
+                  transition={{ duration: 0.64, ease: "easeOut", delay: 0.05 }}
+                />
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+
+          <button
+            type="button"
+            onClick={(event) => {
+              if (event.detail !== 0) return;
+              handlePortalCopyTap("logo-hit-click");
+            }}
+            onPointerUp={() => handlePortalCopyTap("logo-hit-pointerup")}
+            onPointerDown={(event) => {
+              console.log(`${PORTAL_CARE_DEBUG_PREFIX} logo hit-target pointerdown`, {
+                target: getEventTargetLabel(event.target),
+                rect: floatingLogoHitRect,
+              });
+            }}
+            className="rounded-full bg-transparent border-0 p-0"
+            style={floatingLogoHitRect
+              ? {
+                  position: "fixed",
+                  zIndex: 330,
+                  left: `${floatingLogoHitRect.left}px`,
+                  top: `${floatingLogoHitRect.top}px`,
+                  width: `${floatingLogoHitRect.width}px`,
+                  height: `${floatingLogoHitRect.height}px`,
+                }
+              : {
+                  position: "fixed",
+                  zIndex: 330,
+                  left: "50%",
+                  top: "50%",
+                  width: "12rem",
+                  height: "12rem",
+                  transform: "translate(-50%, -50%)",
+                }}
+            aria-label="Pflege auslösen"
+          />
+        </>,
+        document.body
+      )
+    : null;
+
   return (
-    <FlorabotOverlayShell
-      title="Florabot Schaltzentrale"
-      titleSubline={currencyLine}
+    <>
+      <FlorabotOverlayShell
+        title="Florabot Schaltzentrale"
+        titleSubline={currencyLine}
       titleSublineClassName="mt-1"
       titleBadge={isShopOpen ? null : healthBadgeWithCare}
       profile={profile}
@@ -890,112 +1001,17 @@ export default function HomeFlorabotOverlay({
       ) : (
         <motion.div
           // IMPORTANT: keep this wrapper free of transform animations.
-          // The logo ring + hit-target are `position: fixed` and use viewport rects.
-          // A transformed ancestor changes their containing block and causes visual offset.
+          // The logo ring + hit-target are rendered via createPortal in document.body
+          // to avoid backdrop-filter / WebkitBackdropFilter creating a containing block
+          // for position:fixed descendants (iOS Safari / Android WebView quirk).
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.26, ease: "easeInOut" }}
           className="relative h-full w-full"
-        >
-          <div className="absolute inset-0 pointer-events-none">
-            <AnimatePresence mode="wait">
-              {activePlayfulCareAnimation && careAnimationVisualTarget === "logo" ? (
-                <motion.div
-                  key={`logo-${activePlayfulCareAnimation}-${playfulCareAnimationNonce}`}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 1.06 }}
-                  transition={{ duration: 0.16 }}
-                  className="pointer-events-none fixed"
-                  style={floatingLogoHitRect
-                    ? {
-                        left: `${floatingLogoHitRect.left}px`,
-                        top: `${floatingLogoHitRect.top}px`,
-                        width: `${floatingLogoHitRect.width}px`,
-                        height: `${floatingLogoHitRect.height}px`,
-                      }
-                    : {
-                        left: "50%",
-                        top: "50%",
-                        width: "13rem",
-                        height: "13rem",
-                        transform: "translate(-50%, -50%)",
-                      }}
-                  aria-hidden="true"
-                >
-                  <motion.div
-                    className="absolute inset-[-8%] rounded-full"
-                    style={{
-                      background: isLightUi
-                        ? "radial-gradient(circle, rgba(163,230,53,0.42) 0%, rgba(163,230,53,0.22) 38%, rgba(163,230,53,0) 76%)"
-                        : "radial-gradient(circle, rgba(190,242,100,0.55) 0%, rgba(190,242,100,0.28) 40%, rgba(190,242,100,0) 78%)",
-                      filter: "blur(10px)",
-                    }}
-                    initial={{ opacity: 0, scale: 0.78 }}
-                    animate={{ opacity: [0, 1, 0], scale: [0.78, 1.08, 1.28] }}
-                    transition={{ duration: 0.72, ease: "easeOut" }}
-                  />
-
-                  <motion.div
-                    className={`absolute inset-0 rounded-full border-2 ${isLightUi ? "border-lime-400/70" : "border-lime-300/65"}`}
-                    style={{
-                      boxShadow: isLightUi
-                        ? "0 0 26px rgba(132,204,22,0.75), 0 0 52px rgba(163,230,53,0.45)"
-                        : "0 0 32px rgba(190,242,100,0.9), 0 0 60px rgba(190,242,100,0.5)",
-                    }}
-                    initial={{ opacity: 0, scale: 0.82 }}
-                    animate={{ opacity: [0, 1, 0], scale: [0.82, 1.04, 1.15] }}
-                    transition={{ duration: 0.68, ease: "easeOut" }}
-                  />
-                  <motion.div
-                    className={`absolute inset-3 rounded-full border ${isLightUi ? "border-emerald-300/60" : "border-emerald-200/55"}`}
-                    style={{
-                      boxShadow: isLightUi
-                        ? "0 0 18px rgba(110,231,183,0.5)"
-                        : "0 0 20px rgba(110,231,183,0.6)",
-                    }}
-                    initial={{ opacity: 0, scale: 0.92 }}
-                    animate={{ opacity: [0, 0.9, 0], scale: [0.92, 1, 1.1] }}
-                    transition={{ duration: 0.64, ease: "easeOut", delay: 0.05 }}
-                  />
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
-
-            <button
-              type="button"
-              onClick={(event) => {
-                // Pointer devices also fire click after pointerup; keep click only for keyboard activation.
-                if (event.detail !== 0) return;
-                handlePortalCopyTap("logo-hit-click");
-              }}
-              onPointerUp={() => handlePortalCopyTap("logo-hit-pointerup")}
-              onPointerDown={(event) => {
-                console.log(`${PORTAL_CARE_DEBUG_PREFIX} logo hit-target pointerdown`, {
-                  target: getEventTargetLabel(event.target),
-                  rect: floatingLogoHitRect,
-                });
-              }}
-              className="pointer-events-auto fixed rounded-full bg-transparent border-0 p-0"
-              style={floatingLogoHitRect
-                ? {
-                    left: `${floatingLogoHitRect.left}px`,
-                    top: `${floatingLogoHitRect.top}px`,
-                    width: `${floatingLogoHitRect.width}px`,
-                    height: `${floatingLogoHitRect.height}px`,
-                  }
-                : {
-                    left: "50%",
-                    top: "50%",
-                    width: "12rem",
-                    height: "12rem",
-                    transform: "translate(-50%, -50%)",
-                  }}
-              aria-label="Pflege auslösen"
-            />
-          </div>
-        </motion.div>
+        />
       )}
     </FlorabotOverlayShell>
+    {logoAnimationPortal}
+  </>
   );
 }
