@@ -8,7 +8,8 @@ import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import MobileBackButton from "@/components/navigation/MobileBackButton";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
-import { resolveEquippedLogoAssets } from "@/lib/logoAccessoryAssets";
+import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
+import { getCurrentWeeklyQuest, getWeekNumber } from "@/components/quests/QuestRotationHelper";
 
 // ─── Rarity helpers (same mapping as Home.jsx) ───────────────────────────────
 
@@ -33,11 +34,15 @@ const rarityScoreFromLabel = (rarity) => {
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
-const getWeekStartIso = () => {
+// Returns the ISO timestamp for the Monday of the week offset by `offsetWeeks`
+// (0 = current week, -1 = last week, etc.)
+const getWeekStartIsoForOffset = (offsetWeeks = 0) => {
   const now = new Date();
   const day = now.getUTCDay();
   const daysBack = day === 0 ? 6 : day - 1;
-  const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysBack));
+  const monday = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysBack + offsetWeeks * 7)
+  );
   return monday.toISOString();
 };
 
@@ -52,12 +57,25 @@ const formatDateRange = (weekStartIso) => {
 // ─── Data fetching ────────────────────────────────────────────────────────────
 
 async function fetchWeeklyStats(weekStartIso) {
-  // Discoveries + new profiles in parallel; leaderboard RPC bypasses RLS on WalletLedger
-  const [discoveryRes, newProfileRes, leaderboardRes] = await Promise.all([
-    supabase.from("UserPlantDiscovery").select("id, plant_id, auth_id, image_url").gte("discovered_date", weekStartIso),
-    supabase.from("PublicProfile").select("id").gte("created_date", weekStartIso),
-    // p_limit 200 = max supported by the RPC; sum gives platform-wide total
+  // Compute the exclusive end of the week (Sunday 23:59:59 UTC → next Monday 00:00)
+  const weekEndIso = new Date(new Date(weekStartIso).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  // Discoveries + new profiles + leaderboard + LogoAsset catalog + WeeklyQuests in parallel
+  const [discoveryRes, newProfileRes, leaderboardRes, logoAssetRes, weeklyQuestRes] = await Promise.all([
+    supabase
+      .from("UserPlantDiscovery")
+      .select("id, plant_id, auth_id, image_url")
+      .gte("discovered_date", weekStartIso)
+      .lt("discovered_date", weekEndIso),
+    supabase
+      .from("PublicProfile")
+      .select("id")
+      .gte("created_date", weekStartIso)
+      .lt("created_date", weekEndIso),
+    // p_limit 200 = max supported by the RPC; always reflects the *current* week
     supabase.rpc("get_weekly_seed_leaderboard", { p_limit: 200 }),
+    supabase.from("LogoAsset").select("*"),
+    supabase.from("WeeklyQuest").select("id, title, target_species_name, target_genus_name, quest_number, required_discoveries"),
   ]);
 
   if (discoveryRes.error) throw new Error(`Discoveries: ${discoveryRes.error.message}`);
@@ -65,6 +83,8 @@ async function fetchWeeklyStats(weekStartIso) {
   const discoveries = discoveryRes.data ?? [];
   const newProfiles = newProfileRes.data ?? [];
   const fullLeaderboard = Array.isArray(leaderboardRes.data) ? leaderboardRes.data : [];
+
+  const logoAssetCatalog = Array.isArray(logoAssetRes.data) ? logoAssetRes.data : [];
 
   // Platform-wide seeds earned this week (sum of all players via SECURITY DEFINER RPC)
   const seedsEarned = fullLeaderboard.reduce((s, e) => s + Number(e.weekly_seed_total ?? 0), 0);
@@ -85,15 +105,58 @@ async function fetchWeeklyStats(weekStartIso) {
   }
   const totalLikes = likes.length;
 
-  // Rarity lookup
+  // Rarity + species lookup (extended plant map)
   const plantIds = [...new Set(discoveries.map((d) => d.plant_id).filter(Boolean))];
-  const rarityMap = {};
+  const plantMap = {}; // id → { rarity, species_name, genus_id }
   const CHUNK = 500;
   for (let i = 0; i < plantIds.length; i += CHUNK) {
-    const { data: plants } = await supabase.from("Plant").select("id, rarity").in("id", plantIds.slice(i, i + CHUNK));
-    for (const p of plants ?? []) rarityMap[p.id] = p.rarity;
+    const { data: plants } = await supabase
+      .from("Plant")
+      .select("id, rarity, species_name, genus_category, genus_number")
+      .in("id", plantIds.slice(i, i + CHUNK));
+    for (const p of plants ?? []) plantMap[p.id] = p;
   }
-  const rareScans = discoveries.filter((d) => rarityScoreFromLabel(rarityMap[d.plant_id]) >= 4).length;
+  const rareScans = discoveries.filter((d) => rarityScoreFromLabel(plantMap[d.plant_id]?.rarity) >= 4).length;
+  const distinctSpecies = new Set(discoveries.map((d) => d.plant_id).filter(Boolean)).size;
+
+  // Most scanned plant this week
+  const plantCountMap = {};
+  for (const d of discoveries) {
+    if (d.plant_id) plantCountMap[d.plant_id] = (plantCountMap[d.plant_id] || 0) + 1;
+  }
+  const topPlantEntry = Object.entries(plantCountMap).sort(([, a], [, b]) => b - a)[0];
+  const topPlantId = topPlantEntry?.[0] ?? null;
+  const topPlantCount = topPlantEntry?.[1] ?? 0;
+  const topPlantName = topPlantId ? (plantMap[topPlantId]?.species_name ?? null) : null;
+
+  // Quest for the selected week (rotation based on ISO week number of that week)
+  const weekDate = new Date(weekStartIso);
+  const weekString = getWeekNumber(weekDate);
+  const weekNumber = parseInt(weekString.split("-W")[1], 10);
+  const sortedQuests = [...(weeklyQuestRes.data ?? [])].sort((a, b) => a.quest_number - b.quest_number);
+  const currentWeeklyQuest = sortedQuests.length > 0 ? sortedQuests[(weekNumber - 1) % sortedQuests.length] : null;
+  let questFinds = 0;
+  let questPlantLabel = null;
+  if (currentWeeklyQuest?.target_species_name) {
+    questPlantLabel = currentWeeklyQuest.target_species_name;
+    questFinds = discoveries.filter(
+      (d) => plantMap[d.plant_id]?.species_name === currentWeeklyQuest.target_species_name
+    ).length;
+  } else if (currentWeeklyQuest?.target_genus_name) {
+    questPlantLabel = currentWeeklyQuest.target_genus_name;
+    const { data: genusRow } = await supabase
+      .from("PlantGenus")
+      .select("category, category_dex_number")
+      .eq("genus_name", currentWeeklyQuest.target_genus_name)
+      .maybeSingle();
+    if (genusRow?.category != null && genusRow?.category_dex_number != null) {
+      questFinds = discoveries.filter((d) => {
+        const p = plantMap[d.plant_id];
+        return p?.genus_category === genusRow.category &&
+          Number(p?.genus_number) === Number(genusRow.category_dex_number);
+      }).length;
+    }
+  }
 
   // Most liked scan this week
   const likeCounts = {};
@@ -151,17 +214,23 @@ async function fetchWeeklyStats(weekStartIso) {
     uniqueScanners,
     newPlayers: newProfiles.length,
     totalScans: discoveries.length,
+    distinctSpecies,
     rareScans,
     totalLikes,
+    topPlantName,
+    topPlantCount,
+    questPlantLabel,
+    questFinds,
     leaderboard: leaderboardWithProfiles,
+    logoAssetCatalog,
     topScan,
   };
 }
 
 // ─── Slide shell ──────────────────────────────────────────────────────────────
 
-const SLIDE_BG = "linear-gradient(160deg, #090f0a 0%, #0c1f11 50%, #090f0a 100%)";
-const SLIDE_BORDER = "1px solid rgba(52,211,153,0.2)";
+const SLIDE_BG = "linear-gradient(160deg, #fdf6ec 0%, #fefaf4 50%, #fdf6ec 100%)";
+const SLIDE_BORDER = "1px solid rgba(180,150,100,0.22)";
 
 function SlideShell({ children, style = {} }) {
   return (
@@ -173,14 +242,14 @@ function SlideShell({ children, style = {} }) {
         maxWidth: 380,
         background: SLIDE_BG,
         border: SLIDE_BORDER,
-        boxShadow: "0 0 40px rgba(52,211,153,0.06)",
+        boxShadow: "0 0 40px rgba(180,150,100,0.08)",
         ...style,
       }}
     >
       {/* ambient glow top */}
       <div
         className="absolute inset-0 pointer-events-none"
-        style={{ background: "radial-gradient(ellipse 80% 30% at 50% 0%, rgba(52,211,153,0.1) 0%, transparent 70%)" }}
+        style={{ background: "radial-gradient(ellipse 80% 30% at 50% 0%, rgba(180,210,160,0.18) 0%, transparent 70%)" }}
       />
       {children}
     </div>
@@ -190,10 +259,10 @@ function SlideShell({ children, style = {} }) {
 function SlideHeader({ label }) {
   return (
     <div className="flex items-center gap-1.5 z-10">
-      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-      <span className="text-[10px] font-semibold tracking-widest uppercase text-emerald-400/70">FloraLog</span>
-      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-      <span className="text-[10px] font-semibold tracking-widest uppercase text-stone-500 ml-1">{label}</span>
+      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+      <span className="text-[10px] font-semibold tracking-widest uppercase text-emerald-600/80">FloraLog</span>
+      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+      <span className="text-[10px] font-semibold tracking-widest uppercase text-stone-400 ml-1">{label}</span>
     </div>
   );
 }
@@ -201,7 +270,7 @@ function SlideHeader({ label }) {
 function SlideFooter({ weekRange }) {
   return (
     <div className="flex flex-col items-center gap-1 z-10">
-      <span className="text-[10px] text-stone-600">{weekRange} · floralog.app</span>
+      <span className="text-[10px] text-stone-400">{weekRange} · floralog.app</span>
     </div>
   );
 }
@@ -217,9 +286,9 @@ function Slide1({ stats, weekRange }) {
     <SlideShell>
       <div className="flex flex-col flex-1 px-6 py-6 gap-5 justify-between z-10">
         <div className="flex flex-col gap-2">
-          <p className="text-stone-500 text-xs font-medium uppercase tracking-widest">Samen verdient</p>
+          <p className="text-stone-400 text-xs font-medium uppercase tracking-widest">Samen verdient</p>
           <div className="flex items-end gap-2">
-            <span className="text-[64px] font-black leading-none tabular-nums text-emerald-300">
+            <span className="text-[64px] font-black leading-none tabular-nums text-emerald-700">
               {Number(stats.seedsEarned).toLocaleString("de-DE")}
             </span>
             <span className="text-2xl mb-2">🌱</span>
@@ -229,15 +298,15 @@ function Slide1({ stats, weekRange }) {
         <Divider />
 
         <div className="flex flex-col gap-3">
-          <div className="flex justify-between items-center rounded-xl px-4 py-3 bg-white/4 border border-white/8">
-            <span className="text-sm text-stone-400">Aktive SpielerInnen</span>
-            <span className="text-2xl font-black text-white tabular-nums">
+          <div className="flex justify-between items-center rounded-xl px-4 py-3 bg-stone-100 border border-stone-200">
+            <span className="text-sm text-stone-500">Aktive SpielerInnen</span>
+            <span className="text-2xl font-black text-stone-800 tabular-nums">
               {Number(stats.uniqueScanners).toLocaleString("de-DE")}
             </span>
           </div>
-          <div className="flex justify-between items-center rounded-xl px-4 py-3 bg-emerald-500/10 border border-emerald-500/20">
-            <span className="text-sm text-emerald-300/80">Neue SpielerInnen</span>
-            <span className="text-2xl font-black text-emerald-300 tabular-nums">
+          <div className="flex justify-between items-center rounded-xl px-4 py-3 bg-emerald-50 border border-emerald-200">
+            <span className="text-sm text-emerald-700/80">Neue SpielerInnen</span>
+            <span className="text-2xl font-black text-emerald-700 tabular-nums">
               {Number(stats.newPlayers).toLocaleString("de-DE")}
             </span>
           </div>
@@ -253,17 +322,17 @@ function Slide1({ stats, weekRange }) {
 // ─── Slide 2 – Rangliste ──────────────────────────────────────────────────────
 
 const RANK_STYLES = [
-  { color: "#f59e0b", label: "1.", bg: "rgba(245,158,11,0.12)", border: "rgba(245,158,11,0.35)" },
-  { color: "#94a3b8", label: "2.", bg: "rgba(148,163,184,0.08)", border: "rgba(148,163,184,0.25)" },
-  { color: "#b45309", label: "3.", bg: "rgba(180,83,9,0.08)", border: "rgba(180,83,9,0.25)" },
-  { color: "#6b7280", label: "4.", bg: "rgba(107,114,128,0.06)", border: "rgba(107,114,128,0.18)" },
-  { color: "#6b7280", label: "5.", bg: "rgba(107,114,128,0.06)", border: "rgba(107,114,128,0.18)" },
+  { color: "#92400e", label: "1.", bg: "rgba(253,230,138,0.45)", border: "rgba(245,158,11,0.4)" },
+  { color: "#475569", label: "2.", bg: "rgba(203,213,225,0.35)", border: "rgba(148,163,184,0.4)" },
+  { color: "#7c3e12", label: "3.", bg: "rgba(253,186,116,0.3)", border: "rgba(249,115,22,0.3)" },
+  { color: "#78716c", label: "4.", bg: "rgba(231,229,228,0.5)", border: "rgba(168,162,158,0.35)" },
+  { color: "#78716c", label: "5.", bg: "rgba(231,229,228,0.5)", border: "rgba(168,162,158,0.35)" },
 ];
 
-function LeaderboardRow({ entry, rank }) {
+function LeaderboardRow({ entry, rank, logoAssetCatalog }) {
   const rs = RANK_STYLES[rank] ?? RANK_STYLES[4];
   const profile = entry.profile ?? {};
-  const logoAssets = resolveEquippedLogoAssets(profile);
+  const logoAssets = resolveEquippedLogoAssetsWithCatalog(profile, logoAssetCatalog);
   const displayName = entry.display_name || entry.full_name || entry.user_email?.split("@")[0] || "—";
 
   return (
@@ -280,9 +349,9 @@ function LeaderboardRow({ entry, rank }) {
         fallbackText={displayName.charAt(0).toUpperCase()}
       />
       <div className="flex flex-col min-w-0 flex-1">
-        <span className="text-sm font-semibold text-white truncate leading-tight">{displayName}</span>
+        <span className="text-sm font-semibold text-stone-700 truncate leading-tight">{displayName}</span>
         {profile.bot_name && (
-          <span className="text-[10px] text-stone-500 truncate leading-tight">{profile.bot_name}</span>
+          <span className="text-[10px] text-stone-400 truncate leading-tight">{profile.bot_name}</span>
         )}
       </div>
       <span className="text-sm font-black tabular-nums shrink-0" style={{ color: rs.color }}>
@@ -298,16 +367,16 @@ function Slide2({ stats, weekRange }) {
     <SlideShell>
       <div className="flex flex-col flex-1 px-6 py-6 gap-4 justify-between z-10">
         <div className="flex flex-col gap-1">
-          <h2 className="text-xl font-black text-white tracking-tight">Top 5 Samen</h2>
-          <p className="text-xs text-stone-500">Meiste Samen gesammelt diese Woche</p>
+          <h2 className="text-xl font-black text-stone-800 tracking-tight">Top 5 Samen</h2>
+          <p className="text-xs text-stone-400">Meiste Samen gesammelt diese Woche</p>
         </div>
 
         <div className="flex flex-col gap-2 flex-1">
           {stats.leaderboard.length === 0 ? (
-            <p className="text-stone-600 text-sm text-center py-8">Noch keine Daten</p>
+            <p className="text-stone-400 text-sm text-center py-8">Noch keine Daten</p>
           ) : (
             stats.leaderboard.slice(0, 5).map((entry, i) => (
-              <LeaderboardRow key={String(entry.auth_id ?? i)} entry={entry} rank={i} />
+              <LeaderboardRow key={String(entry.auth_id ?? i)} entry={entry} rank={i} logoAssetCatalog={stats.logoAssetCatalog} />
             ))
           )}
         </div>
@@ -324,26 +393,55 @@ function Slide2({ stats, weekRange }) {
 function Slide3({ stats, weekRange }) {
   return (
     <SlideShell>
-      <div className="flex flex-col flex-1 px-6 py-6 gap-5 justify-between z-10">
-        <div className="flex flex-col gap-2">
-          <p className="text-stone-500 text-xs font-medium uppercase tracking-widest">Scans gesamt</p>
-          <span className="text-[64px] font-black leading-none tabular-nums text-white">
+      <div className="flex flex-col flex-1 px-6 py-6 gap-4 justify-between z-10">
+        <div className="flex flex-col gap-1">
+          <p className="text-stone-400 text-xs font-medium uppercase tracking-widest">Scans gesamt</p>
+          <span className="text-[58px] font-black leading-none tabular-nums text-stone-800">
             {Number(stats.totalScans).toLocaleString("de-DE")}
           </span>
+          {stats.distinctSpecies > 0 && (
+            <span className="text-xs text-stone-400">
+              {Number(stats.distinctSpecies).toLocaleString("de-DE")} verschiedene Arten
+            </span>
+          )}
         </div>
 
         <Divider />
 
-        <div className="flex flex-col gap-3">
-          <div className="flex justify-between items-center rounded-xl px-4 py-3 bg-amber-500/10 border border-amber-500/25">
+        <div className="flex flex-col gap-2.5">
+          <div className="flex justify-between items-center rounded-xl px-4 py-2.5 bg-amber-50 border border-amber-200">
             <div className="flex flex-col">
-              <span className="text-sm font-semibold text-amber-300">Selten oder seltener</span>
-              <span className="text-[10px] text-stone-500">Seltenheit 4★ und drüber</span>
+              <span className="text-sm font-semibold text-amber-700">Selten oder seltener</span>
+              <span className="text-[10px] text-stone-400">Seltenheit 4★ und drüber</span>
             </div>
-            <span className="text-2xl font-black text-amber-300 tabular-nums">
+            <span className="text-xl font-black text-amber-700 tabular-nums">
               {Number(stats.rareScans).toLocaleString("de-DE")}
             </span>
           </div>
+
+          {stats.topPlantName && (
+            <div className="flex justify-between items-center rounded-xl px-4 py-2.5 bg-emerald-50 border border-emerald-200">
+              <div className="flex flex-col min-w-0 pr-2">
+                <span className="text-sm font-semibold text-emerald-700">Meistgescannte Art</span>
+                <span className="text-[11px] text-stone-500 italic truncate">{stats.topPlantName}</span>
+              </div>
+              <span className="text-xl font-black text-emerald-700 tabular-nums shrink-0">
+                {stats.topPlantCount}×
+              </span>
+            </div>
+          )}
+
+          {stats.questPlantLabel && (
+            <div className="flex justify-between items-center rounded-xl px-4 py-2.5 bg-violet-50 border border-violet-200">
+              <div className="flex flex-col min-w-0 pr-2">
+                <span className="text-sm font-semibold text-violet-700">Pflanze der Woche</span>
+                <span className="text-[11px] text-stone-500 italic truncate">{stats.questPlantLabel}</span>
+              </div>
+              <span className="text-xl font-black text-violet-700 tabular-nums shrink-0">
+                {stats.questFinds}×
+              </span>
+            </div>
+          )}
         </div>
 
         <Divider />
@@ -358,7 +456,7 @@ function Slide3({ stats, weekRange }) {
 function Slide4({ stats, weekRange }) {
   const { topScan } = stats;
   const profile = topScan?.profile ?? {};
-  const logoAssets = topScan ? resolveEquippedLogoAssets(profile) : null;
+  const logoAssets = topScan ? resolveEquippedLogoAssetsWithCatalog(profile, stats.logoAssetCatalog) : null;
   const displayName = profile.display_name || profile.full_name || "—";
   const speciesName = topScan?.plant?.species_name || "Unbekannte Art";
 
@@ -371,11 +469,10 @@ function Slide4({ stats, weekRange }) {
             src={topScan.image_url}
             alt={speciesName}
             className="absolute inset-0 w-full h-full object-cover"
-            style={{ opacity: 0.55 }}
           />
           <div
             className="absolute inset-0"
-            style={{ background: "linear-gradient(to top, rgba(5,10,7,0.97) 35%, rgba(5,10,7,0.4) 70%, rgba(5,10,7,0.15) 100%)" }}
+            style={{ background: "linear-gradient(to top, rgba(253,246,236,0.92) 20%, rgba(253,246,236,0.25) 55%, transparent 100%)" }}
           />
         </>
       )}
@@ -383,8 +480,8 @@ function Slide4({ stats, weekRange }) {
       <div className="flex flex-col flex-1 px-6 py-6 gap-4 justify-between z-10">
         {/* Top badge */}
           <div className="flex items-center justify-end">
-          <div className="flex items-center gap-1 rounded-full px-2.5 py-1 bg-pink-500/20 border border-pink-500/30">
-            <span className="text-xs text-pink-300 font-semibold">
+          <div className="flex items-center gap-1 rounded-full px-2.5 py-1 bg-pink-100 border border-pink-200">
+            <span className="text-xs text-pink-600 font-semibold">
               {topScan ? `${topScan.likeCount} ♥` : "–"}
             </span>
           </div>
@@ -397,8 +494,8 @@ function Slide4({ stats, weekRange }) {
         {topScan ? (
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-0.5">
-              <span className="text-[10px] text-stone-500 uppercase tracking-widest font-medium">Entdeckte Art</span>
-              <span className="text-lg font-black text-white leading-tight italic">{speciesName}</span>
+              <span className="text-[10px] text-stone-400 uppercase tracking-widest font-medium">Entdeckte Art</span>
+              <span className="text-lg font-black text-stone-800 leading-tight italic">{speciesName}</span>
             </div>
 
             <Divider />
@@ -410,13 +507,13 @@ function Slide4({ stats, weekRange }) {
                 fallbackText={displayName.charAt(0).toUpperCase()}
               />
               <div className="flex flex-col min-w-0">
-                <span className="text-sm font-bold text-white truncate">{displayName}</span>
+                <span className="text-sm font-bold text-stone-800 truncate">{displayName}</span>
                 {profile.bot_name && (
-                  <span className="text-xs text-emerald-400 truncate">{profile.bot_name}</span>
+                  <span className="text-xs text-emerald-600 truncate">{profile.bot_name}</span>
                 )}
               </div>
               {topScan?.plant?.rarity && (
-                <span className="ml-auto text-xs text-stone-500 text-right leading-tight max-w-[80px] truncate">
+                <span className="ml-auto text-xs text-stone-400 text-right leading-tight max-w-[80px] truncate">
                   {topScan.plant.rarity}
                 </span>
               )}
@@ -427,7 +524,7 @@ function Slide4({ stats, weekRange }) {
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            <p className="text-stone-600 text-sm text-center pb-2">
+            <p className="text-stone-400 text-sm text-center pb-2">
               Noch kein Scan mit Likes diese Woche
             </p>
             <Divider />
@@ -527,12 +624,13 @@ const normalizeRole = (v) => String(v || "").trim().toLowerCase();
 export default function AdminWeeklyReport() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
+  const [weekOffset, setWeekOffset] = useState(0); // 0 = current week, -1 = last week, …
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [preview, setPreview] = useState(false);
 
-  const weekStartIso = getWeekStartIso();
+  const weekStartIso = getWeekStartIsoForOffset(weekOffset);
   const weekRange = formatDateRange(weekStartIso);
 
   const load = useCallback(async () => {
@@ -548,6 +646,7 @@ export default function AdminWeeklyReport() {
     }
   }, [weekStartIso]);
 
+  // Auth check (runs once)
   useEffect(() => {
     const checkUser = async () => {
       try {
@@ -555,16 +654,21 @@ export default function AdminWeeklyReport() {
         setUser(currentUser);
         if (normalizeRole(currentUser?.role) !== "admin") {
           setTimeout(() => navigate(createPageUrl("Home")), 500);
-          return;
         }
-        await load();
       } catch {
         setError("Profil konnte nicht geladen werden.");
         setLoading(false);
       }
     };
     checkUser();
-  }, [navigate, load]);
+  }, [navigate]);
+
+  // Load data whenever user is confirmed admin OR weekOffset changes
+  useEffect(() => {
+    if (user && normalizeRole(user?.role) === "admin") {
+      load();
+    }
+  }, [user, load]);
 
   const isAdmin = user && normalizeRole(user?.role) === "admin";
 
@@ -583,11 +687,39 @@ export default function AdminWeeklyReport() {
         <MobileBackButton />
         <div className="flex-1">
           <h1 className="text-lg font-bold">Wochenbericht</h1>
-          <p className="text-xs text-stone-500">{weekRange}</p>
         </div>
         <Button variant="ghost" size="sm" onClick={load} disabled={loading} className="text-stone-400">
           <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
         </Button>
+      </div>
+
+      {/* Week selector */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-stone-800/60 bg-stone-900/40">
+        <button
+          className="p-1.5 rounded-lg text-stone-400 hover:text-white hover:bg-white/8 disabled:opacity-30 transition-colors"
+          onClick={() => setWeekOffset((o) => o - 1)}
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+        <div className="flex flex-col items-center gap-0.5">
+          <span className="text-sm font-semibold text-white">{weekRange}</span>
+          {weekOffset === 0 && (
+            <span className="text-[10px] text-emerald-500 font-medium uppercase tracking-widest">Aktuelle Woche</span>
+          )}
+          {weekOffset === -1 && (
+            <span className="text-[10px] text-stone-500 uppercase tracking-widest">Letzte Woche</span>
+          )}
+          {weekOffset < -1 && (
+            <span className="text-[10px] text-stone-500 uppercase tracking-widest">{Math.abs(weekOffset)} Wochen zurück</span>
+          )}
+        </div>
+        <button
+          className="p-1.5 rounded-lg text-stone-400 hover:text-white hover:bg-white/8 disabled:opacity-30 transition-colors"
+          onClick={() => setWeekOffset((o) => Math.min(0, o + 1))}
+          disabled={weekOffset >= 0}
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Body */}

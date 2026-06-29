@@ -3629,6 +3629,7 @@ function HomeContent() {
                   setEmbeddedCollectionPublicPanelOpen(false);
                   setEmbeddedSelectedCollectionId("global");
                 }}
+                onEmbeddedAchievementsBack={embeddedHeaderMeta?.backHandler ?? null}
                 onOpenEmbeddedFriendsAddDialog={() => setEmbeddedFriendsAddDialogNonce((prev) => prev + 1)}
                 onOpenAmberPurchase={() => setShowAmberPurchaseModal(true)}
                 onOpenBugReport={() => setBugReportDialogOpen(true)}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+﻿import { useState, useEffect, useMemo } from "react";
 import { Query } from "@/api/entities";
 import { createUserNotification } from "@/api/notificationService";
 import { buildNotificationPayload } from "@/lib/story/storyDefinition";
@@ -6,7 +6,8 @@ import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Leaf, Target, CheckCircle2, Gift, Users, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { Trophy, Leaf, Target, CheckCircle2, Gift, Users, ChevronDown, ChevronUp, ChevronLeft, Loader2, ScanSearch, BarChart2 } from "lucide-react";
+import CollectionCategoryEntryCard from "@/components/collection/CollectionCategoryEntryCard";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -213,6 +214,15 @@ export function useAchievementsFeatureContent({
   const [showGlobalComparisons, setShowGlobalComparisons] = useState(true);
   const [showWeeklyScore, setShowWeeklyScore] = useState(true);
   const [showPersonalStats, setShowPersonalStats] = useState(true);
+  const [statsSection, setStatsSection] = useState("global");
+  const [globalSubSection, setGlobalSubSection] = useState("scans");
+  // Layered navigation: null = overview, "leaderboard_scope", "leaderboard", "quests", "achievements"
+  const [achievementsView, setAchievementsView] = useState(() => {
+    const tab = resolveAchievementsTab(String(initialTab || "").toLowerCase());
+    if (tab === "quests") return "quests";
+    if (tab === "achievements") return "achievements";
+    return null;
+  });
   const [expandedHighestScanEntryKey, setExpandedHighestScanEntryKey] = useState(null);
   const [isLeaderboardRefreshing, setIsLeaderboardRefreshing] = useState(
     () => resolveAchievementsTab(requestedTab) === "stats"
@@ -543,26 +553,17 @@ export function useAchievementsFeatureContent({
   });
 
   const { data: weeklySeedLeaderboard = null, refetch: refetchWeeklySeedLeaderboard } = useQuery({
-    queryKey: ['weeklySeedLeaderboard', comparisonFromDate || 'alltime'],
+    // Always keyed to the current ISO week (Monday), never to the season scope.
+    queryKey: ['weeklySeedLeaderboard', 'current-week'],
     queryFn: async () => {
+      // Do NOT pass p_from_date – let the SQL use date_trunc('week', now()) for a true weekly reset.
       const { data, error } = await supabase.rpc('get_weekly_seed_leaderboard', {
         p_limit: 100,
-        p_from_date: comparisonFromDate,
       });
       if (error) {
         if (isMissingRpcFunctionError(error)) {
-          if (comparisonFromDate) {
-            console.warn('[AchievementsPage] get_weekly_seed_leaderboard with p_from_date unavailable.');
-            return null;
-          }
-          const legacyCall = await supabase.rpc('get_weekly_seed_leaderboard', {
-            p_limit: 100,
-          });
-          if (legacyCall.error) {
-            console.warn('[AchievementsPage] legacy get_weekly_seed_leaderboard unavailable.');
-            return null;
-          }
-          return Array.isArray(legacyCall.data) ? legacyCall.data : [];
+          console.warn('[AchievementsPage] get_weekly_seed_leaderboard unavailable.');
+          return null;
         }
         throw error;
       }
@@ -622,7 +623,7 @@ export function useAchievementsFeatureContent({
 
   // Beim Oeffnen der Statistik-Bestenliste immer harte Aktualisierung ausfuehren.
   useEffect(() => {
-    if (activeTab !== "stats") return;
+    if (achievementsView !== "leaderboard") return;
 
     let cancelled = false;
 
@@ -654,7 +655,7 @@ export function useAchievementsFeatureContent({
       cancelled = true;
     };
   }, [
-    activeTab,
+    achievementsView,
     refetchAllDiscoveries,
     refetchAllProfiles,
     refetchAllRobotPlants,
@@ -1071,15 +1072,33 @@ export function useAchievementsFeatureContent({
 
   useEffect(() => {
     if (!embedded || typeof onHeaderMetaChange !== "function") return;
-
+    const titleMap = {
+      null: "Erfolge",
+      leaderboard_scope: "Rangliste",
+      leaderboard: statsComparisonScope === "season" ? `Rangliste · ${activeSeason?.title || "Saison"}` : "Rangliste · All-Time",
+      quests: "Aufgaben",
+      achievements: "Vergleiche",
+    };
+    const backHandler = achievementsView !== null
+      ? () => {
+          if (achievementsView === "leaderboard") {
+            setAchievementsView("leaderboard_scope");
+          } else {
+            setAchievementsView(null);
+          }
+        }
+      : null;
     onHeaderMetaChange({
-      title: activeTab === "quests" ? "Aufgaben" : activeTab === "achievements" ? "Erfolge" : "Statistik",
-      subtitle: activeTab === "stats" ? "Deine Scan-Insights und Vergleich mit Freunden" : "Dein Fortschritt im Ueberblick",
+      title: titleMap[achievementsView] ?? "Erfolge",
+      subtitle: achievementsView === "leaderboard" ? "Scan-Insights und globaler Vergleich" : "Dein Fortschritt im Überblick",
+      backHandler,
     });
   }, [
     embedded,
     onHeaderMetaChange,
-    activeTab,
+    achievementsView,
+    statsComparisonScope,
+    activeSeason,
   ]);
 
   if (!user) {
@@ -1395,20 +1414,68 @@ export function useAchievementsFeatureContent({
   const hasRedeemableQuests = activeQuests.some((q) => q.isCompleted);
   const showQuestNotification = hasRedeemableQuests;
 
+  const buildNaturaDbSlug = (name) =>
+    String(name || "")
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .trim()
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-");
+  const NATURADB_BASE = "https://www.naturadb.de/pflanzen/";
+
+  const buildQuestNaturaDbUrl = (speciesName) => {
+    if (!speciesName) return null;
+    const plant = plants.find((p) => p.species_name === speciesName);
+    if (!plant) return null;
+    if (plant.naturadb_url) return plant.naturadb_url;
+    if (!plant.scientific_name) return null;
+    const slug = buildNaturaDbSlug(plant.scientific_name);
+    return slug ? `${NATURADB_BASE}${slug}/` : null;
+  };
+
+  const buildQuestGenusNaturaDbUrl = (genusName) => {
+    if (!genusName) return null;
+    const genus = (genera || []).find((g) => g.genus_name === genusName);
+    if (!genus?.scientific_genus) return null;
+    const slug = buildNaturaDbSlug(genus.scientific_genus);
+    return slug ? `https://www.naturadb.de/suche/?q=${encodeURIComponent(genus.scientific_genus)}` : null;
+  };
+
   const renderQuestTargetBadges = (quest) => {
     if (!quest) return null;
     if (!quest.target_species_name && !quest.target_genus_name) return null;
+    const speciesUrl = buildQuestNaturaDbUrl(quest.target_species_name);
+    const genusUrl = !quest.target_species_name ? buildQuestGenusNaturaDbUrl(quest.target_genus_name) : null;
+    const badgeBase = `inline-flex items-center gap-0.5 border-2 rounded-full px-2 py-0.5 text-[10px] font-bold ${questTargetBadgeClass}`;
     return (
       <div className="flex flex-wrap gap-1.5 mb-2">
         {quest.target_species_name && (
+          speciesUrl ? (
+            <a href={speciesUrl} target="_blank" rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className={`${badgeBase} hover:opacity-80 transition-opacity cursor-pointer`}>
+              🎯 Ziel: {quest.target_species_name} 🔗
+            </a>
+          ) : (
             <Badge variant="outline" className={`border-2 ${questTargetBadgeClass} font-bold`}>
-            🎯 Ziel: {quest.target_species_name}
-          </Badge>
+              🎯 Ziel: {quest.target_species_name}
+            </Badge>
+          )
         )}
         {quest.target_genus_name && !quest.target_species_name && (
+          genusUrl ? (
+            <a href={genusUrl} target="_blank" rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className={`${badgeBase} hover:opacity-80 transition-opacity cursor-pointer`}>
+              🎯 Ziel: {quest.target_genus_name} 🔗
+            </a>
+          ) : (
             <Badge variant="outline" className={`border-2 ${questTargetBadgeClass} font-bold`}>
-            🎯 Ziel: {quest.target_genus_name}
-          </Badge>
+              🎯 Ziel: {quest.target_genus_name}
+            </Badge>
+          )
         )}
       </div>
     );
@@ -1906,6 +1973,78 @@ export function useAchievementsFeatureContent({
     ? "w-full flex flex-col gap-4"
     : "w-full flex flex-col gap-4 border border-[#f0e5a5]/20 bg-black/45 backdrop-blur-md p-1 sm:p-4";
 
+  // ── Leaderboard row renderer (shared across all leaderboard sub-sections) ──
+  const renderLeaderboardRow = ({ entry, rank, isOwn, badge, sub, accentColor = "emerald", onRowClick, isExpanded, expandDetail }) => {
+    const logo = leaderboardLogosByEmail.get(entry.email);
+    const profile = entry.email ? profileByEmail.get(entry.email) : null;
+    const botName = profile?.bot_name ? String(profile.bot_name).trim() : null;
+    const medalMap = { 1: "🥇", 2: "🥈", 3: "🥉" };
+    const medalEmoji = medalMap[rank];
+    const accentMap = {
+      indigo: isLightUi ? "bg-indigo-600 text-white" : "bg-indigo-700 text-white border border-indigo-400/50",
+      amber:  isLightUi ? "bg-amber-600 text-white"  : "bg-amber-700 text-white border border-amber-400/50",
+      lime:   isLightUi ? "bg-lime-600 text-white"   : "bg-lime-700 text-white border border-lime-400/50",
+      fuchsia:isLightUi ? "bg-fuchsia-600 text-white": "bg-fuchsia-700 text-white border border-fuchsia-400/50",
+      emerald:isLightUi ? "bg-emerald-600 text-white": "bg-emerald-700 text-white border border-emerald-400/50",
+    };
+    const badgeClass = isOwn ? (accentMap[accentColor] || accentMap.emerald) : rankingDefaultBadgeClass;
+    const rowBase = `rounded-xl border px-3 py-2.5 transition-colors ${
+      isOwn ? rankingHighlightClass : rankingDefaultClass
+    }${onRowClick ? " cursor-pointer" : ""}`;
+    return (
+      <div key={`row-${entry.authId || entry.email || rank}`}>
+        <div
+          className={`flex items-center gap-2.5 ${rowBase}`}
+          onClick={onRowClick}
+          role={onRowClick ? "button" : undefined}
+        >
+          {/* Rank medal */}
+          <div className="w-7 flex-shrink-0 flex items-center justify-center">
+            {medalEmoji
+              ? <span className="text-lg leading-none">{medalEmoji}</span>
+              : <span className={`text-xs font-bold ${isOwn ? (isLightUi ? "text-emerald-700" : "text-emerald-300") : statsBodyClass}`}>#{rank}</span>
+            }
+          </div>
+          {/* Avatar */}
+          <div className="w-10 h-10 flex-shrink-0 rounded-full overflow-hidden border-2 border-stone-300/40">
+            <CustomLogoAvatar
+              logoAssets={logo}
+              className="w-full h-full"
+              tooltipText={entry.name || entry.email || "Unbekannt"}
+              fallbackText={entry.name?.charAt(0)?.toUpperCase() || "?"}
+              fallbackClassName="text-[11px] font-bold text-white"
+            />
+          </div>
+          {/* Name + bot name */}
+          <div className="flex-1 min-w-0">
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); navigateToPublicProfile(entry.email); }}
+              disabled={!entry.email}
+              className={`block w-full text-left text-[15px] font-semibold truncate p-0 m-0 border-0 bg-transparent ${statsTitleClass} ${entry.email ? "cursor-pointer" : "cursor-default"}`}
+            >
+              {entry.name || entry.email || "Unbekannt"}
+            </button>
+            {botName
+              ? <p className={`text-[11px] truncate ${statsBodyClass}`}>🤖 {botName}</p>
+              : sub
+                ? <p className={`text-[11px] truncate ${statsBodyClass}`}>{sub}</p>
+                : null
+            }
+          </div>
+          {/* Score */}
+          <Badge className={`flex-shrink-0 text-xs font-bold whitespace-nowrap ${badgeClass}`}>{badge}</Badge>
+        </div>
+        {/* Expand panel (for highest scan results) */}
+        {isExpanded && expandDetail && (
+          <div className={`mt-0.5 rounded-b-xl border-x border-b px-3 py-2 text-xs ${isLightUi ? "border-stone-200 bg-white/80" : "border-[#f0e5a5]/20 bg-black/30"}`}>
+            {expandDetail}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <>
       {embedded && isLightUi === false && (
@@ -1971,81 +2110,77 @@ export function useAchievementsFeatureContent({
         {!embedded && <MobileBackButton />}
       
       <div className={embedded ? "w-full h-full min-h-0 flex flex-col" : "w-full"}>
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) => {
-            if (value === "stats") {
-              setIsLeaderboardRefreshing(true);
-            }
-            setActiveTab(value);
-          }}
-          className={embedded ? "w-full h-full min-h-0 flex flex-col" : "w-full"}
-        >
-          <div className={`${tabsHeaderClass} ${embedded ? "shrink-0" : ""}`}>
-            <div className="max-w-7xl mx-auto">
-              {!embedded && (
-                <div className="px-1 pt-3 pb-2 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <h1 className="text-xl sm:text-2xl font-bold text-stone-900 truncate">
-                      {activeTab === "quests" ? "Aufgaben" : activeTab === "achievements" ? "Erfolge" : "Statistik"}
-                    </h1>
-                    <p className="text-xs text-stone-600 truncate">
-                      {activeTab === "stats" ? "Deine Scan-Insights und Vergleich mit Freunden" : "Dein Fortschritt im Ueberblick"}
-                    </p>
-                  </div>
-                  <Badge className="bg-stone-800 text-white text-[10px] px-2 py-1 shrink-0">
-                    {activeTab === "quests" ? `${activeQuests.length} aktiv` : activeTab === "achievements" ? `${unlockedCount}/${achievements.length}` : `${totalScans} Scans`}
-                  </Badge>
-                </div>
-              )}
-              <div className={`w-full px-2 py-2 ${embedded ? "bg-transparent" : "bg-white"}`}>
-                <div className="grid grid-cols-3 gap-2 min-w-0">
-                  {moduleChips.map((chip) => {
-                    const isPrimary = activeTab === chip.id;
-                    return (
-                      <button
-                        key={chip.id}
-                        type="button"
-                        onClick={() => {
-                          if (chip.id === "stats") {
-                            setIsLeaderboardRefreshing(true);
-                          }
-                          setActiveTab(chip.id);
-                        }}
-                        className={
-                          "relative flex items-center justify-center gap-2 px-2 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors min-w-0 " +
-                          (isPrimary
-                            ? (isLightUi
-                              ? "bg-white/90 text-[#8f6b22] shadow-sm"
-                              : "bg-black/55 text-[#f7f0c1] shadow-sm")
-                            : (isLightUi
-                              ? "bg-white/55 text-stone-700 hover:bg-white/75"
-                              : "bg-black/35 text-stone-200 hover:bg-black/50"))
-                        }
-                        style={{
-                          borderColor: isPrimary
-                            ? (isLightUi ? "rgba(200,172,98,0.70)" : "rgba(240,229,165,0.75)")
-                            : (isLightUi ? "rgba(200,172,98,0.35)" : "rgba(255,255,255,0.3)"),
-                        }}
-                      >
-                        <span className="font-medium truncate">{chip.title}</span>
-                        {chip.id === "quests" && showQuestNotification && (
-                          <span
-                            className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 border border-white/80"
-                            aria-hidden="true"
-                          />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+
+        {/* ── ROOT OVERVIEW ── */}
+        {achievementsView === null && (
+          <div className={achievementsContentClass} style={embeddedContentMaskStyle}>
+            {!embedded && (
+              <div className="px-1 pt-3 pb-4">
+                <h1 className="text-xl sm:text-2xl font-bold text-stone-900">Erfolge</h1>
+                <p className="text-xs text-stone-600 mt-0.5">Bestenlisten, Aufgaben und Errungenschaften</p>
               </div>
-              
+            )}
+            <div className="space-y-3" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
+              <CollectionCategoryEntryCard
+                title="Rangliste"
+                info={`${totalScans} eigene Scans · Rang ${ownGlobalScanRank > 0 ? `#${ownGlobalScanRank}` : "ausstehend"}`}
+                icon={BarChart2}
+                accent="season"
+                showChevron
+                onClick={() => setAchievementsView("leaderboard_scope")}
+              />
+              <CollectionCategoryEntryCard
+                title="Aufgaben"
+                description={activeQuests.length > 0 ? `${activeQuests.length} aktive Quest${activeQuests.length !== 1 ? "s" : ""}` : "Aktive und abgeschlossene Quests"}
+                info={hasRedeemableQuests ? "⚡ Quests können jetzt eingelöst werden!" : `${completedQuests.length} abgeschlossen`}
+                icon={Target}
+                accent="themes"
+                showChevron
+                onClick={() => setAchievementsView("quests")}
+              />
+              <CollectionCategoryEntryCard
+                title="Vergleiche"
+                description={`${unlockedCount} von ${achievements.length} Erfolgen freigeschaltet`}
+                info="Erfolge, Titel und Belohnungen"
+                icon={Trophy}
+                accent="browse"
+                showChevron
+                onClick={() => setAchievementsView("achievements")}
+              />
             </div>
           </div>
+        )}
 
-          {/* Erfolge Tab */}
-          <TabsContent value="achievements" className={achievementsContentClass} style={embeddedContentMaskStyle}>
+        {/* ── RANGLISTE: SCOPE PICKER ── */}
+        {achievementsView === "leaderboard_scope" && (
+          <div className={achievementsContentClass} style={embeddedContentMaskStyle}>
+            <div className="space-y-3" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
+              {hasActiveSeason && (
+                <CollectionCategoryEntryCard
+                  title={activeSeason?.title || "Saison"}
+                  description={`Rangliste seit ${activeSeason?.startDate ? new Date(activeSeason.startDate + "T00:00:00").toLocaleDateString("de-DE", { day: "2-digit", month: "long", year: "numeric" }) : "Saisonstart"}`}
+                  info="Saison-Scans, Samen und wöchentlicher Score"
+                  icon={Leaf}
+                  accent="season"
+                  showChevron
+                  onClick={() => { setStatsComparisonScope("season"); setAchievementsView("leaderboard"); setIsLeaderboardRefreshing(true); }}
+                />
+              )}
+              <CollectionCategoryEntryCard
+                title="All-Time"
+                description="Gesamtrangliste seit Beginn – alle Scans, Samen und Rekorde aller Zeiten"
+                icon={BarChart2}
+                accent="browse"
+                showChevron
+                onClick={() => { setStatsComparisonScope("alltime"); setAchievementsView("leaderboard"); setIsLeaderboardRefreshing(true); }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ── VERGLEICHE (Achievements) ── */}
+        {achievementsView === "achievements" && (
+          <div className={achievementsContentClass} style={embeddedContentMaskStyle}>
 
             <div className="max-w-6xl mx-auto" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -2144,879 +2279,512 @@ export function useAchievementsFeatureContent({
                   }
               </div>
             </div>
-          </TabsContent>
+          </div>
+        )}
 
-          <TabsContent value="stats" className={statsContentClass} style={embeddedContentMaskStyle}>
+        {/* ── RANGLISTE CONTENT ── */}
+        {achievementsView === "leaderboard" && (
+          <div className={statsContentClass} style={embeddedContentMaskStyle}>
             <div className={statsPanelClass} style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
-              {hasActiveSeason && (
-                <div className="flex items-center justify-center gap-2 pb-1">
+
+              {/* ── Section Navigation ── */}
+              <div className="flex gap-2 overflow-x-auto pb-0.5" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+                {[
+                  { id: "global", icon: "🌍", label: "Global" },
+                  { id: "weekly", icon: "📅", label: "Diese Woche" },
+                  { id: "me", icon: "👤", label: "Ich" },
+                ].map(({ id, icon, label }) => (
                   <button
+                    key={id}
                     type="button"
-                    onClick={() => setStatsComparisonScope("season")}
-                    className={`px-1 py-1.5 rounded-lg text-sm font-semibold transition-all bg-black/60 backdrop-blur-sm text-stone-100 border-2 ${
-                      statsComparisonScope === "season"
-                        ? "border-[#d4af37] shadow-[0_0_8px_rgba(212,175,55,0.4)]"
-                        : "border-transparent opacity-70 hover:opacity-90"
+                    onClick={() => setStatsSection(id)}
+                    className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all border ${
+                      statsSection === id
+                        ? isLightUi
+                          ? "bg-emerald-600 text-white border-emerald-600 shadow-md"
+                          : "bg-emerald-700/80 text-emerald-50 border-emerald-500/60 shadow-md"
+                        : isLightUi
+                          ? "bg-white text-stone-600 border-stone-200 hover:bg-stone-50"
+                          : "bg-black/30 text-stone-300 border-[#f0e5a5]/18 hover:bg-black/40"
                     }`}
                   >
-                    {activeSeason?.title || "Saison"}
+                    <span>{icon}</span>{label}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setStatsComparisonScope("alltime")}
-                    className={`px-1 py-1.5 rounded-lg text-sm font-semibold transition-all bg-black/60 backdrop-blur-sm text-stone-100 border-2 ${
-                      statsComparisonScope === "alltime"
-                        ? "border-[#d4af37] shadow-[0_0_8px_rgba(212,175,55,0.4)]"
-                        : "border-transparent opacity-70 hover:opacity-90"
-                    }`}
-                  >
-                    All-Time
-                  </button>
+                ))}
+              </div>
+
+              {/* ══════════════════════════════════════════
+                  GLOBAL LEADERBOARDS
+              ══════════════════════════════════════════ */}
+              {statsSection === "global" && (
+              <section className="space-y-3">
+
+                {/* Global Sub-Navigation */}
+                <div className="flex gap-2 overflow-x-auto" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+                  {[
+                    { id: "scans", icon: <ScanSearch className="w-3.5 h-3.5 flex-shrink-0" />, label: "Scans" },
+                    { id: "seeds", icon: <span className="leading-none">🌱</span>, label: "Samen" },
+                    { id: "best", icon: <Trophy className="w-3.5 h-3.5 flex-shrink-0" />, label: "Bestes Ergebnis" },
+                  ].map(({ id, icon, label }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setGlobalSubSection(id)}
+                      className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                        globalSubSection === id
+                          ? isLightUi ? "bg-stone-800 text-white border-stone-800" : "bg-stone-100/15 text-stone-50 border-stone-100/30"
+                          : isLightUi ? "bg-white text-stone-500 border-stone-200" : "bg-black/25 text-stone-400 border-[#f0e5a5]/15"
+                      }`}
+                    >
+                      {icon}<span>{label}</span>
+                    </button>
+                  ))}
                 </div>
-              )}
-              <section className="order-2">
-                <div className="pb-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowGlobalComparisons((prev) => !prev)}
-                    className="relative w-full flex items-center justify-center text-center"
-                  >
-                    <CardTitle className={`text-base ${statsTitleClass}`}>
-                      Globale Vergleiche
-                    </CardTitle>
-                    <span className="absolute right-0 top-1/2 -translate-y-1/2">
-                      {showGlobalComparisons ? (
-                        <ChevronUp className={`w-4 h-4 ${statsBodyClass}`} />
-                      ) : (
-                        <ChevronDown className={`w-4 h-4 ${statsBodyClass}`} />
-                      )}
-                    </span>
-                  </button>
-                </div>
-                {showGlobalComparisons && (
-                  <div className="space-y-[2px]">
-                    {isLeaderboardRefreshing ? (
-                      <div className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-6 ${isLightUi ? "border-stone-200 bg-stone-50" : "border-[#f0e5a5]/25 bg-black/25"}`}>
-                        <Loader2 className={`w-4 h-4 animate-spin ${statsBodyClass}`} />
-                        <span className={`text-sm ${statsBodyClass}`}>Bestenliste wird aktualisiert...</span>
-                      </div>
-                    ) : (
-                    <>
-                    <div className="grid grid-cols-1 gap-[2px]">
-                <Card className="border-0 bg-transparent shadow-none">
-                  <CardHeader className="pb-2">
-                    <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
-                      <Users className={`w-4 h-4 ${isLightUi ? "text-indigo-600" : "text-indigo-300"}`} />
-                      Scan-Vergleich ({comparisonRangeLabel})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-0 pt-0 space-y-2">
-                    <div className={`rounded-lg border px-3 py-2 ${isLightUi ? "border-indigo-200 bg-indigo-50" : "border-indigo-300/40 bg-indigo-500/10"}`}>
-                      <p className={`text-xs ${isLightUi ? "text-indigo-700" : "text-indigo-200"}`}>Dein globaler Rang</p>
-                      <p className={`text-lg font-bold ${isLightUi ? "text-indigo-900" : "text-indigo-100"}`}>
-                        {ownGlobalScanRank > 0 ? `#${ownGlobalScanRank} von ${effectiveGlobalScanRanking.length}` : "Noch kein Rang"}
-                      </p>
-                    </div>
 
-                    {effectiveGlobalScanRanking.length === 0 && (
-                      <p className={`text-sm ${statsBodyClass}`}>Noch keine Vergleichsdaten verfügbar.</p>
-                    )}
-
-                    {(() => {
-                      const top5 = effectiveGlobalScanRanking.slice(0, 5);
-                      const ownInTop5 = top5.some((entry) => entry.email === ownEmailLower);
-                      const ownEntry = !ownInTop5 && ownGlobalScanRank > 0 ? effectiveGlobalScanRanking[ownGlobalScanRank - 1] : null;
-
-                      return (
-                        <>
-                          {top5.map((entry, index) => {
-                            const logo = leaderboardLogosByEmail.get(entry.email);
-                            return (
-                              <div
-                                key={entry.email}
-                                className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.email === ownEmailLower ? rankingHighlightClass : rankingDefaultClass}`}
-                              >
-                                <div className="flex min-w-0 items-center gap-2 flex-1">
-                                  <div className={leaderboardAvatarContainerClass}>
-                                    <CustomLogoAvatar
-                                      logoAssets={logo}
-                                      className="w-full h-full"
-                                      tooltipText={entry.name || entry.email || "Unbekannt"}
-                                      fallbackText={entry.name?.charAt(0)?.toUpperCase() || "?"}
-                                      fallbackClassName="text-[10px] font-bold text-white"
-                                    />
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => navigateToPublicProfile(entry.email)}
-                                    className={`${leaderboardNameButtonClass} ${statsTitleClass}`}
-                                  >
-                                    #{index + 1} {entry.name}
-                                  </button>
-                                </div>
-                                <Badge className={entry.email === ownEmailLower ? (isLightUi ? "bg-emerald-600 text-white" : "bg-emerald-700 text-white border border-emerald-400/60") : rankingDefaultBadgeClass}>
-                                  {entry.scans}x
-                                </Badge>
-                              </div>
-                            );
-                          })}
-
-                          {ownEntry && (
-                            <>
-                              <p className={`text-xs text-center ${statsBodyClass}`}>…</p>
-                              <div className={`flex items-center justify-between rounded-lg border px-3 py-2 ${rankingHighlightClass}`}>
-                                <div className="flex min-w-0 items-center gap-2 flex-1">
-                                  <div className={leaderboardAvatarContainerClass}>
-                                    <CustomLogoAvatar
-                                      logoAssets={leaderboardLogosByEmail.get(ownEntry.email)}
-                                      className="w-full h-full"
-                                      tooltipText={ownEntry.name || ownEntry.email || "Unbekannt"}
-                                      fallbackText={ownEntry.name?.charAt(0)?.toUpperCase() || "?"}
-                                      fallbackClassName="text-[10px] font-bold text-white"
-                                    />
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => navigateToPublicProfile(ownEntry.email)}
-                                    className={`${leaderboardNameButtonClass} ${statsTitleClass}`}
-                                  >
-                                    #{ownGlobalScanRank} {ownEntry.name}
-                                  </button>
-                                </div>
-                                <Badge className={isLightUi ? "bg-emerald-600 text-white" : "bg-emerald-700 text-white border border-emerald-400/60"}>
-                                  {ownEntry.scans}x
-                                </Badge>
-                              </div>
-                            </>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </CardContent>
-                </Card>
-
-                <Card className="border-0 bg-transparent shadow-none">
-                  <CardHeader className="pb-2">
-                    <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
-                      <span className={isLightUi ? "text-amber-600" : "text-amber-300"}>🌱</span>
-                      Samenstand-Vergleich ({comparisonRangeLabel})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-0 pt-0 space-y-2">
-                    <div className={`rounded-lg border px-3 py-2 ${isLightUi ? "border-amber-200 bg-amber-50" : "border-amber-300/40 bg-amber-500/10"}`}>
-                      <p className={`text-xs ${isLightUi ? "text-amber-700" : "text-amber-200"}`}>Dein globaler Rang</p>
-                      <p className={`text-lg font-bold ${isLightUi ? "text-amber-900" : "text-amber-100"}`}>
-                        {ownSeedRank > 0 ? `#${ownSeedRank} von ${globalSeedRanking.length}` : "Noch kein Rang"}
-                      </p>
-                      {ownSeedRank > 0 && (
-                        <p className={`text-xs mt-0.5 ${isLightUi ? "text-amber-700" : "text-amber-300"}`}>
-                          {ownSeeds.toLocaleString()} Samen
-                        </p>
-                      )}
-                    </div>
-
-                    {globalSeedRanking.length === 0 && (
-                      <p className={`text-sm ${statsBodyClass}`}>Noch keine Vergleichsdaten verfügbar.</p>
-                    )}
-
-                    {(() => {
-                      const top5 = globalSeedRanking.slice(0, 5);
-                      const ownInTop5 = top5.some((entry) => entry.isOwn);
-                      const ownEntry = !ownInTop5 && ownSeedRank > 0 ? globalSeedRanking[ownSeedRank - 1] : null;
-
-                      return (
-                        <>
-                          {top5.map((entry, index) => {
-                            const logo = leaderboardLogosByEmail.get(entry.email);
-                            return (
-                              <div
-                                key={entry.authId}
-                                className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.isOwn ? rankingHighlightClass : rankingDefaultClass}`}
-                              >
-                                <div className="flex min-w-0 items-center gap-2 flex-1">
-                                  <div className={leaderboardAvatarContainerClass}>
-                                    <CustomLogoAvatar
-                                      logoAssets={logo}
-                                      className="w-full h-full"
-                                      tooltipText={entry.name || entry.email || "Unbekannt"}
-                                      fallbackText={entry.name?.charAt(0)?.toUpperCase() || "?"}
-                                      fallbackClassName="text-[10px] font-bold text-white"
-                                    />
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => navigateToPublicProfile(entry.email)}
-                                    disabled={!entry.email}
-                                    className={`${leaderboardNameButtonClass} ${entry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
-                                  >
-                                    #{index + 1} {entry.name}
-                                  </button>
-                                </div>
-                                <Badge className={entry.isOwn ? (isLightUi ? "bg-amber-600 text-white" : "bg-amber-700 text-white border border-amber-400/60") : rankingDefaultBadgeClass}>
-                                  {entry.seeds.toLocaleString()} 🌱
-                                </Badge>
-                              </div>
-                            );
-                          })}
-
-                          {ownEntry && (
-                            <>
-                              <p className={`text-xs text-center ${statsBodyClass}`}>…</p>
-                              <div className={`flex items-center justify-between rounded-lg border px-3 py-2 ${rankingHighlightClass}`}>
-                                <div className="flex min-w-0 items-center gap-2 flex-1">
-                                  <div className={leaderboardAvatarContainerClass}>
-                                    <CustomLogoAvatar
-                                      logoAssets={leaderboardLogosByEmail.get(ownEntry.email)}
-                                      className="w-full h-full"
-                                      tooltipText={ownEntry.name || ownEntry.email || "Unbekannt"}
-                                      fallbackText={ownEntry.name?.charAt(0)?.toUpperCase() || "?"}
-                                      fallbackClassName="text-[10px] font-bold text-white"
-                                    />
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => navigateToPublicProfile(ownEntry.email)}
-                                    disabled={!ownEntry.email}
-                                    className={`${leaderboardNameButtonClass} ${ownEntry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
-                                  >
-                                    #{ownSeedRank} {ownEntry.name}
-                                  </button>
-                                </div>
-                                <Badge className={isLightUi ? "bg-amber-600 text-white" : "bg-amber-700 text-white border border-amber-400/60"}>
-                                  {ownEntry.seeds.toLocaleString()} 🌱
-                                </Badge>
-                              </div>
-                            </>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </CardContent>
-                </Card>
-
-                <Card className="border-0 bg-transparent shadow-none">
-                  <CardHeader className="pb-2">
-                    <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
-                      <Trophy className={`w-4 h-4 ${isLightUi ? "text-fuchsia-600" : "text-fuchsia-300"}`} />
-                      Hoechste Scan-Ergebnisse ({comparisonRangeLabel})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-0 pt-0 space-y-2">
-                    <div className={`rounded-lg border px-3 py-2 ${isLightUi ? "border-fuchsia-200 bg-fuchsia-50" : "border-fuchsia-300/40 bg-fuchsia-500/10"}`}>
-                      <p className={`text-xs ${isLightUi ? "text-fuchsia-700" : "text-fuchsia-200"}`}>Dein bester Scan-Score</p>
-                      <p className={`text-lg font-bold ${isLightUi ? "text-fuchsia-900" : "text-fuchsia-100"}`}>
-                        {ownHighestScanResultRank > 0 ? `#${ownHighestScanResultRank} von ${highestScanResultsRanking.length}` : "Noch kein Rang"}
-                      </p>
-                      {ownHighestScanResultEntry && (
-                        <p className={`text-xs mt-0.5 ${isLightUi ? "text-fuchsia-700" : "text-fuchsia-300"}`}>
-                          {ownHighestScanResultEntry.rewardAmount.toLocaleString()} Seeds
-                        </p>
-                      )}
-                    </div>
-
-                    {highestScanResultsRanking.length === 0 && (
-                      <p className={`text-sm ${statsBodyClass}`}>Noch keine Scan-Ergebnisdaten verfügbar.</p>
-                    )}
-
-                    {(() => {
-                      const top5 = highestScanResultsRanking.slice(0, 5);
-                      const ownInTop5 = top5.some((entry) => entry.email === ownEmailLower);
-                      const ownEntry = !ownInTop5 && ownHighestScanResultRank > 0
-                        ? highestScanResultsRanking[ownHighestScanResultRank - 1]
-                        : null;
-
-                      return (
-                        <>
-                          {top5.map((entry, index) => {
-                            const logo = leaderboardLogosByEmail.get(entry.email);
-                            const rowKey = entry.detailKey;
-                            const isExpanded = expandedHighestScanEntryKey === rowKey;
-                            const multiplierChips = getMultiplierChips(entry);
-                            return (
-                              <div
-                                key={`${entry.authId || entry.email || "unknown"}-${entry.eventSource}-${entry.rewardAmount}-${entry.awardedAt || ""}`}
-                                className={`rounded-lg border px-3 py-2 ${entry.email === ownEmailLower ? rankingHighlightClass : rankingDefaultClass}`}
-                              >
-                                <div className="flex items-center justify-between gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => setExpandedHighestScanEntryKey((prev) => (prev === rowKey ? null : rowKey))}
-                                    className="min-w-0 flex items-center gap-2 flex-1 text-left"
-                                  >
-                                    <div className={leaderboardAvatarContainerClass}>
-                                      <CustomLogoAvatar
-                                        logoAssets={logo}
-                                        className="w-full h-full"
-                                        tooltipText={entry.name || entry.email || "Unbekannt"}
-                                        fallbackText={entry.name?.charAt(0)?.toUpperCase() || "?"}
-                                        fallbackClassName="text-[10px] font-bold text-white"
-                                      />
-                                    </div>
-                                    <span className={`${leaderboardNameTextClass} ${statsTitleClass}`}>
-                                      #{index + 1} {entry.name}
-                                    </span>
-                                    <span className={`hidden sm:inline text-[11px] ${statsBodyClass}`}>
-                                      {resolveScanEventLabel(entry.eventSource)}
-                                      {entry.formattedAwardedAt ? ` · ${entry.formattedAwardedAt}` : ""}
-                                    </span>
-                                  </button>
-
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => navigateToPublicProfile(entry.email)}
-                                      disabled={!entry.email}
-                                      className={`text-[11px] ${entry.email ? "underline" : "opacity-50"} ${statsBodyClass}`}
-                                    >
-                                      Profil
-                                    </button>
-                                    <Badge className={entry.email === ownEmailLower ? (isLightUi ? "bg-fuchsia-600 text-white" : "bg-fuchsia-700 text-white border border-fuchsia-400/60") : rankingDefaultBadgeClass}>
-                                      {entry.rewardAmount.toLocaleString()}
-                                    </Badge>
-                                  </div>
-                                </div>
-
-                                {isExpanded && (
-                                  <div className={`mt-2 rounded-md border px-2 py-2 text-xs ${isLightUi ? "border-fuchsia-200/80 bg-white/75" : "border-fuchsia-300/35 bg-black/25"}`}>
-                                    <div className={`font-semibold ${statsTitleClass}`}>
-                                      Pflanze: {entry.plantSpeciesName || "Unbekannte Pflanze"}
-                                      {entry.plantCommonName ? ` (${entry.plantCommonName})` : ""}
-                                    </div>
-                                    <div className={`mt-0.5 ${statsBodyClass}`}>
-                                      Pflanzen-Status: {resolveScanStatusLabel(entry.scanStatus)}
-                                      {entry.formattedAwardedAt ? ` · ${entry.formattedAwardedAt}` : ""}
-                                    </div>
-                                    {multiplierChips.length > 0 ? (
-                                      <div className="mt-2 flex flex-wrap gap-1">
-                                        {multiplierChips.map((chip) => (
-                                          <Badge
-                                            key={`${rowKey}-${chip}`}
-                                            className={isLightUi ? "bg-fuchsia-100 text-fuchsia-800" : "bg-fuchsia-500/20 text-fuchsia-100 border border-fuchsia-300/40"}
-                                          >
-                                            {chip}
-                                          </Badge>
-                                        ))}
-                                      </div>
-                                    ) : (
-                                      <div className={`mt-1 ${statsBodyClass}`}>Keine Multiplikator-Daten vorhanden.</div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-
-                          {ownEntry && (
-                            <>
-                              <p className={`text-xs text-center ${statsBodyClass}`}>…</p>
-                              <div className={`rounded-lg border px-3 py-2 ${rankingHighlightClass}`}>
-                                <div className="flex items-center justify-between gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => setExpandedHighestScanEntryKey((prev) => (prev === ownEntry.detailKey ? null : ownEntry.detailKey))}
-                                    className="min-w-0 flex items-center gap-2 flex-1 text-left"
-                                  >
-                                    <div className={leaderboardAvatarContainerClass}>
-                                      <CustomLogoAvatar
-                                        logoAssets={leaderboardLogosByEmail.get(ownEntry.email)}
-                                        className="w-full h-full"
-                                        tooltipText={ownEntry.name || ownEntry.email || "Unbekannt"}
-                                        fallbackText={ownEntry.name?.charAt(0)?.toUpperCase() || "?"}
-                                        fallbackClassName="text-[10px] font-bold text-white"
-                                      />
-                                    </div>
-                                    <span className={`${leaderboardNameTextClass} ${statsTitleClass}`}>
-                                      #{ownHighestScanResultRank} {ownEntry.name}
-                                    </span>
-                                  </button>
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => navigateToPublicProfile(ownEntry.email)}
-                                      disabled={!ownEntry.email}
-                                      className={`text-[11px] ${ownEntry.email ? "underline" : "opacity-50"} ${statsBodyClass}`}
-                                    >
-                                      Profil
-                                    </button>
-                                    <Badge className={isLightUi ? "bg-fuchsia-600 text-white" : "bg-fuchsia-700 text-white border border-fuchsia-400/60"}>
-                                      {ownEntry.rewardAmount.toLocaleString()}
-                                    </Badge>
-                                  </div>
-                                </div>
-
-                                {expandedHighestScanEntryKey === ownEntry.detailKey && (
-                                  <div className={`mt-2 rounded-md border px-2 py-2 text-xs ${isLightUi ? "border-fuchsia-200/80 bg-white/75" : "border-fuchsia-300/35 bg-black/25"}`}>
-                                    <div className={`font-semibold ${statsTitleClass}`}>
-                                      Pflanze: {ownEntry.plantSpeciesName || "Unbekannte Pflanze"}
-                                      {ownEntry.plantCommonName ? ` (${ownEntry.plantCommonName})` : ""}
-                                    </div>
-                                    <div className={`mt-0.5 ${statsBodyClass}`}>
-                                      Pflanzen-Status: {resolveScanStatusLabel(ownEntry.scanStatus)}
-                                      {ownEntry.formattedAwardedAt ? ` · ${ownEntry.formattedAwardedAt}` : ""}
-                                    </div>
-                                    {getMultiplierChips(ownEntry).length > 0 ? (
-                                      <div className="mt-2 flex flex-wrap gap-1">
-                                        {getMultiplierChips(ownEntry).map((chip) => (
-                                          <Badge
-                                            key={`${ownEntry.detailKey}-${chip}`}
-                                            className={isLightUi ? "bg-fuchsia-100 text-fuchsia-800" : "bg-fuchsia-500/20 text-fuchsia-100 border border-fuchsia-300/40"}
-                                          >
-                                            {chip}
-                                          </Badge>
-                                        ))}
-                                      </div>
-                                    ) : (
-                                      <div className={`mt-1 ${statsBodyClass}`}>Keine Multiplikator-Daten vorhanden.</div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </CardContent>
-                </Card>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-[2px]">
-                      <Card className="border-0 bg-transparent shadow-none">
-                        <CardContent className="p-4">
-                          <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>Global haeufigster Scan</p>
-                          <p className={`text-sm font-bold mt-1 truncate ${statsTitleClass}`}>
-                            {globalTopSpeciesName || "Noch keine Daten"}
-                          </p>
-                          <p className={`text-xs mt-1 ${isLightUi ? "text-blue-700" : "text-blue-300"}`}>
-                            {globalTopSpeciesCount > 0 ? `${globalTopSpeciesCount}x global gescannt` : "Scans werden gesammelt"}
-                          </p>
-                        </CardContent>
-                      </Card>
-
-                      <Card className="border-0 bg-transparent shadow-none">
-                        <CardContent className="p-4">
-                          <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>Top Genus global</p>
-                          <p className={`text-sm font-bold mt-1 truncate ${statsTitleClass}`}>
-                            {globalTopGenusName || "Noch keine Daten"}
-                          </p>
-                          <p className={`text-xs mt-1 ${isLightUi ? "text-purple-700" : "text-purple-300"}`}>
-                            {globalTopGenusCount > 0 ? `${globalTopGenusCount}x global gescannt` : "Scans werden gesammelt"}
-                          </p>
-                        </CardContent>
-                      </Card>
-                    </div>
-                    </>
-                    )}
+                {isLeaderboardRefreshing ? (
+                  <div className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-8 ${isLightUi ? "border-stone-200 bg-stone-50" : "border-[#f0e5a5]/20 bg-black/20"}`}>
+                    <Loader2 className={`w-4 h-4 animate-spin ${statsBodyClass}`} />
+                    <span className={`text-sm ${statsBodyClass}`}>Bestenliste wird aktualisiert…</span>
                   </div>
+                ) : (
+                  <>
+                    {/* SCANS sub-section */}
+                    {globalSubSection === "scans" && (() => {
+                      const ranking = effectiveGlobalScanRanking;
+                      const top10 = ranking.slice(0, 10);
+                      const ownInTop = top10.some((e) => e.email === ownEmailLower);
+                      const ownEntry = !ownInTop && ownGlobalScanRank > 0 ? ranking[ownGlobalScanRank - 1] : null;
+                      return (
+                        <div className="space-y-1">
+                          <p className={`text-[11px] uppercase tracking-wide font-medium mb-1.5 ${statsLabelClass}`}>
+                            Scan-Bestenliste ({comparisonRangeLabel}) — Dein Rang: {ownGlobalScanRank > 0 ? `#${ownGlobalScanRank} / ${ranking.length}` : "–"}
+                          </p>
+                          {ranking.length === 0 && <p className={`text-sm ${statsBodyClass}`}>Noch keine Daten.</p>}
+                          {top10.map((entry, i) => renderLeaderboardRow({ entry, rank: i + 1, isOwn: entry.email === ownEmailLower, badge: `${entry.scans}×`, accentColor: "indigo" }))}
+                          {ownEntry && (<><p className={`text-xs text-center my-0.5 ${statsBodyClass}`}>…</p>{renderLeaderboardRow({ entry: ownEntry, rank: ownGlobalScanRank, isOwn: true, badge: `${ownEntry.scans}×`, accentColor: "indigo" })}</>)}
+                        </div>
+                      );
+                    })()}
+
+                    {/* SEEDS sub-section */}
+                    {globalSubSection === "seeds" && (() => {
+                      const ranking = globalSeedRanking;
+                      const top10 = ranking.slice(0, 10);
+                      const ownInTop = top10.some((e) => e.isOwn);
+                      const ownEntry = !ownInTop && ownSeedRank > 0 ? ranking[ownSeedRank - 1] : null;
+                      return (
+                        <div className="space-y-1">
+                          <p className={`text-[11px] uppercase tracking-wide font-medium mb-1.5 ${statsLabelClass}`}>
+                            Samen-Bestenliste ({comparisonRangeLabel}) — Dein Rang: {ownSeedRank > 0 ? `#${ownSeedRank} / ${ranking.length}` : "–"}
+                          </p>
+                          {ranking.length === 0 && <p className={`text-sm ${statsBodyClass}`}>Noch keine Daten.</p>}
+                          {top10.map((entry, i) => renderLeaderboardRow({ entry, rank: i + 1, isOwn: entry.isOwn, badge: `${entry.seeds.toLocaleString()} 🌱`, accentColor: "amber" }))}
+                          {ownEntry && (<><p className={`text-xs text-center my-0.5 ${statsBodyClass}`}>…</p>{renderLeaderboardRow({ entry: ownEntry, rank: ownSeedRank, isOwn: true, badge: `${ownEntry.seeds.toLocaleString()} 🌱`, accentColor: "amber" })}</>)}
+                        </div>
+                      );
+                    })()}
+
+                    {/* BEST sub-section */}
+                    {globalSubSection === "best" && (() => {
+                      const ranking = highestScanResultsRanking;
+                      const top10 = ranking.slice(0, 10);
+                      const ownInTop = top10.some((e) => e.email === ownEmailLower);
+                      const ownEntry = !ownInTop && ownHighestScanResultRank > 0 ? ranking[ownHighestScanResultRank - 1] : null;
+                      const makeExpandDetail = (entry) => {
+                        const chips = getMultiplierChips(entry);
+                        return (
+                          <>
+                            <div className={`font-semibold ${statsTitleClass}`}>
+                              Pflanze: {entry.plantSpeciesName || "Unbekannte Pflanze"}{entry.plantCommonName ? ` (${entry.plantCommonName})` : ""}
+                            </div>
+                            <div className={`mt-0.5 ${statsBodyClass}`}>
+                              Status: {resolveScanStatusLabel(entry.scanStatus)}{entry.formattedAwardedAt ? ` · ${entry.formattedAwardedAt}` : ""}
+                            </div>
+                            {chips.length > 0 && (
+                              <div className="mt-1.5 flex flex-wrap gap-1">
+                                {chips.map((chip) => (
+                                  <Badge key={chip} className={isLightUi ? "bg-fuchsia-100 text-fuchsia-800 text-[10px]" : "bg-fuchsia-500/20 text-fuchsia-100 border border-fuchsia-300/40 text-[10px]"}>{chip}</Badge>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        );
+                      };
+                      return (
+                        <div className="space-y-1">
+                          <p className={`text-[11px] uppercase tracking-wide font-medium mb-1.5 ${statsLabelClass}`}>
+                            Höchste Scan-Ergebnisse ({comparisonRangeLabel}) — Dein Rang: {ownHighestScanResultRank > 0 ? `#${ownHighestScanResultRank} / ${ranking.length}` : "–"}
+                          </p>
+                          {ranking.length === 0 && <p className={`text-sm ${statsBodyClass}`}>Noch keine Daten.</p>}
+                          {top10.map((entry, i) => renderLeaderboardRow({
+                            entry, rank: i + 1, isOwn: entry.email === ownEmailLower,
+                            badge: entry.rewardAmount.toLocaleString(),
+                            sub: [resolveScanEventLabel(entry.eventSource), entry.formattedAwardedAt].filter(Boolean).join(" · "),
+                            accentColor: "fuchsia",
+                            onRowClick: () => setExpandedHighestScanEntryKey((prev) => prev === entry.detailKey ? null : entry.detailKey),
+                            isExpanded: expandedHighestScanEntryKey === entry.detailKey,
+                            expandDetail: makeExpandDetail(entry),
+                          }))}
+                          {ownEntry && (<><p className={`text-xs text-center my-0.5 ${statsBodyClass}`}>…</p>{renderLeaderboardRow({
+                            entry: ownEntry, rank: ownHighestScanResultRank, isOwn: true,
+                            badge: ownEntry.rewardAmount.toLocaleString(),
+                            sub: [resolveScanEventLabel(ownEntry.eventSource), ownEntry.formattedAwardedAt].filter(Boolean).join(" · "),
+                            accentColor: "fuchsia",
+                            onRowClick: () => setExpandedHighestScanEntryKey((prev) => prev === ownEntry.detailKey ? null : ownEntry.detailKey),
+                            isExpanded: expandedHighestScanEntryKey === ownEntry.detailKey,
+                            expandDetail: makeExpandDetail(ownEntry),
+                          })}</>)}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Taxonomy highlights strip */}
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      {[
+                        { label: "Global häufigster Scan", value: globalTopSpeciesName || "—", sub: globalTopSpeciesCount > 0 ? `${globalTopSpeciesCount}× global` : "", color: isLightUi ? "text-blue-700" : "text-blue-300" },
+                        { label: "Top Genus global", value: globalTopGenusName || "—", sub: globalTopGenusCount > 0 ? `${globalTopGenusCount}× global` : "", color: isLightUi ? "text-purple-700" : "text-purple-300" },
+                      ].map(({ label, value, sub, color }) => (
+                        <div key={label} className={`rounded-xl border p-3 ${isLightUi ? "bg-white border-stone-200" : "bg-black/30 border-[#f0e5a5]/18"}`}>
+                          <p className={`text-[10px] uppercase tracking-wide font-medium ${statsLabelClass}`}>{label}</p>
+                          <p className={`text-sm font-bold mt-0.5 truncate ${color}`}>{value}</p>
+                          {sub && <p className={`text-[10px] mt-0.5 ${statsBodyClass}`}>{sub}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 )}
               </section>
+              )}
 
-              {statsComparisonScope !== "alltime" && (
-              <section className="order-3">
-                <div className="pb-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowWeeklyScore((prev) => !prev)}
-                    className="relative w-full flex items-center justify-center text-center"
-                  >
-                    <CardTitle className={`text-base ${statsTitleClass}`}>
-                      {statsComparisonScope === "season" ? "Wochen-Score (Saison)" : "Wochen-Score (All-Time)"}
-                    </CardTitle>
-                    <span className="absolute right-0 top-1/2 -translate-y-1/2">
-                      {showWeeklyScore ? (
-                        <ChevronUp className={`w-4 h-4 ${statsBodyClass}`} />
-                      ) : (
-                        <ChevronDown className={`w-4 h-4 ${statsBodyClass}`} />
-                      )}
-                    </span>
-                  </button>
+              {/* ══════════════════════════════════════════
+                  WEEKLY LEADERBOARD
+              ══════════════════════════════════════════ */}
+              {statsSection === "weekly" && (
+              <section className="space-y-3">
+                <div className={`rounded-xl border px-3 py-2.5 ${isLightUi ? "border-lime-200 bg-lime-50" : "border-lime-300/30 bg-lime-500/8"}`}>
+                  <p className={`text-[11px] ${isLightUi ? "text-lime-700" : "text-lime-300"}`}>Dein Rang (Mo–So)</p>
+                  <p className={`text-xl font-bold ${isLightUi ? "text-lime-900" : "text-lime-100"}`}>
+                    {ownWeeklySeedRank > 0 ? `#${ownWeeklySeedRank} von ${progressSeedRanking.length}` : "Noch kein Rang"}
+                  </p>
+                  {ownWeeklySeedEntry && (
+                    <p className={`text-xs mt-0.5 ${isLightUi ? "text-lime-700" : "text-lime-300"}`}>
+                      +{ownWeeklySeedEntry.seeds.toLocaleString()} Samen diese Woche
+                    </p>
+                  )}
                 </div>
-                {showWeeklyScore && (
-                  <div className="space-y-[2px]">
-                    <div className="grid grid-cols-1 gap-[2px]">
-                      <Card className="border-0 bg-transparent shadow-none">
-                        <CardHeader className="pb-2">
-                          <CardTitle className={`text-base flex items-center gap-2 ${statsTitleClass}`}>
-                            <Leaf className={`w-4 h-4 ${isLightUi ? "text-lime-600" : "text-lime-300"}`} />
-                            {statsComparisonScope === "season" ? "Wochenfortschritt: Meiste Samen" : "All-Time: Meiste Samen"}
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-0 pt-0 space-y-2">
-                          <div className={`rounded-lg border px-3 py-2 ${isLightUi ? "border-lime-200 bg-lime-50" : "border-lime-300/40 bg-lime-500/10"}`}>
-                            <p className={`text-xs ${isLightUi ? "text-lime-700" : "text-lime-200"}`}>
-                              {statsComparisonScope === "season" ? "Dein Rang seit Saisonstart" : "Dein All-Time Rang"}
-                            </p>
-                            <p className={`text-lg font-bold ${isLightUi ? "text-lime-900" : "text-lime-100"}`}>
-                              {ownWeeklySeedRank > 0 ? `#${ownWeeklySeedRank} von ${progressSeedRanking.length}` : "Noch kein Rang"}
-                            </p>
-                            {ownWeeklySeedEntry && (
-                              <p className={`text-xs mt-0.5 ${isLightUi ? "text-lime-700" : "text-lime-300"}`}>
-                                {statsComparisonScope === "season" ? "+" : ""}{ownWeeklySeedEntry.seeds.toLocaleString()} Samen
-                              </p>
+                <div className="space-y-1">
+                  <p className={`text-[11px] uppercase tracking-wide font-medium mb-1.5 ${statsLabelClass}`}>Meiste Samen (diese Woche)</p>
+                  {isLeaderboardRefreshing ? (
+                    <div className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-8 ${isLightUi ? "border-stone-200 bg-stone-50" : "border-[#f0e5a5]/20 bg-black/20"}`}>
+                      <Loader2 className={`w-4 h-4 animate-spin ${statsBodyClass}`} />
+                      <span className={`text-sm ${statsBodyClass}`}>Wird geladen…</span>
+                    </div>
+                  ) : (() => {
+                    const ranking = progressSeedRanking;
+                    const top10 = ranking.slice(0, 10);
+                    const ownInTop = top10.some((e) => e.isOwn);
+                    const ownEntry = !ownInTop && ownWeeklySeedRank > 0 ? ranking[ownWeeklySeedRank - 1] : null;
+                    return (
+                      <>
+                        {ranking.length === 0 && <p className={`text-sm ${statsBodyClass}`}>Diese Woche noch keine Daten.</p>}
+                        {top10.map((entry, i) => renderLeaderboardRow({ entry, rank: i + 1, isOwn: entry.isOwn, badge: `+${entry.seeds.toLocaleString()} 🌱`, accentColor: "lime" }))}
+                        {ownEntry && (<><p className={`text-xs text-center my-0.5 ${statsBodyClass}`}>…</p>{renderLeaderboardRow({ entry: ownEntry, rank: ownWeeklySeedRank, isOwn: true, badge: `+${ownEntry.seeds.toLocaleString()} 🌱`, accentColor: "lime" })}</>)}
+                      </>
+                    );
+                  })()}
+                </div>
+              </section>
+              )}
+
+              {/* ══════════════════════════════════════════
+                  PERSONAL STATS
+              ══════════════════════════════════════════ */}
+              {statsSection === "me" && (
+              <section className="space-y-3">
+                {/* Stat grid */}
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: statsComparisonScope === "season" ? "Scans (Saison)" : "Scans gesamt", value: String(totalScans), sub: `${activeDaysSet.size} aktive Tage`, color: isLightUi ? "text-emerald-700" : "text-emerald-300", big: true },
+                    { label: statsComparisonScope === "season" ? "Saison-Trend" : "Monats-Trend", value: String(currentMonthScans), sub: `${monthTrendDelta >= 0 ? "+" : ""}${monthTrendDelta} vs. Vormonat`, color: monthTrendDelta >= 0 ? (isLightUi ? "text-emerald-700" : "text-emerald-300") : (isLightUi ? "text-rose-700" : "text-rose-300"), big: true },
+                    { label: "Häufigster Scan", value: topSpeciesEntry?.[0] || "—", sub: topSpeciesEntry ? `${topSpeciesEntry[1]}× gescannt` : "", color: isLightUi ? "text-blue-700" : "text-blue-300", big: false },
+                    { label: "Top Genus", value: topGenusEntry?.[0] || "—", sub: topGenusEntry ? `${topGenusEntry[1]}× gescannt` : "", color: isLightUi ? "text-purple-700" : "text-purple-300", big: false },
+                  ].map(({ label, value, sub, color, big }) => (
+                    <div key={label} className={`rounded-xl border p-3 ${isLightUi ? "bg-white border-stone-200" : "bg-black/30 border-[#f0e5a5]/18"}`}>
+                      <p className={`text-[10px] uppercase tracking-wide font-medium ${statsLabelClass}`}>{label}</p>
+                      <p className={`${big ? "text-2xl" : "text-sm"} font-bold mt-0.5 truncate ${color}`}>{value}</p>
+                      {sub && <p className={`text-[10px] mt-0.5 ${statsBodyClass}`}>{sub}</p>}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Own rankings summary */}
+                <div className={`rounded-xl border p-3 space-y-2.5 ${isLightUi ? "bg-white border-stone-200" : "bg-black/30 border-[#f0e5a5]/18"}`}>
+                  <p className={`text-[11px] uppercase tracking-wide font-medium ${statsLabelClass}`}>Deine globalen Ränge</p>
+                  {[
+                    { label: "Scan-Rang", rank: ownGlobalScanRank, total: effectiveGlobalScanRanking.length, sub: null, color: isLightUi ? "text-indigo-700" : "text-indigo-300" },
+                    { label: "Samen-Rang", rank: ownSeedRank, total: globalSeedRanking.length, sub: ownSeeds > 0 ? `${ownSeeds.toLocaleString()} 🌱` : null, color: isLightUi ? "text-amber-700" : "text-amber-300" },
+                    { label: "Wochen-Rang", rank: ownWeeklySeedRank, total: progressSeedRanking.length, sub: ownWeeklySeedEntry ? `+${ownWeeklySeedEntry.seeds.toLocaleString()} 🌱 diese Woche` : null, color: isLightUi ? "text-lime-700" : "text-lime-300" },
+                  ].map(({ label, rank, total, sub, color }) => (
+                    <div key={label} className="flex items-center justify-between gap-2">
+                      <span className={`text-sm ${statsBodyClass}`}>{label}</span>
+                      <div className="text-right">
+                        <span className={`text-sm font-bold ${color}`}>{rank > 0 ? `#${rank} / ${total}` : "–"}</span>
+                        {sub && <p className={`text-[10px] ${statsBodyClass}`}>{sub}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+              )}
+
+            </div>
+          </div>
+        )}
+
+        {/* ── AUFGABEN ── */}
+        {achievementsView === "quests" && (
+          <div className={questsContentClass} style={embeddedContentMaskStyle}>
+            <div className="space-y-3" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
+
+              {/* ── Active Quests ── */}
+              {activeQuests.map((quest, index) => {
+                const rawProgress = quest.progress || 0;
+                const target = quest.required_discoveries || 0;
+                const displayProgress = target > 0 ? Math.min(rawProgress, target) : rawProgress;
+                const progressPercentage = target > 0 ? Math.min(100, (rawProgress / target) * 100) : 0;
+
+                const accentMap = {
+                  weekly:     { tint: "rgba(101,166,132,0.36)", border: "rgba(158,223,189,0.30)", iconBg: "bg-emerald-300/16 border-white/20 text-emerald-100" },
+                  monthly:    { tint: "rgba(251,191,36,0.34)",  border: "rgba(251,191,36,0.30)",  iconBg: "bg-amber-300/16 border-white/20 text-amber-100" },
+                  collection: { tint: "rgba(104,134,189,0.34)", border: "rgba(167,190,237,0.30)", iconBg: "bg-blue-300/16 border-white/20 text-blue-100" },
+                  regular:    { tint: "rgba(146,181,93,0.38)",  border: "rgba(199,224,151,0.30)", iconBg: "bg-lime-300/16 border-white/20 text-lime-100" },
+                };
+                const accent = accentMap[quest.type] || accentMap.regular;
+
+                const typeLabel = quest.type === "weekly" ? "📅 Wöchentlich"
+                  : quest.type === "monthly" ? "📆 Monatlich"
+                  : quest.type === "collection" ? `🗺️ ${quest.icon_emoji || "Sammlung"}`
+                  : null;
+
+                const QuestIcon = quest.isCompleted ? CheckCircle2 : Target;
+
+                return (
+                  <motion.div
+                    key={quest.id}
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                  >
+                    <div
+                      className="relative w-full rounded-[1.35rem] border shadow-[0_16px_42px_rgba(0,0,0,0.34)] overflow-hidden"
+                      style={{
+                        background: `linear-gradient(145deg, ${accent.tint} 0%, rgba(10,13,19,0.86) 58%, rgba(7,10,16,0.94) 100%)`,
+                        borderColor: accent.border,
+                      }}
+                    >
+                      <div className="absolute inset-0 pointer-events-none rounded-[1.35rem] bg-gradient-to-br from-white/14 via-transparent to-black/38" />
+                      <div className="relative p-4 flex items-start gap-3">
+                        {/* Icon */}
+                        <div className={`h-11 w-11 rounded-xl border flex items-center justify-center shrink-0 backdrop-blur-sm ${accent.iconBg}`}>
+                          {quest.type === "collection"
+                            ? <span className="text-lg leading-none">{quest.icon_emoji || "🗺️"}</span>
+                            : <QuestIcon className="w-5 h-5" />
+                          }
+                        </div>
+
+                        {/* Content */}
+                        <div className="min-w-0 flex-1">
+                          {/* Type + category chips */}
+                          <div className="flex flex-wrap gap-1 mb-1">
+                            {quest.isCompleted && (
+                              <span className="inline-flex items-center rounded-full border border-white/25 bg-black/26 text-white/84 px-2 py-0.5 text-[10px] font-medium">✓ Abgeschlossen</span>
+                            )}
+                            {typeLabel && (
+                              <span className="inline-flex items-center rounded-full border border-white/25 bg-black/26 text-white/84 px-2 py-0.5 text-[10px] font-medium">{typeLabel}</span>
+                            )}
+                            {quest.category && quest.category !== "Alle" && (
+                              <span className="inline-flex items-center rounded-full border border-white/25 bg-black/26 text-white/84 px-2 py-0.5 text-[10px] font-medium">{quest.category}</span>
                             )}
                           </div>
 
-                          {progressSeedRanking.length === 0 && (
-                            <p className={`text-sm ${statsBodyClass}`}>
-                              {statsComparisonScope === "season"
-                                ? "Noch keine Saisonfortschritt-Daten verfügbar."
-                                : "Noch keine All-Time Daten verfügbar."}
-                            </p>
+                          {/* Title */}
+                          <h3 className="text-lg font-semibold text-white leading-tight tracking-[0.01em]">{quest.title}</h3>
+
+                          {/* Description */}
+                          <p className="text-sm text-white/80 mt-0.5 line-clamp-2 leading-snug">{quest.description}</p>
+
+                          {/* Target badge */}
+                          {(quest.target_species_name || quest.target_genus_name) && (
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {quest.target_species_name && (() => {
+                                const url = buildQuestNaturaDbUrl(quest.target_species_name);
+                                return url ? (
+                                  <a href={url} target="_blank" rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="inline-flex items-center gap-0.5 rounded-full border-2 border-white/40 bg-black/25 text-white/95 px-2 py-0.5 text-[10px] font-bold hover:bg-black/40 transition-colors cursor-pointer">
+                                    🎯 {quest.target_species_name} 🔗
+                                  </a>
+                                ) : (
+                                  <span className="inline-flex items-center rounded-full border-2 border-white/35 bg-black/20 text-white/90 px-2 py-0.5 text-[10px] font-bold">🎯 {quest.target_species_name}</span>
+                                );
+                              })()}
+                              {quest.target_genus_name && !quest.target_species_name && (() => {
+                                const url = buildQuestGenusNaturaDbUrl(quest.target_genus_name);
+                                return url ? (
+                                  <a href={url} target="_blank" rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="inline-flex items-center gap-0.5 rounded-full border-2 border-white/40 bg-black/25 text-white/95 px-2 py-0.5 text-[10px] font-bold hover:bg-black/40 transition-colors cursor-pointer">
+                                    🎯 {quest.target_genus_name} 🔗
+                                  </a>
+                                ) : (
+                                  <span className="inline-flex items-center rounded-full border-2 border-white/35 bg-black/20 text-white/90 px-2 py-0.5 text-[10px] font-bold">🎯 {quest.target_genus_name}</span>
+                                );
+                              })()}
+                            </div>
                           )}
 
-                          {(() => {
-                            const top5 = progressSeedRanking.slice(0, 5);
-                            const ownInTop5 = top5.some((entry) => entry.isOwn);
-                            const ownEntry = !ownInTop5 && ownWeeklySeedRank > 0 ? progressSeedRanking[ownWeeklySeedRank - 1] : null;
+                          {/* Progress */}
+                          {quest.required_discoveries && (
+                            <div className="mt-2.5 space-y-1">
+                              <div className="flex justify-between text-[11px] text-white/70">
+                                <span>Fortschritt</span>
+                                <span className="font-semibold text-white/90">{displayProgress} / {quest.required_discoveries}</span>
+                              </div>
+                              <div className="h-1.5 rounded-full bg-white/15 overflow-hidden">
+                                <div className="h-full rounded-full bg-white/70 transition-all" style={{ width: `${progressPercentage}%` }} />
+                              </div>
+                            </div>
+                          )}
 
-                            return (
-                              <>
-                                {top5.map((entry, index) => {
-                                  const logo = leaderboardLogosByEmail.get(entry.email);
-                                  return (
-                                    <div
-                                      key={entry.authId || entry.email || `weekly-${index}`}
-                                      className={`flex items-center justify-between rounded-lg border px-3 py-2 ${entry.isOwn ? rankingHighlightClass : rankingDefaultClass}`}
-                                    >
-                                      <div className="flex min-w-0 items-center gap-2 flex-1">
-                                        <div className={leaderboardAvatarContainerClass}>
-                                          <CustomLogoAvatar
-                                            logoAssets={logo}
-                                            className="w-full h-full"
-                                            tooltipText={entry.name || entry.email || "Unbekannt"}
-                                            fallbackText={entry.name?.charAt(0)?.toUpperCase() || "?"}
-                                            fallbackClassName="text-[10px] font-bold text-white"
-                                          />
-                                        </div>
-                                        <button
-                                          type="button"
-                                          onClick={() => navigateToPublicProfile(entry.email)}
-                                          disabled={!entry.email}
-                                          className={`${leaderboardNameButtonClass} ${entry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
-                                        >
-                                          #{index + 1} {entry.name}
-                                        </button>
-                                      </div>
-                                      <Badge className={entry.isOwn ? (isLightUi ? "bg-lime-600 text-white" : "bg-lime-700 text-white border border-lime-400/60") : rankingDefaultBadgeClass}>
-                                        {statsComparisonScope === "season" ? "+" : ""}{entry.seeds.toLocaleString()} 🌱
-                                      </Badge>
-                                    </div>
-                                  );
-                                })}
-
-                                {ownEntry && (
-                                  <>
-                                    <p className={`text-xs text-center ${statsBodyClass}`}>…</p>
-                                    <div className={`flex items-center justify-between rounded-lg border px-3 py-2 ${rankingHighlightClass}`}>
-                                      <div className="flex min-w-0 items-center gap-2 flex-1">
-                                        <div className={leaderboardAvatarContainerClass}>
-                                          <CustomLogoAvatar
-                                            logoAssets={leaderboardLogosByEmail.get(ownEntry.email)}
-                                            className="w-full h-full"
-                                            tooltipText={ownEntry.name || ownEntry.email || "Unbekannt"}
-                                            fallbackText={ownEntry.name?.charAt(0)?.toUpperCase() || "?"}
-                                            fallbackClassName="text-[10px] font-bold text-white"
-                                          />
-                                        </div>
-                                        <button
-                                          type="button"
-                                          onClick={() => navigateToPublicProfile(ownEntry.email)}
-                                          disabled={!ownEntry.email}
-                                          className={`${leaderboardNameButtonClass} ${ownEntry.email ? "cursor-pointer" : "cursor-default"} ${statsTitleClass}`}
-                                        >
-                                          #{ownWeeklySeedRank} {ownEntry.name}
-                                        </button>
-                                      </div>
-                                      <Badge className={isLightUi ? "bg-lime-600 text-white" : "bg-lime-700 text-white border border-lime-400/60"}>
-                                        {statsComparisonScope === "season" ? "+" : ""}{ownEntry.seeds.toLocaleString()} 🌱
-                                      </Badge>
-                                    </div>
-                                  </>
+                          {/* Reward + redeem */}
+                          {quest.isCompleted && (
+                            <div className="mt-3 pt-2.5 border-t border-white/15">
+                              <div className="flex items-center gap-2">
+                                {quest.rewardDisplayName && (
+                                  <div className="flex items-center gap-1.5 text-[11px] text-white/80 min-w-0 flex-1">
+                                    <Gift className="w-3 h-3 flex-shrink-0 text-white/60" />
+                                    <span className="truncate font-medium">{quest.rewardDisplayName}</span>
+                                  </div>
                                 )}
-                              </>
-                            );
-                          })()}
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </div>
-                )}
-              </section>
-              )}
-
-              <section className="order-1">
-                <div className="pb-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowPersonalStats((prev) => !prev)}
-                    className="relative w-full flex items-center justify-center text-center"
-                  >
-                    <CardTitle className={`text-base ${statsTitleClass}`}>
-                      Persönliche Statistik ({comparisonRangeLabel})
-                    </CardTitle>
-                    <span className="absolute right-0 top-1/2 -translate-y-1/2">
-                      {showPersonalStats ? (
-                        <ChevronUp className={`w-4 h-4 ${statsBodyClass}`} />
-                      ) : (
-                        <ChevronDown className={`w-4 h-4 ${statsBodyClass}`} />
-                      )}
-                    </span>
-                  </button>
-                </div>
-                {showPersonalStats && (
-                <div>
-                  <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-[2px]">
-                <Card className="border-0 bg-transparent shadow-none">
-                  <CardContent className="p-4">
-                    <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>{statsComparisonScope === "season" ? "Scans seit Saisonstart" : "Scans insgesamt"}</p>
-                    <p className={`text-2xl font-bold mt-1 ${isLightUi ? "text-emerald-700" : "text-emerald-300"}`}>{totalScans}</p>
-                    <p className={`text-xs mt-1 ${statsBodyClass}`}>{activeDaysSet.size} aktive Tage</p>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-0 bg-transparent shadow-none">
-                  <CardContent className="p-4">
-                    <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>Haeufigster Scan</p>
-                    <p className={`text-sm font-bold mt-1 truncate ${statsTitleClass}`}>{topSpeciesEntry?.[0] || "Noch keine Daten"}</p>
-                    <p className={`text-xs mt-1 ${isLightUi ? "text-blue-700" : "text-blue-300"}`}>{topSpeciesEntry ? `${topSpeciesEntry[1]}x gescannt` : "Scanne mehr Pflanzen"}</p>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-0 bg-transparent shadow-none">
-                  <CardContent className="p-4">
-                    <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>Top-Genus</p>
-                    <p className={`text-sm font-bold mt-1 truncate ${statsTitleClass}`}>{topGenusEntry?.[0] || "Noch keine Daten"}</p>
-                    <p className={`text-xs mt-1 ${isLightUi ? "text-purple-700" : "text-purple-300"}`}>{topGenusEntry ? `${topGenusEntry[1]}x gescannt` : "Scanne mehr Pflanzen"}</p>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-0 bg-transparent shadow-none">
-                  <CardContent className="p-4">
-                    <p className={`text-xs uppercase tracking-wide ${statsLabelClass}`}>{statsComparisonScope === "season" ? "Saison-Trend" : "Monats-Trend"}</p>
-                    <p className={`text-2xl font-bold mt-1 ${statsTitleClass}`}>{currentMonthScans}</p>
-                    <p className={`text-xs mt-1 ${monthTrendDelta >= 0 ? (isLightUi ? "text-emerald-700" : "text-emerald-300") : (isLightUi ? "text-rose-700" : "text-rose-300")}`}>
-                      {monthTrendDelta >= 0 ? "+" : ""}{monthTrendDelta} vs. letzter Monat
-                    </p>
-                  </CardContent>
-                </Card>
-                  </div>
-                </div>
-                )}
-              </section>
-            </div>
-          </TabsContent>
-
-          {/* Aufgaben Tab */}
-          <TabsContent value="quests" className={questsContentClass} style={embeddedContentMaskStyle}>
-            <div className={`max-w-6xl mx-auto ${embedded ? "space-y-6" : "space-y-4"}`} style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
-                  {activeQuests.length > 0 && (
-                    <div className="grid md:grid-cols-2 gap-4">
-                      {activeQuests.map((quest, index) => {
-                        const rawProgress = quest.progress || 0;
-                        const target = quest.required_discoveries || 0;
-                        const displayProgress = target > 0 ? Math.min(rawProgress, target) : rawProgress;
-                        const progressPercentage = target > 0 ? Math.min(100, (rawProgress / target) * 100) : 0;
-
-                        return (
-                          <motion.div
-                            key={quest.id}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: index * 0.05 }}
-                            className="min-w-0"
-                          >
-                            <Card className={`relative w-full min-w-0 overflow-hidden border-2 shadow-sm backdrop-blur-sm hover:shadow-md transition-all ${questCardSurfaceClass} ${questBorderClass(quest)}`}>
-                              <div className="absolute inset-0 bg-black/35 pointer-events-none" />
-                              <CardContent className="relative z-10 p-3">
-                                <div className="flex items-start gap-2">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${questIconClass(quest)}`}>
-                                    {quest.isCompleted ? <CheckCircle2 className="w-4 h-4 text-white" /> : quest.type === "collection" ? <span className="text-sm">{quest.icon_emoji || "🗺️"}</span> : <Target className="w-4 h-4 text-white" />}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-1 mb-1 flex-wrap">
-                                        {quest.isCompleted && <Badge className={`${questCompletedBadgeClass} text-[10px] px-1 py-0`}>✓ Abgeschlossen</Badge>}
-                                        {quest.type === "weekly" && <Badge className={`${questWeeklyBadgeClass} text-[10px] px-1 py-0`}>📅 Wöchentlich</Badge>}
-                                        {quest.type === "monthly" && <Badge className={`${questMonthlyBadgeClass} text-[10px] px-1 py-0`}>📆 Monatlich</Badge>}
-                                        {quest.type === "collection" && <Badge className={`${questCollectionBadgeClass} text-[10px] px-1 py-0`}>🗺️ Sammlung</Badge>}
-                                      {quest.category && quest.category !== "Alle" && (
-                                          <Badge className={`text-[10px] px-1 py-0 ${questCategoryBadgeClass(quest.category)}`}>
-                                          {quest.category}
-                                        </Badge>
-                                      )}
-                                    </div>
-                                    <h3 className={`text-sm font-bold mb-1 ${questTitleClass}`}>{quest.title}</h3>
-                                    <div className="mb-2 max-h-16 overflow-y-auto pr-1">
-                                      <p className={`text-xs ${questBodyClass}`}>{quest.description}</p>
-                                    </div>
-                                    {renderQuestTargetBadges(quest)}
-
-                                    {quest.required_discoveries && (
-                                      <div className="space-y-1 mb-2">
-                                        <div className="flex items-center justify-between text-xs">
-                                          <span className={questMetaClass}>Fortschritt</span>
-                                            <span className={`font-bold ${questProgressTextClass}`}>{displayProgress} / {quest.required_discoveries}</span>
-                                        </div>
-                                        <Progress value={progressPercentage} className="h-1.5" />
-                                      </div>
-                                    )}
-
-                                    {quest.isCompleted && (
-                                      <div className={`space-y-1 pt-1.5 border-t ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
-                                        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-                                          {quest.rewardDisplayName && (
-                                            <div className={`min-w-0 w-full sm:flex-1 flex items-center gap-1 rounded-md px-2 py-1 text-[11px] ${questRewardBlockClass}`}>
-                                              <Gift className="w-3 h-3 flex-shrink-0" />
-                                              <span className="truncate font-semibold">{quest.rewardDisplayName}</span>
-                                            </div>
-                                          )}
-                                          {quest.canRedeem ? (
-                                            <Button
-                                              onClick={() => {
-                                                const allCompletedQuests = [...userQuests, ...userWeeklyQuests, ...userMonthlyQuests, ...userCollectionQuests].filter((q) => q.redeemed);
-                                                const isFirstQuest = allCompletedQuests.length === 0;
-
-                                                redeemQuestMutation.mutate({
-                                                  userQuestId: quest.userQuestId,
-                                                  questType: quest.type,
-                                                  rewardName: quest.rewardData?.name,
-                                                  seedReward: quest.seedReward,
-                                                  isFirstQuest,
-                                                  questTitle: quest.title,
-                                                });
-                                              }}
-                                              disabled={redeemQuestMutation.isPending}
-                                              size="sm"
-                                              className={`h-6 w-full sm:w-auto shrink-0 px-2 text-[11px] ${questRedeemBtnClass}`}
-                                            >
-                                              Einlösen
-                                            </Button>
-                                          ) : (
-                                            <span className={`text-[11px] italic ${questMetaClass}`}>Bereits eingelöst</span>
-                                          )}
-                                        </div>
-                                        {quest.completedAt && (
-                                          <span className={`block text-[11px] ${questMetaClass}`}>
-                                            Abgeschlossen am {format(new Date(quest.completedAt), "dd.MM.yyyy", { locale: de })}
-                                          </span>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          </motion.div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {completedQuests.length > 0 && (
-                    <div className="space-y-3">
-                      <button
-                        type="button"
-                        className="flex items-center justify-between w-full text-left"
-                        onClick={() => setShowCompleted((prev) => !prev)}
-                        style={{
-                          color: averageColor && isColorDark(averageColor) ? "rgb(250, 250, 249)" : "rgb(28, 25, 23)",
-                        }}
-                      >
-                        <h3 className="text-sm font-semibold">Abgeschlossene Aufgaben</h3>
-                        <span className="text-xs opacity-80">{showCompleted ? "▾" : "▸"}</span>
-                      </button>
-
-                      {showCompleted && (
-                        <div className="grid md:grid-cols-2 gap-4 min-w-0">
-                          {completedQuests.map((quest, index) => {
-                            const rawProgress = quest.progress || 0;
-                            const target = quest.required_discoveries || 0;
-                            const displayProgress = target > 0 ? Math.min(rawProgress, target) : rawProgress;
-                            const progressPercentage = target > 0 ? Math.min(100, (rawProgress / target) * 100) : 0;
-
-                            return (
-                              <motion.div
-                                key={`${quest.type}-${quest.userQuestId || quest.id}-${index}`}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: index * 0.03 }}
-                                className="min-w-0"
-                              >
-                                <Card className={`relative w-full min-w-0 overflow-hidden border-2 shadow-sm backdrop-blur-sm transition-all opacity-70 ${questCardSurfaceClass} ${questBorderClass(quest)}`}>
-                                  <div className="absolute inset-0 bg-black/35 pointer-events-none" />
-                                  <CardContent className="relative z-10 p-3">
-                                    <div className="flex items-start gap-2">
-                                      <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-stone-400">
-                                        <CheckCircle2 className="w-4 h-4 text-white" />
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-1 mb-1 flex-wrap">
-                                          <Badge className="bg-stone-500 text-white text-[10px] px-1 py-0">✓ Abgeschlossen</Badge>
-                                            {quest.type === "weekly" && <Badge className={`${questWeeklyBadgeClass} text-[10px] px-1 py-0`}>📅 Wöchentlich</Badge>}
-                                            {quest.type === "monthly" && <Badge className={`${questMonthlyBadgeClass} text-[10px] px-1 py-0`}>📆 Monatlich</Badge>}
-                                            {quest.type === "collection" && <Badge className={`${questCollectionBadgeClass} text-[10px] px-1 py-0`}>🗺️ Sammlung</Badge>}
-                                          {quest.category && quest.category !== "Alle" && (
-                                              <Badge className={`text-[10px] px-1 py-0 ${questCategoryBadgeClass(quest.category)}`}>
-                                              {quest.category}
-                                            </Badge>
-                                          )}
-                                        </div>
-                                        <h3 className={`text-sm font-bold mb-1 ${questTitleClass}`}>{quest.title}</h3>
-                                        <div className="mb-2 max-h-16 overflow-y-auto pr-1">
-                                          <p className={`text-xs ${questBodyClass}`}>{quest.description}</p>
-                                        </div>
-                                        {renderQuestTargetBadges(quest)}
-
-                                        {quest.required_discoveries && (
-                                          <div className="space-y-1 mb-2">
-                                            <div className="flex items-center justify-between text-xs">
-                                              <span className={questMetaClass}>Fortschritt</span>
-                                                <span className={`font-bold ${questProgressTextClass}`}>{displayProgress} / {quest.required_discoveries}</span>
-                                            </div>
-                                            <Progress value={progressPercentage} className="h-1.5" />
-                                          </div>
-                                        )}
-
-                                        <div className={`space-y-1 pt-1.5 border-t ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/25"}`}>
-                                          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-                                            {quest.rewardDisplayName && (
-                                              <div className={`min-w-0 w-full sm:flex-1 flex items-center gap-1 rounded-md px-2 py-1 text-[11px] ${questRewardBlockClass}`}>
-                                                <Gift className="w-3 h-3 flex-shrink-0" />
-                                                <span className="truncate font-semibold">{quest.rewardDisplayName}</span>
-                                              </div>
-                                            )}
-                                            <span className={`text-[11px] italic ${questMetaClass}`}>Bereits eingelöst</span>
-                                          </div>
-                                          {quest.completedAt && (
-                                            <span className={`block text-[11px] ${questMetaClass}`}>
-                                              Abgeschlossen am {format(new Date(quest.completedAt), "dd.MM.yyyy", { locale: de })}
-                                            </span>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </CardContent>
-                                </Card>
-                              </motion.div>
-                            );
-                          })}
+                                {quest.canRedeem ? (
+                                  <Button
+                                    onClick={() => {
+                                      const allCompleted = [...userQuests, ...userWeeklyQuests, ...userMonthlyQuests, ...userCollectionQuests].filter((q) => q.redeemed);
+                                      redeemQuestMutation.mutate({
+                                        userQuestId: quest.userQuestId,
+                                        questType: quest.type,
+                                        rewardName: quest.rewardData?.name,
+                                        seedReward: quest.seedReward,
+                                        isFirstQuest: allCompleted.length === 0,
+                                        questTitle: quest.title,
+                                      });
+                                    }}
+                                    disabled={redeemQuestMutation.isPending}
+                                    size="sm"
+                                    className="shrink-0 h-7 px-3 text-xs bg-white/20 hover:bg-white/30 text-white border border-white/35 backdrop-blur-sm font-semibold"
+                                  >
+                                    Einlösen
+                                  </Button>
+                                ) : (
+                                  <span className="text-[11px] italic text-white/50">Bereits eingelöst</span>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  )}
-
-                  {!hasAnyQuestData && (
-                    <div className="text-center py-20">
-                      <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 max-w-md mx-auto border border-stone-200 shadow-lg">
-                        <Target className="w-16 h-16 text-stone-400 mx-auto mb-4" />
-                        <h3 className="text-xl font-bold text-stone-900 mb-2">Keine aktiven Aufgaben</h3>
-                        <p className="text-stone-600">Alle Aufgaben bereits eingelöst!</p>
                       </div>
                     </div>
-                  )}
+                  </motion.div>
+                );
+              })}
+
+              {/* ── Completed Quests ── */}
+              {completedQuests.length > 0 && (
+                <>
+                  <button
+                    type="button"
+                    className="flex items-center justify-between w-full text-left px-1"
+                    onClick={() => setShowCompleted((prev) => !prev)}
+                  >
+                    <span className="text-sm font-semibold text-white/80">Abgeschlossene Aufgaben ({completedQuests.length})</span>
+                    <span className="text-xs text-white/60">{showCompleted ? "▾" : "▸"}</span>
+                  </button>
+
+                  {showCompleted && completedQuests.map((quest, index) => {
+                    const accentMap = {
+                      weekly:     { tint: "rgba(101,166,132,0.18)", border: "rgba(158,223,189,0.18)", iconBg: "bg-emerald-300/10 border-white/15 text-emerald-100/60" },
+                      monthly:    { tint: "rgba(251,191,36,0.16)",  border: "rgba(251,191,36,0.18)",  iconBg: "bg-amber-300/10 border-white/15 text-amber-100/60" },
+                      collection: { tint: "rgba(104,134,189,0.16)", border: "rgba(167,190,237,0.18)", iconBg: "bg-blue-300/10 border-white/15 text-blue-100/60" },
+                      regular:    { tint: "rgba(146,181,93,0.18)",  border: "rgba(199,224,151,0.18)", iconBg: "bg-lime-300/10 border-white/15 text-lime-100/60" },
+                    };
+                    const accent = accentMap[quest.type] || accentMap.regular;
+                    const typeLabel = quest.type === "weekly" ? "📅 Wöchentlich"
+                      : quest.type === "monthly" ? "📆 Monatlich"
+                      : quest.type === "collection" ? `🗺️ Sammlung`
+                      : null;
+
+                    return (
+                      <motion.div
+                        key={`${quest.type}-${quest.userQuestId || quest.id}-${index}`}
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.03 }}
+                      >
+                        <div
+                          className="relative w-full rounded-[1.35rem] border overflow-hidden opacity-60"
+                          style={{
+                            background: `linear-gradient(145deg, ${accent.tint} 0%, rgba(10,13,19,0.80) 58%, rgba(7,10,16,0.88) 100%)`,
+                            borderColor: accent.border,
+                          }}
+                        >
+                          <div className="absolute inset-0 pointer-events-none rounded-[1.35rem] bg-gradient-to-br from-white/8 via-transparent to-black/30" />
+                          <div className="relative p-4 flex items-start gap-3">
+                            <div className={`h-11 w-11 rounded-xl border flex items-center justify-center shrink-0 ${accent.iconBg}`}>
+                              <CheckCircle2 className="w-5 h-5" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap gap-1 mb-1">
+                                <span className="inline-flex items-center rounded-full border border-white/20 bg-black/20 text-white/70 px-2 py-0.5 text-[10px] font-medium">✓ Abgeschlossen</span>
+                                {typeLabel && (
+                                  <span className="inline-flex items-center rounded-full border border-white/20 bg-black/20 text-white/70 px-2 py-0.5 text-[10px] font-medium">{typeLabel}</span>
+                                )}
+                              </div>
+                              <h3 className="text-base font-semibold text-white/80 leading-tight">{quest.title}</h3>
+                              <div className="flex items-center gap-2 mt-2">
+                                {quest.rewardDisplayName && (
+                                  <div className="flex items-center gap-1 text-[11px] text-white/60 min-w-0 flex-1">
+                                    <Gift className="w-3 h-3 flex-shrink-0" />
+                                    <span className="truncate">{quest.rewardDisplayName}</span>
+                                  </div>
+                                )}
+                                {quest.completedAt && (
+                                  <span className="text-[11px] text-white/50 shrink-0">
+                                    {format(new Date(quest.completedAt), "dd.MM.yy", { locale: de })}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </>
+              )}
+
+              {!hasAnyQuestData && (
+                <div className="flex flex-col items-center justify-center py-16 gap-3">
+                  <div className="h-16 w-16 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center">
+                    <Target className="w-8 h-8 text-white/50" />
+                  </div>
+                  <p className="text-white/60 text-sm">Keine aktiven Aufgaben</p>
+                </div>
+              )}
 
             </div>
-          </TabsContent>
-        </Tabs>
+          </div>
+        )}
+
       </div>
 
       {/* Title Selection Dialog */}

@@ -31,6 +31,7 @@ export default function HomeHeaderBar({
   playerSparks,
   playerAmber,
   onEmbeddedCollectionBack,
+  onEmbeddedAchievementsBack,
   onOpenEmbeddedFriendsAddDialog,
   onOpenAmberPurchase,
   onOpenBugReport,
@@ -42,6 +43,7 @@ export default function HomeHeaderBar({
   const showEmbeddedFriends = activePanel === "friends";
   const showEmbeddedShop = activePanel === "shop";
   const isEmbeddedMode = activePanel !== null;
+  const showAchievementsBack = activePanel === "achievements" && typeof onEmbeddedAchievementsBack === "function";
   const shopCurrencyInfo = showEmbeddedShop && embeddedInfoLabel && typeof embeddedInfoLabel === "object"
     ? embeddedInfoLabel
     : null;
@@ -59,6 +61,11 @@ export default function HomeHeaderBar({
       ? "Einstellungen"
       : null);
 
+  // Use smaller font when a back button is shown (title can be longer, e.g. "Rangliste · All-Time")
+  const titleSizeClass = (showAchievementsBack || (showEmbeddedCollection && embeddedCollectionCanGoBack))
+    ? "text-lg md:text-xl"
+    : "text-2xl md:text-3xl";
+
   return (
     <div className={`flex items-start justify-between gap-3 pb-3 border-b ${isLightUi ? "border-[#b99a48]/30" : "border-[#f0e5a5]/20"}`}>
       <div className="min-w-0">
@@ -74,9 +81,19 @@ export default function HomeHeaderBar({
                 <ChevronLeft className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
               </button>
             )}
+            {showAchievementsBack && (
+              <button
+                type="button"
+                onClick={onEmbeddedAchievementsBack}
+                className={`w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors shrink-0 ${isLightUi ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80" : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"}`}
+                aria-label="Zurück"
+              >
+                <ChevronLeft className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+              </button>
+            )}
 
             <div className="min-w-0">
-              <h1 className="font-bold leading-tight text-2xl md:text-3xl truncate" title={resolvedEmbeddedTitle}>
+              <h1 className={`font-bold leading-tight truncate ${titleSizeClass}`} title={resolvedEmbeddedTitle}>
                 {resolvedEmbeddedTitle}
               </h1>
               {!showEmbeddedShop && embeddedSubtitle && (
