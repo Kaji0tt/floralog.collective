@@ -2647,6 +2647,26 @@ function HomeContent() {
     });
   }
 
+  if (currentWeeklyQuest) {
+    const weeklyProgress = Number(currentWeeklyUserQuest?.progress || 0);
+    homeMilestoneFeed.push({
+      id: `weekly-quest-${currentWeeklyQuest.id}`,
+      kind: "quest",
+      title: "Wöchentliche Quest",
+      actionType: "open_achievements_quests",
+      payload: {
+        questType: "weekly",
+        title: currentWeeklyQuest.title,
+        description: currentWeeklyQuest.description,
+        required_discoveries: currentWeeklyQuest.required_discoveries,
+        progress: weeklyProgress,
+        isCompleted: activeWeeklyQuest?.isCompleted || false,
+        target_species_name: currentWeeklyQuest.target_species_name || null,
+        target_genus_name: currentWeeklyQuest.target_genus_name || null,
+      },
+    });
+  }
+
   if (homeMilestoneFeed.length === 0) {
     homeMilestoneFeed.push({
       id: "fallback-collections",
@@ -2849,6 +2869,13 @@ function HomeContent() {
 
     if (actionType === "open_collections") {
       handleOpenCollectionFromHome({ id: "global" });
+      return;
+    }
+
+    if (actionType === "open_achievements_quests") {
+      setActivePanel("achievements");
+      setShowHealthStatsPanel(false);
+      return;
     }
   };
 
@@ -3388,7 +3415,7 @@ function HomeContent() {
 
                 updateUserStory(user.id, {
                   seen_milestone_ids: nextSeenIds,
-                  seed_progress_at_last_eval: milestoneSeedProgress,
+                  seed_progress_at_last_eval: storySeedProgress,
                   last_story_eval_at: new Date().toISOString(),
                 })
                   .then((nextStory) => {

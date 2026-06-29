@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { HeartPulse, InspectionPanel, Leaf } from "lucide-react";
+import { CalendarDays, CheckCircle2, HeartPulse, InspectionPanel, Leaf, Target } from "lucide-react";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import FlorabotLogo from "@/components/florabot/FlorabotLogo";
 
@@ -67,7 +67,15 @@ export function HomeMilestoneStripe({
 
     if (Array.isArray(milestoneFeed)) {
       milestoneFeed.forEach((item) => {
-        if (item?.kind === "kpi") {
+        if (item?.kind === "quest") {
+          slides.push({
+            id: item.id || "weekly-quest",
+            kind: "quest",
+            title: item.title || "Wöchentliche Quest",
+            payload: item.payload || {},
+            actionPayload: item,
+          });
+        } else if (item?.kind === "kpi") {
           slides.push({
             id: item.id || "kpi-overview",
             kind: "kpi",
@@ -142,6 +150,68 @@ export function HomeMilestoneStripe({
 
   const renderStripeTwoSlideBody = (slide) => {
     if (!slide) return null;
+
+    if (slide.kind === "quest") {
+      const q = slide.payload || {};
+      const rawProgress = Number(q.progress || 0);
+      const required = Number(q.required_discoveries || 0);
+      const displayProgress = required > 0 ? Math.min(rawProgress, required) : rawProgress;
+      const progressPercent = required > 0 ? Math.min(100, (rawProgress / required) * 100) : 0;
+      const isCompleted = Boolean(q.isCompleted);
+
+      if (isCompactLayout) {
+        return (
+          <div className="flex h-full w-full items-center justify-between gap-1.5 text-[0.72rem] leading-none text-stone-100">
+            <span className="inline-flex shrink-0 items-center gap-1">
+              <CalendarDays className="h-3.5 w-3.5 text-emerald-300/90" />
+              <span className="text-[0.68rem] font-medium text-emerald-200/90">Wöchentlich</span>
+            </span>
+            <span className="min-w-0 flex-1 truncate text-center font-semibold">{q.title}</span>
+            {isCompleted ? (
+              <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+            ) : required > 0 ? (
+              <span className="shrink-0 text-[0.68rem] text-stone-300/80">{displayProgress}/{required}</span>
+            ) : null}
+          </div>
+        );
+      }
+
+      return (
+        <div className="flex h-full w-full flex-col justify-center gap-1">
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/25 px-1.5 py-0.5 text-[10px] font-medium text-emerald-200">
+              <CalendarDays className="h-3 w-3" />
+              Wöchentlich
+            </span>
+            {isCompleted && (
+              <span className="inline-flex items-center gap-0.5 rounded-full border border-green-400/30 bg-green-500/25 px-1.5 py-0.5 text-[10px] font-medium text-green-200">
+                <CheckCircle2 className="h-3 w-3" />
+                Abgeschlossen
+              </span>
+            )}
+          </div>
+          <p className="line-clamp-1 text-[0.88rem] font-semibold leading-tight text-white/95">{q.title}</p>
+          {q.description && (
+            <p className="line-clamp-1 text-[0.75rem] leading-snug text-stone-300/80">{q.description}</p>
+          )}
+          {required > 0 && (
+            <div className="mt-0.5 space-y-0.5">
+              <div className="flex justify-between text-[10px] text-stone-300/70">
+                <span>Fortschritt</span>
+                <span className="font-semibold text-stone-200/90">{displayProgress} / {required}</span>
+              </div>
+              <div className="h-1 overflow-hidden rounded-full bg-white/15">
+                <div
+                  className="h-full rounded-full bg-emerald-400/80 transition-all"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
     if (slide.kind === "kpi") {
       const payload = slide.payload || {};
       const multiplierLabel =
@@ -442,6 +512,14 @@ export function HomeMilestoneStripe({
                 <div className="absolute inset-0 z-[2] flex min-w-0 items-center px-1">
                   {renderStripeTwoSlideBody(currentStripeTwoSlide)}
                 </div>
+              ) : currentStripeTwoSlide.kind === "quest" ? (
+                <button
+                  type="button"
+                  onClick={() => onMilestoneAction?.(currentStripeTwoSlide.actionPayload)}
+                  className="absolute inset-0 z-[2] flex min-w-0 flex-col justify-center px-3 text-left"
+                >
+                  {renderStripeTwoSlideBody(currentStripeTwoSlide)}
+                </button>
               ) : (
                 <>
                   {!currentSlideUsesFullWidth ? (
@@ -488,7 +566,7 @@ export function HomeMilestoneStripe({
                 key={`measure-${slide.id}`}
                 ref={setStripeTwoMeasureRef(slide.id)}
                 className={`${
-                  slide.kind === "kpi" || !slide.previewImageUrl ? "w-full" : "ml-auto w-[80%] sm:w-1/2"
+                  slide.kind === "kpi" || slide.kind === "quest" || !slide.previewImageUrl ? "w-full" : "ml-auto w-[80%] sm:w-1/2"
                 }`}
               >
                 {renderStripeTwoSlideBody(slide)}

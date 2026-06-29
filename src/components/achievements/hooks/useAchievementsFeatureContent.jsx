@@ -6,7 +6,8 @@ import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Leaf, Target, CheckCircle2, Gift, Users, ChevronDown, ChevronUp, ChevronLeft, Loader2, ScanSearch, BarChart2 } from "lucide-react";
+import { Trophy, Leaf, Target, CheckCircle2, Gift, Users, ChevronDown, ChevronUp, ChevronLeft, Loader2, ScanSearch, BarChart2, Globe, CalendarDays, User } from "lucide-react";
+import { getNavButtonStyle, NAV_COLOR_ORDER } from "@/components/navigation/navButtonStyles";
 import CollectionCategoryEntryCard from "@/components/collection/CollectionCategoryEntryCard";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
@@ -576,6 +577,31 @@ export function useAchievementsFeatureContent({
     refetchOnReconnect: true,
   });
 
+  const { data: seasonSeedLeaderboard = null, refetch: refetchSeasonSeedLeaderboard } = useQuery({
+    // Keyed to the season start date – fetches all seed credits from that date onward.
+    queryKey: ['seasonSeedLeaderboard', comparisonFromDate || 'alltime'],
+    enabled: statsComparisonScope === 'season' && !!comparisonFromDate,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_weekly_seed_leaderboard', {
+        p_limit: 100,
+        p_from_date: comparisonFromDate,
+      });
+      if (error) {
+        if (isMissingRpcFunctionError(error)) {
+          console.warn('[AchievementsPage] get_weekly_seed_leaderboard with p_from_date unavailable.');
+          return null;
+        }
+        throw error;
+      }
+      return Array.isArray(data) ? data : [];
+    },
+    staleTime: 60 * 1000,
+    refetchInterval: 15 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
+
   const { data: globalScanTaxonomyHighlights = null, refetch: refetchGlobalScanTaxonomyHighlights } = useQuery({
     queryKey: ['globalScanTaxonomyHighlights', comparisonFromDate || 'alltime'],
     queryFn: async () => {
@@ -636,6 +662,7 @@ export function useAchievementsFeatureContent({
           refetchAllRobotPlants(),
           refetchGlobalScanLeaderboard(),
           refetchWeeklySeedLeaderboard(),
+          refetchSeasonSeedLeaderboard(),
           refetchHighestScanResultsLeaderboard(),
           refetchGlobalScanTaxonomyHighlights(),
           ...(user?.email ? [refetchAllFriendRecords()] : []),
@@ -661,7 +688,7 @@ export function useAchievementsFeatureContent({
     refetchAllRobotPlants,
     refetchGlobalScanLeaderboard,
     refetchWeeklySeedLeaderboard,
-    refetchHighestScanResultsLeaderboard,
+    refetchSeasonSeedLeaderboard,
     refetchGlobalScanTaxonomyHighlights,
     refetchAllFriendRecords,
     user?.email,
@@ -1830,7 +1857,13 @@ export function useAchievementsFeatureContent({
     })
     .sort((a, b) => b.seeds - a.seeds);
 
-  const seasonSeedRanking = (weeklySeedLeaderboard || [])
+  // In season scope use the dedicated season query (p_from_date = season start);
+  // fall back to weeklySeedLeaderboard only when the season query hasn't loaded yet.
+  const rawSeasonSeedSource = (statsComparisonScope === 'season' && comparisonFromDate)
+    ? (seasonSeedLeaderboard ?? weeklySeedLeaderboard)
+    : weeklySeedLeaderboard;
+
+  const seasonSeedRanking = (rawSeasonSeedSource || [])
     .map((entry) => {
       const email = String(entry?.user_email || '').trim().toLowerCase();
       const entryAuthId = entry?.auth_id || null;
@@ -2288,30 +2321,34 @@ export function useAchievementsFeatureContent({
             <div className={statsPanelClass} style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
 
               {/* ── Section Navigation ── */}
-              <div className="flex gap-2 overflow-x-auto pb-0.5" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
-                {[
-                  { id: "global", icon: "🌍", label: "Global" },
-                  { id: "weekly", icon: "📅", label: "Diese Woche" },
-                  { id: "me", icon: "👤", label: "Ich" },
-                ].map(({ id, icon, label }) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setStatsSection(id)}
-                    className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all border ${
-                      statsSection === id
-                        ? isLightUi
-                          ? "bg-emerald-600 text-white border-emerald-600 shadow-md"
-                          : "bg-emerald-700/80 text-emerald-50 border-emerald-500/60 shadow-md"
-                        : isLightUi
-                          ? "bg-white text-stone-600 border-stone-200 hover:bg-stone-50"
-                          : "bg-black/30 text-stone-300 border-[#f0e5a5]/18 hover:bg-black/40"
-                    }`}
-                  >
-                    <span>{icon}</span>{label}
-                  </button>
-                ))}
-              </div>
+              {(() => {
+                const STATS_TABS = [
+                  { id: "global",  label: "Global",       icon: Globe,        palette: NAV_COLOR_ORDER[0] },
+                  { id: "weekly",  label: "Diese Woche",  icon: CalendarDays, palette: NAV_COLOR_ORDER[1] },
+                  { id: "me",      label: "Ich",          icon: User,         palette: NAV_COLOR_ORDER[2] },
+                ];
+                return (
+                  <div className="grid grid-cols-3 gap-2">
+                    {STATS_TABS.map(({ id, label, icon: Icon, palette }) => {
+                      const isActive = statsSection === id;
+                      const { gradientClass, shadowStyle } = getNavButtonStyle({ palette, isLightUi, isActive });
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setStatsSection(id)}
+                          className={`relative rounded-2xl border border-[#f0e5a5]/45 ${gradientClass} hover:brightness-105 active:translate-y-px transition-all flex flex-col items-center justify-center gap-1 backdrop-blur-[2px] ${isActive ? "" : "opacity-65"}`}
+                          style={{ boxShadow: shadowStyle, height: "2.9rem" }}
+                          aria-pressed={isActive}
+                        >
+                          <Icon className="text-white" style={{ width: "1.1rem", height: "1.1rem" }} />
+                          <span className="text-white font-semibold" style={{ fontSize: "0.65rem", lineHeight: 1 }}>{label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
 
               {/* ══════════════════════════════════════════
                   GLOBAL LEADERBOARDS
