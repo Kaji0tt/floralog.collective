@@ -1043,16 +1043,17 @@ export default function GuestHomeFlow() {
                 </a>
 
                 <div className="flex items-center justify-center gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setAndroidDownloadModalOpen(true)}
+                  <a
+                    href="https://play.google.com/store/apps/details?id=de.floralog.app"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="flex items-center gap-1.5 rounded-xl border border-emerald-400/30 bg-black/40 px-3 py-1.5 text-xs font-medium text-emerald-100/80 hover:bg-black/55 hover:text-emerald-50 transition-colors backdrop-blur-sm"
                   >
                     <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" aria-hidden="true">
                       <path d="M17.523 15.34a.5.5 0 0 1-.5.5H6.977a.5.5 0 0 1-.5-.5V9.5h11.046v5.84zM7.5 18.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm9 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM3.513 9.14l1.3-2.38A.5.5 0 0 1 5.25 6.5h13.5a.5.5 0 0 1 .437.26l1.3 2.38H3.513zM14.6 2.1l-1.5 2.6h-2.2L9.4 2.1a.4.4 0 0 1 .693-.4L11 3.5h2l.907-1.8a.4.4 0 0 1 .693.4z" />
                     </svg>
                     Android
-                  </button>
+                  </a>
                   <button
                     type="button"
                     onClick={() => setIosModalOpen(true)}
@@ -1068,10 +1069,9 @@ export default function GuestHomeFlow() {
                 <button
                   type="button"
                   onClick={openAuthModal}
-                  className="w-full text-center font-normal text-stone-400/80 hover:text-stone-200 transition-colors"
-                  style={{ fontSize: "0.82rem", letterSpacing: "0.03em", paddingTop: "0.15rem" }}
+                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-300/35 bg-amber-900/20 px-3 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-900/35 hover:text-amber-50 transition-colors backdrop-blur-sm"
                 >
-                  Neu hier? Registrieren
+                  ✦ Neu hier? Jetzt kostenlos registrieren
                 </button>
 
                 <button
@@ -1230,7 +1230,7 @@ export default function GuestHomeFlow() {
               )}
 
               <label className="block space-y-1">
-                <span className="text-xs uppercase tracking-[0.14em] text-amber-100/75 flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> Name</span>
+                <span className="text-xs uppercase tracking-[0.14em] text-amber-100/75 flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> Anzeigename</span>
                 <input
                   name="username"
                   type="text"
@@ -1241,6 +1241,11 @@ export default function GuestHomeFlow() {
                   className="w-full rounded-xl border border-amber-100/25 bg-black/35 px-3 py-2.5 text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/55"
                   placeholder="Dein Name"
                 />
+                <p className="text-[0.72rem] text-stone-400 leading-snug pt-0.5">
+                  Dieser Name ist in der App sichtbar und wird bei Bestenlisten &amp; Rewards auch auf Instagram unter{' '}
+                  <a href="https://instagram.com/floralog.collective" target="_blank" rel="noopener noreferrer" className="text-pink-300/80 hover:text-pink-200 underline underline-offset-2">@floralog.collective</a>{' '}
+                  angegeben.
+                </p>
               </label>
 
               <label className="block space-y-1">
