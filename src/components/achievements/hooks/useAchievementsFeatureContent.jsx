@@ -1901,7 +1901,32 @@ export function useAchievementsFeatureContent({
   const ownSeedRank = globalSeedRanking.findIndex((entry) => entry.isOwn) + 1;
   const ownSeeds = globalSeedRanking.find((entry) => entry.isOwn)?.seeds ?? 0;
 
-  const progressSeedRanking = statsComparisonScope === "season" ? seasonSeedRanking : alltimeSeedRanking;
+  // "Diese Woche" always uses the ISO-week window – never the season scope.
+  const progressSeedRanking = (weeklySeedLeaderboard || [])
+    .map((entry) => {
+      const email = String(entry?.user_email || '').trim().toLowerCase();
+      const entryAuthId = entry?.auth_id || null;
+      const isOwnByAuth = !!ownAuthId && !!entryAuthId && ownAuthId === entryAuthId;
+      const isOwnByEmail = !!ownEmailLower && !!email && ownEmailLower === email;
+      const participantEmail = isOwnByAuth ? ownEmailLower : email;
+      const profile = participantEmail ? profileByEmail.get(participantEmail) : null;
+      return {
+        authId: entryAuthId,
+        email: participantEmail,
+        seeds: Math.max(0, Number(entry?.weekly_seed_total ?? 0)),
+        isOwn: isOwnByAuth || isOwnByEmail,
+        name:
+          profile?.display_name ||
+          profile?.full_name ||
+          entry?.display_name ||
+          entry?.full_name ||
+          (isOwnByAuth || isOwnByEmail
+            ? (user?.display_name || user?.full_name || user?.email)
+            : (participantEmail || 'Unbekannt')),
+      };
+    })
+    .filter((entry) => Number(entry.seeds) > 0)
+    .sort((a, b) => b.seeds - a.seeds);
   const ownWeeklySeedRank = progressSeedRanking.findIndex((entry) => entry.isOwn) + 1;
   const ownWeeklySeedEntry = ownWeeklySeedRank > 0 ? progressSeedRanking[ownWeeklySeedRank - 1] : null;
 
