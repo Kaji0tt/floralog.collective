@@ -71,8 +71,10 @@ const isMissingRpcFunctionError = (error) => {
   const message = String(error.message || "").toLowerCase();
   return (
     error.code === "PGRST202" ||
+    error.code === "PGRST203" ||
     error.code === "42883" ||
-    message.includes("could not find the function")
+    message.includes("could not find the function") ||
+    message.includes("could not choose the best candidate")
   );
 };
 
@@ -557,17 +559,20 @@ export function useAchievementsFeatureContent({
     // Always keyed to the current ISO week (Monday), never to the season scope.
     queryKey: ['weeklySeedLeaderboard', 'current-week'],
     queryFn: async () => {
-      // Do NOT pass p_from_date – let the SQL use date_trunc('week', now()) for a true weekly reset.
+      // Pass p_from_date: null explicitly so PostgREST always routes to the (integer, text) overload.
       const { data, error } = await supabase.rpc('get_weekly_seed_leaderboard', {
         p_limit: 100,
+        p_from_date: null,
       });
       if (error) {
+        console.error('[AchievementsPage] get_weekly_seed_leaderboard (weekly) error:', error.code, error.message, error);
         if (isMissingRpcFunctionError(error)) {
-          console.warn('[AchievementsPage] get_weekly_seed_leaderboard unavailable.');
+          console.warn('[AchievementsPage] get_weekly_seed_leaderboard unavailable (ambiguous/missing).');
           return null;
         }
         throw error;
       }
+      console.debug('[AchievementsPage] weeklySeedLeaderboard rows:', data?.length ?? 0);
       return Array.isArray(data) ? data : [];
     },
     staleTime: 60 * 1000,
@@ -587,12 +592,14 @@ export function useAchievementsFeatureContent({
         p_from_date: comparisonFromDate,
       });
       if (error) {
+        console.error('[AchievementsPage] get_weekly_seed_leaderboard (season) error:', error.code, error.message, error);
         if (isMissingRpcFunctionError(error)) {
-          console.warn('[AchievementsPage] get_weekly_seed_leaderboard with p_from_date unavailable.');
+          console.warn('[AchievementsPage] get_weekly_seed_leaderboard with p_from_date unavailable (ambiguous/missing).');
           return null;
         }
         throw error;
       }
+      console.debug('[AchievementsPage] seasonSeedLeaderboard rows:', data?.length ?? 0, 'from:', comparisonFromDate);
       return Array.isArray(data) ? data : [];
     },
     staleTime: 60 * 1000,
