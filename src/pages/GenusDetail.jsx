@@ -218,13 +218,6 @@ export default function GenusDetail() {
     staleTime: 60000,
   });
 
-  const { data: allFriendRecords = [] } = useQuery({
-    queryKey: ["genusDetailFriendRecords", currentUser?.email],
-    queryFn: () => Query.Friend.list(),
-    enabled: !friendEmail && !!currentUser?.email,
-    staleTime: 10000,
-  });
-
   const { data: visibleCollections = [] } = useQuery({
     queryKey: ["genusDetailVisibleCollections"],
     queryFn: () => Query.Collection.list(),
@@ -237,51 +230,64 @@ export default function GenusDetail() {
     staleTime: 120000,
   });
 
-  const acceptedFriendProfiles = useMemo(() => {
-    if (friendEmail || !currentUser?.email) return [];
+  // Alle Pflanzen dieser Gattung als IDs (für die plant_id-basierte Query)
+  const genusForQuery = useMemo(() => genera.find((g) => g.id === genusId), [genera, genusId]);
+  const genusSpecificPlantIds = useMemo(() => {
+    if (!genusForQuery) return [];
+    return (plants || [])
+      .filter((p) => p.genus_category === genusForQuery.category && p.genus_number === genusForQuery.category_dex_number)
+      .map((p) => p.id);
+  }, [plants, genusForQuery]);
 
-    const ownEmailLower = currentUser.email.toLowerCase();
-    const profileByEmail = new Map(
+  // Alle Discoveries dieser Gattung von allen Spielern (eine Query pro Pflanze)
+  const { data: allGenusDiscoveries = [] } = useQuery({
+    queryKey: ["genusDetailAllPlayerDiscoveries", genusId],
+    queryFn: async () => {
+      if (!genusSpecificPlantIds.length) return [];
+      const rows = await Promise.all(
+        genusSpecificPlantIds.map((plantId) =>
+          Query.UserPlantDiscovery.filter({ plant_id: plantId })
+        )
+      );
+      return rows.flat();
+    },
+    enabled: !friendEmail && !!currentUser?.id && genusSpecificPlantIds.length > 0,
+    staleTime: 60000,
+  });
+
+  // Discoveries strukturiert nach auth_id (nur Spieler mit öffentlichem Profil, nicht eigen)
+  const otherPlayerDiscoveriesByAuthId = useMemo(() => {
+    if (!currentUser?.id) return {};
+    const publicAuthIds = new Set(
       (allPublicProfiles || [])
-        .filter((profile) => !!profile?.user_email)
-        .map((profile) => [profile.user_email.toLowerCase(), profile])
+        .filter((p) => p?.auth_id && p.auth_id !== currentUser.id && p?.public_profile !== false)
+        .map((p) => p.auth_id)
     );
-
-    const friendEmails = new Set();
-    (allFriendRecords || []).forEach((friendEntry) => {
-      if (friendEntry?.status !== "accepted") return;
-
-      const sender = String(friendEntry.request_sent_by || "").toLowerCase();
-      const receiver = String(friendEntry.request_sent_to || "").toLowerCase();
-      if (sender === ownEmailLower && receiver) {
-        friendEmails.add(receiver);
-      } else if (receiver === ownEmailLower && sender) {
-        friendEmails.add(sender);
-      }
+    const byAuthId = {};
+    (allGenusDiscoveries || []).forEach((disc) => {
+      if (!disc?.auth_id || !publicAuthIds.has(disc.auth_id)) return;
+      if (!byAuthId[disc.auth_id]) byAuthId[disc.auth_id] = [];
+      byAuthId[disc.auth_id].push(disc);
     });
+    return byAuthId;
+  }, [allGenusDiscoveries, allPublicProfiles, currentUser?.id]);
 
-    return Array.from(friendEmails)
-      .map((emailLower) => {
-        const profile = profileByEmail.get(emailLower);
-        if (!profile?.auth_id) return null;
-        return {
-          authId: profile.auth_id,
-          email: profile.user_email,
-          name: profile.display_name || profile.full_name || profile.user_email,
-          logoAssets: resolveEquippedLogoAssetsWithCatalog(profile, logoAssets),
-        };
-      })
-      .filter(Boolean);
-  }, [allFriendRecords, allPublicProfiles, currentUser?.email, friendEmail, logoAssets]);
+  // Spieler-Profile die tatsächlich Discoveries in dieser Gattung haben
+  const otherPlayerProfiles = useMemo(() => {
+    const authIdsWithDiscoveries = new Set(Object.keys(otherPlayerDiscoveriesByAuthId));
+    return (allPublicProfiles || [])
+      .filter((p) => p?.auth_id && authIdsWithDiscoveries.has(p.auth_id))
+      .map((p) => ({
+        authId: p.auth_id,
+        email: p.user_email,
+        name: p.display_name || p.full_name || p.user_email,
+        logoAssets: resolveEquippedLogoAssetsWithCatalog(p, logoAssets),
+      }));
+  }, [otherPlayerDiscoveriesByAuthId, allPublicProfiles, logoAssets]);
 
-  const acceptedFriendAuthIds = useMemo(
-    () => acceptedFriendProfiles.map((entry) => entry.authId).filter(Boolean),
-    [acceptedFriendProfiles]
-  );
-
-  const acceptedFriendByAuthId = useMemo(
-    () => new Map(acceptedFriendProfiles.map((entry) => [entry.authId, entry])),
-    [acceptedFriendProfiles]
+  const otherPlayerByAuthId = useMemo(
+    () => new Map(otherPlayerProfiles.map((p) => [p.authId, p])),
+    [otherPlayerProfiles]
   );
 
   const ownActor = useMemo(() => {
@@ -308,21 +314,6 @@ export default function GenusDetail() {
       isOwn: true,
     };
   }, [allPublicProfiles, currentUser, logoAssets]);
-
-  const { data: friendDiscoveriesByAuthId = {} } = useQuery({
-    queryKey: ["genusDetailFriendDiscoveries", acceptedFriendAuthIds],
-    queryFn: async () => {
-      const rows = await Promise.all(
-        acceptedFriendAuthIds.map(async (authId) => {
-          const discoveries = await Query.UserPlantDiscovery.filter({ auth_id: authId });
-          return [authId, discoveries || []];
-        })
-      );
-      return Object.fromEntries(rows);
-    },
-    enabled: !friendEmail && acceptedFriendAuthIds.length > 0,
-    staleTime: 30000,
-  });
 
   const setFrontImageMutation = useMutation({
     mutationFn: async ({ discoveryId }) => {
@@ -535,17 +526,17 @@ export default function GenusDetail() {
     });
     const userDiscovery = sortedDiscoveries[0];
 
-    const friendActors = friendEmail
+    const otherActors = friendEmail
       ? []
-      : Object.entries(friendDiscoveriesByAuthId || []).flatMap(([authId, discoveries]) => {
-          const actor = acceptedFriendByAuthId.get(authId);
+      : Object.entries(otherPlayerDiscoveriesByAuthId || {}).flatMap(([authId, discoveries]) => {
+          const actor = otherPlayerByAuthId.get(authId);
           if (!actor || !Array.isArray(discoveries)) return [];
           const hasSpeciesDiscovery = discoveries.some((discovery) => discovery?.plant_id === plant.id);
           return hasSpeciesDiscovery ? [actor] : [];
         });
 
-    const uniqueFriendActors = Array.from(
-      new Map(friendActors.map((actor) => [actor.authId, actor])).values()
+    const uniqueOtherActors = Array.from(
+      new Map(otherActors.map((actor) => [actor.authId, actor])).values()
     ).sort((a, b) => (a.name || "").localeCompare(b.name || "", "de"));
 
     const discoveryVariants = [];
@@ -585,9 +576,9 @@ export default function GenusDetail() {
         isOwn: true,
       });
 
-      uniqueFriendActors.forEach((actor) => {
-        const actorDiscoveries = Array.isArray(friendDiscoveriesByAuthId?.[actor.authId])
-          ? friendDiscoveriesByAuthId[actor.authId].filter((entry) => entry?.plant_id === plant.id)
+      uniqueOtherActors.forEach((actor) => {
+        const actorDiscoveries = Array.isArray(otherPlayerDiscoveriesByAuthId?.[actor.authId])
+          ? otherPlayerDiscoveriesByAuthId[actor.authId].filter((entry) => entry?.plant_id === plant.id)
           : [];
         const sortedActorDiscoveries = [...actorDiscoveries].sort((a, b) => {
           const aIsFront = Boolean(a?.is_front_image || a?.is_species_front_image);
@@ -603,7 +594,7 @@ export default function GenusDetail() {
           sortedActorDiscoveries.findIndex((entry) => entry?.id === actorDiscovery.id)
         );
         discoveryVariants.push({
-          key: `friend-${actor.authId}-${plant.id}`,
+          key: `player-${actor.authId}-${plant.id}`,
           actor: { ...actor, isOwn: false },
           discoveries: sortedActorDiscoveries,
           defaultScanIndex: actorDefaultScanIndex,
@@ -623,8 +614,8 @@ export default function GenusDetail() {
       userDiscovery: userDiscovery,
       allDiscoveries: sortedDiscoveries,
       discovery_date: userDiscovery ? userDiscovery.created_at : null,
-      friendActors: uniqueFriendActors,
-      friendDiscoveryCount: uniqueFriendActors.length,
+      friendActors: uniqueOtherActors,
+      friendDiscoveryCount: uniqueOtherActors.length,
       discoveryVariants,
       defaultVariantIndex,
     };
@@ -1408,12 +1399,12 @@ export default function GenusDetail() {
                       activeVariant && !activeVariant.isOwn ? (
                         <div
                           className="w-8 h-8 rounded-full overflow-hidden bg-black/35 ring-2 ring-white/20"
-                          title={activeVariant.actor?.name || activeVariant.actor?.email || "Freund"}
+                          title={activeVariant.actor?.name || activeVariant.actor?.email || "Spieler"}
                         >
                           <CustomLogoAvatar
                             logoAssets={activeVariant.actor?.logoAssets}
                             className="w-full h-full"
-                            tooltipText={activeVariant.actor?.name || activeVariant.actor?.email || "Freund"}
+                            tooltipText={activeVariant.actor?.name || activeVariant.actor?.email || "Spieler"}
                             fallbackText={(activeVariant.actor?.name || activeVariant.actor?.email || "?").charAt(0).toUpperCase()}
                             fallbackClassName="text-xs font-bold text-white"
                           />
@@ -1454,7 +1445,7 @@ export default function GenusDetail() {
                       {Array.isArray(plant.friendActors) && plant.friendActors.length > 0 && (
                         <div
                           className="flex items-center gap-1 min-w-0 overflow-x-auto pr-1 justify-start"
-                          title="Freunde mit Scan dieser Pflanze"
+                          title="Spieler mit Scan dieser Pflanze"
                           onClick={(event) => event.stopPropagation()}
                           onMouseDown={(event) => event.stopPropagation()}
                           onTouchStart={(event) => event.stopPropagation()}
@@ -1485,7 +1476,7 @@ export default function GenusDetail() {
                                   <button
                                     type="button"
                                     className={`${isActiveVariantActor ? "w-7 h-7 ring-2 ring-emerald-400/70 border-white/60" : "w-5 h-5 border-white/20"} rounded-full overflow-hidden bg-black/35 border shrink-0 transition-all duration-200`}
-                                    title={actor.name || actor.email || "Freund"}
+                                    title={actor.name || actor.email || "Spieler"}
                                     onClick={(event) => {
                                       event.stopPropagation();
                                       const key = `${plant.id}:${actor.authId || actor.email || actorIndex}`;
@@ -1498,7 +1489,7 @@ export default function GenusDetail() {
                                     <CustomLogoAvatar
                                       logoAssets={actor.logoAssets}
                                       className="w-full h-full"
-                                      tooltipText={actor.name || actor.email || "Freund"}
+                                      tooltipText={actor.name || actor.email || "Spieler"}
                                       fallbackText={(actor.name || actor.email || "?").charAt(0).toUpperCase()}
                                       fallbackClassName="text-[9px] font-bold text-white"
                                     />
@@ -1519,7 +1510,7 @@ export default function GenusDetail() {
                                       openFriendProfile(actor);
                                     }}
                                   >
-                                    {actor.name || actor.email || "Freund"}
+                                    {actor.name || actor.email || "Spieler"}
                                   </button>
                                 </TooltipContent>
                               </Tooltip>
@@ -1663,8 +1654,8 @@ export default function GenusDetail() {
                       logoAssets={friendEmail ? friendProfileLogoAssets : activeExpandedFriendActor?.logoAssets}
                       className="w-full h-full"
                       tooltipText={friendEmail
-                        ? (friendProfile?.display_name || friendProfile?.user_email || "Freund")
-                        : (activeExpandedFriendActor?.name || activeExpandedFriendActor?.email || "Freund")}
+                        ? (friendProfile?.display_name || friendProfile?.user_email || "Spieler")
+                        : (activeExpandedFriendActor?.name || activeExpandedFriendActor?.email || "Spieler")}
                       fallbackText={friendEmail
                         ? (friendProfile?.display_name || friendProfile?.user_email || "?").charAt(0).toUpperCase()
                         : (activeExpandedFriendActor?.name || activeExpandedFriendActor?.email || "?").charAt(0).toUpperCase()}

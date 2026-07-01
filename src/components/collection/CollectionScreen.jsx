@@ -105,6 +105,7 @@ export default function CollectionScreen({
   plants,
   currentUser,
   uiTheme,
+  friendDiscoveryMetaByGenusId = {},
 }) {
   const isSharedCategory = selectedEntryCategory === "shared";
   const hasAnyThemeCollection = (ownedCollections.length + followedCollections.length) > 0;
@@ -384,6 +385,8 @@ export default function CollectionScreen({
                 userDiscoveries={userDiscoveries}
                 plants={plants}
                 friendEmail={friendEmail}
+                friendDiscoveries={friendDiscoveryMetaByGenusId?.[genus.id]?.friends || []}
+                friendDiscoveryCount={friendDiscoveryMetaByGenusId?.[genus.id]?.count || 0}
                 collectionNote={genus.collectionNote}
                 isAdmin={currentUser?.role === "admin"}
                 uiTheme={uiTheme}
