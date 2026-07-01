@@ -1,7 +1,7 @@
 ﻿import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Download, Mail, Lock, User, Loader2, AlertCircle, CheckCircle2, ChevronDown, FileText, Instagram } from "lucide-react";
+import { Camera, Download, Mail, Lock, User, Loader2, AlertCircle, CheckCircle2, ChevronDown, FileText } from "lucide-react";
 import { signIn, signUp, updatePassword, getUserProfile } from "@/api/authService";
 import { supabase } from "@/api/supabaseClient";
 import { checkApkVersion } from "@/lib/apkVersionService";
@@ -1032,15 +1032,13 @@ export default function GuestHomeFlow() {
                   Anmelden
                 </motion.button>
 
-                <a
-                  href="https://instagram.com/floralog.collective"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-pink-300/25 bg-black/40 px-3 py-1.5 text-xs font-medium text-pink-100/85 hover:bg-black/55 hover:text-pink-50 transition-colors backdrop-blur-sm"
+                <button
+                  type="button"
+                  onClick={openAuthModal}
+                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-300/35 bg-amber-900/20 px-3 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-900/35 hover:text-amber-50 transition-colors backdrop-blur-sm"
                 >
-                  <Instagram className="w-3.5 h-3.5" />
-                  @floralog.collective
-                </a>
+                  ✦ Neu hier? Registrieren ✦
+                </button>
 
                 <div className="flex items-center justify-center gap-2 pt-1">
                   <a
@@ -1065,14 +1063,6 @@ export default function GuestHomeFlow() {
                     iOS
                   </button>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={openAuthModal}
-                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-300/35 bg-amber-900/20 px-3 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-900/35 hover:text-amber-50 transition-colors backdrop-blur-sm"
-                >
-                  ✦ Neu hier? Jetzt kostenlos registrieren
-                </button>
 
                 <button
                   type="button"
