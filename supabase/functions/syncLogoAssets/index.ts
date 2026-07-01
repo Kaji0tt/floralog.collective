@@ -23,7 +23,7 @@ type CatalogResponse = {
   assets?: CatalogAsset[];
 };
 
-const DEFAULT_UNLOCKED_IDS = new Set(["border_original", "plant_leaf", "plant_legacy", "face_original"]);
+const DEFAULT_UNLOCKED_IDS = new Set(["border_original", "plant_leaf", "face_original"]);
 const VALID_TYPES = new Set(["face", "plant", "border"]);
 
 const asBoolean = (value: unknown, fallback = false): boolean => {

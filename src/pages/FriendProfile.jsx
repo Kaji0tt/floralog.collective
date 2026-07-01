@@ -20,7 +20,9 @@ import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets"
 import FlorabotLogo from "@/components/florabot/FlorabotLogo";
 import { evaluateProfileBadges, buildSelectedProfileBadges } from "@/lib/profileBadges";
 import { getProfileBadgeIconComponent } from "@/lib/profileBadgeIcons";
+import { resolveOwnedUniqueBadges } from "@/lib/profileUniqueBadges";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
+import { getActiveSeason } from "@/lib/seasonConfig";
 
 const VALID_FRIEND_TABS = ["profile", "collection", "achievements", "friends"];
 
@@ -505,6 +507,169 @@ export default function FriendProfile() {
     staleTime: 30_000,
   });
 
+  const activeSeason = getActiveSeason();
+  const seasonStartDate = activeSeason?.startDate || null;
+
+  const { data: friendSeasonSeedLeaderboard = [] } = useQuery({
+    queryKey: ["friendSeasonSeedLeaderboard", seasonStartDate || "alltime"],
+    queryFn: async () => {
+      if (!seasonStartDate) return [];
+      const { data, error } = await supabase.rpc("get_weekly_seed_leaderboard", {
+        p_limit: 500,
+        p_from_date: seasonStartDate,
+      });
+      if (error) {
+        console.warn("[FriendProfile] get_weekly_seed_leaderboard unavailable:", error?.message || error);
+        return [];
+      }
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: !!seasonStartDate && activeTab === "profile",
+    staleTime: 60_000,
+  });
+
+  const { data: friendOwnedUniqueBadgeIds = [] } = useQuery({
+    queryKey: ["friendUniqueBadges", friendUser?.auth_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("unique_badges")
+        .select("badge_id")
+        .eq("auth_id", friendUser?.auth_id);
+      if (error) {
+        console.warn("[FriendProfile] unique_badges query failed:", error?.message || error);
+        return [];
+      }
+      return (data || []).map((row) => row.badge_id);
+    },
+    enabled: !!friendUser?.auth_id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: friendHighestScanResultsLeaderboard = [] } = useQuery({
+    queryKey: ["friendHighestScanResultsLeaderboard", seasonStartDate || "alltime"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_highest_scan_results_leaderboard", {
+        p_limit: 500,
+        p_from_date: seasonStartDate,
+      });
+      if (error) {
+        console.warn("[FriendProfile] get_highest_scan_results_leaderboard unavailable:", error?.message || error);
+        return [];
+      }
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: !!friendUser?.auth_id && activeTab === "profile",
+    staleTime: 60_000,
+  });
+
+  const { data: friendTotalScans = 0 } = useQuery({
+    queryKey: ["friendTotalScans", friendUser?.auth_id],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("UserPlantDiscovery")
+        .select("*", { count: "exact", head: true })
+        .eq("auth_id", friendUser?.auth_id);
+      if (error) return 0;
+      return Math.max(0, Number(count ?? 0));
+    },
+    enabled: !!friendUser?.auth_id,
+    staleTime: 60_000,
+  });
+
+  // ── Received likes (ScanLike + UserPlantDiscovery both world-readable) ─────
+  const { data: friendReceivedLikesCount = 0 } = useQuery({
+    queryKey: ["friendReceivedLikesCount", friendUser?.auth_id],
+    queryFn: async () => {
+      const { data: discoveries, error: discErr } = await supabase
+        .from("UserPlantDiscovery")
+        .select("id")
+        .eq("auth_id", friendUser?.auth_id);
+      if (discErr || !discoveries?.length) return 0;
+      const ids = discoveries.map((d) => d.id);
+      const { count, error: likeErr } = await supabase
+        .from("ScanLike")
+        .select("*", { count: "exact", head: true })
+        .in("discovery_id", ids);
+      if (likeErr) return 0;
+      return Math.max(0, Number(count ?? 0));
+    },
+    enabled: !!friendUser?.auth_id,
+    staleTime: 60_000,
+  });
+
+  // ── Rarest plant score (UserPlantDiscovery + Plant both world-readable) ────
+  const { data: friendRarestPlantScore = 0 } = useQuery({
+    queryKey: ["friendRarestPlantScore", friendUser?.auth_id],
+    queryFn: async () => {
+      const { data: discoveries, error: discErr } = await supabase
+        .from("UserPlantDiscovery")
+        .select("plant_id")
+        .eq("auth_id", friendUser?.auth_id);
+      if (discErr || !discoveries?.length) return 0;
+      const plantIds = [...new Set(discoveries.map((d) => d.plant_id).filter(Boolean))];
+      if (!plantIds.length) return 0;
+      const { data: plantRows, error: plantErr } = await supabase
+        .from("Plant")
+        .select("rarity")
+        .in("id", plantIds);
+      if (plantErr || !plantRows?.length) return 0;
+      const norm = (v) =>
+        String(v || "").trim().toLowerCase().normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "");
+      return plantRows.reduce((maxScore, plant) => {
+        const n = norm(plant.rarity);
+        let score = 2;
+        if (n.includes("extremselten") || n.includes("legend") || n.includes("mythisch")) score = 7;
+        else if (n.includes("sehrselten") || n.includes("episch")) score = 6;
+        else if (n.includes("selten")) score = 5;
+        else if (n.includes("gelegentlich") || n.includes("ungewohnlich")) score = 3;
+        else if (n.includes("haufig") || n.includes("haeufig") || n.includes("common")) score = 1;
+        return Math.max(maxScore, score);
+      }, 0);
+    },
+    enabled: !!friendUser?.auth_id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // ── Weekly / monthly quest completions (accessible via public-profile RLS) ─
+  const { data: friendWeeklyQuestsCompleted = 0 } = useQuery({
+    queryKey: ["friendWeeklyQuestsCompleted", friendUser?.auth_id],
+    queryFn: async () => {
+      const rows = await Query.UserWeeklyQuest.filter({ auth_id: friendUser?.auth_id });
+      return (rows || []).filter(
+        (r) => r.status === "completed" || r.status === "redeemed" || r.completed
+      ).length;
+    },
+    enabled: !!friendUser?.auth_id,
+    staleTime: 60_000,
+  });
+
+  const { data: friendMonthlyQuestsCompleted = 0 } = useQuery({
+    queryKey: ["friendMonthlyQuestsCompleted", friendUser?.auth_id],
+    queryFn: async () => {
+      const rows = await Query.UserMonthlyQuest.filter({ auth_id: friendUser?.auth_id });
+      return (rows || []).filter(
+        (r) => r.status === "completed" || r.status === "redeemed" || r.completed
+      ).length;
+    },
+    enabled: !!friendUser?.auth_id,
+    staleTime: 60_000,
+  });
+
+  // ── Zone unlocked accessories (UserRewards accessible via public-profile RLS) ─
+  const { data: rewardsCatalog = [] } = useQuery({
+    queryKey: ["rewardsCatalog"],
+    queryFn: () => Query.Reward.list(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: friendUserRewards = [] } = useQuery({
+    queryKey: ["friendUserRewards", friendUser?.auth_id],
+    queryFn: () => Query.UserReward.filter({ auth_id: friendUser?.auth_id }),
+    enabled: !!friendUser?.auth_id,
+    staleTime: 60_000,
+  });
+
   // ── Pet count today ────────────────────────────────────────────────────────
   const { data: petsMadeToday = 0, refetch: refetchPetsToday } = useQuery({
     queryKey: ["petFriendToday", friendUser?.auth_id],
@@ -632,14 +797,62 @@ export default function FriendProfile() {
   ];
 
   const displayedOverallPlantHealth = isPlantHealthPending ? null : overallPlantHealth;
-  const friendSeeds = Math.max(
+  const friendAllTimeSeeds = Math.max(
     0,
     Number(friendRobotPlant?.wallet_balance ?? friendRobotPlant?.walletBalance ?? 0)
   );
+  const friendSeasonSeedEntry = useMemo(() => {
+    if (!seasonStartDate || !friendUser?.auth_id) return null;
+    return (friendSeasonSeedLeaderboard || []).find(
+      (entry) => String(entry?.auth_id || "") === String(friendUser.auth_id)
+    ) || null;
+  }, [seasonStartDate, friendSeasonSeedLeaderboard, friendUser?.auth_id]);
+  const friendSeasonSeedsValue = Math.max(0, Number(friendSeasonSeedEntry?.weekly_seed_total ?? 0));
+  const friendSeeds = seasonStartDate ? friendSeasonSeedsValue : friendAllTimeSeeds;
   const friendClaimedTiles = Math.max(
     0,
     Number(friendRobotPlant?.claimed_tiles_count ?? friendRobotPlant?.claimedTilesCount ?? 0)
   );
+  const friendStreakDays = Math.max(0, Number(friendRobotPlant?.streak_days ?? 0));
+  const friendMemberSinceDays = useMemo(() => {
+    const raw = friendUser?.created_date || friendUser?.created_at || null;
+    if (!raw) return 0;
+    const ms = new Date(raw).getTime();
+    if (!Number.isFinite(ms) || ms <= 0) return 0;
+    return Math.max(0, Math.floor((Date.now() - ms) / (24 * 60 * 60 * 1000)));
+  }, [friendUser?.created_date, friendUser?.created_at]);
+  const friendGlobalSeedRank = useMemo(() => {
+    if (!friendUser?.auth_id || !friendSeasonSeedLeaderboard.length) return 0;
+    const sorted = [...friendSeasonSeedLeaderboard].sort(
+      (a, b) => Number(b.weekly_seed_total ?? 0) - Number(a.weekly_seed_total ?? 0)
+    );
+    const idx = sorted.findIndex((e) => String(e.auth_id) === String(friendUser.auth_id));
+    return idx >= 0 ? idx + 1 : 0;
+  }, [friendSeasonSeedLeaderboard, friendUser?.auth_id]);
+  const friendHighestScanResult = useMemo(() => {
+    const emailLower = String(friendUser?.user_email || "").toLowerCase();
+    if (!emailLower || !friendHighestScanResultsLeaderboard.length) return 0;
+    const entry = friendHighestScanResultsLeaderboard.find(
+      (e) =>
+        String(e?.public_profile_email || e?.user_email || e?.profile_email || e?.email || "")
+          .toLowerCase() === emailLower
+    );
+    return Math.max(0, Number(entry?.reward_amount ?? 0));
+  }, [friendHighestScanResultsLeaderboard, friendUser?.user_email]);
+
+  const friendZoneUnlockedAccessories = useMemo(() => {
+    const unlockedIds = new Set(
+      (friendUserRewards || []).map((r) => String(r?.reward_id || "").trim()).filter(Boolean)
+    );
+    return (rewardsCatalog || []).reduce((count, reward) => {
+      const type = String(reward?.type || reward?.reward_type || reward?.kind || "").trim().toLowerCase();
+      const id = String(reward?.id || "").trim();
+      if (!id || !unlockedIds.has(id)) return count;
+      if (type !== "logo_accessory" && type !== "accessory") return count;
+      if (!String(reward?.requires_zone_theme || "").trim()) return count;
+      return count + 1;
+    }, 0);
+  }, [rewardsCatalog, friendUserRewards]);
 
   const cardBase = isLightUi
     ? "bg-white/35 border border-[#c8ac62]/30"
@@ -650,19 +863,51 @@ export default function FriendProfile() {
   // ── Friend badges ──────────────────────────────────────────────────────────
   const selectedFriendBadges = useMemo(() => {
     const partialMetrics = {
-      total_seeds: friendSeeds,
-      claimed_tiles: friendClaimedTiles,
-      highest_plant_status: displayedOverallPlantHealth ?? 0,
+      total_seeds:                     friendAllTimeSeeds,
+      season_seeds:                    friendSeasonSeedsValue,
+      alltime_seeds:                   friendAllTimeSeeds,
+      claimed_tiles:                   friendClaimedTiles,
+      highest_plant_status:            displayedOverallPlantHealth ?? 0,
+      daily_streak_days:               friendStreakDays,
+      member_since_days:               friendMemberSinceDays,
+      global_seed_rank:                friendGlobalSeedRank,
+      highest_scan_result:             friendHighestScanResult,
+      total_scans:                     friendTotalScans,
+      received_likes_count:            friendReceivedLikesCount,
+      rarest_plant_score:              friendRarestPlantScore,
+      weekly_quests_completed:         friendWeeklyQuestsCompleted,
+      monthly_quests_completed:        friendMonthlyQuestsCompleted,
+      zone_unlocked_plant_accessories: friendZoneUnlockedAccessories,
     };
     const evaluated = evaluateProfileBadges(partialMetrics);
+    const ownedUniqueBadges = resolveOwnedUniqueBadges(friendOwnedUniqueBadgeIds);
     return buildSelectedProfileBadges(
       friendUser?.selected_badge_ids,
       evaluated,
+      undefined,
+      ownedUniqueBadges,
     ).map((badge) => ({
       ...badge,
       Icon: getProfileBadgeIconComponent(badge.iconKey),
     }));
-  }, [friendUser?.selected_badge_ids, friendSeeds, friendClaimedTiles, displayedOverallPlantHealth]);
+  }, [
+    friendUser?.selected_badge_ids,
+    friendAllTimeSeeds,
+    friendSeasonSeedsValue,
+    friendClaimedTiles,
+    displayedOverallPlantHealth,
+    friendStreakDays,
+    friendMemberSinceDays,
+    friendGlobalSeedRank,
+    friendHighestScanResult,
+    friendTotalScans,
+    friendReceivedLikesCount,
+    friendRarestPlantScore,
+    friendWeeklyQuestsCompleted,
+    friendMonthlyQuestsCompleted,
+    friendZoneUnlockedAccessories,
+    friendOwnedUniqueBadgeIds,
+  ]);
 
   const friendBotName = String(friendUser?.bot_name || "Florabot").trim() || "Florabot";
 

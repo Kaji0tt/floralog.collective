@@ -7,7 +7,6 @@ const CORS_HEADERS = {
 const DEFAULT_UNLOCKED_IDS = new Set([
   "border_original",
   "plant_leaf",
-  "plant_legacy",
   "face_original",
 ]);
 

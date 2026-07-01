@@ -586,7 +586,7 @@ const buildFallbackAccessorySections = ({ rewardUnlockedIds = new Set(), rewards
     profileField: section.profileField,
     emptyLabel: "Noch keine Accessoire-Optionen verfuegbar.",
     options: section.options.map((option) => {
-      const isDefaultUnlocked = ["border_original", "plant_leaf", "plant_legacy", "face_original"].includes(option.value);
+      const isDefaultUnlocked = ["border_original", "plant_leaf", "face_original"].includes(option.value);
       const isUnlocked = isDefaultUnlocked || rewardUnlockedIds.has(option.value);
       const unlockCondition = !isUnlocked ? getAccessoryUnlockCondition(option.value, rewards, genera, plants) : null;
       const purchaseMeta = !isUnlocked ? getAccessoryPurchaseMeta(option.value, rewards) : null;
@@ -621,10 +621,19 @@ export const getAccessorySections = ({ logoAssets = [], rewards = [], userReward
 
     const isLegacy = Boolean(asset?.legacy);
     const isDefaultUnlocked = Boolean(asset?.default_unlocked);
-    const isUnlocked = isDefaultUnlocked || rewardUnlockedIds.has(assetId);
 
-    // Legacy assets are hidden from the shop unless the user already owns them.
-    if (isLegacy && !isUnlocked) continue;
+    // Check if a matching reward has shop_hidden set (retired/legacy via Rewards table).
+    const matchingReward = (Array.isArray(rewards) ? rewards : []).find((r) => rewardMatchesAccessory(r, assetId));
+    const isShopHidden = Boolean(matchingReward?.shop_hidden);
+
+    // For shop_hidden or legacy assets, default_unlocked is overridden –
+    // user must explicitly own it via UserRewards to see/equip it.
+    const isUnlocked = (isShopHidden || isLegacy)
+      ? rewardUnlockedIds.has(assetId)
+      : (isDefaultUnlocked || rewardUnlockedIds.has(assetId));
+
+    // Legacy or shop_hidden assets are hidden from the shop unless the user explicitly owns them.
+    if ((isLegacy || isShopHidden) && !isUnlocked) continue;
 
     const unlockCondition = !isUnlocked ? getAccessoryUnlockCondition(assetId, rewards, genera, plants) : null;
     const purchaseMeta = (!isUnlocked && !isLegacy) ? getAccessoryPurchaseMeta(assetId, rewards) : null;
