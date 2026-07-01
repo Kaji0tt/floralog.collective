@@ -30,6 +30,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
 import ScanZoneUnlockNotification from "../components/notifications/ScanZoneUnlockNotification";
+import RandomRewardNotification from "../components/notifications/RandomRewardNotification";
 import QuizFeedbackNotification from "../components/notifications/QuizFeedbackNotification";
 import DailyLoginSparkNotification from "../components/notifications/DailyLoginSparkNotification";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -81,6 +82,7 @@ import FlorabotMilestoneOverlay from "@/components/florabot/FlorabotMilestoneOve
 import { getActiveSeason } from "@/lib/seasonConfig";
 import FlorabotContextBubble from "@/components/florabot/FlorabotContextBubble";
 import HomeShellBorderGlow from "@/components/effects/HomeShellBorderGlow";
+import HomeRarityBorderGlow from "@/components/effects/HomeRarityBorderGlow";
 import {
   pickRandomPhaseAmbientComment,
   interpolatePercentVariables,
@@ -267,6 +269,8 @@ function HomeContent() {
   const [showScanFeedback, setShowScanFeedback] = useState(false);
   const [scanZoneUnlockQueue, setScanZoneUnlockQueue] = useState([]);
   const [showScanZoneUnlock, setShowScanZoneUnlock] = useState(false);
+  const [randomRewardQueue, setRandomRewardQueue] = useState([]);
+  const [showRandomReward, setShowRandomReward] = useState(false);
   const [quizFeedback, setQuizFeedback] = useState(null);
   const [showQuizFeedback, setShowQuizFeedback] = useState(false);
   const scanFeedbackCooldownRef = useRef(false);
@@ -1217,10 +1221,14 @@ function HomeContent() {
     const navigationUnlocks = Array.isArray(location.state.scanZoneUnlocks)
       ? location.state.scanZoneUnlocks
       : [];
+    const navigationRandomRewards = Array.isArray(location.state.randomRewards)
+      ? location.state.randomRewards.filter(Boolean)
+      : [];
     const hasScanZoneUnlocks = navigationUnlocks.length > 0;
+    const hasRandomRewards = navigationRandomRewards.length > 0;
     const shouldOpenSettings = Boolean(location.state.openSettings);
 
-    if (!hasScanFeedback && !hasScanZoneUnlocks && !shouldOpenSettings) return;
+    if (!hasScanFeedback && !hasScanZoneUnlocks && !hasRandomRewards && !shouldOpenSettings) return;
 
     if (hasScanFeedback && !blockNavigationFeedbackRef.current) {
       safeSetScanFeedback(location.state.scanFeedback);
@@ -1228,9 +1236,18 @@ function HomeContent() {
       if (hasScanZoneUnlocks) {
         setScanZoneUnlockQueue(navigationUnlocks);
       }
+      if (hasRandomRewards) {
+        setRandomRewardQueue(navigationRandomRewards);
+      }
     } else if (hasScanZoneUnlocks) {
       setScanZoneUnlockQueue(navigationUnlocks);
       setShowScanZoneUnlock(true);
+      if (hasRandomRewards) {
+        setRandomRewardQueue(navigationRandomRewards);
+      }
+    } else if (hasRandomRewards) {
+      setRandomRewardQueue(navigationRandomRewards);
+      setShowRandomReward(true);
     }
 
     if (shouldOpenSettings) {
@@ -1241,6 +1258,7 @@ function HomeContent() {
     const {
       scanFeedback: _ignoredFeedback,
       scanZoneUnlocks: _ignoredScanZoneUnlocks,
+      randomRewards: _ignoredRandomRewards,
       openSettings: _ignoredOpenSettings,
       ...restState
     } = location.state;
@@ -3302,6 +3320,10 @@ function HomeContent() {
                 setTimeout(() => {
                   setShowScanZoneUnlock(true);
                 }, 280);
+              } else if (randomRewardQueue.length > 0) {
+                setTimeout(() => {
+                  setShowRandomReward(true);
+                }, 280);
               }
               setTimeout(() => {
                 scanFeedbackCooldownRef.current = false;
@@ -3322,6 +3344,27 @@ function HomeContent() {
                 const nextQueue = prevQueue.slice(1);
                 if (nextQueue.length === 0) {
                   setShowScanZoneUnlock(false);
+                  if (randomRewardQueue.length > 0) {
+                    setTimeout(() => setShowRandomReward(true), 280);
+                  }
+                }
+                return nextQueue;
+              });
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showRandomReward && randomRewardQueue.length > 0 && (
+          <RandomRewardNotification
+            reward={randomRewardQueue[0]}
+            remainingCount={Math.max(0, randomRewardQueue.length - 1)}
+            onComplete={() => {
+              setRandomRewardQueue((prevQueue) => {
+                const nextQueue = prevQueue.slice(1);
+                if (nextQueue.length === 0) {
+                  setShowRandomReward(false);
                 }
                 return nextQueue;
               });
@@ -3639,6 +3682,7 @@ function HomeContent() {
             </div>
             <div className={`absolute inset-0 pointer-events-none rounded-[2rem] border ${isLightUi ? "border-white/70" : "border-[#f0e5a5]/30"}`} />
             <HomeShellBorderGlow active={user?.selected_profile_effect === "shell_border_glow"} />
+            <HomeRarityBorderGlow active={user?.selected_profile_effect === "rarity_border_glow"} borderColor={user?.selected_border_color} />
 
             <div className={`relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6 ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
               <HomeHeaderBar

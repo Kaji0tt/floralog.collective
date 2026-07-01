@@ -986,7 +986,12 @@ export default function Scanner() {
 
     // Prüfe zufällige Rewards
     const { checkRandomRewards } = await import('../components/rewards/randomRewardChecker');
-    await checkRandomRewards(user, 'scan');
+    let randomRewards = [];
+    try {
+      randomRewards = await checkRandomRewards(user, 'scan');
+    } catch (randomRewardError) {
+      console.error("Fehler beim Prüfen zufälliger Rewards:", randomRewardError);
+    }
 
     let scanZoneUnlocks = [];
     try {
@@ -1017,7 +1022,7 @@ export default function Scanner() {
 
     setScanning(false);
 
-    return { alreadyDiscovered, rewardDetails, activeZone, energyDelta, dataQualityDelta, scanZoneUnlocks, seasonScanType };
+    return { alreadyDiscovered, rewardDetails, activeZone, energyDelta, dataQualityDelta, scanZoneUnlocks, randomRewards, seasonScanType };
   };
 
   const handleAutoAddNewPlant = async (plantData, imageUrl, allResults = [], options = {}) => {
@@ -1113,7 +1118,12 @@ export default function Scanner() {
 
       // Prüfe zufällige Rewards
       const { checkRandomRewards } = await import('../components/rewards/randomRewardChecker');
-      await checkRandomRewards(user, 'scan');
+      let randomRewards = [];
+      try {
+        randomRewards = await checkRandomRewards(user, 'scan');
+      } catch (randomRewardError) {
+        console.error("Fehler beim Prüfen zufälliger Rewards:", randomRewardError);
+      }
 
       let scanZoneUnlocks = [];
       try {
@@ -1142,7 +1152,7 @@ export default function Scanner() {
       });
       setScanning(false);
 
-      return { newPlant, rewardDetails, activeZone, energyDelta, dataQualityDelta, scanZoneUnlocks };
+      return { newPlant, rewardDetails, activeZone, energyDelta, dataQualityDelta, scanZoneUnlocks, randomRewards };
     } catch (error) {
       console.error("Fehler beim Hinzufügen der Pflanze:", error);
       setScanning(false);
@@ -1236,7 +1246,7 @@ export default function Scanner() {
 
       if (selectedPlant.inDatabase) {
         // Pflanze existiert bereits im Floralog
-        const { alreadyDiscovered, rewardDetails, activeZone, energyDelta, dataQualityDelta, scanZoneUnlocks, seasonScanType } = await handleAutoSave(
+        const { alreadyDiscovered, rewardDetails, activeZone, energyDelta, dataQualityDelta, scanZoneUnlocks, randomRewards, seasonScanType } = await handleAutoSave(
           selectedPlant,
           imageUrl,
           selectedPlant.aiData || plant?.aiData,
@@ -1263,6 +1273,7 @@ export default function Scanner() {
               dataQualityDelta,
             },
             scanZoneUnlocks,
+            randomRewards: Array.isArray(randomRewards) ? randomRewards : [],
           }
         });
       } else {
@@ -1279,6 +1290,7 @@ export default function Scanner() {
               energyDelta: Number(result.energyDelta ?? 0),
               dataQualityDelta: Number(result.dataQualityDelta ?? 0),
               scanZoneUnlocks: Array.isArray(result.scanZoneUnlocks) ? result.scanZoneUnlocks : [],
+              randomRewards: Array.isArray(result.randomRewards) ? result.randomRewards : [],
             });
             setShowGlobalFloralogModal(true);
 
@@ -1581,7 +1593,13 @@ export default function Scanner() {
               scanFeedback: globalScanFeedback || {
                 type: "globalNewPlant",
                 plantName: newPlantName,
-              }
+              },
+              scanZoneUnlocks: Array.isArray(globalScanFeedback?.scanZoneUnlocks)
+                ? globalScanFeedback.scanZoneUnlocks
+                : [],
+              randomRewards: Array.isArray(globalScanFeedback?.randomRewards)
+                ? globalScanFeedback.randomRewards
+                : [],
             }
           });
         }
@@ -1619,6 +1637,9 @@ export default function Scanner() {
                     },
                     scanZoneUnlocks: Array.isArray(globalScanFeedback?.scanZoneUnlocks)
                       ? globalScanFeedback.scanZoneUnlocks
+                      : [],
+                    randomRewards: Array.isArray(globalScanFeedback?.randomRewards)
+                      ? globalScanFeedback.randomRewards
                       : [],
                   }
                 });

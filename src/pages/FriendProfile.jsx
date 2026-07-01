@@ -23,6 +23,7 @@ import { getProfileBadgeIconComponent } from "@/lib/profileBadgeIcons";
 import { resolveOwnedUniqueBadges } from "@/lib/profileUniqueBadges";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import { getActiveSeason } from "@/lib/seasonConfig";
+import { parseDiscoveryCoordinates, calculateDistanceMetersRaw } from "@/lib/discoveryMap";
 
 const VALID_FRIEND_TABS = ["profile", "collection", "achievements", "friends"];
 
@@ -576,6 +577,30 @@ export default function FriendProfile() {
     staleTime: 60_000,
   });
 
+  // ── Total walked distance between scans (UserPlantDiscovery world-readable) ─
+  const { data: friendTotalDistanceKm = 0 } = useQuery({
+    queryKey: ["friendTotalDistanceKm", friendUser?.auth_id],
+    queryFn: async () => {
+      const { data: discoveries, error } = await supabase
+        .from("UserPlantDiscovery")
+        .select("discovery_location, discovered_date")
+        .eq("auth_id", friendUser?.auth_id)
+        .order("discovered_date", { ascending: true });
+      if (error || !discoveries?.length) return 0;
+      let totalMeters = 0;
+      for (let i = 1; i < discoveries.length; i++) {
+        const prev = parseDiscoveryCoordinates(discoveries[i - 1]?.discovery_location);
+        const curr = parseDiscoveryCoordinates(discoveries[i]?.discovery_location);
+        if (!prev || !curr) continue;
+        const d = calculateDistanceMetersRaw(prev.lat, prev.lng, curr.lat, curr.lng);
+        if (Number.isFinite(d) && d >= 0) totalMeters += d;
+      }
+      return totalMeters / 1000;
+    },
+    enabled: !!friendUser?.auth_id,
+    staleTime: 5 * 60 * 1000,
+  });
+
   // ── Received likes (ScanLike + UserPlantDiscovery both world-readable) ─────
   const { data: friendReceivedLikesCount = 0 } = useQuery({
     queryKey: ["friendReceivedLikesCount", friendUser?.auth_id],
@@ -873,6 +898,7 @@ export default function FriendProfile() {
       global_seed_rank:                friendGlobalSeedRank,
       highest_scan_result:             friendHighestScanResult,
       total_scans:                     friendTotalScans,
+      total_distance_between_scans_km: friendTotalDistanceKm,
       received_likes_count:            friendReceivedLikesCount,
       rarest_plant_score:              friendRarestPlantScore,
       weekly_quests_completed:         friendWeeklyQuestsCompleted,
@@ -901,6 +927,7 @@ export default function FriendProfile() {
     friendGlobalSeedRank,
     friendHighestScanResult,
     friendTotalScans,
+    friendTotalDistanceKm,
     friendReceivedLikesCount,
     friendRarestPlantScore,
     friendWeeklyQuestsCompleted,

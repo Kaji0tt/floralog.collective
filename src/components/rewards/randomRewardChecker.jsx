@@ -19,8 +19,8 @@ export async function checkRandomRewards(user, eventType) {
       return [];
     }
 
-    // Wir liefern nur die IDs der zufällig freigeschalteten Rewards zurück
-    return data?.randomUnlocked ?? [];
+    // Liefert die vollständigen Reward-Details der zufällig freigeschalteten Rewards zurück
+    return data?.randomUnlockedDetails ?? [];
   } catch (error) {
     console.error("[RandomRewardChecker] Unerwarteter Fehler:", error);
     return [];

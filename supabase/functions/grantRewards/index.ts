@@ -546,6 +546,15 @@ Deno.serve(async (req) => {
     }
 
     // Zufalls-Rewards für das gegebene Event
+    const randomUnlockedDetails: Array<{
+      id: string;
+      display_name: string | null;
+      name: string | null;
+      image_url: string | null;
+      value: string | null;
+      random_chance: number | null;
+    }> = [];
+
     if (eventType) {
       const randomRewards = rewards.filter(
         (r) => r.random_event === eventType && r.random_chance && r.random_chance > 0,
@@ -567,6 +576,14 @@ Deno.serve(async (req) => {
           if (unlocked) {
             newRewardsCount++;
             randomUnlocked.push(reward.id);
+            randomUnlockedDetails.push({
+              id: reward.id,
+              display_name: reward.display_name ?? null,
+              name: reward.name ?? null,
+              image_url: reward.image_url ?? null,
+              value: reward.value ?? null,
+              random_chance: reward.random_chance ?? null,
+            });
           }
         }
       }
@@ -577,6 +594,7 @@ Deno.serve(async (req) => {
         success: true,
         newRewardsCount,
         randomUnlocked,
+        randomUnlockedDetails,
       }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
     );
