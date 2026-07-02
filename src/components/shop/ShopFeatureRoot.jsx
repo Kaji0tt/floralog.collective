@@ -15,6 +15,8 @@ import {
   Check,
   Smile,
   ScanSearch,
+  Leaf,
+  Frame,
 } from "lucide-react";
 import { HexColorPicker } from "react-colorful";
 import { Query } from "@/api/entities";
@@ -65,6 +67,16 @@ const CATEGORY_META = {
     title: "Gesicht",
     subtitle: "Freigeschaltete Gesichts-Assets für dein Home-Logo",
     emptyLabel: "Noch keine Gesichtsoptionen verfügbar.",
+  },
+  plant: {
+    title: "Pflanze",
+    subtitle: "Kaufbare, noch gesperrte Pflanzen-Accessoires",
+    emptyLabel: "Noch keine Pflanzen-Optionen verfügbar.",
+  },
+  border: {
+    title: "Rahmen",
+    subtitle: "Kaufbare, noch gesperrte Rahmen-Accessoires",
+    emptyLabel: "Noch keine Rahmen-Optionen verfügbar.",
   },
   effects: {
     title: "Effekte",
@@ -124,7 +136,7 @@ const ROOT_DEFAULT_SUBCATEGORY = {
 };
 
 const ROOT_SUBCATEGORY_ORDER = {
-  shop: ["backgrounds", "face", "effects", "scans", "bernstein"],
+  shop: ["backgrounds", "face", "plant", "border", "effects", "scans", "bernstein"],
   florabot: ["accessories", "effects"],
   profile: ["badges", "backgrounds", "titles", "effects"],
 };
@@ -1371,6 +1383,16 @@ export default function ShopFeatureRoot({
     return (accessoriesCategory.sections || []).find((section) => section?.key === "face") || null;
   }, [accessoriesCategory]);
 
+  const plantSection = useMemo(() => {
+    if (!accessoriesCategory) return null;
+    return (accessoriesCategory.sections || []).find((section) => section?.key === "plant") || null;
+  }, [accessoriesCategory]);
+
+  const borderSection = useMemo(() => {
+    if (!accessoriesCategory) return null;
+    return (accessoriesCategory.sections || []).find((section) => section?.key === "border") || null;
+  }, [accessoriesCategory]);
+
   const effectsCategory = useMemo(() => {
     return customizationCategories.find((category) => category.key === "effects") || null;
   }, [customizationCategories]);
@@ -1501,6 +1523,48 @@ export default function ShopFeatureRoot({
       optionCount: lockedPurchasableFaceOptions.reduce((sum, section) => sum + (section?.options?.length || 0), 0),
     });
 
+    const lockedPurchasablePlantOptions = mapSectionsWithOptionFilter(
+      plantSection
+        ? [
+            {
+              ...plantSection,
+              key: "plant",
+              title: "Pflanze",
+            },
+          ]
+        : [],
+      isOptionLockedAndPurchasable,
+    );
+
+    resolved.push({
+      key: "plant",
+      title: "Pflanze",
+      subtitle: "Kaufbare, noch gesperrte Pflanzen-Accessoires",
+      sections: lockedPurchasablePlantOptions,
+      optionCount: lockedPurchasablePlantOptions.reduce((sum, section) => sum + (section?.options?.length || 0), 0),
+    });
+
+    const lockedPurchasableBorderOptions = mapSectionsWithOptionFilter(
+      borderSection
+        ? [
+            {
+              ...borderSection,
+              key: "border",
+              title: "Rahmen",
+            },
+          ]
+        : [],
+      isOptionLockedAndPurchasable,
+    );
+
+    resolved.push({
+      key: "border",
+      title: "Rahmen",
+      subtitle: "Kaufbare, noch gesperrte Rahmen-Accessoires",
+      sections: lockedPurchasableBorderOptions,
+      optionCount: lockedPurchasableBorderOptions.reduce((sum, section) => sum + (section?.options?.length || 0), 0),
+    });
+
     if (effectsCategory) {
       const lockedPurchasableEffectSections = mapSectionsWithOptionFilter(
         effectsCategory.sections,
@@ -1538,7 +1602,7 @@ export default function ShopFeatureRoot({
     });
 
     return orderByCategoryList(resolved, ROOT_SUBCATEGORY_ORDER.shop);
-  }, [backgroundsCategory, effectsCategory, faceSection]);
+  }, [backgroundsCategory, effectsCategory, faceSection, plantSection, borderSection]);
 
   const activeSubcategories = useMemo(() => {
     if (shopRootCategory === "shop") return shopCategories;
@@ -2337,9 +2401,25 @@ export default function ShopFeatureRoot({
                 );
               })}
             </div>
-          ) : shopRootCategory === "shop" && currentCategory.key === "face" ? (
+          ) : shopRootCategory === "shop" && ["face", "plant", "border"].includes(currentCategory.key) ? (
             <div className="space-y-3">
-              <SectionCard title="Gesicht auswählen" icon={Smile} isLightUi={isLightUi}>
+              <SectionCard
+                title={
+                  currentCategory.key === "face"
+                    ? "Gesicht auswählen"
+                    : currentCategory.key === "plant"
+                    ? "Pflanze auswählen"
+                    : "Rahmen auswählen"
+                }
+                icon={
+                  currentCategory.key === "face"
+                    ? Smile
+                    : currentCategory.key === "plant"
+                    ? Leaf
+                    : Frame
+                }
+                isLightUi={isLightUi}
+              >
                 {(currentCategory.sections?.[0]?.options || []).length ? (
                   <AccessoryOptionGrid
                     options={currentCategory.sections[0].options}
@@ -2351,7 +2431,7 @@ export default function ShopFeatureRoot({
                   />
                 ) : (
                   <div className={`rounded-2xl border border-dashed px-3 py-4 text-xs ${isLightUi ? "border-[#c8ac62]/30 text-stone-500" : "border-[#f0e5a5]/20 text-stone-300/75"}`}>
-                    {CATEGORY_META.face.emptyLabel}
+                    {CATEGORY_META[currentCategory.key]?.emptyLabel || CATEGORY_META.face.emptyLabel}
                   </div>
                 )}
               </SectionCard>
