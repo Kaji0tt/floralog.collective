@@ -15,6 +15,8 @@ import {
   Check,
   Smile,
   ScanSearch,
+  Leaf,
+  Frame,
 } from "lucide-react";
 import { HexColorPicker } from "react-colorful";
 import { Query } from "@/api/entities";
@@ -2409,7 +2411,13 @@ export default function ShopFeatureRoot({
                     ? "Pflanze auswählen"
                     : "Rahmen auswählen"
                 }
-                icon={Smile}
+                icon={
+                  currentCategory.key === "face"
+                    ? Smile
+                    : currentCategory.key === "plant"
+                    ? Leaf
+                    : Frame
+                }
                 isLightUi={isLightUi}
               >
                 {(currentCategory.sections?.[0]?.options || []).length ? (
