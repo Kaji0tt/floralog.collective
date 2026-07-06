@@ -28,3 +28,6 @@ dist-ssr
 *.sw?
 
 .env
+
+# SOTW - Scan der Woche (generierte Bilder & Videos, nicht einchecken)
+scripts/sotw/

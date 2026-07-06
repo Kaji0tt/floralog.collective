@@ -72,8 +72,7 @@ async function fetchWeeklyStats(weekStartIso) {
       .select("id")
       .gte("created_date", weekStartIso)
       .lt("created_date", weekEndIso),
-    // p_limit 200 = max supported by the RPC; always reflects the *current* week
-    supabase.rpc("get_weekly_seed_leaderboard", { p_limit: 200 }),
+    supabase.rpc("get_weekly_seed_leaderboard", { p_limit: 200, p_week_start: weekStartIso }),
     supabase.from("LogoAsset").select("*"),
     supabase.from("WeeklyQuest").select("id, title, target_species_name, target_genus_name, quest_number, required_discoveries"),
   ]);
