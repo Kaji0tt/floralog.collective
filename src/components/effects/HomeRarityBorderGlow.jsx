@@ -1,5 +1,4 @@
 import React from "react";
-import { motion } from "framer-motion";
 
 /**
  * Converts a hex color string to an rgb object.
@@ -21,47 +20,29 @@ function hexToRgb(hex) {
 const FALLBACK_RGB = { r: 200, g: 172, b: 98 };
 
 /**
- * HomeRarityBorderGlow – renders a pulsing glow effect around the home shell border
- * when the "rarity_border_glow" profile effect is active.
+ * HomeRarityBorderGlow – replicates the species-card threat-glow-border effect
+ * (moving orbs along the border ring + inset glow) for the home shell profile effect.
  *
- * The pulse color is derived from the player's selected border color (borderColor prop).
- * Falls back to a warm gold when no border color is set.
+ * Color is driven by the player's selected border color (borderColor prop).
+ * Falls back to warm gold when none is set.
  */
 export default function HomeRarityBorderGlow({ active = false, borderColor = null }) {
   if (!active) return null;
 
   const { r, g, b } = hexToRgb(borderColor) || FALLBACK_RGB;
+  const color = `rgba(${r},${g},${b},0.88)`;
 
   return (
     <>
-      {/* Outer pulsing glow – breathes in and out */}
-      <motion.div
-        className="absolute inset-0 pointer-events-none rounded-[2rem]"
-        style={{ zIndex: 2 }}
-        animate={{
-          boxShadow: [
-            `0 0 0px rgba(${r},${g},${b},0), 0 0 10px rgba(${r},${g},${b},0.06), inset 0 0 0px rgba(${r},${g},${b},0)`,
-            `0 0 32px rgba(${r},${g},${b},0.62), 0 0 64px rgba(${r},${g},${b},0.30), inset 0 0 20px rgba(${r},${g},${b},0.20)`,
-            `0 0 0px rgba(${r},${g},${b},0), 0 0 10px rgba(${r},${g},${b},0.06), inset 0 0 0px rgba(${r},${g},${b},0)`,
-          ],
-        }}
-        transition={{ duration: 2.6, ease: "easeInOut", repeat: Infinity }}
+      {/* Inner glow border – steady subtle inset shadow, matches ::before on species cards */}
+      <div
+        className="rarity-profile-glow-inner"
+        style={{ '--rarity-profile-color': color }}
       />
-      {/* Border ring that brightens on each pulse */}
-      <motion.div
-        className="absolute inset-0 pointer-events-none rounded-[2rem]"
-        style={{
-          zIndex: 2,
-          border: `1.5px solid rgba(${r},${g},${b},0.12)`,
-        }}
-        animate={{
-          borderColor: [
-            `rgba(${r},${g},${b},0.14)`,
-            `rgba(${r},${g},${b},0.78)`,
-            `rgba(${r},${g},${b},0.14)`,
-          ],
-        }}
-        transition={{ duration: 2.6, ease: "easeInOut", repeat: Infinity }}
+      {/* Moving orbs around border ring with CSS mask, matches ::after on species cards */}
+      <div
+        className="rarity-profile-glow-orbs"
+        style={{ '--rarity-profile-color': color }}
       />
     </>
   );
