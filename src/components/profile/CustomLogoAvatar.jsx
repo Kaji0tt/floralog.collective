@@ -18,6 +18,7 @@ import { hexToFilter } from "@/lib/hexToFilter";
  *   fallbackClassName?: string,
  *   leafClassName?: string,
  *   tooltipText?: string,
+ *   noClip?: boolean,
  * }} props
  */
 export default function CustomLogoAvatar({
@@ -28,6 +29,7 @@ export default function CustomLogoAvatar({
   fallbackClassName,
   leafClassName,
   tooltipText,
+  noClip = false,
 }) {
   const rootRef = useRef(null);
   const closeTimeoutRef = useRef(null);
@@ -87,7 +89,7 @@ export default function CustomLogoAvatar({
     <>
       <div
         ref={rootRef}
-        className={cn("relative rounded-full overflow-hidden", className)}
+        className={cn("relative", !noClip && "rounded-full overflow-hidden", className)}
         onClick={handleAvatarClick}
         onKeyDown={handleKeyDown}
         role={resolvedTooltipText ? "button" : undefined}

@@ -78,6 +78,49 @@ function getPreviousWeekBounds(): { weekStart: string; weekEnd: string; weekKey:
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Sends an in-app notification AND a push notification (FCM / Web-Push)
+ * by invoking the createNotification edge function with service-role credentials.
+ */
+async function sendNotification(
+  db: ReturnType<typeof createClient>,
+  serviceRoleKey: string,
+  params: {
+    authId: string;
+    notificationType: string;
+    title: string;
+    message: string;
+    description?: string;
+    priority?: string;
+  },
+): Promise<void> {
+  const { authId, notificationType, title, message, description, priority } = params;
+  const { error } = await db.functions.invoke("createNotification", {
+    body: {
+      authId,
+      notificationType,
+      title,
+      message,
+      description: description ?? "",
+      displayLocation: "banner",
+      priority: priority ?? "medium",
+    },
+    headers: {
+      // Service-role key as Bearer – createNotification recognises this via
+      // isServiceRoleInvocation() and skips the regular caller auth check.
+      Authorization: `Bearer ${serviceRoleKey}`,
+    },
+  });
+  if (error) {
+    console.warn(
+      `[weeklyRewardsScheduler] createNotification failed for ${authId}:`,
+      error.message ?? error,
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -182,22 +225,15 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Notification – shown on next login via UserNotificationManager
-        const { error: notifErr } = await db.from("UserNotification").insert({
-          auth_id: authId,
-          notification_type: "weekly_ranking_reward",
+        // Notification + Push via createNotification (handles FCM & Web-Push)
+        await sendNotification(db, serviceRoleKey, {
+          authId,
+          notificationType: "weekly_ranking_reward",
           title: `🏆 Platz ${rank} in der Wochenwertung!`,
           message: `Du hast diese Woche Platz ${rank} in der Rangliste belegt und erhältst +${sparks} Funken als Belohnung! Weiter so! ⚡`,
           description: `${weekKey} · +${sparks} Funken`,
-          display_location: "banner",
           priority: rank === 1 ? "high" : "medium",
-          seen: false,
-          created_date: new Date().toISOString(),
         });
-
-        if (notifErr) {
-          console.warn(`[weeklyRewardsScheduler] notification for rank ${rank} failed:`, notifErr.message);
-        }
 
         rankingResults.push({ rank, authId, displayName, sparks });
         console.log(`[weeklyRewardsScheduler] Rank ${rank} (${displayName}): +${sparks} Funken`);
@@ -276,21 +312,15 @@ Deno.serve(async (req) => {
               console.error("[weeklyRewardsScheduler]", msg);
               errors.push(msg);
             } else {
-              const { error: notifErr } = await db.from("UserNotification").insert({
-                auth_id: topDisc.auth_id,
-                notification_type: "weekly_likes_reward",
+              // Notification + Push via createNotification (handles FCM & Web-Push)
+              await sendNotification(db, serviceRoleKey, {
+                authId: topDisc.auth_id,
+                notificationType: "weekly_likes_reward",
                 title: "❤️ Herzliches Update aus der Community!",
                 message: `Dein Scan von der Pflanze ${plantName} hat letzte Woche die meisten Likes erhalten (${topCount} ♥). Du erhältst +${LIKES_WINNER_FUNKEN} Funken als Belohnung!`,
                 description: `${weekKey} · ${topCount} ♥ · +${LIKES_WINNER_FUNKEN} Funken`,
-                display_location: "banner",
                 priority: "high",
-                seen: false,
-                created_date: new Date().toISOString(),
               });
-
-              if (notifErr) {
-                console.warn("[weeklyRewardsScheduler] likes notification failed:", notifErr.message);
-              }
 
               likesResult = { discoveryId: topDiscId, authId: topDisc.auth_id, likeCount: topCount, funken: LIKES_WINNER_FUNKEN, plantName };
               console.log(`[weeklyRewardsScheduler] Likes winner (${topDisc.auth_id}): ${topCount} likes → +${LIKES_WINNER_FUNKEN} Funken`);

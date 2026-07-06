@@ -2,6 +2,55 @@ import { ChevronDown, Loader2, RefreshCw } from "lucide-react";
 import { useCallback, useState } from "react";
 import MapboxZoneMap from "@/components/map/MapboxZoneMap";
 import MapPinDetailOverlay from "@/components/map/MapPinDetailOverlay";
+import { calculateDistanceMetersRaw } from "@/lib/discoveryMap";
+
+const TILE_HALF_SIZE_M = 50;
+
+const buildLogoAssetsFromPoint = (point) => {
+  const borderUrl = String(point?.scannerLogoBorderUrl || "").trim();
+  const plantUrl = String(point?.scannerLogoPlantUrl || "").trim();
+  const faceUrl = String(point?.scannerLogoFaceUrl || "").trim();
+  if (!borderUrl && !plantUrl && !faceUrl) return null;
+  return {
+    border: borderUrl ? { imageUrl: borderUrl } : undefined,
+    plant: plantUrl ? { imageUrl: plantUrl } : undefined,
+    face: faceUrl ? { imageUrl: faceUrl } : undefined,
+    borderColor: String(point?.scannerLogoBorderColor || "").trim() || null,
+  };
+};
+
+const groupPointsByPlayer = (points, primaryAuthId, plants) => {
+  const playerMap = new Map();
+  points.forEach((p) => {
+    const key = String(p?.scannerAuthId || p?.scannerEmail || "unknown");
+    if (!playerMap.has(key)) {
+      playerMap.set(key, {
+        scannerAuthId: p.scannerAuthId || "",
+        scannerDisplayName: p.scannerDisplayName || p.scannerName || "Unbekannt",
+        scannerLogoAssets: buildLogoAssetsFromPoint(p),
+        discoveries: [],
+      });
+    }
+    const player = playerMap.get(key);
+    const plantObj = p.plantId ? (plants || []).find((pl) => pl.id === p.plantId) || null : null;
+    player.discoveries.push({
+      discoveryId: p.discoveryId || "",
+      imageUrl: p.imageUrl || "",
+      plantName: p.plantName || "Unbekannte Pflanze",
+      plantId: p.plantId || "",
+      plant: plantObj,
+    });
+  });
+
+  const playerList = [...playerMap.values()];
+  // Put the primary (zone owner / current user) first
+  const primaryIdx = playerList.findIndex((pl) => pl.scannerAuthId === primaryAuthId);
+  if (primaryIdx > 0) {
+    const [primary] = playerList.splice(primaryIdx, 1);
+    playerList.unshift(primary);
+  }
+  return playerList;
+};
 
 export default function HomeMapFeatureRoot({
   isLightUi,
@@ -33,6 +82,89 @@ export default function HomeMapFeatureRoot({
 }) {
   const [pinOverlayData, setPinOverlayData] = useState(null);
   const [mapTimeFilter, setMapTimeFilter] = useState("all-time");
+
+  // ── Zone click handler ────────────────────────────────────────────────────
+  const handleZoneSelect = useCallback(
+    ({ centerLat, centerLng, radiusM, themeLabel }) => {
+      if (!Number.isFinite(centerLat) || !Number.isFinite(centerLng) || !(radiusM > 0)) return;
+
+      const pointsInZone = allDiscoveryPoints.filter((p) => {
+        if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng)) return false;
+        const dist = calculateDistanceMetersRaw(p.lat, p.lng, centerLat, centerLng);
+        return Number.isFinite(dist) && dist <= radiusM;
+      });
+
+      const players = groupPointsByPlayer(pointsInZone, authId, plants);
+
+      // If no scans visible at all, still open with empty state so the user sees context
+      if (players.length === 0) {
+        setPinOverlayData({
+          players: [{
+            scannerAuthId: authId || "",
+            scannerDisplayName: "Zone: " + (themeLabel || "Unbekannt"),
+            scannerLogoAssets: null,
+            discoveries: [],
+          }],
+        });
+        return;
+      }
+
+      setPinOverlayData({ players });
+    },
+    [allDiscoveryPoints, plants, authId]
+  );
+
+  // ── Claim tile click handler ──────────────────────────────────────────────
+  const handleClaimSelect = useCallback(
+    ({ tileX, tileY, ownerAuthId }) => {
+      const claim = claimedTiles.find(
+        (c) => Number(c.tileX) === tileX && Number(c.tileY) === tileY
+      );
+      if (!claim) return;
+
+      const centerLat = Number(claim.centerLat);
+      const centerLng = Number(claim.centerLng);
+      if (!Number.isFinite(centerLat) || !Number.isFinite(centerLng)) return;
+
+      const latMpd = 111320;
+      const lngMpd = Math.abs(111320 * Math.cos((centerLat * Math.PI) / 180)) || 1e-6;
+
+      const pointsInTile = allDiscoveryPoints.filter((p) => {
+        if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng)) return false;
+        const dx = Math.abs((p.lng - centerLng) * lngMpd);
+        const dy = Math.abs((p.lat - centerLat) * latMpd);
+        return dx <= TILE_HALF_SIZE_M && dy <= TILE_HALF_SIZE_M;
+      });
+
+      let players = groupPointsByPlayer(pointsInTile, ownerAuthId, plants);
+
+      // Ensure the claim owner is always represented (even if their scans are outside current view)
+      if (players.length === 0 || players[0].scannerAuthId !== ownerAuthId) {
+        const borderUrl = String(claim.ownerLogoBorderUrl || "").trim();
+        const plantUrl = String(claim.ownerLogoPlantUrl || "").trim();
+        const faceUrl = String(claim.ownerLogoFaceUrl || "").trim();
+        const ownerLogoAssets =
+          borderUrl || plantUrl || faceUrl
+            ? {
+                border: borderUrl ? { imageUrl: borderUrl } : undefined,
+                plant: plantUrl ? { imageUrl: plantUrl } : undefined,
+                face: faceUrl ? { imageUrl: faceUrl } : undefined,
+                borderColor: String(claim.ownerBorderColor || "").trim() || null,
+              }
+            : null;
+        const ownerEntry = {
+          scannerAuthId: ownerAuthId,
+          scannerDisplayName: claim.ownerName || "Unbekannt",
+          scannerLogoAssets: ownerLogoAssets,
+          discoveries: [],
+        };
+        players = [ownerEntry, ...players.filter((pl) => pl.scannerAuthId !== ownerAuthId)];
+      }
+
+      setPinOverlayData({ players });
+    },
+    [allDiscoveryPoints, claimedTiles, plants]
+  );
 
   const SOMMER_2026_CUTOFF = "2026-06-21";
 
@@ -169,6 +301,8 @@ export default function HomeMapFeatureRoot({
           onDiscoveryImageClick={onDiscoveryImageClick}
           onDiscoveryLike={onDiscoveryLike}
           onPinSelect={handlePinSelect}
+          onZoneSelect={handleZoneSelect}
+          onClaimSelect={handleClaimSelect}
           allowDiscoveryLike={allowDiscoveryLike}
           discoveryMarkerScale={discoveryMarkerScale}
           onTokenError={onTokenError}
@@ -243,6 +377,7 @@ export default function HomeMapFeatureRoot({
         scannerDisplayName={pinOverlayData?.scannerDisplayName || "Unbekannt"}
         scannerLogoAssets={pinOverlayData?.scannerLogoAssets || null}
         discoveries={pinOverlayData?.discoveries || []}
+        players={pinOverlayData?.players || null}
         isLightUi={isLightUi}
       />
     </section>

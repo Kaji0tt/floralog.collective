@@ -727,6 +727,8 @@ export default function MapboxZoneMap({
   onDiscoveryImageClick = null,
   onDiscoveryLike = null,
   onPinSelect = null,
+  onZoneSelect = null,
+  onClaimSelect = null,
   allowDiscoveryLike = true,
   discoveryMarkerScale = DISCOVERY_MARKER_UNIFIED_SCALE_DEFAULT,
   hideClaimLogos = false,
@@ -735,6 +737,8 @@ export default function MapboxZoneMap({
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const onTokenErrorRef = useRef(null);
+  const onZoneSelectRef = useRef(null);
+  const onClaimSelectRef = useRef(null);
   const discoveryMarkersRef = useRef([]);
   const claimLogoMarkersRef = useRef([]);
   const claimPulseIntervalRef = useRef(null);
@@ -756,6 +760,14 @@ export default function MapboxZoneMap({
   useEffect(() => {
     onTokenErrorRef.current = typeof onTokenError === "function" ? onTokenError : null;
   }, [onTokenError]);
+
+  useEffect(() => {
+    onZoneSelectRef.current = typeof onZoneSelect === "function" ? onZoneSelect : null;
+  }, [onZoneSelect]);
+
+  useEffect(() => {
+    onClaimSelectRef.current = typeof onClaimSelect === "function" ? onClaimSelect : null;
+  }, [onClaimSelect]);
 
   useEffect(() => {
     if (mapRef.current || !mapContainerRef.current) return;
@@ -884,6 +896,8 @@ export default function MapboxZoneMap({
               themeLabel,
               radiusM,
               zoneMultiplier,
+              centerLat: lat,
+              centerLng: lng,
             },
           };
         })
@@ -968,6 +982,18 @@ export default function MapboxZoneMap({
           if (!feature) return;
 
           const props = feature.properties || {};
+
+          if (onZoneSelectRef.current) {
+            onZoneSelectRef.current({
+              zoneId: props.id,
+              centerLat: Number(props.centerLat),
+              centerLng: Number(props.centerLng),
+              radiusM: Number(props.radiusM),
+              themeLabel: props.themeLabel || props.theme || "Zone",
+            });
+            return;
+          }
+
           const popupHtml = buildZonePopupHtml(props, isLightUi);
           new mapboxgl.Popup({ closeButton: true, maxWidth: "240px", className: "hero-zone-popup" })
             .setLngLat(event.lngLat)
@@ -1096,8 +1122,17 @@ export default function MapboxZoneMap({
           const feature = event.features?.[0];
           if (!feature) return;
           const props = feature.properties || {};
-          const popupHtml = buildClaimPopupHtml(props, isLightUi);
 
+          if (onClaimSelectRef.current) {
+            onClaimSelectRef.current({
+              tileX: Number(props.tileX),
+              tileY: Number(props.tileY),
+              ownerAuthId: props.ownerAuthId || "",
+            });
+            return;
+          }
+
+          const popupHtml = buildClaimPopupHtml(props, isLightUi);
           new mapboxgl.Popup({ closeButton: true, maxWidth: "260px", className: "hero-claim-popup" })
             .setLngLat(event.lngLat)
             .setHTML(popupHtml)

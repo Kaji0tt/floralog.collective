@@ -139,7 +139,8 @@ export default function UserNotificationManager({ user }) {
       return filtered;
     },
     enabled: !!user?.id,
-    staleTime: Infinity, // Echtzeit-Updates durch Subscription
+    staleTime: Infinity,   // Echtzeit-Updates durch Subscription
+    refetchOnMount: 'always', // Immer beim Mount neu laden – verhindert, dass der persistierte Cache alte (leere) Ergebnisse einfriert
   });
 
   useEffect(() => {
