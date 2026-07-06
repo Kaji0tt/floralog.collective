@@ -2100,10 +2100,19 @@ function HomeContent() {
     return (!hasUserQuest || !isAccepted) && prerequisiteMet;
   });
 
-  const currentWeeklyUserQuest = currentWeeklyQuest ? 
-    userWeeklyQuests.find(uwq => uwq.weekly_quest_id === currentWeeklyQuest.id) : null;
-  const activeWeeklyQuest = currentWeeklyQuest && currentWeeklyUserQuest && isActiveOrCompleted(currentWeeklyUserQuest) && !(currentWeeklyUserQuest.status === 'redeemed' || currentWeeklyUserQuest.redeemed) ?
-    { ...currentWeeklyQuest, isCompleted: currentWeeklyUserQuest.completed || false } : null;
+  const redeemableWeeklyUserQuest = userWeeklyQuests.find(
+    (uwq) => (uwq.status === 'completed' || uwq.completed) && uwq.status !== 'redeemed' && !uwq.redeemed
+  ) ?? null;
+  const currentWeeklyUserQuest = redeemableWeeklyUserQuest
+    ? redeemableWeeklyUserQuest
+    : currentWeeklyQuest
+      ? userWeeklyQuests.find(uwq => uwq.weekly_quest_id === currentWeeklyQuest.id)
+      : null;
+  const displayedWeeklyQuest = redeemableWeeklyUserQuest
+    ? (weeklyQuests.find(wq => wq.id === redeemableWeeklyUserQuest.weekly_quest_id) ?? currentWeeklyQuest)
+    : currentWeeklyQuest;
+  const activeWeeklyQuest = displayedWeeklyQuest && currentWeeklyUserQuest && isActiveOrCompleted(currentWeeklyUserQuest) && !(currentWeeklyUserQuest.status === 'redeemed' || currentWeeklyUserQuest.redeemed) ?
+    { ...displayedWeeklyQuest, isCompleted: currentWeeklyUserQuest.completed || isCompletedStatus(currentWeeklyUserQuest) } : null;
   const availableWeeklyQuest = currentWeeklyQuest && !currentWeeklyUserQuest;
 
   const currentMonthlyUserQuest = currentMonthlyQuest ?

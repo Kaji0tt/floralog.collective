@@ -106,11 +106,19 @@ export async function updateQuestProgress(user) {
         const quest = weeklyQuests.find(q => q.id === userWeeklyQuest.weekly_quest_id);
         if (!quest) continue;
 
-        // Nur Entdeckungen ab Aktivierung der Quest zählen
+        // Für Wochenquests gilt der Wochenbeginn (Montag 00:00 UTC) als Startpunkt,
+        // nicht das accepted_at – so zählen Scans auch wenn der Auto-Accept verzögert war.
+        const getWeekStart = (isoString) => {
+          const d = isoString ? new Date(isoString) : new Date();
+          const dow = d.getUTCDay();
+          const daysBack = dow === 0 ? 6 : dow - 1;
+          return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - daysBack));
+        };
         const acceptedAt = userWeeklyQuest.accepted_at || userWeeklyQuest.accepted_date;
-        const discoveriesSinceAccept = acceptedAt
-          ? userDiscoveries.filter(d => d.discovered_date && new Date(d.discovered_date) >= new Date(acceptedAt))
-          : userDiscoveries;
+        const effectiveStart = getWeekStart(acceptedAt);
+        const discoveriesSinceAccept = userDiscoveries.filter(
+          d => d.discovered_date && new Date(d.discovered_date) >= effectiveStart
+        );
 
         const progress = calculateProgress(quest, discoveriesSinceAccept, plants, genera);
         const completed = progress >= (quest.required_discoveries || 0);

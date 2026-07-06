@@ -915,24 +915,59 @@ export function useAchievementsFeatureContent({
 
       const currentUser = await getCurrentUser();
 
-      const grantResult = await grantRobotPlantRewardServerSide({
-        eventSource: `quest_redeem_${questType}`,
-        eventReference: `${questType}:${userQuestId}`,
-        amount: questSeedReward,
-        metadata: {
-          quest_type: questType,
-          quest_title: questTitle,
-          redeemed_at: now,
-          reward_source: "quest",
-        },
-      });
+      // ── 1. Quest-Status als erstes auf 'redeemed' setzen ──────────────────
+      // Wichtig: Status-Update VOR dem Seed-Grant, damit die Quest immer als
+      // eingeloest gilt – auch wenn der Seed-Grant später fehlschlägt.
+      if (questType === 'regular') {
+        await Query.UserQuest.update(userQuestId, {
+          redeemed: true,
+          redeemed_date: now,
+          status: 'redeemed'
+        });
+      } else if (questType === 'weekly') {
+        await Query.UserWeeklyQuest.update(userQuestId, {
+          redeemed: true,
+          redeemed_date: now,
+          status: 'redeemed'
+        });
+      } else if (questType === 'monthly') {
+        await Query.UserMonthlyQuest.update(userQuestId, {
+          redeemed: true,
+          redeemed_date: now,
+          status: 'redeemed'
+        });
+      } else if (questType === 'collection') {
+        await Query.UserCollectionQuest.update(userQuestId, {
+          redeemed: true,
+          redeemed_date: now,
+          status: 'redeemed'
+        });
+      }
 
-      const grantedBalance = Number(grantResult?.result?.new_balance ?? grantResult?.result?.newBalance);
-      const grantedEnergy = Number(grantResult?.result?.new_energy ?? grantResult?.result?.newEnergy);
-      const grantedDataQuality = Number(
-        grantResult?.result?.new_data_quality ?? grantResult?.result?.newDataQuality
-      );
-      const grantedCare = Number(grantResult?.result?.new_care ?? grantResult?.result?.newCare);
+      // ── 2. Samen gutschreiben (idempotent, Fehler blockieren nicht die UI) ─
+      let grantedBalance = NaN;
+      let grantedEnergy = NaN;
+      let grantedDataQuality = NaN;
+      let grantedCare = NaN;
+      try {
+        const grantResult = await grantRobotPlantRewardServerSide({
+          eventSource: `quest_redeem_${questType}`,
+          eventReference: `${questType}:${userQuestId}`,
+          amount: questSeedReward,
+          metadata: {
+            quest_type: questType,
+            quest_title: questTitle,
+            redeemed_at: now,
+            reward_source: "quest",
+          },
+        });
+        grantedBalance = Number(grantResult?.result?.new_balance ?? grantResult?.result?.newBalance);
+        grantedEnergy = Number(grantResult?.result?.new_energy ?? grantResult?.result?.newEnergy);
+        grantedDataQuality = Number(grantResult?.result?.new_data_quality ?? grantResult?.result?.newDataQuality);
+        grantedCare = Number(grantResult?.result?.new_care ?? grantResult?.result?.newCare);
+      } catch (seedGrantError) {
+        console.warn('[QuestRedeem] Seed grant failed (quest already marked redeemed):', seedGrantError?.message || seedGrantError);
+      }
 
       if (currentUser?.id) {
         queryClient.setQueryData(['robotPlantState', currentUser.id], (previousState) => {
@@ -951,20 +986,8 @@ export function useAchievementsFeatureContent({
         });
       }
 
-      // Quest einlösen – verwende nur vorhandene Legacy-Felder (redeemed, redeemed_date)
-      if (questType === 'regular') {
-        await Query.UserQuest.update(userQuestId, {
-          redeemed: true,
-          redeemed_date: now,
-          status: 'redeemed'
-        });
-      } else if (questType === 'weekly') {
-        await Query.UserWeeklyQuest.update(userQuestId, {
-          redeemed: true,
-          redeemed_date: now,
-          status: 'redeemed'
-        });
-
+      // ── 3. Quest-typ-spezifische Bonuses (alle im try/catch) ──────────────
+      if (questType === 'weekly') {
         // Weekly quest bonus: +10 seeds on redeem (separate from the base seed reward).
         try {
           await grantRobotPlantRewardServerSide({
@@ -982,12 +1005,6 @@ export function useAchievementsFeatureContent({
           console.warn('[QuestRedeem] Weekly seed bonus could not be granted:', weeklyBonusError?.message || weeklyBonusError);
         }
       } else if (questType === 'monthly') {
-        await Query.UserMonthlyQuest.update(userQuestId, {
-          redeemed: true,
-          redeemed_date: now,
-          status: 'redeemed'
-        });
-
         // Monthly quest bonus: +15 sparks on redeem.
         try {
           await grantWalletCurrency({
@@ -1006,12 +1023,6 @@ export function useAchievementsFeatureContent({
         } catch (sparkError) {
           console.warn('[QuestRedeem] Monthly spark bonus could not be granted:', sparkError?.message || sparkError);
         }
-      } else if (questType === 'collection') {
-        await Query.UserCollectionQuest.update(userQuestId, {
-          redeemed: true,
-          redeemed_date: now,
-          status: 'redeemed'
-        });
       }
       
       // DIREKT den Reward freischalten (ohne Achievement-Check) – Fehler hier sollen die Einlösung nicht blockieren
@@ -1349,17 +1360,27 @@ export function useAchievementsFeatureContent({
   });
 
   // Wöchentliche Quest
-  const currentWeeklyUserQuest = currentWeeklyQuest ?
-  userWeeklyQuests.find((uwq) => uwq.weekly_quest_id === currentWeeklyQuest.id) :
-  null;
-  const weeklyReward = currentWeeklyQuest ? rewards.find(r => r.name === currentWeeklyQuest.reward_name) : null;
-  const weeklySeedReward = currentWeeklyQuest
-    ? resolveQuestSeedReward({ questType: 'weekly', seedReward: currentWeeklyQuest.seed_reward })
+  // Priorisierung: abgeschlossen-aber-nicht-eingeloest (beliebige Woche) > aktuell aktive Woche
+  const redeemableWeeklyUserQuest = userWeeklyQuests.find(
+    (uwq) => isCompletedStatus(uwq) && !isRedeemedStatus(uwq)
+  ) ?? null;
+  const currentWeeklyUserQuest = redeemableWeeklyUserQuest
+    ? redeemableWeeklyUserQuest
+    : currentWeeklyQuest
+      ? userWeeklyQuests.find((uwq) => uwq.weekly_quest_id === currentWeeklyQuest.id)
+      : null;
+  // Wenn eine aeltere abgeschlossene Quest angezeigt wird, brauchen wir auch die Quest-Details dazu
+  const displayedWeeklyQuest = redeemableWeeklyUserQuest
+    ? (weeklyQuests.find((wq) => wq.id === redeemableWeeklyUserQuest.weekly_quest_id) ?? currentWeeklyQuest)
+    : currentWeeklyQuest;
+  const weeklyReward = displayedWeeklyQuest ? rewards.find(r => r.name === displayedWeeklyQuest.reward_name) : null;
+  const weeklySeedReward = displayedWeeklyQuest
+    ? resolveQuestSeedReward({ questType: 'weekly', seedReward: displayedWeeklyQuest.seed_reward })
     : resolveQuestSeedReward({ questType: 'weekly', seedReward: null });
   const weeklyRewardDisplayName = weeklyReward?.display_name ? `${weeklySeedReward} Samen + ${weeklyReward.display_name}` : `${weeklySeedReward} Samen`;
-  const activeWeeklyQuest = currentWeeklyQuest && currentWeeklyUserQuest && isActiveOrCompleted(currentWeeklyUserQuest) && !(currentWeeklyUserQuest.status === 'redeemed' || currentWeeklyUserQuest.redeemed) ?
+  const activeWeeklyQuest = displayedWeeklyQuest && currentWeeklyUserQuest && isActiveOrCompleted(currentWeeklyUserQuest) && !(currentWeeklyUserQuest.status === 'redeemed' || currentWeeklyUserQuest.redeemed) ?
   {
-    ...currentWeeklyQuest,
+    ...displayedWeeklyQuest,
     userQuestId: currentWeeklyUserQuest.id,
     progress: currentWeeklyUserQuest.progress || 0,
     isCompleted: isCompletedStatus(currentWeeklyUserQuest),
