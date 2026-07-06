@@ -53,7 +53,6 @@ import AdminBackup from './pages/AdminBackup';
 import AdminBlumenList from './pages/AdminBlumenList';
 import AdminCategoryFix from './pages/AdminCategoryFix';
 import AdminFixDuplicateGenusNumbers from './pages/AdminFixDuplicateGenusNumbers';
-import AdminFixSalix from './pages/AdminFixSalix';
 import AdminPlantImporter from './pages/AdminPlantImporter';
 import AdminPlantNames from './pages/AdminPlantNames';
 import AdminQuestCreator from './pages/AdminQuestCreator';
@@ -84,10 +83,8 @@ import Profile from './pages/Profile';
 import QuestNotificationTemplate from './pages/QuestNotificationTemplate';
 import Quests from './pages/Quests';
 import ResetAccount from './pages/ResetAccount';
-import ResetToLevel5 from './pages/ResetToLevel5';
 import Scanner from './pages/Scanner';
 import ViewSharedScan from './pages/ViewSharedScan';
-import XPMigration from './pages/XPMigration';
 import __Layout from './Layout.jsx';
 
 
@@ -98,7 +95,6 @@ export const PAGES = {
     "AdminBlumenList": AdminBlumenList,
     "AdminCategoryFix": AdminCategoryFix,
     "AdminFixDuplicateGenusNumbers": AdminFixDuplicateGenusNumbers,
-    "AdminFixSalix": AdminFixSalix,
     "AdminPlantImporter": AdminPlantImporter,
     "AdminPlantNames": AdminPlantNames,
     "AdminQuestCreator": AdminQuestCreator,
@@ -129,10 +125,8 @@ export const PAGES = {
     "QuestNotificationTemplate": QuestNotificationTemplate,
     "Quests": Quests,
     "ResetAccount": ResetAccount,
-    "ResetToLevel5": ResetToLevel5,
     "Scanner": Scanner,
     "ViewSharedScan": ViewSharedScan,
-    "XPMigration": XPMigration,
 }
 
 export const pagesConfig = {
