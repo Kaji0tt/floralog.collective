@@ -964,6 +964,23 @@ export function useAchievementsFeatureContent({
           redeemed_date: now,
           status: 'redeemed'
         });
+
+        // Weekly quest bonus: +10 seeds on redeem (separate from the base seed reward).
+        try {
+          await grantRobotPlantRewardServerSide({
+            eventSource: 'weekly_quest_bonus',
+            eventReference: `weekly_quest_bonus:${userQuestId}`,
+            amount: 10,
+            metadata: {
+              quest_type: 'weekly',
+              quest_title: questTitle,
+              redeemed_at: now,
+              source: 'quest_weekly_bonus',
+            },
+          });
+        } catch (weeklyBonusError) {
+          console.warn('[QuestRedeem] Weekly seed bonus could not be granted:', weeklyBonusError?.message || weeklyBonusError);
+        }
       } else if (questType === 'monthly') {
         await Query.UserMonthlyQuest.update(userQuestId, {
           redeemed: true,
@@ -1052,7 +1069,12 @@ export function useAchievementsFeatureContent({
       const bonusRewardLabel = rewardName
         ? (rewards.find(r => r.name === rewardName)?.display_name || rewardName)
         : null;
-      const seedRewardLabel = `${questSeedReward} Samen`;
+      // Weekly quests get an extra +10 seed bonus on top of the base seed reward.
+      const weeklyBonusSeeds = questType === 'weekly' ? 10 : 0;
+      const totalSeedReward = questSeedReward + weeklyBonusSeeds;
+      const seedRewardLabel = weeklyBonusSeeds > 0
+        ? `${questSeedReward} + ${weeklyBonusSeeds} Samen`
+        : `${questSeedReward} Samen`;
       const rewardLabel = bonusRewardLabel ? `${seedRewardLabel} + ${bonusRewardLabel}` : seedRewardLabel;
 
       navigate(location.pathname + location.search, {
@@ -1062,7 +1084,7 @@ export function useAchievementsFeatureContent({
             type: "questCompleted",
             questTitle,
             rewardName: rewardLabel,
-            seedReward: questSeedReward,
+            seedReward: totalSeedReward,
           },
         },
       });

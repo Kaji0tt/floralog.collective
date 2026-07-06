@@ -1,0 +1,10 @@
+{
+  "name": "floralog-weekly-rewards",
+  "compatibility_date": "2026-05-06",
+  "main": "src/index.js",
+  "preview_urls": false,
+  "triggers": {
+    "crons": ["5 0 * * 1"]
+  },
+  "observability": { "enabled": true, "logs": { "enabled": true } }
+}

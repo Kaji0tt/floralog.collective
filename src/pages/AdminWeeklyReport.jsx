@@ -136,11 +136,13 @@ async function fetchWeeklyStats(weekStartIso) {
   const currentWeeklyQuest = sortedQuests.length > 0 ? sortedQuests[(weekNumber - 1) % sortedQuests.length] : null;
   let questFinds = 0;
   let questPlantLabel = null;
+  let questMatchingDiscs = [];
   if (currentWeeklyQuest?.target_species_name) {
     questPlantLabel = currentWeeklyQuest.target_species_name;
-    questFinds = discoveries.filter(
+    questMatchingDiscs = discoveries.filter(
       (d) => plantMap[d.plant_id]?.species_name === currentWeeklyQuest.target_species_name
-    ).length;
+    );
+    questFinds = questMatchingDiscs.length;
   } else if (currentWeeklyQuest?.target_genus_name) {
     questPlantLabel = currentWeeklyQuest.target_genus_name;
     const { data: genusRow } = await supabase
@@ -149,12 +151,26 @@ async function fetchWeeklyStats(weekStartIso) {
       .eq("genus_name", currentWeeklyQuest.target_genus_name)
       .maybeSingle();
     if (genusRow?.category != null && genusRow?.category_dex_number != null) {
-      questFinds = discoveries.filter((d) => {
+      questMatchingDiscs = discoveries.filter((d) => {
         const p = plantMap[d.plant_id];
         return p?.genus_category === genusRow.category &&
           Number(p?.genus_number) === Number(genusRow.category_dex_number);
-      }).length;
+      });
+      questFinds = questMatchingDiscs.length;
     }
+  }
+
+  // Players who found the quest plant
+  const questDiscovererAuthIds = [...new Set(questMatchingDiscs.map((d) => d.auth_id).filter(Boolean))];
+  let questDiscoverers = [];
+  if (questDiscovererAuthIds.length > 0) {
+    const { data: qProfiles } = await supabase
+      .from("PublicProfile")
+      .select("auth_id, display_name, full_name")
+      .in("auth_id", questDiscovererAuthIds);
+    questDiscoverers = (qProfiles ?? []).map(
+      (p) => p.display_name || p.full_name || "—"
+    );
   }
 
   // Most liked scan this week
@@ -220,6 +236,7 @@ async function fetchWeeklyStats(weekStartIso) {
     topPlantCount,
     questPlantLabel,
     questFinds,
+    questDiscoverers,
     leaderboard: leaderboardWithProfiles,
     logoAssetCatalog,
     topScan,
@@ -269,7 +286,7 @@ function SlideHeader({ label }) {
 function SlideFooter({ weekRange }) {
   return (
     <div className="flex flex-col items-center gap-1 z-10">
-      <span className="text-[10px] text-stone-400">{weekRange} · floralog.app</span>
+      <span className="text-[10px] text-stone-400">{weekRange} · floralog.de</span>
     </div>
   );
 }
@@ -431,14 +448,22 @@ function Slide3({ stats, weekRange }) {
           )}
 
           {stats.questPlantLabel && (
-            <div className="flex justify-between items-center rounded-xl px-4 py-2.5 bg-violet-50 border border-violet-200">
-              <div className="flex flex-col min-w-0 pr-2">
-                <span className="text-sm font-semibold text-violet-700">Pflanze der Woche</span>
-                <span className="text-[11px] text-stone-500 italic truncate">{stats.questPlantLabel}</span>
+            <div className="flex flex-col rounded-xl px-4 py-2.5 bg-violet-50 border border-violet-200 gap-1.5">
+              <div className="flex justify-between items-center">
+                <div className="flex flex-col min-w-0 pr-2">
+                  <span className="text-sm font-semibold text-violet-700">Pflanze der Woche</span>
+                  <span className="text-[11px] text-stone-500 italic truncate">{stats.questPlantLabel}</span>
+                </div>
+                <span className="text-xl font-black text-violet-700 tabular-nums shrink-0">
+                  {stats.questFinds}×
+                </span>
               </div>
-              <span className="text-xl font-black text-violet-700 tabular-nums shrink-0">
-                {stats.questFinds}×
-              </span>
+              {stats.questDiscoverers?.length > 0 && (
+                <p className="text-[10px] text-violet-600/80 leading-snug">
+                  {stats.questDiscoverers.slice(0, 5).join(" · ")}
+                  {stats.questDiscoverers.length > 5 && ` +${stats.questDiscoverers.length - 5}`}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -493,7 +518,7 @@ function Slide4({ stats, weekRange }) {
         {topScan ? (
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-0.5">
-              <span className="text-[10px] text-stone-400 uppercase tracking-widest font-medium">Entdeckte Art</span>
+              <span className="text-xs text-pink-600 font-bold uppercase tracking-wide">♥ Meiste Likes diese Woche</span>
               <span className="text-lg font-black text-stone-800 leading-tight italic">{speciesName}</span>
             </div>
 
