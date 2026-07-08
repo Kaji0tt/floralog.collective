@@ -351,6 +351,13 @@ export function useFriendsFeatureContent({
     queryFn: () => Query.Plant.list()
   });
 
+  // Lade alle Genera (für genus_id-Auflösung in Social Feed Deeplinks)
+  const { data: allGenera = [] } = useQuery({
+    queryKey: ['genera'],
+    queryFn: () => Query.PlantGenus.list(),
+    staleTime: 10 * 60 * 1000,
+  });
+
   const NEWS_TYPES = ['gift_received', 'collection_followed', 'friendship_accepted', 'friend_request_received', 'friend_achievement', 'scan_liked', 'admin_broadcast'];
 
   const { data: userNews = [] } = useQuery({
@@ -754,8 +761,16 @@ Viel Spaß beim Entdecken! 🌿`;
         });
 
         const likerName = user.display_name || user.full_name || user.email;
+        // genus_id über genus_category + genus_number auflösen, da Plant-Tabelle kein genus_id hat
+        let likeGenusId = entry.plant?.genus_id;
+        if (!likeGenusId && entry.plant?.genus_category && entry.plant?.genus_number != null) {
+          const matchedGenus = allGenera.find(
+            (g) => g.category === entry.plant.genus_category && g.category_dex_number === entry.plant.genus_number
+          );
+          likeGenusId = matchedGenus?.id || null;
+        }
         const actionParams = new URLSearchParams();
-        if (entry.plant?.genus_id) actionParams.set("id", entry.plant.genus_id);
+        if (likeGenusId) actionParams.set("id", likeGenusId);
         if (entry.actorEmail) actionParams.set("email", entry.actorEmail);
         actionParams.set("discoveryId", entry.id);
 
@@ -768,7 +783,7 @@ Viel Spaß beim Entdecken! 🌿`;
               likerName,
               plantNameOptional: entry.plant?.species_name || "",
             }),
-            actionUrl: entry.plant?.genus_id
+            actionUrl: likeGenusId
               ? `GenusDetail?${actionParams.toString()}`
               : "Friends?tab=explorer",
             displayLocation: "banner",
@@ -802,14 +817,26 @@ Viel Spaß beim Entdecken! 🌿`;
   };
 
   const openExplorerDiscoveryInFriendCollection = useCallback((entry) => {
-    if (!entry?.plant?.genus_id) return;
+    const plant = entry?.plant;
+    if (!plant) return;
+
+    // Plant-Tabelle hat keine genus_id-Spalte – über genus_category + genus_number auflösen
+    let genusId = plant.genus_id;
+    if (!genusId && plant.genus_category && plant.genus_number != null) {
+      const matchedGenus = allGenera.find(
+        (g) => g.category === plant.genus_category && g.category_dex_number === plant.genus_number
+      );
+      genusId = matchedGenus?.id || null;
+    }
+    if (!genusId) return;
+
     const params = new URLSearchParams();
-    params.set("id", entry.plant.genus_id);
+    params.set("id", genusId);
     if (entry.actorEmail) params.set("email", entry.actorEmail);
     params.set("collectionId", "global");
     params.set("discoveryId", entry.id);
     navigate(createPageUrl(`GenusDetail?${params.toString()}`));
-  }, [navigate]);
+  }, [navigate, allGenera]);
 
   const parseActivityDate = (primary, fallback) => {
     const value = primary || fallback;
