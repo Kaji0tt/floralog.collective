@@ -56,9 +56,12 @@ const formatDateRange = (weekStartIso) => {
 
 // ─── Data fetching ────────────────────────────────────────────────────────────
 
-async function fetchWeeklyStats(weekStartIso) {
+async function fetchWeeklyStats(weekStartIso, excludeBackfillDate = null) {
   // Compute the exclusive end of the week (Sunday 23:59:59 UTC → next Monday 00:00)
   const weekEndIso = new Date(new Date(weekStartIso).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  const leaderboardParams = { p_limit: 200, p_week_start: weekStartIso };
+  if (excludeBackfillDate) leaderboardParams.p_exclude_quest_backfill_date = excludeBackfillDate;
 
   // Discoveries + new profiles + leaderboard + LogoAsset catalog + WeeklyQuests in parallel
   const [discoveryRes, newProfileRes, leaderboardRes, logoAssetRes, weeklyQuestRes] = await Promise.all([
@@ -72,7 +75,7 @@ async function fetchWeeklyStats(weekStartIso) {
       .select("id")
       .gte("created_date", weekStartIso)
       .lt("created_date", weekEndIso),
-    supabase.rpc("get_weekly_seed_leaderboard", { p_limit: 200, p_week_start: weekStartIso }),
+    supabase.rpc("get_weekly_seed_leaderboard", leaderboardParams),
     supabase.from("LogoAsset").select("*"),
     supabase.from("WeeklyQuest").select("id, title, target_species_name, target_genus_name, quest_number, required_discoveries"),
   ]);
@@ -645,6 +648,9 @@ function PreviewCarousel({ stats, weekRange, onClose }) {
 
 const normalizeRole = (v) => String(v || "").trim().toLowerCase();
 
+// Einmalige Backfill-Ausschüttung vom 2026-07-07 (Quest-Seeds nachträglich vergeben)
+const BACKFILL_DATE = "2026-07-07";
+
 export default function AdminWeeklyReport() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -653,22 +659,33 @@ export default function AdminWeeklyReport() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [preview, setPreview] = useState(false);
+  const [excludeBackfill, setExcludeBackfill] = useState(true); // Backfill-Korrektur standardmäßig aktiv
 
   const weekStartIso = getWeekStartIsoForOffset(weekOffset);
   const weekRange = formatDateRange(weekStartIso);
+
+  // Backfill-Datum liegt in der aktuellen Woche (KW28 2026)
+  const backfillIsInSelectedWeek = (() => {
+    const backfill = new Date(BACKFILL_DATE + "T00:00:00Z");
+    const weekStart = new Date(weekStartIso);
+    const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+    return backfill >= weekStart && backfill < weekEnd;
+  })();
+
+  const activeExcludeDate = (excludeBackfill && backfillIsInSelectedWeek) ? BACKFILL_DATE : null;
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchWeeklyStats(weekStartIso);
+      const data = await fetchWeeklyStats(weekStartIso, activeExcludeDate);
       setStats(data);
     } catch (err) {
       setError(err.message ?? "Unbekannter Fehler");
     } finally {
       setLoading(false);
     }
-  }, [weekStartIso]);
+  }, [weekStartIso, activeExcludeDate]);
 
   // Auth check (runs once)
   useEffect(() => {
@@ -761,12 +778,34 @@ export default function AdminWeeklyReport() {
           </div>
         )}
 
+        {/* Backfill-Korrektur Toggle – nur wenn Backfill in der gewählten Woche liegt */}
+        {backfillIsInSelectedWeek && !loading && (
+          <div className="w-full max-w-sm rounded-2xl bg-amber-950/40 border border-amber-600/30 px-4 py-3 flex items-start gap-3">
+            <div className="flex-1">
+              <p className="text-xs font-semibold text-amber-400 mb-0.5">Einmalige Backfill-Ausschüttung</p>
+              <p className="text-[11px] text-amber-300/70">Quest-Samen vom 07.07.2026 {excludeBackfill ? "sind ausgeklammert" : "sind eingerechnet"}</p>
+            </div>
+            <button
+              onClick={() => setExcludeBackfill((v) => !v)}
+              className={`shrink-0 mt-0.5 w-10 h-5 rounded-full transition-colors relative ${
+                excludeBackfill ? "bg-amber-500" : "bg-stone-700"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                  excludeBackfill ? "translate-x-5" : "translate-x-0.5"
+                }`}
+              />
+            </button>
+          </div>
+        )}
+
         {stats && !loading && (
           <>
             {/* Quick summary grid */}
             <div className="w-full max-w-sm grid grid-cols-2 gap-3">
               {[
-                { label: "Samen verdient", value: stats.seedsEarned, sub: null, accent: true },
+                { label: "Samen verdient", value: stats.seedsEarned, sub: (excludeBackfill && backfillIsInSelectedWeek) ? "Backfill ausgekl." : null, accent: true },
                 { label: "Aktive Spieler", value: stats.uniqueScanners, sub: `+${stats.newPlayers} neu` },
                 { label: "Scans gesamt", value: stats.totalScans, sub: `${stats.rareScans} selten+` },
                 { label: "Likes auf Scans", value: stats.totalLikes },

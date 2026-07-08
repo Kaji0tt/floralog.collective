@@ -3,6 +3,8 @@ import { createPageUrl } from "@/utils";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
 import HomeBottomNavigation from "@/components/navigation/HomeBottomNavigation";
+import HomeShellBorderGlow from "@/components/effects/HomeShellBorderGlow";
+import HomeRarityBorderGlow from "@/components/effects/HomeRarityBorderGlow";
 import { getRgbaFromRgb } from "@/lib/friendColorUtils";
 import { getNavButtonStyle, NAV_COLOR_ORDER } from "@/components/navigation/navButtonStyles";
 import { hexToFilter } from "@/lib/hexToFilter";
@@ -191,6 +193,8 @@ export default function FriendExperienceShell({
             isLightUi ? "border-[#f4e6b7]/85" : "border-[#f0e5a5]/30"
           }`}
         />
+        <HomeShellBorderGlow active={friendUser?.selected_profile_effect === "shell_border_glow"} />
+        <HomeRarityBorderGlow active={friendUser?.selected_profile_effect === "rarity_border_glow"} borderColor={friendUser?.selected_border_color} />
 
         <div className="relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6">
           <header className="shrink-0 flex items-start justify-between gap-3">
