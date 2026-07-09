@@ -606,7 +606,6 @@ export default function HomeCollectionStripes({
   const [isFloatingLogoMounted, setIsFloatingLogoMounted] = useState(false);
   const [isFloatingLogoVisible, setIsFloatingLogoVisible] = useState(false);
   const [badgeLogoScale, setBadgeLogoScale] = useState(1);
-  const [centerBadgeLogoUnit, setCenterBadgeLogoUnit] = useState(false);
   const badgeLogoScaleRef = useRef(1);
 
   useEffect(() => {
@@ -644,14 +643,7 @@ export default function HomeCollectionStripes({
       Math.min(BADGE_LOGO_MAX_SCALE, heightScale, widthScale)
     );
 
-    const scaledEffectiveHeight = effectiveUnitHeight * nextScale;
-    const verticalSparePx = availableHeight - scaledEffectiveHeight;
-    // Only center if there is substantial spare space; a small threshold prevents centering
-    // from pushing the logo (transform-origin: top center) below the viewport boundary.
-    const shouldCenterVertically = nextScale >= BADGE_LOGO_MAX_SCALE - 0.01 && verticalSparePx > 60;
-
     setBadgeLogoScale((prevScale) => (Math.abs(prevScale - nextScale) < 0.01 ? prevScale : nextScale));
-    setCenterBadgeLogoUnit((prevCenter) => (prevCenter === shouldCenterVertically ? prevCenter : shouldCenterVertically));
   }, []);
 
   useEffect(() => {
@@ -811,7 +803,7 @@ export default function HomeCollectionStripes({
       viewport?.removeEventListener("resize", scheduleMeasure);
       viewport?.removeEventListener("scroll", scheduleMeasure);
     };
-  }, [badgeLogoScale, centerBadgeLogoUnit, elevateLogo, updateFloatingLogoRect]);
+  }, [badgeLogoScale, elevateLogo, updateFloatingLogoRect]);
 
   const selectedBadges = Array.isArray(selectedProfileBadges)
     ? selectedProfileBadges.filter(Boolean).slice(0, 3)
@@ -892,7 +884,7 @@ export default function HomeCollectionStripes({
         aria-label="Florabot und Abzeichen"
       >
         <div
-          className={`absolute inset-0 flex justify-center ${centerBadgeLogoUnit ? "items-center" : "items-start"}`}
+          className="absolute inset-0 flex justify-center items-start"
           style={{ pointerEvents: "none" }}
         >
           <div
