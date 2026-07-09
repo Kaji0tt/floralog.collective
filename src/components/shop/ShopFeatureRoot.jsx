@@ -25,6 +25,7 @@ import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { getUserWallet } from "@/api/walletService";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/use-toast";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import CollectionCategoryEntryCard from "@/components/collection/CollectionCategoryEntryCard";
 import {
@@ -1214,6 +1215,7 @@ export default function ShopFeatureRoot({
     return getInitialSubcategoryForRoot(initialRoot, initialCategory);
   });
   const [shopMessage, setShopMessage] = useState(null);
+  const { toast } = useToast();
   const [purchaseConfirmOption, setPurchaseConfirmOption] = useState(null);
   const [purchaseCurrency, setPurchaseCurrency] = useState(null); // "sparks" | "amber" | null
   const [purchaseDialogStep, setPurchaseDialogStep] = useState("select"); // "select" | "confirm"
@@ -1747,18 +1749,22 @@ export default function ShopFeatureRoot({
     onSuccess: async (result) => {
       if (!result?.applied) {
         if (result?.errorCode === "insufficient_sparks") {
-          setShopMessage(`Nicht genug Funken. Benötigt: ${result.sparkPrice}, verfügbar: ${result.sparksBalance}.`);
+          toast({ title: "Nicht genug Funken", description: `Benötigt: ${result.sparkPrice}, verfügbar: ${result.sparksBalance}.`, variant: "destructive" });
         } else if (result?.errorCode === "insufficient_amber") {
-          setShopMessage(`Nicht genug Bernstein. Benötigt: ${result.amberPrice}, verfügbar: ${result.amberBalance}.`);
+          toast({ title: "Nicht genug Bernstein", description: `Benötigt: ${result.amberPrice}, verfügbar: ${result.amberBalance}.`, variant: "destructive" });
         } else if (result?.errorCode === "reward_not_configured") {
-          setShopMessage("Diese Belohnung kann aktuell nicht gekauft werden.");
+          toast({ title: "Kauf nicht möglich", description: "Diese Belohnung kann aktuell nicht gekauft werden.", variant: "destructive" });
+        } else if (result?.errorCode === "price_mismatch") {
+          toast({ title: "Preisfehler", description: "Die Preise stimmen nicht überein. Bitte lade die Seite neu und versuche es erneut.", variant: "destructive" });
+        } else if (result?.errorCode === "asset_legacy") {
+          toast({ title: "Nicht verfügbar", description: "Dieses Item ist nicht mehr im Shop erhältlich.", variant: "destructive" });
         } else {
-          setShopMessage("Kauf konnte nicht abgeschlossen werden.");
+          toast({ title: "Kauf fehlgeschlagen", description: result?.errorCode ? `Fehlercode: ${result.errorCode}` : "Kauf konnte nicht abgeschlossen werden.", variant: "destructive" });
         }
       } else if (result?.alreadyOwned) {
-        setShopMessage("Diese Belohnung ist bereits freigeschaltet.");
+        toast({ title: "Bereits freigeschaltet", description: "Du besitzt diese Belohnung bereits." });
       } else {
-        setShopMessage("Belohnung gekauft. Du kannst sie jetzt ausrüsten.");
+        toast({ title: "Belohnung gekauft", description: "Du kannst sie jetzt unter deinen Accessoires ausrüsten." });
       }
 
       await Promise.all([
@@ -1770,7 +1776,7 @@ export default function ShopFeatureRoot({
     },
     onError: (error) => {
       const message = String(error?.message || "").trim();
-      setShopMessage(message ? `Kauf fehlgeschlagen: ${message}` : "Kauf fehlgeschlagen.");
+      toast({ title: "Kauf fehlgeschlagen", description: message || "Ein unbekannter Fehler ist aufgetreten.", variant: "destructive" });
     },
   });
 
@@ -2011,16 +2017,8 @@ export default function ShopFeatureRoot({
   };
 
   const handleSelectBorderColor = async (hex) => {
-    if (externalActionMode) {
-      setSelectedOptionForAction({
-        kind: "border-color",
-        option: { value: hex || null },
-        actionLabel: "Ausrüsten",
-        actionDisabled: false,
-      });
-      return;
-    }
-
+    // Der BorderColorPicker hat bereits einen eigenen Bestätigungs-Dialog ("Festlegen"),
+    // daher wird hier immer direkt gespeichert – unabhängig von externalActionMode.
     setShopMessage(null);
     await updateCustomizationMutation.mutateAsync({ selected_border_color: hex || null });
   };
@@ -2776,6 +2774,12 @@ export default function ShopFeatureRoot({
                   <span className="flex items-center gap-1"><span className="text-[11px]">🔸</span> Bernstein</span>
                   <span className="font-semibold">{projectedAmberBalance}</span>
                 </div>
+              </div>
+            )}
+
+            {shopMessage && (
+              <div className={`rounded-lg border px-3 py-2 text-xs ${isLightUi ? "border-amber-200 bg-amber-50 text-amber-800" : "border-amber-500/35 bg-amber-900/25 text-amber-200"}`}>
+                {shopMessage}
               </div>
             )}
 

@@ -189,24 +189,44 @@ Deno.serve(async (req) => {
 
   const rewardType = normalizeLower(String(reward?.type || ""));
   if (!reward || !allowedRewardTypes.includes(rewardType)) {
+    console.warn("[purchaseAccessory] reward_not_configured: type check", {
+      rewardId,
+      foundReward: Boolean(reward),
+      rewardType,
+      allowedRewardTypes,
+    });
     return jsonResponse({ applied: false, errorCode: "reward_not_configured" });
   }
 
   // Block purchases of shop-hidden rewards (legacy/retired items)
   if (reward.shop_hidden) {
+    console.warn("[purchaseAccessory] asset_legacy: shop_hidden=true", { rewardId });
     return jsonResponse({ applied: false, errorCode: "asset_legacy" });
   }
 
   const rewardValue = normalizeText(String(reward?.value || ""));
   if (purchaseKind === "accessory") {
     if (normalizeAccessoryValue(rewardValue) !== normalizeAccessoryValue(accessoryId)) {
+      console.warn("[purchaseAccessory] reward_not_configured: value mismatch", {
+        rewardId,
+        dbValue: rewardValue,
+        normalizedDb: normalizeAccessoryValue(rewardValue),
+        clientAccessoryId: accessoryId,
+        normalizedClient: normalizeAccessoryValue(accessoryId),
+      });
       return jsonResponse({ applied: false, errorCode: "reward_not_configured" });
     }
   } else if (rewardValueInput && normalizeLower(rewardValueInput) !== normalizeLower(rewardValue)) {
+    console.warn("[purchaseAccessory] reward_not_configured: rewardValue mismatch", {
+      rewardId, rewardValueInput, rewardValue,
+    });
     return jsonResponse({ applied: false, errorCode: "reward_not_configured" });
   }
 
   if (requestedRewardType && requestedRewardType !== rewardType) {
+    console.warn("[purchaseAccessory] reward_not_configured: requestedRewardType mismatch", {
+      rewardId, requestedRewardType, rewardType,
+    });
     return jsonResponse({ applied: false, errorCode: "reward_not_configured" });
   }
 
