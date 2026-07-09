@@ -1003,6 +1003,9 @@ export default function Scanner() {
     } catch (error) {
       console.error("Fehler bei scan-basierten Zonen-Freischaltungen:", error);
     }
+    if (scanZoneUnlocks.length > 0) {
+      queryClient.invalidateQueries({ queryKey: ["userRewards"] });
+    }
 
     // Vibration: 1x kurz für erfolgreichen Scan
     if (navigator.vibrate) {
@@ -1134,6 +1137,9 @@ export default function Scanner() {
         });
       } catch (unlockError) {
         console.error("Fehler bei scan-basierten Zonen-Freischaltungen fuer neue Global-Pflanze:", unlockError);
+      }
+      if (scanZoneUnlocks.length > 0) {
+        queryClient.invalidateQueries({ queryKey: ["userRewards"] });
       }
 
       // Vibration: 3x kurz für neuen Floralog-Eintrag

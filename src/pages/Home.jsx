@@ -1235,12 +1235,14 @@ function HomeContent() {
       setShowScanFeedback(true);
       if (hasScanZoneUnlocks) {
         setScanZoneUnlockQueue(navigationUnlocks);
+        queryClient.invalidateQueries({ queryKey: ["userRewards"] });
       }
       if (hasRandomRewards) {
         setRandomRewardQueue(navigationRandomRewards);
       }
     } else if (hasScanZoneUnlocks) {
       setScanZoneUnlockQueue(navigationUnlocks);
+      queryClient.invalidateQueries({ queryKey: ["userRewards"] });
       setShowScanZoneUnlock(true);
       if (hasRandomRewards) {
         setRandomRewardQueue(navigationRandomRewards);
