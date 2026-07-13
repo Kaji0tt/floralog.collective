@@ -12,6 +12,11 @@ const NON_PERSISTED_QUERY_KEYS = new Set([
 	'globalScanTaxonomyHighlights',
 	'news',
 	'friendsNews',
+	// User-specific unlock state: must always be fresh on app start
+	// to avoid showing items as "locked" that have already been unlocked.
+	'userRewards',
+	'homeUserRewards',
+	'userAchievements',
 ]);
 
 const shouldPersistQuery = (query) => {

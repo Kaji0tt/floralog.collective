@@ -141,22 +141,17 @@ Deno.serve(async (req) => {
       console.error("[capturePayPalPayment] Failed to update auth user metadata", authUpdateError);
     }
 
-    if (user.email) {
-      const { error: profileError } = await adminClient
-        .from("PublicProfile")
-        .upsert(
-          {
-            user_email: user.email,
-            donor_status: true,
-            updated_date: new Date().toISOString(),
-          },
-          { onConflict: "user_email" },
-        );
+    const { error: profileError } = await adminClient
+      .from("PublicProfile")
+      .update({
+        donor_status: true,
+        updated_date: new Date().toISOString(),
+      })
+      .eq("auth_id", user.id);
 
-      if (profileError) {
-        // Keep payment successful even if profile sync is not available in this environment.
-        console.error("[capturePayPalPayment] Failed to update PublicProfile", profileError);
-      }
+    if (profileError) {
+      // Keep payment successful even if profile sync is not available in this environment.
+      console.error("[capturePayPalPayment] Failed to update PublicProfile", profileError);
     }
 
     return jsonResponse(

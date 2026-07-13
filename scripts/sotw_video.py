@@ -136,6 +136,18 @@ def fetch_display_names(auth_ids: list[str]) -> dict[str, str]:
     return {str(r["auth_id"]): r.get("display_name") or "" for r in rows}
 
 
+def fetch_plant_names(plant_ids: list[str]) -> dict[str, str]:
+    """Gibt {plant_id → species_name} zurück."""
+    if not plant_ids:
+        return {}
+    id_list = ",".join(plant_ids)
+    rows = supabase_get("Plant", {
+        "select": "id,species_name",
+        "id": f"in.({id_list})",
+    })
+    return {str(r["id"]): r.get("species_name") or "" for r in rows}
+
+
 # ── Supabase-Abfrage mit korrekten PostgREST-Parametern ──────────────────────
 
 def fetch_scans_v2(week_start: str, week_end: str) -> list[dict]:
@@ -150,7 +162,7 @@ def fetch_scans_v2(week_start: str, week_end: str) -> list[dict]:
         "Range": "0-999",
     }
     params = [
-        ("select", "id,image_url,auth_id"),
+        ("select", "id,image_url,auth_id,plant_id"),
         ("discovered_date", f"gte.{week_start}"),
         ("discovered_date", f"lt.{week_end}"),
         ("image_url", "not.is.null"),
@@ -166,19 +178,21 @@ def fetch_scans_v2(week_start: str, week_end: str) -> list[dict]:
 # ── Bilder herunterladen ───────────────────────────────────────────────────────
 
 def download_images(scans: list[dict], display_names: dict[str, str],
-                    dest_dir: Path) -> tuple[list[Path], dict[str, str]]:
+                    plant_names: dict[str, str],
+                    dest_dir: Path) -> tuple[list[Path], dict[str, tuple]]:
     dest_dir.mkdir(parents=True, exist_ok=True)
     paths = []
-    path_to_name = {}
+    path_to_name = {}   # path → (player_name, plant_name)
     total = len(scans)
     for i, scan in enumerate(scans, 1):
         url = scan["image_url"]
-        name = display_names.get(str(scan.get("auth_id", "")), "")
+        player = display_names.get(str(scan.get("auth_id", "")), "")
+        plant  = plant_names.get(str(scan.get("plant_id", "")), "")
         filename = url.split("/")[-1].split("?")[0]
         if not filename.lower().endswith(".jpg"):
             filename += ".jpg"
         dest = dest_dir / filename
-        path_to_name[str(dest)] = name
+        path_to_name[str(dest)] = (player, plant)
         if dest.exists():
             paths.append(dest)
             print(f"[DL]  ({i}/{total}) Übersprungen: {filename}")
@@ -270,25 +284,39 @@ def render_video(image_paths, path_to_name, output_path, width, height, fps,
             print(f"       {i+1}/{n} gecacht")
 
     last_slot_pos = len(schedule) - 1
-    winner_name = path_to_name.get(str(image_paths[schedule[-1][0] % n]), "")
-    print(f"[VID] Gewinner-Scan: {winner_name or '(unbekannt)'}")
+    winner_info = path_to_name.get(str(image_paths[schedule[-1][0] % n]), ("", ""))
+    winner_player, winner_plant = winner_info
+    print(f"[VID] Gewinner: {winner_player or '(unbekannt)'}  –  {winner_plant or '(Pflanze unbekannt)'}")
 
-    def add_name_overlay(frame_bgr, name):
-        if not name:
+    def add_name_overlay(frame_bgr, player, plant):
+        if not player and not plant:
             return frame_bgr
         overlay = frame_bgr.copy()
         h, w = overlay.shape[:2]
-        band_h = max(60, h // 12)
+        # Zwei Zeilen → etwas höheres Band
+        band_h = max(80, h // 9)
         cv2.rectangle(overlay, (0, h - band_h), (w, h), (0, 0, 0), -1)
         result = cv2.addWeighted(overlay, 0.75, frame_bgr, 0.25, 0)
         font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = band_h / 55
-        thickness = max(1, int(font_scale * 2))
-        text_size, _ = cv2.getTextSize(name, font, font_scale, thickness)
-        tx = (w - text_size[0]) // 2
-        ty = h - (band_h - text_size[1]) // 2
-        cv2.putText(result, name, (tx, ty), font, font_scale,
-                    (255, 255, 255), thickness, cv2.LINE_AA)
+        # Zeile 1: Pflanzenname (größer, oben im Band)
+        scale1 = band_h / 55
+        thick1 = max(1, int(scale1 * 2))
+        if plant:
+            ts1, _ = cv2.getTextSize(plant, font, scale1, thick1)
+            tx1 = (w - ts1[0]) // 2
+            ty1 = h - band_h + ts1[1] + max(8, band_h // 8)
+            cv2.putText(result, plant, (tx1, ty1), font, scale1,
+                        (200, 255, 180), thick1, cv2.LINE_AA)
+        # Zeile 2: Spielername (kleiner, unten im Band)
+        scale2 = band_h / 80
+        thick2 = max(1, int(scale2 * 2))
+        if player:
+            label = f"von {player}"
+            ts2, _ = cv2.getTextSize(label, font, scale2, thick2)
+            tx2 = (w - ts2[0]) // 2
+            ty2 = h - max(10, band_h // 8)
+            cv2.putText(result, label, (tx2, ty2), font, scale2,
+                        (200, 200, 200), thick2, cv2.LINE_AA)
         return result
 
     print("[VID] Rendere...")
@@ -297,7 +325,7 @@ def render_video(image_paths, path_to_name, output_path, width, height, fps,
         frame_rgb = cache[img_idx % n]
         frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
         if slot_i == last_slot_pos:
-            frame_bgr = add_name_overlay(frame_bgr, winner_name)
+            frame_bgr = add_name_overlay(frame_bgr, winner_player, winner_plant)
         for _ in range(n_frames):
             writer.write(frame_bgr)
             frame_count += 1
@@ -337,13 +365,15 @@ def main():
         sys.exit(0)
     print(f"[DB]  {len(scans)} Scans gefunden.")
 
-    # 2. Display-Namen holen
-    auth_ids = list({str(s["auth_id"]) for s in scans if s.get("auth_id")})
+    # 2. Display-Namen und Pflanzennamen holen
+    auth_ids  = list({str(s["auth_id"])  for s in scans if s.get("auth_id")})
+    plant_ids = list({str(s["plant_id"]) for s in scans if s.get("plant_id")})
     display_names = fetch_display_names(auth_ids)
-    print(f"[DB]  {len(display_names)} Profile geladen.")
+    plant_names   = fetch_plant_names(plant_ids)
+    print(f"[DB]  {len(display_names)} Profile, {len(plant_names)} Pflanzen geladen.")
 
     # 3. Bilder laden
-    paths, path_to_name = download_images(scans, display_names, out_dir)
+    paths, path_to_name = download_images(scans, display_names, plant_names, out_dir)
     if not paths:
         print("Keine Bilder verfügbar. Abbruch.")
         sys.exit(1)
@@ -351,8 +381,8 @@ def main():
     # Zufällig mischen – letztes Bild = zufälliger "Gewinner"
     combined = list(zip(paths, [path_to_name[str(p)] for p in paths]))
     random.shuffle(combined)
-    paths, names = zip(*combined)
-    path_to_name = {str(p): n for p, n in zip(paths, names)}
+    paths, infos = zip(*combined)
+    path_to_name = {str(p): info for p, info in zip(paths, infos)}
 
     # 4. Video erstellen
     render_video(

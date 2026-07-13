@@ -310,8 +310,8 @@ export function useFriendsFeatureContent({
       lastPage.length < EXPLORER_PAGE_SIZE ? undefined : allPages.length,
     enabled: !!user?.email && isExplorerTab,
     staleTime: 60 * 1000,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
     refetchOnReconnect: false,
   });
 
