@@ -19,6 +19,8 @@ const NON_PERSISTED_QUERY_KEYS = new Set([
 	'userAchievements',
 	// ExplorerLog: never persist so there's no stale-content flash on cold start.
 	'explorerDiscoveriesInfinite',
+	// Friend PublicProfile: always fetch fresh so background/avatar changes are visible immediately.
+	'publicProfile',
 ]);
 
 const shouldPersistQuery = (query) => {

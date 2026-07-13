@@ -45,7 +45,8 @@ export function useFriendData(friendEmail) {
       );
     },
     enabled: !!friendEmail,
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   // ── Friendship record (to gate access to sub-pages) ────────────────────────
