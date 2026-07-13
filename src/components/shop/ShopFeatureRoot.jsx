@@ -1263,7 +1263,7 @@ export default function ShopFeatureRoot({
     queryKey: ["userAchievements", resolvedAuthId],
     queryFn: () => Query.UserAchievement.filter({ auth_id: resolvedAuthId }),
     enabled: !!resolvedAuthId,
-    staleTime: Infinity,
+    staleTime: 60 * 1000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
@@ -1279,7 +1279,7 @@ export default function ShopFeatureRoot({
     queryKey: ["userRewards", resolvedAuthId],
     queryFn: () => Query.UserReward.filter({ auth_id: resolvedAuthId }),
     enabled: !!resolvedAuthId,
-    staleTime: Infinity,
+    staleTime: 60 * 1000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });

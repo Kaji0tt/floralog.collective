@@ -17,6 +17,8 @@ const NON_PERSISTED_QUERY_KEYS = new Set([
 	'userRewards',
 	'homeUserRewards',
 	'userAchievements',
+	// ExplorerLog: never persist so there's no stale-content flash on cold start.
+	'explorerDiscoveriesInfinite',
 ]);
 
 const shouldPersistQuery = (query) => {

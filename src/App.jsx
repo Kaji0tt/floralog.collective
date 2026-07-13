@@ -1,7 +1,10 @@
 import './App.css'
+import { useEffect } from 'react'
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
+import { Capacitor } from '@capacitor/core'
+import { App as CapacitorApp } from '@capacitor/app'
 import VisualEditAgent from '@/lib/VisualEditAgent'
 import NavigationTracker from '@/lib/NavigationTracker'
 import { pagesConfig } from './pages.config'
@@ -97,6 +100,31 @@ const AuthenticatedApp = () => {
 };
 
 
+/**
+ * On native Android/iOS, window-focus events are unreliable for detecting
+ * app-resume. We listen to Capacitor's appStateChange instead and invalidate
+ * the user-specific unlock queries so the Shop and other features always show
+ * fresh state after the app comes back to the foreground.
+ */
+function CapacitorResumeRefresh() {
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    let handle;
+    CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+      if (!isActive) return;
+      queryClientInstance.invalidateQueries({ queryKey: ['userRewards'] });
+      queryClientInstance.invalidateQueries({ queryKey: ['homeUserRewards'] });
+      queryClientInstance.invalidateQueries({ queryKey: ['userAchievements'] });
+      queryClientInstance.invalidateQueries({ queryKey: ['explorerDiscoveriesInfinite'] });
+    }).then((l) => { handle = l; });
+
+    return () => { handle?.remove(); };
+  }, []);
+
+  return null;
+}
+
 function App() {
 
   if (isMaintenanceModeEnabled) {
@@ -108,6 +136,7 @@ function App() {
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
         <Router>
+          <CapacitorResumeRefresh />
           <NavigationTracker />
           <Routes>
             <Route path="/guest-playtest" element={<GuestPlaytestSignup />} />
