@@ -520,13 +520,13 @@ export async function checkAndUnlockAchievements(user) {
 
     const referralCompletions = (Array.isArray(referrals) ? referrals : []).filter((referral) => {
       const referrerEmail = String(referral?.referrer_email || '').trim().toLowerCase();
+      const referrerAuthId = String(referral?.referrer_auth_id || '').trim();
       const createdByEmail = String(referral?.created_by || '').trim().toLowerCase();
-      const authId = String(referral?.auth_id || '').trim();
       const status = String(referral?.status || '').trim().toLowerCase();
       return (
+        (referrerAuthId && referrerAuthId === String(user.id)) ||
         (referrerEmail && referrerEmail === userEmailLower) ||
-        (createdByEmail && createdByEmail === userEmailLower) ||
-        (authId && authId === String(user.id))
+        (createdByEmail && createdByEmail === userEmailLower)
       ) && status === 'completed';
     }).length;
 

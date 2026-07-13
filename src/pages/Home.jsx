@@ -1758,10 +1758,13 @@ function HomeContent() {
     const userEmailLower = String(user.email || "").trim().toLowerCase();
 
     return allReferrals.filter((referral) => {
+      const referrerAuthId = String(referral?.referrer_auth_id || "").trim();
       const referrerEmail = String(referral?.referrer_email || "").trim().toLowerCase();
       const status = String(referral?.status || "").trim().toLowerCase();
       const referredAuthId = String(referral?.auth_id || "").trim();
-      return referrerEmail === userEmailLower && status === "completed" && Boolean(referredAuthId);
+      const isReferrer = (referrerAuthId && referrerAuthId === String(user.id)) ||
+        referrerEmail === userEmailLower;
+      return isReferrer && status === "completed" && Boolean(referredAuthId);
     }).length;
   }, [allReferrals, user?.email]);
 

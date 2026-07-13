@@ -91,6 +91,8 @@ type ProfileRow = {
 
 type ReferralRow = {
   referred_email?: string | null;
+  // auth_id = referred user's auth_id (set by friendService on insert; stable across email changes)
+  auth_id?: string | null;
   status?: string | null;
 };
 
@@ -257,10 +259,15 @@ Deno.serve(async (req) => {
       adminClient.from("Quest").select("id, reward_name"),
       adminClient.from("WeeklyQuest").select("id, reward_name"),
       adminClient.from("MonthlyQuest").select("id, reward_name"),
-      // Case-insensitive match: referrer_email is normalized to lowercase on write,
-      // but auth user.email casing is not guaranteed. ilike keeps this robust and
-      // is consistent with friendService's referral lookups.
-      adminClient.from("Referral").select("referred_email, status").ilike("referrer_email", userEmail),
+      // Primary lookup: referrer_auth_id (stable across email changes).
+      // Fallback: referrer_email case-insensitive match for rows that predate
+      // referrer_auth_id storage (migration 054 backfills these).
+      // Also select auth_id (= referred user's auth_id) to avoid the downstream
+      // email → PublicProfile → auth_id resolution whenever possible.
+      adminClient
+        .from("Referral")
+        .select("referred_email, auth_id, status")
+        .or(`referrer_auth_id.eq.${authId},referrer_email.eq.${normalizeEmail(userEmail)}`),
     ] as const);
 
     const rewards = (rewardsRes.data || []) as RewardRow[];
@@ -277,14 +284,26 @@ Deno.serve(async (req) => {
     const monthlyQuests = (monthlyQuestsRes.data || []) as MonthlyQuestRow[];
     const referrals = (referralsRes.data || []) as ReferralRow[];
 
-    const completedReferralEmails = Array.from(
+    const completedReferrals = referrals.filter((referral) => {
+      const status = String(referral?.status || "").trim().toLowerCase();
+      return status === "completed" || status === "accepted";
+    });
+
+    // Preferred path: use the referred user's auth_id stored directly on the Referral row.
+    // This is stable even when the referred user changes their email.
+    const completedReferredAuthIdSet = new Set<string>(
+      completedReferrals
+        .map((r) => String(r?.auth_id || "").trim())
+        .filter(Boolean),
+    );
+
+    // Legacy fallback: rows that predate auth_id storage (very old Referral rows).
+    // Only use email-based resolution when auth_id is absent on the row.
+    const completedReferralEmailsLegacy = Array.from(
       new Set(
-        referrals
-          .filter((referral) => {
-            const status = String(referral?.status || "").trim().toLowerCase();
-            return status === "completed" || status === "accepted";
-          })
-          .map((referral) => normalizeEmail(referral?.referred_email))
+        completedReferrals
+          .filter((r) => !r.auth_id)
+          .map((r) => normalizeEmail(r.referred_email))
           .filter(Boolean),
       ),
     );
@@ -298,56 +317,46 @@ Deno.serve(async (req) => {
     );
 
     const qualifiedReferralCountBySeedThreshold = new Map<number, number>();
-    if (requiredReferralSeedThresholds.length > 0 && completedReferralEmails.length > 0) {
-      const { data: referredProfilesData, error: referredProfilesError } = await adminClient
-        .from("PublicProfile")
-        .select("auth_id, user_email")
-        .in("user_email", completedReferralEmails);
+    const totalReferredCount = completedReferredAuthIdSet.size + completedReferralEmailsLegacy.length;
+    if (requiredReferralSeedThresholds.length > 0 && totalReferredCount > 0) {
+      // Collect all referred auth_ids: direct + resolved from legacy emails
+      const allReferredAuthIds = Array.from(completedReferredAuthIdSet);
 
-      if (referredProfilesError) {
-        console.error("[grantRewards] Failed loading referred profiles:", referredProfilesError);
-      } else {
-        const referredProfiles = (referredProfilesData || []) as ProfileRow[];
-        const profileByEmail = new Map<string, ProfileRow>();
-        for (const profileRow of referredProfiles) {
-          const email = normalizeEmail(profileRow?.user_email);
-          if (!email || !profileRow?.auth_id) continue;
-          profileByEmail.set(email, profileRow);
+      if (completedReferralEmailsLegacy.length > 0) {
+        const { data: legacyProfilesData, error: legacyProfilesError } = await adminClient
+          .from("PublicProfile")
+          .select("auth_id, user_email")
+          .in("user_email", completedReferralEmailsLegacy);
+
+        if (legacyProfilesError) {
+          console.error("[grantRewards] Failed loading legacy referred profiles:", legacyProfilesError);
+        } else {
+          for (const p of (legacyProfilesData || []) as ProfileRow[]) {
+            if (p.auth_id && !completedReferredAuthIdSet.has(p.auth_id)) {
+              allReferredAuthIds.push(p.auth_id);
+            }
+          }
         }
+      }
 
-        const referredAuthIds = Array.from(
-          new Set(
-            completedReferralEmails
-              .map((email) => profileByEmail.get(email)?.auth_id)
-              .filter((id): id is string => Boolean(id)),
-          ),
-        );
+      if (allReferredAuthIds.length > 0) {
+        const { data: referredWalletsData, error: referredWalletsError } = await adminClient
+          .from("UserWallet")
+          .select("auth_id, seeds_progress")
+          .in("auth_id", allReferredAuthIds);
 
-        if (referredAuthIds.length > 0) {
-          const { data: referredWalletsData, error: referredWalletsError } = await adminClient
-            .from("UserWallet")
-            .select("auth_id, seeds_progress")
-            .in("auth_id", referredAuthIds);
-
-          if (referredWalletsError) {
-            console.error("[grantRewards] Failed loading referred wallets:", referredWalletsError);
-          } else {
-            const referredWallets = (referredWalletsData || []) as WalletRow[];
-            const walletSeedsByAuthId = new Map<string, number>();
-            for (const wallet of referredWallets) {
-              walletSeedsByAuthId.set(wallet.auth_id, Math.max(0, Number(wallet?.seeds_progress || 0)));
-            }
-
-            const referredSeedValues = completedReferralEmails.map((email) => {
-              const authIdForEmail = profileByEmail.get(email)?.auth_id;
-              if (!authIdForEmail) return 0;
-              return walletSeedsByAuthId.get(authIdForEmail) || 0;
-            });
-
-            for (const threshold of requiredReferralSeedThresholds) {
-              const qualifiedCount = referredSeedValues.filter((seeds) => seeds >= threshold).length;
-              qualifiedReferralCountBySeedThreshold.set(threshold, qualifiedCount);
-            }
+        if (referredWalletsError) {
+          console.error("[grantRewards] Failed loading referred wallets:", referredWalletsError);
+        } else {
+          const walletSeedsByAuthId = new Map<string, number>();
+          for (const wallet of (referredWalletsData || []) as WalletRow[]) {
+            walletSeedsByAuthId.set(wallet.auth_id, Math.max(0, Number(wallet?.seeds_progress || 0)));
+          }
+          for (const threshold of requiredReferralSeedThresholds) {
+            const qualifiedCount = allReferredAuthIds.filter(
+              (id) => (walletSeedsByAuthId.get(id) || 0) >= threshold,
+            ).length;
+            qualifiedReferralCountBySeedThreshold.set(threshold, qualifiedCount);
           }
         }
       }
@@ -423,7 +432,7 @@ Deno.serve(async (req) => {
     }).length;
     const giftsReceived = sharedScans.length;
     const isDonor = !!profile.donor_status;
-    const referralCount = completedReferralEmails.length;
+    const referralCount = completedReferredAuthIdSet.size + completedReferralEmailsLegacy.length;
 
     const rarePlantCount = userDiscoveries.filter((d) => {
       const plant = plants.find((p) => p.id === d.plant_id);

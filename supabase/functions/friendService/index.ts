@@ -288,11 +288,17 @@ Deno.serve(async (req) => {
 
       const now = new Date().toISOString();
 
+      // Idempotency check: prefer referrer_auth_id lookup (stable across email changes).
+      // Fall back to email ilike when referrerAuthId is not resolved.
+      const referrerFilter = referrerAuthId
+        ? `referrer_auth_id.eq.${referrerAuthId},referrer_email.ilike.${referrerEmail}`
+        : `referrer_email.ilike.${referrerEmail}`;
+
       const { data: existingReferral, error: existingReferralError } = await adminClient
         .from("Referral")
         .select("id, status")
-        .ilike("referrer_email", referrerEmail)
         .ilike("referred_email", actorEmail)
+        .or(referrerFilter)
         .limit(1)
         .maybeSingle();
 
@@ -317,6 +323,7 @@ Deno.serve(async (req) => {
             updated_date: now,
             created_by: existingReferral.status ? undefined : referrerEmail,
             auth_id: authData.user.id,
+            ...(referrerAuthId ? { referrer_auth_id: referrerAuthId } : {}),
           })
           .eq("id", existingReferral.id);
 
@@ -344,6 +351,7 @@ Deno.serve(async (req) => {
             updated_date: now,
             created_by: referrerEmail,
             auth_id: authData.user.id,
+            ...(referrerAuthId ? { referrer_auth_id: referrerAuthId } : {}),
           });
 
         if (referralInsertError) {

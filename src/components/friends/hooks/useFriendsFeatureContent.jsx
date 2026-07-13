@@ -1068,10 +1068,15 @@ Viel Spaß beim Entdecken! 🌿`;
   // E-Mails der Spieler, die der aktuelle User selbst eingeladen (geworben) hat
   const invitedEmailSet = useMemo(() => {
     const ownEmail = user?.email?.toLowerCase() || "";
-    if (!ownEmail) return new Set();
+    const ownAuthId = String(user?.id || "");
+    if (!ownEmail && !ownAuthId) return new Set();
     return new Set(
       (myReferrals || [])
-        .filter((referral) => String(referral?.referrer_email || "").trim().toLowerCase() === ownEmail)
+        .filter((referral) => {
+          const refAuthId = String(referral?.referrer_auth_id || "").trim();
+          const refEmail = String(referral?.referrer_email || "").trim().toLowerCase();
+          return (refAuthId && refAuthId === ownAuthId) || (ownEmail && refEmail === ownEmail);
+        })
         .map((referral) => String(referral?.referred_email || "").trim().toLowerCase())
         .filter(Boolean)
     );
