@@ -390,16 +390,31 @@ export const getUnlockedPresetBackgrounds = ({ rewards = [], userRewards = [] } 
       if (reward?.shop_hidden && !unlockedRewardIds.has(reward?.id)) return false;
       return true;
     })
-    .map((reward) => ({
-      id: `reward-background:${reward.id}`,
-      type: "preset",
-      value: reward.value,
-      label: reward.display_name || reward.value,
-      previewColor: reward.color || null,
-      source: "reward",
-      isLocked: !unlockedRewardIds.has(reward?.id),
-      unlockCondition: !unlockedRewardIds.has(reward?.id) ? getBackgroundUnlockCondition(reward) : null,
-    }))
+    .map((reward) => {
+      const isLocked = !unlockedRewardIds.has(reward?.id);
+      const configuredSparkPrice = Number(reward?.spark_price || 0);
+      const sparkPrice = Number.isFinite(configuredSparkPrice) && configuredSparkPrice > 0
+        ? Math.round(configuredSparkPrice)
+        : 0;
+      const configuredAmberPrice = Number(reward?.amber_price || 0);
+      const amberPrice = Number.isFinite(configuredAmberPrice) && configuredAmberPrice > 0
+        ? Math.round(configuredAmberPrice)
+        : 0;
+      const isPurchasable = isLocked && (sparkPrice > 0 || amberPrice > 0);
+      return {
+        id: `reward-background:${reward.id}`,
+        type: "preset",
+        value: reward.value,
+        label: reward.display_name || reward.value,
+        previewColor: reward.color || null,
+        source: "reward",
+        isLocked,
+        isPurchasable,
+        sparkPrice: isPurchasable ? sparkPrice : 0,
+        amberPrice: isPurchasable ? amberPrice : 0,
+        unlockCondition: isLocked ? getBackgroundUnlockCondition(reward) : null,
+      };
+    })
     .sort((left, right) => String(left.label || "").localeCompare(String(right.label || ""), "de"));
 };
 
