@@ -21,12 +21,13 @@ type PurchaseBody = {
   eventReference?: string;
 };
 
-type PurchaseKind = "accessory" | "profile_effect" | "logo_effect";
+type PurchaseKind = "accessory" | "profile_effect" | "logo_effect" | "background";
 
 const PURCHASE_KIND_ALLOWED_REWARD_TYPES: Record<PurchaseKind, string[]> = {
   accessory: ["logo_accessory", "accessory"],
   profile_effect: ["profile_effect"],
   logo_effect: ["logo_effect"],
+  background: ["background"],
 };
 
 function normalizeText(value: string | null | undefined): string {
@@ -77,6 +78,7 @@ function resolvePurchaseKind(value: string | null | undefined): PurchaseKind {
   const normalized = normalizeLower(value);
   if (normalized === "profile_effect") return "profile_effect";
   if (normalized === "logo_effect") return "logo_effect";
+  if (normalized === "background") return "background";
   return "accessory";
 }
 

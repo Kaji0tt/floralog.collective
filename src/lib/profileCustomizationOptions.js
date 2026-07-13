@@ -403,6 +403,8 @@ export const getUnlockedPresetBackgrounds = ({ rewards = [], userRewards = [] } 
       const isPurchasable = isLocked && (sparkPrice > 0 || amberPrice > 0);
       return {
         id: `reward-background:${reward.id}`,
+        rewardId: reward.id,
+        purchaseKind: "background",
         type: "preset",
         value: reward.value,
         label: reward.display_name || reward.value,

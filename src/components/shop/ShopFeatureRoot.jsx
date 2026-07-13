@@ -320,13 +320,16 @@ const getBackgroundButtonStyle = ({ isActive, isLightUi }) => {
 const BackgroundOptionCard = ({ option, user, isLightUi, isPending, isSelected = false, onSelect }) => {
   const isActive = getBackgroundSelectionState(user, option);
   const isLocked = Boolean(option?.isLocked);
+  const sparkPrice = Math.max(0, Number(option?.sparkPrice || 0));
+  const amberPrice = Math.max(0, Number(option?.amberPrice || 0));
+  const isPurchasable = isLocked && Boolean(option?.isPurchasable) && (sparkPrice > 0 || amberPrice > 0);
 
   const buttonContent = (
     <button
       type="button"
-      disabled={isPending || isLocked}
+      disabled={isPending || (isLocked && !isPurchasable)}
       onClick={() => onSelect(option)}
-      className={`relative overflow-hidden rounded-2xl border text-left transition-all duration-200 disabled:opacity-60 ${isLocked ? "cursor-help" : ""} ${getBackgroundButtonStyle({ isActive, isLightUi })} ${
+      className={`relative overflow-hidden rounded-2xl border text-left transition-all duration-200 disabled:opacity-60 ${isLocked && !isPurchasable ? "cursor-help" : ""} ${getBackgroundButtonStyle({ isActive, isLightUi })} ${
         isSelected
           ? (isLightUi ? "ring-2 ring-[#c8ac62]/70" : "ring-2 ring-[#f0e5a5]/70")
           : ""
@@ -350,14 +353,18 @@ const BackgroundOptionCard = ({ option, user, isLightUi, isPending, isSelected =
           <div className="flex items-center justify-between gap-2">
             <span className="truncate text-xs font-semibold">{option.label}</span>
             {isLocked ? (
-              <Lock className={`h-3.5 w-3.5 shrink-0 ${isLightUi ? "text-stone-600" : "text-stone-200/90"}`} />
+              isPurchasable ? (
+                <Sparkles className={`h-3.5 w-3.5 shrink-0 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
+              ) : (
+                <Lock className={`h-3.5 w-3.5 shrink-0 ${isLightUi ? "text-stone-600" : "text-stone-200/90"}`} />
+              )
             ) : (
               isActive && <BadgeCheck className={`h-3.5 w-3.5 shrink-0 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
             )}
           </div>
-          {(option.unlockLabel || option.unlockCondition || isLocked) && (
+          {isLocked && (
             <div className={`mt-1 text-[10px] ${isLightUi ? "text-stone-500" : "text-stone-300/80"}`}>
-              {isLocked ? (option.unlockCondition || "Noch gesperrt") : option.unlockLabel}
+              {isPurchasable ? formatAccessoryPriceLabel(sparkPrice, amberPrice) : (option.unlockCondition || "Noch gesperrt")}
             </div>
           )}
         </div>
@@ -365,9 +372,13 @@ const BackgroundOptionCard = ({ option, user, isLightUi, isPending, isSelected =
     </button>
   );
 
+  const tooltipContent = isLocked
+    ? (isPurchasable ? formatAccessoryPriceLabel(sparkPrice, amberPrice) : (option.unlockCondition || "Noch nicht freigeschaltet"))
+    : null;
+
   return (
     <LockedTooltip
-      content={isLocked ? (option.unlockCondition || "Noch nicht freigeschaltet") : null}
+      content={tooltipContent}
       contentClassName={isLightUi ? "" : "text-white/90"}
     >
       {buttonContent}
@@ -1705,6 +1716,7 @@ export default function ShopFeatureRoot({
         if (normalizedOptionRewardId && rewardId === normalizedOptionRewardId) {
           if (purchaseKind === "profile_effect") return rewardType === "profile_effect";
           if (purchaseKind === "logo_effect") return rewardType === "logo_effect";
+          if (purchaseKind === "background") return rewardType === "background";
           return ACCESSORY_PURCHASABLE_REWARD_TYPES.has(rewardType);
         }
 
@@ -1732,7 +1744,7 @@ export default function ShopFeatureRoot({
           authId: resolvedAuthId,
           userEmail: resolvedUserEmail,
           rewardId: matchingReward.id,
-          accessoryId: purchaseKind === "profile_effect" || purchaseKind === "logo_effect" ? null : String(option.value),
+          accessoryId: (purchaseKind === "profile_effect" || purchaseKind === "logo_effect" || purchaseKind === "background") ? null : String(option.value),
           purchaseKind,
           rewardType: String(matchingReward?.type || "").trim().toLowerCase(),
           rewardValue: String(option?.value || matchingReward?.value || ""),
@@ -2327,31 +2339,38 @@ export default function ShopFeatureRoot({
                 Erneut laden
               </button>
             </div>
+          ) : currentCategory.key === "backgrounds" && shopRootCategory === "shop" ? (
+            <div className="space-y-3">
+              {currentCategory.sections.every((section) => section.options.length === 0) ? (
+                <SectionCard title="Kaufbare Hintergründe" icon={ImageIcon} isLightUi={isLightUi}>
+                  <div className={`rounded-2xl border border-dashed px-3 py-4 text-xs ${isLightUi ? "border-[#c8ac62]/30 text-stone-500" : "border-[#f0e5a5]/20 text-stone-300/75"}`}>
+                    Keine kaufbaren Hintergründe verfügbar.
+                  </div>
+                </SectionCard>
+              ) : (
+                currentCategory.sections.map((section) =>
+                  section.options.length === 0 ? null : (
+                    <SectionCard key={section.key} title={section.title} icon={ImageIcon} isLightUi={isLightUi}>
+                      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                        {section.options.map((option) => (
+                          <BackgroundOptionCard
+                            key={option.id}
+                            option={option}
+                            user={resolvedCurrentUser}
+                            isLightUi={isLightUi}
+                            isPending={isMutationPending}
+                            isSelected={selectedOptionForAction?.kind === "background" && selectedOptionForAction?.option?.id === option.id}
+                            onSelect={handleSelectBackground}
+                          />
+                        ))}
+                      </div>
+                    </SectionCard>
+                  )
+                )
+              )}
+            </div>
           ) : currentCategory.key === "backgrounds" ? (
             <div className="space-y-3">
-              <div className={`rounded-[1.5rem] border px-3 py-3 ${isLightUi ? "border-[#c8ac62]/30 bg-white/72" : "border-[#f0e5a5]/20 bg-black/28"}`}>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <div className={`text-sm font-semibold ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Aktiver Hintergrund</div>
-                    <div className={`mt-1 text-xs ${isLightUi ? "text-stone-500" : "text-stone-300/75"}`}>
-                      Presets und Farben werden direkt auf dein Profil angewendet.
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={isMutationPending}
-                    onClick={handleResetBackground}
-                    className={`h-9 rounded-xl border px-3 text-xs font-semibold disabled:opacity-60 ${
-                      isLightUi
-                        ? "border-[#c8ac62]/40 bg-white/75 text-stone-700 hover:bg-white"
-                        : "border-[#f0e5a5]/25 bg-black/35 text-stone-100 hover:bg-black/50"
-                    }`}
-                  >
-                    Standardhintergrund
-                  </button>
-                </div>
-              </div>
-
               {currentCategory.sections.map((section) => {
                 const icon = section.key === "colors" ? PaintBucket : ImageIcon;
                 const isCollapsed = Boolean(collapsedBackgroundSections?.[section.key]);
