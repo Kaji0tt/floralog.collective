@@ -1481,8 +1481,17 @@ export default function ShopFeatureRoot({
       optionCount: unlockedProfileEffects.reduce((sum, section) => sum + (section?.options?.length || 0), 0),
     };
 
+    // Profile view: show only already-unlocked backgrounds (purchasable/locked ones are shop-only)
+    const unlockedBackgroundsCategory = backgroundsCategory
+      ? {
+          ...backgroundsCategory,
+          sections: mapSectionsWithOptionFilter(backgroundsCategory.sections, isOptionUnlocked),
+        }
+      : null;
+
     const resolved = [
-      ...customizationCategories.filter((category) => category.key === "backgrounds" || category.key === "titles"),
+      ...(unlockedBackgroundsCategory ? [unlockedBackgroundsCategory] : []),
+      ...customizationCategories.filter((category) => category.key === "titles"),
       badgeCategory,
       profileEffectsCategory,
     ].map((category) => ({
@@ -1491,7 +1500,7 @@ export default function ShopFeatureRoot({
     }));
 
     return orderByCategoryList(resolved, ROOT_SUBCATEGORY_ORDER.profile);
-  }, [customizationCategories, badgeCategory, profileEffectsSection]);
+  }, [customizationCategories, backgroundsCategory, badgeCategory, profileEffectsSection]);
 
   const shopCategories = useMemo(() => {
     const resolved = [];
@@ -1795,7 +1804,19 @@ export default function ShopFeatureRoot({
   const handleSelectBackground = async (option) => {
     if (externalActionMode) {
       if (option?.isLocked) {
-        setShopMessage(option?.unlockCondition || "Dieser Hintergrund ist noch gesperrt.");
+        const sparkPrice = Math.max(0, Number(option?.sparkPrice || 0));
+        const amberPrice = Math.max(0, Number(option?.amberPrice || 0));
+        const canBeBought = Boolean(option?.isPurchasable) && (sparkPrice > 0 || amberPrice > 0);
+        if (!canBeBought) {
+          setShopMessage(option?.unlockCondition || "Dieser Hintergrund ist noch gesperrt.");
+          return;
+        }
+        setSelectedOptionForAction({
+          kind: "background",
+          option,
+          actionLabel: "Kaufen",
+          actionDisabled: false,
+        });
         return;
       }
       setSelectedOptionForAction({
@@ -1810,7 +1831,13 @@ export default function ShopFeatureRoot({
     setShopMessage(null);
 
     if (option?.isLocked) {
-      setShopMessage(option?.unlockCondition || "Dieser Hintergrund ist noch gesperrt.");
+      if (option?.isPurchasable && (Number(option?.sparkPrice || 0) > 0 || Number(option?.amberPrice || 0) > 0)) {
+        setPurchaseConfirmOption(option);
+        setPurchaseCurrency(null);
+        setPurchaseDialogStep("select");
+      } else {
+        setShopMessage(option?.unlockCondition || "Dieser Hintergrund ist noch gesperrt.");
+      }
       return;
     }
 
@@ -1832,7 +1859,13 @@ export default function ShopFeatureRoot({
     setShopMessage(null);
 
     if (option?.isLocked) {
-      setShopMessage(option?.unlockCondition || "Dieser Hintergrund ist noch gesperrt.");
+      if (option?.isPurchasable && (Number(option?.sparkPrice || 0) > 0 || Number(option?.amberPrice || 0) > 0)) {
+        setPurchaseConfirmOption(option);
+        setPurchaseCurrency(null);
+        setPurchaseDialogStep("select");
+      } else {
+        setShopMessage(option?.unlockCondition || "Dieser Hintergrund ist noch gesperrt.");
+      }
       return;
     }
 
