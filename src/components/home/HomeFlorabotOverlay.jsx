@@ -486,6 +486,15 @@ export default function HomeFlorabotOverlay({
     onCustomize?.(true);
   };
 
+  const handleOpenBernsteinShop = () => {
+    setShowHealthDetails(false);
+    setIsSpeechBubbleVisible(false);
+    setActiveShopCategory("bernstein");
+    setShopBackState({ canGoBack: false, onBack: () => {} });
+    setIsShopOpen(true);
+    onCustomize?.(true);
+  };
+
   const handleCloseOverlay = () => {
     onCustomize?.(false);
     onClose?.();
@@ -518,6 +527,7 @@ export default function HomeFlorabotOverlay({
       >
         <button
           type="button"
+          onClick={handleOpenBernsteinShop}
           aria-label={tooltipCopy.aria.amber}
           className="inline-flex items-center gap-1 rounded-md px-1 py-0.5 -mx-1 -my-0.5 transition-colors hover:bg-white/10"
         >

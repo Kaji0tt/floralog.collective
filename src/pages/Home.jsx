@@ -3717,6 +3717,7 @@ function HomeContent() {
                 onEmbeddedAchievementsBack={embeddedHeaderMeta?.backHandler ?? null}
                 onOpenEmbeddedFriendsAddDialog={() => setEmbeddedFriendsAddDialogNonce((prev) => prev + 1)}
                 onOpenAmberPurchase={() => setShowAmberPurchaseModal(true)}
+                onOpenAmberShop={() => openShop("bernstein")}
                 onOpenBugReport={() => setBugReportDialogOpen(true)}
                 onPrimaryAction={() => {
                   if (activePanel === "collection") {
