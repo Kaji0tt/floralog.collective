@@ -95,7 +95,7 @@ export default function GreenCareBubble({ isActive, position, onBurst, onDismiss
               y: [0, -55, -130, -220, -330],
               x: [0, 9, -7, 11, -5],
             }}
-            exit={{ opacity: 0, scale: 0.5 }}
+            exit={{ opacity: 0, scale: 0.15, transition: { duration: 0.1, ease: "easeIn" } }}
             transition={{
               duration: FLOAT_DURATION,
               ease: "easeInOut",
@@ -188,7 +188,8 @@ export default function GreenCareBubble({ isActive, position, onBurst, onDismiss
                 width: "7rem",
                 height: "7rem",
                 borderRadius: "50%",
-                transform: "translate(-50%, -50%)",
+                left: "-3.5rem",
+                top: "-3.5rem",
                 background: isLightUi
                   ? "radial-gradient(circle, rgba(163,230,53,0.44) 0%, rgba(163,230,53,0.22) 38%, rgba(163,230,53,0) 76%)"
                   : "radial-gradient(circle, rgba(190,242,100,0.56) 0%, rgba(190,242,100,0.28) 40%, rgba(190,242,100,0) 78%)",
@@ -205,8 +206,9 @@ export default function GreenCareBubble({ isActive, position, onBurst, onDismiss
                 width: "5rem",
                 height: "5rem",
                 borderRadius: "50%",
+                left: "-2.5rem",
+                top: "-2.5rem",
                 border: `2px solid ${isLightUi ? "rgba(163,230,53,0.72)" : "rgba(190,242,100,0.66)"}`,
-                transform: "translate(-50%, -50%)",
                 boxShadow: isLightUi
                   ? "0 0 26px rgba(132,204,22,0.75), 0 0 52px rgba(163,230,53,0.45)"
                   : "0 0 32px rgba(190,242,100,0.9), 0 0 60px rgba(190,242,100,0.5)",
@@ -222,8 +224,9 @@ export default function GreenCareBubble({ isActive, position, onBurst, onDismiss
                 width: "3rem",
                 height: "3rem",
                 borderRadius: "50%",
+                left: "-1.5rem",
+                top: "-1.5rem",
                 border: `1px solid ${isLightUi ? "rgba(110,231,183,0.62)" : "rgba(110,231,183,0.56)"}`,
-                transform: "translate(-50%, -50%)",
                 boxShadow: isLightUi
                   ? "0 0 18px rgba(110,231,183,0.52)"
                   : "0 0 20px rgba(110,231,183,0.62)",
@@ -242,13 +245,12 @@ export default function GreenCareBubble({ isActive, position, onBurst, onDismiss
                   key={`burst-dot-${i}`}
                   style={{
                     position: "absolute",
-                    left: 0,
-                    top: 0,
+                    left: "-2.5px",
+                    top: "-2.5px",
                     width: 5,
                     height: 5,
                     borderRadius: "50%",
                     background: isLightUi ? "rgba(132,204,22,0.9)" : "rgba(190,242,100,0.9)",
-                    transform: "translate(-50%, -50%)",
                   }}
                   initial={{ opacity: 0, x: 0, y: 0, scale: 0.5 }}
                   animate={{ opacity: [0, 1, 0], x: [0, tx], y: [0, ty], scale: [0.5, 1, 0.6] }}

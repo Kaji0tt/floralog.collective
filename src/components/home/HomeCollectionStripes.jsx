@@ -966,6 +966,7 @@ export default function HomeCollectionStripes({
               <button
                 type="button"
                 ref={logoButtonRef}
+                data-logo-click-target="true"
                 onClick={() => onLogoClick?.()}
                 className={`relative shrink-0 scale-[1.24] ${elevateLogo ? "z-[260]" : ""}`}
                 aria-label="Florabot Overlay öffnen"

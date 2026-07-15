@@ -3246,6 +3246,55 @@ function HomeContent() {
     return true;
   };
 
+  /** Returns a random viewport position for the care bubble that avoids the floating logo overlay. */
+  const pickCareBubblePosition = () => {
+    if (typeof window === "undefined") return null;
+    const margin = 72;
+    const bSize = 52;
+    const bRadius = bSize / 2;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const clearance = 24; // px clearance around excluded rects
+
+    // Collect rects to avoid (floating logo copy + original logo button)
+    const excludeRects = [];
+    if (typeof document !== "undefined") {
+      const floatingLogo = document.querySelector('[data-floating-logo-overlay="true"]');
+      if (floatingLogo) {
+        const r = floatingLogo.getBoundingClientRect();
+        if (r.width > 0) excludeRects.push(r);
+      }
+      // Also avoid the original logo trigger button in HomeCollectionStripes
+      const originalLogo = document.querySelector('[data-logo-click-target="true"]');
+      if (originalLogo) {
+        const r = originalLogo.getBoundingClientRect();
+        if (r.width > 0) excludeRects.push(r);
+      }
+    }
+
+    const overlaps = (cx, cy) =>
+      excludeRects.some((r) => {
+        const ex = r.left - clearance - bRadius;
+        const ey = r.top - clearance - bRadius;
+        const ew = r.width + (clearance + bRadius) * 2;
+        const eh = r.height + (clearance + bRadius) * 2;
+        return cx > ex && cx < ex + ew && cy > ey && cy < ey + eh;
+      });
+
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const bx = margin + Math.random() * Math.max(0, vw - margin * 2 - bSize);
+      const by = vh * 0.32 + Math.random() * (vh * 0.38);
+      const cx = bx + bRadius;
+      const cy = by + bRadius;
+      if (!overlaps(cx, cy)) return { x: cx, y: cy };
+    }
+
+    // Fallback: no exclusion
+    const bx = margin + Math.random() * Math.max(0, vw - margin * 2 - bSize);
+    const by = vh * 0.32 + Math.random() * (vh * 0.38);
+    return { x: bx + bRadius, y: by + bRadius };
+  };
+
   const handleWaterPlantClick = () => {
     console.log(`${PORTAL_CARE_DEBUG_PREFIX} handleWaterPlantClick`, {
       mutationPending: waterPlantMutation.isPending,
@@ -3516,14 +3565,8 @@ function HomeContent() {
         onSpawnBubble={() => {
           if (wateringCountToday >= wateringLimitPerDay) return;
           if (careBubble) return;
-          if (typeof window === "undefined") return;
-          const margin = 72;
-          const bSize = 52;
-          const vw = window.innerWidth;
-          const vh = window.innerHeight;
-          const bx = margin + Math.random() * Math.max(0, vw - margin * 2 - bSize);
-          const by = vh * 0.32 + Math.random() * (vh * 0.38);
-          setCareBubble({ x: bx + bSize / 2, y: by + bSize / 2, key: Date.now() });
+          const pos = pickCareBubblePosition();
+          if (pos) setCareBubble({ ...pos, key: Date.now() });
         }}
         onCustomize={(isCustomizeOpen) => {
           setIsHomeOverlayShopOpen(Boolean(isCustomizeOpen));
@@ -3877,14 +3920,9 @@ function HomeContent() {
                           setIsHomeOverlayShopOpen(false);
 
                           // Spawn a floating care bubble only if daily care is still available
-                          if (typeof window !== "undefined" && wateringCountToday < wateringLimitPerDay) {
-                            const margin = 72;
-                            const bSize = 52;
-                            const vw = window.innerWidth;
-                            const vh = window.innerHeight;
-                            const bx = margin + Math.random() * Math.max(0, vw - margin * 2 - bSize);
-                            const by = vh * 0.32 + Math.random() * (vh * 0.38);
-                            setCareBubble({ x: bx + bSize / 2, y: by + bSize / 2, key: Date.now() });
+                          if (wateringCountToday < wateringLimitPerDay) {
+                            const pos = pickCareBubblePosition();
+                            if (pos) setCareBubble({ ...pos, key: Date.now() });
                           }
                         }
                       }}
