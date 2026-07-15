@@ -53,6 +53,7 @@ import { getNavButtonStyle } from "@/components/navigation/navButtonStyles";
 import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
 import HomeCollectionStripes, { HomeMilestoneStripe } from "@/components/home/HomeCollectionStripes";
 import HomeMilestoneOverlayToggle from "@/components/home/HomeMilestoneOverlayToggle";
+import GreenCareBubble from "@/components/home/GreenCareBubble";
 import GuestHomeFlow from "@/components/home/GuestHomeFlow";
 import BugReportDialog from "@/components/home/BugReportDialog";
 import HomeOtaGate from "@/components/home/HomeOtaGate";
@@ -256,6 +257,7 @@ function HomeContent() {
   const [showFlorabotIntro, setShowFlorabotIntro] = useState(false);
   const [activeMilestone, setActiveMilestone] = useState(null);
   const [isMilestoneOverlayToggled, setIsMilestoneOverlayToggled] = useState(false);
+  const [careBubble, setCareBubble] = useState(/** @type {{x:number,y:number,key:number}|null} */ (null));
   const [isHomeOverlayShopOpen, setIsHomeOverlayShopOpen] = useState(false);
   const [homeOverlayAmbientMessage, setHomeOverlayAmbientMessage] = useState("");
   const homeOverlayAmbientCooldownUntilRef = useRef(0);
@@ -3521,6 +3523,14 @@ function HomeContent() {
         }}
       />
 
+      <GreenCareBubble
+        key={careBubble?.key ?? 0}
+        isActive={Boolean(careBubble)}
+        position={careBubble ?? { x: 0, y: 0 }}
+        onBurst={handleWaterPlantClick}
+        onDismiss={() => setCareBubble(null)}
+      />
+
       <AnimatePresence>
         {florabotContextBubble && florabotContextBubble.panel !== 'home' && !activeMilestone && !showFlorabotIntro && (
           <FlorabotContextBubble
@@ -3853,6 +3863,17 @@ function HomeContent() {
 
                           setIsMilestoneOverlayToggled(true);
                           setIsHomeOverlayShopOpen(false);
+
+                          // Spawn a floating care bubble at a random viewport position
+                          if (typeof window !== "undefined") {
+                            const margin = 72;
+                            const bSize = 52;
+                            const vw = window.innerWidth;
+                            const vh = window.innerHeight;
+                            const bx = margin + Math.random() * Math.max(0, vw - margin * 2 - bSize);
+                            const by = vh * 0.32 + Math.random() * (vh * 0.38);
+                            setCareBubble({ x: bx + bSize / 2, y: by + bSize / 2, key: Date.now() });
+                          }
                         }
                       }}
                       playerSeeds={playerSeeds}
