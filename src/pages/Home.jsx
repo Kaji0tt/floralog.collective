@@ -3246,18 +3246,6 @@ function HomeContent() {
     return true;
   };
 
-  const handleSpawnBubble = () => {
-    const canSpawn = !isDailyCareStatusLoading && !waterPlantMutation.isPending && wateringCountToday < wateringLimitPerDay;
-    if (!canSpawn || typeof window === "undefined") return;
-    const margin = 72;
-    const bSize = 52;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const bx = margin + Math.random() * Math.max(0, vw - margin * 2 - bSize);
-    const by = vh * 0.32 + Math.random() * (vh * 0.38);
-    setCareBubble({ x: bx + bSize / 2, y: by + bSize / 2, key: Date.now() });
-  };
-
   const handleWaterPlantClick = () => {
     console.log(`${PORTAL_CARE_DEBUG_PREFIX} handleWaterPlantClick`, {
       mutationPending: waterPlantMutation.isPending,
@@ -3525,7 +3513,18 @@ function HomeContent() {
         isDailyCareLoading={isDailyCareStatusLoading}
         isWateringPending={waterPlantMutation.isPending}
         onWaterPlant={handleWaterPlantClick}
-        onSpawnBubble={handleSpawnBubble}
+        onSpawnBubble={() => {
+          if (wateringCountToday >= wateringLimitPerDay) return;
+          if (careBubble) return;
+          if (typeof window === "undefined") return;
+          const margin = 72;
+          const bSize = 52;
+          const vw = window.innerWidth;
+          const vh = window.innerHeight;
+          const bx = margin + Math.random() * Math.max(0, vw - margin * 2 - bSize);
+          const by = vh * 0.32 + Math.random() * (vh * 0.38);
+          setCareBubble({ x: bx + bSize / 2, y: by + bSize / 2, key: Date.now() });
+        }}
         onCustomize={(isCustomizeOpen) => {
           setIsHomeOverlayShopOpen(Boolean(isCustomizeOpen));
         }}
@@ -3876,7 +3875,17 @@ function HomeContent() {
 
                           setIsMilestoneOverlayToggled(true);
                           setIsHomeOverlayShopOpen(false);
-                          handleSpawnBubble();
+
+                          // Spawn a floating care bubble only if daily care is still available
+                          if (typeof window !== "undefined" && wateringCountToday < wateringLimitPerDay) {
+                            const margin = 72;
+                            const bSize = 52;
+                            const vw = window.innerWidth;
+                            const vh = window.innerHeight;
+                            const bx = margin + Math.random() * Math.max(0, vw - margin * 2 - bSize);
+                            const by = vh * 0.32 + Math.random() * (vh * 0.38);
+                            setCareBubble({ x: bx + bSize / 2, y: by + bSize / 2, key: Date.now() });
+                          }
                         }
                       }}
                       playerSeeds={playerSeeds}

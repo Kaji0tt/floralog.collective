@@ -21,7 +21,7 @@ export default function HomeMilestoneOverlayToggle({
   isDailyCareLoading = false,
   isWateringPending = false,
   onWaterPlant = () => {},
-  onSpawnBubble = () => {},
+  onSpawnBubble,
   onCustomize,
   onUserUpdated,
   onClose,

@@ -127,7 +127,7 @@ export default function HomeFlorabotOverlay({
   isDailyCareLoading = false,
   isWateringPending = false,
   onWaterPlant = () => {},
-  onSpawnBubble = () => {},
+  onSpawnBubble,
   onCustomize,
   onUserUpdated,
   onClose,
@@ -424,8 +424,20 @@ export default function HomeFlorabotOverlay({
       return;
     }
 
+    // Logo-hit: spawn a soap bubble instead of directly triggering care
+    if (source.startsWith("logo-hit")) {
+      if (canPerformCareAction) {
+        console.log(`${PORTAL_CARE_DEBUG_PREFIX} logo-hit → spawn bubble`);
+        onSpawnBubble?.();
+      } else {
+        console.log(`${PORTAL_CARE_DEBUG_PREFIX} logo-hit ignored (care not available)`);
+      }
+      return;
+    }
+
+    // Speech bubble tap: play visual animation only, no care action
     if (!canPerformCareAction) {
-      console.log(`${PORTAL_CARE_DEBUG_PREFIX} tap ignored (care not available)`, {
+      console.log(`${PORTAL_CARE_DEBUG_PREFIX} bubble tap ignored (care not available)`, {
         isDailyCareLoading,
         isWateringPending,
         wateringCountToday: safeWateringCountToday,
@@ -434,15 +446,8 @@ export default function HomeFlorabotOverlay({
       return;
     }
 
-    const animationTarget = source.startsWith("logo-hit") ? "logo" : "bubble";
-    const animationName = triggerPlayfulCareAnimation(animationTarget);
-    console.log(`${PORTAL_CARE_DEBUG_PREFIX} animation started`, {
-      animationName,
-      animationTarget,
-    });
-
-    console.log(`${PORTAL_CARE_DEBUG_PREFIX} invoking onSpawnBubble`);
-    onSpawnBubble?.();
+    const animationName = triggerPlayfulCareAnimation("bubble");
+    console.log(`${PORTAL_CARE_DEBUG_PREFIX} bubble animation started`, { animationName });
   };
 
   const handleStatusToggle = () => {
