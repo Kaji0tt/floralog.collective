@@ -127,6 +127,7 @@ export default function HomeFlorabotOverlay({
   isDailyCareLoading = false,
   isWateringPending = false,
   onWaterPlant = () => {},
+  onSpawnBubble = () => {},
   onCustomize,
   onUserUpdated,
   onClose,
@@ -440,13 +441,8 @@ export default function HomeFlorabotOverlay({
       animationTarget,
     });
 
-    if (!isWateringPending) {
-      console.log(`${PORTAL_CARE_DEBUG_PREFIX} invoking onWaterPlant`);
-      onWaterPlant?.();
-      return;
-    }
-
-    console.log(`${PORTAL_CARE_DEBUG_PREFIX} skip onWaterPlant (pending)`);
+    console.log(`${PORTAL_CARE_DEBUG_PREFIX} invoking onSpawnBubble`);
+    onSpawnBubble?.();
   };
 
   const handleStatusToggle = () => {

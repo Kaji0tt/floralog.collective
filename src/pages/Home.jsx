@@ -3246,6 +3246,18 @@ function HomeContent() {
     return true;
   };
 
+  const handleSpawnBubble = () => {
+    const canSpawn = !isDailyCareStatusLoading && !waterPlantMutation.isPending && wateringCountToday < wateringLimitPerDay;
+    if (!canSpawn || typeof window === "undefined") return;
+    const margin = 72;
+    const bSize = 52;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const bx = margin + Math.random() * Math.max(0, vw - margin * 2 - bSize);
+    const by = vh * 0.32 + Math.random() * (vh * 0.38);
+    setCareBubble({ x: bx + bSize / 2, y: by + bSize / 2, key: Date.now() });
+  };
+
   const handleWaterPlantClick = () => {
     console.log(`${PORTAL_CARE_DEBUG_PREFIX} handleWaterPlantClick`, {
       mutationPending: waterPlantMutation.isPending,
@@ -3513,6 +3525,7 @@ function HomeContent() {
         isDailyCareLoading={isDailyCareStatusLoading}
         isWateringPending={waterPlantMutation.isPending}
         onWaterPlant={handleWaterPlantClick}
+        onSpawnBubble={handleSpawnBubble}
         onCustomize={(isCustomizeOpen) => {
           setIsHomeOverlayShopOpen(Boolean(isCustomizeOpen));
         }}
@@ -3863,17 +3876,7 @@ function HomeContent() {
 
                           setIsMilestoneOverlayToggled(true);
                           setIsHomeOverlayShopOpen(false);
-
-                          // Spawn a floating care bubble at a random viewport position
-                          if (typeof window !== "undefined") {
-                            const margin = 72;
-                            const bSize = 52;
-                            const vw = window.innerWidth;
-                            const vh = window.innerHeight;
-                            const bx = margin + Math.random() * Math.max(0, vw - margin * 2 - bSize);
-                            const by = vh * 0.32 + Math.random() * (vh * 0.38);
-                            setCareBubble({ x: bx + bSize / 2, y: by + bSize / 2, key: Date.now() });
-                          }
+                          handleSpawnBubble();
                         }
                       }}
                       playerSeeds={playerSeeds}
