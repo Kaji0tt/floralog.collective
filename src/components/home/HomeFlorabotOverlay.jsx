@@ -435,19 +435,8 @@ export default function HomeFlorabotOverlay({
       return;
     }
 
-    // Speech bubble tap: play visual animation only, no care action
-    if (!canPerformCareAction) {
-      console.log(`${PORTAL_CARE_DEBUG_PREFIX} bubble tap ignored (care not available)`, {
-        isDailyCareLoading,
-        isWateringPending,
-        wateringCountToday: safeWateringCountToday,
-        wateringLimitPerDay: safeWateringLimitPerDay,
-      });
-      return;
-    }
-
-    const animationName = triggerPlayfulCareAnimation("bubble");
-    console.log(`${PORTAL_CARE_DEBUG_PREFIX} bubble animation started`, { animationName });
+    // Speech bubble tap: no animation, no care action (care only via soap bubble)
+    console.log(`${PORTAL_CARE_DEBUG_PREFIX} bubble tap — no action (use soap bubble for care)`);
   };
 
   const handleStatusToggle = () => {
