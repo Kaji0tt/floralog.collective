@@ -1209,6 +1209,8 @@ Viel Spaß beim Entdecken! 🌿`;
     setIsExplorerRefreshing(true);
     queryClient.invalidateQueries({ queryKey: ['scanLikesAll'] });
     queryClient.invalidateQueries({ queryKey: ['allPlants'] });
+    queryClient.invalidateQueries({ queryKey: ['allPublicProfiles'] });
+    queryClient.invalidateQueries({ queryKey: ['allUsers'] });
     refetchExplorerDiscoveries().finally(() => {
       setIsExplorerRefreshing(false);
       resetExplorerPullState();

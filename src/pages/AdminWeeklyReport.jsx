@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, RefreshCw, Maximize2, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, RefreshCw, Maximize2, X, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import JSZip from "jszip";
 
 import { supabase } from "@/api/supabaseClient";
 import { getCurrentUser } from "@/api/userApi";
@@ -569,12 +570,51 @@ const SLIDE_LABELS = ["Samen & Spieler", "Rangliste", "Scans", "Scan der Woche"]
 
 function PreviewCarousel({ stats, weekRange, onClose }) {
   const [index, setIndex] = useState(0);
-  const slides = [
+  const [downloading, setDownloading] = useState(false);
+  const slideRefs = useRef([]);
+
+  const SLIDE_COUNT = 4;
+
+  const slideNodes = [
     <Slide1 stats={stats} weekRange={weekRange} />,
     <Slide2 stats={stats} weekRange={weekRange} />,
     <Slide3 stats={stats} weekRange={weekRange} />,
     <Slide4 stats={stats} weekRange={weekRange} />,
   ];
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const zip = new JSZip();
+      const weekLabel = weekRange.replace(/[^\w\d]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+
+      for (let i = 0; i < SLIDE_COUNT; i++) {
+        const el = slideRefs.current[i];
+        if (!el) continue;
+        const canvas = await html2canvas(el, {
+          useCORS: true,
+          allowTaint: true,
+          scale: 2,
+          backgroundColor: null,
+        });
+        const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
+        zip.file(`floralog_slide_${i + 1}_${SLIDE_LABELS[i].replace(/\s+/g, "-")}_${weekLabel}.png`, blob);
+      }
+
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `floralog_slides_${weekLabel}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Slide-Download fehlgeschlagen:", err);
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <div
@@ -587,7 +627,7 @@ function PreviewCarousel({ stats, weekRange, onClose }) {
         onClick={(e) => e.stopPropagation()}
       >
         <span className="text-xs text-stone-400 font-medium">
-          {index + 1} / {slides.length} · {SLIDE_LABELS[index]}
+          {index + 1} / {slideNodes.length} · {SLIDE_LABELS[index]}
         </span>
         <button className="p-1 text-stone-500 hover:text-white" onClick={onClose}>
           <X className="w-5 h-5" />
@@ -596,7 +636,20 @@ function PreviewCarousel({ stats, weekRange, onClose }) {
 
       {/* Slide */}
       <div className="w-full max-w-sm px-4" onClick={(e) => e.stopPropagation()}>
-        {slides[index]}
+        {slideNodes[index]}
+      </div>
+
+      {/* Hidden render area for all slides (for html2canvas) */}
+      <div
+        className="fixed -left-[9999px] top-0 flex gap-0 pointer-events-none"
+        aria-hidden
+        onClick={(e) => e.stopPropagation()}
+      >
+        {slideNodes.map((slide, i) => (
+          <div key={i} ref={(el) => (slideRefs.current[i] = el)} style={{ width: 380 }}>
+            {slide}
+          </div>
+        ))}
       </div>
 
       {/* Navigation */}
@@ -614,7 +667,7 @@ function PreviewCarousel({ stats, weekRange, onClose }) {
 
         {/* Dots */}
         <div className="flex gap-2">
-          {slides.map((_, i) => (
+          {slideNodes.map((_, i) => (
             <button
               key={i}
               onClick={() => setIndex(i)}
@@ -630,16 +683,26 @@ function PreviewCarousel({ stats, weekRange, onClose }) {
 
         <button
           className="p-2 rounded-full bg-white/8 text-stone-300 disabled:opacity-30"
-          onClick={() => setIndex((i) => Math.min(slides.length - 1, i + 1))}
-          disabled={index === slides.length - 1}
+          onClick={() => setIndex((i) => Math.min(slideNodes.length - 1, i + 1))}
+          disabled={index === slideNodes.length - 1}
         >
           <ChevronRight className="w-5 h-5" />
         </button>
       </div>
 
-      <p className="text-[10px] text-stone-700 mt-3">
-        Screenshot aufnehmen, um die Karte zu speichern
-      </p>
+      {/* Download button */}
+      <button
+        className="mt-4 flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 text-xs font-semibold hover:bg-emerald-600/35 transition-colors disabled:opacity-50"
+        onClick={(e) => { e.stopPropagation(); handleDownload(); }}
+        disabled={downloading}
+      >
+        {downloading ? (
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        ) : (
+          <Download className="w-3.5 h-3.5" />
+        )}
+        {downloading ? "Wird erstellt…" : "Alle Slides als ZIP"}
+      </button>
     </div>
   );
 }

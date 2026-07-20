@@ -4,7 +4,7 @@
   "main": "src/index.js",
   "preview_urls": false,
   "triggers": {
-    "crons": ["5 0 * * 1"]
+    "crons": ["5 0 * * 2"]
   },
   "observability": { "enabled": true, "logs": { "enabled": true } }
 }

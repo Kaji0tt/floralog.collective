@@ -340,6 +340,7 @@ export default function ScanResults({
                       showScientificMeta={true}
                       showNarrative={!isBlockedResult}
                       isLightUi={false}
+                      disableThreatEffects={true}
                       topRight={confidencePercentage ? (
                         <Badge className="bg-black/50 border border-stone-500/60 text-stone-100">{confidencePercentage}%</Badge>
                       ) : null}
