@@ -595,7 +595,7 @@ export default function SpeciesInfoCard({
               {countRows.map(([a, b], rowIdx) => {
                 const barBg = `flex-1 h-[3px] rounded-full overflow-hidden ${isLightUi ? "bg-stone-200" : "bg-stone-700/50"}`;
                 const lblCls = `text-[9px] shrink-0 w-[3rem] truncate ${isLightUi ? "text-stone-500" : "text-stone-400"}`;
-                const valCls = `text-[10px] font-bold shrink-0 tabular-nums w-6 text-right ${isLightUi ? "text-stone-800" : "text-stone-100"}`;
+                const valCls = `text-[10px] font-bold shrink-0 tabular-nums w-6 text-right pr-1 ${isLightUi ? "text-stone-800" : "text-stone-100"}`;
                 const cell = (item) => !item ? <div /> : (
                   <div className="flex items-center gap-1 min-w-0">
                     <span className={lblCls}>{item.label}</span>
@@ -614,19 +614,36 @@ export default function SpeciesInfoCard({
 
               {/* Nektar + Pollen Zeile */}
               {hasPolNektar && (
-                <div className="grid grid-cols-2 gap-x-2">
-                  {[nektarItem ? { item: nektarItem, emoji: "\uD83C\uDF6F" } : null,
-                    pollenItem ? { item: pollenItem, emoji: "\uD83C\uDF38" } : null].map((entry, idx) =>
-                    entry ? (
-                      <div key={idx} className="flex items-center gap-1 min-w-0">
-                        <span className="text-[10px] shrink-0 leading-none">{entry.emoji}</span>
-                        <div className={`flex-1 h-[3px] rounded-full overflow-hidden ${isLightUi ? "bg-stone-200" : "bg-stone-700/50"}`}>
-                          <div className="h-full rounded-full bg-amber-400" style={{ width: `${getEcologyBarPercent(entry.item.label, entry.item.value) ?? 0}%` }} />
+                <div>
+                  <div className="grid grid-cols-2 gap-x-2">
+                    {[nektarItem ? { item: nektarItem, emoji: "\uD83C\uDF6F" } : null,
+                      pollenItem ? { item: pollenItem, emoji: "\uD83C\uDF38" } : null].map((entry, idx) =>
+                      entry ? (
+                        <div key={idx} className="flex items-center gap-1 min-w-0">
+                          <button
+                            type="button"
+                            className={`text-[10px] shrink-0 leading-none transition-opacity ${redListTooltipOpen === entry.item.label ? "opacity-100" : "opacity-70 hover:opacity-100"}`}
+                            onClick={(e) => { e.stopPropagation(); setRedListTooltipOpen(prev => prev === entry.item.label ? null : entry.item.label); }}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onTouchStart={(e) => e.stopPropagation()}
+                            onTouchEnd={(e) => { e.stopPropagation(); e.preventDefault(); setRedListTooltipOpen(prev => prev === entry.item.label ? null : entry.item.label); }}
+                          >{entry.emoji}</button>
+                          <div className={`flex-1 h-[3px] rounded-full overflow-hidden ${isLightUi ? "bg-stone-200" : "bg-stone-700/50"}`}>
+                            <div className="h-full rounded-full bg-amber-400" style={{ width: `${getEcologyBarPercent(entry.item.label, entry.item.value) ?? 0}%` }} />
+                          </div>
+                            <span className={`text-[10px] font-bold shrink-0 tabular-nums w-7 text-right pr-1 ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>{entry.item.value}</span>
                         </div>
-                        <span className={`text-[10px] font-bold shrink-0 tabular-nums w-7 text-right ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>{entry.item.value}</span>
-                      </div>
-                    ) : <div key={idx} />
-                  )}
+                      ) : <div key={idx} />
+                    )}
+                  </div>
+                  {(redListTooltipOpen === "Nektarwert" || redListTooltipOpen === "Pollenwert") && (() => {
+                    const tooltipItem = redListTooltipOpen === "Nektarwert" ? nektarItem : pollenItem;
+                    return tooltipItem ? (
+                      <p className={`text-[9px] leading-snug mt-0.5 ${isLightUi ? "text-stone-600" : "text-stone-300"}`}>
+                        <span className="font-medium">{redListTooltipOpen}:</span> {tooltipItem.value}
+                      </p>
+                    ) : null;
+                  })()}
                 </div>
               )}
 
@@ -757,7 +774,7 @@ export default function SpeciesInfoCard({
                 {countRows.map(([a, b], rowIdx) => {
                   const barBg = `flex-1 h-[3px] rounded-full overflow-hidden ${isLightUi ? "bg-stone-200" : "bg-stone-700/50"}`;
                   const lblCls = `text-[10px] shrink-0 w-[3.5rem] truncate ${isLightUi ? "text-stone-500" : "text-stone-400"}`;
-                  const valCls = `text-[11px] font-bold shrink-0 tabular-nums w-7 text-right ${isLightUi ? "text-stone-800" : "text-stone-100"}`;
+                  const valCls = `text-[11px] font-bold shrink-0 tabular-nums w-7 text-right pr-1 ${isLightUi ? "text-stone-800" : "text-stone-100"}`;
                   const cell = (item) => !item ? <div /> : (
                     <div className="flex items-center gap-1.5 min-w-0">
                       <span className={lblCls}>{item.label}</span>
@@ -776,19 +793,36 @@ export default function SpeciesInfoCard({
 
                 {/* Nektar + Pollen */}
                 {hasPolNektar && (
-                  <div className="grid grid-cols-2 gap-x-3">
-                    {[nektarItem ? { item: nektarItem, emoji: "\uD83C\uDF6F" } : null,
-                      pollenItem ? { item: pollenItem, emoji: "\uD83C\uDF38" } : null].map((entry, idx) =>
-                      entry ? (
-                        <div key={idx} className="flex items-center gap-1.5 min-w-0">
-                          <span className="text-[11px] shrink-0 leading-none">{entry.emoji}</span>
-                          <div className={`flex-1 h-[3px] rounded-full overflow-hidden ${isLightUi ? "bg-stone-200" : "bg-stone-700/50"}`}>
-                            <div className="h-full rounded-full bg-amber-400" style={{ width: `${getEcologyBarPercent(entry.item.label, entry.item.value) ?? 0}%` }} />
+                  <div>
+                    <div className="grid grid-cols-2 gap-x-3">
+                      {[nektarItem ? { item: nektarItem, emoji: "\uD83C\uDF6F" } : null,
+                        pollenItem ? { item: pollenItem, emoji: "\uD83C\uDF38" } : null].map((entry, idx) =>
+                        entry ? (
+                          <div key={idx} className="flex items-center gap-1.5 min-w-0">
+                            <button
+                              type="button"
+                              className={`text-[11px] shrink-0 leading-none transition-opacity ${redListTooltipOpen === entry.item.label ? "opacity-100" : "opacity-70 hover:opacity-100"}`}
+                              onClick={(e) => { e.stopPropagation(); setRedListTooltipOpen(prev => prev === entry.item.label ? null : entry.item.label); }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onTouchStart={(e) => e.stopPropagation()}
+                              onTouchEnd={(e) => { e.stopPropagation(); e.preventDefault(); setRedListTooltipOpen(prev => prev === entry.item.label ? null : entry.item.label); }}
+                            >{entry.emoji}</button>
+                            <div className={`flex-1 h-[3px] rounded-full overflow-hidden ${isLightUi ? "bg-stone-200" : "bg-stone-700/50"}`}>
+                              <div className="h-full rounded-full bg-amber-400" style={{ width: `${getEcologyBarPercent(entry.item.label, entry.item.value) ?? 0}%` }} />
+                            </div>
+                            <span className={`text-[11px] font-bold shrink-0 tabular-nums w-8 text-right pr-1 ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>{entry.item.value}</span>
                           </div>
-                          <span className={`text-[11px] font-bold shrink-0 tabular-nums w-8 text-right ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>{entry.item.value}</span>
-                        </div>
-                      ) : <div key={idx} />
-                    )}
+                        ) : <div key={idx} />
+                      )}
+                    </div>
+                    {(redListTooltipOpen === "Nektarwert" || redListTooltipOpen === "Pollenwert") && (() => {
+                      const tooltipItem = redListTooltipOpen === "Nektarwert" ? nektarItem : pollenItem;
+                      return tooltipItem ? (
+                        <p className={`text-[10px] leading-snug mt-0.5 ${isLightUi ? "text-stone-600" : "text-stone-300"}`}>
+                          <span className="font-medium">{redListTooltipOpen}:</span> {tooltipItem.value}
+                        </p>
+                      ) : null;
+                    })()}
                   </div>
                 )}
 

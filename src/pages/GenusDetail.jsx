@@ -1390,22 +1390,7 @@ export default function GenusDetail() {
                         <HelpCircle className={"w-4 h-4 flex-shrink-0 " + (isLightUi ? "text-stone-500" : "text-stone-300")} />
                       )
                     }
-                    topRight={
-                      activeVariant && !activeVariant.isOwn ? (
-                        <div
-                          className="w-8 h-8 rounded-full overflow-hidden bg-black/35 ring-2 ring-white/20"
-                          title={activeVariant.actor?.name || activeVariant.actor?.email || "Spieler"}
-                        >
-                          <CustomLogoAvatar
-                            logoAssets={activeVariant.actor?.logoAssets}
-                            className="w-full h-full"
-                            tooltipText={activeVariant.actor?.name || activeVariant.actor?.email || "Spieler"}
-                            fallbackText={(activeVariant.actor?.name || activeVariant.actor?.email || "?").charAt(0).toUpperCase()}
-                            fallbackClassName="text-xs font-bold text-white"
-                          />
-                        </div>
-                      ) : null
-                    }
+                    topRight={null}
                   />
                   <div
                     className="space-y-1"
