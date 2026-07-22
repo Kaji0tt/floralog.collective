@@ -79,6 +79,7 @@ SLOW_DURATION        = 5.0    # s – Verlangsamung
 FINAL_HOLD           = 2.0    # s – letztes Bild stehen lassen
 MIN_FRAMES_PER_IMAGE = 1      # schnellste Phase
 MAX_FRAMES_PER_IMAGE = 45     # langsamste Phase
+DEFAULT_MAX_IMAGES   = 200    # max. Bilder im Video (zufällige Stichprobe)
 
 # ── Kalenderwoche → ISO-Timestamps ────────────────────────────────────────────
 
@@ -340,8 +341,10 @@ def render_video(image_paths, path_to_name, output_path, width, height, fps,
 
 def main():
     parser = argparse.ArgumentParser(description="FloraLog SOTW Slot-Machine-Video")
-    parser.add_argument("--kw",   type=int, default=None, help="Kalenderwoche (1–53)")
-    parser.add_argument("--year", type=int, default=None, help="Jahr (Standard: aktuelles Jahr)")
+    parser.add_argument("--kw",         type=int, default=None, help="Kalenderwoche (1–53)")
+    parser.add_argument("--year",       type=int, default=None, help="Jahr (Standard: aktuelles Jahr)")
+    parser.add_argument("--max-images", type=int, default=DEFAULT_MAX_IMAGES,
+                        help=f"Max. Bilder im Video (zufällige Stichprobe, Standard: {DEFAULT_MAX_IMAGES})")
     args = parser.parse_args()
 
     now = datetime.now(tz=timezone.utc)
@@ -381,6 +384,13 @@ def main():
     # Zufällig mischen – letztes Bild = zufälliger "Gewinner"
     combined = list(zip(paths, [path_to_name[str(p)] for p in paths]))
     random.shuffle(combined)
+
+    # FPS-/Image-Cap: zufällige Stichprobe begrenzen
+    cap = args.max_images
+    if len(combined) > cap:
+        print(f"[CAP] {len(combined)} Bilder → zufällige Stichprobe auf {cap} reduziert (--max-images).")
+        combined = combined[:cap]
+
     paths, infos = zip(*combined)
     path_to_name = {str(p): info for p, info in zip(paths, infos)}
 

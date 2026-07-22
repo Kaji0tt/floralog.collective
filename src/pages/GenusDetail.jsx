@@ -1243,8 +1243,8 @@ export default function GenusDetail() {
 
         {/* Icon Selection Dialog and related button are removed */}
 
-        {/* Species Cards - Kompakt, klickbar für Vollansicht */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Species Cards - Sammelkarten, klickbar für Vollansicht */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {genusPlants.map((plant) => {
             const variants = Array.isArray(plant.discoveryVariants) ? plant.discoveryVariants : [];
             const defaultIndex = plant.defaultVariantIndex || 0;
@@ -1351,17 +1351,12 @@ export default function GenusDetail() {
               }}
               style={{
                 ...dragStyle,
-                "--threat-glow-color": rarityGlowColor,
               }}
-              className={`relative border shadow-sm transition-all duration-300 overflow-hidden cursor-pointer ${threatAnimationClass} ${threatGlowClass} ${
-                plant.discovered
-                  ? `${getRarityBorderColor(plant)} hover:shadow-md ${isLightUi ? 'bg-white' : 'bg-black/40'}`
-                  : (isLightUi ? 'border-stone-200 bg-stone-50 hover:bg-white' : 'border-stone-700/60 bg-black/30 hover:bg-black/40')
-              }`}
+              className={`relative border-0 bg-transparent shadow-none transition-all duration-300 overflow-visible cursor-pointer`}
             >
               <ThreatLevelSparks active={conservationEffectLevel >= 3} count={20} className="z-40" />
-              <CardContent className="p-3 relative z-20">
-                <div className="space-y-2">
+              <CardContent className="p-0 relative z-20">
+                <div className="space-y-1.5">
                   <SpeciesInfoCard
                     plant={{ ...plant, image_url: activeDiscovery?.image_url || null }}
                     imageUrl={activeDiscovery?.image_url || null}

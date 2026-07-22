@@ -117,7 +117,6 @@ const REWARD_FORMULA_CONFIG = {
   careMultiplier: { min: 1, max: 2 },
   firstScanOfDayMultiplier: { min: 1, max: 2, default: 1 },
   absoluteMinReward: 1,
-  absoluteMaxReward: 350,
 };
 
 const ROBOT_PLANT_HEALTH_STATES = [
@@ -567,7 +566,7 @@ const resolveTileClaimForScan = async (
     }
   }
 
-  const tileClaimMultiplier = 1 + claimedTilesCountForAuth * 0.1;
+  const tileClaimMultiplier = 1 + Math.min(claimedTilesCountForAuth, 10) * 0.1;
 
   return {
     tileX,
@@ -634,10 +633,9 @@ const computeScanRewardBreakdown = ({
 
   const rawPreStreak =
     adjustedBaseReward * effectiveZoneMultiplier * rarityMultiplier * noveltyMultiplier * careMultiplier * firstScanOfDayMultiplier;
-  const preStreakReward = clamp(
-    Math.round(rawPreStreak),
+  const preStreakReward = Math.max(
     REWARD_FORMULA_CONFIG.absoluteMinReward,
-    REWARD_FORMULA_CONFIG.absoluteMaxReward,
+    Math.round(rawPreStreak),
   );
   const finalReward = Math.round(preStreakReward * streakMultiplier);
 

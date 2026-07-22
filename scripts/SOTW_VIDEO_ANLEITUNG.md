@@ -25,6 +25,9 @@ python scripts\sotw_video.py --kw 28
 
 # Oder mit explizitem Jahr:
 python scripts\sotw_video.py --kw 28 --year 2026
+
+# Mit mehr/weniger Bildern (Standard: 200 – zufällige Stichprobe):
+python scripts\sotw_video.py --kw 28 --max-images 300
 ```
 
 Kein Argument = aktuelle Kalenderwoche.
@@ -45,9 +48,9 @@ Kein Argument = aktuelle Kalenderwoche.
 ## Ausgabe
 
 ```
-scripts/
-├── sotw_images_kw28_2026/    ← Bilder-Cache (bleibt erhalten)
-└── sotw_kw28_2026.mp4        ← fertiges Video
+scripts/sotw/
+├── kw28_2026/          ← Bilder-Cache (bleibt erhalten)
+└── kw28_2026.mp4       ← fertiges Video
 ```
 
 ---

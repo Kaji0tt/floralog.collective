@@ -134,7 +134,6 @@ export const REWARD_FORMULA_CONFIG = Object.freeze({
     default: 1,
   },
   absoluteMinReward: 1,
-  absoluteMaxReward: 350,
 });
 
 export const ROBOT_PLANT_GEO_ZONE_CONFIG = Object.freeze({

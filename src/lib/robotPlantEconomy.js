@@ -245,10 +245,9 @@ export const computeRobotPlantRewardBreakdown = ({
   }
 
   if (!isRobotPlantScanEvent(eventSource)) {
-    const reward = clamp(
-      roundReward(baseReward),
+    const reward = Math.max(
       REWARD_FORMULA_CONFIG.absoluteMinReward,
-      REWARD_FORMULA_CONFIG.absoluteMaxReward
+      roundReward(baseReward)
     );
 
     return {
@@ -282,10 +281,9 @@ export const computeRobotPlantRewardBreakdown = ({
 
   const rawPreStreakReward =
     adjustedBaseReward * zoneMultiplier * rarityMultiplier * noveltyMultiplier * careMultiplier * firstScanOfDayMultiplier;
-  const preStreakReward = clamp(
-    roundReward(rawPreStreakReward),
+  const preStreakReward = Math.max(
     REWARD_FORMULA_CONFIG.absoluteMinReward,
-    REWARD_FORMULA_CONFIG.absoluteMaxReward
+    roundReward(rawPreStreakReward)
   );
   const finalReward = roundReward(preStreakReward * streakMultiplier);
 
