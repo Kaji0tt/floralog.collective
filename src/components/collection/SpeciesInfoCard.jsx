@@ -844,7 +844,7 @@ export default function SpeciesInfoCard({
                             onTouchStart={(e) => e.stopPropagation()}
                             onTouchEnd={(e) => { e.stopPropagation(); e.preventDefault(); setRedListTooltipOpen(prev => prev === item.label ? null : item.label); }}
                           >
-                            <span className={`text-[11px] font-bold shrink-0 ${isOpen ? "text-amber-300" : "text-amber-400/80"}`}>{stars}\u2605</span>
+                            <span className={`text-[11px] font-bold shrink-0 ${isOpen ? "text-amber-300" : "text-amber-400/80"}`}>{stars}★</span>
                             <span className={`text-[10px] truncate ${isLightUi ? "text-stone-500" : "text-stone-400"}`}>{item.label}</span>
                           </button>
                         );
