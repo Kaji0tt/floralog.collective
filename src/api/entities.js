@@ -181,6 +181,7 @@ const tables = [
   'UserNotification', 'UserPlantDiscovery', 'UserQuest',
   'UserWeeklyQuest', 'WeeklyQuest',
   'MapViewEvent',
+  'UserActionEvent',
   // Robot Plant core loop
   'RobotPlant', 'RobotPlantWalletLedger', 'RobotPlantZone',
   'RobotPlantUserZoneState', 'RobotPlantDailyChallenge', 'RobotPlantUserDailyChallenge',

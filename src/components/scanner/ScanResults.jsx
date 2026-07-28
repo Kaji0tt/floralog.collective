@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, RotateCcw, Volume2, VolumeX, Sparkles, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { AlertCircle, RotateCcw, Volume2, VolumeX, Sparkles, ChevronLeft, ChevronRight, Search, Check, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -36,7 +36,9 @@ export default function ScanResults({
   onChangeResult,
   latestDiscoveryId,
   isPendingConfirmation = false,
-  onResultIndexChange
+  onResultIndexChange,
+  onConfirmSave,
+  isSavingPlant = false,
 }) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [currentResultIndex, setCurrentResultIndex] = useState(0);
@@ -483,14 +485,35 @@ export default function ScanResults({
                     </div>
                   )}
 
-                  {showBackToIntroButton && (
-                  <Button
-                    onClick={onBackToIntro || onRescan}
-                    variant="secondary"
-                    className="w-full bg-black/45 hover:bg-black/65 text-stone-100 border border-[#f0e5a5]/35 font-semibold">
+                  {isPendingConfirmation ? (
+                    <div className="flex gap-3 pt-2">
+                      <Button
+                        variant="outline"
+                        onClick={onRescan}
+                        disabled={isSavingPlant}
+                        className="flex-1 border-[#f0e5a5]/35 bg-black/35 text-stone-100 hover:bg-black/55 font-semibold"
+                      >
+                        <RotateCcw className="w-4 h-4 mr-2" />
+                        Erneut scannen
+                      </Button>
+                      <Button
+                        onClick={onConfirmSave}
+                        disabled={isSavingPlant || isBlockedResult || isLowConfidenceAlt}
+                        className="flex-[2] border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 hover:brightness-110 disabled:opacity-50 text-white font-semibold"
+                      >
+                        {isSavingPlant ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
+                        {isSavingPlant ? "Wird gespeichert\u2026" : "Pflanze speichern"}
+                      </Button>
+                    </div>
+                  ) : showBackToIntroButton ? (
+                    <Button
+                      onClick={onBackToIntro || onRescan}
+                      variant="secondary"
+                      className="w-full bg-black/45 hover:bg-black/65 text-stone-100 border border-[#f0e5a5]/35 font-semibold"
+                    >
                       Zurück
                     </Button>
-                  )}
+                  ) : null}
                 </CardContent>
 
                 </Card>

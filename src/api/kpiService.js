@@ -265,6 +265,170 @@ export function buildDauWauMauSeries({ discoveries = [], now = new Date(), days 
   return series;
 }
 
+const extractDateFlexible = (entry) =>
+  toDate(
+    entry?.created_date ||
+    entry?.created_at ||
+    entry?.unlocked_date ||
+    entry?.accepted_at ||
+    null
+  );
+
+const FEATURE_COLORS = {
+  scanner: "#16a34a",
+  map: "#0ea5e9",
+  likes: "#ec4899",
+  quests: "#f59e0b",
+  weekly_quests: "#f97316",
+  achievements: "#8b5cf6",
+  friends: "#06b6d4",
+  collections: "#6366f1",
+};
+
+const ACTION_EVENT_LABELS = {
+  home_scan_click: "Scannen-Button",
+  home_logo_overlay_open: "Logo → Overlay öffnen",
+  home_overlay_health_stats: "Pflanzenstatus anzeigen",
+  home_overlay_shop_open: "Shop öffnen (Overlay)",
+  home_settings_open: "Einstellungen öffnen",
+  home_milestone_action: "Milestone-Aktion (Stripe)",
+  home_panel_return: "Zurück zur Startseite",
+  bottomnav_collection: "Nav → Kollektion",
+  bottomnav_achievements: "Nav → Erfolge / Quests",
+  bottomnav_map: "Nav → Karte",
+  bottomnav_social: "Nav → Social",
+};
+
+const ACTION_EVENT_COLORS = {
+  home_scan_click: "#16a34a",
+  home_logo_overlay_open: "#0ea5e9",
+  home_overlay_health_stats: "#ec4899",
+  home_overlay_shop_open: "#f59e0b",
+  home_settings_open: "#78716c",
+  home_milestone_action: "#f97316",
+  home_panel_return: "#94a3b8",
+  bottomnav_collection: "#6366f1",
+  bottomnav_achievements: "#8b5cf6",
+  bottomnav_map: "#06b6d4",
+  bottomnav_social: "#10b981",
+};
+
+/**
+ * Aggregates UserActionEvent records into per-event summaries.
+ * Input events should already be filtered to a relevant time window (e.g. last 30d).
+ */
+export function buildActionEventSummary({ events = [], now = new Date() } = {}) {
+  const nowMs = Number.isFinite(now?.getTime?.()) ? now.getTime() : Date.now();
+  const day7StartMs = nowMs - 7 * DAY_MS;
+
+  const byName = new Map();
+
+  events.forEach((event) => {
+    const name = event?.event_name;
+    if (!name) return;
+    const ts = Number.isFinite(new Date(event?.created_at || 0).getTime())
+      ? new Date(event.created_at).getTime()
+      : 0;
+    if (!ts) return;
+
+    if (!byName.has(name)) {
+      byName.set(name, { count7d: 0, count30d: 0, users7d: new Set(), users30d: new Set() });
+    }
+    const bucket = byName.get(name);
+    const authId = String(event?.auth_id || "");
+
+    bucket.count30d += 1;
+    if (authId) bucket.users30d.add(authId);
+
+    if (ts >= day7StartMs) {
+      bucket.count7d += 1;
+      if (authId) bucket.users7d.add(authId);
+    }
+  });
+
+  const total30d = Array.from(byName.values()).reduce((sum, b) => sum + b.count30d, 0);
+
+  const result = Array.from(byName.entries())
+    .map(([name, data]) => ({
+      eventName: name,
+      label: ACTION_EVENT_LABELS[name] || name,
+      color: ACTION_EVENT_COLORS[name] || "#64748b",
+      count7d: data.count7d,
+      count30d: data.count30d,
+      uniqueUsers7d: data.users7d.size,
+      uniqueUsers30d: data.users30d.size,
+      sharePercent: total30d > 0 ? Number(((data.count30d / total30d) * 100).toFixed(1)) : 0,
+    }))
+    .sort((a, b) => b.count30d - a.count30d);
+
+  return {
+    events: result,
+    topEvent: result[0] ?? null,
+    totalEvents30d: total30d,
+    generatedAt: new Date(nowMs).toISOString(),
+  };
+}
+
+export function buildFeatureUsageSummary({
+  discoveries = [],
+  mapViews = [],
+  scanLikes = [],
+  friends = [],
+  achievements = [],
+  userQuests = [],
+  userWeeklyQuests = [],
+  userCollections = [],
+  now = new Date(),
+} = {}) {
+  const nowMs = Number.isFinite(now?.getTime?.()) ? now.getTime() : Date.now();
+  const day7StartMs = nowMs - 7 * DAY_MS;
+  const day30StartMs = nowMs - 30 * DAY_MS;
+
+  const countInWindow = (entries, getDate, startMs) =>
+    entries.filter((e) => {
+      const d = getDate(e);
+      return d && d.getTime() >= startMs && d.getTime() < nowMs;
+    }).length;
+
+  const extractCollectionDate = (e) => toDate(e?.created_at || null);
+
+  const featureDefs = [
+    { key: "scanner", label: "Scanner", description: "Pflanzen-Scans", entries: discoveries, getDate: extractDiscoveryDate },
+    { key: "map", label: "Karte", description: "Kartenaufrufe", entries: mapViews, getDate: extractMapViewDate },
+    { key: "likes", label: "Likes", description: "Scan-Likes (Social)", entries: scanLikes, getDate: extractLikeDate },
+    { key: "quests", label: "Quests", description: "Quest-Aktivierungen", entries: userQuests, getDate: extractDateFlexible },
+    { key: "weekly_quests", label: "Wöchentl. Quests", description: "Wöchentliche Quests", entries: userWeeklyQuests, getDate: extractDateFlexible },
+    { key: "achievements", label: "Achievements", description: "Erzielte Erfolge", entries: achievements, getDate: extractDateFlexible },
+    { key: "friends", label: "Freunde", description: "Neue Freundschaften", entries: friends, getDate: extractDateFlexible },
+    { key: "collections", label: "Kollektionen", description: "Sammlung-Beitritte", entries: userCollections, getDate: extractCollectionDate },
+  ];
+
+  const raw = featureDefs.map(({ key, label, description, entries, getDate }) => ({
+    key,
+    label,
+    description,
+    count7d: countInWindow(entries, getDate, day7StartMs),
+    count30d: countInWindow(entries, getDate, day30StartMs),
+    color: FEATURE_COLORS[/** @type {keyof typeof FEATURE_COLORS} */ (key)] || "#78716c",
+  }));
+
+  const total30d = raw.reduce((sum, f) => sum + f.count30d, 0);
+
+  const features = raw
+    .map((f) => ({
+      ...f,
+      sharePercent: total30d > 0 ? Number(((f.count30d / total30d) * 100).toFixed(1)) : 0,
+    }))
+    .sort((a, b) => b.count30d - a.count30d);
+
+  return {
+    features,
+    topFeature: features[0] ?? null,
+    totalEvents30d: total30d,
+    generatedAt: new Date(nowMs).toISOString(),
+  };
+}
+
 export function buildMonthlyTopScannerSummary({ discoveries = [], profiles = [], now = new Date(), topLimit = 10 } = {}) {
   const monthCountsByUser = new Map();
 

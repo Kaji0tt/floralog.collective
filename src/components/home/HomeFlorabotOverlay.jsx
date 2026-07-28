@@ -6,6 +6,7 @@ import { useUiTheme } from "@/lib/UiThemeContext";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import FlorabotOverlayShell from "@/components/florabot/FlorabotOverlayShell";
 import ShopFeatureRoot from "@/components/shop/ShopFeatureRoot";
+import { trackAction } from "@/api/analyticsService";
 
 const PLAYFUL_CARE_ANIMATION_KEYS = Object.freeze(["flip", "squash", "orbit"]);
 const PORTAL_CARE_DEBUG_PREFIX = "[PortalCareDebug]";
@@ -441,6 +442,7 @@ export default function HomeFlorabotOverlay({
 
   const handleStatusToggle = () => {
     if (!showHealthDetails) {
+      trackAction("home_overlay_health_stats", { sourcePage: "HomeOverlay" });
       setShowHealthDetails(true);
       setIsSpeechBubbleVisible(true);
       return;
@@ -468,6 +470,7 @@ export default function HomeFlorabotOverlay({
   };
 
   const handleOpenShopInOverlay = () => {
+    trackAction("home_overlay_shop_open", { sourcePage: "HomeOverlay" });
     setShowHealthDetails(false);
     setIsSpeechBubbleVisible(false);
     setActiveShopCategory(initialShopCategory || "root");

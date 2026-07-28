@@ -24,6 +24,7 @@ import {
 } from "@/api/storyService";
 import { getOpenPlantQuiz, submitPlantQuizAnswer } from "@/api/plantQuizService";
 import { getTileClaims } from "@/api/tileClaimService";
+import { trackAction } from "@/api/analyticsService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Camera, Loader2, Leaf, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -1229,8 +1230,10 @@ function HomeContent() {
     const hasScanZoneUnlocks = navigationUnlocks.length > 0;
     const hasRandomRewards = navigationRandomRewards.length > 0;
     const shouldOpenSettings = Boolean(location.state.openSettings);
+    const shouldOpenCollection = Boolean(location.state.openCollection);
+    const openCollectionId = location.state.collectionId || "global";
 
-    if (!hasScanFeedback && !hasScanZoneUnlocks && !hasRandomRewards && !shouldOpenSettings) return;
+    if (!hasScanFeedback && !hasScanZoneUnlocks && !hasRandomRewards && !shouldOpenSettings && !shouldOpenCollection) return;
 
     if (hasScanFeedback && !blockNavigationFeedbackRef.current) {
       safeSetScanFeedback(location.state.scanFeedback);
@@ -1259,11 +1262,19 @@ function HomeContent() {
       setShowHealthStatsPanel(false);
     }
 
+    if (shouldOpenCollection) {
+      setEmbeddedSelectedCollectionId(openCollectionId);
+      setActivePanel("collection");
+      setShowHealthStatsPanel(false);
+    }
+
     const {
       scanFeedback: _ignoredFeedback,
       scanZoneUnlocks: _ignoredScanZoneUnlocks,
       randomRewards: _ignoredRandomRewards,
       openSettings: _ignoredOpenSettings,
+      openCollection: _ignoredOpenCollection,
+      collectionId: _ignoredCollectionId,
       ...restState
     } = location.state;
     const nextState = Object.keys(restState).length > 0 ? restState : null;
@@ -2883,6 +2894,7 @@ function HomeContent() {
 
   const handleHomeMilestoneAction = (milestone) => {
     const actionType = milestone?.actionType;
+    trackAction("home_milestone_action", { sourcePage: "Home", metadata: { actionType } });
 
     if (actionType === "open_genus" && milestone?.genusId) {
       navigate(createPageUrl(`GenusDetail?id=${encodeURIComponent(milestone.genusId)}`));
@@ -2934,6 +2946,7 @@ function HomeContent() {
       label: "Kollektion",
       icon: Leaf,
       onClick: () => {
+        trackAction("bottomnav_collection", { sourcePage: "Home" });
         setActivePanel("collection");
         setEmbeddedCollectionEntryCategory(null);
         setShowHealthStatsPanel(false);
@@ -2944,6 +2957,7 @@ function HomeContent() {
       label: "Erfolge",
       icon: Scroll,
       onClick: () => {
+        trackAction("bottomnav_achievements", { sourcePage: "Home" });
         setActivePanel("achievements");
         setShowHealthStatsPanel(false);
       },
@@ -2954,6 +2968,7 @@ function HomeContent() {
       label: "Karte",
       icon: MapPin,
       onClick: () => {
+        trackAction("bottomnav_map", { sourcePage: "Home" });
         handleOpenHeroZoneMap();
         setShowHealthStatsPanel(false);
       },
@@ -2963,6 +2978,7 @@ function HomeContent() {
       label: "Social",
       icon: Users,
       onClick: () => {
+        trackAction("bottomnav_social", { sourcePage: "Home" });
         setActivePanel("friends");
         setShowHealthStatsPanel(false);
       },
@@ -3791,9 +3807,11 @@ function HomeContent() {
                     setEmbeddedCollectionEntryCategory(null);
                   }
                   if (activePanel !== null) {
+                    trackAction("home_panel_return", { sourcePage: "Home", metadata: { closedPanel: activePanel } });
                     setActivePanel(null);
                     return;
                   }
+                  trackAction("home_settings_open", { sourcePage: "Home" });
                   setActivePanel("settings");
                   setShowHealthStatsPanel(false);
                 }}
@@ -3916,6 +3934,7 @@ function HomeContent() {
                             setHomeOverlayAmbientMessage("");
                           }
 
+                          trackAction("home_logo_overlay_open", { sourcePage: "Home" });
                           setIsMilestoneOverlayToggled(true);
                           setIsHomeOverlayShopOpen(false);
 
@@ -3950,7 +3969,10 @@ function HomeContent() {
                     />
 
                     <motion.button
-                      onClick={() => navigate(createPageUrl('Scanner'))}
+                      onClick={() => {
+                        trackAction("home_scan_click", { sourcePage: "Home" });
+                        navigate(createPageUrl('Scanner'));
+                      }}
                       className={`mb-[clamp(0.35rem,0.8vh,0.55rem)] w-full shrink-0 rounded-2xl border flex items-center justify-center font-semibold tracking-wide transition-shadow ${
                         isLightUi
                           ? "border-emerald-400/50 bg-gradient-to-r from-emerald-500/85 via-emerald-400/75 to-emerald-500/85 text-white shadow-[0_8px_24px_rgba(34,197,94,0.2)] hover:shadow-[0_12px_32px_rgba(34,197,94,0.35)]"

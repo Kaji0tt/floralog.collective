@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, AlertCircle, BarChart3, RefreshCw } from "lucide-react";
-import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from "recharts";
 
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
-import { buildDauWauMauSeries, buildGlobalKpiSummary, buildMonthlyTopScannerSummary } from "@/api/kpiService";
+import { buildDauWauMauSeries, buildActionEventSummary, buildFeatureUsageSummary, buildGlobalKpiSummary, buildMonthlyTopScannerSummary } from "@/api/kpiService";
+import { fetchActionEvents30d } from "@/api/analyticsService";
 import { getOnlinePresenceDisplayName, subscribeToOnlineUsers } from "@/api/onlinePresenceService";
 import { createPageUrl } from "@/utils";
 
@@ -144,7 +145,88 @@ export default function KPIAdmin() {
     refetchOnWindowFocus: true,
   });
 
-  const isKpiLoading = isLoadingDiscoveries || isLoadingProfiles || isLoadingLikes || isLoadingMapViews;
+  const {
+    data: friends = [],
+    isLoading: isLoadingFriends,
+    refetch: refetchFriends,
+  } = useQuery({
+    queryKey: ["kpiAdminFriends"],
+    queryFn: () => Query.Friend.listAll("-created_date"),
+    enabled: !!isAdmin,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
+  const {
+    data: achievements = [],
+    isLoading: isLoadingAchievements,
+    refetch: refetchAchievements,
+  } = useQuery({
+    queryKey: ["kpiAdminAchievements"],
+    queryFn: () => Query.UserAchievement.listAll("-created_date"),
+    enabled: !!isAdmin,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
+  const {
+    data: userQuests = [],
+    isLoading: isLoadingUserQuests,
+    refetch: refetchUserQuests,
+  } = useQuery({
+    queryKey: ["kpiAdminUserQuests"],
+    queryFn: () => Query.UserQuest.listAll("-created_date"),
+    enabled: !!isAdmin,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
+  const {
+    data: userWeeklyQuests = [],
+    isLoading: isLoadingUserWeeklyQuests,
+    refetch: refetchUserWeeklyQuests,
+  } = useQuery({
+    queryKey: ["kpiAdminUserWeeklyQuests"],
+    queryFn: () => Query.UserWeeklyQuest.listAll("-created_date"),
+    enabled: !!isAdmin,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
+  const {
+    data: userCollections = [],
+    isLoading: isLoadingUserCollections,
+    refetch: refetchUserCollections,
+  } = useQuery({
+    queryKey: ["kpiAdminUserCollections"],
+    queryFn: () => Query.UserCollection.listAll("-created_at"),
+    enabled: !!isAdmin,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
+  const {
+    data: actionEvents = [],
+    isLoading: isLoadingActionEvents,
+    refetch: refetchActionEvents,
+  } = useQuery({
+    queryKey: ["kpiAdminActionEvents"],
+    queryFn: fetchActionEvents30d,
+    enabled: !!isAdmin,
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
+  const isKpiLoading =
+    isLoadingDiscoveries ||
+    isLoadingProfiles ||
+    isLoadingLikes ||
+    isLoadingMapViews ||
+    isLoadingFriends ||
+    isLoadingAchievements ||
+    isLoadingUserQuests ||
+    isLoadingUserWeeklyQuests ||
+    isLoadingUserCollections;
 
   const summary = useMemo(
     () =>
@@ -192,6 +274,26 @@ export default function KPIAdmin() {
     [retentionSeries]
   );
 
+  const featureUsageSummary = useMemo(
+    () =>
+      buildFeatureUsageSummary({
+        discoveries,
+        mapViews,
+        scanLikes: likes,
+        friends,
+        achievements,
+        userQuests,
+        userWeeklyQuests,
+        userCollections,
+      }),
+    [discoveries, mapViews, likes, friends, achievements, userQuests, userWeeklyQuests, userCollections]
+  );
+
+  const actionEventSummary = useMemo(
+    () => buildActionEventSummary({ events: actionEvents }),
+    [actionEvents]
+  );
+
   const retentionAxisTicks = useMemo(() => {
     if (!retentionSeries.length) return [];
     const first = retentionSeries[0]?.dateKey;
@@ -202,7 +304,18 @@ export default function KPIAdmin() {
   }, [retentionSeries]);
 
   const handleRefresh = async () => {
-    await Promise.all([refetchDiscoveries(), refetchProfiles(), refetchLikes(), refetchMapViews()]);
+    await Promise.all([
+      refetchDiscoveries(),
+      refetchProfiles(),
+      refetchLikes(),
+      refetchMapViews(),
+      refetchFriends(),
+      refetchAchievements(),
+      refetchUserQuests(),
+      refetchUserWeeklyQuests(),
+      refetchUserCollections(),
+      refetchActionEvents(),
+    ]);
   };
 
   if (loadError) {
@@ -367,6 +480,165 @@ export default function KPIAdmin() {
                 </tbody>
               </table>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-2 border-stone-200 shadow-lg bg-white">
+          <CardHeader>
+            <CardTitle>Navigation &amp; Aktionen (letzte 30 Tage)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoadingActionEvents ? (
+              <div className="flex items-center justify-center h-40">
+                <Loader2 className="w-6 h-6 animate-spin text-green-600" />
+              </div>
+            ) : actionEventSummary.events.length === 0 ? (
+              <div className="rounded-xl border border-stone-200 bg-stone-50 p-6 text-center text-stone-500 text-sm">
+                Noch keine Daten vorhanden. Events werden ab jetzt live getrackt.
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-3 mb-4">
+                  <div className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-2">
+                    <p className="text-xs text-stone-500">Häufigste Aktion</p>
+                    <p className="text-base font-bold text-stone-900">{actionEventSummary.topEvent?.label ?? "–"}</p>
+                    <p className="text-xs text-stone-500">{Number(actionEventSummary.topEvent?.count30d ?? 0).toLocaleString("de-DE")} Klicks</p>
+                  </div>
+                  <div className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-2">
+                    <p className="text-xs text-stone-500">Gesamte Events (30 Tage)</p>
+                    <p className="text-base font-bold text-stone-900">{Number(actionEventSummary.totalEvents30d).toLocaleString("de-DE")}</p>
+                  </div>
+                </div>
+
+                <div style={{ height: Math.max(280, actionEventSummary.events.length * 38) }} className="w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={actionEventSummary.events}
+                      layout="vertical"
+                      margin={{ left: 10, right: 50, top: 4, bottom: 4 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#d6d3d1" />
+                      <XAxis type="number" stroke="#78716c" allowDecimals={false} tickFormatter={(v) => Number(v).toLocaleString("de-DE")} />
+                      <YAxis type="category" dataKey="label" width={160} stroke="#78716c" tick={{ fontSize: 11 }} />
+                      <RechartsTooltip
+                        formatter={(value, name) => [Number(value).toLocaleString("de-DE"), name]}
+                        labelFormatter={(label) => label}
+                      />
+                      <Bar dataKey="count30d" name="30 Tage" radius={[0, 4, 4, 0]} label={{ position: "right", fontSize: 11, formatter: (v) => Number(v).toLocaleString("de-DE") }}>
+                        {actionEventSummary.events.map((entry) => (
+                          <Cell key={entry.eventName} fill={entry.color} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="mt-5 overflow-x-auto rounded-xl border border-stone-200">
+                  <table className="w-full text-sm">
+                    <thead className="bg-stone-100 text-stone-700">
+                      <tr>
+                        <th className="text-left px-3 py-2 font-medium">Aktion</th>
+                        <th className="text-right px-3 py-2 font-medium">7 Tage</th>
+                        <th className="text-right px-3 py-2 font-medium">30 Tage</th>
+                        <th className="text-right px-3 py-2 font-medium">Nutzer (30T)</th>
+                        <th className="text-right px-3 py-2 font-medium">Anteil</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {actionEventSummary.events.map((ev, idx) => (
+                        <tr key={ev.eventName} className={`border-t border-stone-200 ${idx === 0 ? "bg-green-50" : ""}`}>
+                          <td className="px-3 py-2 flex items-center gap-2">
+                            <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: ev.color }} />
+                            <span className="font-medium text-stone-800">{ev.label}</span>
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums">{Number(ev.count7d).toLocaleString("de-DE")}</td>
+                          <td className="px-3 py-2 text-right tabular-nums font-semibold">{Number(ev.count30d).toLocaleString("de-DE")}</td>
+                          <td className="px-3 py-2 text-right tabular-nums text-stone-500">{Number(ev.uniqueUsers30d).toLocaleString("de-DE")}</td>
+                          <td className="px-3 py-2 text-right tabular-nums text-stone-500">{ev.sharePercent}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-2 border-stone-200 shadow-lg bg-white">
+          <CardHeader>
+            <CardTitle>Feature-Nutzung (letzte 30 Tage)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isKpiLoading ? (
+              <div className="flex items-center justify-center h-40">
+                <Loader2 className="w-6 h-6 animate-spin text-green-600" />
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-3 mb-4">
+                  <div className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-2">
+                    <p className="text-xs text-stone-500">Meistgenutztes Feature</p>
+                    <p className="text-base font-bold text-stone-900">{featureUsageSummary?.topFeature?.label ?? "–"}</p>
+                    <p className="text-xs text-stone-500">{Number(featureUsageSummary?.topFeature?.count30d ?? 0).toLocaleString("de-DE")} Events</p>
+                  </div>
+                  <div className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-2">
+                    <p className="text-xs text-stone-500">Gesamte Events (30 Tage)</p>
+                    <p className="text-base font-bold text-stone-900">{Number(featureUsageSummary?.totalEvents30d ?? 0).toLocaleString("de-DE")}</p>
+                  </div>
+                </div>
+
+                <div style={{ height: Math.max(280, (featureUsageSummary?.features?.length ?? 0) * 38) }} className="w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={featureUsageSummary?.features ?? []}
+                      layout="vertical"
+                      margin={{ left: 10, right: 40, top: 4, bottom: 4 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#d6d3d1" />
+                      <XAxis type="number" stroke="#78716c" allowDecimals={false} tickFormatter={(v) => Number(v).toLocaleString("de-DE")} />
+                      <YAxis type="category" dataKey="label" width={130} stroke="#78716c" tick={{ fontSize: 12 }} />
+                      <RechartsTooltip
+                        formatter={(value, name) => [Number(value).toLocaleString("de-DE"), name]}
+                        labelFormatter={(label) => label}
+                      />
+                      <Bar dataKey="count30d" name="30 Tage" radius={[0, 4, 4, 0]} label={{ position: "right", fontSize: 11, formatter: (v) => Number(v).toLocaleString("de-DE") }}>
+                        {(featureUsageSummary?.features ?? []).map((entry) => (
+                          <Cell key={entry.key} fill={entry.color} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="mt-5 overflow-x-auto rounded-xl border border-stone-200">
+                  <table className="w-full text-sm">
+                    <thead className="bg-stone-100 text-stone-700">
+                      <tr>
+                        <th className="text-left px-3 py-2 font-medium">Feature</th>
+                        <th className="text-right px-3 py-2 font-medium">7 Tage</th>
+                        <th className="text-right px-3 py-2 font-medium">30 Tage</th>
+                        <th className="text-right px-3 py-2 font-medium">Anteil</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(featureUsageSummary?.features ?? []).map((f, idx) => (
+                        <tr key={f.key} className={`border-t border-stone-200 ${idx === 0 ? "bg-green-50" : ""}`}>
+                          <td className="px-3 py-2 flex items-center gap-2">
+                            <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: f.color }} />
+                            <span className="font-medium text-stone-800">{f.label}</span>
+                            <span className="text-xs text-stone-400 hidden sm:inline">{f.description}</span>
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums">{Number(f.count7d).toLocaleString("de-DE")}</td>
+                          <td className="px-3 py-2 text-right tabular-nums font-semibold">{Number(f.count30d).toLocaleString("de-DE")}</td>
+                          <td className="px-3 py-2 text-right tabular-nums text-stone-500">{f.sharePercent}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 

@@ -20,7 +20,7 @@ import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNo
 import { AnimatePresence, motion } from "framer-motion";
 
 import MobileBackButton from "../components/navigation/MobileBackButton";
-import { Check } from "lucide-react";
+
 import { createPageUrl } from "@/utils";
 import { cacheLocation, LOCATION_CACHE_MAX_AGE_MS, requestCurrentLocation } from "@/lib/locationSync";
 import {
@@ -60,42 +60,7 @@ function deriveNativeRegion(distribution) {
   return `${label} (${localities.join(' · ')})`;
 }
 
-// Bestätigungs-Button Komponente (draggable wie MobileBackButton)
-function ConfirmButton({ onConfirm, disabled = false }) {
-  const [position, setPosition] = useState(() => {
-    const saved = localStorage.getItem('mobileButtonPosition');
-    return saved ? JSON.parse(saved) : { x: 0, y: 0 };
-  });
 
-  const handleDragEnd = (event, info) => {
-    const newPosition = {
-      x: position.x + info.offset.x,
-      y: position.y + info.offset.y
-    };
-    setPosition(newPosition);
-    localStorage.setItem('mobileButtonPosition', JSON.stringify(newPosition));
-  };
-
-  return (
-    <motion.div
-      className="md:hidden fixed bottom-4 left-4 z-50"
-      drag
-      dragMomentum={false}
-      dragElastic={0}
-      onDragEnd={handleDragEnd}
-      animate={position}
-      style={{ x: position.x, y: position.y }}
-    >
-      <Button
-        onClick={onConfirm}
-        disabled={disabled}
-        className={`w-16 h-16 shadow-lg border-2 border-white text-white rounded-full cursor-move bg-green-600 hover:bg-green-700 ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
-      >
-        <Check className="w-8 h-8" />
-      </Button>
-    </motion.div>
-  );
-}
 
 export default function Scanner() {
   const [scanning, setScanning] = useState(false);
@@ -112,7 +77,6 @@ export default function Scanner() {
   const [showRateLimitDialog, setShowRateLimitDialog] = useState(false);
   const [pendingImageData, setPendingImageData] = useState(null);
   const [pendingScanData, setPendingScanData] = useState(null); // Temporäre Scan-Daten vor Bestätigung
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showBlockedResultDialog, setShowBlockedResultDialog] = useState(false);
   const [isSavingPlant, setIsSavingPlant] = useState(false);
   const [currentResultIndex, setCurrentResultIndex] = useState(0); // Aktuell ausgewähltes Ergebnis
@@ -1178,13 +1142,6 @@ export default function Scanner() {
     alert("Die KI-Notfall-Erkennung ist aktuell nicht konfiguriert. Bitte versuche es spaeter erneut.");
   };
 
-  const handleCancelSave = () => {
-    setShowConfirmDialog(false);
-    setPendingScanData(null);
-    setMatchedPlant(null);
-    setAllScanResults([]);
-    setImageUrl(null);
-  };
 
   const handleBackToIntro = () => {
     setScanning(false);
@@ -1194,7 +1151,6 @@ export default function Scanner() {
     setImageUrl(null);
     setPendingScanData(null);
     setCurrentResultIndex(0);
-    setShowConfirmDialog(false);
     setShowRateLimitDialog(false);
     setShowCamera(false);
     setGuestScanFeedback(null);
@@ -1225,7 +1181,6 @@ export default function Scanner() {
       }
 
       if (!user?.id) {
-        setShowConfirmDialog(false);
         setPendingScanData(null);
         setGuestScanFeedback({
           type: "newDiscovery",
@@ -1260,7 +1215,6 @@ export default function Scanner() {
           { scanLocationSnapshot }
         );
 
-        setShowConfirmDialog(false);
         setPendingScanData(null);
 
         // Feedback-Typ: Season-Scan-Typen haben Vorrang
@@ -1300,7 +1254,6 @@ export default function Scanner() {
             });
             setShowGlobalFloralogModal(true);
 
-            setShowConfirmDialog(false);
             setPendingScanData(null);
           } else {
             alert("Die Pflanze konnte nicht zum globalen Floralog hinzugefügt werden. Bitte versuche es später erneut.");
@@ -1454,68 +1407,7 @@ export default function Scanner() {
           >
             <div className={`w-full min-h-full flex flex-col items-center ${shouldTopAlignContent ? 'justify-start py-4' : 'justify-center'}`}>
       {/* Grüner Haken / Ändern Button - nur wenn pendingScanData vorhanden */}
-      {pendingScanData && !isSavingPlant && (
-        <ConfirmButton 
-          onConfirm={() => !selectedResultBlocked && setShowConfirmDialog(true)}
-          disabled={selectedResultBlocked}
-        />
-      )}
-      
-      {/* Bestätigungs-Dialog */}
-      <Dialog open={showConfirmDialog} onOpenChange={(open) => !isSavingPlant && setShowConfirmDialog(open)}>
-        <DialogContent className="sm:max-w-md overflow-hidden rounded-3xl border border-[#f0e5a5]/35 bg-black/40 backdrop-blur-xl text-stone-100 shadow-[0_24px_80px_rgba(0,0,0,0.55)]" onInteractOutside={(e) => isSavingPlant && e.preventDefault()}>
-          <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-emerald-950/20 to-black/45 pointer-events-none" />
-          <div className="absolute inset-0 border border-[#f0e5a5]/25 rounded-3xl pointer-events-none" />
-          <div className="relative z-10">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-emerald-300">
-              {isSavingPlant ? <Loader2 className="w-6 h-6 animate-spin" /> : <Check className="w-6 h-6" />}
-              {isSavingPlant ? "Wird gespeichert..." : "Pflanze hinzufügen?"}
-            </DialogTitle>
-            {!isSavingPlant && (
-              <DialogDescription className="text-base pt-4 text-stone-200">
-                {selectedResultBlocked ? (
-                  <span>
-                    <strong>{selectedPendingResult?.species_name || "Dieser Vorschlag"}</strong> kann nicht gespeichert werden –
-                    {selectedPendingResult?.notInDex && selectedPendingResult?.is_european === false
-                      ? " diese Pflanze kommt nicht in europäischen Ökosystemen vor. Floralog sammelt nur Pflanzen, die in Europa heimisch oder dauerhaft eingebürgert sind."
-                      : " Pflanzendaten oder Verbreitungsinformationen sind unvollständig. Versuche es mit einem klareren Foto erneut."}
-                    {" "}Wähle ein anderes Ergebnis oder scanne erneut.
-                  </span>
-                ) : (
-                  <span>
-                    Möchtest du <strong>{pendingScanData?.allResults?.[currentResultIndex]?.species_name || pendingScanData?.plant?.species_name}</strong> zu deiner Sammlung hinzufügen?
-                  </span>
-                )}
-              </DialogDescription>
-            )}
-            {isSavingPlant && (
-              <DialogDescription className="text-base pt-4 text-center text-stone-200">
-                <p>Die Pflanze wird gespeichert und Quest-Fortschritte werden aktualisiert...</p>
-              </DialogDescription>
-            )}
-          </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button 
-              variant="outline" 
-              onClick={handleCancelSave}
-              disabled={isSavingPlant}
-              className="border-[#f0e5a5]/35 bg-black/35 text-stone-100 hover:bg-black/55"
-            >
-              Nein
-            </Button>
-            <Button 
-              onClick={handleConfirmSave}
-              disabled={isSavingPlant || selectedResultBlocked}
-              className="border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 hover:brightness-110 disabled:opacity-50"
-            >
-              {isSavingPlant ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-              Ja
-            </Button>
-          </DialogFooter>
-          </div>
-        </DialogContent>
-      </Dialog>
+
 
       <Dialog open={showGuestRegisterDialog} onOpenChange={setShowGuestRegisterDialog}>
         <DialogContent className="sm:max-w-md overflow-hidden rounded-3xl border border-[#f0e5a5]/35 bg-black/40 backdrop-blur-xl text-stone-100 shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
@@ -1795,7 +1687,9 @@ export default function Scanner() {
             onDeleteResult={handleDeleteResult}
             onChangeResult={handleChangeResult}
             latestDiscoveryId={latestDiscoveryId}
-            isPendingConfirmation={!!pendingScanData} />
+            isPendingConfirmation={!!pendingScanData}
+            onConfirmSave={handleConfirmSave}
+            isSavingPlant={isSavingPlant} />
 
           </div>
         }
