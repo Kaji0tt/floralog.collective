@@ -8,6 +8,7 @@ import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { buildDauWauMauSeries, buildActionEventSummary, buildFeatureUsageSummary, buildGlobalKpiSummary, buildMonthlyTopScannerSummary } from "@/api/kpiService";
 import { fetchActionEvents30d } from "@/api/analyticsService";
+import JourneyGraph from "@/components/kpi/JourneyGraph";
 import { getOnlinePresenceDisplayName, subscribeToOnlineUsers } from "@/api/onlinePresenceService";
 import { createPageUrl } from "@/utils";
 
@@ -294,6 +295,12 @@ export default function KPIAdmin() {
     [actionEvents]
   );
 
+  const journeyCountMap = useMemo(() => {
+    const map = {};
+    actionEventSummary.events.forEach((ev) => { map[ev.eventName] = ev.count30d; });
+    return map;
+  }, [actionEventSummary]);
+
   const retentionAxisTicks = useMemo(() => {
     if (!retentionSeries.length) return [];
     const first = retentionSeries[0]?.dateKey;
@@ -510,30 +517,12 @@ export default function KPIAdmin() {
                   </div>
                 </div>
 
-                <div style={{ height: Math.max(280, actionEventSummary.events.length * 38) }} className="w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={actionEventSummary.events}
-                      layout="vertical"
-                      margin={{ left: 10, right: 50, top: 4, bottom: 4 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#d6d3d1" />
-                      <XAxis type="number" stroke="#78716c" allowDecimals={false} tickFormatter={(v) => Number(v).toLocaleString("de-DE")} />
-                      <YAxis type="category" dataKey="label" width={160} stroke="#78716c" tick={{ fontSize: 11 }} />
-                      <RechartsTooltip
-                        formatter={(value, name) => [Number(value).toLocaleString("de-DE"), name]}
-                        labelFormatter={(label) => label}
-                      />
-                      <Bar dataKey="count30d" name="30 Tage" radius={[0, 4, 4, 0]} label={{ position: "right", fontSize: 11, formatter: (v) => Number(v).toLocaleString("de-DE") }}>
-                        {actionEventSummary.events.map((entry) => (
-                          <Cell key={entry.eventName} fill={entry.color} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                {/* Journey Node Graph */}
+                <div className="rounded-xl border border-stone-200 bg-stone-50 p-3 mb-4">
+                  <JourneyGraph countMap={journeyCountMap} />
                 </div>
 
-                <div className="mt-5 overflow-x-auto rounded-xl border border-stone-200">
+                <div className="mt-2 overflow-x-auto rounded-xl border border-stone-200">
                   <table className="w-full text-sm">
                     <thead className="bg-stone-100 text-stone-700">
                       <tr>

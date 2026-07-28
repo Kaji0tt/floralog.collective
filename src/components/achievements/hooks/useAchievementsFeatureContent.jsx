@@ -1,5 +1,6 @@
-﻿import { useState, useEffect, useMemo } from "react";
+﻿import { useState, useEffect, useRef, useMemo } from "react";
 import { Query } from "@/api/entities";
+import { trackAction } from "@/api/analyticsService";
 import { createUserNotification } from "@/api/notificationService";
 import { buildNotificationPayload } from "@/lib/story/storyDefinition";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
@@ -226,6 +227,13 @@ export function useAchievementsFeatureContent({
     if (tab === "achievements") return "achievements";
     return null;
   });
+  const _prevAchievementsViewRef = useRef(achievementsView);
+  useEffect(() => {
+    if (achievementsView !== null && achievementsView !== _prevAchievementsViewRef.current) {
+      trackAction(`achievements_view_${achievementsView}`, { sourcePage: "Achievements" });
+    }
+    _prevAchievementsViewRef.current = achievementsView;
+  }, [achievementsView]);
   const [expandedHighestScanEntryKey, setExpandedHighestScanEntryKey] = useState(null);
   const [isLeaderboardRefreshing, setIsLeaderboardRefreshing] = useState(
     () => resolveAchievementsTab(requestedTab) === "stats"

@@ -4,6 +4,7 @@ import { createUserNotification } from "@/api/notificationService";
 import { buildNotificationPayload } from "@/lib/story/storyDefinition";
 import { supabase } from "@/api/supabaseClient";
 import { sendFriendRequest, removeFriendship, respondToFriendRequest } from "@/api/friendService";
+import { trackAction } from "@/api/analyticsService";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -80,6 +81,13 @@ export function useFriendsFeatureContent({
   const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
   const [averageColor, setAverageColor] = useState(null);
   const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "explorer");
+  const _prevActiveTabRef = useRef(activeTab);
+  useEffect(() => {
+    if (activeTab !== _prevActiveTabRef.current) {
+      trackAction(`social_tab_${activeTab}`, { sourcePage: "Social" });
+      _prevActiveTabRef.current = activeTab;
+    }
+  }, [activeTab]);
   const [explorerAudienceFilter, setExplorerAudienceFilter] = useState("all");
   const explorerSentinelRef = useRef(null);
   const explorerContainerRef = useRef(null);
