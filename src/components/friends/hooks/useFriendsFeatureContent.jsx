@@ -114,6 +114,16 @@ const EXPLORER_EVENT_SOURCE_LABELS = {
 const getExplorerEventSourceMeta = (source) =>
   source ? (EXPLORER_EVENT_SOURCE_LABELS[source] ?? null) : null;
 
+const EXPLORER_ZONE_THEME_LABELS = {
+  forest:  { label: "🌲 Wald",   cls: "border-green-500/50 bg-green-500/20 text-green-200" },
+  water:   { label: "🌊 Wasser", cls: "border-blue-400/50 bg-blue-500/20 text-blue-200" },
+  urban:   { label: "🏙️ Urban",  cls: "border-amber-500/40 bg-amber-500/15 text-amber-200" },
+  meadow:  { label: "🌸 Wiese",  cls: "border-lime-400/50 bg-lime-500/15 text-lime-200" },
+};
+
+const getExplorerZoneThemeMeta = (theme) =>
+  theme ? (EXPLORER_ZONE_THEME_LABELS[theme] ?? null) : null;
+
 export function useFriendsFeatureContent({
   embedded = false,
   onHeaderMetaChange,
@@ -1279,6 +1289,7 @@ Viel Spaß beim Entdecken! 🌿`;
         actorLogoAssets: resolveEquippedLogoAssetsWithCatalog(profile || {}, logoAssets),
         actorBackgroundUrl: profile?.background_image_url || null,
         actorBackgroundColor: profile?.background_color || null,
+        actorBorderColor: profile?.selected_border_color || '#C7AF8B',
         actorProfileEffect: profile?.selected_profile_effect || null,
         scanCount: 1,
         likedByCurrentUser: likedDiscoveryIdSet.has(entry.id),
@@ -1286,7 +1297,7 @@ Viel Spaß beim Entdecken! 🌿`;
         timestamp: new Date(entry.discovered_date || Date.now()),
         // Reward enrichment
         seedAmount: scanRewardByDiscoveryId.get(entry.id)?.seed_amount ?? null,
-        dataQualityEarned: scanRewardByDiscoveryId.get(entry.id)?.data_quality_delta ?? 0,
+        zoneTheme: scanRewardByDiscoveryId.get(entry.id)?.zone_theme ?? null,
         eventSource: scanRewardByDiscoveryId.get(entry.id)?.event_source ?? null,
         isWeeklyQuestPlant: (() => {
           const q = currentWeeklyQuestForExplorer;
@@ -1713,13 +1724,12 @@ Viel Spaß beim Entdecken! 🌿`;
                     >
                       <Card
                         className={`${nestedCardClass} ${interactiveHoverClass} transition-all overflow-hidden relative`}
-                        style={
-                          entry.actorBackgroundColor && !entry.actorBackgroundUrl
-                            ? {
-                                background: `linear-gradient(160deg, ${getRgbaFromRgb(entry.actorBackgroundColor, 1)} 0%, ${getRgbaFromRgb(entry.actorBackgroundColor, 0.55)} 100%)`,
-                              }
-                            : undefined
-                        }
+                        style={{
+                          border: `1px solid ${entry.actorBorderColor}55`,
+                          ...(entry.actorBackgroundColor && !entry.actorBackgroundUrl
+                            ? { background: `linear-gradient(160deg, ${getRgbaFromRgb(entry.actorBackgroundColor, 0.55)} 0%, ${getRgbaFromRgb(entry.actorBackgroundColor, 0.28)} 100%)` }
+                            : {}),
+                        }}
                       >
                         {/* Profile background image */}
                         {entry.actorBackgroundUrl && (
@@ -1774,12 +1784,13 @@ Viel Spaß beim Entdecken! 🌿`;
                             }}
                             onMouseDown={(e) => e.stopPropagation()}
                           >
-                            <div className="w-11 h-11 rounded-full overflow-hidden shadow-md ring-2 ring-white/25">
+                            <div className="w-11 h-11">
                               <CustomLogoAvatar
                                 logoAssets={entry.actorLogoAssets}
                                 className="w-full h-full"
                                 fallbackText={entry.actorName?.charAt(0)?.toUpperCase() || "?"}
                                 fallbackClassName="text-sm font-bold text-white"
+                                noClip
                               />
                             </div>
                           </button>
@@ -1789,7 +1800,7 @@ Viel Spaß beim Entdecken! 🌿`;
                           <button
                             type="button"
                             className="block w-full relative overflow-hidden rounded-xl"
-                            style={{ aspectRatio: "4/3" }}
+                            style={{ aspectRatio: "4/3", border: `1px solid ${entry.actorBorderColor}66` }}
                             onClick={() => openExplorerDiscoveryInFriendCollection(entry)}
                           >
                             {entry.discovery?.image_url ? (
@@ -1815,33 +1826,40 @@ Viel Spaß beim Entdecken! 🌿`;
                           </button>
                         </div>
                         <CardContent className="p-3 space-y-2 relative z-10">
-                          {/* Pflanze der Woche banner */}
-                          {entry.isWeeklyQuestPlant && (
-                            <div className="flex items-center gap-1.5 rounded-lg px-2 py-1 bg-violet-500/20 border border-violet-400/40">
-                              <span className="text-[10px]">🌿</span>
-                              <span className="text-[10px] font-semibold text-violet-300">Pflanze der Woche</span>
-                            </div>
-                          )}
-                          {/* Seeds earned + event source + data quality */}
+                          {/* Seeds row: [Samen] ... [Zone] [Pflanze der Woche] [Erstfund/Weltfund/...] */}
                           {entry.seedAmount !== null ? (
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex items-center gap-1.5">
                                 <span className="text-base font-bold text-amber-300">{entry.seedAmount}</span>
                                 <span className={`text-[10px] ${isLightUi ? "text-stone-500" : "text-stone-400"}`}>Samen</span>
-                                {entry.dataQualityEarned > 0 && (
-                                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-sky-500/20 border border-sky-400/35 text-sky-200">
-                                    +{entry.dataQualityEarned}&nbsp;DQ
+                              </div>
+                              <div className="flex items-center gap-1 flex-wrap justify-end">
+                                {getExplorerZoneThemeMeta(entry.zoneTheme) && (
+                                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full border ${getExplorerZoneThemeMeta(entry.zoneTheme).cls}`}>
+                                    {getExplorerZoneThemeMeta(entry.zoneTheme).label}
+                                  </span>
+                                )}
+                                {entry.isWeeklyQuestPlant && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded-full border border-violet-400/70 bg-violet-500/35 text-violet-200 font-semibold whitespace-nowrap">
+                                    🌿 Pflanze der Woche
+                                  </span>
+                                )}
+                                {getExplorerEventSourceMeta(entry.eventSource) && (
+                                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full border ${getExplorerEventSourceMeta(entry.eventSource).cls}`}>
+                                    {getExplorerEventSourceMeta(entry.eventSource).label}
                                   </span>
                                 )}
                               </div>
-                              {getExplorerEventSourceMeta(entry.eventSource) && (
-                                <span className={`text-[9px] px-1.5 py-0.5 rounded-full border ${getExplorerEventSourceMeta(entry.eventSource).cls}`}>
-                                  {getExplorerEventSourceMeta(entry.eventSource).label}
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between gap-2">
+                              <div className={`text-[10px] ${mutedTextClass}`}>— Keine Belohnungsdaten —</div>
+                              {entry.isWeeklyQuestPlant && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded-full border border-violet-400/70 bg-violet-500/35 text-violet-200 font-semibold whitespace-nowrap">
+                                  🌿 Pflanze der Woche
                                 </span>
                               )}
                             </div>
-                          ) : (
-                            <div className={`text-[10px] ${mutedTextClass}`}>— Keine Belohnungsdaten —</div>
                           )}
                           {/* Reward unlocked (own or friend) */}
                           {entry.rewardUnlocked && (
@@ -1855,7 +1873,8 @@ Viel Spaß beim Entdecken! 🌿`;
                           <div className={`flex items-center justify-between text-[10px] ${mutedTextClass}`}>
                             <span className="inline-flex items-center gap-1">
                               <Clock className="w-3 h-3" />
-                              {formatDistanceToNow(entry.timestamp, { addSuffix: true, locale: de })}
+                              <span className="font-medium">{entry.actorName}</span>
+                              <span>{formatDistanceToNow(entry.timestamp, { addSuffix: true, locale: de })}</span>
                             </span>
                             {entry.actorEmail && entry.actorEmail !== ownEmailLower ? (
                               <button

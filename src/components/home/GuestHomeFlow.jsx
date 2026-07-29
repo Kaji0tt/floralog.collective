@@ -954,6 +954,7 @@ export default function GuestHomeFlow() {
             className="h-full w-full max-w-[78vw] max-h-full bg-transparent"
             innerClassName="scale-[1.62]"
             tooltipText={lastSignedInUserSnapshot.displayName || lastSignedInUserSnapshot.email || "Spieler"}
+            noClip
           />
         </div>
       )}
