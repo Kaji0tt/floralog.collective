@@ -5,9 +5,11 @@ import { listUserRewardsWithLegacyFallback } from "@/api/userRewardService";
 /**
  * Prüft alle Achievements und schaltet neue frei
  * @param {Object} user - Der aktuelle User
+ * @param {Object} [options]
+ * @param {string} [options.triggerDiscoveryId] - Discovery-ID des auslösenden Scans (für Reward-Zuordnung im Social Feed)
  * @returns {Array} - Liste der neu freigeschalteten Achievements
  */
-export async function checkAndUnlockAchievements(user) {
+export async function checkAndUnlockAchievements(user, { triggerDiscoveryId = null } = {}) {
   if (!user) return [];
 
   try {
@@ -269,7 +271,8 @@ export async function checkAndUnlockAchievements(user) {
             auth_id: user.id,
             user_email: user.email,
             user_name: user.display_name || user.full_name || user.email,
-            unlocked_date: new Date().toISOString()
+            unlocked_date: new Date().toISOString(),
+            ...(triggerDiscoveryId ? { discovery_id: triggerDiscoveryId } : {}),
           });
           unlockedRewardIds.add(reward.id);
 
@@ -334,7 +337,8 @@ export async function checkAndUnlockAchievements(user) {
             auth_id: user.id,
             user_email: user.email,
             user_name: user.display_name || user.full_name || user.email,
-            unlocked_date: new Date().toISOString()
+            unlocked_date: new Date().toISOString(),
+            ...(triggerDiscoveryId ? { discovery_id: triggerDiscoveryId } : {}),
           });
           unlockedRewardIds.add(reward.id);
 
@@ -403,7 +407,8 @@ export async function checkAndUnlockAchievements(user) {
             auth_id: user.id,
             user_email: user.email,
             user_name: user.display_name || user.full_name || user.email,
-            unlocked_date: new Date().toISOString()
+            unlocked_date: new Date().toISOString(),
+            ...(triggerDiscoveryId ? { discovery_id: triggerDiscoveryId } : {}),
           });
           unlockedRewardIds.add(reward.id);
         } else {
