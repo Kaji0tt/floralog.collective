@@ -103,6 +103,17 @@ const getExplorerEcoItems = (plant) => {
   ].filter((c) => c.value !== null);
 };
 
+const EXPLORER_EVENT_SOURCE_LABELS = {
+  new_global_scan:    { label: "Weltfund",    cls: "border-emerald-400/50 bg-emerald-500/15 text-emerald-200" },
+  new_scan:           { label: "Erstfund",    cls: "border-sky-400/50 bg-sky-500/15 text-sky-200" },
+  new_season_scan:    { label: "Saisonfund",  cls: "border-violet-400/50 bg-violet-500/15 text-violet-200" },
+  season_rediscovery: { label: "Saison",      cls: "border-stone-400/40 bg-stone-500/10 text-stone-300" },
+  scan:               { label: "Scan",        cls: "border-stone-400/40 bg-stone-500/10 text-stone-300" },
+};
+
+const getExplorerEventSourceMeta = (source) =>
+  source ? (EXPLORER_EVENT_SOURCE_LABELS[source] ?? null) : null;
+
 export function useFriendsFeatureContent({
   embedded = false,
   onHeaderMetaChange,
@@ -414,6 +425,11 @@ export function useFriendsFeatureContent({
     enabled: isExplorerTab,
   });
 
+  const explorerDiscoveryIds = useMemo(
+    () => (explorerDiscoveries || []).map((d) => d.id).filter(Boolean),
+    [explorerDiscoveries]
+  );
+
   const { data: ownRewardsForExplorer = [] } = useQuery({
     queryKey: ['explorerRewardUnlocks', explorerDiscoveryIds],
     queryFn: async () => {
@@ -427,11 +443,6 @@ export function useFriendsFeatureContent({
     staleTime: 5 * 60 * 1000,
     enabled: explorerDiscoveryIds.length > 0 && isExplorerTab,
   });
-
-  const explorerDiscoveryIds = useMemo(
-    () => (explorerDiscoveries || []).map((d) => d.id).filter(Boolean),
-    [explorerDiscoveries]
-  );
 
   const { data: explorerScanRewards = [] } = useQuery({
     queryKey: ['explorerScanRewards', explorerDiscoveryIds],
