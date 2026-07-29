@@ -1,0 +1,32 @@
+{
+  "name": "Friend",
+  "type": "object",
+  "properties": {
+    "request_sent_by": {
+      "type": "string",
+      "description": "E-Mail des Users der die Anfrage sendet"
+    },
+    "request_sent_to": {
+      "type": "string",
+      "description": "E-Mail des Users der die Anfrage empf\u00e4ngt"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "accepted"
+      ],
+      "default": "pending",
+      "description": "Status der Freundschaftsanfrage"
+    },
+    "added_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Wann wurde die Freundschaft best\u00e4tigt"
+    }
+  },
+  "required": [
+    "request_sent_by",
+    "request_sent_to"
+  ]
+}

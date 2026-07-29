@@ -1,0 +1,34 @@
+{
+  "name": "UserDailyQuest",
+  "type": "object",
+  "properties": {
+    "daily_quest_id": {
+      "type": "string",
+      "description": "ID der t\u00e4glichen Quest"
+    },
+    "active_date": {
+      "type": "string",
+      "format": "date",
+      "description": "An welchem Tag wurde die Quest aktiv"
+    },
+    "progress": {
+      "type": "integer",
+      "default": 0,
+      "description": "Aktueller Fortschritt (Scans seit Aktivierung)"
+    },
+    "completed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Wurde abgeschlossen"
+    },
+    "completed_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Wann wurde abgeschlossen"
+    }
+  },
+  "required": [
+    "daily_quest_id",
+    "active_date"
+  ]
+}

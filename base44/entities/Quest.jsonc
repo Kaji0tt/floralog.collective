@@ -1,0 +1,97 @@
+{
+  "name": "Quest",
+  "type": "object",
+  "properties": {
+    "quest_number": {
+      "type": "integer",
+      "description": "Aufgabennummer (1-30)"
+    },
+    "title": {
+      "type": "string",
+      "description": "Titel der Aufgabe"
+    },
+    "description": {
+      "type": "string",
+      "description": "Beschreibung der Aufgabe"
+    },
+    "requirement": {
+      "type": "string",
+      "description": "Was muss erreicht werden"
+    },
+    "reward_name": {
+      "type": "string",
+      "description": "Name der Belohnung aus der Reward-Entit\u00e4t (z.B. 'forest_background')"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "B\u00e4ume",
+        "Str\u00e4ucher",
+        "Blumen",
+        "Alle"
+      ],
+      "description": "Kategorie der Aufgabe"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": [
+        "Leicht",
+        "Mittel",
+        "Schwer"
+      ],
+      "description": "Schwierigkeitsgrad"
+    },
+    "required_discoveries": {
+      "type": "integer",
+      "description": "Anzahl ben\u00f6tigter Entdeckungen"
+    },
+    "prerequisite_quest_number": {
+      "type": "integer",
+      "description": "Quest-Nummer der Aufgabe, die vorher abgeschlossen sein muss"
+    },
+    "targets": {
+      "type": "array",
+      "description": "Spezifische Ziele (Gattungen oder Arten)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "target_type": {
+            "type": "string",
+            "enum": [
+              "genus",
+              "species"
+            ],
+            "description": "Art des Ziels"
+          },
+          "target_name": {
+            "type": "string",
+            "description": "Name der Gattung oder Art"
+          },
+          "required_count": {
+            "type": "integer",
+            "description": "Anzahl ben\u00f6tigter Entdeckungen f\u00fcr dieses Ziel"
+          }
+        },
+        "required": [
+          "target_type",
+          "target_name",
+          "required_count"
+        ]
+      }
+    },
+    "targets_operator": {
+      "type": "string",
+      "enum": [
+        "UND",
+        "ODER"
+      ],
+      "default": "UND",
+      "description": "Operator zwischen den Zielen - UND = alle m\u00fcssen erf\u00fcllt sein, ODER = mindestens eins"
+    }
+  },
+  "required": [
+    "quest_number",
+    "title",
+    "description"
+  ]
+}

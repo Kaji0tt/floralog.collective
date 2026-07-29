@@ -1,0 +1,41 @@
+{
+  "name": "UserPlantDiscovery",
+  "type": "object",
+  "properties": {
+    "plant_id": {
+      "type": "string",
+      "description": "ID der entdeckten Pflanze"
+    },
+    "discovered_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Wann wurde die Pflanze entdeckt"
+    },
+    "discovery_location": {
+      "type": "string",
+      "description": "Wo wurde die Pflanze entdeckt"
+    },
+    "discovery_notes": {
+      "type": "string",
+      "description": "Pers\u00f6nliche Notizen zur Entdeckung"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Foto der entdeckten Pflanze"
+    },
+    "is_front_image": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ob dieses Bild als Gattungsvorschaubild verwendet werden soll"
+    },
+    "is_species_front_image": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ob dieses Bild als Art-Vorschaubild verwendet werden soll"
+    }
+  },
+  "required": [
+    "plant_id",
+    "discovered_date"
+  ]
+}

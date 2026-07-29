@@ -1,0 +1,33 @@
+{
+  "name": "UserReward",
+  "type": "object",
+  "properties": {
+    "reward_id": {
+      "type": "string",
+      "description": "ID der Belohnung"
+    },
+    "reward_name": {
+      "type": "string",
+      "description": "Name der Belohnung (z.B. 'Herz des Waldes Hintergrund')"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "E-Mail des Users"
+    },
+    "user_name": {
+      "type": "string",
+      "description": "Name des Users"
+    },
+    "unlocked_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Wann wurde die Belohnung freigeschaltet"
+    }
+  },
+  "required": [
+    "reward_id",
+    "reward_name",
+    "user_email",
+    "unlocked_date"
+  ]
+}

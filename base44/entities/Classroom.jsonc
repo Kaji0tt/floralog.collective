@@ -1,0 +1,27 @@
+{
+  "name": "Classroom",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name der Klasse"
+    },
+    "code": {
+      "type": "string",
+      "description": "Eindeutiger Klassencode zum Beitreten"
+    },
+    "admin_email": {
+      "type": "string",
+      "description": "E-Mail des Klassen-Admins"
+    },
+    "description": {
+      "type": "string",
+      "description": "Beschreibung der Klasse"
+    }
+  },
+  "required": [
+    "name",
+    "code",
+    "admin_email"
+  ]
+}

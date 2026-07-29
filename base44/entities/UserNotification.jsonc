@@ -1,0 +1,73 @@
+{
+  "name": "UserNotification",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string",
+      "description": "E-Mail des Users"
+    },
+    "notification_type": {
+      "type": "string",
+      "enum": [
+        "new_quest",
+        "weekly_intro",
+        "monthly_intro",
+        "quest_redeem_ready",
+        "achievement_unlocked",
+        "friend_request",
+        "custom"
+      ],
+      "description": "Art der Benachrichtigung"
+    },
+    "related_quest_id": {
+      "type": "string",
+      "description": "ID der zugeh\u00f6rigen Quest (optional)"
+    },
+    "seen": {
+      "type": "boolean",
+      "default": false,
+      "description": "Wurde die Benachrichtigung gesehen?"
+    },
+    "message": {
+      "type": "string",
+      "description": "Nachrichtentext"
+    },
+    "title": {
+      "type": "string",
+      "description": "Titel der Benachrichtigung"
+    },
+    "description": {
+      "type": "string",
+      "description": "Beschreibung/Details"
+    },
+    "action_url": {
+      "type": "string",
+      "description": "URL f\u00fcr Navigation (z.B. 'Achievements', 'Collection')"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "default": "medium",
+      "description": "Priorit\u00e4t der Benachrichtigung"
+    },
+    "display_location": {
+      "type": "string",
+      "enum": [
+        "modal",
+        "toast",
+        "banner"
+      ],
+      "default": "modal",
+      "description": "Wo soll die Benachrichtigung angezeigt werden"
+    }
+  },
+  "required": [
+    "user_email",
+    "notification_type",
+    "message"
+  ]
+}

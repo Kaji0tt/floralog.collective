@@ -1,0 +1,23 @@
+{
+  "name": "News",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Titel der News"
+    },
+    "text": {
+      "type": "string",
+      "description": "Text der News"
+    },
+    "created_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Erstellungsdatum"
+    }
+  },
+  "required": [
+    "title",
+    "text"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "name": "ClassroomMember",
+  "type": "object",
+  "properties": {
+    "classroom_id": {
+      "type": "string",
+      "description": "ID der Klasse"
+    },
+    "member_email": {
+      "type": "string",
+      "description": "E-Mail des Mitglieds"
+    },
+    "member_name": {
+      "type": "string",
+      "description": "Name des Mitglieds"
+    },
+    "joined_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Beitrittsdatum"
+    }
+  },
+  "required": [
+    "classroom_id",
+    "member_email"
+  ]
+}

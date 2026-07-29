@@ -1,0 +1,50 @@
+{
+  "name": "PublicProfile",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string",
+      "description": "E-Mail des Users (unique identifier)"
+    },
+    "display_name": {
+      "type": "string",
+      "description": "Anzeigename"
+    },
+    "full_name": {
+      "type": "string",
+      "description": "Vollst\u00e4ndiger Name"
+    },
+    "title": {
+      "type": "string",
+      "description": "Aktueller Titel"
+    },
+    "selected_title": {
+      "type": "string",
+      "description": "Vom User gew\u00e4hlter Titel"
+    },
+    "avatar_url": {
+      "type": "string",
+      "description": "Profilbild URL"
+    },
+    "background_image_url": {
+      "type": "string",
+      "description": "Hintergrundbild URL"
+    },
+    "background_color": {
+      "type": "string",
+      "description": "Hintergrundfarbe"
+    },
+    "favorite_plant_id": {
+      "type": "string",
+      "description": "ID der Lieblingspflanze"
+    },
+    "donor_status": {
+      "type": "boolean",
+      "default": false,
+      "description": "Hat der User gespendet?"
+    }
+  },
+  "required": [
+    "user_email"
+  ]
+}

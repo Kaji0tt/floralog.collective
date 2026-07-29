@@ -1,0 +1,51 @@
+{
+  "name": "ClassroomQuest",
+  "type": "object",
+  "properties": {
+    "classroom_id": {
+      "type": "string",
+      "description": "ID der Klasse"
+    },
+    "title": {
+      "type": "string",
+      "description": "Titel der Aufgabe"
+    },
+    "description": {
+      "type": "string",
+      "description": "Beschreibung der Aufgabe"
+    },
+    "requirement": {
+      "type": "string",
+      "description": "Was muss erreicht werden"
+    },
+    "xp_reward": {
+      "type": "integer",
+      "description": "XP-Belohnung"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "B\u00e4ume",
+        "Str\u00e4ucher",
+        "Blumen",
+        "Alle"
+      ],
+      "description": "Kategorie"
+    },
+    "required_discoveries": {
+      "type": "integer",
+      "description": "Anzahl ben\u00f6tigter Entdeckungen"
+    },
+    "deadline": {
+      "type": "string",
+      "format": "date",
+      "description": "Frist f\u00fcr die Aufgabe"
+    }
+  },
+  "required": [
+    "classroom_id",
+    "title",
+    "description",
+    "xp_reward"
+  ]
+}

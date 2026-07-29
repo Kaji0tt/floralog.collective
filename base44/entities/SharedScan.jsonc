@@ -1,0 +1,57 @@
+{
+  "name": "SharedScan",
+  "type": "object",
+  "properties": {
+    "discovery_id": {
+      "type": "string",
+      "description": "ID der UserPlantDiscovery"
+    },
+    "plant_id": {
+      "type": "string",
+      "description": "ID der Pflanze"
+    },
+    "shared_by": {
+      "type": "string",
+      "description": "E-Mail des Senders"
+    },
+    "shared_to": {
+      "type": "string",
+      "description": "E-Mail des Empf\u00e4ngers"
+    },
+    "shared_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Wann wurde geteilt"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Bild-URL des Scans"
+    },
+    "discovery_location": {
+      "type": "string",
+      "description": "Fundort"
+    },
+    "viewed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Wurde angesehen"
+    },
+    "viewed_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Wann angesehen"
+    },
+    "xp_awarded": {
+      "type": "boolean",
+      "default": false,
+      "description": "Wurden XP vergeben"
+    }
+  },
+  "required": [
+    "discovery_id",
+    "plant_id",
+    "shared_by",
+    "shared_to",
+    "shared_date"
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "name": "User",
+  "type": "object",
+  "properties": {
+    "display_name": {
+      "type": "string",
+      "description": "Anzeigename des Users"
+    },
+    "title": {
+      "type": "string",
+      "description": "Aktueller Titel"
+    },
+    "selected_title": {
+      "type": "string",
+      "description": "Vom User gew\u00e4hlter Titel"
+    },
+    "avatar_url": {
+      "type": "string",
+      "description": "Profilbild URL"
+    },
+    "background_image_url": {
+      "type": "string",
+      "description": "Hintergrundbild URL"
+    },
+    "background_color": {
+      "type": "string",
+      "description": "Hintergrundfarbe"
+    },
+    "favorite_plant_id": {
+      "type": "string",
+      "description": "ID der Lieblingspflanze"
+    },
+    "weekly_tracking": {
+      "type": "boolean",
+      "default": true,
+      "description": "Scans in w\u00f6chentlichen Challenges teilen"
+    },
+    "local_tracking": {
+      "type": "boolean",
+      "default": true,
+      "description": "Scans im lokalen Tab anzeigen"
+    },
+    "donor_status": {
+      "type": "boolean",
+      "default": false,
+      "description": "Hat der User gespendet und Unterst\u00fctzer-Status"
+    }
+  },
+  "required": []
+}

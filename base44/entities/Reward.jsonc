@@ -1,0 +1,85 @@
+{
+  "name": "Reward",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Eindeutiger interner Bezeichner (z.B. 'forest_background', 'waldlaeufer_title')"
+    },
+    "display_name": {
+      "type": "string",
+      "description": "Name f\u00fcr den User (z.B. 'Wald Hintergrund', 'Der Waldl\u00e4ufer')"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "background",
+        "title",
+        "animated_border",
+        "item"
+      ],
+      "description": "Typ der Belohnung"
+    },
+    "value": {
+      "type": "string",
+      "description": "Konkreter Wert der Belohnung (z.B. URL f\u00fcr background, 'Waldl\u00e4ufer' f\u00fcr title)"
+    },
+    "color": {
+      "type": "string",
+      "description": "Optionale Farbe f\u00fcr Backgrounds (z.B. 'rgb(89, 107, 68)')"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Optionales Vorschaubild f\u00fcr die Benachrichtigung"
+    },
+    "requires_weekly_quests": {
+      "type": "integer",
+      "description": "Anzahl w\u00f6chentlicher Quests, die absolviert werden m\u00fcssen"
+    },
+    "requires_monthly_quests": {
+      "type": "integer",
+      "description": "Anzahl monatlicher Quests, die absolviert werden m\u00fcssen"
+    },
+    "requires_gifts": {
+      "type": "integer",
+      "description": "Anzahl der Geschenke von Freunden, die erhalten werden m\u00fcssen"
+    },
+    "requires_donor": {
+      "type": "boolean",
+      "description": "Ob der Nutzer Spender sein muss"
+    },
+    "requires_referrals": {
+      "type": "integer",
+      "description": "Anzahl der Freunde, die geworben werden m\u00fcssen"
+    },
+    "requires_rare_plants": {
+      "type": "integer",
+      "description": "Anzahl seltener Pflanzen, die entdeckt werden m\u00fcssen"
+    },
+    "requires_quest": {
+      "type": "string",
+      "description": "ID einer spezifischen Quest, die abgeschlossen sein muss"
+    },
+    "random_event": {
+      "type": "string",
+      "enum": [
+        "scan",
+        "weekly_scan",
+        "monthly_scan",
+        "gift_scan",
+        "rare_scan"
+      ],
+      "description": "Event bei dem zuf\u00e4llig gew\u00fcrfelt wird"
+    },
+    "random_chance": {
+      "type": "integer",
+      "description": "Wahrscheinlichkeit: 2=50%, 10=10%, 100=1%, 1000=0,1%"
+    }
+  },
+  "required": [
+    "name",
+    "display_name",
+    "type",
+    "value"
+  ]
+}

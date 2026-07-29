@@ -1,0 +1,19 @@
+{
+  "name": "UserAchievement",
+  "type": "object",
+  "properties": {
+    "achievement_id": {
+      "type": "string",
+      "description": "ID des Achievements"
+    },
+    "unlocked_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Wann wurde der Erfolg freigeschaltet"
+    }
+  },
+  "required": [
+    "achievement_id",
+    "unlocked_date"
+  ]
+}

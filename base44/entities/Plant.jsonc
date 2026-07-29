@@ -1,0 +1,69 @@
+{
+  "name": "Plant",
+  "type": "object",
+  "properties": {
+    "genus_category": {
+      "type": "string",
+      "enum": [
+        "B\u00e4ume",
+        "Str\u00e4ucher",
+        "Blumen"
+      ],
+      "description": "Kategorie der Gattung"
+    },
+    "genus_number": {
+      "type": "integer",
+      "description": "Nummer der Gattung innerhalb der Kategorie (category_dex_number)"
+    },
+    "species_name": {
+      "type": "string",
+      "description": "Artname (z.B. Sandbirke, Moorbirke)"
+    },
+    "scientific_name": {
+      "type": "string",
+      "description": "Wissenschaftlicher/Lateinischer Name"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detaillierte Beschreibung der Art"
+    },
+    "habitat": {
+      "type": "string",
+      "description": "Nat\u00fcrlicher Lebensraum"
+    },
+    "identification_features": {
+      "type": "string",
+      "description": "Wichtige Erkennungsmerkmale"
+    },
+    "flowering_period": {
+      "type": "string",
+      "description": "Bl\u00fctezeit"
+    },
+    "distribution": {
+      "type": "string",
+      "description": "Verbreitung in Mitteleuropa"
+    },
+    "fun_fact": {
+      "type": "string",
+      "description": "Interessanter Fakt f\u00fcr Kinder"
+    },
+    "rarity": {
+      "type": "string",
+      "enum": [
+        "H\u00e4ufig",
+        "Gelegentlich",
+        "Selten",
+        "Sehr Selten",
+        "Extrem Selten"
+      ],
+      "default": "H\u00e4ufig",
+      "description": "Wie selten die Art vorkommt"
+    }
+  },
+  "required": [
+    "genus_category",
+    "genus_number",
+    "species_name",
+    "scientific_name"
+  ]
+}

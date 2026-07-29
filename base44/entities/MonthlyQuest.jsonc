@@ -1,0 +1,53 @@
+{
+  "name": "MonthlyQuest",
+  "type": "object",
+  "properties": {
+    "quest_number": {
+      "type": "integer",
+      "description": "Nummer der monatlichen Aufgabe (1-N)"
+    },
+    "title": {
+      "type": "string",
+      "description": "Titel der Aufgabe"
+    },
+    "description": {
+      "type": "string",
+      "description": "Beschreibung der Aufgabe"
+    },
+    "requirement": {
+      "type": "string",
+      "description": "Was muss erreicht werden"
+    },
+    "reward_name": {
+      "type": "string",
+      "description": "Name der Belohnung aus der Reward-Entit\u00e4t (z.B. 'forest_background')"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "B\u00e4ume",
+        "Str\u00e4ucher",
+        "Blumen",
+        "Alle"
+      ],
+      "description": "Kategorie der Aufgabe"
+    },
+    "required_discoveries": {
+      "type": "integer",
+      "description": "Anzahl ben\u00f6tigter Entdeckungen"
+    },
+    "target_genus_name": {
+      "type": "string",
+      "description": "Name der spezifischen Gattung die gescannt werden muss (z.B. 'Birke') - optional"
+    },
+    "target_species_name": {
+      "type": "string",
+      "description": "Name der spezifischen Art die gescannt werden muss (z.B. 'Sandbirke') - optional"
+    }
+  },
+  "required": [
+    "quest_number",
+    "title",
+    "description"
+  ]
+}

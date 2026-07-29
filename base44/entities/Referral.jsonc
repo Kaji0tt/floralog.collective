@@ -1,0 +1,32 @@
+{
+  "name": "Referral",
+  "type": "object",
+  "properties": {
+    "invited_by": {
+      "type": "string",
+      "description": "E-Mail des einladenden Users"
+    },
+    "invited_email": {
+      "type": "string",
+      "description": "E-Mail des eingeladenen Users"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "completed"
+      ],
+      "default": "pending",
+      "description": "Status der Einladung - completed wenn erster Scan erfolgt ist"
+    },
+    "completed_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Wann wurde der erste Scan durchgef\u00fchrt"
+    }
+  },
+  "required": [
+    "invited_by",
+    "invited_email"
+  ]
+}

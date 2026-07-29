@@ -1,0 +1,23 @@
+{
+  "name": "ScanLike",
+  "type": "object",
+  "properties": {
+    "discovery_id": {
+      "type": "string",
+      "description": "ID des UserPlantDiscovery Scans"
+    },
+    "liked_by": {
+      "type": "string",
+      "description": "E-Mail des Users der den Like gegeben hat"
+    },
+    "liked_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Wann wurde geliked"
+    }
+  },
+  "required": [
+    "discovery_id",
+    "liked_by"
+  ]
+}

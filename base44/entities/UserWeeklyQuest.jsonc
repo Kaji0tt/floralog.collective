@@ -1,0 +1,53 @@
+{
+  "name": "UserWeeklyQuest",
+  "type": "object",
+  "properties": {
+    "weekly_quest_id": {
+      "type": "string",
+      "description": "ID der w\u00f6chentlichen Quest"
+    },
+    "active_week": {
+      "type": "string",
+      "description": "Kalenderwoche und Jahr (z.B. '2025-W03')"
+    },
+    "accepted": {
+      "type": "boolean",
+      "default": false,
+      "description": "Wurde die Quest angenommen?"
+    },
+    "accepted_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Wann wurde die Quest angenommen"
+    },
+    "progress": {
+      "type": "integer",
+      "default": 0,
+      "description": "Aktueller Fortschritt (Scans seit Aktivierung)"
+    },
+    "completed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Wurden die Anforderungen erf\u00fcllt?"
+    },
+    "completed_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Wann wurden die Anforderungen erf\u00fcllt"
+    },
+    "redeemed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Wurde die Quest eingel\u00f6st?"
+    },
+    "redeemed_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Wann wurde die Quest eingel\u00f6st"
+    }
+  },
+  "required": [
+    "weekly_quest_id",
+    "active_week"
+  ]
+}

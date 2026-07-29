@@ -1,0 +1,40 @@
+{
+  "name": "PlantGenus",
+  "type": "object",
+  "properties": {
+    "category_dex_number": {
+      "type": "integer",
+      "description": "Eindeutige Dex-Nummer innerhalb der Kategorie"
+    },
+    "genus_name": {
+      "type": "string",
+      "description": "Name der Gattung (z.B. Birke, Eiche)"
+    },
+    "scientific_genus": {
+      "type": "string",
+      "description": "Wissenschaftlicher Gattungsname (z.B. Betula, Quercus)"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "B\u00e4ume",
+        "Str\u00e4ucher",
+        "Blumen"
+      ],
+      "description": "Pflanzenkategorie"
+    },
+    "family": {
+      "type": "string",
+      "description": "Pflanzenfamilie"
+    },
+    "description": {
+      "type": "string",
+      "description": "Allgemeine Beschreibung der Gattung"
+    }
+  },
+  "required": [
+    "category_dex_number",
+    "genus_name",
+    "category"
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "name": "UserQuest",
+  "type": "object",
+  "properties": {
+    "quest_id": {
+      "type": "string",
+      "description": "ID der Quest"
+    },
+    "accepted": {
+      "type": "boolean",
+      "default": false,
+      "description": "Wurde die Quest angenommen?"
+    },
+    "accepted_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Wann wurde die Quest angenommen"
+    },
+    "completed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Wurden die Anforderungen erf\u00fcllt?"
+    },
+    "completed_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Wann wurden die Anforderungen erf\u00fcllt"
+    },
+    "redeemed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Wurde die Quest eingel\u00f6st (Belohnung abgeholt)?"
+    },
+    "redeemed_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Wann wurde die Quest eingel\u00f6st"
+    },
+    "progress": {
+      "type": "integer",
+      "default": 0,
+      "description": "Aktueller Fortschritt"
+    }
+  },
+  "required": [
+    "quest_id"
+  ]
+}
