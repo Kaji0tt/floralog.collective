@@ -939,7 +939,7 @@ export default function Scanner() {
 
     queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
 
-    const newlyUnlocked = await checkAndUnlockAchievements(user);
+    const newlyUnlocked = await checkAndUnlockAchievements(user, { triggerDiscoveryId: newDiscovery.id });
     if (newlyUnlocked.length > 0) {
       setNewAchievements(newlyUnlocked);
       setCurrentAchievementIndex(0);
@@ -1074,7 +1074,7 @@ export default function Scanner() {
       queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
       queryClient.invalidateQueries({ queryKey: ['plants'] });
 
-      const newlyUnlocked = await checkAndUnlockAchievements(user);
+      const newlyUnlocked = await checkAndUnlockAchievements(user, { triggerDiscoveryId: newDiscoveryId });
       if (newlyUnlocked.length > 0) {
         setNewAchievements(newlyUnlocked);
         setCurrentAchievementIndex(0);

@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { UserPlus, Users, Loader2, Check, X, Bell, UserMinus, Leaf, Trophy, Share2, Plus, Heart, UserCheck, BookOpenText, Clock, Newspaper, Send, ChevronDown, Handshake } from "lucide-react";
+import { UserPlus, Users, Loader2, Check, X, Bell, UserMinus, Leaf, Trophy, Share2, Plus, Heart, UserCheck, BookOpenText, Clock, Newspaper, Send, ChevronDown, Handshake, ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
 import { checkAndUnlockAchievements } from "@/components/achievements/achievementChecker";
 import AchievementNotification from "@/components/achievements/AchievementNotification";
@@ -27,6 +27,9 @@ import { useUiTheme } from "@/lib/UiThemeContext";
 import { encodeReferralCode } from "@/lib/referralCode";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
+import HomeShellBorderGlow from "@/components/effects/HomeShellBorderGlow";
+import { getRgbaFromRgb } from "@/lib/friendColorUtils";
+import { getCurrentWeeklyQuest } from "@/components/quests/QuestRotationHelper";
 
 const getAverageColor = (imageUrl) => {
   return new Promise((resolve) => {
@@ -63,6 +66,42 @@ const getAverageColor = (imageUrl) => {
 };
 
 const EXPLORER_PAGE_SIZE = 40;
+
+const normalizeNaturaDbSlug = (value) =>
+  String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+
+const buildExplorerNaturaDbUrl = (plant) => {
+  if (plant?.naturadb_url) return plant.naturadb_url;
+  const scientificName = plant?.scientific_name || plant?.aiData?.scientific_name;
+  const slug = normalizeNaturaDbSlug(scientificName);
+  return slug ? `https://www.naturadb.de/pflanzen/${slug}/` : "https://www.naturadb.de/pflanzen/";
+};
+
+const getExplorerEcoItems = (plant) => {
+  if (!plant) return [];
+  const r = (key) => {
+    const v = plant?.[key] ?? plant?.aiData?.[key];
+    return (v !== null && v !== undefined && v !== "") ? String(v) : null;
+  };
+  return [
+    { label: "Wildbienen", value: r("wild_bees_count") },
+    { label: "Schmetterlinge", value: r("butterflies_count") },
+    { label: "Raupen", value: r("caterpillars_count") },
+    { label: "Schwebfliegen", value: r("hoverflies_count") },
+    { label: "Käfer", value: r("beetles_count") },
+    { label: "Bestand", value: r("red_list_population") },
+    { label: "Gefährdung", value: r("red_list_threat") },
+    { label: "Nektarwert", value: r("nectar_value") },
+    { label: "Pollenwert", value: r("pollen_value") },
+  ].filter((c) => c.value !== null);
+};
 
 export function useFriendsFeatureContent({
   embedded = false,
@@ -365,6 +404,63 @@ export function useFriendsFeatureContent({
     queryFn: () => Query.PlantGenus.list(),
     staleTime: 10 * 60 * 1000,
   });
+
+  // ── Explorer reward enrichment queries ─────────────────────────────────────
+
+  const { data: weeklyQuestsForExplorer = [] } = useQuery({
+    queryKey: ['weeklyQuestsForExplorer'],
+    queryFn: () => Query.WeeklyQuest.list('quest_number'),
+    staleTime: 10 * 60 * 1000,
+    enabled: isExplorerTab,
+  });
+
+  const { data: ownRewardsForExplorer = [] } = useQuery({
+    queryKey: ['explorerRewardUnlocks', explorerDiscoveryIds],
+    queryFn: async () => {
+      if (!explorerDiscoveryIds.length) return [];
+      const { data, error } = await supabase.rpc('get_explorer_reward_unlocks', {
+        p_discovery_ids: explorerDiscoveryIds,
+      });
+      if (error) { console.warn('[ExplorerFeed] reward unlocks RPC failed:', error); return []; }
+      return data || [];
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled: explorerDiscoveryIds.length > 0 && isExplorerTab,
+  });
+
+  const explorerDiscoveryIds = useMemo(
+    () => (explorerDiscoveries || []).map((d) => d.id).filter(Boolean),
+    [explorerDiscoveries]
+  );
+
+  const { data: explorerScanRewards = [] } = useQuery({
+    queryKey: ['explorerScanRewards', explorerDiscoveryIds],
+    queryFn: async () => {
+      if (!explorerDiscoveryIds.length) return [];
+      const { data, error } = await supabase.rpc('get_explorer_scan_rewards', {
+        p_discovery_ids: explorerDiscoveryIds,
+      });
+      if (error) { console.warn('[ExplorerFeed] scan rewards RPC failed:', error); return []; }
+      return data || [];
+    },
+    enabled: !!user && explorerDiscoveryIds.length > 0 && isExplorerTab,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const scanRewardByDiscoveryId = useMemo(
+    () => new Map((explorerScanRewards || []).map((r) => [r.discovery_id, r])),
+    [explorerScanRewards]
+  );
+
+  const currentWeeklyQuestForExplorer = useMemo(
+    () => getCurrentWeeklyQuest(weeklyQuestsForExplorer),
+    [weeklyQuestsForExplorer]
+  );
+
+  const rewardUnlockByDiscoveryId = useMemo(
+    () => new Map((ownRewardsForExplorer || []).map((r) => [r.discovery_id, r])),
+    [ownRewardsForExplorer]
+  );
 
   const NEWS_TYPES = ['gift_received', 'collection_followed', 'friendship_accepted', 'friend_request_received', 'friend_achievement', 'scan_liked', 'admin_broadcast'];
 
@@ -1170,14 +1266,29 @@ Viel Spaß beim Entdecken! 🌿`;
         actorAuthId: profile?.auth_id || entry.auth_id || null,
         actorName: profile?.display_name || profile?.full_name || "Unbekannt",
         actorLogoAssets: resolveEquippedLogoAssetsWithCatalog(profile || {}, logoAssets),
+        actorBackgroundUrl: profile?.background_image_url || null,
+        actorBackgroundColor: profile?.background_color || null,
+        actorProfileEffect: profile?.selected_profile_effect || null,
         scanCount: 1,
         likedByCurrentUser: likedDiscoveryIdSet.has(entry.id),
         likeCount: likeCountByDiscoveryId.get(entry.id) || 0,
         timestamp: new Date(entry.discovered_date || Date.now()),
+        // Reward enrichment
+        seedAmount: scanRewardByDiscoveryId.get(entry.id)?.seed_amount ?? null,
+        dataQualityEarned: scanRewardByDiscoveryId.get(entry.id)?.data_quality_delta ?? 0,
+        eventSource: scanRewardByDiscoveryId.get(entry.id)?.event_source ?? null,
+        isWeeklyQuestPlant: (() => {
+          const q = currentWeeklyQuestForExplorer;
+          if (!plant || !q) return false;
+          if (q.target_species_name) return plant.species_name === q.target_species_name;
+          if (q.category && q.category !== 'Alle') return plant.genus_category === q.category;
+          return false;
+        })(),
+        rewardUnlocked: rewardUnlockByDiscoveryId.get(entry.id) || null,
       };
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recentDiscoveries, allPlants, profileByEmail, likedDiscoveryIdSet, likeCountByDiscoveryId, logoAssets]);
+  }, [recentDiscoveries, allPlants, profileByEmail, likedDiscoveryIdSet, likeCountByDiscoveryId, logoAssets, scanRewardByDiscoveryId, currentWeeklyQuestForExplorer, rewardUnlockByDiscoveryId]);
 
   useEffect(() => {
     if (!isExplorerTab || !hasNextExplorerPage) return;
@@ -1589,35 +1700,61 @@ Viel Spaß beim Entdecken! 🌿`;
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: Math.min(index, 10) * 0.02 }}
                     >
-                      <Card className={`${nestedCardClass} ${isLightUi ? "bg-white" : ""} ${interactiveHoverClass} transition-all overflow-hidden`}>
-                        {entry.discovery?.image_url ? (
-                          <button
-                            type="button"
-                            className={`block w-full aspect-[4/3] overflow-hidden ${isLightUi ? "bg-stone-100" : "bg-stone-900/60"}`}
-                            onClick={() => openExplorerDiscoveryInFriendCollection(entry)}
-                          >
-                            <img
-                              src={entry.discovery.image_url}
-                              alt={entry.plant?.species_name || "Scan"}
-                              className="w-full h-full object-cover"
-                            />
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className={`block w-full aspect-[4/3] flex items-center justify-center ${isLightUi ? "bg-gradient-to-br from-emerald-50 to-stone-100" : "bg-gradient-to-br from-emerald-500/10 to-stone-950/60"}`}
-                            onClick={() => openExplorerDiscoveryInFriendCollection(entry)}
-                          >
-                            <Leaf className={`w-10 h-10 ${isLightUi ? "text-emerald-500" : "text-emerald-300"}`} />
-                          </button>
+                      <Card
+                        className={`${nestedCardClass} ${interactiveHoverClass} transition-all overflow-hidden relative`}
+                        style={
+                          entry.actorBackgroundColor && !entry.actorBackgroundUrl
+                            ? {
+                                background: `linear-gradient(160deg, ${getRgbaFromRgb(entry.actorBackgroundColor, 1)} 0%, ${getRgbaFromRgb(entry.actorBackgroundColor, 0.55)} 100%)`,
+                              }
+                            : undefined
+                        }
+                      >
+                        {/* Profile background image */}
+                        {entry.actorBackgroundUrl && (
+                          <div
+                            className="absolute inset-0 z-0 bg-cover bg-center"
+                            style={{ backgroundImage: `url(${entry.actorBackgroundUrl})` }}
+                          />
                         )}
-                        <CardContent className="p-3 space-y-2">
-                          <div className="flex items-start justify-between gap-2">
-                            <p className={`text-sm font-bold truncate ${titleTextClass}`}>
-                            {entry.plant?.species_name || "Unbekannte Pflanze"}
+                        {/* Readability scrim – stronger so text stays legible */}
+                        {(entry.actorBackgroundUrl || entry.actorBackgroundColor) && (
+                          <div className="absolute inset-0 z-0 bg-black/55" />
+                        )}
+                        {/* Border glow effect */}
+                        {entry.actorProfileEffect === "shell_border_glow" && (
+                          <HomeShellBorderGlow active particleCount={5} />
+                        )}
+                        {/* Header bar – 2-column: plant names (left) + logo (right) */}
+                        <div className="relative z-10 px-3 pt-3 pb-1 flex items-center gap-2">
+                          {/* Left: plant names */}
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-bold leading-tight truncate ${titleTextClass}`}>
+                              {entry.plant?.species_name || "Unbekannte Pflanze"}
                             </p>
+                            {(entry.plant?.scientific_name || entry.plant?.aiData?.scientific_name) && (
+                              <div className="flex items-center gap-1 min-w-0 mt-0.5">
+                                <p className={`text-[10px] italic truncate ${mutedTextClass}`}>
+                                  {entry.plant.scientific_name || entry.plant.aiData?.scientific_name}
+                                </p>
+                                <a
+                                  href={buildExplorerNaturaDbUrl(entry.plant)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  className={`flex-shrink-0 transition-colors ${isLightUi ? "text-stone-400 hover:text-amber-600" : "text-stone-500 hover:text-amber-300"}`}
+                                  aria-label="NaturaDB öffnen"
+                                >
+                                  <ExternalLink className="w-2.5 h-2.5" />
+                                </a>
+                              </div>
+                            )}
                           </div>
+                          {/* Right: custom logo – clickable to profile */}
                           <button
+                            type="button"
+                            className={`flex-shrink-0 transition-opacity ${entry.actorEmail && entry.actorEmail !== ownEmailLower ? "hover:opacity-80" : "cursor-default"}`}
                             onClick={(e) => {
                               e.stopPropagation();
                               if (entry.actorEmail && entry.actorEmail !== ownEmailLower) {
@@ -1625,21 +1762,85 @@ Viel Spaß beim Entdecken! 🌿`;
                               }
                             }}
                             onMouseDown={(e) => e.stopPropagation()}
-                            className={`flex items-center gap-2 w-full text-left transition-opacity ${entry.actorEmail && entry.actorEmail !== ownEmailLower ? "hover:opacity-80" : "cursor-default"}`}
                           >
-                            <div className="w-5 h-5 rounded-full overflow-hidden flex items-center justify-center text-white text-[10px] font-bold">
+                            <div className="w-11 h-11 rounded-full overflow-hidden shadow-md ring-2 ring-white/25">
                               <CustomLogoAvatar
                                 logoAssets={entry.actorLogoAssets}
                                 className="w-full h-full"
                                 fallbackText={entry.actorName?.charAt(0)?.toUpperCase() || "?"}
-                                fallbackClassName="text-[10px] font-bold text-white"
+                                fallbackClassName="text-sm font-bold text-white"
                               />
                             </div>
-                            <div className="min-w-0">
-                              <p className={`text-[11px] font-medium truncate ${titleTextClass}`}>{entry.actorName}</p>
-                              <p className={`text-[10px] truncate ${mutedTextClass}`}>hat diesen Scan eingetragen</p>
-                            </div>
                           </button>
+                        </div>
+                        {/* Scan image – padded so background is visible at edges */}
+                        <div className="relative z-10 px-2 pt-2">
+                          <button
+                            type="button"
+                            className="block w-full relative overflow-hidden rounded-xl"
+                            style={{ aspectRatio: "4/3" }}
+                            onClick={() => openExplorerDiscoveryInFriendCollection(entry)}
+                          >
+                            {entry.discovery?.image_url ? (
+                              <img
+                                src={entry.discovery.image_url}
+                                alt={entry.plant?.species_name || "Scan"}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className={`w-full h-full flex items-center justify-center ${isLightUi ? "bg-gradient-to-br from-emerald-50 to-stone-100" : "bg-gradient-to-br from-emerald-500/10 to-stone-950/60"}`}>
+                                <Leaf className={`w-10 h-10 ${isLightUi ? "text-emerald-500" : "text-emerald-300"}`} />
+                              </div>
+                            )}
+                            {/* Vignette – black-to-transparent at all edges for 3D depth */}
+                            <div
+                              className="absolute inset-0 pointer-events-none rounded-xl"
+                              style={{
+                                boxShadow: "inset 0 0 32px 8px rgba(0,0,0,0.72)",
+                              }}
+                            />
+                            {/* Bottom gradient – subtle vignette at bottom */}
+                            <div className="absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
+                          </button>
+                        </div>
+                        <CardContent className="p-3 space-y-2 relative z-10">
+                          {/* Pflanze der Woche banner */}
+                          {entry.isWeeklyQuestPlant && (
+                            <div className="flex items-center gap-1.5 rounded-lg px-2 py-1 bg-violet-500/20 border border-violet-400/40">
+                              <span className="text-[10px]">🌿</span>
+                              <span className="text-[10px] font-semibold text-violet-300">Pflanze der Woche</span>
+                            </div>
+                          )}
+                          {/* Seeds earned + event source + data quality */}
+                          {entry.seedAmount !== null ? (
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-base font-bold text-amber-300">{entry.seedAmount}</span>
+                                <span className={`text-[10px] ${isLightUi ? "text-stone-500" : "text-stone-400"}`}>Samen</span>
+                                {entry.dataQualityEarned > 0 && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-sky-500/20 border border-sky-400/35 text-sky-200">
+                                    +{entry.dataQualityEarned}&nbsp;DQ
+                                  </span>
+                                )}
+                              </div>
+                              {getExplorerEventSourceMeta(entry.eventSource) && (
+                                <span className={`text-[9px] px-1.5 py-0.5 rounded-full border ${getExplorerEventSourceMeta(entry.eventSource).cls}`}>
+                                  {getExplorerEventSourceMeta(entry.eventSource).label}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <div className={`text-[10px] ${mutedTextClass}`}>— Keine Belohnungsdaten —</div>
+                          )}
+                          {/* Reward unlocked (own or friend) */}
+                          {entry.rewardUnlocked && (
+                            <div className="flex items-center gap-1.5 rounded-lg px-2 py-1 bg-amber-500/15 border border-amber-400/30">
+                              <span className="text-[10px]">🎁</span>
+                              <span className={`text-[10px] font-medium truncate ${isLightUi ? "text-amber-700" : "text-amber-200"}`}>
+                                {entry.rewardUnlocked.reward_name} freigeschaltet
+                              </span>
+                            </div>
+                          )}
                           <div className={`flex items-center justify-between text-[10px] ${mutedTextClass}`}>
                             <span className="inline-flex items-center gap-1">
                               <Clock className="w-3 h-3" />
