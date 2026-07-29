@@ -486,20 +486,11 @@ export default function ScanResults({
                   )}
 
                   {isPendingConfirmation ? (
-                    <div className="flex gap-3 pt-2">
-                      <Button
-                        variant="outline"
-                        onClick={onRescan}
-                        disabled={isSavingPlant}
-                        className="flex-1 border-[#f0e5a5]/35 bg-black/35 text-stone-100 hover:bg-black/55 font-semibold"
-                      >
-                        <RotateCcw className="w-4 h-4 mr-2" />
-                        Erneut scannen
-                      </Button>
+                    <div className="pt-2" style={{ paddingBottom: 'env(safe-area-inset-bottom, 12px)' }}>
                       <Button
                         onClick={onConfirmSave}
                         disabled={isSavingPlant || isBlockedResult || isLowConfidenceAlt}
-                        className="flex-[2] border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 hover:brightness-110 disabled:opacity-50 text-white font-semibold"
+                        className="w-full border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 hover:brightness-110 disabled:opacity-50 text-white font-semibold"
                       >
                         {isSavingPlant ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
                         {isSavingPlant ? "Wird gespeichert\u2026" : "Pflanze speichern"}
