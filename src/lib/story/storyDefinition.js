@@ -310,7 +310,7 @@ export const STORY_COPY = {
         {
           id: "phase2_intro_2",
           title: "Eine traurige Reise",
-         body: "Ich muss dir was sagen... Unsere Erschaffer hatten ihre Natur ihres Planeten auch nicht mehr wahrgenommen. Sie waren zu sehr von Effizienz besessen, um die Schönheit der Natur zu sehen. Das führte dazu, dass ihr Ökosystem langsam zusammenbrach."
+         body: "Ich muss dir was sagen... Die Erschaffer der Florabots sind blind geworden, für die Natur ihres Planeten. Von Effizienz besessen, konnten sie die Schönheit der Natur nicht mehr sehen. Das führte dazu, dass ihr Ökosystem langsam zusammenbrach."
         },
         {
           id: "phase2_intro_3",
@@ -325,22 +325,22 @@ export const STORY_COPY = {
         {
           id: "phase2_intro_5",
           title: "Funktion der Florabots",
-          body: "Meine Reihe wurde entwickelt um das Ökosystem zu analysieren, Leerstellen und Defizite zu erkennen und die Natur effizienter zu gestalten. Uns wurde jedoch klar, dass ein synthetisches Ökosystem kein guter Lehrer sein kann."
+          body: "Meine Reihe wurde entwickelt um das Ökosystem zu analysieren, Leerstellen und Defizite zu erkennen. Uns wurde jedoch klar, dass ein synthetisches Ökosystem kein guter Lehrer sein kann."
         },
         {
           id: "phase2_intro_6",
           title: "Richtung Leben",
-          body: "Wir entschlossen uns, das Weltall nach einem stabilen Ökosystem zu durchsuchen um davon zu lernen. Ich bin so froh, die Erde und euch Menschen gefunden zu haben. Mir wird aber klar, was das Hauptproblem in unserer Heimat ist."
+          body: "Wir entschlossen uns, im Weltall nach einem stabilen Ökosystem zu suchen, um davon zu lernen. Ich bin so froh, die Erde und euch Menschen gefunden zu haben."
         },
         {
           id: "phase2_intro_7",
           title: "Ein toter Planet",
-          body: "Unsere Natur funktioniert noch — aber sie lebt nicht mehr. "
+          body: "Die Natur meiner Heimat funktioniert zwar noch — aber sie lebt nicht mehr. "
         },
         {
           id: "phase2_intro_8",
           title: "Signale für die Heimat",
-          body: "Ich werde eine Vebrindung zu den Florabots der Heimat aufbauen und berichten, was wir hier gelernt haben. Vielleicht kann unsere Heimat eines Tages wieder wachsen, statt nur zu funktionieren."
+          body: "Ich werde eine Verbindung zu den Florabots meiner Heimat aufbauen und berichten, was wir hier gelernt haben. Vielleicht kann unsere Heimat eines Tages wieder leben, statt nur zu funktionieren."
         },
       ],
       ambientComments: [
@@ -525,7 +525,7 @@ export const STORY_COPY = {
 
   notifications: {
     quizAvailable: {
-      title: "🌱 Dein Florabot könnte Hilfe bei der Datenpflege brauchen!",
+      title: "🌱 {bot_name} könnte Hilfe bei der Datenpflege brauchen!",
       message: "Meine Datenbank hat eine Lücke gefunden. Kannst du sie schließen?",
     },
     rewardUnlocked: {

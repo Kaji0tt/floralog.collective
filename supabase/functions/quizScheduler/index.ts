@@ -140,8 +140,9 @@ async function sendQuizNotification(
   authId: string,
   userEmail: string | null,
   quizId: string,
+  botName: string,
 ): Promise<{ sent: boolean; error?: string }> {
-  const notifCopy = buildNotificationPayload("quizAvailable");
+  const notifCopy = buildNotificationPayload("quizAvailable", { bot_name: botName });
   const payload = {
     authId,
     userEmail,
@@ -329,7 +330,7 @@ Deno.serve(async (req) => {
     const [{ data: profiles, error: profilesError }, { data: openQuizzes, error: openError }] = await Promise.all([
       adminClient
         .from("PublicProfile")
-        .select("auth_id, user_email")
+        .select("auth_id, user_email, bot_name")
         .not("auth_id", "is", null),
       adminClient
         .from("PlantQuiz")
@@ -358,6 +359,7 @@ Deno.serve(async (req) => {
     for (const profile of profileRows) {
       const authId = String(profile.auth_id || "").trim();
       const userEmail = profile.user_email || null;
+      const botName = String(profile.bot_name || "Florabot").trim() || "Florabot";
       if (!authId) continue;
 
       if (openAuthSet.has(authId)) {
@@ -486,7 +488,7 @@ Deno.serve(async (req) => {
       openAuthSet.add(authId);
 
       const quizId = String(insertQuiz.data?.id || "");
-      const notification = await sendQuizNotification(adminClient, authId, userEmail, quizId);
+      const notification = await sendQuizNotification(adminClient, authId, userEmail, quizId, botName);
       if (!notification.sent) {
         notificationFailures += 1;
       }
