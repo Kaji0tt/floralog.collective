@@ -315,6 +315,17 @@ Deno.serve(async (req) => {
 
     const sevenDaysAgo = new Date(nowMs - 7 * 24 * 60 * 60 * 1000).toISOString();
 
+    // Auto-expire open quizzes older than 7 days before processing new ones
+    const expireResult = await adminClient
+      .from("PlantQuiz")
+      .update({ status: "expired" })
+      .eq("status", "open")
+      .lt("scheduled_slot_date", new Date(nowMs - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
+
+    if (expireResult.error) {
+      console.warn("[quizScheduler] auto-expire failed:", expireResult.error.message);
+    }
+
     const [{ data: profiles, error: profilesError }, { data: openQuizzes, error: openError }] = await Promise.all([
       adminClient
         .from("PublicProfile")
@@ -342,6 +353,7 @@ Deno.serve(async (req) => {
     let skippedInsufficientScans = 0;
     let rolledOut = 0;
     let notificationFailures = 0;
+    const autoExpiredCount = expireResult.error ? 0 : (expireResult.count ?? 0);
 
     for (const profile of profileRows) {
       const authId = String(profile.auth_id || "").trim();
@@ -498,6 +510,7 @@ Deno.serve(async (req) => {
         skippedInsufficientScans,
         rolledOut,
         notificationFailures,
+        autoExpiredCount,
       },
     });
   } catch (error) {

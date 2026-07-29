@@ -122,6 +122,8 @@ export default function HomeFlorabotOverlay({
   plantHealthState,
   healthStats = [],
   ambientMessage,
+  quizAvailable = false,
+  onQuizClick,
   wateringCountToday = 0,
   wateringLimitPerDay = 3,
   remainingWatersToday = 0,
@@ -141,7 +143,7 @@ export default function HomeFlorabotOverlay({
   );
   const tooltipCopy = TOOLTIP_COPY[tooltipLanguage] || TOOLTIP_COPY.de;
   const [showHealthDetails, setShowHealthDetails] = useState(false);
-  const [isSpeechBubbleVisible, setIsSpeechBubbleVisible] = useState(Boolean(ambientMessage));
+  const [isSpeechBubbleVisible, setIsSpeechBubbleVisible] = useState(Boolean(ambientMessage) || quizAvailable);
   const [isShopOpen, setIsShopOpen] = useState(false);
   const [activeShopCategory, setActiveShopCategory] = useState(initialShopCategory || "root");
   const [isHealthPanelCompact, setIsHealthPanelCompact] = useState(false);
@@ -176,7 +178,7 @@ export default function HomeFlorabotOverlay({
   const fixedFooterReservedHeightExpression = "7.5rem + env(safe-area-inset-bottom)";
   const shopFooterGapPx = 10;
 
-  const shouldRenderSpeechBubble = !isShopOpen && isSpeechBubbleVisible && (showHealthDetails || Boolean(ambientMessage));
+  const shouldRenderSpeechBubble = !isShopOpen && isSpeechBubbleVisible && (showHealthDetails || Boolean(ambientMessage) || quizAvailable);
 
   useEffect(() => {
     console.log(`${PORTAL_CARE_DEBUG_PREFIX} overlay render state`, {
@@ -461,7 +463,7 @@ export default function HomeFlorabotOverlay({
 
       setIsShopOpen(false);
       setShowHealthDetails(false);
-      setIsSpeechBubbleVisible(Boolean(ambientMessage));
+      setIsSpeechBubbleVisible(Boolean(ambientMessage) || quizAvailable);
       onCustomize?.(false);
       return;
     }
@@ -782,19 +784,29 @@ export default function HomeFlorabotOverlay({
                           });
                         }}
                       >
-                        <button
-                          type="button"
-                          onClick={() => handlePortalCopyTap("click")}
-                          onPointerUp={() => handlePortalCopyTap("pointerup")}
-                          onPointerDown={(event) => {
-                            console.log(`${PORTAL_CARE_DEBUG_PREFIX} portal button pointerdown`, {
-                              target: getEventTargetLabel(event.target),
-                            });
-                          }}
-                          className={`w-full border-0 bg-transparent p-0 cursor-pointer touch-manipulation ${isHealthPanelCompact ? "text-[13px]" : "text-sm"} leading-relaxed text-left transition-transform duration-200 hover:scale-[1.01] active:scale-[0.99] ${isLightUi ? "text-stone-600" : "text-stone-300"}`}
-                        >
-                          {ambientMessage}
-                        </button>
+                        {quizAvailable ? (
+                          <button
+                            type="button"
+                            onClick={() => onQuizClick?.()}
+                            className={`w-full border-0 bg-transparent p-0 cursor-pointer touch-manipulation ${isHealthPanelCompact ? "text-[13px]" : "text-sm"} leading-relaxed text-left transition-transform duration-200 hover:scale-[1.01] active:scale-[0.99] ${isLightUi ? "text-amber-700" : "text-amber-300"}`}
+                          >
+                            Ich habe ein paar Scans, die ich nicht mehr genau zuordnen kann. Kannst du mir dabei helfen? Klick hier, wenn du soweit bist!
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handlePortalCopyTap("click")}
+                            onPointerUp={() => handlePortalCopyTap("pointerup")}
+                            onPointerDown={(event) => {
+                              console.log(`${PORTAL_CARE_DEBUG_PREFIX} portal button pointerdown`, {
+                                target: getEventTargetLabel(event.target),
+                              });
+                            }}
+                            className={`w-full border-0 bg-transparent p-0 cursor-pointer touch-manipulation ${isHealthPanelCompact ? "text-[13px]" : "text-sm"} leading-relaxed text-left transition-transform duration-200 hover:scale-[1.01] active:scale-[0.99] ${isLightUi ? "text-stone-600" : "text-stone-300"}`}
+                          >
+                            {ambientMessage}
+                          </button>
+                        )}
 
                         <AnimatePresence mode="wait">
                           {activePlayfulCareAnimation && careAnimationVisualTarget === "bubble" ? (

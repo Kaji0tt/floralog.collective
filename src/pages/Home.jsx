@@ -3572,6 +3572,8 @@ function HomeContent() {
         plantHealthState={resolvedPlantHealthState}
         healthStats={healthStats}
         ambientMessage={homeOverlayAmbientMessage}
+        quizAvailable={quizAvailable}
+        onQuizClick={() => setShowPlantQuizDialog(true)}
         wateringCountToday={wateringCountToday}
         wateringLimitPerDay={wateringLimitPerDay}
         remainingWatersToday={remainingWatersToday}
