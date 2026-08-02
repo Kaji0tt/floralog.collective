@@ -54,8 +54,7 @@ export const simulateRobotPlantDecay = (state, hoursSinceLastDecay, decayReducti
   const energyValue = Number(state?.energy ?? state?.energy_value ?? 0);
   const dataQualityValue = Number(state?.dataQuality ?? state?.data_quality ?? state?.data_quality_value ?? 0);
   const careValue = Number(state?.care ?? state?.care_value ?? 0);
-  const overallHealth = (energyValue + dataQualityValue + careValue) / 3;
-  const delta = buildDecayDelta({ hoursSinceLastDecay, decayReduction, overallHealth });
+  const delta = buildDecayDelta({ hoursSinceLastDecay, decayReduction, energyValue, dataQualityValue, careValue });
   return applyRobotPlantDelta(state, delta);
 };
 

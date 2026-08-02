@@ -343,25 +343,24 @@ export const applyRobotPlantDelta = (state, delta) => {
 export const buildDecayDelta = ({
   hoursSinceLastDecay = 24,
   decayReduction = 0,
-  overallHealth = (ROBOT_PLANT_VALUES.energy.initial + ROBOT_PLANT_VALUES.dataQuality.initial + ROBOT_PLANT_VALUES.care.initial) / 3,
+  energyValue = ROBOT_PLANT_VALUES.energy.initial,
+  dataQualityValue = ROBOT_PLANT_VALUES.dataQuality.initial,
+  careValue = ROBOT_PLANT_VALUES.care.initial,
 }) => {
   const safeReduction = clamp(decayReduction, 0, 0.9);
   const dayFactor = Math.max(0, hoursSinceLastDecay) / 24;
-  const safeOverallHealth = clamp(
-    Number(overallHealth),
-    0,
-    100
-  );
-  const baseDailyDecay = Math.max(1, Math.floor(safeOverallHealth / 10));
-  const effectiveDecay = Math.max(1, Math.round(baseDailyDecay * dayFactor * (1 - safeReduction)));
-  const delta = {};
 
-  Object.entries(ROBOT_PLANT_VALUES).forEach(([key, config]) => {
-    if (!config) return;
-    delta[key] = -effectiveDecay;
-  });
+  const computeStatDecay = (value) => {
+    const safe = clamp(Number(value), 0, 100);
+    if (safe < 10) return 0;
+    return Math.round(Math.floor(safe / 10) * dayFactor * (1 - safeReduction));
+  };
 
-  return delta;
+  return {
+    energy: -computeStatDecay(energyValue),
+    dataQuality: -computeStatDecay(dataQualityValue),
+    care: -computeStatDecay(careValue),
+  };
 };
 
 export const applyGainBoostToDelta = (deltaValue = 0, careValue = ROBOT_PLANT_VALUES.care.initial) => {

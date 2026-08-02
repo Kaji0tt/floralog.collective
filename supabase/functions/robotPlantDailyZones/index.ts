@@ -820,8 +820,6 @@ Deno.serve(async (req) => {
         : 24;
       const dayFactor = Math.min(hoursSinceLastDecay / 24, 30); // cap backfill at 30 days
 
-      const overallHealthPreDecay = computeOverallHealth(currentEnergy, currentDq, currentCare);
-      const baseDailyDecay = Math.max(1, Math.floor(overallHealthPreDecay / 10));
       const nowIso = new Date().toISOString();
       let activeDecayReduction = 0;
       let partnerDecayReduction = 0;
@@ -859,10 +857,13 @@ Deno.serve(async (req) => {
         activeDecayReduction = clamp(summedReduction + partnerDecayReduction, 0, 0.9);
       }
 
-      const effectiveDecay = Math.max(1, Math.round(baseDailyDecay * dayFactor * (1 - activeDecayReduction)));
-      const energyDecay = effectiveDecay;
-      const dqDecay = effectiveDecay;
-      const careDecay = effectiveDecay;
+      const computeStatDecay = (value: number) => {
+        if (value < 10) return 0;
+        return Math.round(Math.floor(value / 10) * dayFactor * (1 - activeDecayReduction));
+      };
+      const energyDecay = computeStatDecay(currentEnergy);
+      const dqDecay = computeStatDecay(currentDq);
+      const careDecay = computeStatDecay(currentCare);
       const newEnergy = clamp(currentEnergy - energyDecay, 0, 100);
       const newDq = clamp(currentDq - dqDecay, 0, 100);
       const newCare = clamp(currentCare - careDecay, 0, 100);
@@ -881,8 +882,8 @@ Deno.serve(async (req) => {
         console.warn("[robotPlantDailyZones] Decay update failed (non-fatal):", decayUpdateError);
       } else {
         console.log(
-          `[robotPlantDailyZones] Decay tick: E:${currentEnergy}→${newEnergy} DQ:${currentDq}→${newDq} C:${currentCare}→${newCare}` +
-          ` (overallPre:${overallHealthPreDecay}, baseDailyDecay:${baseDailyDecay}, factor:${dayFactor.toFixed(2)}, fertilizerReduction:${activeDecayReduction}, partnerReduction:${partnerDecayReduction}, preDecayBonusRerolls:+${preDecayBonusRerolls})`,
+          `[robotPlantDailyZones] Decay tick: E:${currentEnergy}→${newEnergy}(-${energyDecay}) DQ:${currentDq}→${newDq}(-${dqDecay}) C:${currentCare}→${newCare}(-${careDecay})` +
+          ` (factor:${dayFactor.toFixed(2)}, fertilizerReduction:${activeDecayReduction}, partnerReduction:${partnerDecayReduction}, preDecayBonusRerolls:+${preDecayBonusRerolls})`,
         );
         currentEnergy = newEnergy;
         currentDq = newDq;
