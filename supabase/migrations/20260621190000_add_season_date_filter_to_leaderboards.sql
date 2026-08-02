@@ -45,6 +45,7 @@ grant execute on function public.get_global_scan_leaderboard(date) to authentica
 
 -- 2) Highest scan results leaderboard: add p_from_date filter
 drop function if exists public.get_highest_scan_results_leaderboard(integer);
+drop function if exists public.get_highest_scan_results_leaderboard(integer, date);
 
 create or replace function public.get_highest_scan_results_leaderboard(
   p_limit integer default 50,

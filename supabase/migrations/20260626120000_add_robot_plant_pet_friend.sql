@@ -16,10 +16,12 @@ CREATE INDEX IF NOT EXISTS idx_robot_plant_pet_log_actor_friend_date
 -- RLS: each user can only read/insert their own pet log rows
 ALTER TABLE public."RobotPlantPetLog" ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "pet_log_select_own" ON public."RobotPlantPetLog";
 CREATE POLICY "pet_log_select_own"
   ON public."RobotPlantPetLog" FOR SELECT
   USING (actor_auth_id = auth.uid());
 
+DROP POLICY IF EXISTS "pet_log_insert_own" ON public."RobotPlantPetLog";
 CREATE POLICY "pet_log_insert_own"
   ON public."RobotPlantPetLog" FOR INSERT
   WITH CHECK (actor_auth_id = auth.uid());

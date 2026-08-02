@@ -996,21 +996,24 @@ export function useAchievementsFeatureContent({
 
       // ── 3. Quest-typ-spezifische Bonuses (alle im try/catch) ──────────────
       if (questType === 'weekly') {
-        // Weekly quest bonus: +10 seeds on redeem (separate from the base seed reward).
+        // Weekly quest bonus: +10 Funken on redeem.
         try {
-          await grantRobotPlantRewardServerSide({
-            eventSource: 'weekly_quest_bonus',
-            eventReference: `weekly_quest_bonus:${userQuestId}`,
+          await grantWalletCurrency({
+            authId: currentUser.id,
+            currencyCode: 'sparks',
+            eventSource: 'weekly_quest_redeem_spark',
+            eventReference: `weekly_quest_spark:${userQuestId}`,
             amount: 10,
+            direction: 'credit',
             metadata: {
               quest_type: 'weekly',
               quest_title: questTitle,
               redeemed_at: now,
-              source: 'quest_weekly_bonus',
+              source: 'quest_redeem',
             },
           });
         } catch (weeklyBonusError) {
-          console.warn('[QuestRedeem] Weekly seed bonus could not be granted:', weeklyBonusError?.message || weeklyBonusError);
+          console.warn('[QuestRedeem] Weekly spark bonus could not be granted:', weeklyBonusError?.message || weeklyBonusError);
         }
       } else if (questType === 'monthly') {
         // Monthly quest bonus: +15 sparks on redeem.
@@ -1088,13 +1091,15 @@ export function useAchievementsFeatureContent({
       const bonusRewardLabel = rewardName
         ? (rewards.find(r => r.name === rewardName)?.display_name || rewardName)
         : null;
-      // Weekly quests get an extra +10 seed bonus on top of the base seed reward.
-      const weeklyBonusSeeds = questType === 'weekly' ? 10 : 0;
-      const totalSeedReward = questSeedReward + weeklyBonusSeeds;
-      const seedRewardLabel = weeklyBonusSeeds > 0
-        ? `${questSeedReward} + ${weeklyBonusSeeds} Samen`
-        : `${questSeedReward} Samen`;
-      const rewardLabel = bonusRewardLabel ? `${seedRewardLabel} + ${bonusRewardLabel}` : seedRewardLabel;
+      const weeklyBonusSparks = questType === 'weekly' ? 10 : 0;
+      const monthlySparksBonus = questType === 'monthly' ? 15 : 0;
+      const seedRewardLabel = `${questSeedReward} Samen`;
+      const sparksLabel = weeklyBonusSparks > 0
+        ? ` + ${weeklyBonusSparks} Funken`
+        : monthlySparksBonus > 0 ? ` + ${monthlySparksBonus} Funken` : '';
+      const rewardLabel = bonusRewardLabel
+        ? `${seedRewardLabel}${sparksLabel} + ${bonusRewardLabel}`
+        : `${seedRewardLabel}${sparksLabel}`;
 
       navigate(location.pathname + location.search, {
         state: {
@@ -1152,7 +1157,7 @@ export function useAchievementsFeatureContent({
       leaderboard_scope: "Rangliste",
       leaderboard: statsComparisonScope === "season" ? `Rangliste · ${activeSeason?.title || "Saison"}` : "Rangliste · All-Time",
       quests: "Aufgaben",
-      achievements: "Vergleiche",
+      achievements: "Erfolge",
     };
     const backHandler = achievementsView !== null
       ? () => {
@@ -1385,7 +1390,7 @@ export function useAchievementsFeatureContent({
   const weeklySeedReward = displayedWeeklyQuest
     ? resolveQuestSeedReward({ questType: 'weekly', seedReward: displayedWeeklyQuest.seed_reward })
     : resolveQuestSeedReward({ questType: 'weekly', seedReward: null });
-  const weeklyRewardDisplayName = weeklyReward?.display_name ? `${weeklySeedReward} Samen + ${weeklyReward.display_name}` : `${weeklySeedReward} Samen`;
+  const weeklyRewardDisplayName = weeklyReward?.display_name ? `${weeklySeedReward} Samen + 10 Funken + ${weeklyReward.display_name}` : `${weeklySeedReward} Samen + 10 Funken`;
   const activeWeeklyQuest = displayedWeeklyQuest && currentWeeklyUserQuest && isActiveOrCompleted(currentWeeklyUserQuest) && !(currentWeeklyUserQuest.status === 'redeemed' || currentWeeklyUserQuest.redeemed) ?
   {
     ...displayedWeeklyQuest,
@@ -1407,7 +1412,7 @@ export function useAchievementsFeatureContent({
   const monthlySeedReward = currentMonthlyQuest
     ? resolveQuestSeedReward({ questType: 'monthly', seedReward: currentMonthlyQuest.seed_reward })
     : resolveQuestSeedReward({ questType: 'monthly', seedReward: null });
-  const monthlyRewardDisplayName = monthlyReward?.display_name ? `${monthlySeedReward} Samen + ${monthlyReward.display_name}` : `${monthlySeedReward} Samen`;
+  const monthlyRewardDisplayName = monthlyReward?.display_name ? `${monthlySeedReward} Samen + 15 Funken + ${monthlyReward.display_name}` : `${monthlySeedReward} Samen + 15 Funken`;
   const activeMonthlyQuest = currentMonthlyQuest && currentMonthlyUserQuest && isActiveOrCompleted(currentMonthlyUserQuest) && !(currentMonthlyUserQuest.status === 'redeemed' || currentMonthlyUserQuest.redeemed) ?
   {
     ...currentMonthlyQuest,
@@ -1425,7 +1430,7 @@ export function useAchievementsFeatureContent({
   const completedWeeklyQuests = weeklyQuests.flatMap((quest) => {
     const reward = rewards.find(r => r.name === quest.reward_name);
     const seedReward = resolveQuestSeedReward({ questType: 'weekly', seedReward: quest.seed_reward });
-    const rewardDisplayName = reward?.display_name ? `${seedReward} Samen + ${reward.display_name}` : `${seedReward} Samen`;
+    const rewardDisplayName = reward?.display_name ? `${seedReward} Samen + 10 Funken + ${reward.display_name}` : `${seedReward} Samen + 10 Funken`;
     const relatedUserQuests = userWeeklyQuests.filter((uwq) =>
       uwq.weekly_quest_id === quest.id &&
       isCompletedStatus(uwq) &&
@@ -1452,7 +1457,7 @@ export function useAchievementsFeatureContent({
   const completedMonthlyQuests = monthlyQuests.flatMap((quest) => {
     const reward = rewards.find(r => r.name === quest.reward_name);
     const seedReward = resolveQuestSeedReward({ questType: 'monthly', seedReward: quest.seed_reward });
-    const rewardDisplayName = reward?.display_name ? `${seedReward} Samen + ${reward.display_name}` : `${seedReward} Samen`;
+    const rewardDisplayName = reward?.display_name ? `${seedReward} Samen + 15 Funken + ${reward.display_name}` : `${seedReward} Samen + 15 Funken`;
     const relatedUserQuests = userMonthlyQuests.filter((umq) =>
       umq.monthly_quest_id === quest.id &&
       isCompletedStatus(umq) &&
@@ -2255,7 +2260,7 @@ export function useAchievementsFeatureContent({
                 onClick={() => setAchievementsView("quests")}
               />
               <CollectionCategoryEntryCard
-                title="Vergleiche"
+                title="Erfolge"
                 description={`${unlockedCount} von ${achievements.length} Erfolgen freigeschaltet`}
                 info="Erfolge, Titel und Belohnungen"
                 icon={Trophy}
@@ -2294,7 +2299,7 @@ export function useAchievementsFeatureContent({
           </div>
         )}
 
-        {/* ── VERGLEICHE (Achievements) ── */}
+        {/* ── ERFOLGE ── */}
         {achievementsView === "achievements" && (
           <div className={achievementsContentClass} style={embeddedContentMaskStyle}>
 
