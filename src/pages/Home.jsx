@@ -26,7 +26,7 @@ import { getOpenPlantQuiz, submitPlantQuizAnswer } from "@/api/plantQuizService"
 import { getTileClaims } from "@/api/tileClaimService";
 import { trackAction } from "@/api/analyticsService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Camera, Loader2, Leaf, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin } from "lucide-react";
+import { Camera, Loader2, Leaf, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, Smartphone, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
@@ -216,6 +216,188 @@ const extractScopeMilestoneIds = (seenIds, scopeKey) => {
 
   return scopedIds;
 };
+
+const DESKTOP_BROWSER_MEDIA_QUERY = "(hover: hover) and (pointer: fine)";
+
+const readDesktopBrowser = () => {
+  if (typeof window === "undefined") return false;
+  if (typeof window.matchMedia !== "function") {
+    return window.innerWidth >= 900;
+  }
+  return window.matchMedia(DESKTOP_BROWSER_MEDIA_QUERY).matches;
+};
+
+const useDesktopBrowser = () => {
+  const [isDesktopBrowser, setIsDesktopBrowser] = useState(() => readDesktopBrowser());
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+
+    const mql = window.matchMedia(DESKTOP_BROWSER_MEDIA_QUERY);
+    const onChange = () => setIsDesktopBrowser(mql.matches);
+
+    onChange();
+
+    if (typeof mql.addEventListener === "function") {
+      mql.addEventListener("change", onChange);
+      return () => mql.removeEventListener("change", onChange);
+    }
+
+    mql.addListener(onChange);
+    return () => mql.removeListener(onChange);
+  }, []);
+
+  return isDesktopBrowser;
+};
+
+function HomeDesktopLanding() {
+  const { isLightUi } = useUiTheme();
+
+  const featureRows = [
+    {
+      icon: Camera,
+      title: "Kamera-Scan",
+      text: "Die Kernstrecke startet am Smartphone mit Kamera und Live-Erkennung.",
+    },
+    {
+      icon: MapPin,
+      title: "Standort-Zonen",
+      text: "Floralog arbeitet mit Standortdaten und lokalen Discovery-Zonen.",
+    },
+    {
+      icon: Leaf,
+      title: "Touch-first Pflege",
+      text: "Die Pflege- und Scan-Interaktionen sind auf mobile Bedienung optimiert.",
+    },
+  ];
+
+  return (
+    <div className="fixed inset-0 overflow-hidden">
+      <div
+        className={`absolute inset-0 ${isLightUi
+          ? "bg-[radial-gradient(circle_at_top,_rgba(236,252,203,0.96)_0%,_rgba(246,241,224,0.96)_46%,_rgba(255,253,245,1)_100%)]"
+          : "bg-[radial-gradient(circle_at_top,_rgba(41,75,54,0.96)_0%,_rgba(13,18,15,0.96)_50%,_rgba(4,7,5,1)_100%)]"
+        }`}
+      />
+      <div
+        className="absolute inset-0 opacity-60"
+        style={{
+          backgroundImage:
+            "radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px)",
+          backgroundSize: "24px 24px",
+        }}
+      />
+      <div
+        className={`absolute -left-24 top-8 h-72 w-72 rounded-full blur-3xl ${isLightUi ? "bg-emerald-300/30" : "bg-emerald-500/18"}`}
+      />
+      <div
+        className={`absolute right-[-5rem] top-1/3 h-80 w-80 rounded-full blur-3xl ${isLightUi ? "bg-amber-200/35" : "bg-amber-400/14"}`}
+      />
+      <div
+        className={`absolute bottom-[-8rem] left-1/3 h-96 w-96 rounded-full blur-3xl ${isLightUi ? "bg-lime-200/30" : "bg-lime-500/10"}`}
+      />
+
+      <div
+        className="relative z-10 flex h-full w-full items-center justify-center px-4 py-6"
+        style={{
+          paddingTop: "max(0.75rem, env(safe-area-inset-top, 0px))",
+          paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0px))",
+        }}
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 18, scale: 0.985 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.55, ease: "easeOut" }}
+          className={`w-full max-w-5xl overflow-hidden rounded-[2rem] border shadow-[0_24px_80px_rgba(0,0,0,0.22)] backdrop-blur-xl ${isLightUi ? "border-white/80 bg-white/78 text-stone-800" : "border-[#e8ddb0]/24 bg-[#0f1410]/72 text-stone-100"}`}
+        >
+          <div className="grid gap-0 lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="p-6 sm:p-8 lg:p-10">
+              <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] ${isLightUi ? "border-emerald-500/20 bg-emerald-50 text-emerald-700" : "border-emerald-300/20 bg-emerald-500/10 text-emerald-200"}`}>
+                <Sparkles className="h-3.5 w-3.5" />
+                Desktop erkannt
+              </div>
+
+              <h1 className="mt-5 max-w-xl text-4xl font-semibold tracking-tight sm:text-5xl">
+                Danke für dein Interesse
+              </h1>
+
+              <p className={`mt-4 max-w-xl text-base leading-7 sm:text-lg ${isLightUi ? "text-stone-700" : "text-stone-300"}`}>
+                Florialog ist aktuell ausschließlich für mobile Geräte ausgelegt. Die App lebt von Kamera, Standort und den schnellen Touch-Interaktionen auf dem Smartphone.
+              </p>
+
+              <div className="mt-6 flex flex-wrap gap-3">
+                {[
+                  "Mobile only",
+                  "Kamera",
+                  "Standort",
+                  "Touch-first",
+                ].map((label) => (
+                  <span
+                    key={label}
+                    className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold ${isLightUi ? "border-emerald-500/15 bg-emerald-50 text-emerald-800" : "border-emerald-300/18 bg-emerald-500/10 text-emerald-100"}`}
+                  >
+                    {label}
+                  </span>
+                ))}
+              </div>
+
+              <div className={`mt-8 rounded-2xl border px-4 py-4 text-sm leading-6 ${isLightUi ? "border-amber-400/30 bg-amber-50/80 text-amber-900" : "border-amber-300/20 bg-amber-500/10 text-amber-100"}`}>
+                Bitte öffne Florialog auf deinem Smartphone, um die vollständige App-Erfahrung zu nutzen.
+              </div>
+            </div>
+
+            <div className={`relative border-t lg:border-t-0 lg:border-l ${isLightUi ? "border-white/60 bg-gradient-to-b from-emerald-50/90 to-white/70" : "border-white/10 bg-gradient-to-b from-white/5 to-black/20"}`}>
+              <div
+                className="absolute inset-0 opacity-55"
+                style={{
+                  backgroundImage:
+                    "radial-gradient(circle at 18% 18%, rgba(16,185,129,0.24) 0, transparent 28%), radial-gradient(circle at 82% 26%, rgba(245,158,11,0.16) 0, transparent 24%), radial-gradient(circle at 50% 82%, rgba(34,197,94,0.16) 0, transparent 30%)",
+                }}
+              />
+
+              <div className="relative flex h-full flex-col justify-between gap-6 p-6 sm:p-8">
+                <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-[2rem] border shadow-inner">
+                  <Smartphone className={`h-11 w-11 ${isLightUi ? "text-emerald-600" : "text-emerald-300"}`} />
+                </div>
+
+                <div className="grid gap-3">
+                  {featureRows.map((row, index) => {
+                    const Icon = row.icon;
+                    return (
+                      <motion.div
+                        key={row.title}
+                        initial={{ opacity: 0, x: 14 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.45, delay: 0.08 * index, ease: "easeOut" }}
+                        className={`rounded-2xl border px-4 py-4 ${isLightUi ? "border-white/70 bg-white/78 shadow-[0_12px_34px_rgba(16,24,16,0.08)]" : "border-white/10 bg-white/5 shadow-[0_12px_34px_rgba(0,0,0,0.16)]"}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${isLightUi ? "bg-emerald-50 text-emerald-600" : "bg-emerald-500/15 text-emerald-200"}`}>
+                            <Icon className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <div className="text-sm font-semibold">{row.title}</div>
+                            <div className={`mt-1 text-sm leading-6 ${isLightUi ? "text-stone-600" : "text-stone-300"}`}>
+                              {row.text}
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+
+                <div className={`rounded-2xl border px-4 py-4 text-sm leading-6 ${isLightUi ? "border-emerald-500/15 bg-emerald-50/80 text-emerald-900" : "border-emerald-300/14 bg-emerald-500/10 text-emerald-100"}`}>
+                  Vielen Dank für dein Interesse an Florialog. Wir freuen uns, dich über die mobile Version wiederzusehen.
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
 
 function HomeContent() {
   const navigate = useNavigate();
@@ -4017,6 +4199,12 @@ function HomeContent() {
 }
 
 export default function Home() {
+  const isDesktopBrowser = useDesktopBrowser();
+
+  if (isDesktopBrowser) {
+    return <HomeDesktopLanding />;
+  }
+
   return (
     <HomeOtaGate>
       <HomeContent />
