@@ -28,6 +28,7 @@ const DISCOVERY_CUSTOM_LOGO_BASE_SCALE = 2.15;
 const DISCOVERY_MARKER_UNIFIED_SCALE_DEFAULT = 0.8;
 const DISCOVERY_MARKER_UNIFIED_SCALE_MIN = 0.5;
 const DISCOVERY_MARKER_UNIFIED_SCALE_MAX = 1.0;
+const PLAYER_RECENTER_DURATION_MS = 750;
 
 const toPx = (value) => `${Math.round(value)}px`;
 
@@ -888,11 +889,10 @@ export default function MapboxZoneMap({
         Math.abs(currentLat - targetLat) < 0.00001;
 
       if (!isAlreadyCentered) {
-        map.jumpTo({
+        map.easeTo({
           center: [targetLng, targetLat],
-          zoom: 13,
-          pitch: 58,
-          bearing: -18,
+          duration: PLAYER_RECENTER_DURATION_MS,
+          essential: true,
         });
       }
     };
@@ -904,11 +904,10 @@ export default function MapboxZoneMap({
       const targetLat = Number.isFinite(userLat) ? userLat : Number(fallbackCenter?.lat);
 
       if (Number.isFinite(targetLng) && Number.isFinite(targetLat)) {
-        map.jumpTo({
+        map.easeTo({
           center: [targetLng, targetLat],
-          zoom: 13,
-          pitch: 58,
-          bearing: -18,
+          duration: PLAYER_RECENTER_DURATION_MS,
+          essential: true,
         });
       }
 
