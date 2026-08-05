@@ -23,6 +23,7 @@ import { LockedTooltip } from "@/components/ui/locked-tooltip";
  * }} props
  */
 export default function HomeHeaderBar({
+  hidden = false,
   activePanel,
   embeddedTitle,
   embeddedSubtitle,
@@ -57,6 +58,8 @@ export default function HomeHeaderBar({
       }
     : null;
   const shouldShowEmbeddedInfoChip = Boolean(embeddedInfoLabel) && isEmbeddedMode && !showEmbeddedShop;
+
+  if (hidden) return null;
 
   const resolvedEmbeddedTitle = embeddedTitle || (showEmbeddedCollection
     ? "Kollektionen"

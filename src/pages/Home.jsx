@@ -3781,8 +3781,9 @@ function HomeContent() {
             <HomeShellBorderGlow active={user?.selected_profile_effect === "shell_border_glow"} />
             <HomeRarityBorderGlow active={user?.selected_profile_effect === "rarity_border_glow"} borderColor={user?.selected_border_color} />
 
-            <div className={`relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6 ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
+            <div className={`relative z-10 h-full flex flex-col ${activePanel === "map" ? "px-0 py-0" : "px-4 md:px-8 py-4 md:py-6"} ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
               <HomeHeaderBar
+                hidden={activePanel === "map"}
                 activePanel={activePanel}
                 embeddedTitle={embeddedTitle}
                 embeddedSubtitle={embeddedSubtitle}
@@ -3827,7 +3828,7 @@ function HomeContent() {
               />
 
               <div
-                className={`relative flex flex-1 min-h-0 flex-col ${activePanel === null ? "overflow-visible" : "overflow-hidden"} ${shouldDockEmbeddedChipHeader ? "py-0" : "py-[clamp(0.5rem,1.5vh,1rem)]"}`}
+                className={`relative flex flex-1 min-h-0 flex-col ${activePanel === null ? "overflow-visible" : "overflow-hidden"} ${activePanel === "map" ? "py-0" : (shouldDockEmbeddedChipHeader ? "py-0" : "py-[clamp(0.5rem,1.5vh,1rem)]")}`}
                 data-ui="home-content-stack"
               >
                 {activePanel === "collection" ? (
@@ -3907,6 +3908,8 @@ function HomeContent() {
                     allDiscoveryPoints={allDiscoveryPoints}
                     discoveryMarkerScale={discoveryMarkerScale}
                     plants={plants}
+                    rewards={rewards}
+                    userRewards={userRewards}
                   />
                 ) : (
                   <section data-ui="home-plant-hero-section" className="flex-1 min-h-0 rounded-3xl px-[clamp(0.75rem,2vw,1.5rem)] pt-[clamp(0.75rem,2vh,1.5rem)] pb-[clamp(0.12rem,0.35vh,0.28rem)] flex flex-col bg-transparent">
@@ -3957,7 +3960,7 @@ function HomeContent() {
                 )}
               </div>
 
-              <div className={`${activePanel === null ? "pt-0" : "pt-[clamp(0.35rem,0.9vh,0.7rem)]"} pb-[clamp(0.15rem,0.5vh,0.35rem)] flex min-h-0 flex-col`}>
+              <div className={`${activePanel === null ? "pt-0" : "pt-[clamp(0.35rem,0.9vh,0.7rem)]"} pb-[clamp(0.15rem,0.5vh,0.35rem)] flex shrink-0 flex-col`}>
                 {activePanel === null ? (
                   <>
                     <HomeMilestoneStripe

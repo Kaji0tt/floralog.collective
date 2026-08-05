@@ -827,9 +827,27 @@ export default function MapboxZoneMap({
     map.on("zoom", handleDiscoveryMarkerReflow);
     map.on("moveend", handleDiscoveryMarkerReflow);
 
+    let resizeObserver = null;
+    if (typeof ResizeObserver !== "undefined" && mapContainerRef.current) {
+      resizeObserver = new ResizeObserver(() => {
+        window.requestAnimationFrame(() => {
+          map.resize();
+        });
+      });
+      resizeObserver.observe(mapContainerRef.current);
+    }
+
+    window.requestAnimationFrame(() => {
+      map.resize();
+    });
+
     return () => {
       map.off("zoom", handleDiscoveryMarkerReflow);
       map.off("moveend", handleDiscoveryMarkerReflow);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+        resizeObserver = null;
+      }
       if (claimPulseIntervalRef.current) {
         window.clearInterval(claimPulseIntervalRef.current);
         claimPulseIntervalRef.current = null;
@@ -850,6 +868,35 @@ export default function MapboxZoneMap({
     const map = mapRef.current;
     if (!map) return;
 
+    const syncMapCenterToPlayer = () => {
+      const userLng = Number(userLocation?.lng);
+      const userLat = Number(userLocation?.lat);
+      const targetLng = Number.isFinite(userLng) ? userLng : Number(fallbackCenter?.lng);
+      const targetLat = Number.isFinite(userLat) ? userLat : Number(fallbackCenter?.lat);
+
+      if (!Number.isFinite(targetLng) || !Number.isFinite(targetLat)) {
+        return;
+      }
+
+      const currentCenter = map.getCenter();
+      const currentLng = Number(currentCenter?.lng);
+      const currentLat = Number(currentCenter?.lat);
+      const isAlreadyCentered =
+        Number.isFinite(currentLng) &&
+        Number.isFinite(currentLat) &&
+        Math.abs(currentLng - targetLng) < 0.00001 &&
+        Math.abs(currentLat - targetLat) < 0.00001;
+
+      if (!isAlreadyCentered) {
+        map.jumpTo({
+          center: [targetLng, targetLat],
+          zoom: 13,
+          pitch: 58,
+          bearing: -18,
+        });
+      }
+    };
+
     const updateMapData = () => {
       const userLng = Number(userLocation?.lng);
       const userLat = Number(userLocation?.lat);
@@ -857,12 +904,11 @@ export default function MapboxZoneMap({
       const targetLat = Number.isFinite(userLat) ? userLat : Number(fallbackCenter?.lat);
 
       if (Number.isFinite(targetLng) && Number.isFinite(targetLat)) {
-        map.easeTo({
+        map.jumpTo({
           center: [targetLng, targetLat],
           zoom: 13,
           pitch: 58,
           bearing: -18,
-          duration: 600,
         });
       }
 
@@ -1285,12 +1331,21 @@ export default function MapboxZoneMap({
       renderDiscoveryMarkers();
     };
 
+    map.on("moveend", syncMapCenterToPlayer);
+
     if (map.isStyleLoaded()) {
       updateMapData();
-      return;
+      syncMapCenterToPlayer();
+    } else {
+      map.once("style.load", () => {
+        updateMapData();
+        syncMapCenterToPlayer();
+      });
     }
 
-    map.once("style.load", updateMapData);
+    return () => {
+      map.off("moveend", syncMapCenterToPlayer);
+    };
   }, [
     allowDiscoveryLike,
     claimedTiles,
