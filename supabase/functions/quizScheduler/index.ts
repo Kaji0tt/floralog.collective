@@ -103,11 +103,11 @@ function computeQuizProbability(scanCount: number): number {
   if (safeScanCount < 3) return 0;
 
   if (safeScanCount <= 10) {
-    return Math.min(50, 15 + (safeScanCount - 3) * 5);
+    return Math.min(25, 15 + (safeScanCount - 3) * (10 / 7));
   }
 
   const exponent = 1 - Math.exp(-0.2 * (safeScanCount - 10));
-  return Math.min(75, 50 + 25 * exponent);
+  return Math.min(25, 20 + 5 * exponent);
 }
 
 function pickRandom<T>(items: T[]): T {
@@ -333,6 +333,16 @@ Deno.serve(async (req) => {
     }
 
     const openAuthSet = new Set((openQuizzes || []).map((row) => row.auth_id));
+    const dailyQuizzesResult = await adminClient
+      .from("PlantQuiz")
+      .select("auth_id")
+      .eq("scheduled_slot_date", berlinNow.dayKey);
+
+    if (dailyQuizzesResult.error) {
+      return jsonResponse({ error: `Failed to fetch daily quizzes: ${dailyQuizzesResult.error.message}` }, 500);
+    }
+
+    const dailyQuizAuthSet = new Set((dailyQuizzesResult.data || []).map((row) => row.auth_id));
     const profileRows = profiles || [];
 
     let createdCount = 0;
@@ -345,6 +355,10 @@ Deno.serve(async (req) => {
       const authId = String(profile.auth_id || "").trim();
       const userEmail = profile.user_email || null;
       if (!authId) continue;
+
+      if (dailyQuizAuthSet.has(authId)) {
+        continue;
+      }
 
       if (openAuthSet.has(authId)) {
         skippedOpenSlot += 1;
@@ -470,6 +484,7 @@ Deno.serve(async (req) => {
 
       createdCount += 1;
       openAuthSet.add(authId);
+      dailyQuizAuthSet.add(authId);
 
       const quizId = String(insertQuiz.data?.id || "");
       const notification = await sendQuizNotification(adminClient, authId, userEmail, quizId);
