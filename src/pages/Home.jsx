@@ -4093,7 +4093,6 @@ function HomeContent() {
                     rewards={rewards}
                     userRewards={userRewards}
                     genera={genera}
-                    ownLogoAssets={equippedLogoAssets}
                     logoAssetCatalog={logoAssets}
                   />
                 ) : (

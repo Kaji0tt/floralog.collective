@@ -1,18 +1,16 @@
 import { CheckCircle2, Leaf, X } from "lucide-react";
-import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 
 /**
  * Bottom-sheet zone detail card shown after tapping a zone (list or map circle).
  * @param {{
  *   zone: object,
  *   isLightUi: boolean,
- *   ownLogoAssets?: object | null,
  *   onClose: () => void,
  *   onOpenScans: () => void,
  *   onOpenMoreInfo: () => void,
  * }} props
  */
-export default function ZoneDetailSheet({ zone, isLightUi, ownLogoAssets = null, onClose, onOpenScans, onOpenMoreInfo }) {
+export default function ZoneDetailSheet({ zone, isLightUi, onClose, onOpenScans, onOpenMoreInfo }) {
   if (!zone) return null;
 
   const targetPlants = Array.isArray(zone.targetPlants) ? zone.targetPlants : [];
@@ -164,21 +162,14 @@ export default function ZoneDetailSheet({ zone, isLightUi, ownLogoAssets = null,
             <button
               type="button"
               onClick={onOpenMoreInfo}
-              className={`rounded-xl border px-2 py-1.5 text-[11px] font-semibold leading-tight transition-colors ${
+              className={`px-2 py-1.5 text-[11px] font-semibold leading-tight transition-colors ${
                 isLightUi
-                  ? "border-stone-300/70 bg-white/80 text-stone-700 hover:bg-white"
-                  : "border-[#f0e5a5]/20 bg-black/35 text-stone-200 hover:bg-black/55"
+                  ? "text-stone-700 hover:text-stone-900"
+                  : "text-stone-200 hover:text-stone-50"
               }`}
             >
               Mehr Infos
             </button>
-          </div>
-
-          {/* Own avatar, pinned to the column bottom to line up with the target-plant circles */}
-          <div className="mt-auto flex justify-end">
-            <div className="h-10 w-10">
-              <CustomLogoAvatar logoAssets={ownLogoAssets} noClip className="h-full w-full" />
-            </div>
           </div>
         </div>
       </div>

@@ -119,7 +119,6 @@ export default function HomeMapFeatureRoot({
   rewards = [],
   userRewards = [],
   genera = [],
-  ownLogoAssets = null,
   logoAssetCatalog = [],
 }) {
   const [pinOverlayData, setPinOverlayData] = useState(null);
@@ -618,7 +617,6 @@ export default function HomeMapFeatureRoot({
             <ZoneDetailSheet
               zone={selectedZoneForDetail}
               isLightUi={isLightUi}
-              ownLogoAssets={ownLogoAssets}
               onClose={() => setSelectedZoneForDetail(null)}
               onOpenScans={handleOpenScansForSelectedZone}
               onOpenMoreInfo={() => setIsZoneInfoOpen(true)}
