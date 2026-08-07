@@ -146,6 +146,7 @@ export default function HomeHeaderBar({
         {homeCurrencyInfo && (
           <>
             <LockedTooltip
+              contentClassName={isLightUi ? "" : "text-white/90"}
               content={<span className="text-xs leading-relaxed">Funken sind die Ingame-Währung. Du bekommst sie für die aktive Nutzung der App sowie für bestimmte In-App-Aktivitäten.</span>}
             >
               <div
@@ -160,6 +161,7 @@ export default function HomeHeaderBar({
             </LockedTooltip>
 
             <LockedTooltip
+              contentClassName={isLightUi ? "" : "text-white/90"}
               content={<span className="text-xs leading-relaxed">Bernstein ist eine kaufbare Premium-Währung. Tippe, um Bernstein zu kaufen.</span>}
             >
               <button

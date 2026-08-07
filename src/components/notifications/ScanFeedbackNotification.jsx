@@ -4,7 +4,31 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Capacitor } from "@capacitor/core";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
+import { Haptics } from "@capacitor/haptics";
 // Hilfsfunktionen und Konstanten
+
+// Punkteschwellen, ab denen die Punkte-Card zusaetzlich vibriert/leuchtet.
+const REWARD_MILESTONES = {
+  shake: 500,
+  glow: 800,
+};
+// Farbe des bestehenden Punkte-Card-Rahmens (border-[#f0e5a5]), fuer den Glow bei 800 Punkten.
+const REWARD_MILESTONE_GLOW_COLOR = "rgba(240, 229, 165, 0.92)";
+
+// Nativ (Android/iOS) via Capacitor Haptics vibrieren, im Browser per Vibration API.
+async function triggerDeviceVibration(durationMs) {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await Haptics.vibrate({ duration: durationMs });
+      return;
+    } catch (_err) {
+      // Fallback unten versuchen, falls das native Plugin fehlschlaegt.
+    }
+  }
+  if (typeof navigator !== "undefined" && navigator.vibrate) {
+    navigator.vibrate(durationMs);
+  }
+}
 function buildRewardSteps(rewardDetails, isInActiveZone) {
   if (!rewardDetails) return [];
   let runningReward = rewardDetails.baseReward ?? 0;
@@ -216,6 +240,12 @@ export default function ScanFeedbackNotification({
   const [activePopStepId, setActivePopStepId] = useState(/** @type string|null */(null));
   const [vibrateCounter, setVibrateCounter] = useState(false);
   const [vibrateMultiplier, setVibrateMultiplier] = useState(false);
+  // 0 = keine, 1 = kurzes Vibrieren (500 Punkte), 2 = laengeres Vibrieren (800 Punkte)
+  const [rewardCardShakeLevel, setRewardCardShakeLevel] = useState(0);
+  const [rewardCardGlowActive, setRewardCardGlowActive] = useState(false);
+  const shakeMilestoneReachedRef = useRef(false);
+  const glowMilestoneReachedRef = useRef(false);
+  const lastCheckedRewardRef = useRef(rewardDetails?.baseReward ?? 0);
 
   const [showResourceGains, setShowResourceGains] = useState(false);
   // Zeigt die Buttons erst nach Abschluss der Animationen und kurzer Wartezeit
@@ -235,11 +265,49 @@ export default function ScanFeedbackNotification({
     setIsNegativeSwap(false);
     setActiveStepIndex(-1);
     setShowButtons(false);
+    setRewardCardShakeLevel(0);
+    setRewardCardGlowActive(false);
+    shakeMilestoneReachedRef.current = false;
+    glowMilestoneReachedRef.current = false;
+    lastCheckedRewardRef.current = rewardDetails?.baseReward ?? 0;
     if (!feedback) return;
     // Zeitgeber-Array leeren
     timeouts.forEach((timeoutId) => window.clearTimeout(timeoutId));
     timeouts = [];
     frameId = null;
+
+    // Prueft, ob der aktuelle Punktestand die 500er/800er Schwelle ueberschreitet,
+    // und loest dann Card-Vibration + Handy-Vibration (+ Glow ab 800) aus.
+    const checkRewardMilestones = (nextValue) => {
+      const previousValue = lastCheckedRewardRef.current;
+      lastCheckedRewardRef.current = nextValue;
+
+      if (
+        !shakeMilestoneReachedRef.current &&
+        previousValue < REWARD_MILESTONES.shake &&
+        nextValue >= REWARD_MILESTONES.shake
+      ) {
+        shakeMilestoneReachedRef.current = true;
+        setRewardCardShakeLevel(1);
+        triggerDeviceVibration(70);
+        timeouts.push(window.setTimeout(() => setRewardCardShakeLevel(0), 320));
+      }
+
+      if (
+        !glowMilestoneReachedRef.current &&
+        previousValue < REWARD_MILESTONES.glow &&
+        nextValue >= REWARD_MILESTONES.glow
+      ) {
+        glowMilestoneReachedRef.current = true;
+        setRewardCardShakeLevel(2);
+        setRewardCardGlowActive(true);
+        triggerDeviceVibration(220);
+        timeouts.push(window.setTimeout(() => setRewardCardShakeLevel(0), 620));
+      }
+    };
+
+    checkRewardMilestones(rewardDetails?.baseReward ?? 0);
+
     if (!rewardDetails || rewardSteps.length === 0) {
       if (hasResourceGains) {
         timeouts.push(
@@ -269,6 +337,7 @@ export default function ScanFeedbackNotification({
         const progress = Math.min((now - startTime) / durationMs, 1);
         const nextValue = Math.round(fromValue + (toValue - fromValue) * progress);
         setDisplayReward(nextValue);
+        checkRewardMilestones(nextValue);
 
         if (progress < 1) {
           frameId = window.requestAnimationFrame(tick);
@@ -305,9 +374,7 @@ export default function ScanFeedbackNotification({
         setVibrateCounter(true);
         setVibrateMultiplier(true);
 
-        if (typeof navigator !== "undefined" && navigator.vibrate) {
-          navigator.vibrate(70);
-        }
+        triggerDeviceVibration(70);
 
         animateCounter(currentValue, step.result, 550, () => {
           setVibrateCounter(false);
@@ -323,6 +390,7 @@ export default function ScanFeedbackNotification({
       setPreviousReward(currentValue);
       setDisplayReward(step.result);
       setIsNegativeSwap(true);
+      checkRewardMilestones(step.result);
 
       timeouts.push(
         window.setTimeout(() => {
@@ -478,7 +546,26 @@ export default function ScanFeedbackNotification({
           </div>
 
           {rewardDetails && (
-            <div className="mt-4 w-full rounded-2xl bg-black/35 border border-[#f0e5a5]/30 px-4 pt-4 pb-5 shadow-sm">
+            <motion.div
+              className={`mt-4 w-full rounded-2xl bg-black/35 border border-[#f0e5a5]/30 px-4 pt-4 pb-5 shadow-sm ${
+                rewardCardGlowActive ? "threat-glow-border threat-effect-level-4" : ""
+              }`}
+              style={rewardCardGlowActive ? { "--threat-glow-color": REWARD_MILESTONE_GLOW_COLOR } : undefined}
+              animate={
+                rewardCardShakeLevel === 2
+                  ? { x: [0, -3.5, 3.5, -2.6, 2.6, -1.6, 1.6, 0] }
+                  : rewardCardShakeLevel === 1
+                    ? { x: [0, -2.4, 2.4, -1.6, 1.6, 0] }
+                    : { x: 0 }
+              }
+              transition={
+                rewardCardShakeLevel === 2
+                  ? { duration: 0.5, ease: "easeInOut" }
+                  : rewardCardShakeLevel === 1
+                    ? { duration: 0.28, ease: "easeInOut" }
+                    : { duration: 0.2 }
+              }
+            >
               <div className="relative min-h-[5rem] flex items-center justify-center">
                 <AnimatePresence mode="wait" initial={false}>
                   {isNegativeSwap && previousReward !== null ? (
@@ -598,7 +685,7 @@ export default function ScanFeedbackNotification({
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
+            </motion.div>
           )}
           {emojiSet.map((emoji, index) => {
             const { x, y, targetY } = emojiPositions[index] || { x: 0, y: 40, targetY: 5 };

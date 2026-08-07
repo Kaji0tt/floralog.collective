@@ -2,6 +2,8 @@ import { Building2, ChevronDown, Droplet, Home as HomeIcon, Leaf, Loader2, Refre
 import { useCallback, useMemo, useState } from "react";
 import MapboxZoneMap from "@/components/map/MapboxZoneMap";
 import MapPinDetailOverlay from "@/components/map/MapPinDetailOverlay";
+import ZoneDetailSheet from "@/components/home/ZoneDetailSheet";
+import ZoneInfoDialog from "@/components/home/ZoneInfoDialog";
 import { calculateDistanceMetersRaw } from "@/lib/discoveryMap";
 import { computeZoneMultiplierFromScanCount } from "@/lib/robotPlantEconomy";
 
@@ -15,10 +17,29 @@ const ZONE_THEME_META = {
   meadow: { label: "Wiesenzone", summaryLabel: "Meadow", order: 4, icon: Sprout, iconClass: "text-lime-300" },
 };
 
+const ZONE_THEME_IMAGES = {
+  forest: "/bg_forest.png",
+  urban: "/bg_urban.png",
+  water: "/bg_water.png",
+  meadow: "/bg_flowers.png",
+};
+
 const formatDistanceMeters = (value) => {
   if (!Number.isFinite(value)) return "—";
   if (value < 1000) return `${Math.round(value)} m`;
   return `${(value / 1000).toFixed(value < 10000 ? 1 : 0)} km`;
+};
+
+// Reward.image_url is only an optional notification preview; the actual accessory art lives in
+// LogoAsset (matched by asset_id === reward.value), same catalog used to render equipped logos.
+const resolveRewardCatalogImageUrl = (reward, logoAssetCatalog) => {
+  const rewardValue = String(reward?.value || "").trim();
+  const catalogMatch = rewardValue
+    ? (Array.isArray(logoAssetCatalog) ? logoAssetCatalog : []).find(
+        (asset) => String(asset?.asset_id || "").trim() === rewardValue
+      )
+    : null;
+  return catalogMatch?.public_url || reward?.image_url || null;
 };
 
 const buildLogoAssetsFromPoint = (point) => {
@@ -97,10 +118,15 @@ export default function HomeMapFeatureRoot({
   plants = [],
   rewards = [],
   userRewards = [],
+  genera = [],
+  ownLogoAssets = null,
+  logoAssetCatalog = [],
 }) {
   const [pinOverlayData, setPinOverlayData] = useState(null);
   const [mapTimeFilter, setMapTimeFilter] = useState("all-time");
   const [isZoneOverviewExpanded, setIsZoneOverviewExpanded] = useState(false);
+  const [selectedZoneForDetail, setSelectedZoneForDetail] = useState(null);
+  const [isZoneInfoOpen, setIsZoneInfoOpen] = useState(false);
 
   const zoneRewardProgressByTheme = useMemo(() => {
     const unlockedRewardIds = new Set(
@@ -126,6 +152,55 @@ export default function HomeMapFeatureRoot({
 
     return progressByTheme;
   }, [rewards, userRewards]);
+
+  const zoneTargetPlantsByTheme = useMemo(() => {
+    const unlockedRewardIds = new Set(
+      (Array.isArray(userRewards) ? userRewards : [])
+        .map((entry) => String(entry?.reward_id || "").trim())
+        .filter(Boolean)
+    );
+    const map = new Map();
+
+    (Array.isArray(rewards) ? rewards : []).forEach((reward) => {
+      const rawTheme = String(reward?.requires_zone_theme || "").trim().toLowerCase();
+      const themeKey = rawTheme === "forerst" ? "forest" : rawTheme;
+      if (!ZONE_THEME_META[themeKey]) return;
+
+      const speciesId = String(reward?.requires_plant_species_id || "").trim();
+      const genusId = String(reward?.requires_plant_genus_id || "").trim();
+      if (!speciesId && !genusId) return;
+
+      const rewardId = String(reward?.id || "").trim();
+      if (!rewardId) return;
+
+      const matchingPlant = speciesId ? (plants || []).find((p) => p.id === speciesId) : null;
+      const matchingGenus = !speciesId && genusId ? (genera || []).find((g) => g.id === genusId) : null;
+      const label = matchingPlant?.species_name || matchingGenus?.genus_name || reward?.display_name || "Zielpflanze";
+      const isUnlocked = unlockedRewardIds.has(rewardId);
+
+      // Preview uses the player's own scan of the species/genus even before the reward itself is unlocked.
+      const ownDiscovery = (allDiscoveryPoints || []).find((p) => {
+        if (String(p?.scannerAuthId || "") !== String(authId || "")) return false;
+        return speciesId
+          ? p.plantId === speciesId
+          : (plants || []).some((pl) => pl.id === p.plantId && pl.genus_id === genusId);
+      });
+
+      const current = map.get(themeKey) || [];
+      current.push({
+        rewardId,
+        label,
+        unlocked: isUnlocked,
+        hasDiscovery: Boolean(ownDiscovery),
+        imageUrl: ownDiscovery?.imageUrl || null,
+        rewardName: reward?.display_name || label,
+        rewardImageUrl: resolveRewardCatalogImageUrl(reward, logoAssetCatalog),
+      });
+      map.set(themeKey, current);
+    });
+
+    return map;
+  }, [rewards, userRewards, plants, genera, allDiscoveryPoints, authId, logoAssetCatalog]);
 
   const zoneListItems = useMemo(() => {
     const centerLat = Number(cachedLocation?.lat ?? heroMapCenter?.[0]);
@@ -154,6 +229,8 @@ export default function HomeMapFeatureRoot({
           themeLabel: themeMeta.label,
           summaryLabel: themeMeta.summaryLabel,
           themeKey,
+          themeImage: ZONE_THEME_IMAGES[themeKey] || null,
+          targetPlants: zoneTargetPlantsByTheme.get(themeKey) || [],
           zoneMultiplier,
           distanceLabel: formatDistanceMeters(distanceM),
           scanLabel: `${scanProgress}/${ZONE_SCAN_TARGET}`,
@@ -168,7 +245,7 @@ export default function HomeMapFeatureRoot({
         };
       })
       .slice(0, 6);
-  }, [cachedLocation?.lat, cachedLocation?.lng, heroMapCenter, heroZones, zoneRewardProgressByTheme]);
+  }, [cachedLocation?.lat, cachedLocation?.lng, heroMapCenter, heroZones, zoneRewardProgressByTheme, zoneTargetPlantsByTheme]);
 
   const zoneThemeSummaries = useMemo(() => {
     const summaryMap = new Map();
@@ -236,12 +313,29 @@ export default function HomeMapFeatureRoot({
   );
 
   // ── Zone click handler ────────────────────────────────────────────────────
+  // Map-circle clicks only carry raw geometry, so match back to the enriched list item for the detail sheet.
   const handleZoneSelect = useCallback(
-    (zoneSelection) => {
-      openZoneSelection(zoneSelection);
+    ({ zoneId, centerLat, centerLng, radiusM, themeLabel }) => {
+      const matchingZone = zoneListItems.find((zone) => zone.key === String(zoneId));
+      if (matchingZone) {
+        setSelectedZoneForDetail(matchingZone);
+        return;
+      }
+      openZoneSelection({ centerLat, centerLng, radiusM, themeLabel });
     },
-    [openZoneSelection]
+    [zoneListItems, openZoneSelection]
   );
+
+  const handleOpenScansForSelectedZone = useCallback(() => {
+    if (!selectedZoneForDetail) return;
+    const sourceZone = selectedZoneForDetail.sourceZone || {};
+    openZoneSelection({
+      centerLat: Number(sourceZone.centerLat ?? sourceZone.center_lat),
+      centerLng: Number(sourceZone.centerLng ?? sourceZone.center_lng),
+      radiusM: Number(sourceZone.radiusM ?? sourceZone.radius_m ?? 0),
+      themeLabel: selectedZoneForDetail.themeLabel,
+    });
+  }, [selectedZoneForDetail, openZoneSelection]);
 
   // ── Claim tile click handler ──────────────────────────────────────────────
   const handleClaimSelect = useCallback(
@@ -520,7 +614,18 @@ export default function HomeMapFeatureRoot({
             )}
           </div>
 
-          {!pinOverlayData && (
+          {!pinOverlayData && selectedZoneForDetail && (
+            <ZoneDetailSheet
+              zone={selectedZoneForDetail}
+              isLightUi={isLightUi}
+              ownLogoAssets={ownLogoAssets}
+              onClose={() => setSelectedZoneForDetail(null)}
+              onOpenScans={handleOpenScansForSelectedZone}
+              onOpenMoreInfo={() => setIsZoneInfoOpen(true)}
+            />
+          )}
+
+          {!pinOverlayData && !selectedZoneForDetail && (
             <div className={`shrink-0 border-t px-4 py-2.5 sm:px-5 sm:py-3 transition-[opacity] duration-300 ${
               isLightUi
                 ? "border-[#c0a860]/25 bg-[#f5f1e6] text-stone-900"
@@ -586,12 +691,7 @@ export default function HomeMapFeatureRoot({
                       <button
                         key={zone.key}
                         type="button"
-                        onClick={() => openZoneSelection({
-                          centerLat: Number(zone.sourceZone?.centerLat ?? zone.sourceZone?.center_lat),
-                          centerLng: Number(zone.sourceZone?.centerLng ?? zone.sourceZone?.center_lng),
-                          radiusM: Number(zone.sourceZone?.radiusM ?? zone.sourceZone?.radius_m ?? 0),
-                          themeLabel: zone.themeLabel,
-                        })}
+                        onClick={() => setSelectedZoneForDetail(zone)}
                         className={`relative w-32 shrink-0 snap-start rounded-[1.15rem] border px-3 py-2.5 text-left transition-transform duration-150 hover:-translate-y-0.5 ${
                           zone.isActive
                             ? isLightUi
@@ -666,6 +766,13 @@ export default function HomeMapFeatureRoot({
         discoveries={pinOverlayData?.discoveries || []}
         players={pinOverlayData?.players || null}
         isLightUi={isLightUi}
+      />
+
+      <ZoneInfoDialog
+        open={isZoneInfoOpen}
+        isLightUi={isLightUi}
+        targetPlants={selectedZoneForDetail?.targetPlants || []}
+        onClose={() => setIsZoneInfoOpen(false)}
       />
     </section>
   );
