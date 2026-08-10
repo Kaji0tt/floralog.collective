@@ -6,6 +6,7 @@ import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Responsive
 
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
+import { onAuthChange } from "@/api/authService";
 import { buildDauWauMauSeries, buildActionEventSummary, buildFeatureUsageSummary, buildGlobalKpiSummary, buildMonthlyTopScannerSummary } from "@/api/kpiService";
 import { fetchActionEvents30d } from "@/api/analyticsService";
 import JourneyGraph from "@/components/kpi/JourneyGraph";
@@ -66,22 +67,52 @@ export default function KPIAdmin() {
   const isAdmin = user && normalizeRole(user?.role) === "admin";
 
   useEffect(() => {
+    let cancelled = false;
+
+    // Safety net: getCurrentUser() can stall on a slow/stuck network request,
+    // which would otherwise leave the page stuck on the loading spinner forever.
+    const timeoutId = setTimeout(() => {
+      if (!cancelled) {
+        setLoadError("Zeitüberschreitung beim Laden des Profils. Bitte erneut versuchen.");
+      }
+    }, 15000);
+
     const loadUser = async () => {
       try {
         setLoadError(null);
         const currentUser = await getCurrentUser();
+        if (cancelled) return;
+        clearTimeout(timeoutId);
         setUser(currentUser);
 
         if (currentUser && normalizeRole(currentUser?.role) !== "admin") {
           setTimeout(() => navigate(createPageUrl("Home")), 500);
         }
       } catch (error) {
+        if (cancelled) return;
+        clearTimeout(timeoutId);
         console.error("[KPIAdmin] Error loading user:", error);
         setLoadError("Fehler beim Laden des Profils");
       }
     };
 
     loadUser();
+
+    // On a hard reload, the Supabase auth session can still be hydrating from
+    // storage when this mounts, so getCurrentUser() silently resolves to null.
+    // Re-load once the session actually becomes available.
+    const { data: { subscription } } = onAuthChange((_event, session) => {
+      if (cancelled) return;
+      if (session?.user) {
+        loadUser();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+      subscription?.unsubscribe();
+    };
   }, [navigate]);
 
   useEffect(() => {

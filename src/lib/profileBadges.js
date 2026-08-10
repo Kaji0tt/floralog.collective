@@ -88,7 +88,7 @@ const PROFILE_BADGE_DEFINITIONS = [
     iconKey: "heart-pulse",
     metricKey: "highest_plant_status",
     direction: "higher",
-    thresholds: { white: 50, bronze: 70, silver: 80, gold: 95 },
+    thresholds: { white: 50, bronze: 70, silver: 80, gold: 90 },
     format: "percent",
   },
   {

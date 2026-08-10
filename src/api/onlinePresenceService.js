@@ -63,21 +63,65 @@ export const mapOnlinePresenceState = (state) => {
     );
 };
 
+// Multiple independent `supabase.channel(ONLINE_USERS_CHANNEL)` joins from the same
+// client (e.g. AuthContext presence tracking + multiple UI subscribers) caused
+// repeated CHANNEL_ERROR/reconnect loops because the same topic was joined more than
+// once concurrently. All consumers now share a single underlying channel instance.
+let sharedChannel = null;
+let sharedChannelRefCount = 0;
+let sharedChannelSubscribed = false;
+let sharedChannelStatus = null;
+const statusListeners = new Set();
+
+const getSharedChannel = () => {
+  if (!sharedChannel) {
+    sharedChannel = supabase.channel(ONLINE_USERS_CHANNEL);
+  }
+  return sharedChannel;
+};
+
+const acquireSharedChannel = () => {
+  sharedChannelRefCount += 1;
+  const channel = getSharedChannel();
+
+  if (!sharedChannelSubscribed) {
+    sharedChannelSubscribed = true;
+    channel.subscribe((status) => {
+      sharedChannelStatus = status;
+      console.info("[onlinePresenceService] subscribe status", { status, channel: ONLINE_USERS_CHANNEL });
+
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        console.warn("[onlinePresenceService] subscribe status problem", { status, channel: ONLINE_USERS_CHANNEL });
+      }
+
+      statusListeners.forEach((listener) => listener(status));
+    });
+  }
+
+  return channel;
+};
+
+const releaseSharedChannel = () => {
+  sharedChannelRefCount = Math.max(0, sharedChannelRefCount - 1);
+  if (sharedChannelRefCount === 0 && sharedChannel) {
+    const channelToRemove = sharedChannel;
+    sharedChannel = null;
+    sharedChannelSubscribed = false;
+    sharedChannelStatus = null;
+    statusListeners.clear();
+    void supabase.removeChannel(channelToRemove);
+  }
+};
+
 export const trackCurrentUserPresence = ({ authUser, profile }) => {
   if (!authUser?.id) {
     return () => {};
   }
 
   let isDisposed = false;
-  const channel = supabase.channel(ONLINE_USERS_CHANNEL, {
-    config: {
-      presence: {
-        key: String(authUser.id),
-      },
-    },
-  });
+  const channel = acquireSharedChannel();
 
-  channel.subscribe(async (status) => {
+  const handleStatus = async (status) => {
     if (status !== "SUBSCRIBED" || isDisposed) return;
 
     try {
@@ -85,46 +129,49 @@ export const trackCurrentUserPresence = ({ authUser, profile }) => {
     } catch (error) {
       console.warn("[onlinePresenceService] Failed to track current user presence", error);
     }
-  });
+  };
+
+  statusListeners.add(handleStatus);
+  if (sharedChannelStatus === "SUBSCRIBED") {
+    void handleStatus("SUBSCRIBED");
+  }
 
   return () => {
     isDisposed = true;
+    statusListeners.delete(handleStatus);
     Promise.resolve(channel.untrack()).catch(() => null).finally(() => {
-      void supabase.removeChannel(channel);
+      releaseSharedChannel();
     });
   };
 };
 
 export const subscribeToOnlineUsers = ({ onUsersChange, onError } = {}) => {
-  const channel = supabase.channel(ONLINE_USERS_CHANNEL);
+  const channel = acquireSharedChannel();
 
-  channel.on("presence", { event: "sync" }, () => {
-    onUsersChange?.(mapOnlinePresenceState(channel.presenceState()));
-  });
+  const emitUsers = () => onUsersChange?.(mapOnlinePresenceState(channel.presenceState()));
 
-  channel.on("presence", { event: "join" }, () => {
-    onUsersChange?.(mapOnlinePresenceState(channel.presenceState()));
-  });
+  channel.on("presence", { event: "sync" }, emitUsers);
+  channel.on("presence", { event: "join" }, emitUsers);
+  channel.on("presence", { event: "leave" }, emitUsers);
 
-  channel.on("presence", { event: "leave" }, () => {
-    onUsersChange?.(mapOnlinePresenceState(channel.presenceState()));
-  });
-
-  channel.subscribe((status) => {
-    console.info("[onlinePresenceService] subscribe status", { status, channel: ONLINE_USERS_CHANNEL });
-
+  const handleStatus = (status) => {
     if (status === "SUBSCRIBED") {
-      onUsersChange?.(mapOnlinePresenceState(channel.presenceState()));
+      emitUsers();
       return;
     }
 
     if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-      console.warn("[onlinePresenceService] subscribe status problem", { status, channel: ONLINE_USERS_CHANNEL });
       onError?.(status);
     }
-  });
+  };
+
+  statusListeners.add(handleStatus);
+  if (sharedChannelStatus === "SUBSCRIBED") {
+    emitUsers();
+  }
 
   return () => {
-    void supabase.removeChannel(channel);
+    statusListeners.delete(handleStatus);
+    releaseSharedChannel();
   };
 };

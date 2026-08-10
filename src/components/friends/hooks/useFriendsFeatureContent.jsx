@@ -1333,6 +1333,12 @@ Viel Spaß beim Entdecken! 🌿`;
           const q = currentWeeklyQuestForExplorer;
           if (!plant || !q) return false;
           if (q.target_species_name) return plant.species_name === q.target_species_name;
+          if (q.target_genus_name) {
+            const genus = allGenera.find(
+              (g) => g.category === plant.genus_category && g.category_dex_number === plant.genus_number
+            );
+            return genus?.genus_name === q.target_genus_name;
+          }
           if (q.category && q.category !== 'Alle') return plant.genus_category === q.category;
           return false;
         })(),
@@ -1340,7 +1346,7 @@ Viel Spaß beim Entdecken! 🌿`;
       };
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recentDiscoveries, allPlants, profileByEmail, likedDiscoveryIdSet, likeCountByDiscoveryId, logoAssets, scanRewardByDiscoveryId, currentWeeklyQuestForExplorer, rewardUnlockByDiscoveryId]);
+  }, [recentDiscoveries, allPlants, allGenera, profileByEmail, likedDiscoveryIdSet, likeCountByDiscoveryId, logoAssets, scanRewardByDiscoveryId, currentWeeklyQuestForExplorer, rewardUnlockByDiscoveryId]);
 
   useEffect(() => {
     if (!isExplorerTab || !hasNextExplorerPage) return;
@@ -1508,7 +1514,7 @@ Viel Spaß beim Entdecken! 🌿`;
         </div>
         <p className={`text-sm mt-1 ${bodyTextClass}`}>
           {isSotwView
-            ? "Die von der Community gewählten und vom Team gekürten Scans der Woche, gestaffelt nach Kalenderwoche."
+            ? "Wochenliebling: die meistgelikten Scans der Community. Scan der Woche: die vom Team gekürten Scans. Gestaffelt nach Kalenderwoche."
             : "Ein visuelles Journal der letzten Scans aller Spieler."}
         </p>
       </div>
@@ -1522,7 +1528,7 @@ Viel Spaß beim Entdecken! 🌿`;
         >
           {[
             { id: "all", label: "Alle" },
-            { id: "sotw", label: "SOTW" },
+            { id: "sotw", label: "Community" },
           ].map((option) => {
             const isSelected = explorerViewMode === option.id;
             return (
@@ -1753,7 +1759,9 @@ Viel Spaß beim Entdecken! 🌿`;
                               {formatSotwWeekLabel(weekKey)}
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              {rows.map((row) => (
+                              {rows.map((row) => {
+                                const isCommunityPick = row.source === "scheduler";
+                                return (
                                 <Card
                                   key={row.ledger_id}
                                   className={`${nestedCardClass} ${interactiveHoverClass} transition-all overflow-hidden`}
@@ -1767,13 +1775,24 @@ Viel Spaß beim Entdecken! 🌿`;
                                       />
                                     ) : (
                                       <div className={`w-full h-full flex items-center justify-center ${isLightUi ? "bg-gradient-to-br from-amber-50 to-stone-100" : "bg-gradient-to-br from-amber-500/10 to-stone-950/60"}`}>
-                                        <Trophy className={`w-10 h-10 ${isLightUi ? "text-amber-500" : "text-amber-300"}`} />
+                                        {isCommunityPick ? (
+                                          <Heart className={`w-10 h-10 ${isLightUi ? "text-rose-400" : "text-rose-300"}`} />
+                                        ) : (
+                                          <Trophy className={`w-10 h-10 ${isLightUi ? "text-amber-500" : "text-amber-300"}`} />
+                                        )}
                                       </div>
                                     )}
-                                    <div className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full border border-amber-400/60 bg-amber-500/90 px-2 py-0.5 text-[10px] font-bold text-stone-950">
-                                      <Trophy className="w-3 h-3" />
-                                      Scan der Woche
-                                    </div>
+                                    {isCommunityPick ? (
+                                      <div className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full border border-rose-400/60 bg-rose-500/90 px-2 py-0.5 text-[10px] font-bold text-white">
+                                        <Heart className="w-3 h-3 fill-current" />
+                                        Wochenliebling
+                                      </div>
+                                    ) : (
+                                      <div className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full border border-amber-400/60 bg-amber-500/90 px-2 py-0.5 text-[10px] font-bold text-stone-950">
+                                        <Trophy className="w-3 h-3" />
+                                        Scan der Woche
+                                      </div>
+                                    )}
                                   </div>
                                   <CardContent className="p-3 space-y-1.5">
                                     <p className={`text-sm font-bold leading-tight truncate ${titleTextClass}`}>
@@ -1795,7 +1814,8 @@ Viel Spaß beim Entdecken! 🌿`;
                                     </div>
                                   </CardContent>
                                 </Card>
-                              ))}
+                                );
+                              })}
                             </div>
                           </div>
                         ))}
