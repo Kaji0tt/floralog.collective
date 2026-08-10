@@ -1347,7 +1347,7 @@ export default function GenusDetail() {
               }}
               className={`relative border-0 bg-transparent shadow-none transition-all duration-300 overflow-visible cursor-pointer`}
             >
-              <ThreatLevelSparks active={conservationEffectLevel >= 3} count={20} className="z-40" />
+              <ThreatLevelSparks active={getRarityLevelFromLabel(plantRarityLabel) >= 4} count={20} className="z-40" />
               <CardContent className="p-0 relative z-20">
                 <div className="space-y-1.5">
                   <SpeciesInfoCard

@@ -24,6 +24,7 @@ import {
   getRarityScanBackgroundClass,
   getRarityAnimationClass,
   getRarityGlowBorderClass,
+  getRarityLevelFromLabel,
   computeRarityLabel,
 } from "@/lib/plantRarity";
 
@@ -324,7 +325,7 @@ export default function ScanResults({
                       "--rarity-reflection-color": rarityReflectionColor,
                     }}
                   >
-                    <ThreatLevelSparks active={conservationEffectLevel >= 3} count={18} className="z-40" />
+                    <ThreatLevelSparks active={getRarityLevelFromLabel(plantRarityLabel) >= 4} count={18} className="z-40" />
                     {isBlockedResult && (
                       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10">
                         <Badge variant="secondary" className="bg-red-700/90 text-white border border-red-200/35 shadow-md hover:bg-red-700/90">
