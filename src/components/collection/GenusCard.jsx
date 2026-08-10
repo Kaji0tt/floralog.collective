@@ -7,7 +7,7 @@ import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
 import EditGenusDialog from "./EditGenusDialog";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
-import { getPopulationScore, getRarityBorderClass } from "@/lib/conservationStatus";
+import { getRarityBorderClass, getRarityLevelFromLabel } from "@/lib/plantRarity";
 
 const categoryIcons = {
   "Bäume": TreeDeciduous,
@@ -62,20 +62,20 @@ export default function GenusCard({
     genusDiscoveries.find((d) => d.is_species_front_image)?.image_url ||
     [...genusDiscoveries].sort((a, b) => getDiscoveryTimestamp(b) - getDiscoveryTimestamp(a))[0]?.image_url;
 
-  // Ermittle höchste Seltenheit aus red_list_population der entdeckten Pflanzen.
+  // Ermittle höchste Seltenheit aus plant.rarity der entdeckten Pflanzen (Rote-Liste-abgeleitet).
   const discoveredPlants = plants.filter(p => 
     p.genus_category === genus.category && p.genus_number === genus.category_dex_number && userDiscoveries.some(d => d.plant_id === p.id)
   );
   const highestConservation = discoveredPlants.reduce((max, plant) => {
-    const population = plant?.red_list_population ?? plant?.aiData?.red_list_population ?? null;
-    const score = getPopulationScore(population);
-    return score > max.score ? { score, population } : max;
-  }, { score: 0, population: null });
+    const rarity = plant?.rarity ?? plant?.aiData?.rarity ?? null;
+    const level = getRarityLevelFromLabel(rarity);
+    return level > max.level ? { level, rarity } : max;
+  }, { level: 0, rarity: null });
 
   // Bestimme Rahmenfarbe basierend auf höchster Rarität
   const getBorderColor = () => {
     if (!discovered) return isLightUi ? 'border-stone-300' : 'border-stone-500/55';
-    return getRarityBorderClass(highestConservation.population, isLightUi);
+    return getRarityBorderClass(highestConservation.rarity, isLightUi);
   };
 
   const handleClick = () => {

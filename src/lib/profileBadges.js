@@ -18,7 +18,7 @@ const PROFILE_BADGE_DEFINITIONS = [
     iconKey: "waypoints",
     metricKey: "total_distance_between_scans_km",
     direction: "higher",
-    thresholds: { white: 1, bronze: 10, silver: 50, gold: 150 },
+    thresholds: { white: 100, bronze: 250, silver: 500, gold: 1000 },
     format: "km",
   },
   {
@@ -38,7 +38,7 @@ const PROFILE_BADGE_DEFINITIONS = [
     iconKey: "leaf",
     metricKey: "global_seed_rank",
     direction: "lower",
-    thresholds: { white: 500, bronze: 250, silver: 100, gold: 25 },
+    thresholds: { white: 30, bronze: 10, silver: 5, gold: 1 },
     format: "rank",
   },
   {
@@ -48,7 +48,7 @@ const PROFILE_BADGE_DEFINITIONS = [
     iconKey: "heart",
     metricKey: "received_likes_count",
     direction: "higher",
-    thresholds: { white: 5, bronze: 25, silver: 100, gold: 500 },
+    thresholds: { white: 12, bronze: 24, silver: 48, gold: 92 },
     format: "count",
   },
   {
@@ -68,7 +68,7 @@ const PROFILE_BADGE_DEFINITIONS = [
     iconKey: "inspection-panel",
     metricKey: "claimed_tiles",
     direction: "higher",
-    thresholds: { white: 5, bronze: 20, silver: 75, gold: 200 },
+    thresholds: { white: 5, bronze: 15, silver: 30, gold: 50 },
     format: "count",
   },
   {
@@ -78,7 +78,7 @@ const PROFILE_BADGE_DEFINITIONS = [
     iconKey: "square-star",
     metricKey: "highest_scan_result",
     direction: "higher",
-    thresholds: { white: 50, bronze: 120, silver: 220, gold: 350 },
+    thresholds: { white: 150, bronze: 300, silver: 500, gold: 800 },
     format: "count",
   },
   {
@@ -88,7 +88,7 @@ const PROFILE_BADGE_DEFINITIONS = [
     iconKey: "heart-pulse",
     metricKey: "highest_plant_status",
     direction: "higher",
-    thresholds: { white: 40, bronze: 60, silver: 80, gold: 95 },
+    thresholds: { white: 50, bronze: 70, silver: 80, gold: 95 },
     format: "percent",
   },
   {
@@ -98,7 +98,7 @@ const PROFILE_BADGE_DEFINITIONS = [
     iconKey: "wand",
     metricKey: "rarest_plant_score",
     direction: "higher",
-    thresholds: { white: 3, bronze: 5, silver: 6, gold: 7 },
+    thresholds: { white: 2, bronze: 3, silver: 4, gold: 5 },
     format: "rarity-score",
   },
   {
@@ -108,7 +108,7 @@ const PROFILE_BADGE_DEFINITIONS = [
     iconKey: "bookmark-check",
     metricKey: "weekly_quests_completed",
     direction: "higher",
-    thresholds: { white: 3, bronze: 10, silver: 25, gold: 60 },
+    thresholds: { white: 1, bronze: 3, silver: 9, gold: 18 },
     format: "count",
   },
   {
@@ -118,7 +118,7 @@ const PROFILE_BADGE_DEFINITIONS = [
     iconKey: "calendar-check-2",
     metricKey: "monthly_quests_completed",
     direction: "higher",
-    thresholds: { white: 1, bronze: 3, silver: 8, gold: 18 },
+    thresholds: { white: 1, bronze: 3, silver: 6, gold: 12 },
     format: "count",
   },
   {
@@ -128,7 +128,7 @@ const PROFILE_BADGE_DEFINITIONS = [
     iconKey: "flame",
     metricKey: "daily_streak_days",
     direction: "higher",
-    thresholds: { white: 3, bronze: 7, silver: 30, gold: 100 },
+    thresholds: { white: 1, bronze: 3, silver: 7, gold: 31 },
     format: "days",
   },
   {
@@ -138,7 +138,7 @@ const PROFILE_BADGE_DEFINITIONS = [
     iconKey: "calendar-days",
     metricKey: "member_since_days",
     direction: "higher",
-    thresholds: { white: 7, bronze: 30, silver: 120, gold: 365 },
+    thresholds: { white: 30, bronze: 60, silver: 90, gold: 180 },
     format: "days",
   },
   {
@@ -148,7 +148,7 @@ const PROFILE_BADGE_DEFINITIONS = [
     iconKey: "map-pin-check",
     metricKey: "zone_unlocked_plant_accessories",
     direction: "higher",
-    thresholds: { white: 1, bronze: 3, silver: 6, gold: 10 },
+    thresholds: { white: 1, bronze: 3, silver: 6, gold: 12 },
     format: "count",
   },
   {
@@ -158,7 +158,7 @@ const PROFILE_BADGE_DEFINITIONS = [
     iconKey: "leaf",
     metricKey: "season_seeds",
     direction: "higher",
-    thresholds: { white: 100, bronze: 500, silver: 2500, gold: 10000 },
+    thresholds: { white: 10000, bronze: 50000, silver: 100000, gold: 150000 },
     format: "count",
   },
   {
@@ -168,7 +168,7 @@ const PROFILE_BADGE_DEFINITIONS = [
     iconKey: "leaf",
     metricKey: "alltime_seeds",
     direction: "higher",
-    thresholds: { white: 1000, bronze: 10000, silver: 50000, gold: 200000 },
+    thresholds: { white: 10000, bronze: 50000, silver: 100000, gold: 250000 },
     format: "count",
   },
 ];

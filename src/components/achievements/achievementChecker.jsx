@@ -1,6 +1,7 @@
 import { Query } from "@/api/entities";
 import { notifyAcceptedFriends } from "@/api/notificationService";
 import { listUserRewardsWithLegacyFallback } from "@/api/userRewardService";
+import { getRarityLevelFromLabel } from "@/lib/plantRarity";
 
 /**
  * Prüft alle Achievements und schaltet neue frei
@@ -686,11 +687,7 @@ export async function checkAndUnlockAchievements(user, { triggerDiscoveryId = nu
     }
 
     // 11. Glücksfund - Eine Seltene Pflanze entdeckt
-    const hasRarePlant = userDiscoveredPlantObjects.some(p => 
-      p.rarity === "Selten" || 
-      p.rarity === "Sehr Selten" || 
-      p.rarity === "Extrem Selten"
-    );
+    const hasRarePlant = userDiscoveredPlantObjects.some(p => getRarityLevelFromLabel(p.rarity) >= 3);
     if (hasRarePlant && !hasAchievement("Glücksfund")) {
       const achievement = await unlockAchievement("Glücksfund");
       if (achievement) unlockedAchievements.push(achievement);

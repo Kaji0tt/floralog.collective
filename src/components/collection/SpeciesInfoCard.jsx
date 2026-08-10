@@ -3,14 +3,17 @@ import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronUp, ExternalLink, Info, Leaf, X } from "lucide-react";
 import {
   getConservationFromPlant,
+} from "@/lib/conservationStatus";
+import {
   getRarityAccentClasses,
   getRarityBadgeClass,
   getRarityGlowColor,
   getRarityReflectionColor,
   getRarityStars,
-  getConservationEffectLevel,
-  getThreatAnimationClass,
-} from "@/lib/conservationStatus";
+  getRarityAnimationClass,
+  getRarityGlowBorderClass,
+  computeRarityLabel,
+} from "@/lib/plantRarity";
 
 const NATURADB_BASE_URL = "https://www.naturadb.de/pflanzen/";
 const DISPLAY_PREFS_STORAGE_KEY = "floralog.speciesInfoCard.displayPrefs.v1";
@@ -142,20 +145,16 @@ export default function SpeciesInfoCard({
   const image = imageUrl || safePlant.image_url || null;
   const scientificName = resolveField(safePlant, "scientific_name") || "-";
   const conservation = getConservationFromPlant(safePlant);
-  const rarityAccent = getRarityAccentClasses(conservation.populationRaw, isLightUi);
-  const rarityBadgeClass = getRarityBadgeClass(conservation.populationRaw);
-  const rarityStars = getRarityStars(conservation.populationRaw);
-  const rarityGlowColor = getRarityGlowColor(conservation.populationRaw);
-  const rarityReflectionColor = getRarityReflectionColor(conservation.populationRaw);
-  const conservationEffectLevel = getConservationEffectLevel(
-    conservation.threatRaw,
-    conservation.populationRaw
-  );
-  const threatAnimationClass = getThreatAnimationClass(
-    conservation.threatRaw,
-    conservation.populationRaw
-  );
-  const threatGlowClass = conservationEffectLevel >= 4 ? "threat-glow-border" : "";
+  // plant.rarity ist die kanonische, Rote-Liste-abgeleitete Seltenheitsstufe (max aus Bestand+Gefaehrdung).
+  // Fallback fuer Pflanzen ohne bereits berechneten Wert (vor Backfill).
+  const plantRarityLabel = resolveField(safePlant, "rarity") || computeRarityLabel(conservation.populationRaw, conservation.threatRaw);
+  const rarityAccent = getRarityAccentClasses(plantRarityLabel, isLightUi);
+  const rarityBadgeClass = getRarityBadgeClass(plantRarityLabel);
+  const rarityStars = getRarityStars(plantRarityLabel);
+  const rarityGlowColor = getRarityGlowColor(plantRarityLabel);
+  const rarityReflectionColor = getRarityReflectionColor(plantRarityLabel);
+  const threatAnimationClass = getRarityAnimationClass(plantRarityLabel);
+  const threatGlowClass = getRarityGlowBorderClass(plantRarityLabel);
   const appliedThreatAnimationClass = disableThreatEffects ? "" : threatAnimationClass;
   const appliedThreatGlowClass = disableThreatEffects ? "" : threatGlowClass;
   const regionText = getRegionText(safePlant);
@@ -508,7 +507,7 @@ export default function SpeciesInfoCard({
               <Badge
                 variant="secondary"
                 className={`h-4 ${rarityBadgeClass} text-[9px] px-1 py-0 rounded-full`}
-                title={conservation.population.label}
+                title={plantRarityLabel}
               >
                 {rarityStars}
               </Badge>
@@ -727,7 +726,7 @@ export default function SpeciesInfoCard({
             <Badge
               variant="secondary"
               className={`h-5 ${rarityBadgeClass} text-[10px] px-1.5 py-0 rounded-full shrink-0`}
-              title={conservation.population.label}
+              title={plantRarityLabel}
             >
               {rarityStars}
             </Badge>

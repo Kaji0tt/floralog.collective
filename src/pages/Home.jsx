@@ -79,6 +79,7 @@ import {
 } from "@/lib/profileBadges";
 import { getProfileBadgeIconComponent } from "@/lib/profileBadgeIcons";
 import { resolveOwnedUniqueBadges } from "@/lib/profileUniqueBadges";
+import { getRarityLevelFromLabel } from "@/lib/plantRarity";
 import FlorabotIntroOverlay from "@/components/florabot/FlorabotIntroOverlay";
 import FlorabotMilestoneOverlay from "@/components/florabot/FlorabotMilestoneOverlay";
 import { getActiveSeason } from "@/lib/seasonConfig";
@@ -127,25 +128,6 @@ const SOCIAL_NEWS_NOTIFICATION_TYPES = [
   "friend_achievement",
   "scan_liked",
 ];
-
-const normalizeRarityText = (value) =>
-  String(value || "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, "");
-
-const rarityScoreFromLabel = (rarity) => {
-  const normalized = normalizeRarityText(rarity);
-  if (!normalized) return 0;
-  if (normalized.includes("extremselten") || normalized.includes("legend") || normalized.includes("mythisch")) return 7;
-  if (normalized.includes("sehrselten") || normalized.includes("episch")) return 6;
-  if (normalized.includes("selten")) return 5;
-  if (normalized.includes("gelegentlich") || normalized.includes("ungewohnlich")) return 3;
-  if (normalized.includes("haufig") || normalized.includes("haeufig") || normalized.includes("common")) return 1;
-  return 2;
-};
 
 const hashSeedToIndex = (seed, length) => {
   if (!length || length <= 0) return 0;
@@ -2481,7 +2463,7 @@ function HomeContent() {
 
       const plant = plants.find((candidate) => candidate.id === entry?.plant_id);
       const plantRarity = plant?.rarity || plant?.aiData?.rarity || "";
-      const rarityScore = rarityScoreFromLabel(plantRarity);
+      const rarityScore = getRarityLevelFromLabel(plantRarity);
 
       const entryEmailUser = typeof entry?.user === "string" ? entry.user.toLowerCase() : null;
       const entryEmailCreatedBy = typeof entry?.created_by === "string" ? entry.created_by.toLowerCase() : null;
@@ -2737,7 +2719,7 @@ function HomeContent() {
         }))
         .filter(
           (point) =>
-            Number(point?.rarityScore || 0) >= 5 &&
+            Number(point?.rarityScore || 0) >= 4 &&
             isDiscoveryInCurrentWeek(point?.discoveredAt)
         )
         .sort((a, b) => {
@@ -2820,7 +2802,7 @@ function HomeContent() {
   const rarestDiscoveredPlantScore = userDiscoveriesList.reduce((maxScore, discovery) => {
     const plant = plants.find((candidate) => candidate?.id === discovery?.plant_id);
     const rarityLabel = plant?.rarity || plant?.aiData?.rarity || "";
-    return Math.max(maxScore, rarityScoreFromLabel(rarityLabel));
+    return Math.max(maxScore, getRarityLevelFromLabel(rarityLabel));
   }, 0);
 
   const profileCreatedAtRaw = user?.created_date || user?.created_at || user?.updated_date || null;

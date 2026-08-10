@@ -19,6 +19,7 @@ import { HomeMilestoneStripe } from "@/components/home/HomeCollectionStripes";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 import FlorabotLogo from "@/components/florabot/FlorabotLogo";
 import { evaluateProfileBadges, buildSelectedProfileBadges } from "@/lib/profileBadges";
+import { getRarityLevelFromLabel } from "@/lib/plantRarity";
 import { getProfileBadgeIconComponent } from "@/lib/profileBadgeIcons";
 import { resolveOwnedUniqueBadges } from "@/lib/profileUniqueBadges";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
@@ -638,18 +639,8 @@ export default function FriendProfile() {
         .select("rarity")
         .in("id", plantIds);
       if (plantErr || !plantRows?.length) return 0;
-      const norm = (v) =>
-        String(v || "").trim().toLowerCase().normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "");
       return plantRows.reduce((maxScore, plant) => {
-        const n = norm(plant.rarity);
-        let score = 2;
-        if (n.includes("extremselten") || n.includes("legend") || n.includes("mythisch")) score = 7;
-        else if (n.includes("sehrselten") || n.includes("episch")) score = 6;
-        else if (n.includes("selten")) score = 5;
-        else if (n.includes("gelegentlich") || n.includes("ungewohnlich")) score = 3;
-        else if (n.includes("haufig") || n.includes("haeufig") || n.includes("common")) score = 1;
-        return Math.max(maxScore, score);
+        return Math.max(maxScore, getRarityLevelFromLabel(plant.rarity));
       }, 0);
     },
     enabled: !!friendUser?.auth_id,

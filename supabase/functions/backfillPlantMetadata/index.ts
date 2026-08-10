@@ -150,6 +150,8 @@ Deno.serve(async (req) => {
           : meta.identification_features;
 
         const updatePayload: Record<string, unknown> = {
+          // rarity ist ecology-basiert (nicht mehr LLM-abhaengig), daher immer setzen.
+          rarity: meta.rarity ?? null,
           wild_bees_count: meta.wild_bees_count ?? null,
           butterflies_count: meta.butterflies_count ?? null,
           caterpillars_count: meta.caterpillars_count ?? null,
@@ -167,7 +169,6 @@ Deno.serve(async (req) => {
           updatePayload.description = meta.description;
           updatePayload.identification_features = identificationText;
           updatePayload.fun_fact = meta.fun_fact;
-          updatePayload.rarity = meta.rarity;
         }
 
         const { error: updateError } = await adminClient

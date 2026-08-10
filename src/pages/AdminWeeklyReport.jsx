@@ -11,27 +11,7 @@ import MobileBackButton from "@/components/navigation/MobileBackButton";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 import { getCurrentWeeklyQuest, getWeekNumber } from "@/components/quests/QuestRotationHelper";
-
-// ─── Rarity helpers (same mapping as Home.jsx) ───────────────────────────────
-
-const normalizeRarityText = (value) =>
-  String(value || "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, "");
-
-const rarityScoreFromLabel = (rarity) => {
-  const n = normalizeRarityText(rarity);
-  if (!n) return 0;
-  if (n.includes("extremselten") || n.includes("legend") || n.includes("mythisch")) return 7;
-  if (n.includes("sehrselten") || n.includes("episch")) return 6;
-  if (n.includes("selten")) return 5;
-  if (n.includes("gelegentlich") || n.includes("ungewohnlich")) return 3;
-  if (n.includes("haufig") || n.includes("haeufig") || n.includes("common")) return 1;
-  return 2;
-};
+import { getRarityLevelFromLabel } from "@/lib/plantRarity";
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
@@ -119,7 +99,7 @@ async function fetchWeeklyStats(weekStartIso, excludeBackfillDate = null) {
       .in("id", plantIds.slice(i, i + CHUNK));
     for (const p of plants ?? []) plantMap[p.id] = p;
   }
-  const rareScans = discoveries.filter((d) => rarityScoreFromLabel(plantMap[d.plant_id]?.rarity) >= 4).length;
+  const rareScans = discoveries.filter((d) => getRarityLevelFromLabel(plantMap[d.plant_id]?.rarity) >= 4).length;
   const distinctSpecies = new Set(discoveries.map((d) => d.plant_id).filter(Boolean)).size;
 
   // Most scanned plant this week

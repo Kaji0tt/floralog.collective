@@ -16,6 +16,7 @@ import useCollectionViewState, { DEFAULT_COLLECTION_FILTERS } from "./hooks/useC
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { getActiveSeason } from "@/lib/seasonConfig";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
+import { getRarityLevelFromLabel } from "@/lib/plantRarity";
 
 const CATEGORY_CHIPS = [
   { value: "Bäume", emoji: "🌳" },
@@ -468,8 +469,6 @@ export default function CollectionFeatureRoot({
     },
   });
 
-  const rarityOrder = { "Häufig": 1, "Gelegentlich": 2, "Selten": 3, "Sehr Selten": 4, "Extrem Selten": 5 };
-
   const generaWithDiscovery = genera.map(genus => {
     const genusPlants = plants.filter(p => 
       p.genus_category === genus.category && p.genus_number === genus.category_dex_number
@@ -479,7 +478,7 @@ export default function CollectionFeatureRoot({
     );
 
     const maxRarityScore = genusPlants.reduce((max, plant) => {
-      const score = rarityOrder[plant.rarity] || 0;
+      const score = getRarityLevelFromLabel(plant.rarity);
       return score > max ? score : max;
     }, 0);
 

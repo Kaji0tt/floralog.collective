@@ -15,10 +15,12 @@ import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets"
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 import {
   getConservationFromPlant,
-  getRarityBadgeClass,
-  getRarityLabel,
-  getRarityStars,
 } from "@/lib/conservationStatus";
+import {
+  getRarityBadgeClass,
+  getRarityStars,
+  computeRarityLabel,
+} from "@/lib/plantRarity";
 
 export default function ViewSharedScan() {
   const [user, setUser] = useState(null);
@@ -188,6 +190,9 @@ export default function ViewSharedScan() {
   };
 
   const conservation = plant ? getConservationFromPlant(plant) : null;
+  const plantRarityLabel = plant
+    ? (plant?.rarity ?? plant?.aiData?.rarity ?? computeRarityLabel(conservation?.populationRaw, conservation?.threatRaw))
+    : null;
 
   if (isLoading || !user) {
     return (
@@ -299,8 +304,8 @@ export default function ViewSharedScan() {
 
                 {conservation && (
                   <div className="flex gap-2">
-                    <Badge className={getRarityBadgeClass(conservation.populationRaw, { soft: true })}>
-                      {getRarityStars(conservation.populationRaw)} {getRarityLabel(conservation.populationRaw)}
+                    <Badge className={getRarityBadgeClass(plantRarityLabel, { soft: true })}>
+                      {getRarityStars(plantRarityLabel)} {plantRarityLabel}
                     </Badge>
                   </div>
                 )}
