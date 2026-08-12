@@ -424,6 +424,8 @@ function HomeContent() {
   const [isMilestoneOverlayToggled, setIsMilestoneOverlayToggled] = useState(false);
   const [careBubble, setCareBubble] = useState(/** @type {{x:number,y:number,key:number}|null} */ (null));
   const [isHomeOverlayShopOpen, setIsHomeOverlayShopOpen] = useState(false);
+  const [homeOverlayInitialShopCategory, setHomeOverlayInitialShopCategory] = useState("root");
+  const [homeOverlayInitialShopOpen, setHomeOverlayInitialShopOpen] = useState(false);
   const [homeOverlayAmbientMessage, setHomeOverlayAmbientMessage] = useState("");
   const homeOverlayAmbientCooldownUntilRef = useRef(0);
   const [florabotContextBubble, setFlorabotContextBubble] = useState(null);
@@ -3729,7 +3731,8 @@ function HomeContent() {
         authId={user?.id}
         currentUser={user}
         badgeMetrics={profileBadgeMetrics}
-        initialShopCategory="root"
+        initialShopCategory={homeOverlayInitialShopCategory}
+        initialShopOpen={homeOverlayInitialShopOpen}
         logoAssets={logoAssets}
         playerSparks={playerSparks}
         playerAmber={playerAmber}
@@ -3757,6 +3760,8 @@ function HomeContent() {
         onClose={() => {
           setIsHomeOverlayShopOpen(false);
           setIsMilestoneOverlayToggled(false);
+          setHomeOverlayInitialShopOpen(false);
+          setHomeOverlayInitialShopCategory("root");
         }}
       />
 
@@ -4086,6 +4091,14 @@ function HomeContent() {
                       logoAssets={logoAssets}
                       selectedProfileBadges={selectedProfileBadges}
                       elevateLogo={Boolean(isMilestoneOverlayToggled && !showFlorabotIntro && !activeMilestone && !isHomeOverlayShopOpen)}
+                      onBadgeClick={() => openShop("badges")}
+                      onBadgeClick={() => {
+                        trackAction("home_badge_customize_open", { sourcePage: "Home" });
+                        setHomeOverlayInitialShopCategory("badges");
+                        setHomeOverlayInitialShopOpen(true);
+                        setIsMilestoneOverlayToggled(true);
+                        setIsHomeOverlayShopOpen(true);
+                      }}
                       onLogoClick={() => {
                         if (toggleMilestonePreview) {
                           const now = Date.now();
@@ -4106,6 +4119,8 @@ function HomeContent() {
                           }
 
                           trackAction("home_logo_overlay_open", { sourcePage: "Home" });
+                          setHomeOverlayInitialShopCategory("root");
+                          setHomeOverlayInitialShopOpen(false);
                           setIsMilestoneOverlayToggled(true);
                           setIsHomeOverlayShopOpen(false);
 

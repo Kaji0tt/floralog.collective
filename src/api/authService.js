@@ -1,8 +1,13 @@
 // Supabase Auth Service
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 import { supabase } from './supabaseClient';
 import { resolveReferralEmail } from '@/lib/referralCode';
 
 const baseUserProxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/baseUserProxy`;
+
+// Must match the Android intent-filter / iOS CFBundleURLTypes scheme.
+const NATIVE_OAUTH_REDIRECT_URL = 'floralog://open';
 
 /**
  * Resolve the referrer email from a referral code stored in localStorage.
@@ -159,6 +164,51 @@ export const signIn = async (email, password) => {
     return data;
   } catch (error) {
     throw normalizeAuthServiceError(error);
+  }
+};
+
+/**
+ * Sign in with Google via Supabase OAuth.
+ * On native platforms, the system browser is opened manually and the
+ * result is delivered back to the app through the `floralog://open` deep link
+ * (handled by the appUrlOpen listener registered in AuthContext).
+ */
+export const signInWithGoogle = async () => {
+  const isNative = Capacitor.isNativePlatform();
+
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: isNative ? NATIVE_OAUTH_REDIRECT_URL : getAuthRedirectBaseUrl(),
+        skipBrowserRedirect: isNative
+      }
+    });
+    if (error) throw error;
+
+    if (isNative && data?.url) {
+      await Browser.open({ url: data.url });
+    }
+
+    return data;
+  } catch (error) {
+    throw normalizeAuthServiceError(error);
+  }
+};
+
+/**
+ * Complete the native Google sign-in after the app is re-opened via the
+ * `floralog://open` deep link (called from the appUrlOpen listener).
+ */
+export const completeNativeOAuthSignIn = async (redirectUrl) => {
+  try {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(redirectUrl);
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    throw normalizeAuthServiceError(error);
+  } finally {
+    await Browser.close().catch(() => {});
   }
 };
 

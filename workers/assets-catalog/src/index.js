@@ -4,11 +4,9 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type, X-Worker-Secret",
 };
 
-const DEFAULT_UNLOCKED_IDS = new Set([
-  "border_original",
-  "plant_leaf",
-  "face_original",
-]);
+// border_original/face_original were retired to custom_logo/legacy/; plant_leaf has no
+// "default" folder equivalent yet, so it keeps its explicit allowlist entry.
+const DEFAULT_UNLOCKED_IDS = new Set(["plant_leaf"]);
 
 const parseAssetType = (assetId) => {
   if (assetId.startsWith("face_")) return "face";
@@ -41,6 +39,7 @@ const buildPublicAssetUrl = (requestUrl, env, key) => {
 
 const ACTIVE_PREFIX = "custom_logo/";
 const LEGACY_PREFIX = "custom_logo/legacy/";
+const DEFAULT_PREFIX = "custom_logo/default/";
 const PROFILE_PREFIX = "profile/";
 
 const buildCatalog = async (requestUrl, env) => {
@@ -66,6 +65,7 @@ const buildCatalog = async (requestUrl, env) => {
       if (!assetType) continue;
 
       const isLegacy = key.startsWith(LEGACY_PREFIX);
+      const isDefault = key.startsWith(DEFAULT_PREFIX);
 
       assets.push({
         asset_id: assetId,
@@ -74,7 +74,7 @@ const buildCatalog = async (requestUrl, env) => {
         r2_key: key,
         public_url: buildPublicAssetUrl(requestUrl, env, key),
         display_name: toDisplayName(assetId),
-        default_unlocked: DEFAULT_UNLOCKED_IDS.has(assetId),
+        default_unlocked: DEFAULT_UNLOCKED_IDS.has(assetId) || isDefault,
         active: true,
         legacy: isLegacy,
       });

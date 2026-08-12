@@ -1,15 +1,21 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 
+import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
 import { 
   onAuthChange, 
   getCurrentAuthUser, 
   getUserProfile, 
   ensureUserProfileExists,
+  completeNativeOAuthSignIn,
   signOut as supabaseSignOut 
 } from '@/api/authService';
 import { Query } from '@/api/entities';
 import { trackCurrentUserPresence } from '@/api/onlinePresenceService';
 import { persistLastSignedInUserSnapshot } from '@/lib/lastSignedInUserStorage';
+import { updateCurrentUserProfile } from '@/api/userApi';
+import { LOGO_ACCESSORY_DEFAULTS } from '@/lib/logoAccessoryAssets';
+import { readGuestLogoCustomizationDraft, clearGuestLogoCustomizationDraft } from '@/lib/guestLogoCustomizationStorage';
 
 const getTodayKey = () => new Date().toISOString().slice(0, 10);
 const getZoneGenerationStorageKey = (authId) => `robotPlantZoneDay:${authId}`;
@@ -59,6 +65,30 @@ export const AuthProvider = ({ children }) => {
         }
 
         if (!isMounted) return;
+
+        const pendingGuestLogoDraft = readGuestLogoCustomizationDraft();
+        if (pendingGuestLogoDraft) {
+          const profileStillAtDefaults = (
+            userProfile?.selected_face_asset === LOGO_ACCESSORY_DEFAULTS.selected_face_asset &&
+            userProfile?.selected_border_asset === LOGO_ACCESSORY_DEFAULTS.selected_border_asset &&
+            !userProfile?.selected_border_color
+          );
+
+          if (profileStillAtDefaults) {
+            try {
+              const updatedProfile = await updateCurrentUserProfile({
+                selected_face_asset: pendingGuestLogoDraft.selected_face_asset,
+                selected_border_asset: pendingGuestLogoDraft.selected_border_asset,
+                selected_border_color: pendingGuestLogoDraft.selected_border_color ?? null,
+              });
+              userProfile = { ...userProfile, ...updatedProfile };
+            } catch (error) {
+              console.error('[AuthContext] Failed to apply guest logo customization draft:', error);
+            }
+          }
+
+          clearGuestLogoCustomizationDraft();
+        }
 
         setProfile(userProfile);
 
@@ -136,6 +166,28 @@ export const AuthProvider = ({ children }) => {
       isMounted = false;
       clearTimeout(timeoutId);
       subscription?.unsubscribe();
+    };
+  }, []);
+
+  // Native Google login returns here via the floralog://open deep link.
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return undefined;
+
+    let listenerHandle;
+
+    CapacitorApp.addListener('appUrlOpen', async ({ url }) => {
+      if (!url?.startsWith('floralog://open')) return;
+      try {
+        await completeNativeOAuthSignIn(url);
+      } catch (error) {
+        console.error('[AuthContext] Native OAuth completion failed:', error);
+      }
+    }).then((handle) => {
+      listenerHandle = handle;
+    });
+
+    return () => {
+      listenerHandle?.remove();
     };
   }, []);
 

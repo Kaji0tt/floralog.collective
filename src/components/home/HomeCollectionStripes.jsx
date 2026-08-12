@@ -593,6 +593,7 @@ export default function HomeCollectionStripes({
   logoAssets = [],
   selectedProfileBadges = [],
   onLogoClick,
+  onBadgeClick,
   elevateLogo = false,
   playerSeeds = 0,
   className = "",
@@ -912,15 +913,18 @@ export default function HomeCollectionStripes({
 
               if (!badge) {
                 return (
-                  <div
+                  <button
                     key={`badge-slot-empty-${slotIndex}`}
+                    type="button"
                     style={badgePositionStyle}
+                    onClick={() => onBadgeClick?.()}
                     className={`pointer-events-auto absolute -translate-x-1/2 h-16 w-16 overflow-hidden rounded-full border flex items-center justify-center text-[9px] font-medium ${badgeGlassClassName}`}
+                    aria-label="Abzeichen-Slot leer. Abzeichen anpassen"
                   >
                     <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_30%_18%,rgba(255,255,255,0.34),rgba(255,255,255,0.08)_34%,rgba(255,255,255,0)_66%)]" />
                     <span className="pointer-events-none absolute inset-[2px] rounded-full border border-white/10" />
                     <span className="relative z-[1] text-stone-300/70">Leer</span>
-                  </div>
+                  </button>
                 );
               }
 

@@ -77,6 +77,7 @@ import KPIAdmin from './pages/KPIAdmin';
 import Map from './pages/Map';
 import News from './pages/News';
 import NewsAdmin from './pages/NewsAdmin';
+import Nutzungsbedingungen from './pages/Nutzungsbedingungen';
 import PlantDetail from './pages/PlantDetail';
 import ProjectIssueAdmin from './pages/ProjectIssueAdmin';
 import Profile from './pages/Profile';
@@ -119,6 +120,7 @@ export const PAGES = {
     "Map": Map,
     "News": News,
     "NewsAdmin": NewsAdmin,
+    "Nutzungsbedingungen": Nutzungsbedingungen,
     "PlantDetail": PlantDetail,
     "ProjectIssueAdmin": ProjectIssueAdmin,
     "Profile": Profile,

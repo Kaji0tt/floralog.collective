@@ -90,6 +90,7 @@ export default function CustomLogoAvatar({
       <div
         ref={rootRef}
         className={cn("relative", !noClip && "rounded-full overflow-hidden", className)}
+        style={{ containerType: "size" }}
         onClick={handleAvatarClick}
         onKeyDown={handleKeyDown}
         role={resolvedTooltipText ? "button" : undefined}
@@ -97,7 +98,8 @@ export default function CustomLogoAvatar({
       >
         <div className={cn("absolute inset-0 flex items-center justify-center", hasLogoLayers && "scale-[1.5]", innerClassName)}>
           {hasLogoLayers && (
-            <div className="absolute left-1/2 top-1/2 h-[56%] w-[56%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/35" />
+            // cqmin keeps this a true circle even when the container itself isn't square.
+            <div className="absolute left-1/2 top-1/2 h-[56cqmin] w-[56cqmin] -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/35" />
           )}
           {logoAssets?.border?.imageUrl && (
             <img

@@ -1,4 +1,4 @@
-import { LOGO_ACCESSORY_SECTIONS } from "@/lib/logoAccessoryAssets";
+import { LOGO_ACCESSORY_SECTIONS, LOGO_ACCESSORY_DEFAULT_UNLOCKED_IDS } from "@/lib/logoAccessoryAssets";
 
 const LOGO_ACCESSORY_REWARD_TYPES = new Set(["logo_accessory", "accessory"]);
 const PROFILE_EFFECT_REWARD_TYPES = new Set(["profile_effect"]);
@@ -602,18 +602,22 @@ const buildFallbackAccessorySections = ({ rewardUnlockedIds = new Set(), rewards
     title: section.title,
     profileField: section.profileField,
     emptyLabel: "Noch keine Accessoire-Optionen verfuegbar.",
-    options: section.options.map((option) => {
-      const isDefaultUnlocked = ["border_original", "plant_leaf", "face_original"].includes(option.value);
-      const isUnlocked = isDefaultUnlocked || rewardUnlockedIds.has(option.value);
-      const unlockCondition = !isUnlocked ? getAccessoryUnlockCondition(option.value, rewards, genera, plants) : null;
-      const purchaseMeta = !isUnlocked ? getAccessoryPurchaseMeta(option.value, rewards) : null;
-      return {
-        ...option,
-        isLocked: !isUnlocked,
-        unlockCondition,
-        ...(purchaseMeta || {}),
-      };
-    }),
+    options: section.options
+      .map((option) => {
+        const isDefaultUnlocked = LOGO_ACCESSORY_DEFAULT_UNLOCKED_IDS.has(option.value);
+        const isUnlocked = isDefaultUnlocked || rewardUnlockedIds.has(option.value);
+        // Legacy (retired) assets are hidden from the shop unless the user owns/defaults into them.
+        if (option.isLegacy && !isUnlocked) return null;
+        const unlockCondition = !isUnlocked ? getAccessoryUnlockCondition(option.value, rewards, genera, plants) : null;
+        const purchaseMeta = (!isUnlocked && !option.isLegacy) ? getAccessoryPurchaseMeta(option.value, rewards) : null;
+        return {
+          ...option,
+          isLocked: !isUnlocked,
+          unlockCondition,
+          ...(purchaseMeta || {}),
+        };
+      })
+      .filter(Boolean),
   }));
 };
 
