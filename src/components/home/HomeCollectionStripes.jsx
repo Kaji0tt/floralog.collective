@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarDays, CheckCircle2, HeartPulse, InspectionPanel, Leaf, Target } from "lucide-react";
-import { LockedTooltip } from "@/components/ui/locked-tooltip";
+import { CalendarDays, CheckCircle2, HeartPulse, InspectionPanel, Leaf } from "lucide-react";
 import FlorabotLogo from "@/components/florabot/FlorabotLogo";
+import GoldGradientCard from "@/components/home/GoldGradientCard";
 
 const SWIPE_THRESHOLD_PX = 36;
 const SLIDE_DURATION_MS = 6500;
@@ -16,10 +16,7 @@ const BADGE_LOGO_FILL_WIDTH_RATIO = 0.96;
 const BADGE_LOGO_VISIBLE_HEIGHT_RATIO = 0.72;
 const BADGE_LOGO_UNIT_HEIGHT_REM = 10;
 const BADGE_LOGO_UNIT_MAX_WIDTH_REM = 22;
-const BADGE_ROW_HEIGHT_REM = 7.25;
 const LOGO_ROW_TOP_REM = 4.9;
-const BADGE_TOP_SIDE_REM = 2.9;
-const BADGE_TOP_CENTER_REM = 1.1;
 const FLORABOT_NAME_FALLBACK = "Florabot";
 
 const clampIndex = (index, size) => {
@@ -27,21 +24,6 @@ const clampIndex = (index, size) => {
   if (index < 0) return size - 1;
   if (index >= size) return 0;
   return index;
-};
-
-const formatCompactValue = (value) => {
-  const safeValue = Math.max(0, Number(value) || 0);
-  if (safeValue < 1000) return String(Math.round(safeValue));
-  if (safeValue < 1000000) return `${Math.round(safeValue / 1000)}k`;
-  return `${Math.round(safeValue / 1000000)}m`;
-};
-
-const BADGE_RANK_ICON_STYLE = {
-  gray: "text-[#9ca3af]",
-  white: "text-white",
-  bronze: "text-[#cd7f32]",
-  silver: "text-[#c0c7d1]",
-  gold: "text-[#f5c542]",
 };
 
 export function HomeMilestoneStripe({
@@ -442,8 +424,9 @@ export function HomeMilestoneStripe({
 
   return (
     <div ref={stripeRootRef} className={`relative min-h-0 flex-1 ${className}`}>
-      <div
-        className={`relative h-full flex flex-col overflow-hidden rounded-2xl border border-[#f0e5a5]/45 bg-black/52 text-stone-100 ${
+      <GoldGradientCard
+        className="h-full"
+        contentClassName={`relative h-full flex flex-col overflow-hidden text-stone-100 ${
           isCompactLayout ? "px-2.5 py-1.5" : "px-3 py-2.5"
         }`}
         style={isCompactLayout ? { height: `${compactStripeHeightRem.toFixed(2)}rem` } : undefined}
@@ -582,19 +565,16 @@ export function HomeMilestoneStripe({
           />
         </div>
 
-      </div>
+      </GoldGradientCard>
     </div>
   );
 }
 
 export default function HomeCollectionStripes({
-  isLightUi,
   profile,
   logoAssets = [],
-  selectedProfileBadges = [],
   onLogoClick,
   elevateLogo = false,
-  playerSeeds = 0,
   className = "",
 }) {
   const collectionRootRef = useRef(/** @type {HTMLDivElement | null} */ (null));
@@ -805,15 +785,6 @@ export default function HomeCollectionStripes({
     };
   }, [badgeLogoScale, elevateLogo, updateFloatingLogoRect]);
 
-  const selectedBadges = Array.isArray(selectedProfileBadges)
-    ? selectedProfileBadges.filter(Boolean).slice(0, 3)
-    : [];
-  const badgeSlots = Array.from({ length: 3 }, (_, index) => selectedBadges[index] || null);
-  const badgeArcPositions = [
-    { left: "16.6667%", topRem: BADGE_TOP_SIDE_REM },
-    { left: "50%", topRem: BADGE_TOP_CENTER_REM },
-    { left: "83.3333%", topRem: BADGE_TOP_SIDE_REM },
-  ];
   const badgeGlassClassName = "border-[#f0e5a5]/55 bg-black/88 text-stone-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_12px_30px_rgba(0,0,0,0.4)] backdrop-blur-xl";
   const florabotName = String(profile?.bot_name || FLORABOT_NAME_FALLBACK).trim() || FLORABOT_NAME_FALLBACK;
   const florabotNameLabel = florabotName.length > 26 ? `${florabotName.slice(0, 25)}…` : florabotName;
@@ -865,17 +836,6 @@ export default function HomeCollectionStripes({
         )
       : null;
 
-  const resolveBadgeValueLabel = (badge) => {
-    if (!badge) return "-";
-    if (badge.id === "seed_rank_medal") {
-      return formatCompactValue(playerSeeds);
-    }
-    if (badge.id === "distance_waypoints") {
-      return String(badge.valueLabel || "-").replace(/\s*km$/i, "").trim();
-    }
-    return String(badge.valueLabel || "-");
-  };
-
   return (
     <div ref={collectionRootRef} className={`flex min-h-0 flex-col gap-2 ${className}`}>
       <div
@@ -898,69 +858,6 @@ export default function HomeCollectionStripes({
               pointerEvents: "auto",
             }}
           >
-          <div
-          className="absolute inset-x-0 top-0 z-[220] pointer-events-none"
-          style={{ height: `${BADGE_ROW_HEIGHT_REM}rem` }}
-          aria-label="Ausgewaehlte Abzeichen"
-        >
-            {badgeSlots.map((badge, slotIndex) => {
-              const badgePosition = badgeArcPositions[slotIndex] || badgeArcPositions[1];
-              const badgePositionStyle = {
-                left: badgePosition.left,
-                top: `${badgePosition.topRem}rem`,
-              };
-
-              if (!badge) {
-                return (
-                  <div
-                    key={`badge-slot-empty-${slotIndex}`}
-                    style={badgePositionStyle}
-                    className={`pointer-events-auto absolute -translate-x-1/2 h-16 w-16 overflow-hidden rounded-full border flex items-center justify-center text-[9px] font-medium ${badgeGlassClassName}`}
-                  >
-                    <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_30%_18%,rgba(255,255,255,0.34),rgba(255,255,255,0.08)_34%,rgba(255,255,255,0)_66%)]" />
-                    <span className="pointer-events-none absolute inset-[2px] rounded-full border border-white/10" />
-                    <span className="relative z-[1] text-stone-300/70">Leer</span>
-                  </div>
-                );
-              }
-
-              const Icon = badge?.Icon || Leaf;
-              const rankKey = String(badge?.rankKey || "gray").toLowerCase();
-              const rankLabel = badge?.rankMeta?.label || "Grau";
-              const iconToneClass = BADGE_RANK_ICON_STYLE[rankKey] || BADGE_RANK_ICON_STYLE.gray;
-              const valueLabel = resolveBadgeValueLabel(badge);
-
-              return (
-                <LockedTooltip
-                  key={badge.id}
-                  content={(
-                    <div className="space-y-1">
-                      <p className="text-xs font-semibold">{badge.label}</p>
-                      <p className="text-[11px] leading-snug">{badge.description}</p>
-                      <p className="text-[11px]"><span className="font-semibold">Wert:</span> {valueLabel}</p>
-                      <p className="text-[11px]"><span className="font-semibold">Rang:</span> {rankLabel}</p>
-                    </div>
-                  )}
-                  contentClassName={isLightUi ? "" : "text-white/90"}
-                >
-                  <button
-                    type="button"
-                    style={badgePositionStyle}
-                    className={`pointer-events-auto absolute -translate-x-1/2 h-16 w-16 overflow-hidden rounded-full border flex flex-col items-center justify-center gap-1 ${badgeGlassClassName}`}
-                    aria-label={`${badge.label}: ${valueLabel}, Rang ${rankLabel}`}
-                  >
-                    <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_30%_18%,rgba(255,255,255,0.34),rgba(255,255,255,0.08)_34%,rgba(255,255,255,0)_66%)]" />
-                    <span className="pointer-events-none absolute inset-[2px] rounded-full border border-white/10" />
-                    <Icon className={`relative z-[1] h-6 w-6 ${iconToneClass}`} />
-                    <span className="relative z-[1] w-full max-w-[3.3rem] text-center text-[10px] leading-none font-bold text-stone-100">
-                      {valueLabel}
-                    </span>
-                  </button>
-                </LockedTooltip>
-              );
-            })}
-          </div>
-
           <div className="absolute inset-x-0 z-[120] flex justify-center" style={{ top: `${LOGO_ROW_TOP_REM}rem` }}>
             <div className="flex flex-col items-center gap-2">
               <button

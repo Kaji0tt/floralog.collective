@@ -271,7 +271,12 @@ export default function FriendExperienceShell({
           </section>
 
           <div className="mt-[clamp(0.5rem,1.2vh,1rem)] shrink-0">
-            <HomeBottomNavigation navItems={navItems} controlsScale={1} />
+            <HomeBottomNavigation
+              navItems={navItems}
+              controlsScale={1}
+              centerContext="outside"
+              onCenterAction={() => navigate(createPageUrl("Home"))}
+            />
           </div>
         </div>
       </motion.div>

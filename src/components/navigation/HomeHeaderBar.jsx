@@ -1,7 +1,5 @@
-import { useState } from "react";
-import { ChevronLeft, Gem, Home as HomeIcon, Plus, Settings, Sparkles, Bug } from "lucide-react";
+import { ChevronLeft, Home as HomeIcon, Plus, Sparkles } from "lucide-react";
 import { useUiTheme } from "@/lib/UiThemeContext";
-import { LockedTooltip } from "@/components/ui/locked-tooltip";
 
 /**
  * @param {{
@@ -12,13 +10,9 @@ import { LockedTooltip } from "@/components/ui/locked-tooltip";
  *   embeddedCollectionCanGoBack?: boolean,
  *   displayName?: string | null,
  *   userTitle?: string | null,
- *   playerSparks?: number,
- *   playerAmber?: number,
  *   onEmbeddedCollectionBack?: () => void,
  *   onOpenEmbeddedFriendsAddDialog?: () => void,
  *   onOpenAmberPurchase?: () => void,
- *   onOpenAmberShop?: () => void,
- *   onOpenBugReport?: () => void,
  *   onPrimaryAction: () => void,
  * }} props
  */
@@ -31,18 +25,13 @@ export default function HomeHeaderBar({
   embeddedCollectionCanGoBack,
   displayName,
   userTitle,
-  playerSparks,
-  playerAmber,
   onEmbeddedCollectionBack,
   onEmbeddedAchievementsBack,
   onOpenEmbeddedFriendsAddDialog,
   onOpenAmberPurchase,
-  onOpenAmberShop,
-  onOpenBugReport,
   onPrimaryAction,
 }) {
   const { isLightUi } = useUiTheme();
-  const [showActionModal, setShowActionModal] = useState(false);
   const showEmbeddedCollection = activePanel === "collection";
   const showEmbeddedFriends = activePanel === "friends";
   const showEmbeddedShop = activePanel === "shop";
@@ -50,12 +39,6 @@ export default function HomeHeaderBar({
   const showAchievementsBack = activePanel === "achievements" && typeof onEmbeddedAchievementsBack === "function";
   const shopCurrencyInfo = showEmbeddedShop && embeddedInfoLabel && typeof embeddedInfoLabel === "object"
     ? embeddedInfoLabel
-    : null;
-  const homeCurrencyInfo = !isEmbeddedMode
-    ? {
-        sparks: Math.max(0, Number(playerSparks ?? 0)),
-        amber: Math.max(0, Number(playerAmber ?? 0)),
-      }
     : null;
   const shouldShowEmbeddedInfoChip = Boolean(embeddedInfoLabel) && isEmbeddedMode && !showEmbeddedShop;
 
@@ -143,40 +126,6 @@ export default function HomeHeaderBar({
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        {homeCurrencyInfo && (
-          <>
-            <LockedTooltip
-              content={<span className="text-xs leading-relaxed">Funken sind die Ingame-Währung. Du bekommst sie für die aktive Nutzung der App sowie für bestimmte In-App-Aktivitäten.</span>}
-            >
-              <div
-                className={`w-11 h-11 rounded-full border backdrop-blur-md flex flex-col items-center justify-center gap-0.5 ${isLightUi ? "border-[#c8ac62]/55 bg-white/65" : "border-[#f0e5a5]/35 bg-black/30"}`}
-                aria-label="Funken"
-              >
-                <Sparkles className={`w-3.5 h-3.5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} aria-hidden="true" />
-                <span className={`text-[10px] font-semibold leading-none ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}>
-                  {homeCurrencyInfo.sparks}
-                </span>
-              </div>
-            </LockedTooltip>
-
-            <LockedTooltip
-              content={<span className="text-xs leading-relaxed">Bernstein ist eine kaufbare Premium-Währung. Tippe, um Bernstein zu kaufen.</span>}
-            >
-              <button
-                type="button"
-                onClick={onOpenAmberShop}
-                className={`w-11 h-11 rounded-full border backdrop-blur-md flex flex-col items-center justify-center gap-0.5 transition-colors ${isLightUi ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80" : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"}`}
-                aria-label="Bernstein kaufen"
-              >
-                <Gem className={`w-3.5 h-3.5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} aria-hidden="true" />
-                <span className={`text-[10px] font-semibold leading-none ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}>
-                  {homeCurrencyInfo.amber}
-                </span>
-              </button>
-            </LockedTooltip>
-          </>
-        )}
-
         {shopCurrencyInfo && (
           <>
             <div
@@ -226,45 +175,15 @@ export default function HomeHeaderBar({
           </button>
         )}
 
-        <button
-          type="button"
-          onClick={() => isEmbeddedMode ? onPrimaryAction() : setShowActionModal(true)}
-          className={`w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors relative ${isLightUi ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80" : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"}`}
-          aria-label={isEmbeddedMode ? "Zur Home-Ansicht" : "Menü"}
-        >
-          {isEmbeddedMode ? (
+        {isEmbeddedMode && (
+          <button
+            type="button"
+            onClick={onPrimaryAction}
+            className={`w-11 h-11 rounded-full border backdrop-blur-md flex items-center justify-center transition-colors relative ${isLightUi ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80" : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"}`}
+            aria-label="Zur Home-Ansicht"
+          >
             <HomeIcon className={`w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
-          ) : (
-            <div className="flex items-center gap-0.5">
-              <Bug className={`w-3.5 h-3.5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
-              <span className={`text-[9px] font-bold ${isLightUi ? "text-[#8f6b22]/60" : "text-[#f0e5a5]/60"}`}>/</span>
-              <Settings className={`w-3.5 h-3.5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
-            </div>
-          )}
-        </button>
-
-        {showActionModal && !isEmbeddedMode && (
-          <>
-            <div className="fixed inset-0 z-[999] bg-black/40" onClick={() => setShowActionModal(false)} />
-            <div className={`absolute right-0 top-14 z-[1000] rounded-xl border shadow-xl p-2 min-w-[160px] ${isLightUi ? "border-[#c8ac62]/55 bg-white/95" : "border-[#f0e5a5]/35 bg-stone-900/95"}`}>
-              <button
-                type="button"
-                onClick={() => { setShowActionModal(false); onOpenBugReport?.(); }}
-                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-colors ${isLightUi ? "hover:bg-stone-100" : "hover:bg-stone-800"}`}
-              >
-                <Bug className={`w-4 h-4 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
-                <span className={`text-sm font-medium ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Bug melden</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowActionModal(false); onPrimaryAction(); }}
-                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-colors ${isLightUi ? "hover:bg-stone-100" : "hover:bg-stone-800"}`}
-              >
-                <Settings className={`w-4 h-4 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
-                <span className={`text-sm font-medium ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>Einstellungen</span>
-              </button>
-            </div>
-          </>
+          </button>
         )}
       </div>
     </div>
