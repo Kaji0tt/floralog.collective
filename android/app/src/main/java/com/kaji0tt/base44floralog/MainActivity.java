@@ -2,7 +2,6 @@ package de.floralog.app;
 
 import com.getcapacitor.BridgeActivity;
 import android.os.Bundle;
-import android.graphics.Color;
 import android.util.Log;
 import androidx.core.view.WindowCompat;
 import java.io.File;
@@ -21,10 +20,11 @@ public class MainActivity extends BridgeActivity {
 
 		// Edge-to-Edge: WebView rendert hinter Status- und Navigationsleiste.
 		// CSS env(safe-area-inset-*) (siehe #root in index.css) übernimmt das Padding.
-		// Deterministisch über alle API-Level inkl. Android 15+ (API 35).
+		// setStatusBarColor/setNavigationBarColor sind seit API 35 deprecated und
+		// werden bei targetSdk 35+ zu No-Ops (Play Console meldet sie als nicht mehr
+		// unterstützte EdgeToEdge-APIs) – das System liefert die transparenten Bars
+		// bei erzwungenem Edge-to-Edge bereits selbst.
 		WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
-		getWindow().setStatusBarColor(Color.TRANSPARENT);
-		getWindow().setNavigationBarColor(Color.TRANSPARENT);
 
 		// Apply a previously staged OTA bundle so the WebView loads from it
 		OtaManager otaManager = new OtaManager(this);
