@@ -16,8 +16,8 @@ const BADGE_LOGO_FILL_WIDTH_RATIO = 0.96;
 const BADGE_LOGO_VISIBLE_HEIGHT_RATIO = 0.72;
 const BADGE_LOGO_UNIT_HEIGHT_REM = 10;
 const BADGE_LOGO_UNIT_MAX_WIDTH_REM = 22;
-const LOGO_ROW_TOP_REM = 4.9;
-const FLORABOT_NAME_FALLBACK = "Florabot";
+// Only needs to clear the floating name/title overlay now that the badge arc no longer renders here.
+const LOGO_ROW_TOP_REM = .4;
 
 const clampIndex = (index, size) => {
   if (!Number.isFinite(index) || size <= 0) return 0;
@@ -785,21 +785,6 @@ export default function HomeCollectionStripes({
     };
   }, [badgeLogoScale, elevateLogo, updateFloatingLogoRect]);
 
-  const badgeGlassClassName = "border-[#f0e5a5]/55 bg-black/88 text-stone-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_12px_30px_rgba(0,0,0,0.4)] backdrop-blur-xl";
-  const florabotName = String(profile?.bot_name || FLORABOT_NAME_FALLBACK).trim() || FLORABOT_NAME_FALLBACK;
-  const florabotNameLabel = florabotName.length > 26 ? `${florabotName.slice(0, 25)}…` : florabotName;
-  const florabotNameBadgeClassName = `inline-flex max-w-[11.5rem] items-center justify-center rounded-full border px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.04em] ${badgeGlassClassName}`;
-
-  const renderFlorabotNameBadge = (extraClassName = "") => (
-    <div
-      className={`${florabotNameBadgeClassName} ${extraClassName}`.trim()}
-      aria-label={`Florabot Name: ${florabotName}`}
-      title={florabotName}
-    >
-      <span className="truncate">{florabotNameLabel}</span>
-    </div>
-  );
-
   const floatingLogoPortal =
     isFloatingLogoMounted &&
     floatingLogoRect &&
@@ -819,18 +804,13 @@ export default function HomeCollectionStripes({
               opacity: isFloatingLogoVisible ? 1 : 0,
             }}
           >
-            <div className="relative h-full w-full">
-              <FlorabotLogo
-                profile={profile}
-                logoAssets={logoAssets}
-                sizeClass="w-full h-full"
-                padding="p-[7%]"
-                className="drop-shadow-[0_0_28px_rgba(190,242,100,0.5)]"
-              />
-              <div className="absolute left-1/2 top-[calc(100%+0.45rem)] -translate-x-1/2">
-                {renderFlorabotNameBadge()}
-              </div>
-            </div>
+            <FlorabotLogo
+              profile={profile}
+              logoAssets={logoAssets}
+              sizeClass="w-full h-full"
+              padding="p-[7%]"
+              className="drop-shadow-[0_0_28px_rgba(190,242,100,0.5)]"
+            />
           </div>,
           document.body
         )
@@ -840,7 +820,7 @@ export default function HomeCollectionStripes({
     <div ref={collectionRootRef} className={`flex min-h-0 flex-col gap-2 ${className}`}>
       <div
         ref={badgeLogoViewportRef}
-        className="relative min-h-0 flex-1 overflow-hidden text-stone-100"
+        className="relative min-h-0 flex-1 overflow-visible text-stone-100"
         aria-label="Florabot und Abzeichen"
       >
         <div
@@ -859,25 +839,22 @@ export default function HomeCollectionStripes({
             }}
           >
           <div className="absolute inset-x-0 z-[120] flex justify-center" style={{ top: `${LOGO_ROW_TOP_REM}rem` }}>
-            <div className="flex flex-col items-center gap-2">
-              <button
-                type="button"
-                ref={logoButtonRef}
-                data-logo-click-target="true"
-                onClick={() => onLogoClick?.()}
-                className={`relative shrink-0 scale-[1.24] ${elevateLogo ? "z-[260]" : ""}`}
-                aria-label="Florabot Overlay öffnen"
-              >
-                <FlorabotLogo
-                  profile={profile}
-                  logoAssets={logoAssets}
-                  sizeClass="w-[12.75rem] h-[12.75rem] sm:w-[14.75rem] sm:h-[14.75rem]"
-                  padding="p-[7%]"
-                  className="drop-shadow-[0_0_28px_rgba(190,242,100,0.5)]"
-                />
-              </button>
-              {renderFlorabotNameBadge("pointer-events-auto")}
-            </div>
+            <button
+              type="button"
+              ref={logoButtonRef}
+              data-logo-click-target="true"
+              onClick={() => onLogoClick?.()}
+              className={`relative shrink-0 scale-[1.24] ${elevateLogo ? "z-[260]" : ""}`}
+              aria-label="Florabot Overlay öffnen"
+            >
+              <FlorabotLogo
+                profile={profile}
+                logoAssets={logoAssets}
+                sizeClass="w-[12.75rem] h-[12.75rem] sm:w-[14.75rem] sm:h-[14.75rem]"
+                padding="p-[7%]"
+                className="drop-shadow-[0_0_28px_rgba(190,242,100,0.5)]"
+              />
+            </button>
           </div>
           </div>
         </div>

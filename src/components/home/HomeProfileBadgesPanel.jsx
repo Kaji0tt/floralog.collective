@@ -1,15 +1,6 @@
 import { Leaf } from "lucide-react";
 import GoldGradientCard from "@/components/home/GoldGradientCard";
-
-const BADGE_TOP_SIDE_REM = 2.9;
-const BADGE_TOP_CENTER_REM = 1.1;
-const BADGE_ROW_HEIGHT_REM = 7.25;
-
-const BADGE_ARC_POSITIONS = [
-  { left: "16.6667%", topRem: BADGE_TOP_SIDE_REM },
-  { left: "50%", topRem: BADGE_TOP_CENTER_REM },
-  { left: "83.3333%", topRem: BADGE_TOP_SIDE_REM },
-];
+import BadgeCircleIcon from "@/components/home/BadgeCircleIcon";
 
 const BADGE_RANK_ICON_STYLE = {
   gray: "text-[#9ca3af]",
@@ -19,9 +10,6 @@ const BADGE_RANK_ICON_STYLE = {
   gold: "text-[#f5c542]",
 };
 
-const BADGE_GLASS_CLASS =
-  "border-[#f0e5a5]/55 bg-black/88 text-stone-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_12px_30px_rgba(0,0,0,0.4)] backdrop-blur-xl";
-
 const formatCompactValue = (value) => {
   const safeValue = Math.max(0, Number(value) || 0);
   if (safeValue < 1000) return String(Math.round(safeValue));
@@ -29,9 +17,12 @@ const formatCompactValue = (value) => {
   return `${Math.round(safeValue / 1000000)}m`;
 };
 
+// Badges are centered on the card's top edge; left/right badges are lifted further above it.
+const SIDE_BADGE_EXTRA_LIFT_PX = 15;
+
 /**
- * Dedicated profile-badges container: arc-positioned badge icons plus the
- * detail info (label/description/value/rank) shown directly below instead of on hover.
+ * Dedicated profile-badges container: 3 equal columns, each showing the badge icon
+ * plus its own label/rank/description directly beneath - no separate arc or list.
  */
 export default function HomeProfileBadgesPanel({
   isLightUi,
@@ -56,20 +47,23 @@ export default function HomeProfileBadgesPanel({
   };
 
   return (
-    <GoldGradientCard className={className} contentClassName="px-3 pt-3 pb-2.5">
-      <div className="relative" style={{ height: `${BADGE_ROW_HEIGHT_REM}rem` }} aria-label="Ausgewählte Abzeichen">
+    <GoldGradientCard className={className} contentClassName="px-2.5 pb-3 pt-3">
+      <div className="grid grid-cols-3 gap-2" aria-label="Ausgewählte Abzeichen">
         {badgeSlots.map((badge, slotIndex) => {
-          const badgePosition = BADGE_ARC_POSITIONS[slotIndex] || BADGE_ARC_POSITIONS[1];
-          const badgePositionStyle = { left: badgePosition.left, top: `${badgePosition.topRem}rem` };
+          const isSideSlot = slotIndex !== 1;
+          const circleTransform = isSideSlot
+            ? `translateY(calc(-75% - ${SIDE_BADGE_EXTRA_LIFT_PX}px))`
+            : "translateY(-75%)";
 
           if (!badge) {
             return (
-              <div
-                key={`badge-slot-empty-${slotIndex}`}
-                style={badgePositionStyle}
-                className={`absolute -translate-x-1/2 h-16 w-16 overflow-hidden rounded-full border flex items-center justify-center text-[9px] font-medium ${BADGE_GLASS_CLASS}`}
-              >
-                <span className="text-stone-300/70">Leer</span>
+              <div key={`badge-slot-empty-${slotIndex}`} className="relative flex min-w-0 flex-col items-center gap-1 pt-5 text-center">
+                <BadgeCircleIcon
+                  className="absolute left-1/2 top-0 z-10 text-[9px] font-medium text-stone-100"
+                  style={{ transform: `translateX(-50%) ${circleTransform}` }}
+                >
+                  <span className="opacity-70">Leer</span>
+                </BadgeCircleIcon>
               </div>
             );
           }
@@ -80,45 +74,24 @@ export default function HomeProfileBadgesPanel({
           const valueLabel = resolveBadgeValueLabel(badge);
 
           return (
-            <div
-              key={badge.id}
-              style={badgePositionStyle}
-              className={`absolute -translate-x-1/2 h-16 w-16 overflow-hidden rounded-full border flex flex-col items-center justify-center gap-1 ${BADGE_GLASS_CLASS}`}
-              aria-label={`${badge.label}: ${valueLabel}`}
-            >
-              <Icon className={`h-6 w-6 ${iconToneClass}`} />
-              <span className="w-full max-w-[3.3rem] text-center text-[10px] leading-none font-bold text-stone-100">
-                {valueLabel}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className={`space-y-1.5 border-t pt-2 ${isLightUi ? "border-stone-800/10" : "border-white/10"}`}>
-        {badgeSlots.filter(Boolean).map((badge) => {
-          const Icon = badge?.Icon || Leaf;
-          const rankKey = String(badge?.rankKey || "gray").toLowerCase();
-          const iconToneClass = BADGE_RANK_ICON_STYLE[rankKey] || BADGE_RANK_ICON_STYLE.gray;
-          const rankLabel = badge?.rankMeta?.label || "Grau";
-          const valueLabel = resolveBadgeValueLabel(badge);
-
-          return (
-            <div key={`${badge.id}-info`} className="flex items-start gap-2">
-              <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${iconToneClass}`} />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="truncate text-[11px] font-semibold">{badge.label}</p>
-                  <span className={`shrink-0 text-[10px] font-semibold ${isLightUi ? "text-stone-700" : "text-stone-200/90"}`}>
-                    {valueLabel} · {rankLabel}
-                  </span>
-                </div>
-                {badge.description && (
-                  <p className={`truncate text-[10px] leading-snug ${isLightUi ? "text-stone-600" : "text-stone-300/75"}`}>
-                    {badge.description}
-                  </p>
-                )}
-              </div>
+            <div key={badge.id} className="relative flex min-w-0 flex-col items-center gap-1 pt-5 text-center">
+              <BadgeCircleIcon
+                className="absolute left-1/2 top-0 z-10 shrink-0"
+                style={{ transform: `translateX(-50%) ${circleTransform}` }}
+                contentClassName="flex-col gap-0.5"
+                aria-label={`${badge.label}: ${valueLabel}`}
+              >
+                <Icon className={`h-5 w-5 ${iconToneClass}`} />
+                <span className="w-full max-w-[3rem] truncate text-center text-[10px] leading-none font-bold text-stone-50">
+                  {valueLabel}
+                </span>
+              </BadgeCircleIcon>
+              <p className="w-full truncate text-[10px] font-semibold leading-tight">{badge.label}</p>
+              {badge.description && (
+                <p className={`text-[9px] leading-snug ${isLightUi ? "text-stone-600" : "text-stone-300/70"}`}>
+                  {badge.description}
+                </p>
+              )}
             </div>
           );
         })}

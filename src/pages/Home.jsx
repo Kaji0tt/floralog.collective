@@ -52,7 +52,7 @@ import HomeHeaderBar from "@/components/navigation/HomeHeaderBar";
 import HomeBottomNavigation from "@/components/navigation/HomeBottomNavigation";
 import { getNavButtonStyle } from "@/components/navigation/navButtonStyles";
 import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
-import HomeCollectionStripes, { HomeMilestoneStripe } from "@/components/home/HomeCollectionStripes";
+import HomeCollectionStripes from "@/components/home/HomeCollectionStripes";
 import HomeMilestoneOverlayToggle from "@/components/home/HomeMilestoneOverlayToggle";
 import HomeHeroSideNav from "@/components/home/HomeHeroSideNav";
 import HomeProfileBadgesPanel from "@/components/home/HomeProfileBadgesPanel";
@@ -432,7 +432,6 @@ function HomeContent() {
   const [hasResolvedZoneBootstrap, setHasResolvedZoneBootstrap] = useState(false);
   const [showHealthStatsPanel, setShowHealthStatsPanel] = useState(false);
   const [showWeeklyQuestTooltip, setShowWeeklyQuestTooltip] = useState(false);
-  const [isNavVisible, setIsNavVisible] = useState(true);
   const [showPlantQuizDialog, setShowPlantQuizDialog] = useState(false);
   const [plantQuizResult, setPlantQuizResult] = useState(null);
   const [weeklyQuestSeen, setWeeklyQuestSeen] = useState(() => {
@@ -3070,78 +3069,12 @@ function HomeContent() {
   const playerSeedsDisplay = Math.max(0, Math.round(Number(seedMetricValue) || 0)).toLocaleString("de-DE");
   const conqueredZonesDisplay = Math.max(0, Math.round(Number(playerClaimedTiles) || 0)).toLocaleString("de-DE");
   const healthSeedBonusDisplay = Math.max(0, Math.round(Number(healthStateBonus) || 0));
-  const homeMilestoneKpiSummary = {
-    playerSeedsDisplay,
-    conqueredZonesDisplay,
-    healthSeedBonusDisplay,
-    zoneHintText,
-    nearestZoneDirectionIcon,
-    nearestZoneDistanceKm,
-    securedMultiplier: securedNextScanMultiplier,
-  };
 
   const formatMultiplier = (value) => {
     const safeValue = Number.isFinite(value) ? value : 1;
     return `x${safeValue.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1")}`;
   };
 
-  const handleOpenCollectionFromHome = (collectionEntry) => {
-    const collectionId = collectionEntry?.id || "global";
-    setEmbeddedSelectedCollectionId(collectionId);
-    setEmbeddedCollectionEntryCategory(collectionId === "global" ? "global" : "themes");
-    setEmbeddedCollectionPublicPanelOpen(false);
-    setActivePanel("collection");
-    setShowHealthStatsPanel(false);
-  };
-
-  const handleHomeMilestoneAction = (milestone) => {
-    const actionType = milestone?.actionType;
-    trackAction("home_milestone_action", { sourcePage: "Home", metadata: { actionType } });
-
-    if (actionType === "open_genus" && milestone?.genusId) {
-      navigate(createPageUrl(`GenusDetail?id=${encodeURIComponent(milestone.genusId)}`));
-      return;
-    }
-
-    if (actionType === "open_map") {
-      handleOpenHeroZoneMap();
-      setShowHealthStatsPanel(false);
-      return;
-    }
-
-    if (actionType === "open_achievements") {
-      setActivePanel("achievements");
-      setShowHealthStatsPanel(false);
-      return;
-    }
-
-    if (actionType === "open_collections") {
-      handleOpenCollectionFromHome({ id: "global" });
-      return;
-    }
-
-    if (actionType === "open_achievements_quests") {
-      setActivePanel("achievements");
-      setShowHealthStatsPanel(false);
-      return;
-    }
-  };
-
-  const handleHomeMilestonePreviewClick = (milestone) => {
-    if (!milestone) return;
-
-    if (milestone?.previewDiscoveryId) {
-      handleDiscoveryImageClick({
-        discoveryId: milestone.previewDiscoveryId,
-        scannerEmail: milestone.previewScannerEmail || "",
-        genusId: milestone.genusId || "",
-        plantId: milestone.previewPlantId || "",
-      });
-      return;
-    }
-
-    handleHomeMilestoneAction(milestone);
-  };
 
   const navItems = [
     {
@@ -3990,7 +3923,7 @@ function HomeContent() {
                     {displayName}
                   </h1>
                   <p className={`mt-0.5 truncate text-sm md:text-base ${isLightUi ? "text-stone-700/90" : "text-stone-200/85"}`}>
-                    {resolvedUserTitle || "Pflanzen-Entdecker"}
+                    und {botName || "Florabot"}
                   </p>
                 </div>
               )}
@@ -4121,7 +4054,7 @@ function HomeContent() {
                     userRewards={userRewards}
                   />
                 ) : (
-                  <section data-ui="home-plant-hero-section" className="relative flex-1 min-h-0 rounded-3xl px-[clamp(0.75rem,2vw,1.5rem)] pt-[clamp(0.75rem,2vh,1.5rem)] pb-[clamp(0.12rem,0.35vh,0.28rem)] flex flex-col gap-2 bg-transparent">
+                  <section data-ui="home-plant-hero-section" className="relative flex-1 min-h-0 rounded-3xl px-[clamp(0.75rem,2vw,1.5rem)] pt-[clamp(0.1rem,0vh,0.5rem)] pb-[clamp(0.12rem,0.35vh,0.28rem)] flex flex-col gap-2 bg-transparent">
                     <HomeHeroSideNav
                       isLightUi={isLightUi}
                       playerSeeds={playerSeeds}
@@ -4228,32 +4161,18 @@ function HomeContent() {
 
               <div className={`${activePanel === null ? "pt-0" : "pt-[clamp(0.35rem,0.9vh,0.7rem)]"} pb-[clamp(0.15rem,0.5vh,0.35rem)] flex shrink-0 flex-col`}>
                 {activePanel === null ? (
-                  <>
-                    <HomeMilestoneStripe
-                      className="mb-[clamp(0.35rem,0.8vh,0.55rem)] min-h-0 flex-1"
-                      isLightUi={isLightUi}
-                      milestoneFeed={homeMilestoneFeed}
-                      kpiSummary={homeMilestoneKpiSummary}
-                      controlsScale={controlsScale}
-                      onMilestoneAction={handleHomeMilestoneAction}
-                      onMilestonePreviewClick={handleHomeMilestonePreviewClick}
-                    />
-
-                    <HomeScanInfoRow
-                      className="mb-[clamp(0.35rem,0.8vh,0.55rem)]"
-                      isLightUi={isLightUi}
-                      conqueredZonesDisplay={conqueredZonesDisplay}
-                      zoneMultiplier={zoneMultiplier}
-                      careMultiplier={careMultiplier}
-                      activityBonusDisplay={healthSeedBonusDisplay}
-                    />
-                  </>
+                  <HomeScanInfoRow
+                    className="mb-[clamp(0.35rem,0.8vh,0.55rem)]"
+                    isLightUi={isLightUi}
+                    conqueredZonesDisplay={conqueredZonesDisplay}
+                    zoneMultiplier={zoneMultiplier}
+                    careMultiplier={careMultiplier}
+                    activityBonusDisplay={healthSeedBonusDisplay}
+                  />
                 ) : null}
                 <HomeBottomNavigation
                   navItems={navItems}
                   controlsScale={controlsScale}
-                  isNavVisible={isNavVisible}
-                  onNavVisibleChange={setIsNavVisible}
                   centerContext="inside"
                   highlightCenterAction={showScannerHighlight}
                   onCenterAction={() => {
