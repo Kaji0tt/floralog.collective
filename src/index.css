@@ -863,3 +863,17 @@ button:focus-visible {
     opacity: 0 !important;
   }
 }
+
+/* Gold gradient border drawn as a ring-only mask overlay (same content-box/exclude trick as
+   .rarity-profile-glow-orbs) so the card content underneath keeps its own normal background. */
+.gold-gradient-border-mask {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  pointer-events: none;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
