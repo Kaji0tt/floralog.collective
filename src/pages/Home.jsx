@@ -4065,7 +4065,6 @@ function HomeContent() {
                       profile={user}
                       logoAssets={logoAssets}
                       elevateLogo={Boolean(isMilestoneOverlayToggled && !showFlorabotIntro && !activeMilestone && !isHomeOverlayShopOpen)}
-                      onBadgeClick={() => openShop("badges")}
                       onBadgeClick={() => {
                         trackAction("home_badge_customize_open", { sourcePage: "Home" });
                         setHomeOverlayInitialShopCategory("badges");
