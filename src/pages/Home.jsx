@@ -84,6 +84,7 @@ import {
 } from "@/lib/profileBadges";
 import { getProfileBadgeIconComponent } from "@/lib/profileBadgeIcons";
 import { resolveOwnedUniqueBadges } from "@/lib/profileUniqueBadges";
+import { getRarityLevelFromLabel } from "@/lib/plantRarity";
 import FlorabotIntroOverlay from "@/components/florabot/FlorabotIntroOverlay";
 import FlorabotMilestoneOverlay from "@/components/florabot/FlorabotMilestoneOverlay";
 import { getActiveSeason } from "@/lib/seasonConfig";
@@ -132,25 +133,6 @@ const SOCIAL_NEWS_NOTIFICATION_TYPES = [
   "friend_achievement",
   "scan_liked",
 ];
-
-const normalizeRarityText = (value) =>
-  String(value || "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, "");
-
-const rarityScoreFromLabel = (rarity) => {
-  const normalized = normalizeRarityText(rarity);
-  if (!normalized) return 0;
-  if (normalized.includes("extremselten") || normalized.includes("legend") || normalized.includes("mythisch")) return 7;
-  if (normalized.includes("sehrselten") || normalized.includes("episch")) return 6;
-  if (normalized.includes("selten")) return 5;
-  if (normalized.includes("gelegentlich") || normalized.includes("ungewohnlich")) return 3;
-  if (normalized.includes("haufig") || normalized.includes("haeufig") || normalized.includes("common")) return 1;
-  return 2;
-};
 
 const hashSeedToIndex = (seed, length) => {
   if (!length || length <= 0) return 0;
@@ -446,6 +428,8 @@ function HomeContent() {
   const [isMilestoneOverlayToggled, setIsMilestoneOverlayToggled] = useState(false);
   const [careBubble, setCareBubble] = useState(/** @type {{x:number,y:number,key:number}|null} */ (null));
   const [isHomeOverlayShopOpen, setIsHomeOverlayShopOpen] = useState(false);
+  const [homeOverlayInitialShopCategory, setHomeOverlayInitialShopCategory] = useState("root");
+  const [homeOverlayInitialShopOpen, setHomeOverlayInitialShopOpen] = useState(false);
   const [homeOverlayAmbientMessage, setHomeOverlayAmbientMessage] = useState("");
   const homeOverlayAmbientCooldownUntilRef = useRef(0);
   const [florabotContextBubble, setFlorabotContextBubble] = useState(null);
@@ -2485,7 +2469,7 @@ function HomeContent() {
 
       const plant = plants.find((candidate) => candidate.id === entry?.plant_id);
       const plantRarity = plant?.rarity || plant?.aiData?.rarity || "";
-      const rarityScore = rarityScoreFromLabel(plantRarity);
+      const rarityScore = getRarityLevelFromLabel(plantRarity);
 
       const entryEmailUser = typeof entry?.user === "string" ? entry.user.toLowerCase() : null;
       const entryEmailCreatedBy = typeof entry?.created_by === "string" ? entry.created_by.toLowerCase() : null;
@@ -2741,7 +2725,7 @@ function HomeContent() {
         }))
         .filter(
           (point) =>
-            Number(point?.rarityScore || 0) >= 5 &&
+            Number(point?.rarityScore || 0) >= 4 &&
             isDiscoveryInCurrentWeek(point?.discoveredAt)
         )
         .sort((a, b) => {
@@ -2824,7 +2808,7 @@ function HomeContent() {
   const rarestDiscoveredPlantScore = userDiscoveriesList.reduce((maxScore, discovery) => {
     const plant = plants.find((candidate) => candidate?.id === discovery?.plant_id);
     const rarityLabel = plant?.rarity || plant?.aiData?.rarity || "";
-    return Math.max(maxScore, rarityScoreFromLabel(rarityLabel));
+    return Math.max(maxScore, getRarityLevelFromLabel(rarityLabel));
   }, 0);
 
   const profileCreatedAtRaw = user?.created_date || user?.created_at || user?.updated_date || null;
@@ -3700,7 +3684,8 @@ function HomeContent() {
         authId={user?.id}
         currentUser={user}
         badgeMetrics={profileBadgeMetrics}
-        initialShopCategory="root"
+        initialShopCategory={homeOverlayInitialShopCategory}
+        initialShopOpen={homeOverlayInitialShopOpen}
         logoAssets={logoAssets}
         playerSparks={playerSparks}
         playerAmber={playerAmber}
@@ -3728,6 +3713,8 @@ function HomeContent() {
         onClose={() => {
           setIsHomeOverlayShopOpen(false);
           setIsMilestoneOverlayToggled(false);
+          setHomeOverlayInitialShopOpen(false);
+          setHomeOverlayInitialShopCategory("root");
         }}
       />
 
@@ -4052,6 +4039,8 @@ function HomeContent() {
                     plants={plants}
                     rewards={rewards}
                     userRewards={userRewards}
+                    genera={genera}
+                    logoAssetCatalog={logoAssets}
                   />
                 ) : (
                   <section data-ui="home-plant-hero-section" className="relative flex-1 min-h-0 rounded-3xl px-[clamp(0.75rem,2vw,1.5rem)] pt-[clamp(0.1rem,0vh,0.5rem)] pb-[clamp(0.12rem,0.35vh,0.28rem)] flex flex-col gap-2 bg-transparent">
@@ -4076,6 +4065,14 @@ function HomeContent() {
                       profile={user}
                       logoAssets={logoAssets}
                       elevateLogo={Boolean(isMilestoneOverlayToggled && !showFlorabotIntro && !activeMilestone && !isHomeOverlayShopOpen)}
+                      onBadgeClick={() => openShop("badges")}
+                      onBadgeClick={() => {
+                        trackAction("home_badge_customize_open", { sourcePage: "Home" });
+                        setHomeOverlayInitialShopCategory("badges");
+                        setHomeOverlayInitialShopOpen(true);
+                        setIsMilestoneOverlayToggled(true);
+                        setIsHomeOverlayShopOpen(true);
+                      }}
                       onLogoClick={() => {
                         if (toggleMilestonePreview) {
                           const now = Date.now();
@@ -4096,6 +4093,8 @@ function HomeContent() {
                           }
 
                           trackAction("home_logo_overlay_open", { sourcePage: "Home" });
+                          setHomeOverlayInitialShopCategory("root");
+                          setHomeOverlayInitialShopOpen(false);
                           setIsMilestoneOverlayToggled(true);
                           setIsHomeOverlayShopOpen(false);
 

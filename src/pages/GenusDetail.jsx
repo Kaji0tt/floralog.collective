@@ -22,12 +22,16 @@ import {
   buildCollectionMembershipIndex,
 } from "@/api/collectionCollaborationService";
 import {
-  getConservationEffectLevel,
   getConservationFromPlant,
+} from "@/lib/conservationStatus";
+import {
   getRarityBorderClass,
   getRarityGlowColor,
-  getThreatAnimationClass,
-} from "@/lib/conservationStatus";
+  getRarityAnimationClass,
+  getRarityGlowBorderClass,
+  getRarityLevelFromLabel,
+  computeRarityLabel,
+} from "@/lib/plantRarity";
 
 export default function GenusDetail() {
   const LIST_SWIPE_THRESHOLD_PX = 60;
@@ -731,7 +735,7 @@ export default function GenusDetail() {
 
   const getRarityBorderColor = (plant) =>
     getRarityBorderClass(
-      plant?.red_list_population ?? plant?.aiData?.red_list_population ?? null,
+      plant?.rarity ?? plant?.aiData?.rarity ?? null,
       isLightUi
     );
 
@@ -785,21 +789,16 @@ export default function GenusDetail() {
   const expandedConservation = expandedPlantData
     ? getConservationFromPlant(expandedPlantData)
     : null;
-  const expandedConservationEffectLevel = expandedConservation
-    ? getConservationEffectLevel(
-      expandedConservation.threatRaw,
-      expandedConservation.populationRaw
-    )
-    : 0;
-  const expandedThreatAnimationClass = expandedConservation
-    ? getThreatAnimationClass(
-      expandedConservation.threatRaw,
-      expandedConservation.populationRaw
-    )
+  const expandedPlantRarityLabel = expandedPlantData
+    ? (expandedPlantData?.rarity ?? expandedPlantData?.aiData?.rarity ?? computeRarityLabel(expandedConservation?.populationRaw, expandedConservation?.threatRaw))
+    : null;
+  const expandedRarityLevel = expandedPlantRarityLabel ? getRarityLevelFromLabel(expandedPlantRarityLabel) : 0;
+  const expandedThreatAnimationClass = expandedPlantRarityLabel
+    ? getRarityAnimationClass(expandedPlantRarityLabel)
     : "";
-  const expandedThreatGlowClass = expandedConservationEffectLevel >= 4 ? "threat-glow-border" : "";
-  const expandedRarityGlowColor = expandedConservation
-    ? getRarityGlowColor(expandedConservation.populationRaw)
+  const expandedThreatGlowClass = expandedPlantRarityLabel ? getRarityGlowBorderClass(expandedPlantRarityLabel) : "";
+  const expandedRarityGlowColor = expandedPlantRarityLabel
+    ? getRarityGlowColor(expandedPlantRarityLabel)
     : null;
 
   const clearVariantResetTimer = (timerKey) => {
@@ -1270,16 +1269,10 @@ export default function GenusDetail() {
                 }).filter(Boolean)
               : (activeDiscovery?.image_url ? [activeDiscovery.image_url] : []);
             const conservation = getConservationFromPlant(plant);
-            const conservationEffectLevel = getConservationEffectLevel(
-              conservation.threatRaw,
-              conservation.populationRaw
-            );
-            const threatAnimationClass = getThreatAnimationClass(
-              conservation.threatRaw,
-              conservation.populationRaw
-            );
-            const threatGlowClass = conservationEffectLevel >= 4 ? "threat-glow-border" : "";
-            const rarityGlowColor = getRarityGlowColor(conservation.populationRaw);
+            const plantRarityLabel = plant?.rarity ?? plant?.aiData?.rarity ?? computeRarityLabel(conservation.populationRaw, conservation.threatRaw);
+            const threatAnimationClass = getRarityAnimationClass(plantRarityLabel);
+            const threatGlowClass = getRarityGlowBorderClass(plantRarityLabel);
+            const rarityGlowColor = getRarityGlowColor(plantRarityLabel);
             const dragStyle = plantDragOffsets[plant.id] != null
               ? {
                   transform: `translateX(${plantDragOffsets[plant.id]}px) rotate(${plantDragOffsets[plant.id] / 30}deg)`,
@@ -1354,7 +1347,7 @@ export default function GenusDetail() {
               }}
               className={`relative border-0 bg-transparent shadow-none transition-all duration-300 overflow-visible cursor-pointer`}
             >
-              <ThreatLevelSparks active={conservationEffectLevel >= 3} count={20} className="z-40" />
+              <ThreatLevelSparks active={getRarityLevelFromLabel(plantRarityLabel) >= 4} count={20} className="z-40" />
               <CardContent className="p-0 relative z-20">
                 <div className="space-y-1.5">
                   <SpeciesInfoCard
@@ -1604,7 +1597,7 @@ export default function GenusDetail() {
                 "--threat-glow-color": expandedRarityGlowColor || "rgba(239, 68, 68, 0.82)",
               }}
             >
-              <ThreatLevelSparks active={expandedConservationEffectLevel >= 3} count={22} className="z-40" />
+              <ThreatLevelSparks active={expandedRarityLevel >= 4} count={22} className="z-40" />
               {/* Großes Bild */}
               <div className="relative z-20">
                 {activeExpandedDiscovery?.image_url ? (

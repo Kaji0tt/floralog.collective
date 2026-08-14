@@ -1,5 +1,6 @@
 import { buildOriginDeniedResponse } from "../_shared/origin.ts";
 import { getOpenAiKey, getOpenAiModel } from "../_shared/openai.ts";
+import { computeRarityLabel } from "../_shared/plantRarityLevels.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,7 +22,6 @@ type LlmResponse = {
   description: string;
   identification_features: string[];
   fun_fact: string;
-  rarity: string;
   is_european: boolean;
   genus_name: string;
   category: string;
@@ -250,7 +250,6 @@ Deno.serve(async (req) => {
   - description: 2–3 sehr kurze Sätze.
   - identification_features: 2-3 Sätze zu den wichtigsten Erkennungsmerkmalen.
   - fun_fact: genau 1 kurzer Satz.
-  - rarity: genau eines der Wörter "Häufig", "Gelegentlich", "Selten", "Sehr selten".
   - is_european: boolean, true NUR wenn die Art ursprünglich aus Europa stammt oder heute in Europa heimisch/natürlichisiert ist. Bei Unsicherheit immer false.
   - genus_name: der deutsche Gattungsname (z. B. "Glockenblume" für Campanula, "Rose" für Rosa). Falls kein gebräuchlicher deutscher Gattungsname existiert, verwende den wissenschaftlichen Gattungsnamen.
   - category: genau eines der Wörter "Bäume", "Sträucher", "Blumen". Wähle "Bäume" für verholzte Pflanzen mit einem Stamm (z. B. Eiche, Birke, Fichte). Wähle "Sträucher" für verholzte Pflanzen mit mehreren Trieben ohne klaren Hauptstamm (z. B. Holunder, Weißdorn, Hasel). Wähle "Blumen" für krautige Pflanzen, Wildblumen, Kräuter und Gräser (z. B. Glockenblume, Schafgarbe, Löwenzahn).`;
@@ -301,10 +300,6 @@ Deno.serve(async (req) => {
                     items: { type: "string" },
                   },
                   fun_fact: { type: "string" },
-                  rarity: {
-                    type: "string",
-                    enum: ["Häufig", "Gelegentlich", "Selten", "Sehr selten"],
-                  },
                   is_european: {
                     type: "boolean",
                   },
@@ -318,7 +313,6 @@ Deno.serve(async (req) => {
                   "description",
                   "identification_features",
                   "fun_fact",
-                  "rarity",
                   "is_european",
                   "genus_name",
                   "category",
@@ -346,7 +340,6 @@ Deno.serve(async (req) => {
         helperParsed.description &&
         Array.isArray(helperParsed.identification_features) &&
         helperParsed.fun_fact &&
-        helperParsed.rarity &&
         typeof helperParsed.is_european === "boolean" &&
         typeof helperParsed.genus_name === "string" && helperParsed.genus_name &&
         typeof helperParsed.category === "string" && helperParsed.category
@@ -368,7 +361,6 @@ Deno.serve(async (req) => {
               parsed.description &&
               Array.isArray(parsed.identification_features) &&
               parsed.fun_fact &&
-              parsed.rarity &&
               typeof parsed.is_european === "boolean" &&
               typeof parsed.genus_name === "string" && parsed.genus_name &&
               typeof parsed.category === "string" && parsed.category
@@ -394,9 +386,13 @@ Deno.serve(async (req) => {
       }
     }
 
+    // rarity ist ecology-basiert und daher unabhaengig vom LLM-Flag verfuegbar.
+    const rarity = computeRarityLabel(ecology?.red_list_population ?? null, ecology?.red_list_threat ?? null);
+
     if (!includeOpenAi) {
       return new Response(
         JSON.stringify({
+          rarity,
           wild_bees_count: ecology?.wild_bees_count ?? null,
           butterflies_count: ecology?.butterflies_count ?? null,
           caterpillars_count: ecology?.caterpillars_count ?? null,
@@ -419,7 +415,7 @@ Deno.serve(async (req) => {
         description: llmResult.description,
         identification_features: llmResult.identification_features,
         fun_fact: llmResult.fun_fact,
-        rarity: llmResult.rarity,
+        rarity,
         is_european: llmResult.is_european,
         genus_name: llmResult.genus_name,
         category: llmResult.category,

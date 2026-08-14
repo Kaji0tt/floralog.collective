@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildOriginDeniedResponse } from "../_shared/origin.ts";
 import { buildNotificationPayload } from "../_shared/notificationCopy.ts";
+import { getRarityLevelFromLabel } from "../_shared/plantRarityLevels.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -436,12 +437,7 @@ Deno.serve(async (req) => {
 
     const rarePlantCount = userDiscoveries.filter((d) => {
       const plant = plants.find((p) => p.id === d.plant_id);
-      return (
-        !!plant &&
-        (plant.rarity === "Selten" ||
-          plant.rarity === "Sehr Selten" ||
-          plant.rarity === "Extrem Selten")
-      );
+      return !!plant && getRarityLevelFromLabel(plant.rarity) >= 3;
     }).length;
 
     let newRewardsCount = 0;

@@ -9,6 +9,7 @@ export default function HomeMilestoneOverlayToggle({
   currentUser,
   badgeMetrics = null,
   initialShopCategory = "root",
+  initialShopOpen = false,
   logoAssets = [],
   playerSparks,
   playerAmber,
@@ -37,6 +38,7 @@ export default function HomeMilestoneOverlayToggle({
           currentUser={currentUser}
           badgeMetrics={badgeMetrics}
           initialShopCategory={initialShopCategory}
+          initialShopOpen={initialShopOpen}
           logoAssets={logoAssets}
           playerSparks={playerSparks}
           playerAmber={playerAmber}

@@ -143,9 +143,10 @@ const NORMALIZED_RARITY_MULTIPLIERS: Record<string, number> = {
   haufig: 1,
   haeufig: 1,
   gelegentlich: 2,
-  selten: 3,
+  selten: 2,
   sehrselten: 3,
   extremselten: 3,
+  ausgestorbenoderverschollen: 3,
 };
 
 const EARTH_RADIUS_M = 6371000;

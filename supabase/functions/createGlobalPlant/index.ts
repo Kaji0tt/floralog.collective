@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildOriginDeniedResponse } from "../_shared/origin.ts";
+import { computeRarityLabel } from "../_shared/plantRarityLevels.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -258,7 +259,8 @@ Deno.serve(async (req) => {
         description: plant.description || null,
         identification_features: plant.identification_features || null,
         fun_fact: plant.fun_fact || null,
-        rarity: plant.rarity || "Gelegentlich",
+        // rarity wird serverseitig aus red_list_population/red_list_threat abgeleitet (Client-Wert wird ignoriert).
+        rarity: computeRarityLabel(plant.red_list_population ?? null, plant.red_list_threat ?? null),
         native_region: plant.native_region || null,
         wild_bees_count: plant.wild_bees_count ?? null,
         butterflies_count: plant.butterflies_count ?? null,

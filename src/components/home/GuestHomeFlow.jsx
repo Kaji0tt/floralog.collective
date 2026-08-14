@@ -1,18 +1,32 @@
 ﻿import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Download, Mail, Lock, User, Loader2, AlertCircle, CheckCircle2, ChevronDown, FileText } from "lucide-react";
-import { signIn, signUp, updatePassword, getUserProfile } from "@/api/authService";
+import { Camera, Download, Mail, Lock, User, Loader2, AlertCircle, CheckCircle2, ArrowLeft, Info, FileText } from "lucide-react";
+import { signIn, signUp, signInWithGoogle, updatePassword, getUserProfile } from "@/api/authService";
 import { supabase } from "@/api/supabaseClient";
 import { checkApkVersion } from "@/lib/apkVersionService";
 import { Query } from "@/api/entities";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
+import GuestLogoCustomizerStep from "@/components/home/GuestLogoCustomizerStep";
 import { readLastSignedInUserSnapshot, persistLastSignedInUserSnapshot } from "@/lib/lastSignedInUserStorage";
+import { LOGO_ACCESSORY_DEFAULTS, resolveEquippedLogoAssets } from "@/lib/logoAccessoryAssets";
+import { readGuestLogoCustomizationDraft, persistGuestLogoCustomizationDraft } from "@/lib/guestLogoCustomizationStorage";
 
 const GUEST_BG_IMAGE_URL = new URL("../../../guestfunnel-bg.png", import.meta.url).href;
 const GUEST_MG_IMAGE_URL = new URL("../../../guestfunnel-mg.png", import.meta.url).href;
 const GUEST_FG_IMAGE_URL = new URL("../../../guestfunnel-fg.png", import.meta.url).href;
 const SINGLE_LEAF_IMAGE_URL = new URL("../../../singleleaf.png", import.meta.url).href;
+
+/** @param {{ className?: string }} props */
+const GoogleIcon = ({ className }) => (
+  <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+    <path fill="#4285F4" d="M23.49 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.44a5.5 5.5 0 0 1-2.39 3.6v3h3.86c2.26-2.08 3.58-5.15 3.58-8.79z" />
+    <path fill="#34A853" d="M12 24c3.24 0 5.96-1.07 7.95-2.9l-3.86-3c-1.07.72-2.45 1.14-4.09 1.14-3.14 0-5.8-2.12-6.75-4.97H1.27v3.1A12 12 0 0 0 12 24z" />
+    <path fill="#FBBC05" d="M5.25 14.27a7.2 7.2 0 0 1 0-4.54v-3.1H1.27a12 12 0 0 0 0 10.74z" />
+    <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.27 6.63l3.98 3.1C6.2 6.87 8.86 4.75 12 4.75z" />
+  </svg>
+);
+
 const FIREFLY_COUNT = 36;
 const SNAP_SECTION_COUNT = 5;
 const CONTENT_FADE_OUT_MS = 240;
@@ -296,13 +310,32 @@ export default function GuestHomeFlow() {
   const [loginError, setLoginError] = useState(/** @type {string | null} */ (null));
   const [registerLoading, setRegisterLoading] = useState(false);
   const [registerError, setRegisterError] = useState(/** @type {string | null} */ (null));
+  const [googleLoginLoading, setGoogleLoginLoading] = useState(false);
+  const [emailLoginOpen, setEmailLoginOpen] = useState(false);
   const [registerSuccess, setRegisterSuccess] = useState(/** @type {string | null} */ (null));
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const [lastSignedInUserSnapshot, setLastSignedInUserSnapshot] = useState(() => readLastSignedInUserSnapshot());
+  const [guestLogoDraft, setGuestLogoDraft] = useState(() => {
+    const stored = readGuestLogoCustomizationDraft();
+    return {
+      selected_face_asset: stored?.selected_face_asset || LOGO_ACCESSORY_DEFAULTS.selected_face_asset,
+      selected_border_asset: stored?.selected_border_asset || LOGO_ACCESSORY_DEFAULTS.selected_border_asset,
+      selected_border_color: stored?.selected_border_color ?? null,
+    };
+  });
+  const [registerModalStep, setRegisterModalStep] = useState(/** @type {"customize" | "form"} */ ("customize"));
   const [communityCardIndex, setCommunityCardIndex] = useState(0);
   const [communityStats, setCommunityStats] = useState(/** @type {{ active_researchers_this_month: number, total_species: number, total_scans: number } | null} */ (null));
   const communityCardTouchStartXRef = useRef(/** @type {number | null} */ (null));
   const communityCardTouchStartYRef = useRef(/** @type {number | null} */ (null));
+
+  // Login panel content vs. logo avatar: on small viewports the logo shrinks first
+  // so the login content never gets squeezed behind the fixed footer bar.
+  const DEFAULT_LOGIN_PANEL_TOP_PERCENT = 50;
+  const MIN_LOGIN_PANEL_TOP_PERCENT = 22;
+  const [loginPanelTopPercent, setLoginPanelTopPercent] = useState(DEFAULT_LOGIN_PANEL_TOP_PERCENT);
+  const loginPanelContentRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+  const footerBarRef = useRef(/** @type {HTMLDivElement | null} */ (null));
 
   // APK update banner state (non-forced; forced updates are handled in HomeOtaGate)
   const [apkUpdateManifest, setApkUpdateManifest] = useState(/** @type {any|null} */ (null));
@@ -357,6 +390,59 @@ export default function GuestHomeFlow() {
       viewport.removeEventListener("resize", handleViewportResize);
     };
   }, []);
+
+  // Shrink the logo/avatar zone (never the login content) when the viewport
+  // is too short to fit the login panel above the fixed footer bar.
+  useEffect(() => {
+    if (typeof window === "undefined" || isKeyboardOpen) {
+      return undefined;
+    }
+
+    const SAFETY_MARGIN_PX = 12;
+    let rafId = /** @type {number | null} */ (null);
+
+    const recomputeLayout = () => {
+      const panelEl = loginPanelContentRef.current;
+      const footerEl = footerBarRef.current;
+      if (!panelEl || !footerEl) return;
+
+      const viewportHeight = window.visualViewport?.height || window.innerHeight;
+      const panelBottom = panelEl.getBoundingClientRect().bottom;
+      const footerTop = footerEl.getBoundingClientRect().top;
+      const overlapPx = panelBottom - footerTop + SAFETY_MARGIN_PX;
+
+      if (overlapPx <= 0) {
+        setLoginPanelTopPercent(DEFAULT_LOGIN_PANEL_TOP_PERCENT);
+        return;
+      }
+
+      const overlapPercent = (overlapPx / viewportHeight) * 100;
+      const nextTopPercent = Math.max(
+        MIN_LOGIN_PANEL_TOP_PERCENT,
+        DEFAULT_LOGIN_PANEL_TOP_PERCENT - overlapPercent
+      );
+      setLoginPanelTopPercent(nextTopPercent);
+    };
+
+    const scheduleRecompute = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(recomputeLayout);
+    };
+
+    scheduleRecompute();
+
+    window.addEventListener("resize", scheduleRecompute);
+
+    const resizeObserver = new ResizeObserver(scheduleRecompute);
+    if (loginPanelContentRef.current) resizeObserver.observe(loginPanelContentRef.current);
+    if (footerBarRef.current) resizeObserver.observe(footerBarRef.current);
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", scheduleRecompute);
+      resizeObserver.disconnect();
+    };
+  }, [isKeyboardOpen, emailLoginOpen, loginError, registerSuccess, apkUpdateManifest, apkBannerDismissed]);
 
   useEffect(() => {
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
@@ -612,6 +698,7 @@ export default function GuestHomeFlow() {
   const openAuthModal = () => {
     setRegisterError(null);
     setRegisterSuccess(null);
+    setRegisterModalStep("customize");
     setAuthModalOpen(true);
   };
 
@@ -621,6 +708,18 @@ export default function GuestHomeFlow() {
     setRegisterSuccess(null);
     setRegisterLoading(false);
   };
+
+  const updateGuestLogoDraft = (updates) => {
+    setGuestLogoDraft((previousDraft) => {
+      const nextDraft = { ...previousDraft, ...updates };
+      persistGuestLogoCustomizationDraft(nextDraft);
+      return nextDraft;
+    });
+  };
+
+  const handleSelectGuestFace = (value) => updateGuestLogoDraft({ selected_face_asset: value });
+  const handleSelectGuestBorder = (value) => updateGuestLogoDraft({ selected_border_asset: value });
+  const handleSelectGuestBorderColor = (value) => updateGuestLogoDraft({ selected_border_color: value });
 
   const openSupportModal = () => {
     setSupportModalOpen(true);
@@ -722,6 +821,23 @@ export default function GuestHomeFlow() {
       setRegisterError(message);
     } finally {
       setRegisterLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setLoginError(null);
+    setRegisterError(null);
+    setGoogleLoginLoading(true);
+
+    try {
+      // Web redirects immediately; native flow returns via appUrlOpen deep link.
+      await signInWithGoogle();
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : "Google-Anmeldung fehlgeschlagen. Bitte versuche es erneut.";
+      setLoginError(message);
+      setGoogleLoginLoading(false);
     }
   };
 
@@ -903,7 +1019,7 @@ export default function GuestHomeFlow() {
         />
       </div>
 
-      <div className="absolute top-0 left-0 right-0 z-20 flex flex-col items-center pt-10 md:pt-14 px-4">
+      <div className="absolute top-0 left-0 right-0 z-20 flex flex-col items-center px-4" style={{ paddingTop: "clamp(0.6rem, 3vh, 1.75rem)" }}>
         <div className="relative w-[95vw] max-w-[95vw] flex justify-center">
           <div
             className="absolute inset-x-auto top-1/2 -translate-y-1/2 rounded-full border border-amber-100/30 bg-black/18 backdrop-blur-[2px]"
@@ -941,27 +1057,26 @@ export default function GuestHomeFlow() {
         </p>
       </div>
 
-      {lastSignedInUserSnapshot?.logoAssets && (
-        <div
-          className="absolute inset-x-0 z-[24] flex items-center justify-center pointer-events-none px-6"
-          style={{
-            top: "clamp(8.9rem, 22vh, 13.8rem)",
-            bottom: "46%",
-          }}
-        >
-          <CustomLogoAvatar
-            logoAssets={lastSignedInUserSnapshot.logoAssets}
-            className="h-full w-full max-w-[78vw] max-h-full bg-transparent"
-            innerClassName="scale-[1.62]"
-            tooltipText={lastSignedInUserSnapshot.displayName || lastSignedInUserSnapshot.email || "Spieler"}
-            noClip
-          />
-        </div>
-      )}
+      <div
+        className="absolute inset-x-0 z-[18] flex items-center justify-center pointer-events-none px-6"
+        style={{
+          top: "clamp(4.5rem, 12vh, 7.5rem)",
+          bottom: `${100 - loginPanelTopPercent}%`,
+          minHeight: "3.5rem",
+        }}
+      >
+        <CustomLogoAvatar
+          logoAssets={lastSignedInUserSnapshot?.logoAssets || resolveEquippedLogoAssets(guestLogoDraft)}
+          className="h-full w-full max-w-[78vw] max-h-full bg-transparent"
+          innerClassName="scale-[1.62]"
+          tooltipText={lastSignedInUserSnapshot?.displayName || lastSignedInUserSnapshot?.email || "Dein Naturbegleiter"}
+          noClip
+        />
+      </div>
 
       <div
         className="absolute inset-x-0 bottom-0 z-30 px-4"
-        style={{ top: "50%" }}
+        style={{ top: `${loginPanelTopPercent}%` }}
       >
         <div
           className="relative flex h-full w-full justify-center overflow-visible overscroll-none touch-none"
@@ -974,16 +1089,19 @@ export default function GuestHomeFlow() {
             className="relative h-full w-full max-w-2xl overflow-visible pointer-events-none"
           >
             <motion.div
-              className="absolute inset-x-0 top-0 flex flex-col items-center gap-5 pt-[11%] md:pt-[10%]"
+              ref={loginPanelContentRef}
+              className="absolute inset-x-0 top-0 flex flex-col items-center gap-5"
               animate={{ opacity: panelOpacities[0] }}
               transition={{ duration: panelFadeDuration, ease: "easeInOut" }}
-              style={{ pointerEvents: displayedSnapIndex === 0 && panelOpacities[0] > 0.01 ? "auto" : "none" }}
+              style={{
+                pointerEvents: displayedSnapIndex === 0 && panelOpacities[0] > 0.01 ? "auto" : "none",
+                paddingTop: "clamp(0.5rem, 3vh, 1.5rem)",
+              }}
             >
-              {/* Anker: hält das Formular oberhalb des Chevrons */}
               <form
                 onSubmit={handleInlineLoginSubmit}
                 className="w-[70vw] max-w-[380px] space-y-2"
-                style={{ paddingBottom: isKeyboardOpen ? "0.75rem" : "clamp(3.5rem, 9vw, 5rem)" }}
+                style={{ paddingBottom: "clamp(0.5rem, 2vh, 1rem)" }}
               >
                 {loginError && (
                   <div className="rounded-xl border border-red-300/35 bg-red-900/30 px-3 py-1.5 text-xs text-red-100 flex items-start gap-2 mb-1">
@@ -992,51 +1110,119 @@ export default function GuestHomeFlow() {
                   </div>
                 )}
 
-                <input
-                  name="email"
-                  type="email"
-                  value={authForm.email}
-                  onChange={handleAuthChange}
-                  disabled={loginLoading}
-                  required
-                  className="w-full rounded-xl border border-white/10 bg-black/40 px-3 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-1 focus:ring-emerald-400/50"
-                  style={{
-                    height: "2.4rem",
-                    boxShadow: "inset 0 3px 10px rgba(0,0,0,0.55), inset 0 1px 4px rgba(0,0,0,0.4)",
-                  }}
-                  placeholder="E-Mail"
-                />
+                <AnimatePresence mode="wait" initial={false}>
+                  {emailLoginOpen ? (
+                    <motion.div
+                      key="email-login-fields"
+                      initial={{ opacity: 0, y: -12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -12 }}
+                      transition={{ duration: 0.2, ease: "easeInOut" }}
+                      className="space-y-2"
+                    >
+                      <input
+                        name="email"
+                        type="email"
+                        value={authForm.email}
+                        onChange={handleAuthChange}
+                        disabled={loginLoading}
+                        required
+                        className="w-full rounded-xl border border-white/10 bg-black/40 px-3 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-1 focus:ring-emerald-400/50"
+                        style={{
+                          height: "2.4rem",
+                          boxShadow: "inset 0 3px 10px rgba(0,0,0,0.55), inset 0 1px 4px rgba(0,0,0,0.4)",
+                        }}
+                        placeholder="E-Mail"
+                      />
 
-                <input
-                  name="password"
-                  type="password"
-                  value={authForm.password}
-                  onChange={handleAuthChange}
-                  disabled={loginLoading}
-                  required
-                  className="w-full rounded-xl border border-white/10 bg-black/40 px-3 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-1 focus:ring-emerald-400/50"
-                  style={{
-                    height: "2.4rem",
-                    boxShadow: "inset 0 3px 10px rgba(0,0,0,0.55), inset 0 1px 4px rgba(0,0,0,0.4)",
-                  }}
-                  placeholder="Passwort"
-                />
+                      <input
+                        name="password"
+                        type="password"
+                        value={authForm.password}
+                        onChange={handleAuthChange}
+                        disabled={loginLoading}
+                        required
+                        className="w-full rounded-xl border border-white/10 bg-black/40 px-3 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-1 focus:ring-emerald-400/50"
+                        style={{
+                          height: "2.4rem",
+                          boxShadow: "inset 0 3px 10px rgba(0,0,0,0.55), inset 0 1px 4px rgba(0,0,0,0.4)",
+                        }}
+                        placeholder="Passwort"
+                      />
 
-                <motion.button
-                  type="submit"
-                  disabled={loginLoading}
-                  className="w-full rounded-xl border border-lime-200/30 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 text-white font-semibold tracking-wide flex items-center justify-center gap-2 shadow-[0_6px_20px_rgba(34,197,94,0.30)] hover:brightness-110 disabled:opacity-60 transition-all"
-                  style={{ height: "2.4rem", fontSize: "0.95rem" }}
-                  whileTap={{ scale: 0.97 }}
-                >
-                  {loginLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
-                  Anmelden
-                </motion.button>
+                      <div className="flex items-center gap-2">
+                        <motion.button
+                          type="button"
+                          onClick={() => setEmailLoginOpen(false)}
+                          aria-label="Zurück zu Google-Login"
+                          className="shrink-0 rounded-xl border border-lime-200/30 bg-gradient-to-br from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 text-white flex items-center justify-center shadow-[0_6px_20px_rgba(34,197,94,0.30)] hover:brightness-110 transition-all"
+                          style={{ height: "2.4rem", width: "2.4rem" }}
+                          whileTap={{ scale: 0.93 }}
+                        >
+                          <ArrowLeft className="w-4 h-4" />
+                        </motion.button>
+
+                        <motion.button
+                          type="submit"
+                          disabled={loginLoading}
+                          className="flex-1 rounded-xl border border-lime-200/30 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 text-white font-semibold tracking-wide flex items-center justify-center gap-2 shadow-[0_6px_20px_rgba(34,197,94,0.30)] hover:brightness-110 disabled:opacity-60 transition-all"
+                          style={{ height: "2.4rem", fontSize: "0.95rem" }}
+                          whileTap={{ scale: 0.97 }}
+                        >
+                          {loginLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+                          Anmelden
+                        </motion.button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => navigate('/forgot-password', { state: { email: authForm?.email } })}
+                        className="w-full text-center font-normal text-stone-500/70 hover:text-stone-300 transition-colors"
+                        style={{ fontSize: "0.78rem", letterSpacing: "0.03em" }}
+                      >
+                        Passwort vergessen?
+                      </button>
+                    </motion.div>
+                  ) : (
+                    <motion.button
+                      key="google-login-button"
+                      type="button"
+                      onClick={handleGoogleLogin}
+                      disabled={googleLoginLoading}
+                      initial={{ opacity: 0, y: -12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -12 }}
+                      transition={{ duration: 0.2, ease: "easeInOut" }}
+                      whileTap={{ scale: 0.97 }}
+                      className="w-full rounded-xl border border-lime-200/30 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 text-white font-semibold tracking-wide flex items-center justify-center gap-2 shadow-[0_6px_20px_rgba(34,197,94,0.30)] hover:brightness-110 disabled:opacity-60 transition-all"
+                      style={{ height: "2.4rem", fontSize: "0.95rem" }}
+                    >
+                      {googleLoginLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <GoogleIcon className="w-4 h-4" />
+                      )}
+                      Mit Google anmelden
+                    </motion.button>
+                  )}
+                </AnimatePresence>
+
+                {!emailLoginOpen && (
+                  <button
+                    type="button"
+                    onClick={() => setEmailLoginOpen(true)}
+                    className="w-full text-center text-stone-400/80 hover:text-stone-200 transition-colors py-1"
+                    style={{ fontSize: "0.75rem", letterSpacing: "0.03em" }}
+                  >
+                    oder mit E-Mail anmelden
+                  </button>
+                )}
 
                 <button
                   type="button"
                   onClick={openAuthModal}
-                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-300/35 bg-amber-900/20 px-3 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-900/35 hover:text-amber-50 transition-colors backdrop-blur-sm"
+                  className="w-full text-center font-semibold text-amber-200/90 hover:text-amber-100 transition-colors py-1"
+                  style={{ fontSize: "0.85rem" }}
                 >
                   ✦ Neu hier? Registrieren ✦
                 </button>
@@ -1067,11 +1253,11 @@ export default function GuestHomeFlow() {
 
                 <button
                   type="button"
-                  onClick={() => navigate('/forgot-password', { state: { email: authForm?.email } })}
-                  className="w-full text-center font-normal text-stone-500/70 hover:text-stone-300 transition-colors"
-                  style={{ fontSize: "0.78rem", letterSpacing: "0.03em" }}
+                  onClick={() => triggerSnapStep(1)}
+                  className="mx-auto flex items-center gap-1.5 rounded-full border border-amber-200/25 bg-black/35 px-3 py-1 text-[0.68rem] font-medium text-amber-100/70 hover:bg-black/50 hover:text-amber-50 transition-colors backdrop-blur-sm"
                 >
-                  Passwort vergessen?
+                  <Info className="w-3 h-3" />
+                  Über Floralog
                 </button>
               </form>
             </motion.div>
@@ -1201,11 +1387,33 @@ export default function GuestHomeFlow() {
                 Kostenlos registrieren
               </h3>
               <p className="text-sm text-stone-300 mt-1">
-                Erstelle deinen Account und starte direkt mit deinem Naturbegleiter.
+                {registerModalStep === "customize"
+                  ? "Gestalte zuerst deinen Naturbegleiter - Rahmen, Gesicht und Farbe."
+                  : "Erstelle deinen Account und starte direkt mit deinem Naturbegleiter."}
               </p>
             </div>
 
+            {registerModalStep === "customize" ? (
+              <div className="relative z-10 mt-4">
+                <GuestLogoCustomizerStep
+                  draft={guestLogoDraft}
+                  onSelectFace={handleSelectGuestFace}
+                  onSelectBorder={handleSelectGuestBorder}
+                  onSelectColor={handleSelectGuestBorderColor}
+                  onContinue={() => setRegisterModalStep("form")}
+                />
+              </div>
+            ) : (
             <form onSubmit={handleRegisterSubmit} className="relative z-10 space-y-3 mt-4">
+              <button
+                type="button"
+                onClick={() => setRegisterModalStep("customize")}
+                className="flex items-center gap-1.5 text-xs font-medium text-amber-100/70 hover:text-amber-50 transition-colors"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                Zurück zur Anpassung
+              </button>
+
               {registerSuccess && (
                 <div className="rounded-xl border border-emerald-300/35 bg-emerald-900/30 px-3 py-2 text-sm text-emerald-100 flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
@@ -1289,7 +1497,28 @@ export default function GuestHomeFlow() {
                 {registerLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                 Jetzt registrieren
               </button>
+
+              <div className="flex items-center gap-2 py-0.5">
+                <div className="h-px flex-1 bg-white/10" />
+                <span className="text-[0.68rem] uppercase tracking-[0.14em] text-stone-500">oder</span>
+                <div className="h-px flex-1 bg-white/10" />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                disabled={googleLoginLoading}
+                className="w-full rounded-xl border border-lime-200/35 bg-gradient-to-r from-emerald-700/85 via-emerald-500/75 to-emerald-700/85 py-2.5 text-white font-semibold hover:brightness-110 disabled:opacity-60 transition-all flex items-center justify-center gap-2"
+              >
+                {googleLoginLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <GoogleIcon className="w-4 h-4" />
+                )}
+                Mit Google registrieren
+              </button>
             </form>
+            )}
           </div>
         </div>
       )}
@@ -1462,25 +1691,8 @@ export default function GuestHomeFlow() {
         </div>
       )}
 
-      <AnimatePresence>
-        {activeSnapIndex < SNAP_SECTION_COUNT - 1 && !isKeyboardOpen && (
-          <motion.div
-            className="fixed left-1/2 bottom-[3.2rem] z-[120] -translate-x-1/2 text-stone-100/80 select-none pointer-events-none"
-            aria-hidden="true"
-            initial={{ opacity: 0, y: 0 }}
-            animate={{ opacity: [0.4, 0.8, 0.4], y: [0, 4, 0] }}
-            transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-            style={{
-              width: "clamp(1rem, 4vw, 1.4rem)",
-              height: "clamp(1rem, 4vw, 1.4rem)",
-            }}
-          >
-            <ChevronDown className="h-full w-full" strokeWidth={2.4} />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <div
+        ref={footerBarRef}
         className={`fixed bottom-0 inset-x-0 z-[130] flex flex-col items-center justify-center py-4 pb-[max(1rem,env(safe-area-inset-bottom))] transition-all duration-200 ${isKeyboardOpen ? "opacity-0 pointer-events-none translate-y-4" : "opacity-100"}`}
       >
         {/* APK update banner – shown when a newer APK is available (soft, non-forced) */}

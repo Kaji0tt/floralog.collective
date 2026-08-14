@@ -1,28 +1,104 @@
-const buildAssetUrl = (fileName) => new URL(`../../design/${fileName}`, import.meta.url).href;
+// Recursive glob so files inside design/legacy/ (not just design/ root) are bundled and resolvable.
+const designAssetUrls = import.meta.glob("../../design/**/*.png", { eager: true, query: "?url", import: "default" });
 
-export const LOGO_ACCESSORY_DEFAULTS = {
-  selected_face_asset: "face_original",
-  selected_plant_asset: "plant_leaf",
-  selected_border_asset: "border_original",
+const buildAssetUrl = (fileName) => {
+  const entry = Object.entries(designAssetUrls).find(([path]) => path.endsWith(`/design/${fileName}`));
+  return entry ? entry[1] : new URL(`../../design/${fileName}`, import.meta.url).href;
 };
 
+export const LOGO_ACCESSORY_DEFAULTS = {
+  selected_face_asset: "face_default",
+  selected_plant_asset: "plant_leaf",
+  selected_border_asset: "border_default",
+};
+
+// Mirrors production DEFAULT_UNLOCKED_IDS (supabase/functions/syncLogoAssets, workers/assets-catalog):
+// these stay visible/unlocked for everyone. border_original/face_original were retired to
+// design/legacy (and R2 custom_logo/legacy/) and are no longer default-unlocked.
+export const LOGO_ACCESSORY_DEFAULT_UNLOCKED_IDS = new Set([
+  "plant_leaf",
+  "border_default",
+  "border_hacked",
+  "border_orbit",
+  "border_triad",
+  "face_bug",
+  "face_default",
+  "face_mask",
+  "face_smile",
+]);
+
+// Shared border-tint presets used by both the Shop and the guest pre-registration picker.
+export const BORDER_COLOR_PRESETS = [
+  "#ff3b30",
+  "#ff9500",
+  "#ffcc00",
+  "#34c759",
+  "#00c7be",
+  "#0a84ff",
+  "#5856d6",
+  "#bf5af2",
+  "#ff2d55",
+  "#8e8e93",
+  "#ffffff",
+  "#000000",
+];
+
+// Normal, currently-designed options (design/ root).
 const faceOptions = [
-  { id: "face_original", label: "Original", fileName: "face_original.png" },
-  { id: "face_annoyed", label: "Annoyed", fileName: "face_annoyed.png" },
+  // Default starter-pack (R2 custom_logo/default/) - always free/unlocked for everyone.
+  { id: "face_default", label: "Default", fileName: "default/face_default.png" },
+  { id: "face_bug", label: "Bug", fileName: "default/face_bug.png" },
+  { id: "face_mask", label: "Mask", fileName: "default/face_mask.png" },
+  { id: "face_smile", label: "Smile", fileName: "default/face_smile.png" },
   { id: "face_blush", label: "Blush", fileName: "face_blush.png" },
-  { id: "face_sus", label: "Sus", fileName: "face_sus.png" },
-  { id: "face_v", label: "V", fileName: "face_v.png" },
+  { id: "face_golem", label: "Golem", fileName: "face_golem.png" },
+  { id: "face_marien", label: "Marien", fileName: "face_marien.png" },
+  { id: "face_raupe", label: "Raupe", fileName: "face_raupe.png" },
+  { id: "face_reh", label: "Reh", fileName: "face_reh.png" },
+  { id: "face_teufel", label: "Teufel", fileName: "face_teufel.png" },
+  { id: "face_tiger", label: "Tiger", fileName: "face_tiger.png" },
+  // Legacy (retired) - only visible/equippable if explicitly owned or default-unlocked.
+  { id: "face_original", label: "Original", fileName: "legacy/face_original.png", isLegacy: true },
+  { id: "face_annoyed", label: "Annoyed", fileName: "legacy/face_annoyed.png", isLegacy: true },
+  { id: "face_sus", label: "Sus", fileName: "legacy/face_sus.png", isLegacy: true },
+  { id: "face_v", label: "V", fileName: "legacy/face_v.png", isLegacy: true },
 ];
 
 const plantOptions = [
-  { id: "plant_leaf", label: "Leaf", fileName: "plant_leaf.png" },
-  { id: "plant_legacy", label: "Legacy", fileName: "plant_legacy.png" },
-  { id: "plant_kirsche", label: "Kirsche", fileName: "plant_kirsche.png" },
-  { id: "plant_schilf", label: "Schilf", fileName: "plant_schilf.png" },
+  { id: "plant_forest_eiche", label: "Eiche", fileName: "plant_forest_eiche.png" },
+  { id: "plant_forest_moos", label: "Moos", fileName: "plant_forest_moos.png" },
+  { id: "plant_forest_waldmeister", label: "Waldmeister", fileName: "plant_forest_waldmeister.png" },
+  { id: "plant_meadow_brennnessel", label: "Brennnessel", fileName: "plant_meadow_brennnessel.png" },
+  { id: "plant_meadow_kornblume", label: "Kornblume", fileName: "plant_meadow_kornblume.png" },
+  { id: "plant_meadow_sonnenblume", label: "Sonnenblume", fileName: "plant_meadow_sonnenblume.png" },
+  { id: "plant_urban_efeu", label: "Efeu", fileName: "plant_urban_efeu.png" },
+  { id: "plant_urban_platane", label: "Platane", fileName: "plant_urban_platane.png" },
+  { id: "plant_urban_rose", label: "Rose", fileName: "plant_urban_rose.png" },
+  { id: "plant_water_rohrkolben", label: "Rohrkolben", fileName: "plant_water_rohrkolben.png" },
+  { id: "plant_water_sandhafer", label: "Sandhafer", fileName: "plant_water_sandhafer.png" },
+  { id: "plant_water_seerose", label: "Seerose", fileName: "plant_water_seerose.png" },
+  // Legacy (retired) - only visible/equippable if explicitly owned or default-unlocked.
+  { id: "plant_leaf", label: "Leaf", fileName: "legacy/plant_leaf.png", isLegacy: true },
+  { id: "plant_legacy", label: "Legacy", fileName: "legacy/plant_legacy.png", isLegacy: true },
+  { id: "plant_kirsche", label: "Kirsche", fileName: "legacy/plant_sakura.png", isLegacy: true },
+  { id: "plant_schilf", label: "Schilf", fileName: "legacy/plant_schilf.png", isLegacy: true },
 ];
 
 const borderOptions = [
-  { id: "border_original", label: "Original", fileName: "border_original.png" },
+  // Default starter-pack (R2 custom_logo/default/) - always free/unlocked for everyone.
+  { id: "border_default", label: "Default", fileName: "default/border_default.png" },
+  { id: "border_hacked", label: "Hacked", fileName: "default/border_hacked.png" },
+  { id: "border_orbit", label: "Orbit", fileName: "default/border_orbit.png" },
+  { id: "border_triad", label: "Triad", fileName: "default/border_triad.png" },
+  { id: "border_efeu", label: "Efeu", fileName: "border_efeu.png" },
+  { id: "border_hawaii", label: "Hawaii", fileName: "border_hawaii.png" },
+  { id: "border_maori", label: "Maori", fileName: "border_maori.png" },
+  { id: "border_rose", label: "Rose", fileName: "border_rose.png" },
+  { id: "border_schaltung", label: "Schaltung", fileName: "border_schaltung.png" },
+  { id: "border_technik-rose", label: "Technik-Rose", fileName: "border_technik-rose.png" },
+  { id: "border_winde", label: "Winde", fileName: "border_winde.png" },
+  // Legacy (retired) - only visible/equippable if explicitly owned or default-unlocked.
+  { id: "border_original", label: "Original", fileName: "legacy/border_original.png", isLegacy: true },
 ];
 
 const withAssetMeta = (options, profileField) =>
@@ -33,6 +109,7 @@ const withAssetMeta = (options, profileField) =>
     profileField,
     imageUrl: buildAssetUrl(option.fileName),
     type: "accessory",
+    isLegacy: Boolean(option.isLegacy),
   }));
 
 export const LOGO_ACCESSORY_SECTIONS = [

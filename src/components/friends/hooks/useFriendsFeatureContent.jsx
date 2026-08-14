@@ -67,6 +67,13 @@ const getAverageColor = (imageUrl) => {
 
 const EXPLORER_PAGE_SIZE = 40;
 
+// "2026-W28" (ISO week key from get_scan_of_the_week_history) → "KW 28 · 2026"
+const formatSotwWeekLabel = (weekKey) => {
+  const match = /^(\d{4})-W(\d{2})$/.exec(weekKey || "");
+  if (!match) return weekKey || "Unbekannte Woche";
+  return `KW ${match[2]} · ${match[1]}`;
+};
+
 const normalizeNaturaDbSlug = (value) =>
   String(value || "")
     .normalize("NFKD")
@@ -148,7 +155,7 @@ export function useFriendsFeatureContent({
       _prevActiveTabRef.current = activeTab;
     }
   }, [activeTab]);
-  const [explorerAudienceFilter, setExplorerAudienceFilter] = useState("all");
+  const [explorerViewMode, setExplorerViewMode] = useState("all");
   const explorerSentinelRef = useRef(null);
   const explorerContainerRef = useRef(null);
   const explorerTouchStartYRef = useRef(0);
@@ -349,6 +356,7 @@ export function useFriendsFeatureContent({
 
   const isExplorerTab = activeTab === "explorer";
   const isFriendsTab = activeTab === "friends";
+  const isSotwView = explorerViewMode === "sotw";
 
   const explorerThresholdIso = '2026-06-21T00:00:00.000Z';
   const explorerQueryEmail = user?.email?.toLowerCase() || "";
@@ -362,11 +370,11 @@ export function useFriendsFeatureContent({
     isLoading: isExplorerLoading,
     refetch: refetchExplorerDiscoveries,
   } = useInfiniteQuery({
-    queryKey: ['explorerDiscoveriesInfinite', explorerQueryEmail, explorerAudienceFilter, explorerThresholdIso],
+    queryKey: ['explorerDiscoveriesInfinite', explorerQueryEmail, explorerThresholdIso],
     queryFn: async ({ pageParam = 0 }) => {
       const { data, error } = await supabase.rpc('get_explorer_discoveries', {
         p_viewer_email: explorerQueryEmail,
-        p_audience: explorerAudienceFilter,
+        p_audience: 'all',
         p_since: explorerThresholdIso,
         p_limit: EXPLORER_PAGE_SIZE,
         p_offset: pageParam * EXPLORER_PAGE_SIZE,
@@ -376,7 +384,7 @@ export function useFriendsFeatureContent({
     },
     getNextPageParam: (lastPage, allPages) =>
       lastPage.length < EXPLORER_PAGE_SIZE ? undefined : allPages.length,
-    enabled: !!user?.email && isExplorerTab,
+    enabled: !!user?.email && isExplorerTab && !isSotwView,
     staleTime: 60 * 1000,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
@@ -482,6 +490,30 @@ export function useFriendsFeatureContent({
     () => new Map((ownRewardsForExplorer || []).map((r) => [r.discovery_id, r])),
     [ownRewardsForExplorer]
   );
+
+  // "SOTW" filter: staggered (per-week) history of Scan-of-the-Week winners,
+  // i.e. every past weeklyRewardsScheduler "most liked scan" grant plus manual
+  // AdminScanOfTheWeek awards, since the mechanic exists.
+  const { data: sotwHistory = [], isLoading: isSotwLoading } = useQuery({
+    queryKey: ['scanOfTheWeekHistory'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_scan_of_the_week_history', { p_limit: 300 });
+      if (error) { console.warn('[ExplorerFeed] SOTW history RPC failed:', error); return []; }
+      return data || [];
+    },
+    enabled: !!user?.email && isExplorerTab && isSotwView,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const sotwWeekGroups = useMemo(() => {
+    const groups = new Map();
+    for (const row of sotwHistory) {
+      const key = row.week_key || "—";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(row);
+    }
+    return Array.from(groups.entries()).sort(([a], [b]) => b.localeCompare(a));
+  }, [sotwHistory]);
 
   const NEWS_TYPES = ['gift_received', 'collection_followed', 'friendship_accepted', 'friend_request_received', 'friend_achievement', 'scan_liked', 'admin_broadcast'];
 
@@ -1270,8 +1302,6 @@ Viel Spaß beim Entdecken! 🌿`;
   const getDiscoveryEmailLower = (entry) =>
     (entry.user || entry.created_by || entry.user_email || "").toLowerCase();
 
-  const showFriendsOnlyInExplorer = explorerAudienceFilter === "friends";
-
   const recentDiscoveries = useMemo(() => explorerDiscoveries || [], [explorerDiscoveries]);
 
   const explorerLogEntries = useMemo(() => {
@@ -1303,6 +1333,12 @@ Viel Spaß beim Entdecken! 🌿`;
           const q = currentWeeklyQuestForExplorer;
           if (!plant || !q) return false;
           if (q.target_species_name) return plant.species_name === q.target_species_name;
+          if (q.target_genus_name) {
+            const genus = allGenera.find(
+              (g) => g.category === plant.genus_category && g.category_dex_number === plant.genus_number
+            );
+            return genus?.genus_name === q.target_genus_name;
+          }
           if (q.category && q.category !== 'Alle') return plant.genus_category === q.category;
           return false;
         })(),
@@ -1310,7 +1346,7 @@ Viel Spaß beim Entdecken! 🌿`;
       };
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recentDiscoveries, allPlants, profileByEmail, likedDiscoveryIdSet, likeCountByDiscoveryId, logoAssets, scanRewardByDiscoveryId, currentWeeklyQuestForExplorer, rewardUnlockByDiscoveryId]);
+  }, [recentDiscoveries, allPlants, allGenera, profileByEmail, likedDiscoveryIdSet, likeCountByDiscoveryId, logoAssets, scanRewardByDiscoveryId, currentWeeklyQuestForExplorer, rewardUnlockByDiscoveryId]);
 
   useEffect(() => {
     if (!isExplorerTab || !hasNextExplorerPage) return;
@@ -1468,6 +1504,59 @@ Viel Spaß beim Entdecken! 🌿`;
     onHeaderMetaChange,
     activeTab,
   ]);
+
+  const explorerFilterHeaderNode = (
+    <div className="flex flex-col gap-3 mb-4 md:flex-row md:items-start md:justify-between">
+      <div>
+        <div className={`flex items-center gap-2 ${titleTextClass}`}>
+          <BookOpenText className={`w-4 h-4 ${isLightUi ? "text-emerald-700" : "text-emerald-300"}`} />
+          <h3 className="text-base font-semibold">Forscher Log</h3>
+        </div>
+        <p className={`text-sm mt-1 ${bodyTextClass}`}>
+          {isSotwView
+            ? "Wochenliebling: die meistgelikten Scans der Community. Scan der Woche: die vom Team gekürten Scans. Gestaffelt nach Kalenderwoche."
+            : "Ein visuelles Journal der letzten Scans aller Spieler."}
+        </p>
+      </div>
+      <div className="flex items-center justify-between gap-3 md:justify-end">
+        <div
+          className={
+            `inline-flex rounded-full border p-1 ${isLightUi
+              ? "border-[#d9c48a]/60 bg-[#f8f1dc]/85"
+              : "border-[#f0e5a5]/30 bg-black/30"}`
+          }
+        >
+          {[
+            { id: "all", label: "Alle" },
+            { id: "sotw", label: "Community" },
+          ].map((option) => {
+            const isSelected = explorerViewMode === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setExplorerViewMode(option.id)}
+                className={
+                  `rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${isSelected
+                    ? (isLightUi
+                      ? "bg-white text-[#8f6b22] shadow-sm"
+                      : "bg-[#f0e5a5] text-stone-950")
+                    : (isLightUi
+                      ? "text-stone-600 hover:text-stone-900"
+                      : "text-stone-300 hover:text-stone-100")}`
+                }
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+        <Badge className={accentBadgeClass}>
+          {isSotwView ? sotwHistory.length : explorerLogEntries.length}{!isSotwView && hasNextExplorerPage ? "+" : ""}
+        </Badge>
+      </div>
+    </div>
+  );
 
   if (!user) {
     return (
@@ -1646,7 +1735,95 @@ Viel Spaß beim Entdecken! 🌿`;
               className="max-w-5xl mx-auto space-y-4"
               style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}
             >
-              {isExplorerLoading ? (
+              {isSotwView ? (
+                isSotwLoading ? (
+                  <div className="flex justify-center py-10">
+                    <Loader2 className={`w-8 h-8 animate-spin ${isLightUi ? "text-stone-400" : "text-stone-500"}`} />
+                  </div>
+                ) : (
+                  <section className={`${sectionSurfaceClass} p-4 md:p-5`}>
+                    {explorerFilterHeaderNode}
+                    {sotwWeekGroups.length === 0 ? (
+                      <div className="px-1 py-8 text-center">
+                        <Trophy className={`w-14 h-14 mx-auto mb-3 ${isLightUi ? "text-stone-300" : "text-stone-500"}`} />
+                        <p className={`text-sm ${bodyTextClass}`}>
+                          Der wöchentlich gekürte Scan der Community erscheint hier, sobald es einen gibt.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-5">
+                        {sotwWeekGroups.map(([weekKey, rows]) => (
+                          <div key={weekKey}>
+                            <div className={`flex items-center gap-1.5 mb-2 text-xs font-semibold uppercase tracking-wide ${mutedTextClass}`}>
+                              <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                              {formatSotwWeekLabel(weekKey)}
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {rows.map((row) => {
+                                const isCommunityPick = row.source === "scheduler";
+                                return (
+                                <Card
+                                  key={row.ledger_id}
+                                  className={`${nestedCardClass} ${interactiveHoverClass} transition-all overflow-hidden`}
+                                >
+                                  <div className="relative" style={{ aspectRatio: "4/3" }}>
+                                    {row.image_url ? (
+                                      <img
+                                        src={row.image_url}
+                                        alt={row.plant_species_name || "Scan"}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    ) : (
+                                      <div className={`w-full h-full flex items-center justify-center ${isLightUi ? "bg-gradient-to-br from-amber-50 to-stone-100" : "bg-gradient-to-br from-amber-500/10 to-stone-950/60"}`}>
+                                        {isCommunityPick ? (
+                                          <Heart className={`w-10 h-10 ${isLightUi ? "text-rose-400" : "text-rose-300"}`} />
+                                        ) : (
+                                          <Trophy className={`w-10 h-10 ${isLightUi ? "text-amber-500" : "text-amber-300"}`} />
+                                        )}
+                                      </div>
+                                    )}
+                                    {isCommunityPick ? (
+                                      <div className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full border border-rose-400/60 bg-rose-500/90 px-2 py-0.5 text-[10px] font-bold text-white">
+                                        <Heart className="w-3 h-3 fill-current" />
+                                        Wochenliebling
+                                      </div>
+                                    ) : (
+                                      <div className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full border border-amber-400/60 bg-amber-500/90 px-2 py-0.5 text-[10px] font-bold text-stone-950">
+                                        <Trophy className="w-3 h-3" />
+                                        Scan der Woche
+                                      </div>
+                                    )}
+                                  </div>
+                                  <CardContent className="p-3 space-y-1.5">
+                                    <p className={`text-sm font-bold leading-tight truncate ${titleTextClass}`}>
+                                      {row.plant_species_name || "Unbekannte Pflanze"}
+                                    </p>
+                                    <div className={`flex items-center justify-between text-[10px] ${mutedTextClass}`}>
+                                      <span className="font-medium truncate">{row.actor_name}</span>
+                                      <span>{formatDistanceToNow(new Date(row.awarded_at), { addSuffix: true, locale: de })}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${isLightUi ? "border-amber-400/60 bg-amber-50 text-amber-700" : "border-amber-400/50 bg-amber-500/15 text-amber-300"}`}>
+                                        ⚡ {row.sparks_amount} Funken
+                                      </span>
+                                      {row.like_count !== null && row.like_count !== undefined && (
+                                        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] ${isLightUi ? "border-rose-300 text-rose-600" : "border-rose-400/50 text-rose-300"}`}>
+                                          <Heart className="w-3 h-3 fill-current" /> {row.like_count}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                )
+              ) : isExplorerLoading ? (
                 <div className="flex justify-center py-10">
                   <Loader2 className={`w-8 h-8 animate-spin ${isLightUi ? "text-stone-400" : "text-stone-500"}`} />
                 </div>
@@ -1657,62 +1834,13 @@ Viel Spaß beim Entdecken! 🌿`;
                       Noch kein Forscher-Log
                   </p>
                   <p className={bodyTextClass}>
-                    {showFriendsOnlyInExplorer
-                      ? "Scans von dir und deinen Freunden erscheinen hier."
-                      : "Scans aller Spieler erscheinen hier."}
+                    Scans aller Spieler erscheinen hier.
                   </p>
                 </div>
               ) : (
                 <>
                 <section className={`${sectionSurfaceClass} p-4 md:p-5`}>
-                  <div className="flex flex-col gap-3 mb-4 md:flex-row md:items-start md:justify-between">
-                    <div>
-                      <div className={`flex items-center gap-2 ${titleTextClass}`}>
-                        <BookOpenText className={`w-4 h-4 ${isLightUi ? "text-emerald-700" : "text-emerald-300"}`} />
-                        <h3 className="text-base font-semibold">Forscher Log</h3>
-                      </div>
-                      <p className={`text-sm mt-1 ${bodyTextClass}`}>
-                        {showFriendsOnlyInExplorer
-                          ? "Ein visuelles Journal der letzten Scans von dir und deinen Freunden."
-                          : "Ein visuelles Journal der letzten Scans aller Spieler."}
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-between gap-3 md:justify-end">
-                      <div
-                        className={
-                          `inline-flex rounded-full border p-1 ${isLightUi
-                            ? "border-[#d9c48a]/60 bg-[#f8f1dc]/85"
-                            : "border-[#f0e5a5]/30 bg-black/30"}`
-                        }
-                      >
-                        {[
-                          { id: "all", label: "Alle" },
-                          { id: "friends", label: "Freunde" },
-                        ].map((option) => {
-                          const isSelected = explorerAudienceFilter === option.id;
-                          return (
-                            <button
-                              key={option.id}
-                              type="button"
-                              onClick={() => setExplorerAudienceFilter(option.id)}
-                              className={
-                                `rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${isSelected
-                                  ? (isLightUi
-                                    ? "bg-white text-[#8f6b22] shadow-sm"
-                                    : "bg-[#f0e5a5] text-stone-950")
-                                  : (isLightUi
-                                    ? "text-stone-600 hover:text-stone-900"
-                                    : "text-stone-300 hover:text-stone-100")}`
-                              }
-                            >
-                              {option.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <Badge className={accentBadgeClass}>{explorerLogEntries.length}{hasNextExplorerPage ? "+" : ""}</Badge>
-                    </div>
-                  </div>
+                  {explorerFilterHeaderNode}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {explorerLogEntries.map((entry, index) => (

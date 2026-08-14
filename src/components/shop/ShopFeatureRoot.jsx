@@ -33,7 +33,7 @@ import {
   profileCustomizationCategoryComparator,
   resolveTitleValue,
 } from "@/lib/profileCustomizationOptions";
-import { LOGO_ACCESSORY_DEFAULTS } from "@/lib/logoAccessoryAssets";
+import { LOGO_ACCESSORY_DEFAULTS, BORDER_COLOR_PRESETS } from "@/lib/logoAccessoryAssets";
 import {
   evaluateProfileBadges,
   PROFILE_BADGE_DEFINITIONS,
@@ -42,21 +42,6 @@ import {
 } from "@/lib/profileBadges";
 import { getProfileBadgeIconComponent } from "@/lib/profileBadgeIcons";
 import { resolveOwnedUniqueBadges } from "@/lib/profileUniqueBadges";
-
-const BORDER_COLOR_PRESETS = [
-  "#ff3b30",
-  "#ff9500",
-  "#ffcc00",
-  "#34c759",
-  "#00c7be",
-  "#0a84ff",
-  "#5856d6",
-  "#bf5af2",
-  "#ff2d55",
-  "#8e8e93",
-  "#ffffff",
-  "#000000",
-];
 
 const CATEGORY_META = {
   backgrounds: {

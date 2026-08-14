@@ -15,14 +15,18 @@ import {
   buildCollectionMembershipIndex,
 } from "@/api/collectionCollaborationService";
 import {
-  getConservationEffectLevel,
   getConservationFromPlant,
+} from "@/lib/conservationStatus";
+import {
   getRarityBorderClass,
   getRarityGlowColor,
   getRarityReflectionColor,
   getRarityScanBackgroundClass,
-  getThreatAnimationClass,
-} from "@/lib/conservationStatus";
+  getRarityAnimationClass,
+  getRarityGlowBorderClass,
+  getRarityLevelFromLabel,
+  computeRarityLabel,
+} from "@/lib/plantRarity";
 
 export default function ScanResults({
   plant,
@@ -270,19 +274,14 @@ export default function ScanResults({
     const isBlockedResult = currentPlant?.metadata_failed === true || (currentPlant?.notInDex && currentPlant?.is_european === false);
     const showBackToIntroButton = isBlockedResult;
     const conservation = getConservationFromPlant(currentPlant);
-    const rarityBorderClass = getRarityBorderClass(conservation.populationRaw, false);
-    const rarityBackgroundClass = getRarityScanBackgroundClass(conservation.populationRaw);
-    const rarityGlowColor = getRarityGlowColor(conservation.populationRaw);
-    const rarityReflectionColor = getRarityReflectionColor(conservation.populationRaw);
-    const conservationEffectLevel = getConservationEffectLevel(
-      conservation.threatRaw,
-      conservation.populationRaw
-    );
-    const threatAnimationClass = getThreatAnimationClass(
-      conservation.threatRaw,
-      conservation.populationRaw
-    );
-    const threatGlowClass = conservationEffectLevel >= 4 ? "threat-glow-border" : "";
+    // plant.rarity ist die kanonische, Rote-Liste-abgeleitete Seltenheitsstufe (max aus Bestand+Gefaehrdung).
+    const plantRarityLabel = currentPlant?.rarity || currentPlant?.aiData?.rarity || computeRarityLabel(conservation.populationRaw, conservation.threatRaw);
+    const rarityBorderClass = getRarityBorderClass(plantRarityLabel, false);
+    const rarityBackgroundClass = getRarityScanBackgroundClass(plantRarityLabel);
+    const rarityGlowColor = getRarityGlowColor(plantRarityLabel);
+    const rarityReflectionColor = getRarityReflectionColor(plantRarityLabel);
+    const threatAnimationClass = getRarityAnimationClass(plantRarityLabel);
+    const threatGlowClass = getRarityGlowBorderClass(plantRarityLabel);
     const isNewToPlantDex = currentPlant.isNewToPlantDex || false;
     const wasAlreadyDiscovered = currentPlant.discovered === true;
     const confidencePercentage = currentPlant.confidence_percentage || currentPlant.aiData?.confidence_percentage;
@@ -326,7 +325,7 @@ export default function ScanResults({
                       "--rarity-reflection-color": rarityReflectionColor,
                     }}
                   >
-                    <ThreatLevelSparks active={conservationEffectLevel >= 3} count={18} className="z-40" />
+                    <ThreatLevelSparks active={getRarityLevelFromLabel(plantRarityLabel) >= 4} count={18} className="z-40" />
                     {isBlockedResult && (
                       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10">
                         <Badge variant="secondary" className="bg-red-700/90 text-white border border-red-200/35 shadow-md hover:bg-red-700/90">

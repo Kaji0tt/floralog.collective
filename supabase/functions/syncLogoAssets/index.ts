@@ -23,7 +23,9 @@ type CatalogResponse = {
   assets?: CatalogAsset[];
 };
 
-const DEFAULT_UNLOCKED_IDS = new Set(["border_original", "plant_leaf", "face_original"]);
+// border_original/face_original are now retired to custom_logo/legacy/ (default_unlocked
+// comes from the catalog worker's path-based flag instead); this is only a fallback default.
+const DEFAULT_UNLOCKED_IDS = new Set(["plant_leaf"]);
 const VALID_TYPES = new Set(["face", "plant", "border"]);
 
 const asBoolean = (value: unknown, fallback = false): boolean => {

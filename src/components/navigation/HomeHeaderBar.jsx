@@ -126,6 +126,42 @@ export default function HomeHeaderBar({
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
+        {homeCurrencyInfo && (
+          <>
+            <LockedTooltip
+              contentClassName={isLightUi ? "" : "text-white/90"}
+              content={<span className="text-xs leading-relaxed">Funken sind die Ingame-Währung. Du bekommst sie für die aktive Nutzung der App sowie für bestimmte In-App-Aktivitäten.</span>}
+            >
+              <div
+                className={`w-11 h-11 rounded-full border backdrop-blur-md flex flex-col items-center justify-center gap-0.5 ${isLightUi ? "border-[#c8ac62]/55 bg-white/65" : "border-[#f0e5a5]/35 bg-black/30"}`}
+                aria-label="Funken"
+              >
+                <Sparkles className={`w-3.5 h-3.5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} aria-hidden="true" />
+                <span className={`text-[10px] font-semibold leading-none ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}>
+                  {homeCurrencyInfo.sparks}
+                </span>
+              </div>
+            </LockedTooltip>
+
+            <LockedTooltip
+              contentClassName={isLightUi ? "" : "text-white/90"}
+              content={<span className="text-xs leading-relaxed">Bernstein ist eine kaufbare Premium-Währung. Tippe, um Bernstein zu kaufen.</span>}
+            >
+              <button
+                type="button"
+                onClick={onOpenAmberShop}
+                className={`w-11 h-11 rounded-full border backdrop-blur-md flex flex-col items-center justify-center gap-0.5 transition-colors ${isLightUi ? "border-[#c8ac62]/55 bg-white/65 hover:bg-white/80" : "border-[#f0e5a5]/35 bg-black/30 hover:bg-black/45"}`}
+                aria-label="Bernstein kaufen"
+              >
+                <Gem className={`w-3.5 h-3.5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} aria-hidden="true" />
+                <span className={`text-[10px] font-semibold leading-none ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}>
+                  {homeCurrencyInfo.amber}
+                </span>
+              </button>
+            </LockedTooltip>
+          </>
+        )}
+
         {shopCurrencyInfo && (
           <>
             <div

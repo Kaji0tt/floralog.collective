@@ -116,6 +116,7 @@ export default function HomeFlorabotOverlay({
   currentUser = null,
   badgeMetrics = null,
   initialShopCategory = "root",
+  initialShopOpen = false,
   logoAssets = [],
   playerSparks,
   playerAmber,
@@ -144,7 +145,7 @@ export default function HomeFlorabotOverlay({
   const tooltipCopy = TOOLTIP_COPY[tooltipLanguage] || TOOLTIP_COPY.de;
   const [showHealthDetails, setShowHealthDetails] = useState(false);
   const [isSpeechBubbleVisible, setIsSpeechBubbleVisible] = useState(Boolean(ambientMessage) || quizAvailable);
-  const [isShopOpen, setIsShopOpen] = useState(false);
+  const [isShopOpen, setIsShopOpen] = useState(Boolean(initialShopOpen));
   const [activeShopCategory, setActiveShopCategory] = useState(initialShopCategory || "root");
   const [isHealthPanelCompact, setIsHealthPanelCompact] = useState(false);
   const [activePlayfulCareAnimation, setActivePlayfulCareAnimation] = useState("");
@@ -174,6 +175,14 @@ export default function HomeFlorabotOverlay({
     useEffect(() => {
       onCustomizeRef.current = onCustomize;
     }, [onCustomize]);
+
+    // Notify parent once when the overlay mounts already shop-open (e.g. badge click deep-link).
+    useEffect(() => {
+      if (initialShopOpen) {
+        onCustomizeRef.current?.(true);
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
   const fixedFooterReservedHeightExpression = "7.5rem + env(safe-area-inset-bottom)";
   const shopFooterGapPx = 10;
