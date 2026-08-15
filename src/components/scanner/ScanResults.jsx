@@ -451,7 +451,7 @@ export default function ScanResults({
                           </h4>
                           <p className="text-stone-100/95 leading-relaxed text-sm">
                             {currentPlant?.metadata_failed
-                              ? 'Pflanzendaten oder Verbreitungsinformationen sind unvollständig. Bitte versuche es mit einem klareren Foto erneut.'
+                              ? 'Pflanzendaten oder Verbreitungsinformationen sind unvollständig. Bitte versuche es mit einem klareren Foto erneut. Möglicherweise ist aktuell das Guthaben für die KI-/LLM-Nutzung von floralog.collective ausgelaufen – in diesem Fall bitte später erneut versuchen.'
                               : 'Diese Pflanze kommt nicht in europäischen Ökosystemen vor und kann daher nicht ins Floralog aufgenommen werden. Floralog sammelt Pflanzen, die in Europa heimisch oder dauerhaft eingebürgert sind.'}
                           </p>
                         </div>

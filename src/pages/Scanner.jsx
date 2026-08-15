@@ -1467,7 +1467,7 @@ export default function Scanner() {
               <DialogDescription className="text-base pt-4 text-stone-200">
                 {selectedPendingResult?.notInDex && selectedPendingResult?.is_european === false
                   ? `${selectedPendingResult?.species_name || "Diese Pflanze"} kommt nicht in europäischen Ökosystemen vor und kann daher nicht ins Floralog aufgenommen werden. Floralog sammelt Pflanzen, die in Europa heimisch oder dauerhaft eingebürgert sind.`
-                  : "Dieser Vorschlag kann nicht gespeichert werden, da Pflanzendaten oder Verbreitungsinformationen unvollständig sind. Bitte wähle ein anderes Ergebnis oder scanne erneut mit einem klareren Foto."}
+                  : "Dieser Vorschlag kann nicht gespeichert werden, da Pflanzendaten oder Verbreitungsinformationen unvollständig sind. Bitte wähle ein anderes Ergebnis oder scanne erneut mit einem klareren Foto. Möglicherweise ist aktuell das Guthaben für die KI-/LLM-Nutzung von floralog.collective ausgelaufen – in diesem Fall bitte später erneut versuchen."}
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
