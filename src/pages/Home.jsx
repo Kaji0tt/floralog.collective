@@ -89,8 +89,6 @@ import FlorabotIntroOverlay from "@/components/florabot/FlorabotIntroOverlay";
 import FlorabotMilestoneOverlay from "@/components/florabot/FlorabotMilestoneOverlay";
 import { getActiveSeason } from "@/lib/seasonConfig";
 import FlorabotContextBubble from "@/components/florabot/FlorabotContextBubble";
-import HomeShellBorderGlow from "@/components/effects/HomeShellBorderGlow";
-import HomeRarityBorderGlow from "@/components/effects/HomeRarityBorderGlow";
 import {
   pickRandomPhaseAmbientComment,
   interpolatePercentVariables,
@@ -3877,33 +3875,9 @@ function HomeContent() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, ease: 'easeOut' }}
             data-ui="home-main-content-shell"
-            className={`relative h-full w-full max-w-md md:max-w-3xl rounded-[2rem] ${activePanel === null ? "overflow-visible" : "overflow-hidden"} border ${isLightUi ? "border-white/65 shadow-[0_20px_64px_rgba(0,0,0,0.14)]" : "border-[#d7cf9c]/65 shadow-[0_20px_80px_rgba(0,0,0,0.55)]"}`}
+            className={`relative h-full w-full ${activePanel === null ? "overflow-visible" : "overflow-hidden"}`}
           >
-            <div className="absolute inset-0 rounded-[2rem] overflow-hidden">
-              <div
-                className="absolute inset-0"
-                style={user?.background_image_url ? {
-                  backgroundImage: isLightUi
-                    ? `linear-gradient(180deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.28) 100%), url(${user.background_image_url})`
-                    : `linear-gradient(180deg, rgba(19,37,24,0.42) 0%, rgba(12,20,15,0.66) 100%), url(${user.background_image_url})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                } : user?.background_color ? {
-                  background: isLightUi
-                    ? `linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.38) 100%)`
-                    : `linear-gradient(180deg, ${getRgbaFromRgb(user.background_color, 0.28)} 0%, rgba(14, 22, 16, 0.74) 100%)`,
-                } : {
-                  background: isLightUi
-                    ? 'linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.38) 100%)'
-                    : 'linear-gradient(180deg, rgba(126, 171, 98, 0.45) 0%, rgba(10, 22, 15, 0.78) 100%)',
-                }}
-              />
-            </div>
-            <div className={`absolute inset-0 pointer-events-none rounded-[2rem] border ${isLightUi ? "border-white/70" : "border-[#f0e5a5]/30"}`} />
-            <HomeShellBorderGlow active={user?.selected_profile_effect === "shell_border_glow"} />
-            <HomeRarityBorderGlow active={user?.selected_profile_effect === "rarity_border_glow"} borderColor={user?.selected_border_color} />
-
-            <div className={`relative z-10 h-full flex flex-col ${activePanel === "map" ? "px-0 py-0" : "px-4 md:px-8 py-4 md:py-6"} ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
+            <div className={`relative z-10 h-full flex flex-col ${activePanel === "map" ? "px-0 py-0" : "px-2 md:px-4 py-4 md:py-6"} ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
               {activePanel === null && (
                 <div className="pointer-events-none absolute inset-x-4 top-4 z-20 max-w-[65%] md:inset-x-8 md:top-6">
                   <h1 className="truncate font-bold leading-tight text-2xl md:text-3xl" title={displayName || undefined}>
@@ -4043,7 +4017,7 @@ function HomeContent() {
                     logoAssetCatalog={logoAssets}
                   />
                 ) : (
-                  <section data-ui="home-plant-hero-section" className="relative flex-1 min-h-0 rounded-3xl px-[clamp(0.75rem,2vw,1.5rem)] pt-[clamp(0.1rem,0vh,0.5rem)] pb-[clamp(0.12rem,0.35vh,0.28rem)] flex flex-col gap-2 bg-transparent">
+                  <section data-ui="home-plant-hero-section" className="relative flex-1 min-h-0 rounded-3xl px-[clamp(0.25rem,1vw,0.75rem)] pt-[clamp(0.1rem,0vh,0.5rem)] pb-[clamp(0.12rem,0.35vh,0.28rem)] flex flex-col gap-2 bg-transparent">
                     <HomeHeroSideNav
                       isLightUi={isLightUi}
                       playerSeeds={playerSeeds}
@@ -4059,8 +4033,9 @@ function HomeContent() {
                       onOpenAmberPurchase={() => setShowAmberPurchaseModal(true)}
                       onOpenCustomize={() => openShop("backgrounds")}
                     />
-                    <HomeCollectionStripes
-                      className={showHealthStatsPanel ? "flex-[0.62] min-h-0" : "flex-1 min-h-0"}
+                    <div className="relative flex min-h-0 flex-1 flex-col gap-2">
+                      <HomeCollectionStripes
+                      className={showHealthStatsPanel ? "flex-[0.62] min-h-0" : "flex-[1.15] min-h-0"}
                       isLightUi={isLightUi}
                       profile={user}
                       logoAssets={logoAssets}
@@ -4108,7 +4083,7 @@ function HomeContent() {
                       nearestZoneDirectionIcon={nearestZoneDirectionIcon}
                       nearestZoneDistanceKm={nearestZoneDistanceKm}
                       securedMultiplier={securedNextScanMultiplier}
-                    />
+                      />
                     {showHealthStatsPanel ? (
                       <div ref={healthStatsPanelRef} className="flex-1 min-h-0">
                         <PlantHeroHealthPanel
@@ -4138,21 +4113,25 @@ function HomeContent() {
                         />
                       </div>
                     ) : (
-                      <>
+                      <div
+                        className="relative z-10 flex min-h-0 flex-[0.85] flex-col gap-2"
+                      >
                         <HomeProfileBadgesPanel
                           isLightUi={isLightUi}
                           selectedProfileBadges={selectedProfileBadges}
                           playerSeeds={playerSeeds}
                         />
                         <RewardCardWrapper
+                          className="flex-1"
                           rewards={rewards}
                           userRewards={userRewards}
                           isLightUi={isLightUi}
                           completedWeeklyQuestCount={completedWeeklyQuestCount}
                           completedMonthlyQuestCount={completedMonthlyQuestCount}
                         />
-                      </>
+                      </div>
                     )}
+                    </div>
                   </section>
                 )}
               </div>

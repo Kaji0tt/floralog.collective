@@ -47,7 +47,7 @@ export default function HomeProfileBadgesPanel({
   };
 
   return (
-    <GoldGradientCard className={className} contentClassName="px-2.5 pb-3 pt-3">
+    <GoldGradientCard className={className} contentClassName="px-2.5 pb-3 pt-3" blur>
       <div className="grid grid-cols-3 gap-2" aria-label="Ausgewählte Abzeichen">
         {badgeSlots.map((badge, slotIndex) => {
           const isSideSlot = slotIndex !== 1;

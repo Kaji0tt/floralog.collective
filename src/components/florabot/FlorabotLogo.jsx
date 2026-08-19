@@ -1,5 +1,6 @@
 import { resolveEquippedLogoAssets, resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 import { hexToFilter } from "@/lib/hexToFilter";
+import HomeRarityBorderGlow from "@/components/effects/HomeRarityBorderGlow";
 
 /**
  * Renders the 3-layer Florabot logo (border / plant / face).
@@ -31,7 +32,7 @@ export default function FlorabotLogo({
       className={`relative shrink-0 ${sizeClass} ${className}`}
       aria-label="Florabot"
     >
-      <div className={`relative w-full h-full ${padding} drop-shadow-[0_0_18px_rgba(190,242,100,0.45)]`}>
+      <div className={`relative w-full h-full ${padding}`}>
         {hasAnyLayer && (
           <div className="absolute left-1/2 top-1/2 h-[56%] w-[56%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/35" />
         )}
@@ -50,6 +51,11 @@ export default function FlorabotLogo({
             }
           />
         )}
+        <HomeRarityBorderGlow
+          active={safeProfile.selected_profile_effect === "rarity_border_glow"}
+          borderColor={assets.borderColor}
+          borderImageUrl={assets.border?.imageUrl}
+        />
         {assets.plant?.imageUrl && (
           <img
             src={assets.plant.imageUrl}

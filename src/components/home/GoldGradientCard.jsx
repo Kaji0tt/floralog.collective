@@ -11,6 +11,7 @@ export default function GoldGradientCard({
   className = "",
   contentClassName = "",
   borderClassName = "",
+  blur = false,
   children,
   ...rest
 }) {
@@ -25,9 +26,25 @@ export default function GoldGradientCard({
       className={`relative rounded-3xl shadow-[0_12px_30px_rgba(0,0,0,0.35)] ${className}`}
       {...rest}
     >
+      {blur && (
+        // Dedicated blur layer, kept between content and the border-mask sibling below
+        // (never directly adjacent to a mask-composite element - avoids the iOS compositing bug).
+        <div
+          aria-hidden="true"
+          className={`absolute inset-0 rounded-3xl backdrop-blur-xl ${
+            isLightUi ? "bg-white/45" : "bg-black/35"
+          }`}
+        />
+      )}
       <div
         className={`relative h-full w-full rounded-3xl ${
-          isLightUi ? "bg-white/70 text-stone-800" : "bg-black/25 text-stone-100"
+          blur
+            ? isLightUi
+              ? "text-stone-800"
+              : "text-stone-100"
+            : isLightUi
+              ? "bg-white/70 text-stone-800"
+              : "bg-black/25 text-stone-100"
         } ${contentClassName}`}
       >
         {children}

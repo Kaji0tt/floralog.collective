@@ -773,6 +773,37 @@ button:focus-visible {
   animation: threatDefaultGlowFloat 2.8s ease-in-out infinite;
 }
 
+.rarity-profile-logo-glow {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  z-index: 4;
+  opacity: 0.92;
+  filter:
+    brightness(1.45)
+    saturate(1.35)
+    drop-shadow(0 0 4px color-mix(in srgb, var(--rarity-profile-color, rgba(200, 172, 98, 0.88)) 90%, white))
+    drop-shadow(0 0 10px color-mix(in srgb, var(--rarity-profile-color, rgba(200, 172, 98, 0.88)) 76%, white))
+    drop-shadow(0 0 22px color-mix(in srgb, var(--rarity-profile-color, rgba(200, 172, 98, 0.88)) 58%, transparent));
+  animation: rarityProfileLogoPulse 1.35s ease-in-out infinite;
+}
+
+@keyframes rarityProfileLogoPulse {
+  0%,
+  100% {
+    opacity: 0.68;
+  }
+  42% {
+    opacity: 1;
+  }
+  68% {
+    opacity: 0.78;
+  }
+}
+
 .rarity-profile-glow-orbs {
   position: absolute;
   inset: -1px;
@@ -858,7 +889,8 @@ button:focus-visible {
   .rarity-reflection-host::before,
   .rarity-reflection-host::after,
   .rarity-profile-glow-inner,
-  .rarity-profile-glow-orbs {
+  .rarity-profile-glow-orbs,
+  .rarity-profile-logo-glow {
     animation: none !important;
     opacity: 0 !important;
   }

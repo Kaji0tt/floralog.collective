@@ -50,12 +50,12 @@ export default function RewardCard({
     : 0;
 
   return (
-    <GoldGradientCard className="w-52 shrink-0 snap-start" contentClassName="flex flex-col gap-1.5 p-2.5">
+    <GoldGradientCard className="h-full w-52 shrink-0 snap-start" contentClassName="flex flex-col gap-1.5 p-2.5" blur>
       <div className="flex items-center gap-2">
         <BadgeCircleIcon size="2.5rem" className="shrink-0">
           <TypeIcon className="h-5 w-5 text-stone-50" />
         </BadgeCircleIcon>
-        <p className="min-w-0 flex-1 truncate text-[12px] font-semibold">{reward?.display_name || "Belohnung"}</p>
+        <p className="min-w-0 flex-1 line-clamp-2 text-[12px] font-semibold leading-tight">{reward?.display_name || "Belohnung"}</p>
         <ChevronRight className={`h-4 w-4 shrink-0 opacity-40 ${isLightUi ? "text-stone-500" : "text-stone-300"}`} />
       </div>
 

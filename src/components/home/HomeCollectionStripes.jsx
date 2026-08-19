@@ -578,7 +578,6 @@ export default function HomeCollectionStripes({
   elevateLogo = false,
   className = "",
 }) {
-  const collectionRootRef = useRef(/** @type {HTMLDivElement | null} */ (null));
   const badgeLogoViewportRef = useRef(/** @type {HTMLDivElement | null} */ (null));
   const badgeLogoUnitRef = useRef(/** @type {HTMLDivElement | null} */ (null));
   const logoButtonRef = useRef(/** @type {HTMLButtonElement | null} */ (null));
@@ -810,7 +809,6 @@ export default function HomeCollectionStripes({
               logoAssets={logoAssets}
               sizeClass="w-full h-full"
               padding="p-[7%]"
-              className="drop-shadow-[0_0_28px_rgba(190,242,100,0.5)]"
             />
           </div>,
           document.body
@@ -818,7 +816,7 @@ export default function HomeCollectionStripes({
       : null;
 
   return (
-    <div ref={collectionRootRef} className={`flex min-h-0 flex-col gap-2 ${className}`}>
+    <div className={`flex min-h-0 flex-col gap-2 ${className}`}>
       <div
         ref={badgeLogoViewportRef}
         className="relative min-h-0 flex-1 overflow-visible text-stone-100"
@@ -853,7 +851,6 @@ export default function HomeCollectionStripes({
                 logoAssets={logoAssets}
                 sizeClass="w-[12.75rem] h-[12.75rem] sm:w-[14.75rem] sm:h-[14.75rem]"
                 padding="p-[7%]"
-                className="drop-shadow-[0_0_28px_rgba(190,242,100,0.5)]"
               />
             </button>
           </div>

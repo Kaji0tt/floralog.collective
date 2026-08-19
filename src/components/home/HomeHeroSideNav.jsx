@@ -38,7 +38,7 @@ export default function HomeHeroSideNav({
       )}
 
       <div className={`absolute right-0 top-0 z-30 flex flex-col items-end gap-2 ${className}`}>
-        <motion.div layout className={`flex items-center overflow-hidden rounded-full border backdrop-blur-xl ${glassBorder}`}>
+        <motion.div layout="position" className={`flex items-center overflow-hidden rounded-full border backdrop-blur-xl ${glassBorder}`}>
           {expandedKey === "options" && (
             <div className="flex items-center gap-1 pl-2.5">
               <button
@@ -78,7 +78,7 @@ export default function HomeHeroSideNav({
           </button>
         </motion.div>
 
-        <motion.div layout className={`flex items-center overflow-hidden rounded-full border backdrop-blur-xl ${glassBorder}`}>
+        <motion.div layout="position" className={`flex items-center overflow-hidden rounded-full border backdrop-blur-xl ${glassBorder}`}>
           {expandedKey === "currency" && (
             <div className="flex items-center gap-2 whitespace-nowrap pl-3 pr-1">
               <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${iconTone}`}>

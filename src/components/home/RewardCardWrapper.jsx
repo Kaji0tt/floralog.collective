@@ -1,7 +1,12 @@
 import RewardCard from "@/components/home/RewardCard";
 
+const isNonPurchasableReward = (reward) => {
+  if (!reward) return false;
+  return Number(reward.spark_price || 0) <= 0 && Number(reward.amber_price || 0) <= 0;
+};
+
 /**
- * Horizontally scrollable list of all catalog rewards (unfiltered, catalog order).
+ * Horizontally scrollable list of rewards that are not purchasable with sparks or amber.
  */
 export default function RewardCardWrapper({
   rewards = [],
@@ -11,7 +16,7 @@ export default function RewardCardWrapper({
   completedMonthlyQuestCount = 0,
   className = "",
 }) {
-  const safeRewards = Array.isArray(rewards) ? rewards : [];
+  const safeRewards = Array.isArray(rewards) ? rewards.filter(isNonPurchasableReward) : [];
   if (safeRewards.length === 0) return null;
 
   const unlockedRewardIds = new Set(
@@ -20,7 +25,7 @@ export default function RewardCardWrapper({
 
   return (
     <div
-      className={`-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 hide-scrollbar ${className}`}
+      className={`-mx-1 flex min-h-0 snap-x snap-mandatory items-stretch gap-2 overflow-x-auto px-1 pb-1 hide-scrollbar ${className}`}
       style={{ WebkitOverflowScrolling: "touch" }}
     >
       {safeRewards.map((reward) => (
