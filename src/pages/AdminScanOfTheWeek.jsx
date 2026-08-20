@@ -141,6 +141,8 @@ export default function AdminScanOfTheWeek() {
         description: plantName,
         priority: "high",
         displayLocation: "modal",
+        // Opens the Explorer Log with the Community (SOTW) tab pre-selected instead of leading nowhere.
+        actionUrl: "Friends?tab=explorer&explorerView=sotw",
         createdBy: "admin",
       });
 

@@ -155,7 +155,9 @@ export function useFriendsFeatureContent({
       _prevActiveTabRef.current = activeTab;
     }
   }, [activeTab]);
-  const [explorerViewMode, setExplorerViewMode] = useState("all");
+  const [explorerViewMode, setExplorerViewMode] = useState(() =>
+    searchParams.get("explorerView") === "sotw" ? "sotw" : "all"
+  );
   const explorerSentinelRef = useRef(null);
   const explorerContainerRef = useRef(null);
   const explorerTouchStartYRef = useRef(0);

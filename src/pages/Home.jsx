@@ -1008,6 +1008,24 @@ function HomeContent() {
     refetchOpenPlantQuiz();
   }, [user?.id, refetchOpenPlantQuiz]);
 
+  // Deep link from the "Florabot braucht Hilfe" quiz notification (actionUrl "Home?quiz=open"):
+  // open the Florabot HomeOverlay with the quiz dialog on top.
+  useEffect(() => {
+    if (!user?.id) return;
+    const params = new URLSearchParams(location.search);
+    if (params.get('quiz') !== 'open') return;
+
+    setIsMilestoneOverlayToggled(true);
+    setShowPlantQuizDialog(true);
+
+    params.delete('quiz');
+    const cleanedSearch = params.toString();
+    navigate(location.pathname + (cleanedSearch ? `?${cleanedSearch}` : ''), {
+      replace: true,
+      state: location.state,
+    });
+  }, [user?.id, location.search, location.pathname, location.state, navigate]);
+
   const {
     data: robotPlantShopItems = [],
     isPending: isRobotPlantShopItemsPending,
